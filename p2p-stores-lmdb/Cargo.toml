@@ -1,0 +1,20 @@
+[package]
+name = "p2p-stores-lmdb"
+version = "0.1.0"
+edition = "2021"
+license = "MIT/Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+p2p-repo = { path = "../p2p-repo" }
+debug_print = "1.0.0"
+serde = { version = "1.0.142", features = ["derive"] }
+serde_bare = "0.5.0"
+tempfile = "3"
+hex = "0.4.3"
+
+[dependencies.rkv]
+git = "https://git.nextgraph.org/NextGraph/rkv.git"
+rev = "f04b03957b52ebc802e58438f430cd569e55a24d"
+features = [ "lmdb" ]
