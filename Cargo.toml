@@ -1,0 +1,10 @@
+[workspace]
+members = [
+  "p2p-repo",
+  "p2p-net",
+  "p2p-broker",
+  "p2p-client",
+  "p2p-stores-lmdb",
+  "ngcli",
+  "ngd",
+]
