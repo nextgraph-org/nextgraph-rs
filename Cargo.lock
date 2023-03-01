@@ -947,6 +947,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ng-app-web"
+version = "0.1.0"
+dependencies = [
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "ngcli"
 version = "0.1.0"
 dependencies = [

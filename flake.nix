@@ -30,6 +30,11 @@
       myNativeBuildInputs = with pkgs;
         [
           pkgconfig
+          (rust-bin.stable.latest.default.override {
+            targets = [ "wasm32-unknown-unknown" ];
+          })
+          wasm-pack
+          wasm-bindgen-cli
         ]
         ++ lib.optionals stdenv.isLinux
         (with pkgs; [
@@ -88,6 +93,10 @@
         ngd = myBuildRustPackage rec {
           pname = "ngd";
           buildAndTestSubdir = "./ngd";
+        };
+        ng-app-web = myBuildRustPackage rec {
+          pname = "ng-app-web";
+          buildAndTestSubdir = "./ng-app-web";
         };
         default = ngd;
       };

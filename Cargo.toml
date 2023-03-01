@@ -7,4 +7,5 @@ members = [
   "p2p-stores-lmdb",
   "ngcli",
   "ngd",
+  "ng-app-web",
 ]
