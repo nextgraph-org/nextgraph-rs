@@ -67,30 +67,6 @@
           // attrs);
     in rec {
       packages = rec {
-        p2p-repo = myBuildRustPackage rec {
-          pname = "p2p-repo";
-          buildAndTestSubdir = "./p2p-repo";
-        };
-        p2p-net = myBuildRustPackage rec {
-          pname = "p2p-net";
-          buildAndTestSubdir = "./p2p-net";
-        };
-        p2p-broker = myBuildRustPackage rec {
-          pname = "p2p-broker";
-          buildAndTestSubdir = "./p2p-broker";
-        };
-        p2p-client = myBuildRustPackage rec {
-          pname = "p2p-client";
-          buildAndTestSubdir = "./p2p-client";
-        };
-        p2p-verifier = myBuildRustPackage rec {
-          pname = "p2p-verifier";
-          buildAndTestSubdir = "./p2p-verifier";
-        };
-        p2p-stores-lmdb = myBuildRustPackage rec {
-          pname = "stores-lmdb";
-          buildAndTestSubdir = "./stores-lmdb";
-        };
         ngcli = myBuildRustPackage rec {
           pname = "ngcli";
           buildAndTestSubdir = "./ngcli";
