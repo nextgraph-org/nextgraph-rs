@@ -1,6 +1,6 @@
-# ng-app-web
+# ng-app-js
 
-Web JS/WASM module of NextGraph
+JS/WASM module of NextGraph (SDK and apps)
 
 ## NextGraph
 
@@ -10,9 +10,15 @@ Web JS/WASM module of NextGraph
 > 
 > More info here [https://nextgraph.org](https://nextgraph.org)
 
-## Web JS/WASM module
+## JS/WASM module
 
 This module is part of the SDK of NextGraph.
+
+It is composed of
+- the npm package `ng-app-js`  which is the SDK
+- the plain JS web app `app-web`
+- the React web app `app-react`
+- the node-js app `app-node`
 
 ## Support
 
@@ -25,8 +31,64 @@ And our community forum where you can ask questions is here [https://forum.nextg
 Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/).
 
 ```
-npm i np-app-web
+npm i ng-app-js-sdk
 ```
+
+## For contributors
+
+```
+wasm-pack build --target bundler
+cd pkg
+// if you have access to npm registry and want to publish the package 
+// npm publish --access=public
+
+cd ..
+wasm-pack build -t nodejs -d pkg-node
+node prepare-node.js
+cd pkg-node
+// if you have access to npm registry and want to publish the package 
+// npm publish --access=public
+```
+
+### Plain JS web app
+
+```
+cd ../app-web
+// for local development
+npm install --no-save ../pkg 
+// or, for install from npm registry: npm install
+npm start
+```
+
+Open this URL in browser : [http://localhost:8080](http://localhost:8080)
+
+### React web app
+
+```
+cd ../app-react
+// for local development
+npm install --no-save ../pkg
+// or, for install from npm registry: npm install
+npm run dev
+```
+
+Open this URL in browser : [http://localhost:8080](http://localhost:8080)
+
+### NodeJS app
+
+```
+cd ../app-node
+// for local development
+npm install --no-save ../pkg-node
+// or, for install from npm registry: npm install
+npm run start
+```
+
+### Contributions license
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you shall be dual licensed as below, without any
+additional terms or conditions.s
 
 ## License
 

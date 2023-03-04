@@ -37,6 +37,21 @@ cd nextgraph-rs
 nix develop
 cargo build
 ``` 
+
+### Packages
+
+The crates are organized as follow : 
+
+- p2p-repo : all the common types, traits and structs for the P2P repositories
+- p2p-net : all the common types, traits and structs for the P2P networks
+- p2p-broker : the broker code (as server and core peer)
+- p2p-client : the client connecting to a broker, used by the apps and verifier
+- p2p-stores-lmdb : lmdb backed stores for the p2p layer
+- p2p-verifier : the code of the verifier
+- ngcli : CLI tool to manipulate the repos
+- ngd : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
+- ng-app-js : contains the JS SDK, the web app, react app, and some node services
+
 ### Run
 
 Build & run executables:
@@ -59,6 +74,11 @@ Test a single module:
 ```
 cargo test --package p2p-repo --lib -- branch::test --nocapture
 ```
+
+Test end-to-end client and server:
+``` 
+cargo test --package ngcli -- --nocapture
+``` 
 
 ### Build a package
 

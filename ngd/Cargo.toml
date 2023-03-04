@@ -1,17 +1,12 @@
 [package]
-name = "ng-app-web"
+name = "ngd"
 version = "0.1.0"
 edition = "2021"
 license = "MIT/Apache-2.0"
 authors = ["Niko PLP <niko@nextgraph.org>"]
-description = "Web app client of NextGraph"
+description = "Daemon of NextGraph"
 repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
 
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = false
-
-[lib]
-crate-type = ["cdylib"]
-
 [dependencies]
-wasm-bindgen = "0.2"
+p2p-broker = { path = "../p2p-broker" }
+async-std = {  version = "1.7.0", features = ["attributes"] }

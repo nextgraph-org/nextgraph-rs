@@ -3,8 +3,9 @@ name = "p2p-stores-lmdb"
 version = "0.1.0"
 edition = "2021"
 license = "MIT/Apache-2.0"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Niko PLP <niko@nextgraph.org>"]
+description = "P2P stores based on LMDB for NextGraph"
+repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
 
 [dependencies]
 p2p-repo = { path = "../p2p-repo" }
