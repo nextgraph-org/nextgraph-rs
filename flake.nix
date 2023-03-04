@@ -29,6 +29,7 @@
         .buildRustPackage;
       myNativeBuildInputs = with pkgs;
         [
+          nodejs
           pkgconfig
           (rust-bin.stable.latest.default.override {
             targets = [ "wasm32-unknown-unknown" ];
@@ -82,6 +83,10 @@
           pname = "p2p-client";
           buildAndTestSubdir = "./p2p-client";
         };
+        p2p-verifier = myBuildRustPackage rec {
+          pname = "p2p-verifier";
+          buildAndTestSubdir = "./p2p-verifier";
+        };
         p2p-stores-lmdb = myBuildRustPackage rec {
           pname = "stores-lmdb";
           buildAndTestSubdir = "./stores-lmdb";
@@ -94,9 +99,9 @@
           pname = "ngd";
           buildAndTestSubdir = "./ngd";
         };
-        ng-app-web = myBuildRustPackage rec {
-          pname = "ng-app-web";
-          buildAndTestSubdir = "./ng-app-web";
+        ng-app-js = myBuildRustPackage rec {
+          pname = "ng-app-js";
+          buildAndTestSubdir = "./ng-app-js";
         };
         default = ngd;
       };

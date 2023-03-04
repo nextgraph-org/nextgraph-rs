@@ -1,0 +1,31 @@
+{
+  "name": "ng-app-react",
+  "version": "0.1.0",
+  "description": "React based web application of NextGraph",
+  "main": "src/index.jsx",
+  "scripts": {
+    "dev": "webpack server"
+  },
+  "keywords": [],
+  "author": "Niko PLP <niko@nextgraph.org>",
+  "license": "MIT/Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://git.nextgraph.org/NextGraph/nextgraph-rs"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ng-app-js-sdk": "^0.1.0"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.20.2",
+    "@babel/preset-react": "^7.18.6",
+    "babel-core": "^6.26.3",
+    "babel-loader": "^9.1.2",
+    "html-webpack-plugin": "^5.5.0",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1",
+    "webpack-dev-server": "^4.11.1"
+  }
+}

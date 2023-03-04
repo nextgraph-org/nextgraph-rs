@@ -1,0 +1,6 @@
+*~
+!.github
+\#*
+/target
+/result*
+.DS_Store

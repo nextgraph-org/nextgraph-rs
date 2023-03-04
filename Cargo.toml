@@ -4,8 +4,13 @@ members = [
   "p2p-net",
   "p2p-broker",
   "p2p-client",
+  "p2p-verifier",
   "p2p-stores-lmdb",
   "ngcli",
   "ngd",
-  "ng-app-web",
+  "ng-app-js",
 ]
+
+[profile.release]
+lto = true
+opt-level = 's'

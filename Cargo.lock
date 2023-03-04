@@ -947,7 +947,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ng-app-web"
+name = "ng-app-js-sdk"
 version = "0.1.0"
 dependencies = [
  "wasm-bindgen",
@@ -959,12 +959,12 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "async-std",
- "async-tungstenite",
  "debug_print",
  "ed25519-dalek",
  "fastbloom-rs",
  "futures",
  "p2p-broker",
+ "p2p-client",
  "p2p-net",
  "p2p-repo",
  "p2p-stores-lmdb",
@@ -978,14 +978,7 @@ name = "ngd"
 version = "0.1.0"
 dependencies = [
  "async-std",
- "async-tungstenite",
- "debug_print",
- "futures",
  "p2p-broker",
- "p2p-net",
- "p2p-repo",
- "p2p-stores-lmdb",
- "tempfile",
 ]
 
 [[package]]
@@ -1088,12 +1081,10 @@ dependencies = [
 name = "p2p-broker"
 version = "0.1.0"
 dependencies = [
- "async-broadcast",
  "async-channel",
- "async-oneshot",
  "async-std",
  "async-trait",
- "blake3",
+ "async-tungstenite",
  "chacha20",
  "debug_print",
  "futures",
@@ -1107,26 +1098,37 @@ dependencies = [
  "serde_bare",
  "serde_bytes",
  "tempfile",
- "xactor",
 ]
 
 [[package]]
 name = "p2p-client"
 version = "0.1.0"
 dependencies = [
- "blake3",
+ "async-channel",
+ "async-oneshot",
+ "async-std",
+ "async-trait",
+ "async-tungstenite",
  "chacha20",
+ "debug_print",
+ "futures",
  "p2p-net",
  "p2p-repo",
  "serde",
  "serde_bare",
  "serde_bytes",
+ "xactor",
 ]
 
 [[package]]
 name = "p2p-net"
 version = "0.1.0"
 dependencies = [
+ "async-broadcast",
+ "async-trait",
+ "blake3",
+ "debug_print",
+ "futures",
  "num_enum",
  "p2p-repo",
  "serde",
@@ -1161,6 +1163,19 @@ dependencies = [
  "serde",
  "serde_bare",
  "tempfile",
+]
+
+[[package]]
+name = "p2p-verifier"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "chacha20",
+ "p2p-net",
+ "p2p-repo",
+ "serde",
+ "serde_bare",
+ "serde_bytes",
 ]
 
 [[package]]
