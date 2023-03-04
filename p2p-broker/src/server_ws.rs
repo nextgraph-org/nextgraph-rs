@@ -9,23 +9,25 @@
  * according to those terms.
  */
 
- use async_std::net::{TcpListener, TcpStream};
- use async_std::sync::Mutex;
- use async_std::task;
- use async_tungstenite::accept_async;
- use async_tungstenite::tungstenite::protocol::Message;
- use debug_print::*;
- use futures::{SinkExt, StreamExt};
- use crate::broker_store_config::ConfigMode;
- use crate::server::*;
- use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
- use p2p_stores_lmdb::repo_store::LmdbRepoStore;
- use std::fs;
- use std::sync::Arc;
- use tempfile::Builder;
- use std::{thread, time};
+//! WebSocket implementation of the Broker
 
- pub async fn connection_loop(tcp: TcpStream, mut handler: ProtocolHandler) -> std::io::Result<()> {
+use async_std::net::{TcpListener, TcpStream};
+use async_std::sync::Mutex;
+use async_std::task;
+use async_tungstenite::accept_async;
+use async_tungstenite::tungstenite::protocol::Message;
+use debug_print::*;
+use futures::{SinkExt, StreamExt};
+use crate::broker_store_config::ConfigMode;
+use crate::server::*;
+use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
+use p2p_stores_lmdb::repo_store::LmdbRepoStore;
+use std::fs;
+use std::sync::Arc;
+use tempfile::Builder;
+use std::{thread, time};
+
+async fn connection_loop(tcp: TcpStream, mut handler: ProtocolHandler) -> std::io::Result<()> {
     let mut ws = accept_async(tcp).await.unwrap();
     let (mut tx, mut rx) = ws.split();
 

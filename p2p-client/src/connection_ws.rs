@@ -9,6 +9,8 @@
  * according to those terms.
 */
 
+//! WebSocket Remote Connection to a Broker
+
 use debug_print::*;
 
 use p2p_repo::types::*;

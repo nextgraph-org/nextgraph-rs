@@ -7,8 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Connection to a Broker, can be local or remote.
-//! If remote, it will use a Stream and Sink of framed messages
+//! Local Connection to a Broker
 
 use futures::{
     ready,

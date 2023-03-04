@@ -9,6 +9,8 @@
  * according to those terms.
 */
 
+//! Remote Connection to a Broker
+
 use async_std::task;
 use async_std::sync::Mutex;
 use futures::{
