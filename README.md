@@ -57,8 +57,11 @@ The crates are organized as follow :
 Build & run executables:
 
 ```
-cargo run --bin ngd // runs the daemon
-cargo run --bin ngcli // runs the client
+// runs the daemon
+cargo run --bin ngd
+
+// runs the client
+cargo run --bin ngcli
 ```
 
 ### Test
