@@ -379,6 +379,11 @@ impl Object {
         }
     }
 
+    pub fn is_root(&self) -> bool {
+        self.deps().len() == 0
+        //TODO: add && sdeps().len() == 0 && self.acks().len() == 0 && self.nacks().len() == 0
+    }
+
     pub fn root(&self) -> &Block {
         self.blocks.last().unwrap()
     }
