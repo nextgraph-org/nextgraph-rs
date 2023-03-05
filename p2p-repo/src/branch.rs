@@ -130,7 +130,7 @@ impl Branch {
             let id = cobj.id();
 
             // root has no deps
-            let is_root = cobj.deps().len() == 0;
+            let is_root = cobj.is_root();
             //debug_println!("     deps: {:?}", cobj.deps());
 
             // check if this commit object is present in their_heads
