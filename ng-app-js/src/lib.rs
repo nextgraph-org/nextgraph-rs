@@ -12,5 +12,7 @@ pub fn greet(name: &str) {
 
 #[wasm_bindgen]
 pub fn change(name: &str) -> JsValue {
+    let mut random_buf = [0u8; 32];
+    getrandom::getrandom(&mut random_buf).unwrap();
     JsValue::from_str(&format!("Hellooo, {}!", name))
 }
