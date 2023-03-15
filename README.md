@@ -28,13 +28,12 @@ Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/)
 ## For contributors
 
 - [Install Rust](https://www.rust-lang.org/tools/install)
-- Install the [Nix package manager](https://nixos.org/download.html)
-- and [Nix Flakes](https://nixos.wiki/wiki/Flakes)
+- [Install Nodejs](https://nodejs.org/en/download/)
 
 ```
+cargo install wasm-pack
 git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
 cd nextgraph-rs
-nix develop
 cargo build
 ``` 
 
@@ -64,6 +63,8 @@ cargo run --bin ngd
 cargo run --bin ngcli
 ```
 
+For the web apps, see the [README](ng-app-js/README.md)
+
 ### Test
 
 Test all:
@@ -83,19 +84,13 @@ Test end-to-end client and server:
 cargo test --package ngcli -- --nocapture
 ``` 
 
-### Build a package
-
-Build the default package (`.#ngd`):
+### Build release binaries
 
 ```
-nix build
+cargo build -r
 ```
 
-Bulid a specific package:
-
-```
-nix build '.#ngcli'
-```
+you can then find the binaries `ngcli` and `ngd` in `target/release`
 
 ### Generate documentation
 
