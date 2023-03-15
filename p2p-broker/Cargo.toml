@@ -23,7 +23,7 @@ getrandom = "0.2.7"
 async-channel = "1.7.1"
 tempfile = "3"
 hex = "0.4.3"
-async-trait = "0.1.57"
+async-trait = "0.1.64"
 async-tungstenite = {  version = "0.17.2", features = ["async-std-runtime"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
