@@ -73,32 +73,33 @@ impl<'a> Overlay<'a> {
         if acc.exists() {
             return Err(StorageError::BackendError);
         }
-        store.put(
-            Self::PREFIX,
-            &to_vec(&id)?,
-            Some(Self::SECRET),
-            to_vec(&secret)?,
-        )?;
-        if repo.is_some() {
-            store.put(
+        store.write_transaction(&|tx| {
+            tx.put(
                 Self::PREFIX,
                 &to_vec(&id)?,
-                Some(Self::REPO),
-                to_vec(&repo.unwrap())?,
+                Some(Self::SECRET),
+                &to_vec(&secret)?,
             )?;
-            //TODO if failure, should remove the previously added SECRET property
-        }
-        let meta = OverlayMeta {
-            users: 1,
-            last_used: now_timestamp(),
-        };
-        store.put(
-            Self::PREFIX,
-            &to_vec(&id)?,
-            Some(Self::META),
-            to_vec(&meta)?,
-        )?;
-        //TODO if failure, should remove the previously added SECRET and REPO properties
+            if repo.is_some() {
+                tx.put(
+                    Self::PREFIX,
+                    &to_vec(&id)?,
+                    Some(Self::REPO),
+                    & to_vec(&repo.unwrap())?,
+                )?;
+            }
+            let meta = OverlayMeta {
+                users: 1,
+                last_used: now_timestamp(),
+            };
+            tx.put(
+                Self::PREFIX,
+                &to_vec(&id)?,
+                Some(Self::META),
+                &to_vec(&meta)?,
+            )?;
+            Ok(())
+        })?;
         Ok(acc)
     }
     pub fn exists(&self) -> bool {
