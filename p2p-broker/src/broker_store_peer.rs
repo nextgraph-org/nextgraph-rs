@@ -74,18 +74,21 @@ impl<'a> Peer<'a> {
         if acc.exists() {
             return Err(StorageError::BackendError);
         }
-        store.put(
-            Self::PREFIX,
-            &to_vec(&id)?,
-            Some(Self::VERSION),
-            to_vec(&advert.version())?,
-        )?;
-        store.put(
-            Self::PREFIX,
-            &to_vec(&id)?,
-            Some(Self::ADVERT),
-            to_vec(&advert)?,
-        )?;
+        store.write_transaction(&|tx| {
+            tx.put(
+                Self::PREFIX,
+                &to_vec(&id)?,
+                Some(Self::VERSION),
+                & to_vec(&advert.version())?,
+            )?;
+            tx.put(
+                Self::PREFIX,
+                &to_vec(&id)?,
+                Some(Self::ADVERT),
+                & to_vec(&advert)?,
+            )?;
+            Ok(())
+        })?;
         Ok(acc)
     }
     pub fn exists(&self) -> bool {

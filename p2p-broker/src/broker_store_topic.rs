@@ -50,7 +50,7 @@ impl<'a> Topic<'a> {
         }
         Ok(opening)
     }
-    pub fn create(id: &TopicId, store: &'a dyn BrokerStore) -> Result<Topic<'a>, StorageError> {
+    pub fn create(id: &TopicId, store: &'a mut dyn BrokerStore) -> Result<Topic<'a>, StorageError> {
         let acc = Topic {
             id: id.clone(),
             store,
