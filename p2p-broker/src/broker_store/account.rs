@@ -165,7 +165,7 @@ mod test {
     use std::fs;
     use tempfile::Builder;
 
-    use crate::broker_store_account::Account;
+    use crate::broker_store::account::Account;
 
     #[test]
     pub fn test_account() {
