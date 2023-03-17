@@ -15,15 +15,15 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use crate::broker_store_account::Account;
+use crate::broker_store::account::Account;
 use crate::auth::*;
-use crate::broker_store_config::Config;
-use crate::broker_store_config::ConfigMode;
+use crate::broker_store::config::Config;
+use crate::broker_store::config::ConfigMode;
 use crate::connection_local::BrokerConnectionLocal;
-use crate::broker_store_overlay::Overlay;
-use crate::broker_store_peer::Peer;
-use crate::broker_store_repostoreinfo::RepoStoreId;
-use crate::broker_store_repostoreinfo::RepoStoreInfo;
+use crate::broker_store::overlay::Overlay;
+use crate::broker_store::peer::Peer;
+use crate::broker_store::repostoreinfo::RepoStoreId;
+use crate::broker_store::repostoreinfo::RepoStoreInfo;
 use async_std::task;
 use debug_print::*;
 use futures::future::BoxFuture;
@@ -72,7 +72,7 @@ enum ProtocolType {
     Auth,
     Broker,
     Ext,
-    P2P,
+    Core,
 }
 
 pub struct ProtocolHandler {
@@ -164,7 +164,7 @@ impl ProtocolHandler {
                 // closing the connection
                 (Err(ProtocolError::InvalidState), OptionFuture::from(None))
             }
-            ProtocolType::P2P => {
+            ProtocolType::Core => {
                 unimplemented!()
             }
         }

@@ -15,7 +15,7 @@ use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
 use futures::{future, pin_mut, stream, SinkExt, StreamExt};
 use p2p_repo::object::Object;
 use p2p_repo::store::{store_max_value_size, store_valid_value_size, HashMapRepoStore, RepoStore};
-use p2p_broker::broker_store_config::ConfigMode;
+use p2p_broker::broker_store::config::ConfigMode;
 use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
 use p2p_stores_lmdb::repo_store::LmdbRepoStore;
 use rand::rngs::OsRng;
