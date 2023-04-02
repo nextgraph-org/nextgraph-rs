@@ -187,7 +187,7 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
     }
 }
 
-
+#[derive(Debug)]
 pub struct LmdbBrokerStore {
     /// the main store where all the properties of keys are stored
     main_store: MultiStore<LmdbDatabase>,

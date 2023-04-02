@@ -29,7 +29,7 @@ use p2p_net::errors::*;
 use p2p_net::types::*;
 use p2p_net::broker_connection::*;
 use p2p_client::connection_remote::*;
-use p2p_client::connection_ws::*;
+use p2p_client_ws::connection_ws::*;
 use p2p_broker::connection_local::*;
 
 fn block_size() -> usize {
@@ -470,6 +470,8 @@ async fn test(cnx: &mut impl BrokerConnection, pub_key: PubKey, priv_key: PrivKe
     let mut public_overlay_cnx = cnx
         .overlay_connect(&repo, true)
         .await?;
+
+    debug_println!("put_block");
 
     let my_block_id = public_overlay_cnx
         .put_block(&Block::new(

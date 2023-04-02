@@ -11,6 +11,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -22,7 +23,6 @@ use crate::broker_store::config::ConfigMode;
 use crate::connection_local::BrokerConnectionLocal;
 use crate::broker_store::overlay::Overlay;
 use crate::broker_store::peer::Peer;
-use crate::broker_store::repostoreinfo::RepoStoreId;
 use crate::broker_store::repostoreinfo::RepoStoreInfo;
 use async_std::task;
 use debug_print::*;
@@ -76,16 +76,35 @@ enum ProtocolType {
 }
 
 pub struct ProtocolHandler {
+    addr: Option<SocketAddr>,
     broker: Arc<BrokerServer>,
     protocol: ProtocolType,
     auth_protocol: Option<AuthProtocolHandler>,
-    broker_protocol: Option<BrokerProtocolHandler>,
+    broker_protocol: Option<Arc<BrokerProtocolHandler>>,
     ext_protocol: Option<ExtProtocolHandler>,
     r: Option<async_channel::Receiver<Vec<u8>>>,
     s: async_channel::Sender<Vec<u8>>,
 }
 
 impl ProtocolHandler {
+
+    pub fn register(&mut self, addr: SocketAddr) {
+        self.addr = Some(addr);
+    }
+
+    pub fn deregister(&mut self) {
+        match &self.protocol {
+            ProtocolType::Start => (),
+            ProtocolType::Auth => (),
+            ProtocolType::Broker => {
+                let _ = self.broker_protocol.as_ref().unwrap().deregister(self.addr.unwrap());
+            }, 
+            ProtocolType::Ext => (),
+            ProtocolType::Core => (),
+        }
+        self.addr = None;
+    }
+
     pub fn async_frames_receiver(&mut self) -> async_channel::Receiver<Vec<u8>> {
         self.r.take().unwrap()
     }
@@ -130,14 +149,25 @@ impl ProtocolHandler {
                 match res.1.await {
                     None => {
                         // we switch to Broker protocol
-                        self.protocol = ProtocolType::Broker;
-                        self.broker_protocol = Some(BrokerProtocolHandler {
+                        let bp = Arc::new(BrokerProtocolHandler {
                             user: self.auth_protocol.as_ref().unwrap().get_user().unwrap(),
                             broker: Arc::clone(&self.broker),
                             async_frames_sender: self.s.clone(),
                         });
-                        self.auth_protocol = None;
-                        (res.0, OptionFuture::from(None))
+                        let registration = Arc::clone(&bp).register(self.addr.unwrap());
+                        match registration {
+                            Ok(_) => {
+                                self.protocol = ProtocolType::Broker;
+                                self.broker_protocol = Some(Arc::clone(&bp));
+                                self.auth_protocol = None;
+                                return (res.0, OptionFuture::from(None))
+                            },
+                            Err(e) => {
+                                let val = e.clone() as u16;
+                                let reply = AuthResult::V0(AuthResultV0 { result:val, metadata:vec![] });
+                                return (Ok(serde_bare::to_vec(&reply).unwrap()), OptionFuture::from(Some(async move { val }.boxed())))
+                            }
+                        }
                     }
                     Some(e) => (res.0, OptionFuture::from(Some(async move { e }.boxed()))),
                 }
@@ -334,6 +364,18 @@ impl BrokerProtocolHandler {
         );
     }
 
+    pub fn register(self: Arc<Self>, addr: SocketAddr) -> Result<(),ProtocolError> {
+        //FIXME: peer_id must be real one
+        
+        self.broker.add_client_peer(PubKey::Ed25519PubKey([0;32]), Arc::clone(&self))
+    }
+
+    pub fn deregister(&self, addr: SocketAddr) -> Result<(),ProtocolError> {
+        
+        self.broker.remove_client_peer(PubKey::Ed25519PubKey([0;32]));
+        Ok(())
+    } 
+
     pub async fn handle_incoming(
         &self,
         msg: BrokerMessage,
@@ -457,19 +499,57 @@ impl BrokerProtocolHandler {
     }
 }
 
+pub enum PeerConnection {
+    CORE(IP),
+    CLIENT(Arc<BrokerProtocolHandler>),
+    NONE,
+}
+
+pub struct BrokerPeerInfo {
+    lastPeerAdvert: Option<PeerAdvert>,
+    connected: PeerConnection,
+
+}
+
 const REPO_STORES_SUBDIR: &str = "repos";
 
 pub struct BrokerServer {
     store: LmdbBrokerStore,
     mode: ConfigMode,
-    repo_stores: Arc<RwLock<HashMap<RepoStoreId, LmdbRepoStore>>>,
+    repo_stores: Arc<RwLock<HashMap<RepoHash, LmdbRepoStore>>>,
     // only used in ConfigMode::Local
     // try to change it to this version below in order to avoid double hashmap lookup in local mode. but hard to do...
     //overlayid_to_repostore: HashMap<RepoStoreId, &'a LmdbRepoStore>,
-    overlayid_to_repostore: Arc<RwLock<HashMap<OverlayId, RepoStoreId>>>,
+    //overlayid_to_repostore: Arc<RwLock<HashMap<OverlayId, RepoStoreId>>>,
+    peers: RwLock<HashMap<DirectPeerId, BrokerPeerInfo>>,
+
+    //local_connections: 
 }
 
 impl BrokerServer {
+
+    pub fn add_client_peer(&self, peer_id: DirectPeerId, bph: Arc<BrokerProtocolHandler>) -> Result<(),ProtocolError> {
+
+        let mut writer = self.peers.write().expect("write peers hashmap");
+        let bpi = BrokerPeerInfo {
+            lastPeerAdvert: None, //TODO: load from store
+            connected: PeerConnection::CLIENT(bph)
+        };
+        if !writer.get(&peer_id).is_none() { 
+            return Err(ProtocolError::PeerAlreadyConnected); 
+        }
+        writer.insert(peer_id.clone(), bpi);
+        Ok(())
+
+    }
+
+    pub fn remove_client_peer(&self, peer_id: DirectPeerId) {
+
+        let mut writer = self.peers.write().expect("write peers hashmap");
+        writer.remove(&peer_id);
+
+    }
+
     pub fn new(store: LmdbBrokerStore, mode: ConfigMode) -> Result<BrokerServer, BrokerError> {
         let mut configmode: ConfigMode;
         {
@@ -480,32 +560,32 @@ impl BrokerServer {
             store,
             mode: configmode,
             repo_stores: Arc::new(RwLock::new(HashMap::new())),
-            overlayid_to_repostore: Arc::new(RwLock::new(HashMap::new())),
+            //overlayid_to_repostore: Arc::new(RwLock::new(HashMap::new())),
+            peers: RwLock::new(HashMap::new())
         })
     }
 
     fn open_or_create_repostore<F, R>(
         &self,
-        repostore_id: RepoStoreId,
+        repo_hash: RepoHash,
         f: F,
     ) -> Result<R, ProtocolError>
     where
         F: FnOnce(&LmdbRepoStore) -> Result<R, ProtocolError>,
     {
         // first let's find it in the BrokerStore.repostoreinfo table in order to get the encryption key
-        let info = RepoStoreInfo::open(&repostore_id, &self.store)
+        let info = RepoStoreInfo::open(&repo_hash, &self.store)
             .map_err(|e| BrokerError::OverlayNotFound)?;
         let key = info.key()?;
         let mut path = self.store.path();
         path.push(REPO_STORES_SUBDIR);
-        path.push::<String>(repostore_id.clone().into());
+        path.push::<String>(repo_hash.clone().into());
         std::fs::create_dir_all(path.clone()).map_err(|_e| ProtocolError::WriteError )?;
         println!("path for repo store: {}", path.to_str().unwrap());
         let repo = LmdbRepoStore::open(&path, *key.slice());
         let mut writer = self.repo_stores.write().expect("write repo_store hashmap");
-        writer.insert(repostore_id.clone(), repo);
-
-        f(writer.get(&repostore_id).unwrap())
+        writer.insert(repo_hash.clone(), repo);
+        f(writer.get(&repo_hash).unwrap())
     }
 
     fn get_repostore_from_overlay_id<F, R>(
@@ -516,53 +596,55 @@ impl BrokerServer {
     where
         F: FnOnce(&LmdbRepoStore) -> Result<R, ProtocolError>,
     {
-        if self.mode == ConfigMode::Core {
-            let repostore_id = RepoStoreId::Overlay(*overlay_id);
+        //FIXME: the whole purpose of get_repostore_from_overlay_id is gone. review all of it
+        let repostore_id = *overlay_id;
+        {
             let reader = self.repo_stores.read().expect("read repo_store hashmap");
             let rep = reader.get(&repostore_id);
-            match rep {
-                Some(repo) => return f(repo),
-                None => {
-                    // we need to open/create it
-                    // TODO: last_access
-                    return self.open_or_create_repostore(repostore_id, |repo| f(repo));
-                }
+            if let Some(repo) = rep {
+                return f(repo)
             }
-        } else {
-            // it is ConfigMode::Local
-            {
-                let reader = self
-                    .overlayid_to_repostore
-                    .read()
-                    .expect("read overlayid_to_repostore hashmap");
-                match reader.get(&overlay_id) {
-                    Some(repostoreid) => {
-                        let reader = self.repo_stores.read().expect("read repo_store hashmap");
-                        match reader.get(repostoreid) {
-                            Some(repo) => return f(repo),
-                            None => return Err(ProtocolError::BrokerError),
-                        }
-                    }
-                    None => {}
-                };
-            }
-
-            // we need to open/create it
-            // first let's find it in the BrokerStore.overlay table to retrieve its repo_pubkey
-            debug_println!("searching for overlayId {}", overlay_id);
-            let overlay = Overlay::open(overlay_id, &self.store)?;
-            debug_println!("found overlayId {}", overlay_id);
-            let repo_id = overlay.repo()?;
-            let repostore_id = RepoStoreId::Repo(repo_id);
-            let mut writer = self
-                .overlayid_to_repostore
-                .write()
-                .expect("write overlayid_to_repostore hashmap");
-            writer.insert(*overlay_id, repostore_id.clone());
-            // now opening/creating the RepoStore
-            // TODO: last_access
-            return self.open_or_create_repostore(repostore_id, |repo| f(repo));
         }
+        // we need to open/create it
+        // TODO: last_access
+        return self.open_or_create_repostore(repostore_id, |repo| f(repo));
+
+        
+        // } else {
+        //     // it is ConfigMode::Local
+        //     {
+        //         let reader = self
+        //             .overlayid_to_repostore
+        //             .read()
+        //             .expect("read overlayid_to_repostore hashmap");
+        //         match reader.get(&overlay_id) {
+        //             Some(repostoreid) => {
+        //                 let reader = self.repo_stores.read().expect("read repo_store hashmap");
+        //                 match reader.get(repostoreid) {
+        //                     Some(repo) => return f(repo),
+        //                     None => return Err(ProtocolError::BrokerError),
+        //                 }
+        //             }
+        //             None => {}
+        //         };
+        //     }
+
+        //     // we need to open/create it
+        //     // first let's find it in the BrokerStore.overlay table to retrieve its repo_pubkey
+        //     debug_println!("searching for overlayId {}", overlay_id);
+        //     let overlay = Overlay::open(overlay_id, &self.store)?;
+        //     debug_println!("found overlayId {}", overlay_id);
+        //     let repo_id = overlay.repo()?;
+        //     let repostore_id = RepoStoreId::Repo(repo_id);
+        //     let mut writer = self
+        //         .overlayid_to_repostore
+        //         .write()
+        //         .expect("write overlayid_to_repostore hashmap");
+        //     writer.insert(*overlay_id, repostore_id.clone());
+        //     // now opening/creating the RepoStore
+        //     // TODO: last_access
+        //     return self.open_or_create_repostore(repostore_id, |repo| f(repo));
+        // }
     }
 
     pub fn local_connection(&mut self, user: PubKey) -> BrokerConnectionLocal {
@@ -572,6 +654,7 @@ impl BrokerServer {
     pub fn protocol_handler(self: Arc<Self>) -> ProtocolHandler {
         let (s, r) = async_channel::unbounded::<Vec<u8>>();
         return ProtocolHandler {
+            addr:None,
             broker: Arc::clone(&self),
             protocol: ProtocolType::Start,
             auth_protocol: None,
@@ -821,12 +904,12 @@ impl BrokerServer {
         })
     }
 
-    fn compute_repostore_id(&self, overlay: OverlayId, repo_id: Option<PubKey>) -> RepoStoreId {
-        match self.mode {
-            ConfigMode::Core => RepoStoreId::Overlay(overlay),
-            ConfigMode::Local => RepoStoreId::Repo(repo_id.unwrap()),
-        }
-    }
+    // fn compute_repostore_id(&self, overlay: OverlayId, repo_id: Option<PubKey>) -> RepoStoreId {
+    //     match self.mode {
+    //         ConfigMode::Core => RepoStoreId::Overlay(overlay),
+    //         ConfigMode::Local => RepoStoreId::Repo(repo_id.unwrap()),
+    //     }
+    // }
 
     pub fn join_overlay(
         &self,
@@ -861,7 +944,7 @@ impl BrokerServer {
                 let key = SymKey::ChaCha20Key(random_buf);
 
                 let _ = RepoStoreInfo::create(
-                    &self.compute_repostore_id(overlay_id, repo_id),
+                    &overlay_id,
                     &key,
                     &self.store,
                 )?; // TODO in case of error, delete the previously created Overlay

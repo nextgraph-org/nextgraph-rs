@@ -9,4 +9,5 @@ repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
 
 [dependencies]
 p2p-broker = { path = "../p2p-broker" }
-async-std = {  version = "1.7.0", features = ["attributes"] }
+p2p-net = { path = "../p2p-net" }
+async-std = {  version = "1.12.0", features = ["attributes"] }

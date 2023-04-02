@@ -3,17 +3,20 @@
 // This code is partly derived from work written by TG x Thoth from P2Pcollab.
 // Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-
 //! P2P network protocol types
 //!
 //! Corresponds to the BARE schema
 
+use core::fmt;
+use std::net::IpAddr;
+
+use crate::actors::*;
 use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
 
@@ -21,16 +24,22 @@ use serde::{Deserialize, Serialize};
 // COMMON TYPES FOR MESSAGES
 //
 
-/// Peer ID: public key of the node
-pub type PeerId = PubKey;
+pub type DirectPeerId = PubKey;
+
+/// Peer ID: public key of the node, or an encrypted version of it
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+pub enum PeerId {
+    DIRECT(DirectPeerId),
+    FORWARDED([u8; 32]),
+}
 
 /// Overlay ID
 ///
-/// - for public overlays that need to be discovered by public key:
-///   BLAKE3 hash over the repository public key
-/// - for private overlays:
+/// - for read overlays that need to be discovered by public key:
+///   BLAKE3 hash over the repository public key (of root doc)
+/// - for write overlays:
 ///   BLAKE3 keyed hash over the repository public key
-///   - key: BLAKE3 derive_key ("NextGraph OverlayId BLAKE3 key", repo_secret)
+///   - key: BLAKE3 derive_key ("NextGraph OverlayId BLAKE3 key", repo_secret, root_secret)
 pub type OverlayId = Digest;
 
 /// Overlay session ID
@@ -55,16 +64,43 @@ pub type IPv4 = [u8; 4];
 pub type IPv6 = [u8; 16];
 
 /// IP address
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum IP {
     IPv4(IPv4),
     IPv6(IPv6),
 }
 
+impl fmt::Display for IP {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let t: IpAddr = self.try_into().unwrap();
+        write!(f, "{}", t)
+    }
+}
+
+impl From<&IpAddr> for IP {
+    #[inline]
+    fn from(ip: &IpAddr) -> IP {
+        match ip {
+            IpAddr::V4(v4) => IP::IPv4(v4.octets()),
+            IpAddr::V6(v6) => IP::IPv6(v6.octets()),
+        }
+    }
+}
+
+impl From<&IP> for IpAddr {
+    #[inline]
+    fn from(ip: &IP) -> IpAddr {
+        match ip {
+            IP::IPv4(v4) => IpAddr::from(*v4),
+            IP::IPv6(v6) => IpAddr::from(*v6),
+        }
+    }
+}
+
 /// IP transport protocol
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum IPTransportProtocol {
-    TLS,
+pub enum TransportProtocol {
+    WS,
     QUIC,
 }
 
@@ -73,7 +109,7 @@ pub enum IPTransportProtocol {
 pub struct IPTransportAddr {
     pub ip: IP,
     pub port: u16,
-    pub protocol: IPTransportProtocol,
+    pub protocol: TransportProtocol,
 }
 
 /// Network address
@@ -769,6 +805,7 @@ pub enum BrokerRequestContentV0 {
     AddClient(AddClient),
     DelClient(DelClient),
 }
+
 /// Broker request
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BrokerRequestV0 {
@@ -1530,6 +1567,20 @@ pub struct ExtResponseV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExtResponse {
     V0(ExtResponseV0),
+}
+
+///
+/// PROTOCOL MESSAGES
+///
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ProtocolMessage {
+    Noise(Noise),
+    Start(StartProtocol),
+    ServerHello(ServerHello),
+    ClientAuth(ClientAuth),
+    AuthResult(AuthResult),
+    ExtResponse(ExtResponse),
+    BrokerMessage(BrokerMessage),
 }
 
 ///

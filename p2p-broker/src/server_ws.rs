@@ -2,7 +2,7 @@
  * Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
  * All rights reserved.
  * Licensed under the Apache License, Version 2.0
- * <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+ * <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
  * or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
  * at your option. All files in the project carrying such
  * notice may not be copied, modified, or distributed except
@@ -11,6 +11,8 @@
 
 //! WebSocket implementation of the Broker
 
+use crate::broker_store::config::ConfigMode;
+use crate::server::*;
 use async_std::net::{TcpListener, TcpStream};
 use async_std::sync::Mutex;
 use async_std::task;
@@ -18,16 +20,17 @@ use async_tungstenite::accept_async;
 use async_tungstenite::tungstenite::protocol::Message;
 use debug_print::*;
 use futures::{SinkExt, StreamExt};
-use crate::broker_store::config::ConfigMode;
-use crate::server::*;
 use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
 use p2p_stores_lmdb::repo_store::LmdbRepoStore;
 use std::fs;
 use std::sync::Arc;
-use tempfile::Builder;
 use std::{thread, time};
+use tempfile::Builder;
 
 async fn connection_loop(tcp: TcpStream, mut handler: ProtocolHandler) -> std::io::Result<()> {
+    let addr = tcp.peer_addr().unwrap();
+    handler.register(addr);
+
     let mut ws = accept_async(tcp).await.unwrap();
     let (mut tx, mut rx) = ws.split();
 
@@ -38,13 +41,8 @@ async fn connection_loop(tcp: TcpStream, mut handler: ProtocolHandler) -> std::i
     let ws_in_task = Arc::clone(&tx_mutex);
     task::spawn(async move {
         while let Ok(frame) = receiver.recv().await {
-            let mut sink = ws_in_task
-            .lock()
-            .await;
-            if sink.send(Message::binary(frame))
-                .await
-                .is_err()
-            {
+            let mut sink = ws_in_task.lock().await;
+            if sink.send(Message::binary(frame)).await.is_err() {
                 break;
             }
         }
@@ -69,6 +67,11 @@ async fn connection_loop(tcp: TcpStream, mut handler: ProtocolHandler) -> std::i
         //TODO implement PING messages
         if msg.is_close() {
             debug_println!("CLOSE from CLIENT");
+            if let Message::Close(Some(cf)) = msg {
+                debug_println!("CLOSE FRAME {:?}", cf);
+            } else if let Message::Close(None) = msg {
+                debug_println!("without CLOSE FRAME");
+            }
             break;
         } else if msg.is_binary() {
             //debug_println!("server received binary: {:?}", msg);
@@ -106,6 +109,7 @@ async fn connection_loop(tcp: TcpStream, mut handler: ProtocolHandler) -> std::i
             }
         }
     }
+    handler.deregister();
     let mut sink = tx_mutex.lock().await;
     let _ = sink.send(Message::Close(None)).await;
     let _ = sink.close().await;
@@ -136,7 +140,6 @@ pub async fn run_server_accept_one(addrs: &str) -> std::io::Result<()> {
 
     Ok(())
 }
-
 
 pub async fn run_server(addrs: &str) -> std::io::Result<()> {
     let root = tempfile::Builder::new()

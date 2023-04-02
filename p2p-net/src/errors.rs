@@ -3,7 +3,7 @@
 // This code is partly derived from work written by TG x Thoth from P2Pcollab.
 // Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -11,19 +11,39 @@
 
 use crate::types::BrokerMessage;
 use core::fmt;
+use num_enum::IntoPrimitive;
+use num_enum::TryFromPrimitive;
 use p2p_repo::object::ObjectParseError;
 use p2p_repo::types::Block;
 use p2p_repo::types::ObjectId;
-use num_enum::IntoPrimitive;
-use num_enum::TryFromPrimitive;
 use std::convert::From;
 use std::convert::TryFrom;
 use std::error::Error;
 
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive, Clone)]
 #[repr(u16)]
+pub enum NetError {
+    DirectionAlreadySet = 1,
+    WsError,
+    IoError,
+    ConnectionError,
+    SerializationError,
+    ProtocolError,
+} //MAX 50 NetErrors
+
+impl Error for NetError {}
+
+impl fmt::Display for NetError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive, Clone)]
+#[repr(u16)]
 pub enum ProtocolError {
     WriteError = 1,
+    WsError,
     ActorError,
     InvalidState,
     SignatureError,
@@ -42,9 +62,14 @@ pub enum ProtocolError {
     InvalidValue,
     UserAlreadyExists,
     RepoIdRequired,
-    Closing,
+
     ConnectionError,
-}
+
+    PeerAlreadyConnected,
+    NoError,
+    OtherError,
+    Closing,
+} //MAX 949 ProtocolErrors
 
 impl ProtocolError {
     pub fn is_stream(&self) -> bool {
@@ -88,6 +113,12 @@ impl From<p2p_repo::store::StorageError> for ProtocolError {
 impl From<serde_bare::error::Error> for ProtocolError {
     fn from(e: serde_bare::error::Error) -> Self {
         ProtocolError::SerializationError
+    }
+}
+
+impl From<serde_bare::error::Error> for NetError {
+    fn from(e: serde_bare::error::Error) -> Self {
+        NetError::SerializationError
     }
 }
 

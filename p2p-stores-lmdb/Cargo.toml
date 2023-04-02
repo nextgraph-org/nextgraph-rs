@@ -15,7 +15,7 @@ serde_bare = "0.5.0"
 tempfile = "3"
 hex = "0.4.3"
 
-[dependencies.rkv]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.rkv]
 git = "https://git.nextgraph.org/NextGraph/rkv.git"
 rev = "f04b03957b52ebc802e58438f430cd569e55a24d"
 features = [ "lmdb" ]

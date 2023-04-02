@@ -1,7 +1,7 @@
 // Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -9,10 +9,10 @@
 
 //! Peer
 
+use p2p_net::types::*;
 use p2p_repo::broker_store::BrokerStore;
 use p2p_repo::store::*;
 use p2p_repo::types::*;
-use p2p_net::types::*;
 use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};
 
@@ -79,13 +79,13 @@ impl<'a> Peer<'a> {
                 Self::PREFIX,
                 &to_vec(&id)?,
                 Some(Self::VERSION),
-                & to_vec(&advert.version())?,
+                &to_vec(&advert.version())?,
             )?;
             tx.put(
                 Self::PREFIX,
                 &to_vec(&id)?,
                 Some(Self::ADVERT),
-                & to_vec(&advert)?,
+                &to_vec(&advert)?,
             )?;
             Ok(())
         })?;
@@ -131,12 +131,21 @@ impl<'a> Peer<'a> {
         if current_advert.version() >= advert.version() {
             return Ok(());
         }
-        self.store.replace(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::ADVERT),
-            to_vec(advert)?,
-        )
+        self.store.write_transaction(&|tx| {
+            tx.replace(
+                Self::PREFIX,
+                &to_vec(&self.id)?,
+                Some(Self::VERSION),
+                &to_vec(&advert.version())?,
+            )?;
+            tx.replace(
+                Self::PREFIX,
+                &to_vec(&self.id)?,
+                Some(Self::ADVERT),
+                &to_vec(&advert)?,
+            )?;
+            Ok(())
+        })
     }
     pub fn advert(&self) -> Result<PeerAdvert, StorageError> {
         match self
