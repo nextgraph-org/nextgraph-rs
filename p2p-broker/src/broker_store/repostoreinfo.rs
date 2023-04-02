@@ -19,21 +19,21 @@ use p2p_net::types::*;
 use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum RepoStoreId {
-    Overlay(OverlayId),
-    Repo(PubKey),
-}
+// #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+// pub enum RepoStoreId {
+//     Overlay(OverlayId),
+//     Repo(PubKey),
+// }
 
-impl From<RepoStoreId> for String {
-    fn from(id: RepoStoreId) -> Self {
-        hex::encode(to_vec(&id).unwrap())
-    }
-}
+// impl From<RepoStoreId> for String {
+//     fn from(id: RepoStoreId) -> Self {
+//         hex::encode(to_vec(&id).unwrap())
+//     }
+// }
 
 pub struct RepoStoreInfo<'a> {
     /// RepoStore ID
-    id: RepoStoreId,
+    id: RepoHash,
     store: &'a dyn BrokerStore,
 }
 
@@ -48,7 +48,7 @@ impl<'a> RepoStoreInfo<'a> {
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::KEY;
 
     pub fn open(
-        id: &RepoStoreId,
+        id: &RepoHash,
         store: &'a dyn BrokerStore,
     ) -> Result<RepoStoreInfo<'a>, StorageError> {
         let opening = RepoStoreInfo {
@@ -61,7 +61,7 @@ impl<'a> RepoStoreInfo<'a> {
         Ok(opening)
     }
     pub fn create(
-        id: &RepoStoreId,
+        id: &RepoHash,
         key: &SymKey,
         store: &'a dyn BrokerStore,
     ) -> Result<RepoStoreInfo<'a>, StorageError> {
@@ -84,7 +84,7 @@ impl<'a> RepoStoreInfo<'a> {
             )
             .is_ok()
     }
-    pub fn id(&self) -> &RepoStoreId {
+    pub fn id(&self) -> &RepoHash {
         &self.id
     }
     pub fn key(&self) -> Result<SymKey, StorageError> {

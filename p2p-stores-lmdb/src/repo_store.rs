@@ -27,6 +27,7 @@ use rkv::{
 use serde::{Deserialize, Serialize};
 use serde_bare::error::Error;
 
+#[derive(Debug)]
 pub struct LmdbRepoStore {
     /// the main store where all the repo blocks are stored
     main_store: SingleStore<LmdbDatabase>,

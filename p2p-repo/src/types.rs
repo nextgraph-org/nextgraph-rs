@@ -15,6 +15,7 @@
 
 use core::fmt;
 use serde::{Deserialize, Serialize};
+use serde_bare::to_vec;
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -138,6 +139,34 @@ pub type BloomFilter1K = [[u8; 32]; 32];
 // REPOSITORY TYPES
 //
 
+/// List of Permissions
+pub enum PermissionType {
+  ADD_BRANCH, REMOVE_BRANCH, CHANGE_NAME,
+  ADD_MEMBER, REMOVE_MEMBER, CHANGE_PERMISSION,
+  TRANSACTION, SNAPSHOT, SHARING, CHANGE_ACK_CONFIG,
+}
+
+/// List of Identity types
+pub enum Identity {
+  ORG_SITE(PubKey), PERSO_SITE(PubKey),
+  ORG_PUBLIC(PubKey), ORG_PROTECTED(PubKey), ORG_PRIVATE(PubKey),
+  PERSO_PUBLIC(PubKey), PERSO_PROTECTED(PubKey), PERSO_PRIVATE(PubKey),
+  GROUP(RepoId), DIALOG(RepoId), DOCUMENT(RepoId), DIALOG_OVERLAY(Digest),
+}
+
+/// RepoHash:
+/// BLAKE3 hash of the RepoId
+pub type RepoHash = Digest;
+
+impl From<RepoHash> for String {
+    fn from(id: RepoHash) -> Self {
+        hex::encode(to_vec(&id).unwrap())
+    }
+}
+
+/// RepoId is a PubKey
+pub type RepoId = PubKey;
+
 /// Block ID:
 /// BLAKE3 hash over the serialized Object with encrypted content
 pub type BlockId = Digest;
@@ -239,7 +268,7 @@ pub enum Block {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RepositoryV0 {
     /// Repo public key ID
-    pub id: PubKey,
+    pub id: RepoId,
 
     /// List of branches
     pub branches: Vec<ObjectRef>,

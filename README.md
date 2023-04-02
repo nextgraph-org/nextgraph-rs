@@ -32,6 +32,7 @@ Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/)
 
 ```
 cargo install wasm-pack
+// optionally, if you want a Rust REPL: cargo install evcxr_repl
 git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
 cd nextgraph-rs
 cargo build
@@ -83,6 +84,17 @@ Test end-to-end client and server:
 ``` 
 cargo test --package ngcli -- --nocapture
 ``` 
+
+Test WASM websocket
+```
+cd ng-app-js
+wasm-pack test --chrome --headless
+```
+
+Test Rust websocket
+```
+cargo test --package p2p-client-ws --lib --  --nocapture
+```
 
 ### Build release binaries
 

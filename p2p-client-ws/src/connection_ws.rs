@@ -18,7 +18,7 @@ use p2p_repo::utils::{generate_keypair, now_timestamp};
 use p2p_net::errors::*;
 use p2p_net::types::*;
 use p2p_net::broker_connection::*;
-use crate::connection_remote::*;
+use p2p_client::connection_remote::*;
 use futures::{future, pin_mut, stream, SinkExt, StreamExt};
 
 use async_tungstenite::async_std::connect_async;

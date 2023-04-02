@@ -50,6 +50,18 @@ cd pkg-node
 // npm publish --access=public
 ```
 
+For testing in vanilla JS 
+```
+wasm-pack build --target web -d web
+python3 -m http.server
+// open http://localhost:8000
+
+``` 
+Or automated testing with headless chrome:
+```
+wasm-pack test --chrome --headless
+```
+
 ### Plain JS web app
 
 ```

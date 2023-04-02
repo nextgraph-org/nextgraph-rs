@@ -19,37 +19,38 @@ use p2p_net::errors::*;
 use p2p_net::types::*;
 use rust_fsm::*;
 
-state_machine! {
-    derive(Debug)
-    AuthProtocolClient(Ready)
+// state_machine! {
+//     derive(Debug)
+//     AuthProtocolClient(Ready)
 
-    Ready(ClientHelloSent) => ClientHelloSent,
-    ClientHelloSent(ServerHelloReceived) => ServerHelloReceived,
-    ServerHelloReceived(ClientAuthSent) => ClientAuthSent,
-    ClientAuthSent(AuthResultReceived) => AuthResult,
-    AuthResult => {
-        Ok => BrokerProtocol,
-        Error => Closed,
-    },
-}
+//     Ready(ClientHelloSent) => ClientHelloSent,
+//     ClientHelloSent(ServerHelloReceived) => ServerHelloReceived,
+//     ServerHelloReceived(ClientAuthSent) => ClientAuthSent,
+//     ClientAuthSent(AuthResultReceived) => AuthResult,
+//     AuthResult => {
+//         Ok => BrokerProtocol,
+//         Error => Closed,
+//     },
+// }
 
-state_machine! {
-    derive(Debug)
-    AuthProtocolServer(Ready)
+// state_machine! {
+//     derive(Debug)
+//     AuthProtocolServer(Ready)
 
-    Ready(ClientHelloReceived) => ClientHelloReceived,
-    ClientHelloReceived(ServerHelloSent) => ServerHelloSent,
-    ServerHelloSent(ClientAuthReceived) => ClientAuthReceived,
-    ClientAuthReceived => {
-        Ok => AuthResultOk,
-        Error => AuthResultError,
-    },
-    AuthResultOk(AuthResultSent) => BrokerProtocol,
-    AuthResultError(AuthResultSent) => Closed,
-}
+//     Ready(ClientHelloReceived) => ClientHelloReceived,
+//     ClientHelloReceived(ServerHelloSent) => ServerHelloSent,
+//     ServerHelloSent(ClientAuthReceived) => ClientAuthReceived,
+//     ClientAuthReceived => {
+//         Ok => AuthResultOk,
+//         Error => AuthResultError,
+//     },
+//     AuthResultOk(AuthResultSent) => BrokerProtocol,
+//     AuthResultError(AuthResultSent) => Closed,
+// }
 
+#[derive(Debug)]
 pub struct AuthProtocolHandler {
-    machine: StateMachine<AuthProtocolServer>,
+    //machine: StateMachine<AuthProtocolServer>,
     nonce: Option<Vec<u8>>,
     user: Option<PubKey>,
 }
@@ -57,7 +58,7 @@ pub struct AuthProtocolHandler {
 impl AuthProtocolHandler {
     pub fn new() -> AuthProtocolHandler {
         AuthProtocolHandler {
-            machine: StateMachine::new(),
+            //machine: StateMachine::new(),
             nonce: None,
             user: None,
         }
@@ -68,10 +69,10 @@ impl AuthProtocolHandler {
     }
 
     pub fn handle_init(&mut self, client_hello: ClientHello) -> Result<Vec<u8>, ProtocolError> {
-        let _ = self
-            .machine
-            .consume(&AuthProtocolServerInput::ClientHelloReceived)
-            .map_err(|_e| ProtocolError::InvalidState)?;
+        // let _ = self
+        //     .machine
+        //     .consume(&AuthProtocolServerInput::ClientHelloReceived)
+        //     .map_err(|_e| ProtocolError::InvalidState)?;
 
         let mut random_buf = [0u8; 32];
         getrandom::getrandom(&mut random_buf).unwrap();
@@ -81,10 +82,10 @@ impl AuthProtocolHandler {
         });
         self.nonce = Some(nonce);
 
-        let _ = self
-            .machine
-            .consume(&AuthProtocolServerInput::ServerHelloSent)
-            .map_err(|_e| ProtocolError::InvalidState)?;
+        // let _ = self
+        //     .machine
+        //     .consume(&AuthProtocolServerInput::ServerHelloSent)
+        //     .map_err(|_e| ProtocolError::InvalidState)?;
 
         //debug_println!("sending nonce to client: {:?}", self.nonce);
 
@@ -110,13 +111,13 @@ impl AuthProtocolHandler {
             handler: &mut AuthProtocolHandler,
             frame: Vec<u8>,
         ) -> Result<Vec<u8>, ProtocolError> {
-            match handler.machine.state() {
-                &AuthProtocolServerState::ServerHelloSent => {
+            // match handler.machine.state() {
+            //     &AuthProtocolServerState::ServerHelloSent => {
                     let message = serde_bare::from_slice::<ClientAuth>(&frame)?;
-                    let _ = handler
-                        .machine
-                        .consume(&AuthProtocolServerInput::ClientAuthReceived)
-                        .map_err(|_e| ProtocolError::InvalidState)?;
+                    // let _ = handler
+                    //     .machine
+                    //     .consume(&AuthProtocolServerInput::ClientAuthReceived)
+                    //     .map_err(|_e| ProtocolError::InvalidState)?;
 
                     // verifying client auth
 
@@ -136,10 +137,10 @@ impl AuthProtocolHandler {
                     // );
 
                     if message.nonce() != handler.nonce.as_ref().unwrap() {
-                        let _ = handler
-                            .machine
-                            .consume(&AuthProtocolServerInput::Error)
-                            .map_err(|_e| ProtocolError::InvalidState);
+                        // let _ = handler
+                        //     .machine
+                        //     .consume(&AuthProtocolServerInput::Error)
+                        //     .map_err(|_e| ProtocolError::InvalidState);
 
                         return Err(ProtocolError::AccessDenied);
                     }
@@ -147,17 +148,17 @@ impl AuthProtocolHandler {
                     // TODO check that the device has been registered for this user. if not, return AccessDenied
 
                     // all is good, we advance the FSM and send back response
-                    let _ = handler
-                        .machine
-                        .consume(&AuthProtocolServerInput::Ok)
-                        .map_err(|_e| ProtocolError::InvalidState)?;
+                    // let _ = handler
+                    //     .machine
+                    //     .consume(&AuthProtocolServerInput::Ok)
+                    //     .map_err(|_e| ProtocolError::InvalidState)?;
 
                     handler.user = Some(message.user());
 
                     Ok(vec![]) // without any metadata
-                }
-                _ => Err(ProtocolError::InvalidState),
-            }
+                //}
+                //_ => Err(ProtocolError::InvalidState),
+            //}
         }
 
         let res = process_state(self, frame);
