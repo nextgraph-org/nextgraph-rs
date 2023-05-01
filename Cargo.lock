@@ -1076,6 +1076,8 @@ dependencies = [
  "debug_print",
  "futures",
  "getrandom 0.1.16",
+ "gloo-timers",
+ "js-sys",
  "p2p-client-ws",
  "p2p-net",
  "p2p-repo",
@@ -1085,7 +1087,9 @@ dependencies = [
  "serde_bytes",
  "snow",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-test",
+ "web-sys",
  "ws_stream_wasm",
 ]
 
@@ -1249,7 +1253,9 @@ dependencies = [
  "blake3",
  "debug_print",
  "futures",
+ "gloo-timers",
  "num_enum",
+ "once_cell",
  "p2p-repo",
  "serde",
  "serde_bare",

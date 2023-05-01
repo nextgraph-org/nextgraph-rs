@@ -31,9 +31,6 @@ wasm-bindgen-test = "^0.3"
 version = "0.2.7"
 features = ["js"]
 
-# [target.'cfg(target_arch = "wasm32")'.dependencies]
-
-
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getrandom = "0.2.7"
 xactor = "0.7.11"

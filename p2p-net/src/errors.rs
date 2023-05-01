@@ -29,6 +29,7 @@ pub enum NetError {
     ConnectionError,
     SerializationError,
     ProtocolError,
+    Closing,
 } //MAX 50 NetErrors
 
 impl Error for NetError {}
@@ -64,6 +65,7 @@ pub enum ProtocolError {
     RepoIdRequired,
 
     ConnectionError,
+    Timeout,
 
     PeerAlreadyConnected,
     NoError,

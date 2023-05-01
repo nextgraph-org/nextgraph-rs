@@ -51,3 +51,15 @@ macro_rules! log {
 macro_rules! log {
     ($($t:tt)*) => (debug_print::debug_println!($($t)*))
 }
+
+#[cfg(target_arch = "wasm32")]
+#[macro_export]
+macro_rules! sleep {
+    ($($t:tt)*) => (gloo_timers::future::sleep($($t)*).await)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[macro_export]
+macro_rules! sleep {
+    ($($t:tt)*) => (std::thread::sleep($($t)*))
+}

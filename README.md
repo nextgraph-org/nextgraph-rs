@@ -9,7 +9,7 @@ This repository is in active development at [https://git.nextgraph.org/NextGraph
 > NextGraph brings about the convergence between P2P and Semantic Web technologies, towards a decentralized, secure and privacy-preserving cloud, based on CRDTs.
 >
 > This open source ecosystem provides solutions for end-users and software developers alike, wishing to use or create **decentralized** apps featuring: **live collaboration** on rich-text documents, peer to peer communication with end-to-end encryption, offline-first, **local-first**, portable and interoperable data, total ownership of data and software, security and privacy. Centered on repositories containing **semantic data** (RDF), **rich text**, and structured data formats like **JSON**, synced between peers belonging to permissioned groups of users, it offers strong eventual consistency, thanks to the use of **CRDTs**. Documents can be linked together, signed, shared securely, queried using the **SPARQL** language and organized into sites and containers.
-> 
+>
 > More info here [https://nextgraph.org](https://nextgraph.org)
 
 ## Support
@@ -21,13 +21,14 @@ And our community forum where you can ask questions is here [https://forum.nextg
 ## How to use NextGraph
 
 NextGraph is not ready yet. You can subscribe to [our newsletter](https://list.nextgraph.org/subscription/form) to get updates, and support us with a [donation](https://nextgraph.org/donate/).
+
 ## For developers
 
 Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/).
 
 ## For contributors
 
-- [Install Rust](https://www.rust-lang.org/tools/install)
+- [Install Rust](https://www.rust-lang.org/tools/install) minimum required 1.64.0
 - [Install Nodejs](https://nodejs.org/en/download/)
 
 ```
@@ -36,11 +37,11 @@ cargo install wasm-pack
 git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
 cd nextgraph-rs
 cargo build
-``` 
+```
 
 ### Packages
 
-The crates are organized as follow : 
+The crates are organized as follow :
 
 - p2p-repo : all the common types, traits and structs for the P2P repositories
 - p2p-net : all the common types, traits and structs for the P2P networks
@@ -81,17 +82,20 @@ cargo test --package p2p-repo --lib -- branch::test --nocapture
 ```
 
 Test end-to-end client and server:
-``` 
+
+```
 cargo test --package ngcli -- --nocapture
-``` 
+```
 
 Test WASM websocket
+
 ```
 cd ng-app-js
 wasm-pack test --chrome --headless
 ```
 
 Test Rust websocket
+
 ```
 cargo test --package p2p-client-ws --lib --  --nocapture
 ```
@@ -123,9 +127,10 @@ additional terms or conditions.
 ## License
 
 Licensed under either of
- * Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-at your option.
+
+- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+  at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
 
