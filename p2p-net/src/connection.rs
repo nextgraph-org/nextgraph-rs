@@ -18,7 +18,7 @@ use unique_id::GeneratorFromSeed;
 pub type Sender<T> = mpsc::UnboundedSender<T>;
 pub type Receiver<T> = mpsc::UnboundedReceiver<T>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ConnectionCommand {
     Msg(ProtocolMessage),
     Error(NetError),
@@ -28,43 +28,68 @@ pub enum ConnectionCommand {
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-pub trait IConnection {
+pub trait IConnection: Send + Sync {
     async fn open(
-        self: Arc<Self>,
+        &self,
         ip: IP,
         peer_pubk: PrivKey,
         peer_privk: PubKey,
         remote_peer: DirectPeerId,
-    ) -> Result<(), NetError>;
-    async fn accept(&mut self) -> Result<(), NetError>;
-    fn tp(&self) -> TransportProtocol;
+    ) -> Result<ConnectionBase, NetError>;
+    async fn accept(&self) -> Result<ConnectionBase, NetError>;
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum ConnectionDir {
     Server,
     Client,
 }
 
+#[derive(Debug)]
 pub struct ConnectionBase {
     sender: Option<Receiver<ConnectionCommand>>,
     receiver: Option<Sender<ConnectionCommand>>,
     sender_tx: Option<Sender<ConnectionCommand>>,
     receiver_tx: Option<Sender<ConnectionCommand>>,
+    shutdown: Option<Receiver<NetError>>,
     dir: ConnectionDir,
     next_request_id: SequenceGenerator,
+    tp: TransportProtocol,
 }
 
 impl ConnectionBase {
-    pub fn new(dir: ConnectionDir) -> Self {
+    pub fn new(dir: ConnectionDir, tp: TransportProtocol) -> Self {
         Self {
             receiver: None,
             sender: None,
             sender_tx: None,
             receiver_tx: None,
+            shutdown: None,
             next_request_id: SequenceGenerator::new(1),
             dir,
+            tp,
         }
+    }
+
+    pub fn transport_protocol(&self) -> TransportProtocol {
+        self.tp
+    }
+
+    pub fn take_shutdown(&mut self) -> Receiver<NetError> {
+        self.shutdown.take().unwrap()
+    }
+
+    pub async fn join_shutdown(&mut self) -> Result<(), NetError> {
+        match self.take_shutdown().next().await {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    }
+
+    pub fn set_shutdown(&mut self) -> Sender<NetError> {
+        let (shutdown_sender, shutdown_receiver) = mpsc::unbounded::<NetError>();
+        self.shutdown = Some(shutdown_receiver);
+        shutdown_sender
     }
 
     pub fn take_sender(&mut self) -> Receiver<ConnectionCommand> {
@@ -115,14 +140,14 @@ impl ConnectionBase {
         let _ = self.sender_tx.as_mut().unwrap().send(cmd).await;
     }
 
-    pub async fn inject(&mut self, cmd: ConnectionCommand) {
-        let _ = self.receiver_tx.as_mut().unwrap().send(cmd).await;
-    }
+    // pub async fn inject(&mut self, cmd: ConnectionCommand) {
+    //     let _ = self.receiver_tx.as_mut().unwrap().send(cmd).await;
+    // }
 
-    pub async fn close_streams(&mut self) {
-        let _ = self.receiver_tx.as_mut().unwrap().close_channel();
-        let _ = self.sender_tx.as_mut().unwrap().close_channel();
-    }
+    // pub async fn close_streams(&mut self) {
+    //     let _ = self.receiver_tx.as_mut().unwrap().close_channel();
+    //     let _ = self.sender_tx.as_mut().unwrap().close_channel();
+    // }
 
     pub async fn close(&mut self) {
         log!("closing...");

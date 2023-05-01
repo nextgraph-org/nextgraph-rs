@@ -21,8 +21,8 @@ use debug_print::*;
 
 use async_std::sync::Mutex;
 use futures::io::Close;
-use futures::FutureExt;
 use futures::{future, pin_mut, select, stream, StreamExt};
+use futures::{FutureExt, SinkExt};
 
 use async_std::task;
 use p2p_net::errors::*;
@@ -42,13 +42,13 @@ pub struct ConnectionWebSocket {}
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl IConnection for ConnectionWebSocket {
     async fn open(
-        self: Arc<Self>,
+        &self,
         ip: IP,
         peer_pubk: PrivKey,
         peer_privk: PubKey,
         remote_peer: DirectPeerId,
-    ) -> Result<(), NetError> {
-        let mut cnx = ConnectionBase::new(ConnectionDir::Client);
+    ) -> Result<ConnectionBase, NetError> {
+        let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
 
         let url = format!("ws://{}:{}", ip, WS_PORT);
 
@@ -108,23 +108,33 @@ impl IConnection for ConnectionWebSocket {
                 cnx.start_read_loop();
                 let s = cnx.take_sender();
                 let r = cnx.take_receiver();
-
+                let mut shutdown = cnx.set_shutdown();
                 //let ws_in_task = Arc::clone(&ws);
-                task::spawn(async move {
+                let join = task::spawn(async move {
                     debug_println!("START of WS loop");
                     //let w = ws_in_task.lock().await;
-                    ws_loop(websocket, s, r).await;
+                    let res = ws_loop(websocket, s, r).await;
                     // .close(Some(CloseFrame {
                     //     code: CloseCode::Library(4000),
                     //     reason: std::borrow::Cow::Borrowed(""),
                     // }))
                     // .await;
+                    if res.is_err() {
+                        let _ = shutdown.send(res.err().unwrap()).await;
+                    }
                     debug_println!("END of WS loop");
                 });
 
                 //spawn_and_log_error(ws_loop(ws, cnx.take_sender(), cnx.take_receiver()));
 
                 log!("sending...");
+
+                //
+
+                //cnx.close().await;
+
+                //// let res = cnx.join_shutdown().await;
+                //// log!("JOIN SHUTDOWN {:?}", res);
                 // cnx.send(ConnectionCommand::Close).await;
 
                 // cnx.send(ConnectionCommand::Msg(ProtocolMessage::Start(
@@ -146,20 +156,16 @@ impl IConnection for ConnectionWebSocket {
 
                 //log!("WS closed {:?}", last_event.clone());
 
-                //Ok(cnx)
-                Ok(())
+                Ok(cnx)
+                //Ok(())
             }
         }
     }
 
-    async fn accept(&mut self) -> Result<(), NetError> {
-        let cnx = ConnectionBase::new(ConnectionDir::Server);
+    async fn accept(&self) -> Result<ConnectionBase, NetError> {
+        let cnx = ConnectionBase::new(ConnectionDir::Server, TransportProtocol::WS);
 
-        Ok(())
-    }
-
-    fn tp(&self) -> TransportProtocol {
-        TransportProtocol::WS
+        unimplemented!();
     }
 }
 
@@ -169,8 +175,19 @@ async fn close_ws(
     code: u16,
     reason: &str,
 ) -> Result<(), NetError> {
-    log!("close_ws");
-    let _ = futures::SinkExt::send(receiver, ConnectionCommand::Close).await;
+    log!("close_ws {:?}", code);
+
+    let cmd = if code == 1000 {
+        ConnectionCommand::Close
+    } else if code < 4000 {
+        ConnectionCommand::Error(NetError::WsError)
+    } else if code < 4950 {
+        ConnectionCommand::ProtocolError(ProtocolError::try_from(code - 4000).unwrap())
+    } else {
+        ConnectionCommand::Error(NetError::try_from(code - 4949).unwrap())
+    };
+
+    let _ = futures::SinkExt::send(receiver, cmd).await;
     stream
         .close(Some(CloseFrame {
             code: CloseCode::Library(code),
@@ -200,8 +217,8 @@ async fn ws_loop(
                         log!("GOT MESSAGE {:?}", msg);
 
                         if msg.is_close() {
-                            if let  Message::Close(Some(cf)) = msg {
-                                log!("CLOSE from server: {}",cf.reason);
+                            if let Message::Close(Some(cf)) = msg {
+                                log!("CLOSE from server with closeframe: {}",cf.reason);
                                 let last_command = match cf.code {
                                     CloseCode::Normal =>
                                         ConnectionCommand::Close,
@@ -227,9 +244,9 @@ async fn ws_loop(
                             futures::SinkExt::send(receiver,ConnectionCommand::Msg(serde_bare::from_slice::<ProtocolMessage>(&msg.into_data())?)).await
                                 .map_err(|_e| NetError::IoError)?;
                         }
-                        return Ok(ProtocolError::Closing);
+                        //return Ok(ProtocolError::Closing);
                     },
-                    Some(Err(e)) => break,
+                    Some(Err(e)) => {log!("GOT ERROR {:?}",e);return Err(NetError::WsError);},
                     None => break
                 },
                 s = sender.next().fuse() => match s {
@@ -261,6 +278,7 @@ async fn ws_loop(
     match inner_loop(&mut ws, sender, &mut receiver).await {
         Ok(proto_err) => {
             if proto_err == ProtocolError::Closing {
+                //FIXME: remove this case
                 ws.close(None).await.map_err(|_e| NetError::WsError)?;
             } else if proto_err == ProtocolError::NoError {
                 close_ws(&mut ws, &mut receiver, 1000, "").await?;
@@ -295,9 +313,9 @@ mod test {
     use async_std::task;
     use p2p_net::broker::*;
     use p2p_net::errors::NetError;
-    use p2p_net::log;
     use p2p_net::types::IP;
     use p2p_net::utils::{spawn_and_log_error, ResultSend};
+    use p2p_net::{log, sleep};
     use p2p_repo::utils::generate_keypair;
     use std::net::IpAddr;
     use std::str::FromStr;
@@ -309,22 +327,42 @@ mod test {
         //spawn_and_log_error(testt("ws://127.0.0.1:3012"));
 
         log!("start connecting");
-        let cnx = Arc::new(ConnectionWebSocket {});
         let (priv_key, pub_key) = generate_keypair();
-        let broker = Broker::new();
-        let res = broker
-            .connect(
-                cnx,
-                IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
-                None,
-                priv_key,
-                pub_key,
-                pub_key,
-            )
-            .await;
-        log!("broker.connect : {:?}", res);
-        //res.expect_throw("assume the connection succeeds");
+        {
+            let res = BROKER
+                .write()
+                .await
+                .connect(
+                    Box::new(ConnectionWebSocket {}),
+                    IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
+                    None,
+                    priv_key,
+                    pub_key,
+                    pub_key,
+                )
+                .await;
+            log!("broker.connect : {:?}", res);
+            //res.expect_throw("assume the connection succeeds");
+        }
 
+        async fn timer_close(remote_peer_id: DirectPeerId) -> ResultSend<()> {
+            async move {
+                sleep!(std::time::Duration::from_secs(10));
+                log!("timeout");
+                BROKER
+                    .write()
+                    .await
+                    .close_peer_connection(&remote_peer_id)
+                    .await;
+            }
+            .await;
+            Ok(())
+        }
+        spawn_and_log_error(timer_close(pub_key));
+
+        //Broker::graceful_shutdown().await;
+
+        Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(12)).await;
         Ok(())
     }
 }
