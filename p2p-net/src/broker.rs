@@ -41,7 +41,6 @@ pub struct DirectConnection {
 pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new(Broker::new())));
 
 pub struct Broker {
-    //actors: Arc<RwLock<HashMap<i64, Box<dyn IActor>>>>,
     direct_connections: HashMap<IP, DirectConnection>,
     peers: HashMap<DirectPeerId, BrokerPeerInfo>,
     shutdown: Option<Receiver<ProtocolError>>,

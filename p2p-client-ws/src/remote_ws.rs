@@ -127,8 +127,6 @@ impl IConnection for ConnectionWebSocket {
 
                 //spawn_and_log_error(ws_loop(ws, cnx.take_sender(), cnx.take_receiver()));
 
-                log!("sending...");
-
                 //
 
                 //cnx.close().await;
@@ -288,7 +286,7 @@ async fn ws_loop(
                     code = ProtocolError::OtherError as u16;
                 }
                 close_ws(&mut ws, &mut receiver, code + 4000, &proto_err.to_string()).await?;
-                return Err(NetError::ProtocolError);
+                //return Err(NetError::ProtocolError);
             }
         }
         Err(e) => {

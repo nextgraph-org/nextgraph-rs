@@ -1124,6 +1124,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "noise-protocol"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb474d36dfe51bb4d7e733fee2b0dfd92ee1b95c716030a70e92737dea1a52b"
+dependencies = [
+ "arrayvec",
+]
+
+[[package]]
+name = "noise-rust-crypto"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82e7cfeb8e6a63b4a5ccef34ed7a22d084a129b1e53a000c080bbc54c0da6f8c"
+dependencies = [
+ "aes-gcm",
+ "blake2",
+ "chacha20poly1305",
+ "getrandom 0.2.8",
+ "noise-protocol",
+ "sha2 0.10.6",
+ "x25519-dalek",
+ "zeroize",
+]
+
+[[package]]
 name = "num-traits"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1254,6 +1279,8 @@ dependencies = [
  "debug_print",
  "futures",
  "gloo-timers",
+ "noise-protocol",
+ "noise-rust-crypto",
  "num_enum",
  "once_cell",
  "p2p-repo",
@@ -2289,6 +2316,17 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
+]
+
+[[package]]
+name = "x25519-dalek"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2392b6b94a576b4e2bf3c5b2757d63f10ada8020a2e4d08ac849ebcf6ea8e077"
+dependencies = [
+ "curve25519-dalek 3.2.1",
+ "rand_core 0.5.1",
+ "zeroize",
 ]
 
 [[package]]

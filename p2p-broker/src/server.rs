@@ -1,7 +1,7 @@
 // Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -16,27 +16,28 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use crate::broker_store::account::Account;
 use crate::auth::*;
+use crate::broker_store::account::Account;
 use crate::broker_store::config::Config;
 use crate::broker_store::config::ConfigMode;
-use crate::connection_local::BrokerConnectionLocal;
 use crate::broker_store::overlay::Overlay;
 use crate::broker_store::peer::Peer;
 use crate::broker_store::repostoreinfo::RepoStoreInfo;
+use crate::connection_local::BrokerConnectionLocal;
 use async_std::task;
 use debug_print::*;
 use futures::future::BoxFuture;
 use futures::future::OptionFuture;
 use futures::FutureExt;
 use futures::Stream;
+use p2p_net::actors::*;
+use p2p_net::errors::*;
+use p2p_net::types::*;
 use p2p_repo::object::Object;
 use p2p_repo::store::RepoStore;
 use p2p_repo::store::StorageError;
 use p2p_repo::types::*;
 use p2p_repo::utils::*;
-use p2p_net::errors::*;
-use p2p_net::types::*;
 use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
 use p2p_stores_lmdb::repo_store::LmdbRepoStore;
 
@@ -87,7 +88,6 @@ pub struct ProtocolHandler {
 }
 
 impl ProtocolHandler {
-
     pub fn register(&mut self, addr: SocketAddr) {
         self.addr = Some(addr);
     }
@@ -97,8 +97,12 @@ impl ProtocolHandler {
             ProtocolType::Start => (),
             ProtocolType::Auth => (),
             ProtocolType::Broker => {
-                let _ = self.broker_protocol.as_ref().unwrap().deregister(self.addr.unwrap());
-            }, 
+                let _ = self
+                    .broker_protocol
+                    .as_ref()
+                    .unwrap()
+                    .deregister(self.addr.unwrap());
+            }
             ProtocolType::Ext => (),
             ProtocolType::Core => (),
         }
@@ -122,7 +126,7 @@ impl ProtocolHandler {
             ProtocolType::Start => {
                 let message = serde_bare::from_slice::<StartProtocol>(&frame);
                 match message {
-                    Ok(StartProtocol::Auth(b)) => {
+                    Ok(StartProtocol::Client(b)) => {
                         self.protocol = ProtocolType::Auth;
                         self.auth_protocol = Some(AuthProtocolHandler::new());
                         return (
@@ -140,7 +144,10 @@ impl ProtocolHandler {
                         );
                     }
                     Err(e) => {
-                        return (Err(ProtocolError::SerializationError),OptionFuture::from(None))
+                        return (
+                            Err(ProtocolError::SerializationError),
+                            OptionFuture::from(None),
+                        )
                     }
                 }
             }
@@ -160,12 +167,18 @@ impl ProtocolHandler {
                                 self.protocol = ProtocolType::Broker;
                                 self.broker_protocol = Some(Arc::clone(&bp));
                                 self.auth_protocol = None;
-                                return (res.0, OptionFuture::from(None))
-                            },
+                                return (res.0, OptionFuture::from(None));
+                            }
                             Err(e) => {
                                 let val = e.clone() as u16;
-                                let reply = AuthResult::V0(AuthResultV0 { result:val, metadata:vec![] });
-                                return (Ok(serde_bare::to_vec(&reply).unwrap()), OptionFuture::from(Some(async move { val }.boxed())))
+                                let reply = AuthResult::V0(AuthResultV0 {
+                                    result: val,
+                                    metadata: vec![],
+                                });
+                                return (
+                                    Ok(serde_bare::to_vec(&reply).unwrap()),
+                                    OptionFuture::from(Some(async move { val }.boxed())),
+                                );
                             }
                         }
                     }
@@ -184,9 +197,10 @@ impl ProtocolHandler {
                             .await;
                         (Ok(serde_bare::to_vec(&reply.0).unwrap()), reply.1)
                     }
-                    Err(e_) => {
-                        (Err(ProtocolError::SerializationError),OptionFuture::from(None))
-                    }
+                    Err(e_) => (
+                        Err(ProtocolError::SerializationError),
+                        OptionFuture::from(None),
+                    ),
                 }
             }
             ProtocolType::Ext => {
@@ -204,7 +218,7 @@ impl ProtocolHandler {
 pub struct ExtProtocolHandler {}
 
 impl ExtProtocolHandler {
-    pub fn handle_incoming(&self, msg: ExtRequest) -> ExtResponse {
+    pub fn handle_incoming(&self, msg: ExtHello) -> ExtResponse {
         unimplemented!()
     }
 }
@@ -219,7 +233,7 @@ use std::{thread, time};
 impl BrokerProtocolHandler {
     fn prepare_reply_broker_message(
         res: Result<(), ProtocolError>,
-        id: u64,
+        id: i64,
         padding_size: usize,
     ) -> BrokerMessage {
         let result = match res {
@@ -238,7 +252,7 @@ impl BrokerProtocolHandler {
 
     fn prepare_reply_broker_overlay_message(
         res: Result<(), ProtocolError>,
-        id: u64,
+        id: i64,
         overlay: OverlayId,
         block: Option<Block>,
         padding_size: usize,
@@ -271,7 +285,7 @@ impl BrokerProtocolHandler {
 
     fn prepare_reply_broker_overlay_message_stream(
         res: Result<Block, ProtocolError>,
-        id: u64,
+        id: i64,
         overlay: OverlayId,
         padding_size: usize,
     ) -> BrokerMessage {
@@ -304,7 +318,7 @@ impl BrokerProtocolHandler {
     async fn send_block_stream_response_to_client(
         &self,
         res: Result<async_channel::Receiver<Block>, ProtocolError>,
-        id: u64,
+        id: i64,
         overlay: OverlayId,
         padding_size: usize,
     ) -> (BrokerMessage, OptionFuture<BoxFuture<'static, u16>>) {
@@ -364,23 +378,23 @@ impl BrokerProtocolHandler {
         );
     }
 
-    pub fn register(self: Arc<Self>, addr: SocketAddr) -> Result<(),ProtocolError> {
+    pub fn register(self: Arc<Self>, addr: SocketAddr) -> Result<(), ProtocolError> {
         //FIXME: peer_id must be real one
-        
-        self.broker.add_client_peer(PubKey::Ed25519PubKey([0;32]), Arc::clone(&self))
+
+        self.broker
+            .add_client_peer(PubKey::Ed25519PubKey([0; 32]), Arc::clone(&self))
     }
 
-    pub fn deregister(&self, addr: SocketAddr) -> Result<(),ProtocolError> {
-        
-        self.broker.remove_client_peer(PubKey::Ed25519PubKey([0;32]));
+    pub fn deregister(&self, addr: SocketAddr) -> Result<(), ProtocolError> {
+        self.broker
+            .remove_client_peer(PubKey::Ed25519PubKey([0; 32]));
         Ok(())
-    } 
+    }
 
     pub async fn handle_incoming(
         &self,
         msg: BrokerMessage,
     ) -> (BrokerMessage, OptionFuture<BoxFuture<'static, u16>>) {
-
         let padding_size = 20; // TODO randomize, if config of server contains padding_max
 
         let id = msg.id();
@@ -508,7 +522,6 @@ pub enum PeerConnection {
 pub struct BrokerPeerInfo {
     lastPeerAdvert: Option<PeerAdvert>,
     connected: PeerConnection,
-
 }
 
 const REPO_STORES_SUBDIR: &str = "repos";
@@ -522,32 +535,30 @@ pub struct BrokerServer {
     //overlayid_to_repostore: HashMap<RepoStoreId, &'a LmdbRepoStore>,
     //overlayid_to_repostore: Arc<RwLock<HashMap<OverlayId, RepoStoreId>>>,
     peers: RwLock<HashMap<DirectPeerId, BrokerPeerInfo>>,
-
-    //local_connections: 
+    //local_connections:
 }
 
 impl BrokerServer {
-
-    pub fn add_client_peer(&self, peer_id: DirectPeerId, bph: Arc<BrokerProtocolHandler>) -> Result<(),ProtocolError> {
-
+    pub fn add_client_peer(
+        &self,
+        peer_id: DirectPeerId,
+        bph: Arc<BrokerProtocolHandler>,
+    ) -> Result<(), ProtocolError> {
         let mut writer = self.peers.write().expect("write peers hashmap");
         let bpi = BrokerPeerInfo {
             lastPeerAdvert: None, //TODO: load from store
-            connected: PeerConnection::CLIENT(bph)
+            connected: PeerConnection::CLIENT(bph),
         };
-        if !writer.get(&peer_id).is_none() { 
-            return Err(ProtocolError::PeerAlreadyConnected); 
+        if !writer.get(&peer_id).is_none() {
+            return Err(ProtocolError::PeerAlreadyConnected);
         }
         writer.insert(peer_id.clone(), bpi);
         Ok(())
-
     }
 
     pub fn remove_client_peer(&self, peer_id: DirectPeerId) {
-
         let mut writer = self.peers.write().expect("write peers hashmap");
         writer.remove(&peer_id);
-
     }
 
     pub fn new(store: LmdbBrokerStore, mode: ConfigMode) -> Result<BrokerServer, BrokerError> {
@@ -561,15 +572,11 @@ impl BrokerServer {
             mode: configmode,
             repo_stores: Arc::new(RwLock::new(HashMap::new())),
             //overlayid_to_repostore: Arc::new(RwLock::new(HashMap::new())),
-            peers: RwLock::new(HashMap::new())
+            peers: RwLock::new(HashMap::new()),
         })
     }
 
-    fn open_or_create_repostore<F, R>(
-        &self,
-        repo_hash: RepoHash,
-        f: F,
-    ) -> Result<R, ProtocolError>
+    fn open_or_create_repostore<F, R>(&self, repo_hash: RepoHash, f: F) -> Result<R, ProtocolError>
     where
         F: FnOnce(&LmdbRepoStore) -> Result<R, ProtocolError>,
     {
@@ -580,7 +587,7 @@ impl BrokerServer {
         let mut path = self.store.path();
         path.push(REPO_STORES_SUBDIR);
         path.push::<String>(repo_hash.clone().into());
-        std::fs::create_dir_all(path.clone()).map_err(|_e| ProtocolError::WriteError )?;
+        std::fs::create_dir_all(path.clone()).map_err(|_e| ProtocolError::WriteError)?;
         println!("path for repo store: {}", path.to_str().unwrap());
         let repo = LmdbRepoStore::open(&path, *key.slice());
         let mut writer = self.repo_stores.write().expect("write repo_store hashmap");
@@ -602,14 +609,13 @@ impl BrokerServer {
             let reader = self.repo_stores.read().expect("read repo_store hashmap");
             let rep = reader.get(&repostore_id);
             if let Some(repo) = rep {
-                return f(repo)
+                return f(repo);
             }
         }
         // we need to open/create it
         // TODO: last_access
         return self.open_or_create_repostore(repostore_id, |repo| f(repo));
 
-        
         // } else {
         //     // it is ConfigMode::Local
         //     {
@@ -654,7 +660,7 @@ impl BrokerServer {
     pub fn protocol_handler(self: Arc<Self>) -> ProtocolHandler {
         let (s, r) = async_channel::unbounded::<Vec<u8>>();
         return ProtocolHandler {
-            addr:None,
+            addr: None,
             broker: Arc::clone(&self),
             protocol: ProtocolType::Start,
             auth_protocol: None,
@@ -943,12 +949,8 @@ impl BrokerServer {
                 getrandom::getrandom(&mut random_buf).unwrap();
                 let key = SymKey::ChaCha20Key(random_buf);
 
-                let _ = RepoStoreInfo::create(
-                    &overlay_id,
-                    &key,
-                    &self.store,
-                )?; // TODO in case of error, delete the previously created Overlay
-                    //debug_println!("KEY ADDED");
+                let _ = RepoStoreInfo::create(&overlay_id, &key, &self.store)?; // TODO in case of error, delete the previously created Overlay
+                                                                                //debug_println!("KEY ADDED");
                 over
             }
             Err(e) => return Err(e.into()),

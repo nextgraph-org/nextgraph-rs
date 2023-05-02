@@ -83,9 +83,9 @@ impl IConnection for ConnectionWebSocket {
         //     StartProtocol::Auth(ClientHello::V0()),
         // )))
         // .await;
-        log!("waiting...");
+        //log!("waiting...");
         //let res = join.next().await;
-        log!("finished...");
+        //log!("finished...");
         //log!("JOIN SHUTDOWN {:?}", res);
         // Note that since WsMeta::connect resolves to an opened connection, we don't see
         // any Open events here.
@@ -214,7 +214,7 @@ async fn ws_loop(
     if let ConnectionCommand::Error(err) = last_command.clone() {
         let _ = shutdown.send(err).await;
     } else if let ConnectionCommand::ProtocolError(err) = last_command.clone() {
-        let _ = shutdown.send(NetError::ProtocolError).await;
+        //let _ = shutdown.send(NetError::ProtocolError).await;
     } // otherwise, shutdown gracefully (with None). it is done automatically during destroy of shutdown
 
     receiver

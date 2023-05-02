@@ -71,6 +71,8 @@ pub enum ProtocolError {
     NoError,
     OtherError,
     Closing,
+    FsmNotReady,
+    MustBeEncrypted,
 } //MAX 949 ProtocolErrors
 
 impl ProtocolError {
