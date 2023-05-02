@@ -1,7 +1,7 @@
 // Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -13,10 +13,11 @@ use debug_print::*;
 use futures::future::BoxFuture;
 use futures::future::OptionFuture;
 use futures::FutureExt;
-use p2p_repo::types::*;
-use p2p_repo::utils::*;
+use p2p_net::actors::*;
 use p2p_net::errors::*;
 use p2p_net::types::*;
+use p2p_repo::types::*;
+use p2p_repo::utils::*;
 use rust_fsm::*;
 
 // state_machine! {
@@ -113,52 +114,52 @@ impl AuthProtocolHandler {
         ) -> Result<Vec<u8>, ProtocolError> {
             // match handler.machine.state() {
             //     &AuthProtocolServerState::ServerHelloSent => {
-                    let message = serde_bare::from_slice::<ClientAuth>(&frame)?;
-                    // let _ = handler
-                    //     .machine
-                    //     .consume(&AuthProtocolServerInput::ClientAuthReceived)
-                    //     .map_err(|_e| ProtocolError::InvalidState)?;
+            let message = serde_bare::from_slice::<ClientAuth>(&frame)?;
+            // let _ = handler
+            //     .machine
+            //     .consume(&AuthProtocolServerInput::ClientAuthReceived)
+            //     .map_err(|_e| ProtocolError::InvalidState)?;
 
-                    // verifying client auth
+            // verifying client auth
 
-                    debug_println!("verifying client auth");
+            debug_println!("verifying client auth");
 
-                    let _ = verify(
-                        &serde_bare::to_vec(&message.content_v0()).unwrap(),
-                        message.sig(),
-                        message.user(),
-                    )
-                    .map_err(|_e| ProtocolError::AccessDenied)?;
+            let _ = verify(
+                &serde_bare::to_vec(&message.content_v0()).unwrap(),
+                message.sig(),
+                message.user(),
+            )
+            .map_err(|_e| ProtocolError::AccessDenied)?;
 
-                    // debug_println!(
-                    //     "matching nonce : {:?} {:?}",
-                    //     message.nonce(),
-                    //     handler.nonce.as_ref().unwrap()
-                    // );
+            // debug_println!(
+            //     "matching nonce : {:?} {:?}",
+            //     message.nonce(),
+            //     handler.nonce.as_ref().unwrap()
+            // );
 
-                    if message.nonce() != handler.nonce.as_ref().unwrap() {
-                        // let _ = handler
-                        //     .machine
-                        //     .consume(&AuthProtocolServerInput::Error)
-                        //     .map_err(|_e| ProtocolError::InvalidState);
+            if message.nonce() != handler.nonce.as_ref().unwrap() {
+                // let _ = handler
+                //     .machine
+                //     .consume(&AuthProtocolServerInput::Error)
+                //     .map_err(|_e| ProtocolError::InvalidState);
 
-                        return Err(ProtocolError::AccessDenied);
-                    }
+                return Err(ProtocolError::AccessDenied);
+            }
 
-                    // TODO check that the device has been registered for this user. if not, return AccessDenied
+            // TODO check that the device has been registered for this user. if not, return AccessDenied
 
-                    // all is good, we advance the FSM and send back response
-                    // let _ = handler
-                    //     .machine
-                    //     .consume(&AuthProtocolServerInput::Ok)
-                    //     .map_err(|_e| ProtocolError::InvalidState)?;
+            // all is good, we advance the FSM and send back response
+            // let _ = handler
+            //     .machine
+            //     .consume(&AuthProtocolServerInput::Ok)
+            //     .map_err(|_e| ProtocolError::InvalidState)?;
 
-                    handler.user = Some(message.user());
+            handler.user = Some(message.user());
 
-                    Ok(vec![]) // without any metadata
-                //}
-                //_ => Err(ProtocolError::InvalidState),
-            //}
+            Ok(vec![]) // without any metadata
+                       //}
+                       //_ => Err(ProtocolError::InvalidState),
+                       //}
         }
 
         let res = process_state(self, frame);

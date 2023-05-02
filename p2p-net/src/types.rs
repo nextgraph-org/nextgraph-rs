@@ -14,9 +14,12 @@
 //! Corresponds to the BARE schema
 
 use core::fmt;
-use std::net::IpAddr;
+use std::{
+    any::{Any, TypeId},
+    net::IpAddr,
+};
 
-use crate::actors::*;
+use crate::{actor::EActor, actors::*, errors::ProtocolError};
 use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
 
@@ -102,6 +105,7 @@ impl From<&IP> for IpAddr {
 pub enum TransportProtocol {
     WS,
     QUIC,
+    Local,
 }
 
 /// IP transport address
@@ -482,7 +486,7 @@ pub enum OverlayRequestContentV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OverlayRequestV0 {
     /// Request ID
-    pub id: u64,
+    pub id: i64,
 
     /// Request content
     pub content: OverlayRequestContentV0,
@@ -506,7 +510,7 @@ pub enum OverlayResponseContentV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OverlayResponseV0 {
     /// Request ID
-    pub id: u64,
+    pub id: i64,
 
     /// Result
     pub result: u8,
@@ -805,12 +809,22 @@ pub enum BrokerRequestContentV0 {
     AddClient(AddClient),
     DelClient(DelClient),
 }
+impl BrokerRequestContentV0 {
+    pub fn type_id(&self) -> TypeId {
+        match self {
+            BrokerRequestContentV0::AddUser(a) => a.type_id(),
+            BrokerRequestContentV0::DelUser(a) => a.type_id(),
+            BrokerRequestContentV0::AddClient(a) => a.type_id(),
+            BrokerRequestContentV0::DelClient(a) => a.type_id(),
+        }
+    }
+}
 
 /// Broker request
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BrokerRequestV0 {
     /// Request ID
-    pub id: u64,
+    pub id: i64,
 
     /// Request content
     pub content: BrokerRequestContentV0,
@@ -823,9 +837,14 @@ pub enum BrokerRequest {
 }
 
 impl BrokerRequest {
-    pub fn id(&self) -> u64 {
+    pub fn id(&self) -> i64 {
         match self {
             BrokerRequest::V0(o) => o.id,
+        }
+    }
+    pub fn type_id(&self) -> TypeId {
+        match self {
+            BrokerRequest::V0(o) => o.content.type_id(),
         }
     }
     pub fn content_v0(&self) -> BrokerRequestContentV0 {
@@ -839,7 +858,7 @@ impl BrokerRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BrokerResponseV0 {
     /// Request ID
-    pub id: u64,
+    pub id: i64,
 
     /// Result (including but not limited to Result)
     pub result: u16,
@@ -852,7 +871,7 @@ pub enum BrokerResponse {
 }
 
 impl BrokerResponse {
-    pub fn id(&self) -> u64 {
+    pub fn id(&self) -> i64 {
         match self {
             BrokerResponse::V0(o) => o.id,
         }
@@ -1157,7 +1176,7 @@ pub enum BrokerOverlayRequestContentV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BrokerOverlayRequestV0 {
     /// Request ID
-    pub id: u64,
+    pub id: i64,
 
     /// Request content
     pub content: BrokerOverlayRequestContentV0,
@@ -1170,7 +1189,7 @@ pub enum BrokerOverlayRequest {
 }
 
 impl BrokerOverlayRequest {
-    pub fn id(&self) -> u64 {
+    pub fn id(&self) -> i64 {
         match self {
             BrokerOverlayRequest::V0(o) => o.id,
         }
@@ -1194,7 +1213,7 @@ pub enum BrokerOverlayResponseContentV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BrokerOverlayResponseV0 {
     /// Request ID
-    pub id: u64,
+    pub id: i64,
 
     /// Result (including but not limited to Result)
     pub result: u16,
@@ -1210,7 +1229,7 @@ pub enum BrokerOverlayResponse {
 }
 
 impl BrokerOverlayResponse {
-    pub fn id(&self) -> u64 {
+    pub fn id(&self) -> i64 {
         match self {
             BrokerOverlayResponse::V0(o) => o.id,
         }
@@ -1299,7 +1318,7 @@ impl BrokerOverlayMessage {
             ),
         }
     }
-    pub fn id(&self) -> u64 {
+    pub fn id(&self) -> i64 {
         match self {
             BrokerOverlayMessage::V0(o) => match &o.content {
                 BrokerOverlayMessageContentV0::BrokerOverlayResponse(r) => r.id(),
@@ -1374,10 +1393,20 @@ pub struct BrokerMessageV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BrokerMessage {
     V0(BrokerMessageV0),
-    Close,
+    Close, //TODO: remove Close.
 }
 
 impl BrokerMessage {
+    pub fn type_id(&self) -> TypeId {
+        match self {
+            BrokerMessage::V0(a) => match &a.content {
+                BrokerMessageContentV0::BrokerOverlayMessage(p) => p.type_id(),
+                BrokerMessageContentV0::BrokerResponse(p) => p.type_id(),
+                BrokerMessageContentV0::BrokerRequest(p) => p.type_id(),
+            },
+            BrokerMessage::Close => TypeId::of::<BrokerMessage>(),
+        }
+    }
     pub fn is_close(&self) -> bool {
         match self {
             BrokerMessage::V0(o) => false,
@@ -1411,7 +1440,7 @@ impl BrokerMessage {
             BrokerMessage::Close => panic!("Close not implemented"),
         }
     }
-    pub fn id(&self) -> u64 {
+    pub fn id(&self) -> i64 {
         match self {
             BrokerMessage::V0(o) => match &o.content {
                 BrokerMessageContentV0::BrokerOverlayMessage(p) => p.id(),
@@ -1520,26 +1549,34 @@ pub enum ExtRequestContentV0 {
     ExtBranchSyncReq(ExtBranchSyncReq),
 }
 
-/// External request authenticated by a MAC
+/// External Request Payload V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ExtRequestPayload {
+    content: ExtRequestContentV0,
+    // ...
+}
+
+/// External request with its request ID
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtRequestV0 {
     /// Request ID
-    pub id: u64,
+    pub id: i64,
 
-    /// Request content
-    pub content: ExtRequestContentV0,
-
-    /// BLAKE3 MAC over content
-    /// BLAKE3 keyed hash:
-    /// - key: BLAKE3 derive_key ("NextGraph ExtRequest BLAKE3 key",
-    ///                           repo_pubkey + repo_secret)
-    pub mac: Digest,
+    /// Request payload
+    pub payload: ExtRequestPayload,
 }
 
-/// External request authenticated by a MAC
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExtRequest {
     V0(ExtRequestV0),
+}
+
+impl ExtRequest {
+    pub fn id(&self) -> i64 {
+        match self {
+            ExtRequest::V0(v0) => v0.id,
+        }
+    }
 }
 
 /// Content of ExtResponseV0
@@ -1554,7 +1591,7 @@ pub enum ExtResponseContentV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtResponseV0 {
     /// Request ID
-    pub id: u64,
+    pub id: i64,
 
     /// Result code
     pub result: u16,
@@ -1569,6 +1606,25 @@ pub enum ExtResponse {
     V0(ExtResponseV0),
 }
 
+impl ExtResponse {
+    pub fn id(&self) -> i64 {
+        match self {
+            ExtResponse::V0(v0) => v0.id,
+        }
+    }
+}
+
+impl TryFrom<ProtocolMessage> for ExtResponse {
+    type Error = ProtocolError;
+    fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
+        if let ProtocolMessage::ExtResponse(ext_res) = msg {
+            Ok(ext_res)
+        } else {
+            Err(ProtocolError::InvalidValue)
+        }
+    }
+}
+
 ///
 /// PROTOCOL MESSAGES
 ///
@@ -1579,49 +1635,55 @@ pub enum ProtocolMessage {
     ServerHello(ServerHello),
     ClientAuth(ClientAuth),
     AuthResult(AuthResult),
+    ExtRequest(ExtRequest),
     ExtResponse(ExtResponse),
     BrokerMessage(BrokerMessage),
+}
+
+impl ProtocolMessage {
+    pub fn id(&self) -> i64 {
+        match self {
+            ProtocolMessage::Noise(_) => 0,
+            ProtocolMessage::Start(_) => 0,
+            ProtocolMessage::ServerHello(_) => 0,
+            ProtocolMessage::ClientAuth(_) => 0,
+            ProtocolMessage::AuthResult(_) => 0,
+            ProtocolMessage::ExtRequest(ext_req) => ext_req.id(),
+            ProtocolMessage::ExtResponse(ext_res) => ext_res.id(),
+            ProtocolMessage::BrokerMessage(broker_msg) => broker_msg.id(),
+        }
+    }
+    pub fn type_id(&self) -> TypeId {
+        match self {
+            ProtocolMessage::Noise(a) => a.type_id(),
+            ProtocolMessage::Start(a) => a.type_id(),
+            ProtocolMessage::ServerHello(a) => a.type_id(),
+            ProtocolMessage::ClientAuth(a) => a.type_id(),
+            ProtocolMessage::AuthResult(a) => a.type_id(),
+            ProtocolMessage::ExtRequest(a) => a.type_id(),
+            ProtocolMessage::ExtResponse(a) => a.type_id(),
+            ProtocolMessage::BrokerMessage(a) => a.type_id(),
+        }
+    }
+
+    pub fn get_actor(&self) -> Box<dyn EActor> {
+        match self {
+            //ProtocolMessage::Noise(a) => a.get_actor(),
+            ProtocolMessage::Start(a) => a.get_actor(),
+            // ProtocolMessage::ServerHello(a) => a.get_actor(),
+            // ProtocolMessage::ClientAuth(a) => a.get_actor(),
+            // ProtocolMessage::AuthResult(a) => a.get_actor(),
+            // ProtocolMessage::ExtRequest(a) => a.get_actor(),
+            // ProtocolMessage::ExtResponse(a) => a.get_actor(),
+            // ProtocolMessage::BrokerMessage(a) => a.get_actor(),
+            _ => unimplemented!(),
+        }
+    }
 }
 
 ///
 /// AUTHENTICATION MESSAGES
 ///
-
-/// Client Hello
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ClientHello {
-    V0(),
-}
-
-/// Start chosen protocol
-/// First message sent by the client
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum StartProtocol {
-    Auth(ClientHello),
-    Ext(ExtRequest),
-}
-
-/// Server hello sent upon a client connection
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ServerHelloV0 {
-    /// Nonce for ClientAuth
-    #[serde(with = "serde_bytes")]
-    pub nonce: Vec<u8>,
-}
-
-/// Server hello sent upon a client connection
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ServerHello {
-    V0(ServerHelloV0),
-}
-
-impl ServerHello {
-    pub fn nonce(&self) -> &Vec<u8> {
-        match self {
-            ServerHello::V0(o) => &o.nonce,
-        }
-    }
-}
 
 /// Content of ClientAuthV0
 #[derive(Clone, Debug, Serialize, Deserialize)]
