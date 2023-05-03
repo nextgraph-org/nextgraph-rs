@@ -245,6 +245,7 @@ impl BrokerProtocolHandler {
             content: BrokerMessageContentV0::BrokerResponse(BrokerResponse::V0(BrokerResponseV0 {
                 id,
                 result,
+                content: BrokerResponseContentV0::EmptyResponse(()),
             })),
         });
         msg
@@ -262,8 +263,8 @@ impl BrokerProtocolHandler {
             Err(e) => e.into(),
         };
         let content = match block {
-            Some(b) => Some(BrokerOverlayResponseContentV0::Block(b)),
-            None => None,
+            Some(b) => BrokerOverlayResponseContentV0::Block(b),
+            None => BrokerOverlayResponseContentV0::EmptyResponse(()),
         };
         let msg = BrokerMessage::V0(BrokerMessageV0 {
             padding: vec![0; padding_size],
@@ -294,8 +295,8 @@ impl BrokerProtocolHandler {
             Err(e) => (*e).clone().into(),
         };
         let content = match res {
-            Ok(r) => Some(BrokerOverlayResponseContentV0::Block(r)),
-            Err(_) => None,
+            Ok(r) => BrokerOverlayResponseContentV0::Block(r),
+            Err(_) => BrokerOverlayResponseContentV0::EmptyResponse(()),
         };
         let msg = BrokerMessage::V0(BrokerMessageV0 {
             padding: vec![0; padding_size],

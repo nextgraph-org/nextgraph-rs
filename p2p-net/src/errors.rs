@@ -43,20 +43,22 @@ impl fmt::Display for NetError {
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive, Clone)]
 #[repr(u16)]
 pub enum ProtocolError {
-    WriteError = 1,
+    NoError = 0,
+    PartialContent,
+    EndOfStream,
+
+    WriteError,
     WsError,
     ActorError,
     InvalidState,
     SignatureError,
     InvalidSignature,
     SerializationError,
-    PartialContent,
     AccessDenied,
     OverlayNotJoined,
     OverlayNotFound,
     BrokerError,
     NotFound,
-    EndOfStream,
     StoreError,
     MissingBlocks,
     ObjectParseError,
@@ -68,7 +70,6 @@ pub enum ProtocolError {
     Timeout,
 
     PeerAlreadyConnected,
-    NoError,
     OtherError,
     Closing,
     FsmNotReady,

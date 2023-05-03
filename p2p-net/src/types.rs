@@ -501,6 +501,7 @@ pub enum OverlayRequest {
 /// Content of OverlayResponseV0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum OverlayResponseContentV0 {
+    EmptyResponse(()),
     Block(Block),
     EventResp(EventResp),
     Event(Event),
@@ -513,10 +514,10 @@ pub struct OverlayResponseV0 {
     pub id: i64,
 
     /// Result
-    pub result: u8,
+    pub result: u16,
 
     /// Response content
-    pub content: Option<OverlayResponseContentV0>,
+    pub content: OverlayResponseContentV0,
 }
 
 /// Request sent to an OverlayRequest
@@ -861,6 +862,12 @@ impl BrokerRequest {
     }
 }
 
+/// Content of `BrokerResponseV0`
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum BrokerResponseContentV0 {
+    EmptyResponse(()),
+}
+
 /// Response to a `BrokerRequest`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BrokerResponseV0 {
@@ -869,6 +876,8 @@ pub struct BrokerResponseV0 {
 
     /// Result (including but not limited to Result)
     pub result: u16,
+
+    pub content: BrokerResponseContentV0,
 }
 
 /// Response to a `BrokerRequest`
@@ -1225,6 +1234,7 @@ impl BrokerOverlayRequest {
 /// Content of `BrokerOverlayResponseV0`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BrokerOverlayResponseContentV0 {
+    EmptyResponse(()),
     Block(Block),
     ObjectId(ObjectId),
     OverlayStatusResp(OverlayStatusResp),
@@ -1240,7 +1250,7 @@ pub struct BrokerOverlayResponseV0 {
     pub result: u16,
 
     /// Response content
-    pub content: Option<BrokerOverlayResponseContentV0>,
+    pub content: BrokerOverlayResponseContentV0,
 }
 
 /// Response to a `BrokerOverlayRequest`
@@ -1270,22 +1280,16 @@ impl BrokerOverlayResponse {
     pub fn block(&self) -> Option<&Block> {
         match self {
             BrokerOverlayResponse::V0(o) => match &o.content {
-                Some(contentv0) => match contentv0 {
-                    BrokerOverlayResponseContentV0::Block(b) => Some(b),
-                    _ => panic!("this not a block reponse"),
-                },
-                None => None,
+                BrokerOverlayResponseContentV0::Block(b) => Some(b),
+                _ => panic!("this not a block response"),
             },
         }
     }
     pub fn object_id(&self) -> ObjectId {
         match self {
             BrokerOverlayResponse::V0(o) => match &o.content {
-                Some(contentv0) => match contentv0 {
-                    BrokerOverlayResponseContentV0::ObjectId(id) => id.clone(),
-                    _ => panic!("this not an objectId reponse"),
-                },
-                None => panic!("this not an objectId reponse (doesnt have content)"),
+                BrokerOverlayResponseContentV0::ObjectId(id) => id.clone(),
+                _ => panic!("this not an objectId reponse"),
             },
         }
     }

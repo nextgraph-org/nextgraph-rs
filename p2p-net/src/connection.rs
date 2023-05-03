@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::actor::{Actor, EActor};
+use crate::actor::{Actor, SoS};
 use crate::actors::*;
 use crate::errors::NetError;
 use crate::errors::ProtocolError;
@@ -20,9 +20,6 @@ use p2p_repo::types::{PrivKey, PubKey};
 use unique_id::sequence::SequenceGenerator;
 use unique_id::Generator;
 use unique_id::GeneratorFromSeed;
-
-pub type Sender<T> = mpsc::UnboundedSender<T>;
-pub type Receiver<T> = mpsc::UnboundedReceiver<T>;
 
 #[derive(Debug, Clone)]
 pub enum ConnectionCommand {
@@ -77,6 +74,8 @@ pub struct NoiseFSM {
     dir: ConnectionDir,
     sender: Sender<ConnectionCommand>,
 
+    actors: Arc<Mutex<HashMap<i64, Sender<ConnectionCommand>>>>,
+
     noise_handshake_state: Option<HandshakeState<X25519, ChaCha20Poly1305, Blake2b>>,
     noise_cipher_state: Option<CipherState<ChaCha20Poly1305>>,
 }
@@ -100,6 +99,7 @@ impl NoiseFSM {
     pub fn new(
         tp: TransportProtocol,
         dir: ConnectionDir,
+        actors: Arc<Mutex<HashMap<i64, Sender<ConnectionCommand>>>>,
         sender: Sender<ConnectionCommand>,
     ) -> Self {
         Self {
@@ -109,6 +109,7 @@ impl NoiseFSM {
                 FSMstate::Noise0
             },
             dir,
+            actors,
             sender,
             noise_handshake_state: None,
             noise_cipher_state: None,
@@ -121,6 +122,10 @@ impl NoiseFSM {
 
     fn encrypt(&mut self, plaintext: ProtocolMessage) -> Noise {
         unimplemented!();
+    }
+
+    pub async fn remove_actor(&self, id: i64) {
+        self.actors.lock().await.remove(&id);
     }
 
     pub async fn send(&mut self, msg: ProtocolMessage) -> Result<(), ProtocolError> {
@@ -348,13 +353,13 @@ impl ConnectionBase {
     }
 
     pub async fn request<
-        A: crate::actor::BrokerRequest + Sync + Send + 'static,
-        B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + 'static,
+        A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
+        B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,
     >(
         &self,
         msg: A,
-        stream: Option<A>,
-    ) -> Result<B, ProtocolError> {
+        //stream: Option<A>,
+    ) -> Result<SoS<B>, ProtocolError> {
         if self.fsm.is_none() {
             return Err(ProtocolError::FsmNotReady);
         }
@@ -365,12 +370,11 @@ impl ConnectionBase {
         }
         let mut actor = Box::new(Actor::<A, B>::new(id, true));
         self.actors.lock().await.insert(id, actor.get_receiver_tx());
-        let mut proto_msg = msg.send();
+        let mut proto_msg: ProtocolMessage = msg.into();
         proto_msg.set_id(id);
         let res = actor
-            .request(proto_msg, stream, Arc::clone(self.fsm.as_ref().unwrap()))
+            .request(proto_msg, Arc::clone(self.fsm.as_ref().unwrap()))
             .await;
-        self.actors.lock().await.remove(&id);
         res
     }
 
@@ -403,6 +407,7 @@ impl ConnectionBase {
         let fsm = Arc::new(Mutex::new(NoiseFSM::new(
             self.tp,
             self.dir.clone(),
+            Arc::clone(&self.actors),
             sender_tx.clone(),
         )));
         self.fsm = Some(Arc::clone(&fsm));

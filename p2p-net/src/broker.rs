@@ -3,7 +3,7 @@ use crate::connection::*;
 use crate::errors::*;
 use crate::types::*;
 use crate::utils::spawn_and_log_error;
-use crate::utils::ResultSend;
+use crate::utils::{Receiver, ResultSend, Sender};
 use crate::{log, sleep};
 use async_std::stream::StreamExt;
 use async_std::sync::{Arc, RwLock};

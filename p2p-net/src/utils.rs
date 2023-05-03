@@ -30,3 +30,6 @@ where
         }
     })
 }
+
+pub type Sender<T> = mpsc::UnboundedSender<T>;
+pub type Receiver<T> = mpsc::UnboundedReceiver<T>;

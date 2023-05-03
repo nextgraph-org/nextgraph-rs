@@ -48,9 +48,15 @@ impl ExtHello {
     }
 }
 
-impl BrokerRequest for ExtHello {
-    fn send(&self) -> ProtocolMessage {
-        ProtocolMessage::Start(StartProtocol::Ext(self.clone()))
+// impl BrokerRequest for ExtHello {
+//     fn send(&self) -> ProtocolMessage {
+//         ProtocolMessage::Start(StartProtocol::Ext(self.clone()))
+//     }
+// }
+
+impl From<ExtHello> for ProtocolMessage {
+    fn from(msg: ExtHello) -> ProtocolMessage {
+        ProtocolMessage::Start(StartProtocol::Ext(msg))
     }
 }
 
@@ -96,9 +102,15 @@ impl ServerHello {
     }
 }
 
-impl BrokerRequest for ClientHello {
-    fn send(&self) -> ProtocolMessage {
-        ProtocolMessage::Start(StartProtocol::Client(ClientHello::Local))
+// impl BrokerRequest for ClientHello {
+//     fn send(&self) -> ProtocolMessage {
+//         ProtocolMessage::Start(StartProtocol::Client(ClientHello::Local))
+//     }
+// }
+
+impl From<ClientHello> for ProtocolMessage {
+    fn from(msg: ClientHello) -> ProtocolMessage {
+        ProtocolMessage::Start(StartProtocol::Client(msg))
     }
 }
 
@@ -124,11 +136,11 @@ impl TryFrom<ProtocolMessage> for ServerHello {
     }
 }
 
-impl BrokerRequest for ServerHello {
-    fn send(&self) -> ProtocolMessage {
-        ProtocolMessage::ServerHello(self.clone())
-    }
-}
+// impl BrokerRequest for ServerHello {
+//     fn send(&self) -> ProtocolMessage {
+//         ProtocolMessage::ServerHello(self.clone())
+//     }
+// }
 
 impl From<ServerHello> for ProtocolMessage {
     fn from(msg: ServerHello) -> ProtocolMessage {

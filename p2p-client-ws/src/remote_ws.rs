@@ -28,7 +28,7 @@ use async_std::task;
 use p2p_net::errors::*;
 use p2p_net::log;
 use p2p_net::types::*;
-use p2p_net::utils::{spawn_and_log_error, ResultSend};
+use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
 use p2p_net::{connection::*, WS_PORT};
 use p2p_repo::types::*;
 use p2p_repo::utils::{generate_keypair, now_timestamp};
