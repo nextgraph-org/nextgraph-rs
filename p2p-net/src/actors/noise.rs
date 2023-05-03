@@ -15,9 +15,15 @@ pub enum Noise {
     V0(NoiseV0),
 }
 
-impl BrokerRequest for Noise {
-    fn send(&self) -> ProtocolMessage {
-        ProtocolMessage::Noise(self.clone())
+// impl BrokerRequest for Noise {
+//     fn send(&self) -> ProtocolMessage {
+//         ProtocolMessage::Noise(self.clone())
+//     }
+// }
+
+impl From<Noise> for ProtocolMessage {
+    fn from(msg: Noise) -> ProtocolMessage {
+        ProtocolMessage::Noise(msg)
     }
 }
 
@@ -34,18 +40,8 @@ impl TryFrom<ProtocolMessage> for Noise {
 
 impl Actor<'_, Noise, Noise> {}
 
-// impl IActor for Actor<'_, Noise, Noise> {
-//     // fn process_request(&self, req: Box<dyn BrokerRequest>) -> Box<dyn BrokerResponse> {
-//     //     //let r = req as Noise;
-//     // }
-// }
-
 #[async_trait::async_trait]
 impl EActor for Actor<'_, Noise, Noise> {
-    // fn process_request(&self, req: Box<dyn BrokerRequest>) -> Box<dyn BrokerResponse> {
-    //     //let r = req as Noise;
-    // }
-
     async fn respond(
         &mut self,
         msg: ProtocolMessage,

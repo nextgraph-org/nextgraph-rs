@@ -6,12 +6,13 @@ use std::any::{Any, TypeId};
 use std::convert::From;
 use std::sync::Arc;
 
+use crate::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
 use crate::{connection::*, errors::ProtocolError, log, types::ProtocolMessage};
 use std::marker::PhantomData;
 
-pub trait BrokerRequest: std::fmt::Debug {
-    fn send(&self) -> ProtocolMessage;
-}
+// pub trait BrokerRequest: std::fmt::Debug {
+//     fn send(&self) -> ProtocolMessage;
+// }
 
 //pub trait BrokerResponse: TryFrom<ProtocolMessage> + std::fmt::Debug {}
 
@@ -20,10 +21,6 @@ impl TryFrom<ProtocolMessage> for () {
     fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
         Ok(())
     }
-}
-
-pub trait IActor: EActor {
-    //fn process_request(&self, req: Box<dyn BrokerRequest>) -> Box<dyn BrokerResponse> {}
 }
 
 #[async_trait::async_trait]
@@ -41,13 +38,13 @@ pub trait EActor: Send + Sync + std::fmt::Debug {
 #[derive(Debug)]
 pub struct Actor<
     'a,
-    A: BrokerRequest,
+    A: Into<ProtocolMessage> + std::fmt::Debug,
     B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync,
 > {
     id: i64,
     phantom_a: PhantomData<&'a A>,
     phantom_b: PhantomData<&'a B>,
-    receiver: Receiver<ConnectionCommand>,
+    receiver: Option<Receiver<ConnectionCommand>>,
     receiver_tx: Sender<ConnectionCommand>,
     initiator: bool,
 }
@@ -83,19 +80,21 @@ pub struct Actor<
 //     // }
 // }
 
+pub enum SoS<B> {
+    Single(B),
+    Stream(mpsc::UnboundedReceiver<B>),
+}
+
 impl<
-        A: BrokerRequest + 'static,
-        B: TryFrom<ProtocolMessage, Error = ProtocolError>
-            + std::marker::Sync
-            + std::fmt::Debug
-            + 'static,
+        A: Into<ProtocolMessage> + std::fmt::Debug + 'static,
+        B: TryFrom<ProtocolMessage, Error = ProtocolError> + Sync + Send + std::fmt::Debug + 'static,
     > Actor<'_, A, B>
 {
     pub fn new(id: i64, initiator: bool) -> Self {
         let (mut receiver_tx, receiver) = mpsc::unbounded::<ConnectionCommand>();
         Self {
             id,
-            receiver,
+            receiver: Some(receiver),
             receiver_tx,
             phantom_a: PhantomData,
             phantom_b: PhantomData,
@@ -111,13 +110,62 @@ impl<
     pub async fn request(
         &mut self,
         msg: ProtocolMessage,
-        stream: Option<impl BrokerRequest + std::marker::Send>,
+        //stream: Option<impl BrokerRequest + std::marker::Send>,
         fsm: Arc<Mutex<NoiseFSM>>,
-    ) -> Result<B, ProtocolError> {
+    ) -> Result<SoS<B>, ProtocolError> {
         //sender.send(ConnectionCommand::Msg(msg.send())).await;
         fsm.lock().await.send(msg).await?;
-        match self.receiver.next().await {
-            Some(ConnectionCommand::Msg(msg)) => msg.try_into(),
+        let mut receiver = self.receiver.take().unwrap();
+        match receiver.next().await {
+            Some(ConnectionCommand::Msg(msg)) => {
+                if let ProtocolMessage::BrokerMessage(ref bm) = msg {
+                    if bm.result() == ProtocolError::PartialContent.into()
+                        && TypeId::of::<B>() != TypeId::of::<()>()
+                    {
+                        let (b_sender, b_receiver) = mpsc::unbounded::<B>();
+                        async fn pump_stream<C: TryFrom<ProtocolMessage, Error = ProtocolError>>(
+                            mut actor_receiver: Receiver<ConnectionCommand>,
+                            mut sos_sender: Sender<C>,
+                            fsm: Arc<Mutex<NoiseFSM>>,
+                            id: i64,
+                        ) -> ResultSend<()> {
+                            async move {
+                                while let Some(ConnectionCommand::Msg(msg)) =
+                                    actor_receiver.next().await
+                                {
+                                    if let ProtocolMessage::BrokerMessage(ref bm) = msg {
+                                        if bm.result() == ProtocolError::EndOfStream.into() {
+                                            break;
+                                        }
+                                        let response = msg.try_into();
+                                        if response.is_err() {
+                                            // TODO deal with errors.
+                                            break;
+                                        }
+                                        sos_sender.send(response.unwrap()).await;
+                                    } else {
+                                        // todo deal with error (not a brokermessage)
+                                        break;
+                                    }
+                                }
+                                fsm.lock().await.remove_actor(id).await;
+                            }
+                            .await;
+                            Ok(())
+                        }
+                        spawn_and_log_error(pump_stream::<B>(
+                            receiver,
+                            b_sender,
+                            Arc::clone(&fsm),
+                            self.id,
+                        ));
+                        return Ok(SoS::<B>::Stream(b_receiver));
+                    }
+                }
+                fsm.lock().await.remove_actor(self.id).await;
+                let response: B = msg.try_into()?;
+                Ok(SoS::<B>::Single(response))
+            }
             _ => Err(ProtocolError::ActorError),
         }
     }
