@@ -340,7 +340,7 @@ mod test {
                 )
                 .await;
             log!("broker.connect : {:?}", res);
-            //res.expect_throw("assume the connection succeeds");
+            res.expect("assume the connection succeeds");
         }
 
         async fn timer_close(remote_peer_id: DirectPeerId) -> ResultSend<()> {

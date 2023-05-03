@@ -135,21 +135,21 @@ impl NoiseFSM {
         }
     }
 
-    pub async fn receive(
-        &mut self,
-        msg: ProtocolMessage,
-    ) -> Result<ProtocolMessage, ProtocolError> {
-        if self.state == FSMstate::AuthResult && self.noise_cipher_state.is_some() {
-            if let ProtocolMessage::Noise(noise) = msg {
-                let new = self.decrypt(&noise);
-                Ok(new)
-            } else {
-                Err(ProtocolError::MustBeEncrypted)
-            }
-        } else {
-            Err(ProtocolError::InvalidState)
-        }
-    }
+    // pub async fn receive(
+    //     &mut self,
+    //     msg: ProtocolMessage,
+    // ) -> Result<ProtocolMessage, ProtocolError> {
+    //     if self.state == FSMstate::AuthResult && self.noise_cipher_state.is_some() {
+    //         if let ProtocolMessage::Noise(noise) = msg {
+    //             let new = self.decrypt(&noise);
+    //             Ok(new)
+    //         } else {
+    //             Err(ProtocolError::MustBeEncrypted)
+    //         }
+    //     } else {
+    //         Err(ProtocolError::InvalidState)
+    //     }
+    // }
 
     pub fn step(
         &mut self,
@@ -181,7 +181,7 @@ impl NoiseFSM {
             FSMstate::Noise0 => {}
             FSMstate::Noise1 => {}
             FSMstate::Noise2 => {}
-            FSMstate::Noise3 => {}
+            FSMstate::Noise3 => {} //set noise_handshake_state to none
             FSMstate::ExtRequest => {}
             FSMstate::ExtResponse => {}
             FSMstate::ClientHello => {}
@@ -348,11 +348,8 @@ impl ConnectionBase {
     }
 
     pub async fn request<
-        A: crate::actor::BrokerRequest + std::marker::Sync + std::marker::Send + 'static,
-        B: TryFrom<ProtocolMessage, Error = ProtocolError>
-            + std::fmt::Debug
-            + std::marker::Sync
-            + 'static,
+        A: crate::actor::BrokerRequest + Sync + Send + 'static,
+        B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + 'static,
     >(
         &self,
         msg: A,
@@ -368,9 +365,13 @@ impl ConnectionBase {
         }
         let mut actor = Box::new(Actor::<A, B>::new(id, true));
         self.actors.lock().await.insert(id, actor.get_receiver_tx());
-        actor
-            .request(msg, stream, Arc::clone(self.fsm.as_ref().unwrap()))
-            .await
+        let mut proto_msg = msg.send();
+        proto_msg.set_id(id);
+        let res = actor
+            .request(proto_msg, stream, Arc::clone(self.fsm.as_ref().unwrap()))
+            .await;
+        self.actors.lock().await.remove(&id);
+        res
     }
 
     pub async fn send(&mut self, cmd: ConnectionCommand) {

@@ -842,6 +842,13 @@ impl BrokerRequest {
             BrokerRequest::V0(o) => o.id,
         }
     }
+    pub fn set_id(&mut self, id: i64) {
+        match self {
+            BrokerRequest::V0(v0) => {
+                v0.id = id;
+            }
+        }
+    }
     pub fn type_id(&self) -> TypeId {
         match self {
             BrokerRequest::V0(o) => o.content.type_id(),
@@ -874,6 +881,13 @@ impl BrokerResponse {
     pub fn id(&self) -> i64 {
         match self {
             BrokerResponse::V0(o) => o.id,
+        }
+    }
+    pub fn set_id(&mut self, id: i64) {
+        match self {
+            BrokerResponse::V0(v0) => {
+                v0.id = id;
+            }
         }
     }
     pub fn result(&self) -> u16 {
@@ -1194,6 +1208,13 @@ impl BrokerOverlayRequest {
             BrokerOverlayRequest::V0(o) => o.id,
         }
     }
+    pub fn set_id(&mut self, id: i64) {
+        match self {
+            BrokerOverlayRequest::V0(v0) => {
+                v0.id = id;
+            }
+        }
+    }
     pub fn content_v0(&self) -> &BrokerOverlayRequestContentV0 {
         match self {
             BrokerOverlayRequest::V0(o) => &o.content,
@@ -1232,6 +1253,13 @@ impl BrokerOverlayResponse {
     pub fn id(&self) -> i64 {
         match self {
             BrokerOverlayResponse::V0(o) => o.id,
+        }
+    }
+    pub fn set_id(&mut self, id: i64) {
+        match self {
+            BrokerOverlayResponse::V0(v0) => {
+                v0.id = id;
+            }
         }
     }
     pub fn result(&self) -> u16 {
@@ -1323,6 +1351,17 @@ impl BrokerOverlayMessage {
             BrokerOverlayMessage::V0(o) => match &o.content {
                 BrokerOverlayMessageContentV0::BrokerOverlayResponse(r) => r.id(),
                 BrokerOverlayMessageContentV0::BrokerOverlayRequest(r) => r.id(),
+                BrokerOverlayMessageContentV0::Event(_) => {
+                    panic!("it is an event")
+                }
+            },
+        }
+    }
+    pub fn set_id(&mut self, id: i64) {
+        match self {
+            BrokerOverlayMessage::V0(o) => match &mut o.content {
+                BrokerOverlayMessageContentV0::BrokerOverlayResponse(ref mut r) => r.set_id(id),
+                BrokerOverlayMessageContentV0::BrokerOverlayRequest(ref mut r) => r.set_id(id),
                 BrokerOverlayMessageContentV0::Event(_) => {
                     panic!("it is an event")
                 }
@@ -1446,6 +1485,16 @@ impl BrokerMessage {
                 BrokerMessageContentV0::BrokerOverlayMessage(p) => p.id(),
                 BrokerMessageContentV0::BrokerResponse(r) => r.id(),
                 BrokerMessageContentV0::BrokerRequest(r) => r.id(),
+            },
+            BrokerMessage::Close => panic!("Close not implemented"),
+        }
+    }
+    pub fn set_id(&mut self, id: i64) {
+        match self {
+            BrokerMessage::V0(o) => match &mut o.content {
+                BrokerMessageContentV0::BrokerOverlayMessage(ref mut p) => p.set_id(id),
+                BrokerMessageContentV0::BrokerResponse(ref mut r) => r.set_id(id),
+                BrokerMessageContentV0::BrokerRequest(ref mut r) => r.set_id(id),
             },
             BrokerMessage::Close => panic!("Close not implemented"),
         }
@@ -1577,6 +1626,13 @@ impl ExtRequest {
             ExtRequest::V0(v0) => v0.id,
         }
     }
+    pub fn set_id(&mut self, id: i64) {
+        match self {
+            ExtRequest::V0(v0) => {
+                v0.id = id;
+            }
+        }
+    }
 }
 
 /// Content of ExtResponseV0
@@ -1610,6 +1666,13 @@ impl ExtResponse {
     pub fn id(&self) -> i64 {
         match self {
             ExtResponse::V0(v0) => v0.id,
+        }
+    }
+    pub fn set_id(&mut self, id: i64) {
+        match self {
+            ExtResponse::V0(v0) => {
+                v0.id = id;
+            }
         }
     }
 }
@@ -1651,6 +1714,18 @@ impl ProtocolMessage {
             ProtocolMessage::ExtRequest(ext_req) => ext_req.id(),
             ProtocolMessage::ExtResponse(ext_res) => ext_res.id(),
             ProtocolMessage::BrokerMessage(broker_msg) => broker_msg.id(),
+        }
+    }
+    pub fn set_id(&mut self, id: i64) {
+        match self {
+            ProtocolMessage::Noise(_) => panic!("cannot set ID"),
+            ProtocolMessage::Start(_) => panic!("cannot set ID"),
+            ProtocolMessage::ServerHello(_) => panic!("cannot set ID"),
+            ProtocolMessage::ClientAuth(_) => panic!("cannot set ID"),
+            ProtocolMessage::AuthResult(_) => panic!("cannot set ID"),
+            ProtocolMessage::ExtRequest(ext_req) => ext_req.set_id(id),
+            ProtocolMessage::ExtResponse(ext_res) => ext_res.set_id(id),
+            ProtocolMessage::BrokerMessage(broker_msg) => broker_msg.set_id(id),
         }
     }
     pub fn type_id(&self) -> TypeId {

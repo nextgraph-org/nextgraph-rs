@@ -41,6 +41,9 @@ pub async fn greet(name: &str) {
             )
             .await;
         log!("broker.connect : {:?}", res);
+        if res.is_err() {
+            panic!("Cannot connect");
+        }
         BROKER.read().await.print_status();
 
         //res.expect_throw("assume the connection succeeds");

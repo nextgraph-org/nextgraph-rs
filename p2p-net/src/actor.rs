@@ -42,7 +42,7 @@ pub trait EActor: Send + Sync + std::fmt::Debug {
 pub struct Actor<
     'a,
     A: BrokerRequest,
-    B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + std::marker::Sync,
+    B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync,
 > {
     id: i64,
     phantom_a: PhantomData<&'a A>,
@@ -103,19 +103,19 @@ impl<
         }
     }
 
-    pub fn verify(&self, msg: ProtocolMessage) -> bool {
-        self.initiator && msg.type_id() == TypeId::of::<B>()
-            || !self.initiator && msg.type_id() == TypeId::of::<A>()
-    }
+    // pub fn verify(&self, msg: ProtocolMessage) -> bool {
+    //     self.initiator && msg.type_id() == TypeId::of::<B>()
+    //         || !self.initiator && msg.type_id() == TypeId::of::<A>()
+    // }
 
     pub async fn request(
         &mut self,
-        msg: impl BrokerRequest + std::marker::Sync + std::marker::Send,
+        msg: ProtocolMessage,
         stream: Option<impl BrokerRequest + std::marker::Send>,
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<B, ProtocolError> {
         //sender.send(ConnectionCommand::Msg(msg.send())).await;
-        fsm.lock().await.send(msg.send()).await?;
+        fsm.lock().await.send(msg).await?;
         match self.receiver.next().await {
             Some(ConnectionCommand::Msg(msg)) => msg.try_into(),
             _ => Err(ProtocolError::ActorError),
