@@ -82,7 +82,36 @@ pub struct Actor<
 
 pub enum SoS<B> {
     Single(B),
-    Stream(mpsc::UnboundedReceiver<B>),
+    Stream(Receiver<B>),
+}
+
+impl<B> SoS<B> {
+    pub fn is_single(&self) -> bool {
+        if let Self::Single(b) = self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn is_stream(&self) -> bool {
+        !self.is_single()
+    }
+    pub fn unwrap_single(self) -> B {
+        match self {
+            Self::Single(s) => s,
+            Self::Stream(s) => {
+                panic!("called `unwrap_single()` on a `Stream` value")
+            }
+        }
+    }
+    pub fn unwrap_stream(self) -> Receiver<B> {
+        match self {
+            Self::Stream(s) => s,
+            Self::Single(s) => {
+                panic!("called `unwrap_stream()` on a `Single` value")
+            }
+        }
+    }
 }
 
 impl<
