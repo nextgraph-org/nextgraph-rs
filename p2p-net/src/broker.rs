@@ -177,9 +177,8 @@ impl Broker {
         //let cnx = Arc::new();
         let (priv_key, pub_key) = generate_keypair();
         log!("CONNECTING");
-        let connection_res = cnx.open(ip, priv_key, pub_key, remote_peer_id).await;
-        log!("CONNECTED {:?}", connection_res);
-        let mut connection = connection_res.unwrap();
+        let mut connection = cnx.open(ip, priv_key, pub_key, remote_peer_id).await?;
+
         let join = connection.take_shutdown();
 
         let connected = if core.is_some() {
