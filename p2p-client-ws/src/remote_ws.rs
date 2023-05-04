@@ -28,7 +28,7 @@ use async_std::task;
 use p2p_net::errors::*;
 use p2p_net::log;
 use p2p_net::types::*;
-use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
+use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender, Sensitive};
 use p2p_net::{connection::*, WS_PORT};
 use p2p_repo::types::*;
 use p2p_repo::utils::{generate_keypair, now_timestamp};
@@ -44,7 +44,7 @@ impl IConnect for ConnectionWebSocket {
     async fn open(
         &self,
         ip: IP,
-        peer_privk: PrivKey,
+        peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
     ) -> Result<ConnectionBase, NetError> {
@@ -169,7 +169,7 @@ impl IAccept for ConnectionWebSocket {
     type Socket = WebSocketStream<TcpStream>;
     async fn accept(
         &self,
-        peer_privk: PrivKey,
+        peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         socket: Self::Socket,
     ) -> Result<ConnectionBase, NetError> {
@@ -211,8 +211,9 @@ async fn close_ws(
     } else {
         ConnectionCommand::Error(NetError::try_from(code - 4949).unwrap())
     };
-
+    log!("sending to read loop {:?}", cmd);
     let _ = futures::SinkExt::send(receiver, cmd).await;
+
     stream
         .close(Some(CloseFrame {
             code: CloseCode::Library(code),
@@ -350,12 +351,16 @@ mod test {
         getrandom::getrandom(&mut random_buf).unwrap();
 
         let server_key = PubKey::Ed25519PubKey([
-            158, 209, 118, 156, 133, 101, 241, 72, 91, 80, 160, 184, 201, 66, 245, 2, 91, 16, 10,
-            143, 50, 206, 222, 187, 24, 122, 51, 59, 214, 132, 169, 154,
+            22, 140, 190, 111, 82, 151, 27, 133, 83, 121, 71, 36, 209, 53, 53, 114, 52, 254, 218,
+            241, 52, 155, 231, 83, 188, 189, 47, 135, 105, 213, 39, 91,
         ]);
 
+        let keys = p2p_net::utils::gen_keys();
+
+        let pub_key = PubKey::Ed25519PubKey(keys.1);
+
         log!("start connecting");
-        let (priv_key, pub_key) = generate_keypair();
+        //let (priv_key, pub_key) = generate_keypair();
         {
             let res = BROKER
                 .write()
@@ -364,8 +369,8 @@ mod test {
                     Box::new(ConnectionWebSocket {}),
                     IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
                     None,
-                    priv_key,
-                    pub_key,
+                    keys.0,
+                    pub_key.clone(),
                     server_key,
                 )
                 .await;

@@ -24,11 +24,13 @@ use p2p_client_ws::remote_ws::ConnectionWebSocket;
 use p2p_net::broker::*;
 use p2p_net::connection::IAccept;
 use p2p_net::types::IP;
+use p2p_net::utils::Sensitive;
 use p2p_repo::types::{PrivKey, PubKey};
 use p2p_repo::utils::generate_keypair;
 use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
 use p2p_stores_lmdb::repo_store::LmdbRepoStore;
 use std::fs;
+use std::ops::Deref;
 use std::sync::Arc;
 use std::{thread, time};
 use tempfile::Builder;
@@ -146,10 +148,10 @@ pub async fn run_server_accept_one(addrs: &str) -> std::io::Result<()> {
 
     Ok(())
 }
-
+use p2p_net::utils::U8Array;
 pub async fn run_server(
     addrs: &str,
-    peer_priv_key: PrivKey,
+    peer_priv_key: Sensitive<[u8; 32]>,
     peer_pub_key: PubKey,
 ) -> std::io::Result<()> {
     let root = tempfile::Builder::new()
@@ -175,7 +177,14 @@ pub async fn run_server(
         let mut ws = accept_async(tcp).await.unwrap();
 
         let cws = ConnectionWebSocket {};
-        let base = cws.accept(peer_priv_key, peer_pub_key, ws).await.unwrap();
+        let base = cws
+            .accept(
+                Sensitive::<[u8; 32]>::from_slice(peer_priv_key.deref()),
+                peer_pub_key,
+                ws,
+            )
+            .await
+            .unwrap();
 
         //TODO FIXME get remote_peer_id from ConnectionBase (once it is available)
         let (priv_key, pub_key) = generate_keypair();

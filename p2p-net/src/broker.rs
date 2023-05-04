@@ -9,11 +9,14 @@ use async_std::stream::StreamExt;
 use async_std::sync::{Arc, RwLock};
 use futures::channel::mpsc;
 use futures::SinkExt;
+use noise_protocol::U8Array;
+use noise_rust_crypto::sensitive::Sensitive;
 use once_cell::sync::Lazy;
 use p2p_repo::types::{PrivKey, PubKey};
 use p2p_repo::utils::generate_keypair;
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::ops::Deref;
 
 #[derive(Debug)]
 pub enum PeerConnection {
@@ -212,7 +215,7 @@ impl Broker {
         cnx: Box<dyn IConnect>,
         ip: IP,
         core: Option<String>, // the interface used as egress for this connection
-        peer_privk: PrivKey,
+        peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer_id: DirectPeerId,
     ) -> Result<(), NetError> {
@@ -226,7 +229,14 @@ impl Broker {
         //let cnx = Arc::new();
         //let (priv_key, pub_key) = generate_keypair();
         log!("CONNECTING");
-        let mut connection = cnx.open(ip, peer_privk, peer_pubk, remote_peer_id).await?;
+        let mut connection = cnx
+            .open(
+                ip,
+                Sensitive::<[u8; 32]>::from_slice(peer_privk.deref()),
+                peer_pubk,
+                remote_peer_id,
+            )
+            .await?;
 
         let join = connection.take_shutdown();
 
@@ -254,7 +264,7 @@ impl Broker {
             cnx: Box<dyn IConnect>,
             ip: IP,
             core: Option<String>, // the interface used as egress for this connection
-            peer_privk: PrivKey,
+            peer_privk: Sensitive<[u8; 32]>,
             peer_pubkey: PubKey,
             remote_peer_id: DirectPeerId,
         ) -> ResultSend<()> {

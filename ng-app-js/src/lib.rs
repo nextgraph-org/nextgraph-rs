@@ -28,16 +28,16 @@ pub async fn greet(name: &str) {
 
     //spawn_and_log_error(testt("ws://127.0.0.1:3012"));
     async fn method() -> ResultSend<()> {
-        let pubkey_null: [u8; 32] = [
-            59, 106, 39, 188, 206, 182, 164, 45, 98, 163, 168, 208, 42, 111, 13, 115, 101, 50, 21,
-            119, 29, 226, 67, 166, 58, 192, 72, 161, 139, 89, 218, 41,
-        ];
-
-        let server_key = PubKey::Ed25519PubKey(pubkey_null);
+        let server_key = PubKey::Ed25519PubKey([
+            22, 140, 190, 111, 82, 151, 27, 133, 83, 121, 71, 36, 209, 53, 53, 114, 52, 254, 218,
+            241, 52, 155, 231, 83, 188, 189, 47, 135, 105, 213, 39, 91,
+        ]);
 
         log!("start connecting");
         //let cnx = Arc::new();
-        let (priv_key, pub_key) = generate_keypair();
+        let keys = p2p_net::utils::gen_keys();
+        let pub_key = PubKey::Ed25519PubKey(keys.1);
+
         let res = BROKER
             .write()
             .await
@@ -45,7 +45,7 @@ pub async fn greet(name: &str) {
                 Box::new(ConnectionWebSocket {}),
                 IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
                 None,
-                priv_key,
+                keys.0,
                 pub_key,
                 server_key,
             )
