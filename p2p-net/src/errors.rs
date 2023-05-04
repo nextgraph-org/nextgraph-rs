@@ -47,7 +47,7 @@ pub enum ProtocolError {
     PartialContent,
     EndOfStream,
 
-    WriteError,
+    IoError,
     WsError,
     ActorError,
     InvalidState,
@@ -77,11 +77,16 @@ pub enum ProtocolError {
     NoiseHandshakeFailed,
     DecryptionError,
     EncryptionError,
+
+    InvalidNonce,
 } //MAX 949 ProtocolErrors
 
 impl ProtocolError {
     pub fn is_stream(&self) -> bool {
         *self == ProtocolError::PartialContent || *self == ProtocolError::EndOfStream
+    }
+    pub fn is_err(&self) -> bool {
+        *self != ProtocolError::NoError
     }
 }
 

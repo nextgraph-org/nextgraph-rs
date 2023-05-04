@@ -47,6 +47,7 @@ impl IConnect for ConnectionWebSocket {
         peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
+        config: StartConfig,
     ) -> Result<ConnectionBase, NetError> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
 
@@ -125,7 +126,7 @@ impl IConnect for ConnectionWebSocket {
                     debug_println!("END of WS loop");
                 });
 
-                cnx.start().await;
+                cnx.start(config).await;
 
                 //spawn_and_log_error(ws_loop(ws, cnx.take_sender(), cnx.take_receiver()));
 
@@ -240,11 +241,11 @@ async fn ws_loop(
             select! {
                 r = stream.next().fuse() => match r {
                     Some(Ok(msg)) => {
-                        log!("GOT MESSAGE {:?}", msg);
+                        //log!("GOT MESSAGE {:?}", msg);
 
                         if msg.is_close() {
                             if let Message::Close(Some(cf)) = msg {
-                                log!("CLOSE from server with closeframe: {}",cf.reason);
+                                log!("CLOSE from remote with closeframe: {}",cf.reason);
                                 let last_command = match cf.code {
                                     CloseCode::Normal =>
                                         ConnectionCommand::Close,
@@ -263,21 +264,20 @@ async fn ws_loop(
                             }
                             else {
                                 let _ = futures::SinkExt::send(receiver, ConnectionCommand::Close).await;
-                                log!("CLOSE from server");
+                                log!("CLOSE from remote");
                             }
                             return Ok(ProtocolError::Closing);
                         } else {
                             futures::SinkExt::send(receiver,ConnectionCommand::Msg(serde_bare::from_slice::<ProtocolMessage>(&msg.into_data())?)).await
                                 .map_err(|_e| NetError::IoError)?;
                         }
-                        //return Ok(ProtocolError::Closing);
                     },
                     Some(Err(e)) => {log!("GOT ERROR {:?}",e);return Err(NetError::WsError);},
                     None => break
                 },
                 s = sender.next().fuse() => match s {
                     Some(msg) => {
-                        log!("SENDING MESSAGE {:?}", msg);
+                        //log!("SENDING MESSAGE {:?}", msg);
                         match msg {
                             ConnectionCommand::Msg(m) => {
                                 futures::SinkExt::send(&mut stream,Message::binary(serde_bare::to_vec(&m)?)).await.map_err(|_e| NetError::IoError)?;
@@ -302,7 +302,6 @@ async fn ws_loop(
     match inner_loop(&mut ws, sender, &mut receiver).await {
         Ok(proto_err) => {
             if proto_err == ProtocolError::Closing {
-                //FIXME: remove this case
                 log!("ProtocolError::Closing");
                 let _ = ws.close(None).await;
             } else if proto_err == ProtocolError::NoError {
@@ -327,7 +326,7 @@ async fn ws_loop(
             return Err(e);
         }
     }
-    log!("END OF LOOP");
+    //log!("END OF LOOP");
     Ok(())
 }
 
@@ -347,8 +346,8 @@ mod test {
 
     #[async_std::test]
     pub async fn test_ws() -> Result<(), NetError> {
-        let mut random_buf = [0u8; 32];
-        getrandom::getrandom(&mut random_buf).unwrap();
+        // let mut random_buf = [0u8; 32];
+        // getrandom::getrandom(&mut random_buf).unwrap();
 
         let server_key = PubKey::Ed25519PubKey([
             22, 140, 190, 111, 82, 151, 27, 133, 83, 121, 71, 36, 209, 53, 53, 114, 52, 254, 218,
@@ -356,11 +355,12 @@ mod test {
         ]);
 
         let keys = p2p_net::utils::gen_keys();
-
         let pub_key = PubKey::Ed25519PubKey(keys.1);
 
+        let (client_priv_key, client_pub_key) = generate_keypair();
+        let (user_priv_key, user_pub_key) = generate_keypair();
+
         log!("start connecting");
-        //let (priv_key, pub_key) = generate_keypair();
         {
             let res = BROKER
                 .write()
@@ -372,15 +372,22 @@ mod test {
                     keys.0,
                     pub_key.clone(),
                     server_key,
+                    StartConfig::Client(ClientConfig {
+                        user: user_pub_key,
+                        client: client_pub_key,
+                        client_priv: client_priv_key,
+                    }),
                 )
                 .await;
             log!("broker.connect : {:?}", res);
             res.expect("assume the connection succeeds");
         }
 
+        BROKER.read().await.print_status();
+
         async fn timer_close(remote_peer_id: DirectPeerId) -> ResultSend<()> {
             async move {
-                sleep!(std::time::Duration::from_secs(10));
+                sleep!(std::time::Duration::from_secs(3));
                 log!("timeout");
                 BROKER
                     .write()
@@ -391,11 +398,11 @@ mod test {
             .await;
             Ok(())
         }
-        spawn_and_log_error(timer_close(pub_key));
+        spawn_and_log_error(timer_close(server_key));
 
         //Broker::graceful_shutdown().await;
 
-        Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(12)).await;
+        Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
         Ok(())
     }
 }

@@ -20,6 +20,7 @@ use noise_protocol::{patterns::noise_xk, CipherState, HandshakeState};
 use noise_rust_crypto::sensitive::Sensitive;
 use noise_rust_crypto::*;
 use p2p_repo::types::{PrivKey, PubKey};
+use p2p_repo::utils::{sign, verify};
 use serde_bare::from_slice;
 use unique_id::sequence::SequenceGenerator;
 use unique_id::Generator;
@@ -42,6 +43,7 @@ pub trait IConnect: Send + Sync {
         peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
+        config: StartConfig,
     ) -> Result<ConnectionBase, NetError>;
 }
 
@@ -97,6 +99,9 @@ pub struct NoiseFSM {
 
     from: Option<Sensitive<[u8; 32]>>,
     to: Option<PubKey>,
+
+    nonce_for_hello: Vec<u8>,
+    config: Option<StartConfig>,
 }
 
 impl fmt::Debug for NoiseFSM {
@@ -112,6 +117,25 @@ pub enum StepReply {
     Responder(ProtocolMessage),
     Response(ProtocolMessage),
     NONE,
+}
+
+pub struct ClientConfig {
+    pub user: PubKey,
+    pub client: PubKey,
+    pub client_priv: PrivKey,
+}
+
+pub struct ExtConfig {}
+
+pub struct CoreConfig {}
+
+pub struct AdminConfig {}
+
+pub enum StartConfig {
+    Client(ClientConfig),
+    Ext(ExtConfig),
+    Core(CoreConfig),
+    Admin(AdminConfig),
 }
 
 impl NoiseFSM {
@@ -137,6 +161,8 @@ impl NoiseFSM {
             noise_cipher_state_dec: None,
             from: Some(from),
             to,
+            nonce_for_hello: vec![],
+            config: None,
         }
     }
 
@@ -168,14 +194,20 @@ impl NoiseFSM {
     }
 
     pub async fn send(&mut self, msg: ProtocolMessage) -> Result<(), ProtocolError> {
-        if self.state == FSMstate::AuthResult && self.noise_cipher_state_enc.is_some() {
+        log!("SENDING: {:?}", msg);
+        if self.noise_cipher_state_enc.is_some() {
             let cipher = self.encrypt(msg)?;
             self.sender
                 .send(ConnectionCommand::Msg(ProtocolMessage::Noise(cipher)))
-                .await;
+                .await
+                .map_err(|e| ProtocolError::IoError)?;
             return Ok(());
         } else {
-            return Err(ProtocolError::InvalidState);
+            self.sender
+                .send(ConnectionCommand::Msg(msg))
+                .await
+                .map_err(|e| ProtocolError::IoError)?;
+            return Ok(());
         }
     }
 
@@ -206,6 +238,9 @@ impl NoiseFSM {
             } else {
                 return Err(ProtocolError::MustBeEncrypted);
             }
+        }
+        if msg_opt.is_some() {
+            log!("RECEIVED: {:?}", msg_opt.as_ref().unwrap());
         }
         match self.state {
             // TODO verify that ID is zero
@@ -243,7 +278,7 @@ impl NoiseFSM {
                         .map_err(|e| ProtocolError::NoiseHandshakeFailed)?;
 
                     let noise = Noise::V0(NoiseV0 { data: payload });
-                    self.sender.send(ConnectionCommand::Msg(noise.into())).await;
+                    self.send(noise.into()).await?;
 
                     self.noise_handshake_state = Some(handshake);
 
@@ -278,7 +313,7 @@ impl NoiseFSM {
                             })?;
 
                             let noise = Noise::V0(NoiseV0 { data: payload });
-                            self.sender.send(ConnectionCommand::Msg(noise.into())).await;
+                            self.send(noise.into()).await?;
 
                             self.noise_handshake_state = Some(handshake);
 
@@ -309,18 +344,30 @@ impl NoiseFSM {
                                 return Err(ProtocolError::NoiseHandshakeFailed);
                             }
 
-                            let noise3 = ClientHello::Noise3(Noise::V0(NoiseV0 { data: payload }));
-                            self.sender
-                                .send(ConnectionCommand::Msg(noise3.into()))
-                                .await;
-
                             let ciphers = handshake.get_ciphers();
+
+                            match self.config.as_ref().unwrap() {
+                                StartConfig::Client(client_config) => {
+                                    let noise3 =
+                                        ClientHello::Noise3(Noise::V0(NoiseV0 { data: payload }));
+                                    self.send(noise3.into()).await?;
+                                    self.state = FSMstate::ClientHello;
+                                }
+                                StartConfig::Ext(ext_config) => {
+                                    todo!();
+                                }
+                                StartConfig::Core(core_config) => {
+                                    todo!();
+                                }
+                                StartConfig::Admin(admin_config) => {
+                                    todo!();
+                                }
+                            }
+
                             self.noise_cipher_state_enc = Some(ciphers.0);
                             self.noise_cipher_state_dec = Some(ciphers.1);
 
                             self.noise_handshake_state = None;
-
-                            self.state = FSMstate::ClientHello;
 
                             return Ok(StepReply::NONE);
                         }
@@ -356,14 +403,14 @@ impl NoiseFSM {
                             let mut nonce_buf = [0u8; 32];
                             getrandom::getrandom(&mut nonce_buf).unwrap();
 
+                            self.nonce_for_hello = nonce_buf.to_vec();
+
                             let server_hello = ServerHello::V0(ServerHelloV0 {
-                                nonce: nonce_buf.to_vec(),
+                                nonce: self.nonce_for_hello.clone(),
                             });
-                            self.sender
-                                .send(ConnectionCommand::Msg(server_hello.into()))
-                                .await;
 
                             self.state = FSMstate::ServerHello;
+                            self.send(server_hello.into()).await?;
 
                             return Ok(StepReply::NONE);
                         }
@@ -373,9 +420,92 @@ impl NoiseFSM {
             FSMstate::Noise3 => {}
             FSMstate::ExtRequest => {}
             FSMstate::ExtResponse => {}
-            FSMstate::ClientHello => {}
-            FSMstate::ServerHello => {}
-            FSMstate::ClientAuth => {}
+            FSMstate::ClientHello => {
+                if let Some(msg) = msg_opt.as_ref() {
+                    if !self.dir.is_server() {
+                        if let ProtocolMessage::ServerHello(hello) = msg {
+                            if let StartConfig::Client(client_config) =
+                                self.config.as_ref().unwrap()
+                            {
+                                let content = ClientAuthContentV0 {
+                                    user: client_config.user,
+                                    client: client_config.client,
+                                    /// Nonce from ServerHello
+                                    nonce: hello.nonce().clone(),
+                                };
+                                let ser = serde_bare::to_vec(&content)?;
+                                let sig =
+                                    sign(client_config.client_priv, client_config.client, &ser)?;
+                                let client_auth = ClientAuth::V0(ClientAuthV0 {
+                                    content,
+                                    /// Signature by client key
+                                    sig,
+                                });
+
+                                self.state = FSMstate::ClientAuth;
+                                self.send(client_auth.into()).await?;
+
+                                return Ok(StepReply::NONE);
+                            }
+                        }
+                    }
+                }
+            }
+            FSMstate::ServerHello => {
+                if let Some(msg) = msg_opt.as_ref() {
+                    if self.dir.is_server() {
+                        if let ProtocolMessage::ClientAuth(client_auth) = msg {
+                            if *client_auth.nonce() != self.nonce_for_hello {
+                                return Err(ProtocolError::InvalidNonce);
+                            }
+
+                            let ser = serde_bare::to_vec(&client_auth.content_v0())?;
+
+                            let mut result = ProtocolError::NoError;
+                            let verif = verify(&ser, client_auth.sig(), client_auth.client());
+                            if verif.is_err() {
+                                result = verif.unwrap_err().into();
+                            } else {
+
+                                // TODO check that the device has been registered for this user. if not, set result = AccessDenied
+                            }
+                            let auth_result = AuthResult::V0(AuthResultV0 {
+                                result: result.clone() as u16,
+                                metadata: vec![],
+                            });
+                            self.send(auth_result.into()).await?;
+
+                            if (result.is_err()) {
+                                return Err(result);
+                            }
+                            log!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the server side");
+                            self.state = FSMstate::AuthResult;
+                            return Ok(StepReply::NONE);
+                        }
+                    }
+                }
+            }
+            FSMstate::ClientAuth => {
+                if let Some(msg) = msg_opt.as_ref() {
+                    if !self.dir.is_server() {
+                        if let ProtocolMessage::AuthResult(auth_res) = msg {
+                            if let StartConfig::Client(client_config) =
+                                self.config.as_ref().unwrap()
+                            {
+                                if auth_res.result() != 0 {
+                                    return Err(ProtocolError::AccessDenied);
+                                }
+
+                                self.state = FSMstate::AuthResult;
+
+                                log!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the client side");
+
+                                return Ok(StepReply::NONE);
+                            }
+                        }
+                    }
+                }
+            }
             FSMstate::AuthResult => {
                 if let Some(msg) = msg_opt {
                     let id = msg.id();
@@ -467,12 +597,11 @@ impl ConnectionBase {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> ResultSend<()> {
         while let Some(msg) = receiver.next().await {
-            log!("RECEIVED: {:?}", msg);
             match msg {
                 ConnectionCommand::Close
                 | ConnectionCommand::Error(_)
                 | ConnectionCommand::ProtocolError(_) => {
-                    log!("EXIT READ LOOP");
+                    log!("EXIT READ LOOP because : {:?}", msg);
                     break;
                 }
                 ConnectionCommand::Msg(proto_msg) => {
@@ -537,6 +666,7 @@ impl ConnectionBase {
                 }
             }
         }
+        log!("END OF READ LOOP");
         Ok(())
     }
 
@@ -584,15 +714,20 @@ impl ConnectionBase {
         self.send(ConnectionCommand::Close).await;
     }
 
-    pub async fn start(&mut self) {
-        // BOOTSTRAP the protocol
+    pub async fn start(&mut self, config: StartConfig) {
+        // BOOTSTRAP the protocol from client-side
         if !self.dir.is_server() {
             let res;
-            let fsm = self.fsm.as_ref().unwrap();
-            res = fsm.lock().await.step(None).await;
+            {
+                let mut fsm = self.fsm.as_ref().unwrap().lock().await;
+                fsm.config = Some(config);
+                res = fsm.step(None).await;
+            }
             if let Err(err) = res {
                 self.send(ConnectionCommand::ProtocolError(err)).await;
             }
+        } else {
+            panic!("cannot call start on a server-side connection");
         }
     }
 

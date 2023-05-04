@@ -4,6 +4,7 @@ use js_sys::Reflect;
 #[cfg(target_arch = "wasm32")]
 use p2p_client_ws::remote_ws_wasm::ConnectionWebSocket;
 use p2p_net::broker::*;
+use p2p_net::connection::{ClientConfig, StartConfig};
 use p2p_net::types::{DirectPeerId, IP};
 use p2p_net::utils::{spawn_and_log_error, ResultSend};
 use p2p_net::{log, sleep};
@@ -33,10 +34,13 @@ pub async fn greet(name: &str) {
             241, 52, 155, 231, 83, 188, 189, 47, 135, 105, 213, 39, 91,
         ]);
 
-        log!("start connecting");
-        //let cnx = Arc::new();
         let keys = p2p_net::utils::gen_keys();
         let pub_key = PubKey::Ed25519PubKey(keys.1);
+
+        let (client_priv_key, client_pub_key) = generate_keypair();
+        let (user_priv_key, user_pub_key) = generate_keypair();
+
+        log!("start connecting");
 
         let res = BROKER
             .write()
@@ -48,6 +52,11 @@ pub async fn greet(name: &str) {
                 keys.0,
                 pub_key,
                 server_key,
+                StartConfig::Client(ClientConfig {
+                    user: user_pub_key,
+                    client: client_pub_key,
+                    client_priv: client_priv_key,
+                }),
             )
             .await;
         log!("broker.connect : {:?}", res);
@@ -60,7 +69,7 @@ pub async fn greet(name: &str) {
 
         async fn timer_close(remote_peer_id: DirectPeerId) -> ResultSend<()> {
             async move {
-                sleep!(std::time::Duration::from_secs(10));
+                sleep!(std::time::Duration::from_secs(3));
                 log!("timeout");
                 BROKER
                     .write()
@@ -71,11 +80,11 @@ pub async fn greet(name: &str) {
             .await;
             Ok(())
         }
-        spawn_and_log_error(timer_close(pub_key));
+        spawn_and_log_error(timer_close(server_key));
 
         //Broker::graceful_shutdown().await;
 
-        Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(12)).await;
+        Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
 
         Ok(())
     }

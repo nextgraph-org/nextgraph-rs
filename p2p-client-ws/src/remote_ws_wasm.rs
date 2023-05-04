@@ -18,7 +18,7 @@ use p2p_net::errors::*;
 use p2p_net::log;
 use p2p_net::types::*;
 use p2p_net::utils::*;
-use p2p_net::{connection::*, WS_PORT};
+use p2p_net::WS_PORT;
 use p2p_repo::types::*;
 use p2p_repo::utils::{generate_keypair, now_timestamp};
 use std::sync::Arc;
@@ -40,6 +40,7 @@ impl IConnect for ConnectionWebSocket {
         peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
+        config: StartConfig,
     ) -> Result<ConnectionBase, NetError> {
         //pub async fn testt(url: &str) -> ResultSend<()> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
@@ -65,11 +66,9 @@ impl IConnect for ConnectionWebSocket {
             shutdown,
         ));
 
-        cnx.start().await;
+        cnx.start(config).await;
 
         //spawn_and_log_error(read_loop(receiver_rx, sender_tx.clone()));
-
-        log!("sending...");
 
         //cnx.close().await;
         // spawn_and_log_error(async move {
@@ -113,11 +112,10 @@ async fn ws_loop(
     ) -> Result<ProtocolError, NetError> {
         //let mut rx_sender = sender.fuse();
         loop {
-            log!("BEFORE SELECT");
             select! {
                 r = stream.next().fuse() => match r {
                     Some(msg) => {
-                        log!("GOT MESSAGE {:?}", msg);
+                        //log!("GOT MESSAGE {:?}", msg);
                         if let WsMessage::Binary(b) = msg {
                             receiver.send(ConnectionCommand::Msg(serde_bare::from_slice::<ProtocolMessage>(&b)?)).await
                                     .map_err(|_e| NetError::IoError)?;
@@ -130,7 +128,7 @@ async fn ws_loop(
                 },
                 s = sender.next().fuse() => match s {
                     Some(msg) => {
-                        log!("SENDING MESSAGE {:?}", msg);
+                        //log!("SENDING MESSAGE {:?}", msg);
                         match msg {
                             ConnectionCommand::Msg(m) => {
 
@@ -152,16 +150,14 @@ async fn ws_loop(
                 },
             }
         }
-        log!("END SELECT");
         Ok(ProtocolError::NoError)
     }
-
+    log!("START of WS loop");
     let mut events = ws
         .observe(ObserveConfig::default())
         //.observe(Filter::Pointer(WsEvent::is_closed).into())
         .await
         .expect_throw("observe");
-    log!("OBSERVED");
     match inner_loop(&mut stream, sender, receiver.clone()).await {
         Ok(proto_err) => {
             if proto_err == ProtocolError::NoError {
@@ -220,5 +216,6 @@ async fn ws_loop(
         .await
         .map_err(|_e| NetError::IoError)?;
 
+    log!("END of WS loop");
     Ok(())
 }
