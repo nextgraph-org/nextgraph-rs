@@ -1,3 +1,14 @@
+/*
+ * Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+ * All rights reserved.
+ * Licensed under the Apache License, Version 2.0
+ * <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+ * or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+ * at your option. All files in the project carrying such
+ * notice may not be copied, modified, or distributed except
+ * according to those terms.
+*/
+
 use async_std::stream::StreamExt;
 use async_std::sync::{Mutex, MutexGuard};
 use futures::{channel::mpsc, SinkExt};
@@ -10,12 +21,6 @@ use crate::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
 use crate::{connection::*, errors::ProtocolError, log, types::ProtocolMessage};
 use std::marker::PhantomData;
 
-// pub trait BrokerRequest: std::fmt::Debug {
-//     fn send(&self) -> ProtocolMessage;
-// }
-
-//pub trait BrokerResponse: TryFrom<ProtocolMessage> + std::fmt::Debug {}
-
 impl TryFrom<ProtocolMessage> for () {
     type Error = ProtocolError;
     fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
@@ -25,12 +30,9 @@ impl TryFrom<ProtocolMessage> for () {
 
 #[async_trait::async_trait]
 pub trait EActor: Send + Sync + std::fmt::Debug {
-    //type T: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug;
-    //async fn handle(&mut self, msg: ProtocolMessage);
     async fn respond(
         &mut self,
         msg: ProtocolMessage,
-        //stream: Option<impl BrokerRequest + std::marker::Send>,
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError>;
 }
@@ -48,37 +50,6 @@ pub struct Actor<
     receiver_tx: Sender<ConnectionCommand>,
     initiator: bool,
 }
-
-// #[async_trait::async_trait]
-// impl<
-//         A: BrokerRequest + std::marker::Sync + 'static,
-//         B: TryFrom<ProtocolMessage, Error = ProtocolError>
-//             + std::fmt::Debug
-//             + std::marker::Sync
-//             + 'static,
-//     > EActor for Actor<'_, A, B>
-// {
-//     //type T = B;
-
-//     // async fn handle(&mut self, msg: ProtocolMessage) {
-//     //     if self.initiator && msg.type_id() == TypeId::of::<B>()
-//     //         || !self.initiator && msg.type_id() == TypeId::of::<A>()
-//     //     {
-//     //         let _ = self.receiver_tx.send(ConnectionCommand::Msg(msg)).await;
-//     //     } else {
-//     //         log!("NOT OK");
-//     //     }
-//     // }
-
-//     // async fn respond(id: i64, msg: A) -> Result<B, ProtocolError> {
-//     //     let mut actor = Box::new(Actor::<A, B>::new(id, false));
-//     //     //actor.process_request
-//     //     match self.receiver.next().await {
-//     //         Some(msg) => B::receive(msg),
-//     //         _ => Err(ProtocolError::ActorError),
-//     //     }
-//     // }
-// }
 
 pub enum SoS<B> {
     Single(B),
@@ -139,10 +110,8 @@ impl<
     pub async fn request(
         &mut self,
         msg: ProtocolMessage,
-        //stream: Option<impl BrokerRequest + std::marker::Send>,
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<SoS<B>, ProtocolError> {
-        //sender.send(ConnectionCommand::Msg(msg.send())).await;
         fsm.lock().await.send(msg).await?;
         let mut receiver = self.receiver.take().unwrap();
         match receiver.next().await {

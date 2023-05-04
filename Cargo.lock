@@ -555,20 +555,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "curve25519-dalek"
-version = "4.0.0-rc.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d4ba9852b42210c7538b75484f9daa0655e9a3ac04f693747bb0f02cf3cfe16"
-dependencies = [
- "cfg-if",
- "fiat-crypto",
- "packed_simd_2",
- "platforms",
- "subtle",
- "zeroize",
-]
-
-[[package]]
 name = "debug_print"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -621,7 +607,7 @@ version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c762bae6dcaf24c4c84667b8579785430908723d5c889f469d76a41d59cc7a9d"
 dependencies = [
- "curve25519-dalek 3.2.1",
+ "curve25519-dalek",
  "ed25519",
  "rand 0.7.3",
  "serde",
@@ -688,12 +674,6 @@ checksum = "e51093e27b0797c359783294ca4f0a911c270184cb10f85783b118614a1501be"
 dependencies = [
  "instant",
 ]
-
-[[package]]
-name = "fiat-crypto"
-version = "0.1.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93ace6ec7cc19c8ed33a32eaa9ea692d7faea05006b5356b9e2b668ec4bc3955"
 
 [[package]]
 name = "fnv"
@@ -1010,12 +990,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99227334921fae1a979cf0bfdfcc6b3e5ce376ef57e16fb6fb3ea2ed6095f80c"
 
 [[package]]
-name = "libm"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1077,7 +1051,6 @@ dependencies = [
  "futures",
  "getrandom 0.1.16",
  "gloo-timers",
- "js-sys",
  "p2p-client-ws",
  "p2p-net",
  "p2p-repo",
@@ -1085,11 +1058,9 @@ dependencies = [
  "serde",
  "serde_bare",
  "serde_bytes",
- "snow",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
- "web-sys",
  "ws_stream_wasm",
 ]
 
@@ -1104,7 +1075,6 @@ dependencies = [
  "fastbloom-rs",
  "futures",
  "p2p-broker",
- "p2p-client",
  "p2p-client-ws",
  "p2p-net",
  "p2p-repo",
@@ -1225,26 +1195,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "p2p-client"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "async-oneshot",
- "async-std",
- "async-trait",
- "chacha20 0.9.0",
- "debug_print",
- "futures",
- "p2p-net",
- "p2p-repo",
- "serde",
- "serde_bare",
- "serde_bytes",
- "snow",
- "xactor",
-]
-
-[[package]]
 name = "p2p-client-ws"
 version = "0.1.0"
 dependencies = [
@@ -1257,7 +1207,6 @@ dependencies = [
  "debug_print",
  "futures",
  "getrandom 0.2.8",
- "p2p-client",
  "p2p-net",
  "p2p-repo",
  "pharos",
@@ -1337,16 +1286,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "packed_simd_2"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1914cd452d8fccd6f9db48147b29fd4ae05bea9dc5d9ad578509f72415de282"
-dependencies = [
- "cfg-if",
- "libm",
-]
-
-[[package]]
 name = "parking"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1414,12 +1353,6 @@ name = "pkg-config"
 version = "0.3.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ac9a59f73473f1b8d852421e59e64809f025994837ef743615c6d0c5b305160"
-
-[[package]]
-name = "platforms"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3d7ddaed09e0eb771a79ab0fd64609ba0afb0a8366421957936ad14cbd13630"
 
 [[package]]
 name = "polling"
@@ -1806,22 +1739,6 @@ name = "smallvec"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
-
-[[package]]
-name = "snow"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ccba027ba85743e09d15c03296797cad56395089b832b48b5a5217880f57733"
-dependencies = [
- "aes-gcm",
- "blake2",
- "chacha20poly1305",
- "curve25519-dalek 4.0.0-rc.1",
- "rand_core 0.6.4",
- "rustc_version",
- "sha2 0.10.6",
- "subtle",
-]
 
 [[package]]
 name = "socket2"
@@ -2327,7 +2244,7 @@ version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2392b6b94a576b4e2bf3c5b2757d63f10ada8020a2e4d08ac849ebcf6ea8e077"
 dependencies = [
- "curve25519-dalek 3.2.1",
+ "curve25519-dalek",
  "rand_core 0.5.1",
  "zeroize",
 ]

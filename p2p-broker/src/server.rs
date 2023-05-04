@@ -16,14 +16,12 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use crate::auth::*;
 use crate::broker_store::account::Account;
 use crate::broker_store::config::Config;
 use crate::broker_store::config::ConfigMode;
 use crate::broker_store::overlay::Overlay;
 use crate::broker_store::peer::Peer;
 use crate::broker_store::repostoreinfo::RepoStoreInfo;
-use crate::connection_local::BrokerConnectionLocal;
 use async_std::task;
 use debug_print::*;
 use futures::future::BoxFuture;

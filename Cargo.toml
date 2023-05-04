@@ -3,7 +3,7 @@ members = [
   "p2p-repo",
   "p2p-net",
   "p2p-broker",
-  "p2p-client",
+  "p2p-client-ws",
   "p2p-verifier",
   "p2p-stores-lmdb",
   "ngcli",

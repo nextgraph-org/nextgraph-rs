@@ -1,3 +1,14 @@
+/*
+ * Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+ * All rights reserved.
+ * Licensed under the Apache License, Version 2.0
+ * <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+ * or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+ * at your option. All files in the project carrying such
+ * notice may not be copied, modified, or distributed except
+ * according to those terms.
+*/
+
 use crate::actor::*;
 use crate::connection::*;
 use crate::errors::*;
@@ -225,10 +236,8 @@ impl Broker {
         }
 
         // TODO check that not already connected to peer
-        //IpAddr::from_str("127.0.0.1");
-        //cnx.open(url, peer_pubk, peer_privk).await?;
-        //let cnx = Arc::new();
-        //let (priv_key, pub_key) = generate_keypair();
+        // IpAddr::from_str("127.0.0.1");
+
         log!("CONNECTING");
         let mut connection = cnx
             .open(

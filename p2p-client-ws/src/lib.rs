@@ -44,8 +44,6 @@ macro_rules! after {
     };
 }
 
-//pub mod connection_ws;
-
 #[cfg(not(target_arch = "wasm32"))]
 pub mod remote_ws;
 
