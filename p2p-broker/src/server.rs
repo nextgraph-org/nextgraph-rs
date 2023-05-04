@@ -588,7 +588,7 @@ impl BrokerServer {
         let mut path = self.store.path();
         path.push(REPO_STORES_SUBDIR);
         path.push::<String>(repo_hash.clone().into());
-        std::fs::create_dir_all(path.clone()).map_err(|_e| ProtocolError::WriteError)?;
+        std::fs::create_dir_all(path.clone()).map_err(|_e| ProtocolError::IoError)?;
         println!("path for repo store: {}", path.to_str().unwrap());
         let repo = LmdbRepoStore::open(&path, *key.slice());
         let mut writer = self.repo_stores.write().expect("write repo_store hashmap");
@@ -846,7 +846,7 @@ impl BrokerServer {
             if !include_children {
                 let block = store.get(&id)?;
                 s.send_blocking(block)
-                    .map_err(|_e| ProtocolError::WriteError)?;
+                    .map_err(|_e| ProtocolError::IoError)?;
                 Ok(r)
             } else {
                 let obj = Object::load(id, None, store);
@@ -863,7 +863,7 @@ impl BrokerServer {
                     let id = block.id();
                     if deduplicated.get(&id).is_none() {
                         s.send_blocking(block.clone())
-                            .map_err(|_e| ProtocolError::WriteError)?;
+                            .map_err(|_e| ProtocolError::IoError)?;
                         deduplicated.insert(id);
                     }
                 }
@@ -902,7 +902,7 @@ impl BrokerServer {
                     let id = block.id();
                     if deduplicated.get(&id).is_none() {
                         s.send_blocking(block.clone())
-                            .map_err(|_e| ProtocolError::WriteError)?;
+                            .map_err(|_e| ProtocolError::IoError)?;
                         deduplicated.insert(id);
                     }
                 }

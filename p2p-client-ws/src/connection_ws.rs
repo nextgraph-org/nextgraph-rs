@@ -2,7 +2,7 @@
  * Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
  * All rights reserved.
  * Licensed under the Apache License, Version 2.0
- * <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+ * <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
  * or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
  * at your option. All files in the project carrying such
  * notice may not be copied, modified, or distributed except
@@ -13,27 +13,26 @@
 
 use debug_print::*;
 
-use p2p_repo::types::*;
-use p2p_repo::utils::{generate_keypair, now_timestamp};
+use futures::{future, pin_mut, stream, SinkExt, StreamExt};
+use p2p_client::connection_remote::*;
+use p2p_net::broker_connection::*;
 use p2p_net::errors::*;
 use p2p_net::types::*;
-use p2p_net::broker_connection::*;
-use p2p_client::connection_remote::*;
-use futures::{future, pin_mut, stream, SinkExt, StreamExt};
+use p2p_repo::types::*;
+use p2p_repo::utils::{generate_keypair, now_timestamp};
 
 use async_tungstenite::async_std::connect_async;
 use async_tungstenite::client_async;
 use async_tungstenite::tungstenite::{Error, Message};
 
-pub struct BrokerConnectionWebSocket {
+pub struct BrokerConnectionWebSocket {}
 
-}
-
-impl BrokerConnectionWebSocket{
-
-    pub async fn open(url:&str, priv_key: PrivKey, pub_key: PubKey) -> Result<impl BrokerConnection, ProtocolError> 
-    {
-
+impl BrokerConnectionWebSocket {
+    pub async fn open(
+        url: &str,
+        priv_key: PrivKey,
+        pub_key: PubKey,
+    ) -> Result<impl BrokerConnection, ProtocolError> {
         let res = connect_async(url).await;
 
         match (res) {
@@ -78,9 +77,7 @@ impl BrokerConnectionWebSocket{
                 .await;
 
                 match cnx_res {
-                    Ok(mut cnx) => {
-                        Ok(cnx)
-                    }
+                    Ok(mut cnx) => Ok(cnx),
                     Err(e) => {
                         debug_println!("cannot connect {:?}", e);
                         Err(e)
@@ -93,5 +90,4 @@ impl BrokerConnectionWebSocket{
             }
         }
     }
-
 }

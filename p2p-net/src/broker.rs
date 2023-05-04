@@ -218,6 +218,7 @@ impl Broker {
         peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer_id: DirectPeerId,
+        config: StartConfig,
     ) -> Result<(), NetError> {
         if self.closing {
             return Err(NetError::Closing);
@@ -235,6 +236,7 @@ impl Broker {
                 Sensitive::<[u8; 32]>::from_slice(peer_privk.deref()),
                 peer_pubk,
                 remote_peer_id,
+                config,
             )
             .await?;
 

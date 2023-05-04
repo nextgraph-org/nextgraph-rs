@@ -1822,6 +1822,12 @@ impl ClientAuth {
     }
 }
 
+impl From<ClientAuth> for ProtocolMessage {
+    fn from(msg: ClientAuth) -> ProtocolMessage {
+        ProtocolMessage::ClientAuth(msg)
+    }
+}
+
 /// Authentication result
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthResultV0 {
@@ -1846,6 +1852,12 @@ impl AuthResult {
         match self {
             AuthResult::V0(o) => &o.metadata,
         }
+    }
+}
+
+impl From<AuthResult> for ProtocolMessage {
+    fn from(msg: AuthResult) -> ProtocolMessage {
+        ProtocolMessage::AuthResult(msg)
     }
 }
 
