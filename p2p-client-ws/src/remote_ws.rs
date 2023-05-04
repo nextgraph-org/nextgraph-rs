@@ -40,12 +40,12 @@ pub struct ConnectionWebSocket {}
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-impl IConnection for ConnectionWebSocket {
+impl IConnect for ConnectionWebSocket {
     async fn open(
         &self,
         ip: IP,
-        peer_pubk: PrivKey,
-        peer_privk: PubKey,
+        peer_privk: PrivKey,
+        peer_pubk: PubKey,
         remote_peer: DirectPeerId,
     ) -> Result<ConnectionBase, NetError> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
@@ -105,7 +105,7 @@ impl IConnection for ConnectionWebSocket {
                 // }))
                 // .await;
 
-                cnx.start_read_loop();
+                cnx.start_read_loop(peer_privk, Some(remote_peer));
                 let s = cnx.take_sender();
                 let r = cnx.take_receiver();
                 let mut shutdown = cnx.set_shutdown();
@@ -124,6 +124,8 @@ impl IConnection for ConnectionWebSocket {
                     }
                     debug_println!("END of WS loop");
                 });
+
+                cnx.start().await;
 
                 //spawn_and_log_error(ws_loop(ws, cnx.take_sender(), cnx.take_receiver()));
 
@@ -159,11 +161,36 @@ impl IConnection for ConnectionWebSocket {
             }
         }
     }
+}
 
-    async fn accept(&self) -> Result<ConnectionBase, NetError> {
-        let cnx = ConnectionBase::new(ConnectionDir::Server, TransportProtocol::WS);
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl IAccept for ConnectionWebSocket {
+    type Socket = WebSocketStream<TcpStream>;
+    async fn accept(
+        &self,
+        peer_privk: PrivKey,
+        peer_pubk: PubKey,
+        socket: Self::Socket,
+    ) -> Result<ConnectionBase, NetError> {
+        let mut cnx = ConnectionBase::new(ConnectionDir::Server, TransportProtocol::WS);
 
-        unimplemented!();
+        cnx.start_read_loop(peer_privk, None);
+        let s = cnx.take_sender();
+        let r = cnx.take_receiver();
+        let mut shutdown = cnx.set_shutdown();
+
+        let join = task::spawn(async move {
+            debug_println!("START of WS loop");
+
+            let res = ws_loop(socket, s, r).await;
+
+            if res.is_err() {
+                let _ = shutdown.send(res.err().unwrap()).await;
+            }
+            debug_println!("END of WS loop");
+        });
+        Ok(cnx)
     }
 }
 
@@ -237,7 +264,7 @@ async fn ws_loop(
                                 let _ = futures::SinkExt::send(receiver, ConnectionCommand::Close).await;
                                 log!("CLOSE from server");
                             }
-
+                            return Ok(ProtocolError::Closing);
                         } else {
                             futures::SinkExt::send(receiver,ConnectionCommand::Msg(serde_bare::from_slice::<ProtocolMessage>(&msg.into_data())?)).await
                                 .map_err(|_e| NetError::IoError)?;
@@ -252,9 +279,7 @@ async fn ws_loop(
                         log!("SENDING MESSAGE {:?}", msg);
                         match msg {
                             ConnectionCommand::Msg(m) => {
-                                if let ProtocolMessage::Start(s) = m {
-                                    futures::SinkExt::send(&mut stream, Message::binary(serde_bare::to_vec(&s)?)).await.map_err(|_e| NetError::IoError)?;
-                                }
+                                futures::SinkExt::send(&mut stream,Message::binary(serde_bare::to_vec(&m)?)).await.map_err(|_e| NetError::IoError)?;
                             },
                             ConnectionCommand::Error(e) => {
                                 return Err(e);
@@ -277,7 +302,8 @@ async fn ws_loop(
         Ok(proto_err) => {
             if proto_err == ProtocolError::Closing {
                 //FIXME: remove this case
-                ws.close(None).await.map_err(|_e| NetError::WsError)?;
+                log!("ProtocolError::Closing");
+                let _ = ws.close(None).await;
             } else if proto_err == ProtocolError::NoError {
                 close_ws(&mut ws, &mut receiver, 1000, "").await?;
             } else {
@@ -322,7 +348,11 @@ mod test {
     pub async fn test_ws() -> Result<(), NetError> {
         let mut random_buf = [0u8; 32];
         getrandom::getrandom(&mut random_buf).unwrap();
-        //spawn_and_log_error(testt("ws://127.0.0.1:3012"));
+
+        let server_key = PubKey::Ed25519PubKey([
+            158, 209, 118, 156, 133, 101, 241, 72, 91, 80, 160, 184, 201, 66, 245, 2, 91, 16, 10,
+            143, 50, 206, 222, 187, 24, 122, 51, 59, 214, 132, 169, 154,
+        ]);
 
         log!("start connecting");
         let (priv_key, pub_key) = generate_keypair();
@@ -336,7 +366,7 @@ mod test {
                     None,
                     priv_key,
                     pub_key,
-                    pub_key,
+                    server_key,
                 )
                 .await;
             log!("broker.connect : {:?}", res);

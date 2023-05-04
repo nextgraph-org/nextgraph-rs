@@ -158,26 +158,16 @@ impl Broker {
         let _ = self.shutdown_sender.send(ProtocolError::Closing).await;
     }
 
-    pub async fn connect(
+    pub async fn accept(
         &mut self,
-        cnx: Box<dyn IConnection>,
+        mut connection: ConnectionBase,
         ip: IP,
-        core: Option<String>, // the interface used as egress for this connection
-        peer_pubk: PrivKey,
-        peer_privk: PubKey,
+        core: Option<String>,
         remote_peer_id: DirectPeerId,
     ) -> Result<(), NetError> {
         if self.closing {
             return Err(NetError::Closing);
         }
-
-        // TODO check that not already connected to peer
-        //IpAddr::from_str("127.0.0.1");
-        //cnx.open(url, peer_pubk, peer_privk).await?;
-        //let cnx = Arc::new();
-        let (priv_key, pub_key) = generate_keypair();
-        log!("CONNECTING");
-        let mut connection = cnx.open(ip, priv_key, pub_key, remote_peer_id).await?;
 
         let join = connection.take_shutdown();
 
@@ -202,11 +192,70 @@ impl Broker {
 
         async fn watch_close(
             mut join: Receiver<NetError>,
-            cnx: Box<dyn IConnection>,
+            remote_peer_id: DirectPeerId,
+        ) -> ResultSend<()> {
+            async move {
+                let res = join.next().await;
+                log!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
+                log!("REMOVED");
+                BROKER.write().await.remove(&remote_peer_id);
+            }
+            .await;
+            Ok(())
+        }
+        spawn_and_log_error(watch_close(join, remote_peer_id));
+        Ok(())
+    }
+
+    pub async fn connect(
+        &mut self,
+        cnx: Box<dyn IConnect>,
+        ip: IP,
+        core: Option<String>, // the interface used as egress for this connection
+        peer_privk: PrivKey,
+        peer_pubk: PubKey,
+        remote_peer_id: DirectPeerId,
+    ) -> Result<(), NetError> {
+        if self.closing {
+            return Err(NetError::Closing);
+        }
+
+        // TODO check that not already connected to peer
+        //IpAddr::from_str("127.0.0.1");
+        //cnx.open(url, peer_pubk, peer_privk).await?;
+        //let cnx = Arc::new();
+        //let (priv_key, pub_key) = generate_keypair();
+        log!("CONNECTING");
+        let mut connection = cnx.open(ip, peer_privk, peer_pubk, remote_peer_id).await?;
+
+        let join = connection.take_shutdown();
+
+        let connected = if core.is_some() {
+            let dc = DirectConnection {
+                ip,
+                interface: core.clone().unwrap(),
+                remote_peer_id,
+                tp: connection.transport_protocol(),
+                cnx: connection,
+            };
+            self.direct_connections.insert(ip, dc);
+            PeerConnection::Core(ip)
+        } else {
+            PeerConnection::Client(connection)
+        };
+        let bpi = BrokerPeerInfo {
+            lastPeerAdvert: None,
+            connected,
+        };
+        self.peers.insert(remote_peer_id, bpi);
+
+        async fn watch_close(
+            mut join: Receiver<NetError>,
+            cnx: Box<dyn IConnect>,
             ip: IP,
             core: Option<String>, // the interface used as egress for this connection
-            peer_pubk: PrivKey,
-            peer_privk: PubKey,
+            peer_privk: PrivKey,
+            peer_pubkey: PubKey,
             remote_peer_id: DirectPeerId,
         ) -> ResultSend<()> {
             async move {
@@ -235,8 +284,8 @@ impl Broker {
             cnx,
             ip,
             core,
-            peer_pubk,
             peer_privk,
+            peer_pubk,
             remote_peer_id,
         ));
         Ok(())

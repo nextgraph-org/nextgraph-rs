@@ -1121,6 +1121,7 @@ dependencies = [
  "async-std",
  "p2p-broker",
  "p2p-net",
+ "p2p-repo",
 ]
 
 [[package]]
@@ -1212,6 +1213,7 @@ dependencies = [
  "futures",
  "getrandom 0.2.8",
  "hex",
+ "p2p-client-ws",
  "p2p-net",
  "p2p-repo",
  "p2p-stores-lmdb",
@@ -1278,6 +1280,7 @@ dependencies = [
  "blake3",
  "debug_print",
  "futures",
+ "getrandom 0.2.8",
  "gloo-timers",
  "noise-protocol",
  "noise-rust-crypto",
