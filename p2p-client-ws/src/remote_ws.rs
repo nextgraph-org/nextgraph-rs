@@ -61,65 +61,16 @@ impl IConnect for ConnectionWebSocket {
                 Err(NetError::ConnectionError)
             }
             Ok((mut websocket, _)) => {
-                //let ws = Arc::new(Mutex::new(Box::pin(websocket)));
-
-                // let (write, read) = ws.split();
-                // let mut stream_read = read.map(|msg_res| match msg_res {
-                //     Err(e) => {
-                //         debug_println!("READ ERROR {:?}", e);
-                //         ConnectionCommand::Error(NetError::IoError)
-                //     }
-                //     Ok(message) => {
-                //         if message.is_close() {
-                //             debug_println!("CLOSE FROM SERVER");
-                //             ConnectionCommand::Close
-                //         } else {
-                //             ConnectionCommand::Msg(
-                //                 serde_bare::from_slice::<ProtocolMessage>(&message.into_data())
-                //                     .unwrap(),
-                //             )
-                //         }
-                //     }
-                // });
-                // async fn write_transform(cmd: ConnectionCommand) -> Result<Message, Error> {
-                //     match cmd {
-                //         ConnectionCommand::Error(_) => Err(Error::AlreadyClosed), //FIXME
-                //         ConnectionCommand::ProtocolError(_) => Err(Error::AlreadyClosed), //FIXME
-                //         ConnectionCommand::Close => {
-                //             // todo close cnx. }
-                //             Err(Error::AlreadyClosed)
-                //         }
-                //         ConnectionCommand::Msg(msg) => Ok(Message::binary(
-                //             serde_bare::to_vec(&msg)
-                //                 .map_err(|_| Error::AlreadyClosed) //FIXME
-                //                 .unwrap(),
-                //         )),
-                //     }
-                // }
-                // let stream_write = write
-                //     .with(|message| write_transform(message))
-                //     .sink_map_err(|e| NetError::IoError);
-
-                // ws.close(Some(CloseFrame {
-                //     code: CloseCode::Library(4000),
-                //     reason: std::borrow::Cow::Borrowed(""),
-                // }))
-                // .await;
-
                 cnx.start_read_loop(peer_privk, Some(remote_peer));
                 let s = cnx.take_sender();
                 let r = cnx.take_receiver();
                 let mut shutdown = cnx.set_shutdown();
-                //let ws_in_task = Arc::clone(&ws);
+
                 let join = task::spawn(async move {
                     debug_println!("START of WS loop");
-                    //let w = ws_in_task.lock().await;
+
                     let res = ws_loop(websocket, s, r).await;
-                    // .close(Some(CloseFrame {
-                    //     code: CloseCode::Library(4000),
-                    //     reason: std::borrow::Cow::Borrowed(""),
-                    // }))
-                    // .await;
+
                     if res.is_err() {
                         let _ = shutdown.send(res.err().unwrap()).await;
                     }
@@ -128,37 +79,7 @@ impl IConnect for ConnectionWebSocket {
 
                 cnx.start(config).await;
 
-                //spawn_and_log_error(ws_loop(ws, cnx.take_sender(), cnx.take_receiver()));
-
-                //
-
-                //cnx.close().await;
-
-                //// let res = cnx.join_shutdown().await;
-                //// log!("JOIN SHUTDOWN {:?}", res);
-                // cnx.send(ConnectionCommand::Close).await;
-
-                // cnx.send(ConnectionCommand::Msg(ProtocolMessage::Start(
-                //     StartProtocol::Auth(ClientHello::V0()),
-                // )))
-                // .await;
-
-                //cnx.close().await;
-
-                // let _ = cnx.inject(last_command).await;
-                // let _ = cnx.close_streams().await;
-
-                // Note that since WsMeta::connect resolves to an opened connection, we don't see
-                // any Open events here.
-                //
-                //assert!(evts.next().await.unwrap_throw().is_closing());
-
-                // TODO wait for close
-
-                //log!("WS closed {:?}", last_event.clone());
-
                 Ok(cnx)
-                //Ok(())
             }
         }
     }
@@ -326,7 +247,6 @@ async fn ws_loop(
             return Err(e);
         }
     }
-    //log!("END OF LOOP");
     Ok(())
 }
 

@@ -35,4 +35,3 @@ features = ["js"]
 getrandom = "0.2.7"
 xactor = "0.7.11"
 async-tungstenite = {  version = "0.17.2", features = ["async-std-runtime"] }
-p2p-client = { path = "../p2p-client" }

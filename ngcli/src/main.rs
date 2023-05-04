@@ -3,7 +3,7 @@
 // This code is partly derived from work written by TG x Thoth from P2Pcollab.
 // Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -13,23 +13,22 @@ use debug_print::*;
 use ed25519_dalek::*;
 use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
 use futures::{future, pin_mut, stream, SinkExt, StreamExt};
+use p2p_broker::broker_store::config::ConfigMode;
 use p2p_repo::object::Object;
 use p2p_repo::store::{store_max_value_size, store_valid_value_size, HashMapRepoStore, RepoStore};
-use p2p_broker::broker_store::config::ConfigMode;
 use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
 use p2p_stores_lmdb::repo_store::LmdbRepoStore;
 use rand::rngs::OsRng;
 use std::collections::HashMap;
 
-use p2p_repo::types::*;
-use p2p_repo::utils::{generate_keypair, now_timestamp};
-use p2p_broker::server_ws::*;
 use p2p_broker::server::*;
+use p2p_broker::server_ws::*;
+use p2p_net::broker_connection::*;
 use p2p_net::errors::*;
 use p2p_net::types::*;
-use p2p_net::broker_connection::*;
-use p2p_client::connection_remote::*;
-use p2p_client_ws::connection_ws::*;
+use p2p_repo::types::*;
+use p2p_repo::utils::{generate_keypair, now_timestamp};
+
 use p2p_broker::connection_local::*;
 
 fn block_size() -> usize {
@@ -450,15 +449,22 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
     // now the client can verify the DAG and each commit. Then update its list of heads.
 }
 
-async fn test(cnx: &mut impl BrokerConnection, pub_key: PubKey, priv_key: PrivKey) -> Result<(), ProtocolError>{
-    
-    cnx.add_user(PubKey::Ed25519PubKey([1; 32]), priv_key).await?;
+async fn test(
+    cnx: &mut impl BrokerConnection,
+    pub_key: PubKey,
+    priv_key: PrivKey,
+) -> Result<(), ProtocolError> {
+    cnx.add_user(PubKey::Ed25519PubKey([1; 32]), priv_key)
+        .await?;
 
     cnx.add_user(pub_key, priv_key).await?;
     //.expect("add_user 2 (myself) failed");
 
     assert_eq!(
-        cnx.add_user(PubKey::Ed25519PubKey([1; 32]), priv_key).await.err().unwrap(),
+        cnx.add_user(PubKey::Ed25519PubKey([1; 32]), priv_key)
+            .await
+            .err()
+            .unwrap(),
         ProtocolError::UserAlreadyExists
     );
 
@@ -467,9 +473,7 @@ async fn test(cnx: &mut impl BrokerConnection, pub_key: PubKey, priv_key: PrivKe
         secret: SymKey::ChaCha20Key([0; 32]),
         peers: vec![],
     });
-    let mut public_overlay_cnx = cnx
-        .overlay_connect(&repo, true)
-        .await?;
+    let mut public_overlay_cnx = cnx.overlay_connect(&repo, true).await?;
 
     debug_println!("put_block");
 
@@ -505,25 +509,21 @@ async fn test(cnx: &mut impl BrokerConnection, pub_key: PubKey, priv_key: PrivKe
     let mut my_block_stream = public_overlay_cnx
         .get_block(my_block_id, true, None)
         .await?;
-        //.expect("get_block failed");
+    //.expect("get_block failed");
 
     while let Some(b) = my_block_stream.next().await {
         debug_println!("GOT BLOCK {}", b.id());
     }
 
-    let mut my_object_stream = public_overlay_cnx
-        .get_block(object_id, true, None)
-        .await?;
-        //.expect("get_block for object failed");
+    let mut my_object_stream = public_overlay_cnx.get_block(object_id, true, None).await?;
+    //.expect("get_block for object failed");
 
     while let Some(b) = my_object_stream.next().await {
         debug_println!("GOT BLOCK {}", b.id());
     }
 
-    let object = public_overlay_cnx
-        .get_object(object_id, None)
-        .await?;
-        //.expect("get_object failed");
+    let object = public_overlay_cnx.get_object(object_id, None).await?;
+    //.expect("get_object failed");
 
     debug_println!("GOT OBJECT with ID {}", object.id());
 
@@ -534,19 +534,17 @@ async fn test(cnx: &mut impl BrokerConnection, pub_key: PubKey, priv_key: PrivKe
 
     // debug_println!("COPIED OBJECT to OBJECT ID {}", object_id);
 
-    public_overlay_cnx
-        .delete_object(object_id)
-        .await?;
-        //.expect("delete_object failed");
+    public_overlay_cnx.delete_object(object_id).await?;
+    //.expect("delete_object failed");
 
     let res = public_overlay_cnx
         .get_object(object_id, None)
         .await
         .unwrap_err();
-    
+
     debug_println!("result from get object after delete: {}", res);
     assert_eq!(res, ProtocolError::NotFound);
-    
+
     //TODO test pin/unpin
 
     // TEST BRANCH SYNC
@@ -586,16 +584,12 @@ async fn test_remote_connection(url: &str) {
         Ok(mut cnx) => {
             if let Err(e) = test(&mut cnx, pub_key, priv_key).await {
                 debug_println!("error: {:?}", e)
-            }
-            else {
+            } else {
                 cnx.close().await;
-                
-            }                   }
-        Err(e) => {
-            
+            }
         }
+        Err(e) => {}
     }
-    
 }
 
 #[xactor::main]
@@ -624,7 +618,6 @@ mod test {
 
     #[async_std::test]
     pub async fn test_remote_cnx() -> Result<(), Box<dyn std::error::Error>> {
-
         let thr = task::spawn(run_server_accept_one("127.0.0.1:3012"));
 
         std::thread::sleep(std::time::Duration::from_secs(2));

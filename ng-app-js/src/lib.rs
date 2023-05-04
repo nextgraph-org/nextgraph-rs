@@ -1,6 +1,17 @@
+/*
+ * Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+ * All rights reserved.
+ * Licensed under the Apache License, Version 2.0
+ * <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+ * or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+ * at your option. All files in the project carrying such
+ * notice may not be copied, modified, or distributed except
+ * according to those terms.
+*/
+
 use async_std::task;
-#[cfg(target_arch = "wasm32")]
-use js_sys::Reflect;
+// #[cfg(target_arch = "wasm32")]
+// use js_sys::Reflect;
 #[cfg(target_arch = "wasm32")]
 use p2p_client_ws::remote_ws_wasm::ConnectionWebSocket;
 use p2p_net::broker::*;
@@ -22,13 +33,11 @@ extern "C" {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub async fn greet(name: &str) {
-    log!("I say: {}", name);
-    let mut random_buf = [0u8; 32];
-    getrandom::getrandom(&mut random_buf).unwrap();
+pub async fn start() {
+    // let mut random_buf = [0u8; 32];
+    // getrandom::getrandom(&mut random_buf).unwrap();
 
-    //spawn_and_log_error(testt("ws://127.0.0.1:3012"));
-    async fn method() -> ResultSend<()> {
+    async fn inner_task() -> ResultSend<()> {
         let server_key = PubKey::Ed25519PubKey([
             22, 140, 190, 111, 82, 151, 27, 133, 83, 121, 71, 36, 209, 53, 53, 114, 52, 254, 218,
             241, 52, 155, 231, 83, 188, 189, 47, 135, 105, 213, 39, 91,
@@ -88,14 +97,13 @@ pub async fn greet(name: &str) {
 
         Ok(())
     }
-    spawn_and_log_error(method()).await;
-    //spawn_and_log_error(Arc::clone(&cnx).open("ws://127.0.0.1:3012", priv_key, pub_key));
+    spawn_and_log_error(inner_task()).await;
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[wasm_bindgen]
-pub fn greet(name: &str) {
-    alert(&format!("I say: {}", name));
+pub fn start() {
+    //alert(&format!("I say: {}", name));
     task::spawn(async move {});
 }
 
@@ -111,10 +119,10 @@ pub fn change(name: &str) -> JsValue {
 mod test {
     use wasm_bindgen_test::*;
     wasm_bindgen_test_configure!(run_in_browser);
-    use crate::greet;
+    use crate::start;
 
     #[wasm_bindgen_test]
-    pub async fn test_greet() {
-        greet("test").await;
+    pub async fn test_connection() {
+        start().await;
     }
 }

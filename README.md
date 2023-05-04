@@ -46,7 +46,7 @@ The crates are organized as follow :
 - p2p-repo : all the common types, traits and structs for the P2P repositories
 - p2p-net : all the common types, traits and structs for the P2P networks
 - p2p-broker : the broker code (as server and core peer)
-- p2p-client : the client connecting to a broker, used by the apps and verifier
+- p2p-client-ws : the client connecting to a broker, used by the apps and verifier
 - p2p-stores-lmdb : lmdb backed stores for the p2p layer
 - p2p-verifier : the code of the verifier
 - ngcli : CLI tool to manipulate the repos

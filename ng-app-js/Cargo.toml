@@ -26,7 +26,7 @@ debug_print = "1.0.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_bare = "0.5.0"
 serde_bytes = "0.11.7"
-snow = "0.9.2"
+# snow = "0.9.2"
 getrandom = { version = "0.1.1", features = ["wasm-bindgen"] }
 
 
@@ -35,9 +35,9 @@ getrandom = { version = "0.1.1", features = ["wasm-bindgen"] }
 # features = ["js"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-js-sys = "0.3.61"
+# js-sys = "0.3.61"
 wasm-bindgen-futures = "0.4.34"
-web-sys = { version = "0.3.61", features = ["Window"] }
+# web-sys = { version = "0.3.61", features = ["Window"] }
 gloo-timers = "0.2.6"
 
 [dev-dependencies]

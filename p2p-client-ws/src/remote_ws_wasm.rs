@@ -42,7 +42,6 @@ impl IConnect for ConnectionWebSocket {
         remote_peer: DirectPeerId,
         config: StartConfig,
     ) -> Result<ConnectionBase, NetError> {
-        //pub async fn testt(url: &str) -> ResultSend<()> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
 
         let url = format!("ws://{}:{}", ip, WS_PORT);
@@ -51,9 +50,6 @@ impl IConnect for ConnectionWebSocket {
             //log!("{:?}", e);
             NetError::ConnectionError
         })?;
-
-        //let (mut sender_tx, sender_rx) = mpsc::unbounded();
-        //let (mut receiver_tx, receiver_rx) = mpsc::unbounded();
 
         cnx.start_read_loop(peer_privk, Some(remote_peer));
         let mut shutdown = cnx.set_shutdown();
@@ -68,32 +64,6 @@ impl IConnect for ConnectionWebSocket {
 
         cnx.start(config).await;
 
-        //spawn_and_log_error(read_loop(receiver_rx, sender_tx.clone()));
-
-        //cnx.close().await;
-        // spawn_and_log_error(async move {
-        //     TimeoutFuture::new(10_000).await;
-        //     cnx.close().await;
-
-        //     Ok(())
-        //     //     // Do something here after the one second timeout is up!
-        // });
-        // cnx.send(ConnectionCommand::Close).await;
-
-        // cnx.send(ConnectionCommand::Msg(ProtocolMessage::Start(
-        //     StartProtocol::Auth(ClientHello::V0()),
-        // )))
-        // .await;
-        //log!("waiting...");
-        //let res = join.next().await;
-        //log!("finished...");
-        //log!("JOIN SHUTDOWN {:?}", res);
-        // Note that since WsMeta::connect resolves to an opened connection, we don't see
-        // any Open events here.
-        //
-        //assert!(events.next().await.unwrap_throw().is_closing());
-
-        //Ok(cnx)
         Ok(cnx)
     }
 }
@@ -184,7 +154,6 @@ async fn ws_loop(
         }
     }
 
-    log!("waiting for closing event");
     let last_event = events.next().await;
     log!("WS closed {:?}", last_event.clone());
     let last_command = match last_event {
