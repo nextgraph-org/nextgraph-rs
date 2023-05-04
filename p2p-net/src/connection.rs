@@ -39,7 +39,7 @@ pub trait IConnect: Send + Sync {
     async fn open(
         &self,
         ip: IP,
-        peer_privk: PrivKey,
+        peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
     ) -> Result<ConnectionBase, NetError>;
@@ -51,7 +51,7 @@ pub trait IAccept: Send + Sync {
     type Socket;
     async fn accept(
         &self,
-        peer_privk: PrivKey,
+        peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         socket: Self::Socket,
     ) -> Result<ConnectionBase, NetError>;
@@ -95,7 +95,7 @@ pub struct NoiseFSM {
     noise_cipher_state_enc: Option<CipherState<ChaCha20Poly1305>>,
     noise_cipher_state_dec: Option<CipherState<ChaCha20Poly1305>>,
 
-    from: PrivKey,
+    from: Option<Sensitive<[u8; 32]>>,
     to: Option<PubKey>,
 }
 
@@ -120,7 +120,7 @@ impl NoiseFSM {
         dir: ConnectionDir,
         actors: Arc<Mutex<HashMap<i64, Sender<ConnectionCommand>>>>,
         sender: Sender<ConnectionCommand>,
-        from: PrivKey,
+        from: Sensitive<[u8; 32]>,
         to: Option<PubKey>,
     ) -> Self {
         Self {
@@ -135,7 +135,7 @@ impl NoiseFSM {
             noise_handshake_state: None,
             noise_cipher_state_enc: None,
             noise_cipher_state_dec: None,
-            from,
+            from: Some(from),
             to,
         }
     }
@@ -232,7 +232,7 @@ impl NoiseFSM {
                         noise_xk(),
                         true,
                         &[],
-                        Some(Sensitive::from_slice(self.from.slice())),
+                        Some(self.from.take().unwrap()),
                         None,
                         Some(*self.to.unwrap().slice()),
                         None,
@@ -260,17 +260,22 @@ impl NoiseFSM {
                                     noise_xk(),
                                     false,
                                     &[],
-                                    Some(Sensitive::from_slice(self.from.slice())),
+                                    Some(self.from.take().unwrap()),
                                     None,
                                     None,
                                     None,
                                 );
 
-                            let payload =
+                            let mut payload =
                                 handshake.read_message_vec(noise.data()).map_err(|e| {
                                     debug_println!("{:?}", e);
                                     ProtocolError::NoiseHandshakeFailed
                                 })?;
+
+                            payload = handshake.write_message_vec(&payload).map_err(|e| {
+                                debug_println!("{:?}", e);
+                                ProtocolError::NoiseHandshakeFailed
+                            })?;
 
                             let noise = Noise::V0(NoiseV0 { data: payload });
                             self.sender.send(ConnectionCommand::Msg(noise.into())).await;
@@ -291,9 +296,14 @@ impl NoiseFSM {
                         if let ProtocolMessage::Noise(noise) = msg {
                             let handshake = self.noise_handshake_state.as_mut().unwrap();
 
-                            let payload = handshake
+                            let mut payload = handshake
                                 .read_message_vec(noise.data())
                                 .map_err(|e| ProtocolError::NoiseHandshakeFailed)?;
+
+                            payload = handshake.write_message_vec(&payload).map_err(|e| {
+                                debug_println!("{:?}", e);
+                                ProtocolError::NoiseHandshakeFailed
+                            })?;
 
                             if !handshake.completed() {
                                 return Err(ProtocolError::NoiseHandshakeFailed);
@@ -586,7 +596,7 @@ impl ConnectionBase {
         }
     }
 
-    pub fn start_read_loop(&mut self, from: PrivKey, to: Option<PubKey>) {
+    pub fn start_read_loop(&mut self, from: Sensitive<[u8; 32]>, to: Option<PubKey>) {
         let (sender_tx, sender_rx) = mpsc::unbounded();
         let (receiver_tx, receiver_rx) = mpsc::unbounded();
         self.sender = Some(sender_rx);

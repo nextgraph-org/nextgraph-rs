@@ -37,8 +37,8 @@ impl IConnect for ConnectionWebSocket {
     async fn open(
         &self,
         ip: IP,
-        peer_pubk: PrivKey,
-        peer_privk: PubKey,
+        peer_privk: Sensitive<[u8; 32]>,
+        peer_pubk: PubKey,
         remote_peer: DirectPeerId,
     ) -> Result<ConnectionBase, NetError> {
         //pub async fn testt(url: &str) -> ResultSend<()> {
@@ -54,7 +54,7 @@ impl IConnect for ConnectionWebSocket {
         //let (mut sender_tx, sender_rx) = mpsc::unbounded();
         //let (mut receiver_tx, receiver_rx) = mpsc::unbounded();
 
-        cnx.start_read_loop(peer_pubk, Some(remote_peer));
+        cnx.start_read_loop(peer_privk, Some(remote_peer));
         let mut shutdown = cnx.set_shutdown();
 
         spawn_and_log_error(ws_loop(

@@ -8,6 +8,7 @@
 // according to those terms.
 
 use p2p_broker::server_ws::run_server;
+use p2p_net::utils::{gen_keys, Sensitive, U8Array};
 use p2p_net::WS_PORT;
 use p2p_repo::{
     types::{PrivKey, PubKey},
@@ -17,17 +18,22 @@ use p2p_repo::{
 #[async_std::main]
 async fn main() -> std::io::Result<()> {
     println!("Starting NextGraph daemon...");
-    //let keys = generate_keypair();
-    //println!("Public key of node: {:?}", keys.1);
-    //println!("Private key of node: {:?}", keys.0);
+    // let keys = generate_keypair();
+    // let keys = gen_keys();
+    // println!("Public key of node: {:?}", keys.1);
+    // println!("Private key of node: {:?}", keys.0.as_slice());
     let pubkey = PubKey::Ed25519PubKey([
-        158, 209, 118, 156, 133, 101, 241, 72, 91, 80, 160, 184, 201, 66, 245, 2, 91, 16, 10, 143,
-        50, 206, 222, 187, 24, 122, 51, 59, 214, 132, 169, 154,
+        22, 140, 190, 111, 82, 151, 27, 133, 83, 121, 71, 36, 209, 53, 53, 114, 52, 254, 218, 241,
+        52, 155, 231, 83, 188, 189, 47, 135, 105, 213, 39, 91,
     ]);
-    let privkey = PrivKey::Ed25519PrivKey([
-        254, 127, 162, 204, 53, 25, 141, 12, 4, 118, 23, 42, 52, 246, 37, 52, 76, 11, 176, 219, 31,
-        241, 25, 73, 199, 118, 209, 85, 159, 234, 31, 206,
+    let privkey = Sensitive::<[u8; 32]>::from_slice(&[
+        160, 133, 237, 116, 151, 53, 156, 151, 21, 227, 226, 35, 1, 224, 44, 207, 148, 33, 79, 160,
+        115, 173, 154, 118, 251, 146, 34, 204, 40, 190, 155, 112,
     ]);
+
+    //let keys = gen_keys();
+    println!("Public key of node: {:?}", pubkey);
+    println!("Private key of node: {:?}", privkey.as_slice());
     run_server(format!("127.0.0.1:{}", WS_PORT).as_str(), privkey, pubkey).await?;
 
     Ok(())
