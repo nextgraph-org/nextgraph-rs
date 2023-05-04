@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 use std::sync::Arc;
 
-pub struct Noise3(Noise);
+// pub struct Noise3(Noise);
 
 /// Start chosen protocol
 /// First message sent by the client

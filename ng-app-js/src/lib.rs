@@ -1,4 +1,5 @@
 use async_std::task;
+#[cfg(target_arch = "wasm32")]
 use js_sys::Reflect;
 #[cfg(target_arch = "wasm32")]
 use p2p_client_ws::remote_ws_wasm::ConnectionWebSocket;
@@ -6,6 +7,7 @@ use p2p_net::broker::*;
 use p2p_net::types::{DirectPeerId, IP};
 use p2p_net::utils::{spawn_and_log_error, ResultSend};
 use p2p_net::{log, sleep};
+use p2p_repo::types::PubKey;
 use p2p_repo::utils::generate_keypair;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -23,8 +25,16 @@ pub async fn greet(name: &str) {
     log!("I say: {}", name);
     let mut random_buf = [0u8; 32];
     getrandom::getrandom(&mut random_buf).unwrap();
+
     //spawn_and_log_error(testt("ws://127.0.0.1:3012"));
     async fn method() -> ResultSend<()> {
+        let pubkey_null: [u8; 32] = [
+            59, 106, 39, 188, 206, 182, 164, 45, 98, 163, 168, 208, 42, 111, 13, 115, 101, 50, 21,
+            119, 29, 226, 67, 166, 58, 192, 72, 161, 139, 89, 218, 41,
+        ];
+
+        let server_key = PubKey::Ed25519PubKey(pubkey_null);
+
         log!("start connecting");
         //let cnx = Arc::new();
         let (priv_key, pub_key) = generate_keypair();
@@ -37,7 +47,7 @@ pub async fn greet(name: &str) {
                 None,
                 priv_key,
                 pub_key,
-                pub_key,
+                server_key,
             )
             .await;
         log!("broker.connect : {:?}", res);

@@ -3,7 +3,7 @@
 // This code is partly derived from work written by TG x Thoth from P2Pcollab.
 // Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -91,6 +91,14 @@ pub enum PrivKey {
     Ed25519PrivKey(Ed25519PrivKey),
 }
 
+impl PrivKey {
+    pub fn slice(&self) -> &[u8; 32] {
+        match self {
+            PrivKey::Ed25519PrivKey(o) => o,
+        }
+    }
+}
+
 /// Ed25519 signature
 pub type Ed25519Sig = [[u8; 32]; 2];
 
@@ -141,17 +149,32 @@ pub type BloomFilter1K = [[u8; 32]; 32];
 
 /// List of Permissions
 pub enum PermissionType {
-  ADD_BRANCH, REMOVE_BRANCH, CHANGE_NAME,
-  ADD_MEMBER, REMOVE_MEMBER, CHANGE_PERMISSION,
-  TRANSACTION, SNAPSHOT, SHARING, CHANGE_ACK_CONFIG,
+    ADD_BRANCH,
+    REMOVE_BRANCH,
+    CHANGE_NAME,
+    ADD_MEMBER,
+    REMOVE_MEMBER,
+    CHANGE_PERMISSION,
+    TRANSACTION,
+    SNAPSHOT,
+    SHARING,
+    CHANGE_ACK_CONFIG,
 }
 
 /// List of Identity types
 pub enum Identity {
-  ORG_SITE(PubKey), PERSO_SITE(PubKey),
-  ORG_PUBLIC(PubKey), ORG_PROTECTED(PubKey), ORG_PRIVATE(PubKey),
-  PERSO_PUBLIC(PubKey), PERSO_PROTECTED(PubKey), PERSO_PRIVATE(PubKey),
-  GROUP(RepoId), DIALOG(RepoId), DOCUMENT(RepoId), DIALOG_OVERLAY(Digest),
+    ORG_SITE(PubKey),
+    PERSO_SITE(PubKey),
+    ORG_PUBLIC(PubKey),
+    ORG_PROTECTED(PubKey),
+    ORG_PRIVATE(PubKey),
+    PERSO_PUBLIC(PubKey),
+    PERSO_PROTECTED(PubKey),
+    PERSO_PRIVATE(PubKey),
+    GROUP(RepoId),
+    DIALOG(RepoId),
+    DOCUMENT(RepoId),
+    DIALOG_OVERLAY(Digest),
 }
 
 /// RepoHash:

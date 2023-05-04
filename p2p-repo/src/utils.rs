@@ -3,12 +3,11 @@
 // This code is partly derived from work written by TG x Thoth from P2Pcollab.
 // Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
-
 
 use crate::errors::*;
 use crate::types::*;
@@ -16,6 +15,33 @@ use crate::types::*;
 use ed25519_dalek::*;
 use rand::rngs::OsRng;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+pub fn generate_null_keypair() -> (PrivKey, PubKey) {
+    let master_key: [u8; 32] = [0; 32];
+    let sk = SecretKey::from_bytes(&master_key).unwrap();
+    let pk: PublicKey = (&sk).into();
+
+    let keypair = Keypair {
+        public: pk,
+        secret: sk,
+    };
+
+    // println!(
+    //     "private key: ({}) {:?}",
+    //     keypair.secret.as_bytes().len(),
+    //     keypair.secret.as_bytes()
+    // );
+    // println!(
+    //     "public key: ({}) {:?}",
+    //     keypair.public.as_bytes().len(),
+    //     keypair.public.as_bytes()
+    // );
+    let ed_priv_key = keypair.secret.to_bytes();
+    let ed_pub_key = keypair.public.to_bytes();
+    let priv_key = PrivKey::Ed25519PrivKey(ed_priv_key);
+    let pub_key = PubKey::Ed25519PubKey(ed_pub_key);
+    (priv_key, pub_key)
+}
 
 pub fn sign(
     author_privkey: PrivKey,

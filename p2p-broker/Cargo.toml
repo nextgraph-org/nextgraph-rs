@@ -11,6 +11,7 @@ repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
 debug_print = "1.0.0"
 p2p-repo = { path = "../p2p-repo" }
 p2p-net = { path = "../p2p-net" }
+p2p-client-ws = { path = "../p2p-client-ws" }
 p2p-stores-lmdb = { path = "../p2p-stores-lmdb" }
 chacha20 = "0.9.0"
 serde = { version = "1.0", features = ["derive"] }

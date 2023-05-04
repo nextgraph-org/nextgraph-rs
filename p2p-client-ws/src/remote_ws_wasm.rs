@@ -33,7 +33,7 @@ pub struct ConnectionWebSocket {}
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-impl IConnection for ConnectionWebSocket {
+impl IConnect for ConnectionWebSocket {
     async fn open(
         &self,
         ip: IP,
@@ -54,7 +54,7 @@ impl IConnection for ConnectionWebSocket {
         //let (mut sender_tx, sender_rx) = mpsc::unbounded();
         //let (mut receiver_tx, receiver_rx) = mpsc::unbounded();
 
-        cnx.start_read_loop();
+        cnx.start_read_loop(peer_pubk, Some(remote_peer));
         let mut shutdown = cnx.set_shutdown();
 
         spawn_and_log_error(ws_loop(
@@ -64,6 +64,8 @@ impl IConnection for ConnectionWebSocket {
             cnx.take_receiver(),
             shutdown,
         ));
+
+        cnx.start().await;
 
         //spawn_and_log_error(read_loop(receiver_rx, sender_tx.clone()));
 
@@ -94,10 +96,6 @@ impl IConnection for ConnectionWebSocket {
 
         //Ok(cnx)
         Ok(cnx)
-    }
-
-    async fn accept(&self) -> Result<ConnectionBase, NetError> {
-        !unimplemented!()
     }
 }
 
@@ -135,9 +133,9 @@ async fn ws_loop(
                         log!("SENDING MESSAGE {:?}", msg);
                         match msg {
                             ConnectionCommand::Msg(m) => {
-                                if let ProtocolMessage::Start(s) = m {
-                                    stream.send(WsMessage::Binary(serde_bare::to_vec(&s)?)).await.map_err(|_e| NetError::IoError)?;
-                                }
+
+                                stream.send(WsMessage::Binary(serde_bare::to_vec(&m)?)).await.map_err(|_e| NetError::IoError)?;
+
                             },
                             ConnectionCommand::Error(e) => {
                                 return Err(e);

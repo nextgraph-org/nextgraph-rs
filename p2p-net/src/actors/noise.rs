@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crate::{actor::*, connection::NoiseFSM, errors::ProtocolError, types::ProtocolMessage};
 use async_std::sync::Mutex;
 use serde::{Deserialize, Serialize};
+use std::any::{Any, TypeId};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NoiseV0 {
@@ -13,6 +14,14 @@ pub struct NoiseV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Noise {
     V0(NoiseV0),
+}
+
+impl Noise {
+    pub fn data(&self) -> &[u8] {
+        match self {
+            Noise::V0(v0) => v0.data.as_slice(),
+        }
+    }
 }
 
 // impl BrokerRequest for Noise {

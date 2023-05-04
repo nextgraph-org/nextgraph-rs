@@ -20,6 +20,12 @@ use async_tungstenite::accept_async;
 use async_tungstenite::tungstenite::protocol::Message;
 use debug_print::*;
 use futures::{SinkExt, StreamExt};
+use p2p_client_ws::remote_ws::ConnectionWebSocket;
+use p2p_net::broker::*;
+use p2p_net::connection::IAccept;
+use p2p_net::types::IP;
+use p2p_repo::types::{PrivKey, PubKey};
+use p2p_repo::utils::generate_keypair;
 use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
 use p2p_stores_lmdb::repo_store::LmdbRepoStore;
 use std::fs;
@@ -131,7 +137,7 @@ pub async fn run_server_accept_one(addrs: &str) -> std::io::Result<()> {
         BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
 
     let socket = TcpListener::bind(addrs).await?;
-    debug_println!("Listening on 127.0.0.1:3012");
+    debug_println!("Listening on {}", addrs);
     let mut connections = socket.incoming();
     let server_arc = Arc::new(server);
     let tcp = connections.next().await.unwrap()?;
@@ -141,7 +147,11 @@ pub async fn run_server_accept_one(addrs: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-pub async fn run_server(addrs: &str) -> std::io::Result<()> {
+pub async fn run_server(
+    addrs: &str,
+    peer_priv_key: PrivKey,
+    peer_pub_key: PubKey,
+) -> std::io::Result<()> {
     let root = tempfile::Builder::new()
         .prefix("node-daemon")
         .tempdir()
@@ -155,11 +165,27 @@ pub async fn run_server(addrs: &str) -> std::io::Result<()> {
         BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
 
     let socket = TcpListener::bind(addrs).await?;
+    debug_println!("Listening on {}", addrs);
     let mut connections = socket.incoming();
     let server_arc = Arc::new(server);
     while let Some(tcp) = connections.next().await {
-        let proto_handler = Arc::clone(&server_arc).protocol_handler();
-        let _handle = task::spawn(connection_loop(tcp.unwrap(), proto_handler));
+        let tcp = tcp.unwrap();
+        let sock_addr = tcp.peer_addr().unwrap();
+        let ip = sock_addr.ip();
+        let mut ws = accept_async(tcp).await.unwrap();
+
+        let cws = ConnectionWebSocket {};
+        let base = cws.accept(peer_priv_key, peer_pub_key, ws).await.unwrap();
+
+        //TODO FIXME get remote_peer_id from ConnectionBase (once it is available)
+        let (priv_key, pub_key) = generate_keypair();
+        let remote_peer_id = pub_key;
+
+        let res = BROKER
+            .write()
+            .await
+            .accept(base, IP::try_from(&ip).unwrap(), None, remote_peer_id)
+            .await;
     }
     Ok(())
 }
