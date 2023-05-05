@@ -54,10 +54,12 @@ pub async fn accept(tcp: TcpStream, peer_priv_key: Sensitive<[u8; 32]>, peer_pub
 }
 
 pub async fn run_server_accept_one(
-    addrs: &str,
+    addr: &str,
+    port: u16,
     peer_priv_key: Sensitive<[u8; 32]>,
     peer_pub_key: PubKey,
 ) -> std::io::Result<()> {
+    let addrs = format!("{}:{}", addr, port);
     let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
     let master_key: [u8; 32] = [0; 32];
     std::fs::create_dir_all(root.path()).unwrap();
@@ -69,8 +71,8 @@ pub async fn run_server_accept_one(
     //     BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
     // let server_arc = Arc::new(server);
 
-    let socket = TcpListener::bind(addrs).await?;
-    debug_println!("Listening on {}", addrs);
+    let socket = TcpListener::bind(addrs.as_str()).await?;
+    debug_println!("Listening on {}", addrs.as_str());
     let mut connections = socket.incoming();
 
     let tcp = connections.next().await.unwrap()?;
@@ -81,10 +83,12 @@ pub async fn run_server_accept_one(
 }
 use p2p_net::utils::U8Array;
 pub async fn run_server(
-    addrs: &str,
+    addr: &str,
+    port: u16,
     peer_priv_key: Sensitive<[u8; 32]>,
     peer_pub_key: PubKey,
 ) -> std::io::Result<()> {
+    let addrs = format!("{}:{}", addr, port);
     let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
     let master_key: [u8; 32] = [0; 32];
     std::fs::create_dir_all(root.path()).unwrap();
@@ -96,8 +100,8 @@ pub async fn run_server(
     //     BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
     // let server_arc = Arc::new(server);
 
-    let socket = TcpListener::bind(addrs).await?;
-    debug_println!("Listening on {}", addrs);
+    let socket = TcpListener::bind(addrs.as_str()).await?;
+    debug_println!("Listening on {}", addrs.as_str());
     let mut connections = socket.incoming();
 
     while let Some(tcp) = connections.next().await {

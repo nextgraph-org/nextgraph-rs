@@ -43,6 +43,24 @@ pub fn generate_null_keypair() -> (PrivKey, PubKey) {
     (priv_key, pub_key)
 }
 
+pub fn keypair_from_ed(secret: SecretKey, public: PublicKey) -> (PrivKey, PubKey) {
+    // println!(
+    //     "private key: ({}) {:?}",
+    //     keypair.secret.as_bytes().len(),
+    //     keypair.secret.as_bytes()
+    // );
+    // println!(
+    //     "public key: ({}) {:?}",
+    //     keypair.public.as_bytes().len(),
+    //     keypair.public.as_bytes()
+    // );
+    let ed_priv_key = secret.to_bytes();
+    let ed_pub_key = public.to_bytes();
+    let priv_key = PrivKey::Ed25519PrivKey(ed_priv_key);
+    let pub_key = PubKey::Ed25519PubKey(ed_pub_key);
+    (priv_key, pub_key)
+}
+
 pub fn sign(
     author_privkey: PrivKey,
     author_pubkey: PubKey,

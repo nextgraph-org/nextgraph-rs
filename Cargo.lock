@@ -1081,7 +1081,6 @@ dependencies = [
  "p2p-stores-lmdb",
  "rand 0.7.3",
  "tempfile",
- "xactor",
 ]
 
 [[package]]
@@ -1228,6 +1227,7 @@ dependencies = [
  "async-trait",
  "blake3",
  "debug_print",
+ "ed25519-dalek",
  "futures",
  "getrandom 0.2.8",
  "gloo-timers",

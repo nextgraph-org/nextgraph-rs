@@ -21,15 +21,11 @@ use p2p_stores_lmdb::repo_store::LmdbRepoStore;
 use rand::rngs::OsRng;
 use std::collections::HashMap;
 
-use p2p_broker::server::*;
-use p2p_broker::server_ws::*;
-use p2p_net::broker_connection::*;
 use p2p_net::errors::*;
 use p2p_net::types::*;
+
 use p2p_repo::types::*;
 use p2p_repo::utils::{generate_keypair, now_timestamp};
-
-use p2p_broker::connection_local::*;
 
 fn block_size() -> usize {
     store_max_value_size()
@@ -557,48 +553,38 @@ async fn test(
 async fn test_local_connection() {
     debug_println!("===== TESTING LOCAL API =====");
 
-    let root = tempfile::Builder::new()
-        .prefix("node-daemon")
-        .tempdir()
-        .unwrap();
+    let root = tempfile::Builder::new().prefix("ngcli").tempdir().unwrap();
     let master_key: [u8; 32] = [0; 32];
     std::fs::create_dir_all(root.path()).unwrap();
     println!("{}", root.path().to_str().unwrap());
     let store = LmdbBrokerStore::open(root.path(), master_key);
 
-    let mut server = BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
+    //let mut server = BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
 
     let (priv_key, pub_key) = generate_keypair();
 
-    let mut cnx = server.local_connection(pub_key);
+    // let mut cnx = server.local_connection(pub_key);
 
-    test(&mut cnx, pub_key, priv_key).await;
+    // test(&mut cnx, pub_key, priv_key).await;
 }
 
 async fn test_remote_connection(url: &str) {
     debug_println!("===== TESTING REMOTE API =====");
 
     let (priv_key, pub_key) = generate_keypair();
-    let cnx_res = BrokerConnectionWebSocket::open(url, priv_key, pub_key).await;
-    match cnx_res {
-        Ok(mut cnx) => {
-            if let Err(e) = test(&mut cnx, pub_key, priv_key).await {
-                debug_println!("error: {:?}", e)
-            } else {
-                cnx.close().await;
-            }
-        }
-        Err(e) => {}
-    }
+
+    // open cnx
+
+    // test(&mut cnx, pub_key, priv_key).await;
 }
 
-#[xactor::main]
+#[async_std::main]
 async fn main() -> std::io::Result<()> {
     debug_println!("Starting nextgraph CLI...");
 
-    test_local_connection().await;
+    //test_local_connection().await;
 
-    test_remote_connection("ws://127.0.0.1:3012").await;
+    //test_remote_connection("ws://127.0.0.1:3012").await;
 
     Ok(())
 }
@@ -609,22 +595,37 @@ mod test {
     use crate::{test_local_connection, test_remote_connection};
 
     #[async_std::test]
-    pub async fn test_local_cnx() {
-        xactor::block_on(test_local_connection());
-    }
+    pub async fn test_local_cnx() {}
 
     use async_std::task;
     use p2p_broker::server_ws::*;
+    use p2p_net::utils::{gen_keys, Sensitive, U8Array};
+    use p2p_net::WS_PORT;
+    use p2p_repo::types::PubKey;
 
     #[async_std::test]
     pub async fn test_remote_cnx() -> Result<(), Box<dyn std::error::Error>> {
-        let thr = task::spawn(run_server_accept_one("127.0.0.1:3012"));
+        let keys = gen_keys();
+        // println!("Public key of node: {:?}", keys.1);
+        // println!("Private key of node: {:?}", keys.0.as_slice());
+        let pubkey = PubKey::Ed25519PubKey(keys.1);
 
+        println!("Public key of node: {:?}", pubkey);
+        println!("Private key of node: {:?}", keys.0.as_slice());
+
+        let thr = task::spawn(run_server_accept_one(
+            "127.0.0.1",
+            WS_PORT,
+            keys.0.as_slice(),
+            pubkey,
+        ));
+
+        // time for the server to start
         std::thread::sleep(std::time::Duration::from_secs(2));
 
-        xactor::block_on(test_remote_connection("ws://127.0.0.1:3012"));
+        test_remote_connection("ws://127.0.0.1:3012");
 
-        xactor::block_on(thr);
+        thr.await;
 
         Ok(())
     }

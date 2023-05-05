@@ -57,8 +57,11 @@ impl SymKey {
     }
 }
 
-/// Curve25519 public key
+/// Curve25519 public key Edwards form
 pub type Ed25519PubKey = [u8; 32];
+
+/// Curve25519 public key Montgomery form
+pub type Mo25519PubKey = [u8; 32];
 
 /// Curve25519 private key
 pub type Ed25519PrivKey = [u8; 32];

@@ -8,33 +8,44 @@
 // according to those terms.
 
 use p2p_broker::server_ws::run_server;
-use p2p_net::utils::{gen_keys, Sensitive, U8Array};
+use p2p_net::utils::{gen_keys, Dual25519Keys, Sensitive, U8Array};
 use p2p_net::WS_PORT;
 use p2p_repo::{
     types::{PrivKey, PubKey},
-    utils::generate_keypair,
+    utils::{generate_keypair, keypair_from_ed, sign, verify},
 };
 
 #[async_std::main]
 async fn main() -> std::io::Result<()> {
     println!("Starting NextGraph daemon...");
-    // let keys = generate_keypair();
+
     // let keys = gen_keys();
+    // let pub_key = PubKey::Ed25519PubKey(keys.1);
+    // let (ed_priv_key, ed_pub_key) = generate_keypair();
+
+    // let duals = Dual25519Keys::generate();
+    // let eds = keypair_from_ed(duals.ed25519_priv, duals.ed25519_pub);
+    // let test_vector: Vec<u8> = vec![71, 51, 206, 126, 9, 84, 132];
+    // let sig = sign(eds.0, eds.1, &test_vector).unwrap();
+    // verify(&test_vector, sig, eds.1).unwrap();
+
+    // let privkey = duals.x25519_priv;
+    // let pubkey = PubKey::Ed25519PubKey(duals.x25519_public);
+
     // println!("Public key of node: {:?}", keys.1);
     // println!("Private key of node: {:?}", keys.0.as_slice());
     let pubkey = PubKey::Ed25519PubKey([
-        22, 140, 190, 111, 82, 151, 27, 133, 83, 121, 71, 36, 209, 53, 53, 114, 52, 254, 218, 241,
-        52, 155, 231, 83, 188, 189, 47, 135, 105, 213, 39, 91,
+        95, 155, 249, 202, 41, 105, 71, 51, 206, 126, 9, 84, 132, 92, 60, 7, 74, 179, 46, 21, 21,
+        242, 171, 27, 249, 79, 76, 176, 168, 43, 83, 2,
     ]);
     let privkey = Sensitive::<[u8; 32]>::from_slice(&[
-        160, 133, 237, 116, 151, 53, 156, 151, 21, 227, 226, 35, 1, 224, 44, 207, 148, 33, 79, 160,
-        115, 173, 154, 118, 251, 146, 34, 204, 40, 190, 155, 112,
+        56, 86, 36, 0, 109, 59, 152, 66, 166, 71, 201, 20, 119, 64, 173, 99, 215, 52, 40, 189, 96,
+        142, 3, 134, 167, 187, 235, 4, 39, 26, 31, 119,
     ]);
 
-    //let keys = gen_keys();
     println!("Public key of node: {:?}", pubkey);
     println!("Private key of node: {:?}", privkey.as_slice());
-    run_server(format!("127.0.0.1:{}", WS_PORT).as_str(), privkey, pubkey).await?;
+    run_server("127.0.0.1", WS_PORT, privkey, pubkey).await?;
 
     Ok(())
 }

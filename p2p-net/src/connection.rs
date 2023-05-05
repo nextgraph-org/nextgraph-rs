@@ -687,7 +687,6 @@ impl ConnectionBase {
     >(
         &self,
         msg: A,
-        //stream: Option<A>,
     ) -> Result<SoS<B>, ProtocolError> {
         if self.fsm.is_none() {
             return Err(ProtocolError::FsmNotReady);
