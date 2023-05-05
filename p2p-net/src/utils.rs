@@ -11,6 +11,7 @@
 
 use crate::log;
 use async_std::task;
+use ed25519_dalek::*;
 use futures::{channel::mpsc, select, Future, FutureExt, SinkExt};
 pub use noise_protocol::U8Array;
 use noise_protocol::DH;
@@ -52,4 +53,34 @@ pub fn gen_keys() -> (Sensitive<[u8; 32]>, [u8; 32]) {
     let pri = noise_rust_crypto::X25519::genkey();
     let publ = noise_rust_crypto::X25519::pubkey(&pri);
     (pri, publ)
+}
+
+pub struct Dual25519Keys {
+    pub x25519_priv: Sensitive<[u8; 32]>,
+    pub x25519_public: [u8; 32],
+    pub ed25519_priv: SecretKey,
+    pub ed25519_pub: PublicKey,
+}
+
+impl Dual25519Keys {
+    pub fn generate() -> Self {
+        let mut x25519_priv = Sensitive::<[u8; 32]>::new();
+        getrandom::getrandom(&mut *x25519_priv).expect("getrandom failed");
+
+        let ed25519_priv = SecretKey::from_bytes(&x25519_priv.as_slice()).unwrap();
+        let ed25519_pub: PublicKey = (&ed25519_priv).into();
+
+        x25519_priv[0] &= 248;
+        x25519_priv[31] &= 127;
+        x25519_priv[31] |= 64;
+
+        let x25519_public = noise_rust_crypto::X25519::pubkey(&x25519_priv);
+
+        Self {
+            x25519_priv,
+            x25519_public,
+            ed25519_priv,
+            ed25519_pub,
+        }
+    }
 }
