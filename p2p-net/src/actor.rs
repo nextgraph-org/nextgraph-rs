@@ -120,7 +120,12 @@ impl<
                     if bm.result() == ProtocolError::PartialContent.into()
                         && TypeId::of::<B>() != TypeId::of::<()>()
                     {
-                        let (b_sender, b_receiver) = mpsc::unbounded::<B>();
+                        let (mut b_sender, b_receiver) = mpsc::unbounded::<B>();
+                        let response = msg.try_into().map_err(|e| ProtocolError::ActorError)?;
+                        b_sender
+                            .send(response)
+                            .await
+                            .map_err(|err| ProtocolError::IoError)?;
                         async fn pump_stream<C: TryFrom<ProtocolMessage, Error = ProtocolError>>(
                             mut actor_receiver: Receiver<ConnectionCommand>,
                             mut sos_sender: Sender<C>,
@@ -140,7 +145,9 @@ impl<
                                             // TODO deal with errors.
                                             break;
                                         }
-                                        sos_sender.send(response.unwrap()).await;
+                                        if sos_sender.send(response.unwrap()).await.is_err() {
+                                            break;
+                                        }
                                     } else {
                                         // todo deal with error (not a brokermessage)
                                         break;
