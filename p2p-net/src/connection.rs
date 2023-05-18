@@ -88,7 +88,7 @@ pub enum FSMstate {
     Noise0,
     Noise1,
     Noise2,
-    Noise3,
+    Noise3, // unused
     ExtRequest,
     ExtResponse,
     ClientHello,
