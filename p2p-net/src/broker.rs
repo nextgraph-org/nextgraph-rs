@@ -64,7 +64,7 @@ pub struct Broker {
 
 impl Broker {
     pub fn reconnecting(&mut self, peer_id: &DirectPeerId) {
-        let mut peerinfo = self.peers.get_mut(peer_id);
+        let peerinfo = self.peers.get_mut(peer_id);
         match peerinfo {
             Some(info) => match &info.connected {
                 PeerConnection::NONE => {}
