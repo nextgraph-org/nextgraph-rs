@@ -9,6 +9,7 @@ members = [
   "ngcli",
   "ngd",
   "ng-app-js",
+  "ng-app-native/src-tauri",
 ]
 
 [profile.release]

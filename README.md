@@ -52,6 +52,7 @@ The crates are organized as follow :
 - ngcli : CLI tool to manipulate the repos
 - ngd : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
 - ng-app-js : contains the JS SDK, the web app, react app, and some node services
+- ng-app-native : all the native apps, based on Tauri
 
 ### Run
 

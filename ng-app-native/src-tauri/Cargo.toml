@@ -1,0 +1,26 @@
+[package]
+name = "ng-app-native"
+version = "0.1.0"
+description = "NextGraph App"
+authors = ["Niko PLP <niko@nextgraph.org>"]
+license = "MIT/Apache-2.0"
+repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+tauri-build = { version = "2.0.0-alpha.5", features = [] }
+
+[dependencies]
+tauri = { version = "2.0.0-alpha.9", features = [] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[features]
+# this feature is used for production builds or when `devPath` points to the filesystem
+# DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
