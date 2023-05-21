@@ -25,6 +25,11 @@
       "targets": "all",
       "iOS": {
         "developmentTeam": "test"
+      },
+      "windows": {
+        "webviewInstallMode": {
+          "type": "embedBootstrapper"
+        }
       }
     },
     "security": {

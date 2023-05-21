@@ -1,4 +1,4 @@
 #[tauri::mobile_entry_point]
 fn main() {
-    super::AppBuilder::new().run();
+    crate::AppBuilder::new().run();
 }

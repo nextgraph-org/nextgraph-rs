@@ -5,7 +5,7 @@
 )]
 
 fn main() {
-    ng_app_native::AppBuilder::new().run();
+    nativelib::AppBuilder::new().run();
     // tauri::Builder::default()
     //     .invoke_handler(tauri::generate_handler![greet])
     //     .run(tauri::generate_context!())
