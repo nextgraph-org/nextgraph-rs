@@ -8,6 +8,8 @@ The apps are using an embedded WebView that renders the Svelte app.
 
 ```
 cargo install tauri-cli --version "^2.0.0-alpha"
+npm install -g pnpm
+pnpm install
 ```
 
 ## Recommended IDE Setup
@@ -18,9 +20,15 @@ cargo install tauri-cli --version "^2.0.0-alpha"
 
 Install [all prerequisites](https://next--tauri.netlify.app/next/guides/getting-started/prerequisites/) for your dev platform.
 
+to run the dev env :
+
 ```
-pnpm install
+## on macos
 cargo tauri dev
+## on linux
+cargo tauri dev --target x86_64-unknown-linux-gnu
+## on win
+cargo tauri dev --target x86_64-pc-windows-msvc
 ```
 
 to build the production app installer :
