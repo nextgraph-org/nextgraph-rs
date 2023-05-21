@@ -460,9 +460,9 @@ dependencies = [
 
 [[package]]
 name = "bstr"
-version = "1.4.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3d4260bcc2e8fc9df1eac4919a720effeb63a3f0952f5bf4944adfa18897f09"
+checksum = "a246e68bb43f6cd9db24bea052a53e40405417c5fb372e3d1a8a7f770a564ef5"
 dependencies = [
  "memchr",
  "once_cell",
@@ -2009,7 +2009,7 @@ checksum = "ef53942eb7bf7ff43a617b3e2c1c4a5ecf5944a7c1bc12d7ee39bbb15e5c1519"
 [[package]]
 name = "lmdb-crypto-rs"
 version = "0.14.0"
-source = "git+https://git.nextgraph.org/NextGraph/lmdb-rs.git?branch=master#90584bac43f374ad25e34ca8be9b9a44a17add00"
+source = "git+https://git.nextgraph.org/NextGraph/lmdb-rs.git?branch=master#e70c3cae74e0d71b6a4e5c81b0c4909210a6d808"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -2020,7 +2020,7 @@ dependencies = [
 [[package]]
 name = "lmdb-crypto-sys"
 version = "0.11.2"
-source = "git+https://git.nextgraph.org/NextGraph/lmdb-rs.git?branch=master#90584bac43f374ad25e34ca8be9b9a44a17add00"
+source = "git+https://git.nextgraph.org/NextGraph/lmdb-rs.git?branch=master#e70c3cae74e0d71b6a4e5c81b0c4909210a6d808"
 dependencies = [
  "cc",
  "libc",
