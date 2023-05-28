@@ -9,6 +9,7 @@ specifiers:
   '@types/node': ^18.7.10
   autoprefixer: ^10.4.14
   classnames: ^2.3.2
+  cross-env: ^7.0.3
   flowbite: ^1.6.5
   flowbite-svelte: ^0.37.1
   internal-ip: ^7.0.0
@@ -37,6 +38,7 @@ devDependencies:
   '@tsconfig/svelte': 3.0.0
   '@types/node': 18.16.13
   autoprefixer: 10.4.14_postcss@8.4.23
+  cross-env: 7.0.3
   internal-ip: 7.0.0
   postcss: 8.4.23
   postcss-load-config: 4.0.1_postcss@8.4.23
@@ -555,6 +557,14 @@ packages:
 
   /concat-map/0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
+    dev: true
+
+  /cross-env/7.0.3:
+    resolution: {integrity: sha512-+/HKd6EgcQCJGh2PSjZuUitQBQynKor4wrFbRg4DtAgS1aWO+gU52xpH7M9ScGgXSYmAVS9bIJ8EzuaGw0oNAw==}
+    engines: {node: '>=10.14', npm: '>=6', yarn: '>=1'}
+    hasBin: true
+    dependencies:
+      cross-spawn: 7.0.3
     dev: true
 
   /cross-spawn/7.0.3:
