@@ -2,7 +2,7 @@
   import Greet from "../lib/Greet.svelte";
 </script>
 
-<main class="container">
+<main class="container2">
   <h1>Welcome to test</h1>
 
   <div class="row">

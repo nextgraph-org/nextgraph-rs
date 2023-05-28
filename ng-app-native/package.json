@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "webdev": "cross-env NG_APP_WEB=1 TAURI_DEBUG=1 vite",
+    "webbuild": "cross-env NG_APP_WEB=1 vite build",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
@@ -24,6 +26,7 @@
     "@tsconfig/svelte": "^3.0.0",
     "@types/node": "^18.7.10",
     "autoprefixer": "^10.4.14",
+    "cross-env": "^7.0.3",
     "internal-ip": "^7.0.0",
     "postcss": "^8.4.23",
     "postcss-load-config": "^4.0.1",
