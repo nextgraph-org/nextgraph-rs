@@ -11,17 +11,26 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@tauri-apps/api": "2.0.0-alpha.4"
+    "@popperjs/core": "^2.11.8",
+    "@tauri-apps/api": "2.0.0-alpha.4",
+    "classnames": "^2.3.2",
+    "flowbite": "^1.6.5",
+    "flowbite-svelte": "^0.37.1",
+    "svelte-spa-router": "^3.3.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^2.0.0",
     "@tauri-apps/cli": "2.0.0-alpha.9",
     "@tsconfig/svelte": "^3.0.0",
     "@types/node": "^18.7.10",
+    "autoprefixer": "^10.4.14",
     "internal-ip": "^7.0.0",
+    "postcss": "^8.4.23",
+    "postcss-load-config": "^4.0.1",
     "svelte": "^3.54.0",
     "svelte-check": "^3.0.0",
-    "svelte-preprocess": "^5.0.0",
+    "svelte-preprocess": "^5.0.3",
+    "tailwindcss": "^3.3.1",
     "tslib": "^2.4.1",
     "typescript": "^4.9.5",
     "vite": "^4.2.1"

@@ -14,8 +14,9 @@
   -webkit-text-size-adjust: 100%;
 }
 
-.container {
+.container2 {
   margin: 0;
+  min-width: 280px;
   padding-top: 10vh;
   display: flex;
   flex-direction: column;
@@ -24,7 +25,6 @@
 }
 
 .logo {
-  height: 6em;
   padding: 1.5em;
   will-change: filter;
   transition: 0.75s;

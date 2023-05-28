@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import { internalIpV4 } from 'internal-ip'
-import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { svelte, vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import sveltePreprocess from "svelte-preprocess";
 
 // https://vitejs.dev/config/
@@ -10,8 +10,10 @@ export default defineConfig(async () => {
   plugins: [
     svelte({
       preprocess: [
+        vitePreprocess(),
         sveltePreprocess({
           typescript: true,
+          postcss: true,
         }),
       ],
     }),
