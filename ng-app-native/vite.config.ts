@@ -2,6 +2,8 @@ import { defineConfig } from "vite";
 import { internalIpV4 } from 'internal-ip'
 import { svelte, vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import sveltePreprocess from "svelte-preprocess";
+import { viteSingleFile } from "vite-plugin-singlefile"
+import svelteSVG from "vite-plugin-svelte-svg";
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => {
@@ -16,6 +18,22 @@ export default defineConfig(async () => {
           postcss: true,
         }),
       ],
+    }),
+    svelteSVG({
+      svgoConfig: {
+        plugins: [
+            {
+                name: 'preset-default',
+                params: {
+                  overrides: {
+                    // disable plugins
+                    removeViewBox: false,
+                  },
+                },
+            },
+        ],
+      }, // See https://github.com/svg/svgo#configuration
+      requireSuffix: true, // Set false to accept '.svg' without the '?component'
     }),
   ],
 
@@ -37,7 +55,7 @@ export default defineConfig(async () => {
   // https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
   envPrefix: ["VITE_", "TAURI_", "NG_"],
   build: {
-    outDir: process.env.NG_APP_WEB ? 'dist-web' : 'dist',
+    outDir: process.env.NG_APP_WEB ? process.env.NG_APP_FILE ? 'dist-file' : 'dist-web' : 'dist',
     // Tauri supports es2021
     target: process.env.NG_APP_WEB ? 'modules' : process.env.TAURI_PLATFORM == "windows" ? "chrome105" : "safari13",
     // don't minify for debug builds
@@ -46,5 +64,6 @@ export default defineConfig(async () => {
     sourcemap: !!process.env.TAURI_DEBUG,
   },
 }
+if (process.env.NG_APP_FILE) config.plugins.push(viteSingleFile());
 return config
 })
