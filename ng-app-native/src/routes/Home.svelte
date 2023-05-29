@@ -1,11 +1,12 @@
 <script>
   import { Button } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
+  import Logo from "../assets/nextgraph.svg?component";
 </script>
 
 <main class="container2">
   <div class="row">
-    <img src="/nextgraph.svg" class="logo block h-40" alt="NextGraph Logo" />
+    <Logo class="logo block h-40" alt="NextGraph Logo" />
   </div>
   <h1 class="text-2xl mb-10">Welcome to NextGraph</h1>
 
