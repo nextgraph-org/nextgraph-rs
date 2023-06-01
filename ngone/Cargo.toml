@@ -1,0 +1,29 @@
+[package]
+name = "ngone"
+version = "0.1.0"
+edition = "2021"
+license = "MIT/Apache-2.0"
+authors = ["Niko PLP <niko@nextgraph.org>"]
+description = "nextgraph.one server. used to bootstrap the app"
+repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
+
+[dependencies]
+tokio = { version = "1.27", features = ["full"] }
+warp = "0.3"
+warp-embed = "0.4"
+rust-embed = "6"
+log = "0.4"
+env_logger = "0.10"
+stores-lmdb = { path = "../stores-lmdb" }
+p2p-repo = { path = "../p2p-repo" }
+p2p-net = { path = "../p2p-net" }
+ng-wallet = { path = "../ng-wallet" }
+serde = { version = "1.0.142", features = ["derive"] }
+serde_bare = "0.5.0"
+serde_bytes = "0.11.7"
+serde-big-array = "0.5.1"
+base64-url = "2.0.0"
+slice_as_array = "1.1.0"
+serde_json = "1.0.96"
+debug_print = "1.0.0"
+bytes = "1.0"

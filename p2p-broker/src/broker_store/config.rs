@@ -10,7 +10,7 @@
 //! Broker Config, persisted to store
 
 use p2p_net::types::*;
-use p2p_repo::broker_store::BrokerStore;
+use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::store::*;
 use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
@@ -24,7 +24,7 @@ pub enum ConfigMode {
 }
 
 pub struct Config<'a> {
-    store: &'a dyn BrokerStore,
+    store: &'a dyn KCVStore,
 }
 
 impl<'a> Config<'a> {
@@ -39,7 +39,7 @@ impl<'a> Config<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::MODE;
 
-    pub fn open(store: &'a dyn BrokerStore) -> Result<Config<'a>, StorageError> {
+    pub fn open(store: &'a dyn KCVStore) -> Result<Config<'a>, StorageError> {
         let opening = Config { store };
         if !opening.exists() {
             return Err(StorageError::NotFound);
@@ -48,7 +48,7 @@ impl<'a> Config<'a> {
     }
     pub fn get_or_create(
         mode: &ConfigMode,
-        store: &'a dyn BrokerStore,
+        store: &'a dyn KCVStore,
     ) -> Result<Config<'a>, StorageError> {
         match Self::open(store) {
             Err(e) => {
@@ -66,10 +66,7 @@ impl<'a> Config<'a> {
             }
         }
     }
-    pub fn create(
-        mode: &ConfigMode,
-        store: &'a dyn BrokerStore,
-    ) -> Result<Config<'a>, StorageError> {
+    pub fn create(mode: &ConfigMode, store: &'a dyn KCVStore) -> Result<Config<'a>, StorageError> {
         let acc = Config { store };
         if acc.exists() {
             return Err(StorageError::BackendError);

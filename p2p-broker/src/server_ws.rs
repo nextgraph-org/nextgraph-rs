@@ -26,8 +26,8 @@ use p2p_net::types::IP;
 use p2p_net::utils::Sensitive;
 use p2p_repo::types::{PrivKey, PubKey};
 use p2p_repo::utils::generate_keypair;
-use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
-use p2p_stores_lmdb::repo_store::LmdbRepoStore;
+use stores_lmdb::kcv_store::LmdbKCVStore;
+use stores_lmdb::repo_store::LmdbRepoStore;
 use std::fs;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -64,7 +64,7 @@ pub async fn run_server_accept_one(
     let master_key: [u8; 32] = [0; 32];
     std::fs::create_dir_all(root.path()).unwrap();
     println!("{}", root.path().to_str().unwrap());
-    let store = LmdbBrokerStore::open(root.path(), master_key);
+    let store = LmdbKCVStore::open(root.path(), master_key);
 
     // TODO: remove this part
     // let server: BrokerServer =
@@ -93,7 +93,7 @@ pub async fn run_server(
     let master_key: [u8; 32] = [0; 32];
     std::fs::create_dir_all(root.path()).unwrap();
     println!("{}", root.path().to_str().unwrap());
-    let store = LmdbBrokerStore::open(root.path(), master_key);
+    let store = LmdbKCVStore::open(root.path(), master_key);
 
     // TODO: remove this part
     // let server: BrokerServer =

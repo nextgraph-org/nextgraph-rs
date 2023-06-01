@@ -1,7 +1,7 @@
 // Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -9,16 +9,16 @@
 
 //! User account
 
-use p2p_repo::broker_store::BrokerStore;
+use p2p_net::types::*;
+use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::store::*;
 use p2p_repo::types::*;
-use p2p_net::types::*;
 use serde_bare::to_vec;
 
 pub struct Account<'a> {
     /// User ID
     id: UserId,
-    store: &'a dyn BrokerStore,
+    store: &'a dyn KCVStore,
 }
 
 impl<'a> Account<'a> {
@@ -33,7 +33,7 @@ impl<'a> Account<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::ADMIN;
 
-    pub fn open(id: &UserId, store: &'a dyn BrokerStore) -> Result<Account<'a>, StorageError> {
+    pub fn open(id: &UserId, store: &'a dyn KCVStore) -> Result<Account<'a>, StorageError> {
         let opening = Account {
             id: id.clone(),
             store,
@@ -46,7 +46,7 @@ impl<'a> Account<'a> {
     pub fn create(
         id: &UserId,
         admin: bool,
-        store: &'a dyn BrokerStore,
+        store: &'a dyn KCVStore,
     ) -> Result<Account<'a>, StorageError> {
         let acc = Account {
             id: id.clone(),
@@ -161,7 +161,7 @@ mod test {
     use p2p_repo::store::*;
     use p2p_repo::types::*;
     use p2p_repo::utils::*;
-    use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
+    use stores_lmdb::kcv_store::LmdbKCVStore;
     use std::fs;
     use tempfile::Builder;
 
@@ -174,7 +174,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         println!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbBrokerStore::open(root.path(), key);
+        let mut store = LmdbKCVStore::open(root.path(), key);
 
         let user_id = PubKey::Ed25519PubKey([1; 32]);
 

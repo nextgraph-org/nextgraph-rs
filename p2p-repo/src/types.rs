@@ -89,7 +89,7 @@ impl fmt::Display for PubKey {
 }
 
 /// Private key
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum PrivKey {
     Ed25519PrivKey(Ed25519PrivKey),
 }
@@ -106,7 +106,7 @@ impl PrivKey {
 pub type Ed25519Sig = [[u8; 32]; 2];
 
 /// Cryptographic signature
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Sig {
     Ed25519Sig(Ed25519Sig),
 }
@@ -165,19 +165,54 @@ pub enum PermissionType {
 }
 
 /// List of Identity types
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Identity {
-    ORG_SITE(PubKey),
-    PERSO_SITE(PubKey),
-    ORG_PUBLIC(PubKey),
-    ORG_PROTECTED(PubKey),
-    ORG_PRIVATE(PubKey),
-    PERSO_PUBLIC(PubKey),
-    PERSO_PROTECTED(PubKey),
-    PERSO_PRIVATE(PubKey),
-    GROUP(RepoId),
-    DIALOG(RepoId),
-    DOCUMENT(RepoId),
-    DIALOG_OVERLAY(Digest),
+    OrgSite(PubKey),
+    IndividualSite(PubKey),
+    OrgPublic(PubKey),
+    OrgProtected(PubKey),
+    OrgPrivate(PubKey),
+    IndividualPublic(PubKey),
+    IndividualProtected(PubKey),
+    IndividualPrivate(PubKey),
+    Group(RepoId),
+    Dialog(RepoId),
+    Document(RepoId),
+    DialogOverlay(Digest),
+}
+
+/// Site type
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum SiteType {
+    Org,
+    Individual, // formerly Personal
+}
+
+/// Site
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct Site {
+    pub site_type: SiteType,
+    // Identity::OrgSite or Identity::IndividualSite
+    pub site_identity: Identity,
+    pub site_key: PrivKey,
+
+    // Identity::OrgPublic or Identity::IndividualPublic
+    pub public_identity: Identity,
+    pub public_key: PrivKey,
+    // signature of public_identity with site_key
+    pub public_sig: Sig,
+
+    // Identity::OrgProtected or Identity::IndividualProtected
+    pub protected_identity: Identity,
+    pub protected_key: PrivKey,
+    // signature of protected_identity with site_key
+    pub protected_sig: Sig,
+
+    // Identity::OrgPrivate or Identity::IndividualPrivate
+    pub private_identity: Identity,
+    pub private_key: PrivKey,
+    // signature of private_identity with site_key
+    pub private_sig: Sig,
 }
 
 /// RepoHash:
