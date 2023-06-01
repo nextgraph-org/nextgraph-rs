@@ -3,7 +3,7 @@
 // This code is partly derived from work written by TG x Thoth from P2Pcollab.
 // Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -13,12 +13,12 @@
 
 use crate::types::*;
 
+use std::sync::{Arc, RwLock};
 use std::{
     cmp::min,
     collections::{hash_map::Iter, HashMap},
     mem::size_of_val,
 };
-use std::sync::{Arc, RwLock};
 
 pub trait RepoStore {
     /// Load a block from the store.
@@ -37,6 +37,7 @@ pub enum StorageError {
     InvalidValue,
     BackendError,
     SerializationError,
+    AlreadyExists,
 }
 
 impl From<serde_bare::error::Error> for StorageError {
@@ -81,7 +82,12 @@ impl HashMapRepoStore {
     }
 
     pub fn get_all(&self) -> Vec<Block> {
-        self.blocks.read().unwrap().values().map(|x| x.clone()).collect()
+        self.blocks
+            .read()
+            .unwrap()
+            .values()
+            .map(|x| x.clone())
+            .collect()
     }
 }
 
@@ -102,7 +108,12 @@ impl RepoStore for HashMapRepoStore {
     }
 
     fn del(&self, id: &BlockId) -> Result<(Block, usize), StorageError> {
-        let block = self.blocks.write().unwrap().remove(id).ok_or(StorageError::NotFound)?;
+        let block = self
+            .blocks
+            .write()
+            .unwrap()
+            .remove(id)
+            .ok_or(StorageError::NotFound)?;
         let size = size_of_val(&block);
         Ok((block, size))
     }

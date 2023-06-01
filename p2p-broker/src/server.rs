@@ -36,8 +36,8 @@ use p2p_repo::store::RepoStore;
 use p2p_repo::store::StorageError;
 use p2p_repo::types::*;
 use p2p_repo::utils::*;
-use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
-use p2p_stores_lmdb::repo_store::LmdbRepoStore;
+use stores_lmdb::broker_store::LmdbKCVStore;
+use stores_lmdb::repo_store::LmdbRepoStore;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum BrokerError {
@@ -526,7 +526,7 @@ pub struct BrokerPeerInfo {
 const REPO_STORES_SUBDIR: &str = "repos";
 
 pub struct BrokerServer {
-    store: LmdbBrokerStore,
+    store: LmdbKCVStore,
     mode: ConfigMode,
     repo_stores: Arc<RwLock<HashMap<RepoHash, LmdbRepoStore>>>,
     // only used in ConfigMode::Local
@@ -560,7 +560,7 @@ impl BrokerServer {
         writer.remove(&peer_id);
     }
 
-    pub fn new(store: LmdbBrokerStore, mode: ConfigMode) -> Result<BrokerServer, BrokerError> {
+    pub fn new(store: LmdbKCVStore, mode: ConfigMode) -> Result<BrokerServer, BrokerError> {
         let mut configmode: ConfigMode;
         {
             let config = Config::get_or_create(&mode, &store)?;
@@ -579,7 +579,7 @@ impl BrokerServer {
     where
         F: FnOnce(&LmdbRepoStore) -> Result<R, ProtocolError>,
     {
-        // first let's find it in the BrokerStore.repostoreinfo table in order to get the encryption key
+        // first let's find it in the KCVStore.repostoreinfo table in order to get the encryption key
         let info = RepoStoreInfo::open(&repo_hash, &self.store)
             .map_err(|e| BrokerError::OverlayNotFound)?;
         let key = info.key()?;
@@ -635,7 +635,7 @@ impl BrokerServer {
         //     }
 
         //     // we need to open/create it
-        //     // first let's find it in the BrokerStore.overlay table to retrieve its repo_pubkey
+        //     // first let's find it in the KCVStore.overlay table to retrieve its repo_pubkey
         //     debug_println!("searching for overlayId {}", overlay_id);
         //     let overlay = Overlay::open(overlay_id, &self.store)?;
         //     debug_println!("found overlayId {}", overlay_id);

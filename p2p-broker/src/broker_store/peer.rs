@@ -10,7 +10,7 @@
 //! Peer
 
 use p2p_net::types::*;
-use p2p_repo::broker_store::BrokerStore;
+use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::store::*;
 use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ use serde_bare::{from_slice, to_vec};
 pub struct Peer<'a> {
     /// Topic ID
     id: PeerId,
-    store: &'a dyn BrokerStore,
+    store: &'a dyn KCVStore,
 }
 
 impl<'a> Peer<'a> {
@@ -33,7 +33,7 @@ impl<'a> Peer<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::VERSION;
 
-    pub fn open(id: &PeerId, store: &'a dyn BrokerStore) -> Result<Peer<'a>, StorageError> {
+    pub fn open(id: &PeerId, store: &'a dyn KCVStore) -> Result<Peer<'a>, StorageError> {
         let opening = Peer {
             id: id.clone(),
             store,
@@ -45,7 +45,7 @@ impl<'a> Peer<'a> {
     }
     pub fn update_or_create(
         advert: &PeerAdvert,
-        store: &'a dyn BrokerStore,
+        store: &'a dyn KCVStore,
     ) -> Result<Peer<'a>, StorageError> {
         let id = advert.peer();
         match Self::open(id, store) {
@@ -62,10 +62,7 @@ impl<'a> Peer<'a> {
             }
         }
     }
-    pub fn create(
-        advert: &PeerAdvert,
-        store: &'a dyn BrokerStore,
-    ) -> Result<Peer<'a>, StorageError> {
+    pub fn create(advert: &PeerAdvert, store: &'a dyn KCVStore) -> Result<Peer<'a>, StorageError> {
         let id = advert.peer();
         let acc = Peer {
             id: id.clone(),

@@ -1,13 +1,13 @@
 // Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use p2p_repo::broker_store::*;
+use p2p_repo::kcv_store::*;
 use p2p_repo::store::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::*;
@@ -29,29 +29,25 @@ use rkv::{
 use serde::{Deserialize, Serialize};
 use serde_bare::error::Error;
 
-
 pub struct LmdbTransaction<'a> {
-
-    store: &'a LmdbBrokerStore,
+    store: &'a LmdbKCVStore,
     writer: Option<Writer<LmdbRwTransaction<'a>>>,
-
 }
 
 impl<'a> LmdbTransaction<'a> {
-
     fn commit(&mut self) {
         self.writer.take().unwrap().commit().unwrap();
     }
-
 }
 
 impl<'a> ReadTransaction for LmdbTransaction<'a> {
     /// Load a single value property from the store.
     fn get(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<Vec<u8>, StorageError> {
-        let property = LmdbBrokerStore::compute_property(prefix, key, suffix);
-        
+        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+
         let mut iter = self
-            .store.main_store
+            .store
+            .main_store
             .get(self.writer.as_ref().unwrap(), property)
             .map_err(|e| StorageError::BackendError)?;
         match iter.next() {
@@ -68,10 +64,11 @@ impl<'a> ReadTransaction for LmdbTransaction<'a> {
         key: &Vec<u8>,
         suffix: Option<u8>,
     ) -> Result<Vec<Vec<u8>>, StorageError> {
-        let property = LmdbBrokerStore::compute_property(prefix, key, suffix);
-       
+        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+
         let mut iter = self
-            .store.main_store
+            .store
+            .main_store
             .get(self.writer.as_ref().unwrap(), property)
             .map_err(|e| StorageError::BackendError)?;
         let mut vector: Vec<Vec<u8>> = vec![];
@@ -95,11 +92,16 @@ impl<'a> ReadTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbBrokerStore::compute_property(prefix, key, suffix);
+        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
 
         let exists = self
-            .store.main_store
-            .get_key_value(self.writer.as_ref().unwrap(), property, &Value::Blob(value.as_slice()))
+            .store
+            .main_store
+            .get_key_value(
+                self.writer.as_ref().unwrap(),
+                property,
+                &Value::Blob(value.as_slice()),
+            )
             .map_err(|e| StorageError::BackendError)?;
         if exists {
             Ok(())
@@ -107,11 +109,9 @@ impl<'a> ReadTransaction for LmdbTransaction<'a> {
             Err(StorageError::NotFound)
         }
     }
-
 }
 
 impl<'a> WriteTransaction for LmdbTransaction<'a> {
-
     /// Save a property value to the store.
     fn put(
         &mut self,
@@ -120,9 +120,14 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbBrokerStore::compute_property(prefix, key, suffix);
-        self.store.main_store
-            .put(self.writer.as_mut().unwrap(), property, &Value::Blob(value.as_slice()))
+        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+        self.store
+            .main_store
+            .put(
+                self.writer.as_mut().unwrap(),
+                property,
+                &Value::Blob(value.as_slice()),
+            )
             .map_err(|e| StorageError::BackendError)?;
 
         Ok(())
@@ -136,14 +141,20 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbBrokerStore::compute_property(prefix, key, suffix);
+        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
 
-        self.store.main_store
+        self.store
+            .main_store
             .delete_all(self.writer.as_mut().unwrap(), property.clone())
             .map_err(|e| StorageError::BackendError)?;
 
-        self.store.main_store
-            .put(self.writer.as_mut().unwrap(), property, &Value::Blob(value.as_slice()))
+        self.store
+            .main_store
+            .put(
+                self.writer.as_mut().unwrap(),
+                property,
+                &Value::Blob(value.as_slice()),
+            )
             .map_err(|e| StorageError::BackendError)?;
 
         Ok(())
@@ -151,8 +162,9 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
 
     /// Delete a property from the store.
     fn del(&mut self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<(), StorageError> {
-        let property = LmdbBrokerStore::compute_property(prefix, key, suffix);
-        self.store.main_store
+        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+        self.store
+            .main_store
             .delete_all(self.writer.as_mut().unwrap(), property)
             .map_err(|e| StorageError::BackendError)?;
 
@@ -167,16 +179,26 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbBrokerStore::compute_property(prefix, key, suffix);
-        self.store.main_store
-            .delete(self.writer.as_mut().unwrap(), property, &Value::Blob(value.as_slice()))
+        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+        self.store
+            .main_store
+            .delete(
+                self.writer.as_mut().unwrap(),
+                property,
+                &Value::Blob(value.as_slice()),
+            )
             .map_err(|e| StorageError::BackendError)?;
 
         Ok(())
     }
 
     /// Delete all properties of a key from the store.
-    fn del_all(&mut self, prefix: u8, key: &Vec<u8>, all_suffixes: &[u8]) -> Result<(), StorageError> {
+    fn del_all(
+        &mut self,
+        prefix: u8,
+        key: &Vec<u8>,
+        all_suffixes: &[u8],
+    ) -> Result<(), StorageError> {
         for suffix in all_suffixes {
             self.del(prefix, key, Some(*suffix))?;
         }
@@ -188,7 +210,7 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
 }
 
 #[derive(Debug)]
-pub struct LmdbBrokerStore {
+pub struct LmdbKCVStore {
     /// the main store where all the properties of keys are stored
     main_store: MultiStore<LmdbDatabase>,
     /// the opened environment so we can create new transactions
@@ -197,8 +219,7 @@ pub struct LmdbBrokerStore {
     path: String,
 }
 
-impl ReadTransaction for LmdbBrokerStore {
-
+impl ReadTransaction for LmdbKCVStore {
     /// Load a single value property from the store.
     fn get(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<Vec<u8>, StorageError> {
         let property = Self::compute_property(prefix, key, suffix);
@@ -263,28 +284,26 @@ impl ReadTransaction for LmdbBrokerStore {
             Err(StorageError::NotFound)
         }
     }
-
-
 }
 
-impl BrokerStore for LmdbBrokerStore {
-
-    fn write_transaction(&self,  method: & dyn Fn(&mut dyn WriteTransaction) -> Result<(), StorageError> )-> Result<(), StorageError> {
-
+impl KCVStore for LmdbKCVStore {
+    fn write_transaction(
+        &self,
+        method: &dyn Fn(&mut dyn WriteTransaction) -> Result<(), StorageError>,
+    ) -> Result<(), StorageError> {
         let lock = self.environment.read().unwrap();
         let writer = lock.write().unwrap();
-        
+
         let mut transaction = LmdbTransaction {
             store: self,
             writer: Some(writer),
         };
         let res = method(&mut transaction);
-        
+
         if res.is_ok() {
             transaction.commit();
         }
         res
-
     }
 
     /// Save a property value to the store.
@@ -295,10 +314,7 @@ impl BrokerStore for LmdbBrokerStore {
         suffix: Option<u8>,
         value: Vec<u8>,
     ) -> Result<(), StorageError> {
-
-        self.write_transaction(&|tx| {
-            tx.put(prefix,key,suffix,&value)
-        })
+        self.write_transaction(&|tx| tx.put(prefix, key, suffix, &value))
     }
 
     /// Replace the property of a key (single value) to the store.
@@ -309,17 +325,12 @@ impl BrokerStore for LmdbBrokerStore {
         suffix: Option<u8>,
         value: Vec<u8>,
     ) -> Result<(), StorageError> {
-
-        self.write_transaction(&|tx| {
-            tx.replace(prefix,key,suffix,&value)
-        })
+        self.write_transaction(&|tx| tx.replace(prefix, key, suffix, &value))
     }
 
     /// Delete a property from the store.
     fn del(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<(), StorageError> {
-        self.write_transaction(&|tx| {
-            tx.del(prefix,key,suffix)
-        })
+        self.write_transaction(&|tx| tx.del(prefix, key, suffix))
     }
 
     /// Delete a specific value for a property from the store.
@@ -330,9 +341,7 @@ impl BrokerStore for LmdbBrokerStore {
         suffix: Option<u8>,
         value: Vec<u8>,
     ) -> Result<(), StorageError> {
-        self.write_transaction(&|tx| {
-            tx.del_property_value(prefix,key,suffix, &value)
-        })
+        self.write_transaction(&|tx| tx.del_property_value(prefix, key, suffix, &value))
     }
 
     /// Delete all properties of a key from the store.
@@ -347,7 +356,7 @@ impl BrokerStore for LmdbBrokerStore {
     }
 }
 
-impl LmdbBrokerStore {
+impl LmdbKCVStore {
     pub fn path(&self) -> PathBuf {
         PathBuf::from(&self.path)
     }
@@ -362,9 +371,9 @@ impl LmdbBrokerStore {
         new
     }
 
-    /// Opens the store and returns a BrokerStore object that should be kept and used to manipulate Accounts, Overlays, Topics and options
+    /// Opens the store and returns a KCVStore object that should be kept and used to manipulate the properties
     /// The key is the encryption key for the data at rest.
-    pub fn open<'a>(path: &Path, key: [u8; 32]) -> LmdbBrokerStore {
+    pub fn open<'a>(path: &Path, key: [u8; 32]) -> LmdbKCVStore {
         let mut manager = Manager::<LmdbEnvironment>::singleton().write().unwrap();
         let shared_rkv = manager
             .get_or_create(path, |path| {
@@ -378,7 +387,7 @@ impl LmdbBrokerStore {
 
         let main_store = env.open_multi("main", StoreOptions::create()).unwrap();
 
-        LmdbBrokerStore {
+        LmdbKCVStore {
             environment: shared_rkv.clone(),
             main_store,
             path: path.to_str().unwrap().to_string(),

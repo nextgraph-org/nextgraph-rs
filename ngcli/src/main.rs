@@ -16,8 +16,8 @@ use futures::{future, pin_mut, stream, SinkExt, StreamExt};
 use p2p_broker::broker_store::config::ConfigMode;
 use p2p_repo::object::Object;
 use p2p_repo::store::{store_max_value_size, store_valid_value_size, HashMapRepoStore, RepoStore};
-use p2p_stores_lmdb::broker_store::LmdbBrokerStore;
-use p2p_stores_lmdb::repo_store::LmdbRepoStore;
+use stores_lmdb::kcv_store::LmdbKCVStore;
+use stores_lmdb::repo_store::LmdbRepoStore;
 use rand::rngs::OsRng;
 use std::collections::HashMap;
 
@@ -557,7 +557,7 @@ async fn test_local_connection() {
     let master_key: [u8; 32] = [0; 32];
     std::fs::create_dir_all(root.path()).unwrap();
     println!("{}", root.path().to_str().unwrap());
-    let store = LmdbBrokerStore::open(root.path(), master_key);
+    let store = LmdbKCVStore::open(root.path(), master_key);
 
     //let mut server = BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
 

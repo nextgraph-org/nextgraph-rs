@@ -5,11 +5,13 @@ members = [
   "p2p-broker",
   "p2p-client-ws",
   "p2p-verifier",
-  "p2p-stores-lmdb",
+  "stores-lmdb",
   "ngcli",
   "ngd",
+  "ngone",
   "ng-app-js",
   "ng-app-native/src-tauri",
+  "ng-wallet"
 ]
 
 [profile.release]

@@ -1,7 +1,7 @@
 // Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -9,10 +9,10 @@
 
 //! Overlay
 
-use p2p_repo::broker_store::BrokerStore;
+use p2p_net::types::*;
+use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::store::*;
 use p2p_repo::types::*;
-use p2p_net::types::*;
 use p2p_repo::utils::now_timestamp;
 use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};
@@ -27,7 +27,7 @@ pub struct OverlayMeta {
 pub struct Overlay<'a> {
     /// Overlay ID
     id: OverlayId,
-    store: &'a dyn BrokerStore,
+    store: &'a dyn KCVStore,
 }
 
 impl<'a> Overlay<'a> {
@@ -50,7 +50,7 @@ impl<'a> Overlay<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::SECRET;
 
-    pub fn open(id: &OverlayId, store: &'a dyn BrokerStore) -> Result<Overlay<'a>, StorageError> {
+    pub fn open(id: &OverlayId, store: &'a dyn KCVStore) -> Result<Overlay<'a>, StorageError> {
         let opening = Overlay {
             id: id.clone(),
             store,
@@ -64,7 +64,7 @@ impl<'a> Overlay<'a> {
         id: &OverlayId,
         secret: &SymKey,
         repo: Option<PubKey>,
-        store: &'a dyn BrokerStore,
+        store: &'a dyn KCVStore,
     ) -> Result<Overlay<'a>, StorageError> {
         let acc = Overlay {
             id: id.clone(),
@@ -85,7 +85,7 @@ impl<'a> Overlay<'a> {
                     Self::PREFIX,
                     &to_vec(&id)?,
                     Some(Self::REPO),
-                    & to_vec(&repo.unwrap())?,
+                    &to_vec(&repo.unwrap())?,
                 )?;
             }
             let meta = OverlayMeta {
