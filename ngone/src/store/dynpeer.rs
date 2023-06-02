@@ -17,13 +17,13 @@ use p2p_repo::types::PubKey;
 use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};
 
-pub struct DynBox<'a> {
+pub struct DynPeer<'a> {
     /// peer ID
     id: PubKey,
     store: &'a dyn KCVStore,
 }
 
-impl<'a> DynBox<'a> {
+impl<'a> DynPeer<'a> {
     const PREFIX: u8 = b"d"[0];
 
     // properties' suffixes
@@ -33,8 +33,8 @@ impl<'a> DynBox<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::ADDRS;
 
-    pub fn open(id: &PubKey, store: &'a dyn KCVStore) -> Result<DynBox<'a>, StorageError> {
-        let opening = DynBox {
+    pub fn open(id: &PubKey, store: &'a dyn KCVStore) -> Result<DynPeer<'a>, StorageError> {
+        let opening = DynPeer {
             id: id.clone(),
             store,
         };
@@ -47,8 +47,8 @@ impl<'a> DynBox<'a> {
         id: &PubKey,
         addrs: &Vec<NetAddr>,
         store: &'a dyn KCVStore,
-    ) -> Result<DynBox<'a>, StorageError> {
-        let acc = DynBox {
+    ) -> Result<DynPeer<'a>, StorageError> {
+        let acc = DynPeer {
             id: id.clone(),
             store,
         };
