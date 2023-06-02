@@ -1,3 +1,3 @@
-pub mod dynbox;
+pub mod dynpeer;
 
 pub mod wallet_record;
