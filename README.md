@@ -55,7 +55,7 @@ The crates are organized as follow :
 - ngcli : CLI tool to manipulate the repos
 - ngd : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
 - ngone : server for nextgraph.one (boostrap into the right app)
-- ng-app-js : contains the JS SDK, the web app, react app, and some node services
+- ng-sdk-js : contains the JS SDK, with example apps: web app, react app, or node service.
 - ng-app : all the native apps, based on Tauri, and the web app.
 - ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
 

@@ -1,0 +1,13 @@
+{
+    "name": "nextgraph-rs",
+    "private": true,
+    "version": "0.1.0",
+    "pnpm": {
+      "peerDependencyRules": {
+        "ignoreMissing": [
+          "rollup"
+        ]
+      }
+    }
+  }
+  

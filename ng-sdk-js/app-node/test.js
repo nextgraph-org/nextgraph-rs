@@ -1,4 +1,4 @@
-const ng = require("ng-app-node-sdk");
+const ng = require("ng-sdk-node");
 
 module.exports.random = function () {
     console.log("FROM TEST");

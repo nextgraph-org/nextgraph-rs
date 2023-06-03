@@ -10,7 +10,7 @@
 -->
 
 <script lang="ts">
-  import * as ng2 from "../../ng-app-js/pkg/ng_app_js_sdk";
+  import * as ng2 from "ng-sdk-js";
   import Router from "svelte-spa-router";
 
   import Home from "./routes/Home.svelte";

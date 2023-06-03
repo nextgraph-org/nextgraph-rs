@@ -12,7 +12,7 @@ import ReactDOM from "react-dom";
 import { createRoot } from 'react-dom/client';
 import Test from "./test";
 
-const ng_sdk = import("ng-app-js-sdk");
+const ng_sdk = import("ng-sdk-js");
 
 ng_sdk.then((ng) => {
     const App = () => {
