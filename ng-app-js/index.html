@@ -18,9 +18,17 @@
   <body>
     <p>run <code>python3 -m http.server</code> to use it</p>
     <script type="module">
-      import init, { greet } from "./web/ng_app_js_sdk.js";
+      import init, { start, test } from "./web/ng_app_js_sdk.js";
       init().then(() => {
-        greet("WebAssembly");
+        //greet("WebAssembly");
+        test();
+        start();
+        test();
+      });
+      // DON'T DO THE FOLLOW:
+      // it will instantiate twice the SDK, which is not what we want
+      init().then(() => {
+        test();
       });
     </script>
   </body>

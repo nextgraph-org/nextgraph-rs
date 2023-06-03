@@ -1,5 +1,5 @@
 [package]
-name = "ng-app-native"
+name = "ng-app"
 version = "0.1.0"
 description = "NextGraph App"
 authors = ["Niko PLP <niko@nextgraph.org>"]

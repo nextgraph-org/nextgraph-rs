@@ -60,6 +60,8 @@ pub struct Broker {
     shutdown: Option<Receiver<ProtocolError>>,
     shutdown_sender: Sender<ProtocolError>,
     closing: bool,
+
+    test: u32,
 }
 
 impl Broker {
@@ -93,14 +95,21 @@ impl Broker {
         }
     }
 
+    pub fn test(&self) -> u32 {
+        self.test
+    }
+
     pub fn new() -> Self {
         let (shutdown_sender, shutdown_receiver) = mpsc::unbounded::<ProtocolError>();
+        let mut random_buf = [0u8; 4];
+        getrandom::getrandom(&mut random_buf).unwrap();
         Broker {
             shutdown: Some(shutdown_receiver),
             shutdown_sender,
             direct_connections: HashMap::new(),
             peers: HashMap::new(),
             closing: false,
+            test: u32::from_be_bytes(random_buf),
         }
     }
 

@@ -85,7 +85,7 @@ async fn ws_loop(
             select! {
                 r = stream.next().fuse() => match r {
                     Some(msg) => {
-                        //log!("GOT MESSAGE {:?}", msg);
+                        log!("GOT MESSAGE {:?}", msg);
                         if let WsMessage::Binary(b) = msg {
                             receiver.send(ConnectionCommand::Msg(serde_bare::from_slice::<ProtocolMessage>(&b)?)).await
                                     .map_err(|_e| NetError::IoError)?;
@@ -98,11 +98,11 @@ async fn ws_loop(
                 },
                 s = sender.next().fuse() => match s {
                     Some(msg) => {
-                        //log!("SENDING MESSAGE {:?}", msg);
+                        log!("SENDING MESSAGE {:?}", msg);
                         match msg {
                             ConnectionCommand::Msg(m) => {
 
-                                stream.send(WsMessage::Binary(serde_bare::to_vec(&m)?)).await.map_err(|_e| NetError::IoError)?;
+                                stream.send(WsMessage::Binary(serde_bare::to_vec(&m)?)).await.map_err(|e| { log!("{:?}",e); return NetError::IoError;})?;
 
                             },
                             ConnectionCommand::Error(e) => {
@@ -150,7 +150,7 @@ async fn ws_loop(
                 .await;
             //.map_err(|_e| NetError::WsError)?;
             //return Err(Box::new(e));
-            log!("ERR");
+            log!("ERR {:?}", e);
         }
     }
 

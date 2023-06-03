@@ -31,9 +31,29 @@ extern "C" {
     pub fn alert(s: &str);
 }
 
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen(module = "/js/node.js")]
+extern "C" {
+    fn random(max: usize) -> usize;
+}
+
+#[cfg(not(wasmpack_target = "nodejs"))]
+#[wasm_bindgen(module = "/js/browser.js")]
+extern "C" {
+    fn random(max: usize) -> usize;
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn test() {
+    log!("test is {}", BROKER.read().await.test());
+}
+
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn start() {
+    log!("random {}", random(10));
+
     // let mut random_buf = [0u8; 32];
     // getrandom::getrandom(&mut random_buf).unwrap();
 
@@ -70,7 +90,8 @@ pub async fn start() {
             .await;
         log!("broker.connect : {:?}", res);
         if res.is_err() {
-            panic!("Cannot connect");
+            return Ok(());
+            //panic!("Cannot connect");
         }
         BROKER.read().await.print_status();
 

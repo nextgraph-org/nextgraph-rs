@@ -33,10 +33,10 @@ pub enum BoostrapServerTypeV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BootstrapServerV0 {
     /// Network addresses
-    pub serverType: BoostrapServerTypeV0,
+    pub server_type: BoostrapServerTypeV0,
 
     /// peerId of the server
-    pub peerId: PubKey,
+    pub peer_id: PubKey,
 }
 
 /// Bootstrap content Version 0
