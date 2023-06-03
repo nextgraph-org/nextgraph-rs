@@ -13,10 +13,10 @@ keyProperties.load(FileInputStream(keyPropertiesFile))
 
 android {
     compileSdk = 33
-    namespace = "org.nextgraph.ng_app_native"
+    namespace = "org.nextgraph.ng_app"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "org.nextgraph.ng_app_native"
+        applicationId = "org.nextgraph.ng_app"
         minSdk = 24
         targetSdk = 33
         versionCode = 1
