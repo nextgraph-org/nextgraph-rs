@@ -10,14 +10,17 @@
 -->
 
 <script lang="ts">
-  import * as ng2 from "ng-sdk-js";
   import Router from "svelte-spa-router";
 
   import Home from "./routes/Home.svelte";
   import Test from "./routes/Test.svelte";
   import NotFound from "./routes/NotFound.svelte";
 
-  ng2.test();
+  if (import.meta.env.NG_APP_WEB) {
+    import("ng-sdk-js").then((ng2) => {
+      ng2.test();
+    });
+  }
 
   const routes = {
     // Exact path

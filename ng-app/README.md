@@ -6,6 +6,14 @@ All the apps are using an embedded WebView that renders a Svelte app.
 
 ## Install
 
+prerequisites: compile the local SDK
+
+```
+cd ../ng-sdk-js
+wasm-pack build --target bundler
+cd ../ng-app
+```
+
 ```
 cargo install tauri-cli --version "^2.0.0-alpha"
 npm install -g pnpm
