@@ -20,6 +20,6 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
--keep class org.nextgraph.ng_app_native.TauriActivity {
+-keep class org.nextgraph.ng_app.TauriActivity {
   public app.tauri.plugin.PluginManager getPluginManager();
 }

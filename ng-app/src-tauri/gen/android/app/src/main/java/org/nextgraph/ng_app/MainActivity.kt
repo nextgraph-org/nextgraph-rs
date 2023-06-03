@@ -1,3 +1,3 @@
-package org.nextgraph.ng_app_native
+package org.nextgraph.ng_app
 
 class MainActivity : TauriActivity()
