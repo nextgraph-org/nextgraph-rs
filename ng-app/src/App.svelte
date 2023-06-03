@@ -10,11 +10,14 @@
 -->
 
 <script lang="ts">
+  import * as ng2 from "../../ng-app-js/pkg/ng_app_js_sdk";
   import Router from "svelte-spa-router";
 
   import Home from "./routes/Home.svelte";
   import Test from "./routes/Test.svelte";
   import NotFound from "./routes/NotFound.svelte";
+
+  ng2.test();
 
   const routes = {
     // Exact path

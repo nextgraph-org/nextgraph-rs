@@ -4,12 +4,16 @@ import { svelte, vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import sveltePreprocess from "svelte-preprocess";
 import { viteSingleFile } from "vite-plugin-singlefile"
 import svelteSVG from "vite-plugin-svelte-svg";
+import wasm from "vite-plugin-wasm";
+import topLevelAwait from "vite-plugin-top-level-await";
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => {
   const host = await internalIpV4()
   const config = {
   plugins: [
+    wasm(),
+    topLevelAwait(),
     svelte({
       preprocess: [
         vitePreprocess(),
@@ -49,7 +53,7 @@ export default defineConfig(async () => {
       protocol: 'ws',
       host,
       port: process.env.NG_APP_WEB ? 5184 : 5183,
-    },
+    }
   },
   // to make use of `TAURI_DEBUG` and other env variables
   // https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
@@ -62,7 +66,7 @@ export default defineConfig(async () => {
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     // produce sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_DEBUG,
-  },
+  }
 }
 if (process.env.NG_APP_FILE) config.plugins.push(viteSingleFile());
 return config

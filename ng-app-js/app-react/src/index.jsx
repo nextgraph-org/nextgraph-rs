@@ -9,6 +9,8 @@
 
 import React, { useState } from "react";
 import ReactDOM from "react-dom";
+import { createRoot } from 'react-dom/client';
+import Test from "./test";
 
 const ng_sdk = import("ng-app-js-sdk");
 
@@ -19,8 +21,8 @@ ng_sdk.then((ng) => {
         setName(ng.change(e.target.value));
       };
       const handleClick = () => {
-        console.log(name);
-        ng.greet(name);
+        ng.test();
+        ng.start();
       };
   
       return (
@@ -29,10 +31,14 @@ ng_sdk.then((ng) => {
             I say: {name}<br/>
             <input type="text" onChange={handleChange} />
             <button onClick={handleClick}>Say hello!</button>
+            <Test/>
           </div>
         </>
       );
     };
   
-    ReactDOM.render(<App />, document.getElementById("root"));
+    //ReactDOM.render(<App />, document.getElementById("root"));
+    const domNode = document.getElementById('root');
+    const root = createRoot(domNode);
+    root.render(<App />);
   });

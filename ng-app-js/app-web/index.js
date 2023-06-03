@@ -9,4 +9,7 @@
 
 import * as ng from "ng-app-js-sdk";
 
-console.log(ng.change("you"));
+import test from './test';
+ng.test();
+test();
+console.log(ng.start());

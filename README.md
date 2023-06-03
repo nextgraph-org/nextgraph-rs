@@ -31,8 +31,10 @@ Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/)
 - [Install Rust](https://www.rust-lang.org/tools/install) minimum required 1.64.0
 - [Install Nodejs](https://nodejs.org/en/download/)
 
+until this [PR](https://github.com/rustwasm/wasm-pack/pull/1271) is accepted, will have to install wasm-pack this way:
+
 ```
-cargo install wasm-pack
+cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2b663f25abe50631a236d57a8c6d7fd806413b2
 cargo install cargo-watch
 // optionally, if you want a Rust REPL: cargo install evcxr_repl
 git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
@@ -54,7 +56,7 @@ The crates are organized as follow :
 - ngd : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
 - ngone : server for nextgraph.one (boostrap into the right app)
 - ng-app-js : contains the JS SDK, the web app, react app, and some node services
-- ng-app-native : all the native apps, based on Tauri
+- ng-app : all the native apps, based on Tauri, and the web app.
 - ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
 
 ### Run

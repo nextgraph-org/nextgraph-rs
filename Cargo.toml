@@ -10,7 +10,7 @@ members = [
   "ngd",
   "ngone",
   "ng-app-js",
-  "ng-app-native/src-tauri",
+  "ng-app/src-tauri",
   "ng-wallet"
 ]
 

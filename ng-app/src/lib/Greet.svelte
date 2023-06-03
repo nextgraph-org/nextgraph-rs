@@ -15,11 +15,14 @@
   let ng;
 
   if (import.meta.env.NG_APP_WEB) {
-    ng = {
-      greet: async function (n) {
-        return "greetings from web " + n;
-      },
-    };
+    import("../../../ng-app-js/pkg/ng_app_js_sdk").then((ng2) => {
+      ng = {
+        greet: async function (n) {
+          ng2.test();
+          return "greetings from web " + n;
+        },
+      };
+    });
   } else {
     import("@tauri-apps/api/tauri").then((tauri) => {
       ng = { greet: (n) => tauri.invoke("greet", { name: n }) };

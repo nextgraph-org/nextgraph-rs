@@ -1,8 +1,8 @@
-# NextGraph native apps (Linux, MacOS, Windows, Android, iOS)
+# NextGraph apps (Linux, MacOS, Windows, Android, iOS, web)
 
 NextGraph native apps use the Tauri framework.
 
-The apps are using an embedded WebView that renders the Svelte app.
+All the apps are using an embedded WebView that renders a Svelte app.
 
 ## Install
 
@@ -15,6 +15,32 @@ pnpm install
 ## Recommended IDE Setup
 
 [VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+
+## Web
+
+#### Dev
+
+```
+pnpm webdev
+// then open http://localhost:1421/
+```
+
+#### Prod
+
+```
+pnpm webbuild
+// then the application is available in dist-web folder
+// can be served with cd dist-web ; python3 -m http.server
+```
+
+in order a build a self-contained html file, useful for offline use, do:
+
+```
+pnpm filebuild
+// single file is available in dist-file/index.html
+// the assets folder can be discarded
+
+```
 
 ## Desktop
 
@@ -37,6 +63,8 @@ to build the production app installer :
 
 ```
 cargo tauri build
+// the installer is then available in target/x86_64-apple-darwin/release/bundle/dmg/NextGraph_0.1.0_x64.dmg
+// or if you just want the app, it is at target/x86_64-apple-darwin/release/bundle/macos/NextGraph.app
 ```
 
 ### Linux (Ubuntu 22.04)
