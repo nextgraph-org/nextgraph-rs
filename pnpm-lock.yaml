@@ -2,6 +2,9 @@ lockfileVersion: 5.4
 
 importers:
 
+  .:
+    specifiers: {}
+
   ng-app:
     specifiers:
       '@popperjs/core': ^2.11.8
@@ -60,6 +63,19 @@ importers:
       vite-plugin-singlefile: 0.13.5_vite@4.3.9
       vite-plugin-svelte-svg: 2.2.1_svelte@3.59.1+vite@4.3.9
       vite-plugin-wasm: 3.2.2_vite@4.3.9
+
+  ng-sdk-js/pkg:
+    specifiers: {}
+
+  ngone/web:
+    specifiers:
+      '@sveltejs/vite-plugin-svelte': ^2.0.4
+      svelte: ^3.58.0
+      vite: ^4.3.9
+    devDependencies:
+      '@sveltejs/vite-plugin-svelte': 2.4.1_svelte@3.59.1+vite@4.3.9
+      svelte: 3.59.1
+      vite: 4.3.9
 
 packages:
 
@@ -1812,6 +1828,38 @@ packages:
       vite: ^2 || ^3 || ^4
     dependencies:
       vite: 4.3.9_@types+node@18.16.16
+    dev: true
+
+  /vite/4.3.9:
+    resolution: {integrity: sha512-qsTNZjO9NoJNW7KnOrgYwczm0WctJ8m/yqYAMAK9Lxt4SoySUfS5S8ia9K7JHpa3KEeMfyF8LoJ3c5NeBJy6pg==}
+    engines: {node: ^14.18.0 || >=16.0.0}
+    hasBin: true
+    peerDependencies:
+      '@types/node': '>= 14'
+      less: '*'
+      sass: '*'
+      stylus: '*'
+      sugarss: '*'
+      terser: ^5.4.0
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      less:
+        optional: true
+      sass:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+    dependencies:
+      esbuild: 0.17.19
+      postcss: 8.4.24
+      rollup: 3.23.0
+    optionalDependencies:
+      fsevents: 2.3.2
     dev: true
 
   /vite/4.3.9_@types+node@18.16.16:

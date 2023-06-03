@@ -54,10 +54,10 @@ The crates are organized as follow :
 - stores-lmdb : lmdb backed stores
 - ngcli : CLI tool to manipulate the repos
 - ngd : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
-- ngone : server for nextgraph.one (boostrap into the right app)
-- ng-sdk-js : contains the JS SDK, with example apps: web app, react app, or node service.
-- ng-app : all the native apps, based on Tauri, and the web app.
 - ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
+- [ng-sdk-js](ng-sdk-js/README.md) : contains the JS SDK, with example apps: web app, react app, or node service.
+- [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the web app.
+- [ngone](ngone/README.md) : server for nextgraph.one (boostrap into the right app)
 
 ### Run
 

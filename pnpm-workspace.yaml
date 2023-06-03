@@ -1,3 +1,4 @@
 packages:
   - ng-sdk-js/pkg
   - ng-app
+  - ngone/web
