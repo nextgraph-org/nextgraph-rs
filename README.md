@@ -109,10 +109,10 @@ cargo test --package p2p-client-ws --lib --  --nocapture
 ### Build release binaries
 
 ```
-cargo build -r
+cargo build -r -p ngd
 ```
 
-you can then find the binaries `ngcli` and `ngd` in `target/release`
+you can then find the binary `ngd` in `target/release`
 
 ### Generate documentation
 
