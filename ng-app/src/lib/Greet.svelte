@@ -15,7 +15,7 @@
   let ng;
 
   if (import.meta.env.NG_APP_WEB) {
-    import("../../../ng-app-js/pkg/ng_app_js_sdk").then((ng2) => {
+    import("ng-sdk-js").then((ng2) => {
       ng = {
         greet: async function (n) {
           ng2.test();

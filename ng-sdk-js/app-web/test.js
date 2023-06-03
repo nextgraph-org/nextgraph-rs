@@ -1,5 +1,5 @@
 
-import * as ng from "ng-app-js-sdk";
+import * as ng from "ng-sdk-js";
 
 function test() {
     ng.test()

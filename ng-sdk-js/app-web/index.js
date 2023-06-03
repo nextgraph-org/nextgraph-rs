@@ -6,13 +6,10 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
-const WebSocket = require("ws");
-const ng = require("ng-app-node-sdk");
-global.WebSocket = WebSocket;
 
-const test = require("./test")
-console.log("FROM INDEX");
+import * as ng from "ng-sdk-js";
+
+import test from './test';
 ng.test();
-test.random();
+test();
 console.log(ng.start());
-

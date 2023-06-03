@@ -9,7 +9,7 @@ members = [
   "ngcli",
   "ngd",
   "ngone",
-  "ng-app-js",
+  "ng-sdk-js",
   "ng-app/src-tauri",
   "ng-wallet"
 ]
