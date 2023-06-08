@@ -219,11 +219,11 @@ pub struct Site {
 /// BLAKE3 hash of the RepoId
 pub type RepoHash = Digest;
 
-impl From<RepoHash> for String {
-    fn from(id: RepoHash) -> Self {
-        hex::encode(to_vec(&id).unwrap())
-    }
-}
+// impl From<RepoHash> for String {
+//     fn from(id: RepoHash) -> Self {
+//         hex::encode(to_vec(&id).unwrap())
+//     }
+// }
 
 /// RepoId is a PubKey
 pub type RepoId = PubKey;
@@ -594,8 +594,7 @@ pub enum Commit {
 /// File Object
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FileV0 {
-    #[serde(with = "serde_bytes")]
-    pub content_type: Vec<u8>,
+    pub content_type: String,
 
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,

@@ -11,7 +11,10 @@
 
 //! Block store
 
+use futures::StreamExt;
+
 use crate::types::*;
+use crate::utils::Receiver;
 
 use std::sync::{Arc, RwLock};
 use std::{
@@ -75,6 +78,14 @@ impl HashMapRepoStore {
         HashMapRepoStore {
             blocks: RwLock::new(HashMap::new()),
         }
+    }
+
+    pub async fn from_block_stream(mut blockstream: Receiver<Block>) -> Self {
+        let this = Self::new();
+        while let Some(block) = blockstream.next().await {
+            this.put(&block).unwrap();
+        }
+        this
     }
 
     pub fn get_len(&self) -> usize {

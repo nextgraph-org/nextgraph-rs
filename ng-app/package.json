@@ -8,6 +8,7 @@
     "webdev": "cross-env NG_APP_WEB=1 TAURI_DEBUG=1 vite",
     "webbuild": "cross-env NG_APP_WEB=1 vite build",
     "filebuild": "cross-env NG_APP_WEB=1 NG_APP_FILE=1 vite build",
+    "filebuilddebug": "cross-env NG_APP_WEB=1 NG_APP_FILE=1 TAURI_DEBUG=1 vite build -m debug",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
@@ -16,6 +17,7 @@
   "dependencies": {
     "@popperjs/core": "^2.11.8",
     "@tauri-apps/api": "2.0.0-alpha.4",
+    "async-proxy": "^0.4.1",
     "classnames": "^2.3.2",
     "flowbite": "^1.6.5",
     "flowbite-svelte": "^0.37.1",

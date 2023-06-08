@@ -25,6 +25,8 @@ pub mod actors;
 
 pub mod utils;
 
+pub mod tests;
+
 pub static WS_PORT: u16 = 1025;
 
 #[cfg(target_arch = "wasm32")]

@@ -13,6 +13,7 @@ use crate::errors::*;
 use crate::types::*;
 
 use ed25519_dalek::*;
+use futures::channel::mpsc;
 use rand::rngs::OsRng;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -121,3 +122,5 @@ pub fn now_timestamp() -> Timestamp {
         .try_into()
         .unwrap()
 }
+
+pub type Receiver<T> = mpsc::UnboundedReceiver<T>;

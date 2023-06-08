@@ -2480,6 +2480,10 @@ checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 name = "ng-app"
 version = "0.1.0"
 dependencies = [
+ "async-std",
+ "debug_print",
+ "p2p-net",
+ "p2p-repo",
  "serde",
  "serde_json",
  "tauri",
@@ -2495,13 +2499,16 @@ dependencies = [
  "futures",
  "getrandom 0.1.16",
  "gloo-timers",
+ "js-sys",
  "p2p-client-ws",
  "p2p-net",
  "p2p-repo",
  "pharos",
  "serde",
+ "serde-wasm-bindgen",
  "serde_bare",
  "serde_bytes",
+ "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
@@ -2817,11 +2824,13 @@ dependencies = [
 name = "p2p-repo"
 version = "0.1.0"
 dependencies = [
+ "base64-url",
  "blake3",
  "chacha20",
  "debug_print",
  "ed25519-dalek",
  "fastbloom-rs",
+ "futures",
  "hex",
  "rand 0.7.3",
  "serde",
@@ -3673,6 +3682,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11fc7cc2c76d73e0f27ee52abbd64eec84d46f370c88371120433196934e4b7f"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "serde-wasm-bindgen"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3b143e2833c57ab9ad3ea280d21fd34e285a42837aeb0ee301f4f41890fa00e"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
 ]
 
 [[package]]
