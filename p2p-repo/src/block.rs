@@ -3,7 +3,7 @@
 // This code is partly derived from work written by TG x Thoth from P2Pcollab.
 // Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -32,6 +32,13 @@ impl BlockV0 {
         let block = Block::V0(b.clone());
         b.id = Some(block.get_id());
         b
+    }
+}
+
+impl From<Digest> for String {
+    fn from(id: BlockId) -> Self {
+        base64_url::encode(&serde_bare::to_vec(&id).unwrap())
+        //hex::encode(to_vec(&id).unwrap())
     }
 }
 

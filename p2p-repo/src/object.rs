@@ -3,7 +3,7 @@
 // This code is partly derived from work written by TG x Thoth from P2Pcollab.
 // Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -194,6 +194,7 @@ impl Object {
     ) -> Object {
         // create blocks by chunking + encrypting content
         let valid_block_size = store_valid_value_size(block_size);
+        println!("valid_block_size {}", valid_block_size);
         let data_chunk_size = valid_block_size - EMPTY_BLOCK_SIZE - DATA_VARINT_EXTRA;
 
         let mut blocks: Vec<Block> = vec![];
@@ -301,6 +302,7 @@ impl Object {
             for id in parents {
                 match store.get(&id) {
                     Ok(block) => {
+                        //FIXME: remove the block.clone()
                         blocks.insert(0, block.clone());
                         match block {
                             Block::V0(o) => {
@@ -561,6 +563,9 @@ mod test {
     use crate::object::*;
     use crate::store::*;
     use crate::types::*;
+    use std::io::BufReader;
+    use std::io::Read;
+    use std::io::Write;
 
     // Those constants are calculated with RepoStore::get_max_value_size
 
@@ -571,11 +576,61 @@ mod test {
     /// Maximum data that can fit in object.content
     const MAX_DATA_PAYLOAD_SIZE: usize = 2097112;
 
+    /// Test JPEG file
+    #[test]
+    pub fn test_jpg() {
+        let f = std::fs::File::open("tests/test.jpg").expect("open of tests/test.jpg");
+        let mut reader = BufReader::new(f);
+        let mut img_buffer: Vec<u8> = Vec::new();
+        reader
+            .read_to_end(&mut img_buffer)
+            .expect("read of test.jpg");
+
+        let file = File::V0(FileV0 {
+            content_type: "image/jpeg".into(),
+            metadata: vec![],
+            content: img_buffer,
+        });
+        let content = ObjectContent::File(file);
+
+        let deps: Vec<ObjectId> = vec![Digest::Blake3Digest32([9; 32])];
+        let exp = Some(2u32.pow(31));
+        let max_object_size = store_max_value_size();
+
+        let repo_secret = SymKey::ChaCha20Key([0; 32]);
+        let repo_pubkey = PubKey::Ed25519PubKey([1; 32]);
+
+        let obj = Object::new(
+            content,
+            vec![],
+            exp,
+            max_object_size,
+            repo_pubkey,
+            repo_secret,
+        );
+
+        println!("obj.id: {:?}", obj.id());
+        println!("obj.key: {:?}", obj.key());
+        println!("obj.blocks.len: {:?}", obj.blocks().len());
+
+        let mut i = 0;
+        for node in obj.blocks() {
+            println!("#{}: {:?}", i, node.id());
+            let mut file = std::fs::File::create(format!("tests/{}.ng", node.id()))
+                .expect("open block write file");
+            let ser_file = serde_bare::to_vec(node).unwrap();
+            file.write_all(&ser_file);
+            println!("{:?}", ser_file);
+
+            i += 1;
+        }
+    }
+
     /// Test tree API
     #[test]
     pub fn test_object() {
         let file = File::V0(FileV0 {
-            content_type: Vec::from("file/test"),
+            content_type: "file/test".into(),
             metadata: Vec::from("some meta data here"),
             content: [(0..255).collect::<Vec<u8>>().as_slice(); 320].concat(),
         });
@@ -683,7 +738,7 @@ mod test {
         let deps: Vec<ObjectId> = vec![Digest::Blake3Digest32([9; 32])];
 
         let empty_file = ObjectContent::File(File::V0(FileV0 {
-            content_type: vec![],
+            content_type: "".into(),
             metadata: vec![],
             content: vec![],
         }));
@@ -699,7 +754,7 @@ mod test {
         println!("file size: {}", size);
 
         let content = ObjectContent::File(File::V0(FileV0 {
-            content_type: vec![],
+            content_type: "".into(),
             metadata: vec![],
             content: vec![99; size],
         }));

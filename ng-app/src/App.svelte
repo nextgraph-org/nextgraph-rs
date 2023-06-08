@@ -10,28 +10,24 @@
 -->
 
 <script lang="ts">
+  // this line is needed to have the SDK working when compiling for a single file bundle (pnpm filebuild)
+  //import * as api from "ng-sdk-js";
   import Router from "svelte-spa-router";
+  import { onMount, tick } from "svelte";
 
   import Home from "./routes/Home.svelte";
   import Test from "./routes/Test.svelte";
+  import URI from "./routes/URI.svelte";
   import NotFound from "./routes/NotFound.svelte";
+  import ng from "./api";
 
-  if (import.meta.env.NG_APP_WEB) {
-    import("ng-sdk-js").then((ng2) => {
-      ng2.test();
-    });
-  }
+  ng.test();
 
-  const routes = {
-    // Exact path
-    "/": Home,
-
-    "/test": Test,
-
-    // Catch-all
-    // This is optional, but if present it must be the last
-    "*": NotFound,
-  };
+  const routes = new Map();
+  routes.set("/", Home);
+  routes.set("/test", Test);
+  routes.set(/^\/ng(.*)/i, URI);
+  routes.set("*", NotFound);
 </script>
 
 <main>
