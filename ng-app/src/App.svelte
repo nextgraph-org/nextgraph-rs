@@ -17,6 +17,7 @@
 
   import Home from "./routes/Home.svelte";
   import Test from "./routes/Test.svelte";
+  import Grid from "./routes/Grid.svelte";
   import URI from "./routes/URI.svelte";
   import NotFound from "./routes/NotFound.svelte";
   import ng from "./api";
@@ -26,10 +27,11 @@
   const routes = new Map();
   routes.set("/", Home);
   routes.set("/test", Test);
+  routes.set("/grid", Grid);
   routes.set(/^\/ng(.*)/i, URI);
   routes.set("*", NotFound);
 </script>
 
-<main>
+<main class="">
   <Router {routes} />
 </main>

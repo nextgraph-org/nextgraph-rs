@@ -14,8 +14,6 @@
   import branch_commits from "../store";
   let name = "";
   let greetMsg = "";
-  let cancel = () => {};
-  let url = "";
   let commits = branch_commits("ok", false);
 
   let img_map = {};
@@ -24,7 +22,6 @@
     if (!ref) return false;
     let cache = img_map[ref];
     if (cache) {
-      console.log("got it from cache");
       return cache;
     }
     try {
@@ -63,13 +60,56 @@
     // });
     //cancel();
   }
+
+  let fileinput;
+
+  const onFileSelected = (e) => {
+    let image = e.target.files[0];
+    let reader = new FileReader();
+    reader.readAsArrayBuffer(image);
+    reader.onload = (e) => {
+      console.log(e.target.result);
+    };
+  };
 </script>
 
 <div>
   <div class="row">
     <input id="greet-input" placeholder="Enter a name..." bind:value={name} />
     <button on:click={greet}> Greet </button>
-    <button on:click={cancel}> Cancel </button>
+  </div>
+  <div class="row mt-2">
+    <button
+      type="button"
+      on:click={() => {
+        fileinput.click();
+      }}
+      class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mr-2 mb-2"
+    >
+      <svg
+        class="w-8 h-8 mr-2 -ml-1"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        viewBox="0 0 24 24"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+        />
+      </svg>
+      Add image
+    </button>
+    <input
+      style="display:none"
+      type="file"
+      accept=".jpg, .jpeg, .png"
+      on:change={(e) => onFileSelected(e)}
+      bind:this={fileinput}
+    />
   </div>
   <p>{greetMsg}</p>
   {#await commits.load()}

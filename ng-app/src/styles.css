@@ -25,6 +25,15 @@
   -webkit-text-size-adjust: 100%;
 }
 
+.pazzleline {
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.emoji {
+  cursor: pointer;
+}
+
 .container2 {
   margin: 0;
   min-width: 280px;
