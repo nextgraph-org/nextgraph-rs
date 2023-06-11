@@ -47,26 +47,28 @@
     </a>
   </div>
   <div class="row mt-10">
-    <button
-      type="button"
-      class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
-    >
-      <svg
-        class="w-8 h-8 mr-2 -ml-1"
-        fill="currentColor"
-        stroke="currentColor"
-        stroke-width="2"
-        viewBox="0 0 24 24"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
+    <a href="/grid" use:link>
+      <button
+        type="button"
+        class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
       >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-        />
-      </svg>
-      Log in
-    </button>
+        <svg
+          class="w-8 h-8 mr-2 -ml-1"
+          fill="currentColor"
+          stroke="currentColor"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+          />
+        </svg>
+        Log in
+      </button>
+    </a>
   </div>
 </main>

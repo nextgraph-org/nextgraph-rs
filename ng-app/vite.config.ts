@@ -35,6 +35,9 @@ export default defineConfig(async () => {
                   },
                 },
             },
+            {
+              name: 'prefixIds',
+            }
         ],
       }, // See https://github.com/svg/svgo#configuration
       requireSuffix: true, // Set false to accept '.svg' without the '?component'

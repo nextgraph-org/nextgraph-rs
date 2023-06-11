@@ -133,6 +133,7 @@ impl AppBuilder {
                 if let Some(setup) = setup {
                     (setup)(app)?;
                 }
+
                 Ok(())
             })
             .invoke_handler(tauri::generate_handler![
