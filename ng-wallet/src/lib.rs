@@ -314,6 +314,19 @@ pub fn gen_shuffle_for_pin() -> Vec<u8> {
     digits
 }
 
+// fn random_pass() {
+//     const choices: &str =
+//         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+
+//     let mut ran = thread_rng();
+
+//     let mut mnemonic: [char; 11] = [0.into(); 11];
+//     for i in &mut mnemonic {
+//         *i = choices.chars().nth(ran.gen_range(0, 72)).unwrap();
+//     }
+//     log!("{}", mnemonic.iter().collect::<String>());
+// }
+
 /// creates a Wallet from a pin, a security text and image (with option to send the bootstrap and wallet to nextgraph.one)
 /// and returns the Wallet, the pazzle and the mnemonic
 pub async fn create_wallet_v0(
@@ -547,6 +560,11 @@ mod tests {
     use std::io::Read;
     use std::io::Write;
     use std::time::Instant;
+
+    // #[test]
+    // fn random_pass() {
+    //     super::random_pass()
+    // }
 
     #[test]
     fn test_gen_shuffle() {
