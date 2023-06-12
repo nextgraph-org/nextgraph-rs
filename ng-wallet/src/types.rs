@@ -113,6 +113,9 @@ pub struct WalletContentV0 {
 
     pub security_txt: String,
 
+    /// can be 9, 12 or 15 (or 0, in this case salt_pazzle and enc_master_key_pazzle are filled with zeros and should not be used)
+    pub pazzle_length: u8,
+
     pub salt_pazzle: [u8; 16],
 
     pub salt_mnemonic: [u8; 16],
@@ -175,6 +178,11 @@ impl Wallet {
             Wallet::V0(v0) => v0.sig,
         }
     }
+    pub fn pazzle_length(&self) -> u8 {
+        match self {
+            Wallet::V0(v0) => v0.content.pazzle_length,
+        }
+    }
 }
 
 /// Add Wallet Version 0
@@ -216,7 +224,6 @@ impl AddWallet {
 pub struct CreateWalletV0 {
     #[serde(with = "serde_bytes")]
     pub security_img: Vec<u8>,
-
     pub security_txt: String,
     pub pin: [u8; 4],
     pub pazzle_length: u8,
