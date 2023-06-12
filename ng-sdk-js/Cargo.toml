@@ -19,6 +19,7 @@ ws_stream_wasm = "0.7"
 p2p-net = { path = "../p2p-net" }
 p2p-repo = { path = "../p2p-repo" }
 p2p-client-ws = { path = "../p2p-client-ws" }
+ng-wallet = { path = "../ng-wallet" }
 async-std = {  version = "1.12.0", features = ["attributes","unstable"] }
 futures = "0.3.24"
 pharos = "0.5"

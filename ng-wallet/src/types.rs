@@ -7,6 +7,8 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 
@@ -209,9 +211,56 @@ impl AddWallet {
     }
 }
 
+/// Create Wallet Version 0, used by the API create_wallet_v0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateWalletV0 {
+    #[serde(with = "serde_bytes")]
+    pub security_img: Vec<u8>,
+
+    pub security_txt: String,
+    pub pin: [u8; 4],
+    pub pazzle_length: u8,
+    pub send_bootstrap: Option<Bootstrap>,
+    pub send_wallet: bool,
+    pub peer_id: PubKey,
+    pub nonce: u64,
+}
+
+impl CreateWalletV0 {
+    pub fn new(
+        security_img: Vec<u8>,
+        security_txt: String,
+        pin: [u8; 4],
+        pazzle_length: u8,
+        send_bootstrap: Option<Bootstrap>,
+        send_wallet: bool,
+        peer_id: PubKey,
+        nonce: u64,
+    ) -> Self {
+        CreateWalletV0 {
+            security_img,
+            security_txt,
+            pin,
+            pazzle_length,
+            send_bootstrap,
+            send_wallet,
+            peer_id,
+            nonce,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateWalletResultV0 {
+    pub wallet: Wallet,
+    pub pazzle: Vec<u8>,
+    pub mnemonic: [u16; 12],
+}
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum NgWalletError {
     InvalidPin,
+    InvalidPazzle,
     InvalidPazzleLength,
     InvalidSecurityImage,
     InvalidSecurityText,
@@ -222,6 +271,12 @@ pub enum NgWalletError {
     InvalidSignature,
 }
 
+impl fmt::Display for NgWalletError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NgFileV0 {
     Wallet(Wallet),
@@ -230,4 +285,10 @@ pub enum NgFileV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NgFile {
     V0(NgFileV0),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ShuffledPazzle {
+    pub category_indices: Vec<u8>,
+    pub emoji_indices: Vec<Vec<u8>>,
 }

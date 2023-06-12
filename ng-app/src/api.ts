@@ -10,8 +10,12 @@ import {createAsyncProxy} from "async-proxy";
 import { writable } from "svelte/store";
 
 const mapping = {
-    "create_wallet": [ "name" ],
+
     "doc_get_file_from_store_with_object_ref": [ "nuri","obj_ref" ],
+    "wallet_gen_shuffle_for_pazzle_opening": ["pazzle_length"],
+    "wallet_gen_shuffle_for_pin": [],
+    "wallet_open_wallet_with_pazzle": ["wallet","pazzle","pin"],
+    "wallet_create_wallet": ["params"],
     "test": [ ]
 }
 

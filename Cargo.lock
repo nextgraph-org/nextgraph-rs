@@ -2488,6 +2488,7 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "debug_print",
+ "ng-wallet",
  "p2p-net",
  "p2p-repo",
  "serde",
@@ -2506,6 +2507,7 @@ dependencies = [
  "getrandom 0.1.16",
  "gloo-timers",
  "js-sys",
+ "ng-wallet",
  "p2p-client-ws",
  "p2p-net",
  "p2p-repo",
@@ -2527,6 +2529,7 @@ version = "0.1.0"
 dependencies = [
  "aes-gcm-siv",
  "argon2",
+ "async-std",
  "base64-url",
  "chacha20poly1305",
  "debug_print",
@@ -2540,6 +2543,7 @@ dependencies = [
  "serde-big-array",
  "serde_bare",
  "serde_bytes",
+ "web-time",
 ]
 
 [[package]]
@@ -2842,6 +2846,7 @@ dependencies = [
  "serde",
  "serde_bare",
  "serde_bytes",
+ "web-time",
 ]
 
 [[package]]
@@ -5053,6 +5058,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bdd9ef4e984da1187bf8110c5cf5b845fbc87a23602cdf912386a76fcd3a7c2"
 dependencies = [
  "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "web-time"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19353897b48e2c4d849a2d73cb0aeb16dc2be4e00c565abfc11eb65a806e47de"
+dependencies = [
+ "js-sys",
+ "once_cell",
  "wasm-bindgen",
 ]
 

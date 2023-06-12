@@ -15,6 +15,8 @@ use async_std::task;
 use async_std::stream::StreamExt;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Uint8Array;
+use ng_wallet::types::*;
+use ng_wallet::*;
 #[cfg(target_arch = "wasm32")]
 use p2p_client_ws::remote_ws_wasm::ConnectionWebSocket;
 use p2p_net::broker::*;
@@ -31,9 +33,68 @@ use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-extern "C" {
-    pub fn alert(s: &str);
+pub fn wallet_gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> JsValue {
+    let res = gen_shuffle_for_pazzle_opening(pazzle_length);
+    serde_wasm_bindgen::to_value(&res).unwrap()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn wallet_gen_shuffle_for_pin() -> Vec<u8> {
+    gen_shuffle_for_pin()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn wallet_open_wallet_with_pazzle(
+    js_wallet: JsValue,
+    pazzle: Vec<u8>,
+    js_pin: JsValue,
+) -> Result<JsValue, JsValue> {
+    let wallet = serde_wasm_bindgen::from_value::<Wallet>(js_wallet)
+        .map_err(|_| "Deserialization error of wallet")?;
+    let pin = serde_wasm_bindgen::from_value::<[u8; 4]>(js_pin)
+        .map_err(|_| "Deserialization error of pin")?;
+    let res = open_wallet_with_pazzle(wallet, pazzle, pin);
+    match res {
+        Ok(r) => Ok(serde_wasm_bindgen::to_value(&r).unwrap()),
+        Err(e) => Err(e.to_string().into()),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn wallet_create_wallet(js_params: JsValue) -> Result<JsValue, JsValue> {
+    let params = serde_wasm_bindgen::from_value::<CreateWalletV0>(js_params)
+        .map_err(|_| "Deserialization error of args")?;
+
+    let res = create_wallet_v0(params).await;
+    match res {
+        Ok(r) => Ok(serde_wasm_bindgen::to_value(&r).unwrap()),
+        Err(e) => Err(e.to_string().into()),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn test_create_wallet() -> JsValue {
+    let pin = [5, 2, 9, 1];
+    let r = CreateWalletV0::new(
+        vec![50u8; 20],
+        "   know     yourself  ".to_string(),
+        pin,
+        9,
+        None,
+        false,
+        PubKey::Ed25519PubKey([
+            119, 251, 253, 29, 135, 199, 254, 50, 134, 67, 1, 208, 117, 196, 167, 107, 2, 113, 98,
+            243, 49, 90, 7, 0, 157, 58, 14, 187, 14, 3, 116, 86,
+        ]),
+        0,
+    );
+    serde_wasm_bindgen::to_value(&r).unwrap()
 }
 
 #[cfg(wasmpack_target = "nodejs")]
@@ -46,13 +107,6 @@ extern "C" {
 #[wasm_bindgen(module = "/js/browser.js")]
 extern "C" {
     fn random(max: usize) -> usize;
-}
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub async fn create_wallet(s: String) -> String {
-    log!("create wallet {} {}", s, BROKER.read().await.test());
-    format!("create wallet from js {}", s)
 }
 
 #[cfg(target_arch = "wasm32")]

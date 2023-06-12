@@ -15,7 +15,7 @@ use crate::types::*;
 use ed25519_dalek::*;
 use futures::channel::mpsc;
 use rand::rngs::OsRng;
-use std::time::{SystemTime, UNIX_EPOCH};
+use web_time::{SystemTime, UNIX_EPOCH};
 
 pub fn generate_null_keypair() -> (PrivKey, PubKey) {
     let master_key: [u8; 32] = [0; 32];
