@@ -7,6 +7,8 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 use async_std::stream::StreamExt;
+use ng_wallet::types::*;
+use ng_wallet::*;
 use p2p_net::broker::*;
 use p2p_net::log;
 use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend};
@@ -21,10 +23,10 @@ pub use mobile::*;
 pub type SetupHook = Box<dyn FnOnce(&mut App) -> Result<(), Box<dyn std::error::Error>> + Send>;
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-#[tauri::command(rename_all = "snake_case")]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+// #[tauri::command(rename_all = "snake_case")]
+// fn greet(name: &str) -> String {
+//     format!("Hello, {}! You've been greeted from Rust!", name)
+// }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn test() -> Result<(), ()> {
@@ -33,9 +35,34 @@ async fn test() -> Result<(), ()> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn create_wallet(name: &str) -> Result<String, ()> {
-    log!("create wallet from rust {}", name);
-    Ok(format!("create wallet from rust {}", name))
+async fn wallet_gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> Result<ShuffledPazzle, ()> {
+    log!(
+        "wallet_gen_shuffle_for_pazzle_opening from rust {}",
+        pazzle_length
+    );
+    Ok(gen_shuffle_for_pazzle_opening(pazzle_length))
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_gen_shuffle_for_pin() -> Result<Vec<u8>, ()> {
+    log!("wallet_gen_shuffle_for_pin from rust");
+    Ok(gen_shuffle_for_pin())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_open_wallet_with_pazzle(
+    wallet: Wallet,
+    pazzle: Vec<u8>,
+    pin: [u8; 4],
+) -> Result<EncryptedWallet, String> {
+    log!("wallet_open_wallet_with_pazzle from rust {:?}", pazzle);
+    open_wallet_with_pazzle(wallet, pazzle, pin).map_err(|e| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_create_wallet(params: CreateWalletV0) -> Result<CreateWalletResultV0, String> {
+    log!("wallet_create_wallet from rust {:?}", params);
+    create_wallet_v0(params).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -138,11 +165,13 @@ impl AppBuilder {
             })
             .invoke_handler(tauri::generate_handler![
                 test,
-                greet,
-                create_wallet,
                 doc_sync_branch,
                 cancel_doc_sync_branch,
-                doc_get_file_from_store_with_object_ref
+                doc_get_file_from_store_with_object_ref,
+                wallet_gen_shuffle_for_pazzle_opening,
+                wallet_gen_shuffle_for_pin,
+                wallet_open_wallet_with_pazzle,
+                wallet_create_wallet,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

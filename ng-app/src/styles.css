@@ -30,8 +30,29 @@
   margin-left: auto;
 }
 
+.pin {
+  cursor: pointer;
+  text-align: center;
+}
+
+.sel {
+  position: relative;
+  top: -56%;
+  font-size: 100px;
+  left: 30%;
+  font-weight: 700;
+}
+
+.sel-emoji {
+  overflow: hidden;
+}
+
 .emoji {
   cursor: pointer;
+  /* padding: 0;
+  margin: 0;
+  border: 0;
+  box-shadow: none; */
 }
 
 .container2 {

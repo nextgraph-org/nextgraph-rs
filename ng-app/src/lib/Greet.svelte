@@ -25,6 +25,7 @@
       return cache;
     }
     try {
+      //console.log(JSON.stringify(ref));
       let file = await ng.doc_get_file_from_store_with_object_ref("ng:", ref);
       console.log(file);
       var blob = new Blob([file["File"].V0.content], {
@@ -40,7 +41,7 @@
   }
 
   async function greet() {
-    greetMsg = await ng.create_wallet(name);
+    //greetMsg = await ng.create_wallet(name);
     // cancel = await ng.doc_sync_branch("ok", async (commit) => {
     //   console.log(commit);
     //   try {

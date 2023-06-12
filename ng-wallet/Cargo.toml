@@ -25,3 +25,5 @@ argon2 = "0.5.0"
 safe-transmute = "0.11.2"
 aes-gcm-siv = {version = "0.11.1", features = ["aes","heapless","getrandom","std"] }
 base64-url = "2.0.0"
+async-std = {  version = "1.12.0", features = ["attributes","unstable"] }
+web-time = "0.2.0"

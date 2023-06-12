@@ -11,7 +11,7 @@
 
 <script lang="ts">
   // this line is needed to have the SDK working when compiling for a single file bundle (pnpm filebuild)
-  //import * as api from "ng-sdk-js";
+  // import * as api from "ng-sdk-js";
   import Router from "svelte-spa-router";
   import { onMount, tick } from "svelte";
 

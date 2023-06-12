@@ -12,6 +12,8 @@
 #[macro_use]
 extern crate p2p_net;
 
+use p2p_net::log;
+
 pub mod types;
 
 pub mod bip39;
@@ -32,7 +34,7 @@ use safe_transmute::transmute_to_bytes;
 
 use p2p_repo::types::{PubKey, Site, SiteType, Timestamp};
 use p2p_repo::utils::{generate_keypair, now_timestamp, sign, verify};
-use rand::{thread_rng, Rng};
+use rand::prelude::*;
 use serde_bare::{from_slice, to_vec};
 
 pub fn enc_master_key(
@@ -167,12 +169,20 @@ pub fn derive_key_from_pass(pass: Vec<u8>, salt: [u8; 16], wallet_id: WalletId) 
     argon.hash_password_into(&pass, &salt, &mut out).unwrap();
     out
 }
+use web_time::Instant;
 
 pub fn open_wallet_with_pazzle(
     wallet: Wallet,
     pazzle: Vec<u8>,
     pin: [u8; 4],
 ) -> Result<EncryptedWallet, NgWalletError> {
+    // each digit shouldnt be greater than 9
+    if pin[0] > 9 || pin[1] > 9 || pin[2] > 9 || pin[3] > 9 {
+        return Err(NgWalletError::InvalidPin);
+    }
+
+    let opening_pazzle = Instant::now();
+
     verify(&wallet.content_as_bytes(), wallet.sig(), wallet.id())
         .map_err(|e| NgWalletError::InvalidSignature)?;
 
@@ -190,6 +200,11 @@ pub fn open_wallet_with_pazzle(
                 v0.content.master_nonce,
                 v0.id,
             )?;
+
+            log!(
+                "opening of wallet with pazzle took: {} ms",
+                opening_pazzle.elapsed().as_millis()
+            );
 
             Ok(EncryptedWallet::V0(dec_encrypted_block(
                 v0.content.encrypted,
@@ -246,65 +261,106 @@ pub fn display_mnemonic(mnemonic: &[u16; 12]) -> Vec<String> {
     res
 }
 
+pub fn display_pazzle(pazzle: Vec<u8>) -> Vec<String> {
+    // let res: Vec<String> = pazzle
+    //     .into_iter()
+    //     .map(|i| String::from(bip39_wordlist[*i as usize]))
+    //     .collect();
+    // res
+    unimplemented!();
+}
+
+pub fn gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> ShuffledPazzle {
+    let mut rng = rand::thread_rng();
+    let mut category_indices: Vec<u8> = (0..pazzle_length).collect();
+    //log!("{:?}", category_indices);
+    category_indices.shuffle(&mut rng);
+    //log!("{:?}", category_indices);
+
+    let mut emoji_indices: Vec<Vec<u8>> = Vec::with_capacity(pazzle_length.into());
+    for _ in 0..pazzle_length {
+        let mut idx: Vec<u8> = (0..15).collect();
+        //log!("{:?}", idx);
+        idx.shuffle(&mut rng);
+        //log!("{:?}", idx);
+        emoji_indices.push(idx)
+    }
+    ShuffledPazzle {
+        category_indices,
+        emoji_indices,
+    }
+}
+
+pub fn gen_shuffle_for_pin() -> Vec<u8> {
+    let mut rng = rand::thread_rng();
+    let mut digits: Vec<u8> = (0..10).collect();
+    //log!("{:?}", digits);
+    digits.shuffle(&mut rng);
+    //log!("{:?}", digits);
+    digits
+}
+
 /// creates a Wallet from a pin, a security text and image (with option to send the bootstrap and wallet to nextgraph.one)
 /// and returns the Wallet, the pazzle and the mnemonic
-pub fn create_wallet_v0(
-    security_img: Vec<u8>,
-    security_txt: String,
-    pin: [u8; 4],
-    pazzle_length: u8,
-    send_bootstrap: Option<&Bootstrap>,
-    send_wallet: bool,
-    peer_id: PubKey,
-    nonce: u64,
-) -> Result<(Wallet, Vec<u8>, [u16; 12]), NgWalletError> {
+pub async fn create_wallet_v0(
+    params: CreateWalletV0,
+) -> Result<CreateWalletResultV0, NgWalletError> {
     // TODO : use some automatically zeroed variable for the 2 first arguments, and for the returned values
 
+    let creating_pazzle = Instant::now();
+
     // pazzle_length can only be 9, 12, or 15
-    if (pazzle_length != 9 && pazzle_length != 12 && pazzle_length != 15) {
+    if (params.pazzle_length != 9 && params.pazzle_length != 12 && params.pazzle_length != 15) {
         return Err(NgWalletError::InvalidPazzleLength);
     }
 
     // cannot submit wallet if we don't submit also the bootstrap
-    if send_bootstrap.is_none() && send_wallet {
+    if params.send_bootstrap.is_none() && params.send_wallet {
         return Err(NgWalletError::SubmissionError);
     }
 
     // check validity of PIN
 
     // shouldn't start with 0
-    if pin[0] == 0 {
+    if params.pin[0] == 0 {
         return Err(NgWalletError::InvalidPin);
     }
 
     // each digit shouldnt be greater than 9
-    if pin[0] > 9 || pin[1] > 9 || pin[2] > 9 || pin[3] > 9 {
+    if params.pin[0] > 9 || params.pin[1] > 9 || params.pin[2] > 9 || params.pin[3] > 9 {
         return Err(NgWalletError::InvalidPin);
     }
 
     // check for uniqueness of each digit
-    if pin[1] == pin[0]
-        || pin[1] == pin[2]
-        || pin[1] == pin[3]
-        || pin[2] == pin[0]
-        || pin[2] == pin[3]
-        || pin[3] == pin[0]
+    if params.pin[1] == params.pin[0]
+        || params.pin[1] == params.pin[2]
+        || params.pin[1] == params.pin[3]
+        || params.pin[2] == params.pin[0]
+        || params.pin[2] == params.pin[3]
+        || params.pin[3] == params.pin[0]
     {
         return Err(NgWalletError::InvalidPin);
     }
 
     // check for ascending series
-    if pin[1] == pin[0] + 1 && pin[2] == pin[1] + 1 && pin[3] == pin[2] + 1 {
+    if params.pin[1] == params.pin[0] + 1
+        && params.pin[2] == params.pin[1] + 1
+        && params.pin[3] == params.pin[2] + 1
+    {
         return Err(NgWalletError::InvalidPin);
     }
 
     // check for descending series
-    if pin[3] >= 3 && pin[2] == pin[3] - 1 && pin[1] == pin[2] - 1 && pin[0] == pin[1] - 1 {
+    if params.pin[3] >= 3
+        && params.pin[2] == params.pin[3] - 1
+        && params.pin[1] == params.pin[2] - 1
+        && params.pin[0] == params.pin[1] - 1
+    {
         return Err(NgWalletError::InvalidPin);
     }
 
     // check validity of security text
-    let words: Vec<_> = security_txt.split_whitespace().collect();
+    let words: Vec<_> = params.security_txt.split_whitespace().collect();
     let new_string = words.join(" ");
     let count = new_string.chars().count();
     if count < 10 || count > 100 {
@@ -312,7 +368,7 @@ pub fn create_wallet_v0(
     }
 
     // check validity of image
-    let decoded_img = ImageReader::new(Cursor::new(security_img))
+    let decoded_img = ImageReader::new(Cursor::new(params.security_img))
         .with_guessed_format()
         .map_err(|e| NgWalletError::InvalidSecurityImage)?
         .decode()
@@ -339,10 +395,14 @@ pub fn create_wallet_v0(
     // let mut pazzle_random = vec![0u8; pazzle_length.into()];
     // getrandom::getrandom(&mut pazzle_random).map_err(|e| NgWalletError::InternalError)?;
 
-    let mut pazzle = vec![0u8; pazzle_length.into()];
     let mut ran = thread_rng();
-    for i in &mut pazzle {
-        *i = ran.gen_range(0, 16);
+
+    let mut category_indices: Vec<u8> = (0..params.pazzle_length).collect();
+    category_indices.shuffle(&mut ran);
+
+    let mut pazzle = vec![0u8; params.pazzle_length.into()];
+    for (ix, i) in pazzle.iter_mut().enumerate() {
+        *i = ran.gen_range(0, 15) + (category_indices[ix] << 4);
     }
 
     //println!("pazzle {:?}", pazzle);
@@ -361,7 +421,7 @@ pub fn create_wallet_v0(
     let encrypted_block = EncryptedWalletV0 {
         pazzle: pazzle.clone(),
         mnemonic,
-        pin,
+        pin: params.pin,
         sites: vec![site],
     };
 
@@ -375,13 +435,13 @@ pub fn create_wallet_v0(
     //println!("salt_mnemonic {:?}", salt_mnemonic);
 
     let pazzle_key = derive_key_from_pass(
-        [pazzle.clone(), pin.to_vec()].concat(),
+        [pazzle.clone(), params.pin.to_vec()].concat(),
         salt_pazzle,
         wallet_id,
     );
 
     let mnemonic_key = derive_key_from_pass(
-        [transmute_to_bytes(&mnemonic), &pin].concat(),
+        [transmute_to_bytes(&mnemonic), &params.pin].concat(),
         salt_mnemonic,
         wallet_id,
     );
@@ -394,11 +454,12 @@ pub fn create_wallet_v0(
     let enc_master_key_mnemonic = enc_master_key(master_key, mnemonic_key, 0, wallet_id)?;
 
     let timestamp = now_timestamp();
+
     let encrypted = enc_encrypted_block(
         &encrypted_block,
         master_key,
-        peer_id,
-        nonce,
+        params.peer_id,
+        params.nonce,
         timestamp,
         wallet_id,
     )?;
@@ -412,12 +473,13 @@ pub fn create_wallet_v0(
         enc_master_key_mnemonic,
         master_nonce: 0,
         timestamp,
-        peer_id,
-        nonce,
+        peer_id: params.peer_id,
+        nonce: params.nonce,
         encrypted,
     };
 
     let ser_wallet = serde_bare::to_vec(&wallet_content).unwrap();
+
     let sig = sign(wallet_key, wallet_id, &ser_wallet).unwrap();
 
     let wallet_v0 = WalletV0 {
@@ -442,7 +504,16 @@ pub fn create_wallet_v0(
     // TODO send bootstrap (if)
     // TODO send wallet (if)
 
-    Ok((Wallet::V0(wallet_v0), pazzle, mnemonic))
+    log!(
+        "creating of wallet took: {} ms",
+        creating_pazzle.elapsed().as_millis()
+    );
+
+    Ok(CreateWalletResultV0 {
+        wallet: Wallet::V0(wallet_v0),
+        pazzle,
+        mnemonic,
+    })
 }
 
 #[cfg(test)]
@@ -456,7 +527,19 @@ mod tests {
     use std::time::Instant;
 
     #[test]
-    fn create_wallet() {
+    fn test_gen_shuffle() {
+        let shuffle = gen_shuffle_for_pazzle_opening(9);
+        log!("{:?}", shuffle);
+        let shuffle = gen_shuffle_for_pazzle_opening(12);
+        log!("{:?}", shuffle);
+        let shuffle = gen_shuffle_for_pazzle_opening(15);
+        log!("{:?}", shuffle);
+        let digits = gen_shuffle_for_pin();
+        let digits = gen_shuffle_for_pin();
+    }
+
+    #[async_std::test]
+    async fn create_wallet() {
         // loading an image file from disk
         let f = File::open("tests/valid_security_image.jpg")
             .expect("open of tests/valid_security_image.jpg");
@@ -471,7 +554,7 @@ mod tests {
 
         let creation = Instant::now();
 
-        let res = create_wallet_v0(
+        let res = create_wallet_v0(CreateWalletV0::new(
             img_buffer,
             "   know     yourself  ".to_string(),
             pin,
@@ -483,7 +566,8 @@ mod tests {
                 98, 243, 49, 90, 7, 0, 157, 58, 14, 187, 14, 3, 116, 86,
             ]),
             0,
-        )
+        ))
+        .await
         .expect("create_wallet_v0");
 
         log!(
@@ -492,18 +576,19 @@ mod tests {
         );
         log!("-----------------------------");
 
-        let (wallet, pazzle, mnemonic) = res;
-
         let mut file = File::create("tests/wallet.ngw").expect("open wallet write file");
-        let ser_wallet = to_vec(&NgFile::V0(NgFileV0::Wallet(wallet.clone()))).unwrap();
+        let ser_wallet = to_vec(&NgFile::V0(NgFileV0::Wallet(res.wallet.clone()))).unwrap();
         file.write_all(&ser_wallet);
 
-        log!("wallet id: {:?}", base64_url::encode(&wallet.id().slice()));
-        log!("pazzle {:?}", pazzle);
-        log!("mnemonic {:?}", display_mnemonic(&mnemonic));
+        log!(
+            "wallet id: {:?}",
+            base64_url::encode(&res.wallet.id().slice())
+        );
+        log!("pazzle {:?}", res.pazzle);
+        log!("mnemonic {:?}", display_mnemonic(&res.mnemonic));
         log!("pin {:?}", pin);
 
-        if let Wallet::V0(v0) = wallet {
+        if let Wallet::V0(v0) = res.wallet {
             log!("security text: {:?}", v0.content.security_txt);
 
             let mut file =
@@ -523,7 +608,7 @@ mod tests {
 
             let opening_mnemonic = Instant::now();
 
-            let w = open_wallet_with_mnemonic(Wallet::V0(v0.clone()), mnemonic, pin)
+            let w = open_wallet_with_mnemonic(Wallet::V0(v0.clone()), res.mnemonic, pin)
                 .expect("open with mnemonic");
             //println!("encrypted part {:?}", w);
 
@@ -533,7 +618,7 @@ mod tests {
             );
             let opening_pazzle = Instant::now();
 
-            let w = open_wallet_with_pazzle(Wallet::V0(v0.clone()), pazzle, pin)
+            let w = open_wallet_with_pazzle(Wallet::V0(v0.clone()), res.pazzle, pin)
                 .expect("open with pazzle");
             //println!("encrypted part {:?}", w);
 
