@@ -11,12 +11,16 @@
 // extern crate slice_as_array;
 #[macro_use]
 extern crate p2p_net;
+#[macro_use]
+extern crate lazy_static;
 
 use p2p_net::log;
 
 pub mod types;
 
 pub mod bip39;
+
+pub mod emojis;
 
 use std::io::Cursor;
 
@@ -261,13 +265,23 @@ pub fn display_mnemonic(mnemonic: &[u16; 12]) -> Vec<String> {
     res
 }
 
-pub fn display_pazzle(pazzle: Vec<u8>) -> Vec<String> {
-    // let res: Vec<String> = pazzle
-    //     .into_iter()
-    //     .map(|i| String::from(bip39_wordlist[*i as usize]))
-    //     .collect();
-    // res
-    unimplemented!();
+use crate::emojis::{EMOJIS, EMOJI_CAT};
+
+pub fn display_pazzle(pazzle: &Vec<u8>) -> Vec<String> {
+    let res: Vec<String> = pazzle
+        .into_iter()
+        .map(|i| {
+            let cat = i >> 4;
+            let idx = i & 15;
+            let cat_str = EMOJI_CAT[cat as usize];
+            String::from(format!(
+                "{}:{}",
+                cat_str,
+                EMOJIS.get(cat_str).unwrap()[idx as usize].code
+            ))
+        })
+        .collect();
+    res
 }
 
 pub fn gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> ShuffledPazzle {
@@ -584,7 +598,7 @@ mod tests {
             "wallet id: {:?}",
             base64_url::encode(&res.wallet.id().slice())
         );
-        log!("pazzle {:?}", res.pazzle);
+        log!("pazzle {:?}", display_pazzle(&res.pazzle));
         log!("mnemonic {:?}", display_mnemonic(&res.mnemonic));
         log!("pin {:?}", pin);
 
