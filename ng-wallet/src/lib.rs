@@ -324,7 +324,11 @@ pub async fn create_wallet_v0(
     let creating_pazzle = Instant::now();
 
     // pazzle_length can only be 9, 12, or 15
-    if (params.pazzle_length != 9 && params.pazzle_length != 12 && params.pazzle_length != 15) {
+    if (params.pazzle_length != 9
+        && params.pazzle_length != 12
+        && params.pazzle_length != 15
+        && params.pazzle_length != 0)
+    {
         return Err(NgWalletError::InvalidPazzleLength);
     }
 
@@ -439,8 +443,22 @@ pub async fn create_wallet_v0(
         sites: vec![site],
     };
 
+    let mut master_key = [0u8; 32];
+    getrandom::getrandom(&mut master_key).map_err(|e| NgWalletError::InternalError)?;
+
     let mut salt_pazzle = [0u8; 16];
-    getrandom::getrandom(&mut salt_pazzle).map_err(|e| NgWalletError::InternalError)?;
+    let mut enc_master_key_pazzle = [0u8; 48];
+    if params.pazzle_length > 0 {
+        getrandom::getrandom(&mut salt_pazzle).map_err(|e| NgWalletError::InternalError)?;
+
+        let pazzle_key = derive_key_from_pass(
+            [pazzle.clone(), params.pin.to_vec()].concat(),
+            salt_pazzle,
+            wallet_id,
+        );
+
+        enc_master_key_pazzle = enc_master_key(master_key, pazzle_key, 0, wallet_id)?;
+    }
 
     let mut salt_mnemonic = [0u8; 16];
     getrandom::getrandom(&mut salt_mnemonic).map_err(|e| NgWalletError::InternalError)?;
@@ -448,22 +466,11 @@ pub async fn create_wallet_v0(
     //println!("salt_pazzle {:?}", salt_pazzle);
     //println!("salt_mnemonic {:?}", salt_mnemonic);
 
-    let pazzle_key = derive_key_from_pass(
-        [pazzle.clone(), params.pin.to_vec()].concat(),
-        salt_pazzle,
-        wallet_id,
-    );
-
     let mnemonic_key = derive_key_from_pass(
         [transmute_to_bytes(&mnemonic), &params.pin].concat(),
         salt_mnemonic,
         wallet_id,
     );
-
-    let mut master_key = [0u8; 32];
-    getrandom::getrandom(&mut master_key).map_err(|e| NgWalletError::InternalError)?;
-
-    let enc_master_key_pazzle = enc_master_key(master_key, pazzle_key, 0, wallet_id)?;
 
     let enc_master_key_mnemonic = enc_master_key(master_key, mnemonic_key, 0, wallet_id)?;
 
@@ -481,6 +488,7 @@ pub async fn create_wallet_v0(
     let wallet_content = WalletContentV0 {
         security_img: cursor.into_inner(),
         security_txt: new_string,
+        pazzle_length: params.pazzle_length,
         salt_pazzle,
         salt_mnemonic,
         enc_master_key_pazzle,
@@ -630,16 +638,17 @@ mod tests {
                 "opening of wallet with mnemonic took: {} ms",
                 opening_mnemonic.elapsed().as_millis()
             );
-            let opening_pazzle = Instant::now();
 
-            let w = open_wallet_with_pazzle(Wallet::V0(v0.clone()), res.pazzle, pin)
-                .expect("open with pazzle");
+            if v0.content.pazzle_length > 0 {
+                let opening_pazzle = Instant::now();
+                let w = open_wallet_with_pazzle(Wallet::V0(v0.clone()), res.pazzle, pin)
+                    .expect("open with pazzle");
+                log!(
+                    "opening of wallet with pazzle took: {} ms",
+                    opening_pazzle.elapsed().as_millis()
+                );
+            }
             //println!("encrypted part {:?}", w);
-
-            log!(
-                "opening of wallet with pazzle took: {} ms",
-                opening_pazzle.elapsed().as_millis()
-            );
         }
     }
 }
