@@ -45,12 +45,5 @@
     "vite-plugin-singlefile": "^0.13.5",
     "vite-plugin-svelte-svg": "^2.2.1",
     "vite-plugin-wasm": "^3.2.2"
-  },
-  "pnpm": {
-    "peerDependencyRules": {
-      "ignoreMissing": [
-        "rollup"
-      ]
-    }
   }
 }
