@@ -7,7 +7,7 @@ This server is used internally by NextGraph to redirect users to the right app s
 ```
 cd web
 npm install -g pnpm
-pnpm install
+pnpm --ignore-workspace install
 ```
 
 ## Dev
