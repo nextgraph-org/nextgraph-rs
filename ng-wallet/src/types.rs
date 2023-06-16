@@ -24,11 +24,11 @@ pub type BootstrapId = WalletId;
 /// BootstrapServer type
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum BoostrapServerTypeV0 {
-    Localhost,
+    Localhost(u16), // optional port number
     BoxPrivate(Vec<NetAddr>),
     BoxPublic(Vec<NetAddr>),
     BoxPublicDyn(Vec<NetAddr>), // can be empty
-    Domain(String),
+    Domain(String),             // accepts an option trailing ":port" number
 }
 
 /// BootstrapServer details Version 0
@@ -229,6 +229,8 @@ pub struct CreateWalletV0 {
     pub pazzle_length: u8,
     pub send_bootstrap: Option<Bootstrap>,
     pub send_wallet: bool,
+    pub result_with_wallet_file: bool,
+    pub local_save: bool,
     pub peer_id: PubKey,
     pub nonce: u64,
 }
@@ -245,6 +247,8 @@ impl CreateWalletV0 {
         nonce: u64,
     ) -> Self {
         CreateWalletV0 {
+            result_with_wallet_file: false,
+            local_save: true,
             security_img,
             security_txt,
             pin,
@@ -260,8 +264,11 @@ impl CreateWalletV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateWalletResultV0 {
     pub wallet: Wallet,
+    #[serde(with = "serde_bytes")]
+    pub wallet_file: Vec<u8>,
     pub pazzle: Vec<u8>,
     pub mnemonic: [u16; 12],
+    pub wallet_name: String,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]

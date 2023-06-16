@@ -51,12 +51,13 @@
     let img = await ng.doc_get_file_from_store_with_object_ref("ng:", ref);
 
     let c = {
-      security_img: Array.from(img["File"].V0.content),
+      security_img: img["File"].V0.content,
       security_txt: "   know     yourself  ",
       pin: [5, 2, 9, 1],
       pazzle_length: 9,
       send_bootstrap: undefined,
       send_wallet: false,
+      result_with_wallet_file: true,
       peer_id: {
         Ed25519PubKey: [
           119, 251, 253, 29, 135, 199, 254, 50, 134, 67, 1, 208, 117, 196, 167,
@@ -260,4 +261,33 @@
 {:else if step == "end"}{/if}
 
 <style>
+  .pazzleline {
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .pin {
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .sel {
+    position: relative;
+    top: -56%;
+    font-size: 100px;
+    left: 30%;
+    font-weight: 700;
+  }
+
+  .sel-emoji {
+    overflow: hidden;
+  }
+
+  .emoji {
+    cursor: pointer;
+    /* padding: 0;
+  margin: 0;
+  border: 0;
+  box-shadow: none; */
+  }
 </style>

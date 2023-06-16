@@ -9,17 +9,12 @@
 // according to those terms.
 -->
 
-<script lang="ts">
-  import Greet from "../lib/Greet.svelte";
-  export let params = {};
+<script>
+  import { Alert } from "flowbite-svelte";
 </script>
 
-<main class="container3">
-  <h1>Welcome to test</h1>
-  <div class="row">
-    <Greet />
-  </div>
-</main>
-
-<style>
-</style>
+<div class="p-8">
+  <Alert color="red">
+    <span class="font-medium">404</span> Page not found.
+  </Alert>
+</div>

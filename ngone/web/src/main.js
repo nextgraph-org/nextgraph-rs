@@ -1,4 +1,5 @@
-import './app.css'
+import './app.postcss'
+import "../../../ng-app/src/styles.css";
 import App from './App.svelte'
 
 const app = new App({
