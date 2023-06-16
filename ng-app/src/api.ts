@@ -52,7 +52,12 @@ const handler = {
                 let res = await tauri.invoke(path[0],arg);
                 res['File'].V0.content = Uint8Array.from(res['File'].V0.content);
                 res['File'].V0.metadata = Uint8Array.from(res['File'].V0.metadata);
-                return res
+                return res          
+            } else if (path[0] === "wallet_create_wallet") {
+                let params = args[0];
+                params.result_with_wallet_file = false;
+                params.security_img = Array.from(new Uint8Array(params.security_img));
+                return await tauri.invoke(path[0],{params})
             }
             else {
                 let arg = {};

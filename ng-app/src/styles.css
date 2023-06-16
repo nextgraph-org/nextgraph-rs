@@ -9,6 +9,31 @@
 // according to those terms.
 */
 
+.logo {
+  padding: 1.5em;
+  will-change: filter;
+  transition: 0.75s;
+  padding-bottom: 1em;
+}
+
+.container3 {
+  margin: 0;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+div[role="alert"] div {
+  display: block;
+}
+
+.row {
+  display: flex;
+  justify-content: center;
+}
+
 :root {
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
   font-size: 16px;
@@ -25,56 +50,24 @@
   -webkit-text-size-adjust: 100%;
 }
 
-.pazzleline {
-  margin-right: auto;
-  margin-left: auto;
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
 }
 
-.pin {
-  cursor: pointer;
+#app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0rem;
   text-align: center;
 }
 
-.sel {
-  position: relative;
-  top: -56%;
-  font-size: 100px;
-  left: 30%;
-  font-weight: 700;
-}
-
-.sel-emoji {
-  overflow: hidden;
-}
-
-.emoji {
-  cursor: pointer;
-  /* padding: 0;
-  margin: 0;
-  border: 0;
-  box-shadow: none; */
-}
-
-.container2 {
-  margin: 0;
-  min-width: 280px;
+/* .container2 {
   padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-}
-
-.logo {
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
-}
-
-.row {
-  display: flex;
-  justify-content: center;
-}
+} */
 
 a {
   font-weight: 500;
@@ -88,6 +81,8 @@ a:hover {
 
 h1 {
   text-align: center;
+  font-size: 3.2em;
+  line-height: 1.1;
 }
 
 input,
@@ -116,13 +111,14 @@ button:active {
   background-color: #e8e8e8;
 }
 
-input,
+/* input,
 button {
   outline: none;
-}
+} */
 
-#greet-input {
-  margin-right: 5px;
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
 }
 
 @media (prefers-color-scheme: dark) {

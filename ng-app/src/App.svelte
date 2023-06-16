@@ -20,6 +20,9 @@
   import Grid from "./routes/Grid.svelte";
   import URI from "./routes/URI.svelte";
   import NotFound from "./routes/NotFound.svelte";
+  import WalletCreate from "./routes/WalletCreate.svelte";
+  import Install from "./routes/Install.svelte";
+
   import ng from "./api";
 
   ng.test();
@@ -28,6 +31,8 @@
   routes.set("/", Home);
   routes.set("/test", Test);
   routes.set("/grid", Grid);
+  routes.set("/wallet/create", WalletCreate);
+  if (import.meta.env.NG_APP_WEB) routes.set("/install", Install);
   routes.set(/^\/ng(.*)/i, URI);
   routes.set("*", NotFound);
 </script>

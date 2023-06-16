@@ -60,9 +60,19 @@ async fn wallet_open_wallet_with_pazzle(
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn wallet_create_wallet(params: CreateWalletV0) -> Result<CreateWalletResultV0, String> {
-    log!("wallet_create_wallet from rust {:?}", params);
-    create_wallet_v0(params).await.map_err(|e| e.to_string())
+async fn wallet_create_wallet(mut params: CreateWalletV0) -> Result<CreateWalletResultV0, String> {
+    //log!("wallet_create_wallet from rust {:?}", params);
+    params.result_with_wallet_file = false;
+    let local_save = params.local_save;
+    let res = create_wallet_v0(params).await.map_err(|e| e.to_string());
+
+    if local_save {
+        // TODO save in user store
+    } else {
+        // TODO save wallet file to Downloads folder
+    }
+
+    res
 }
 
 #[tauri::command(rename_all = "snake_case")]

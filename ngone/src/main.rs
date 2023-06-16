@@ -157,7 +157,7 @@ async fn main() {
     let key: [u8; 32] = [0; 32];
     println!("{}", dir.to_str().unwrap());
     fs::create_dir_all(dir.clone()).unwrap();
-    let mut store = LmdbKCVStore::open(&dir, key);
+    let store = LmdbKCVStore::open(&dir, key);
 
     let server = Arc::new(Server { store });
 
@@ -201,7 +201,11 @@ async fn main() {
 
     #[cfg(not(debug_assertions))]
     {
-        cors = cors.allow_origin("https://nextgraph.one");
+        cors = cors
+            .allow_origin("https://nextgraph.one")
+            .allow_origin("https://app.nextgraph.one")
+            .allow_origin("https://nextgraph.eu")
+            .allow_origin("https://nextgraph.net");
     }
     #[cfg(debug_assertions)]
     {

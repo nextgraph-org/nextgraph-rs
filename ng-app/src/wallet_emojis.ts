@@ -1734,3 +1734,12 @@ export const emoji_cat = [
     "emotion",
 ];
 
+export function display_pazzle(pazzle) {
+  let res = [];
+  for (const emoji of pazzle) {
+    let cat = (emoji & 240) >> 4;
+    let idx = emoji & 15;
+    res.push(emoji_cat[cat] +":"+ emojis[emoji_cat[cat]][idx].code);
+  }
+  return res;
+}

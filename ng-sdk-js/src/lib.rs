@@ -67,9 +67,9 @@ pub fn wallet_open_wallet_with_pazzle(
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn wallet_create_wallet(js_params: JsValue) -> Result<JsValue, JsValue> {
-    let params = serde_wasm_bindgen::from_value::<CreateWalletV0>(js_params)
+    let mut params = serde_wasm_bindgen::from_value::<CreateWalletV0>(js_params)
         .map_err(|_| "Deserialization error of args")?;
-
+    params.result_with_wallet_file = true;
     let res = create_wallet_v0(params).await;
     match res {
         Ok(r) => Ok(serde_wasm_bindgen::to_value(&r).unwrap()),

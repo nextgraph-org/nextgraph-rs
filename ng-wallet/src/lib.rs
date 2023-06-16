@@ -353,22 +353,20 @@ pub async fn create_wallet_v0(
     // check validity of PIN
 
     // shouldn't start with 0
-    if params.pin[0] == 0 {
-        return Err(NgWalletError::InvalidPin);
-    }
+    // if params.pin[0] == 0 {
+    //     return Err(NgWalletError::InvalidPin);
+    // }
 
     // each digit shouldnt be greater than 9
     if params.pin[0] > 9 || params.pin[1] > 9 || params.pin[2] > 9 || params.pin[3] > 9 {
         return Err(NgWalletError::InvalidPin);
     }
 
-    // check for uniqueness of each digit
-    if params.pin[1] == params.pin[0]
-        || params.pin[1] == params.pin[2]
-        || params.pin[1] == params.pin[3]
-        || params.pin[2] == params.pin[0]
-        || params.pin[2] == params.pin[3]
-        || params.pin[3] == params.pin[0]
+    // check for same digit doesnt appear 3 times
+    if (params.pin[0] == params.pin[1] && params.pin[0] == params.pin[2])
+        || (params.pin[0] == params.pin[1] && params.pin[0] == params.pin[3])
+        || (params.pin[0] == params.pin[2] && params.pin[0] == params.pin[3])
+        || (params.pin[1] == params.pin[2] && params.pin[1] == params.pin[3])
     {
         return Err(NgWalletError::InvalidPin);
     }
@@ -409,7 +407,11 @@ pub async fn create_wallet_v0(
         return Err(NgWalletError::InvalidSecurityImage);
     }
 
-    let resized_img = decoded_img.resize_to_fill(400, 400, FilterType::Triangle);
+    let resized_img = if decoded_img.height() == 400 && decoded_img.width() == 400 {
+        decoded_img
+    } else {
+        decoded_img.resize_to_fill(400, 400, FilterType::Triangle)
+    };
 
     let buffer: Vec<u8> = Vec::with_capacity(100000);
     let mut cursor = Cursor::new(buffer);
@@ -543,11 +545,17 @@ pub async fn create_wallet_v0(
         "creating of wallet took: {} ms",
         creating_pazzle.elapsed().as_millis()
     );
-
+    let wallet = Wallet::V0(wallet_v0);
+    let wallet_file = match (params.result_with_wallet_file) {
+        false => vec![], // TODO: save locally
+        true => to_vec(&NgFile::V0(NgFileV0::Wallet(wallet.clone()))).unwrap(),
+    };
     Ok(CreateWalletResultV0 {
-        wallet: Wallet::V0(wallet_v0),
+        wallet: wallet,
+        wallet_file,
         pazzle,
         mnemonic,
+        wallet_name: base64_url::encode(&wallet_id.slice()),
     })
 }
 
