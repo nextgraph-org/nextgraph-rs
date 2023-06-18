@@ -137,10 +137,12 @@
     options = {
       trusted: true,
       cloud: false,
+      bootstrap: true,
+      pdf: true,
     };
     console.log("saved");
     await tick();
-    info_options.scrollIntoView();
+    scrollToTop();
   }
 
   async function do_wallet() {
@@ -150,7 +152,7 @@
       security_txt,
       pin,
       pazzle_length: 9,
-      send_bootstrap: undefined, //options.cloud ?  : undefined,
+      send_bootstrap: undefined, //options.cloud || options.bootstrap ?  : undefined,
       send_wallet: options.cloud,
       peer_id: {
         Ed25519PubKey: [
@@ -688,7 +690,7 @@
     <div class=" max-w-6xl lg:px-8 mx-auto px-4" bind:this={info_options}>
       <p class="max-w-xl mb-10 md:mx-auto lg:max-w-2xl">
         <span class="text-xl">We are almost done !</span><br />
-        There are 2 options to choose before we can create your wallet. Those options
+        There are 4 options to choose before we can create your wallet. Those options
         can help you to use and keep your wallet. But we also want to be careful
         with your security and privacy.<br /><br />
         Remember that in any case, once your wallet will be created, you will download
@@ -722,6 +724,34 @@
           >Save your wallet in the cloud?</Toggle
         >
       </p>
+      <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
+        <span class="text-xl">Create a PDF file of your wallet? </span> <br />
+        We can prepare for you a PDF file containing all the information of your
+        wallet, unencrypted. You should print this file and then delete the PDF (and
+        empty the trash). Keep this printed documented in a safe place. It contains
+        all the information to regenerate your wallet in case you lost access to
+        it.
+        <br />
+        <Toggle class="mt-3" bind:checked={options.pdf}
+          >Create a PDF of my wallet?</Toggle
+        >
+      </p>
+      {#if !options.cloud}
+        <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
+          <span class="text-xl"
+            >Create a link to access your wallet easily?
+          </span> <br />
+          When you want to use your wallet on the web or in other apps, we can help
+          you find your wallet by creating a simple link accessible from anywhere.
+          Only you will have access to this link. In order to do so, we will keep
+          your wallet ID and some information about your broker on our cloud servers.
+          If you prefer to opt out, just uncheck this option.
+          <br />
+          <Toggle class="mt-3" bind:checked={options.bootstrap}
+            >Create a link to my wallet?</Toggle
+          >
+        </p>
+      {/if}
       <button
         on:click|once={do_wallet}
         class="mt-10 mb-8 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mr-2"
@@ -747,7 +777,7 @@
     </div>
   {:else if !error}
     {#if !ready}
-      <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-primary-800">
+      <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-primary-700">
         We are creating your wallet...
         <svg
           class="animate-spin mt-10 h-6 w-6 mx-auto"
