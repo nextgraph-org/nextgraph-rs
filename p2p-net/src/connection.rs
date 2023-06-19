@@ -19,17 +19,16 @@ use crate::actor::{Actor, SoS};
 use crate::actors::*;
 use crate::errors::NetError;
 use crate::errors::ProtocolError;
-use crate::log;
 use crate::types::*;
 use crate::utils::*;
 use async_std::stream::StreamExt;
 use async_std::sync::Mutex;
-use debug_print::debug_println;
 use futures::{channel::mpsc, select, Future, FutureExt, SinkExt};
 use noise_protocol::U8Array;
 use noise_protocol::{patterns::noise_xk, CipherState, HandshakeState};
 use noise_rust_crypto::sensitive::Sensitive;
 use noise_rust_crypto::*;
+use p2p_repo::log::*;
 use p2p_repo::types::{PrivKey, PubKey};
 use p2p_repo::utils::{sign, verify};
 use serde_bare::from_slice;
@@ -205,7 +204,7 @@ impl NoiseFSM {
     }
 
     pub async fn send(&mut self, msg: ProtocolMessage) -> Result<(), ProtocolError> {
-        log!("SENDING: {:?}", msg);
+        log_info!("SENDING: {:?}", msg);
         if self.noise_cipher_state_enc.is_some() {
             let cipher = self.encrypt(msg)?;
             self.sender
@@ -251,7 +250,7 @@ impl NoiseFSM {
             }
         }
         if msg_opt.is_some() {
-            log!("RECEIVED: {:?}", msg_opt.as_ref().unwrap());
+            log_info!("RECEIVED: {:?}", msg_opt.as_ref().unwrap());
         }
         match self.state {
             // TODO verify that ID is zero
@@ -314,12 +313,12 @@ impl NoiseFSM {
 
                             let mut payload =
                                 handshake.read_message_vec(noise.data()).map_err(|e| {
-                                    debug_println!("{:?}", e);
+                                    log_debug!("{:?}", e);
                                     ProtocolError::NoiseHandshakeFailed
                                 })?;
 
                             payload = handshake.write_message_vec(&payload).map_err(|e| {
-                                debug_println!("{:?}", e);
+                                log_debug!("{:?}", e);
                                 ProtocolError::NoiseHandshakeFailed
                             })?;
 
@@ -347,7 +346,7 @@ impl NoiseFSM {
                                 .map_err(|e| ProtocolError::NoiseHandshakeFailed)?;
 
                             payload = handshake.write_message_vec(&payload).map_err(|e| {
-                                debug_println!("{:?}", e);
+                                log_debug!("{:?}", e);
                                 ProtocolError::NoiseHandshakeFailed
                             })?;
 
@@ -489,7 +488,7 @@ impl NoiseFSM {
                             if (result.is_err()) {
                                 return Err(result);
                             }
-                            log!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the server side");
+                            log_info!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the server side");
                             self.state = FSMstate::AuthResult;
                             return Ok(StepReply::NONE);
                         }
@@ -509,7 +508,7 @@ impl NoiseFSM {
 
                                 self.state = FSMstate::AuthResult;
 
-                                log!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the client side");
+                                log_info!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the client side");
 
                                 return Ok(StepReply::NONE);
                             }
@@ -612,7 +611,7 @@ impl ConnectionBase {
                 ConnectionCommand::Close
                 | ConnectionCommand::Error(_)
                 | ConnectionCommand::ProtocolError(_) => {
-                    log!("EXIT READ LOOP because : {:?}", msg);
+                    log_info!("EXIT READ LOOP because : {:?}", msg);
                     break;
                 }
                 ConnectionCommand::Msg(proto_msg) => {
@@ -677,7 +676,7 @@ impl ConnectionBase {
                 }
             }
         }
-        log!("END OF READ LOOP");
+        log_info!("END OF READ LOOP");
         Ok(())
     }
 
@@ -720,7 +719,7 @@ impl ConnectionBase {
     // }
 
     pub async fn close(&mut self) {
-        log!("closing...");
+        log_info!("closing...");
         self.send(ConnectionCommand::Close).await;
     }
 
@@ -772,8 +771,8 @@ mod test {
 
     use crate::actor::*;
     use crate::actors::*;
-    use crate::log;
     use crate::types::*;
+    use p2p_repo::log::*;
     use std::any::{Any, TypeId};
 
     #[async_std::test]
@@ -781,14 +780,14 @@ mod test {
 
     #[async_std::test]
     pub async fn test_typeid() {
-        log!(
+        log_info!(
             "{:?}",
             ClientHello::Noise3(Noise::V0(NoiseV0 { data: vec![] })).type_id()
         );
         let a = Noise::V0(NoiseV0 { data: [].to_vec() });
-        log!("{:?}", a.type_id());
-        log!("{:?}", TypeId::of::<Noise>());
-        log!("{:?}", ClientHello::Local.type_id());
-        log!("{:?}", TypeId::of::<ClientHello>());
+        log_info!("{:?}", a.type_id());
+        log_info!("{:?}", TypeId::of::<Noise>());
+        log_info!("{:?}", ClientHello::Local.type_id());
+        log_info!("{:?}", TypeId::of::<ClientHello>());
     }
 }

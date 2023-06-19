@@ -18,7 +18,7 @@ use std::convert::From;
 use std::sync::Arc;
 
 use crate::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
-use crate::{connection::*, errors::ProtocolError, log, types::ProtocolMessage};
+use crate::{connection::*, errors::ProtocolError, types::ProtocolMessage};
 use std::marker::PhantomData;
 
 impl TryFrom<ProtocolMessage> for () {

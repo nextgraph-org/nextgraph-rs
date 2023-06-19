@@ -17,7 +17,7 @@ macro_rules! before {
             .map_err(|_e| ProtocolError::ActorError)?;
 
         let $request_id = $addr.actor_id();
-        //debug_println!("actor ID {}", $request_id);
+        //log_debug!("actor ID {}", $request_id);
 
         {
             let mut map = $self.actors.write().expect("RwLock poisoned");
@@ -28,7 +28,7 @@ macro_rules! before {
 
 macro_rules! after {
     ( $self:expr, $request_id:ident, $addr:ident, $receiver:ident, $reply:ident ) => {
-        //debug_println!("waiting for reply");
+        //log_debug!("waiting for reply");
 
         $addr.wait_for_stop().await; // TODO add timeout and close connection if there's no reply
         let r = $receiver.await;
@@ -36,7 +36,7 @@ macro_rules! after {
             return Err(ProtocolError::Closing);
         }
         let $reply = r.unwrap();
-        //debug_println!("reply arrived {:?}", $reply);
+        //log_debug!("reply arrived {:?}", $reply);
         {
             let mut map = $self.actors.write().expect("RwLock poisoned");
             map.remove(&$request_id);

@@ -23,7 +23,7 @@ use p2p_net::broker::*;
 use p2p_net::connection::{ClientConfig, StartConfig};
 use p2p_net::types::{DirectPeerId, IP};
 use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
-use p2p_net::{log, sleep};
+use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::generate_keypair;
 use serde_json::json;
@@ -31,6 +31,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
 #[cfg(target_arch = "wasm32")]
@@ -112,7 +113,7 @@ extern "C" {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn test() {
-    log!("test is {}", BROKER.read().await.test());
+    log_info!("test is {}", BROKER.read().await.test());
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -123,7 +124,7 @@ pub async fn doc_get_file_from_store_with_object_ref(
 ) -> Result<JsValue, JsValue> {
     let obj_ref = serde_wasm_bindgen::from_value::<ObjectRef>(obj_ref_js).unwrap();
 
-    log!(
+    log_info!(
         "doc_get_file {} {:?} {}",
         nuri,
         obj_ref.id,
@@ -181,14 +182,14 @@ pub async fn doc_sync_branch(anuri: String, callback: &js_sys::Function) -> JsVa
                 Err(_) => {}
             }
         }
-        log!("END OF LOOP");
+        log_info!("END OF LOOP");
         Ok(())
     }
 
     spawn_and_log_error(inner_task(reader, anuri, callback.clone()));
 
     let cb = Closure::once(move || {
-        log!("close channel");
+        log_info!("close channel");
         sender.close_channel()
     });
     //Closure::wrap(Box::new(move |sender| sender.close_channel()) as Box<FnMut(Sender<Commit>)>);
@@ -200,7 +201,7 @@ pub async fn doc_sync_branch(anuri: String, callback: &js_sys::Function) -> JsVa
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn start() {
-    log!("random {}", random(10));
+    log_info!("random {}", random(10));
 
     // let mut random_buf = [0u8; 32];
     // getrandom::getrandom(&mut random_buf).unwrap();
@@ -217,7 +218,7 @@ pub async fn start() {
         let (client_priv_key, client_pub_key) = generate_keypair();
         let (user_priv_key, user_pub_key) = generate_keypair();
 
-        log!("start connecting");
+        log_info!("start connecting");
 
         let res = BROKER
             .write()
@@ -236,7 +237,7 @@ pub async fn start() {
                 }),
             )
             .await;
-        log!("broker.connect : {:?}", res);
+        log_info!("broker.connect : {:?}", res);
         if res.is_err() {
             return Ok(());
             //panic!("Cannot connect");
@@ -248,7 +249,7 @@ pub async fn start() {
         async fn timer_close(remote_peer_id: DirectPeerId) -> ResultSend<()> {
             async move {
                 sleep!(std::time::Duration::from_secs(3));
-                log!("timeout");
+                log_info!("timeout");
                 BROKER
                     .write()
                     .await

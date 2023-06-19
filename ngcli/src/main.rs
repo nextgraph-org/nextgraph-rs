@@ -9,21 +9,21 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use debug_print::*;
 use ed25519_dalek::*;
 use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
 use futures::{future, pin_mut, stream, SinkExt, StreamExt};
 use p2p_broker::broker_store::config::ConfigMode;
 use p2p_repo::object::Object;
 use p2p_repo::store::{store_max_value_size, store_valid_value_size, HashMapRepoStore, RepoStore};
-use stores_lmdb::kcv_store::LmdbKCVStore;
-use stores_lmdb::repo_store::LmdbRepoStore;
 use rand::rngs::OsRng;
 use std::collections::HashMap;
+use stores_lmdb::kcv_store::LmdbKCVStore;
+use stores_lmdb::repo_store::LmdbRepoStore;
 
 use p2p_net::errors::*;
 use p2p_net::types::*;
 
+use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::{generate_keypair, now_timestamp};
 
@@ -50,9 +50,9 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
             repo_pubkey,
             repo_secret,
         );
-        //println!(">>> add_obj");
-        println!("     id: {}", obj.id());
-        //println!("     deps: {:?}", obj.deps());
+        //log_debug!(">>> add_obj");
+        log_debug!("     id: {}", obj.id());
+        //log_debug!("     deps: {:?}", obj.deps());
         obj.save(store).unwrap();
         obj.reference().unwrap()
     }
@@ -94,7 +94,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
             expiry,
         )
         .unwrap();
-        //println!("commit: {}", commit.id().unwrap());
+        //log_debug!("commit: {}", commit.id().unwrap());
         add_obj(
             ObjectContent::Commit(commit),
             obj_deps,
@@ -114,7 +114,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         let deps = vec![];
         let expiry = None;
         let body = CommitBody::Branch(branch);
-        //println!("body: {:?}", body);
+        //log_debug!("body: {:?}", body);
         add_obj(
             ObjectContent::CommitBody(body),
             deps,
@@ -134,7 +134,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         let expiry = None;
         let content = [7u8; 777].to_vec();
         let body = CommitBody::Transaction(Transaction::V0(content));
-        //println!("body: {:?}", body);
+        //log_debug!("body: {:?}", body);
         add_obj(
             ObjectContent::CommitBody(body),
             deps,
@@ -153,7 +153,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
     ) -> ObjectRef {
         let expiry = None;
         let body = CommitBody::Ack(Ack::V0());
-        //println!("body: {:?}", body);
+        //log_debug!("body: {:?}", body);
         add_obj(
             ObjectContent::CommitBody(body),
             deps,
@@ -170,12 +170,12 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
     // repo
 
     let repo_keypair: Keypair = Keypair::generate(&mut rng);
-    // println!(
+    // log_debug!(
     //     "repo private key: ({}) {:?}",
     //     repo_keypair.secret.as_bytes().len(),
     //     repo_keypair.secret.as_bytes()
     // );
-    // println!(
+    // log_debug!(
     //     "repo public key: ({}) {:?}",
     //     repo_keypair.public.as_bytes().len(),
     //     repo_keypair.public.as_bytes()
@@ -193,11 +193,11 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
     // branch
 
     let branch_keypair: Keypair = Keypair::generate(&mut rng);
-    //println!("branch public key: {:?}", branch_keypair.public.as_bytes());
+    //log_debug!("branch public key: {:?}", branch_keypair.public.as_bytes());
     let branch_pubkey = PubKey::Ed25519PubKey(branch_keypair.public.to_bytes());
 
     let member_keypair: Keypair = Keypair::generate(&mut rng);
-    //println!("member public key: {:?}", member_keypair.public.as_bytes());
+    //log_debug!("member public key: {:?}", member_keypair.public.as_bytes());
     let member_privkey = PrivKey::Ed25519PrivKey(member_keypair.secret.to_bytes());
     let member_pubkey = PubKey::Ed25519PubKey(member_keypair.public.to_bytes());
 
@@ -221,18 +221,18 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         tags,
         metadata,
     );
-    //println!("branch: {:?}", branch);
+    //log_debug!("branch: {:?}", branch);
 
-    println!("branch deps/acks:");
-    println!("");
-    println!("     br");
-    println!("    /  \\");
-    println!("  t1   t2");
-    println!("  / \\  / \\");
-    println!(" a3  t4<--t5-->(t1)");
-    println!("     / \\");
-    println!("   a6   a7");
-    println!("");
+    log_debug!("branch deps/acks:");
+    log_debug!("");
+    log_debug!("     br");
+    log_debug!("    /  \\");
+    log_debug!("  t1   t2");
+    log_debug!("  / \\  / \\");
+    log_debug!(" a3  t4<--t5-->(t1)");
+    log_debug!("     / \\");
+    log_debug!("   a6   a7");
+    log_debug!("");
 
     // commit bodies
 
@@ -247,7 +247,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
 
     // create & add commits to store
 
-    println!(">> br");
+    log_debug!(">> br");
     let br = add_commit(
         branch_body,
         member_privkey,
@@ -261,7 +261,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         &mut store,
     );
 
-    println!(">> t1");
+    log_debug!(">> t1");
     let t1 = add_commit(
         branch_body,
         member_privkey,
@@ -275,7 +275,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         &mut store,
     );
 
-    println!(">> t2");
+    log_debug!(">> t2");
     let t2 = add_commit(
         branch_body,
         member_privkey,
@@ -289,7 +289,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         &mut store,
     );
 
-    println!(">> a3");
+    log_debug!(">> a3");
     let a3 = add_commit(
         branch_body,
         member_privkey,
@@ -303,7 +303,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         &mut store,
     );
 
-    println!(">> t4");
+    log_debug!(">> t4");
     let t4 = add_commit(
         branch_body,
         member_privkey,
@@ -317,7 +317,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         &mut store,
     );
 
-    println!(">> t5");
+    log_debug!(">> t5");
     let t5 = add_commit(
         branch_body,
         member_privkey,
@@ -331,7 +331,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         &mut store,
     );
 
-    println!(">> a6");
+    log_debug!(">> a6");
     let a6 = add_commit(
         branch_body,
         member_privkey,
@@ -345,7 +345,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         &mut store,
     );
 
-    println!(">> a7");
+    log_debug!(">> a7");
     let a7 = add_commit(
         branch_body,
         member_privkey,
@@ -366,7 +366,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
 
     // Sending everything to the broker
     for (v) in store.get_all() {
-        //debug_println!("SENDING {}", k);
+        //log_debug!("SENDING {}", k);
         let _ = public_overlay_cnx
             .put_block(&v)
             .await
@@ -403,7 +403,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         &mut store,
     );
 
-    debug_println!("LOCAL STORE HAS {} BLOCKS", store.get_len());
+    log_debug!("LOCAL STORE HAS {} BLOCKS", store.get_len());
 
     // Let's pretend that we know that the head of the branch in the broker is at commits a6 and a7.
     // normally it would be the pub/sub that notifies us of those heads.
@@ -433,14 +433,14 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
 
     let mut i = 0;
     while let Some(b) = synced_blocks_stream.next().await {
-        debug_println!("GOT BLOCK {}", b.id());
+        log_debug!("GOT BLOCK {}", b.id());
         store.put(&b);
         i += 1;
     }
 
-    debug_println!("SYNCED {} BLOCKS", i);
+    log_debug!("SYNCED {} BLOCKS", i);
 
-    debug_println!("LOCAL STORE HAS {} BLOCKS", store.get_len());
+    log_debug!("LOCAL STORE HAS {} BLOCKS", store.get_len());
 
     // now the client can verify the DAG and each commit. Then update its list of heads.
 }
@@ -471,7 +471,7 @@ async fn test(
     });
     let mut public_overlay_cnx = cnx.overlay_connect(&repo, true).await?;
 
-    debug_println!("put_block");
+    log_debug!("put_block");
 
     let my_block_id = public_overlay_cnx
         .put_block(&Block::new(
@@ -483,7 +483,7 @@ async fn test(
         ))
         .await?;
 
-    debug_println!("added block_id to store {}", my_block_id);
+    log_debug!("added block_id to store {}", my_block_id);
 
     let object_id = public_overlay_cnx
         .put_object(
@@ -500,7 +500,7 @@ async fn test(
         )
         .await?;
 
-    debug_println!("added object_id to store {}", object_id);
+    log_debug!("added object_id to store {}", object_id);
 
     let mut my_block_stream = public_overlay_cnx
         .get_block(my_block_id, true, None)
@@ -508,27 +508,27 @@ async fn test(
     //.expect("get_block failed");
 
     while let Some(b) = my_block_stream.next().await {
-        debug_println!("GOT BLOCK {}", b.id());
+        log_debug!("GOT BLOCK {}", b.id());
     }
 
     let mut my_object_stream = public_overlay_cnx.get_block(object_id, true, None).await?;
     //.expect("get_block for object failed");
 
     while let Some(b) = my_object_stream.next().await {
-        debug_println!("GOT BLOCK {}", b.id());
+        log_debug!("GOT BLOCK {}", b.id());
     }
 
     let object = public_overlay_cnx.get_object(object_id, None).await?;
     //.expect("get_object failed");
 
-    debug_println!("GOT OBJECT with ID {}", object.id());
+    log_debug!("GOT OBJECT with ID {}", object.id());
 
     // let object_id = public_overlay_cnx
     //     .copy_object(object_id, Some(now_timestamp() + 60))
     //     .await
     //     .expect("copy_object failed");
 
-    // debug_println!("COPIED OBJECT to OBJECT ID {}", object_id);
+    // log_debug!("COPIED OBJECT to OBJECT ID {}", object_id);
 
     public_overlay_cnx.delete_object(object_id).await?;
     //.expect("delete_object failed");
@@ -538,7 +538,7 @@ async fn test(
         .await
         .unwrap_err();
 
-    debug_println!("result from get object after delete: {}", res);
+    log_debug!("result from get object after delete: {}", res);
     assert_eq!(res, ProtocolError::NotFound);
 
     //TODO test pin/unpin
@@ -551,12 +551,12 @@ async fn test(
 }
 
 async fn test_local_connection() {
-    debug_println!("===== TESTING LOCAL API =====");
+    log_debug!("===== TESTING LOCAL API =====");
 
     let root = tempfile::Builder::new().prefix("ngcli").tempdir().unwrap();
     let master_key: [u8; 32] = [0; 32];
     std::fs::create_dir_all(root.path()).unwrap();
-    println!("{}", root.path().to_str().unwrap());
+    log_debug!("{}", root.path().to_str().unwrap());
     let store = LmdbKCVStore::open(root.path(), master_key);
 
     //let mut server = BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
@@ -569,7 +569,7 @@ async fn test_local_connection() {
 }
 
 async fn test_remote_connection(url: &str) {
-    debug_println!("===== TESTING REMOTE API =====");
+    log_debug!("===== TESTING REMOTE API =====");
 
     let (priv_key, pub_key) = generate_keypair();
 
@@ -580,7 +580,7 @@ async fn test_remote_connection(url: &str) {
 
 #[async_std::main]
 async fn main() -> std::io::Result<()> {
-    debug_println!("Starting nextgraph CLI...");
+    log_debug!("Starting nextgraph CLI...");
 
     //test_local_connection().await;
 
@@ -606,12 +606,12 @@ mod test {
     #[async_std::test]
     pub async fn test_remote_cnx() -> Result<(), Box<dyn std::error::Error>> {
         let keys = gen_keys();
-        // println!("Public key of node: {:?}", keys.1);
-        // println!("Private key of node: {:?}", keys.0.as_slice());
+        // log_debug!("Public key of node: {:?}", keys.1);
+        // log_debug!("Private key of node: {:?}", keys.0.as_slice());
         let pubkey = PubKey::Ed25519PubKey(keys.1);
 
-        println!("Public key of node: {:?}", pubkey);
-        println!("Private key of node: {:?}", keys.0.as_slice());
+        log_debug!("Public key of node: {:?}", pubkey);
+        log_debug!("Private key of node: {:?}", keys.0.as_slice());
 
         let thr = task::spawn(run_server_accept_one(
             "127.0.0.1",

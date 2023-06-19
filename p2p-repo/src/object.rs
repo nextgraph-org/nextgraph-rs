@@ -13,11 +13,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use debug_print::*;
-
 use chacha20::cipher::{KeyIvInit, StreamCipher};
 use chacha20::ChaCha20;
 
+use crate::log::*;
 use crate::store::*;
 use crate::types::*;
 
@@ -101,9 +100,9 @@ impl Object {
         cipher.apply_keystream(&mut content_enc_slice);
         let key = SymKey::ChaCha20Key(key.clone());
         let block = Block::new(children, deps, expiry, content_enc, Some(key));
-        //debug_println!(">>> make_block:");
-        //debug_println!("!! id: {:?}", obj.id());
-        //debug_println!("!! children: ({}) {:?}", children.len(), children);
+        //log_debug!(">>> make_block:");
+        //log_debug!("!! id: {:?}", obj.id());
+        //log_debug!("!! children: ({}) {:?}", children.len(), children);
         block
     }
 
@@ -163,7 +162,7 @@ impl Object {
                 expiry,
             ));
         }
-        //debug_println!("parents += {}", parents.len());
+        //log_debug!("parents += {}", parents.len());
 
         if 1 < parents.len() {
             let mut great_parents =
@@ -194,7 +193,7 @@ impl Object {
     ) -> Object {
         // create blocks by chunking + encrypting content
         let valid_block_size = store_valid_value_size(block_size);
-        println!("valid_block_size {}", valid_block_size);
+        log_debug!("valid_block_size {}", valid_block_size);
         let data_chunk_size = valid_block_size - EMPTY_BLOCK_SIZE - DATA_VARINT_EXTRA;
 
         let mut blocks: Vec<Block> = vec![];
@@ -418,7 +417,7 @@ impl Object {
         leaves: &mut Option<&mut Vec<Block>>,
         obj_content: &mut Option<&mut Vec<u8>>,
     ) -> Result<(), ObjectParseError> {
-        /*debug_println!(
+        /*log_debug!(
             ">>> collect_leaves: #{}..{}",
             parent_index,
             parent_index + parents.len() - 1
@@ -427,13 +426,13 @@ impl Object {
         let mut i = parent_index;
 
         for (id, key) in parents {
-            //debug_println!("!!! parent: #{}", i);
+            //log_debug!("!!! parent: #{}", i);
             let block = &blocks[i];
             i += 1;
 
             // verify object ID
             if *id != block.id() {
-                debug_println!("Invalid ObjectId.\nExp: {:?}\nGot: {:?}", *id, block.id());
+                log_debug!("Invalid ObjectId.\nExp: {:?}\nGot: {:?}", *id, block.id());
                 return Err(ObjectParseError::InvalidBlockId);
             }
 
@@ -455,7 +454,7 @@ impl Object {
                     match serde_bare::from_slice(content_dec.as_slice()) {
                         Ok(c) => content = c,
                         Err(e) => {
-                            debug_println!("Block deserialize error: {}", e);
+                            log_debug!("Block deserialize error: {}", e);
                             return Err(ObjectParseError::BlockDeserializeError);
                         }
                     }
@@ -464,13 +463,13 @@ impl Object {
                     match content {
                         BlockContentV0::InternalNode(keys) => {
                             if keys.len() != b.children.len() {
-                                debug_println!(
+                                log_debug!(
                                     "Invalid keys length: got {}, expected {}",
                                     keys.len(),
                                     b.children.len()
                                 );
-                                debug_println!("!!! children: {:?}", b.children);
-                                debug_println!("!!! keys: {:?}", keys);
+                                log_debug!("!!! children: {:?}", b.children);
+                                log_debug!("!!! keys: {:?}", keys);
                                 return Err(ObjectParseError::InvalidKeys);
                             }
 
@@ -547,7 +546,7 @@ impl Object {
                 match serde_bare::from_slice(obj_content.as_slice()) {
                     Ok(c) => Ok(c),
                     Err(e) => {
-                        debug_println!("Object deserialize error: {}", e);
+                        log_debug!("Object deserialize error: {}", e);
                         Err(ObjectParseError::ObjectDeserializeError)
                     }
                 }
@@ -609,18 +608,18 @@ mod test {
             repo_secret,
         );
 
-        println!("obj.id: {:?}", obj.id());
-        println!("obj.key: {:?}", obj.key());
-        println!("obj.blocks.len: {:?}", obj.blocks().len());
+        log_debug!("obj.id: {:?}", obj.id());
+        log_debug!("obj.key: {:?}", obj.key());
+        log_debug!("obj.blocks.len: {:?}", obj.blocks().len());
 
         let mut i = 0;
         for node in obj.blocks() {
-            println!("#{}: {:?}", i, node.id());
+            log_debug!("#{}: {:?}", i, node.id());
             let mut file = std::fs::File::create(format!("tests/{}.ng", node.id()))
                 .expect("open block write file");
             let ser_file = serde_bare::to_vec(node).unwrap();
             file.write_all(&ser_file);
-            println!("{:?}", ser_file);
+            log_debug!("{:?}", ser_file);
 
             i += 1;
         }
@@ -652,14 +651,14 @@ mod test {
             repo_secret,
         );
 
-        println!("obj.id: {:?}", obj.id());
-        println!("obj.key: {:?}", obj.key());
-        println!("obj.deps: {:?}", obj.deps());
-        println!("obj.blocks.len: {:?}", obj.blocks().len());
+        log_debug!("obj.id: {:?}", obj.id());
+        log_debug!("obj.key: {:?}", obj.key());
+        log_debug!("obj.deps: {:?}", obj.deps());
+        log_debug!("obj.blocks.len: {:?}", obj.blocks().len());
 
         let mut i = 0;
         for node in obj.blocks() {
-            println!("#{}: {:?}", i, node.id());
+            log_debug!("#{}: {:?}", i, node.id());
             i += 1;
         }
 
@@ -677,13 +676,13 @@ mod test {
 
         let obj2 = Object::load(obj.id(), obj.key(), &store).unwrap();
 
-        println!("obj2.id: {:?}", obj2.id());
-        println!("obj2.key: {:?}", obj2.key());
-        println!("obj2.deps: {:?}", obj2.deps());
-        println!("obj2.blocks.len: {:?}", obj2.blocks().len());
+        log_debug!("obj2.id: {:?}", obj2.id());
+        log_debug!("obj2.key: {:?}", obj2.key());
+        log_debug!("obj2.deps: {:?}", obj2.deps());
+        log_debug!("obj2.blocks.len: {:?}", obj2.blocks().len());
         let mut i = 0;
         for node in obj2.blocks() {
-            println!("#{}: {:?}", i, node.id());
+            log_debug!("#{}: {:?}", i, node.id());
             i += 1;
         }
 
@@ -699,13 +698,13 @@ mod test {
 
         let obj3 = Object::load(obj.id(), None, &store).unwrap();
 
-        println!("obj3.id: {:?}", obj3.id());
-        println!("obj3.key: {:?}", obj3.key());
-        println!("obj3.deps: {:?}", obj3.deps());
-        println!("obj3.blocks.len: {:?}", obj3.blocks().len());
+        log_debug!("obj3.id: {:?}", obj3.id());
+        log_debug!("obj3.key: {:?}", obj3.key());
+        log_debug!("obj3.deps: {:?}", obj3.deps());
+        log_debug!("obj3.blocks.len: {:?}", obj3.blocks().len());
         let mut i = 0;
         for node in obj3.blocks() {
-            println!("#{}: {:?}", i, node.id());
+            log_debug!("#{}: {:?}", i, node.id());
             i += 1;
         }
 
@@ -743,7 +742,7 @@ mod test {
             content: vec![],
         }));
         let empty_file_ser = serde_bare::to_vec(&empty_file).unwrap();
-        println!("empty file size: {}", empty_file_ser.len());
+        log_debug!("empty file size: {}", empty_file_ser.len());
 
         let size = store_max_value_size()
             - EMPTY_BLOCK_SIZE
@@ -751,7 +750,7 @@ mod test {
             - BLOCK_ID_SIZE * deps.len()
             - empty_file_ser.len()
             - DATA_VARINT_EXTRA;
-        println!("file size: {}", size);
+        log_debug!("file size: {}", size);
 
         let content = ObjectContent::File(File::V0(FileV0 {
             content_type: "".into(),
@@ -759,7 +758,7 @@ mod test {
             content: vec![99; size],
         }));
         let content_ser = serde_bare::to_vec(&content).unwrap();
-        println!("content len: {}", content_ser.len());
+        log_debug!("content len: {}", content_ser.len());
 
         let expiry = Some(2u32.pow(31));
         let max_object_size = store_max_value_size();
@@ -776,18 +775,18 @@ mod test {
             repo_secret,
         );
 
-        println!("root_id: {:?}", object.id());
-        println!("root_key: {:?}", object.key().unwrap());
-        println!("nodes.len: {:?}", object.blocks().len());
-        //println!("root: {:?}", tree.root());
-        //println!("nodes: {:?}", object.blocks);
+        log_debug!("root_id: {:?}", object.id());
+        log_debug!("root_key: {:?}", object.key().unwrap());
+        log_debug!("nodes.len: {:?}", object.blocks().len());
+        //log_debug!("root: {:?}", tree.root());
+        //log_debug!("nodes: {:?}", object.blocks);
         assert_eq!(object.blocks.len(), 1);
     }
 
     #[test]
     pub fn test_block_size() {
         let max_block_size = store_max_value_size();
-        println!("max_object_size: {}", max_block_size);
+        log_debug!("max_object_size: {}", max_block_size);
 
         let id = Digest::Blake3Digest32([0u8; 32]);
         let key = SymKey::ChaCha20Key([0u8; 32]);
@@ -880,35 +879,35 @@ mod test {
         );
         let root_two_ser = serde_bare::to_vec(&root_two).unwrap();
 
-        println!(
+        log_debug!(
             "range of valid value sizes {} {}",
             store_valid_value_size(0),
             store_max_value_size()
         );
 
-        println!(
+        log_debug!(
             "max_data_payload_of_object: {}",
             max_block_size - EMPTY_BLOCK_SIZE - DATA_VARINT_EXTRA
         );
 
-        println!(
+        log_debug!(
             "max_data_payload_depth_1: {}",
             max_block_size - EMPTY_BLOCK_SIZE - DATA_VARINT_EXTRA - MAX_DEPS_SIZE
         );
 
-        println!(
+        log_debug!(
             "max_data_payload_depth_2: {}",
             MAX_ARITY_ROOT * MAX_DATA_PAYLOAD_SIZE
         );
 
-        println!(
+        log_debug!(
             "max_data_payload_depth_3: {}",
             MAX_ARITY_ROOT * MAX_ARITY_LEAVES * MAX_DATA_PAYLOAD_SIZE
         );
 
         let max_arity_leaves = (max_block_size - EMPTY_BLOCK_SIZE - BIG_VARINT_EXTRA * 2)
             / (BLOCK_ID_SIZE + BLOCK_KEY_SIZE);
-        println!("max_arity_leaves: {}", max_arity_leaves);
+        log_debug!("max_arity_leaves: {}", max_arity_leaves);
         assert_eq!(max_arity_leaves, MAX_ARITY_LEAVES);
         assert_eq!(
             max_block_size - EMPTY_BLOCK_SIZE - DATA_VARINT_EXTRA,
@@ -917,15 +916,15 @@ mod test {
         let max_arity_root =
             (max_block_size - EMPTY_BLOCK_SIZE - MAX_DEPS_SIZE - BIG_VARINT_EXTRA * 2)
                 / (BLOCK_ID_SIZE + BLOCK_KEY_SIZE);
-        println!("max_arity_root: {}", max_arity_root);
+        log_debug!("max_arity_root: {}", max_arity_root);
         assert_eq!(max_arity_root, MAX_ARITY_ROOT);
-        println!("store_max_value_size: {}", leaf_full_data_ser.len());
+        log_debug!("store_max_value_size: {}", leaf_full_data_ser.len());
         assert_eq!(leaf_full_data_ser.len(), max_block_size);
-        println!("leaf_empty: {}", leaf_empty_ser.len());
+        log_debug!("leaf_empty: {}", leaf_empty_ser.len());
         assert_eq!(leaf_empty_ser.len(), EMPTY_BLOCK_SIZE);
-        println!("root_depsref: {}", root_depsref_ser.len());
+        log_debug!("root_depsref: {}", root_depsref_ser.len());
         assert_eq!(root_depsref_ser.len(), EMPTY_ROOT_SIZE_DEPSREF);
-        println!("internal_max: {}", internal_max_ser.len());
+        log_debug!("internal_max: {}", internal_max_ser.len());
         assert_eq!(
             internal_max_ser.len(),
             EMPTY_BLOCK_SIZE
@@ -933,22 +932,22 @@ mod test {
                 + MAX_ARITY_LEAVES * (BLOCK_ID_SIZE + BLOCK_KEY_SIZE)
         );
         assert!(internal_max_ser.len() < max_block_size);
-        println!("internal_one: {}", internal_one_ser.len());
+        log_debug!("internal_one: {}", internal_one_ser.len());
         assert_eq!(
             internal_one_ser.len(),
             EMPTY_BLOCK_SIZE + 1 * BLOCK_ID_SIZE + 1 * BLOCK_KEY_SIZE
         );
-        println!("internal_two: {}", internal_two_ser.len());
+        log_debug!("internal_two: {}", internal_two_ser.len());
         assert_eq!(
             internal_two_ser.len(),
             EMPTY_BLOCK_SIZE + 2 * BLOCK_ID_SIZE + 2 * BLOCK_KEY_SIZE
         );
-        println!("root_one: {}", root_one_ser.len());
+        log_debug!("root_one: {}", root_one_ser.len());
         assert_eq!(
             root_one_ser.len(),
             EMPTY_BLOCK_SIZE + 8 * BLOCK_ID_SIZE + 1 * BLOCK_ID_SIZE + 1 * BLOCK_KEY_SIZE
         );
-        println!("root_two: {}", root_two_ser.len());
+        log_debug!("root_two: {}", root_two_ser.len());
         assert_eq!(
             root_two_ser.len(),
             EMPTY_BLOCK_SIZE + 8 * BLOCK_ID_SIZE + 2 * BLOCK_ID_SIZE + 2 * BLOCK_KEY_SIZE
@@ -961,9 +960,9 @@ mod test {
         // let arity_512: usize =
         //     (object_size_512 - 8 * OBJECT_ID_SIZE) / (OBJECT_ID_SIZE + OBJECT_KEY_SIZE);
 
-        // println!("1-page object_size: {}", object_size_1);
-        // println!("512-page object_size: {}", object_size_512);
-        // println!("max arity of 1-page object: {}", arity_1);
-        // println!("max arity of 512-page object: {}", arity_512);
+        // log_debug!("1-page object_size: {}", object_size_1);
+        // log_debug!("512-page object_size: {}", object_size_512);
+        // log_debug!("max arity of 1-page object: {}", arity_1);
+        // log_debug!("max arity of 512-page object: {}", arity_512);
     }
 }
