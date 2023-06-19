@@ -10,8 +10,8 @@ use async_std::stream::StreamExt;
 use ng_wallet::types::*;
 use ng_wallet::*;
 use p2p_net::broker::*;
-use p2p_net::log;
 use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend};
+use p2p_repo::log::*;
 use p2p_repo::types::*;
 use tauri::{App, Manager};
 
@@ -30,13 +30,13 @@ pub type SetupHook = Box<dyn FnOnce(&mut App) -> Result<(), Box<dyn std::error::
 
 #[tauri::command(rename_all = "snake_case")]
 async fn test() -> Result<(), ()> {
-    log!("test is {}", BROKER.read().await.test());
+    log_info!("test is {}", BROKER.read().await.test());
     Ok(())
 }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn wallet_gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> Result<ShuffledPazzle, ()> {
-    log!(
+    log_info!(
         "wallet_gen_shuffle_for_pazzle_opening from rust {}",
         pazzle_length
     );
@@ -45,7 +45,7 @@ async fn wallet_gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> Result<Shuf
 
 #[tauri::command(rename_all = "snake_case")]
 async fn wallet_gen_shuffle_for_pin() -> Result<Vec<u8>, ()> {
-    log!("wallet_gen_shuffle_for_pin from rust");
+    log_info!("wallet_gen_shuffle_for_pin from rust");
     Ok(gen_shuffle_for_pin())
 }
 
@@ -55,13 +55,13 @@ async fn wallet_open_wallet_with_pazzle(
     pazzle: Vec<u8>,
     pin: [u8; 4],
 ) -> Result<EncryptedWallet, String> {
-    log!("wallet_open_wallet_with_pazzle from rust {:?}", pazzle);
+    log_info!("wallet_open_wallet_with_pazzle from rust {:?}", pazzle);
     open_wallet_with_pazzle(wallet, pazzle, pin).map_err(|e| e.to_string())
 }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn wallet_create_wallet(mut params: CreateWalletV0) -> Result<CreateWalletResultV0, String> {
-    //log!("wallet_create_wallet from rust {:?}", params);
+    //log_info!("wallet_create_wallet from rust {:?}", params);
     params.result_with_wallet_file = false;
     let local_save = params.local_save;
     let res = create_wallet_v0(params).await.map_err(|e| e.to_string());
@@ -77,7 +77,7 @@ async fn wallet_create_wallet(mut params: CreateWalletV0) -> Result<CreateWallet
 
 #[tauri::command(rename_all = "snake_case")]
 async fn doc_sync_branch(nuri: &str, stream_id: &str, app: tauri::AppHandle) -> Result<(), ()> {
-    log!("doc_sync_branch {} {}", nuri, stream_id);
+    log_info!("doc_sync_branch {} {}", nuri, stream_id);
 
     let mut reader;
     {
@@ -99,7 +99,7 @@ async fn doc_sync_branch(nuri: &str, stream_id: &str, app: tauri::AppHandle) -> 
 
         BROKER.write().await.tauri_stream_cancel(stream_id);
 
-        log!("END OF LOOP");
+        log_info!("END OF LOOP");
         Ok(())
     }
 
@@ -110,7 +110,7 @@ async fn doc_sync_branch(nuri: &str, stream_id: &str, app: tauri::AppHandle) -> 
 
 #[tauri::command(rename_all = "snake_case")]
 async fn cancel_doc_sync_branch(stream_id: &str) -> Result<(), ()> {
-    log!("cancel stream {}", stream_id);
+    log_info!("cancel stream {}", stream_id);
     BROKER
         .write()
         .await
@@ -123,7 +123,7 @@ async fn doc_get_file_from_store_with_object_ref(
     nuri: &str,
     obj_ref: ObjectRef,
 ) -> Result<ObjectContent, String> {
-    log!(
+    log_info!(
         "doc_get_file_from_store_with_object_ref {} {:?}",
         nuri,
         obj_ref

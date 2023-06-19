@@ -3,7 +3,7 @@
 // This code is partly derived from work written by TG x Thoth from P2Pcollab.
 // Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -11,7 +11,7 @@
 
 //! Branch of a Repository
 
-use debug_print::*;
+use crate::log::*;
 use std::collections::{HashMap, HashSet};
 
 use fastbloom_rs::{BloomFilter as Filter, Membership};
@@ -113,9 +113,9 @@ impl Branch {
         their_filter: &BloomFilter,
         store: &impl RepoStore,
     ) -> Result<Vec<ObjectId>, ObjectParseError> {
-        //debug_println!(">> sync_req");
-        //debug_println!("   our_heads: {:?}", our_heads);
-        //debug_println!("   their_heads: {:?}", their_heads);
+        //log_debug!(">> sync_req");
+        //log_debug!("   our_heads: {:?}", our_heads);
+        //log_debug!("   their_heads: {:?}", their_heads);
 
         /// Load `Commit` `Object`s of a `Branch` from the `RepoStore` starting from the given `Object`,
         /// and collect `ObjectId`s starting from `our_heads` towards `their_heads`
@@ -126,12 +126,12 @@ impl Branch {
             visited: &mut HashSet<ObjectId>,
             missing: &mut HashSet<ObjectId>,
         ) -> Result<bool, ObjectParseError> {
-            //debug_println!(">>> load_branch: {}", cobj.id());
+            //log_debug!(">>> load_branch: {}", cobj.id());
             let id = cobj.id();
 
             // root has no deps
             let is_root = cobj.is_root();
-            //debug_println!("     deps: {:?}", cobj.deps());
+            //log_debug!("     deps: {:?}", cobj.deps());
 
             // check if this commit object is present in their_heads
             let mut their_head_found = their_heads.contains(&id);
@@ -172,7 +172,7 @@ impl Branch {
             let mut visited = HashSet::new();
             let their_head_found =
                 load_branch(&cobj, store, their_heads, &mut visited, &mut missing)?;
-            //debug_println!("<<< load_branch: {}", their_head_found);
+            //log_debug!("<<< load_branch: {}", their_head_found);
             ours.extend(visited); // add if one of their_heads found
         }
 
@@ -181,15 +181,15 @@ impl Branch {
             let cobj = Object::load(*id, None, store)?;
             let mut visited = HashSet::new();
             let their_head_found = load_branch(&cobj, store, &[], &mut visited, &mut missing)?;
-            //debug_println!("<<< load_branch: {}", their_head_found);
+            //log_debug!("<<< load_branch: {}", their_head_found);
             theirs.extend(visited); // add if one of their_heads found
         }
 
         let mut result = &ours - &theirs;
 
-        //debug_println!("!! ours: {:?}", ours);
-        //debug_println!("!! theirs: {:?}", theirs);
-        //debug_println!("!! result: {:?}", result);
+        //log_debug!("!! ours: {:?}", ours);
+        //log_debug!("!! theirs: {:?}", theirs);
+        //log_debug!("!! result: {:?}", result);
 
         // remove their_commits from result
         let filter = Filter::from_u8_array(their_filter.f.as_slice(), their_filter.k.into());
@@ -202,7 +202,7 @@ impl Branch {
                 }
             }
         }
-        //debug_println!("!! result filtered: {:?}", result);
+        //log_debug!("!! result filtered: {:?}", result);
         Ok(Vec::from_iter(result))
     }
 }
@@ -239,9 +239,9 @@ mod test {
                 repo_pubkey,
                 repo_secret,
             );
-            println!(">>> add_obj");
-            println!("     id: {:?}", obj.id());
-            println!("     deps: {:?}", obj.deps());
+            log_debug!(">>> add_obj");
+            log_debug!("     id: {:?}", obj.id());
+            log_debug!("     deps: {:?}", obj.deps());
             obj.save(store).unwrap();
             obj.reference().unwrap()
         }
@@ -283,7 +283,7 @@ mod test {
                 expiry,
             )
             .unwrap();
-            //println!("commit: {:?}", commit);
+            //log_debug!("commit: {:?}", commit);
             add_obj(
                 ObjectContent::Commit(commit),
                 obj_deps,
@@ -303,7 +303,7 @@ mod test {
             let deps = vec![];
             let expiry = None;
             let body = CommitBody::Branch(branch);
-            //println!("body: {:?}", body);
+            //log_debug!("body: {:?}", body);
             add_obj(
                 ObjectContent::CommitBody(body),
                 deps,
@@ -323,7 +323,7 @@ mod test {
             let expiry = None;
             let content = [7u8; 777].to_vec();
             let body = CommitBody::Transaction(Transaction::V0(content));
-            //println!("body: {:?}", body);
+            //log_debug!("body: {:?}", body);
             add_obj(
                 ObjectContent::CommitBody(body),
                 deps,
@@ -342,7 +342,7 @@ mod test {
         ) -> ObjectRef {
             let expiry = None;
             let body = CommitBody::Ack(Ack::V0());
-            //println!("body: {:?}", body);
+            //log_debug!("body: {:?}", body);
             add_obj(
                 ObjectContent::CommitBody(body),
                 deps,
@@ -359,12 +359,12 @@ mod test {
         // repo
 
         let repo_keypair: Keypair = Keypair::generate(&mut rng);
-        println!(
+        log_debug!(
             "repo private key: ({}) {:?}",
             repo_keypair.secret.as_bytes().len(),
             repo_keypair.secret.as_bytes()
         );
-        println!(
+        log_debug!(
             "repo public key: ({}) {:?}",
             repo_keypair.public.as_bytes().len(),
             repo_keypair.public.as_bytes()
@@ -376,11 +376,11 @@ mod test {
         // branch
 
         let branch_keypair: Keypair = Keypair::generate(&mut rng);
-        println!("branch public key: {:?}", branch_keypair.public.as_bytes());
+        log_debug!("branch public key: {:?}", branch_keypair.public.as_bytes());
         let branch_pubkey = PubKey::Ed25519PubKey(branch_keypair.public.to_bytes());
 
         let member_keypair: Keypair = Keypair::generate(&mut rng);
-        println!("member public key: {:?}", member_keypair.public.as_bytes());
+        log_debug!("member public key: {:?}", member_keypair.public.as_bytes());
         let member_privkey = PrivKey::Ed25519PrivKey(member_keypair.secret.to_bytes());
         let member_pubkey = PubKey::Ed25519PubKey(member_keypair.public.to_bytes());
 
@@ -404,19 +404,19 @@ mod test {
             tags,
             metadata,
         );
-        //println!("branch: {:?}", branch);
+        //log_debug!("branch: {:?}", branch);
 
         fn print_branch() {
-            println!("branch deps/acks:");
-            println!("");
-            println!("     br");
-            println!("    /  \\");
-            println!("  t1   t2");
-            println!("  / \\  / \\");
-            println!(" a3  t4<--t5-->(t1)");
-            println!("     / \\");
-            println!("   a6   a7");
-            println!("");
+            log_debug!("branch deps/acks:");
+            log_debug!("");
+            log_debug!("     br");
+            log_debug!("    /  \\");
+            log_debug!("  t1   t2");
+            log_debug!("  / \\  / \\");
+            log_debug!(" a3  t4<--t5-->(t1)");
+            log_debug!("     / \\");
+            log_debug!("   a6   a7");
+            log_debug!("");
         }
 
         print_branch();
@@ -434,7 +434,7 @@ mod test {
 
         // create & add commits to store
 
-        println!(">> br");
+        log_debug!(">> br");
         let br = add_commit(
             branch_body,
             member_privkey,
@@ -448,7 +448,7 @@ mod test {
             &mut store,
         );
 
-        println!(">> t1");
+        log_debug!(">> t1");
         let t1 = add_commit(
             branch_body,
             member_privkey,
@@ -462,7 +462,7 @@ mod test {
             &mut store,
         );
 
-        println!(">> t2");
+        log_debug!(">> t2");
         let t2 = add_commit(
             branch_body,
             member_privkey,
@@ -476,7 +476,7 @@ mod test {
             &mut store,
         );
 
-        println!(">> a3");
+        log_debug!(">> a3");
         let a3 = add_commit(
             branch_body,
             member_privkey,
@@ -490,7 +490,7 @@ mod test {
             &mut store,
         );
 
-        println!(">> t4");
+        log_debug!(">> t4");
         let t4 = add_commit(
             branch_body,
             member_privkey,
@@ -504,7 +504,7 @@ mod test {
             &mut store,
         );
 
-        println!(">> t5");
+        log_debug!(">> t5");
         let t5 = add_commit(
             branch_body,
             member_privkey,
@@ -518,7 +518,7 @@ mod test {
             &mut store,
         );
 
-        println!(">> a6");
+        log_debug!(">> a6");
         let a6 = add_commit(
             branch_body,
             member_privkey,
@@ -532,7 +532,7 @@ mod test {
             &mut store,
         );
 
-        println!(">> a7");
+        log_debug!(">> a7");
         let a7 = add_commit(
             branch_body,
             member_privkey,
@@ -562,10 +562,10 @@ mod test {
         };
 
         print_branch();
-        println!(">> sync_req");
-        println!("   our_heads: [a3, t5, a6, a7]");
-        println!("   their_heads: [a3, t5]");
-        println!("   their_commits: [br, t1, t2, a3, t5, a6]");
+        log_debug!(">> sync_req");
+        log_debug!("   our_heads: [a3, t5, a6, a7]");
+        log_debug!("   their_heads: [a3, t5]");
+        log_debug!("   their_commits: [br, t1, t2, a3, t5, a6]");
 
         let ids = Branch::sync_req(
             &[a3.id, t5.id, a6.id, a7.id],

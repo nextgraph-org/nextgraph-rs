@@ -27,12 +27,12 @@ pub fn generate_null_keypair() -> (PrivKey, PubKey) {
         secret: sk,
     };
 
-    // println!(
+    // log_debug!(
     //     "private key: ({}) {:?}",
     //     keypair.secret.as_bytes().len(),
     //     keypair.secret.as_bytes()
     // );
-    // println!(
+    // log_debug!(
     //     "public key: ({}) {:?}",
     //     keypair.public.as_bytes().len(),
     //     keypair.public.as_bytes()
@@ -45,12 +45,12 @@ pub fn generate_null_keypair() -> (PrivKey, PubKey) {
 }
 
 pub fn keypair_from_ed(secret: SecretKey, public: PublicKey) -> (PrivKey, PubKey) {
-    // println!(
+    // log_debug!(
     //     "private key: ({}) {:?}",
     //     keypair.secret.as_bytes().len(),
     //     keypair.secret.as_bytes()
     // );
-    // println!(
+    // log_debug!(
     //     "public key: ({}) {:?}",
     //     keypair.public.as_bytes().len(),
     //     keypair.public.as_bytes()
@@ -94,12 +94,12 @@ pub fn verify(content: &Vec<u8>, sig: Sig, pub_key: PubKey) -> Result<(), NgErro
 pub fn generate_keypair() -> (PrivKey, PubKey) {
     let mut csprng = OsRng {};
     let keypair: Keypair = Keypair::generate(&mut csprng);
-    // println!(
+    // log_debug!(
     //     "private key: ({}) {:?}",
     //     keypair.secret.as_bytes().len(),
     //     keypair.secret.as_bytes()
     // );
-    // println!(
+    // log_debug!(
     //     "public key: ({}) {:?}",
     //     keypair.public.as_bytes().len(),
     //     keypair.public.as_bytes()

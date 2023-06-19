@@ -17,7 +17,6 @@ use async_std::net::TcpStream;
 use async_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use async_tungstenite::tungstenite::protocol::CloseFrame;
 use async_tungstenite::WebSocketStream;
-use debug_print::*;
 
 use async_std::sync::Mutex;
 use futures::io::Close;
@@ -26,10 +25,10 @@ use futures::{FutureExt, SinkExt};
 
 use async_std::task;
 use p2p_net::errors::*;
-use p2p_net::log;
 use p2p_net::types::*;
 use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender, Sensitive};
 use p2p_net::{connection::*, WS_PORT};
+use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::{generate_keypair, now_timestamp};
 
@@ -57,7 +56,7 @@ impl IConnect for ConnectionWebSocket {
 
         match (res) {
             Err(e) => {
-                debug_println!("Cannot connect: {:?}", e);
+                log_debug!("Cannot connect: {:?}", e);
                 Err(NetError::ConnectionError)
             }
             Ok((mut websocket, _)) => {
@@ -67,14 +66,14 @@ impl IConnect for ConnectionWebSocket {
                 let mut shutdown = cnx.set_shutdown();
 
                 let join = task::spawn(async move {
-                    debug_println!("START of WS loop");
+                    log_debug!("START of WS loop");
 
                     let res = ws_loop(websocket, s, r).await;
 
                     if res.is_err() {
                         let _ = shutdown.send(res.err().unwrap()).await;
                     }
-                    debug_println!("END of WS loop");
+                    log_debug!("END of WS loop");
                 });
 
                 cnx.start(config).await;
@@ -103,14 +102,14 @@ impl IAccept for ConnectionWebSocket {
         let mut shutdown = cnx.set_shutdown();
 
         let join = task::spawn(async move {
-            debug_println!("START of WS loop");
+            log_debug!("START of WS loop");
 
             let res = ws_loop(socket, s, r).await;
 
             if res.is_err() {
                 let _ = shutdown.send(res.err().unwrap()).await;
             }
-            debug_println!("END of WS loop");
+            log_debug!("END of WS loop");
         });
         Ok(cnx)
     }
@@ -122,7 +121,7 @@ async fn close_ws(
     code: u16,
     reason: &str,
 ) -> Result<(), NetError> {
-    log!("close_ws {:?}", code);
+    log_info!("close_ws {:?}", code);
 
     let cmd = if code == 1000 {
         ConnectionCommand::Close
@@ -133,7 +132,7 @@ async fn close_ws(
     } else {
         ConnectionCommand::Error(NetError::try_from(code - 4949).unwrap())
     };
-    log!("sending to read loop {:?}", cmd);
+    log_info!("sending to read loop {:?}", cmd);
     let _ = futures::SinkExt::send(receiver, cmd).await;
 
     stream
@@ -162,11 +161,11 @@ async fn ws_loop(
             select! {
                 r = stream.next().fuse() => match r {
                     Some(Ok(msg)) => {
-                        //log!("GOT MESSAGE {:?}", msg);
+                        //log_info!("GOT MESSAGE {:?}", msg);
 
                         if msg.is_close() {
                             if let Message::Close(Some(cf)) = msg {
-                                log!("CLOSE from remote with closeframe: {}",cf.reason);
+                                log_info!("CLOSE from remote with closeframe: {}",cf.reason);
                                 let last_command = match cf.code {
                                     CloseCode::Normal =>
                                         ConnectionCommand::Close,
@@ -185,7 +184,7 @@ async fn ws_loop(
                             }
                             else {
                                 let _ = futures::SinkExt::send(receiver, ConnectionCommand::Close).await;
-                                log!("CLOSE from remote");
+                                log_info!("CLOSE from remote");
                             }
                             return Ok(ProtocolError::Closing);
                         } else {
@@ -193,12 +192,12 @@ async fn ws_loop(
                                 .map_err(|_e| NetError::IoError)?;
                         }
                     },
-                    Some(Err(e)) => {log!("GOT ERROR {:?}",e);return Err(NetError::WsError);},
+                    Some(Err(e)) => {log_info!("GOT ERROR {:?}",e);return Err(NetError::WsError);},
                     None => break
                 },
                 s = sender.next().fuse() => match s {
                     Some(msg) => {
-                        //log!("SENDING MESSAGE {:?}", msg);
+                        //log_info!("SENDING MESSAGE {:?}", msg);
                         match msg {
                             ConnectionCommand::Msg(m) => {
                                 futures::SinkExt::send(&mut stream,Message::binary(serde_bare::to_vec(&m)?)).await.map_err(|_e| NetError::IoError)?;
@@ -223,7 +222,7 @@ async fn ws_loop(
     match inner_loop(&mut ws, sender, &mut receiver).await {
         Ok(proto_err) => {
             if proto_err == ProtocolError::Closing {
-                log!("ProtocolError::Closing");
+                log_info!("ProtocolError::Closing");
                 let _ = ws.close(None).await;
             } else if proto_err == ProtocolError::NoError {
                 close_ws(&mut ws, &mut receiver, 1000, "").await?;
@@ -259,7 +258,7 @@ mod test {
     use p2p_net::errors::NetError;
     use p2p_net::types::IP;
     use p2p_net::utils::{spawn_and_log_error, ResultSend};
-    use p2p_net::{log, sleep};
+    use p2p_repo::log::*;
     use p2p_repo::utils::generate_keypair;
     use std::net::IpAddr;
     use std::str::FromStr;
@@ -280,7 +279,7 @@ mod test {
         let (client_priv_key, client_pub_key) = generate_keypair();
         let (user_priv_key, user_pub_key) = generate_keypair();
 
-        log!("start connecting");
+        log_info!("start connecting");
         {
             let res = BROKER
                 .write()
@@ -299,7 +298,7 @@ mod test {
                     }),
                 )
                 .await;
-            log!("broker.connect : {:?}", res);
+            log_info!("broker.connect : {:?}", res);
             res.expect("assume the connection succeeds");
         }
 
@@ -308,7 +307,7 @@ mod test {
         async fn timer_close(remote_peer_id: DirectPeerId) -> ResultSend<()> {
             async move {
                 sleep!(std::time::Duration::from_secs(3));
-                log!("timeout");
+                log_info!("timeout");
                 BROKER
                     .write()
                     .await

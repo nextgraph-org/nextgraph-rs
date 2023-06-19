@@ -15,7 +15,6 @@ use crate::errors::*;
 use crate::types::*;
 use crate::utils::spawn_and_log_error;
 use crate::utils::{Receiver, ResultSend, Sender};
-use crate::{log, sleep};
 use async_std::stream::StreamExt;
 use async_std::sync::{Arc, RwLock};
 use futures::channel::mpsc;
@@ -23,6 +22,7 @@ use futures::SinkExt;
 use noise_protocol::U8Array;
 use noise_rust_crypto::sensitive::Sensitive;
 use once_cell::sync::Lazy;
+use p2p_repo::log::*;
 use p2p_repo::object::Object;
 use p2p_repo::object::ObjectParseError;
 use p2p_repo::store::HashMapRepoStore;
@@ -96,7 +96,7 @@ impl Broker {
         // TODO
         let (mut tx, rx) = mpsc::unbounded::<Block>();
 
-        //log!("cur {}", std::env::current_dir().unwrap().display());
+        //log_info!("cur {}", std::env::current_dir().unwrap().display());
 
         //Err(ProtocolError::AccessDenied)
         // let f = std::fs::File::open(
@@ -168,10 +168,10 @@ impl Broker {
         .unwrap();
         async fn send(mut tx: Sender<Commit>, commit: Commit) -> ResultSend<()> {
             while let Ok(_) = tx.send(commit.clone()).await {
-                log!("sending");
+                log_info!("sending");
                 sleep!(std::time::Duration::from_secs(3));
             }
-            log!("end of sending");
+            log_info!("end of sending");
             Ok(())
         }
         spawn_and_log_error(send(tx.clone(), commit));
@@ -251,7 +251,7 @@ impl Broker {
         async fn timer_shutdown(timeout: std::time::Duration) -> ResultSend<()> {
             async move {
                 sleep!(timeout);
-                log!("timeout for shutdown");
+                log_info!("timeout for shutdown");
                 let _ = BROKER
                     .write()
                     .await
@@ -334,8 +334,8 @@ impl Broker {
         ) -> ResultSend<()> {
             async move {
                 let res = join.next().await;
-                log!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
-                log!("REMOVED");
+                log_info!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
+                log_info!("REMOVED");
                 BROKER.write().await.remove(&remote_peer_id);
             }
             .await;
@@ -362,7 +362,7 @@ impl Broker {
         // TODO check that not already connected to peer
         // IpAddr::from_str("127.0.0.1");
 
-        log!("CONNECTING");
+        log_info!("CONNECTING");
         let mut connection = cnx
             .open(
                 ip,
@@ -405,7 +405,7 @@ impl Broker {
         ) -> ResultSend<()> {
             async move {
                 let res = join.next().await;
-                log!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
+                log_info!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
                 if res.is_some() {
                     // we intend to reconnect
                     let mut broker = BROKER.write().await;
@@ -414,10 +414,10 @@ impl Broker {
                     // let result = broker
                     //     .connect(cnx, ip, core, peer_pubk, peer_privk, remote_peer_id)
                     //     .await;
-                    // log!("SOCKET RECONNECTION {:?} {:?}", result, &remote_peer_id);
+                    // log_info!("SOCKET RECONNECTION {:?} {:?}", result, &remote_peer_id);
                     // TODO: deal with error and incremental backoff
                 } else {
-                    log!("REMOVED");
+                    log_info!("REMOVED");
                     BROKER.write().await.remove(&remote_peer_id);
                 }
             }
@@ -454,10 +454,10 @@ impl Broker {
 
     pub fn print_status(&self) {
         self.peers.iter().for_each(|(peerId, peerInfo)| {
-            log!("PEER in BROKER {:?} {:?}", peerId, peerInfo);
+            log_info!("PEER in BROKER {:?} {:?}", peerId, peerInfo);
         });
         self.direct_connections.iter().for_each(|(ip, directCnx)| {
-            log!("direct_connection in BROKER {:?} {:?}", ip, directCnx)
+            log_info!("direct_connection in BROKER {:?} {:?}", ip, directCnx)
         });
     }
 }

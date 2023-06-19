@@ -24,6 +24,37 @@ use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
 
 //
+//  Broker common types
+//
+
+/// Bind address
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BindAddress {
+    pub port: u16,
+    pub ip: IP,
+}
+
+/// BrokerServerTypeV0 type
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum BrokerServerTypeV0 {
+    Localhost(u16), // optional port number
+    BoxPrivate(Vec<BindAddress>),
+    BoxPublic(Vec<BindAddress>),
+    BoxPublicDyn(Vec<BindAddress>), // can be empty
+    Domain(String),                 // accepts an option trailing ":port" number
+}
+
+/// BrokerServer details Version 0
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BrokerServerV0 {
+    /// Network addresses
+    pub server_type: BrokerServerTypeV0,
+
+    /// peerId of the server
+    pub peer_id: PubKey,
+}
+
+//
 // COMMON TYPES FOR MESSAGES
 //
 

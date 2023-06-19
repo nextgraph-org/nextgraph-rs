@@ -12,7 +12,7 @@ use p2p_repo::store::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::*;
 
-use debug_print::*;
+use p2p_repo::log::*;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLockReadGuard;
@@ -383,7 +383,7 @@ impl LmdbKCVStore {
             .unwrap();
         let env = shared_rkv.read().unwrap();
 
-        println!("created env with LMDB Version: {}", env.version());
+        log_info!("created env with LMDB Version: {}", env.version());
 
         let main_store = env.open_multi("main", StoreOptions::create()).unwrap();
 

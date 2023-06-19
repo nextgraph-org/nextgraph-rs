@@ -3,7 +3,7 @@
 // This code is partly derived from work written by TG x Thoth from P2Pcollab.
 // Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
@@ -11,12 +11,12 @@
 
 //! Commit
 
-use debug_print::*;
 use ed25519_dalek::*;
 
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
+use crate::log::*;
 use crate::object::*;
 use crate::store::*;
 use crate::types::*;
@@ -271,7 +271,7 @@ impl Commit {
 
     /// Verify if the commit's `body` and dependencies (`deps` & `acks`) are available in the `store`
     pub fn verify_deps(&self, store: &impl RepoStore) -> Result<Vec<ObjectId>, CommitLoadError> {
-        //debug_println!(">> verify_deps: #{}", self.seq());
+        //log_debug!(">> verify_deps: #{}", self.seq());
         /// Load `Commit`s of a `Branch` from the `RepoStore` starting from the given `Commit`,
         /// and collect missing `ObjectId`s
         fn load_branch(
@@ -280,7 +280,7 @@ impl Commit {
             visited: &mut HashSet<ObjectId>,
             missing: &mut HashSet<ObjectId>,
         ) -> Result<(), CommitLoadError> {
-            //debug_println!(">>> load_branch: #{}", commit.seq());
+            //log_debug!(">>> load_branch: #{}", commit.seq());
             // the commit verify_deps() was called on may not have an ID set,
             // but the commits loaded from store should have it
             match commit.id() {
@@ -302,7 +302,7 @@ impl Commit {
                 }
                 Err(e) => return Err(e),
             };
-            debug_println!("!!! is_root: {}", is_root);
+            log_debug!("!!! is_root: {}", is_root);
 
             // load deps
             if !is_root {
@@ -360,12 +360,12 @@ mod test {
     pub fn test_commit() {
         let mut csprng = OsRng {};
         let keypair: Keypair = Keypair::generate(&mut csprng);
-        println!(
+        log_debug!(
             "private key: ({}) {:?}",
             keypair.secret.as_bytes().len(),
             keypair.secret.as_bytes()
         );
-        println!(
+        log_debug!(
             "public key: ({}) {:?}",
             keypair.public.as_bytes().len(),
             keypair.public.as_bytes()
@@ -392,7 +392,7 @@ mod test {
             priv_key, pub_key, seq, branch, deps, acks, refs, metadata, body_ref, expiry,
         )
         .unwrap();
-        println!("commit: {:?}", commit);
+        log_debug!("commit: {:?}", commit);
 
         let store = HashMapRepoStore::new();
         let metadata = [66u8; 64].to_vec();
@@ -415,9 +415,9 @@ mod test {
             tags,
             metadata,
         );
-        //println!("branch: {:?}", branch);
+        //log_debug!("branch: {:?}", branch);
         let body = CommitBody::Ack(Ack::V0());
-        //println!("body: {:?}", body);
+        //log_debug!("body: {:?}", body);
 
         match commit.load_body(&store) {
             Ok(_b) => panic!("Body should not exist"),
@@ -428,7 +428,7 @@ mod test {
         }
 
         let content = commit.content();
-        println!("content: {:?}", content);
+        log_debug!("content: {:?}", content);
 
         commit.verify_sig().expect("Invalid signature");
         commit

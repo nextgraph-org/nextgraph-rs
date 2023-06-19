@@ -23,7 +23,6 @@ use crate::broker_store::overlay::Overlay;
 use crate::broker_store::peer::Peer;
 use crate::broker_store::repostoreinfo::RepoStoreInfo;
 use async_std::task;
-use debug_print::*;
 use futures::future::BoxFuture;
 use futures::future::OptionFuture;
 use futures::FutureExt;
@@ -31,6 +30,7 @@ use futures::Stream;
 use p2p_net::actors::*;
 use p2p_net::errors::*;
 use p2p_net::types::*;
+use p2p_repo::log::*;
 use p2p_repo::object::Object;
 use p2p_repo::store::RepoStore;
 use p2p_repo::store::StorageError;
@@ -119,7 +119,7 @@ impl ProtocolHandler {
         Result<Vec<u8>, ProtocolError>,
         OptionFuture<BoxFuture<'static, u16>>,
     ) {
-        //debug_println!("SERVER PROTOCOL {:?}", &self.protocol);
+        //log_debug!("SERVER PROTOCOL {:?}", &self.protocol);
         match &self.protocol {
             ProtocolType::Start => {
                 let message = serde_bare::from_slice::<StartProtocol>(&frame);
@@ -636,9 +636,9 @@ impl BrokerServer {
 
         //     // we need to open/create it
         //     // first let's find it in the KCVStore.overlay table to retrieve its repo_pubkey
-        //     debug_println!("searching for overlayId {}", overlay_id);
+        //     log_debug!("searching for overlayId {}", overlay_id);
         //     let overlay = Overlay::open(overlay_id, &self.store)?;
-        //     debug_println!("found overlayId {}", overlay_id);
+        //     log_debug!("found overlayId {}", overlay_id);
         //     let repo_id = overlay.repo()?;
         //     let repostore_id = RepoStoreId::Repo(repo_id);
         //     let mut writer = self
@@ -676,7 +676,7 @@ impl BrokerServer {
         user_id: PubKey,
         sig: Sig,
     ) -> Result<(), ProtocolError> {
-        debug_println!("ADDING USER {}", user_id);
+        log_debug!("ADDING USER {}", user_id);
         // TODO add is_admin boolean
         // TODO check that admin_user is indeed an admin
 
@@ -855,7 +855,7 @@ impl BrokerServer {
                 }
                 // TODO use a task to send non blocking (streaming)
                 let o = obj.ok().unwrap();
-                //debug_println!("{} BLOCKS ", o.blocks().len());
+                //log_debug!("{} BLOCKS ", o.blocks().len());
                 let mut deduplicated: HashSet<BlockId> = HashSet::new();
                 for block in o.blocks() {
                     let id = block.id();
@@ -878,9 +878,9 @@ impl BrokerServer {
         known_heads: &Vec<ObjectId>,
         known_commits: &BloomFilter,
     ) -> Result<async_channel::Receiver<Block>, ProtocolError> {
-        //debug_println!("heads {:?}", heads);
-        //debug_println!("known_heads {:?}", known_heads);
-        //debug_println!("known_commits {:?}", known_commits);
+        //log_debug!("heads {:?}", heads);
+        //log_debug!("known_heads {:?}", known_heads);
+        //log_debug!("known_commits {:?}", known_commits);
 
         self.get_repostore_from_overlay_id(&overlay, |store| {
             let (s, r) = async_channel::unbounded::<Block>();
@@ -889,7 +889,7 @@ impl BrokerServer {
                 .map_err(|e| ProtocolError::ObjectParseError)?;
 
             // todo, use a task to send non blocking (streaming)
-            debug_println!("SYNCING {} COMMITS", res.len());
+            log_debug!("SYNCING {} COMMITS", res.len());
 
             let mut deduplicated: HashSet<BlockId> = HashSet::new();
 
@@ -925,7 +925,7 @@ impl BrokerServer {
         peers: &Vec<PeerAdvert>,
     ) -> Result<(), ProtocolError> {
         // check if this overlay already exists
-        //debug_println!("SEARCHING OVERLAY");
+        //log_debug!("SEARCHING OVERLAY");
         let overlay_res = Overlay::open(&overlay_id, &self.store);
         let overlay = match overlay_res {
             Err(StorageError::NotFound) => {
@@ -949,24 +949,24 @@ impl BrokerServer {
                 let key = SymKey::ChaCha20Key(random_buf);
 
                 let _ = RepoStoreInfo::create(&overlay_id, &key, &self.store)?; // TODO in case of error, delete the previously created Overlay
-                                                                                //debug_println!("KEY ADDED");
+                                                                                //log_debug!("KEY ADDED");
                 over
             }
             Err(e) => return Err(e.into()),
             Ok(overlay) => overlay,
         };
-        //debug_println!("OVERLAY FOUND");
+        //log_debug!("OVERLAY FOUND");
         // add the peers to the overlay
         for advert in peers {
             Peer::update_or_create(advert, &self.store)?;
             overlay.add_peer(&advert.peer())?;
         }
-        //debug_println!("PEERS ADDED");
+        //log_debug!("PEERS ADDED");
 
         // now adding the overlay_id to the account
         let account = Account::open(&user, &self.store)?; // TODO in case of error, delete the previously created Overlay
         account.add_overlay(&overlay_id)?;
-        //debug_println!("USER <-> OVERLAY");
+        //log_debug!("USER <-> OVERLAY");
 
         //TODO: connect to peers
 

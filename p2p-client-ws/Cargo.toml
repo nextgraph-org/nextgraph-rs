@@ -8,7 +8,6 @@ description = "P2P Client module of NextGraph"
 repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
 
 [dependencies]
-debug_print = "1.0.0"
 p2p-repo = { path = "../p2p-repo" }
 p2p-net = { path = "../p2p-net" }
 chacha20 = "0.9.0"

@@ -8,7 +8,16 @@ description = "Daemon of NextGraph"
 repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_bare = "0.5.0"
+serde_bytes = "0.11.7"
 p2p-broker = { path = "../p2p-broker" }
 p2p-net = { path = "../p2p-net" }
-p2p-repo = { path = "../p2p-repo" }
+p2p-repo = { path = "../p2p-repo", features = ["server_log_output"] }
 async-std = {  version = "1.12.0", features = ["attributes"] }
+default-net = "0.15"
+log = "0.4"
+env_logger = "0.10"
+clap = { version = "4.3.4", features = ["derive","env"] }
+base64-url = "2.0.0"
+slice_as_array = "1.1.0"

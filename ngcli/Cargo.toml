@@ -8,7 +8,6 @@ description = "CLI command-line interpreter of NextGraph"
 repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
 
 [dependencies]
-debug_print = "1.0.0"
 p2p-repo = { path = "../p2p-repo" }
 p2p-net = { path = "../p2p-net" }
 p2p-client-ws = { path = "../p2p-client-ws" }

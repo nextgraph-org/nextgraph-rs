@@ -16,7 +16,6 @@ use p2p_repo::store::StorageError;
 use warp::reply::Response;
 use warp::{Filter, Reply};
 
-use debug_print::debug_println;
 use rust_embed::RustEmbed;
 use serde_bare::{from_slice, to_vec};
 use serde_json::json;
@@ -26,6 +25,7 @@ use std::{env, fs};
 use crate::store::wallet_record::*;
 use crate::types::*;
 use ng_wallet::types::*;
+use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::{generate_keypair, sign, verify};
 use stores_lmdb::kcv_store::LmdbKCVStore;
@@ -44,7 +44,7 @@ impl Server {
 
         let bootstrap = add_wallet.bootstrap();
 
-        debug_println!("ADDING wallet {}", bootstrap.id());
+        log_debug!("ADDING wallet {}", bootstrap.id());
 
         verify(
             &bootstrap.content_as_bytes(),
@@ -85,7 +85,7 @@ impl Server {
     }
 
     fn get_wallet(&self, encoded_id: String) -> Result<Response, NgHttpError> {
-        debug_println!("DOWNLOAD wallet {}", encoded_id);
+        log_debug!("DOWNLOAD wallet {}", encoded_id);
         let id = base64_url::decode(&encoded_id).map_err(|e| NgHttpError::InvalidParams)?;
         let array = slice_as_array!(&id, [u8; 32]).ok_or(NgHttpError::InvalidParams)?;
         let wallet_id = PubKey::Ed25519PubKey(*array);
@@ -104,7 +104,7 @@ impl Server {
     }
 
     fn get_bootstrap(&self, encoded_id: String) -> Result<Response, NgHttpError> {
-        debug_println!("DOWNLOAD bootstrap {}", encoded_id);
+        log_debug!("DOWNLOAD bootstrap {}", encoded_id);
 
         let id = base64_url::decode(&encoded_id).map_err(|e| NgHttpError::InvalidParams)?;
         let array = slice_as_array!(&id, [u8; 32]).ok_or(NgHttpError::InvalidParams)?;
@@ -127,7 +127,7 @@ impl Server {
 
     // pub fn create_wallet_record(&self, bootstrap: &Bootstrap) {
     //     let wallet = WalletRecord::create(&bootstrap.id(), bootstrap, &self.store).unwrap();
-    //     println!(
+    //     log_debug!(
     //         "wallet created {}",
     //         base64_url::encode(&wallet.id().slice())
     //     );
@@ -135,7 +135,7 @@ impl Server {
 
     // pub fn open_wallet_record(&self, wallet_id: &WalletId) -> WalletRecord {
     //     let wallet2 = WalletRecord::open(wallet_id, &self.store).unwrap();
-    //     println!(
+    //     log_debug!(
     //         "wallet opened {}",
     //         base64_url::encode(&wallet2.id().slice())
     //     );
@@ -155,7 +155,7 @@ async fn main() {
     dir.push(path_str);
     // FIXME: use a real key for encryption at rest
     let key: [u8; 32] = [0; 32];
-    println!("{}", dir.to_str().unwrap());
+    log_debug!("data directory: {}", dir.to_str().unwrap());
     fs::create_dir_all(dir.clone()).unwrap();
     let store = LmdbKCVStore::open(&dir, key);
 
@@ -209,7 +209,7 @@ async fn main() {
     }
     #[cfg(debug_assertions)]
     {
-        println!("ANY ORIGIN");
+        log_debug!("CORS: any origin");
         cors = cors.allow_any_origin();
     }
     log::info!("Starting server on http://localhost:3030");

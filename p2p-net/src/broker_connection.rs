@@ -2,7 +2,7 @@
  * Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
  * All rights reserved.
  * Licensed under the Apache License, Version 2.0
- * <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0> 
+ * <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
  * or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
  * at your option. All files in the project carrying such
  * notice may not be copied, modified, or distributed except
@@ -12,29 +12,27 @@
 //! Connection to a Broker, can be local or remote.
 //! If remote, it will use a Stream and Sink of framed messages
 //! This is the trait
-//! 
+//!
 
+use futures::channel::mpsc;
 use futures::{
-    ready,
+    ready, select,
     stream::Stream,
     task::{Context, Poll},
-    Future,
-    select, FutureExt,
+    Future, FutureExt,
 };
-use futures::channel::mpsc;
 use std::pin::Pin;
 use std::{collections::HashSet, fmt::Debug};
 
+use crate::errors::*;
+use crate::types::*;
 use async_broadcast::{broadcast, Receiver};
-use debug_print::*;
 use futures::{pin_mut, stream, Sink, SinkExt, StreamExt};
+use p2p_repo::log::*;
 use p2p_repo::object::*;
 use p2p_repo::store::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::*;
-use crate::errors::*;
-use crate::types::*;
-
 
 #[async_trait::async_trait]
 pub trait BrokerConnection {
@@ -88,8 +86,10 @@ pub trait BrokerConnection {
         let overlay: OverlayId = match public {
             true => Digest::Blake3Digest32(*blake3::hash(repo_link.id().slice()).as_bytes()),
             false => {
-                let key: [u8; blake3::OUT_LEN] =
-                    blake3::derive_key("NextGraph OverlayId BLAKE3 key", repo_link.secret().slice());
+                let key: [u8; blake3::OUT_LEN] = blake3::derive_key(
+                    "NextGraph OverlayId BLAKE3 key",
+                    repo_link.secret().slice(),
+                );
                 let keyed_hash = blake3::keyed_hash(&key, repo_link.id().slice());
                 Digest::Blake3Digest32(*keyed_hash.as_bytes())
             }
@@ -105,7 +105,7 @@ pub trait BrokerConnection {
         match res {
             Err(e) => {
                 if e == ProtocolError::OverlayNotJoined {
-                    debug_println!("OverlayNotJoined");
+                    log_debug!("OverlayNotJoined");
                     let res2 = self
                         .process_overlay_request(
                             overlay,
@@ -125,7 +125,7 @@ pub trait BrokerConnection {
             Ok(()) => {}
         }
 
-        debug_println!("OverlayConnectionClient ready");
+        log_debug!("OverlayConnectionClient ready");
         Ok(overlay)
     }
 }
@@ -143,7 +143,11 @@ impl<'a, T> OverlayConnectionClient<'a, T>
 where
     T: BrokerConnection,
 {
-    pub fn create( broker: &'a mut T,   overlay: OverlayId,   repo_link: RepoLink) -> OverlayConnectionClient<'a, T> {
+    pub fn create(
+        broker: &'a mut T,
+        overlay: OverlayId,
+        repo_link: RepoLink,
+    ) -> OverlayConnectionClient<'a, T> {
         OverlayConnectionClient {
             broker,
             repo_link,
@@ -155,8 +159,10 @@ where
         let overlay: OverlayId = match public {
             true => Digest::Blake3Digest32(*blake3::hash(repo_link.id().slice()).as_bytes()),
             false => {
-                let key: [u8; blake3::OUT_LEN] =
-                    blake3::derive_key("NextGraph OverlayId BLAKE3 key", repo_link.secret().slice());
+                let key: [u8; blake3::OUT_LEN] = blake3::derive_key(
+                    "NextGraph OverlayId BLAKE3 key",
+                    repo_link.secret().slice(),
+                );
                 let keyed_hash = blake3::keyed_hash(&key, repo_link.id().slice());
                 Digest::Blake3Digest32(*keyed_hash.as_bytes())
             }
@@ -299,7 +305,7 @@ where
             repo_pubkey,
             repo_secret,
         );
-        debug_println!("object has {} blocks", obj.blocks().len());
+        log_debug!("object has {} blocks", obj.blocks().len());
         let mut deduplicated: HashSet<ObjectId> = HashSet::new();
         for block in obj.blocks() {
             let id = block.id();

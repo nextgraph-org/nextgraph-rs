@@ -17,21 +17,22 @@ use async_std::sync::Mutex;
 use async_std::task;
 use async_tungstenite::accept_async;
 use async_tungstenite::tungstenite::protocol::Message;
-use debug_print::*;
 use futures::{SinkExt, StreamExt};
 use p2p_client_ws::remote_ws::ConnectionWebSocket;
 use p2p_net::broker::*;
 use p2p_net::connection::IAccept;
 use p2p_net::types::IP;
 use p2p_net::utils::Sensitive;
+use p2p_repo::log::*;
 use p2p_repo::types::{PrivKey, PubKey};
 use p2p_repo::utils::generate_keypair;
-use stores_lmdb::kcv_store::LmdbKCVStore;
-use stores_lmdb::repo_store::LmdbRepoStore;
 use std::fs;
 use std::ops::Deref;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{thread, time};
+use stores_lmdb::kcv_store::LmdbKCVStore;
+use stores_lmdb::repo_store::LmdbRepoStore;
 use tempfile::Builder;
 
 pub async fn accept(tcp: TcpStream, peer_priv_key: Sensitive<[u8; 32]>, peer_pub_key: PubKey) {
@@ -63,7 +64,7 @@ pub async fn run_server_accept_one(
     let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
     let master_key: [u8; 32] = [0; 32];
     std::fs::create_dir_all(root.path()).unwrap();
-    println!("{}", root.path().to_str().unwrap());
+    log_debug!("data directory: {}", root.path().to_str().unwrap());
     let store = LmdbKCVStore::open(root.path(), master_key);
 
     // TODO: remove this part
@@ -72,7 +73,7 @@ pub async fn run_server_accept_one(
     // let server_arc = Arc::new(server);
 
     let socket = TcpListener::bind(addrs.as_str()).await?;
-    debug_println!("Listening on {}", addrs.as_str());
+    log_debug!("Listening on {}", addrs.as_str());
     let mut connections = socket.incoming();
 
     let tcp = connections.next().await.unwrap()?;
@@ -87,13 +88,18 @@ pub async fn run_server(
     port: u16,
     peer_priv_key: Sensitive<[u8; 32]>,
     peer_pub_key: PubKey,
+    mut path: PathBuf,
 ) -> std::io::Result<()> {
     let addrs = format!("{}:{}", addr, port);
-    let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
+    //let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
+
+    path.push("storage");
+    std::fs::create_dir_all(path.clone()).unwrap();
+    //log::info!("Home directory is {}");
+
     let master_key: [u8; 32] = [0; 32];
-    std::fs::create_dir_all(root.path()).unwrap();
-    println!("{}", root.path().to_str().unwrap());
-    let store = LmdbKCVStore::open(root.path(), master_key);
+
+    let store = LmdbKCVStore::open(&path, master_key);
 
     // TODO: remove this part
     // let server: BrokerServer =
@@ -101,7 +107,7 @@ pub async fn run_server(
     // let server_arc = Arc::new(server);
 
     let socket = TcpListener::bind(addrs.as_str()).await?;
-    debug_println!("Listening on {}", addrs.as_str());
+    log_debug!("Listening on {}", addrs.as_str());
     let mut connections = socket.incoming();
 
     while let Some(tcp) = connections.next().await {
