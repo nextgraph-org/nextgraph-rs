@@ -6,7 +6,7 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
-use p2p_broker::types::BrokerOverlayConfig;
+use p2p_broker::types::BrokerOverlayConfigV0;
 use p2p_broker::types::ListenerV0;
 use p2p_repo::types::PrivKey;
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,7 @@ pub struct DaemonConfigV0 {
     /// List of listeners for TCP (HTTP) incoming connections
     pub listeners: Vec<ListenerV0>,
 
-    pub overlays_config: BrokerOverlayConfig,
+    pub overlays_config: BrokerOverlayConfigV0,
 }
 
 /// Daemon config
