@@ -5,3 +5,5 @@ pub mod server_ws;
 pub mod types;
 
 pub mod utils;
+
+pub mod interfaces;

@@ -11,7 +11,8 @@
 
 //! WebSocket implementation of the Broker
 
-use crate::broker_store::config::ConfigMode;
+use crate::interfaces::*;
+use crate::types::*;
 use async_std::net::{TcpListener, TcpStream};
 use async_std::sync::Mutex;
 use async_std::task;
@@ -26,7 +27,10 @@ use p2p_net::utils::Sensitive;
 use p2p_repo::log::*;
 use p2p_repo::types::{PrivKey, PubKey};
 use p2p_repo::utils::generate_keypair;
+use std::collections::HashSet;
 use std::fs;
+use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -67,11 +71,6 @@ pub async fn run_server_accept_one(
     log_debug!("data directory: {}", root.path().to_str().unwrap());
     let store = LmdbKCVStore::open(root.path(), master_key);
 
-    // TODO: remove this part
-    // let server: BrokerServer =
-    //     BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
-    // let server_arc = Arc::new(server);
-
     let socket = TcpListener::bind(addrs.as_str()).await?;
     log_debug!("Listening on {}", addrs.as_str());
     let mut connections = socket.incoming();
@@ -83,36 +82,126 @@ pub async fn run_server_accept_one(
     Ok(())
 }
 use p2p_net::utils::U8Array;
-pub async fn run_server(
-    addr: &str,
-    port: u16,
+pub async fn run_server_v0(
     peer_priv_key: Sensitive<[u8; 32]>,
     peer_pub_key: PubKey,
+    wallet_master_key: Sensitive<[u8; 32]>,
+    config: DaemonConfigV0,
     mut path: PathBuf,
 ) -> Result<(), ()> {
-    let addrs = format!("{}:{}", addr, port);
+    // check config
+
+    let mut should_run = false;
+    for overlay_conf in config.overlays_configs {
+        if overlay_conf.core != BrokerOverlayPermission::Nobody
+            || overlay_conf.server != BrokerOverlayPermission::Nobody
+        {
+            should_run = true;
+            break;
+        }
+    }
+    if !should_run {
+        log_err!("There isn't any overlay_config that should run as core or server. Check your config. cannot start");
+        return Err(());
+    }
+
+    let listeners: HashSet<String> = HashSet::new();
+    for listener in &config.listeners {
+        let mut id = listener.interface_name.clone();
+        id.push('@');
+        id.push_str(&listener.port.to_string());
+        if listeners.contains(&id) {
+            log_err!(
+                "The listener {} is defined twice. Check your config file. cannot start",
+                id
+            );
+            return Err(());
+        }
+    }
     //let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
 
     path.push("storage");
     std::fs::create_dir_all(path.clone()).unwrap();
     //log::info!("Home directory is {}");
 
+    // TODO: open wallet
     let master_key: [u8; 32] = [0; 32];
 
     let store = LmdbKCVStore::open(&path, master_key);
 
-    // TODO: remove this part
-    // let server: BrokerServer =
-    //     BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
-    // let server_arc = Arc::new(server);
+    let interfaces = get_interface();
+    let mut listeners: Vec<TcpListener> = vec![];
+    for listener in config.listeners {
+        match find_name(&interfaces, &listener.interface_name) {
+            None => {
+                log_err!(
+                    "The interface {} does not exist on your host. Check your config file. cannot start",
+                    listener.interface_name
+                );
+                return Err(());
+            }
+            Some(interface) => {
+                let mut ips: Vec<SocketAddr> = interface
+                    .ipv4
+                    .iter()
+                    .filter_map(|ip| {
+                        if interface.if_type.is_ipv4_valid_for_type(&ip.addr) {
+                            Some(SocketAddr::new(IpAddr::V4(ip.addr), listener.port))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                if ips.len() == 0 {
+                    log_err!(
+                        "The interface {} does not have any IPv4 address. cannot start",
+                        listener.interface_name
+                    );
+                    return Err(());
+                }
+                if listener.ipv6 {
+                    let mut ipv6s: Vec<SocketAddr> = interface
+                        .ipv6
+                        .iter()
+                        .filter_map(|ip| {
+                            if interface.if_type.is_ipv6_valid_for_type(&ip.addr) {
+                                Some(SocketAddr::new(IpAddr::V6(ip.addr), listener.port))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    ips.append(&mut ipv6s);
+                }
 
-    let socket = TcpListener::bind(addrs.as_str())
-        .await
-        .map_err(|e| log_err!("bind error: {}", e.to_string()))?;
-    log_debug!("Listening on {}", addrs.as_str());
-    let mut connections = socket.incoming();
+                let ips_string = ips
+                    .iter()
+                    .map(|ip| ip.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                let listener = TcpListener::bind(ips.as_slice()).await.map_err(|e| {
+                    log_err!(
+                        "cannot bind to {} with addresses {} : {}",
+                        interface.name,
+                        ips_string,
+                        e.to_string()
+                    )
+                })?;
+                log_info!("Listening on {} {}", interface.name, ips_string);
+                listeners.push(listener);
+            }
+        }
+    }
 
-    while let Some(tcp) = connections.next().await {
+    // select on all listeners
+    let mut incoming = futures::stream::select_all(
+        listeners
+            .into_iter()
+            .map(TcpListener::into_incoming)
+            .map(Box::pin),
+    );
+    // Iterate over all incoming connections
+    while let Some(tcp) = incoming.next().await {
         accept(
             tcp.unwrap(),
             Sensitive::<[u8; 32]>::from_slice(peer_priv_key.deref()),
@@ -120,5 +209,6 @@ pub async fn run_server(
         )
         .await;
     }
+
     Ok(())
 }

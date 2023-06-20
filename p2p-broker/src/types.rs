@@ -129,3 +129,18 @@ impl BrokerOverlayConfigV0 {
         }
     }
 }
+
+/// DaemonConfig Version 0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DaemonConfigV0 {
+    /// List of listeners for TCP (HTTP) incoming connections
+    pub listeners: Vec<ListenerV0>,
+
+    pub overlays_configs: Vec<BrokerOverlayConfigV0>,
+}
+
+/// Daemon config
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum DaemonConfig {
+    V0(DaemonConfigV0),
+}

@@ -10,18 +10,3 @@ use p2p_broker::types::BrokerOverlayConfigV0;
 use p2p_broker::types::ListenerV0;
 use p2p_repo::types::PrivKey;
 use serde::{Deserialize, Serialize};
-
-/// DaemonConfig Version 0
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DaemonConfigV0 {
-    /// List of listeners for TCP (HTTP) incoming connections
-    pub listeners: Vec<ListenerV0>,
-
-    pub overlays_configs: Vec<BrokerOverlayConfigV0>,
-}
-
-/// Daemon config
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DaemonConfig {
-    V0(DaemonConfigV0),
-}
