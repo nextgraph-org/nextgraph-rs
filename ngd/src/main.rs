@@ -20,20 +20,26 @@ use p2p_broker::server_ws::run_server;
 use p2p_broker::types::*;
 use p2p_broker::utils::*;
 use p2p_net::types::*;
-use p2p_net::utils::{gen_keys, keys_from_bytes, Dual25519Keys, Sensitive, U8Array};
-use p2p_net::WS_PORT;
+use p2p_net::utils::{
+    gen_keys, is_ipv4_global, is_ipv4_private, is_ipv6_global, is_ipv6_private, keys_from_bytes,
+    Dual25519Keys, Sensitive, U8Array,
+};
+use p2p_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
 use p2p_repo::log::*;
 use p2p_repo::{
     types::{PrivKey, PubKey},
     utils::{generate_keypair, keypair_from_ed, sign, verify},
 };
-use serde_json::{from_str, json, to_string_pretty};
+use serde_json::{from_str, to_string_pretty};
 use std::fs::{read_to_string, write};
-use std::io::Read;
-use std::io::Write;
-use std::io::{BufReader, ErrorKind};
+use std::io::ErrorKind;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+
+use addr::parser::DnsName;
+use addr::psl::List;
+use lazy_static::lazy_static;
+use regex::Regex;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InterfaceType {
@@ -41,6 +47,27 @@ pub enum InterfaceType {
     Private,
     Public,
     Invalid,
+}
+
+impl InterfaceType {
+    pub fn is_ipv4_valid_for_type(&self, ip: &Ipv4Addr) -> bool {
+        match self {
+            InterfaceType::Loopback => ip.is_loopback(),
+            InterfaceType::Public => is_public_ipv4(ip),
+            // we allow to bind to link-local for IPv4
+            InterfaceType::Private => is_ipv4_private(ip),
+            _ => false,
+        }
+    }
+    pub fn is_ipv6_valid_for_type(&self, ip: &Ipv6Addr) -> bool {
+        match self {
+            InterfaceType::Loopback => ip.is_loopback(),
+            InterfaceType::Public => is_public_ipv6(ip),
+            // we do NOT allow to bind to link-local for IPv6
+            InterfaceType::Private => is_ipv6_private(ip),
+            _ => false,
+        }
+    }
 }
 
 pub fn print_ipv4(ip: &default_net::ip::Ipv4Net) -> String {
@@ -84,6 +111,30 @@ fn find_first_or_name(
     None
 }
 
+fn is_public_ipv4(ip: &Ipv4Addr) -> bool {
+    // TODO, use core::net::Ipv6Addr.is_global when it will be stable
+    return is_ipv4_global(ip);
+}
+
+fn is_public_ipv6(ip: &Ipv6Addr) -> bool {
+    // TODO, use core::net::Ipv6Addr.is_global when it will be stable
+    return is_ipv6_global(ip);
+}
+
+fn is_public_ip(ip: &IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => is_public_ipv4(v4),
+        IpAddr::V6(v6) => is_public_ipv6(v6),
+    }
+}
+
+fn is_private_ip(ip: &IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => is_ipv4_private(v4),
+        IpAddr::V6(v6) => is_ipv6_private(v6),
+    }
+}
+
 pub fn get_interface() -> Vec<Interface> {
     let mut res: Vec<Interface> = vec![];
     let interfaces = default_net::get_interfaces();
@@ -92,20 +143,13 @@ pub fn get_interface() -> Vec<Interface> {
             let first_v4 = interface.ipv4[0].addr;
             let if_type = if first_v4.is_loopback() {
                 InterfaceType::Loopback
-            } else if first_v4.is_private() || first_v4.is_link_local() {
+            } else if is_ipv4_private(&first_v4) {
                 InterfaceType::Private
-            } else if !first_v4.is_unspecified()
-                && !first_v4.is_documentation()
-                && !first_v4.is_broadcast()
-                && !first_v4.is_multicast()
-            {
+            } else if is_public_ipv4(&first_v4) {
                 InterfaceType::Public
             } else {
-                InterfaceType::Invalid
-            };
-            if if_type == InterfaceType::Invalid {
                 continue;
-            }
+            };
             let interf = Interface {
                 if_type,
                 name: interface.name,
@@ -148,15 +192,12 @@ pub fn print_interfaces() {
     }
 }
 
-fn decode_key(key_string: String) -> Result<[u8; 32], ()> {
-    let vec = base64_url::decode(&key_string).map_err(|_| log_err!("key has invalid content"))?;
+fn decode_key(key_string: &String) -> Result<[u8; 32], ()> {
+    let vec = base64_url::decode(key_string).map_err(|_| log_err!("key has invalid content"))?;
     Ok(*slice_as_array!(&vec, [u8; 32])
         .ok_or(())
         .map_err(|_| log_err!("key has invalid content array"))?)
 }
-
-use lazy_static::lazy_static;
-use regex::Regex;
 
 //For windows: {846EE342-7039-11DE-9D20-806E6F6E6963}
 //For the other OSes: en0 lo ...
@@ -177,29 +218,41 @@ lazy_static! {
         Regex::new(r"^\[([0-9a-fA-F:]{3,39})\](\:\d{1,5})?$").unwrap();
 }
 
-pub static DEFAULT_PORT: u16 = 80;
+pub static DEFAULT_PORT: u16 = WS_PORT;
 
-fn parse_interface_and_port_for(string: String, for_option: &str) -> Result<(String, u16), ()> {
-    let c = RE_INTERFACE.captures(&string);
+pub static DEFAULT_TLS_PORT: u16 = 443;
+
+fn parse_interface_and_port_for(
+    string: &String,
+    for_option: &str,
+    default_port: u16,
+) -> Result<(String, u16), ()> {
+    let c = RE_INTERFACE.captures(string);
 
     if c.is_some() && c.as_ref().unwrap().get(1).is_some() {
         let cap = c.unwrap();
         let interface = cap.get(1).unwrap().as_str();
         let port = match cap.get(2) {
-            None => DEFAULT_PORT,
+            None => default_port,
             Some(p) => {
                 let mut chars = p.as_str().chars();
                 chars.next();
                 match from_str::<u16>(chars.as_str()) {
-                    Err(_) => DEFAULT_PORT,
-                    Ok(p) => p,
+                    Err(_) => default_port,
+                    Ok(p) => {
+                        if p == 0 {
+                            default_port
+                        } else {
+                            p
+                        }
+                    }
                 }
             }
         };
         Ok((interface.to_string(), port))
     } else {
         log_err!(
-            "The <INTERFACE:PORT> value submitted for the {} option is invalid. It should be the name of an interface found with --list-interfaces, with an optional port suffix of the form :123. Stopping here",
+            "The <INTERFACE:PORT> value submitted for the {} option is invalid. It should be the name of an interface found with --list-interfaces, with an optional port suffix of the form :123. cannot start",
             for_option
         );
         Err(())
@@ -207,29 +260,41 @@ fn parse_interface_and_port_for(string: String, for_option: &str) -> Result<(Str
 }
 
 fn parse_ipv6_for(string: String, for_option: &str) -> Result<Ipv6Addr, ()> {
-    string.parse::<Ipv6Addr>().map_err(|_| ())
+    string.parse::<Ipv6Addr>().map_err(|_| {
+        log_err!(
+            "The <IPv6> value submitted for the {} option is invalid. cannot start",
+            for_option
+        )
+    })
 }
 
-fn parse_ipv4_and_port_for(string: String, for_option: &str) -> Result<(Ipv4Addr, u16), ()> {
+fn parse_ipv4_and_port_for(
+    string: String,
+    for_option: &str,
+    default_port: u16,
+) -> Result<(Ipv4Addr, u16), ()> {
     let parts: Vec<&str> = string.split(":").collect();
-    let ipv4_res = parts[0].parse::<Ipv4Addr>();
-
-    if ipv4_res.is_err() {
+    let ipv4 = parts[0].parse::<Ipv4Addr>().map_err(|_| {
         log_err!(
-            "The <IPv4:PORT> value submitted for the {} option is invalid. Stopping here",
+            "The <IPv4:PORT> value submitted for the {} option is invalid. cannot start",
             for_option
-        );
-        return Err(());
-    }
+        )
+    })?;
+
     let port;
-    let ipv4 = ipv4_res.unwrap();
     if parts.len() > 1 {
         port = match from_str::<u16>(parts[1]) {
-            Err(_) => DEFAULT_PORT,
-            Ok(p) => p,
+            Err(_) => default_port,
+            Ok(p) => {
+                if p == 0 {
+                    default_port
+                } else {
+                    p
+                }
+            }
         };
     } else {
-        port = DEFAULT_PORT;
+        port = default_port;
     }
     return Ok((ipv4, port));
 }
@@ -248,19 +313,22 @@ fn parse_ip_and_port_for(string: String, for_option: &str) -> Result<(IpAddr, u1
                 chars.next();
                 match from_str::<u16>(chars.as_str()) {
                     Err(_) => DEFAULT_PORT,
-                    Ok(p) => p,
+                    Ok(p) => {
+                        if p == 0 {
+                            DEFAULT_PORT
+                        } else {
+                            p
+                        }
+                    }
                 }
             }
         };
-        let ipv6_res = ipv6_str.parse::<Ipv6Addr>();
-        if ipv6_res.is_err() {
+        let ipv6 = ipv6_str.parse::<Ipv6Addr>().map_err(|_| {
             log_err!(
-                "The <[IPv6]:PORT> value submitted for the {} option is invalid. Stopping here",
+                "The <[IPv6]:PORT> value submitted for the {} option is invalid. cannot start",
                 for_option
-            );
-            return Err(());
-        }
-        ipv6 = ipv6_res.unwrap();
+            )
+        })?;
         return Ok((IpAddr::V6(ipv6), port));
     } else {
         // we try just an IPV6 without port
@@ -268,7 +336,7 @@ fn parse_ip_and_port_for(string: String, for_option: &str) -> Result<(IpAddr, u1
         if ipv6_res.is_err() {
             // let's try IPv4
 
-            return parse_ipv4_and_port_for(string, for_option)
+            return parse_ipv4_and_port_for(string, for_option, DEFAULT_PORT)
                 .map(|ipv4| (IpAddr::V4(ipv4.0), ipv4.1));
         } else {
             ipv6 = ipv6_res.unwrap();
@@ -279,20 +347,21 @@ fn parse_ip_and_port_for(string: String, for_option: &str) -> Result<(IpAddr, u1
 }
 
 fn parse_triple_interface_and_port_for(
-    string: String,
+    string: &String,
     for_option: &str,
 ) -> Result<((String, u16), (Option<Ipv6Addr>, (Ipv4Addr, u16))), ()> {
     let parts: Vec<&str> = string.split(',').collect();
     if parts.len() < 2 {
         log_err!(
-            "The <PRIVATE_INTERFACE:PORT,[PUBLIC_IPV6,]PUBLIC_IPV4:PORT> value submitted for the {} option is invalid. It should be composed of at least 2 parts separated by a comma. Stopping here",
+            "The <PRIVATE_INTERFACE:PORT,[PUBLIC_IPV6,]PUBLIC_IPV4:PORT> value submitted for the {} option is invalid. It should be composed of at least 2 parts separated by a comma. cannot start",
             for_option
         );
         return Err(());
     }
     let first_part = parse_interface_and_port_for(
-        parts[0].to_string(),
+        &parts[0].to_string(),
         &format!("private interface+PORT (left) part of the {}", for_option),
+        DEFAULT_PORT,
     );
     if first_part.is_err() {
         return Err(());
@@ -313,6 +382,7 @@ fn parse_triple_interface_and_port_for(
     let last_part = parse_ipv4_and_port_for(
         parts[parts.len() - 1].to_string(),
         &format!("public IPv4+PORT (right) part of the {}", for_option),
+        DEFAULT_PORT,
     );
     if last_part.is_err() {
         return Err(());
@@ -321,8 +391,77 @@ fn parse_triple_interface_and_port_for(
     Ok((first_part.unwrap(), (middle_part, last_part.unwrap())))
 }
 
+fn parse_domain_and_port(
+    domain_string: &String,
+    option: &str,
+    default_port: u16,
+) -> Result<(String, String, u16), ()> {
+    let parts: Vec<&str> = domain_string.split(':').collect();
+
+    // check validity of domain name
+    let valid_domain = List.parse_dns_name(parts[0]);
+    match valid_domain {
+        Err(e) => {
+            log_err!(
+                "The domain name provided for option {} is invalid. {}. cannot start",
+                option,
+                e.to_string()
+            );
+            return Err(());
+        }
+        Ok(name) => {
+            if !name.has_known_suffix() {
+                log_err!(
+                            "The domain name provided for option {} is invalid. Unknown suffix in public list. cannot start", option
+                        );
+                return Err(());
+            }
+        }
+    }
+
+    let port = if parts.len() > 1 {
+        match from_str::<u16>(parts[1]) {
+            Err(_) => default_port,
+            Ok(p) => {
+                if p == 0 {
+                    default_port
+                } else {
+                    p
+                }
+            }
+        }
+    } else {
+        default_port
+    };
+    let mut domain_with_port = parts[0].clone().to_string();
+    if port != default_port {
+        domain_with_port.push_str(&format!(":{}", port));
+    }
+    Ok((parts[0].to_string(), domain_with_port, port))
+}
+
+fn prepare_accept_forward_for_domain(domain: String, args: &Cli) -> Result<AcceptForwardForV0, ()> {
+    if args.domain_peer.is_some() {
+        let key_ser = base64_url::decode(args.domain_peer.as_ref().unwrap()).map_err(|_| ())?;
+        let key = serde_bare::from_slice::<PrivKey>(&key_ser);
+        Ok(AcceptForwardForV0::PublicDomainPeer((
+            domain,
+            key.unwrap(),
+            "".to_string(),
+        )))
+    } else {
+        Ok(AcceptForwardForV0::PublicDomain((domain, "".to_string())))
+    }
+}
+
 #[async_std::main]
 async fn main() -> std::io::Result<()> {
+    main_inner()
+        .await
+        .map_err(|_| ErrorKind::InvalidInput.into())
+}
+
+async fn main_inner() -> Result<(), ()> {
     let args = Cli::parse();
 
     if args.list_interfaces {
@@ -365,7 +504,8 @@ async fn main() -> std::io::Result<()> {
     let res = |key_path| -> Result<[u8; 32], &str> {
         let file = read_to_string(key_path).map_err(|_| "")?;
         decode_key(
-            file.lines()
+            &file
+                .lines()
                 .nth(0)
                 .ok_or("empty file")?
                 .to_string()
@@ -377,33 +517,30 @@ async fn main() -> std::io::Result<()> {
 
     if res.is_err() && res.unwrap_err().len() > 0 {
         log_err!(
-            "provided key file is incorrect. {}. aborting start",
+            "provided key file is incorrect. {}. cannot start",
             res.unwrap_err()
         );
-        return Err(ErrorKind::InvalidInput.into());
+        return Err(());
     }
     key_from_file = res.ok();
 
-    let keys: [[u8; 32]; 4] = match args.key {
+    let keys: [[u8; 32]; 4] = match &args.key {
         Some(key_string) => {
             if key_from_file.is_some() {
-                log_err!("provided key option will not be used as a key file is already present");
+                log_err!("provided --key option will not be used as a key file is already present");
                 gen_broker_keys(Some(key_from_file.unwrap()))
             } else {
-                let res = decode_key(key_string);
-                if res.is_err() {
-                    log_err!("provided key is invalid. cannot start");
-                    return Err(ErrorKind::InvalidInput.into());
-                }
+                let res = decode_key(key_string)
+                    .map_err(|_| log_err!("provided key is invalid. cannot start"))?;
+
                 if args.save_key {
-                    let master_key = base64_url::encode(&res.unwrap());
-                    if let Err(e) = write(key_path.clone(), master_key) {
-                        log_err!("cannot save key to file. aborting start");
-                        return Err(e);
-                    }
+                    let master_key = base64_url::encode(&res);
+                    write(key_path.clone(), master_key).map_err(|e| {
+                        log_err!("cannot save key to file. {}.cannot start", e.to_string())
+                    })?;
                     log_info!("The key has been saved to {}", key_path.to_str().unwrap());
                 }
-                gen_broker_keys(Some(res.unwrap()))
+                gen_broker_keys(Some(res))
             }
         }
         None => {
@@ -413,10 +550,9 @@ async fn main() -> std::io::Result<()> {
                 let res = gen_broker_keys(None);
                 let master_key = base64_url::encode(&res[0]);
                 if args.save_key {
-                    if let Err(e) = write(key_path.clone(), master_key) {
-                        log_err!("cannot save key to file. aborting start");
-                        return Err(e);
-                    }
+                    write(key_path.clone(), master_key).map_err(|e| {
+                        log_err!("cannot save key to file. {}.cannot start", e.to_string())
+                    })?;
                     log_info!("The key has been saved to {}", key_path.to_str().unwrap());
                 } else {
                     // on purpose we don't log the key, just print it out to stdout, as it should not be saved in logger's files
@@ -428,8 +564,6 @@ async fn main() -> std::io::Result<()> {
             }
         }
     };
-
-    println!("{:?}", keys);
 
     // DEALING WITH CONFIG
 
@@ -444,18 +578,16 @@ async fn main() -> std::io::Result<()> {
 
     if res.is_err() && res.as_ref().unwrap_err().len() > 0 {
         log_err!(
-            "provided config file is incorrect. {}. aborting start",
+            "provided config file is incorrect. {}. cannot start",
             res.unwrap_err()
         );
-        return Err(ErrorKind::InvalidInput.into());
+        return Err(());
     }
     config = res.ok();
 
-    println!("CONFIG {:?}", config);
-
     if config.is_some() && args.save_config {
-        log_err!("A config file is present. We cannot override it with Quick config options.");
-        return Err(ErrorKind::InvalidInput.into());
+        log_err!("A config file is present. We cannot override it with Quick config options. cannot start");
+        return Err(());
     }
 
     if args.local.is_some()
@@ -468,18 +600,18 @@ async fn main() -> std::io::Result<()> {
     {
         // QUICK CONFIG
 
-        if config.is_some() {
+        if config.is_some() && !args.print_config {
             log_err!(
-                "A config file is present. You can use the Quick config options of the command-line. In order to use them, delete your config file first."
+                "A config file is present. You can use the Quick config options on the command-line. In order to use them, delete your config file first. cannot start"
             );
-            return Err(ErrorKind::InvalidInput.into());
+            return Err(());
         }
 
-        if args.domain_peer.is_some() && args.domain.is_none() {
+        if args.domain_peer.is_some() && args.domain_private.is_none() && args.domain.is_none() {
             log_err!(
-                "The --domain-peer option can only be set when the --domain option is also present on the command line"
+                "The --domain-peer option can only be set when the --domain or --domain-private option is also present on the command line. cannot start"
             );
-            return Err(ErrorKind::InvalidInput.into());
+            return Err(());
         }
 
         let mut listeners: Vec<ListenerV0> = vec![];
@@ -487,23 +619,77 @@ async fn main() -> std::io::Result<()> {
 
         let interfaces = get_interface();
 
+        //// --domain
+
+        if args.domain.is_some() {
+            let domain_string = args.domain.as_ref().unwrap();
+            let parts: Vec<&str> = domain_string.split(',').collect();
+            let local_port;
+            let (_, domain, _) = if parts.len() == 1 {
+                local_port = WS_PORT_REVERSE_PROXY;
+                parse_domain_and_port(domain_string, "--domain", DEFAULT_TLS_PORT)?
+            } else {
+                local_port = match from_str::<u16>(parts[1]) {
+                    Err(_) => WS_PORT_REVERSE_PROXY,
+                    Ok(p) => {
+                        if p == 0 {
+                            WS_PORT_REVERSE_PROXY
+                        } else {
+                            p
+                        }
+                    }
+                };
+                parse_domain_and_port(&parts[0].to_string(), "--domain", DEFAULT_TLS_PORT)?
+            };
+
+            match find_first(&interfaces, InterfaceType::Loopback) {
+                None => {
+                    log_err!(
+                        "That's pretty unusual, but no loopback interface could be found on your host. --domain option failed for that reason. cannot start"
+                    );
+                    return Err(());
+                }
+                Some(loopback) => {
+                    overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
+                    let mut listener =
+                        ListenerV0::new_direct(loopback.name, !args.no_ipv6, local_port);
+                    listener.accept_direct = false;
+                    let res = prepare_accept_forward_for_domain(domain, &args).map_err(|_| {
+                        log_err!("The --domain-peer option has an invalid key. it must be a base64_url encoded serialization of a PrivKey. cannot start")
+                    })?;
+                    listener.accept_forward_for = res;
+                    listeners.push(listener);
+                }
+            }
+        }
+
         //// --local
 
         if args.local.is_some() {
             match find_first(&interfaces, InterfaceType::Loopback) {
                 None => {
                     log_err!(
-                        "That's pretty unusual, but no loopback interface could be found on your host"
+                        "That's pretty unusual, but no loopback interface could be found on your host. cannot start"
                     );
-                    return Err(ErrorKind::InvalidInput.into());
+                    return Err(());
                 }
                 Some(loopback) => {
                     overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
-                    listeners.push(ListenerV0::new_direct(
-                        loopback.name,
-                        !args.no_ipv6,
-                        args.local.unwrap(),
-                    ));
+
+                    if listeners.last().is_some()
+                        && listeners.last().unwrap().interface_name == loopback.name
+                        && listeners.last().unwrap().port == args.local.unwrap()
+                    {
+                        let r = listeners.last_mut().unwrap();
+                        r.accept_direct = true;
+                        r.ipv6 = !args.no_ipv6;
+                    } else {
+                        listeners.push(ListenerV0::new_direct(
+                            loopback.name,
+                            !args.no_ipv6,
+                            args.local.unwrap(),
+                        ));
+                    }
                 }
             }
         }
@@ -511,26 +697,24 @@ async fn main() -> std::io::Result<()> {
         //// --core
 
         if args.core.is_some() {
-            let arg_value = parse_interface_and_port_for(args.core.unwrap(), "--core");
-            if arg_value.is_err() {
-                return Err(ErrorKind::InvalidInput.into());
-            }
+            let arg_value =
+                parse_interface_and_port_for(args.core.as_ref().unwrap(), "--core", DEFAULT_PORT)?;
 
-            let if_name = &arg_value.as_ref().unwrap().0;
+            let if_name = &arg_value.0;
             match find_first_or_name(&interfaces, InterfaceType::Public, &if_name) {
                 None => {
                     log_err!(
                         "{}",
                         if if_name == "default" {
-                            "We could not find a public IP interface on your host. If you are setting up a server behind a reverse proxy, enter the config manually in the config file".to_string()
+                            "We could not find a public IP interface on your host. If you are setting up a server behind a reverse proxy, enter the config manually in the config file. cannot start".to_string()
                         } else {
                             format!(
-                                "We could not find a public IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host",
+                                "We could not find a public IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host. cannot start",
                                 if_name
                             )
                         }
                     );
-                    return Err(ErrorKind::InvalidInput.into());
+                    return Err(());
                 }
                 Some(public) => {
                     overlays_config.core = BrokerOverlayPermission::AllRegisteredUser;
@@ -538,7 +722,7 @@ async fn main() -> std::io::Result<()> {
                     listeners.push(ListenerV0::new_direct(
                         public.name,
                         !args.no_ipv6,
-                        arg_value.unwrap().1,
+                        arg_value.1,
                     ));
                 }
             }
@@ -547,29 +731,46 @@ async fn main() -> std::io::Result<()> {
         //// --public
 
         if args.public.is_some() {
-            let arg_value = parse_triple_interface_and_port_for(args.public.unwrap(), "--public");
-            if arg_value.is_err() {
-                return Err(ErrorKind::InvalidInput.into());
-            }
-            let public_part = &arg_value.as_ref().unwrap().1;
-            let private_part = &arg_value.as_ref().unwrap().0;
+            let arg_value =
+                parse_triple_interface_and_port_for(args.public.as_ref().unwrap(), "--public")?;
+
+            let public_part = &arg_value.1;
+            let private_part = &arg_value.0;
             let private_interface;
             let if_name = &private_part.0;
             match find_first_or_name(&interfaces, InterfaceType::Private, &if_name) {
                 None => {
-                    log_err!(   "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host",
+                    log_err!(
+                        "{}",
+                        if if_name == "default" {
+                            "We could not find a private IP interface on your host for --public option. cannot start"
+                                .to_string()
+                        } else {
+                            format!(
+                                "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host. cannot start",
                                 if_name
-                            );
-                    return Err(ErrorKind::InvalidInput.into());
+                            )
+                        }
+                    );
+                    return Err(());
                 }
                 Some(inter) => {
                     private_interface = inter;
                 }
             }
 
+            if !is_public_ipv4(&public_part.1 .0)
+                || public_part.0.is_some() && !is_public_ipv6(public_part.0.as_ref().unwrap())
+            {
+                log_err!("The provided IPs are not public. cannot start");
+                return Err(());
+            }
+
             if args.no_ipv6 && public_part.0.is_some() {
-                log_err!("The public IP is IPv6 but you selected the --no-ipv6 option");
-                return Err(ErrorKind::InvalidInput.into());
+                log_err!(
+                    "The public IP is IPv6 but you selected the --no-ipv6 option. cannot start"
+                );
+                return Err(());
             }
 
             overlays_config.core = BrokerOverlayPermission::AllRegisteredUser;
@@ -598,87 +799,47 @@ async fn main() -> std::io::Result<()> {
             });
         }
 
-        //// --private
-
-        if args.private.is_some() {
-            let arg_value = parse_interface_and_port_for(args.private.unwrap(), "--private");
-            if arg_value.is_err() {
-                return Err(ErrorKind::InvalidInput.into());
-            }
-
-            let if_name = &arg_value.as_ref().unwrap().0;
-            match find_first_or_name(&interfaces, InterfaceType::Private, &if_name) {
-                None => {
-                    log_err!(
-                        "{}",
-                        if if_name == "default" {
-                            "We could not find a private IP interface on your host.".to_string()
-                        } else {
-                            format!(
-                                "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host",
-                                if_name
-                            )
-                        }
-                    );
-                    return Err(ErrorKind::InvalidInput.into());
-                }
-                Some(inter) => {
-                    overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
-
-                    if listeners.last().is_some()
-                        && listeners.last().unwrap().interface_name == inter.name
-                        && listeners.last().unwrap().port == arg_value.as_ref().unwrap().1
-                    {
-                        let r = listeners.last_mut().unwrap();
-                        r.accept_direct = true;
-                        r.ipv6 = !args.no_ipv6;
-                    } else {
-                        listeners.push(ListenerV0::new_direct(
-                            inter.name,
-                            !args.no_ipv6,
-                            arg_value.unwrap().1,
-                        ));
-                    }
-                }
-            }
-        }
-
         //// --dynamic
 
         if args.dynamic.is_some() {
-            let dynamic_string = args.dynamic.unwrap();
+            let dynamic_string = args.dynamic.as_ref().unwrap();
             let parts: Vec<&str> = dynamic_string.split(',').collect();
 
-            let arg_value = parse_interface_and_port_for(parts[0].to_string(), "--dynamic");
-            if arg_value.is_err() {
-                return Err(ErrorKind::InvalidInput.into());
-            }
+            let arg_value =
+                parse_interface_and_port_for(&parts[0].to_string(), "--dynamic", DEFAULT_PORT)?;
 
             let public_port = if parts.len() == 2 {
                 match from_str::<u16>(parts[1]) {
                     Err(_) => DEFAULT_PORT,
-                    Ok(p) => p,
+                    Ok(p) => {
+                        if p == 0 {
+                            DEFAULT_PORT
+                        } else {
+                            p
+                        }
+                    }
                 }
             } else {
                 DEFAULT_PORT
             };
 
-            let if_name = &arg_value.as_ref().unwrap().0;
+            let if_name = &arg_value.0;
 
             match find_first_or_name(&interfaces, InterfaceType::Private, if_name) {
                 None => {
                     log_err!(
                         "{}",
                         if if_name == "default" {
-                            "We could not find a private IP interface on your host.".to_string()
+                            "We could not find a private IP interface on your host for --dynamic option. cannot start"
+                                .to_string()
                         } else {
                             format!(
-                                "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host",
+                                "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host. cannot start",
                                 if_name
                             )
                         }
                     );
-                    return Err(ErrorKind::InvalidInput.into());
+                    return Err(());
                 }
                 Some(inter) => {
                     overlays_config.core = BrokerOverlayPermission::AllRegisteredUser;
@@ -686,19 +847,19 @@ async fn main() -> std::io::Result<()> {
 
                     if listeners.last().is_some()
                         && listeners.last().unwrap().interface_name == inter.name
-                        && listeners.last().unwrap().port == arg_value.as_ref().unwrap().1
+                        && listeners.last().unwrap().port == arg_value.1
                     {
                         let r = listeners.last_mut().unwrap();
                         r.ipv6 = !args.no_ipv6;
                         if r.accept_forward_for != AcceptForwardForV0::No {
-                            log_err!("The same private interface is already forwarding with a different setting, probably because of a --public option. Aborting");
-                            return Err(ErrorKind::InvalidInput.into());
+                            log_err!("The same private interface is already forwarding with a different setting, probably because of a --public option conflicting with a --dynamic option. Changing the port on one of the interfaces can help. cannot start");
+                            return Err(());
                         }
                         r.accept_forward_for =
                             AcceptForwardForV0::PublicDyn((public_port, 60, "".to_string()));
                     } else {
                         let mut listener =
-                            ListenerV0::new_direct(inter.name, !args.no_ipv6, arg_value.unwrap().1);
+                            ListenerV0::new_direct(inter.name, !args.no_ipv6, arg_value.1);
                         listener.accept_direct = false;
                         listener.accept_forward_for =
                             AcceptForwardForV0::PublicDyn((public_port, 60, "".to_string()));
@@ -708,18 +869,194 @@ async fn main() -> std::io::Result<()> {
             }
         }
 
+        //// --domain-private
+
+        if args.domain_private.is_some() {
+            let domain_string = args.domain_private.as_ref().unwrap();
+            let parts: Vec<&str> = domain_string.split(',').collect();
+
+            let (_, domain, _) =
+                parse_domain_and_port(&parts[0].to_string(), "--domain-private", DEFAULT_TLS_PORT)?;
+
+            let bind_string = if parts.len() > 1 { parts[1] } else { "default" };
+
+            let arg_value = parse_interface_and_port_for(
+                &bind_string.to_string(),
+                "--domain-private",
+                WS_PORT_REVERSE_PROXY,
+            )?;
+
+            let if_name = &arg_value.0;
+            match find_first_or_name(&interfaces, InterfaceType::Private, &if_name) {
+                None => {
+                    log_err!(
+                        "{}",
+                        if if_name == "default" {
+                            "We could not find a private IP interface on your host for --domain-private option. cannot start"
+                                .to_string()
+                        } else {
+                            format!(
+                                "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host. cannot start",
+                                if_name
+                            )
+                        }
+                    );
+                    return Err(());
+                }
+                Some(inter) => {
+                    overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
+
+                    let res = prepare_accept_forward_for_domain(domain, &args).map_err(|_| {
+                        log_err!("The --domain-peer option has an invalid key. it must be a base64_url encoded serialization of a PrivKey. cannot start")})?;
+
+                    if listeners.last().is_some()
+                        && listeners.last().unwrap().interface_name == inter.name
+                        && listeners.last().unwrap().port == arg_value.1
+                    {
+                        let r = listeners.last_mut().unwrap();
+                        r.ipv6 = !args.no_ipv6;
+                        if r.accept_forward_for != AcceptForwardForV0::No {
+                            log_err!("The same private interface is already forwarding with a different setting, probably because of a --public or --dynamic option conflicting with the --domain-private option. Changing the port on one of the interfaces can help. cannot start");
+                            return Err(());
+                        }
+                        r.accept_forward_for = res;
+                    } else {
+                        let mut listener =
+                            ListenerV0::new_direct(inter.name, !args.no_ipv6, arg_value.1);
+                        listener.accept_direct = false;
+                        listener.accept_forward_for = res;
+
+                        listeners.push(listener);
+                    }
+                }
+            }
+        }
+
+        //// --private
+
+        if args.private.is_some() {
+            let arg_value = parse_interface_and_port_for(
+                args.private.as_ref().unwrap(),
+                "--private",
+                DEFAULT_PORT,
+            )?;
+
+            let if_name = &arg_value.0;
+            match find_first_or_name(&interfaces, InterfaceType::Private, &if_name) {
+                None => {
+                    log_err!(
+                        "{}",
+                        if if_name == "default" {
+                            "We could not find a private IP interface on your host. cannot start"
+                                .to_string()
+                        } else {
+                            format!(
+                                        "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host. cannot start",
+                                        if_name
+                                    )
+                        }
+                    );
+                    return Err(());
+                }
+                Some(inter) => {
+                    overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
+
+                    if listeners.last().is_some()
+                        && listeners.last().unwrap().interface_name == inter.name
+                        && listeners.last().unwrap().port == arg_value.1
+                    {
+                        let r = listeners.last_mut().unwrap();
+                        r.accept_direct = true;
+                        r.ipv6 = !args.no_ipv6;
+                    } else {
+                        listeners.push(ListenerV0::new_direct(
+                            inter.name,
+                            !args.no_ipv6,
+                            arg_value.1,
+                        ));
+                    }
+                }
+            }
+        }
+
+        //// --forward
+
+        if args.forward.is_some() {
+            //"[DOMAIN/IP:PORT]@PEERID"
+            let forward_string = args.forward.as_ref().unwrap();
+            let parts: Vec<&str> = forward_string.split('@').collect();
+
+            if parts.len() != 2 {
+                log_err!(
+                    "The option --forward is invalid. It must contain two parts separated by a @ character. cannot start"
+                );
+                return Err(());
+            }
+            let vec = base64_url::decode(parts[1])
+                .map_err(|_| log_err!("The PEERID provided in the --forward option is invalid"))?;
+            let pub_key_array = *slice_as_array!(vec.as_slice(), [u8; 32])
+                .ok_or(())
+                .map_err(|_| {
+                    log_err!("PEERID provided in the --forward option, has invalid array")
+                })?;
+            let peer_id = PubKey::Ed25519PubKey(pub_key_array);
+
+            let server_type = if parts[0].len() > 0 {
+                let first_char = parts[0].chars().next().unwrap();
+
+                if first_char == '[' || first_char.is_numeric() {
+                    // an IPv6 or IPv4
+                    let bind = parse_ip_and_port_for(parts[0].to_string(), "--forward")?;
+                    let bind_addr = BindAddress {
+                        ip: (&bind.0).into(),
+                        port: bind.1,
+                    };
+                    if is_private_ip(&bind.0) {
+                        BrokerServerTypeV0::BoxPrivate(vec![bind_addr])
+                    } else if is_public_ip(&bind.0) {
+                        BrokerServerTypeV0::BoxPublic(vec![bind_addr])
+                    } else {
+                        log_err!("Invalid IP address given for --forward option. cannot start");
+                        return Err(());
+                    }
+                } else {
+                    // a domain name
+                    let (_, domain, _) = parse_domain_and_port(
+                        &parts[0].to_string(),
+                        "--forward",
+                        DEFAULT_TLS_PORT,
+                    )?;
+                    BrokerServerTypeV0::Domain(domain)
+                }
+            } else {
+                BrokerServerTypeV0::BoxPublicDyn(vec![])
+            };
+            overlays_config.forward = vec![BrokerServerV0 {
+                server_type,
+                peer_id,
+            }];
+        }
+
         config = Some(DaemonConfig::V0(DaemonConfigV0 {
             listeners,
-            overlays_config,
+            overlays_configs: vec![overlays_config],
         }));
+
+        if args.print_config {
+            let json_string = to_string_pretty(config.as_ref().unwrap()).unwrap();
+            println!("The Quick config would be:\n{}", json_string);
+            return Ok(());
+        }
 
         if args.save_config {
             // saves the config to file
             let json_string = to_string_pretty(config.as_ref().unwrap()).unwrap();
-            if let Err(e) = write(config_path.clone(), json_string) {
-                log_err!("cannot save config to file. aborting start");
-                return Err(e);
-            }
+            write(config_path.clone(), json_string).map_err(|e| {
+                log_err!(
+                    "cannot save config to file. {}. cannot start",
+                    e.to_string()
+                )
+            })?;
             log_info!(
                 "The config file has been saved to {}",
                 config_path.to_str().unwrap()
@@ -733,7 +1070,12 @@ async fn main() -> std::io::Result<()> {
             log_err!(
                 "No Quick config option passed, neither is a config file present. We cannot start the server. Choose at least one Quick config option. see --help for details"
             );
-            return Err(ErrorKind::InvalidInput.into());
+            return Err(());
+        }
+        if args.print_config {
+            let json_string = to_string_pretty(config.as_ref().unwrap()).unwrap();
+            println!("The saved config is:\n{}", json_string);
+            return Ok(());
         }
     }
 
@@ -753,8 +1095,6 @@ async fn main() -> std::io::Result<()> {
     // log_debug!("Public key of node: {:?}", keys.1);
     // log_debug!("Private key of node: {:?}", keys.0.as_slice());
 
-    let (privkey, pubkey) = keys_from_bytes(keys[1]);
-
     // let pubkey = PubKey::Ed25519PubKey([
     //     95, 155, 249, 202, 41, 105, 71, 51, 206, 126, 9, 84, 132, 92, 60, 7, 74, 179, 46, 21, 21,
     //     242, 171, 27, 249, 79, 76, 176, 168, 43, 83, 2,
@@ -764,8 +1104,17 @@ async fn main() -> std::io::Result<()> {
     //     142, 3, 134, 167, 187, 235, 4, 39, 26, 31, 119,
     // ]);
 
-    log_debug!("Public key of node: {:?}", pubkey);
-    log_debug!("Private key of node: {:?}", privkey.as_slice());
+    let (privkey, pubkey) = keys_from_bytes(keys[1]);
+
+    let priv_key_array = *slice_as_array!(privkey.as_slice(), [u8; 32])
+        .ok_or(())
+        .map_err(|_| log_err!("Private key of peer has invalid array"))?;
+    let priv_key = PrivKey::Ed25519PrivKey(priv_key_array);
+    let priv_key_ser = serde_bare::to_vec(&priv_key).unwrap();
+    let prix_key_encoded = base64_url::encode(&priv_key_ser);
+
+    log_info!("PeerId of node: {}", pubkey);
+    debug_println!("Private key of peer: {}", prix_key_encoded);
     run_server("127.0.0.1", WS_PORT, privkey, pubkey, path).await?;
 
     Ok(())

@@ -17,7 +17,7 @@ pub struct DaemonConfigV0 {
     /// List of listeners for TCP (HTTP) incoming connections
     pub listeners: Vec<ListenerV0>,
 
-    pub overlays_config: BrokerOverlayConfigV0,
+    pub overlays_configs: Vec<BrokerOverlayConfigV0>,
 }
 
 /// Daemon config

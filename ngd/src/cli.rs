@@ -7,9 +7,10 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+use clap::builder::OsStr;
 use clap::Parser;
 
-use p2p_net::WS_PORT;
+use crate::DEFAULT_PORT;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -35,14 +36,14 @@ pub(crate) struct Cli {
     pub save_key: bool,
 
     /// Quick config to listen for clients on localhost port PORT. Defaults to port 80
-    #[arg(short, long, value_name("PORT"), default_missing_value("80"), num_args(0..=1))]
+    #[arg(short, long, value_name("PORT"), default_missing_value(format!("{}",DEFAULT_PORT)), num_args(0..=1))]
     pub local: Option<u16>,
 
     /// Quick config to listen for core brokers on public INTERFACE (and optional :PORT). Defaults to first public interface on the host, port 80
     #[arg(short, long, value_name("INTERFACE:PORT"), default_missing_value("default"), num_args(0..=1))]
     pub core: Option<String>,
 
-    /// Quick config to forward all requests to another BROKER. format is "DOMAIN/IP[:PORT]@PEERID"
+    /// Quick config to forward all requests to another BROKER. format is "[DOMAIN/IP:PORT]@PEERID". An IPv6 should be encased in square brackets [IPv6] and the whole option should be between double quotes. Port defaults to 80 for IPs and 443 for domains
     #[arg(
         short,
         long,
@@ -57,21 +58,31 @@ pub(crate) struct Cli {
     #[arg(short, long, value_name("INTERFACE:PORT"), default_missing_value("default"), num_args(0..=1))]
     pub private: Option<String>,
 
-    /// Quick config to listen for clients and core brokers on PRIVATE_INTERFACE, behind a DMZ or port forwarding of a public static IP. PORTs defaults to 80
+    /// Quick config to listen for clients and core brokers on PRIVATE_INTERFACE (can be "default"), behind a DMZ or port forwarding of a public static IP. PUBLIC_IPV6 is optional. PORTs defaults to 80.
     #[arg(
-        short('g'),
+        short('u'),
         long,
-        value_name("PRIVATE_INTERFACE:PORT,[PUBLIC_IPV6,]PUBLIC_IPV4:PORT")
+        value_name("PRIVATE_INTERFACE:PORT,[PUBLIC_IPV6,]PUBLIC_IPV4:PORT"),
+        conflicts_with("core")
     )]
     pub public: Option<String>,
 
     /// Quick config to listen for clients and core brokers on PRIVATE_INTERFACE, behind a DMZ or port forwarding of a public dynamic IP. PORTs defaults to 80
-    #[arg(short('n'), long, value_name("PRIVATE_INTERFACE:PORT,PORT"), default_missing_value("default"), num_args(0..=1))]
+    #[arg(short('y'), long, value_name("PRIVATE_INTERFACE:PORT,PUBLIC_PORT"), default_missing_value("default"), num_args(0..=1), conflicts_with("public"), conflicts_with("core"))]
     pub dynamic: Option<String>,
 
-    /// Quick config to listen for clients on localhost port PORT, behind a reverse proxy that sends X-Forwarded-For for a TLS terminated DOMAIN name
-    #[arg(short, long, value_name("DOMAIN:PORT"))]
+    /// Quick config to listen for clients on localhost interface with port LOCAL_PORT (defaults to 1440), behind a reverse proxy that sends X-Forwarded-For for a TLS terminated DOMAIN name
+    #[arg(short, long, value_name("DOMAIN:PORT,LOCAL_PORT"))]
     pub domain: Option<String>,
+
+    /// Quick config to listen for clients on private INTERFACE:PORT (defaults to first private interface and/or port 1440), behind a reverse proxy that sends X-Forwarded-For for a TLS terminated DOMAIN name. Domain Port defaults to 443
+    #[arg(
+        short('x'),
+        long,
+        value_name("DOMAIN:PORT,INTERFACE:PORT"),
+        conflicts_with("domain")
+    )]
+    pub domain_private: Option<String>,
 
     /// Option for --domain if this host is part of a pool of load-balanced servers behind a reverse proxy, and the same PeerId should be shared among them all
     #[arg(short('e'), long, value_name("PEER_KEY"))]
@@ -84,4 +95,10 @@ pub(crate) struct Cli {
     /// Saves the quick config into a file on disk, that can then be modified for advanced configs
     #[arg(long)]
     pub save_config: bool,
+
+    /// Prints on stdout the Quick config submitted on command-line, or alternatively, the config already saved on disk
+    #[arg(long)]
+    pub print_config: bool,
+    //TODO: to switch lang of error messages and CLI interface
+    // pub lang: Option<String>,
 }

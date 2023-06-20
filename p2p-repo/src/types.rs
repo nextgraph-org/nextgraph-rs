@@ -83,7 +83,7 @@ impl PubKey {
 impl fmt::Display for PubKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PubKey::Ed25519PubKey(d) => write!(f, "{}", hex::encode(d)),
+            PubKey::Ed25519PubKey(d) => write!(f, "{}", base64_url::encode(d)),
         }
     }
 }

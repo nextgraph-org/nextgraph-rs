@@ -89,7 +89,7 @@ pub async fn run_server(
     peer_priv_key: Sensitive<[u8; 32]>,
     peer_pub_key: PubKey,
     mut path: PathBuf,
-) -> std::io::Result<()> {
+) -> Result<(), ()> {
     let addrs = format!("{}:{}", addr, port);
     //let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
 
@@ -106,7 +106,9 @@ pub async fn run_server(
     //     BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
     // let server_arc = Arc::new(server);
 
-    let socket = TcpListener::bind(addrs.as_str()).await?;
+    let socket = TcpListener::bind(addrs.as_str())
+        .await
+        .map_err(|e| log_err!("bind error: {}", e.to_string()))?;
     log_debug!("Listening on {}", addrs.as_str());
     let mut connections = socket.incoming();
 
