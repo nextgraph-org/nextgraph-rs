@@ -25,6 +25,7 @@ hex = "0.4.3"
 async-trait = "0.1.64"
 async-tungstenite = {  version = "0.17.2", features = ["async-std-runtime"] }
 blake3 = "1.3.1"
+default-net = "0.15"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
 version = "0.2.7"
