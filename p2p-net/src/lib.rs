@@ -29,4 +29,14 @@ pub mod utils;
 
 pub mod tests;
 
-pub static WS_PORT: u16 = 1025;
+#[cfg(debug_assertions)]
+pub static WS_PORT: u16 = 14400;
+
+#[cfg(not(debug_assertions))]
+pub static WS_PORT: u16 = 80;
+
+pub static WS_PORT_ALTERNATE: [u16; 4] = [14400, 28800, 43200, 57600];
+
+pub static WS_PORT_ALTERNATE_SUPERUSER: u16 = 144;
+
+pub static WS_PORT_REVERSE_PROXY: u16 = 1440;
