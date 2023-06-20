@@ -942,18 +942,6 @@ async fn main_inner() -> Result<(), ()> {
     // let privkey = duals.x25519_priv;
     // let pubkey = PubKey::Ed25519PubKey(duals.x25519_public);
 
-    // log_debug!("Public key of node: {:?}", keys.1);
-    // log_debug!("Private key of node: {:?}", keys.0.as_slice());
-
-    // let pubkey = PubKey::Ed25519PubKey([
-    //     95, 155, 249, 202, 41, 105, 71, 51, 206, 126, 9, 84, 132, 92, 60, 7, 74, 179, 46, 21, 21,
-    //     242, 171, 27, 249, 79, 76, 176, 168, 43, 83, 2,
-    // ]);
-    // let privkey = Sensitive::<[u8; 32]>::from_slice(&[
-    //     56, 86, 36, 0, 109, 59, 152, 66, 166, 71, 201, 20, 119, 64, 173, 99, 215, 52, 40, 189, 96,
-    //     142, 3, 134, 167, 187, 235, 4, 39, 26, 31, 119,
-    // ]);
-
     let (privkey, pubkey) = keys_from_bytes(keys[1]);
 
     let priv_key_array = *slice_as_array!(privkey.as_slice(), [u8; 32])
