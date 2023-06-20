@@ -18,18 +18,28 @@ use serde::{Deserialize, Serialize};
 pub enum AcceptForwardForV0 {
     /// X-Forwarded-For not allowed
     No,
-    /// X-Forwarded-For accepted only for clients with private LAN addresses. First param is the bind address of the proxy server
-    Private((BindAddress, String)),
+
+    /// X-Forwarded-For accepted only for clients with private LAN addresses. First param is the domain of the proxy server
+    Private((String, String)),
+
     /// X-Forwarded-For accepted only for clients with public addresses. First param is the domain of the proxy server
-    /// domain can take an option port with a trailing `:port`
+    /// domain can take an option port (trailing `:port`)
     PublicDomain((String, String)),
+
     /// X-Forwarded-For accepted only for clients with public addresses. First param is the domain of the proxy server
-    /// domain can take an option port with a trailing `:port`
+    /// domain can take an option port (trailing `:port`)
     /// second param is the privKey of the PeerId of the proxy server, useful when the proxy server is load balancing to several daemons
     /// that should all use the same PeerId to answer requests
     PublicDomainPeer((String, PrivKey, String)),
-    PublicDyn((u16, u32, String)), // first param is the port, second param in tuple is the interval for periodic probe of the external IP
-    PublicStatic((BindAddress, String)),
+
+    /// accepts only clients with public addresses that arrive on a LAN address binding. This is used for DMZ and port forwarding configs
+    /// first param is the port, second param in tuple is the interval for periodic probe of the external IP
+    PublicDyn((u16, u32, String)),
+
+    /// accepts only clients with public addresses that arrive on a LAN address binding. This is used for DMZ and port forwarding configs
+    /// First param is the IPv4 bind address of the reverse NAT server (DMZ, port forwarding)
+    /// Second param is ab optional IPv6 bind address of the reverse NAT server (DMZ, port forwarding)
+    PublicStatic((BindAddress, Option<BindAddress>, String)),
 }
 
 /// DaemonConfig Listener Version 0
@@ -37,9 +47,11 @@ pub enum AcceptForwardForV0 {
 pub struct ListenerV0 {
     /// local interface name to bind to
     /// names of interfaces can be retrieved with the --list-interfaces option
-    /// the string can take an optional trailing option of the form `:3600` for number of seconds
-    /// for an interval periodic refresh of the actual IP(s) of the interface. Used for dynamic IP interfaces.
     pub interface_name: String,
+
+    /// optional number of seconds for an interval of periodic refresh
+    /// of the actual IP(s) of the interface. Used for dynamic IP interfaces (DHCP)
+    pub interface_refresh: u32,
 
     // if to bind to the ipv6 address of the interface
     pub ipv6: bool,
@@ -63,6 +75,20 @@ pub struct ListenerV0 {
     // an interface with no accept_forward_for and no accept_direct, is de facto, disabled
 }
 
+impl ListenerV0 {
+    pub fn new_direct(name: String, ipv6: bool, port: u16) -> Self {
+        Self {
+            interface_name: name,
+            interface_refresh: 0,
+            ipv6,
+            port,
+            discoverable: false,
+            accept_direct: true,
+            accept_forward_for: AcceptForwardForV0::No,
+        }
+    }
+}
+
 /// Broker Overlay Permission
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BrokerOverlayPermission {
@@ -74,10 +100,10 @@ pub enum BrokerOverlayPermission {
 
 /// Broker Overlay Config
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct BrokerOverlayConfig {
+pub struct BrokerOverlayConfigV0 {
     // list of overlays this config applies to. empty array means applying to all
     pub overlays: Vec<OverlayId>,
-    // Who can ask to join an overlay on the core protocol
+    // Who can ask to join an overlay on the core
     pub core: BrokerOverlayPermission,
     // Who can connect as a client to this server
     pub server: BrokerOverlayPermission,
@@ -87,6 +113,19 @@ pub struct BrokerOverlayConfig {
     pub allow_read: bool,
 
     /// an empty list means to forward to the peer known for each overlay.
-    /// forward becomes the default when core is disabled
+    /// forward and core are mutually exclusive. forward becomes the default when core is disabled (set to Nobody).
+    /// core always takes precedence.
     pub forward: Vec<BrokerServerV0>,
+}
+
+impl BrokerOverlayConfigV0 {
+    pub fn new() -> Self {
+        BrokerOverlayConfigV0 {
+            overlays: vec![],
+            core: BrokerOverlayPermission::Nobody,
+            server: BrokerOverlayPermission::Nobody,
+            allow_read: false,
+            forward: vec![],
+        }
+    }
 }
