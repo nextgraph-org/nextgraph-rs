@@ -21,6 +21,10 @@ use p2p_broker::server_ws::run_server_v0;
 use p2p_broker::types::*;
 use p2p_broker::utils::*;
 use p2p_net::types::*;
+use p2p_net::utils::is_private_ip;
+use p2p_net::utils::is_public_ip;
+use p2p_net::utils::is_public_ipv4;
+use p2p_net::utils::is_public_ipv6;
 use p2p_net::utils::{
     gen_keys, is_ipv4_global, is_ipv4_private, is_ipv6_global, is_ipv6_private, keys_from_bytes,
     Dual25519Keys, Sensitive, U8Array,
@@ -501,8 +505,7 @@ async fn main_inner() -> Result<(), ()> {
                 }
                 Some(loopback) => {
                     overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
-                    let mut listener =
-                        ListenerV0::new_direct(loopback.name, !args.no_ipv6, local_port);
+                    let mut listener = ListenerV0::new_direct(loopback, !args.no_ipv6, local_port);
                     listener.accept_direct = false;
                     let res = prepare_accept_forward_for_domain(domain, &args).map_err(|_| {
                         log_err!("The --domain-peer option has an invalid key. it must be a base64_url encoded serialization of a PrivKey. cannot start")
@@ -535,7 +538,7 @@ async fn main_inner() -> Result<(), ()> {
                         r.ipv6 = !args.no_ipv6;
                     } else {
                         listeners.push(ListenerV0::new_direct(
-                            loopback.name,
+                            loopback,
                             !args.no_ipv6,
                             args.local.unwrap(),
                         ));
@@ -568,12 +571,13 @@ async fn main_inner() -> Result<(), ()> {
                 }
                 Some(public) => {
                     overlays_config.core = BrokerOverlayPermission::AllRegisteredUser;
-                    overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
-                    listeners.push(ListenerV0::new_direct(
-                        public.name,
-                        !args.no_ipv6,
-                        arg_value.1,
-                    ));
+                    let mut listener = ListenerV0::new_direct(public, !args.no_ipv6, arg_value.1);
+                    if args.core_with_clients {
+                        overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
+                    } else {
+                        listener.refuse_clients = true;
+                    }
+                    listeners.push(listener);
                 }
             }
         }
@@ -624,7 +628,9 @@ async fn main_inner() -> Result<(), ()> {
             }
 
             overlays_config.core = BrokerOverlayPermission::AllRegisteredUser;
-            overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
+            if !args.public_without_clients {
+                overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
+            }
 
             let ipv6 = public_part.0.map(|ipv6| BindAddress {
                 port: public_part.1 .1,
@@ -633,10 +639,13 @@ async fn main_inner() -> Result<(), ()> {
 
             listeners.push(ListenerV0 {
                 interface_name: private_interface.name,
+                if_type: private_interface.if_type,
                 ipv6: public_part.0.is_some(),
                 interface_refresh: 0,
                 port: private_part.1,
                 discoverable: false,
+                refuse_clients: args.public_without_clients,
+                serve_app: true,
                 accept_direct: false,
                 accept_forward_for: AcceptForwardForV0::PublicStatic((
                     BindAddress {
@@ -700,16 +709,16 @@ async fn main_inner() -> Result<(), ()> {
                         && listeners.last().unwrap().port == arg_value.1
                     {
                         let r = listeners.last_mut().unwrap();
-                        r.ipv6 = !args.no_ipv6;
                         if r.accept_forward_for != AcceptForwardForV0::No {
                             log_err!("The same private interface is already forwarding with a different setting, probably because of a --public option conflicting with a --dynamic option. Changing the port on one of the interfaces can help. cannot start");
                             return Err(());
                         }
-                        r.accept_forward_for =
-                            AcceptForwardForV0::PublicDyn((public_port, 60, "".to_string()));
+                        panic!("this should never happen. --dynamic created after a --private");
+                        //r.ipv6 = !args.no_ipv6;
+                        //r.accept_forward_for = AcceptForwardForV0::PublicDyn((public_port, 60, "".to_string()));
                     } else {
                         let mut listener =
-                            ListenerV0::new_direct(inter.name, !args.no_ipv6, arg_value.1);
+                            ListenerV0::new_direct(inter, !args.no_ipv6, arg_value.1);
                         listener.accept_direct = false;
                         listener.accept_forward_for =
                             AcceptForwardForV0::PublicDyn((public_port, 60, "".to_string()));
@@ -764,15 +773,18 @@ async fn main_inner() -> Result<(), ()> {
                         && listeners.last().unwrap().port == arg_value.1
                     {
                         let r = listeners.last_mut().unwrap();
-                        r.ipv6 = !args.no_ipv6;
                         if r.accept_forward_for != AcceptForwardForV0::No {
                             log_err!("The same private interface is already forwarding with a different setting, probably because of a --public or --dynamic option conflicting with the --domain-private option. Changing the port on one of the interfaces can help. cannot start");
                             return Err(());
                         }
-                        r.accept_forward_for = res;
+                        panic!(
+                            "this should never happen. --domain-private created after a --private"
+                        );
+                        //r.ipv6 = !args.no_ipv6;
+                        //r.accept_forward_for = res;
                     } else {
                         let mut listener =
-                            ListenerV0::new_direct(inter.name, !args.no_ipv6, arg_value.1);
+                            ListenerV0::new_direct(inter, !args.no_ipv6, arg_value.1);
                         listener.accept_direct = false;
                         listener.accept_forward_for = res;
 
@@ -819,11 +831,7 @@ async fn main_inner() -> Result<(), ()> {
                         r.accept_direct = true;
                         r.ipv6 = !args.no_ipv6;
                     } else {
-                        listeners.push(ListenerV0::new_direct(
-                            inter.name,
-                            !args.no_ipv6,
-                            arg_value.1,
-                        ));
+                        listeners.push(ListenerV0::new_direct(inter, !args.no_ipv6, arg_value.1));
                     }
                 }
             }
@@ -954,7 +962,7 @@ async fn main_inner() -> Result<(), ()> {
     log_info!("PeerId of node: {}", pubkey);
     debug_println!("Private key of peer: {}", prix_key_encoded);
 
-    match (config.unwrap()) {
+    match config.unwrap() {
         DaemonConfig::V0(v0) => {
             run_server_v0(
                 privkey,

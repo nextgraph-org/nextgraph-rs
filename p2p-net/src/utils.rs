@@ -17,6 +17,7 @@ use noise_protocol::DH;
 pub use noise_rust_crypto::sensitive::Sensitive;
 use p2p_repo::log::*;
 use p2p_repo::types::PubKey;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 #[cfg(target_arch = "wasm32")]
 pub fn spawn_and_log_error<F>(fut: F) -> task::JoinHandle<()>
@@ -95,7 +96,43 @@ impl Dual25519Keys {
         }
     }
 }
-use std::net::{Ipv4Addr, Ipv6Addr};
+
+pub fn get_domain_without_port(domain: &String) -> String {
+    let parts: Vec<&str> = domain.split(':').collect();
+    parts[0].to_string()
+}
+
+pub fn get_domain_without_port_443(domain: &str) -> &str {
+    let parts: Vec<&str> = domain.split(':').collect();
+    if parts.len() > 1 && parts[1] == "443" {
+        return parts[0];
+    }
+    domain
+}
+
+pub fn is_public_ipv4(ip: &Ipv4Addr) -> bool {
+    // TODO, use core::net::Ipv6Addr.is_global when it will be stable
+    return is_ipv4_global(ip);
+}
+
+pub fn is_public_ipv6(ip: &Ipv6Addr) -> bool {
+    // TODO, use core::net::Ipv6Addr.is_global when it will be stable
+    return is_ipv6_global(ip);
+}
+
+pub fn is_public_ip(ip: &IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => is_public_ipv4(v4),
+        IpAddr::V6(v6) => is_public_ipv6(v6),
+    }
+}
+
+pub fn is_private_ip(ip: &IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => is_ipv4_private(v4),
+        IpAddr::V6(v6) => is_ipv6_private(v6),
+    }
+}
 
 #[must_use]
 #[inline]

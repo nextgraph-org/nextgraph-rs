@@ -71,7 +71,7 @@ cargo run --bin ngd
 cargo run --bin ngcli
 ```
 
-For the web apps, see the [README](ng-app-js/README.md)
+For the web apps, see the [README](ng-app/README.md)
 
 ### Test
 
@@ -96,7 +96,7 @@ cargo test --package ngcli -- --nocapture
 Test WASM websocket
 
 ```
-cd ng-app-js
+cd ng-sdk-js
 wasm-pack test --chrome --headless
 ```
 

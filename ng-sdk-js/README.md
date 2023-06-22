@@ -14,7 +14,7 @@ JS/WASM crate containing the SDK of NextGraph
 
 This crate is composed of
 
-- the npm package `ng-app-js` which is the SDK
+- the npm package `ng-sdk-js` which is the SDK
 - an example of web app using the ESmodule and webpack as bundler `app-web`
 - an example of React web app `app-react`
 - an example of node-js app `app-node`

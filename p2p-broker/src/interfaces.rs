@@ -8,55 +8,16 @@
  * notice may not be copied, modified, or distributed except
  * according to those terms.
  */
-use p2p_net::utils::{is_ipv4_global, is_ipv4_private, is_ipv6_global, is_ipv6_private};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use p2p_net::types::{Interface, InterfaceType};
+use p2p_net::utils::{is_ipv4_private, is_public_ipv4};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum InterfaceType {
-    Loopback,
-    Private,
-    Public,
-    Invalid,
-}
-
-impl InterfaceType {
-    pub fn is_ipv4_valid_for_type(&self, ip: &Ipv4Addr) -> bool {
-        match self {
-            InterfaceType::Loopback => ip.is_loopback(),
-            InterfaceType::Public => is_public_ipv4(ip),
-            // we allow to bind to link-local for IPv4
-            InterfaceType::Private => is_ipv4_private(ip),
-            _ => false,
-        }
-    }
-    pub fn is_ipv6_valid_for_type(&self, ip: &Ipv6Addr) -> bool {
-        match self {
-            InterfaceType::Loopback => ip.is_loopback(),
-            InterfaceType::Public => is_public_ipv6(ip),
-            // we do NOT allow to bind to link-local for IPv6
-            InterfaceType::Private => is_ipv6_private(ip),
-            _ => false,
-        }
-    }
-}
-
+#[cfg(not(target_arch = "wasm32"))]
 pub fn print_ipv4(ip: &default_net::ip::Ipv4Net) -> String {
     format!("{}/{}", ip.addr, ip.prefix_len)
 }
-
+#[cfg(not(target_arch = "wasm32"))]
 pub fn print_ipv6(ip: &default_net::ip::Ipv6Net) -> String {
     format!("{}/{}", ip.addr, ip.prefix_len)
-}
-
-#[derive(Clone, Debug)]
-pub struct Interface {
-    pub if_type: InterfaceType,
-    pub name: String,
-    pub mac_addr: Option<default_net::interface::MacAddr>,
-    /// List of Ipv4Net for the network interface
-    pub ipv4: Vec<default_net::ip::Ipv4Net>,
-    /// List of Ipv6Net for the network interface
-    pub ipv6: Vec<default_net::ip::Ipv6Net>,
 }
 
 pub fn find_first(list: &Vec<Interface>, iftype: InterfaceType) -> Option<Interface> {
@@ -90,30 +51,7 @@ pub fn find_name(list: &Vec<Interface>, name: &String) -> Option<Interface> {
     None
 }
 
-pub fn is_public_ipv4(ip: &Ipv4Addr) -> bool {
-    // TODO, use core::net::Ipv6Addr.is_global when it will be stable
-    return is_ipv4_global(ip);
-}
-
-pub fn is_public_ipv6(ip: &Ipv6Addr) -> bool {
-    // TODO, use core::net::Ipv6Addr.is_global when it will be stable
-    return is_ipv6_global(ip);
-}
-
-pub fn is_public_ip(ip: &IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(v4) => is_public_ipv4(v4),
-        IpAddr::V6(v6) => is_public_ipv6(v6),
-    }
-}
-
-pub fn is_private_ip(ip: &IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(v4) => is_ipv4_private(v4),
-        IpAddr::V6(v6) => is_ipv6_private(v6),
-    }
-}
-
+#[cfg(not(target_arch = "wasm32"))]
 pub fn get_interface() -> Vec<Interface> {
     let mut res: Vec<Interface> = vec![];
     let interfaces = default_net::get_interfaces();

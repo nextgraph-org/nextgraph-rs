@@ -63,9 +63,15 @@ pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new
 pub struct Broker {
     direct_connections: HashMap<IP, DirectConnection>,
     peers: HashMap<DirectPeerId, BrokerPeerInfo>,
+    incoming_anonymous_connections: HashMap<(BindAddress, BindAddress), ConnectionBase>,
+    #[cfg(not(target_arch = "wasm32"))]
+    listeners: HashMap<String, ListenerInfo>,
+    bind_addresses: HashMap<BindAddress, String>,
+    overlays_configs: Vec<BrokerOverlayConfigV0>,
     shutdown: Option<Receiver<ProtocolError>>,
     shutdown_sender: Sender<ProtocolError>,
     closing: bool,
+    my_peer_id: Option<PubKey>,
 
     test: u32,
     tauri_streams: HashMap<String, Sender<Commit>>,
@@ -79,12 +85,40 @@ impl Broker {
     }
 
     /// helper function to cancel a tauri stream
-    /// /// only used in Tauri, not used in the JS SDK
+    /// only used in Tauri, not used in the JS SDK
     pub fn tauri_stream_cancel(&mut self, stream_id: String) {
         let s = self.tauri_streams.remove(&stream_id);
         if let Some(sender) = s {
             sender.close_channel();
         }
+    }
+
+    pub fn set_my_peer_id(&mut self, id: PubKey) {
+        if self.my_peer_id.is_none() {
+            self.my_peer_id = Some(id)
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn set_listeners(
+        &mut self,
+        listeners: HashMap<String, ListenerInfo>,
+    ) -> (HashMap<String, ListenerInfo>, HashMap<BindAddress, String>) {
+        for entry in listeners.iter() {
+            for ba in entry.1.addrs.iter() {
+                self.bind_addresses.insert(ba.clone(), entry.0.clone());
+            }
+        }
+        self.listeners.extend(listeners);
+        let mut copy_listeners: HashMap<String, ListenerInfo> = HashMap::new();
+        let mut copy_bind_addresses: HashMap<BindAddress, String> = HashMap::new();
+        copy_listeners.clone_from(&self.listeners);
+        copy_bind_addresses.clone_from(&self.bind_addresses);
+        (copy_listeners, copy_bind_addresses)
+    }
+
+    pub fn set_overlays_configs(&mut self, overlays_configs: Vec<BrokerOverlayConfigV0>) {
+        self.overlays_configs.extend(overlays_configs)
     }
 
     pub async fn get_block_from_store_with_block_id(
@@ -218,6 +252,11 @@ impl Broker {
         let mut random_buf = [0u8; 4];
         getrandom::getrandom(&mut random_buf).unwrap();
         Broker {
+            incoming_anonymous_connections: HashMap::new(),
+            #[cfg(not(target_arch = "wasm32"))]
+            listeners: HashMap::new(),
+            bind_addresses: HashMap::new(),
+            overlays_configs: vec![],
             shutdown: Some(shutdown_receiver),
             shutdown_sender,
             direct_connections: HashMap::new(),
@@ -225,6 +264,7 @@ impl Broker {
             tauri_streams: HashMap::new(),
             closing: false,
             test: u32::from_be_bytes(random_buf),
+            my_peer_id: None,
         }
     }
 
@@ -299,49 +339,50 @@ impl Broker {
     pub async fn accept(
         &mut self,
         mut connection: ConnectionBase,
-        ip: IP,
-        core: Option<String>,
-        remote_peer_id: DirectPeerId,
+        remote_bind_address: BindAddress,
+        local_bind_address: BindAddress,
     ) -> Result<(), NetError> {
         if self.closing {
             return Err(NetError::Closing);
         }
 
-        let join = connection.take_shutdown();
+        //self.incoming_anonymous_connections
 
-        let connected = if core.is_some() {
-            let dc = DirectConnection {
-                ip,
-                interface: core.clone().unwrap(),
-                remote_peer_id,
-                tp: connection.transport_protocol(),
-                cnx: connection,
-            };
-            self.direct_connections.insert(ip, dc);
-            PeerConnection::Core(ip)
-        } else {
-            PeerConnection::Client(connection)
-        };
-        let bpi = BrokerPeerInfo {
-            lastPeerAdvert: None,
-            connected,
-        };
-        self.peers.insert(remote_peer_id, bpi);
+        // let join = connection.take_shutdown();
 
-        async fn watch_close(
-            mut join: Receiver<NetError>,
-            remote_peer_id: DirectPeerId,
-        ) -> ResultSend<()> {
-            async move {
-                let res = join.next().await;
-                log_info!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
-                log_info!("REMOVED");
-                BROKER.write().await.remove(&remote_peer_id);
-            }
-            .await;
-            Ok(())
-        }
-        spawn_and_log_error(watch_close(join, remote_peer_id));
+        // let connected = if core.is_some() {
+        //     let dc = DirectConnection {
+        //         ip,
+        //         interface: core.clone().unwrap(),
+        //         remote_peer_id,
+        //         tp: connection.transport_protocol(),
+        //         cnx: connection,
+        //     };
+        //     self.direct_connections.insert(ip, dc);
+        //     PeerConnection::Core(ip)
+        // } else {
+        //     PeerConnection::Client(connection)
+        // };
+        // let bpi = BrokerPeerInfo {
+        //     lastPeerAdvert: None,
+        //     connected,
+        // };
+        // self.peers.insert(remote_peer_id, bpi);
+
+        // async fn watch_close(
+        //     mut join: Receiver<NetError>,
+        //     remote_peer_id: DirectPeerId,
+        // ) -> ResultSend<()> {
+        //     async move {
+        //         let res = join.next().await;
+        //         log_info!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
+        //         log_info!("REMOVED");
+        //         BROKER.write().await.remove(&remote_peer_id);
+        //     }
+        //     .await;
+        //     Ok(())
+        // }
+        // spawn_and_log_error(watch_close(join, remote_peer_id));
         Ok(())
     }
 

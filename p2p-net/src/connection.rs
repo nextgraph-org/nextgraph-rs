@@ -64,7 +64,6 @@ pub trait IAccept: Send + Sync {
     async fn accept(
         &self,
         peer_privk: Sensitive<[u8; 32]>,
-        peer_pubk: PubKey,
         socket: Self::Socket,
     ) -> Result<ConnectionBase, NetError>;
 }
@@ -204,7 +203,7 @@ impl NoiseFSM {
     }
 
     pub async fn send(&mut self, msg: ProtocolMessage) -> Result<(), ProtocolError> {
-        log_info!("SENDING: {:?}", msg);
+        log_trace!("SENDING: {:?}", msg);
         if self.noise_cipher_state_enc.is_some() {
             let cipher = self.encrypt(msg)?;
             self.sender
@@ -250,7 +249,7 @@ impl NoiseFSM {
             }
         }
         if msg_opt.is_some() {
-            log_info!("RECEIVED: {:?}", msg_opt.as_ref().unwrap());
+            log_trace!("RECEIVED: {:?}", msg_opt.as_ref().unwrap());
         }
         match self.state {
             // TODO verify that ID is zero
