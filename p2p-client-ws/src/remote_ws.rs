@@ -91,7 +91,6 @@ impl IAccept for ConnectionWebSocket {
     async fn accept(
         &self,
         peer_privk: Sensitive<[u8; 32]>,
-        peer_pubk: PubKey,
         socket: Self::Socket,
     ) -> Result<ConnectionBase, NetError> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Server, TransportProtocol::WS);

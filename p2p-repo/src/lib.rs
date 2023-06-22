@@ -138,13 +138,13 @@ pub mod log {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     #[macro_export]
     macro_rules! log_debug {
-    ($($t:tt)*) => (log(format!("DEBUG:{}",&format_args!($($t)*).to_string())))
+    ($($t:tt)*) => (log(&format!("DEBUG:{}",&format_args!($($t)*).to_string()).to_string()))
 }
 
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     #[macro_export]
     macro_rules! log_trace {
-    ($($t:tt)*) => (log(format!("TRACE:{}",&format_args!($($t)*).to_string())))
+    ($($t:tt)*) => (log(&format!("TRACE:{}",&format_args!($($t)*).to_string()).to_string()))
 }
 
     #[cfg(all(not(debug_assertions), target_arch = "wasm32"))]

@@ -43,6 +43,10 @@ pub(crate) struct Cli {
     #[arg(short, long, value_name("INTERFACE:PORT"), default_missing_value("default"), num_args(0..=1))]
     pub core: Option<String>,
 
+    /// When --core is used, this option will allow clients to connect to the public interface too. Otherwise, by default, they cannot.
+    #[arg(long, requires("core"))]
+    pub core_with_clients: bool,
+
     /// Quick config to forward all requests to another BROKER. format is "[DOMAIN/IP:PORT]@PEERID". An IPv6 should be encased in square brackets [IPv6] and the whole option should be between double quotes. Port defaults to 80 for IPs and 443 for domains
     #[arg(
         short,
@@ -66,6 +70,10 @@ pub(crate) struct Cli {
         conflicts_with("core")
     )]
     pub public: Option<String>,
+
+    /// When --public is used, this option will disallow clients to connect to the public interface too. Otherwise, by default, they can. Should be used in combination with a --domain option
+    #[arg(long, requires("public"), conflicts_with("private"))]
+    pub public_without_clients: bool,
 
     /// Quick config to listen for clients and core brokers on PRIVATE_INTERFACE, behind a DMZ or port forwarding of a public dynamic IP. PORTs defaults to 80
     #[arg(short('y'), long, value_name("PRIVATE_INTERFACE:PORT,PUBLIC_PORT"), default_missing_value("default"), num_args(0..=1), conflicts_with("public"), conflicts_with("core"))]

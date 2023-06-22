@@ -29,6 +29,7 @@ pub enum NetError {
     ConnectionError,
     SerializationError,
     ProtocolError,
+    ConnectionDenied,
     Closing,
 } //MAX 50 NetErrors
 

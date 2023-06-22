@@ -18,14 +18,13 @@ serde_bare = "0.5.0"
 serde_bytes = "0.11.7"
 async-std = {  version = "1.12.0", features = ["attributes"] }
 futures = "0.3.24"
-rust-fsm = "0.6.0"
 async-channel = "1.7.1"
 tempfile = "3"
 hex = "0.4.3"
 async-trait = "0.1.64"
-async-tungstenite = {  version = "0.17.2", features = ["async-std-runtime"] }
+async-tungstenite = {  version = "0.22.2", features = ["async-std-runtime"] }
 blake3 = "1.3.1"
-default-net = "0.15"
+once_cell = "1.17.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
 version = "0.2.7"
@@ -33,3 +32,4 @@ features = ["js"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getrandom = "0.2.7"
+default-net = "0.15"

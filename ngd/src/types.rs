@@ -6,7 +6,3 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
-use p2p_broker::types::BrokerOverlayConfigV0;
-use p2p_broker::types::ListenerV0;
-use p2p_repo::types::PrivKey;
-use serde::{Deserialize, Serialize};

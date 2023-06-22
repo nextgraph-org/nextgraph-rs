@@ -13,25 +13,89 @@
 //!
 //! Corresponds to the BARE schema
 
-use core::fmt;
-use std::{
-    any::{Any, TypeId},
-    net::IpAddr,
+use crate::utils::{
+    get_domain_without_port, get_domain_without_port_443, is_ipv4_private, is_ipv6_private,
+    is_private_ip, is_public_ip, is_public_ipv4, is_public_ipv6,
 };
-
 use crate::{actor::EActor, actors::*, errors::ProtocolError};
+use core::fmt;
 use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
+use std::{
+    any::{Any, TypeId},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+};
 
 //
 //  Broker common types
 //
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum InterfaceType {
+    Loopback,
+    Private,
+    Public,
+    Invalid,
+}
+
+impl InterfaceType {
+    pub fn is_ip_valid_for_type(&self, ip: &IP) -> bool {
+        self.is_ipaddr_valid_for_type(&ip.into())
+    }
+    pub fn is_ipaddr_valid_for_type(&self, ip: &IpAddr) -> bool {
+        match ip {
+            IpAddr::V4(v4) => self.is_ipv4_valid_for_type(v4),
+            IpAddr::V6(v6) => self.is_ipv6_valid_for_type(v6),
+        }
+    }
+
+    pub fn is_ipv4_valid_for_type(&self, ip: &Ipv4Addr) -> bool {
+        match self {
+            InterfaceType::Loopback => ip.is_loopback(),
+            InterfaceType::Public => is_public_ipv4(ip),
+            // we allow to bind to link-local for IPv4
+            InterfaceType::Private => is_ipv4_private(ip),
+            _ => false,
+        }
+    }
+    pub fn is_ipv6_valid_for_type(&self, ip: &Ipv6Addr) -> bool {
+        match self {
+            InterfaceType::Loopback => ip.is_loopback(),
+            InterfaceType::Public => is_public_ipv6(ip),
+            // we do NOT allow to bind to link-local for IPv6
+            InterfaceType::Private => is_ipv6_private(ip),
+            _ => false,
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Debug)]
+pub struct Interface {
+    pub if_type: InterfaceType,
+    pub name: String,
+    pub mac_addr: Option<default_net::interface::MacAddr>,
+    /// List of Ipv4Net for the network interface
+    pub ipv4: Vec<default_net::ip::Ipv4Net>,
+    /// List of Ipv6Net for the network interface
+    pub ipv6: Vec<default_net::ip::Ipv6Net>,
+}
+
 /// Bind address
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct BindAddress {
     pub port: u16,
     pub ip: IP,
+}
+
+impl From<&SocketAddr> for BindAddress {
+    #[inline]
+    fn from(addr: &SocketAddr) -> BindAddress {
+        let ip_addr = addr.ip();
+        let ip = IP::try_from(&ip_addr).unwrap();
+        let port = addr.port();
+        BindAddress { ip, port }
+    }
 }
 
 /// BrokerServerTypeV0 type
@@ -52,6 +116,214 @@ pub struct BrokerServerV0 {
 
     /// peerId of the server
     pub peer_id: PubKey,
+}
+
+/// ListenerInfo
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ListenerInfo {
+    pub config: ListenerV0,
+
+    /// list of BindAddresses
+    pub addrs: Vec<BindAddress>,
+}
+
+/// AcceptForwardForV0 type
+/// allow answers to connection requests originating from a client behind a reverse proxy
+/// Format of last param in the tuple is a list of comma separated hosts or CIDR subnetworks IPv4 and/or IPv6 addresses accepted as X-Forwarded-For
+/// Empty string means all addresses are accepted
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum AcceptForwardForV0 {
+    /// X-Forwarded-For not allowed
+    No,
+
+    /// X-Forwarded-For accepted only for clients with private LAN addresses. First param is the domain of the proxy server
+    PrivateDomain((String, String)),
+
+    /// X-Forwarded-For accepted only for clients with public addresses. First param is the domain of the proxy server
+    /// domain can take an option port (trailing `:port`)
+    PublicDomain((String, String)),
+
+    /// X-Forwarded-For accepted only for clients with public addresses. First param is the domain of the proxy server
+    /// domain can take an option port (trailing `:port`)
+    /// second param is the privKey of the PeerId of the proxy server, useful when the proxy server is load balancing to several daemons
+    /// that should all use the same PeerId to answer requests
+    PublicDomainPeer((String, PrivKey, String)),
+
+    /// accepts only clients with public addresses that arrive on a LAN address binding. This is used for DMZ and port forwarding configs
+    /// first param is the port, second param in tuple is the interval for periodic probe of the external IP
+    PublicDyn((u16, u32, String)),
+
+    /// accepts only clients with public addresses that arrive on a LAN address binding. This is used for DMZ and port forwarding configs
+    /// First param is the IPv4 bind address of the reverse NAT server (DMZ, port forwarding)
+    /// Second param is an optional IPv6 bind address of the reverse NAT server (DMZ, port forwarding)
+    PublicStatic((BindAddress, Option<BindAddress>, String)),
+}
+
+impl AcceptForwardForV0 {
+    pub fn get_public_bind_addresses(&self) -> Vec<BindAddress> {
+        match self {
+            AcceptForwardForV0::PublicStatic((ipv4, ipv6, _)) => {
+                let mut res = vec![ipv4.clone()];
+                if ipv6.is_some() {
+                    res.push(ipv6.unwrap().clone())
+                }
+                res
+            }
+            AcceptForwardForV0::PublicDyn(_) => {
+                todo!();
+            }
+            _ => panic!("cannot call get_public_bind_addresses"),
+        }
+    }
+
+    pub fn is_public_domain(&self) -> bool {
+        match self {
+            AcceptForwardForV0::PublicDomainPeer(_) => true,
+            AcceptForwardForV0::PublicDomain(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_public_static(&self) -> bool {
+        match self {
+            AcceptForwardForV0::PublicStatic(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_public_dyn(&self) -> bool {
+        match self {
+            AcceptForwardForV0::PublicDyn(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_private_domain(&self) -> bool {
+        match self {
+            AcceptForwardForV0::PrivateDomain(_) => true,
+            _ => false,
+        }
+    }
+    pub fn get_domain(&self) -> &str {
+        let domain = get_domain_without_port_443(match self {
+            AcceptForwardForV0::PrivateDomain((d, _)) => d,
+            AcceptForwardForV0::PublicDomain((d, _)) => d,
+            AcceptForwardForV0::PublicDomainPeer((d, _, _)) => d,
+            _ => panic!("cannot call get_domain if AcceptForwardForV0 is not a domain"),
+        });
+        //let mut url = "https://".to_string();
+        //url.push_str(domain);
+        domain
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+/// DaemonConfig Listener Version 0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ListenerV0 {
+    /// local interface name to bind to
+    /// names of interfaces can be retrieved with the --list-interfaces option
+    pub interface_name: String,
+
+    pub if_type: InterfaceType,
+
+    /// optional number of seconds for an interval of periodic refresh
+    /// of the actual IP(s) of the interface. Used for dynamic IP interfaces (DHCP)
+    pub interface_refresh: u32,
+
+    // if to bind to the ipv6 address of the interface
+    pub ipv6: bool,
+
+    /// local port to listen on
+    pub port: u16,
+
+    /// should the server serve the app files in HTTP mode (not WS). this setting will be discarded and app will not be served anyway if remote IP is public or listener is public
+    pub serve_app: bool,
+
+    /// default to false. Set to true by --core (use --core-and-clients to override to false). only useful for a public IP listener, if the clients should use another listener like --domain or --domain-private.
+    /// do not set it on a --domain or --domain-private, as this will enable the relay_websocket feature, which should not be used except by app.nextgraph.one
+    pub refuse_clients: bool,
+
+    // will answer a probe coming from private LAN and if is_private, with its own peerId, so that guests on the network will be able to connect.
+    pub discoverable: bool,
+
+    /// Answers to connection requests originating from a direct client, without X-Forwarded-For headers
+    /// Can be used in combination with a accept_forward_for config, when a local daemon is behind a proxy, and also serves as broker for local apps/webbrowsers
+    pub accept_direct: bool,
+
+    /// X-Forwarded-For config. only valid if IP/interface is localhost or private
+    pub accept_forward_for: AcceptForwardForV0,
+    // impl fn is_private()
+    // returns false if public IP in interface, or if PublicDyn, PublicStatic
+    // if the ip is local or private, and the forwarding is not PublicDyn nor PublicStatic, (if is_private) then the app is served on HTTP get of /
+
+    // an interface with no accept_forward_for and no accept_direct, is de facto, disabled
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl ListenerV0 {
+    pub fn new_direct(interface: Interface, ipv6: bool, port: u16) -> Self {
+        Self {
+            interface_name: interface.name,
+            if_type: interface.if_type,
+            interface_refresh: 0,
+            ipv6,
+            port,
+            discoverable: false,
+            accept_direct: true,
+            refuse_clients: false,
+            serve_app: true,
+            accept_forward_for: AcceptForwardForV0::No,
+        }
+    }
+}
+#[cfg(not(target_arch = "wasm32"))]
+impl fmt::Display for ListenerV0 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut id = self.interface_name.clone();
+        id.push('@');
+        id.push_str(&self.port.to_string());
+        write!(f, "{}", id)
+    }
+}
+
+/// Broker Overlay Permission
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum BrokerOverlayPermission {
+    Nobody,
+    Anybody,
+    AllRegisteredUser,
+    UsersList(Vec<UserId>),
+}
+
+/// Broker Overlay Config
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BrokerOverlayConfigV0 {
+    // list of overlays this config applies to. empty array means applying to all
+    pub overlays: Vec<OverlayId>,
+    // Who can ask to join an overlay on the core
+    pub core: BrokerOverlayPermission,
+    // Who can connect as a client to this server
+    pub server: BrokerOverlayPermission,
+    // if core == Nobody and server == Nobody then the listeners will not be started
+
+    // are ExtRequest allowed on the server? this requires the core to be ON.
+    pub allow_read: bool,
+
+    /// an empty list means to forward to the peer known for each overlay.
+    /// forward and core are mutually exclusive. forward becomes the default when core is disabled (set to Nobody).
+    /// core always takes precedence.
+    pub forward: Vec<BrokerServerV0>,
+}
+
+impl BrokerOverlayConfigV0 {
+    pub fn new() -> Self {
+        BrokerOverlayConfigV0 {
+            overlays: vec![],
+            core: BrokerOverlayPermission::Nobody,
+            server: BrokerOverlayPermission::Nobody,
+            allow_read: false,
+            forward: vec![],
+        }
+    }
 }
 
 //
@@ -102,6 +374,19 @@ pub type IPv6 = [u8; 16];
 pub enum IP {
     IPv4(IPv4),
     IPv6(IPv6),
+}
+
+impl IP {
+    pub fn is_public(&self) -> bool {
+        is_public_ip(&self.into())
+    }
+    pub fn is_private(&self) -> bool {
+        is_private_ip(&self.into())
+    }
+    pub fn is_loopback(&self) -> bool {
+        let t: &IpAddr = &self.into();
+        t.is_loopback()
+    }
 }
 
 impl fmt::Display for IP {
