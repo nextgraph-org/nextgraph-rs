@@ -557,10 +557,10 @@
           This security measure will prevent you from entering your pazzle and PIN
           on malicious sites and apps.
           <Alert color="red" class="mt-5">
-            When you will use you wallet, if you do not see and recognize your
-            own security phrase and image before entering your pazzle, please
-            stop and DO NOT enter your pazzle, you are being the victim of a
-            phishing attempt.
+            Every time you will use your wallet, if you do not see and recognize
+            your own security phrase and image before entering your pazzle,
+            please stop and DO NOT enter your pazzle, as you would be the victim
+            of a phishing attempt.
           </Alert>
         </p>
         <p class="text-left mt-5">

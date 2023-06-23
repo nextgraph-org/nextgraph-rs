@@ -577,6 +577,7 @@ async fn main_inner() -> Result<(), ()> {
                     } else {
                         listener.refuse_clients = true;
                     }
+                    listener.serve_app = false;
                     listeners.push(listener);
                 }
             }
@@ -645,7 +646,7 @@ async fn main_inner() -> Result<(), ()> {
                 port: private_part.1,
                 discoverable: false,
                 refuse_clients: args.public_without_clients,
-                serve_app: true,
+                serve_app: false,
                 accept_direct: false,
                 accept_forward_for: AcceptForwardForV0::PublicStatic((
                     BindAddress {
@@ -720,6 +721,7 @@ async fn main_inner() -> Result<(), ()> {
                         let mut listener =
                             ListenerV0::new_direct(inter, !args.no_ipv6, arg_value.1);
                         listener.accept_direct = false;
+                        listener.serve_app = false;
                         listener.accept_forward_for =
                             AcceptForwardForV0::PublicDyn((public_port, 60, "".to_string()));
                         listeners.push(listener);
@@ -829,6 +831,7 @@ async fn main_inner() -> Result<(), ()> {
                     {
                         let r = listeners.last_mut().unwrap();
                         r.accept_direct = true;
+                        r.serve_app = true;
                         r.ipv6 = !args.no_ipv6;
                     } else {
                         listeners.push(ListenerV0::new_direct(inter, !args.no_ipv6, arg_value.1));

@@ -23,6 +23,17 @@ cargo watch -c -w src -x run
 
 ## Build
 
+First you will need to build the single-file release of ng-app.
+
+```
+// uncomment line 14 of src/App.svelte: import * as api from "ng-sdk-js";
+cd ../ng-app
+pnpm filebuild
+cd ../ngone
+```
+
+then, in ngone:
+
 ```
 cd web
 pnpm run build

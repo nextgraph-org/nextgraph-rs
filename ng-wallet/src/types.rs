@@ -12,7 +12,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 
-use p2p_net::types::{BrokerServerV0, NetAddr};
+use p2p_net::types::{BootstrapContentV0, BrokerServerV0};
 use p2p_repo::types::*;
 
 /// WalletId is a PubKey
@@ -20,13 +20,6 @@ pub type WalletId = PubKey;
 
 /// BootstrapId is a WalletId
 pub type BootstrapId = WalletId;
-
-/// Bootstrap content Version 0
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BootstrapContentV0 {
-    /// list of servers, in order of preference
-    pub servers: Vec<BrokerServerV0>,
-}
 
 /// Bootstrap Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]

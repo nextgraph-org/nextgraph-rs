@@ -118,6 +118,18 @@ pub struct BrokerServerV0 {
     pub peer_id: PubKey,
 }
 
+/// Bootstrap content Version 0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BootstrapContentV0 {
+    /// list of servers, in order of preference
+    pub servers: Vec<BrokerServerV0>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum BootstrapContent {
+    V0(BootstrapContentV0),
+}
+
 /// ListenerInfo
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -273,6 +285,61 @@ impl ListenerV0 {
             serve_app: true,
             accept_forward_for: AcceptForwardForV0::No,
         }
+    }
+
+    pub fn get_bootstraps(&self, addrs: Vec<BindAddress>) -> Vec<BrokerServerTypeV0> {
+        let mut res: Vec<BrokerServerTypeV0> = vec![];
+        match self.accept_forward_for {
+            AcceptForwardForV0::PublicStatic(_) => {
+                if !self.refuse_clients {
+                    res.push(BrokerServerTypeV0::BoxPublic(
+                        self.accept_forward_for.get_public_bind_addresses(),
+                    ));
+                }
+                if self.accept_direct {
+                    res.push(BrokerServerTypeV0::BoxPrivate(addrs));
+                }
+            }
+            AcceptForwardForV0::PublicDyn(_) => {
+                if !self.refuse_clients {
+                    res.push(BrokerServerTypeV0::BoxPublicDyn(
+                        // self.accept_forward_for.get_public_bind_addresses(), //FIXME. we should use this, but for now it isnt implemented
+                        vec![],
+                    ));
+                }
+                if self.accept_direct {
+                    res.push(BrokerServerTypeV0::BoxPrivate(addrs));
+                }
+            }
+            AcceptForwardForV0::PublicDomain(_) | AcceptForwardForV0::PublicDomainPeer(_) => {
+                res.push(BrokerServerTypeV0::Domain(
+                    self.accept_forward_for.get_domain().to_string(),
+                ));
+                if self.accept_direct {
+                    if self.if_type == InterfaceType::Private {
+                        res.push(BrokerServerTypeV0::BoxPrivate(addrs));
+                    } else if self.if_type == InterfaceType::Loopback {
+                        res.push(BrokerServerTypeV0::Localhost(addrs[0].port));
+                    }
+                }
+            }
+            AcceptForwardForV0::PrivateDomain(_) => {
+                res.push(BrokerServerTypeV0::Domain(
+                    self.accept_forward_for.get_domain().to_string(),
+                ));
+            }
+            AcceptForwardForV0::No => {
+                if self.if_type == InterfaceType::Loopback {
+                    res.push(BrokerServerTypeV0::Localhost(addrs[0].port));
+                } else if self.if_type == InterfaceType::Public && !self.refuse_clients {
+                    res.push(BrokerServerTypeV0::BoxPublic(addrs));
+                } else if self.if_type == InterfaceType::Private {
+                    res.push(BrokerServerTypeV0::BoxPrivate(addrs));
+                }
+            }
+            _ => panic!("get_bootstrap missing"),
+        }
+        res
     }
 }
 #[cfg(not(target_arch = "wasm32"))]
