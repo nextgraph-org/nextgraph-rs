@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use crate::actor::{Actor, SoS};
 use crate::actors::*;
+use crate::broker::BROKER;
 use crate::errors::NetError;
 use crate::errors::ProtocolError;
 use crate::types::*;
@@ -63,6 +64,8 @@ pub trait IAccept: Send + Sync {
     type Socket;
     async fn accept(
         &self,
+        remote_bind_address: BindAddress,
+        local_bind_address: BindAddress,
         peer_privk: Sensitive<[u8; 32]>,
         socket: Self::Socket,
     ) -> Result<ConnectionBase, NetError>;
@@ -99,6 +102,8 @@ pub struct NoiseFSM {
     state: FSMstate,
     dir: ConnectionDir,
     sender: Sender<ConnectionCommand>,
+
+    bind_addresses: Option<(BindAddress, BindAddress)>,
 
     actors: Arc<Mutex<HashMap<i64, Sender<ConnectionCommand>>>>,
 
@@ -149,6 +154,7 @@ pub enum StartConfig {
 
 impl NoiseFSM {
     pub fn new(
+        bind_addresses: Option<(BindAddress, BindAddress)>,
         tp: TransportProtocol,
         dir: ConnectionDir,
         actors: Arc<Mutex<HashMap<i64, Sender<ConnectionCommand>>>>,
@@ -163,6 +169,7 @@ impl NoiseFSM {
                 FSMstate::Noise0
             },
             dir,
+            bind_addresses,
             actors,
             sender,
             noise_handshake_state: None,
@@ -276,9 +283,9 @@ impl NoiseFSM {
                         noise_xk(),
                         true,
                         &[],
-                        Some(self.from.take().unwrap()),
+                        Some(from_ed_priv_to_dh_priv(self.from.take().unwrap())),
                         None,
-                        Some(*self.to.unwrap().slice()),
+                        Some(*self.to.unwrap().to_dh_from_ed().slice()),
                         None,
                     );
 
@@ -304,7 +311,7 @@ impl NoiseFSM {
                                     noise_xk(),
                                     false,
                                     &[],
-                                    Some(self.from.take().unwrap()),
+                                    Some(from_ed_priv_to_dh_priv(self.from.take().unwrap())),
                                     None,
                                     None,
                                     None,
@@ -400,8 +407,21 @@ impl NoiseFSM {
                             if !handshake.completed() {
                                 return Err(ProtocolError::NoiseHandshakeFailed);
                             }
-
-                            self.to = Some(PubKey::Ed25519PubKey(handshake.get_rs().unwrap()));
+                            let peer_id = PubKey::Ed25519PubKey(handshake.get_rs().unwrap());
+                            self.to = Some(peer_id);
+                            let (local_bind_address, remote_bind_address) =
+                                self.bind_addresses.ok_or(ProtocolError::BrokerError)?;
+                            BROKER
+                                .write()
+                                .await
+                                .attach_peer_id(
+                                    remote_bind_address,
+                                    local_bind_address,
+                                    peer_id,
+                                    None,
+                                )
+                                .await
+                                .map_err(|_| ProtocolError::BrokerError)?;
 
                             let ciphers = handshake.get_ciphers();
                             self.noise_cipher_state_enc = Some(ciphers.1);
@@ -739,7 +759,12 @@ impl ConnectionBase {
         }
     }
 
-    pub fn start_read_loop(&mut self, from: Sensitive<[u8; 32]>, to: Option<PubKey>) {
+    pub fn start_read_loop(
+        &mut self,
+        bind_addresses: Option<(BindAddress, BindAddress)>,
+        from: Sensitive<[u8; 32]>,
+        to: Option<PubKey>,
+    ) {
         let (sender_tx, sender_rx) = mpsc::unbounded();
         let (receiver_tx, receiver_rx) = mpsc::unbounded();
         self.sender = Some(sender_rx);
@@ -748,6 +773,7 @@ impl ConnectionBase {
         self.receiver_tx = Some(receiver_tx);
 
         let fsm = Arc::new(Mutex::new(NoiseFSM::new(
+            bind_addresses,
             self.tp,
             self.dir.clone(),
             Arc::clone(&self.actors),

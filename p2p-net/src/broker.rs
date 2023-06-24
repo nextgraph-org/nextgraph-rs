@@ -63,6 +63,7 @@ pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new
 pub struct Broker {
     direct_connections: HashMap<IP, DirectConnection>,
     peers: HashMap<DirectPeerId, BrokerPeerInfo>,
+    /// (local,remote) -> ConnectionBase
     incoming_anonymous_connections: HashMap<(BindAddress, BindAddress), ConnectionBase>,
     #[cfg(not(target_arch = "wasm32"))]
     listeners: HashMap<String, ListenerInfo>,
@@ -338,7 +339,7 @@ impl Broker {
 
     pub async fn accept(
         &mut self,
-        mut connection: ConnectionBase,
+        connection: ConnectionBase,
         remote_bind_address: BindAddress,
         local_bind_address: BindAddress,
     ) -> Result<(), NetError> {
@@ -346,43 +347,67 @@ impl Broker {
             return Err(NetError::Closing);
         }
 
-        //self.incoming_anonymous_connections
+        if self
+            .incoming_anonymous_connections
+            .insert((local_bind_address, remote_bind_address), connection)
+            .is_some()
+        {
+            log_err!(
+                "internal error. duplicate connection {:?} {:?}",
+                local_bind_address,
+                remote_bind_address
+            );
+        }
+        Ok(())
+    }
 
-        // let join = connection.take_shutdown();
+    pub async fn attach_peer_id(
+        &mut self,
+        remote_bind_address: BindAddress,
+        local_bind_address: BindAddress,
+        remote_peer_id: PubKey,
+        core: Option<String>,
+    ) -> Result<(), NetError> {
+        log_debug!("ATTACH PEER_ID {}", remote_peer_id);
+        let mut connection = self
+            .incoming_anonymous_connections
+            .remove(&(local_bind_address, remote_bind_address))
+            .ok_or(NetError::InternalError)?;
+        let join = connection.take_shutdown();
+        let ip = remote_bind_address.ip;
+        let connected = if core.is_some() {
+            let dc = DirectConnection {
+                ip,
+                interface: core.clone().unwrap(),
+                remote_peer_id,
+                tp: connection.transport_protocol(),
+                cnx: connection,
+            };
+            self.direct_connections.insert(ip, dc);
+            PeerConnection::Core(ip)
+        } else {
+            PeerConnection::Client(connection)
+        };
+        let bpi = BrokerPeerInfo {
+            lastPeerAdvert: None,
+            connected,
+        };
+        self.peers.insert(remote_peer_id, bpi);
 
-        // let connected = if core.is_some() {
-        //     let dc = DirectConnection {
-        //         ip,
-        //         interface: core.clone().unwrap(),
-        //         remote_peer_id,
-        //         tp: connection.transport_protocol(),
-        //         cnx: connection,
-        //     };
-        //     self.direct_connections.insert(ip, dc);
-        //     PeerConnection::Core(ip)
-        // } else {
-        //     PeerConnection::Client(connection)
-        // };
-        // let bpi = BrokerPeerInfo {
-        //     lastPeerAdvert: None,
-        //     connected,
-        // };
-        // self.peers.insert(remote_peer_id, bpi);
-
-        // async fn watch_close(
-        //     mut join: Receiver<NetError>,
-        //     remote_peer_id: DirectPeerId,
-        // ) -> ResultSend<()> {
-        //     async move {
-        //         let res = join.next().await;
-        //         log_info!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
-        //         log_info!("REMOVED");
-        //         BROKER.write().await.remove(&remote_peer_id);
-        //     }
-        //     .await;
-        //     Ok(())
-        // }
-        // spawn_and_log_error(watch_close(join, remote_peer_id));
+        async fn watch_close(
+            mut join: Receiver<NetError>,
+            remote_peer_id: DirectPeerId,
+        ) -> ResultSend<()> {
+            async move {
+                let res = join.next().await;
+                log_info!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
+                log_info!("REMOVED");
+                BROKER.write().await.remove(&remote_peer_id);
+            }
+            .await;
+            Ok(())
+        }
+        spawn_and_log_error(watch_close(join, remote_peer_id));
         Ok(())
     }
 

@@ -20,6 +20,9 @@ pub mod kcv_store;
 
 pub mod site;
 
+#[macro_use]
+extern crate slice_as_array;
+
 pub mod log {
 
     #[cfg(not(target_arch = "wasm32"))]

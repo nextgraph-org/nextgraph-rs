@@ -51,7 +51,7 @@ impl IConnect for ConnectionWebSocket {
             NetError::ConnectionError
         })?;
 
-        cnx.start_read_loop(peer_privk, Some(remote_peer));
+        cnx.start_read_loop(None, peer_privk, Some(remote_peer));
         let mut shutdown = cnx.set_shutdown();
 
         spawn_and_log_error(ws_loop(

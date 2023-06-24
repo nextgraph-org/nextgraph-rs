@@ -517,7 +517,15 @@ pub async fn accept(tcp: TcpStream, peer_priv_key: Sensitive<[u8; 32]>) {
     log_debug!("websocket accepted");
 
     let cws = ConnectionWebSocket {};
-    let base = cws.accept(peer_priv_key, ws.unwrap()).await.unwrap();
+    let base = cws
+        .accept(
+            remote_bind_address,
+            local_bind_address,
+            peer_priv_key,
+            ws.unwrap(),
+        )
+        .await
+        .unwrap();
 
     let res = BROKER
         .write()

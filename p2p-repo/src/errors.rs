@@ -11,11 +11,23 @@
 
 //! Errors
 
+use core::fmt;
+use std::error::Error;
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 #[repr(u16)]
 pub enum NgError {
     InvalidSignature,
     SerializationError,
+    InvalidKey,
+}
+
+impl Error for NgError {}
+
+impl fmt::Display for NgError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl From<serde_bare::error::Error> for NgError {
