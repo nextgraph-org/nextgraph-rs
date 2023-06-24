@@ -80,6 +80,7 @@ impl Object {
             (PubKey::Ed25519PubKey(pubkey), SymKey::ChaCha20Key(secret)) => {
                 [pubkey, secret].concat()
             }
+            (_, _) => panic!("cannot sign with Montgomery key"),
         };
         blake3::derive_key("NextGraph Data BLAKE3 key", key_material.as_slice())
     }
@@ -574,6 +575,14 @@ mod test {
     const MAX_ARITY_ROOT: usize = 31770;
     /// Maximum data that can fit in object.content
     const MAX_DATA_PAYLOAD_SIZE: usize = 2097112;
+
+    #[test]
+    pub fn test_pubkey_from_str() {
+        let pubkey = PubKey::Ed25519PubKey([1u8; 32]);
+        let str = pubkey.to_string();
+        let server_key: PubKey = str.as_str().try_into().unwrap();
+        assert_eq!(server_key, pubkey);
+    }
 
     /// Test JPEG file
     #[test]

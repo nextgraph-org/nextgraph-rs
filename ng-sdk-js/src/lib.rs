@@ -22,7 +22,7 @@ use p2p_client_ws::remote_ws_wasm::ConnectionWebSocket;
 use p2p_net::broker::*;
 use p2p_net::connection::{ClientConfig, StartConfig};
 use p2p_net::types::{DirectPeerId, IP};
-use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
+use p2p_net::utils::{gen_ed_keys, spawn_and_log_error, Receiver, ResultSend, Sender};
 use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::generate_keypair;
@@ -207,13 +207,14 @@ pub async fn start() {
     // getrandom::getrandom(&mut random_buf).unwrap();
 
     async fn inner_task() -> ResultSend<()> {
-        let server_key = PubKey::Ed25519PubKey([
-            95, 155, 249, 202, 41, 105, 71, 51, 206, 126, 9, 84, 132, 92, 60, 7, 74, 179, 46, 21,
-            21, 242, 171, 27, 249, 79, 76, 176, 168, 43, 83, 2,
-        ]);
+        let server_key: PubKey = "KWdmwr4_oO62IFGfKzuyotQOixqXGNWv59CRAGvPTjM".try_into()?;
+        log_debug!("server_key:{}", server_key);
 
-        let keys = p2p_net::utils::gen_keys();
-        let pub_key = PubKey::Ed25519PubKey(keys.1);
+        //let keys = p2p_net::utils::gen_dh_keys();
+        //let pub_key = PubKey::Ed25519PubKey(keys.1);
+        let keys = gen_ed_keys();
+        let x_from_ed = keys.1.to_dh_from_ed();
+        log_info!("Pub from X {}", x_from_ed);
 
         let (client_priv_key, client_pub_key) = generate_keypair();
         let (user_priv_key, user_pub_key) = generate_keypair();
@@ -228,7 +229,7 @@ pub async fn start() {
                 IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
                 None,
                 keys.0,
-                pub_key,
+                keys.1,
                 server_key,
                 StartConfig::Client(ClientConfig {
                     user: user_pub_key,

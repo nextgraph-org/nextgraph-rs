@@ -60,7 +60,7 @@ impl IConnect for ConnectionWebSocket {
                 Err(NetError::ConnectionError)
             }
             Ok((mut websocket, _)) => {
-                cnx.start_read_loop(peer_privk, Some(remote_peer));
+                cnx.start_read_loop(None, peer_privk, Some(remote_peer));
                 let s = cnx.take_sender();
                 let r = cnx.take_receiver();
                 let mut shutdown = cnx.set_shutdown();
@@ -90,12 +90,18 @@ impl IAccept for ConnectionWebSocket {
     type Socket = WebSocketStream<TcpStream>;
     async fn accept(
         &self,
+        remote_bind_address: BindAddress,
+        local_bind_address: BindAddress,
         peer_privk: Sensitive<[u8; 32]>,
         socket: Self::Socket,
     ) -> Result<ConnectionBase, NetError> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Server, TransportProtocol::WS);
 
-        cnx.start_read_loop(peer_privk, None);
+        cnx.start_read_loop(
+            Some((local_bind_address, remote_bind_address)),
+            peer_privk,
+            None,
+        );
         let s = cnx.take_sender();
         let r = cnx.take_receiver();
         let mut shutdown = cnx.set_shutdown();
@@ -272,7 +278,7 @@ mod test {
             21, 242, 171, 27, 249, 79, 76, 176, 168, 43, 83, 2,
         ]);
 
-        let keys = p2p_net::utils::gen_keys();
+        let keys = p2p_net::utils::gen_dh_keys();
         let pub_key = PubKey::Ed25519PubKey(keys.1);
 
         let (client_priv_key, client_pub_key) = generate_keypair();

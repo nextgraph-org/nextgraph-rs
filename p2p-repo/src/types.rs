@@ -13,6 +13,8 @@
 //!
 //! Corresponds to the BARE schema
 
+use crate::errors::NgError;
+use crate::utils::{decode_key, dh_pubkey_from_ed_slice};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_bare::to_vec;
@@ -61,7 +63,7 @@ impl SymKey {
 pub type Ed25519PubKey = [u8; 32];
 
 /// Curve25519 public key Montgomery form
-pub type Mo25519PubKey = [u8; 32];
+pub type X25519PubKey = [u8; 32];
 
 /// Curve25519 private key
 pub type Ed25519PrivKey = [u8; 32];
@@ -70,21 +72,43 @@ pub type Ed25519PrivKey = [u8; 32];
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum PubKey {
     Ed25519PubKey(Ed25519PubKey),
+    X25519PubKey(X25519PubKey),
 }
 
 impl PubKey {
     pub fn slice(&self) -> &[u8; 32] {
         match self {
-            PubKey::Ed25519PubKey(o) => o,
+            PubKey::Ed25519PubKey(o) | PubKey::X25519PubKey(o) => o,
         }
+    }
+    pub fn to_dh_from_ed(&self) -> PubKey {
+        match self {
+            PubKey::Ed25519PubKey(ed) => dh_pubkey_from_ed_slice(ed),
+            _ => panic!(
+                "cannot convert a Montgomery key to Montgomery. it is already one. check your code"
+            ),
+        }
+    }
+    pub fn dh_from_ed_slice(slice: &[u8]) -> PubKey {
+        dh_pubkey_from_ed_slice(slice)
     }
 }
 
 impl fmt::Display for PubKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PubKey::Ed25519PubKey(d) => write!(f, "{}", base64_url::encode(d)),
+            PubKey::Ed25519PubKey(d) | PubKey::X25519PubKey(d) => {
+                write!(f, "{}", base64_url::encode(d))
+            }
         }
+    }
+}
+
+impl TryFrom<&str> for PubKey {
+    type Error = NgError;
+    fn try_from(str: &str) -> Result<Self, NgError> {
+        let key = decode_key(str).map_err(|_| NgError::InvalidKey)?;
+        Ok(PubKey::Ed25519PubKey(key))
     }
 }
 
@@ -99,6 +123,30 @@ impl PrivKey {
         match self {
             PrivKey::Ed25519PrivKey(o) => o,
         }
+    }
+}
+
+impl From<[u8; 32]> for PrivKey {
+    fn from(buf: [u8; 32]) -> Self {
+        let priv_key = PrivKey::Ed25519PrivKey(buf);
+        priv_key
+    }
+}
+
+impl TryFrom<&[u8]> for PrivKey {
+    type Error = NgError;
+    fn try_from(buf: &[u8]) -> Result<Self, NgError> {
+        let priv_key_array = *slice_as_array!(buf, [u8; 32]).ok_or(NgError::InvalidKey)?;
+        let priv_key = PrivKey::Ed25519PrivKey(priv_key_array);
+        Ok(priv_key)
+    }
+}
+
+impl fmt::Display for PrivKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let priv_key_ser = serde_bare::to_vec(self).unwrap();
+        let prix_key_encoded = base64_url::encode(&priv_key_ser);
+        write!(f, "{}", prix_key_encoded)
     }
 }
 

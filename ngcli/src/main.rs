@@ -599,13 +599,14 @@ mod test {
 
     use async_std::task;
     use p2p_broker::server_ws::*;
-    use p2p_net::utils::{gen_keys, Sensitive, U8Array};
+    use p2p_net::utils::{gen_dh_keys, Sensitive, U8Array};
     use p2p_net::WS_PORT;
+    use p2p_repo::log::*;
     use p2p_repo::types::PubKey;
 
     #[async_std::test]
     pub async fn test_remote_cnx() -> Result<(), Box<dyn std::error::Error>> {
-        let keys = gen_keys();
+        let keys = gen_dh_keys();
         // log_debug!("Public key of node: {:?}", keys.1);
         // log_debug!("Private key of node: {:?}", keys.0.as_slice());
         let pubkey = PubKey::Ed25519PubKey(keys.1);

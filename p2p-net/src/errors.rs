@@ -29,7 +29,8 @@ pub enum NetError {
     ConnectionError,
     SerializationError,
     ProtocolError,
-    ConnectionDenied,
+    AccessDenied,
+    InternalError,
     Closing,
 } //MAX 50 NetErrors
 
@@ -104,6 +105,7 @@ impl From<p2p_repo::errors::NgError> for ProtocolError {
         match e {
             p2p_repo::errors::NgError::InvalidSignature => ProtocolError::InvalidSignature,
             p2p_repo::errors::NgError::SerializationError => ProtocolError::SerializationError,
+            _ => ProtocolError::OtherError,
         }
     }
 }

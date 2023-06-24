@@ -82,6 +82,7 @@ impl CommitV0 {
         // sign commit
         let kp = match (author_privkey, author_pubkey) {
             (PrivKey::Ed25519PrivKey(sk), PubKey::Ed25519PubKey(pk)) => [sk, pk].concat(),
+            (_, _) => panic!("cannot sign with Montgomery key"),
         };
         let keypair = Keypair::from_bytes(kp.as_slice())?;
         let sig_bytes = keypair.sign(content_ser.as_slice()).to_bytes();
@@ -246,6 +247,7 @@ impl Commit {
         let content_ser = serde_bare::to_vec(&c.content).unwrap();
         let pubkey = match c.content.author {
             PubKey::Ed25519PubKey(pk) => pk,
+            _ => panic!("author cannot have a Montgomery key"),
         };
         let pk = PublicKey::from_bytes(&pubkey)?;
         let sig_bytes = match c.sig {

@@ -6,8 +6,6 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
-#[macro_use]
-extern crate slice_as_array;
 
 pub mod types;
 
@@ -26,14 +24,14 @@ use p2p_net::utils::is_public_ip;
 use p2p_net::utils::is_public_ipv4;
 use p2p_net::utils::is_public_ipv6;
 use p2p_net::utils::{
-    gen_keys, is_ipv4_global, is_ipv4_private, is_ipv6_global, is_ipv6_private, keys_from_bytes,
-    Dual25519Keys, Sensitive, U8Array,
+    gen_dh_keys, is_ipv4_global, is_ipv4_private, is_ipv6_global, is_ipv6_private, keypair_from_ed,
+    keys_from_bytes, Dual25519Keys, Sensitive, U8Array,
 };
 use p2p_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
 use p2p_repo::log::*;
 use p2p_repo::{
     types::{PrivKey, PubKey},
-    utils::{generate_keypair, keypair_from_ed, sign, verify},
+    utils::{decode_key, generate_keypair, sign, verify},
 };
 use serde_json::{from_str, to_string_pretty};
 use std::fs::{read_to_string, write};
@@ -45,13 +43,6 @@ use addr::parser::DnsName;
 use addr::psl::List;
 use lazy_static::lazy_static;
 use regex::Regex;
-
-fn decode_key(key_string: &String) -> Result<[u8; 32], ()> {
-    let vec = base64_url::decode(key_string).map_err(|_| log_err!("key has invalid content"))?;
-    Ok(*slice_as_array!(&vec, [u8; 32])
-        .ok_or(())
-        .map_err(|_| log_err!("key has invalid content array"))?)
-}
 
 //For windows: {846EE342-7039-11DE-9D20-806E6F6E6963}
 //For the other OSes: en0 lo ...
@@ -384,7 +375,7 @@ async fn main_inner() -> Result<(), ()> {
                 log_err!("provided --key option will not be used as a key file is already present");
                 gen_broker_keys(Some(key_from_file.unwrap()))
             } else {
-                let res = decode_key(key_string)
+                let res = decode_key(key_string.as_str())
                     .map_err(|_| log_err!("provided key is invalid. cannot start"))?;
 
                 if args.save_key {
@@ -853,13 +844,8 @@ async fn main_inner() -> Result<(), ()> {
                 );
                 return Err(());
             }
-            let vec = base64_url::decode(parts[1])
+            let pub_key_array = decode_key(parts[1])
                 .map_err(|_| log_err!("The PEERID provided in the --forward option is invalid"))?;
-            let pub_key_array = *slice_as_array!(vec.as_slice(), [u8; 32])
-                .ok_or(())
-                .map_err(|_| {
-                    log_err!("PEERID provided in the --forward option, has invalid array")
-                })?;
             let peer_id = PubKey::Ed25519PubKey(pub_key_array);
 
             let server_type = if parts[0].len() > 0 {
@@ -944,7 +930,7 @@ async fn main_inner() -> Result<(), ()> {
     // let pub_key = PubKey::Ed25519PubKey(keys.1);
     // let (ed_priv_key, ed_pub_key) = generate_keypair();
 
-    // let duals = Dual25519Keys::generate();
+    //let duals = Dual25519Keys::generate();
     // let eds = keypair_from_ed(duals.ed25519_priv, duals.ed25519_pub);
     // let test_vector: Vec<u8> = vec![71, 51, 206, 126, 9, 84, 132];
     // let sig = sign(eds.0, eds.1, &test_vector).unwrap();
@@ -955,15 +941,22 @@ async fn main_inner() -> Result<(), ()> {
 
     let (privkey, pubkey) = keys_from_bytes(keys[1]);
 
-    let priv_key_array = *slice_as_array!(privkey.as_slice(), [u8; 32])
-        .ok_or(())
-        .map_err(|_| log_err!("Private key of peer has invalid array"))?;
-    let priv_key = PrivKey::Ed25519PrivKey(priv_key_array);
-    let priv_key_ser = serde_bare::to_vec(&priv_key).unwrap();
-    let prix_key_encoded = base64_url::encode(&priv_key_ser);
+    //let duals = Dual25519Keys::from_sensitive(privkey);
+    //let eds = keypair_from_ed(duals.ed25519_priv, duals.ed25519_pub);
+    //let xpriv = duals.x25519_priv;
+    //let xpub = PubKey::X25519PubKey(duals.x25519_public);
+
+    // let priv_key: PrivKey = privkey
+    //     .as_slice()
+    //     .try_into()
+    //     .map_err(|_| log_err!("Private key of peer has invalid array"))?;
 
     log_info!("PeerId of node: {}", pubkey);
-    debug_println!("Private key of peer: {}", prix_key_encoded);
+    //let privkey_: PrivKey = xpriv.to_owned().try_into().unwrap();
+    //debug_println!("Private key of peer: {}", privkey_.to_string());
+
+    //let x_from_ed = eds.1.to_dh_from_ed();
+    //log_info!("Pub from X {}", x_from_ed);
 
     match config.unwrap() {
         DaemonConfig::V0(v0) => {
