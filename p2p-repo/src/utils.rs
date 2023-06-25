@@ -26,6 +26,12 @@ pub fn decode_key(key_string: &str) -> Result<[u8; 32], ()> {
         .map_err(|_| log_err!("key has invalid content array"))?)
 }
 
+pub fn ed_privkey_to_pubkey(privkey: &PrivKey) -> PubKey {
+    let sk = SecretKey::from_bytes(privkey.slice()).unwrap();
+    let pk: PublicKey = (&sk).into();
+    PubKey::Ed25519PubKey(pk.to_bytes())
+}
+
 pub fn generate_null_keypair() -> (PrivKey, PubKey) {
     let master_key: [u8; 32] = [0; 32];
     let sk = SecretKey::from_bytes(&master_key).unwrap();
