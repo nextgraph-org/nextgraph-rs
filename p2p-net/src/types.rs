@@ -274,7 +274,7 @@ pub struct ListenerV0 {
     pub serve_app: bool,
 
     /// when the box is behind a DMZ, and ipv6 is enabled, the private interface will get the external public IpV6. with this option we allow binding to it
-    pub bind_public_ipv6_to_private_interface: bool,
+    pub bind_public_ipv6: bool,
 
     /// default to false. Set to true by --core (use --core-and-clients to override to false). only useful for a public IP listener, if the clients should use another listener like --domain or --domain-private.
     /// do not set it on a --domain or --domain-private, as this will enable the relay_websocket feature, which should not be used except by app.nextgraph.one
@@ -305,9 +305,7 @@ impl ListenerV0 {
         }
         let public_ipv6addr: IpAddr = public_ip.as_ref().unwrap().into();
         return if let IpAddr::V6(v6) = public_ipv6addr {
-            self.bind_public_ipv6_to_private_interface
-                && self.if_type == InterfaceType::Private
-                && ip == v6
+            self.bind_public_ipv6 && self.if_type == InterfaceType::Private && ip == v6
         } else {
             false
         };
@@ -324,7 +322,7 @@ impl ListenerV0 {
             accept_direct: true,
             refuse_clients: false,
             serve_app: true,
-            bind_public_ipv6_to_private_interface: false,
+            bind_public_ipv6: false,
             accept_forward_for: AcceptForwardForV0::No,
         }
     }

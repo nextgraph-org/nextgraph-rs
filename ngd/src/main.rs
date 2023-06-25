@@ -645,7 +645,7 @@ async fn main_inner() -> Result<(), ()> {
                 refuse_clients: args.public_without_clients,
                 serve_app: false,
                 accept_direct: false,
-                bind_public_ipv6_to_private_interface: false,
+                bind_public_ipv6: ipv6.is_some() && args.bind_public_ipv6,
                 accept_forward_for: AcceptForwardForV0::PublicStatic((
                     BindAddress {
                         port: public_part.1 .1,
