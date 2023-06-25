@@ -111,9 +111,12 @@ fn check_xff_is_public_or_private(
             }
         }
         Some(val) => {
-            let ip_str = val
+            let mut ip_str = val
                 .to_str()
                 .map_err(|_| make_error(StatusCode::FORBIDDEN))?;
+            if ip_str.starts_with("::ffff:") {
+                ip_str = ip_str.strip_prefix("::ffff:").unwrap();
+            }
             let ip: IpAddr = ip_str
                 .parse()
                 .map_err(|_| make_error(StatusCode::FORBIDDEN))?;
