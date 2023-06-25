@@ -197,6 +197,8 @@ fn prepare_urls_from_private_addrs(addrs: &Vec<BindAddress>, port: u16) -> Vec<S
 #[include = "*.gzip"]
 struct App;
 
+static ROBOTS: &str = "User-agent: *\r\nDisallow: /";
+
 fn upgrade_ws_or_serve_app(
     connection: Option<&HeaderValue>,
     remote: IP,
@@ -251,6 +253,14 @@ fn upgrade_ws_or_serve_app(
                 .header("Content-Type", "text/json")
                 .header("Cache-Control", "max-age=3600, must-revalidate")
                 .body(Some(BOOTSTRAP_STRING.get().unwrap().as_bytes().to_vec()))
+                .unwrap();
+            return Err(res);
+        } else if uri == "/robots.txt" {
+            let res = Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "text/plain")
+                .header("Cache-Control", "max-age=3600, must-revalidate")
+                .body(Some(ROBOTS.as_bytes().to_vec()))
                 .unwrap();
             return Err(res);
         }
