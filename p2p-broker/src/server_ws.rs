@@ -256,8 +256,8 @@ fn upgrade_ws_or_serve_app(
     Err(make_error(StatusCode::FORBIDDEN))
 }
 
-const LOCAL_HOSTS: [&str; 3] = ["localhost", "127.0.0.1", "::1"];
-const LOCAL_URLS: [&str; 3] = ["http://localhost", "http://127.0.0.1", "http://::1"];
+const LOCAL_HOSTS: [&str; 3] = ["localhost", "127.0.0.1", "[::1]"];
+const LOCAL_URLS: [&str; 3] = ["http://localhost", "http://127.0.0.1", "http://[::1]"];
 const APP_NG_ONE_URL: &str = "https://app.nextgraph.one";
 
 impl Callback for SecurityCallback {
@@ -743,17 +743,20 @@ pub async fn run_server_v0(
             .map(SocketAddr::to_string)
             .collect::<Vec<String>>()
             .join(", ");
-        let tcp_listener = TcpListener::bind(addrs.0.as_slice()).await.map_err(|e| {
-            log_err!(
-                "cannot bind to {} with addresses {} : {}",
-                addrs.1,
-                addrs_string,
-                e.to_string()
-            )
-        })?;
-        log_info!("Listening on {} {}", addrs.1, addrs_string);
 
-        listeners.push(tcp_listener);
+        for addr in addrs.0 {
+            let tcp_listener = TcpListener::bind(addr).await.map_err(|e| {
+                log_err!(
+                    "cannot bind to {} with addresses {} : {}",
+                    addrs.1,
+                    addrs_string,
+                    e.to_string()
+                )
+            })?;
+            listeners.push(tcp_listener);
+        }
+
+        log_info!("Listening on {} {}", addrs.1, addrs_string);
     }
 
     // select on all listeners

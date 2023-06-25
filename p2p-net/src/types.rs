@@ -459,7 +459,10 @@ impl IP {
 impl fmt::Display for IP {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let t: IpAddr = self.try_into().unwrap();
-        write!(f, "{}", t)
+        match self {
+            IP::IPv4(_) => write!(f, "{}", t),
+            IP::IPv6(_) => write!(f, "[{}]", t),
+        }
     }
 }
 
