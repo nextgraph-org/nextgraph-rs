@@ -18,6 +18,7 @@ use crate::utils::{Receiver, ResultSend, Sender};
 use async_std::stream::StreamExt;
 use async_std::sync::{Arc, RwLock};
 use futures::channel::mpsc;
+use futures::future::Either;
 use futures::SinkExt;
 use noise_protocol::U8Array;
 use noise_rust_crypto::sensitive::Sensitive;
@@ -64,7 +65,7 @@ pub struct Broker {
     direct_connections: HashMap<IP, DirectConnection>,
     peers: HashMap<DirectPeerId, BrokerPeerInfo>,
     /// (local,remote) -> ConnectionBase
-    incoming_anonymous_connections: HashMap<(BindAddress, BindAddress), ConnectionBase>,
+    anonymous_connections: HashMap<(BindAddress, BindAddress), ConnectionBase>,
     #[cfg(not(target_arch = "wasm32"))]
     listeners: HashMap<String, ListenerInfo>,
     bind_addresses: HashMap<BindAddress, String>,
@@ -230,7 +231,7 @@ impl Broker {
             None => {}
         }
     }
-    pub fn remove(&mut self, peer_id: &DirectPeerId) {
+    pub fn remove_peer_id(&mut self, peer_id: &DirectPeerId) {
         let removed = self.peers.remove(peer_id);
         match removed {
             Some(info) => match info.connected {
@@ -244,6 +245,16 @@ impl Broker {
         }
     }
 
+    pub fn remove_anonymous(
+        &mut self,
+        remote_bind_address: BindAddress,
+        local_bind_address: BindAddress,
+    ) {
+        let removed = self
+            .anonymous_connections
+            .remove(&(local_bind_address, remote_bind_address));
+    }
+
     pub fn test(&self) -> u32 {
         self.test
     }
@@ -253,7 +264,7 @@ impl Broker {
         let mut random_buf = [0u8; 4];
         getrandom::getrandom(&mut random_buf).unwrap();
         Broker {
-            incoming_anonymous_connections: HashMap::new(),
+            anonymous_connections: HashMap::new(),
             #[cfg(not(target_arch = "wasm32"))]
             listeners: HashMap::new(),
             bind_addresses: HashMap::new(),
@@ -308,17 +319,22 @@ impl Broker {
     }
 
     pub async fn graceful_shutdown() {
-        let keys;
+        let peer_ids;
+        let anonymous;
         {
             let mut broker = BROKER.write().await;
             if broker.closing {
                 return;
             }
             broker.closing = true;
-            keys = Vec::from_iter(broker.peers.keys().cloned());
+            peer_ids = Vec::from_iter(broker.peers.keys().cloned());
+            anonymous = Vec::from_iter(broker.anonymous_connections.keys().cloned());
         }
-        for peer_id in keys {
+        for peer_id in peer_ids {
             BROKER.write().await.close_peer_connection(&peer_id).await;
+        }
+        for anon in anonymous {
+            BROKER.write().await.close_anonymous(anon.1, anon.0).await;
         }
         let _ = BROKER
             .write()
@@ -339,7 +355,7 @@ impl Broker {
 
     pub async fn accept(
         &mut self,
-        connection: ConnectionBase,
+        mut connection: ConnectionBase,
         remote_bind_address: BindAddress,
         local_bind_address: BindAddress,
     ) -> Result<(), NetError> {
@@ -347,8 +363,9 @@ impl Broker {
             return Err(NetError::Closing);
         }
 
+        let join = connection.take_shutdown();
         if self
-            .incoming_anonymous_connections
+            .anonymous_connections
             .insert((local_bind_address, remote_bind_address), connection)
             .is_some()
         {
@@ -358,6 +375,39 @@ impl Broker {
                 remote_bind_address
             );
         }
+
+        async fn watch_close(
+            mut join: Receiver<Either<NetError, PubKey>>,
+            remote_bind_address: BindAddress,
+            local_bind_address: BindAddress,
+        ) -> ResultSend<()> {
+            async move {
+                let res = join.next().await;
+                match res {
+                    Some(Either::Right(remote_peer_id)) => {
+                        let res = join.next().await;
+                        log_info!("SOCKET IS CLOSED {:?} peer_id: {:?}", res, remote_peer_id);
+                        BROKER.write().await.remove_peer_id(&remote_peer_id);
+                    }
+                    _ => {
+                        log_info!(
+                            "SOCKET IS CLOSED {:?} remote: {:?} local: {:?}",
+                            res,
+                            remote_bind_address,
+                            local_bind_address
+                        );
+                        BROKER
+                            .write()
+                            .await
+                            .remove_anonymous(remote_bind_address, local_bind_address);
+                    }
+                }
+            }
+            .await;
+            Ok(())
+        }
+        spawn_and_log_error(watch_close(join, remote_bind_address, local_bind_address));
+
         Ok(())
     }
 
@@ -369,11 +419,12 @@ impl Broker {
         core: Option<String>,
     ) -> Result<(), NetError> {
         log_debug!("ATTACH PEER_ID {}", remote_peer_id);
-        let mut connection = self
-            .incoming_anonymous_connections
+        let connection = self
+            .anonymous_connections
             .remove(&(local_bind_address, remote_bind_address))
             .ok_or(NetError::InternalError)?;
-        let join = connection.take_shutdown();
+
+        connection.reset_shutdown(remote_peer_id).await;
         let ip = remote_bind_address.ip;
         let connected = if core.is_some() {
             let dc = DirectConnection {
@@ -394,20 +445,6 @@ impl Broker {
         };
         self.peers.insert(remote_peer_id, bpi);
 
-        async fn watch_close(
-            mut join: Receiver<NetError>,
-            remote_peer_id: DirectPeerId,
-        ) -> ResultSend<()> {
-            async move {
-                let res = join.next().await;
-                log_info!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
-                log_info!("REMOVED");
-                BROKER.write().await.remove(&remote_peer_id);
-            }
-            .await;
-            Ok(())
-        }
-        spawn_and_log_error(watch_close(join, remote_peer_id));
         Ok(())
     }
 
@@ -461,7 +498,7 @@ impl Broker {
         self.peers.insert(remote_peer_id, bpi);
 
         async fn watch_close(
-            mut join: Receiver<NetError>,
+            mut join: Receiver<Either<NetError, PubKey>>,
             cnx: Box<dyn IConnect>,
             ip: IP,
             core: Option<String>, // the interface used as egress for this connection
@@ -484,7 +521,7 @@ impl Broker {
                     // TODO: deal with error and incremental backoff
                 } else {
                     log_info!("REMOVED");
-                    BROKER.write().await.remove(&remote_peer_id);
+                    BROKER.write().await.remove_peer_id(&remote_peer_id);
                 }
             }
             .await;
@@ -518,12 +555,33 @@ impl Broker {
         }
     }
 
+    pub async fn close_anonymous(
+        &mut self,
+        remote_bind_address: BindAddress,
+        local_bind_address: BindAddress,
+    ) {
+        if let Some(cb) = self
+            .anonymous_connections
+            .get_mut(&(local_bind_address, remote_bind_address))
+        {
+            cb.close().await;
+        }
+    }
+
     pub fn print_status(&self) {
         self.peers.iter().for_each(|(peerId, peerInfo)| {
             log_info!("PEER in BROKER {:?} {:?}", peerId, peerInfo);
         });
         self.direct_connections.iter().for_each(|(ip, directCnx)| {
             log_info!("direct_connection in BROKER {:?} {:?}", ip, directCnx)
+        });
+        self.anonymous_connections.iter().for_each(|(binds, cb)| {
+            log_info!(
+                "ANONYMOUS remote {:?} local {:?} {:?}",
+                binds.1,
+                binds.0,
+                cb
+            );
         });
     }
 }
