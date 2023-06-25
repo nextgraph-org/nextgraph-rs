@@ -14,7 +14,7 @@
 //! Corresponds to the BARE schema
 
 use crate::errors::NgError;
-use crate::utils::{decode_key, dh_pubkey_from_ed_slice};
+use crate::utils::{decode_key, dh_pubkey_from_ed_slice, ed_privkey_to_pubkey};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_bare::to_vec;
@@ -123,6 +123,9 @@ impl PrivKey {
         match self {
             PrivKey::Ed25519PrivKey(o) => o,
         }
+    }
+    pub fn to_pub(&self) -> PubKey {
+        ed_privkey_to_pubkey(self)
     }
 }
 
