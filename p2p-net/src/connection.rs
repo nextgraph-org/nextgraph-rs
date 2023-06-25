@@ -24,6 +24,7 @@ use crate::types::*;
 use crate::utils::*;
 use async_std::stream::StreamExt;
 use async_std::sync::Mutex;
+use futures::future::Either;
 use futures::{channel::mpsc, select, Future, FutureExt, SinkExt};
 use noise_protocol::U8Array;
 use noise_protocol::{patterns::noise_xk, CipherState, HandshakeState};
@@ -558,7 +559,8 @@ pub struct ConnectionBase {
     receiver: Option<Sender<ConnectionCommand>>,
     sender_tx: Option<Sender<ConnectionCommand>>,
     receiver_tx: Option<Sender<ConnectionCommand>>,
-    shutdown: Option<Receiver<NetError>>,
+    shutdown: Option<Receiver<Either<NetError, PubKey>>>,
+    shutdown_sender: Option<Sender<Either<NetError, PubKey>>>,
     dir: ConnectionDir,
     next_request_id: SequenceGenerator,
     tp: TransportProtocol,
@@ -575,6 +577,7 @@ impl ConnectionBase {
             sender_tx: None,
             receiver_tx: None,
             shutdown: None,
+            shutdown_sender: None,
             next_request_id: SequenceGenerator::new(1),
             dir,
             tp,
@@ -586,20 +589,31 @@ impl ConnectionBase {
         self.tp
     }
 
-    pub fn take_shutdown(&mut self) -> Receiver<NetError> {
+    pub fn take_shutdown(&mut self) -> Receiver<Either<NetError, PubKey>> {
         self.shutdown.take().unwrap()
     }
 
     pub async fn join_shutdown(&mut self) -> Result<(), NetError> {
         match self.take_shutdown().next().await {
-            Some(error) => Err(error),
+            Some(Either::Left(error)) => Err(error),
+            Some(Either::Right(_)) => Ok(()),
             None => Ok(()),
         }
     }
 
-    pub fn set_shutdown(&mut self) -> Sender<NetError> {
-        let (shutdown_sender, shutdown_receiver) = mpsc::unbounded::<NetError>();
+    pub async fn reset_shutdown(&self, remote_peer_id: PubKey) {
+        let _ = self
+            .shutdown_sender
+            .as_ref()
+            .unwrap()
+            .send(Either::Right(remote_peer_id))
+            .await;
+    }
+
+    pub fn set_shutdown(&mut self) -> Sender<Either<NetError, PubKey>> {
+        let (shutdown_sender, shutdown_receiver) = mpsc::unbounded::<Either<NetError, PubKey>>();
         self.shutdown = Some(shutdown_receiver);
+        self.shutdown_sender = Some(shutdown_sender.clone());
         shutdown_sender
     }
 

@@ -19,6 +19,7 @@ use async_tungstenite::tungstenite::protocol::CloseFrame;
 use async_tungstenite::WebSocketStream;
 
 use async_std::sync::Mutex;
+use futures::future::Either;
 use futures::io::Close;
 use futures::{future, pin_mut, select, stream, StreamExt};
 use futures::{FutureExt, SinkExt};
@@ -71,7 +72,7 @@ impl IConnect for ConnectionWebSocket {
                     let res = ws_loop(websocket, s, r).await;
 
                     if res.is_err() {
-                        let _ = shutdown.send(res.err().unwrap()).await;
+                        let _ = shutdown.send(Either::Left(res.err().unwrap())).await;
                     }
                     log_debug!("END of WS loop");
                 });
@@ -112,7 +113,7 @@ impl IAccept for ConnectionWebSocket {
             let res = ws_loop(socket, s, r).await;
 
             if res.is_err() {
-                let _ = shutdown.send(res.err().unwrap()).await;
+                let _ = shutdown.send(Either::Left(res.err().unwrap())).await;
             }
             log_debug!("END of WS loop");
         });
