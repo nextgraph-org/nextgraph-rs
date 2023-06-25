@@ -678,7 +678,9 @@ pub async fn run_server_v0(
                         .ipv6
                         .iter()
                         .filter_map(|ip| {
-                            if interface.if_type.is_ipv6_valid_for_type(&ip.addr) {
+                            if interface.if_type.is_ipv6_valid_for_type(&ip.addr)
+                                || listener.should_bind_public_ipv6_to_private_interface(ip.addr)
+                            {
                                 Some(SocketAddr::new(IpAddr::V6(ip.addr), listener.port))
                             } else {
                                 None
@@ -705,9 +707,10 @@ pub async fn run_server_v0(
                     addrs.iter().map(|addr| addr.into()).collect();
 
                 let server_types = listener.get_bootstraps(bind_addresses.clone());
+                let common_peer_id = listener.accept_forward_for.domain_with_common_peer_id();
                 for server_type in server_types {
                     servers.push(BrokerServerV0 {
-                        peer_id,
+                        peer_id: common_peer_id.unwrap_or(peer_id),
                         server_type,
                     })
                 }
@@ -784,6 +787,7 @@ pub async fn run_server_v0(
 
     // TODO : select on the shutdown stream too
     while let Some(tcp) = incoming.next().await {
+        // TODO select peer_priv_ket according to config. if --domain-peer present and the connection is for that listener (PublicDomainPeer) then use the peer configured there
         accept(
             tcp.unwrap(),
             Sensitive::<[u8; 32]>::from_slice(peer_priv_key.deref()),

@@ -63,7 +63,7 @@ impl InterfaceType {
             InterfaceType::Loopback => ip.is_loopback(),
             InterfaceType::Public => is_public_ipv6(ip),
             // we do NOT allow to bind to link-local for IPv6
-            InterfaceType::Private => is_ipv6_private(ip) || is_public_ipv6(ip),
+            InterfaceType::Private => is_ipv6_private(ip),
             _ => false,
         }
     }
@@ -189,6 +189,23 @@ impl AcceptForwardForV0 {
         }
     }
 
+    pub fn get_public_bind_ipv6_address(&self) -> Option<IP> {
+        match self {
+            AcceptForwardForV0::PublicStatic((ipv4, ipv6, _)) => {
+                let mut res = vec![ipv4.clone()];
+                if ipv6.is_some() {
+                    return Some(ipv6.unwrap().ip.clone());
+                } else {
+                    return None;
+                }
+            }
+            AcceptForwardForV0::PublicDyn(_) => {
+                todo!();
+            }
+            _ => None,
+        }
+    }
+
     pub fn is_public_domain(&self) -> bool {
         match self {
             AcceptForwardForV0::PublicDomainPeer(_) => true,
@@ -256,6 +273,9 @@ pub struct ListenerV0 {
     /// should the server serve the app files in HTTP mode (not WS). this setting will be discarded and app will not be served anyway if remote IP is public or listener is public
     pub serve_app: bool,
 
+    /// when the box is behind a DMZ, and ipv6 is enabled, the private interface will get the external public IpV6. with this option we allow binding to it
+    pub bind_public_ipv6_to_private_interface: bool,
+
     /// default to false. Set to true by --core (use --core-and-clients to override to false). only useful for a public IP listener, if the clients should use another listener like --domain or --domain-private.
     /// do not set it on a --domain or --domain-private, as this will enable the relay_websocket feature, which should not be used except by app.nextgraph.one
     pub refuse_clients: bool,
@@ -278,6 +298,21 @@ pub struct ListenerV0 {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl ListenerV0 {
+    pub fn should_bind_public_ipv6_to_private_interface(&self, ip: Ipv6Addr) -> bool {
+        let public_ip = self.accept_forward_for.get_public_bind_ipv6_address();
+        if public_ip.is_none() {
+            return false;
+        }
+        let public_ipv6addr: IpAddr = public_ip.as_ref().unwrap().into();
+        return if let IpAddr::V6(v6) = public_ipv6addr {
+            self.bind_public_ipv6_to_private_interface
+                && self.if_type == InterfaceType::Private
+                && ip == v6
+        } else {
+            false
+        };
+    }
+
     pub fn new_direct(interface: Interface, ipv6: bool, port: u16) -> Self {
         Self {
             interface_name: interface.name,
@@ -289,6 +324,7 @@ impl ListenerV0 {
             accept_direct: true,
             refuse_clients: false,
             serve_app: true,
+            bind_public_ipv6_to_private_interface: false,
             accept_forward_for: AcceptForwardForV0::No,
         }
     }
