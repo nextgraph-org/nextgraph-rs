@@ -26,7 +26,7 @@ use futures::{FutureExt, SinkExt};
 use async_std::task;
 use p2p_net::errors::*;
 use p2p_net::types::*;
-use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender, Sensitive};
+use p2p_net::utils::{gen_ed_keys, spawn_and_log_error, Receiver, ResultSend, Sender, Sensitive};
 use p2p_net::{connection::*, WS_PORT};
 use p2p_repo::log::*;
 use p2p_repo::types::*;
@@ -263,23 +263,25 @@ mod test {
     use p2p_net::errors::NetError;
     use p2p_net::types::IP;
     use p2p_net::utils::{spawn_and_log_error, ResultSend};
+    use p2p_repo::errors::NgError;
     use p2p_repo::log::*;
     use p2p_repo::utils::generate_keypair;
     use std::net::IpAddr;
     use std::str::FromStr;
 
     #[async_std::test]
-    pub async fn test_ws() -> Result<(), NetError> {
+    pub async fn test_ws() -> Result<(), NgError> {
         // let mut random_buf = [0u8; 32];
         // getrandom::getrandom(&mut random_buf).unwrap();
 
-        let server_key = PubKey::Ed25519PubKey([
-            95, 155, 249, 202, 41, 105, 71, 51, 206, 126, 9, 84, 132, 92, 60, 7, 74, 179, 46, 21,
-            21, 242, 171, 27, 249, 79, 76, 176, 168, 43, 83, 2,
-        ]);
+        let server_key: PubKey = "NvMf86FnhcSJ4s9zryguepgqtNCImUM4qUoW6p_wRdA".try_into()?;
+        log_debug!("server_key:{}", server_key);
 
-        let keys = p2p_net::utils::gen_dh_keys();
-        let pub_key = PubKey::Ed25519PubKey(keys.1);
+        //let keys = p2p_net::utils::gen_dh_keys();
+        //let pub_key = PubKey::Ed25519PubKey(keys.1);
+        let keys = gen_ed_keys();
+        let x_from_ed = keys.1.to_dh_from_ed();
+        log_info!("Pub from X {}", x_from_ed);
 
         let (client_priv_key, client_pub_key) = generate_keypair();
         let (user_priv_key, user_pub_key) = generate_keypair();
@@ -294,7 +296,7 @@ mod test {
                     IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
                     None,
                     keys.0,
-                    pub_key.clone(),
+                    keys.1,
                     server_key,
                     StartConfig::Client(ClientConfig {
                         user: user_pub_key,
