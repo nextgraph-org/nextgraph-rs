@@ -63,7 +63,7 @@ impl InterfaceType {
             InterfaceType::Loopback => ip.is_loopback(),
             InterfaceType::Public => is_public_ipv6(ip),
             // we do NOT allow to bind to link-local for IPv6
-            InterfaceType::Private => is_ipv6_private(ip),
+            InterfaceType::Private => is_ipv6_private(ip) || is_public_ipv6(ip),
             _ => false,
         }
     }
@@ -212,6 +212,12 @@ impl AcceptForwardForV0 {
         match self {
             AcceptForwardForV0::PrivateDomain(_) => true,
             _ => false,
+        }
+    }
+    pub fn domain_with_common_peer_id(&self) -> Option<PubKey> {
+        match self {
+            AcceptForwardForV0::PublicDomainPeer((_, privkey, _)) => Some(privkey.to_pub()),
+            _ => None,
         }
     }
     pub fn get_domain(&self) -> &str {
