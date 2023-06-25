@@ -402,7 +402,7 @@ async fn main_inner() -> Result<(), ()> {
                 } else {
                     // on purpose we don't log the key, just print it out to stdout, as it should not be saved in logger's files
                     println!("YOUR GENERATED KEY IS: {}", master_key);
-                    log_err!("At your request, the key wasn't saved.");
+                    log_err!("At your request, the key wasn't saved. If you want to save it to disk, use ---save-key");
                     log_err!("provide it again to the next start of ngd with --key option or NG_SERVER_KEY env variable");
                 }
                 res
@@ -447,7 +447,7 @@ async fn main_inner() -> Result<(), ()> {
 
         if config.is_some() && !args.print_config {
             log_err!(
-                "A config file is present. You can use the Quick config options on the command-line. In order to use them, delete your config file first. cannot start"
+                "A config file is present. You cannot use the Quick config options on the command-line. In order to use them, delete your config file first. cannot start"
             );
             return Err(());
         }
@@ -524,6 +524,12 @@ async fn main_inner() -> Result<(), ()> {
                         && listeners.last().unwrap().interface_name == loopback.name
                         && listeners.last().unwrap().port == args.local.unwrap()
                     {
+                        if args.domain_peer.is_some() {
+                            log_err!(
+                                "--local is not allowed if --domain-peer is selected, and they both use the same port. change the port of one of them. cannot start"
+                            );
+                            return Err(());
+                        }
                         let r = listeners.last_mut().unwrap();
                         r.accept_direct = true;
                         r.ipv6 = !args.no_ipv6;
@@ -639,6 +645,7 @@ async fn main_inner() -> Result<(), ()> {
                 refuse_clients: args.public_without_clients,
                 serve_app: false,
                 accept_direct: false,
+                bind_public_ipv6_to_private_interface: false,
                 accept_forward_for: AcceptForwardForV0::PublicStatic((
                     BindAddress {
                         port: public_part.1 .1,
@@ -820,6 +827,12 @@ async fn main_inner() -> Result<(), ()> {
                         && listeners.last().unwrap().interface_name == inter.name
                         && listeners.last().unwrap().port == arg_value.1
                     {
+                        if args.domain_peer.is_some() {
+                            log_err!(
+                                "--private is not allowed if --domain-peer is selected, and they both use the same port. change the port of one of them. cannot start"
+                            );
+                            return Err(());
+                        }
                         let r = listeners.last_mut().unwrap();
                         r.accept_direct = true;
                         r.serve_app = true;
