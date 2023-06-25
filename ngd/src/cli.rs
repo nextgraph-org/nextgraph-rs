@@ -75,6 +75,10 @@ pub(crate) struct Cli {
     #[arg(long, requires("public"), conflicts_with("private"))]
     pub public_without_clients: bool,
 
+    /// When --public is used with a public IPV6, this option will bind the IPV6 to the private interface. This is how DMZ work for IpV6
+    #[arg(long, requires("public"), conflicts_with("no_ipv6"))]
+    pub bind_public_ipv6: bool,
+
     /// Quick config to listen for clients and core brokers on PRIVATE_INTERFACE, behind a DMZ or port forwarding of a public dynamic IP. PORTs defaults to 80
     #[arg(short('y'), long, value_name("PRIVATE_INTERFACE:PORT,PUBLIC_PORT"), default_missing_value("default"), num_args(0..=1), conflicts_with("public"), conflicts_with("core"))]
     pub dynamic: Option<String>,
