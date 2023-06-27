@@ -52,8 +52,7 @@ pub enum ConnectionCommand {
 pub trait IConnect: Send + Sync {
     async fn open(
         &self,
-        ip: IP,
-        port: u16,
+        url: String,
         peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
@@ -144,18 +143,28 @@ pub enum StepReply {
     CloseNow,
 }
 
+#[derive(PartialEq, Debug, Clone)]
 pub struct ClientConfig {
+    pub url: String,
     pub user: PubKey,
+    pub user_priv: PrivKey,
     pub client: PubKey,
     pub client_priv: PrivKey,
 }
 
+#[derive(PartialEq, Debug, Clone)]
 pub struct ExtConfig {}
 
-pub struct CoreConfig {}
+#[derive(PartialEq, Debug, Clone)]
+pub struct CoreConfig {
+    pub addr: BindAddress,
+    pub interface: String,
+}
 
+#[derive(PartialEq, Debug, Clone)]
 pub struct AdminConfig {}
 
+#[derive(PartialEq, Debug, Clone)]
 pub enum StartConfig {
     Probe,
     Relay(BindAddress),
@@ -163,6 +172,16 @@ pub enum StartConfig {
     Ext(ExtConfig),
     Core(CoreConfig),
     Admin(AdminConfig),
+}
+
+impl StartConfig {
+    pub fn get_url(&self) -> String {
+        match self {
+            Self::Client(config) => config.url.clone(),
+            Self::Core(config) => format!("ws://{}:{}", config.addr.ip, config.addr.port),
+            _ => unimplemented!(),
+        }
+    }
 }
 
 impl NoiseFSM {
@@ -703,10 +722,11 @@ impl ConnectionBase {
         }
     }
 
-    pub async fn release_shutdown(&mut self) {
+    pub fn release_shutdown(&mut self) {
         self.shutdown_sender = None;
     }
 
+    // only used by accept
     pub async fn reset_shutdown(&mut self, remote_peer_id: PubKey) {
         let _ = self
             .shutdown_sender

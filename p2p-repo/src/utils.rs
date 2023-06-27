@@ -60,12 +60,16 @@ pub fn generate_null_keypair() -> (PrivKey, PubKey) {
 }
 
 pub fn dh_pubkey_from_ed_slice(public: &[u8]) -> PubKey {
+    PubKey::X25519PubKey(dh_slice_from_ed_slice(public))
+}
+
+pub fn dh_slice_from_ed_slice(public: &[u8]) -> X25519PubKey {
     let mut bits: [u8; 32] = [0u8; 32];
     bits.copy_from_slice(public);
     let compressed = CompressedEdwardsY(bits);
     let ed_point: EdwardsPoint = compressed.decompress().unwrap();
     let mon_point = ed_point.to_montgomery();
-    PubKey::X25519PubKey(mon_point.to_bytes())
+    mon_point.to_bytes()
 }
 
 pub fn sign(

@@ -88,6 +88,16 @@ pub struct BindAddress {
     pub ip: IP,
 }
 
+impl BindAddress {
+    pub fn to_ws_url(&self) -> String {
+        format!(
+            "ws://{}:{}",
+            self.ip,
+            if self.port == 0 { 80 } else { self.port }
+        )
+    }
+}
+
 impl From<&SocketAddr> for BindAddress {
     #[inline]
     fn from(addr: &SocketAddr) -> BindAddress {
@@ -116,6 +126,162 @@ pub struct BrokerServerV0 {
 
     /// peerId of the server
     pub peer_id: PubKey,
+}
+
+pub const APP_NG_ONE_URL: &str = "https://app.nextgraph.one";
+
+pub const APP_NG_ONE_WS_URL: &str = "wss://app.nextgraph.one";
+
+fn api_dyn_peer_url(peer_id: &PubKey) -> String {
+    format!("https://nextgraph.one/api/v1/dynpeer/{}", peer_id)
+}
+
+pub const LOCAL_HOSTS: [&str; 3] = ["localhost", "127.0.0.1", "[::1]"];
+
+fn local_ws_url(port: &u16) -> String {
+    format!("ws://localhost:{}", if *port == 0 { 80 } else { *port })
+}
+
+pub const LOCAL_URLS: [&str; 3] = ["http://localhost", "http://127.0.0.1", "http://[::1]"];
+use url::{Host, Url};
+
+impl BrokerServerTypeV0 {
+    pub fn find_first_ipv4(&self) -> Option<&BindAddress> {
+        match self {
+            Self::BoxPrivate(addrs) => {
+                for addr in addrs {
+                    if addr.ip.is_v4() {
+                        return Some(addr);
+                    }
+                }
+                return None;
+            }
+            _ => None,
+        }
+    }
+    pub fn find_first_ipv6(&self) -> Option<&BindAddress> {
+        match self {
+            Self::BoxPrivate(addrs) => {
+                for addr in addrs {
+                    if addr.ip.is_v6() {
+                        return Some(addr);
+                    }
+                }
+                return None;
+            }
+            _ => None,
+        }
+    }
+}
+impl BrokerServerV0 {
+    fn first_ipv4(&self) -> Option<(String, Vec<BindAddress>)> {
+        self.server_type.find_first_ipv4().map_or(None, |bindaddr| {
+            Some((format!("ws://{}:{}", bindaddr.ip, bindaddr.port), vec![]))
+        })
+    }
+
+    fn first_ipv6(&self) -> Option<(String, Vec<BindAddress>)> {
+        self.server_type.find_first_ipv6().map_or(None, |bindaddr| {
+            Some((format!("ws://{}:{}", bindaddr.ip, bindaddr.port), vec![]))
+        })
+    }
+
+    /// on web browser, returns the connection URL and an optional list of BindAddress if a relay is needed
+    /// filtered by the current location url of the webpage
+    /// on native apps, returns or the connection URL without optional BindAddress or an empty string with
+    /// several BindAddresses to try to connect to with .to_ws_url()
+    pub async fn get_url(&self, location: Option<String>) -> Option<(String, Vec<BindAddress>)> {
+        if location.is_some() {
+            let location = location.unwrap();
+            if location.starts_with(APP_NG_ONE_URL) {
+                match &self.server_type {
+                    BrokerServerTypeV0::BoxPublic(addrs) => {
+                        Some((APP_NG_ONE_WS_URL.to_string(), addrs.clone()))
+                    }
+                    BrokerServerTypeV0::BoxPublicDyn(addrs) => {
+                        let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
+                        if resp.is_ok() {
+                            let resp = resp.unwrap().json::<Vec<BindAddress>>().await;
+                            if resp.is_ok() {
+                                return Some((APP_NG_ONE_WS_URL.to_string(), resp.unwrap()));
+                            }
+                        }
+                        if addrs.len() > 0 {
+                            Some((APP_NG_ONE_WS_URL.to_string(), addrs.clone()))
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                }
+            } else if let BrokerServerTypeV0::Domain(domain) = &self.server_type {
+                let url = format!("https://{}", domain);
+                if location.starts_with(&url) {
+                    let wss_url = format!("wss://{}", domain);
+                    Some((wss_url, vec![]))
+                } else {
+                    None
+                }
+            } else {
+                // localhost
+                if location.starts_with(LOCAL_URLS[0])
+                    || location.starts_with(LOCAL_URLS[1])
+                    || location.starts_with(LOCAL_URLS[2])
+                {
+                    if let BrokerServerTypeV0::Localhost(port) = self.server_type {
+                        Some((local_ws_url(&port), vec![]))
+                    } else {
+                        None
+                    }
+                }
+                // a private address
+                else if location.starts_with("http://") {
+                    let url = Url::parse(&location).unwrap();
+                    match url.host() {
+                        Some(Host::Ipv4(ip)) => {
+                            if is_ipv4_private(&ip) {
+                                self.first_ipv4()
+                            } else {
+                                None
+                            }
+                        }
+                        Some(Host::Ipv6(ip)) => {
+                            if is_ipv6_private(&ip) {
+                                self.first_ipv6()
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            }
+        } else {
+            // From native / tauri app
+            match &self.server_type {
+                BrokerServerTypeV0::Localhost(port) => Some((local_ws_url(port), vec![])),
+                BrokerServerTypeV0::BoxPrivate(addrs) => Some((String::new(), addrs.clone())),
+                BrokerServerTypeV0::BoxPublic(addrs) => Some((String::new(), addrs.clone())),
+                BrokerServerTypeV0::BoxPublicDyn(addrs) => {
+                    let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
+                    if resp.is_ok() {
+                        let resp = resp.unwrap().json::<Vec<BindAddress>>().await;
+                        if resp.is_ok() {
+                            return Some((String::new(), resp.unwrap()));
+                        }
+                    }
+                    if addrs.len() > 0 {
+                        Some((String::new(), addrs.clone()))
+                    } else {
+                        None
+                    }
+                }
+                BrokerServerTypeV0::Domain(domain) => Some((format!("wss://{}", domain), vec![])),
+            }
+        }
+    }
 }
 
 /// Bootstrap content Version 0
@@ -358,9 +524,11 @@ impl ListenerV0 {
                 }
             }
             AcceptForwardForV0::PublicDomain(_) | AcceptForwardForV0::PublicDomainPeer(_) => {
-                res.push(BrokerServerTypeV0::Domain(
-                    self.accept_forward_for.get_domain().to_string(),
-                ));
+                if !self.refuse_clients {
+                    res.push(BrokerServerTypeV0::Domain(
+                        self.accept_forward_for.get_domain().to_string(),
+                    ));
+                }
                 if self.accept_direct {
                     if self.if_type == InterfaceType::Private {
                         res.push(BrokerServerTypeV0::BoxPrivate(addrs));
@@ -499,6 +667,20 @@ impl IP {
     pub fn is_loopback(&self) -> bool {
         let t: &IpAddr = &self.into();
         t.is_loopback()
+    }
+    pub fn is_v6(&self) -> bool {
+        if let Self::IPv6(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+    pub fn is_v4(&self) -> bool {
+        if let Self::IPv4(_) = self {
+            true
+        } else {
+            false
+        }
     }
 }
 

@@ -234,8 +234,8 @@ pub async fn start() {
         let x_from_ed = keys.1.to_dh_from_ed();
         log_info!("Pub from X {}", x_from_ed);
 
-        let (client_priv_key, client_pub_key) = generate_keypair();
-        let (user_priv_key, user_pub_key) = generate_keypair();
+        let (client_priv, client) = generate_keypair();
+        let (user_priv, user) = generate_keypair();
 
         log_info!("start connecting");
 
@@ -244,16 +244,15 @@ pub async fn start() {
             .await
             .connect(
                 Box::new(ConnectionWebSocket {}),
-                IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
-                WS_PORT,
-                None,
                 keys.0,
                 keys.1,
                 server_key,
                 StartConfig::Client(ClientConfig {
-                    user: user_pub_key,
-                    client: client_pub_key,
-                    client_priv: client_priv_key,
+                    url: format!("ws://127.0.0.1:{}", WS_PORT),
+                    user,
+                    user_priv,
+                    client,
+                    client_priv,
                 }),
             )
             .await;

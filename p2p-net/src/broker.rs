@@ -63,7 +63,7 @@ pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new
 
 pub struct Broker {
     direct_connections: HashMap<IP, DirectConnection>,
-    peers: HashMap<DirectPeerId, BrokerPeerInfo>,
+    peers: HashMap<X25519PubKey, BrokerPeerInfo>,
     /// (local,remote) -> ConnectionBase
     anonymous_connections: HashMap<(BindAddress, BindAddress), ConnectionBase>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -248,7 +248,7 @@ impl Broker {
     }
 
     pub fn reconnecting(&mut self, peer_id: &DirectPeerId) {
-        let peerinfo = self.peers.get_mut(peer_id);
+        let peerinfo = self.peers.get_mut(&peer_id.to_dh_slice());
         match peerinfo {
             Some(info) => match &info.connected {
                 PeerConnection::NONE => {}
@@ -264,7 +264,7 @@ impl Broker {
         }
     }
     pub fn remove_peer_id(&mut self, peer_id: &DirectPeerId) {
-        let removed = self.peers.remove(peer_id);
+        let removed = self.peers.remove(&peer_id.to_dh_slice());
         match removed {
             Some(info) => match info.connected {
                 PeerConnection::NONE => {}
@@ -285,6 +285,9 @@ impl Broker {
         let removed = self
             .anonymous_connections
             .remove(&(local_bind_address, remote_bind_address));
+        if removed.is_some() {
+            removed.unwrap().release_shutdown();
+        }
     }
 
     pub fn test(&self) -> u32 {
@@ -363,7 +366,7 @@ impl Broker {
             anonymous = Vec::from_iter(broker.anonymous_connections.keys().cloned());
         }
         for peer_id in peer_ids {
-            BROKER.write().await.close_peer_connection(&peer_id).await;
+            BROKER.write().await.close_peer_connection_x(&peer_id).await;
         }
         for anon in anonymous {
             BROKER.write().await.close_anonymous(anon.1, anon.0).await;
@@ -475,7 +478,7 @@ impl Broker {
             lastPeerAdvert: None,
             connected,
         };
-        self.peers.insert(remote_peer_id, bpi);
+        self.peers.insert(remote_peer_id.to_dh_slice(), bpi);
 
         Ok(())
     }
@@ -495,9 +498,6 @@ impl Broker {
     pub async fn connect(
         &mut self,
         cnx: Box<dyn IConnect>,
-        ip: IP,
-        port: u16,
-        core: Option<String>, // the interface used as egress for this connection
         peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer_id: DirectPeerId,
@@ -513,44 +513,46 @@ impl Broker {
         log_info!("CONNECTING");
         let mut connection = cnx
             .open(
-                ip,
-                port,
+                config.get_url(),
                 Sensitive::<[u8; 32]>::from_slice(peer_privk.deref()),
                 peer_pubk,
                 remote_peer_id,
-                config,
+                config.clone(),
             )
             .await?;
 
         let join = connection.take_shutdown();
 
-        let connected = if core.is_some() {
-            let dc = DirectConnection {
-                ip,
-                interface: core.clone().unwrap(),
-                remote_peer_id,
-                tp: connection.transport_protocol(),
-                cnx: connection,
-            };
-            self.direct_connections.insert(ip, dc);
-            PeerConnection::Core(ip)
-        } else {
-            PeerConnection::Client(connection)
+        let connected = match &config {
+            StartConfig::Core(config) => {
+                let ip = config.addr.ip.clone();
+                let dc = DirectConnection {
+                    ip,
+                    interface: config.interface.clone(),
+                    remote_peer_id,
+                    tp: connection.transport_protocol(),
+                    cnx: connection,
+                };
+                self.direct_connections.insert(ip, dc);
+                PeerConnection::Core(ip)
+            }
+            StartConfig::Client(config) => PeerConnection::Client(connection),
+            _ => unimplemented!(),
         };
+
         let bpi = BrokerPeerInfo {
             lastPeerAdvert: None,
             connected,
         };
-        self.peers.insert(remote_peer_id, bpi);
+        self.peers.insert(remote_peer_id.to_dh_slice(), bpi);
 
         async fn watch_close(
             mut join: Receiver<Either<NetError, PubKey>>,
             cnx: Box<dyn IConnect>,
-            ip: IP,
-            core: Option<String>, // the interface used as egress for this connection
             peer_privk: Sensitive<[u8; 32]>,
             peer_pubkey: PubKey,
             remote_peer_id: DirectPeerId,
+            config: StartConfig,
         ) -> ResultSend<()> {
             async move {
                 let res = join.next().await;
@@ -579,16 +581,15 @@ impl Broker {
         spawn_and_log_error(watch_close(
             join,
             cnx,
-            ip,
-            core,
             peer_privk,
             peer_pubk,
             remote_peer_id,
+            config,
         ));
         Ok(())
     }
 
-    pub async fn close_peer_connection(&mut self, peer_id: &DirectPeerId) {
+    pub async fn close_peer_connection_x(&mut self, peer_id: &X25519PubKey) {
         if let Some(peer) = self.peers.get_mut(peer_id) {
             match &mut peer.connected {
                 PeerConnection::Core(_) => {
@@ -602,6 +603,10 @@ impl Broker {
             }
             //self.peers.remove(peer_id); // this is done in the watch_close instead
         }
+    }
+
+    pub async fn close_peer_connection(&mut self, peer_id: &DirectPeerId) {
+        self.close_peer_connection_x(&peer_id.to_dh_slice()).await
     }
 
     pub async fn close_anonymous(
