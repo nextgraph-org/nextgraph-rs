@@ -701,12 +701,13 @@
       <p class="max-w-xl md:mx-auto lg:max-w-2xl text-left">
         <span class="text-xl">Do you trust this device? </span> <br />
         If you do, if this device is yours or is used by few trusted persons of your
-        family or workplace, then you can save your wallet in this device. To the
-        contrary, if this device is public and shared by strangers, do not save your
-        wallet here. {#if !import.meta.env.TAURI_PLATFORM}By selecting this
-          option, you agree to save some cookies on your browser.{/if}<br />
+        family or workplace, and you would like to login again from this device in
+        the future, then you can save your wallet on this device. To the contrary,
+        if this device is public and shared by strangers, do not save your wallet
+        here. {#if !import.meta.env.TAURI_PLATFORM}By selecting this option, you
+          agree to save some cookies on your browser.{/if}<br />
         <Toggle class="mt-3" bind:checked={options.trusted}
-          >Save your wallet here?</Toggle
+          >Save your wallet on this device?</Toggle
         >
       </p>
       <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">

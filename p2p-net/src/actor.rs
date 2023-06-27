@@ -121,7 +121,7 @@ impl<
         match receiver.next().await {
             Some(ConnectionCommand::Msg(msg)) => {
                 if let ProtocolMessage::BrokerMessage(ref bm) = msg {
-                    if bm.result() == ProtocolError::PartialContent.into()
+                    if bm.result() == Into::<u16>::into(ProtocolError::PartialContent)
                         && TypeId::of::<B>() != TypeId::of::<()>()
                     {
                         let (mut b_sender, b_receiver) = mpsc::unbounded::<B>();
@@ -141,7 +141,9 @@ impl<
                                     actor_receiver.next().await
                                 {
                                     if let ProtocolMessage::BrokerMessage(ref bm) = msg {
-                                        if bm.result() == ProtocolError::EndOfStream.into() {
+                                        if bm.result()
+                                            == Into::<u16>::into(ProtocolError::EndOfStream)
+                                        {
                                             break;
                                         }
                                         let response = msg.try_into();

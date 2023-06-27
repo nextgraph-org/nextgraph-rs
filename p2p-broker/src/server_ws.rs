@@ -276,10 +276,6 @@ fn upgrade_ws_or_serve_app(
     Err(make_error(StatusCode::FORBIDDEN))
 }
 
-const LOCAL_HOSTS: [&str; 3] = ["localhost", "127.0.0.1", "[::1]"];
-const LOCAL_URLS: [&str; 3] = ["http://localhost", "http://127.0.0.1", "http://[::1]"];
-//const APP_NG_ONE_URL: &str = "https://app.nextgraph.one";
-
 impl Callback for SecurityCallback {
     fn on_request(self, request: &Request) -> Result<(), ErrorResponse> {
         let local_urls = LOCAL_URLS

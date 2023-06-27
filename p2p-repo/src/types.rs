@@ -14,7 +14,9 @@
 //! Corresponds to the BARE schema
 
 use crate::errors::NgError;
-use crate::utils::{decode_key, dh_pubkey_from_ed_slice, ed_privkey_to_pubkey};
+use crate::utils::{
+    decode_key, dh_pubkey_from_ed_slice, dh_slice_from_ed_slice, ed_privkey_to_pubkey,
+};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_bare::to_vec;
@@ -91,6 +93,9 @@ impl PubKey {
     }
     pub fn dh_from_ed_slice(slice: &[u8]) -> PubKey {
         dh_pubkey_from_ed_slice(slice)
+    }
+    pub fn to_dh_slice(&self) -> [u8; 32] {
+        dh_slice_from_ed_slice(self.slice())
     }
 }
 

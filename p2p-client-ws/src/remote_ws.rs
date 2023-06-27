@@ -43,16 +43,13 @@ pub struct ConnectionWebSocket {}
 impl IConnect for ConnectionWebSocket {
     async fn open(
         &self,
-        ip: IP,
-        port: u16,
+        url: String,
         peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
         config: StartConfig,
     ) -> Result<ConnectionBase, NetError> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
-
-        let url = format!("ws://{}:{}", ip, port);
 
         let res = connect_async(url).await;
 
@@ -66,6 +63,7 @@ impl IConnect for ConnectionWebSocket {
                 let s = cnx.take_sender();
                 let r = cnx.take_receiver();
                 let mut shutdown = cnx.set_shutdown();
+                cnx.release_shutdown();
 
                 let join = task::spawn(async move {
                     log_debug!("START of WS loop");
@@ -103,6 +101,7 @@ impl IConnect for ConnectionWebSocket {
                 let s = cnx.take_sender();
                 let r = cnx.take_receiver();
                 let mut shutdown = cnx.set_shutdown();
+                cnx.release_shutdown();
 
                 let join = task::spawn(async move {
                     log_debug!("START of WS loop");
@@ -324,8 +323,8 @@ mod test {
         let x_from_ed = keys.1.to_dh_from_ed();
         log_info!("Pub from X {}", x_from_ed);
 
-        let (client_priv_key, client_pub_key) = generate_keypair();
-        let (user_priv_key, user_pub_key) = generate_keypair();
+        let (client_priv, client) = generate_keypair();
+        let (user_priv, user) = generate_keypair();
 
         log_info!("start connecting");
         {
@@ -334,13 +333,16 @@ mod test {
                 .await
                 .connect(
                     Box::new(ConnectionWebSocket {}),
-                    IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
-                    WS_PORT,
-                    None,
                     keys.0,
                     keys.1,
                     server_key,
-                    StartConfig::Probe,
+                    StartConfig::Client(ClientConfig {
+                        url: format!("ws://localhost:{}", WS_PORT),
+                        user,
+                        user_priv,
+                        client,
+                        client_priv,
+                    }),
                 )
                 .await;
             log_info!("broker.connect : {:?}", res);

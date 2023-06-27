@@ -37,16 +37,13 @@ pub struct ConnectionWebSocket {}
 impl IConnect for ConnectionWebSocket {
     async fn open(
         &self,
-        ip: IP,
-        port: u16,
+        url: String,
         peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
         config: StartConfig,
     ) -> Result<ConnectionBase, NetError> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
-
-        let url = format!("ws://{}:{}", ip, port);
 
         let (mut ws, wsio) = WsMeta::connect(url, None).await.map_err(|e| {
             //log_info!("{:?}", e);
