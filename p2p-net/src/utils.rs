@@ -60,6 +60,13 @@ pub fn keypair_from_ed(secret: SecretKey, public: PublicKey) -> (Sensitive<[u8; 
     (priv_key, pub_key)
 }
 
+pub fn ed_sensitive_privkey_to_pubkey(privkey: &Sensitive<[u8; 32]>) -> PubKey {
+    //TODO FIXME do not create a SecretKey or call into() on it, as this is not using Sensitive<>
+    let sk = SecretKey::from_bytes(privkey.as_slice()).unwrap();
+    let pk: PublicKey = (&sk).into();
+    PubKey::Ed25519PubKey(pk.to_bytes())
+}
+
 pub fn keys_from_bytes(secret_key: [u8; 32]) -> (Sensitive<[u8; 32]>, PubKey) {
     let sk = SecretKey::from_bytes(&secret_key).unwrap();
     let pk: PublicKey = (&sk).into();

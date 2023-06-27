@@ -19,7 +19,7 @@ use async_tungstenite::tungstenite::protocol::CloseFrame;
 use async_tungstenite::WebSocketStream;
 
 use async_std::sync::Mutex;
-use futures::future::Either;
+use either::Either;
 use futures::io::Close;
 use futures::{future, pin_mut, select, stream, StreamExt};
 use futures::{FutureExt, SinkExt};
@@ -44,6 +44,7 @@ impl IConnect for ConnectionWebSocket {
     async fn open(
         &self,
         ip: IP,
+        port: u16,
         peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
@@ -51,17 +52,17 @@ impl IConnect for ConnectionWebSocket {
     ) -> Result<ConnectionBase, NetError> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
 
-        let url = format!("ws://{}:{}", ip, WS_PORT);
+        let url = format!("ws://{}:{}", ip, port);
 
         let res = connect_async(url).await;
 
-        match (res) {
+        match res {
             Err(e) => {
                 log_debug!("Cannot connect: {:?}", e);
                 Err(NetError::ConnectionError)
             }
-            Ok((mut websocket, _)) => {
-                cnx.start_read_loop(None, peer_privk, Some(remote_peer));
+            Ok((websocket, _)) => {
+                cnx.start_read_loop(None, Some(peer_privk), Some(remote_peer));
                 let s = cnx.take_sender();
                 let r = cnx.take_receiver();
                 let mut shutdown = cnx.set_shutdown();
@@ -73,6 +74,8 @@ impl IConnect for ConnectionWebSocket {
 
                     if res.is_err() {
                         let _ = shutdown.send(Either::Left(res.err().unwrap())).await;
+                    } else {
+                        let _ = shutdown.send(Either::Left(NetError::Closing)).await;
                     }
                     log_debug!("END of WS loop");
                 });
@@ -80,6 +83,41 @@ impl IConnect for ConnectionWebSocket {
                 cnx.start(config).await;
 
                 Ok(cnx)
+            }
+        }
+    }
+
+    async fn probe(&self, ip: IP, port: u16) -> Result<Option<PubKey>, ProtocolError> {
+        let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
+        let url = format!("ws://{}:{}", ip, port);
+
+        let res = connect_async(url).await;
+
+        match res {
+            Err(e) => {
+                log_debug!("Cannot connect: {:?}", e);
+                Err(ProtocolError::ConnectionError)
+            }
+            Ok((websocket, _)) => {
+                cnx.start_read_loop(None, None, None);
+                let s = cnx.take_sender();
+                let r = cnx.take_receiver();
+                let mut shutdown = cnx.set_shutdown();
+
+                let join = task::spawn(async move {
+                    log_debug!("START of WS loop");
+
+                    let res = ws_loop(websocket, s, r).await;
+
+                    if res.is_err() {
+                        let _ = shutdown.send(Either::Left(res.err().unwrap())).await;
+                    } else {
+                        let _ = shutdown.send(Either::Left(NetError::Closing)).await;
+                    }
+                    log_debug!("END of WS loop");
+                });
+
+                cnx.probe().await
             }
         }
     }
@@ -100,7 +138,7 @@ impl IAccept for ConnectionWebSocket {
 
         cnx.start_read_loop(
             Some((local_bind_address, remote_bind_address)),
-            peer_privk,
+            Some(peer_privk),
             None,
         );
         let s = cnx.take_sender();
@@ -114,6 +152,8 @@ impl IAccept for ConnectionWebSocket {
 
             if res.is_err() {
                 let _ = shutdown.send(Either::Left(res.err().unwrap())).await;
+            } else {
+                let _ = shutdown.send(Either::Left(NetError::Closing)).await;
             }
             log_debug!("END of WS loop");
         });
@@ -275,7 +315,7 @@ mod test {
         // let mut random_buf = [0u8; 32];
         // getrandom::getrandom(&mut random_buf).unwrap();
 
-        let server_key: PubKey = "NvMf86FnhcSJ4s9zryguepgqtNCImUM4qUoW6p_wRdA".try_into()?;
+        let server_key: PubKey = "X0nh-gOTGKSx0yL0LYJviOWRNacyqIzjQW_LKdK6opU".try_into()?;
         log_debug!("server_key:{}", server_key);
 
         //let keys = p2p_net::utils::gen_dh_keys();
@@ -295,15 +335,12 @@ mod test {
                 .connect(
                     Box::new(ConnectionWebSocket {}),
                     IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
+                    WS_PORT,
                     None,
                     keys.0,
                     keys.1,
                     server_key,
-                    StartConfig::Client(ClientConfig {
-                        user: user_pub_key,
-                        client: client_pub_key,
-                        client_priv: client_priv_key,
-                    }),
+                    StartConfig::Probe,
                 )
                 .await;
             log_info!("broker.connect : {:?}", res);
@@ -330,6 +367,29 @@ mod test {
         //Broker::graceful_shutdown().await;
 
         Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
+        Ok(())
+    }
+
+    #[async_std::test]
+    pub async fn probe() -> Result<(), NgError> {
+        log_info!("start probe");
+        {
+            let res = BROKER
+                .write()
+                .await
+                .probe(
+                    Box::new(ConnectionWebSocket {}),
+                    IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
+                    WS_PORT,
+                )
+                .await;
+            log_info!("broker.probe : {:?}", res);
+            res.expect("assume the probe succeeds");
+        }
+
+        //Broker::graceful_shutdown().await;
+
+        Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(10)).await;
         Ok(())
     }
 }

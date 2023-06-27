@@ -107,6 +107,10 @@ impl<
     //         || !self.initiator && msg.type_id() == TypeId::of::<A>()
     // }
 
+    pub fn detach_receiver(&mut self) -> Receiver<ConnectionCommand> {
+        self.receiver.take().unwrap()
+    }
+
     pub async fn request(
         &mut self,
         msg: ProtocolMessage,

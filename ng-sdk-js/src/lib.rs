@@ -23,6 +23,7 @@ use p2p_net::broker::*;
 use p2p_net::connection::{ClientConfig, StartConfig};
 use p2p_net::types::{DirectPeerId, IP};
 use p2p_net::utils::{gen_ed_keys, spawn_and_log_error, Receiver, ResultSend, Sender};
+use p2p_net::WS_PORT;
 use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::generate_keypair;
@@ -200,6 +201,23 @@ pub async fn doc_sync_branch(anuri: String, callback: &js_sys::Function) -> JsVa
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+pub async fn probe() {
+    let res = BROKER
+        .write()
+        .await
+        .probe(
+            Box::new(ConnectionWebSocket {}),
+            IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
+            WS_PORT,
+        )
+        .await;
+    log_info!("broker.probe : {:?}", res);
+
+    Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
 pub async fn start() {
     log_info!("random {}", random(10));
 
@@ -207,7 +225,7 @@ pub async fn start() {
     // getrandom::getrandom(&mut random_buf).unwrap();
 
     async fn inner_task() -> ResultSend<()> {
-        let server_key: PubKey = "KWdmwr4_oO62IFGfKzuyotQOixqXGNWv59CRAGvPTjM".try_into()?;
+        let server_key: PubKey = "X0nh-gOTGKSx0yL0LYJviOWRNacyqIzjQW_LKdK6opU".try_into()?;
         log_debug!("server_key:{}", server_key);
 
         //let keys = p2p_net::utils::gen_dh_keys();
@@ -227,6 +245,7 @@ pub async fn start() {
             .connect(
                 Box::new(ConnectionWebSocket {}),
                 IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
+                WS_PORT,
                 None,
                 keys.0,
                 keys.1,
@@ -290,10 +309,12 @@ pub fn change(name: &str) -> JsValue {
 mod test {
     use wasm_bindgen_test::*;
     wasm_bindgen_test_configure!(run_in_browser);
+    use crate::probe;
     use crate::start;
 
     #[wasm_bindgen_test]
     pub async fn test_connection() {
+        //probe().await;
         start().await;
     }
 }

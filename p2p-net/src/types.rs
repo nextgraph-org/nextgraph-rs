@@ -219,6 +219,12 @@ impl AcceptForwardForV0 {
             _ => false,
         }
     }
+    pub fn is_no(&self) -> bool {
+        match self {
+            AcceptForwardForV0::No => true,
+            _ => false,
+        }
+    }
     pub fn is_public_dyn(&self) -> bool {
         match self {
             AcceptForwardForV0::PublicDyn(_) => true,
@@ -2121,8 +2127,79 @@ impl TryFrom<ProtocolMessage> for ExtResponse {
 ///
 /// PROTOCOL MESSAGES
 ///
+
+pub static MAGIC_NG_REQUEST: [u8; 2] = [78u8, 71u8];
+pub static MAGIC_NG_RESPONSE: [u8; 4] = [89u8, 88u8, 78u8, 75u8];
+
+#[derive(Clone, Debug)]
+pub enum Authorization {
+    Discover,
+    ExtMessage,
+    Client,
+    Core,
+    Admin,
+}
+
+/// ProbeResponse
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ProbeResponse {
+    /// Response Magic number
+    #[serde(with = "serde_bytes")]
+    pub magic: Vec<u8>,
+
+    /// Used for discovery of broker on private LAN
+    /// see ListenerV0.discoverable
+    pub peer_id: Option<PubKey>,
+}
+
+/// RelayRequest
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RelayRequest {
+    /// The BindAddress of the broker to relay to should be of the same IP family than the TunnelRequest.remote_addr
+    pub address: BindAddress,
+}
+
+/// RelayResponse
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RelayResponse {
+    /// Response Magic number
+    #[serde(with = "serde_bytes")]
+    pub magic: Vec<u8>,
+
+    /// result to the relay request (accept, refuse)
+    pub result: u16,
+}
+
+/// Tunnel Request
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TunnelRequest {
+    /// Request Magic number
+    #[serde(with = "serde_bytes")]
+    pub magic: Vec<u8>,
+
+    // Bind address of client as connected to the relaying broker.
+    pub remote_addr: BindAddress,
+}
+
+/// Tunnel Response
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TunnelResponse {
+    /// Response Magic number
+    #[serde(with = "serde_bytes")]
+    pub magic: Vec<u8>,
+
+    /// result to the tunnel request (accept, refuse)
+    pub result: u16,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ProtocolMessage {
+    Probe([u8; 2]),
+    ProbeResponse(ProbeResponse),
+    Relay(RelayRequest),
+    RelayResponse(RelayResponse),
+    Tunnel(TunnelRequest),
+    TunnelResponse(TunnelResponse),
     Noise(Noise),
     Start(StartProtocol),
     ServerHello(ServerHello),
@@ -2136,26 +2213,18 @@ pub enum ProtocolMessage {
 impl ProtocolMessage {
     pub fn id(&self) -> i64 {
         match self {
-            ProtocolMessage::Noise(_) => 0,
-            ProtocolMessage::Start(_) => 0,
-            ProtocolMessage::ServerHello(_) => 0,
-            ProtocolMessage::ClientAuth(_) => 0,
-            ProtocolMessage::AuthResult(_) => 0,
             ProtocolMessage::ExtRequest(ext_req) => ext_req.id(),
             ProtocolMessage::ExtResponse(ext_res) => ext_res.id(),
             ProtocolMessage::BrokerMessage(broker_msg) => broker_msg.id(),
+            _ => 0,
         }
     }
     pub fn set_id(&mut self, id: i64) {
         match self {
-            ProtocolMessage::Noise(_) => panic!("cannot set ID"),
-            ProtocolMessage::Start(_) => panic!("cannot set ID"),
-            ProtocolMessage::ServerHello(_) => panic!("cannot set ID"),
-            ProtocolMessage::ClientAuth(_) => panic!("cannot set ID"),
-            ProtocolMessage::AuthResult(_) => panic!("cannot set ID"),
             ProtocolMessage::ExtRequest(ext_req) => ext_req.set_id(id),
             ProtocolMessage::ExtResponse(ext_res) => ext_res.set_id(id),
             ProtocolMessage::BrokerMessage(broker_msg) => broker_msg.set_id(id),
+            _ => panic!("cannot set ID"),
         }
     }
     pub fn type_id(&self) -> TypeId {
@@ -2168,6 +2237,12 @@ impl ProtocolMessage {
             ProtocolMessage::ExtRequest(a) => a.type_id(),
             ProtocolMessage::ExtResponse(a) => a.type_id(),
             ProtocolMessage::BrokerMessage(a) => a.type_id(),
+            ProtocolMessage::Probe(a) => a.type_id(),
+            ProtocolMessage::ProbeResponse(a) => a.type_id(),
+            ProtocolMessage::Relay(a) => a.type_id(),
+            ProtocolMessage::RelayResponse(a) => a.type_id(),
+            ProtocolMessage::Tunnel(a) => a.type_id(),
+            ProtocolMessage::TunnelResponse(a) => a.type_id(),
         }
     }
 

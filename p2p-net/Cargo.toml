@@ -24,6 +24,7 @@ once_cell = "1.17.1"
 noise-protocol = "0.2.0-rc1"
 noise-rust-crypto = "0.6.0-rc.1"
 ed25519-dalek = "1.0.1"
+either = "1.8.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
 version = "0.2.7"
