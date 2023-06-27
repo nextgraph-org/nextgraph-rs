@@ -11,6 +11,7 @@
 
 //! WebSocket for Wasm Remote Connection to a Broker
 
+use either::Either;
 use futures::FutureExt;
 use futures::{future, pin_mut, select, stream, SinkExt, StreamExt};
 use p2p_net::connection::*;
@@ -37,6 +38,7 @@ impl IConnect for ConnectionWebSocket {
     async fn open(
         &self,
         ip: IP,
+        port: u16,
         peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
@@ -44,14 +46,14 @@ impl IConnect for ConnectionWebSocket {
     ) -> Result<ConnectionBase, NetError> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
 
-        let url = format!("ws://{}:{}", ip, WS_PORT);
+        let url = format!("ws://{}:{}", ip, port);
 
         let (mut ws, wsio) = WsMeta::connect(url, None).await.map_err(|e| {
             //log_info!("{:?}", e);
             NetError::ConnectionError
         })?;
 
-        cnx.start_read_loop(None, peer_privk, Some(remote_peer));
+        cnx.start_read_loop(None, Some(peer_privk), Some(remote_peer));
         let mut shutdown = cnx.set_shutdown();
 
         spawn_and_log_error(ws_loop(
@@ -66,6 +68,28 @@ impl IConnect for ConnectionWebSocket {
 
         Ok(cnx)
     }
+    async fn probe(&self, ip: IP, port: u16) -> Result<Option<PubKey>, ProtocolError> {
+        let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
+        let url = format!("ws://{}:{}", ip, port);
+
+        let (mut ws, wsio) = WsMeta::connect(url, None).await.map_err(|e| {
+            //log_info!("{:?}", e);
+            ProtocolError::ConnectionError
+        })?;
+
+        cnx.start_read_loop(None, None, None);
+        let mut shutdown = cnx.set_shutdown();
+
+        spawn_and_log_error(ws_loop(
+            ws,
+            wsio,
+            cnx.take_sender(),
+            cnx.take_receiver(),
+            shutdown,
+        ));
+
+        cnx.probe().await
+    }
 }
 
 async fn ws_loop(
@@ -73,7 +97,7 @@ async fn ws_loop(
     mut stream: WsStream,
     sender: Receiver<ConnectionCommand>,
     mut receiver: Sender<ConnectionCommand>,
-    mut shutdown: Sender<NetError>,
+    mut shutdown: Sender<Either<NetError, PubKey>>,
 ) -> ResultSend<()> {
     async fn inner_loop(
         stream: &mut WsStream,
@@ -175,10 +199,13 @@ async fn ws_loop(
         Some(WsEvent::WsErr(_e)) => ConnectionCommand::Error(NetError::WsError),
     };
     if let ConnectionCommand::Error(err) = last_command.clone() {
-        let _ = shutdown.send(err).await;
-    } else if let ConnectionCommand::ProtocolError(err) = last_command.clone() {
-        //let _ = shutdown.send(NetError::ProtocolError).await;
-    } // otherwise, shutdown gracefully (with None). it is done automatically during destroy of shutdown
+        let _ = shutdown.send(Either::Left(err)).await;
+    } else {
+        let _ = shutdown.send(Either::Left(NetError::Closing)).await;
+    }
+    // if let ConnectionCommand::ProtocolError(err) = last_command.clone() {
+    //let _ = shutdown.send(Either::Left(NetError::ProtocolError)).await;
+    // otherwise, shutdown gracefully (with None). it is done automatically during destroy of shutdown
 
     receiver
         .send(last_command)

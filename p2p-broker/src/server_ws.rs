@@ -80,6 +80,13 @@ fn make_error(code: StatusCode) -> ErrorResponse {
     Response::builder().status(code).body(None).unwrap()
 }
 
+fn check_no_origin(origin: Option<&HeaderValue>) -> Result<(), ErrorResponse> {
+    match origin {
+        Some(_) => Err(make_error(StatusCode::FORBIDDEN)),
+        None => Ok(()),
+    }
+}
+
 fn check_origin_is_url(
     origin: Option<&HeaderValue>,
     domains: Vec<String>,
@@ -271,7 +278,7 @@ fn upgrade_ws_or_serve_app(
 
 const LOCAL_HOSTS: [&str; 3] = ["localhost", "127.0.0.1", "[::1]"];
 const LOCAL_URLS: [&str; 3] = ["http://localhost", "http://127.0.0.1", "http://[::1]"];
-const APP_NG_ONE_URL: &str = "https://app.nextgraph.one";
+//const APP_NG_ONE_URL: &str = "https://app.nextgraph.one";
 
 impl Callback for SecurityCallback {
     fn on_request(self, request: &Request) -> Result<(), ErrorResponse> {
@@ -335,11 +342,12 @@ impl Callback for SecurityCallback {
                     return Err(make_error(StatusCode::FORBIDDEN));
                 }
                 check_no_xff(xff)?;
-                let mut urls_str = vec![];
-                if !listener.config.refuse_clients {
-                    urls_str.push(APP_NG_ONE_URL.to_string());
-                }
-                check_origin_is_url(origin, urls_str)?;
+                check_no_origin(origin)?;
+                // let mut urls_str = vec![];
+                // if !listener.config.refuse_clients {
+                //     urls_str.push(APP_NG_ONE_URL.to_string());
+                // }
+                // check_origin_is_url(origin, urls_str)?;
 
                 check_host_in_addrs(host, &listener.addrs)?;
                 log_debug!(
@@ -428,9 +436,9 @@ impl Callback for SecurityCallback {
                         .accept_forward_for
                         .get_public_bind_addresses();
                     let mut urls_str = vec![];
-                    if !listener.config.refuse_clients {
-                        urls_str.push(APP_NG_ONE_URL.to_string());
-                    }
+                    // if !listener.config.refuse_clients {
+                    //     urls_str.push(APP_NG_ONE_URL.to_string());
+                    // }
                     if listener.config.accept_direct {
                         addrs.extend(&listener.addrs);
                         urls_str = [

@@ -79,6 +79,7 @@ pub enum ProtocolError {
     NoiseHandshakeFailed,
     DecryptionError,
     EncryptionError,
+    WhereIsTheMagic,
 
     InvalidNonce,
 } //MAX 949 ProtocolErrors

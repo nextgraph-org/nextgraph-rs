@@ -17,8 +17,8 @@ use crate::utils::spawn_and_log_error;
 use crate::utils::{Receiver, ResultSend, Sender};
 use async_std::stream::StreamExt;
 use async_std::sync::{Arc, RwLock};
+use either::Either;
 use futures::channel::mpsc;
-use futures::future::Either;
 use futures::SinkExt;
 use noise_protocol::U8Array;
 use noise_rust_crypto::sensitive::Sensitive;
@@ -117,6 +117,38 @@ impl Broker {
         copy_listeners.clone_from(&self.listeners);
         copy_bind_addresses.clone_from(&self.bind_addresses);
         (copy_listeners, copy_bind_addresses)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn authorize(
+        &self,
+        remote_bind_address: &BindAddress,
+        auth: Authorization,
+    ) -> Result<(), ProtocolError> {
+        match auth {
+            Authorization::Discover => {
+                let listener_id = self
+                    .bind_addresses
+                    .get(remote_bind_address)
+                    .ok_or(ProtocolError::BrokerError)?;
+                let listener = self
+                    .listeners
+                    .get(listener_id)
+                    .ok_or(ProtocolError::BrokerError)?;
+                if listener.config.discoverable
+                    && remote_bind_address.ip.is_private()
+                    && listener.config.accept_forward_for.is_no()
+                {
+                    Ok(())
+                } else {
+                    Err(ProtocolError::AccessDenied)
+                }
+            }
+            Authorization::ExtMessage => Err(ProtocolError::AccessDenied),
+            Authorization::Client => Err(ProtocolError::AccessDenied),
+            Authorization::Core => Err(ProtocolError::AccessDenied),
+            Authorization::Admin => Err(ProtocolError::AccessDenied),
+        }
     }
 
     pub fn set_overlays_configs(&mut self, overlays_configs: Vec<BrokerOverlayConfigV0>) {
@@ -363,7 +395,7 @@ impl Broker {
             return Err(NetError::Closing);
         }
 
-        let join = connection.take_shutdown();
+        let join: mpsc::UnboundedReceiver<Either<NetError, PubKey>> = connection.take_shutdown();
         if self
             .anonymous_connections
             .insert((local_bind_address, remote_bind_address), connection)
@@ -419,7 +451,7 @@ impl Broker {
         core: Option<String>,
     ) -> Result<(), NetError> {
         log_debug!("ATTACH PEER_ID {}", remote_peer_id);
-        let connection = self
+        let mut connection = self
             .anonymous_connections
             .remove(&(local_bind_address, remote_bind_address))
             .ok_or(NetError::InternalError)?;
@@ -448,10 +480,23 @@ impl Broker {
         Ok(())
     }
 
+    pub async fn probe(
+        &mut self,
+        cnx: Box<dyn IConnect>,
+        ip: IP,
+        port: u16,
+    ) -> Result<Option<PubKey>, ProtocolError> {
+        if self.closing {
+            return Err(ProtocolError::Closing);
+        }
+        cnx.probe(ip, port).await
+    }
+
     pub async fn connect(
         &mut self,
         cnx: Box<dyn IConnect>,
         ip: IP,
+        port: u16,
         core: Option<String>, // the interface used as egress for this connection
         peer_privk: Sensitive<[u8; 32]>,
         peer_pubk: PubKey,
@@ -469,6 +514,7 @@ impl Broker {
         let mut connection = cnx
             .open(
                 ip,
+                port,
                 Sensitive::<[u8; 32]>::from_slice(peer_privk.deref()),
                 peer_pubk,
                 remote_peer_id,
@@ -509,7 +555,10 @@ impl Broker {
             async move {
                 let res = join.next().await;
                 log_info!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
-                if res.is_some() {
+                if res.is_some()
+                    && res.as_ref().unwrap().is_left()
+                    && res.unwrap().unwrap_left() != NetError::Closing
+                {
                     // we intend to reconnect
                     let mut broker = BROKER.write().await;
                     broker.reconnecting(&remote_peer_id);
