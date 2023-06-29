@@ -17,8 +17,37 @@ use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
 use ed25519_dalek::*;
 use futures::channel::mpsc;
 use rand::rngs::OsRng;
+use rand::RngCore;
 use web_time::{SystemTime, UNIX_EPOCH};
+use zeroize::Zeroize;
 
+pub fn ed_keypair_from_priv_bytes(secret_key: [u8; 32]) -> (PrivKey, PubKey) {
+    let sk = SecretKey::from_bytes(&secret_key).unwrap();
+    let pk: PublicKey = (&sk).into();
+    let pub_key = PubKey::Ed25519PubKey(pk.to_bytes());
+    let priv_key = PrivKey::Ed25519PrivKey(secret_key);
+    (priv_key, pub_key)
+}
+
+pub fn from_ed_privkey_to_dh_privkey(private: &PrivKey) -> PrivKey {
+    //SecretKey and ExpandedSecretKey are Zeroized at drop
+    if let PrivKey::Ed25519PrivKey(slice) = private {
+        let ed25519_priv = SecretKey::from_bytes(slice).unwrap();
+        let exp: ExpandedSecretKey = (&ed25519_priv).into();
+        let mut exp_bytes = exp.to_bytes();
+        exp_bytes[32..].zeroize();
+        let mut bits = *slice_as_array!(&exp_bytes[0..32], [u8; 32]).unwrap();
+        bits[0] &= 248;
+        bits[31] &= 127;
+        bits[31] |= 64;
+        // PrivKey takes ownership and will zeroize on drop
+        PrivKey::X25519PrivKey(bits)
+    } else {
+        panic!("this is not an Edmonds privkey")
+    }
+}
+
+/// don't forget to zeroize the string later on
 pub fn decode_key(key_string: &str) -> Result<[u8; 32], ()> {
     let vec = base64_url::decode(key_string).map_err(|_| log_err!("key has invalid content"))?;
     Ok(*slice_as_array!(&vec, [u8; 32])
@@ -26,62 +55,75 @@ pub fn decode_key(key_string: &str) -> Result<[u8; 32], ()> {
         .map_err(|_| log_err!("key has invalid content array"))?)
 }
 
-pub fn ed_privkey_to_pubkey(privkey: &PrivKey) -> PubKey {
+pub fn ed_privkey_to_ed_pubkey(privkey: &PrivKey) -> PubKey {
+    // SecretKey is zeroized on drop (3 lines below) se we are safe
     let sk = SecretKey::from_bytes(privkey.slice()).unwrap();
     let pk: PublicKey = (&sk).into();
     PubKey::Ed25519PubKey(pk.to_bytes())
 }
 
-pub fn generate_null_keypair() -> (PrivKey, PubKey) {
+/// use with caution. it should be embedded in a zeroize struct in order to be safe
+pub fn random_key() -> [u8; 32] {
+    let mut sk = [0u8; 32];
+    let mut csprng = OsRng {};
+    csprng.fill_bytes(&mut sk);
+    sk
+}
+
+pub fn generate_null_ed_keypair() -> (PrivKey, PubKey) {
+    // we don't use zeroize because... well, it is already a zeroized privkey ;)
     let master_key: [u8; 32] = [0; 32];
     let sk = SecretKey::from_bytes(&master_key).unwrap();
     let pk: PublicKey = (&sk).into();
-
-    let keypair = Keypair {
-        public: pk,
-        secret: sk,
-    };
-
-    // log_debug!(
-    //     "private key: ({}) {:?}",
-    //     keypair.secret.as_bytes().len(),
-    //     keypair.secret.as_bytes()
-    // );
-    // log_debug!(
-    //     "public key: ({}) {:?}",
-    //     keypair.public.as_bytes().len(),
-    //     keypair.public.as_bytes()
-    // );
-    let ed_priv_key = keypair.secret.to_bytes();
-    let ed_pub_key = keypair.public.to_bytes();
-    let priv_key = PrivKey::Ed25519PrivKey(ed_priv_key);
-    let pub_key = PubKey::Ed25519PubKey(ed_pub_key);
+    let priv_key = PrivKey::Ed25519PrivKey(sk.to_bytes());
+    let pub_key = PubKey::Ed25519PubKey(pk.to_bytes());
     (priv_key, pub_key)
 }
 
-pub fn dh_pubkey_from_ed_slice(public: &[u8]) -> PubKey {
-    PubKey::X25519PubKey(dh_slice_from_ed_slice(public))
+pub fn dh_pubkey_from_ed_pubkey_slice(public: &[u8]) -> PubKey {
+    PubKey::X25519PubKey(dh_pubkey_array_from_ed_pubkey_slice(public))
 }
 
-pub fn dh_slice_from_ed_slice(public: &[u8]) -> X25519PubKey {
+pub fn dh_pubkey_array_from_ed_pubkey_slice(public: &[u8]) -> X25519PubKey {
+    // the zeroize are not mandatory, because it is a PubKey.
     let mut bits: [u8; 32] = [0u8; 32];
     bits.copy_from_slice(public);
-    let compressed = CompressedEdwardsY(bits);
-    let ed_point: EdwardsPoint = compressed.decompress().unwrap();
-    let mon_point = ed_point.to_montgomery();
-    mon_point.to_bytes()
+    let mut compressed = CompressedEdwardsY(bits);
+    let mut ed_point: EdwardsPoint = compressed.decompress().unwrap();
+    compressed.zeroize();
+    let mut mon_point = ed_point.to_montgomery();
+    ed_point.zeroize();
+    let array = mon_point.to_bytes();
+    mon_point.zeroize();
+    array
+}
+
+pub fn pubkey_privkey_to_keypair(pubkey: &PubKey, privkey: &PrivKey) -> Keypair {
+    match (privkey, pubkey) {
+        (PrivKey::Ed25519PrivKey(sk), PubKey::Ed25519PubKey(pk)) => {
+            let secret = SecretKey::from_bytes(sk).unwrap();
+            let public = PublicKey::from_bytes(pk).unwrap();
+
+            Keypair { secret, public }
+        }
+        (_, _) => panic!("cannot sign with Montgomery keys"),
+    }
+}
+
+pub fn keypair_from_ed(secret: SecretKey, public: PublicKey) -> (PrivKey, PubKey) {
+    let ed_priv_key = secret.to_bytes();
+    let ed_pub_key = public.to_bytes();
+    let pub_key = PubKey::Ed25519PubKey(ed_pub_key);
+    let priv_key = PrivKey::Ed25519PrivKey(ed_priv_key);
+    (priv_key, pub_key)
 }
 
 pub fn sign(
-    author_privkey: PrivKey,
-    author_pubkey: PubKey,
+    author_privkey: &PrivKey,
+    author_pubkey: &PubKey,
     content: &Vec<u8>,
 ) -> Result<Sig, NgError> {
-    let kp = match (author_privkey, author_pubkey) {
-        (PrivKey::Ed25519PrivKey(sk), PubKey::Ed25519PubKey(pk)) => [sk, pk].concat(),
-        (_, _) => panic!("cannot sign with Montgomery keys"),
-    };
-    let keypair = Keypair::from_bytes(kp.as_slice())?;
+    let keypair = pubkey_privkey_to_keypair(author_pubkey, author_privkey);
     let sig_bytes = keypair.sign(content.as_slice()).to_bytes();
     let mut it = sig_bytes.chunks_exact(32);
     let mut ss: Ed25519Sig = [[0; 32], [0; 32]];
@@ -106,16 +148,6 @@ pub fn verify(content: &Vec<u8>, sig: Sig, pub_key: PubKey) -> Result<(), NgErro
 pub fn generate_keypair() -> (PrivKey, PubKey) {
     let mut csprng = OsRng {};
     let keypair: Keypair = Keypair::generate(&mut csprng);
-    // log_debug!(
-    //     "private key: ({}) {:?}",
-    //     keypair.secret.as_bytes().len(),
-    //     keypair.secret.as_bytes()
-    // );
-    // log_debug!(
-    //     "public key: ({}) {:?}",
-    //     keypair.public.as_bytes().len(),
-    //     keypair.public.as_bytes()
-    // );
     let ed_priv_key = keypair.secret.to_bytes();
     let ed_pub_key = keypair.public.to_bytes();
     let priv_key = PrivKey::Ed25519PrivKey(ed_priv_key);

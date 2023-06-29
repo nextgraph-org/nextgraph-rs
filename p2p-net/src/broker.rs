@@ -63,7 +63,8 @@ pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new
 
 pub struct Broker {
     direct_connections: HashMap<IP, DirectConnection>,
-    peers: HashMap<X25519PubKey, BrokerPeerInfo>,
+    /// tuple of optional userId and peer key in montgomery form. userId is always None on the server side.
+    peers: HashMap<(Option<PubKey>, X25519PubKey), BrokerPeerInfo>,
     /// (local,remote) -> ConnectionBase
     anonymous_connections: HashMap<(BindAddress, BindAddress), ConnectionBase>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -145,9 +146,10 @@ impl Broker {
                 }
             }
             Authorization::ExtMessage => Err(ProtocolError::AccessDenied),
-            Authorization::Client => Err(ProtocolError::AccessDenied),
+            Authorization::Client(_) => Err(ProtocolError::AccessDenied),
             Authorization::Core => Err(ProtocolError::AccessDenied),
-            Authorization::Admin => Err(ProtocolError::AccessDenied),
+            Authorization::Admin(_) => Err(ProtocolError::AccessDenied),
+            Authorization::OverlayJoin(_) => Err(ProtocolError::AccessDenied),
         }
     }
 
@@ -215,7 +217,7 @@ impl Broker {
                 112, 95, 150, 144, 137, 9, 57, 106, 5, 39, 202, 146, 94,
             ]),
         };
-        let refs = vec![obj_ref];
+        let refs = vec![obj_ref.clone()];
         let metadata = vec![5u8; 55];
         let expiry = None;
 
@@ -225,12 +227,12 @@ impl Broker {
             member_privkey,
             member_pubkey,
             1,
-            obj_ref,
+            obj_ref.clone(),
             vec![],
             vec![],
             refs,
             metadata,
-            obj_ref,
+            obj_ref.clone(),
             expiry,
         )
         .unwrap();
@@ -247,8 +249,8 @@ impl Broker {
         (rx, tx.clone())
     }
 
-    pub fn reconnecting(&mut self, peer_id: &DirectPeerId) {
-        let peerinfo = self.peers.get_mut(&peer_id.to_dh_slice());
+    pub fn reconnecting(&mut self, peer_id: &DirectPeerId, user: Option<PubKey>) {
+        let peerinfo = self.peers.get_mut(&(user, peer_id.to_dh_slice()));
         match peerinfo {
             Some(info) => match &info.connected {
                 PeerConnection::NONE => {}
@@ -263,8 +265,8 @@ impl Broker {
             None => {}
         }
     }
-    pub fn remove_peer_id(&mut self, peer_id: &DirectPeerId) {
-        let removed = self.peers.remove(&peer_id.to_dh_slice());
+    pub fn remove_peer_id(&mut self, peer_id: &DirectPeerId, user: Option<PubKey>) {
+        let removed = self.peers.remove(&(user, peer_id.to_dh_slice()));
         match removed {
             Some(info) => match info.connected {
                 PeerConnection::NONE => {}
@@ -366,7 +368,11 @@ impl Broker {
             anonymous = Vec::from_iter(broker.anonymous_connections.keys().cloned());
         }
         for peer_id in peer_ids {
-            BROKER.write().await.close_peer_connection_x(&peer_id).await;
+            BROKER
+                .write()
+                .await
+                .close_peer_connection_x(peer_id.1, peer_id.0)
+                .await;
         }
         for anon in anonymous {
             BROKER.write().await.close_anonymous(anon.1, anon.0).await;
@@ -422,7 +428,7 @@ impl Broker {
                     Some(Either::Right(remote_peer_id)) => {
                         let res = join.next().await;
                         log_info!("SOCKET IS CLOSED {:?} peer_id: {:?}", res, remote_peer_id);
-                        BROKER.write().await.remove_peer_id(&remote_peer_id);
+                        BROKER.write().await.remove_peer_id(&remote_peer_id, None);
                     }
                     _ => {
                         log_info!(
@@ -478,7 +484,7 @@ impl Broker {
             lastPeerAdvert: None,
             connected,
         };
-        self.peers.insert(remote_peer_id.to_dh_slice(), bpi);
+        self.peers.insert((None, remote_peer_id.to_dh_slice()), bpi);
 
         Ok(())
     }
@@ -498,7 +504,7 @@ impl Broker {
     pub async fn connect(
         &mut self,
         cnx: Box<dyn IConnect>,
-        peer_privk: Sensitive<[u8; 32]>,
+        peer_privk: PrivKey,
         peer_pubk: PubKey,
         remote_peer_id: DirectPeerId,
         config: StartConfig,
@@ -514,7 +520,7 @@ impl Broker {
         let mut connection = cnx
             .open(
                 config.get_url(),
-                Sensitive::<[u8; 32]>::from_slice(peer_privk.deref()),
+                peer_privk.clone(),
                 peer_pubk,
                 remote_peer_id,
                 config.clone(),
@@ -544,12 +550,13 @@ impl Broker {
             lastPeerAdvert: None,
             connected,
         };
-        self.peers.insert(remote_peer_id.to_dh_slice(), bpi);
+        self.peers
+            .insert((config.get_user(), remote_peer_id.to_dh_slice()), bpi);
 
         async fn watch_close(
             mut join: Receiver<Either<NetError, PubKey>>,
             cnx: Box<dyn IConnect>,
-            peer_privk: Sensitive<[u8; 32]>,
+            peer_privk: PrivKey,
             peer_pubkey: PubKey,
             remote_peer_id: DirectPeerId,
             config: StartConfig,
@@ -563,7 +570,7 @@ impl Broker {
                 {
                     // we intend to reconnect
                     let mut broker = BROKER.write().await;
-                    broker.reconnecting(&remote_peer_id);
+                    broker.reconnecting(&remote_peer_id, config.get_user());
                     // TODO: deal with cycle error https://users.rust-lang.org/t/recursive-async-method-causes-cycle-error/84628/5
                     // let result = broker
                     //     .connect(cnx, ip, core, peer_pubk, peer_privk, remote_peer_id)
@@ -572,7 +579,10 @@ impl Broker {
                     // TODO: deal with error and incremental backoff
                 } else {
                     log_info!("REMOVED");
-                    BROKER.write().await.remove_peer_id(&remote_peer_id);
+                    BROKER
+                        .write()
+                        .await
+                        .remove_peer_id(&remote_peer_id, config.get_user());
                 }
             }
             .await;
@@ -589,8 +599,8 @@ impl Broker {
         Ok(())
     }
 
-    pub async fn close_peer_connection_x(&mut self, peer_id: &X25519PubKey) {
-        if let Some(peer) = self.peers.get_mut(peer_id) {
+    pub async fn close_peer_connection_x(&mut self, peer_id: X25519PubKey, user: Option<PubKey>) {
+        if let Some(peer) = self.peers.get_mut(&(user, peer_id)) {
             match &mut peer.connected {
                 PeerConnection::Core(_) => {
                     //TODO
@@ -605,8 +615,9 @@ impl Broker {
         }
     }
 
-    pub async fn close_peer_connection(&mut self, peer_id: &DirectPeerId) {
-        self.close_peer_connection_x(&peer_id.to_dh_slice()).await
+    pub async fn close_peer_connection(&mut self, peer_id: &DirectPeerId, user: Option<PubKey>) {
+        self.close_peer_connection_x(peer_id.to_dh_slice(), user)
+            .await
     }
 
     pub async fn close_anonymous(

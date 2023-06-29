@@ -599,7 +599,7 @@ mod test {
 
     use async_std::task;
     use p2p_broker::server_ws::*;
-    use p2p_net::utils::{gen_dh_keys, Sensitive, U8Array};
+    use p2p_net::utils::gen_dh_keys;
     use p2p_net::WS_PORT;
     use p2p_repo::log::*;
     use p2p_repo::types::PubKey;
@@ -609,17 +609,11 @@ mod test {
         let keys = gen_dh_keys();
         // log_debug!("Public key of node: {:?}", keys.1);
         // log_debug!("Private key of node: {:?}", keys.0.as_slice());
-        let pubkey = PubKey::Ed25519PubKey(keys.1);
 
-        log_debug!("Public key of node: {:?}", pubkey);
-        log_debug!("Private key of node: {:?}", keys.0.as_slice());
+        log_debug!("Public key of node: {}", keys.1);
+        log_debug!("Private key of node: {}", keys.0);
 
-        let thr = task::spawn(run_server_accept_one(
-            "127.0.0.1",
-            WS_PORT,
-            keys.0.as_slice(),
-            pubkey,
-        ));
+        let thr = task::spawn(run_server_accept_one("127.0.0.1", WS_PORT, keys.0, pubkey));
 
         // time for the server to start
         std::thread::sleep(std::time::Duration::from_secs(2));

@@ -15,7 +15,7 @@ pub mod types;
 
 pub mod errors;
 
-pub mod broker_connection;
+//pub mod broker_connection;
 
 pub mod broker;
 
@@ -28,6 +28,8 @@ pub mod actors;
 pub mod utils;
 
 pub mod tests;
+
+pub mod site;
 
 #[cfg(debug_assertions)]
 pub static WS_PORT: u16 = 14400;

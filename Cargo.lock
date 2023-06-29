@@ -2784,6 +2784,7 @@ dependencies = [
  "serde_bare",
  "serde_bytes",
  "web-time",
+ "zeroize",
 ]
 
 [[package]]
@@ -2823,6 +2824,7 @@ dependencies = [
  "serde_bare",
  "serde_bytes",
  "serde_json",
+ "zeroize",
 ]
 
 [[package]]
@@ -3108,6 +3110,7 @@ dependencies = [
  "async-broadcast",
  "async-std",
  "async-trait",
+ "base64-url",
  "blake3",
  "default-net",
  "ed25519-dalek",
@@ -3150,6 +3153,7 @@ dependencies = [
  "slice_as_array",
  "wasm-bindgen",
  "web-time",
+ "zeroize",
 ]
 
 [[package]]

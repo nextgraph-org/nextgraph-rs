@@ -24,8 +24,7 @@ use p2p_net::utils::is_public_ip;
 use p2p_net::utils::is_public_ipv4;
 use p2p_net::utils::is_public_ipv6;
 use p2p_net::utils::{
-    gen_dh_keys, is_ipv4_global, is_ipv4_private, is_ipv6_global, is_ipv6_private, keypair_from_ed,
-    keys_from_bytes, Dual25519Keys, Sensitive, U8Array,
+    gen_dh_keys, is_ipv4_global, is_ipv4_private, is_ipv6_global, is_ipv6_private,
 };
 use p2p_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
 use p2p_repo::log::*;
@@ -38,6 +37,7 @@ use std::fs::{read_to_string, write};
 use std::io::ErrorKind;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::PathBuf;
+use zeroize::Zeroize;
 
 use addr::parser::DnsName;
 use addr::psl::List;
@@ -287,11 +287,12 @@ fn parse_domain_and_port(
 
 fn prepare_accept_forward_for_domain(domain: String, args: &Cli) -> Result<AcceptForwardForV0, ()> {
     if args.domain_peer.is_some() {
-        let key_ser = base64_url::decode(args.domain_peer.as_ref().unwrap()).map_err(|_| ())?;
-        let key = serde_bare::from_slice::<PrivKey>(&key_ser);
+        let key = decode_key(args.domain_peer.as_ref().unwrap().as_str())?;
+        args.domain_peer.as_mut().unwrap().zeroize();
+
         Ok(AcceptForwardForV0::PublicDomainPeer((
             domain,
-            key.unwrap(),
+            PrivKey::Ed25519PrivKey(key),
             "".to_string(),
         )))
     } else {
@@ -348,16 +349,10 @@ async fn main_inner() -> Result<(), ()> {
     let key_from_file: Option<[u8; 32]>;
     let res = |key_path| -> Result<[u8; 32], &str> {
         let file = read_to_string(key_path).map_err(|_| "")?;
-        decode_key(
-            &file
-                .lines()
-                .nth(0)
-                .ok_or("empty file")?
-                .to_string()
-                .trim()
-                .to_string(),
-        )
-        .map_err(|_| "invalid file")
+        let first_line = file.lines().nth(0).ok_or("empty file")?;
+        let res = decode_key(first_line.trim()).map_err(|_| "invalid file");
+        first_line.zeroize();
+        res
     }(&key_path);
 
     if res.is_err() && res.unwrap_err().len() > 0 {
@@ -373,24 +368,25 @@ async fn main_inner() -> Result<(), ()> {
         Some(key_string) => {
             if key_from_file.is_some() {
                 log_err!("provided --key option will not be used as a key file is already present");
-                gen_broker_keys(Some(key_from_file.unwrap()))
+                gen_broker_keys(key_from_file)
             } else {
                 let res = decode_key(key_string.as_str())
                     .map_err(|_| log_err!("provided key is invalid. cannot start"))?;
-
                 if args.save_key {
                     let master_key = base64_url::encode(&res);
                     write(key_path.clone(), master_key).map_err(|e| {
                         log_err!("cannot save key to file. {}.cannot start", e.to_string())
                     })?;
+                    master_key.zeroize();
                     log_info!("The key has been saved to {}", key_path.to_str().unwrap());
                 }
                 gen_broker_keys(Some(res))
             }
+            args.key.as_mut().unwrap().zeroize();
         }
         None => {
             if key_from_file.is_some() {
-                gen_broker_keys(Some(key_from_file.unwrap()))
+                gen_broker_keys(key_from_file)
             } else {
                 let res = gen_broker_keys(None);
                 let master_key = base64_url::encode(&res[0]);
@@ -405,10 +401,16 @@ async fn main_inner() -> Result<(), ()> {
                     log_err!("At your request, the key wasn't saved. If you want to save it to disk, use ---save-key");
                     log_err!("provide it again to the next start of ngd with --key option or NG_SERVER_KEY env variable");
                 }
+                master_key.zeroize();
                 res
             }
         }
     };
+
+    key_from_file.and_then(|mut key| {
+        key.zeroize();
+        None
+    });
 
     // DEALING WITH CONFIG
 
@@ -701,7 +703,9 @@ async fn main_inner() -> Result<(), ()> {
                 }
                 Some(inter) => {
                     overlays_config.core = BrokerOverlayPermission::AllRegisteredUser;
-                    overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
+                    if !args.public_without_clients {
+                        overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
+                    }
 
                     if listeners.last().is_some()
                         && listeners.last().unwrap().interface_name == inter.name
@@ -719,6 +723,7 @@ async fn main_inner() -> Result<(), ()> {
                         let mut listener =
                             ListenerV0::new_direct(inter, !args.no_ipv6, arg_value.1);
                         listener.accept_direct = false;
+                        listener.refuse_clients = args.public_without_clients;
                         listener.serve_app = false;
                         listener.accept_forward_for =
                             AcceptForwardForV0::PublicDyn((public_port, 60, "".to_string()));
@@ -939,37 +944,16 @@ async fn main_inner() -> Result<(), ()> {
         }
     }
 
-    // let keys = gen_keys();
-    // let pub_key = PubKey::Ed25519PubKey(keys.1);
-    // let (ed_priv_key, ed_pub_key) = generate_keypair();
-
-    //let duals = Dual25519Keys::generate();
-    // let eds = keypair_from_ed(duals.ed25519_priv, duals.ed25519_pub);
-    // let test_vector: Vec<u8> = vec![71, 51, 206, 126, 9, 84, 132];
-    // let sig = sign(eds.0, eds.1, &test_vector).unwrap();
-    // verify(&test_vector, sig, eds.1).unwrap();
-
-    // let privkey = duals.x25519_priv;
-    // let pubkey = PubKey::Ed25519PubKey(duals.x25519_public);
-
-    let (privkey, pubkey) = keys_from_bytes(keys[1]);
-
-    //let duals = Dual25519Keys::from_sensitive(privkey);
-    //let eds = keypair_from_ed(duals.ed25519_priv, duals.ed25519_pub);
-    //let xpriv = duals.x25519_priv;
-    //let xpub = PubKey::X25519PubKey(duals.x25519_public);
-
-    // let priv_key: PrivKey = privkey
-    //     .as_slice()
-    //     .try_into()
-    //     .map_err(|_| log_err!("Private key of peer has invalid array"))?;
+    let (privkey, pubkey) = ed_keypair_from_priv_bytes(keys[1]);
+    keys[1].zeroize();
+    keys[0].zeroize();
 
     log_info!("PeerId of node: {}", pubkey);
-    //let privkey_: PrivKey = xpriv.to_owned().try_into().unwrap();
-    //debug_println!("Private key of peer: {}", privkey_.to_string());
 
-    //let x_from_ed = eds.1.to_dh_from_ed();
-    //log_info!("Pub from X {}", x_from_ed);
+    //debug_println!("Private key of peer: {}", privkey.to_string());
+
+    //let x_from_ed = pubkey.to_dh_from_ed();
+    //log_info!("du Pubkey from ed: {}", x_from_ed);
 
     match config.unwrap() {
         DaemonConfig::V0(v0) => {

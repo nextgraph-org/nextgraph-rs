@@ -15,13 +15,15 @@
 
 use crate::errors::NgError;
 use crate::utils::{
-    decode_key, dh_pubkey_from_ed_slice, dh_slice_from_ed_slice, ed_privkey_to_pubkey,
+    decode_key, dh_pubkey_array_from_ed_pubkey_slice, dh_pubkey_from_ed_pubkey_slice,
+    ed_privkey_to_ed_pubkey, from_ed_privkey_to_dh_privkey, random_key,
 };
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use serde_bare::to_vec;
 use std::collections::HashMap;
 use std::hash::Hash;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 //
 // COMMON TYPES
@@ -48,7 +50,7 @@ impl fmt::Display for Digest {
 pub type ChaCha20Key = [u8; 32];
 
 /// Symmetric cryptographic key
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum SymKey {
     ChaCha20Key(ChaCha20Key),
 }
@@ -59,6 +61,9 @@ impl SymKey {
             SymKey::ChaCha20Key(o) => o,
         }
     }
+    pub fn random() -> Self {
+        SymKey::ChaCha20Key(random_key())
+    }
 }
 
 /// Curve25519 public key Edwards form
@@ -67,8 +72,11 @@ pub type Ed25519PubKey = [u8; 32];
 /// Curve25519 public key Montgomery form
 pub type X25519PubKey = [u8; 32];
 
-/// Curve25519 private key
+/// Curve25519 private key Edwards form
 pub type Ed25519PrivKey = [u8; 32];
+
+/// Curve25519 private key Montgomery form
+pub type X25519PrivKey = [u8; 32];
 
 /// Public key
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -85,17 +93,17 @@ impl PubKey {
     }
     pub fn to_dh_from_ed(&self) -> PubKey {
         match self {
-            PubKey::Ed25519PubKey(ed) => dh_pubkey_from_ed_slice(ed),
+            PubKey::Ed25519PubKey(ed) => dh_pubkey_from_ed_pubkey_slice(ed),
             _ => panic!(
-                "cannot convert a Montgomery key to Montgomery. it is already one. check your code"
+                "there is no need to convert a Montgomery key to Montgomery. it is already one. check your code"
             ),
         }
     }
     pub fn dh_from_ed_slice(slice: &[u8]) -> PubKey {
-        dh_pubkey_from_ed_slice(slice)
+        dh_pubkey_from_ed_pubkey_slice(slice)
     }
     pub fn to_dh_slice(&self) -> [u8; 32] {
-        dh_slice_from_ed_slice(self.slice())
+        dh_pubkey_array_from_ed_pubkey_slice(self.slice())
     }
 }
 
@@ -118,19 +126,36 @@ impl TryFrom<&str> for PubKey {
 }
 
 /// Private key
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum PrivKey {
     Ed25519PrivKey(Ed25519PrivKey),
+    X25519PrivKey(X25519PrivKey),
 }
 
 impl PrivKey {
     pub fn slice(&self) -> &[u8; 32] {
         match self {
-            PrivKey::Ed25519PrivKey(o) => o,
+            PrivKey::Ed25519PrivKey(o) | PrivKey::X25519PrivKey(o) => o,
         }
     }
     pub fn to_pub(&self) -> PubKey {
-        ed_privkey_to_pubkey(self)
+        match self {
+            PrivKey::Ed25519PrivKey(_) => ed_privkey_to_ed_pubkey(self),
+            _ => panic!("X25519PrivKey to pub not implemented"),
+        }
+    }
+
+    #[deprecated(note = "**Don't use dummy method**")]
+    pub fn dummy() -> PrivKey {
+        PrivKey::Ed25519PrivKey([0u8; 32])
+    }
+
+    pub fn to_dh(&self) -> PrivKey {
+        from_ed_privkey_to_dh_privkey(self)
+    }
+
+    pub fn random_ed() -> Self {
+        PrivKey::Ed25519PrivKey(random_key())
     }
 }
 
@@ -220,57 +245,6 @@ pub enum PermissionType {
     CHANGE_ACK_CONFIG,
 }
 
-/// List of Identity types
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum Identity {
-    OrgSite(PubKey),
-    IndividualSite(PubKey),
-    OrgPublic(PubKey),
-    OrgProtected(PubKey),
-    OrgPrivate(PubKey),
-    IndividualPublic(PubKey),
-    IndividualProtected(PubKey),
-    IndividualPrivate(PubKey),
-    Group(RepoId),
-    Dialog(RepoId),
-    Document(RepoId),
-    DialogOverlay(Digest),
-}
-
-/// Site type
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum SiteType {
-    Org,
-    Individual, // formerly Personal
-}
-
-/// Site
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct Site {
-    pub site_type: SiteType,
-    // Identity::OrgSite or Identity::IndividualSite
-    pub site_identity: Identity,
-    pub site_key: PrivKey,
-
-    // Identity::OrgPublic or Identity::IndividualPublic
-    pub public_identity: Identity,
-    pub public_key: PrivKey,
-    // signature of public_identity with site_key
-    pub public_sig: Sig,
-
-    // Identity::OrgProtected or Identity::IndividualProtected
-    pub protected_identity: Identity,
-    pub protected_key: PrivKey,
-    // signature of protected_identity with site_key
-    pub protected_sig: Sig,
-
-    // Identity::OrgPrivate or Identity::IndividualPrivate
-    pub private_identity: Identity,
-    pub private_key: PrivKey,
-    // signature of private_identity with site_key
-    pub private_sig: Sig,
-}
-
 /// RepoHash:
 /// BLAKE3 hash of the RepoId
 pub type RepoHash = Digest;
@@ -289,13 +263,23 @@ pub type RepoId = PubKey;
 pub type BlockId = Digest;
 
 /// Block reference
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct BlockRef {
     /// Object ID
     pub id: BlockId,
 
     /// Key for decrypting the Object
     pub key: SymKey,
+}
+
+impl BlockRef {
+    #[deprecated(note = "**Don't use dummy method**")]
+    pub fn dummy() -> Self {
+        BlockRef {
+            id: Digest::Blake3Digest32([0u8; 32]),
+            key: SymKey::ChaCha20Key([0u8; 32]),
+        }
+    }
 }
 
 /// Object ID
@@ -405,13 +389,13 @@ pub enum Repository {
 }
 
 /// Add a branch to the repository
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AddBranch {
     V0(ObjectRef),
 }
 
 /// Remove a branch from the repository
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RemoveBranch {
     V0(ObjectRef),
 }

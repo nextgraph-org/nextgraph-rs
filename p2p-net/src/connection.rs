@@ -53,7 +53,7 @@ pub trait IConnect: Send + Sync {
     async fn open(
         &self,
         url: String,
-        peer_privk: Sensitive<[u8; 32]>,
+        peer_privk: PrivKey,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
         config: StartConfig,
@@ -70,7 +70,7 @@ pub trait IAccept: Send + Sync {
         &self,
         remote_bind_address: BindAddress,
         local_bind_address: BindAddress,
-        peer_privk: Sensitive<[u8; 32]>,
+        peer_privk: PrivKey,
         socket: Self::Socket,
     ) -> Result<ConnectionBase, NetError>;
 }
@@ -120,7 +120,7 @@ pub struct NoiseFSM {
     noise_cipher_state_enc: Option<CipherState<ChaCha20Poly1305>>,
     noise_cipher_state_dec: Option<CipherState<ChaCha20Poly1305>>,
 
-    local: Option<Sensitive<[u8; 32]>>,
+    local: Option<PrivKey>,
     remote: Option<PubKey>,
 
     nonce_for_hello: Vec<u8>,
@@ -182,6 +182,12 @@ impl StartConfig {
             _ => unimplemented!(),
         }
     }
+    pub fn get_user(&self) -> Option<PubKey> {
+        match self {
+            Self::Client(config) => Some(config.user),
+            _ => None,
+        }
+    }
 }
 
 impl NoiseFSM {
@@ -191,7 +197,7 @@ impl NoiseFSM {
         dir: ConnectionDir,
         actors: Arc<Mutex<HashMap<i64, Sender<ConnectionCommand>>>>,
         sender: Sender<ConnectionCommand>,
-        local: Option<Sensitive<[u8; 32]>>,
+        local: Option<PrivKey>,
         remote: Option<PubKey>,
     ) -> Self {
         Self {
@@ -280,7 +286,7 @@ impl NoiseFSM {
             noise_xk(),
             false,
             &[],
-            Some(from_ed_priv_to_dh_priv(self.local.take().unwrap())),
+            Some(sensitive_from_privkey(self.local.take().unwrap().to_dh())),
             None,
             None,
             None,
@@ -363,7 +369,9 @@ impl NoiseFSM {
                                     noise_xk(),
                                     true,
                                     &[],
-                                    Some(from_ed_priv_to_dh_priv(self.local.take().unwrap())),
+                                    Some(sensitive_from_privkey(
+                                        self.local.take().unwrap().to_dh(),
+                                    )),
                                     None,
                                     Some(*self.remote.unwrap().to_dh_from_ed().slice()),
                                     None,
@@ -410,12 +418,12 @@ impl NoiseFSM {
                                         )
                                         .is_ok()
                                     {
-                                        probe_response.peer_id =
-                                            Some(ed_sensitive_privkey_to_pubkey(
-                                                self.local
-                                                    .as_ref()
-                                                    .ok_or(ProtocolError::BrokerError)?,
-                                            ));
+                                        probe_response.peer_id = Some(
+                                            self.local
+                                                .as_ref()
+                                                .ok_or(ProtocolError::BrokerError)?
+                                                .to_pub(),
+                                        );
                                     }
                                     self.send(ProtocolMessage::ProbeResponse(probe_response))
                                         .await?;
@@ -586,7 +594,7 @@ impl NoiseFSM {
                                 };
                                 let ser = serde_bare::to_vec(&content)?;
                                 let sig =
-                                    sign(client_config.client_priv, client_config.client, &ser)?;
+                                    sign(&client_config.client_priv, &client_config.client, &ser)?;
                                 let client_auth = ClientAuth::V0(ClientAuthV0 {
                                     content,
                                     /// Signature by client key
@@ -963,7 +971,7 @@ impl ConnectionBase {
     pub fn start_read_loop(
         &mut self,
         bind_addresses: Option<(BindAddress, BindAddress)>,
-        local: Option<Sensitive<[u8; 32]>>,
+        local: Option<PrivKey>,
         remote: Option<PubKey>,
     ) {
         let (sender_tx, sender_rx) = mpsc::unbounded();

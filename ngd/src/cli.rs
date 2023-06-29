@@ -72,7 +72,7 @@ pub(crate) struct Cli {
     pub public: Option<String>,
 
     /// When --public is used, this option will disallow clients to connect to the public interface too. Otherwise, by default, they can. Should be used in combination with a --domain option
-    #[arg(long, requires("public"), conflicts_with("private"))]
+    #[arg(long, conflicts_with("private"))]
     pub public_without_clients: bool,
 
     /// When --public is used with a public IPV6, this option will bind the IPV6 to the private interface. This is how DMZ work for IpV6

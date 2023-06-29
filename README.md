@@ -103,7 +103,7 @@ wasm-pack test --chrome --headless
 Test Rust websocket
 
 ```
-cargo test --package p2p-client-ws --lib --  --nocapture
+cargo test --package p2p-client-ws --lib -- remote_ws::test::test_ws --nocapture
 ```
 
 ### Build release binaries

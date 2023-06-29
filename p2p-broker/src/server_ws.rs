@@ -514,7 +514,7 @@ impl Callback for SecurityCallback {
     }
 }
 
-pub async fn accept(tcp: TcpStream, peer_priv_key: Sensitive<[u8; 32]>) {
+pub async fn accept(tcp: TcpStream, peer_priv_key: PrivKey) {
     let remote_addr = tcp.peer_addr().unwrap();
     let remote_bind_address: BindAddress = (&remote_addr).into();
 
@@ -554,7 +554,7 @@ pub async fn accept(tcp: TcpStream, peer_priv_key: Sensitive<[u8; 32]>) {
 pub async fn run_server_accept_one(
     addr: &str,
     port: u16,
-    peer_priv_key: Sensitive<[u8; 32]>,
+    peer_priv_key: PrivKey,
     peer_pub_key: PubKey,
 ) -> std::io::Result<()> {
     let addrs = format!("{}:{}", addr, port);
@@ -580,7 +580,7 @@ pub async fn run_server_accept_one(
 }
 
 pub async fn run_server_v0(
-    peer_priv_key: Sensitive<[u8; 32]>,
+    peer_priv_key: PrivKey,
     peer_id: PubKey,
     wallet_master_key: Sensitive<[u8; 32]>,
     config: DaemonConfigV0,
@@ -792,11 +792,7 @@ pub async fn run_server_v0(
     // TODO : select on the shutdown stream too
     while let Some(tcp) = incoming.next().await {
         // TODO select peer_priv_ket according to config. if --domain-peer present and the connection is for that listener (PublicDomainPeer) then use the peer configured there
-        accept(
-            tcp.unwrap(),
-            Sensitive::<[u8; 32]>::from_slice(peer_priv_key.deref()),
-        )
-        .await;
+        accept(tcp.unwrap(), peer_priv_key.clone()).await;
     }
 
     Ok(())

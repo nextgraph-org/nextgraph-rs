@@ -12,11 +12,11 @@
 use async_std::task;
 use ed25519_dalek::*;
 use futures::{channel::mpsc, select, Future, FutureExt, SinkExt};
-pub use noise_protocol::U8Array;
+use noise_protocol::U8Array;
 use noise_protocol::DH;
-pub use noise_rust_crypto::sensitive::Sensitive;
-use p2p_repo::log::*;
+use noise_rust_crypto::sensitive::Sensitive;
 use p2p_repo::types::PubKey;
+use p2p_repo::{log::*, types::PrivKey};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 #[cfg(target_arch = "wasm32")]
@@ -48,50 +48,28 @@ where
     })
 }
 
+pub fn sensitive_from_privkey(privkey: PrivKey) -> Sensitive<[u8; 32]> {
+    // we copy the key here, because otherwise the 2 zeroize would conflict. as the drop of the PrivKey might be called before the one of Sensitive
+    let mut bits: [u8; 32] = [0u8; 32];
+    bits.copy_from_slice(privkey.slice());
+    Sensitive::<[u8; 32]>::from_slice(&bits)
+}
+
+pub fn dh_privkey_from_sensitive(privkey: Sensitive<[u8; 32]>) -> PrivKey {
+    // we copy the key here, because otherwise the 2 zeroize would conflict. as the drop of the Sensitive might be called before the one of PrivKey
+    let mut bits: [u8; 32] = [0u8; 32];
+    bits.copy_from_slice(privkey.as_slice());
+    PrivKey::X25519PrivKey(bits)
+}
+
 pub type Sender<T> = mpsc::UnboundedSender<T>;
 pub type Receiver<T> = mpsc::UnboundedReceiver<T>;
 
-pub fn keypair_from_ed(secret: SecretKey, public: PublicKey) -> (Sensitive<[u8; 32]>, PubKey) {
-    let ed_priv_key = secret.to_bytes();
-    let ed_pub_key = public.to_bytes();
-    //let priv_key = PrivKey::Ed25519PrivKey(ed_priv_key);
-    let pub_key = PubKey::Ed25519PubKey(ed_pub_key);
-    let priv_key = Sensitive::<[u8; 32]>::from_slice(&ed_priv_key);
-    (priv_key, pub_key)
-}
-
-pub fn ed_sensitive_privkey_to_pubkey(privkey: &Sensitive<[u8; 32]>) -> PubKey {
-    //TODO FIXME do not create a SecretKey or call into() on it, as this is not using Sensitive<>
-    let sk = SecretKey::from_bytes(privkey.as_slice()).unwrap();
-    let pk: PublicKey = (&sk).into();
-    PubKey::Ed25519PubKey(pk.to_bytes())
-}
-
-pub fn keys_from_bytes(secret_key: [u8; 32]) -> (Sensitive<[u8; 32]>, PubKey) {
-    let sk = SecretKey::from_bytes(&secret_key).unwrap();
-    let pk: PublicKey = (&sk).into();
-
-    let pub_key = PubKey::Ed25519PubKey(pk.to_bytes());
-
-    let priv_key = Sensitive::<[u8; 32]>::from_slice(&secret_key);
-    (priv_key, pub_key)
-}
-
-pub fn gen_dh_keys() -> (Sensitive<[u8; 32]>, [u8; 32]) {
+pub fn gen_dh_keys() -> (PrivKey, PubKey) {
     let pri = noise_rust_crypto::X25519::genkey();
     let publ = noise_rust_crypto::X25519::pubkey(&pri);
-    (pri, publ)
-}
 
-pub fn gen_ed_keys() -> (Sensitive<[u8; 32]>, PubKey) {
-    let mut ed25519_priv = Sensitive::<[u8; 32]>::new();
-    getrandom::getrandom(&mut *ed25519_priv).expect("getrandom failed");
-
-    //TODO FIXME do not create a SecretKey or call into() on it, as this is not using Sensitive<>
-    let secret = SecretKey::from_bytes(&ed25519_priv.as_slice()).unwrap();
-    let ed25519_pub: PublicKey = (&secret).into();
-
-    (ed25519_priv, PubKey::Ed25519PubKey(ed25519_pub.to_bytes()))
+    (dh_privkey_from_sensitive(pri), PubKey::X25519PubKey(publ))
 }
 
 pub struct Dual25519Keys {
@@ -101,47 +79,18 @@ pub struct Dual25519Keys {
     pub ed25519_pub: PublicKey,
 }
 
-pub fn from_ed_priv_to_dh_priv(private: Sensitive<[u8; 32]>) -> Sensitive<[u8; 32]> {
-    let ed25519_priv = SecretKey::from_bytes(&private.as_slice()).unwrap();
-    let exp: ExpandedSecretKey = (&ed25519_priv).into();
-    let exp_bytes = exp.to_bytes();
-    let mut bits = Sensitive::<[u8; 32]>::from_slice(&exp_bytes[0..32]);
-    bits[0] &= 248;
-    bits[31] &= 127;
-    bits[31] |= 64;
-    bits
-}
-
 impl Dual25519Keys {
     pub fn generate() -> Self {
-        let mut x25519_priv = Sensitive::<[u8; 32]>::new();
-        getrandom::getrandom(&mut *x25519_priv).expect("getrandom failed");
+        let mut random = Sensitive::<[u8; 32]>::new();
+        getrandom::getrandom(&mut *random).expect("getrandom failed");
 
-        let ed25519_priv = SecretKey::from_bytes(&x25519_priv.as_slice()).unwrap();
+        let ed25519_priv = SecretKey::from_bytes(&random.as_slice()).unwrap();
         let exp: ExpandedSecretKey = (&ed25519_priv).into();
-        let exp_bytes = exp.to_bytes();
+        let mut exp_bytes = exp.to_bytes();
         let ed25519_pub: PublicKey = (&ed25519_priv).into();
-
-        let mut bits = Sensitive::<[u8; 32]>::from_slice(&exp_bytes[0..32]);
-        bits[0] &= 248;
-        bits[31] &= 127;
-        bits[31] |= 64;
-
-        let x25519_public = noise_rust_crypto::X25519::pubkey(&bits);
-
-        Self {
-            x25519_priv: bits,
-            x25519_public,
-            ed25519_priv,
-            ed25519_pub,
+        for byte in &mut exp_bytes[32..] {
+            *byte = 0;
         }
-    }
-    pub fn from_sensitive(sensitive: Sensitive<[u8; 32]>) -> Self {
-        let ed25519_priv = SecretKey::from_bytes(&sensitive.as_slice()).unwrap();
-        let exp: ExpandedSecretKey = (&ed25519_priv).into();
-        let exp_bytes = exp.to_bytes();
-        let ed25519_pub: PublicKey = (&ed25519_priv).into();
-
         let mut bits = Sensitive::<[u8; 32]>::from_slice(&exp_bytes[0..32]);
         bits[0] &= 248;
         bits[31] &= 127;
