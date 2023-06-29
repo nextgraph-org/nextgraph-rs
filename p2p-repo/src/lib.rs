@@ -18,8 +18,6 @@ pub mod errors;
 
 pub mod kcv_store;
 
-pub mod site;
-
 #[macro_use]
 extern crate slice_as_array;
 

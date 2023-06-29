@@ -110,7 +110,7 @@ impl Block {
     /// Get the key
     pub fn key(&self) -> Option<SymKey> {
         match self {
-            Block::V0(b) => b.key,
+            Block::V0(b) => b.key.clone(),
         }
     }
 

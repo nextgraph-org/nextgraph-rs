@@ -429,128 +429,128 @@ mod test {
             repo_secret.clone(),
             &mut store,
         );
-        let ack_body = add_body_ack(vec![], repo_pubkey, repo_secret, &mut store);
-        let trans_body = add_body_trans(vec![], repo_pubkey, repo_secret, &mut store);
+        let ack_body = add_body_ack(vec![], repo_pubkey, repo_secret.clone(), &mut store);
+        let trans_body = add_body_trans(vec![], repo_pubkey, repo_secret.clone(), &mut store);
 
         // create & add commits to store
 
         log_debug!(">> br");
         let br = add_commit(
-            branch_body,
-            member_privkey,
+            branch_body.clone(),
+            member_privkey.clone(),
             member_pubkey,
             0,
             vec![],
             vec![],
-            branch_body,
+            branch_body.clone(),
             repo_pubkey,
-            repo_secret,
+            repo_secret.clone(),
             &mut store,
         );
 
         log_debug!(">> t1");
         let t1 = add_commit(
-            branch_body,
-            member_privkey,
+            branch_body.clone(),
+            member_privkey.clone(),
             member_pubkey,
             1,
-            vec![br],
+            vec![br.clone()],
             vec![],
-            trans_body,
+            trans_body.clone(),
             repo_pubkey,
-            repo_secret,
+            repo_secret.clone(),
             &mut store,
         );
 
         log_debug!(">> t2");
         let t2 = add_commit(
-            branch_body,
-            member_privkey,
+            branch_body.clone(),
+            member_privkey.clone(),
             member_pubkey,
             2,
-            vec![br],
+            vec![br.clone()],
             vec![],
-            trans_body,
+            trans_body.clone(),
             repo_pubkey,
-            repo_secret,
+            repo_secret.clone(),
             &mut store,
         );
 
         log_debug!(">> a3");
         let a3 = add_commit(
-            branch_body,
-            member_privkey,
+            branch_body.clone(),
+            member_privkey.clone(),
             member_pubkey,
             3,
-            vec![t1],
+            vec![t1.clone()],
             vec![],
-            ack_body,
+            ack_body.clone(),
             repo_pubkey,
-            repo_secret,
+            repo_secret.clone(),
             &mut store,
         );
 
         log_debug!(">> t4");
         let t4 = add_commit(
-            branch_body,
-            member_privkey,
+            branch_body.clone(),
+            member_privkey.clone(),
             member_pubkey,
             4,
-            vec![t2],
-            vec![t1],
-            trans_body,
+            vec![t2.clone()],
+            vec![t1.clone()],
+            trans_body.clone(),
             repo_pubkey,
-            repo_secret,
+            repo_secret.clone(),
             &mut store,
         );
 
         log_debug!(">> t5");
         let t5 = add_commit(
-            branch_body,
-            member_privkey,
+            branch_body.clone(),
+            member_privkey.clone(),
             member_pubkey,
             5,
-            vec![t1, t2],
-            vec![t4],
-            trans_body,
+            vec![t1.clone(), t2.clone()],
+            vec![t4.clone()],
+            trans_body.clone(),
             repo_pubkey,
-            repo_secret,
+            repo_secret.clone(),
             &mut store,
         );
 
         log_debug!(">> a6");
         let a6 = add_commit(
-            branch_body,
-            member_privkey,
+            branch_body.clone(),
+            member_privkey.clone(),
             member_pubkey,
             6,
-            vec![t4],
+            vec![t4.clone()],
             vec![],
-            ack_body,
+            ack_body.clone(),
             repo_pubkey,
-            repo_secret,
+            repo_secret.clone(),
             &mut store,
         );
 
         log_debug!(">> a7");
         let a7 = add_commit(
-            branch_body,
-            member_privkey,
+            branch_body.clone(),
+            member_privkey.clone(),
             member_pubkey,
             7,
-            vec![t4],
+            vec![t4.clone()],
             vec![],
-            ack_body,
+            ack_body.clone(),
             repo_pubkey,
-            repo_secret,
+            repo_secret.clone(),
             &mut store,
         );
 
-        let c7 = Commit::load(a7, &store).unwrap();
+        let c7 = Commit::load(a7.clone(), &store).unwrap();
         c7.verify(&branch, &store).unwrap();
 
         let mut filter = Filter::new(FilterBuilder::new(10, 0.01));
-        for commit_ref in [br, t1, t2, a3, t5, a6] {
+        for commit_ref in [br, t1, t2, a3.clone(), t5.clone(), a6.clone()] {
             match commit_ref.id {
                 ObjectId::Blake3Digest32(d) => filter.add(&d),
             }

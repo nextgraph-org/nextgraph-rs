@@ -22,7 +22,7 @@ use p2p_client_ws::remote_ws_wasm::ConnectionWebSocket;
 use p2p_net::broker::*;
 use p2p_net::connection::{ClientConfig, StartConfig};
 use p2p_net::types::{DirectPeerId, IP};
-use p2p_net::utils::{gen_ed_keys, spawn_and_log_error, Receiver, ResultSend, Sender};
+use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
 use p2p_net::WS_PORT;
 use p2p_repo::log::*;
 use p2p_repo::types::*;
@@ -57,7 +57,7 @@ pub fn wallet_open_wallet_with_pazzle(
 ) -> Result<JsValue, JsValue> {
     let wallet = serde_wasm_bindgen::from_value::<Wallet>(js_wallet)
         .map_err(|_| "Deserialization error of wallet")?;
-    let pin = serde_wasm_bindgen::from_value::<[u8; 4]>(js_pin)
+    let mut pin = serde_wasm_bindgen::from_value::<[u8; 4]>(js_pin)
         .map_err(|_| "Deserialization error of pin")?;
     let res = open_wallet_with_pazzle(wallet, pazzle, pin);
     match res {
@@ -230,7 +230,7 @@ pub async fn start() {
 
         //let keys = p2p_net::utils::gen_dh_keys();
         //let pub_key = PubKey::Ed25519PubKey(keys.1);
-        let keys = gen_ed_keys();
+        let keys = generate_keypair();
         let x_from_ed = keys.1.to_dh_from_ed();
         log_info!("Pub from X {}", x_from_ed);
 

@@ -132,7 +132,7 @@ impl Commit {
     /// Load commit from store
     pub fn load(commit_ref: ObjectRef, store: &impl RepoStore) -> Result<Commit, CommitLoadError> {
         let (id, key) = (commit_ref.id, commit_ref.key);
-        match Object::load(id, Some(key), store) {
+        match Object::load(id, Some(key.clone()), store) {
             Ok(obj) => {
                 let content = obj
                     .content()
@@ -142,7 +142,7 @@ impl Commit {
                     _ => return Err(CommitLoadError::DeserializeError),
                 };
                 commit.set_id(id);
-                commit.set_key(key);
+                commit.set_key(key.clone());
                 Ok(commit)
             }
             Err(ObjectParseError::MissingBlocks(missing)) => {
@@ -155,7 +155,7 @@ impl Commit {
     /// Load commit body from store
     pub fn load_body(&self, store: &impl RepoStore) -> Result<CommitBody, CommitLoadError> {
         let content = self.content();
-        let (id, key) = (content.body.id, content.body.key);
+        let (id, key) = (content.body.id, content.body.key.clone());
         let obj = Object::load(id.clone(), Some(key.clone()), store).map_err(|e| match e {
             ObjectParseError::MissingBlocks(missing) => CommitLoadError::MissingBlocks(missing),
             _ => CommitLoadError::ObjectParseError,
@@ -186,7 +186,7 @@ impl Commit {
     /// Get key of parent `Object`
     pub fn key(&self) -> Option<SymKey> {
         match self {
-            Commit::V0(c) => c.key,
+            Commit::V0(c) => c.key.clone(),
         }
     }
 
@@ -381,7 +381,7 @@ mod test {
             id: ObjectId::Blake3Digest32([1; 32]),
             key: SymKey::ChaCha20Key([2; 32]),
         };
-        let obj_refs = vec![obj_ref];
+        let obj_refs = vec![obj_ref.clone()];
         let branch = obj_ref.clone();
         let deps = obj_refs.clone();
         let acks = obj_refs.clone();

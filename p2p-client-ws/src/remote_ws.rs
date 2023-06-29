@@ -27,7 +27,7 @@ use futures::{FutureExt, SinkExt};
 use async_std::task;
 use p2p_net::errors::*;
 use p2p_net::types::*;
-use p2p_net::utils::{gen_ed_keys, spawn_and_log_error, Receiver, ResultSend, Sender, Sensitive};
+use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender, Sensitive};
 use p2p_net::{connection::*, WS_PORT};
 use p2p_repo::log::*;
 use p2p_repo::types::*;
@@ -130,7 +130,7 @@ impl IAccept for ConnectionWebSocket {
         &self,
         remote_bind_address: BindAddress,
         local_bind_address: BindAddress,
-        peer_privk: Sensitive<[u8; 32]>,
+        peer_privk: PrivKey,
         socket: Self::Socket,
     ) -> Result<ConnectionBase, NetError> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Server, TransportProtocol::WS);
@@ -311,15 +311,10 @@ mod test {
 
     #[async_std::test]
     pub async fn test_ws() -> Result<(), NgError> {
-        // let mut random_buf = [0u8; 32];
-        // getrandom::getrandom(&mut random_buf).unwrap();
-
         let server_key: PubKey = "X0nh-gOTGKSx0yL0LYJviOWRNacyqIzjQW_LKdK6opU".try_into()?;
         log_debug!("server_key:{}", server_key);
 
-        //let keys = p2p_net::utils::gen_dh_keys();
-        //let pub_key = PubKey::Ed25519PubKey(keys.1);
-        let keys = gen_ed_keys();
+        let keys = generate_keypair();
         let x_from_ed = keys.1.to_dh_from_ed();
         log_info!("Pub from X {}", x_from_ed);
 

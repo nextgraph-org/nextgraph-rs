@@ -21,6 +21,7 @@ use crate::{actor::EActor, actors::*, errors::ProtocolError};
 use core::fmt;
 use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::{
     any::{Any, TypeId},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -81,6 +82,80 @@ pub struct Interface {
     pub ipv6: Vec<default_net::ip::Ipv6Net>,
 }
 
+/// List of Identity types
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum Identity {
+    OrgSite(PubKey),
+    IndividualSite(PubKey),
+    OrgPublic(PubKey),
+    OrgProtected(PubKey),
+    OrgPrivate(PubKey),
+    IndividualPublic(PubKey),
+    IndividualProtected(PubKey),
+    IndividualPrivate(PubKey),
+    Group(RepoId),
+    Dialog(RepoId),
+    Document(RepoId),
+    DialogOverlay(Digest),
+}
+
+/// Site type
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum SiteType {
+    Org,
+    Individual, // formerly Personal
+}
+
+/// Site Store
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct SiteStore {
+    // pub identity: Identity,
+    pub key: PrivKey,
+    // signature with site_key
+    // pub sig: Sig,
+    pub root_branch_def_ref: ObjectRef,
+
+    pub repo_secret: SymKey,
+}
+
+/// Site V0
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct SiteV0 {
+    pub site_type: SiteType,
+    // Identity::OrgSite or Identity::IndividualSite
+    // pub site_identity: Identity,
+    pub site_key: PrivKey,
+
+    // Identity::OrgPublic or Identity::IndividualPublic
+    pub public: SiteStore,
+
+    // Identity::OrgProtected or Identity::IndividualProtected
+    pub protected: SiteStore,
+
+    // Identity::OrgPrivate or Identity::IndividualPrivate
+    pub private: SiteStore,
+
+    pub cores: Vec<PubKey>,
+
+    pub bootstraps: Vec<PubKey>,
+}
+
+/// Reduced Site (for QRcode)
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct ReducedSiteV0 {
+    pub site_key: PrivKey,
+
+    pub private_site_key: PrivKey,
+
+    pub private_site_root_branch_def_ref: ObjectRef,
+
+    pub private_site_repo_secret: SymKey,
+
+    pub cores: Vec<PubKey>,
+
+    pub bootstraps: Vec<PubKey>,
+}
+
 /// Bind address
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct BindAddress {
@@ -108,6 +183,22 @@ impl From<&SocketAddr> for BindAddress {
     }
 }
 
+/// Core Broker connection details Version 0
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct BrokerCoreV0 {
+    /// peerId of the server
+    pub peer_id: PubKey,
+
+    /// network addresses of the broker, typically an IpV4 and an optional IPV6 addr. core broker should not be multi-homed.
+    pub addrs: Vec<BindAddress>,
+}
+
+/// Core Broker connection details
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash)]
+pub enum BrokerCore {
+    V0(BrokerCoreV0),
+}
+
 /// BrokerServerTypeV0 type
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BrokerServerTypeV0 {
@@ -116,6 +207,7 @@ pub enum BrokerServerTypeV0 {
     BoxPublic(Vec<BindAddress>),
     BoxPublicDyn(Vec<BindAddress>), // can be empty
     Domain(String),                 // accepts an option trailing ":port" number
+                                    //Core(Vec<BindAddress>),
 }
 
 /// BrokerServer details Version 0
@@ -184,6 +276,107 @@ impl BrokerServerV0 {
         self.server_type.find_first_ipv6().map_or(None, |bindaddr| {
             Some((format!("ws://{}:{}", bindaddr.ip, bindaddr.port), vec![]))
         })
+    }
+
+    fn first_ipv6_or_ipv4(
+        ipv4: bool,
+        ipv6: bool,
+        addrs: &Vec<BindAddress>,
+    ) -> Option<&BindAddress> {
+        if ipv6 {
+            for addr in addrs {
+                if addr.ip.is_v6() {
+                    return Some(addr);
+                }
+            }
+        }
+        if ipv4 {
+            for addr in addrs {
+                if addr.ip.is_v4() {
+                    return Some(addr);
+                }
+            }
+        }
+        return None;
+    }
+
+    fn app_ng_one_bootstrap_url(addr: &BindAddress, key: PubKey) -> Option<String> {
+        let payload = (addr, key);
+        let payload_ser = serde_bare::to_vec(&payload).ok();
+        if payload_ser.is_none() {
+            return None;
+        }
+        Some(format!(
+            "{}?b={}",
+            APP_NG_ONE_WS_URL,
+            base64_url::encode(&payload_ser.unwrap())
+        ))
+    }
+
+    fn app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
+        ipv4: bool,
+        ipv6: bool,
+        addrs: &Vec<BindAddress>,
+        key: PubKey,
+    ) -> Option<String> {
+        if let Some(addr) = Self::first_ipv6_or_ipv4(ipv4, ipv6, addrs) {
+            return Self::app_ng_one_bootstrap_url(addr, key);
+        }
+        None
+    }
+
+    /// set ipv6 only if the browser connected with a remote IPV6. always set ipv4 as a fallback (for now).
+    pub async fn get_url_for_ngone(&self, ipv4: bool, ipv6: bool) -> Option<String> {
+        match &self.server_type {
+            BrokerServerTypeV0::BoxPublic(addrs) => {
+                Self::app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
+                    ipv4,
+                    ipv6,
+                    addrs,
+                    self.peer_id,
+                )
+            }
+            BrokerServerTypeV0::BoxPublicDyn(addrs) => {
+                let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
+                if resp.is_ok() {
+                    let resp = resp.unwrap().json::<Vec<BindAddress>>().await;
+                    if resp.is_ok() {
+                        return Self::app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
+                            ipv4,
+                            ipv6,
+                            &resp.unwrap(),
+                            self.peer_id,
+                        );
+                    }
+                }
+                if addrs.len() > 0 {
+                    Self::app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
+                        ipv4,
+                        ipv6,
+                        &addrs,
+                        self.peer_id,
+                    )
+                } else {
+                    None
+                }
+            }
+            BrokerServerTypeV0::Domain(domain) => Some(format!("https://{}", domain)),
+            BrokerServerTypeV0::Localhost(port) => Some(local_ws_url(&port)),
+            BrokerServerTypeV0::BoxPrivate(_) => {
+                if ipv6 {
+                    let v6 = self.first_ipv6().map(|v| v.0);
+                    if v6.is_some() {
+                        return v6;
+                    }
+                }
+                if ipv4 {
+                    self.first_ipv4().map(|v| v.0)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
     }
 
     /// on web browser, returns the connection URL and an optional list of BindAddress if a relay is needed
@@ -261,6 +454,7 @@ impl BrokerServerV0 {
         } else {
             // From native / tauri app
             match &self.server_type {
+                //BrokerServerTypeV0::Core(_) => None,
                 BrokerServerTypeV0::Localhost(port) => Some((local_ws_url(port), vec![])),
                 BrokerServerTypeV0::BoxPrivate(addrs) => Some((String::new(), addrs.clone())),
                 BrokerServerTypeV0::BoxPublic(addrs) => Some((String::new(), addrs.clone())),
@@ -503,21 +697,20 @@ impl ListenerV0 {
         let mut res: Vec<BrokerServerTypeV0> = vec![];
         match self.accept_forward_for {
             AcceptForwardForV0::PublicStatic(_) => {
+                let pub_addrs = self.accept_forward_for.get_public_bind_addresses();
+                //res.push(BrokerServerTypeV0::Core(pub_addrs.clone()));
                 if !self.refuse_clients {
-                    res.push(BrokerServerTypeV0::BoxPublic(
-                        self.accept_forward_for.get_public_bind_addresses(),
-                    ));
+                    res.push(BrokerServerTypeV0::BoxPublic(pub_addrs));
                 }
                 if self.accept_direct {
                     res.push(BrokerServerTypeV0::BoxPrivate(addrs));
                 }
             }
             AcceptForwardForV0::PublicDyn(_) => {
+                let pub_addrs = self.accept_forward_for.get_public_bind_addresses();
+                //res.push(BrokerServerTypeV0::Core(pub_addrs.clone()));
                 if !self.refuse_clients {
-                    res.push(BrokerServerTypeV0::BoxPublicDyn(
-                        // self.accept_forward_for.get_public_bind_addresses(), //FIXME. we should use this, but for now it isnt implemented
-                        vec![],
-                    ));
+                    res.push(BrokerServerTypeV0::BoxPublicDyn(pub_addrs));
                 }
                 if self.accept_direct {
                     res.push(BrokerServerTypeV0::BoxPrivate(addrs));
@@ -545,8 +738,11 @@ impl ListenerV0 {
             AcceptForwardForV0::No => {
                 if self.if_type == InterfaceType::Loopback {
                     res.push(BrokerServerTypeV0::Localhost(addrs[0].port));
-                } else if self.if_type == InterfaceType::Public && !self.refuse_clients {
-                    res.push(BrokerServerTypeV0::BoxPublic(addrs));
+                } else if self.if_type == InterfaceType::Public {
+                    //res.push(BrokerServerTypeV0::Core(addrs.clone()));
+                    if !self.refuse_clients {
+                        res.push(BrokerServerTypeV0::BoxPublic(addrs));
+                    }
                 } else if self.if_type == InterfaceType::Private {
                     res.push(BrokerServerTypeV0::BoxPrivate(addrs));
                 }
@@ -1546,9 +1742,9 @@ impl OverlayJoin {
             OverlayJoin::V0(o) => o.repo_pubkey,
         }
     }
-    pub fn secret(&self) -> SymKey {
+    pub fn secret(&self) -> &SymKey {
         match self {
-            OverlayJoin::V0(o) => o.secret,
+            OverlayJoin::V0(o) => &o.secret,
         }
     }
     pub fn peers(&self) -> &Vec<PeerAdvert> {
@@ -2317,9 +2513,10 @@ pub static MAGIC_NG_RESPONSE: [u8; 4] = [89u8, 88u8, 78u8, 75u8];
 pub enum Authorization {
     Discover,
     ExtMessage,
-    Client,
     Core,
-    Admin,
+    Client(PubKey),
+    OverlayJoin(PubKey),
+    Admin(PubKey),
 }
 
 /// ProbeResponse
@@ -2557,6 +2754,9 @@ pub struct RepoLinkV0 {
     /// Repository secret
     pub secret: SymKey,
 
+    /// current root branch definition commit
+    pub root_branch_def_ref: ObjectRef,
+
     /// Peers to connect to
     pub peers: Vec<PeerAdvert>,
 }
@@ -2568,19 +2768,19 @@ pub enum RepoLink {
 }
 
 impl RepoLink {
-    pub fn id(&self) -> PubKey {
+    pub fn id(&self) -> &PubKey {
         match self {
-            RepoLink::V0(o) => o.id,
+            RepoLink::V0(o) => &o.id,
         }
     }
-    pub fn secret(&self) -> SymKey {
+    pub fn secret(&self) -> &SymKey {
         match self {
-            RepoLink::V0(o) => o.secret,
+            RepoLink::V0(o) => &o.secret,
         }
     }
-    pub fn peers(&self) -> Vec<PeerAdvert> {
+    pub fn peers(&self) -> &Vec<PeerAdvert> {
         match self {
-            RepoLink::V0(o) => o.peers.clone(),
+            RepoLink::V0(o) => &o.peers,
         }
     }
 }

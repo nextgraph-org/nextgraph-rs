@@ -198,9 +198,14 @@ impl Object {
         let data_chunk_size = valid_block_size - EMPTY_BLOCK_SIZE - DATA_VARINT_EXTRA;
 
         let mut blocks: Vec<Block> = vec![];
-        let conv_key = Self::convergence_key(repo_pubkey, repo_secret);
+        let conv_key = Self::convergence_key(repo_pubkey, repo_secret.clone());
 
-        let obj_deps = Self::make_deps(deps.clone(), valid_block_size, repo_pubkey, repo_secret);
+        let obj_deps = Self::make_deps(
+            deps.clone(),
+            valid_block_size,
+            repo_pubkey,
+            repo_secret.clone(),
+        );
 
         let content_ser = serde_bare::to_vec(&content).unwrap();
 
@@ -481,7 +486,7 @@ impl Object {
                         BlockContentV0::DataChunk(chunk) => {
                             if leaves.is_some() {
                                 let mut leaf = block.clone();
-                                leaf.set_key(Some(*key));
+                                leaf.set_key(Some(key.clone()));
                                 let l = &mut **leaves.as_mut().unwrap();
                                 l.push(leaf);
                             }
@@ -657,7 +662,7 @@ mod test {
             exp,
             max_object_size,
             repo_pubkey,
-            repo_secret,
+            repo_secret.clone(),
         );
 
         log_debug!("obj.id: {:?}", obj.id());
@@ -800,13 +805,13 @@ mod test {
         let id = Digest::Blake3Digest32([0u8; 32]);
         let key = SymKey::ChaCha20Key([0u8; 32]);
 
-        let one_key = BlockContentV0::InternalNode(vec![key]);
+        let one_key = BlockContentV0::InternalNode(vec![key.clone()]);
         let one_key_ser = serde_bare::to_vec(&one_key).unwrap();
 
-        let two_keys = BlockContentV0::InternalNode(vec![key, key]);
+        let two_keys = BlockContentV0::InternalNode(vec![key.clone(), key.clone()]);
         let two_keys_ser = serde_bare::to_vec(&two_keys).unwrap();
 
-        let max_keys = BlockContentV0::InternalNode(vec![key; MAX_ARITY_LEAVES]);
+        let max_keys = BlockContentV0::InternalNode(vec![key.clone(); MAX_ARITY_LEAVES]);
         let max_keys_ser = serde_bare::to_vec(&max_keys).unwrap();
 
         let data = BlockContentV0::DataChunk(vec![]);
