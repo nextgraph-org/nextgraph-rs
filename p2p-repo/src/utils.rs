@@ -85,16 +85,15 @@ pub fn dh_pubkey_from_ed_pubkey_slice(public: &[u8]) -> PubKey {
 }
 
 pub fn dh_pubkey_array_from_ed_pubkey_slice(public: &[u8]) -> X25519PubKey {
-    // the zeroize are not mandatory, because it is a PubKey.
     let mut bits: [u8; 32] = [0u8; 32];
     bits.copy_from_slice(public);
-    let mut compressed = CompressedEdwardsY(bits);
-    let mut ed_point: EdwardsPoint = compressed.decompress().unwrap();
-    compressed.zeroize();
-    let mut mon_point = ed_point.to_montgomery();
-    ed_point.zeroize();
+    let compressed = CompressedEdwardsY(bits);
+    let ed_point: EdwardsPoint = compressed.decompress().unwrap();
+    //compressed.zeroize();
+    let mon_point = ed_point.to_montgomery();
+    //ed_point.zeroize();
     let array = mon_point.to_bytes();
-    mon_point.zeroize();
+    //mon_point.zeroize();
     array
 }
 

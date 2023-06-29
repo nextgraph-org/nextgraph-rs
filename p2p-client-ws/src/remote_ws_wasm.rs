@@ -38,7 +38,7 @@ impl IConnect for ConnectionWebSocket {
     async fn open(
         &self,
         url: String,
-        peer_privk: Sensitive<[u8; 32]>,
+        peer_privk: PrivKey,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
         config: StartConfig,
@@ -94,7 +94,7 @@ async fn ws_loop(
     mut stream: WsStream,
     sender: Receiver<ConnectionCommand>,
     mut receiver: Sender<ConnectionCommand>,
-    mut shutdown: Sender<Either<NetError, PubKey>>,
+    mut shutdown: Sender<Either<NetError, X25519PrivKey>>,
 ) -> ResultSend<()> {
     async fn inner_loop(
         stream: &mut WsStream,

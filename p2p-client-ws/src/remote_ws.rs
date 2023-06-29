@@ -27,7 +27,7 @@ use futures::{FutureExt, SinkExt};
 use async_std::task;
 use p2p_net::errors::*;
 use p2p_net::types::*;
-use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender, Sensitive};
+use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
 use p2p_net::{connection::*, WS_PORT};
 use p2p_repo::log::*;
 use p2p_repo::types::*;
@@ -44,7 +44,7 @@ impl IConnect for ConnectionWebSocket {
     async fn open(
         &self,
         url: String,
-        peer_privk: Sensitive<[u8; 32]>,
+        peer_privk: PrivKey,
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
         config: StartConfig,
@@ -346,20 +346,20 @@ mod test {
 
         BROKER.read().await.print_status();
 
-        async fn timer_close(remote_peer_id: DirectPeerId) -> ResultSend<()> {
+        async fn timer_close(remote_peer_id: DirectPeerId, user: Option<PubKey>) -> ResultSend<()> {
             async move {
                 sleep!(std::time::Duration::from_secs(3));
                 log_info!("timeout");
                 BROKER
                     .write()
                     .await
-                    .close_peer_connection(&remote_peer_id)
+                    .close_peer_connection(&remote_peer_id, user)
                     .await;
             }
             .await;
             Ok(())
         }
-        spawn_and_log_error(timer_close(server_key));
+        spawn_and_log_error(timer_close(server_key, Some(user)));
 
         //Broker::graceful_shutdown().await;
 

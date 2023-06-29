@@ -32,7 +32,7 @@ use noise_protocol::{patterns::noise_xk, CipherState, HandshakeState};
 use noise_rust_crypto::sensitive::Sensitive;
 use noise_rust_crypto::*;
 use p2p_repo::log::*;
-use p2p_repo::types::{PrivKey, PubKey};
+use p2p_repo::types::{PrivKey, PubKey, X25519PrivKey};
 use p2p_repo::utils::{sign, verify};
 use serde_bare::from_slice;
 use unique_id::sequence::SequenceGenerator;
@@ -537,8 +537,8 @@ impl NoiseFSM {
                             if !handshake.completed() {
                                 return Err(ProtocolError::NoiseHandshakeFailed);
                             }
-                            let peer_id = PubKey::Ed25519PubKey(handshake.get_rs().unwrap());
-                            self.remote = Some(peer_id);
+                            let peer_id = handshake.get_rs().unwrap();
+                            //self.remote = Some(peer_id);
                             let (local_bind_address, remote_bind_address) =
                                 self.bind_addresses.ok_or(ProtocolError::BrokerError)?;
                             BROKER
@@ -688,8 +688,8 @@ pub struct ConnectionBase {
     receiver: Option<Sender<ConnectionCommand>>,
     sender_tx: Option<Sender<ConnectionCommand>>,
     receiver_tx: Option<Sender<ConnectionCommand>>,
-    shutdown: Option<Receiver<Either<NetError, PubKey>>>,
-    shutdown_sender: Option<Sender<Either<NetError, PubKey>>>,
+    shutdown: Option<Receiver<Either<NetError, X25519PrivKey>>>,
+    shutdown_sender: Option<Sender<Either<NetError, X25519PrivKey>>>,
     dir: ConnectionDir,
     next_request_id: SequenceGenerator,
     tp: TransportProtocol,
@@ -718,7 +718,7 @@ impl ConnectionBase {
         self.tp
     }
 
-    pub fn take_shutdown(&mut self) -> Receiver<Either<NetError, PubKey>> {
+    pub fn take_shutdown(&mut self) -> Receiver<Either<NetError, X25519PrivKey>> {
         self.shutdown.take().unwrap()
     }
 
@@ -735,7 +735,7 @@ impl ConnectionBase {
     }
 
     // only used by accept
-    pub async fn reset_shutdown(&mut self, remote_peer_id: PubKey) {
+    pub async fn reset_shutdown(&mut self, remote_peer_id: X25519PrivKey) {
         let _ = self
             .shutdown_sender
             .take()
@@ -744,8 +744,9 @@ impl ConnectionBase {
             .await;
     }
 
-    pub fn set_shutdown(&mut self) -> Sender<Either<NetError, PubKey>> {
-        let (shutdown_sender, shutdown_receiver) = mpsc::unbounded::<Either<NetError, PubKey>>();
+    pub fn set_shutdown(&mut self) -> Sender<Either<NetError, X25519PrivKey>> {
+        let (shutdown_sender, shutdown_receiver) =
+            mpsc::unbounded::<Either<NetError, X25519PrivKey>>();
         self.shutdown = Some(shutdown_receiver);
         self.shutdown_sender = Some(shutdown_sender.clone());
         shutdown_sender

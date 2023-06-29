@@ -151,7 +151,17 @@ pub struct WalletContentV0 {
 /// Wallet Log
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WalletLog0 {
-    pub log: Vec<(SystemTime, WalletOperationV0)>,
+    pub log: Vec<(u128, WalletOperationV0)>,
+}
+
+impl WalletLog0 {
+    pub fn add(&mut self, op: WalletOperationV0) {
+        let duration = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        self.log.push((duration, op));
+    }
 }
 
 /// WalletOperation

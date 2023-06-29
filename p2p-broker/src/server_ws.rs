@@ -35,10 +35,11 @@ use p2p_client_ws::remote_ws::ConnectionWebSocket;
 use p2p_net::broker::*;
 use p2p_net::connection::IAccept;
 use p2p_net::types::*;
+use p2p_net::utils::get_domain_without_port;
 use p2p_net::utils::is_private_ip;
 use p2p_net::utils::is_public_ip;
-use p2p_net::utils::{get_domain_without_port, Sensitive, U8Array};
 use p2p_repo::log::*;
+use p2p_repo::types::SymKey;
 use p2p_repo::types::{PrivKey, PubKey};
 use p2p_repo::utils::generate_keypair;
 use rust_embed::RustEmbed;
@@ -582,7 +583,7 @@ pub async fn run_server_accept_one(
 pub async fn run_server_v0(
     peer_priv_key: PrivKey,
     peer_id: PubKey,
-    wallet_master_key: Sensitive<[u8; 32]>,
+    wallet_master_key: SymKey,
     config: DaemonConfigV0,
     mut path: PathBuf,
 ) -> Result<(), ()> {
