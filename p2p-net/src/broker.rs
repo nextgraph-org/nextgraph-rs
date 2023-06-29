@@ -53,7 +53,7 @@ pub struct BrokerPeerInfo {
 pub struct DirectConnection {
     ip: IP,
     interface: String,
-    remote_peer_id: DirectPeerId,
+    remote_peer_id: X25519PrivKey,
     tp: TransportProtocol,
     //dir: ConnectionDir,
     cnx: ConnectionBase,
@@ -249,8 +249,8 @@ impl Broker {
         (rx, tx.clone())
     }
 
-    pub fn reconnecting(&mut self, peer_id: &DirectPeerId, user: Option<PubKey>) {
-        let peerinfo = self.peers.get_mut(&(user, peer_id.to_dh_slice()));
+    pub fn reconnecting(&mut self, peer_id: X25519PrivKey, user: Option<PubKey>) {
+        let peerinfo = self.peers.get_mut(&(user, peer_id));
         match peerinfo {
             Some(info) => match &info.connected {
                 PeerConnection::NONE => {}
@@ -265,8 +265,8 @@ impl Broker {
             None => {}
         }
     }
-    pub fn remove_peer_id(&mut self, peer_id: &DirectPeerId, user: Option<PubKey>) {
-        let removed = self.peers.remove(&(user, peer_id.to_dh_slice()));
+    pub fn remove_peer_id(&mut self, peer_id: X25519PrivKey, user: Option<PubKey>) {
+        let removed = self.peers.remove(&(user, peer_id));
         match removed {
             Some(info) => match info.connected {
                 PeerConnection::NONE => {}
@@ -404,7 +404,8 @@ impl Broker {
             return Err(NetError::Closing);
         }
 
-        let join: mpsc::UnboundedReceiver<Either<NetError, PubKey>> = connection.take_shutdown();
+        let join: mpsc::UnboundedReceiver<Either<NetError, X25519PrivKey>> =
+            connection.take_shutdown();
         if self
             .anonymous_connections
             .insert((local_bind_address, remote_bind_address), connection)
@@ -418,7 +419,7 @@ impl Broker {
         }
 
         async fn watch_close(
-            mut join: Receiver<Either<NetError, PubKey>>,
+            mut join: Receiver<Either<NetError, X25519PrivKey>>,
             remote_bind_address: BindAddress,
             local_bind_address: BindAddress,
         ) -> ResultSend<()> {
@@ -428,7 +429,7 @@ impl Broker {
                     Some(Either::Right(remote_peer_id)) => {
                         let res = join.next().await;
                         log_info!("SOCKET IS CLOSED {:?} peer_id: {:?}", res, remote_peer_id);
-                        BROKER.write().await.remove_peer_id(&remote_peer_id, None);
+                        BROKER.write().await.remove_peer_id(remote_peer_id, None);
                     }
                     _ => {
                         log_info!(
@@ -456,10 +457,10 @@ impl Broker {
         &mut self,
         remote_bind_address: BindAddress,
         local_bind_address: BindAddress,
-        remote_peer_id: PubKey,
+        remote_peer_id: X25519PrivKey,
         core: Option<String>,
     ) -> Result<(), NetError> {
-        log_debug!("ATTACH PEER_ID {}", remote_peer_id);
+        log_debug!("ATTACH PEER_ID {:?}", remote_peer_id);
         let mut connection = self
             .anonymous_connections
             .remove(&(local_bind_address, remote_bind_address))
@@ -484,7 +485,7 @@ impl Broker {
             lastPeerAdvert: None,
             connected,
         };
-        self.peers.insert((None, remote_peer_id.to_dh_slice()), bpi);
+        self.peers.insert((None, remote_peer_id), bpi);
 
         Ok(())
     }
@@ -528,14 +529,14 @@ impl Broker {
             .await?;
 
         let join = connection.take_shutdown();
-
+        let remote_peer_id_dh = remote_peer_id.to_dh_slice();
         let connected = match &config {
             StartConfig::Core(config) => {
                 let ip = config.addr.ip.clone();
                 let dc = DirectConnection {
                     ip,
                     interface: config.interface.clone(),
-                    remote_peer_id,
+                    remote_peer_id: remote_peer_id_dh,
                     tp: connection.transport_protocol(),
                     cnx: connection,
                 };
@@ -550,27 +551,28 @@ impl Broker {
             lastPeerAdvert: None,
             connected,
         };
+
         self.peers
-            .insert((config.get_user(), remote_peer_id.to_dh_slice()), bpi);
+            .insert((config.get_user(), remote_peer_id_dh), bpi);
 
         async fn watch_close(
-            mut join: Receiver<Either<NetError, PubKey>>,
+            mut join: Receiver<Either<NetError, X25519PrivKey>>,
             cnx: Box<dyn IConnect>,
             peer_privk: PrivKey,
             peer_pubkey: PubKey,
-            remote_peer_id: DirectPeerId,
+            remote_peer_id: [u8; 32],
             config: StartConfig,
         ) -> ResultSend<()> {
             async move {
                 let res = join.next().await;
-                log_info!("SOCKET IS CLOSED {:?} {:?}", res, &remote_peer_id);
+                log_info!("SOCKET IS CLOSED {:?} {:?}", res, remote_peer_id);
                 if res.is_some()
                     && res.as_ref().unwrap().is_left()
                     && res.unwrap().unwrap_left() != NetError::Closing
                 {
                     // we intend to reconnect
                     let mut broker = BROKER.write().await;
-                    broker.reconnecting(&remote_peer_id, config.get_user());
+                    broker.reconnecting(remote_peer_id, config.get_user());
                     // TODO: deal with cycle error https://users.rust-lang.org/t/recursive-async-method-causes-cycle-error/84628/5
                     // let result = broker
                     //     .connect(cnx, ip, core, peer_pubk, peer_privk, remote_peer_id)
@@ -582,7 +584,7 @@ impl Broker {
                     BROKER
                         .write()
                         .await
-                        .remove_peer_id(&remote_peer_id, config.get_user());
+                        .remove_peer_id(remote_peer_id, config.get_user());
                 }
             }
             .await;
@@ -593,7 +595,7 @@ impl Broker {
             cnx,
             peer_privk,
             peer_pubk,
-            remote_peer_id,
+            remote_peer_id_dh,
             config,
         ));
         Ok(())

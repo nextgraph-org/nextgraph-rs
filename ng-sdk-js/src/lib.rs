@@ -265,20 +265,20 @@ pub async fn start() {
 
         //res.expect_throw("assume the connection succeeds");
 
-        async fn timer_close(remote_peer_id: DirectPeerId) -> ResultSend<()> {
+        async fn timer_close(remote_peer_id: DirectPeerId, user: Option<PubKey>) -> ResultSend<()> {
             async move {
                 sleep!(std::time::Duration::from_secs(3));
                 log_info!("timeout");
                 BROKER
                     .write()
                     .await
-                    .close_peer_connection(&remote_peer_id)
+                    .close_peer_connection(&remote_peer_id, user)
                     .await;
             }
             .await;
             Ok(())
         }
-        spawn_and_log_error(timer_close(server_key));
+        spawn_and_log_error(timer_close(server_key, Some(user)));
 
         //Broker::graceful_shutdown().await;
 

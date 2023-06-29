@@ -64,6 +64,9 @@ impl SymKey {
     pub fn random() -> Self {
         SymKey::ChaCha20Key(random_key())
     }
+    pub fn from_array(array: [u8; 32]) -> Self {
+        SymKey::ChaCha20Key(array)
+    }
 }
 
 /// Curve25519 public key Edwards form
@@ -99,11 +102,14 @@ impl PubKey {
             ),
         }
     }
-    pub fn dh_from_ed_slice(slice: &[u8]) -> PubKey {
-        dh_pubkey_from_ed_pubkey_slice(slice)
-    }
+    // pub fn dh_from_ed_slice(slice: &[u8]) -> PubKey {
+    //     dh_pubkey_from_ed_pubkey_slice(slice)
+    // }
     pub fn to_dh_slice(&self) -> [u8; 32] {
-        dh_pubkey_array_from_ed_pubkey_slice(self.slice())
+        match self {
+            PubKey::Ed25519PubKey(o) => dh_pubkey_array_from_ed_pubkey_slice(o),
+            _ => panic!("can only convert an edward key to montgomery"),
+        }
     }
 }
 

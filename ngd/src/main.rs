@@ -28,6 +28,8 @@ use p2p_net::utils::{
 };
 use p2p_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
 use p2p_repo::log::*;
+use p2p_repo::types::SymKey;
+use p2p_repo::utils::ed_keypair_from_priv_bytes;
 use p2p_repo::{
     types::{PrivKey, PubKey},
     utils::{decode_key, generate_keypair, sign, verify},
@@ -285,7 +287,10 @@ fn parse_domain_and_port(
     Ok((parts[0].to_string(), domain_with_port, port))
 }
 
-fn prepare_accept_forward_for_domain(domain: String, args: &Cli) -> Result<AcceptForwardForV0, ()> {
+fn prepare_accept_forward_for_domain(
+    domain: String,
+    args: &mut Cli,
+) -> Result<AcceptForwardForV0, ()> {
     if args.domain_peer.is_some() {
         let key = decode_key(args.domain_peer.as_ref().unwrap().as_str())?;
         args.domain_peer.as_mut().unwrap().zeroize();
@@ -308,7 +313,7 @@ async fn main() -> std::io::Result<()> {
 }
 
 async fn main_inner() -> Result<(), ()> {
-    let args = Cli::parse();
+    let mut args = Cli::parse();
 
     if args.list_interfaces {
         println!("list of network interfaces");
@@ -348,10 +353,10 @@ async fn main_inner() -> Result<(), ()> {
     key_path.push("key");
     let key_from_file: Option<[u8; 32]>;
     let res = |key_path| -> Result<[u8; 32], &str> {
-        let file = read_to_string(key_path).map_err(|_| "")?;
+        let mut file = read_to_string(key_path).map_err(|_| "")?;
         let first_line = file.lines().nth(0).ok_or("empty file")?;
         let res = decode_key(first_line.trim()).map_err(|_| "invalid file");
-        first_line.zeroize();
+        file.zeroize();
         res
     }(&key_path);
 
@@ -364,34 +369,35 @@ async fn main_inner() -> Result<(), ()> {
     }
     key_from_file = res.ok();
 
-    let keys: [[u8; 32]; 4] = match &args.key {
+    let mut keys: [[u8; 32]; 4] = match &args.key {
         Some(key_string) => {
             if key_from_file.is_some() {
                 log_err!("provided --key option will not be used as a key file is already present");
+                args.key.as_mut().unwrap().zeroize();
                 gen_broker_keys(key_from_file)
             } else {
                 let res = decode_key(key_string.as_str())
                     .map_err(|_| log_err!("provided key is invalid. cannot start"))?;
                 if args.save_key {
-                    let master_key = base64_url::encode(&res);
-                    write(key_path.clone(), master_key).map_err(|e| {
+                    let mut master_key = base64_url::encode(&res);
+                    write(key_path.clone(), &master_key).map_err(|e| {
                         log_err!("cannot save key to file. {}.cannot start", e.to_string())
                     })?;
                     master_key.zeroize();
                     log_info!("The key has been saved to {}", key_path.to_str().unwrap());
                 }
+                args.key.as_mut().unwrap().zeroize();
                 gen_broker_keys(Some(res))
             }
-            args.key.as_mut().unwrap().zeroize();
         }
         None => {
             if key_from_file.is_some() {
                 gen_broker_keys(key_from_file)
             } else {
                 let res = gen_broker_keys(None);
-                let master_key = base64_url::encode(&res[0]);
+                let mut master_key = base64_url::encode(&res[0]);
                 if args.save_key {
-                    write(key_path.clone(), master_key).map_err(|e| {
+                    write(key_path.clone(), &master_key).map_err(|e| {
                         log_err!("cannot save key to file. {}.cannot start", e.to_string())
                     })?;
                     log_info!("The key has been saved to {}", key_path.to_str().unwrap());
@@ -409,7 +415,7 @@ async fn main_inner() -> Result<(), ()> {
 
     key_from_file.and_then(|mut key| {
         key.zeroize();
-        None
+        None::<()>
     });
 
     // DEALING WITH CONFIG
@@ -500,7 +506,7 @@ async fn main_inner() -> Result<(), ()> {
                     overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
                     let mut listener = ListenerV0::new_direct(loopback, !args.no_ipv6, local_port);
                     listener.accept_direct = false;
-                    let res = prepare_accept_forward_for_domain(domain, &args).map_err(|_| {
+                    let res = prepare_accept_forward_for_domain(domain, &mut args).map_err(|_| {
                         log_err!("The --domain-peer option has an invalid key. it must be a base64_url encoded serialization of a PrivKey. cannot start")
                     })?;
                     listener.accept_forward_for = res;
@@ -770,7 +776,7 @@ async fn main_inner() -> Result<(), ()> {
                 Some(inter) => {
                     overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
 
-                    let res = prepare_accept_forward_for_domain(domain, &args).map_err(|_| {
+                    let res = prepare_accept_forward_for_domain(domain, &mut args).map_err(|_| {
                         log_err!("The --domain-peer option has an invalid key. it must be a base64_url encoded serialization of a PrivKey. cannot start")})?;
 
                     if listeners.last().is_some()
@@ -957,14 +963,7 @@ async fn main_inner() -> Result<(), ()> {
 
     match config.unwrap() {
         DaemonConfig::V0(v0) => {
-            run_server_v0(
-                privkey,
-                pubkey,
-                Sensitive::<[u8; 32]>::from_slice(&keys[2]),
-                v0,
-                path,
-            )
-            .await?
+            run_server_v0(privkey, pubkey, SymKey::from_array(keys[2]), v0, path).await?
         }
     }
 
