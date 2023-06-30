@@ -95,6 +95,7 @@ pub fn test_create_wallet() -> JsValue {
             243, 49, 90, 7, 0, 157, 58, 14, 187, 14, 3, 116, 86,
         ]),
         0,
+        ClientV0::dummy(),
     );
     serde_wasm_bindgen::to_value(&r).unwrap()
 }

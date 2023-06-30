@@ -118,6 +118,14 @@ pub struct SiteStore {
     pub repo_secret: SymKey,
 }
 
+/// Site Store type
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum SiteStoreType {
+    Public,
+    Protected,
+    Private,
+}
+
 /// Site V0
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SiteV0 {
@@ -151,7 +159,7 @@ pub struct ReducedSiteV0 {
 
     pub private_site_repo_secret: SymKey,
 
-    pub cores: Vec<PubKey>,
+    pub core: PubKey,
 
     pub bootstraps: Vec<PubKey>,
 }
@@ -200,7 +208,7 @@ pub enum BrokerCore {
 }
 
 /// BrokerServerTypeV0 type
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum BrokerServerTypeV0 {
     Localhost(u16), // optional port number
     BoxPrivate(Vec<BindAddress>),
@@ -211,7 +219,7 @@ pub enum BrokerServerTypeV0 {
 }
 
 /// BrokerServer details Version 0
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct BrokerServerV0 {
     /// Network addresses
     pub server_type: BrokerServerTypeV0,
