@@ -7,6 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+use std::hash::{Hash, Hasher};
 use std::{collections::HashMap, fmt};
 use web_time::SystemTime;
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -71,6 +72,17 @@ pub struct ClientV0 {
     pub auto_open: Vec<Identity>,
 }
 
+impl ClientV0 {
+    #[deprecated(note = "**Don't use dummy method**")]
+    pub fn dummy() -> Self {
+        ClientV0 {
+            priv_key: PrivKey::dummy(),
+            storage_master_key: SymKey::random(),
+            auto_open: vec![],
+        }
+    }
+}
+
 /// EncryptedWallet block Version 0
 #[derive(Clone, Zeroize, ZeroizeOnDrop, Debug, Serialize, Deserialize)]
 pub struct EncryptedWalletV0 {
@@ -83,17 +95,19 @@ pub struct EncryptedWalletV0 {
 
     pub pin: [u8; 4],
 
-    // first in the list is the main Site (Personal)
     #[zeroize(skip)]
-    pub sites: Vec<SiteV0>,
+    pub personal_site: PubKey,
 
-    // list of brokers and their connection details
     #[zeroize(skip)]
-    pub brokers: Vec<BrokerInfoV0>,
+    pub sites: HashMap<PubKey, SiteV0>,
 
-    // list of all devices of the user
+    // map of brokers and their connection details
     #[zeroize(skip)]
-    pub clients: Vec<ClientV0>,
+    pub brokers: HashMap<PubKey, Vec<BrokerInfoV0>>,
+
+    // map of all devices of the user
+    #[zeroize(skip)]
+    pub clients: HashMap<PubKey, ClientV0>,
 
     #[zeroize(skip)]
     pub overlay_core_overrides: HashMap<OverlayId, Vec<PubKey>>,
@@ -102,6 +116,32 @@ pub struct EncryptedWalletV0 {
     /// the format of the byte array (value) is up to the vendor, to serde as needed.
     #[zeroize(skip)]
     pub third_parties: HashMap<String, Vec<u8>>,
+}
+
+impl EncryptedWalletV0 {
+    pub fn add_site(&mut self, site: SiteV0) {
+        let site_id = site.site_key.to_pub();
+        let _ = self.sites.insert(site_id, site);
+    }
+    pub fn add_brokers(&mut self, brokers: Vec<BrokerInfoV0>) {
+        for broker in brokers {
+            let key = broker.get_id();
+            let mut list = self.brokers.get_mut(&key);
+            if list.is_none() {
+                let new_list = vec![];
+                self.brokers.insert(key, new_list);
+                list = self.brokers.get_mut(&key);
+            }
+            list.unwrap().push(broker);
+        }
+    }
+    pub fn add_client(&mut self, client: ClientV0) {
+        let client_id = client.priv_key.to_pub();
+        let _ = self.clients.insert(client_id, client);
+    }
+    pub fn add_overlay_core_overrides(&mut self, overlay: &OverlayId, cores: &Vec<PubKey>) {
+        let _ = self.overlay_core_overrides.insert(*overlay, cores.to_vec());
+    }
 }
 
 /// EncryptedWallet block
@@ -143,24 +183,240 @@ pub struct WalletContentV0 {
     pub peer_id: PubKey,
     pub nonce: u64,
 
-    // WalletLog0 content encrypted with XChaCha20Poly1305, AD = timestamp and walletID
+    // WalletLog content encrypted with XChaCha20Poly1305, AD = timestamp and walletID
     #[serde(with = "serde_bytes")]
     pub encrypted: Vec<u8>,
 }
 
-/// Wallet Log
+/// Wallet Log V0
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct WalletLog0 {
+pub struct WalletLogV0 {
     pub log: Vec<(u128, WalletOperationV0)>,
 }
 
-impl WalletLog0 {
+/// Wallet Log
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum WalletLog {
+    V0(WalletLogV0),
+}
+
+impl WalletLog {
+    pub fn new_v0(create_op: WalletOpCreateV0) -> Self {
+        WalletLog::V0(WalletLogV0::new(create_op))
+    }
+}
+
+impl WalletLogV0 {
+    pub fn new(create_op: WalletOpCreateV0) -> Self {
+        let mut wallet = WalletLogV0 { log: vec![] };
+        wallet.add(WalletOperationV0::CreateWalletV0(create_op));
+        wallet
+    }
+
     pub fn add(&mut self, op: WalletOperationV0) {
         let duration = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
         self.log.push((duration, op));
+    }
+
+    /// applies all the operation and produces an encrypted wallet object.
+    pub fn reduce(&self) -> Result<EncryptedWalletV0, NgWalletError> {
+        if self.log.len() < 1 {
+            Err(NgWalletError::NoCreateWalletPresent)
+        } else if let (_, WalletOperationV0::CreateWalletV0(create_op)) = &self.log[0] {
+            let mut wallet: EncryptedWalletV0 = create_op.into();
+
+            for op in &self.log {
+                match &op.1 {
+                    WalletOperationV0::CreateWalletV0(_) => { /* intentionally left blank. this op is already reduced */
+                    }
+                    WalletOperationV0::AddSiteV0(o) => {
+                        if self.is_first_and_not_deleted_afterwards(op, "RemoveSiteV0") {
+                            wallet.add_site(o.clone());
+                        }
+                    }
+                    WalletOperationV0::RemoveSiteV0(_) => {}
+                    WalletOperationV0::AddBrokerServerV0(o) => {
+                        if self.is_last_and_not_deleted_afterwards(op, "RemoveBrokerServerV0") {
+                            wallet.add_brokers(vec![BrokerInfoV0::ServerV0(o.clone())]);
+                        }
+                    }
+                    WalletOperationV0::RemoveBrokerServerV0(_) => {}
+                    WalletOperationV0::SetBrokerCoreV0(o) => {
+                        if self.is_last_occurrence(op.0, &op.1) != 0 {
+                            wallet.add_brokers(vec![BrokerInfoV0::CoreV0(o.clone())]);
+                        }
+                    }
+                    WalletOperationV0::SetClientV0(o) => {
+                        if self.is_last_occurrence(op.0, &op.1) != 0 {
+                            wallet.add_client(o.clone());
+                        }
+                    }
+                    WalletOperationV0::AddOverlayCoreOverrideV0((overlay, cores)) => {
+                        if self
+                            .is_last_and_not_deleted_afterwards(op, "RemoveOverlayCoreOverrideV0")
+                        {
+                            wallet.add_overlay_core_overrides(overlay, cores);
+                        }
+                    }
+                    WalletOperationV0::RemoveOverlayCoreOverrideV0(_) => {}
+                    WalletOperationV0::AddSiteCoreV0((site, core)) => {
+                        if self.is_first_and_not_deleted_afterwards(op, "RemoveSiteCoreV0") {
+                            let _ = wallet.sites.get_mut(&site).and_then(|site| {
+                                site.cores.push(*core);
+                                None::<SiteV0>
+                            });
+                        }
+                    }
+                    WalletOperationV0::RemoveSiteCoreV0(_) => {}
+                    WalletOperationV0::AddSiteBootstrapV0((site, server)) => {
+                        if self.is_first_and_not_deleted_afterwards(op, "RemoveSiteBootstrapV0") {
+                            let _ = wallet.sites.get_mut(&site).and_then(|site| {
+                                site.bootstraps.push(*server);
+                                None::<SiteV0>
+                            });
+                        }
+                    }
+                    WalletOperationV0::RemoveSiteBootstrapV0(_) => {}
+                    WalletOperationV0::AddThirdPartyDataV0((key, value)) => {
+                        if self.is_last_and_not_deleted_afterwards(op, "RemoveThirdPartyDataV0") {
+                            let _ = wallet.third_parties.insert(key.to_string(), value.to_vec());
+                        }
+                    }
+                    WalletOperationV0::RemoveThirdPartyDataV0(_) => {}
+                    WalletOperationV0::SetSiteRBDRefV0((site, store_type, rbdr)) => {
+                        if self.is_last_occurrence(op.0, &op.1) != 0 {
+                            let _ = wallet.sites.get_mut(&site).and_then(|site| {
+                                match store_type {
+                                    SiteStoreType::Public => {
+                                        site.public.root_branch_def_ref = rbdr.clone()
+                                    }
+                                    SiteStoreType::Protected => {
+                                        site.protected.root_branch_def_ref = rbdr.clone()
+                                    }
+                                    SiteStoreType::Private => {
+                                        site.private.root_branch_def_ref = rbdr.clone()
+                                    }
+                                };
+                                None::<SiteV0>
+                            });
+                        }
+                    }
+                    WalletOperationV0::SetSiteRepoSecretV0((site, store_type, secret)) => {
+                        if self.is_last_occurrence(op.0, &op.1) != 0 {
+                            let _ = wallet.sites.get_mut(&site).and_then(|site| {
+                                match store_type {
+                                    SiteStoreType::Public => {
+                                        site.public.repo_secret = secret.clone()
+                                    }
+                                    SiteStoreType::Protected => {
+                                        site.protected.repo_secret = secret.clone()
+                                    }
+                                    SiteStoreType::Private => {
+                                        site.private.repo_secret = secret.clone()
+                                    }
+                                };
+                                None::<SiteV0>
+                            });
+                        }
+                    }
+                }
+            }
+
+            Ok(wallet)
+        } else {
+            Err(NgWalletError::NoCreateWalletPresent)
+        }
+    }
+
+    pub fn is_first_and_not_deleted_afterwards(
+        &self,
+        item: &(u128, WalletOperationV0),
+        delete_type: &str,
+    ) -> bool {
+        let hash = self.is_first_occurrence(item.0, &item.1);
+        if hash != 0 {
+            // check that it hasn't been deleted since the first occurrence
+            let deleted = self.find_first_occurrence_of_type_and_hash_after_timestamp(
+                delete_type,
+                hash,
+                item.0,
+            );
+            return deleted.is_none();
+        }
+        false
+    }
+
+    pub fn is_last_and_not_deleted_afterwards(
+        &self,
+        item: &(u128, WalletOperationV0),
+        delete_type: &str,
+    ) -> bool {
+        let hash = self.is_last_occurrence(item.0, &item.1);
+        if hash != 0 {
+            // check that it hasn't been deleted since the last occurrence
+            let deleted = self.find_first_occurrence_of_type_and_hash_after_timestamp(
+                delete_type,
+                hash,
+                item.0,
+            );
+            return deleted.is_none();
+        }
+        false
+    }
+
+    pub fn is_first_occurrence(&self, timestamp: u128, searched_op: &WalletOperationV0) -> u64 {
+        let searched_hash = searched_op.hash();
+        //let mut timestamp = u128::MAX;
+        //let mut found = searched_op;
+        for op in &self.log {
+            let hash = op.1.hash();
+            if hash.0 == searched_hash.0 && op.0 < timestamp && hash.1 == searched_hash.1 {
+                //timestamp = op.0;
+                //found = &op.1;
+                return 0;
+            }
+        }
+        searched_hash.0
+    }
+
+    pub fn is_last_occurrence(&self, timestamp: u128, searched_op: &WalletOperationV0) -> u64 {
+        let searched_hash = searched_op.hash();
+        //let mut timestamp = 0u128;
+        //let mut found = searched_op;
+        for op in &self.log {
+            let hash = op.1.hash();
+            if hash.0 == searched_hash.0 && op.0 > timestamp && hash.1 == searched_hash.1 {
+                //timestamp = op.0;
+                //found = &op.1;
+                return 0;
+            }
+        }
+        searched_hash.0
+    }
+
+    pub fn find_first_occurrence_of_type_and_hash_after_timestamp(
+        &self,
+        searched_type: &str,
+        searched_hash: u64,
+        after: u128,
+    ) -> Option<(u128, &WalletOperationV0)> {
+        let mut timestamp = u128::MAX;
+        let mut found = None;
+        for op in &self.log {
+            let hash = op.1.hash();
+            if hash.0 == searched_hash
+                && op.0 > after
+                && op.0 < timestamp
+                && hash.1 == searched_type
+            {
+                timestamp = op.0;
+                found = Some(&op.1);
+            }
+        }
+        found.map(|f| (timestamp, f))
     }
 }
 
@@ -169,20 +425,101 @@ impl WalletLog0 {
 pub enum WalletOperationV0 {
     CreateWalletV0(WalletOpCreateV0),
     AddSiteV0(SiteV0),
-    RemoveSiteV0(Identity),
-    AddBrokerV0(BrokerInfoV0),
-    RemoveBrokerV0(BrokerInfoV0),
-    AddClientV0(ClientV0),
+    RemoveSiteV0(PrivKey),
+    AddBrokerServerV0(BrokerServerV0),
+    RemoveBrokerServerV0(BrokerServerV0),
+    SetBrokerCoreV0(BrokerCoreV0),
+    SetClientV0(ClientV0),
     AddOverlayCoreOverrideV0((OverlayId, Vec<PubKey>)),
     RemoveOverlayCoreOverrideV0(OverlayId),
-    AddSiteCoreV0((Identity, PubKey)),
-    RemoveSiteCoreV0((Identity, PubKey)),
-    AddSiteBootstrapV0((Identity, PubKey)),
-    RemoveSiteBootstrapV0((Identity, PubKey)),
+    AddSiteCoreV0((PubKey, PubKey)),
+    RemoveSiteCoreV0((PubKey, PubKey)),
+    AddSiteBootstrapV0((PubKey, PubKey)),
+    RemoveSiteBootstrapV0((PubKey, PubKey)),
     AddThirdPartyDataV0((String, Vec<u8>)),
     RemoveThirdPartyDataV0(String),
-    SetSiteRBDRefV0((Identity, ObjectRef)),
-    SetSiteRepoSecretV0((Identity, SymKey)),
+    SetSiteRBDRefV0((PubKey, SiteStoreType, ObjectRef)),
+    SetSiteRepoSecretV0((PubKey, SiteStoreType, SymKey)),
+}
+use std::collections::hash_map::DefaultHasher;
+
+impl WalletOperationV0 {
+    pub fn hash(&self) -> (u64, &str) {
+        let mut s = DefaultHasher::new();
+        match self {
+            Self::CreateWalletV0(t) => (0, "CreateWalletV0"),
+            Self::AddSiteV0(t) => {
+                t.site_key.hash(&mut s);
+                (s.finish(), "AddSiteV0")
+            }
+            Self::RemoveSiteV0(t) => {
+                t.hash(&mut s);
+                (s.finish(), "RemoveSiteV0")
+            }
+            Self::AddBrokerServerV0(t) => {
+                t.hash(&mut s);
+                (s.finish(), "AddBrokerServerV0")
+            }
+            Self::RemoveBrokerServerV0(t) => {
+                t.hash(&mut s);
+                (s.finish(), "RemoveBrokerServerV0")
+            }
+            Self::SetBrokerCoreV0(t) => {
+                t.peer_id.hash(&mut s);
+                (s.finish(), "SetBrokerCoreV0")
+            }
+            Self::SetClientV0(t) => {
+                t.priv_key.hash(&mut s);
+                (s.finish(), "SetClientV0")
+            }
+            Self::AddOverlayCoreOverrideV0(t) => {
+                t.0.hash(&mut s);
+                (s.finish(), "AddOverlayCoreOverrideV0")
+            }
+            Self::RemoveOverlayCoreOverrideV0(t) => {
+                t.hash(&mut s);
+                (s.finish(), "RemoveOverlayCoreOverrideV0")
+            }
+            Self::AddSiteCoreV0(t) => {
+                t.0.hash(&mut s);
+                t.1.hash(&mut s);
+                (s.finish(), "AddSiteCoreV0")
+            }
+            Self::RemoveSiteCoreV0(t) => {
+                t.0.hash(&mut s);
+                t.1.hash(&mut s);
+                (s.finish(), "RemoveSiteCoreV0")
+            }
+            Self::AddSiteBootstrapV0(t) => {
+                t.0.hash(&mut s);
+                t.1.hash(&mut s);
+                (s.finish(), "AddSiteBootstrapV0")
+            }
+            Self::RemoveSiteBootstrapV0(t) => {
+                t.0.hash(&mut s);
+                t.1.hash(&mut s);
+                (s.finish(), "RemoveSiteBootstrapV0")
+            }
+            Self::AddThirdPartyDataV0(t) => {
+                t.0.hash(&mut s);
+                (s.finish(), "AddThirdPartyDataV0")
+            }
+            Self::RemoveThirdPartyDataV0(t) => {
+                t.hash(&mut s);
+                (s.finish(), "RemoveThirdPartyDataV0")
+            }
+            Self::SetSiteRBDRefV0(t) => {
+                t.0.hash(&mut s);
+                t.1.hash(&mut s);
+                (s.finish(), "SetSiteRBDRefV0")
+            }
+            Self::SetSiteRepoSecretV0(t) => {
+                t.0.hash(&mut s);
+                t.1.hash(&mut s);
+                (s.finish(), "SetSiteRepoSecretV0")
+            }
+        }
+    }
 }
 
 /// WalletOp Create V0
@@ -208,6 +545,27 @@ pub struct WalletOpCreateV0 {
 
     #[zeroize(skip)]
     pub client: ClientV0,
+}
+
+impl From<&WalletOpCreateV0> for EncryptedWalletV0 {
+    fn from(op: &WalletOpCreateV0) -> Self {
+        let mut wallet = EncryptedWalletV0 {
+            wallet_privkey: op.wallet_privkey.clone(),
+            pazzle: op.pazzle.clone(),
+            mnemonic: op.mnemonic.clone(),
+            pin: op.pin.clone(),
+            personal_site: op.personal_site.site_key.to_pub(),
+            sites: HashMap::new(),
+            brokers: HashMap::new(),
+            clients: HashMap::new(),
+            overlay_core_overrides: HashMap::new(),
+            third_parties: HashMap::new(),
+        };
+        wallet.add_site(op.personal_site.clone());
+        wallet.add_brokers(op.brokers.clone());
+        wallet.add_client(op.client.clone());
+        wallet
+    }
 }
 
 /// Reduced Wallet content Version 0, for Login QRcode
@@ -248,6 +606,15 @@ pub struct ReducedWalletContentV0 {
 pub enum BrokerInfoV0 {
     ServerV0(BrokerServerV0),
     CoreV0(BrokerCoreV0),
+}
+
+impl BrokerInfoV0 {
+    pub fn get_id(&self) -> PubKey {
+        match self {
+            Self::CoreV0(c) => c.peer_id,
+            Self::ServerV0(s) => s.peer_id,
+        }
+    }
 }
 
 /// ReducedEncryptedWallet block Version 0
@@ -365,6 +732,8 @@ pub struct CreateWalletV0 {
     pub peer_id: PubKey,
     #[zeroize(skip)]
     pub nonce: u64,
+    #[zeroize(skip)]
+    pub client: ClientV0,
 }
 
 impl CreateWalletV0 {
@@ -377,6 +746,7 @@ impl CreateWalletV0 {
         send_wallet: bool,
         peer_id: PubKey,
         nonce: u64,
+        client: ClientV0,
     ) -> Self {
         CreateWalletV0 {
             result_with_wallet_file: false,
@@ -389,6 +759,7 @@ impl CreateWalletV0 {
             send_wallet,
             peer_id,
             nonce,
+            client,
         }
     }
 }
@@ -418,6 +789,7 @@ pub enum NgWalletError {
     EncryptionError,
     DecryptionError,
     InvalidSignature,
+    NoCreateWalletPresent,
 }
 
 impl fmt::Display for NgWalletError {

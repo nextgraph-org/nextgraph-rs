@@ -98,22 +98,22 @@ fn gen_associated_data(timestamp: Timestamp, wallet_id: WalletId) -> Vec<u8> {
     [ser_wallet, timestamp.to_be_bytes().to_vec()].concat()
 }
 
-pub fn enc_encrypted_block(
-    block: &EncryptedWalletV0,
+pub fn enc_wallet_log(
+    log: &WalletLog,
     master_key: &[u8; 32],
     peer_id: PubKey,
     nonce: u64,
     timestamp: Timestamp,
     wallet_id: WalletId,
 ) -> Result<Vec<u8>, NgWalletError> {
-    let ser_encrypted_block = to_vec(block).map_err(|e| NgWalletError::InternalError)?;
+    let ser_log = to_vec(log).map_err(|e| NgWalletError::InternalError)?;
 
     let nonce_buffer: [u8; 24] = gen_nonce(peer_id, nonce);
 
     let cipher = XChaCha20Poly1305::new(master_key.into());
 
-    let mut buffer: Vec<u8> = Vec::with_capacity(ser_encrypted_block.len() + 16); // Note: buffer needs 16-bytes overhead for auth tag
-    buffer.extend_from_slice(&ser_encrypted_block);
+    let mut buffer: Vec<u8> = Vec::with_capacity(ser_log.len() + 16); // Note: buffer needs 16-bytes overhead for auth tag
+    buffer.extend_from_slice(&ser_log);
 
     // Encrypt `buffer` in-place, replacing the plaintext contents with ciphertext
     cipher
@@ -154,11 +154,14 @@ pub fn dec_encrypted_block(
     // `ciphertext` now contains the decrypted block
     //log_debug!("decrypted_block {:?}", ciphertext);
 
-    let decrypted_block =
-        from_slice::<EncryptedWalletV0>(&ciphertext).map_err(|e| NgWalletError::DecryptionError)?;
+    let decrypted_log =
+        from_slice::<WalletLog>(&ciphertext).map_err(|e| NgWalletError::DecryptionError)?;
 
     master_key.zeroize();
-    Ok(decrypted_block)
+
+    match decrypted_log {
+        WalletLog::V0(v0) => v0.reduce(),
+    }
 }
 
 pub fn derive_key_from_pass(mut pass: Vec<u8>, salt: [u8; 16], wallet_id: WalletId) -> [u8; 32] {
@@ -459,17 +462,17 @@ pub async fn create_wallet_v0(
     //.ok_or(NgWalletError::InternalError)?
     //.clone(),
 
-    let encrypted_block = EncryptedWalletV0 {
+    let create_op = WalletOpCreateV0 {
         wallet_privkey: wallet_privkey.clone(),
         pazzle: pazzle.clone(),
         mnemonic,
         pin: params.pin,
-        sites: vec![site],
+        personal_site: site,
         brokers: vec![], //TODO add the broker here
-        clients: vec![], // TODO add a client here
-        overlay_core_overrides: HashMap::new(),
-        third_parties: HashMap::new(),
+        client: params.client.clone(),
     };
+
+    let wallet_log = WalletLog::new_v0(create_op);
 
     let mut master_key = [0u8; 32];
     getrandom::getrandom(&mut master_key).map_err(|e| NgWalletError::InternalError)?;
@@ -506,8 +509,8 @@ pub async fn create_wallet_v0(
 
     let timestamp = now_timestamp();
 
-    let encrypted = enc_encrypted_block(
-        &encrypted_block,
+    let encrypted = enc_wallet_log(
+        &wallet_log,
         &master_key,
         params.peer_id,
         params.nonce,
@@ -630,6 +633,7 @@ mod test {
                 98, 243, 49, 90, 7, 0, 157, 58, 14, 187, 14, 3, 116, 86,
             ]),
             0,
+            ClientV0::dummy(),
         ))
         .await
         .expect("create_wallet_v0");
@@ -690,7 +694,7 @@ mod test {
                     opening_pazzle.elapsed().as_millis()
                 );
             }
-            //log_debug!("encrypted part {:?}", w);
+            log_debug!("encrypted part {:?}", w);
         }
     }
 }
