@@ -356,11 +356,6 @@ pub async fn create_wallet_v0(
         return Err(NgWalletError::InvalidPazzleLength);
     }
 
-    // cannot submit wallet if we don't submit also the bootstrap
-    if params.send_bootstrap.is_none() && params.send_wallet {
-        return Err(NgWalletError::SubmissionError);
-    }
-
     // check validity of PIN
 
     // shouldn't start with 0
@@ -462,15 +457,29 @@ pub async fn create_wallet_v0(
     //.ok_or(NgWalletError::InternalError)?
     //.clone(),
 
+    let user = site.site_key.to_pub();
+
+    // Creating a new client
+    let client = ClientV0::new(user);
+
     let create_op = WalletOpCreateV0 {
         wallet_privkey: wallet_privkey.clone(),
         pazzle: pazzle.clone(),
         mnemonic,
         pin: params.pin,
         personal_site: site,
-        brokers: vec![], //TODO add the broker here
-        client: params.client.clone(),
+        save_to_ng_one: if params.send_wallet {
+            SaveToNGOne::Wallet
+        } else if params.send_bootstrap {
+            SaveToNGOne::Bootstrap
+        } else {
+            SaveToNGOne::No
+        },
+        client: client.clone(),
     };
+
+    //Creating a new peerId for this Client and User
+    let peer = generate_keypair();
 
     let wallet_log = WalletLog::new_v0(create_op);
 
@@ -509,14 +518,7 @@ pub async fn create_wallet_v0(
 
     let timestamp = now_timestamp();
 
-    let encrypted = enc_wallet_log(
-        &wallet_log,
-        &master_key,
-        params.peer_id,
-        params.nonce,
-        timestamp,
-        wallet_id,
-    )?;
+    let encrypted = enc_wallet_log(&wallet_log, &master_key, peer.1, 0, timestamp, wallet_id)?;
     master_key.zeroize();
 
     let wallet_content = WalletContentV0 {
@@ -529,8 +531,8 @@ pub async fn create_wallet_v0(
         enc_master_key_mnemonic,
         master_nonce: 0,
         timestamp,
-        peer_id: params.peer_id,
-        nonce: params.nonce,
+        peer_id: peer.1,
+        nonce: 0,
         encrypted,
     };
 
@@ -557,9 +559,6 @@ pub async fn create_wallet_v0(
     //     sig,
     // });
 
-    // TODO send bootstrap (if)
-    // TODO send wallet (if)
-
     log_info!(
         "creating of wallet took: {} ms",
         creating_pazzle.elapsed().as_millis()
@@ -575,13 +574,18 @@ pub async fn create_wallet_v0(
         pazzle,
         mnemonic: mnemonic.clone(),
         wallet_name: base64_url::encode(&wallet_id.slice()),
+        peer_id: peer.1,
+        peer_key: peer.0,
+        nonce: 0,
+        client,
+        user,
     })
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use p2p_repo::utils::generate_keypair;
+    use p2p_net::types::BootstrapContentV0;
     use std::fs::File;
     use std::io::BufReader;
     use std::io::Read;
@@ -626,14 +630,8 @@ mod test {
             "   know     yourself  ".to_string(),
             pin,
             9,
-            None,
             false,
-            PubKey::Ed25519PubKey([
-                119, 251, 253, 29, 135, 199, 254, 50, 134, 67, 1, 208, 117, 196, 167, 107, 2, 113,
-                98, 243, 49, 90, 7, 0, 157, 58, 14, 187, 14, 3, 116, 86,
-            ]),
-            0,
-            ClientV0::dummy(),
+            false,
         ))
         .await
         .expect("create_wallet_v0");

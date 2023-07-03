@@ -55,16 +55,10 @@
       security_txt: "   know     yourself  ",
       pin: [5, 2, 9, 1],
       pazzle_length: 9,
-      send_bootstrap: undefined,
+      send_bootstrap: false,
       send_wallet: false,
       result_with_wallet_file: true,
-      peer_id: {
-        Ed25519PubKey: [
-          119, 251, 253, 29, 135, 199, 254, 50, 134, 67, 1, 208, 117, 196, 167,
-          107, 2, 113, 98, 243, 49, 90, 7, 0, 157, 58, 14, 187, 14, 3, 116, 86,
-        ],
-      },
-      nonce: 0,
+      local_save: false,
     };
 
     try {

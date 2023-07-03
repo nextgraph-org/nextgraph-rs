@@ -10,6 +10,7 @@
 */
 
 use crate::actor::*;
+use crate::broker_storage::BrokerStorage;
 use crate::connection::*;
 use crate::errors::*;
 use crate::types::*;
@@ -75,6 +76,7 @@ pub struct Broker {
     shutdown_sender: Sender<ProtocolError>,
     closing: bool,
     my_peer_id: Option<PubKey>,
+    storage: Option<Box<dyn BrokerStorage + Send + Sync>>,
 
     test: u32,
     tauri_streams: HashMap<String, Sender<Commit>>,
@@ -100,6 +102,10 @@ impl Broker {
         if self.my_peer_id.is_none() {
             self.my_peer_id = Some(id)
         }
+    }
+
+    pub fn set_storage(&mut self, storage: impl BrokerStorage + 'static) {
+        self.storage = Some(Box::new(storage));
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -314,6 +320,7 @@ impl Broker {
             closing: false,
             test: u32::from_be_bytes(random_buf),
             my_peer_id: None,
+            storage: None,
         }
     }
 

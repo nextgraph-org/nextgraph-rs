@@ -9,3 +9,5 @@ pub mod peer;
 pub mod repostoreinfo;
 
 pub mod topic;
+
+pub mod invitation;

@@ -139,7 +139,7 @@ impl<'a> Overlay<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::PEER),
-            to_vec(peer)?,
+            &to_vec(peer)?,
         )
     }
 
@@ -168,7 +168,7 @@ impl<'a> Overlay<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::TOPIC),
-            to_vec(topic)?,
+            &to_vec(topic)?,
         )
     }
 

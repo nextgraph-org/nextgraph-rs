@@ -2736,6 +2736,7 @@ dependencies = [
  "serde_json",
  "tauri",
  "tauri-build",
+ "tauri-plugin-window",
 ]
 
 [[package]]
@@ -2785,6 +2786,30 @@ dependencies = [
  "serde_bytes",
  "web-time",
  "zeroize",
+]
+
+[[package]]
+name = "ngaccount"
+version = "0.1.0"
+dependencies = [
+ "base64-url",
+ "bytes",
+ "env_logger",
+ "log",
+ "ng-wallet",
+ "p2p-net",
+ "p2p-repo",
+ "rust-embed",
+ "serde",
+ "serde-big-array",
+ "serde_bare",
+ "serde_bytes",
+ "serde_json",
+ "slice_as_array",
+ "stores-lmdb",
+ "tokio",
+ "warp",
+ "warp-embed",
 ]
 
 [[package]]
@@ -3025,6 +3050,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
+name = "openssl-src"
+version = "111.26.0+1.1.1u"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efc62c9f12b22b8f5208c23a7200a442b2e5999f8bdf80233852122b5a4f6f37"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3032,6 +3066,7 @@ checksum = "374533b0e45f3a7ced10fcaeccca020e66656bc03dac384f852e4e5a7a8104a6"
 dependencies = [
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -3129,6 +3164,7 @@ dependencies = [
  "unique_id",
  "url",
  "wasm-bindgen",
+ "web-time",
 ]
 
 [[package]]
@@ -4627,6 +4663,17 @@ dependencies = [
  "syn 1.0.109",
  "tauri-codegen",
  "tauri-utils",
+]
+
+[[package]]
+name = "tauri-plugin-window"
+version = "2.0.0-alpha.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "209fef1a00a981949e2440924b4be267c7639daeba51b29179004fa1c6d74900"
+dependencies = [
+ "serde",
+ "tauri",
+ "thiserror",
 ]
 
 [[package]]

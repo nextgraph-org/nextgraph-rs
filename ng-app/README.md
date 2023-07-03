@@ -101,6 +101,12 @@ rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-andro
 
 - follow the steps for Android in the [Prerquisites guide of Tauri](https://next--tauri.netlify.app/next/guides/getting-started/prerequisites/)
 
+Until I find out how to do this properly, if you are compiling the android app from a macos station, you need to override an env var. this is due to reqwest needing SSL support, and on linux and android it compiles it from source. apparently the compiler (cc-rs) doesn't know that when cross compiling to android targets, the tool ranlib is called llvm-ranlib (and not [target]-ranlib)
+
+```
+export RANLIB=/Users/[user]/Library/Android/sdk/ndk/[yourNDKversion]/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib
+```
+
 to launch the dev app :
 
 ```

@@ -7,3 +7,5 @@ pub mod types;
 pub mod utils;
 
 pub mod interfaces;
+
+pub mod storage;

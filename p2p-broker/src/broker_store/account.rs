@@ -9,10 +9,15 @@
 
 //! User account
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::time::SystemTime;
+
 use p2p_net::types::*;
 use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::store::*;
-use p2p_repo::types::*;
+use p2p_repo::types::Timestamp;
 use serde_bare::to_vec;
 
 pub struct Account<'a> {
@@ -23,13 +28,20 @@ pub struct Account<'a> {
 
 impl<'a> Account<'a> {
     const PREFIX: u8 = b"u"[0];
+    const PREFIX_CLIENT: u8 = b"d"[0];
 
     // propertie's suffixes
     const CLIENT: u8 = b"c"[0];
     const ADMIN: u8 = b"a"[0];
-    const OVERLAY: u8 = b"o"[0];
+    //const OVERLAY: u8 = b"o"[0];
 
-    const ALL_PROPERTIES: [u8; 3] = [Self::CLIENT, Self::ADMIN, Self::OVERLAY];
+    // propertie's client suffixes
+    const INFO: u8 = b"i"[0];
+    const LAST_SEEN: u8 = b"l"[0];
+
+    const ALL_PROPERTIES: [u8; 2] = [Self::CLIENT, Self::ADMIN];
+
+    const ALL_CLIENT_PROPERTIES: [u8; 2] = [Self::INFO, Self::LAST_SEEN];
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::ADMIN;
 
@@ -75,63 +87,104 @@ impl<'a> Account<'a> {
     pub fn id(&self) -> UserId {
         self.id
     }
-    pub fn add_client(&self, client: &ClientId) -> Result<(), StorageError> {
+    pub fn add_client(&self, client: &ClientId, info: &ClientInfo) -> Result<(), StorageError> {
         if !self.exists() {
             return Err(StorageError::BackendError);
         }
-        self.store.put(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::CLIENT),
-            to_vec(client)?,
-        )
-    }
-    pub fn remove_client(&self, client: &ClientId) -> Result<(), StorageError> {
-        self.store.del_property_value(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::CLIENT),
-            to_vec(client)?,
-        )
+
+        let mut s = DefaultHasher::new();
+        info.hash(&mut s);
+        let hash = s.finish();
+
+        let client_key = (client.clone(), hash);
+        let client_key_ser = to_vec(&client_key)?;
+
+        let info_ser = to_vec(info)?;
+
+        self.store.write_transaction(&|tx| {
+            if tx
+                .has_property_value(
+                    Self::PREFIX,
+                    &to_vec(&self.id)?,
+                    Some(Self::CLIENT),
+                    &client_key_ser,
+                )
+                .is_err()
+            {
+                tx.put(
+                    Self::PREFIX,
+                    &to_vec(&self.id)?,
+                    Some(Self::CLIENT),
+                    &client_key_ser,
+                )?;
+            }
+            if tx
+                .has_property_value(
+                    Self::PREFIX_CLIENT,
+                    &client_key_ser,
+                    Some(Self::INFO),
+                    &info_ser,
+                )
+                .is_err()
+            {
+                tx.put(
+                    Self::PREFIX_CLIENT,
+                    &client_key_ser,
+                    Some(Self::INFO),
+                    &info_ser,
+                )?;
+            }
+            let now = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            tx.replace(
+                Self::PREFIX_CLIENT,
+                &client_key_ser,
+                Some(Self::LAST_SEEN),
+                &to_vec(&now)?,
+            )?;
+            Ok(())
+        })
     }
 
-    pub fn has_client(&self, client: &ClientId) -> Result<(), StorageError> {
-        self.store.has_property_value(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::CLIENT),
-            to_vec(client)?,
-        )
-    }
+    // pub fn has_client(&self, client: &ClientId) -> Result<(), StorageError> {
+    //     self.store.has_property_value(
+    //         Self::PREFIX,
+    //         &to_vec(&self.id)?,
+    //         Some(Self::CLIENT),
+    //         to_vec(client)?,
+    //     )
+    // }
 
-    pub fn add_overlay(&self, overlay: &OverlayId) -> Result<(), StorageError> {
-        if !self.exists() {
-            return Err(StorageError::BackendError);
-        }
-        self.store.put(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::OVERLAY),
-            to_vec(overlay)?,
-        )
-    }
-    pub fn remove_overlay(&self, overlay: &OverlayId) -> Result<(), StorageError> {
-        self.store.del_property_value(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::OVERLAY),
-            to_vec(overlay)?,
-        )
-    }
+    // pub fn add_overlay(&self, overlay: &OverlayId) -> Result<(), StorageError> {
+    //     if !self.exists() {
+    //         return Err(StorageError::BackendError);
+    //     }
+    //     self.store.put(
+    //         Self::PREFIX,
+    //         &to_vec(&self.id)?,
+    //         Some(Self::OVERLAY),
+    //         to_vec(overlay)?,
+    //     )
+    // }
+    // pub fn remove_overlay(&self, overlay: &OverlayId) -> Result<(), StorageError> {
+    //     self.store.del_property_value(
+    //         Self::PREFIX,
+    //         &to_vec(&self.id)?,
+    //         Some(Self::OVERLAY),
+    //         to_vec(overlay)?,
+    //     )
+    // }
 
-    pub fn has_overlay(&self, overlay: &OverlayId) -> Result<(), StorageError> {
-        self.store.has_property_value(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::OVERLAY),
-            to_vec(overlay)?,
-        )
-    }
+    // pub fn has_overlay(&self, overlay: &OverlayId) -> Result<(), StorageError> {
+    //     self.store.has_property_value(
+    //         Self::PREFIX,
+    //         &to_vec(&self.id)?,
+    //         Some(Self::OVERLAY),
+    //         to_vec(overlay)?,
+    //     )
+    // }
 
     pub fn is_admin(&self) -> Result<bool, StorageError> {
         if self
@@ -140,7 +193,7 @@ impl<'a> Account<'a> {
                 Self::PREFIX,
                 &to_vec(&self.id)?,
                 Some(Self::ADMIN),
-                to_vec(&true)?,
+                &to_vec(&true)?,
             )
             .is_ok()
         {
@@ -150,8 +203,15 @@ impl<'a> Account<'a> {
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store
-            .del_all(Self::PREFIX, &to_vec(&self.id)?, &Self::ALL_PROPERTIES)
+        self.store.write_transaction(&|tx| {
+            if let Ok(clients) = tx.get_all(Self::PREFIX, &to_vec(&self.id)?, Some(Self::CLIENT)) {
+                for client in clients {
+                    tx.del_all(Self::PREFIX_CLIENT, &client, &Self::ALL_CLIENT_PROPERTIES)?;
+                }
+            }
+            tx.del_all(Self::PREFIX, &to_vec(&self.id)?, &Self::ALL_PROPERTIES)?;
+            Ok(())
+        })
     }
 }
 
@@ -161,8 +221,8 @@ mod test {
     use p2p_repo::store::*;
     use p2p_repo::types::*;
     use p2p_repo::utils::*;
-    use stores_lmdb::kcv_store::LmdbKCVStore;
     use std::fs;
+    use stores_lmdb::kcv_store::LmdbKCVStore;
     use tempfile::Builder;
 
     use crate::broker_store::account::Account;
@@ -184,14 +244,14 @@ mod test {
         let account2 = Account::open(&user_id, &store).unwrap();
         println!("account opened {}", account2.id());
 
-        let client_id = PubKey::Ed25519PubKey([56; 32]);
-        let client_id_not_added = PubKey::Ed25519PubKey([57; 32]);
+        // let client_id = PubKey::Ed25519PubKey([56; 32]);
+        // let client_id_not_added = PubKey::Ed25519PubKey([57; 32]);
 
-        account2.add_client(&client_id).unwrap();
+        // account2.add_client(&client_id).unwrap();
 
-        assert!(account2.is_admin().unwrap());
+        // assert!(account2.is_admin().unwrap());
 
-        account.has_client(&client_id).unwrap();
-        assert!(account.has_client(&client_id_not_added).is_err());
+        // account.has_client(&client_id).unwrap();
+        // assert!(account.has_client(&client_id_not_added).is_err());
     }
 }

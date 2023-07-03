@@ -21,12 +21,13 @@ use ng_wallet::*;
 use p2p_client_ws::remote_ws_wasm::ConnectionWebSocket;
 use p2p_net::broker::*;
 use p2p_net::connection::{ClientConfig, StartConfig};
-use p2p_net::types::{DirectPeerId, IP};
-use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
+use p2p_net::types::{BootstrapContentV0, ClientInfoV0, ClientType, DirectPeerId, IP};
+use p2p_net::utils::{retrieve_local_bootstrap, spawn_and_log_error, Receiver, ResultSend, Sender};
 use p2p_net::WS_PORT;
 use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::generate_keypair;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -34,6 +35,17 @@ use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::{future_to_promise, JsFuture};
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {
+    let res = retrieve_local_bootstrap(location, invite.as_string()).await;
+    if res.is_some() {
+        serde_wasm_bindgen::to_value(&res.unwrap()).unwrap()
+    } else {
+        JsValue::FALSE
+    }
+}
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
@@ -88,14 +100,8 @@ pub fn test_create_wallet() -> JsValue {
         "   know     yourself  ".to_string(),
         pin,
         9,
-        None,
         false,
-        PubKey::Ed25519PubKey([
-            119, 251, 253, 29, 135, 199, 254, 50, 134, 67, 1, 208, 117, 196, 167, 107, 2, 113, 98,
-            243, 49, 90, 7, 0, 157, 58, 14, 187, 14, 3, 116, 86,
-        ]),
-        0,
-        ClientV0::dummy(),
+        false,
     );
     serde_wasm_bindgen::to_value(&r).unwrap()
 }
@@ -103,19 +109,77 @@ pub fn test_create_wallet() -> JsValue {
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen(module = "/js/node.js")]
 extern "C" {
-    fn random(max: usize) -> usize;
+    fn client_details() -> String;
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen(module = "/js/node.js")]
+extern "C" {
+    fn version() -> String;
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen]
+pub fn client_info() -> JsValue {
+    let res = ClientInfoV0 {
+        client_type: ClientType::NodeService,
+        details: client_details(),
+        version: version(),
+        timestamp_install: 0,
+        timestamp_updated: 0,
+    };
+    serde_wasm_bindgen::to_value(&res).unwrap()
 }
 
 #[cfg(not(wasmpack_target = "nodejs"))]
 #[wasm_bindgen(module = "/js/browser.js")]
 extern "C" {
-    fn random(max: usize) -> usize;
+    fn client_details() -> String;
+}
+
+#[cfg(not(wasmpack_target = "nodejs"))]
+#[wasm_bindgen(module = "/js/bowser.js")]
+extern "C" {
+    type Bowser;
+    #[wasm_bindgen(static_method_of = Bowser)]
+    fn parse(UA: String) -> JsValue;
+}
+
+#[cfg(not(wasmpack_target = "nodejs"))]
+#[wasm_bindgen(module = "/js/browser.js")]
+extern "C" {
+    fn client_details2(val: JsValue) -> String;
+}
+
+#[cfg(all(not(wasmpack_target = "nodejs"), target_arch = "wasm32"))]
+#[wasm_bindgen]
+pub fn client_info() -> JsValue {
+    let ua = client_details();
+
+    let bowser = Bowser::parse(ua);
+    //log_info!("{:?}", bowser);
+
+    let details_string = client_details2(bowser);
+
+    let res = ClientInfoV0 {
+        client_type: ClientType::Web,
+        details: details_string,
+        version: "".to_string(),
+        timestamp_install: 0,
+        timestamp_updated: 0,
+    };
+    serde_wasm_bindgen::to_value(&res).unwrap()
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn test() {
     log_info!("test is {}", BROKER.read().await.test());
+    //let client_info = client_info();
+    //log_info!("{:?}", client_info);
+
+    //let b = Bowser::parse(ua);
+    //log_info!("{:?}", b);
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -220,11 +284,6 @@ pub async fn probe() {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn start() {
-    log_info!("random {}", random(10));
-
-    // let mut random_buf = [0u8; 32];
-    // getrandom::getrandom(&mut random_buf).unwrap();
-
     async fn inner_task() -> ResultSend<()> {
         let server_key: PubKey = "X0nh-gOTGKSx0yL0LYJviOWRNacyqIzjQW_LKdK6opU".try_into()?;
         log_debug!("server_key:{}", server_key);

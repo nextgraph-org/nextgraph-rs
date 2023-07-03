@@ -908,9 +908,18 @@ async fn main_inner() -> Result<(), ()> {
             }];
         }
 
+        let registration = if args.registration_off {
+            RegistrationConfig::Closed
+        } else if args.registration_open {
+            RegistrationConfig::Open
+        } else {
+            RegistrationConfig::Invitation
+        };
+
         config = Some(DaemonConfig::V0(DaemonConfigV0 {
             listeners,
             overlays_configs: vec![overlays_config],
+            registration,
         }));
 
         if args.print_config {
