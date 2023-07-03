@@ -81,6 +81,22 @@ impl ClientV0 {
             auto_open: vec![],
         }
     }
+
+    pub fn new(user: PubKey) -> Self {
+        ClientV0 {
+            priv_key: PrivKey::random_ed(),
+            storage_master_key: SymKey::random(),
+            auto_open: vec![Identity::IndividualSite(user)],
+        }
+    }
+}
+
+/// Save to nextgraph.one
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum SaveToNGOne {
+    No,
+    Bootstrap,
+    Wallet,
 }
 
 /// EncryptedWallet block Version 0
@@ -94,6 +110,9 @@ pub struct EncryptedWalletV0 {
     pub mnemonic: [u16; 12],
 
     pub pin: [u8; 4],
+
+    #[zeroize(skip)]
+    pub save_to_ng_one: SaveToNGOne,
 
     #[zeroize(skip)]
     pub personal_site: PubKey,
@@ -244,6 +263,11 @@ impl WalletLogV0 {
                         }
                     }
                     WalletOperationV0::RemoveBrokerServerV0(_) => {}
+                    WalletOperationV0::SetSaveToNGOneV0(o) => {
+                        if self.is_last_occurrence(op.0, &op.1) != 0 {
+                            wallet.save_to_ng_one = o.clone();
+                        }
+                    }
                     WalletOperationV0::SetBrokerCoreV0(o) => {
                         if self.is_last_occurrence(op.0, &op.1) != 0 {
                             wallet.add_brokers(vec![BrokerInfoV0::CoreV0(o.clone())]);
@@ -428,6 +452,7 @@ pub enum WalletOperationV0 {
     RemoveSiteV0(PrivKey),
     AddBrokerServerV0(BrokerServerV0),
     RemoveBrokerServerV0(BrokerServerV0),
+    SetSaveToNGOneV0(SaveToNGOne),
     SetBrokerCoreV0(BrokerCoreV0),
     SetClientV0(ClientV0),
     AddOverlayCoreOverrideV0((OverlayId, Vec<PubKey>)),
@@ -464,6 +489,7 @@ impl WalletOperationV0 {
                 t.hash(&mut s);
                 (s.finish(), "RemoveBrokerServerV0")
             }
+            Self::SetSaveToNGOneV0(t) => (0, "SetSaveToNGOneV0"),
             Self::SetBrokerCoreV0(t) => {
                 t.peer_id.hash(&mut s);
                 (s.finish(), "SetBrokerCoreV0")
@@ -537,12 +563,14 @@ pub struct WalletOpCreateV0 {
     pub pin: [u8; 4],
 
     #[zeroize(skip)]
+    pub save_to_ng_one: SaveToNGOne,
+
+    #[zeroize(skip)]
     pub personal_site: SiteV0,
 
     // list of brokers and their connection details
-    #[zeroize(skip)]
-    pub brokers: Vec<BrokerInfoV0>,
-
+    //#[zeroize(skip)]
+    //pub brokers: Vec<BrokerInfoV0>,
     #[zeroize(skip)]
     pub client: ClientV0,
 }
@@ -554,6 +582,7 @@ impl From<&WalletOpCreateV0> for EncryptedWalletV0 {
             pazzle: op.pazzle.clone(),
             mnemonic: op.mnemonic.clone(),
             pin: op.pin.clone(),
+            save_to_ng_one: op.save_to_ng_one.clone(),
             personal_site: op.personal_site.site_key.to_pub(),
             sites: HashMap::new(),
             brokers: HashMap::new(),
@@ -562,7 +591,7 @@ impl From<&WalletOpCreateV0> for EncryptedWalletV0 {
             third_parties: HashMap::new(),
         };
         wallet.add_site(op.personal_site.clone());
-        wallet.add_brokers(op.brokers.clone());
+        //wallet.add_brokers(op.brokers.clone());
         wallet.add_client(op.client.clone());
         wallet
     }
@@ -620,6 +649,8 @@ impl BrokerInfoV0 {
 /// ReducedEncryptedWallet block Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReducedEncryptedWalletV0 {
+    pub save_to_ng_one: SaveToNGOne,
+
     // main Site (Personal)
     pub personal_site: ReducedSiteV0,
 
@@ -721,19 +752,13 @@ pub struct CreateWalletV0 {
     pub pin: [u8; 4],
     pub pazzle_length: u8,
     #[zeroize(skip)]
-    pub send_bootstrap: Option<Bootstrap>,
+    pub send_bootstrap: bool,
     #[zeroize(skip)]
     pub send_wallet: bool,
     #[zeroize(skip)]
     pub result_with_wallet_file: bool,
     #[zeroize(skip)]
     pub local_save: bool,
-    #[zeroize(skip)]
-    pub peer_id: PubKey,
-    #[zeroize(skip)]
-    pub nonce: u64,
-    #[zeroize(skip)]
-    pub client: ClientV0,
 }
 
 impl CreateWalletV0 {
@@ -742,11 +767,8 @@ impl CreateWalletV0 {
         security_txt: String,
         pin: [u8; 4],
         pazzle_length: u8,
-        send_bootstrap: Option<Bootstrap>,
+        send_bootstrap: bool,
         send_wallet: bool,
-        peer_id: PubKey,
-        nonce: u64,
-        client: ClientV0,
     ) -> Self {
         CreateWalletV0 {
             result_with_wallet_file: false,
@@ -757,9 +779,6 @@ impl CreateWalletV0 {
             pazzle_length,
             send_bootstrap,
             send_wallet,
-            peer_id,
-            nonce,
-            client,
         }
     }
 }
@@ -775,6 +794,15 @@ pub struct CreateWalletResultV0 {
     pub mnemonic: [u16; 12],
     #[zeroize(skip)]
     pub wallet_name: String,
+    #[zeroize(skip)]
+    pub peer_id: PubKey,
+    pub peer_key: PrivKey,
+    #[zeroize(skip)]
+    pub nonce: u64,
+    #[zeroize(skip)]
+    pub client: ClientV0,
+    #[zeroize(skip)]
+    pub user: PubKey,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]

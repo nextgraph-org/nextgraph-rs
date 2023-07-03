@@ -8,6 +8,8 @@
 // according to those terms.
 import {createAsyncProxy} from "async-proxy";
 import { writable } from "svelte/store";
+import { Bowser } from "../../ng-sdk-js/js/bowser.js"; 
+import {version} from '../package.json';
 
 const mapping = {
 
@@ -26,18 +28,51 @@ const handler = {
         
         if (import.meta.env.NG_APP_WEB) {
             let sdk = await import("ng-sdk-js")
-            return Reflect.apply(sdk[path], caller, args)
+            if (path[0] === "client_info") {
+                let client_info = await Reflect.apply(sdk[path], caller, args);
+                client_info.version=version;
+                //console.log(client_info);
+                return client_info;
+            } else {
+                return Reflect.apply(sdk[path], caller, args)
+            }
         } else {
             let tauri = await import("@tauri-apps/api/tauri");
+            if (path[0] === "client_info") {
 
-            if (path[0] === "doc_sync_branch") {
+                let tauri_platform = import.meta.env.TAURI_PLATFORM;
+                let client_type;
+                switch (tauri_platform) {
+                    case 'macos': client_type = "NativeMacOS";break;
+                    case 'linux': client_type = "NativeLinux";break;
+                    case 'windows': client_type = "NativeWindows";break;
+                    case 'android': client_type = "NativeAndroid";break;
+                    case 'ios': client_type = "NativeIos";break;
+                }
+                let info = Bowser.parse(window.navigator.userAgent);
+                info.platform.arch = import.meta.env.TAURI_ARCH;
+                info.platform.tauri = {
+                    family: import.meta.env.TAURI_FAMILY,
+                    os_version: import.meta.env.TAURI_PLATFORM_VERSION,
+                    type: import.meta.env.TAURI_PLATFORM_TYPE,
+                    debug: import.meta.env.TAURI_DEBUG,
+                    target: import.meta.env.TAURI_TARGET_TRIPLE
+                };
+                info.browser.ua = window.navigator.userAgent;
+                let res = {
+                    // TODO: install timestamp 
+                    ClientInfoV0 : { client_type, details: JSON.stringify(info), version, timestamp_install:0, timestamp_updated:0 }
+                };
+                //console.log(res);
+                return res;
+            } else if (path[0] === "doc_sync_branch") {
                 let stream_id = (lastStreamId += 1).toString();
                 console.log("stream_id",stream_id);
-                let { listen } = await import("@tauri-apps/api/event");
+                let { appWindow } = await import("@tauri-apps/plugin-window");
                 let nuri = args[0];
                 let callback = args[1];
 
-                let unlisten = await listen(stream_id, (event) => {
+                let unlisten = await appWindow.listen(stream_id, (event) => {
                     callback(event.payload).then(()=> {})
                 })
                 await tauri.invoke("doc_sync_branch",{nuri, stream_id});
@@ -58,6 +93,8 @@ const handler = {
                 params.result_with_wallet_file = false;
                 params.security_img = Array.from(new Uint8Array(params.security_img));
                 return await tauri.invoke(path[0],{params})
+            } else if (path[0] === "get_local_bootstrap") {
+                return false;
             }
             else {
                 let arg = {};
@@ -69,5 +106,9 @@ const handler = {
   };
   
 const api = createAsyncProxy({}, handler);
+
+export const NG_EU_BSP = "https://nextgraph.eu";
+
+export const NG_NET_BSP = "https://nextgraph.net";
 
 export default api;

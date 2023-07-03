@@ -104,6 +104,14 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub no_ipv6: bool,
 
+    /// Registration of new users is off. default is invitation-only registration
+    #[arg(long)]
+    pub registration_off: bool,
+
+    /// Registration of new users is open to anybody without restriction. default is invitation-only registration
+    #[arg(long, conflicts_with("registration_off"))]
+    pub registration_open: bool,
+
     /// Saves the quick config into a file on disk, that can then be modified for advanced configs
     #[arg(long)]
     pub save_config: bool,

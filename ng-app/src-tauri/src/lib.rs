@@ -13,7 +13,7 @@ use p2p_net::broker::*;
 use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend};
 use p2p_repo::log::*;
 use p2p_repo::types::*;
-use tauri::{App, Manager};
+use tauri::{App, Manager, Window};
 
 #[cfg(mobile)]
 mod mobile;
@@ -78,6 +78,7 @@ async fn wallet_create_wallet(mut params: CreateWalletV0) -> Result<CreateWallet
 #[tauri::command(rename_all = "snake_case")]
 async fn doc_sync_branch(nuri: &str, stream_id: &str, app: tauri::AppHandle) -> Result<(), ()> {
     log_info!("doc_sync_branch {} {}", nuri, stream_id);
+    let main_window = app.get_window("main").unwrap();
 
     let mut reader;
     {
@@ -91,10 +92,10 @@ async fn doc_sync_branch(nuri: &str, stream_id: &str, app: tauri::AppHandle) -> 
     async fn inner_task(
         mut reader: Receiver<Commit>,
         stream_id: String,
-        app: tauri::AppHandle,
+        main_window: tauri::Window,
     ) -> ResultSend<()> {
         while let Some(commit) = reader.next().await {
-            app.emit_all(&stream_id, commit).unwrap();
+            main_window.emit(&stream_id, commit).unwrap();
         }
 
         BROKER.write().await.tauri_stream_cancel(stream_id);
@@ -103,7 +104,7 @@ async fn doc_sync_branch(nuri: &str, stream_id: &str, app: tauri::AppHandle) -> 
         Ok(())
     }
 
-    spawn_and_log_error(inner_task(reader, stream_id.to_string(), app));
+    spawn_and_log_error(inner_task(reader, stream_id.to_string(), main_window));
 
     Ok(())
 }
@@ -173,6 +174,7 @@ impl AppBuilder {
 
                 Ok(())
             })
+            .plugin(tauri_plugin_window::init())
             .invoke_handler(tauri::generate_handler![
                 test,
                 doc_sync_branch,

@@ -37,17 +37,10 @@ npm i ng-sdk-js
 ## For contributors
 
 ```
-wasm-pack build --target bundler
-cd pkg
-// if you have access to npm registry and want to publish the package
-// npm publish --access=public
+wasm-pack build --dev --target bundler
 
-cd ..
-wasm-pack build -t nodejs -d pkg-node
+wasm-pack build --dev -t nodejs -d pkg-node
 node prepare-node.js
-cd pkg-node
-// if you have access to npm registry and want to publish the package
-// npm publish --access=public
 ```
 
 For testing in vanilla JS
@@ -63,6 +56,18 @@ Or automated testing with headless chrome:
 
 ```
 wasm-pack test --chrome --headless
+```
+
+## Production built
+
+```
+wasm-pack build --target bundler
+wasm-pack build -t nodejs -d pkg-node
+node prepare-node.js
+cd pkg
+npm publish --access=public
+cd ../pkg-node
+npm publish --access=public
 ```
 
 ### Plain JS web app

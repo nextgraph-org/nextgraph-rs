@@ -11,17 +11,19 @@
 
 <script>
   import { Button, Alert, Dropzone, Toggle } from "flowbite-svelte";
-  import { link } from "svelte-spa-router";
+  import { link, querystring } from "svelte-spa-router";
   import EULogo from "../assets/EU.svg?component";
   import Logo from "../assets/nextgraph.svg?component";
-  import ng from "../api";
+  import { NG_EU_BSP, NG_NET_BSP, default as ng } from "../api";
   import { display_pazzle } from "../wallet_emojis";
 
   import { onMount, tick } from "svelte";
 
-  let mobile =
-    import.meta.env.TAURI_PLATFORM == "android" ||
-    import.meta.env.TAURI_PLATFORM == "ios";
+  const params = new URLSearchParams($querystring);
+
+  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+
+  let mobile = tauri_platform == "android" || tauri_platform == "ios";
 
   const onFileSelected = (image) => {
     animate_bounce = false;
@@ -92,6 +94,7 @@
   let download_name;
   let cloud_link;
   let animateDownload = true;
+  let invitation;
 
   function scrollToTop() {
     top.scrollIntoView();
@@ -115,9 +118,18 @@
     ? "api/v1/"
     : "http://localhost:3030/api/v1/";
 
-  let display_note_on_local_wallets = true;
+  let display_note_on_local_wallets = false;
 
   async function bootstrap() {
+    console.log(await ng.client_info());
+    invitation = await ng.get_local_bootstrap(location.href, params.get("i"));
+    console.log(invitation);
+    // TODO: implement this error screen and link button
+    if (!invitation && params.get("i")) {
+      console.error(
+        "got an invitation for another broker. click on the link below to be redirected to the right broker"
+      );
+    }
     scrollToTop();
     let bs;
     try {
@@ -152,15 +164,8 @@
       security_txt,
       pin,
       pazzle_length: 9,
-      send_bootstrap: undefined, //options.cloud || options.bootstrap ?  : undefined,
+      send_bootstrap: false, //options.cloud || options.bootstrap ?  : undefined,
       send_wallet: options.cloud,
-      peer_id: {
-        Ed25519PubKey: [
-          119, 251, 253, 29, 135, 199, 254, 50, 134, 67, 1, 208, 117, 196, 167,
-          107, 2, 113, 98, 243, 49, 90, 7, 0, 157, 58, 14, 187, 14, 3, 116, 86,
-        ],
-      },
-      nonce: 0,
       local_save: options.trusted, // this is only used for tauri apps
       result_with_wallet_file: false, // this will be automatically changed to true for browser app
     };
@@ -203,7 +208,16 @@
     console.log("Result:", result);
   }
 
-  onMount(() => bootstrap());
+  onMount(async () => await bootstrap());
+
+  const selectEU = (event) => {
+    if (!tauri_platform) {
+      window.open(NG_EU_BSP + "/#/wallet/create", "_blank").focus();
+    }
+  };
+  const selectNET = (event) => {};
+  const enterINVITE = (event) => {};
+  const enterQRcode = (event) => {};
 </script>
 
 <main class="container3" bind:this={top}>
@@ -215,14 +229,14 @@
   {#if intro}
     <div class=" max-w-6xl lg:px-8 mx-auto px-4">
       <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-        A <b>NextGraph Wallet</b> is unique to each individual. It stores your
+        A <b>NextGraph Wallet</b> is unique to each person. It stores your
         credentials and authorizations to access documents. <br /><br />If you
         already have a wallet, you should not create a new one, instead,
         <a href="/wallet/login" use:link
           >login here with your existing wallet.</a
         >
         If you never created a NextGraph Wallet before, please follow the instructions
-        below in order to create your personal wallet.
+        below in order to create your unique personal wallet.
       </p>
     </div>
     {#if display_note_on_local_wallets}
@@ -277,8 +291,8 @@
               />
             </svg>
             <span
-              >In it, we store all the permissions to access documents you have
-              been granted with, or that you have created yourself.</span
+              >In your wallet, we store all the permissions to access documents
+              you have been granted with, or that you have created yourself.</span
             >
           </li>
           <li class="flex space-x-3">
@@ -422,10 +436,10 @@
             </svg>
             <span
               >For the same reason, we won't be able to help you if you forget
-              your pazzle or PIN code. There is no "password recovery" option in
-              this case. You can note your pazzle down on a piece of paper until
-              you remember it, but don't forget to destroy this note after a
-              while.</span
+              your pazzle or PIN code, or if you loose the wallet file. There is
+              no "password recovery" option in this case. You can note your
+              pazzle down on a piece of paper until you remember it, but don't
+              forget to destroy this note after a while.</span
             >
           </li>
         </ul>
@@ -435,7 +449,7 @@
       <button
         on:click|once={create_wallet}
         role="button"
-        class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mr-2 mb-2"
+        class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
       >
         <svg
           class="w-8 h-8 mr-2 -ml-1"
@@ -455,14 +469,374 @@
         Ok, I create my wallet now !
       </button>
     </div>
+  {:else if !invitation}
+    <div class=" max-w-6xl lg:px-8 mx-auto px-4">
+      <p class="max-w-xl md:mx-auto lg:max-w-2xl">
+        NextGraph is based on an efficient decentralized P2P network, and in
+        order to join this network and start using the app, you need to first
+        select a <b>broker&nbsp;server</b>.
+      </p>
+    </div>
+    <div class="px-4 pt-3 mx-auto max-w-6xl lg:px-8 lg:pt-10 dark:bg-slate-800">
+      <div class="max-w-xl md:mx-auto sm:text-center lg:max-w-2xl">
+        <h2 class="pb-5 text-xl">
+          What is a broker? <span class="text-sm">Please read</span>
+        </h2>
+        <ul class="mb-8 space-y-4 text-left text-gray-500 dark:text-gray-400">
+          <li class="flex space-x-3">
+            <svg
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+              />
+            </svg>
+            <span>
+              The broker helps you keep all your data in <b>sync</b>, as it is
+              connected to the internet 24/7 and keeps a copy of the updates for
+              you. This way, even if the devices of the other participants are
+              offline, you can still see their changes</span
+            >
+          </li>
+          <li class="flex space-x-3">
+            <svg
+              class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
+              />
+            </svg>
+            <span>
+              All your data is secure and <b>end-to-end encrypted</b>, and the
+              broker cannot see the content of the documents as it does not have
+              the keys to decrypt them.</span
+            >
+          </li>
+          <li class="flex space-x-3">
+            <svg
+              class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
+              />
+            </svg>
+            <span>
+              The broker helps you enforce your <b>privacy</b> as it hides your internet
+              address (IP) from other users you share documents with.</span
+            >
+          </li>
+          <li class="flex space-x-3">
+            <svg
+              class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+
+            <span>
+              It will be possible in the future to use NextGraph without any
+              broker and to have direct connections between peers, but this will
+              imply a less smooth experience.</span
+            >
+          </li>
+          <li class="flex space-x-3">
+            <svg
+              class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
+              />
+            </svg>
+            <span>
+              At anytime you can decide to switch to another broker service
+              provider or host it yourself. Your data is totally <b>portable</b>
+              and can freely move to another broker.</span
+            >
+          </li>
+          <li class="flex space-x-3">
+            <svg
+              class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
+              />
+            </svg>
+
+            <span>
+              Very soon we will offer you the opportunity to host your own
+              broker at <b>home</b> or <b>office</b>. Instead of using a "broker
+              service provider", you will own a small device that you connect
+              behind your internet router. It is called NG Box and will be
+              available soon.</span
+            >
+          </li>
+          <li class="flex space-x-3">
+            <svg
+              class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z"
+              />
+            </svg>
+
+            <span>
+              Large organizations and companies have the opportunity to host a
+              broker <b>on-premise</b> or in the cloud, as the software is open
+              source. Individuals can also <b>self-host</b> a broker on any VPS server
+              or at home.</span
+            >
+          </li>
+        </ul>
+        <h2 class="mt-3 text-xl">Please choose one broker among the list</h2>
+      </div>
+    </div>
+    <div class="row mt-5">
+      {#if !tauri_platform}
+        <a href="https://nextgraph.eu/#/wallet/create">
+          <button
+            tabindex="-1"
+            class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+          >
+            <EULogo class="mr-4 block h-10 w-10" alt="European Union flag" />
+            For European Union citizens
+          </button>
+        </a>
+      {:else}
+        <button
+          on:click|once={selectEU}
+          class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+        >
+          <EULogo class="mr-4 block h-10 w-10" alt="European Union flag" />
+          For European Union citizens
+        </button>
+      {/if}
+    </div>
+
+    <div class="row mt-5">
+      {#if !tauri_platform}
+        <a href="https://nextgraph.net/#/wallet/create">
+          <button
+            tabindex="-1"
+            class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+          >
+            <svg
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              class="mr-4 block h-10 w-10"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
+              />
+            </svg>
+            For the rest of the world
+          </button>
+        </a>
+      {:else}
+        <button
+          on:click|once={selectNET}
+          class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+        >
+          <svg
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+            class="mr-4 block h-10 w-10"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
+            />
+          </svg>
+          For the rest of the world
+        </button>
+      {/if}
+    </div>
+
+    <div class="row mt-5">
+      <button
+        on:click|once={enterINVITE}
+        class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+      >
+        <svg
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          class="mr-4 block h-10 w-10"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
+          />
+        </svg>
+
+        Enter an invitation link
+      </button>
+    </div>
+    {#if mobile}
+      <div class="row mt-5">
+        <button
+          on:click|once={enterQRcode}
+          class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+          ><svg
+            class="mr-4 block h-10 w-10"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"
+            />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"
+            />
+          </svg>
+
+          Scan an invitation QRcode
+        </button>
+      </div>
+    {/if}
+    <div class="row mt-5">
+      <a href="https://nextgraph.org/self-host">
+        <button
+          tabindex="-1"
+          class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+        >
+          <svg
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+            class="mr-4 block h-10 w-10"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z"
+            />
+          </svg>
+          Self-hosted broker
+        </button>
+      </a>
+    </div>
+    <div class="row mt-5 mb-12">
+      <a href="https://nextgraph.org/ng-box/">
+        <button
+          tabindex="-1"
+          class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            version="1.1"
+            viewBox="0 0 225 225"
+            class="mr-4 block h-10 w-10"
+            stroke="currentColor"
+            stroke-width="12"
+            fill="none"
+          >
+            <path
+              d="M 88.332599,179.77884 C 72.858008,177.42608 59.581081,170.564 48.8817,159.38898 36.800075,146.77026 30.396139,130.74266 30.396139,113.12381 c 0,-8.81477 1.466462,-16.772273 4.503812,-24.439156 3.697755,-9.333883 8.658122,-16.726264 15.988284,-23.827148 4.07992,-3.952299 5.699054,-5.267377 9.730928,-7.903581 10.263753,-6.710853 20.852276,-10.247623 32.861256,-10.976317 17.083161,-1.036581 33.737521,4.410501 47.100151,15.404873 1.30009,1.069669 2.35446,2.035155 2.34305,2.145524 -0.0114,0.110369 -3.32807,3.135042 -7.37038,6.721489 -4.04229,3.586437 -8.6667,7.731233 -10.27646,9.210635 -1.60975,1.479412 -3.05439,2.689839 -3.21032,2.689839 -0.15591,0 -1.2075,-0.642795 -2.33686,-1.428431 -6.49544,-4.518567 -13.79659,-6.747116 -22.104843,-6.747116 -10.982241,0 -20.054641,3.741852 -27.727158,11.435891 -5.517107,5.532575 -9.233107,12.555305 -10.782595,20.377588 -0.596045,3.00901 -0.594915,11.67153 0.0017,14.67182 3.195984,16.0665 15.801761,28.55358 31.607491,31.30987 3.592183,0.62643 10.334745,0.61437 13.792675,-0.0247 12.10383,-2.2368 22.30712,-9.80603 27.83192,-20.64689 0.66747,-1.30971 1.08703,-2.48825 0.93235,-2.61898 -0.1547,-0.13073 -5.9299,-1.01605 -12.83381,-1.96739 -8.43575,-1.16241 -12.87296,-1.9096 -13.52955,-2.27826 -1.31171,-0.73647 -2.44642,-2.49122 -2.44642,-3.78325 0,-1.012 1.74837,-13.68832 2.1486,-15.57814 0.25598,-1.20873 2.0923,-3.01339 3.3151,-3.25795 0.53677,-0.10735 7.61424,0.73799 15.7688,1.88346 8.13723,1.14303 14.89071,1.97925 15.00772,1.85826 0.11702,-0.12098 0.96445,-5.648553 1.88315,-12.283473 0.95557,-6.900944 1.90122,-12.59548 2.20977,-13.306594 0.29667,-0.683692 0.95765,-1.595052 1.46889,-2.025218 1.77972,-1.497534 2.7114,-1.539742 10.52745,-0.476938 8.31229,1.130266 9.2373,1.347581 10.59333,2.488613 1.41776,1.192951 1.96085,2.424677 1.94866,4.419342 -0.006,0.950347 -0.79507,7.156475 -1.75393,13.791395 -0.95885,6.634933 -1.70069,12.111623 -1.64854,12.170443 0.0522,0.0588 6.18174,0.95872 13.62132,1.99978 9.57969,1.34053 13.80866,2.0595 14.49353,2.46406 1.3199,0.77969 2.13943,2.28402 2.1135,3.87957 -0.0399,2.45278 -2.08103,15.63263 -2.5664,16.57122 -0.57073,1.10369 -2.24485,2.197 -3.38232,2.20889 -0.44831,0.004 -6.79249,-0.82755 -14.09817,-1.84941 -7.3057,-1.02186 -13.34942,-1.79161 -13.43049,-1.71053 -0.0811,0.0811 -1.02469,6.33285 -2.09694,13.89286 -1.24218,8.75802 -2.1547,14.1778 -2.51495,14.93697 -0.62565,1.31846 -2.38302,2.64205 -3.91461,2.94836 -0.8254,0.16509 -9.4024,-0.80047 -11.73007,-1.32049 -0.47193,-0.10544 -1.63157,0.58011 -3.8898,2.29957 -9.71515,7.39729 -20.99725,11.99799 -33.08692,13.49241 -3.79574,0.46921 -13.565667,0.37348 -17.125664,-0.16779 z"
+            />
+            <rect
+              ry="37.596001"
+              y="10.583322"
+              x="14.363095"
+              height="204.86308"
+              width="195.79167"
+            />
+          </svg>
+          NG Box (owned or invited)
+        </button>
+      </a>
+    </div>
   {:else if pin.length < 4}
     <div class=" max-w-6xl lg:px-8 mx-auto px-4">
       <p class="max-w-xl md:mx-auto lg:max-w-2xl">
         <span class="text-xl">Let's start by choosing a PIN code</span>
         <Alert color="yellow" class="mt-5">
-          We recommend you to choose a PIN code that you already know very well
-          :<br />
-          your credit card PIN, by example, is a good choice
+          We recommend you to choose a PIN code that you already know very well.
+          <br />
+          Your credit card PIN, by example, is a good choice. (We at NextGraph will
+          never see your PIN)
         </Alert>
       </p>
       <p class="text-left mt-5">Here are the rules for the PIN :</p>
@@ -610,7 +984,7 @@
           <button
             on:click|once={save_security}
             bind:this={validate_button}
-            class="animate-bounce mt-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mr-2 mb-2"
+            class="animate-bounce mt-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
           >
             <svg
               class="w-8 h-8 mr-2 -ml-1"
@@ -695,8 +1069,8 @@
         with your security and privacy.<br /><br />
         Remember that in any case, once your wallet will be created, you will download
         a file that you should keep privately somewhere on your device, USB key or
-        harddisk. This is the default way you can use and keep your wallet. Now let's
-        look at some options that can make your life a bit easier.
+        hard-disk. This is the default way you can use and keep your wallet. Now
+        let's look at some options that can make your life a bit easier.
       </p>
       <p class="max-w-xl md:mx-auto lg:max-w-2xl text-left">
         <span class="text-xl">Do you trust this device? </span> <br />
@@ -704,8 +1078,8 @@
         family or workplace, and you would like to login again from this device in
         the future, then you can save your wallet on this device. To the contrary,
         if this device is public and shared by strangers, do not save your wallet
-        here. {#if !import.meta.env.TAURI_PLATFORM}By selecting this option, you
-          agree to save some cookies on your browser.{/if}<br />
+        here. {#if !tauri_platform}By selecting this option, you agree to save
+          some cookies on your browser.{/if}<br />
         <Toggle class="mt-3" bind:checked={options.trusted}
           >Save your wallet on this device?</Toggle
         >
@@ -755,7 +1129,7 @@
       {/if}
       <button
         on:click|once={do_wallet}
-        class="mt-10 mb-8 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mr-2"
+        class="mt-10 mb-8 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
       >
         <svg
           class="w-8 h-8 mr-2 -ml-1"
@@ -827,7 +1201,7 @@
               tabindex="-1"
               class:animate-bounce={animateDownload}
               on:click={() => (animateDownload = false)}
-              class="mt-10 mb-8 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mr-2"
+              class="mt-10 mb-8 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
             >
               <svg
                 class="w-8 h-8 mr-2 -ml-1"
@@ -896,3 +1270,6 @@
     </div>
   {/if}
 </main>
+
+<style>
+</style>

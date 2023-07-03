@@ -29,6 +29,10 @@ div[role="alert"] div {
   display: block;
 }
 
+.choice-button {
+  min-width: 340px;
+}
+
 .row {
   display: flex;
   justify-content: center;

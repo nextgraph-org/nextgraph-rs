@@ -90,7 +90,7 @@ impl<'a> ReadTransaction for LmdbTransaction<'a> {
         prefix: u8,
         key: &Vec<u8>,
         suffix: Option<u8>,
-        value: Vec<u8>,
+        value: &Vec<u8>,
     ) -> Result<(), StorageError> {
         let property = LmdbKCVStore::compute_property(prefix, key, suffix);
 
@@ -269,7 +269,7 @@ impl ReadTransaction for LmdbKCVStore {
         prefix: u8,
         key: &Vec<u8>,
         suffix: Option<u8>,
-        value: Vec<u8>,
+        value: &Vec<u8>,
     ) -> Result<(), StorageError> {
         let property = Self::compute_property(prefix, key, suffix);
         let lock = self.environment.read().unwrap();
@@ -378,6 +378,7 @@ impl LmdbKCVStore {
         let shared_rkv = manager
             .get_or_create(path, |path| {
                 //Rkv::new::<Lmdb>(path) // use this instead to disable encryption
+                // TODO: fix memory management of the key. it should be zeroized all the way to the LMDB C FFI
                 Rkv::with_encryption_key_and_mapsize::<Lmdb>(path, key, 2 * 1024 * 1024 * 1024)
             })
             .unwrap();

@@ -12,6 +12,7 @@
 //! WebSocket implementation of the Broker
 
 use crate::interfaces::*;
+use crate::storage::LmdbBrokerStorage;
 use crate::types::*;
 use async_std::io::ReadExt;
 use async_std::net::{TcpListener, TcpStream};
@@ -38,6 +39,7 @@ use p2p_net::types::*;
 use p2p_net::utils::get_domain_without_port;
 use p2p_net::utils::is_private_ip;
 use p2p_net::utils::is_public_ip;
+use p2p_net::NG_BOOTSTRAP_LOCAL_URL;
 use p2p_repo::log::*;
 use p2p_repo::types::SymKey;
 use p2p_repo::types::{PrivKey, PubKey};
@@ -54,8 +56,7 @@ use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{thread, time};
-use stores_lmdb::kcv_store::LmdbKCVStore;
-use stores_lmdb::repo_store::LmdbRepoStore;
+
 use tempfile::Builder;
 
 static LISTENERS_INFO: OnceCell<(HashMap<String, ListenerInfo>, HashMap<BindAddress, String>)> =
@@ -90,7 +91,7 @@ fn check_no_origin(origin: Option<&HeaderValue>) -> Result<(), ErrorResponse> {
 
 fn check_origin_is_url(
     origin: Option<&HeaderValue>,
-    domains: Vec<String>,
+    domains: &Vec<String>,
 ) -> Result<(), ErrorResponse> {
     match origin {
         None => Ok(()),
@@ -213,6 +214,7 @@ fn upgrade_ws_or_serve_app(
     serve_app: bool,
     uri: &Uri,
     last_etag: Option<&HeaderValue>,
+    cors: Option<&str>,
 ) -> Result<(), ErrorResponse> {
     if connection.is_some()
         && connection
@@ -253,13 +255,16 @@ fn upgrade_ws_or_serve_app(
                 .body(Some(file.data.to_vec()))
                 .unwrap();
             return Err(res);
-        } else if uri == "/.ng_bootstrap" {
+        } else if uri == NG_BOOTSTRAP_LOCAL_URL {
             log_debug!("Serving bootstrap");
 
-            let res = Response::builder()
-                .status(StatusCode::OK)
+            let mut builder = Response::builder().status(StatusCode::OK);
+            if cors.is_some() {
+                builder = builder.header("Access-Control-Allow-Origin", cors.unwrap());
+            }
+            let res = builder
                 .header("Content-Type", "text/json")
-                .header("Cache-Control", "max-age=3600, must-revalidate")
+                .header("Cache-Control", "max-age=0, must-revalidate")
                 .body(Some(BOOTSTRAP_STRING.get().unwrap().as_bytes().to_vec()))
                 .unwrap();
             return Err(res);
@@ -354,9 +359,10 @@ impl Callback for SecurityCallback {
                 return upgrade_ws_or_serve_app(
                     connection,
                     remote,
-                    listener.config.serve_app,
+                    listener.config.serve_app && !listener.config.refuse_clients,
                     uri,
                     last_etag,
+                    None,
                 );
             }
             InterfaceType::Loopback => {
@@ -372,7 +378,7 @@ impl Callback for SecurityCallback {
                         // TODO local_urls might need a trailing :port, but it is ok for now as we do starts_with
                         urls_str = [urls_str, local_urls].concat();
                     }
-                    check_origin_is_url(origin, urls_str)?;
+                    check_origin_is_url(origin, &urls_str)?;
                     check_host(host, hosts_str)?;
                     check_xff_is_public_or_private(xff, listener.config.accept_direct, true)?;
                     log_debug!(
@@ -385,11 +391,18 @@ impl Callback for SecurityCallback {
                         listener.config.serve_app,
                         uri,
                         last_etag,
+                        origin.map(|or| or.to_str().unwrap()).and_then(|val| {
+                            if listener.config.refuse_clients {
+                                None
+                            } else {
+                                Some(val)
+                            }
+                        }),
                     );
                 } else if listener.config.accept_forward_for.is_private_domain() {
                     let (hosts_str, urls_str) =
                         prepare_domain_url_and_host(&listener.config.accept_forward_for);
-                    check_origin_is_url(origin, urls_str)?;
+                    check_origin_is_url(origin, &urls_str)?;
                     check_host(host, hosts_str)?;
                     check_xff_is_public_or_private(xff, false, false)?;
                     log_debug!("accepted loopback PRIVATE_DOMAIN");
@@ -399,12 +412,13 @@ impl Callback for SecurityCallback {
                         listener.config.serve_app,
                         uri,
                         last_etag,
+                        origin.map(|or| or.to_str().unwrap()),
                     );
                 } else if listener.config.accept_forward_for == AcceptForwardForV0::No {
                     check_host(host, local_hosts)?;
                     check_no_xff(xff)?;
                     // TODO local_urls might need a trailing :port, but it is ok for now as we do starts_with
-                    check_origin_is_url(origin, local_urls)?;
+                    check_origin_is_url(origin, &local_urls)?;
                     log_debug!("accepted loopback DIRECT");
                     return upgrade_ws_or_serve_app(
                         connection,
@@ -412,6 +426,7 @@ impl Callback for SecurityCallback {
                         listener.config.serve_app,
                         uri,
                         last_etag,
+                        origin.map(|or| or.to_str().unwrap()),
                     );
                 }
             }
@@ -444,7 +459,7 @@ impl Callback for SecurityCallback {
                         ]
                         .concat();
                     }
-                    check_origin_is_url(origin, urls_str)?;
+                    check_origin_is_url(origin, &urls_str)?;
                     check_host_in_addrs(host, &addrs)?;
                     log_debug!("accepted private PUBLIC_STATIC or PUBLIC_DYN with direct {} with refuse_clients {}",listener.config.accept_direct, listener.config.refuse_clients);
                     return upgrade_ws_or_serve_app(
@@ -453,6 +468,7 @@ impl Callback for SecurityCallback {
                         listener.config.serve_app,
                         uri,
                         last_etag,
+                        origin.map(|or| or.to_str().unwrap()),
                     );
                 } else if listener.config.accept_forward_for.is_public_domain() {
                     if !remote.is_private() {
@@ -473,7 +489,7 @@ impl Callback for SecurityCallback {
                         ]
                         .concat();
                     }
-                    check_origin_is_url(origin, urls_str)?;
+                    check_origin_is_url(origin, &urls_str)?;
                     check_host(host, hosts_str)?;
                     log_debug!(
                         "accepted private PUBLIC_DOMAIN with direct {}",
@@ -485,6 +501,13 @@ impl Callback for SecurityCallback {
                         listener.config.serve_app,
                         uri,
                         last_etag,
+                        origin.map(|or| or.to_str().unwrap()).and_then(|val| {
+                            if listener.config.refuse_clients {
+                                None
+                            } else {
+                                Some(val)
+                            }
+                        }),
                     );
                 } else if listener.config.accept_forward_for == AcceptForwardForV0::No {
                     if !remote.is_private() {
@@ -494,10 +517,9 @@ impl Callback for SecurityCallback {
                     check_no_xff(xff)?;
 
                     check_host_in_addrs(host, &listener.addrs)?;
-                    check_origin_is_url(
-                        origin,
-                        prepare_urls_from_private_addrs(&listener.addrs, listener.config.port),
-                    )?;
+                    let urls_str =
+                        prepare_urls_from_private_addrs(&listener.addrs, listener.config.port);
+                    check_origin_is_url(origin, &urls_str)?;
                     log_debug!("accepted private DIRECT");
                     return upgrade_ws_or_serve_app(
                         connection,
@@ -505,6 +527,7 @@ impl Callback for SecurityCallback {
                         listener.config.serve_app,
                         uri,
                         last_etag,
+                        origin.map(|or| or.to_str().unwrap()),
                     );
                 }
             }
@@ -560,10 +583,10 @@ pub async fn run_server_accept_one(
 ) -> std::io::Result<()> {
     let addrs = format!("{}:{}", addr, port);
     let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
-    let master_key: [u8; 32] = [0; 32];
-    std::fs::create_dir_all(root.path()).unwrap();
-    log_debug!("data directory: {}", root.path().to_str().unwrap());
-    let store = LmdbKCVStore::open(root.path(), master_key);
+    // let master_key: [u8; 32] = [0; 32];
+    // std::fs::create_dir_all(root.path()).unwrap();
+    // log_debug!("data directory: {}", root.path().to_str().unwrap());
+    // let store = LmdbKCVStore::open(root.path(), master_key);
 
     let socket = TcpListener::bind(addrs.as_str()).await?;
     log_debug!("Listening on {}", addrs.as_str());
@@ -619,16 +642,6 @@ pub async fn run_server_v0(
             return Err(());
         }
     }
-    //let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
-
-    path.push("storage");
-    std::fs::create_dir_all(path.clone()).unwrap();
-    //log::info!("Home directory is {}");
-
-    // TODO: open wallet
-    let master_key: [u8; 32] = [0; 32];
-
-    let store = LmdbKCVStore::open(&path, master_key);
 
     let interfaces = get_interface();
     let mut listener_infos: HashMap<String, ListenerInfo> = HashMap::new();
@@ -748,8 +761,16 @@ pub async fn run_server_v0(
     // saving the infos in the broker. This needs to happen before we start listening, as new incoming connections can happen anytime after that.
     // and we need those infos for permission checking.
     {
+        //let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
+        path.push("storage");
+        std::fs::create_dir_all(path.clone()).unwrap();
+
+        // opening the server storage (that contains the encryption keys for each store/overlay )
+        let broker_storage = LmdbBrokerStorage::open(&mut path, wallet_master_key);
+
         let mut broker = BROKER.write().await;
         broker.set_my_peer_id(peer_id);
+        broker.set_storage(broker_storage);
         LISTENERS_INFO
             .set(broker.set_listeners(listener_infos))
             .unwrap();

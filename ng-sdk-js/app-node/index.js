@@ -14,6 +14,6 @@ global.WebSocket = WebSocket;
 const test = require("./test")
 console.log("FROM INDEX");
 ng.test();
-test.random();
+//test.random();
 console.log(ng.start());
 

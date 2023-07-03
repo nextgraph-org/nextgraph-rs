@@ -66,7 +66,7 @@ pub trait ReadTransaction {
         prefix: u8,
         key: &Vec<u8>,
         suffix: Option<u8>,
-        value: Vec<u8>,
+        value: &Vec<u8>,
     ) -> Result<(), StorageError>;
 }
 

@@ -25,6 +25,7 @@ use std::{env, fs};
 use crate::store::wallet_record::*;
 use crate::types::*;
 use ng_wallet::types::*;
+use p2p_net::types::{APP_NG_ONE_URL, NG_ONE_URL};
 use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::{generate_keypair, sign, verify};
@@ -202,8 +203,8 @@ async fn main() {
     #[cfg(not(debug_assertions))]
     {
         cors = cors
-            .allow_origin("https://nextgraph.one")
-            .allow_origin("https://app.nextgraph.one")
+            .allow_origin(NG_ONE_URL)
+            .allow_origin(APP_NG_ONE_URL)
             .allow_origin("https://nextgraph.eu")
             .allow_origin("https://nextgraph.net");
     }

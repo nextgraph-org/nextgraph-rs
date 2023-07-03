@@ -78,7 +78,7 @@
     </a>
   </div>
   <div class="row mt-5">
-    <a href="#">
+    <a href="https://nextgraph.org/download/#android">
       <button
         tabindex="-1"
         class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
@@ -119,7 +119,7 @@
   </div>
 
   <div class="row mt-5">
-    <a href="#">
+    <a href="https://nextgraph.org/download/#macos">
       <button
         tabindex="-1"
         class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
@@ -140,7 +140,7 @@
   </div>
 
   <div class="row mt-5">
-    <a href="#">
+    <a href="https://nextgraph.org/download/#linux">
       <button
         tabindex="-1"
         class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
@@ -161,7 +161,7 @@
   </div>
 
   <div class="row mt-5">
-    <a href="#">
+    <a href="https://nextgraph.org/download/#windows">
       <button
         tabindex="-1"
         class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
@@ -182,7 +182,7 @@
   </div>
 
   <div class="row mt-5 mb-12">
-    <a href="https://docs.nextgraph.org/en/self-hosted">
+    <a href="https://nextgraph.org/self-host">
       <button
         tabindex="-1"
         class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"

@@ -104,7 +104,7 @@ impl<'a> Topic<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::HEAD),
-            to_vec(head)?,
+            &to_vec(head)?,
         )
     }
 

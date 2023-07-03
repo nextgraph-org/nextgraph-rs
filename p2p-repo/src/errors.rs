@@ -20,6 +20,8 @@ pub enum NgError {
     InvalidSignature,
     SerializationError,
     InvalidKey,
+    InvalidInvitation,
+    InvalidCreateAccount,
 }
 
 impl Error for NgError {}

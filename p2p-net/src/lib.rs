@@ -19,6 +19,8 @@ pub mod errors;
 
 pub mod broker;
 
+pub mod broker_storage;
+
 pub mod connection;
 
 pub mod actor;
@@ -30,6 +32,8 @@ pub mod utils;
 pub mod tests;
 
 pub mod site;
+
+pub static NG_BOOTSTRAP_LOCAL_URL: &str = "/.ng_bootstrap";
 
 #[cfg(debug_assertions)]
 pub static WS_PORT: u16 = 14400;

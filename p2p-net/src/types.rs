@@ -19,6 +19,7 @@ use crate::utils::{
 };
 use crate::{actor::EActor, actors::*, errors::ProtocolError};
 use core::fmt;
+use p2p_repo::errors::NgError;
 use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -26,6 +27,7 @@ use std::{
     any::{Any, TypeId},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
 };
+use web_time::SystemTime;
 
 //
 //  Broker common types
@@ -228,6 +230,8 @@ pub struct BrokerServerV0 {
     pub peer_id: PubKey,
 }
 
+pub const NG_ONE_URL: &str = "https://nextgraph.one";
+
 pub const APP_NG_ONE_URL: &str = "https://app.nextgraph.one";
 
 pub const APP_NG_ONE_WS_URL: &str = "wss://app.nextgraph.one";
@@ -240,6 +244,10 @@ pub const LOCAL_HOSTS: [&str; 3] = ["localhost", "127.0.0.1", "[::1]"];
 
 fn local_ws_url(port: &u16) -> String {
     format!("ws://localhost:{}", if *port == 0 { 80 } else { *port })
+}
+
+fn local_http_url(port: &u16) -> String {
+    format!("http://localhost:{}", if *port == 0 { 80 } else { *port })
 }
 
 pub const LOCAL_URLS: [&str; 3] = ["http://localhost", "http://127.0.0.1", "http://[::1]"];
@@ -316,7 +324,7 @@ impl BrokerServerV0 {
         }
         Some(format!(
             "{}?b={}",
-            APP_NG_ONE_WS_URL,
+            APP_NG_ONE_URL,
             base64_url::encode(&payload_ser.unwrap())
         ))
     }
@@ -369,16 +377,20 @@ impl BrokerServerV0 {
                 }
             }
             BrokerServerTypeV0::Domain(domain) => Some(format!("https://{}", domain)),
-            BrokerServerTypeV0::Localhost(port) => Some(local_ws_url(&port)),
+            BrokerServerTypeV0::Localhost(port) => Some(local_http_url(&port)),
             BrokerServerTypeV0::BoxPrivate(_) => {
                 if ipv6 {
-                    let v6 = self.first_ipv6().map(|v| v.0);
+                    let v6 = self.server_type.find_first_ipv6().map_or(None, |bindaddr| {
+                        Some(format!("http://{}:{}", bindaddr.ip, bindaddr.port))
+                    });
                     if v6.is_some() {
                         return v6;
                     }
                 }
                 if ipv4 {
-                    self.first_ipv4().map(|v| v.0)
+                    self.server_type.find_first_ipv4().map_or(None, |bindaddr| {
+                        Some(format!("http://{}:{}", bindaddr.ip, bindaddr.port))
+                    })
                 } else {
                     None
                 }
@@ -387,11 +399,21 @@ impl BrokerServerV0 {
         }
     }
 
+    pub async fn is_public_broker(&self) -> bool {
+        match &self.server_type {
+            BrokerServerTypeV0::Localhost(_) => false,
+            BrokerServerTypeV0::BoxPrivate(_) => false,
+            BrokerServerTypeV0::BoxPublic(_) => true,
+            BrokerServerTypeV0::BoxPublicDyn(_) => true,
+            BrokerServerTypeV0::Domain(_) => true,
+        }
+    }
+
     /// on web browser, returns the connection URL and an optional list of BindAddress if a relay is needed
     /// filtered by the current location url of the webpage
-    /// on native apps, returns or the connection URL without optional BindAddress or an empty string with
+    /// on native apps (do not pass a location), returns or the connection URL without optional BindAddress or an empty string with
     /// several BindAddresses to try to connect to with .to_ws_url()
-    pub async fn get_url(&self, location: Option<String>) -> Option<(String, Vec<BindAddress>)> {
+    pub async fn get_ws_url(&self, location: Option<String>) -> Option<(String, Vec<BindAddress>)> {
         if location.is_some() {
             let location = location.unwrap();
             if location.starts_with(APP_NG_ONE_URL) {
@@ -496,6 +518,173 @@ pub struct BootstrapContentV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BootstrapContent {
     V0(BootstrapContentV0),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum InvitationCode {
+    Unique(SymKey),
+    Admin(SymKey),
+    Multi(SymKey),
+}
+
+/// Invitation to create an account at a broker. Version 0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InvitationV0 {
+    /// list of servers, in order of preference
+    pub bootstrap: BootstrapContentV0,
+
+    pub code: Option<SymKey>,
+
+    /// an optional name to display to the invitee
+    pub name: Option<String>,
+
+    // an optional url to redirect the user to, for accepting ToS and making payment, if any.
+    pub url: Option<String>,
+}
+
+impl Invitation {
+    pub fn new_v0(
+        bootstrap: BootstrapContentV0,
+        name: Option<String>,
+        url: Option<String>,
+    ) -> Self {
+        Invitation::V0(InvitationV0 {
+            bootstrap,
+            code: Some(SymKey::random()),
+            name,
+            url,
+        })
+    }
+
+    pub fn new_v0_free(
+        bootstrap: BootstrapContentV0,
+        name: Option<String>,
+        url: Option<String>,
+    ) -> Self {
+        Invitation::V0(InvitationV0 {
+            bootstrap,
+            code: None,
+            name,
+            url,
+        })
+    }
+
+    pub fn intersects(&self, invite2: Invitation) -> Invitation {
+        let Invitation::V0(v0) = self;
+        let mut new_invite = InvitationV0 {
+            bootstrap: BootstrapContentV0 { servers: vec![] },
+            code: v0.code.clone(),
+            name: v0.name.clone(),
+            url: v0.url.clone(),
+        };
+        for server2 in invite2.get_servers() {
+            for server1 in &v0.bootstrap.servers {
+                if *server1 == *server2 {
+                    new_invite.bootstrap.servers.push(server2.clone());
+                    break;
+                }
+            }
+        }
+        Invitation::V0(new_invite)
+    }
+
+    pub fn get_servers(&self) -> &Vec<BrokerServerV0> {
+        match self {
+            Invitation::V0(v0) => &v0.bootstrap.servers,
+        }
+    }
+
+    /// first URL in the list is the ngone one
+    pub fn get_urls(&self) -> Vec<String> {
+        match self {
+            Invitation::V0(v0) => {
+                let mut res = vec![];
+                let ser = serde_bare::to_vec(&self).unwrap();
+                let url_param = base64_url::encode(&ser);
+                res.push(format!("{}/#/i/{}", NG_ONE_URL, url_param));
+                for server in &v0.bootstrap.servers {
+                    match &server.server_type {
+                        BrokerServerTypeV0::Domain(domain) => {
+                            res.push(format!("https://{}/#/i/{}", domain, url_param));
+                        }
+                        BrokerServerTypeV0::BoxPrivate(addrs) => {
+                            for bindaddr in addrs {
+                                res.push(format!(
+                                    "http://{}:{}/#/i/{}",
+                                    bindaddr.ip, bindaddr.port, url_param
+                                ));
+                            }
+                        }
+                        BrokerServerTypeV0::Localhost(port) => {
+                            res.push(format!("{}/#/i/{}", local_http_url(&port), url_param));
+                        }
+                        _ => {}
+                    }
+                }
+                res
+            }
+        }
+    }
+}
+
+impl TryFrom<String> for Invitation {
+    type Error = NgError;
+    fn try_from(value: String) -> Result<Self, NgError> {
+        let ser = base64_url::decode(&value).map_err(|_| NgError::InvalidInvitation)?;
+        let invite: Invitation =
+            serde_bare::from_slice(&ser).map_err(|_| NgError::InvalidInvitation)?;
+        Ok(invite)
+    }
+}
+
+/// Invitation to create an account at a broker.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Invitation {
+    V0(InvitationV0),
+}
+
+impl From<BootstrapContent> for Invitation {
+    fn from(value: BootstrapContent) -> Self {
+        let BootstrapContent::V0(boot) = value;
+
+        Invitation::V0(InvitationV0 {
+            bootstrap: boot,
+            code: None,
+            name: None,
+            url: None,
+        })
+    }
+}
+
+/// Create an account at a Broker Service Provider (BSP).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CreateAccountBSP {
+    V0(CreateAccountBSPV0),
+}
+
+impl TryFrom<String> for CreateAccountBSP {
+    type Error = NgError;
+    fn try_from(value: String) -> Result<Self, NgError> {
+        let ser = base64_url::decode(&value).map_err(|_| NgError::InvalidCreateAccount)?;
+        let invite: CreateAccountBSP =
+            serde_bare::from_slice(&ser).map_err(|_| NgError::InvalidCreateAccount)?;
+        Ok(invite)
+    }
+}
+
+/// Create an account at a Broker Service Provider (BSP). Version 0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateAccountBSPV0 {
+    pub invitation_code: Option<SymKey>,
+
+    /// the user asking to create an account
+    pub user: PubKey,
+
+    /// signature over serialized invitation, with user key
+    pub sig: Sig,
+
+    /// for web access, will redirect after successful signup. if left empty, it means user is on native app.
+    pub redirect_url: Option<String>,
 }
 
 /// ListenerInfo
@@ -938,6 +1127,66 @@ pub struct IPTransportAddr {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum NetAddr {
     IPTransport(IPTransportAddr),
+}
+
+/**
+* info : {
+     type : WEB | NATIVE-IOS | NATIVE-ANDROID | NATIVE-MACOS | NATIVE-LINUX | NATIVE-WIN
+            NATIVE-SERVICE | NODE-SERVICE | VERIFIER | CLIENT-BROKER | CLI
+     vendor : (UA, node version, tauri webview, rust version)
+     os : operating system string
+     version : version of client
+     date_install
+     date_updated : last update
+   }
+*/
+
+/// Client Type
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum ClientType {
+    Web,
+    NativeIos,
+    NativeAndroid,
+    NativeMacOS,
+    NativeLinux,
+    NativeWin,
+    NativeService,
+    NodeService,
+    Verifier,
+    ClientBroker,
+    Cli,
+}
+
+/// IP transport address
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct ClientInfoV0 {
+    pub client_type: ClientType,
+    pub details: String,
+    pub version: String,
+    pub timestamp_install: u64,
+    pub timestamp_updated: u64,
+}
+
+/// Client Info
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum ClientInfo {
+    V0(ClientInfoV0),
+}
+
+impl ClientInfo {
+    pub fn new(client_type: ClientType, details: String, version: String) -> ClientInfo {
+        let timestamp_install = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        ClientInfo::V0(ClientInfoV0 {
+            details,
+            version,
+            client_type,
+            timestamp_install,
+            timestamp_updated: timestamp_install,
+        })
+    }
 }
 
 //
@@ -2828,4 +3077,30 @@ pub struct RepoKeysV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RepoKeys {
     V0(RepoKeysV0),
+}
+
+#[cfg(test)]
+mod test {
+
+    use crate::types::{BootstrapContentV0, BrokerServerTypeV0, BrokerServerV0, Invitation};
+    use p2p_repo::types::PubKey;
+
+    #[test]
+    pub fn invitation() {
+        let inv = Invitation::new_v0(
+            BootstrapContentV0 {
+                servers: vec![BrokerServerV0 {
+                    server_type: BrokerServerTypeV0::Localhost(14400),
+                    peer_id: PubKey::Ed25519PubKey([
+                        95, 73, 225, 250, 3, 147, 24, 164, 177, 211, 34, 244, 45, 130, 111, 136,
+                        229, 145, 53, 167, 50, 168, 140, 227, 65, 111, 203, 41, 210, 186, 162, 149,
+                    ]),
+                }],
+            },
+            Some("test invitation".to_string()),
+            None,
+        );
+
+        println!("{:?}", inv.get_urls());
+    }
 }

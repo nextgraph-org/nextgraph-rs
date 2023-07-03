@@ -9,12 +9,16 @@
  * according to those terms.
 */
 
+use crate::types::BootstrapContent;
+use crate::types::Invitation;
+use crate::NG_BOOTSTRAP_LOCAL_URL;
 use async_std::task;
 use ed25519_dalek::*;
 use futures::{channel::mpsc, select, Future, FutureExt, SinkExt};
 use noise_protocol::U8Array;
 use noise_protocol::DH;
 use noise_rust_crypto::sensitive::Sensitive;
+use p2p_repo::errors::NgError;
 use p2p_repo::types::PubKey;
 use p2p_repo::{log::*, types::PrivKey};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -46,6 +50,58 @@ where
             log_err!("{}", e)
         }
     })
+}
+
+#[cfg(debug_assertions)]
+const APP_PREFIX: &str = "http://localhost:14400";
+
+#[cfg(not(debug_assertions))]
+const APP_PREFIX: &str = "";
+
+pub async fn retrieve_local_bootstrap(
+    location_string: String,
+    invite_string: Option<String>,
+) -> Option<Invitation> {
+    let invite1: Option<Invitation> = if invite_string.is_some() {
+        let invitation: Result<Invitation, NgError> = invite_string.clone().unwrap().try_into();
+        invitation.ok()
+    } else {
+        None
+    };
+    log_debug!("{}", location_string);
+    log_debug!("invite_String {:?} invite1{:?}", invite_string, invite1);
+
+    let invite2: Option<Invitation> = {
+        let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_URL)).await;
+        if resp.is_ok() {
+            let resp = resp.unwrap().json::<BootstrapContent>().await;
+            resp.ok().map(|v| v.into())
+        } else {
+            None
+        }
+    };
+
+    let res = if invite1.is_none() {
+        invite2
+    } else if invite2.is_none() {
+        invite1
+    } else {
+        invite1.map(|i| i.intersects(invite2.unwrap()))
+    };
+
+    if res.is_some() {
+        for server in res.as_ref().unwrap().get_servers() {
+            if server
+                .get_ws_url(Some(location_string.clone()))
+                .await
+                .is_some()
+            {
+                return res;
+            }
+        }
+        return None;
+    }
+    res
 }
 
 pub fn sensitive_from_privkey(privkey: PrivKey) -> Sensitive<[u8; 32]> {
