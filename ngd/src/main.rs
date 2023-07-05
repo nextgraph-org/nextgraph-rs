@@ -916,10 +916,24 @@ async fn main_inner() -> Result<(), ()> {
             RegistrationConfig::Invitation
         };
 
+        let admin_user = if args.admin.is_some() {
+            args.admin
+                .unwrap()
+                .as_str()
+                .try_into()
+                .map_err(|e| {
+                    log_warn!("The admin UserId supplied is invalid. no admin user configured.");
+                })
+                .ok()
+        } else {
+            None
+        };
+
         config = Some(DaemonConfig::V0(DaemonConfigV0 {
             listeners,
             overlays_configs: vec![overlays_config],
             registration,
+            admin_user,
         }));
 
         if args.print_config {
@@ -972,7 +986,15 @@ async fn main_inner() -> Result<(), ()> {
 
     match config.unwrap() {
         DaemonConfig::V0(v0) => {
-            run_server_v0(privkey, pubkey, SymKey::from_array(keys[2]), v0, path).await?
+            run_server_v0(
+                privkey,
+                pubkey,
+                SymKey::from_array(keys[2]),
+                v0,
+                path,
+                args.invite_admin,
+            )
+            .await?
         }
     }
 

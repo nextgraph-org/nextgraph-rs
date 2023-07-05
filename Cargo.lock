@@ -2792,6 +2792,7 @@ dependencies = [
 name = "ngaccount"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64-url",
  "bytes",
  "env_logger",
@@ -2805,7 +2806,6 @@ dependencies = [
  "serde_bare",
  "serde_bytes",
  "serde_json",
- "slice_as_array",
  "stores-lmdb",
  "tokio",
  "warp",

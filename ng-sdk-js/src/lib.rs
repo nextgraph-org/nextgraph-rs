@@ -21,7 +21,9 @@ use ng_wallet::*;
 use p2p_client_ws::remote_ws_wasm::ConnectionWebSocket;
 use p2p_net::broker::*;
 use p2p_net::connection::{ClientConfig, StartConfig};
-use p2p_net::types::{BootstrapContentV0, ClientInfoV0, ClientType, DirectPeerId, IP};
+use p2p_net::types::{
+    BootstrapContentV0, ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, DirectPeerId, IP,
+};
 use p2p_net::utils::{retrieve_local_bootstrap, spawn_and_log_error, Receiver, ResultSend, Sender};
 use p2p_net::WS_PORT;
 use p2p_repo::log::*;
@@ -39,7 +41,18 @@ use wasm_bindgen_futures::{future_to_promise, JsFuture};
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {
-    let res = retrieve_local_bootstrap(location, invite.as_string()).await;
+    let res = retrieve_local_bootstrap(location, invite.as_string(), false).await;
+    if res.is_some() {
+        serde_wasm_bindgen::to_value(&res.unwrap()).unwrap()
+    } else {
+        JsValue::FALSE
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn get_local_bootstrap_with_public(location: String, invite: JsValue) -> JsValue {
+    let res = retrieve_local_bootstrap(location, invite.as_string(), true).await;
     if res.is_some() {
         serde_wasm_bindgen::to_value(&res.unwrap()).unwrap()
     } else {
@@ -120,7 +133,7 @@ extern "C" {
 
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
-pub fn client_info() -> JsValue {
+pub fn client_info() -> ClientInfoV0 {
     let res = ClientInfoV0 {
         client_type: ClientType::NodeService,
         details: client_details(),
@@ -128,6 +141,18 @@ pub fn client_info() -> JsValue {
         timestamp_install: 0,
         timestamp_updated: 0,
     };
+    res
+    //serde_wasm_bindgen::to_value(&res).unwrap()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn encode_create_account(payload: JsValue) -> JsValue {
+    log_info!("{:?}", payload);
+    let create_account = serde_wasm_bindgen::from_value::<CreateAccountBSP>(payload).unwrap();
+    log_info!("create_account {:?}", create_account);
+    let res = create_account.encode();
+    log_info!("res {:?}", res);
     serde_wasm_bindgen::to_value(&res).unwrap()
 }
 
@@ -148,18 +173,18 @@ extern "C" {
 #[cfg(not(wasmpack_target = "nodejs"))]
 #[wasm_bindgen(module = "/js/browser.js")]
 extern "C" {
-    fn client_details2(val: JsValue) -> String;
+    fn client_details2(val: JsValue, version: String) -> String;
 }
 
 #[cfg(all(not(wasmpack_target = "nodejs"), target_arch = "wasm32"))]
 #[wasm_bindgen]
-pub fn client_info() -> JsValue {
+pub fn client_info() -> ClientInfoV0 {
     let ua = client_details();
 
     let bowser = Bowser::parse(ua);
     //log_info!("{:?}", bowser);
 
-    let details_string = client_details2(bowser);
+    let details_string = client_details2(bowser, env!("CARGO_PKG_VERSION").to_string());
 
     let res = ClientInfoV0 {
         client_type: ClientType::Web,
@@ -168,18 +193,16 @@ pub fn client_info() -> JsValue {
         timestamp_install: 0,
         timestamp_updated: 0,
     };
-    serde_wasm_bindgen::to_value(&res).unwrap()
+    res
+    //serde_wasm_bindgen::to_value(&res).unwrap()
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn test() {
     log_info!("test is {}", BROKER.read().await.test());
-    //let client_info = client_info();
-    //log_info!("{:?}", client_info);
-
-    //let b = Bowser::parse(ua);
-    //log_info!("{:?}", b);
+    let client_info = client_info();
+    log_info!("{:?}", client_info);
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -313,6 +336,7 @@ pub async fn start() {
                     user_priv,
                     client,
                     client_priv,
+                    info: ClientInfo::V0(client_info()),
                 }),
             )
             .await;

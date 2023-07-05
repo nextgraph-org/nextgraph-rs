@@ -20,7 +20,13 @@ impl Reply for NgHttpError {
     fn into_response(self) -> Response {
         match (self) {
             NgHttpError::NotFound => warp::http::StatusCode::NOT_FOUND.into_response(),
-            NgHttpError::InvalidParams => warp::http::StatusCode::BAD_REQUEST.into_response(),
+            NgHttpError::InvalidParams => {
+                let response = Response::new("Invalid params".into());
+                let (mut parts, body) = response.into_parts();
+                parts.status = warp::http::StatusCode::BAD_REQUEST;
+                let response = Response::from_parts(parts, body);
+                response
+            }
             NgHttpError::AlreadyExists => warp::http::StatusCode::CONFLICT.into_response(),
             NgHttpError::InternalError => {
                 warp::http::StatusCode::INTERNAL_SERVER_ERROR.into_response()

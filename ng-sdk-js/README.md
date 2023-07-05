@@ -46,7 +46,7 @@ node prepare-node.js
 For testing in vanilla JS
 
 ```
-wasm-pack build --target web -d web
+wasm-pack build --dev --target web -d web
 python3 -m http.server
 // open http://localhost:8000
 
@@ -63,6 +63,7 @@ wasm-pack test --chrome --headless
 ```
 wasm-pack build --target bundler
 wasm-pack build -t nodejs -d pkg-node
+wasm-pack build --target web -d web
 node prepare-node.js
 cd pkg
 npm publish --access=public

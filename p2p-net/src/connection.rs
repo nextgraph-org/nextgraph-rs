@@ -93,7 +93,7 @@ pub enum FSMstate {
     Start,
     Probe,
     Relay,
-    Noise0,
+    Noise0, // unused
     Noise1,
     Noise2,
     Noise3, // unused
@@ -150,6 +150,7 @@ pub struct ClientConfig {
     pub user_priv: PrivKey,
     pub client: PubKey,
     pub client_priv: PrivKey,
+    pub info: ClientInfo,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -373,7 +374,7 @@ impl NoiseFSM {
                                         self.local.take().unwrap().to_dh(),
                                     )),
                                     None,
-                                    Some(*self.remote.unwrap().to_dh_from_ed().slice()),
+                                    Some(*self.remote.unwrap().slice()),
                                     None,
                                 );
 
@@ -538,20 +539,7 @@ impl NoiseFSM {
                                 return Err(ProtocolError::NoiseHandshakeFailed);
                             }
                             let peer_id = handshake.get_rs().unwrap();
-                            //self.remote = Some(peer_id);
-                            let (local_bind_address, remote_bind_address) =
-                                self.bind_addresses.ok_or(ProtocolError::BrokerError)?;
-                            BROKER
-                                .write()
-                                .await
-                                .attach_peer_id(
-                                    remote_bind_address,
-                                    local_bind_address,
-                                    peer_id,
-                                    None,
-                                )
-                                .await
-                                .map_err(|_| ProtocolError::BrokerError)?;
+                            self.remote = Some(PubKey::X25519PubKey(peer_id));
 
                             let ciphers = handshake.get_ciphers();
                             self.noise_cipher_state_enc = Some(ciphers.1);
@@ -586,11 +574,13 @@ impl NoiseFSM {
                             if let StartConfig::Client(client_config) =
                                 self.config.as_ref().unwrap()
                             {
+                                let ClientInfo::V0(info) = &client_config.info;
                                 let content = ClientAuthContentV0 {
                                     user: client_config.user,
                                     client: client_config.client,
                                     /// Nonce from ServerHello
                                     nonce: hello.nonce().clone(),
+                                    info: info.clone(),
                                 };
                                 let ser = serde_bare::to_vec(&content)?;
                                 let sig =
@@ -610,7 +600,9 @@ impl NoiseFSM {
                     }
                 }
             }
-            FSMstate::ServerHello => {
+            FSMstate::ServerHello =>
+            {
+                #[cfg(not(target_arch = "wasm32"))]
                 if let Some(msg) = msg_opt.as_ref() {
                     if self.dir.is_server() {
                         if let ProtocolMessage::ClientAuth(client_auth) = msg {
@@ -625,8 +617,20 @@ impl NoiseFSM {
                             if verif.is_err() {
                                 result = verif.unwrap_err().into();
                             } else {
-
-                                // TODO check that the device has been registered for this user. if not, set result = AccessDenied
+                                let (local_bind_address, remote_bind_address) =
+                                    self.bind_addresses.ok_or(ProtocolError::BrokerError)?;
+                                result = BROKER
+                                    .write()
+                                    .await
+                                    .attach_and_authorize_peer_id(
+                                        remote_bind_address,
+                                        local_bind_address,
+                                        *self.remote.unwrap().slice(),
+                                        Some(client_auth.content_v0()),
+                                    )
+                                    .await
+                                    .err()
+                                    .unwrap_or(ProtocolError::NoError);
                             }
                             let auth_result = AuthResult::V0(AuthResultV0 {
                                 result: result.clone() as u16,

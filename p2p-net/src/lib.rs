@@ -33,7 +33,7 @@ pub mod tests;
 
 pub mod site;
 
-pub static NG_BOOTSTRAP_LOCAL_URL: &str = "/.ng_bootstrap";
+pub static NG_BOOTSTRAP_LOCAL_PATH: &str = "/.ng_bootstrap";
 
 #[cfg(debug_assertions)]
 pub static WS_PORT: u16 = 14400;

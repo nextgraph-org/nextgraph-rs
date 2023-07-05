@@ -43,6 +43,7 @@ impl IConnect for ConnectionWebSocket {
         remote_peer: DirectPeerId,
         config: StartConfig,
     ) -> Result<ConnectionBase, NetError> {
+        log_debug!("url {}", url);
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
 
         let (mut ws, wsio) = WsMeta::connect(url, None).await.map_err(|e| {

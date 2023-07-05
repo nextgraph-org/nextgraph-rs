@@ -112,6 +112,14 @@ pub(crate) struct Cli {
     #[arg(long, conflicts_with("registration_off"))]
     pub registration_open: bool,
 
+    /// Admin userID
+    #[arg(long)]
+    pub admin: Option<String>,
+
+    /// Admin invitation
+    #[arg(long, conflicts_with("admin"))]
+    pub invite_admin: bool,
+
     /// Saves the quick config into a file on disk, that can then be modified for advanced configs
     #[arg(long)]
     pub save_config: bool,

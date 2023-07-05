@@ -18,6 +18,7 @@ const mapping = {
     "wallet_gen_shuffle_for_pin": [],
     "wallet_open_wallet_with_pazzle": ["wallet","pazzle","pin"],
     "wallet_create_wallet": ["params"],
+    "encode_create_account": ["payload"],
     "test": [ ]
 }
 
@@ -61,7 +62,7 @@ const handler = {
                 info.browser.ua = window.navigator.userAgent;
                 let res = {
                     // TODO: install timestamp 
-                    ClientInfoV0 : { client_type, details: JSON.stringify(info), version, timestamp_install:0, timestamp_updated:0 }
+                    V0 : { client_type, details: JSON.stringify(info), version, timestamp_install:0, timestamp_updated:0 }
                 };
                 //console.log(res);
                 return res;
@@ -93,7 +94,7 @@ const handler = {
                 params.result_with_wallet_file = false;
                 params.security_img = Array.from(new Uint8Array(params.security_img));
                 return await tauri.invoke(path[0],{params})
-            } else if (path[0] === "get_local_bootstrap") {
+            } else if (path[0].starts_with("get_local_bootstrap")) {
                 return false;
             }
             else {
@@ -108,7 +109,12 @@ const handler = {
 const api = createAsyncProxy({}, handler);
 
 export const NG_EU_BSP = "https://nextgraph.eu";
+export const NG_EU_BSP_REGISTER = "https://account.nextgraph.eu/#/create";
+export const NG_EU_BSP_REGISTERED = "https://nextgraph.eu/#/user/registered";
 
 export const NG_NET_BSP = "https://nextgraph.net";
+export const NG_NET_BSP_REGISTER = "https://account.nextgraph.net/#/create";
+export const NG_NET_BSP_REGISTERED = "https://nextgraph.net/#/user/registered";
+
 
 export default api;

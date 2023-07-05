@@ -69,6 +69,15 @@ impl SymKey {
     }
 }
 
+impl TryFrom<&[u8]> for SymKey {
+    type Error = NgError;
+    fn try_from(buf: &[u8]) -> Result<Self, NgError> {
+        let sym_key_array = *slice_as_array!(buf, [u8; 32]).ok_or(NgError::InvalidKey)?;
+        let sym_key = SymKey::ChaCha20Key(sym_key_array);
+        Ok(sym_key)
+    }
+}
+
 /// Curve25519 public key Edwards form
 pub type Ed25519PubKey = [u8; 32];
 
