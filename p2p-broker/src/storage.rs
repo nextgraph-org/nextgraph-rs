@@ -11,24 +11,85 @@
 
 use std::path::PathBuf;
 
+use crate::broker_store::invitation::Invitation;
+use crate::broker_store::wallet::Wallet;
 use crate::types::*;
 use p2p_net::broker_storage::*;
+use p2p_net::types::{BootstrapContentV0, InvitationCode, InvitationV0};
 use p2p_repo::kcv_store::KCVStore;
+use p2p_repo::log::*;
+use p2p_repo::store::StorageError;
 use p2p_repo::types::SymKey;
 use stores_lmdb::kcv_store::LmdbKCVStore;
 use stores_lmdb::repo_store::LmdbRepoStore;
 
 pub struct LmdbBrokerStorage {
     wallet_storage: LmdbKCVStore,
+    accounts_storage: LmdbKCVStore,
+    peers_storage: LmdbKCVStore,
 }
 
 impl LmdbBrokerStorage {
-    pub fn open(path: &mut PathBuf, master_key: SymKey) -> Self {
-        path.push("wallet");
-        std::fs::create_dir_all(path.clone()).unwrap();
-        //TODO redo the whole key passing mechanism so it uses zeroize all the way
-        let wallet_storage = LmdbKCVStore::open(&path, master_key.slice().clone());
-        LmdbBrokerStorage { wallet_storage }
+    pub fn open(
+        path: &mut PathBuf,
+        master_key: SymKey,
+        admin_invite: Option<BootstrapContentV0>,
+    ) -> Result<Self, StorageError> {
+        // create/open the WALLET
+
+        let mut wallet_path = path.clone();
+        wallet_path.push("wallet");
+        std::fs::create_dir_all(wallet_path.clone()).unwrap();
+        //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
+        let wallet_storage = LmdbKCVStore::open(&wallet_path, master_key.slice().clone());
+        let wallet = Wallet::open(&wallet_storage);
+
+        // create/open the ACCOUNTS storage
+
+        let mut accounts_path = path.clone();
+        let accounts_key;
+        accounts_path.push("accounts");
+
+        if admin_invite.is_some() && !accounts_path.exists() && !wallet.exists_accounts_key() {
+            accounts_key = wallet.create_accounts_key()?;
+            std::fs::create_dir_all(accounts_path.clone()).unwrap();
+            let accounts_storage = LmdbKCVStore::open(&accounts_path, accounts_key.slice().clone());
+            let symkey = SymKey::random();
+            let invite_code = InvitationCode::Admin(symkey.clone());
+            let _ = Invitation::create(&invite_code, 0, &accounts_storage)?;
+            let invitation = p2p_net::types::Invitation::V0(InvitationV0 {
+                code: Some(symkey),
+                name: Some("your NG Box, as admin".into()),
+                url: None,
+                bootstrap: admin_invite.unwrap(),
+            });
+            for link in invitation.get_urls() {
+                println!("The admin invitation link is: {}", link)
+            }
+        } else {
+            if admin_invite.is_some() {
+                log_warn!("Cannot add an admin invitation anymore, as it is not the first start of the server.");
+            }
+            accounts_key = wallet.get_or_create_accounts_key()?;
+        }
+        std::fs::create_dir_all(accounts_path.clone()).unwrap();
+        //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
+        let accounts_storage = LmdbKCVStore::open(&accounts_path, accounts_key.slice().clone());
+
+        // create/open the PEERS storage
+
+        let peers_key = wallet.get_or_create_peers_key()?;
+        let mut peers_path = path.clone();
+        peers_path.push("peers");
+        std::fs::create_dir_all(peers_path.clone()).unwrap();
+        //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
+        let peers_storage = LmdbKCVStore::open(&peers_path, peers_key.slice().clone());
+
+        Ok(LmdbBrokerStorage {
+            wallet_storage,
+            accounts_storage,
+            peers_storage,
+        })
     }
 }
 

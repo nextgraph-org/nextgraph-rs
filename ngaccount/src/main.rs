@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 #[macro_use]
-extern crate slice_as_array;
+extern crate anyhow;
 
 mod types;
 
@@ -23,7 +23,7 @@ use std::{env, fs};
 
 use crate::types::*;
 use ng_wallet::types::*;
-use p2p_net::types::{APP_NG_ONE_URL, NG_ONE_URL};
+use p2p_net::types::{CreateAccountBSP, APP_NG_ONE_URL, NG_ONE_URL};
 use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::{generate_keypair, sign, verify};
@@ -34,49 +34,81 @@ struct Static;
 
 struct Server {}
 
-impl Server {}
+impl Server {
+    fn register_(&self, ca: String) -> Result<(), NgHttpError> {
+        log_debug!("registering {}", ca);
+
+        let cabsp: CreateAccountBSP = ca.try_into().map_err(|_| NgHttpError::InvalidParams)?;
+
+        log_debug!("{:?}", cabsp);
+
+        Ok(())
+    }
+
+    pub fn register(&self, ca: String) -> Response {
+        match self.register_(ca) {
+            Ok(_) => warp::http::StatusCode::CREATED.into_response(),
+            Err(e) => e.into_response(),
+        }
+    }
+}
 
 #[tokio::main]
-async fn main() {
+async fn main() -> anyhow::Result<()> {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info"); //trace
     }
     env_logger::init();
 
-    // let (wallet_key, wallet_id) = generate_keypair();
-    // let content = BootstrapContentV0 { servers: vec![] };
-    // let ser = serde_bare::to_vec(&content).unwrap();
-    // let sig = sign(wallet_key, wallet_id, &ser).unwrap();
-
-    // let bootstrap = Bootstrap::V0(BootstrapV0 {
-    //     id: wallet_id,
-    //     content,
-    //     sig,
-    // });
-
     let server = Arc::new(Server {});
+
+    let domain =
+        env::var("NG_ACCOUNT_DOMAIN").map_err(|_| anyhow!("NG_ACCOUNT_DOMAIN must be set"))?;
+
+    let admin_user =
+        env::var("NG_ACCOUNT_ADMIN").map_err(|_| anyhow!("NG_ACCOUNT_ADMIN must be set"))?;
+
+    // format is IP,PORT,PEERID
+    let server_address =
+        env::var("NG_ACCOUNT_SERVER").map_err(|_| anyhow!("NG_ACCOUNT_SERVER must be set"))?;
+
+    let addr: Vec<&str> = server_address.split(',').collect();
+    if addr.len() != 3 {
+        return Err(anyhow!(
+            "NG_ACCOUNT_SERVER is invalid. format is IP,PORT,PEERID"
+        ));
+    }
+    let ip: IP = addr[0].into();
+
+    log::info!("{}", domain);
+
+    // GET /api/v1/register/ca with the same ?ca= query param => 201 CREATED
+    let server_for_move = Arc::clone(&server);
+    let register_api = warp::get()
+        .and(warp::path!("register" / String))
+        .map(move |ca| server_for_move.register(ca));
+
+    let api_v1 = warp::path!("api" / "v1" / ..).and(register_api);
 
     let static_files = warp::get().and(warp_embed::embed(&Static)).boxed();
 
     let mut cors = warp::cors()
-        .allow_methods(vec!["GET", "POST"])
+        .allow_methods(vec!["GET"])
         .allow_headers(vec!["Content-Type"]);
 
     #[cfg(not(debug_assertions))]
     {
-        cors = cors
-            .allow_origin(NG_ONE_URL)
-            .allow_origin(APP_NG_ONE_URL)
-            .allow_origin("https://nextgraph.eu")
-            .allow_origin("https://nextgraph.net");
+        cors = cors.allow_origin(format!("https://{}", domain));
     }
     #[cfg(debug_assertions)]
     {
         log_debug!("CORS: any origin");
         cors = cors.allow_any_origin();
     }
-    log::info!("Starting server on http://localhost:3030");
-    warp::serve(static_files.with(cors))
+    log::info!("Starting server on http://localhost:3031");
+    warp::serve(api_v1.or(static_files).with(cors))
         .run(([127, 0, 0, 1], 3031))
         .await;
+
+    Ok(())
 }

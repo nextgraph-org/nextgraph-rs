@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 use p2p_net::types::{BrokerOverlayConfigV0, ListenerV0};
-use p2p_repo::types::PrivKey;
+use p2p_repo::types::{PrivKey, PubKey};
 use serde::{Deserialize, Serialize};
 
 /// Registration config
@@ -27,6 +27,8 @@ pub struct DaemonConfigV0 {
     pub overlays_configs: Vec<BrokerOverlayConfigV0>,
 
     pub registration: RegistrationConfig,
+
+    pub admin_user: Option<PubKey>,
 }
 
 /// Daemon config

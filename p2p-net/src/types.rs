@@ -399,7 +399,7 @@ impl BrokerServerV0 {
         }
     }
 
-    pub async fn is_public_broker(&self) -> bool {
+    pub fn is_public_server(&self) -> bool {
         match &self.server_type {
             BrokerServerTypeV0::Localhost(_) => false,
             BrokerServerTypeV0::BoxPrivate(_) => false,
@@ -672,18 +672,30 @@ impl TryFrom<String> for CreateAccountBSP {
     }
 }
 
+impl CreateAccountBSP {
+    pub fn encode(&self) -> Option<String> {
+        let payload_ser = serde_bare::to_vec(self).ok();
+        if payload_ser.is_none() {
+            return None;
+        }
+        Some(base64_url::encode(&payload_ser.unwrap()))
+    }
+}
+
 /// Create an account at a Broker Service Provider (BSP). Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateAccountBSPV0 {
-    pub invitation_code: Option<SymKey>,
+    pub invitation: Option<InvitationV0>,
+
+    pub additional_bootstrap: Option<BootstrapContentV0>,
 
     /// the user asking to create an account
     pub user: PubKey,
 
-    /// signature over serialized invitation, with user key
-    pub sig: Sig,
+    /// signature over serialized invitation code, with user key
+    // pub sig: Sig,
 
-    /// for web access, will redirect after successful signup. if left empty, it means user is on native app.
+    /// for web access, will redirect after successful signup. if left empty, it means user was on native app.
     pub redirect_url: Option<String>,
 }
 
@@ -854,7 +866,6 @@ pub struct ListenerV0 {
     pub accept_forward_for: AcceptForwardForV0,
     // impl fn is_private()
     // returns false if public IP in interface, or if PublicDyn, PublicStatic
-    // if the ip is local or private, and the forwarding is not PublicDyn nor PublicStatic, (if is_private) then the app is served on HTTP get of /
 
     // an interface with no accept_forward_for and no accept_direct, is de facto, disabled
 }
@@ -887,6 +898,30 @@ impl ListenerV0 {
             serve_app: true,
             bind_public_ipv6: false,
             accept_forward_for: AcceptForwardForV0::No,
+        }
+    }
+
+    pub fn is_core(&self) -> bool {
+        match self.accept_forward_for {
+            AcceptForwardForV0::PublicStatic(_) => true,
+            AcceptForwardForV0::PublicDyn(_) => true,
+            AcceptForwardForV0::PublicDomain(_) | AcceptForwardForV0::PublicDomainPeer(_) => false,
+            AcceptForwardForV0::PrivateDomain(_) => false,
+            AcceptForwardForV0::No => self.if_type == InterfaceType::Public,
+        }
+    }
+
+    pub fn accepts_client(&self) -> bool {
+        match self.accept_forward_for {
+            AcceptForwardForV0::PublicStatic(_)
+            | AcceptForwardForV0::PublicDyn(_)
+            | AcceptForwardForV0::PublicDomain(_)
+            | AcceptForwardForV0::PublicDomainPeer(_) => self.accept_direct || !self.refuse_clients,
+            AcceptForwardForV0::PrivateDomain(_) => true,
+            AcceptForwardForV0::No => {
+                self.if_type == InterfaceType::Public && !self.refuse_clients
+                    || self.if_type != InterfaceType::Public
+            }
         }
     }
 
@@ -2909,6 +2944,8 @@ pub struct ClientAuthContentV0 {
 
     /// Client pub key
     pub client: PubKey,
+
+    pub info: ClientInfoV0,
 
     /// Nonce from ServerHello
     #[serde(with = "serde_bytes")]

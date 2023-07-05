@@ -31,6 +31,7 @@ pub enum NetError {
     ProtocolError,
     AccessDenied,
     InternalError,
+    PeerAlreadyConnected,
     Closing,
 } //MAX 50 NetErrors
 

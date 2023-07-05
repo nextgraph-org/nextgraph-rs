@@ -53,7 +53,6 @@ pub struct BrokerPeerInfo {
 #[derive(Debug)]
 pub struct DirectConnection {
     ip: IP,
-    interface: String,
     remote_peer_id: X25519PrivKey,
     tp: TransportProtocol,
     //dir: ConnectionDir,
@@ -62,7 +61,7 @@ pub struct DirectConnection {
 
 pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new(Broker::new())));
 
-pub struct Broker {
+pub struct Broker<'a> {
     direct_connections: HashMap<IP, DirectConnection>,
     /// tuple of optional userId and peer key in montgomery form. userId is always None on the server side.
     peers: HashMap<(Option<PubKey>, X25519PubKey), BrokerPeerInfo>,
@@ -76,13 +75,13 @@ pub struct Broker {
     shutdown_sender: Sender<ProtocolError>,
     closing: bool,
     my_peer_id: Option<PubKey>,
-    storage: Option<Box<dyn BrokerStorage + Send + Sync>>,
+    storage: Option<Box<dyn BrokerStorage + Send + Sync + 'a>>,
 
     test: u32,
     tauri_streams: HashMap<String, Sender<Commit>>,
 }
 
-impl Broker {
+impl<'a> Broker<'a> {
     /// helper function to store the sender of a tauri stream in order to be able to cancel it later on
     /// only used in Tauri, not used in the JS SDK
     pub fn tauri_stream_add(&mut self, stream_id: String, sender: Sender<Commit>) {
@@ -104,7 +103,7 @@ impl Broker {
         }
     }
 
-    pub fn set_storage(&mut self, storage: impl BrokerStorage + 'static) {
+    pub fn set_storage(&mut self, storage: impl BrokerStorage + 'a) {
         self.storage = Some(Box::new(storage));
     }
 
@@ -152,7 +151,7 @@ impl Broker {
                 }
             }
             Authorization::ExtMessage => Err(ProtocolError::AccessDenied),
-            Authorization::Client(_) => Err(ProtocolError::AccessDenied),
+            Authorization::Client(user) => Err(ProtocolError::AccessDenied),
             Authorization::Core => Err(ProtocolError::AccessDenied),
             Authorization::Admin(_) => Err(ProtocolError::AccessDenied),
             Authorization::OverlayJoin(_) => Err(ProtocolError::AccessDenied),
@@ -401,6 +400,7 @@ impl Broker {
         let _ = self.shutdown_sender.send(ProtocolError::Closing).await;
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn accept(
         &mut self,
         mut connection: ConnectionBase,
@@ -460,33 +460,69 @@ impl Broker {
         Ok(())
     }
 
-    pub async fn attach_peer_id(
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn attach_and_authorize_peer_id(
         &mut self,
         remote_bind_address: BindAddress,
         local_bind_address: BindAddress,
         remote_peer_id: X25519PrivKey,
-        core: Option<String>,
-    ) -> Result<(), NetError> {
+        // if client is None it means we are Core mode
+        client: Option<ClientAuthContentV0>,
+    ) -> Result<(), ProtocolError> {
         log_debug!("ATTACH PEER_ID {:?}", remote_peer_id);
+
+        let already = self.peers.get(&(None, remote_peer_id));
+        if (already.is_some()) {
+            match already.unwrap().connected {
+                PeerConnection::NONE => {}
+                _ => {
+                    return Err(ProtocolError::PeerAlreadyConnected);
+                }
+            };
+        }
+
+        // find the listener
+        let listener_id = self
+            .bind_addresses
+            .get(&local_bind_address)
+            .ok_or(ProtocolError::AccessDenied)?;
+        let listener = self
+            .listeners
+            .get(listener_id)
+            .ok_or(ProtocolError::AccessDenied)?;
+
+        // authorize
+        if client.is_none() {
+            // it is a Core connection
+            if !listener.config.is_core() {
+                return Err(ProtocolError::AccessDenied);
+            }
+        } else {
+            if !listener.config.accepts_client() {
+                return Err(ProtocolError::AccessDenied);
+            }
+        }
+
         let mut connection = self
             .anonymous_connections
             .remove(&(local_bind_address, remote_bind_address))
-            .ok_or(NetError::InternalError)?;
+            .ok_or(ProtocolError::BrokerError)?;
 
         connection.reset_shutdown(remote_peer_id).await;
         let ip = remote_bind_address.ip;
-        let connected = if core.is_some() {
+        let connected = if let Some(client_auth) = client {
+            // TODO add client to storage
+
+            PeerConnection::Client(connection)
+        } else {
             let dc = DirectConnection {
                 ip,
-                interface: core.clone().unwrap(),
                 remote_peer_id,
                 tp: connection.transport_protocol(),
                 cnx: connection,
             };
             self.direct_connections.insert(ip, dc);
             PeerConnection::Core(ip)
-        } else {
-            PeerConnection::Client(connection)
         };
         let bpi = BrokerPeerInfo {
             lastPeerAdvert: None,
@@ -521,29 +557,39 @@ impl Broker {
             return Err(NetError::Closing);
         }
 
-        // TODO check that not already connected to peer
-        // IpAddr::from_str("127.0.0.1");
-
         log_info!("CONNECTING");
+        let remote_peer_id_dh = remote_peer_id.to_dh_from_ed();
+
+        let already = self
+            .peers
+            .get(&(config.get_user(), *remote_peer_id_dh.slice()));
+        if already.is_some() {
+            match already.unwrap().connected {
+                PeerConnection::NONE => {}
+                _ => {
+                    return Err(NetError::PeerAlreadyConnected);
+                }
+            };
+        }
+
         let mut connection = cnx
             .open(
                 config.get_url(),
                 peer_privk.clone(),
                 peer_pubk,
-                remote_peer_id,
+                remote_peer_id_dh,
                 config.clone(),
             )
             .await?;
 
         let join = connection.take_shutdown();
-        let remote_peer_id_dh = remote_peer_id.to_dh_slice();
+
         let connected = match &config {
             StartConfig::Core(config) => {
                 let ip = config.addr.ip.clone();
                 let dc = DirectConnection {
                     ip,
-                    interface: config.interface.clone(),
-                    remote_peer_id: remote_peer_id_dh,
+                    remote_peer_id: *remote_peer_id_dh.slice(),
                     tp: connection.transport_protocol(),
                     cnx: connection,
                 };
@@ -560,7 +606,7 @@ impl Broker {
         };
 
         self.peers
-            .insert((config.get_user(), remote_peer_id_dh), bpi);
+            .insert((config.get_user(), *remote_peer_id_dh.slice()), bpi);
 
         async fn watch_close(
             mut join: Receiver<Either<NetError, X25519PrivKey>>,
@@ -602,7 +648,7 @@ impl Broker {
             cnx,
             peer_privk,
             peer_pubk,
-            remote_peer_id_dh,
+            *remote_peer_id_dh.slice(),
             config,
         ));
         Ok(())

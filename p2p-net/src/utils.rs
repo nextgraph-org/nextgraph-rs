@@ -11,7 +11,7 @@
 
 use crate::types::BootstrapContent;
 use crate::types::Invitation;
-use crate::NG_BOOTSTRAP_LOCAL_URL;
+use crate::NG_BOOTSTRAP_LOCAL_PATH;
 use async_std::task;
 use ed25519_dalek::*;
 use futures::{channel::mpsc, select, Future, FutureExt, SinkExt};
@@ -61,6 +61,7 @@ const APP_PREFIX: &str = "";
 pub async fn retrieve_local_bootstrap(
     location_string: String,
     invite_string: Option<String>,
+    must_be_public: bool,
 ) -> Option<Invitation> {
     let invite1: Option<Invitation> = if invite_string.is_some() {
         let invitation: Result<Invitation, NgError> = invite_string.clone().unwrap().try_into();
@@ -72,7 +73,7 @@ pub async fn retrieve_local_bootstrap(
     log_debug!("invite_String {:?} invite1{:?}", invite_string, invite1);
 
     let invite2: Option<Invitation> = {
-        let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_URL)).await;
+        let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_PATH)).await;
         if resp.is_ok() {
             let resp = resp.unwrap().json::<BootstrapContent>().await;
             resp.ok().map(|v| v.into())
@@ -91,10 +92,12 @@ pub async fn retrieve_local_bootstrap(
 
     if res.is_some() {
         for server in res.as_ref().unwrap().get_servers() {
-            if server
-                .get_ws_url(Some(location_string.clone()))
-                .await
-                .is_some()
+            if must_be_public && server.is_public_server()
+                || !must_be_public
+                    && server
+                        .get_ws_url(Some(location_string.clone()))
+                        .await
+                        .is_some()
             {
                 return res;
             }

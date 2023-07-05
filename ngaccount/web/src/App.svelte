@@ -13,11 +13,15 @@
   import { onMount, tick } from "svelte";
 
   import Home from "./routes/Home.svelte";
+  import Create from "./routes/Create.svelte";
+  import Delete from "./routes/Delete.svelte";
 
   import NotFound from "./routes/NotFound.svelte";
 
   const routes = new Map();
   routes.set("/", Home);
+  routes.set("/create", Create);
+  routes.set("/delete", Delete);
   routes.set("*", NotFound);
 </script>
 

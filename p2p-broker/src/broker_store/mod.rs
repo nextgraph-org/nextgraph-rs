@@ -11,3 +11,5 @@ pub mod repostoreinfo;
 pub mod topic;
 
 pub mod invitation;
+
+pub mod wallet;

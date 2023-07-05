@@ -39,7 +39,7 @@ use p2p_net::types::*;
 use p2p_net::utils::get_domain_without_port;
 use p2p_net::utils::is_private_ip;
 use p2p_net::utils::is_public_ip;
-use p2p_net::NG_BOOTSTRAP_LOCAL_URL;
+use p2p_net::NG_BOOTSTRAP_LOCAL_PATH;
 use p2p_repo::log::*;
 use p2p_repo::types::SymKey;
 use p2p_repo::types::{PrivKey, PubKey};
@@ -255,7 +255,7 @@ fn upgrade_ws_or_serve_app(
                 .body(Some(file.data.to_vec()))
                 .unwrap();
             return Err(res);
-        } else if uri == NG_BOOTSTRAP_LOCAL_URL {
+        } else if uri == NG_BOOTSTRAP_LOCAL_PATH {
             log_debug!("Serving bootstrap");
 
             let mut builder = Response::builder().status(StatusCode::OK);
@@ -609,6 +609,7 @@ pub async fn run_server_v0(
     wallet_master_key: SymKey,
     config: DaemonConfigV0,
     mut path: PathBuf,
+    admin_invite: bool,
 ) -> Result<(), ()> {
     // check config
 
@@ -754,8 +755,8 @@ pub async fn run_server_v0(
     if !accept_clients {
         log_warn!("There isn't any listener that accept clients. This is a misconfiguration as a core server that cannot receive client connections is useless");
     }
-
-    let bootstrap = BootstrapContent::V0(BootstrapContentV0 { servers });
+    let bootstrap_v0 = BootstrapContentV0 { servers };
+    let bootstrap = BootstrapContent::V0(bootstrap_v0.clone());
     BOOTSTRAP_STRING.set(json!(bootstrap).to_string()).unwrap();
 
     // saving the infos in the broker. This needs to happen before we start listening, as new incoming connections can happen anytime after that.
@@ -766,7 +767,16 @@ pub async fn run_server_v0(
         std::fs::create_dir_all(path.clone()).unwrap();
 
         // opening the server storage (that contains the encryption keys for each store/overlay )
-        let broker_storage = LmdbBrokerStorage::open(&mut path, wallet_master_key);
+        let broker_storage = LmdbBrokerStorage::open(
+            &mut path,
+            wallet_master_key,
+            if admin_invite {
+                Some(bootstrap_v0)
+            } else {
+                None
+            },
+        )
+        .map_err(|e| log_err!("Error while opening broker storage: {:?}", e))?;
 
         let mut broker = BROKER.write().await;
         broker.set_my_peer_id(peer_id);

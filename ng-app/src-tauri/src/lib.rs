@@ -10,6 +10,7 @@ use async_std::stream::StreamExt;
 use ng_wallet::types::*;
 use ng_wallet::*;
 use p2p_net::broker::*;
+use p2p_net::types::CreateAccountBSP;
 use p2p_net::utils::{spawn_and_log_error, Receiver, ResultSend};
 use p2p_repo::log::*;
 use p2p_repo::types::*;
@@ -73,6 +74,12 @@ async fn wallet_create_wallet(mut params: CreateWalletV0) -> Result<CreateWallet
     }
 
     res
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn encode_create_account(payload: CreateAccountBSP) -> Result<String, ()> {
+    log_info!("{:?}", payload);
+    payload.encode().ok_or(())
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -184,6 +191,7 @@ impl AppBuilder {
                 wallet_gen_shuffle_for_pin,
                 wallet_open_wallet_with_pazzle,
                 wallet_create_wallet,
+                encode_create_account,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");
