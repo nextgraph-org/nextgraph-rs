@@ -595,7 +595,7 @@ pub async fn run_server_accept_one(
     let tcp = connections.next().await.unwrap()?;
 
     {
-        BROKER.write().await.set_my_peer_id(peer_pub_key);
+        //BROKER.write().await.set_my_peer_id(peer_pub_key);
     }
 
     accept(tcp, peer_priv_key).await;
@@ -779,12 +779,17 @@ pub async fn run_server_v0(
         .map_err(|e| log_err!("Error while opening broker storage: {:?}", e))?;
 
         let mut broker = BROKER.write().await;
-        broker.set_my_peer_id(peer_id);
         broker.set_storage(broker_storage);
         LISTENERS_INFO
             .set(broker.set_listeners(listener_infos))
             .unwrap();
-        broker.set_overlays_configs(config.overlays_configs);
+        let server_config = ServerConfig {
+            overlays_configs: config.overlays_configs,
+            registration: config.registration,
+            admin_user: config.admin_user,
+            peer_id,
+        };
+        broker.set_server_config(server_config);
     }
 
     // Actually starting the listeners

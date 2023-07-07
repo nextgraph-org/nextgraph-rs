@@ -148,11 +148,11 @@ pub fn client_info() -> ClientInfoV0 {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn encode_create_account(payload: JsValue) -> JsValue {
-    log_info!("{:?}", payload);
+    log_debug!("{:?}", payload);
     let create_account = serde_wasm_bindgen::from_value::<CreateAccountBSP>(payload).unwrap();
-    log_info!("create_account {:?}", create_account);
+    log_debug!("create_account {:?}", create_account);
     let res = create_account.encode();
-    log_info!("res {:?}", res);
+    log_debug!("res {:?}", res);
     serde_wasm_bindgen::to_value(&res).unwrap()
 }
 
@@ -182,7 +182,7 @@ pub fn client_info() -> ClientInfoV0 {
     let ua = client_details();
 
     let bowser = Bowser::parse(ua);
-    //log_info!("{:?}", bowser);
+    //log_debug!("{:?}", bowser);
 
     let details_string = client_details2(bowser, env!("CARGO_PKG_VERSION").to_string());
 
@@ -200,9 +200,9 @@ pub fn client_info() -> ClientInfoV0 {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn test() {
-    log_info!("test is {}", BROKER.read().await.test());
+    log_debug!("test is {}", BROKER.read().await.test());
     let client_info = client_info();
-    log_info!("{:?}", client_info);
+    log_debug!("{:?}", client_info);
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -213,7 +213,7 @@ pub async fn doc_get_file_from_store_with_object_ref(
 ) -> Result<JsValue, JsValue> {
     let obj_ref = serde_wasm_bindgen::from_value::<ObjectRef>(obj_ref_js).unwrap();
 
-    log_info!(
+    log_debug!(
         "doc_get_file {} {:?} {}",
         nuri,
         obj_ref.id,
@@ -271,14 +271,14 @@ pub async fn doc_sync_branch(anuri: String, callback: &js_sys::Function) -> JsVa
                 Err(_) => {}
             }
         }
-        log_info!("END OF LOOP");
+        log_debug!("END OF LOOP");
         Ok(())
     }
 
     spawn_and_log_error(inner_task(reader, anuri, callback.clone()));
 
     let cb = Closure::once(move || {
-        log_info!("close channel");
+        log_debug!("close channel");
         sender.close_channel()
     });
     //Closure::wrap(Box::new(move |sender| sender.close_channel()) as Box<FnMut(Sender<Commit>)>);
@@ -299,7 +299,7 @@ pub async fn probe() {
             WS_PORT,
         )
         .await;
-    log_info!("broker.probe : {:?}", res);
+    log_debug!("broker.probe : {:?}", res);
 
     Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
 }
@@ -315,12 +315,12 @@ pub async fn start() {
         //let pub_key = PubKey::Ed25519PubKey(keys.1);
         let keys = generate_keypair();
         let x_from_ed = keys.1.to_dh_from_ed();
-        log_info!("Pub from X {}", x_from_ed);
+        log_debug!("Pub from X {}", x_from_ed);
 
         let (client_priv, client) = generate_keypair();
         let (user_priv, user) = generate_keypair();
 
-        log_info!("start connecting");
+        log_debug!("start connecting");
 
         let res = BROKER
             .write()
@@ -340,7 +340,7 @@ pub async fn start() {
                 }),
             )
             .await;
-        log_info!("broker.connect : {:?}", res);
+        log_debug!("broker.connect : {:?}", res);
         if res.is_err() {
             return Ok(());
             //panic!("Cannot connect");
@@ -352,7 +352,7 @@ pub async fn start() {
         async fn timer_close(remote_peer_id: DirectPeerId, user: Option<PubKey>) -> ResultSend<()> {
             async move {
                 sleep!(std::time::Duration::from_secs(3));
-                log_info!("timeout");
+                log_debug!("timeout");
                 BROKER
                     .write()
                     .await

@@ -68,6 +68,13 @@ pub trait ReadTransaction {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError>;
+
+    fn get_all_keys_and_values(
+        &self,
+        prefix: u8,
+        key_size: usize,
+        suffix: Option<u8>,
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError>;
 }
 
 pub trait KCVStore: ReadTransaction {

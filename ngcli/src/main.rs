@@ -10,618 +10,465 @@
 // according to those terms.
 
 use ed25519_dalek::*;
-use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
+
 use futures::{future, pin_mut, stream, SinkExt, StreamExt};
-use p2p_broker::broker_store::config::ConfigMode;
+use p2p_net::actors::*;
 use p2p_repo::object::Object;
 use p2p_repo::store::{store_max_value_size, store_valid_value_size, HashMapRepoStore, RepoStore};
 use rand::rngs::OsRng;
+use serde::{Deserialize, Serialize};
+use serde_json::{from_str, to_string_pretty};
 use std::collections::HashMap;
+use std::fs::{read_to_string, write};
+use std::io::ErrorKind;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::path::PathBuf;
+use std::str::FromStr;
 use stores_lmdb::kcv_store::LmdbKCVStore;
 use stores_lmdb::repo_store::LmdbRepoStore;
+use zeroize::Zeroize;
 
+use p2p_client_ws::remote_ws::ConnectionWebSocket;
+use p2p_net::broker::BROKER;
 use p2p_net::errors::*;
 use p2p_net::types::*;
 
 use p2p_repo::log::*;
 use p2p_repo::types::*;
-use p2p_repo::utils::{generate_keypair, now_timestamp};
+use p2p_repo::utils::{decode_key, generate_keypair, now_timestamp};
 
-fn block_size() -> usize {
-    store_max_value_size()
-    //store_valid_value_size(0)
+use clap::{arg, command, value_parser, ArgAction, Command};
+
+/// CliConfig Version 0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CliConfigV0 {
+    pub ip: IpAddr,
+    pub port: u16,
+    pub peer_id: PubKey,
+    pub user: Option<PrivKey>,
 }
 
-async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpriv_key: PrivKey) {
-    fn add_obj(
-        content: ObjectContent,
-        deps: Vec<ObjectId>,
-        expiry: Option<Timestamp>,
-        repo_pubkey: PubKey,
-        repo_secret: SymKey,
-        store: &mut impl RepoStore,
-    ) -> ObjectRef {
-        let max_object_size = 4000;
-        let obj = Object::new(
-            content,
-            deps,
-            expiry,
-            max_object_size,
-            repo_pubkey,
-            repo_secret,
-        );
-        //log_debug!(">>> add_obj");
-        log_debug!("     id: {}", obj.id());
-        //log_debug!("     deps: {:?}", obj.deps());
-        obj.save(store).unwrap();
-        obj.reference().unwrap()
+/// Cli config
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CliConfig {
+    V0(CliConfigV0),
+}
+
+impl CliConfig {
+    fn new_v0(ip: IpAddr, port: u16, peer_id: PubKey) -> Self {
+        CliConfig::V0(CliConfigV0 {
+            ip,
+            port,
+            peer_id,
+            user: None,
+        })
     }
+}
 
-    fn add_commit(
-        branch: ObjectRef,
-        author_privkey: PrivKey,
-        author_pubkey: PubKey,
-        seq: u32,
-        deps: Vec<ObjectRef>,
-        acks: Vec<ObjectRef>,
-        body_ref: ObjectRef,
-        repo_pubkey: PubKey,
-        repo_secret: SymKey,
-        store: &mut impl RepoStore,
-    ) -> ObjectRef {
-        let mut obj_deps: Vec<ObjectId> = vec![];
-        obj_deps.extend(deps.iter().map(|r| r.id));
-        obj_deps.extend(acks.iter().map(|r| r.id));
-
-        let obj_ref = ObjectRef {
-            id: ObjectId::Blake3Digest32([1; 32]),
-            key: SymKey::ChaCha20Key([2; 32]),
-        };
-        let refs = vec![obj_ref];
-        let metadata = vec![5u8; 55];
-        let expiry = None;
-
-        let commit = Commit::new(
-            author_privkey,
-            author_pubkey,
-            seq,
-            branch,
-            deps,
-            acks,
-            refs,
-            metadata,
-            body_ref,
-            expiry,
-        )
-        .unwrap();
-        //log_debug!("commit: {}", commit.id().unwrap());
-        add_obj(
-            ObjectContent::Commit(commit),
-            obj_deps,
-            expiry,
-            repo_pubkey,
-            repo_secret,
-            store,
-        )
-    }
-
-    fn add_body_branch(
-        branch: Branch,
-        repo_pubkey: PubKey,
-        repo_secret: SymKey,
-        store: &mut impl RepoStore,
-    ) -> ObjectRef {
-        let deps = vec![];
-        let expiry = None;
-        let body = CommitBody::Branch(branch);
-        //log_debug!("body: {:?}", body);
-        add_obj(
-            ObjectContent::CommitBody(body),
-            deps,
-            expiry,
-            repo_pubkey,
-            repo_secret,
-            store,
-        )
-    }
-
-    fn add_body_trans(
-        deps: Vec<ObjectId>,
-        repo_pubkey: PubKey,
-        repo_secret: SymKey,
-        store: &mut impl RepoStore,
-    ) -> ObjectRef {
-        let expiry = None;
-        let content = [7u8; 777].to_vec();
-        let body = CommitBody::Transaction(Transaction::V0(content));
-        //log_debug!("body: {:?}", body);
-        add_obj(
-            ObjectContent::CommitBody(body),
-            deps,
-            expiry,
-            repo_pubkey,
-            repo_secret,
-            store,
-        )
-    }
-
-    fn add_body_ack(
-        deps: Vec<ObjectId>,
-        repo_pubkey: PubKey,
-        repo_secret: SymKey,
-        store: &mut impl RepoStore,
-    ) -> ObjectRef {
-        let expiry = None;
-        let body = CommitBody::Ack(Ack::V0());
-        //log_debug!("body: {:?}", body);
-        add_obj(
-            ObjectContent::CommitBody(body),
-            deps,
-            expiry,
-            repo_pubkey,
-            repo_secret,
-            store,
-        )
-    }
-
-    let mut store = HashMapRepoStore::new();
-    let mut rng = OsRng {};
-
-    // repo
-
-    let repo_keypair: Keypair = Keypair::generate(&mut rng);
-    // log_debug!(
-    //     "repo private key: ({}) {:?}",
-    //     repo_keypair.secret.as_bytes().len(),
-    //     repo_keypair.secret.as_bytes()
-    // );
-    // log_debug!(
-    //     "repo public key: ({}) {:?}",
-    //     repo_keypair.public.as_bytes().len(),
-    //     repo_keypair.public.as_bytes()
-    // );
-    let _repo_privkey = PrivKey::Ed25519PrivKey(repo_keypair.secret.to_bytes());
-    let repo_pubkey = PubKey::Ed25519PubKey(repo_keypair.public.to_bytes());
-    let repo_secret = SymKey::ChaCha20Key([9; 32]);
-
-    let repolink = RepoLink::V0(RepoLinkV0 {
-        id: repo_pubkey,
-        secret: repo_secret,
-        peers: vec![],
-    });
-
-    // branch
-
-    let branch_keypair: Keypair = Keypair::generate(&mut rng);
-    //log_debug!("branch public key: {:?}", branch_keypair.public.as_bytes());
-    let branch_pubkey = PubKey::Ed25519PubKey(branch_keypair.public.to_bytes());
-
-    let member_keypair: Keypair = Keypair::generate(&mut rng);
-    //log_debug!("member public key: {:?}", member_keypair.public.as_bytes());
-    let member_privkey = PrivKey::Ed25519PrivKey(member_keypair.secret.to_bytes());
-    let member_pubkey = PubKey::Ed25519PubKey(member_keypair.public.to_bytes());
-
-    let metadata = [66u8; 64].to_vec();
-    let commit_types = vec![CommitType::Ack, CommitType::Transaction];
-    let secret = SymKey::ChaCha20Key([0; 32]);
-
-    let member = MemberV0::new(member_pubkey, commit_types, metadata.clone());
-    let members = vec![member];
-    let mut quorum = HashMap::new();
-    quorum.insert(CommitType::Transaction, 3);
-    let ack_delay = RelTime::Minutes(3);
-    let tags = [99u8; 32].to_vec();
-    let branch = Branch::new(
-        branch_pubkey,
-        branch_pubkey,
-        secret,
-        members,
-        quorum,
-        ack_delay,
-        tags,
-        metadata,
-    );
-    //log_debug!("branch: {:?}", branch);
-
-    log_debug!("branch deps/acks:");
-    log_debug!("");
-    log_debug!("     br");
-    log_debug!("    /  \\");
-    log_debug!("  t1   t2");
-    log_debug!("  / \\  / \\");
-    log_debug!(" a3  t4<--t5-->(t1)");
-    log_debug!("     / \\");
-    log_debug!("   a6   a7");
-    log_debug!("");
-
-    // commit bodies
-
-    let branch_body = add_body_branch(
-        branch.clone(),
-        repo_pubkey.clone(),
-        repo_secret.clone(),
-        &mut store,
-    );
-    let ack_body = add_body_ack(vec![], repo_pubkey, repo_secret, &mut store);
-    let trans_body = add_body_trans(vec![], repo_pubkey, repo_secret, &mut store);
-
-    // create & add commits to store
-
-    log_debug!(">> br");
-    let br = add_commit(
-        branch_body,
-        member_privkey,
-        member_pubkey,
-        0,
-        vec![],
-        vec![],
-        branch_body,
-        repo_pubkey,
-        repo_secret,
-        &mut store,
-    );
-
-    log_debug!(">> t1");
-    let t1 = add_commit(
-        branch_body,
-        member_privkey,
-        member_pubkey,
-        1,
-        vec![br],
-        vec![],
-        trans_body,
-        repo_pubkey,
-        repo_secret,
-        &mut store,
-    );
-
-    log_debug!(">> t2");
-    let t2 = add_commit(
-        branch_body,
-        member_privkey,
-        member_pubkey,
-        2,
-        vec![br],
-        vec![],
-        trans_body,
-        repo_pubkey,
-        repo_secret,
-        &mut store,
-    );
-
-    log_debug!(">> a3");
-    let a3 = add_commit(
-        branch_body,
-        member_privkey,
-        member_pubkey,
-        3,
-        vec![t1],
-        vec![],
-        ack_body,
-        repo_pubkey,
-        repo_secret,
-        &mut store,
-    );
-
-    log_debug!(">> t4");
-    let t4 = add_commit(
-        branch_body,
-        member_privkey,
-        member_pubkey,
-        4,
-        vec![t2],
-        vec![t1],
-        trans_body,
-        repo_pubkey,
-        repo_secret,
-        &mut store,
-    );
-
-    log_debug!(">> t5");
-    let t5 = add_commit(
-        branch_body,
-        member_privkey,
-        member_pubkey,
-        5,
-        vec![t1, t2],
-        vec![t4],
-        trans_body,
-        repo_pubkey,
-        repo_secret,
-        &mut store,
-    );
-
-    log_debug!(">> a6");
-    let a6 = add_commit(
-        branch_body,
-        member_privkey,
-        member_pubkey,
-        6,
-        vec![t4],
-        vec![],
-        ack_body,
-        repo_pubkey,
-        repo_secret,
-        &mut store,
-    );
-
-    log_debug!(">> a7");
-    let a7 = add_commit(
-        branch_body,
-        member_privkey,
-        member_pubkey,
-        7,
-        vec![t4],
-        vec![],
-        ack_body,
-        repo_pubkey,
-        repo_secret,
-        &mut store,
-    );
-
-    let mut public_overlay_cnx = cnx
-        .overlay_connect(&repolink, true)
-        .await
-        .expect("overlay_connect failed");
-
-    // Sending everything to the broker
-    for (v) in store.get_all() {
-        //log_debug!("SENDING {}", k);
-        let _ = public_overlay_cnx
-            .put_block(&v)
-            .await
-            .expect("put_block failed");
-    }
-
-    // Now emptying the local store of the client, and adding only 1 commit into it (br)
-    // we also have received an commit (t5) but we don't know what to do with it...
-    let mut store = HashMapRepoStore::new();
-
-    let br = add_commit(
-        branch_body,
-        member_privkey,
-        member_pubkey,
-        0,
-        vec![],
-        vec![],
-        branch_body,
-        repo_pubkey,
-        repo_secret,
-        &mut store,
-    );
-
-    let t5 = add_commit(
-        branch_body,
-        member_privkey,
-        member_pubkey,
-        5,
-        vec![t1, t2],
-        vec![t4],
-        trans_body,
-        repo_pubkey,
-        repo_secret,
-        &mut store,
-    );
-
-    log_debug!("LOCAL STORE HAS {} BLOCKS", store.get_len());
-
-    // Let's pretend that we know that the head of the branch in the broker is at commits a6 and a7.
-    // normally it would be the pub/sub that notifies us of those heads.
-    // now we want to synchronize with the broker.
-
-    let mut filter = Filter::new(FilterBuilder::new(10, 0.01));
-    for commit_ref in [br, t5] {
-        match commit_ref.id {
-            ObjectId::Blake3Digest32(d) => filter.add(&d),
+fn gen_client_keys(key: Option<[u8; 32]>) -> [[u8; 32]; 4] {
+    let key = match key {
+        None => {
+            let mut master_key = [0u8; 32];
+            log_warn!("gen_client_keys: No key provided, generating one");
+            getrandom::getrandom(&mut master_key).expect("getrandom failed");
+            master_key
         }
-    }
-    let cfg = filter.config();
-
-    let known_commits = BloomFilter {
-        k: cfg.hashes,
-        f: filter.get_u8_array().to_vec(),
+        Some(k) => k,
     };
+    let peerid: [u8; 32];
+    let wallet: [u8; 32];
+    let sig: [u8; 32];
 
-    let known_heads = [br.id];
+    peerid = blake3::derive_key("NextGraph Client BLAKE3 key PeerId privkey", &key);
+    wallet = blake3::derive_key("NextGraph Client BLAKE3 key wallet encryption", &key);
+    sig = blake3::derive_key("NextGraph Client BLAKE3 key config signature", &key);
 
-    let remote_heads = [a6.id, a7.id];
-
-    let mut synced_blocks_stream = public_overlay_cnx
-        .sync_branch(remote_heads.to_vec(), known_heads.to_vec(), known_commits)
-        .await
-        .expect("sync_branch failed");
-
-    let mut i = 0;
-    while let Some(b) = synced_blocks_stream.next().await {
-        log_debug!("GOT BLOCK {}", b.id());
-        store.put(&b);
-        i += 1;
-    }
-
-    log_debug!("SYNCED {} BLOCKS", i);
-
-    log_debug!("LOCAL STORE HAS {} BLOCKS", store.get_len());
-
-    // now the client can verify the DAG and each commit. Then update its list of heads.
-}
-
-async fn test(
-    cnx: &mut impl BrokerConnection,
-    pub_key: PubKey,
-    priv_key: PrivKey,
-) -> Result<(), ProtocolError> {
-    cnx.add_user(PubKey::Ed25519PubKey([1; 32]), priv_key)
-        .await?;
-
-    cnx.add_user(pub_key, priv_key).await?;
-    //.expect("add_user 2 (myself) failed");
-
-    assert_eq!(
-        cnx.add_user(PubKey::Ed25519PubKey([1; 32]), priv_key)
-            .await
-            .err()
-            .unwrap(),
-        ProtocolError::UserAlreadyExists
-    );
-
-    let repo = RepoLink::V0(RepoLinkV0 {
-        id: PubKey::Ed25519PubKey([1; 32]),
-        secret: SymKey::ChaCha20Key([0; 32]),
-        peers: vec![],
-    });
-    let mut public_overlay_cnx = cnx.overlay_connect(&repo, true).await?;
-
-    log_debug!("put_block");
-
-    let my_block_id = public_overlay_cnx
-        .put_block(&Block::new(
-            vec![],
-            ObjectDeps::ObjectIdList(vec![]),
-            None,
-            vec![27; 150],
-            None,
-        ))
-        .await?;
-
-    log_debug!("added block_id to store {}", my_block_id);
-
-    let object_id = public_overlay_cnx
-        .put_object(
-            ObjectContent::File(File::V0(FileV0 {
-                content_type: vec![],
-                metadata: vec![],
-                content: vec![48; 69000],
-            })),
-            vec![],
-            None,
-            block_size(),
-            repo.id(),
-            repo.secret(),
-        )
-        .await?;
-
-    log_debug!("added object_id to store {}", object_id);
-
-    let mut my_block_stream = public_overlay_cnx
-        .get_block(my_block_id, true, None)
-        .await?;
-    //.expect("get_block failed");
-
-    while let Some(b) = my_block_stream.next().await {
-        log_debug!("GOT BLOCK {}", b.id());
-    }
-
-    let mut my_object_stream = public_overlay_cnx.get_block(object_id, true, None).await?;
-    //.expect("get_block for object failed");
-
-    while let Some(b) = my_object_stream.next().await {
-        log_debug!("GOT BLOCK {}", b.id());
-    }
-
-    let object = public_overlay_cnx.get_object(object_id, None).await?;
-    //.expect("get_object failed");
-
-    log_debug!("GOT OBJECT with ID {}", object.id());
-
-    // let object_id = public_overlay_cnx
-    //     .copy_object(object_id, Some(now_timestamp() + 60))
-    //     .await
-    //     .expect("copy_object failed");
-
-    // log_debug!("COPIED OBJECT to OBJECT ID {}", object_id);
-
-    public_overlay_cnx.delete_object(object_id).await?;
-    //.expect("delete_object failed");
-
-    let res = public_overlay_cnx
-        .get_object(object_id, None)
-        .await
-        .unwrap_err();
-
-    log_debug!("result from get object after delete: {}", res);
-    assert_eq!(res, ProtocolError::NotFound);
-
-    //TODO test pin/unpin
-
-    // TEST BRANCH SYNC
-
-    test_sync(cnx, pub_key, priv_key).await;
-
-    Ok(())
-}
-
-async fn test_local_connection() {
-    log_debug!("===== TESTING LOCAL API =====");
-
-    let root = tempfile::Builder::new().prefix("ngcli").tempdir().unwrap();
-    let master_key: [u8; 32] = [0; 32];
-    std::fs::create_dir_all(root.path()).unwrap();
-    log_debug!("{}", root.path().to_str().unwrap());
-    let store = LmdbKCVStore::open(root.path(), master_key);
-
-    //let mut server = BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
-
-    let (priv_key, pub_key) = generate_keypair();
-
-    // let mut cnx = server.local_connection(pub_key);
-
-    // test(&mut cnx, pub_key, priv_key).await;
-}
-
-async fn test_remote_connection(url: &str) {
-    log_debug!("===== TESTING REMOTE API =====");
-
-    let (priv_key, pub_key) = generate_keypair();
-
-    // open cnx
-
-    // test(&mut cnx, pub_key, priv_key).await;
+    [key, peerid, wallet, sig]
 }
 
 #[async_std::main]
-async fn main() -> std::io::Result<()> {
-    log_debug!("Starting nextgraph CLI...");
+async fn main() -> Result<(), ProtocolError> {
+    let matches = command!()
+            .arg(arg!(
+                -v --verbose ... "Increase the logging output. once : info, twice : debug, 3 times : trace"
+            ))
+            .arg(arg!(-b --base [PATH] "Base path for client home folder containing all persistent files, config, and key")
+            .required(false)
+            .value_parser(value_parser!(PathBuf))
+            .default_value(".ng"))
+            .arg(
+                arg!(
+                    -k --key <KEY> "Master key of the client. Should be a base64-url encoded serde serialization of a [u8; 32]. 
+                    If not provided, a new key will be generated for you"
+                )
+                .required(false)
+                .env("NG_CLIENT_KEY"),
+            )
+            .arg(
+                arg!(
+                    -u --user <USER_PRIVKEY> "Client ID to use to connect to the server. Should be a base64-url encoded serde 
+                    serialization of a [u8; 32] representing the user private key"
+                )
+                .required(false)
+                .env("NG_CLIENT_USER"),
+            )
+            .arg(
+                arg!(
+                    -s --server <IP_PORT_PEER_ID> "Server to connect to. IP can be IpV4 or IPv6, followed by a 
+                    comma and port as u16 and another comma and PEER_ID should be a base64-url encoded serde serialization of a [u8; 32]"
+                )
+                .required(false)
+                .env("NG_CLIENT_SERVER"),
+            )
+            .arg(arg!(
+                --save_key "Saves to disk the provided or automatically generated key. Only use if file storage is secure. 
+                Alternatives are passing the key at every start with --key or NG_CLIENT_KEY env var."
+                ).long("save-key").required(false))
+            .arg(arg!(
+                --save_config "Saves to disk the provided config of the <USER_PRIVKEY> and server <IP_PORT_PEER_ID>."
+                ).long("save-config").required(false))
+            .subcommand(
+                Command::new("admin")
+                    .about("admin users can administrate their broker (add user, create invite links)")
+                    .subcommand_required(true)
+                    .subcommand(
+                        Command::new("add-user")
+                            .about("add a user to the server, so it can connect to it")
+                            .arg(arg!([USER_ID] "userId of the user to add. should be a base64-url encoded serde serialization of its pubkey [u8; 32]").required(true))
+                            .arg(arg!(-a --admin "make this user admin as well").required(false)))
+                    .subcommand(
+                        Command::new("list-users")
+                            .about("list all users registered in the broker")
+                            .arg(arg!(-a --admin "only lists admin users. otherwise, lists only non admin users").required(false)))
+            )
+            .subcommand(
+                Command::new("gen-user")
+                    .about("Generates a new user public key and private key to be used for authentication.")
+            )
+            .get_matches();
 
-    //test_local_connection().await;
+    if std::env::var("RUST_LOG").is_err() {
+        match matches.get_one::<u8>("verbose").unwrap() {
+            0 => std::env::set_var("RUST_LOG", "warn"),
+            1 => std::env::set_var("RUST_LOG", "info"),
+            2 => std::env::set_var("RUST_LOG", "debug"),
+            3 => std::env::set_var("RUST_LOG", "trace"),
+            _ => std::env::set_var("RUST_LOG", "trace"),
+        }
+    }
+    env_logger::init();
 
-    //test_remote_connection("ws://127.0.0.1:3012").await;
+    if let Some(matches) = matches.subcommand_matches("gen-user") {
+        let (privkey, pubkey) = generate_keypair();
+        println!("Your UserId is: {pubkey}");
+        println!("Your Private key is: {privkey}");
+        return Ok(());
+    }
+
+    let base = matches.get_one::<PathBuf>("base").unwrap();
+    log_debug!("base {:?}", base);
+
+    let mut path = base.clone();
+    path.push("client");
+    if !path.is_absolute() {
+        path = std::env::current_dir().unwrap().join(path);
+    }
+
+    log_debug!("cur {}", std::env::current_dir().unwrap().display());
+    log_debug!("home {}", path.to_str().unwrap());
+    std::fs::create_dir_all(path.clone()).unwrap();
+
+    // reading key from file, if any
+    let mut key_path = path.clone();
+    key_path.push("key");
+    let key_from_file: Option<[u8; 32]>;
+    let res = |key_path| -> Result<[u8; 32], &str> {
+        let mut file = read_to_string(key_path).map_err(|_| "")?;
+        let first_line = file.lines().nth(0).ok_or("empty file")?;
+        let res = decode_key(first_line.trim()).map_err(|_| "invalid file");
+        file.zeroize();
+        res
+    }(&key_path);
+
+    if res.is_err() && res.unwrap_err().len() > 0 {
+        log_err!(
+            "provided key file is incorrect. {}. cannot start",
+            res.unwrap_err()
+        );
+        return Err(ProtocolError::InvalidValue);
+    }
+    key_from_file = res.ok();
+
+    let mut keys: [[u8; 32]; 4] = match matches.get_one::<String>("key") {
+        Some(key_string) => {
+            if key_from_file.is_some() {
+                log_err!("provided --key option or NG_CLIENT_KEY var env will not be used as a key file is already present");
+                //key_string.as_mut().zeroize();
+                gen_client_keys(key_from_file)
+            } else {
+                let res = decode_key(key_string.as_str()).map_err(|_| {
+                    log_err!("provided key is invalid. cannot start");
+                    ProtocolError::InvalidValue
+                })?;
+                if matches.get_flag("save_key") {
+                    let mut master_key = base64_url::encode(&res);
+                    write(key_path.clone(), &master_key).map_err(|e| {
+                        log_err!("cannot save key to file. {}.cannot start", e.to_string());
+                        ProtocolError::InvalidValue
+                    })?;
+                    master_key.zeroize();
+                    log_info!("The key has been saved to {}", key_path.to_str().unwrap());
+                }
+                //key_string.as_mut().zeroize();
+                gen_client_keys(Some(res))
+            }
+        }
+        None => {
+            if key_from_file.is_some() {
+                gen_client_keys(key_from_file)
+            } else {
+                let res = gen_client_keys(None);
+                let mut master_key = base64_url::encode(&res[0]);
+                if matches.get_flag("save_key") {
+                    write(key_path.clone(), &master_key).map_err(|e| {
+                        log_err!("cannot save key to file. {}.cannot start", e.to_string());
+                        ProtocolError::InvalidValue
+                    })?;
+                    log_info!("The key has been saved to {}", key_path.to_str().unwrap());
+                } else {
+                    // on purpose we don't log the key, just print it out to stdout, as it should not be saved in logger's files
+                    println!("YOUR GENERATED KEY IS: {}", master_key);
+                    log_err!("At your request, the key wasn't saved. If you want to save it to disk, use ---save-key");
+                    log_err!("provide it again to the next start of ngcli with --key option or NG_CLIENT_KEY env variable");
+                }
+                master_key.zeroize();
+                res
+            }
+        }
+    };
+
+    key_from_file.and_then(|mut key| {
+        key.zeroize();
+        None::<()>
+    });
+
+    // reading config from file, if any
+    let mut config_path = path.clone();
+    config_path.push("config.json");
+    let mut config: Option<CliConfig>;
+    let res = |config_path| -> Result<CliConfig, String> {
+        let file = read_to_string(config_path).map_err(|_| "".to_string())?;
+        from_str(&file).map_err(|e| e.to_string())
+    }(&config_path);
+
+    if res.is_err() && res.as_ref().unwrap_err().len() > 0 {
+        log_err!(
+            "provided config file is incorrect. {}. cannot start",
+            res.unwrap_err()
+        );
+        return Err(ProtocolError::InvalidValue);
+    }
+    config = res.ok();
+
+    if let Some(server) = matches.get_one::<String>("server") {
+        let addr: Vec<&str> = server.split(',').collect();
+        if addr.len() != 3 {
+            log_err!(
+                "NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID. cannot start"
+            );
+            return Err(ProtocolError::InvalidValue);
+        }
+        let ip = IpAddr::from_str(addr[0]).map_err(|_| {
+                log_err!("NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID. The first part is not an IP address. cannot start");
+                ProtocolError::InvalidValue
+            })?;
+
+        let port = match from_str::<u16>(addr[1]) {
+            Err(_) => {
+                log_err!("NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID. The port is invalid. It should be a number. cannot start");
+                return Err(ProtocolError::InvalidValue);
+            }
+            Ok(val) => val,
+        };
+        let peer_id: PubKey = addr[2].try_into().map_err(|_| {
+            log_err!(
+                "NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID.
+                 The PEER_ID is invalid. It should be a base64-url encoded serde serialization of a [u8; 32]. cannot start"
+            );
+            ProtocolError::InvalidValue
+        })?;
+        if config.is_some() {
+            log_warn!("Overwriting the config found in file with new server parameters provided on command line!");
+            let CliConfig::V0(c) = config.as_mut().unwrap();
+            c.ip = ip;
+            c.port = port;
+            c.peer_id = peer_id;
+        } else {
+            config = Some(CliConfig::new_v0(ip, port, peer_id));
+        }
+    }
+
+    if config.is_none() {
+        log_err!(
+            "No config found for the server to connect to. The config file is missing. 
+            You must provide NG_CLIENT_SERVER or the --server option. cannot start"
+        );
+        return Err(ProtocolError::InvalidValue);
+    }
+
+    if let Some(user) = matches.get_one::<String>("user") {
+        let privkey: PrivKey = user.as_str().try_into().map_err(|_| {
+            log_err!(
+                "NG_CLIENT_USER or the --user option is invalid. It should be a base64-url encoded 
+                 serde serialization of a [u8; 32] of a private key for a user. cannot start"
+            );
+            ProtocolError::InvalidValue
+        })?;
+        if config.is_some() {
+            let CliConfig::V0(c) = config.as_mut().unwrap();
+            if c.user.is_some() {
+                log_warn!("Overwriting the config found in file with new user parameter provided on command line!");
+            }
+            c.user = Some(privkey);
+        } else {
+            panic!("should not happen. no config and no server params. cannot set user");
+        }
+    }
+
+    let CliConfig::V0(config_v0) = config.as_ref().unwrap();
+    if config_v0.user.is_none() {
+        log_err!(
+            "No config found for the user. The config file is missing. 
+            You must provide NG_CLIENT_USER or the --user option. cannot start"
+        );
+        return Err(ProtocolError::InvalidValue);
+    }
+
+    if matches.get_flag("save_config") {
+        // saves the config to file
+        let json_string = to_string_pretty(&config).unwrap();
+        write(config_path.clone(), json_string).map_err(|e| {
+            log_err!(
+                "cannot save config to file. {}. cannot start",
+                e.to_string()
+            );
+            ProtocolError::InvalidValue
+        })?;
+        log_info!(
+            "The config file has been saved to {}",
+            config_path.to_str().unwrap()
+        );
+    }
+
+    async fn do_admin_call<
+        A: Into<ProtocolMessage>
+            + Into<AdminRequestContentV0>
+            + std::fmt::Debug
+            + Sync
+            + Send
+            + 'static,
+    >(
+        privk: [u8; 32],
+        config_v0: &CliConfigV0,
+        cmd: A,
+    ) -> Result<AdminResponseContentV0, ProtocolError> {
+        let peer_privk = PrivKey::Ed25519PrivKey(privk);
+        let peer_pubk = peer_privk.to_pub();
+        BROKER
+            .write()
+            .await
+            .admin(
+                Box::new(ConnectionWebSocket {}),
+                peer_privk,
+                peer_pubk,
+                config_v0.peer_id,
+                config_v0.user.as_ref().unwrap().to_pub(),
+                config_v0.user.as_ref().unwrap().clone(),
+                BindAddress {
+                    port: config_v0.port,
+                    ip: (&config_v0.ip).into(),
+                },
+                cmd,
+            )
+            .await
+    }
+
+    //log_debug!("{:?}", config);
+    match matches.subcommand() {
+        Some(("admin", sub_matches)) => match sub_matches.subcommand() {
+            Some(("add-user", sub2_matches)) => {
+                log_debug!("add-user");
+                let res = do_admin_call(
+                    keys[1],
+                    config_v0,
+                    AddUser::V0(AddUserV0 {
+                        user: sub2_matches
+                            .get_one::<String>("USER_ID")
+                            .unwrap()
+                            .as_str()
+                            .try_into()
+                            .map_err(|_| {
+                                log_err!("supplied USER_ID is invalid");
+                                ProtocolError::InvalidValue
+                            })?,
+                        is_admin: sub2_matches.get_flag("admin"),
+                    }),
+                )
+                .await;
+                match &res {
+                    Err(e) => log_err!("An error occurred: {e}"),
+                    Ok(_) => println!("User added successfully"),
+                }
+                return res.map(|_| ());
+            }
+            Some(("list-users", sub2_matches)) => {
+                log_debug!("list-users");
+                let admins = sub2_matches.get_flag("admin");
+                let res =
+                    do_admin_call(keys[1], config_v0, ListUsers::V0(ListUsersV0 { admins })).await;
+                match &res {
+                    Err(e) => log_err!("An error occurred: {e}"),
+                    Ok(AdminResponseContentV0::Users(list)) => {
+                        println!(
+                            "Found {} {}users",
+                            list.len(),
+                            if admins { "admin " } else { "" }
+                        );
+                        for user in list {
+                            println!("{user}");
+                        }
+                    }
+                    _ => {
+                        log_err!("Invalid response");
+                        return Err(ProtocolError::InvalidValue);
+                    }
+                }
+                return res.map(|_| ());
+            }
+            _ => panic!("shouldn't happen"),
+        },
+        _ => println!("Nothing to do."),
+    }
 
     Ok(())
 }
 
-#[cfg(test)]
-mod test {
+// #[cfg(test)]
+// mod test {
 
-    use crate::{test_local_connection, test_remote_connection};
+//     #[async_std::test]
+//     pub async fn test_local_cnx() {}
 
-    #[async_std::test]
-    pub async fn test_local_cnx() {}
+//     //test_local_connection().await;
 
-    use async_std::task;
-    use p2p_broker::server_ws::*;
-    use p2p_net::utils::gen_dh_keys;
-    use p2p_net::WS_PORT;
-    use p2p_repo::log::*;
-    use p2p_repo::types::PubKey;
+//     //test_remote_connection("ws://127.0.0.1:3012").await;
 
-    #[async_std::test]
-    pub async fn test_remote_cnx() -> Result<(), Box<dyn std::error::Error>> {
-        let keys = gen_dh_keys();
-        // log_debug!("Public key of node: {:?}", keys.1);
-        // log_debug!("Private key of node: {:?}", keys.0.as_slice());
+//     use async_std::task;
+//     use p2p_broker::server_ws::*;
+//     use p2p_net::utils::gen_dh_keys;
+//     use p2p_net::WS_PORT;
+//     use p2p_repo::log::*;
+//     use p2p_repo::types::PubKey;
 
-        log_debug!("Public key of node: {}", keys.1);
-        log_debug!("Private key of node: {}", keys.0);
-
-        let thr = task::spawn(run_server_accept_one("127.0.0.1", WS_PORT, keys.0, pubkey));
-
-        // time for the server to start
-        std::thread::sleep(std::time::Duration::from_secs(2));
-
-        test_remote_connection("ws://127.0.0.1:3012");
-
-        thr.await;
-
-        Ok(())
-    }
-}
+//     //#[async_std::test]
+// }

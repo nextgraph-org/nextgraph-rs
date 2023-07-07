@@ -11,7 +11,7 @@
 
 use crate::actors::noise::Noise;
 use crate::connection::NoiseFSM;
-use crate::types::ExtResponse;
+use crate::types::{AdminRequest, ExtResponse};
 use crate::{actor::*, errors::ProtocolError, types::ProtocolMessage};
 use async_std::sync::Mutex;
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,8 @@ use std::sync::Arc;
 pub enum StartProtocol {
     Client(ClientHello),
     Ext(ExtHello),
+    //Core(CoreHello),
+    Admin(AdminRequest),
 }
 
 impl StartProtocol {
@@ -33,13 +35,21 @@ impl StartProtocol {
         match self {
             StartProtocol::Client(a) => a.type_id(),
             StartProtocol::Ext(a) => a.type_id(),
+            StartProtocol::Admin(a) => a.type_id(),
         }
     }
     pub fn get_actor(&self) -> Box<dyn EActor> {
         match self {
             StartProtocol::Client(a) => a.get_actor(),
             StartProtocol::Ext(a) => a.get_actor(),
+            StartProtocol::Admin(a) => a.get_actor(),
         }
+    }
+}
+
+impl From<StartProtocol> for ProtocolMessage {
+    fn from(msg: StartProtocol) -> ProtocolMessage {
+        ProtocolMessage::Start(msg)
     }
 }
 
@@ -58,12 +68,6 @@ impl ExtHello {
         Actor::<ExtHello, ExtResponse>::new_responder()
     }
 }
-
-// impl BrokerRequest for ExtHello {
-//     fn send(&self) -> ProtocolMessage {
-//         ProtocolMessage::Start(StartProtocol::Ext(self.clone()))
-//     }
-// }
 
 impl From<ExtHello> for ProtocolMessage {
     fn from(msg: ExtHello) -> ProtocolMessage {

@@ -6,44 +6,6 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-#[macro_export]
-macro_rules! before {
-    ( $self:expr, $request_id:ident, $addr:ident, $receiver:ident ) => {
-        let mut actor = BrokerMessageActor::new();
-        let $receiver = actor.receiver();
-        let mut $addr = actor
-            .start()
-            .await
-            .map_err(|_e| ProtocolError::ActorError)?;
-
-        let $request_id = $addr.actor_id();
-        //log_debug!("actor ID {}", $request_id);
-
-        {
-            let mut map = $self.actors.write().expect("RwLock poisoned");
-            map.insert($request_id, $addr.downgrade());
-        }
-    };
-}
-
-macro_rules! after {
-    ( $self:expr, $request_id:ident, $addr:ident, $receiver:ident, $reply:ident ) => {
-        //log_debug!("waiting for reply");
-
-        $addr.wait_for_stop().await; // TODO add timeout and close connection if there's no reply
-        let r = $receiver.await;
-        if r.is_err() {
-            return Err(ProtocolError::Closing);
-        }
-        let $reply = r.unwrap();
-        //log_debug!("reply arrived {:?}", $reply);
-        {
-            let mut map = $self.actors.write().expect("RwLock poisoned");
-            map.remove(&$request_id);
-        }
-    };
-}
-
 #[cfg(not(target_arch = "wasm32"))]
 pub mod remote_ws;
 

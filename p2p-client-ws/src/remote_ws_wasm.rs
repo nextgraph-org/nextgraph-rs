@@ -47,7 +47,7 @@ impl IConnect for ConnectionWebSocket {
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
 
         let (mut ws, wsio) = WsMeta::connect(url, None).await.map_err(|e| {
-            //log_info!("{:?}", e);
+            //log_debug!("{:?}", e);
             NetError::ConnectionError
         })?;
 
@@ -71,7 +71,7 @@ impl IConnect for ConnectionWebSocket {
         let url = format!("ws://{}:{}", ip, port);
 
         let (mut ws, wsio) = WsMeta::connect(url, None).await.map_err(|e| {
-            //log_info!("{:?}", e);
+            //log_debug!("{:?}", e);
             ProtocolError::ConnectionError
         })?;
 
@@ -107,7 +107,7 @@ async fn ws_loop(
             select! {
                 r = stream.next().fuse() => match r {
                     Some(msg) => {
-                        log_info!("GOT MESSAGE {:?}", msg);
+                        log_debug!("GOT MESSAGE {:?}", msg);
                         if let WsMessage::Binary(b) = msg {
                             receiver.send(ConnectionCommand::Msg(serde_bare::from_slice::<ProtocolMessage>(&b)?)).await
                                     .map_err(|_e| NetError::IoError)?;
@@ -120,11 +120,11 @@ async fn ws_loop(
                 },
                 s = sender.next().fuse() => match s {
                     Some(msg) => {
-                        log_info!("SENDING MESSAGE {:?}", msg);
+                        log_debug!("SENDING MESSAGE {:?}", msg);
                         match msg {
                             ConnectionCommand::Msg(m) => {
 
-                                stream.send(WsMessage::Binary(serde_bare::to_vec(&m)?)).await.map_err(|e| { log_info!("{:?}",e); return NetError::IoError;})?;
+                                stream.send(WsMessage::Binary(serde_bare::to_vec(&m)?)).await.map_err(|e| { log_debug!("{:?}",e); return NetError::IoError;})?;
 
                             },
                             ConnectionCommand::Error(e) => {
@@ -135,6 +135,9 @@ async fn ws_loop(
                             },
                             ConnectionCommand::Close => {
                                 break;
+                            },
+                            ConnectionCommand::ReEnter => {
+                                //do nothing. loop
                             }
                         }
                     },
@@ -144,7 +147,7 @@ async fn ws_loop(
         }
         Ok(ProtocolError::NoError)
     }
-    log_info!("START of WS loop");
+    log_debug!("START of WS loop");
     let mut events = ws
         .observe(ObserveConfig::default())
         //.observe(Filter::Pointer(WsEvent::is_closed).into())
@@ -154,9 +157,9 @@ async fn ws_loop(
         Ok(proto_err) => {
             if proto_err == ProtocolError::NoError {
                 let _ = ws.close_code(1000).await; //.map_err(|_e| NetError::WsError)?;
-                log_info!("CLOSED GRACEFULLY");
+                log_debug!("CLOSED GRACEFULLY");
             } else {
-                log_info!("PROTOCOL ERR");
+                log_debug!("PROTOCOL ERR");
                 let mut code = proto_err.clone() as u16;
                 if code > 949 {
                     code = ProtocolError::OtherError as u16;
@@ -172,12 +175,12 @@ async fn ws_loop(
                 .await;
             //.map_err(|_e| NetError::WsError)?;
             //return Err(Box::new(e));
-            log_info!("ERR {:?}", e);
+            log_debug!("ERR {:?}", e);
         }
     }
 
     let last_event = events.next().await;
-    log_info!("WS closed {:?}", last_event.clone());
+    log_debug!("WS closed {:?}", last_event.clone());
     let last_command = match last_event {
         None => ConnectionCommand::Close,
         Some(WsEvent::Open) => ConnectionCommand::Error(NetError::WsError), // this should never happen
@@ -210,6 +213,6 @@ async fn ws_loop(
         .await
         .map_err(|_e| NetError::IoError)?;
 
-    log_info!("END of WS loop");
+    log_debug!("END of WS loop");
     Ok(())
 }

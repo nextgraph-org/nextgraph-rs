@@ -18,7 +18,7 @@ use p2p_net::types::*;
 use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::store::*;
 use p2p_repo::types::Timestamp;
-use serde_bare::to_vec;
+use serde_bare::{from_slice, to_vec};
 
 pub struct Account<'a> {
     /// User ID
@@ -65,7 +65,7 @@ impl<'a> Account<'a> {
             store,
         };
         if acc.exists() {
-            return Err(StorageError::BackendError);
+            return Err(StorageError::AlreadyExists);
         }
         store.put(
             Self::PREFIX,
@@ -74,6 +74,21 @@ impl<'a> Account<'a> {
             to_vec(&admin)?,
         )?;
         Ok(acc)
+    }
+    pub fn get_all_users(
+        admins: bool,
+        store: &'a dyn KCVStore,
+    ) -> Result<Vec<UserId>, StorageError> {
+        let size = to_vec(&UserId::nil())?.len();
+        let mut res: Vec<UserId> = vec![];
+        for user in store.get_all_keys_and_values(Self::PREFIX, size, Some(Self::ADMIN))? {
+            let admin: bool = from_slice(&user.1)?;
+            if admin == admins {
+                let id: UserId = from_slice(&user.0[1..user.0.len() - 1])?;
+                res.push(id);
+            }
+        }
+        Ok(res)
     }
     pub fn exists(&self) -> bool {
         self.store

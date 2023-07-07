@@ -450,6 +450,7 @@ async fn main_inner() -> Result<(), ()> {
         || args.public.is_some()
         || args.dynamic.is_some()
         || args.domain.is_some()
+        || args.domain_private.is_some()
     {
         // QUICK CONFIG
 
@@ -869,7 +870,7 @@ async fn main_inner() -> Result<(), ()> {
                 return Err(());
             }
             let pub_key_array = decode_key(parts[1])
-                .map_err(|_| log_err!("The PEERID provided in the --forward option is invalid"))?;
+                .map_err(|_| log_err!("The PEER_ID provided in the --forward option is invalid"))?;
             let peer_id = PubKey::Ed25519PubKey(pub_key_array);
 
             let server_type = if parts[0].len() > 0 {

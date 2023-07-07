@@ -11,18 +11,21 @@
 
 use std::path::PathBuf;
 
+use crate::broker_store::account::Account;
 use crate::broker_store::invitation::Invitation;
 use crate::broker_store::wallet::Wallet;
 use crate::types::*;
 use p2p_net::broker_storage::*;
+use p2p_net::errors::ProtocolError;
 use p2p_net::types::{BootstrapContentV0, InvitationCode, InvitationV0};
 use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::log::*;
 use p2p_repo::store::StorageError;
-use p2p_repo::types::SymKey;
+use p2p_repo::types::{PubKey, SymKey};
 use stores_lmdb::kcv_store::LmdbKCVStore;
 use stores_lmdb::repo_store::LmdbRepoStore;
 
+#[derive(Debug)]
 pub struct LmdbBrokerStorage {
     wallet_storage: LmdbKCVStore,
     accounts_storage: LmdbKCVStore,
@@ -94,5 +97,17 @@ impl LmdbBrokerStorage {
 }
 
 impl BrokerStorage for LmdbBrokerStorage {
-    fn get_user(&self) {}
+    fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError> {
+        log_debug!("get_user {user_id}");
+        Ok(Account::open(&user_id, &self.accounts_storage)?.is_admin()?)
+    }
+    fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError> {
+        log_debug!("add_user {user_id} is admin {is_admin}");
+        Account::create(&user_id, is_admin, &self.accounts_storage)?;
+        Ok(())
+    }
+    fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError> {
+        log_debug!("list_users that are admin == {admins}");
+        Ok(Account::get_all_users(admins, &self.accounts_storage)?)
+    }
 }

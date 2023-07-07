@@ -9,9 +9,11 @@
  * according to those terms.
 */
 
-use crate::types::*;
-use p2p_repo::kcv_store::KCVStore;
+use crate::{errors::ProtocolError, types::*};
+use p2p_repo::{kcv_store::KCVStore, types::PubKey};
 
-pub trait BrokerStorage: Send + Sync {
-    fn get_user(&self);
+pub trait BrokerStorage: Send + Sync + std::fmt::Debug {
+    fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError>;
+    fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError>;
+    fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError>;
 }

@@ -764,6 +764,7 @@ dependencies = [
  "anstyle",
  "bitflags",
  "clap_lex",
+ "once_cell",
  "strsim",
 ]
 
@@ -2816,18 +2817,28 @@ dependencies = [
 name = "ngcli"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "assert_cmd",
  "async-std",
+ "base64-url",
+ "blake3",
+ "clap",
  "ed25519-dalek",
- "fastbloom-rs",
+ "env_logger",
  "futures",
- "p2p-broker",
+ "getrandom 0.2.10",
+ "log",
  "p2p-client-ws",
  "p2p-net",
  "p2p-repo",
  "rand 0.7.3",
+ "serde",
+ "serde_bare",
+ "serde_bytes",
+ "serde_json",
  "stores-lmdb",
  "tempfile",
+ "zeroize",
 ]
 
 [[package]]
@@ -3135,7 +3146,6 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-test",
  "ws_stream_wasm",
- "xactor",
 ]
 
 [[package]]
@@ -3854,7 +3864,7 @@ dependencies = [
 [[package]]
 name = "rkv"
 version = "0.18.0"
-source = "git+https://git.nextgraph.org/NextGraph/rkv.git?rev=8f5ad79c0c93138b1bdc0a1254a7c6b4d357a5d9#8f5ad79c0c93138b1bdc0a1254a7c6b4d357a5d9"
+source = "git+https://git.nextgraph.org/NextGraph/rkv.git?rev=c746abb443b7bb4541ebbef2b71e8d0f9eb39f6a#c746abb443b7bb4541ebbef2b71e8d0f9eb39f6a"
 dependencies = [
  "arrayref",
  "bincode",
@@ -5920,33 +5930,6 @@ dependencies = [
  "rand_core 0.6.4",
  "serde",
  "zeroize",
-]
-
-[[package]]
-name = "xactor"
-version = "0.7.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a5297548253bd91993bedcc70ae166e64b3fab5ded1965055b2a450777870ff"
-dependencies = [
- "anyhow",
- "async-std",
- "async-trait",
- "fnv",
- "futures",
- "once_cell",
- "slab",
- "xactor-derive",
-]
-
-[[package]]
-name = "xactor-derive"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce65a6e78fedf06f36b8e7b3154175226fad605971f535062339c05f5caecbed"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]

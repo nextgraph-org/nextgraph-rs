@@ -31,13 +31,13 @@ pub type SetupHook = Box<dyn FnOnce(&mut App) -> Result<(), Box<dyn std::error::
 
 #[tauri::command(rename_all = "snake_case")]
 async fn test() -> Result<(), ()> {
-    log_info!("test is {}", BROKER.read().await.test());
+    log_debug!("test is {}", BROKER.read().await.test());
     Ok(())
 }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn wallet_gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> Result<ShuffledPazzle, ()> {
-    log_info!(
+    log_debug!(
         "wallet_gen_shuffle_for_pazzle_opening from rust {}",
         pazzle_length
     );
@@ -46,7 +46,7 @@ async fn wallet_gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> Result<Shuf
 
 #[tauri::command(rename_all = "snake_case")]
 async fn wallet_gen_shuffle_for_pin() -> Result<Vec<u8>, ()> {
-    log_info!("wallet_gen_shuffle_for_pin from rust");
+    log_debug!("wallet_gen_shuffle_for_pin from rust");
     Ok(gen_shuffle_for_pin())
 }
 
@@ -56,13 +56,13 @@ async fn wallet_open_wallet_with_pazzle(
     pazzle: Vec<u8>,
     pin: [u8; 4],
 ) -> Result<EncryptedWallet, String> {
-    log_info!("wallet_open_wallet_with_pazzle from rust {:?}", pazzle);
+    log_debug!("wallet_open_wallet_with_pazzle from rust {:?}", pazzle);
     open_wallet_with_pazzle(wallet, pazzle, pin).map_err(|e| e.to_string())
 }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn wallet_create_wallet(mut params: CreateWalletV0) -> Result<CreateWalletResultV0, String> {
-    //log_info!("wallet_create_wallet from rust {:?}", params);
+    //log_debug!("wallet_create_wallet from rust {:?}", params);
     params.result_with_wallet_file = false;
     let local_save = params.local_save;
     let res = create_wallet_v0(params).await.map_err(|e| e.to_string());
@@ -78,13 +78,13 @@ async fn wallet_create_wallet(mut params: CreateWalletV0) -> Result<CreateWallet
 
 #[tauri::command(rename_all = "snake_case")]
 async fn encode_create_account(payload: CreateAccountBSP) -> Result<String, ()> {
-    log_info!("{:?}", payload);
+    log_debug!("{:?}", payload);
     payload.encode().ok_or(())
 }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn doc_sync_branch(nuri: &str, stream_id: &str, app: tauri::AppHandle) -> Result<(), ()> {
-    log_info!("doc_sync_branch {} {}", nuri, stream_id);
+    log_debug!("doc_sync_branch {} {}", nuri, stream_id);
     let main_window = app.get_window("main").unwrap();
 
     let mut reader;
@@ -107,7 +107,7 @@ async fn doc_sync_branch(nuri: &str, stream_id: &str, app: tauri::AppHandle) -> 
 
         BROKER.write().await.tauri_stream_cancel(stream_id);
 
-        log_info!("END OF LOOP");
+        log_debug!("END OF LOOP");
         Ok(())
     }
 
@@ -118,7 +118,7 @@ async fn doc_sync_branch(nuri: &str, stream_id: &str, app: tauri::AppHandle) -> 
 
 #[tauri::command(rename_all = "snake_case")]
 async fn cancel_doc_sync_branch(stream_id: &str) -> Result<(), ()> {
-    log_info!("cancel stream {}", stream_id);
+    log_debug!("cancel stream {}", stream_id);
     BROKER
         .write()
         .await
@@ -131,7 +131,7 @@ async fn doc_get_file_from_store_with_object_ref(
     nuri: &str,
     obj_ref: ObjectRef,
 ) -> Result<ObjectContent, String> {
-    log_info!(
+    log_debug!(
         "doc_get_file_from_store_with_object_ref {} {:?}",
         nuri,
         obj_ref
