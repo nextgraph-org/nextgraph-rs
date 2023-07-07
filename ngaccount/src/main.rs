@@ -75,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
     let addr: Vec<&str> = server_address.split(',').collect();
     if addr.len() != 3 {
         return Err(anyhow!(
-            "NG_ACCOUNT_SERVER is invalid. format is IP,PORT,PEERID"
+            "NG_ACCOUNT_SERVER is invalid. format is IP,PORT,PEER_ID"
         ));
     }
     let ip: IP = addr[0].into();

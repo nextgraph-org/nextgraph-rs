@@ -16,5 +16,5 @@ hex = "0.4.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.rkv]
 git = "https://git.nextgraph.org/NextGraph/rkv.git"
-rev = "8f5ad79c0c93138b1bdc0a1254a7c6b4d357a5d9"
+rev = "c746abb443b7bb4541ebbef2b71e8d0f9eb39f6a"
 features = [ "lmdb" ]

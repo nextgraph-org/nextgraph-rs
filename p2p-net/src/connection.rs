@@ -11,6 +11,7 @@
 
 //static NOISE_CONFIG: &'static str = "Noise_XK_25519_ChaChaPoly_BLAKE2b";
 
+use std::any::TypeId;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
@@ -45,6 +46,16 @@ pub enum ConnectionCommand {
     Error(NetError),
     ProtocolError(ProtocolError),
     Close,
+    ReEnter,
+}
+
+impl ConnectionCommand {
+    pub fn is_re_enter(&self) -> bool {
+        match self {
+            Self::ReEnter => true,
+            _ => false,
+        }
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -96,7 +107,8 @@ pub enum FSMstate {
     Noise0, // unused
     Noise1,
     Noise2,
-    Noise3, // unused
+    Noise3,
+    AdminRequest,
     ExtRequest,
     ExtResponse,
     ClientHello,
@@ -141,9 +153,10 @@ pub enum StepReply {
     Response(ProtocolMessage),
     NONE,
     CloseNow,
+    ReEnter,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ClientConfig {
     pub url: String,
     pub user: PubKey,
@@ -153,19 +166,24 @@ pub struct ClientConfig {
     pub info: ClientInfo,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ExtConfig {}
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct CoreConfig {
     pub addr: BindAddress,
     pub interface: String,
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct AdminConfig {}
+#[derive(Debug, Clone)]
+pub struct AdminConfig {
+    pub user: PubKey,
+    pub user_priv: PrivKey,
+    pub addr: BindAddress,
+    pub request: AdminRequestContentV0,
+}
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum StartConfig {
     Probe,
     Relay(BindAddress),
@@ -179,6 +197,7 @@ impl StartConfig {
     pub fn get_url(&self) -> String {
         match self {
             Self::Client(config) => config.url.clone(),
+            Self::Admin(config) => format!("ws://{}:{}", config.addr.ip, config.addr.port),
             Self::Core(config) => format!("ws://{}:{}", config.addr.ip, config.addr.port),
             _ => unimplemented!(),
         }
@@ -187,6 +206,12 @@ impl StartConfig {
         match self {
             Self::Client(config) => Some(config.user),
             _ => None,
+        }
+    }
+    pub fn is_keep_alive(&self) -> bool {
+        match self {
+            StartConfig::Core(_) | StartConfig::Client(_) => true,
+            _ => false,
         }
     }
 }
@@ -313,11 +338,33 @@ impl NoiseFSM {
         return Ok(StepReply::NONE);
     }
 
+    fn process_server_noise3(&mut self, noise: &Noise) -> Result<(), ProtocolError> {
+        let handshake = self.noise_handshake_state.as_mut().unwrap();
+
+        let _ = handshake
+            .read_message_vec(noise.data())
+            .map_err(|e| ProtocolError::NoiseHandshakeFailed)?;
+
+        if !handshake.completed() {
+            return Err(ProtocolError::NoiseHandshakeFailed);
+        }
+        let peer_id = handshake.get_rs().unwrap();
+        self.remote = Some(PubKey::X25519PubKey(peer_id));
+
+        let ciphers = handshake.get_ciphers();
+        self.noise_cipher_state_enc = Some(ciphers.1);
+        self.noise_cipher_state_dec = Some(ciphers.0);
+
+        self.noise_handshake_state = None;
+
+        Ok(())
+    }
+
     pub async fn step(
         &mut self,
         mut msg_opt: Option<ProtocolMessage>,
     ) -> Result<StepReply, ProtocolError> {
-        if self.noise_cipher_state_dec.is_some() {
+        if self.noise_cipher_state_dec.is_some() && msg_opt.is_some() {
             if let Some(ProtocolMessage::Noise(noise)) = msg_opt.as_ref() {
                 let new = self.decrypt(noise)?;
                 msg_opt.replace(new);
@@ -326,7 +373,11 @@ impl NoiseFSM {
             }
         }
         if msg_opt.is_some() {
-            log_debug!("RECEIVED: {:?}", msg_opt.as_ref().unwrap());
+            log_debug!(
+                "RECEIVED: {:?} in state {:?}",
+                msg_opt.as_ref().unwrap(),
+                self.state
+            );
         }
         match self.state {
             FSMstate::Closing => {}
@@ -413,8 +464,7 @@ impl NoiseFSM {
                                         .authorize(
                                             &self
                                                 .bind_addresses
-                                                .ok_or(ProtocolError::BrokerError)?
-                                                .1,
+                                                .ok_or(ProtocolError::BrokerError)?,
                                             Authorization::Discover,
                                         )
                                         .is_ok()
@@ -492,6 +542,7 @@ impl NoiseFSM {
 
                             let ciphers = handshake.get_ciphers();
 
+                            let mut next_step = StepReply::NONE;
                             match self.config.as_ref().unwrap() {
                                 StartConfig::Client(client_config) => {
                                     let noise3 =
@@ -506,7 +557,10 @@ impl NoiseFSM {
                                     todo!();
                                 }
                                 StartConfig::Admin(admin_config) => {
-                                    todo!();
+                                    let noise = Noise::V0(NoiseV0 { data: payload });
+                                    self.send(noise.into()).await?;
+                                    self.state = FSMstate::Noise3;
+                                    next_step = StepReply::ReEnter;
                                 }
                                 _ => return Err(ProtocolError::InvalidState),
                             }
@@ -516,7 +570,7 @@ impl NoiseFSM {
 
                             self.noise_handshake_state = None;
 
-                            return Ok(StepReply::NONE);
+                            return Ok(next_step);
                         }
                     }
                 }
@@ -529,23 +583,7 @@ impl NoiseFSM {
                             noise,
                         ))) = msg
                         {
-                            let handshake = self.noise_handshake_state.as_mut().unwrap();
-
-                            let _ = handshake
-                                .read_message_vec(noise.data())
-                                .map_err(|e| ProtocolError::NoiseHandshakeFailed)?;
-
-                            if !handshake.completed() {
-                                return Err(ProtocolError::NoiseHandshakeFailed);
-                            }
-                            let peer_id = handshake.get_rs().unwrap();
-                            self.remote = Some(PubKey::X25519PubKey(peer_id));
-
-                            let ciphers = handshake.get_ciphers();
-                            self.noise_cipher_state_enc = Some(ciphers.1);
-                            self.noise_cipher_state_dec = Some(ciphers.0);
-
-                            self.noise_handshake_state = None;
+                            self.process_server_noise3(noise)?;
 
                             let mut nonce_buf = [0u8; 32];
                             getrandom::getrandom(&mut nonce_buf).unwrap();
@@ -560,11 +598,94 @@ impl NoiseFSM {
                             self.send(server_hello.into()).await?;
 
                             return Ok(StepReply::NONE);
+                        } else if let ProtocolMessage::Noise(noise) = msg {
+                            self.process_server_noise3(noise)?;
+
+                            self.state = FSMstate::Noise3;
+
+                            return Ok(StepReply::NONE);
                         }
                     }
                 }
             }
-            FSMstate::Noise3 => {}
+            FSMstate::Noise3 => {
+                // CLIENT after Noise3, sending StartProtocol
+                if msg_opt.is_none() && !self.dir.is_server() {
+                    match self.config.as_ref().unwrap() {
+                        StartConfig::Client(_) => {
+                            return Err(ProtocolError::InvalidState);
+                        }
+                        StartConfig::Ext(ext_config) => {
+                            todo!();
+                        }
+                        StartConfig::Core(core_config) => {
+                            todo!();
+                        }
+                        StartConfig::Admin(admin_config) => {
+                            let ser = serde_bare::to_vec(&admin_config.request)?;
+                            let sig = sign(&admin_config.user_priv, &admin_config.user, &ser)?;
+                            let admin_req = AdminRequestV0 {
+                                content: admin_config.request.clone(),
+                                id: 0,
+                                sig,
+                                admin_user: admin_config.user,
+                                padding: vec![],
+                            };
+                            let protocol_start = StartProtocol::Admin(AdminRequest::V0(admin_req));
+
+                            self.send(protocol_start.into()).await?;
+                            self.state = FSMstate::AdminRequest;
+
+                            return Ok(StepReply::NONE);
+                        }
+                        _ => return Err(ProtocolError::InvalidState),
+                    }
+                } else if self.dir.is_server() {
+                    // SERVER after Noise3, receives StartProtocol
+                    #[cfg(not(target_arch = "wasm32"))]
+                    if let Some(ProtocolMessage::Start(start_msg)) = msg_opt.as_ref() {
+                        match start_msg {
+                            StartProtocol::Client(_) => {
+                                return Err(ProtocolError::InvalidState);
+                            }
+                            StartProtocol::Ext(ext_config) => {
+                                todo!();
+                            }
+                            // StartProtocol::Core(core_config) => {
+                            //     todo!();
+                            // }
+                            StartProtocol::Admin(AdminRequest::V0(req)) => {
+                                BROKER.read().await.authorize(
+                                    &self.bind_addresses.ok_or(ProtocolError::BrokerError)?,
+                                    Authorization::Admin(req.admin_user),
+                                )?;
+
+                                // PROCESS AdminRequest and send back AdminResponse
+                                let ser = serde_bare::to_vec(&req.content)?;
+
+                                let verif = verify(&ser, req.sig, req.admin_user);
+                                if verif.is_err() {
+                                    let result: ProtocolError = verif.unwrap_err().into();
+                                    return Err(result);
+                                } else {
+                                    self.state = FSMstate::Closing;
+                                    return Ok(StepReply::Responder(msg_opt.unwrap()));
+                                }
+                            }
+                            _ => return Err(ProtocolError::InvalidState),
+                        }
+                    }
+                }
+            }
+            FSMstate::AdminRequest => {
+                // CLIENT side receiving AdminResponse
+                if let Some(msg) = msg_opt {
+                    if self.dir.is_server() || msg.type_id() != TypeId::of::<AdminResponse>() {
+                        return Err(ProtocolError::InvalidState);
+                    }
+                    return Ok(StepReply::Response(msg));
+                }
+            }
             FSMstate::ExtRequest => {}
             FSMstate::ExtResponse => {}
             FSMstate::ClientHello => {
@@ -584,10 +705,10 @@ impl NoiseFSM {
                                 };
                                 let ser = serde_bare::to_vec(&content)?;
                                 let sig =
-                                    sign(&client_config.client_priv, &client_config.client, &ser)?;
+                                    sign(&client_config.user_priv, &client_config.user, &ser)?;
                                 let client_auth = ClientAuth::V0(ClientAuthV0 {
                                     content,
-                                    /// Signature by client key
+                                    /// Signature by user key
                                     sig,
                                 });
 
@@ -613,7 +734,7 @@ impl NoiseFSM {
                             let ser = serde_bare::to_vec(&client_auth.content_v0())?;
 
                             let mut result = ProtocolError::NoError;
-                            let verif = verify(&ser, client_auth.sig(), client_auth.client());
+                            let verif = verify(&ser, client_auth.sig(), client_auth.user());
                             if verif.is_err() {
                                 result = verif.unwrap_err().into();
                             } else {
@@ -641,7 +762,7 @@ impl NoiseFSM {
                             if (result.is_err()) {
                                 return Err(result);
                             }
-                            log_info!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the server side");
+                            log_debug!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the server side");
                             self.state = FSMstate::AuthResult;
                             return Ok(StepReply::NONE);
                         }
@@ -661,7 +782,7 @@ impl NoiseFSM {
 
                                 self.state = FSMstate::AuthResult;
 
-                                log_info!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the client side");
+                                log_debug!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the client side");
 
                                 return Ok(StepReply::NONE);
                             }
@@ -671,6 +792,9 @@ impl NoiseFSM {
             }
             FSMstate::AuthResult => {
                 if let Some(msg) = msg_opt {
+                    if msg.type_id() != TypeId::of::<ClientMessage>() {
+                        return Err(ProtocolError::AccessDenied);
+                    }
                     let id = msg.id();
                     if self.dir.is_server() && id > 0 || !self.dir.is_server() && id < 0 {
                         return Ok(StepReply::Responder(msg));
@@ -773,6 +897,7 @@ impl ConnectionBase {
     }
 
     async fn read_loop(
+        mut receiver_tx: Sender<ConnectionCommand>,
         mut receiver: Receiver<ConnectionCommand>,
         mut sender: Sender<ConnectionCommand>,
         actors: Arc<Mutex<HashMap<i64, Sender<ConnectionCommand>>>>,
@@ -783,15 +908,29 @@ impl ConnectionBase {
                 ConnectionCommand::Close
                 | ConnectionCommand::Error(_)
                 | ConnectionCommand::ProtocolError(_) => {
-                    log_info!("EXIT READ LOOP because : {:?}", msg);
+                    log_debug!("EXIT READ LOOP because : {:?}", msg);
+                    let mut lock = actors.lock().await;
+                    for actor in lock.values_mut() {
+                        actor.send(msg.clone()).await;
+                    }
                     break;
                 }
-                ConnectionCommand::Msg(proto_msg) => {
+                _ => {
                     let res;
-                    {
-                        let mut locked_fsm = fsm.lock().await;
-                        res = locked_fsm.step(Some(proto_msg)).await;
+                    if let ConnectionCommand::Msg(proto_msg) = msg {
+                        {
+                            let mut locked_fsm = fsm.lock().await;
+                            res = locked_fsm.step(Some(proto_msg)).await;
+                        }
+                    } else if msg.is_re_enter() {
+                        {
+                            let mut locked_fsm = fsm.lock().await;
+                            res = locked_fsm.step(None).await;
+                        }
+                    } else {
+                        panic!("shouldn't be here. ConnectionCommand is read_loop can only have 5 different variants")
                     }
+
                     match res {
                         Err(e) => {
                             if sender
@@ -805,6 +944,9 @@ impl ConnectionBase {
                         Ok(StepReply::CloseNow) => {
                             let _ = sender.send(ConnectionCommand::Close).await;
                             break;
+                        }
+                        Ok(StepReply::ReEnter) => {
+                            let _ = receiver_tx.send(ConnectionCommand::ReEnter).await;
                         }
                         Ok(StepReply::NONE) => {}
                         Ok(StepReply::Responder(responder)) => {
@@ -852,7 +994,11 @@ impl ConnectionBase {
                 }
             }
         }
-        log_info!("END OF READ LOOP");
+        log_debug!("END OF READ LOOP");
+        let mut lock = actors.lock().await;
+        for actor in lock.drain() {
+            actor.1.close_channel();
+        }
         Ok(())
     }
 
@@ -895,8 +1041,49 @@ impl ConnectionBase {
     // }
 
     pub async fn close(&mut self) {
-        log_info!("closing...");
+        log_debug!("closing...");
         self.send(ConnectionCommand::Close).await;
+    }
+
+    pub async fn admin<
+        A: Into<ProtocolMessage>
+            + Into<AdminRequestContentV0>
+            + std::fmt::Debug
+            + Sync
+            + Send
+            + 'static,
+    >(
+        &mut self,
+    ) -> Result<AdminResponseContentV0, ProtocolError> {
+        if !self.dir.is_server() {
+            let mut actor = Box::new(Actor::<A, AdminResponse>::new(0, true));
+            self.actors.lock().await.insert(0, actor.get_receiver_tx());
+
+            let mut receiver = actor.detach_receiver();
+            match receiver.next().await {
+                Some(ConnectionCommand::Msg(msg)) => {
+                    self.fsm
+                        .as_ref()
+                        .unwrap()
+                        .lock()
+                        .await
+                        .remove_actor(0)
+                        .await;
+                    let response: AdminResponse = msg.try_into()?;
+                    self.close().await;
+                    if response.result() == 0 {
+                        return Ok(response.content_v0());
+                    }
+                    Err(ProtocolError::try_from(response.result()).unwrap())
+                }
+                Some(ConnectionCommand::ProtocolError(e)) => Err(e),
+                Some(ConnectionCommand::Error(e)) => Err(e.into()),
+                Some(ConnectionCommand::Close) => Err(ProtocolError::Closing),
+                _ => Err(ProtocolError::ActorError),
+            }
+        } else {
+            panic!("cannot call probe on a server-side connection");
+        }
     }
 
     pub async fn probe(&mut self) -> Result<Option<PubKey>, ProtocolError> {
@@ -984,7 +1171,7 @@ impl ConnectionBase {
         self.sender = Some(sender_rx);
         self.receiver = Some(receiver_tx.clone());
         self.sender_tx = Some(sender_tx.clone());
-        self.receiver_tx = Some(receiver_tx);
+        self.receiver_tx = Some(receiver_tx.clone());
 
         let fsm = Arc::new(Mutex::new(NoiseFSM::new(
             bind_addresses,
@@ -998,6 +1185,7 @@ impl ConnectionBase {
         self.fsm = Some(Arc::clone(&fsm));
 
         spawn_and_log_error(Self::read_loop(
+            receiver_tx,
             receiver_rx,
             sender_tx,
             Arc::clone(&self.actors),
@@ -1019,14 +1207,14 @@ mod test {
 
     #[async_std::test]
     pub async fn test_typeid() {
-        log_info!(
+        log_debug!(
             "{:?}",
             ClientHello::Noise3(Noise::V0(NoiseV0 { data: vec![] })).type_id()
         );
         let a = Noise::V0(NoiseV0 { data: [].to_vec() });
-        log_info!("{:?}", a.type_id());
-        log_info!("{:?}", TypeId::of::<Noise>());
-        log_info!("{:?}", ClientHello::Local.type_id());
-        log_info!("{:?}", TypeId::of::<ClientHello>());
+        log_debug!("{:?}", a.type_id());
+        log_debug!("{:?}", TypeId::of::<Noise>());
+        log_debug!("{:?}", ClientHello::Local.type_id());
+        log_debug!("{:?}", TypeId::of::<ClientHello>());
     }
 }

@@ -120,7 +120,7 @@ impl<
         let mut receiver = self.receiver.take().unwrap();
         match receiver.next().await {
             Some(ConnectionCommand::Msg(msg)) => {
-                if let ProtocolMessage::BrokerMessage(ref bm) = msg {
+                if let ProtocolMessage::ClientMessage(ref bm) = msg {
                     if bm.result() == Into::<u16>::into(ProtocolError::PartialContent)
                         && TypeId::of::<B>() != TypeId::of::<()>()
                     {
@@ -140,7 +140,7 @@ impl<
                                 while let Some(ConnectionCommand::Msg(msg)) =
                                     actor_receiver.next().await
                                 {
-                                    if let ProtocolMessage::BrokerMessage(ref bm) = msg {
+                                    if let ProtocolMessage::ClientMessage(ref bm) = msg {
                                         if bm.result()
                                             == Into::<u16>::into(ProtocolError::EndOfStream)
                                         {
@@ -155,7 +155,7 @@ impl<
                                             break;
                                         }
                                     } else {
-                                        // todo deal with error (not a brokermessage)
+                                        // todo deal with error (not a ClientMessage)
                                         break;
                                     }
                                 }
@@ -177,6 +177,9 @@ impl<
                 let response: B = msg.try_into()?;
                 Ok(SoS::<B>::Single(response))
             }
+            Some(ConnectionCommand::ProtocolError(e)) => Err(e),
+            Some(ConnectionCommand::Error(e)) => Err(e.into()),
+            Some(ConnectionCommand::Close) => Err(ProtocolError::Closing),
             _ => Err(ProtocolError::ActorError),
         }
     }

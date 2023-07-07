@@ -120,6 +120,9 @@ impl PubKey {
             _ => panic!("can only convert an edward key to montgomery"),
         }
     }
+    pub fn nil() -> Self {
+        PubKey::Ed25519PubKey([0u8; 32])
+    }
 }
 
 impl fmt::Display for PubKey {
@@ -190,11 +193,26 @@ impl TryFrom<&[u8]> for PrivKey {
     }
 }
 
+impl TryFrom<&str> for PrivKey {
+    type Error = NgError;
+    fn try_from(str: &str) -> Result<Self, NgError> {
+        let key = decode_key(str).map_err(|_| NgError::InvalidKey)?;
+        Ok(PrivKey::Ed25519PrivKey(key))
+    }
+}
+
 impl fmt::Display for PrivKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let priv_key_ser = serde_bare::to_vec(self).unwrap();
-        let prix_key_encoded = base64_url::encode(&priv_key_ser);
-        write!(f, "{}", prix_key_encoded)
+        match self {
+            Self::Ed25519PrivKey(ed) => {
+                //let priv_key_ser = serde_bare::to_vec(ed).unwrap();
+                let prix_key_encoded = base64_url::encode(ed);
+                write!(f, "{}", prix_key_encoded)
+            }
+            _ => {
+                unimplemented!();
+            }
+        }
     }
 }
 

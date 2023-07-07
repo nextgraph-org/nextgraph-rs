@@ -59,6 +59,14 @@ pub struct DirectConnection {
     cnx: ConnectionBase,
 }
 
+#[derive(Debug)]
+pub struct ServerConfig {
+    pub overlays_configs: Vec<BrokerOverlayConfigV0>,
+    pub registration: RegistrationConfig,
+    pub admin_user: Option<PubKey>,
+    pub peer_id: PubKey,
+}
+
 pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new(Broker::new())));
 
 pub struct Broker<'a> {
@@ -70,11 +78,10 @@ pub struct Broker<'a> {
     #[cfg(not(target_arch = "wasm32"))]
     listeners: HashMap<String, ListenerInfo>,
     bind_addresses: HashMap<BindAddress, String>,
-    overlays_configs: Vec<BrokerOverlayConfigV0>,
+    config: Option<ServerConfig>,
     shutdown: Option<Receiver<ProtocolError>>,
     shutdown_sender: Sender<ProtocolError>,
     closing: bool,
-    my_peer_id: Option<PubKey>,
     storage: Option<Box<dyn BrokerStorage + Send + Sync + 'a>>,
 
     test: u32,
@@ -97,14 +104,17 @@ impl<'a> Broker<'a> {
         }
     }
 
-    pub fn set_my_peer_id(&mut self, id: PubKey) {
-        if self.my_peer_id.is_none() {
-            self.my_peer_id = Some(id)
-        }
+    pub fn get_config(&self) -> Option<&ServerConfig> {
+        self.config.as_ref()
     }
 
     pub fn set_storage(&mut self, storage: impl BrokerStorage + 'a) {
+        //log_debug!("set_storage");
         self.storage = Some(Box::new(storage));
+    }
+
+    pub fn set_server_config(&mut self, config: ServerConfig) {
+        self.config = Some(config);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -125,24 +135,29 @@ impl<'a> Broker<'a> {
         (copy_listeners, copy_bind_addresses)
     }
 
+    pub fn get_storage(&self) -> Result<&Box<dyn BrokerStorage + Send + Sync + 'a>, ProtocolError> {
+        //log_debug!("GET STORAGE {:?}", self.storage);
+        self.storage.as_ref().ok_or(ProtocolError::BrokerError)
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     pub fn authorize(
         &self,
-        remote_bind_address: &BindAddress,
+        bind_addresses: &(BindAddress, BindAddress),
         auth: Authorization,
     ) -> Result<(), ProtocolError> {
+        let listener_id = self
+            .bind_addresses
+            .get(&bind_addresses.0)
+            .ok_or(ProtocolError::BrokerError)?;
+        let listener = self
+            .listeners
+            .get(listener_id)
+            .ok_or(ProtocolError::BrokerError)?;
         match auth {
             Authorization::Discover => {
-                let listener_id = self
-                    .bind_addresses
-                    .get(remote_bind_address)
-                    .ok_or(ProtocolError::BrokerError)?;
-                let listener = self
-                    .listeners
-                    .get(listener_id)
-                    .ok_or(ProtocolError::BrokerError)?;
                 if listener.config.discoverable
-                    && remote_bind_address.ip.is_private()
+                    && bind_addresses.1.ip.is_private()
                     && listener.config.accept_forward_for.is_no()
                 {
                     Ok(())
@@ -153,14 +168,35 @@ impl<'a> Broker<'a> {
             Authorization::ExtMessage => Err(ProtocolError::AccessDenied),
             Authorization::Client(user) => Err(ProtocolError::AccessDenied),
             Authorization::Core => Err(ProtocolError::AccessDenied),
-            Authorization::Admin(_) => Err(ProtocolError::AccessDenied),
+            Authorization::Admin(admin_user) => {
+                if listener.config.accepts_client() {
+                    if let Some(ServerConfig {
+                        admin_user: Some(admin),
+                        ..
+                    }) = self.config
+                    {
+                        if admin == admin_user {
+                            return Ok(());
+                        }
+                    }
+                    let found = self.get_storage()?.get_user(admin_user);
+                    if found.is_ok() && found.unwrap() {
+                        return Ok(());
+                    }
+                }
+                Err(ProtocolError::AccessDenied)
+            }
             Authorization::OverlayJoin(_) => Err(ProtocolError::AccessDenied),
         }
     }
 
-    pub fn set_overlays_configs(&mut self, overlays_configs: Vec<BrokerOverlayConfigV0>) {
-        self.overlays_configs.extend(overlays_configs)
-    }
+    // pub fn add_user(&self, user: PubKey, is_admin: bool) -> Result<(), ProtocolError> {
+    //     self.get_storage()?.add_user(user, is_admin)
+    // }
+
+    // pub fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError> {
+    //     self.get_storage()?.list_users(admins)
+    // }
 
     pub async fn get_block_from_store_with_block_id(
         &mut self,
@@ -171,7 +207,7 @@ impl<'a> Broker<'a> {
         // TODO
         let (mut tx, rx) = mpsc::unbounded::<Block>();
 
-        //log_info!("cur {}", std::env::current_dir().unwrap().display());
+        //log_debug!("cur {}", std::env::current_dir().unwrap().display());
 
         //Err(ProtocolError::AccessDenied)
         // let f = std::fs::File::open(
@@ -243,10 +279,10 @@ impl<'a> Broker<'a> {
         .unwrap();
         async fn send(mut tx: Sender<Commit>, commit: Commit) -> ResultSend<()> {
             while let Ok(_) = tx.send(commit.clone()).await {
-                log_info!("sending");
+                log_debug!("sending");
                 sleep!(std::time::Duration::from_secs(3));
             }
-            log_info!("end of sending");
+            log_debug!("end of sending");
             Ok(())
         }
         spawn_and_log_error(send(tx.clone(), commit));
@@ -310,7 +346,7 @@ impl<'a> Broker<'a> {
             #[cfg(not(target_arch = "wasm32"))]
             listeners: HashMap::new(),
             bind_addresses: HashMap::new(),
-            overlays_configs: vec![],
+            config: None,
             shutdown: Some(shutdown_receiver),
             shutdown_sender,
             direct_connections: HashMap::new(),
@@ -318,7 +354,6 @@ impl<'a> Broker<'a> {
             tauri_streams: HashMap::new(),
             closing: false,
             test: u32::from_be_bytes(random_buf),
-            my_peer_id: None,
             storage: None,
         }
     }
@@ -346,7 +381,7 @@ impl<'a> Broker<'a> {
         async fn timer_shutdown(timeout: std::time::Duration) -> ResultSend<()> {
             async move {
                 sleep!(timeout);
-                log_info!("timeout for shutdown");
+                log_debug!("timeout for shutdown");
                 let _ = BROKER
                     .write()
                     .await
@@ -435,11 +470,11 @@ impl<'a> Broker<'a> {
                 match res {
                     Some(Either::Right(remote_peer_id)) => {
                         let res = join.next().await;
-                        log_info!("SOCKET IS CLOSED {:?} peer_id: {:?}", res, remote_peer_id);
+                        log_debug!("SOCKET IS CLOSED {:?} peer_id: {:?}", res, remote_peer_id);
                         BROKER.write().await.remove_peer_id(remote_peer_id, None);
                     }
                     _ => {
-                        log_info!(
+                        log_debug!(
                             "SOCKET IS CLOSED {:?} remote: {:?} local: {:?}",
                             res,
                             remote_bind_address,
@@ -545,6 +580,45 @@ impl<'a> Broker<'a> {
         cnx.probe(ip, port).await
     }
 
+    pub async fn admin<
+        A: Into<ProtocolMessage>
+            + Into<AdminRequestContentV0>
+            + std::fmt::Debug
+            + Sync
+            + Send
+            + 'static,
+    >(
+        &mut self,
+        cnx: Box<dyn IConnect>,
+        peer_privk: PrivKey,
+        peer_pubk: PubKey,
+        remote_peer_id: DirectPeerId,
+        user: PubKey,
+        user_priv: PrivKey,
+        addr: BindAddress,
+        request: A,
+    ) -> Result<AdminResponseContentV0, ProtocolError> {
+        let config = StartConfig::Admin(AdminConfig {
+            user,
+            user_priv,
+            addr,
+            request: request.into(),
+        });
+        let remote_peer_id_dh = remote_peer_id.to_dh_from_ed();
+
+        let mut connection = cnx
+            .open(
+                config.get_url(),
+                peer_privk.clone(),
+                peer_pubk,
+                remote_peer_id_dh,
+                config.clone(),
+            )
+            .await?;
+
+        connection.admin::<A>().await
+    }
+
     pub async fn connect(
         &mut self,
         cnx: Box<dyn IConnect>,
@@ -557,19 +631,22 @@ impl<'a> Broker<'a> {
             return Err(NetError::Closing);
         }
 
-        log_info!("CONNECTING");
+        log_debug!("CONNECTING");
         let remote_peer_id_dh = remote_peer_id.to_dh_from_ed();
 
-        let already = self
-            .peers
-            .get(&(config.get_user(), *remote_peer_id_dh.slice()));
-        if already.is_some() {
-            match already.unwrap().connected {
-                PeerConnection::NONE => {}
-                _ => {
-                    return Err(NetError::PeerAlreadyConnected);
-                }
-            };
+        // checking if already connected
+        if config.is_keep_alive() {
+            let already = self
+                .peers
+                .get(&(config.get_user(), *remote_peer_id_dh.slice()));
+            if already.is_some() {
+                match already.unwrap().connected {
+                    PeerConnection::NONE => {}
+                    _ => {
+                        return Err(NetError::PeerAlreadyConnected);
+                    }
+                };
+            }
         }
 
         let mut connection = cnx
@@ -581,6 +658,10 @@ impl<'a> Broker<'a> {
                 config.clone(),
             )
             .await?;
+
+        if !config.is_keep_alive() {
+            return Ok(());
+        }
 
         let join = connection.take_shutdown();
 
@@ -618,7 +699,7 @@ impl<'a> Broker<'a> {
         ) -> ResultSend<()> {
             async move {
                 let res = join.next().await;
-                log_info!("SOCKET IS CLOSED {:?} {:?}", res, remote_peer_id);
+                log_debug!("SOCKET IS CLOSED {:?} {:?}", res, remote_peer_id);
                 if res.is_some()
                     && res.as_ref().unwrap().is_left()
                     && res.unwrap().unwrap_left() != NetError::Closing
@@ -630,10 +711,10 @@ impl<'a> Broker<'a> {
                     // let result = broker
                     //     .connect(cnx, ip, core, peer_pubk, peer_privk, remote_peer_id)
                     //     .await;
-                    // log_info!("SOCKET RECONNECTION {:?} {:?}", result, &remote_peer_id);
+                    // log_debug!("SOCKET RECONNECTION {:?} {:?}", result, &remote_peer_id);
                     // TODO: deal with error and incremental backoff
                 } else {
-                    log_info!("REMOVED");
+                    log_debug!("REMOVED");
                     BROKER
                         .write()
                         .await
@@ -690,13 +771,13 @@ impl<'a> Broker<'a> {
 
     pub fn print_status(&self) {
         self.peers.iter().for_each(|(peerId, peerInfo)| {
-            log_info!("PEER in BROKER {:?} {:?}", peerId, peerInfo);
+            log_debug!("PEER in BROKER {:?} {:?}", peerId, peerInfo);
         });
         self.direct_connections.iter().for_each(|(ip, directCnx)| {
-            log_info!("direct_connection in BROKER {:?} {:?}", ip, directCnx)
+            log_debug!("direct_connection in BROKER {:?} {:?}", ip, directCnx)
         });
         self.anonymous_connections.iter().for_each(|(binds, cb)| {
-            log_info!(
+            log_debug!(
                 "ANONYMOUS remote {:?} local {:?} {:?}",
                 binds.1,
                 binds.0,

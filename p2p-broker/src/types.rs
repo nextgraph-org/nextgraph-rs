@@ -6,17 +6,9 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
-use p2p_net::types::{BrokerOverlayConfigV0, ListenerV0};
+use p2p_net::types::{BrokerOverlayConfigV0, ListenerV0, RegistrationConfig};
 use p2p_repo::types::{PrivKey, PubKey};
 use serde::{Deserialize, Serialize};
-
-/// Registration config
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum RegistrationConfig {
-    Closed,
-    Invitation,
-    Open,
-}
 
 /// DaemonConfig Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]

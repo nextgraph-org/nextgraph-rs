@@ -9,11 +9,11 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use crate::types::BrokerMessage;
 use core::fmt;
 use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
 use p2p_repo::object::ObjectParseError;
+use p2p_repo::store::StorageError;
 use p2p_repo::types::Block;
 use p2p_repo::types::ObjectId;
 use std::convert::From;
@@ -62,11 +62,10 @@ pub enum ProtocolError {
     OverlayNotFound,
     BrokerError,
     NotFound,
-    StoreError,
     MissingBlocks,
     ObjectParseError,
     InvalidValue,
-    UserAlreadyExists,
+    AlreadyExists,
     RepoIdRequired,
 
     ConnectionError,
@@ -74,6 +73,8 @@ pub enum ProtocolError {
 
     PeerAlreadyConnected,
     OtherError,
+    NetError,
+    StorageError,
     Closing,
     FsmNotReady,
     MustBeEncrypted,
@@ -84,6 +85,35 @@ pub enum ProtocolError {
 
     InvalidNonce,
 } //MAX 949 ProtocolErrors
+
+impl From<NetError> for ProtocolError {
+    fn from(e: NetError) -> Self {
+        match e {
+            NetError::IoError => ProtocolError::IoError,
+            NetError::WsError => ProtocolError::WsError,
+            NetError::ConnectionError => ProtocolError::ConnectionError,
+            NetError::SerializationError => ProtocolError::SerializationError,
+            NetError::ProtocolError => ProtocolError::OtherError,
+            NetError::AccessDenied => ProtocolError::AccessDenied,
+            NetError::PeerAlreadyConnected => ProtocolError::PeerAlreadyConnected,
+            NetError::Closing => ProtocolError::Closing,
+            _ => ProtocolError::NetError,
+        }
+    }
+}
+
+impl From<StorageError> for ProtocolError {
+    fn from(e: StorageError) -> Self {
+        match e {
+            StorageError::NotFound => ProtocolError::NotFound,
+            StorageError::InvalidValue => ProtocolError::InvalidValue,
+            StorageError::BackendError => ProtocolError::StorageError,
+            StorageError::SerializationError => ProtocolError::SerializationError,
+            StorageError::AlreadyExists => ProtocolError::AlreadyExists,
+            _ => ProtocolError::StorageError,
+        }
+    }
+}
 
 impl ProtocolError {
     pub fn is_stream(&self) -> bool {
@@ -118,16 +148,6 @@ impl From<ObjectParseError> for ProtocolError {
     }
 }
 
-impl From<p2p_repo::store::StorageError> for ProtocolError {
-    fn from(e: p2p_repo::store::StorageError) -> Self {
-        match e {
-            p2p_repo::store::StorageError::NotFound => ProtocolError::NotFound,
-            p2p_repo::store::StorageError::InvalidValue => ProtocolError::InvalidValue,
-            _ => ProtocolError::StoreError,
-        }
-    }
-}
-
 impl From<serde_bare::error::Error> for ProtocolError {
     fn from(e: serde_bare::error::Error) -> Self {
         ProtocolError::SerializationError
@@ -140,72 +160,72 @@ impl From<serde_bare::error::Error> for NetError {
     }
 }
 
-impl From<BrokerMessage> for Result<(), ProtocolError> {
-    fn from(msg: BrokerMessage) -> Self {
-        if !msg.is_response() {
-            panic!("BrokerMessage is not a response");
-        }
-        match msg.result() {
-            0 => Ok(()),
-            err => Err(ProtocolError::try_from(err).unwrap()),
-        }
-    }
-}
+// impl From<BrokerMessage> for Result<(), ProtocolError> {
+//     fn from(msg: BrokerMessage) -> Self {
+//         if !msg.is_response() {
+//             panic!("BrokerMessage is not a response");
+//         }
+//         match msg.result() {
+//             0 => Ok(()),
+//             err => Err(ProtocolError::try_from(err).unwrap()),
+//         }
+//     }
+// }
 
-impl From<BrokerMessage> for Result<ObjectId, ProtocolError> {
-    fn from(msg: BrokerMessage) -> Self {
-        if !msg.is_response() {
-            panic!("BrokerMessage is not a response");
-        }
-        match msg.result() {
-            0 => Ok(msg.response_object_id()),
-            err => Err(ProtocolError::try_from(err).unwrap()),
-        }
-    }
-}
+// impl From<BrokerMessage> for Result<ObjectId, ProtocolError> {
+//     fn from(msg: BrokerMessage) -> Self {
+//         if !msg.is_response() {
+//             panic!("BrokerMessage is not a response");
+//         }
+//         match msg.result() {
+//             0 => Ok(msg.response_object_id()),
+//             err => Err(ProtocolError::try_from(err).unwrap()),
+//         }
+//     }
+// }
 
-/// Option represents if a Block is available. cannot be returned here. call BrokerMessage.response_block() to get a reference to it.
-impl From<BrokerMessage> for Result<Option<u16>, ProtocolError> {
-    fn from(msg: BrokerMessage) -> Self {
-        if !msg.is_response() {
-            panic!("BrokerMessage is not a response");
-        }
-        //let partial: u16 = ProtocolError::PartialContent.into();
-        let res = msg.result();
-        if res == 0 || ProtocolError::try_from(res).unwrap().is_stream() {
-            if msg.is_overlay() {
-                match msg.response_block() {
-                    Some(_) => Ok(Some(res)),
-                    None => Ok(None),
-                }
-            } else {
-                Ok(None)
-            }
-        } else {
-            Err(ProtocolError::try_from(res).unwrap())
-        }
-    }
-}
+// /// Option represents if a Block is available. cannot be returned here. call BrokerMessage.response_block() to get a reference to it.
+// impl From<BrokerMessage> for Result<Option<u16>, ProtocolError> {
+//     fn from(msg: BrokerMessage) -> Self {
+//         if !msg.is_response() {
+//             panic!("BrokerMessage is not a response");
+//         }
+//         //let partial: u16 = ProtocolError::PartialContent.into();
+//         let res = msg.result();
+//         if res == 0 || ProtocolError::try_from(res).unwrap().is_stream() {
+//             if msg.is_overlay() {
+//                 match msg.response_block() {
+//                     Some(_) => Ok(Some(res)),
+//                     None => Ok(None),
+//                 }
+//             } else {
+//                 Ok(None)
+//             }
+//         } else {
+//             Err(ProtocolError::try_from(res).unwrap())
+//         }
+//     }
+// }
 
-/// Option represents if a Block is available. returns a clone.
-impl From<BrokerMessage> for Result<Option<Block>, ProtocolError> {
-    fn from(msg: BrokerMessage) -> Self {
-        if !msg.is_response() {
-            panic!("BrokerMessage is not a response");
-        }
-        //let partial: u16 = ProtocolError::PartialContent.into();
-        let res = msg.result();
-        if res == 0 || ProtocolError::try_from(res).unwrap().is_stream() {
-            if msg.is_overlay() {
-                match msg.response_block() {
-                    Some(b) => Ok(Some(b.clone())),
-                    None => Ok(None),
-                }
-            } else {
-                Ok(None)
-            }
-        } else {
-            Err(ProtocolError::try_from(res).unwrap())
-        }
-    }
-}
+// /// Option represents if a Block is available. returns a clone.
+// impl From<BrokerMessage> for Result<Option<Block>, ProtocolError> {
+//     fn from(msg: BrokerMessage) -> Self {
+//         if !msg.is_response() {
+//             panic!("BrokerMessage is not a response");
+//         }
+//         //let partial: u16 = ProtocolError::PartialContent.into();
+//         let res = msg.result();
+//         if res == 0 || ProtocolError::try_from(res).unwrap().is_stream() {
+//             if msg.is_overlay() {
+//                 match msg.response_block() {
+//                     Some(b) => Ok(Some(b.clone())),
+//                     None => Ok(None),
+//                 }
+//             } else {
+//                 Ok(None)
+//             }
+//         } else {
+//             Err(ProtocolError::try_from(res).unwrap())
+//         }
+//     }
+// }

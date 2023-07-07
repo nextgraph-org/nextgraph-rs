@@ -41,6 +41,14 @@ impl<'a> LmdbTransaction<'a> {
 }
 
 impl<'a> ReadTransaction for LmdbTransaction<'a> {
+    fn get_all_keys_and_values(
+        &self,
+        prefix: u8,
+        key_size: usize,
+        suffix: Option<u8>,
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError> {
+        unimplemented!();
+    }
     /// Load a single value property from the store.
     fn get(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<Vec<u8>, StorageError> {
         let property = LmdbKCVStore::compute_property(prefix, key, suffix);
@@ -219,7 +227,66 @@ pub struct LmdbKCVStore {
     path: String,
 }
 
+fn compare<T: Ord>(a: &[T], b: &[T]) -> std::cmp::Ordering {
+    let mut iter_b = b.iter();
+    for v in a {
+        match iter_b.next() {
+            Some(w) => match v.cmp(w) {
+                std::cmp::Ordering::Equal => continue,
+                ord => return ord,
+            },
+            None => break,
+        }
+    }
+    return a.len().cmp(&b.len());
+}
+
 impl ReadTransaction for LmdbKCVStore {
+    fn get_all_keys_and_values(
+        &self,
+        prefix: u8,
+        key_size: usize,
+        suffix: Option<u8>,
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError> {
+        let vec_key_start = vec![0u8; key_size];
+        let vec_key_end = vec![255u8; key_size];
+        let property_start = Self::compute_property(prefix, &vec_key_start, suffix);
+        let property_end = Self::compute_property(prefix, &vec_key_end, suffix);
+        let lock = self.environment.read().unwrap();
+        let reader = lock.read().unwrap();
+        let mut iter = self
+            .main_store
+            .iter_from(&reader, property_start)
+            .map_err(|e| StorageError::BackendError)?;
+        let mut vector: Vec<(Vec<u8>, Vec<u8>)> = vec![];
+        while let res = iter.next() {
+            match res {
+                Some(Ok(val)) => {
+                    match compare(val.0, property_end.as_slice()) {
+                        std::cmp::Ordering::Less | std::cmp::Ordering::Equal => {
+                            if suffix.is_some() {
+                                if val.0.len() < (key_size + 2)
+                                    || val.0[1 + key_size] != suffix.unwrap()
+                                {
+                                    continue;
+                                }
+                            } else if val.0.len() > (key_size + 1) {
+                                continue;
+                            }
+                            vector.push((val.0.to_vec(), val.1.to_bytes().unwrap()));
+                        }
+                        _ => {} //,
+                    }
+                }
+                Some(Err(_e)) => return Err(StorageError::BackendError),
+                None => {
+                    break;
+                }
+            }
+        }
+        Ok(vector)
+    }
+
     /// Load a single value property from the store.
     fn get(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<Vec<u8>, StorageError> {
         let property = Self::compute_property(prefix, key, suffix);

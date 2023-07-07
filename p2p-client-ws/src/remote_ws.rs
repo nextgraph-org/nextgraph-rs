@@ -166,7 +166,7 @@ async fn close_ws(
     code: u16,
     reason: &str,
 ) -> Result<(), NetError> {
-    log_info!("close_ws {:?}", code);
+    log_debug!("close_ws {:?}", code);
 
     let cmd = if code == 1000 {
         ConnectionCommand::Close
@@ -177,7 +177,7 @@ async fn close_ws(
     } else {
         ConnectionCommand::Error(NetError::try_from(code - 4949).unwrap())
     };
-    log_info!("sending to read loop {:?}", cmd);
+    log_debug!("sending to read loop {:?}", cmd);
     let _ = futures::SinkExt::send(receiver, cmd).await;
 
     stream
@@ -206,11 +206,11 @@ async fn ws_loop(
             select! {
                 r = stream.next().fuse() => match r {
                     Some(Ok(msg)) => {
-                        //log_info!("GOT MESSAGE {:?}", msg);
+                        //log_debug!("GOT MESSAGE {:?}", msg);
 
                         if msg.is_close() {
                             if let Message::Close(Some(cf)) = msg {
-                                log_info!("CLOSE from remote with closeframe: {}",cf.reason);
+                                log_debug!("CLOSE from remote with closeframe: {}",cf.reason);
                                 let last_command = match cf.code {
                                     CloseCode::Normal =>
                                         ConnectionCommand::Close,
@@ -229,7 +229,7 @@ async fn ws_loop(
                             }
                             else {
                                 let _ = futures::SinkExt::send(receiver, ConnectionCommand::Close).await;
-                                log_info!("CLOSE from remote");
+                                log_debug!("CLOSE from remote");
                             }
                             return Ok(ProtocolError::Closing);
                         } else {
@@ -237,12 +237,12 @@ async fn ws_loop(
                                 .map_err(|_e| NetError::IoError)?;
                         }
                     },
-                    Some(Err(e)) => {log_info!("GOT ERROR {:?}",e);return Err(NetError::WsError);},
+                    Some(Err(e)) => {log_debug!("GOT ERROR {:?}",e);return Err(NetError::WsError);},
                     None => break
                 },
                 s = sender.next().fuse() => match s {
                     Some(msg) => {
-                        //log_info!("SENDING MESSAGE {:?}", msg);
+                        //log_debug!("SENDING MESSAGE {:?}", msg);
                         match msg {
                             ConnectionCommand::Msg(m) => {
                                 futures::SinkExt::send(&mut stream,Message::binary(serde_bare::to_vec(&m)?)).await.map_err(|_e| NetError::IoError)?;
@@ -255,6 +255,9 @@ async fn ws_loop(
                             },
                             ConnectionCommand::Close => {
                                 break;
+                            },
+                            ConnectionCommand::ReEnter => {
+                                //do nothing. loop
                             }
                         }
                     },
@@ -267,7 +270,7 @@ async fn ws_loop(
     match inner_loop(&mut ws, sender, &mut receiver).await {
         Ok(proto_err) => {
             if proto_err == ProtocolError::Closing {
-                log_info!("ProtocolError::Closing");
+                log_debug!("ProtocolError::Closing");
                 let _ = ws.close(None).await;
             } else if proto_err == ProtocolError::NoError {
                 close_ws(&mut ws, &mut receiver, 1000, "").await?;
@@ -316,12 +319,12 @@ mod test {
 
         let keys = generate_keypair();
         let x_from_ed = keys.1.to_dh_from_ed();
-        log_info!("Pub from X {}", x_from_ed);
+        log_debug!("Pub from X {}", x_from_ed);
 
         let (client_priv, client) = generate_keypair();
         let (user_priv, user) = generate_keypair();
 
-        log_info!("start connecting");
+        log_debug!("start connecting");
         {
             let res = BROKER
                 .write()
@@ -341,7 +344,7 @@ mod test {
                     }),
                 )
                 .await;
-            log_info!("broker.connect : {:?}", res);
+            log_debug!("broker.connect : {:?}", res);
             res.expect("assume the connection succeeds");
         }
 
@@ -350,7 +353,7 @@ mod test {
         async fn timer_close(remote_peer_id: DirectPeerId, user: Option<PubKey>) -> ResultSend<()> {
             async move {
                 sleep!(std::time::Duration::from_secs(3));
-                log_info!("timeout");
+                log_debug!("timeout");
                 BROKER
                     .write()
                     .await
@@ -370,7 +373,7 @@ mod test {
 
     #[async_std::test]
     pub async fn probe() -> Result<(), NgError> {
-        log_info!("start probe");
+        log_debug!("start probe");
         {
             let res = BROKER
                 .write()
@@ -381,7 +384,7 @@ mod test {
                     WS_PORT,
                 )
                 .await;
-            log_info!("broker.probe : {:?}", res);
+            log_debug!("broker.probe : {:?}", res);
             res.expect("assume the probe succeeds");
         }
 
