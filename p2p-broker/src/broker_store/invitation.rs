@@ -17,6 +17,7 @@ use std::time::SystemTime;
 use p2p_net::types::*;
 use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::store::*;
+use p2p_repo::types::SymKey;
 use p2p_repo::types::Timestamp;
 use p2p_repo::utils::now_timestamp;
 use serde_bare::from_slice;
@@ -33,9 +34,13 @@ impl<'a> Invitation<'a> {
 
     // propertie's invitation suffixes
     const TYPE: u8 = b"t"[0];
-    const EXPIRE: u8 = b"e"[0];
+    //const EXPIRE: u8 = b"e"[0];
 
-    const ALL_PROPERTIES: [u8; 2] = [Self::TYPE, Self::EXPIRE];
+    const PREFIX_EXPIRE: u8 = b"e"[0];
+    // propertie's expiry suffixes
+    const INVITATION: u8 = b"i"[0];
+
+    const ALL_PROPERTIES: [u8; 1] = [Self::TYPE];
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::TYPE;
 
@@ -52,12 +57,13 @@ impl<'a> Invitation<'a> {
     pub fn create(
         id: &InvitationCode,
         expiry: u32,
+        memo: &Option<String>,
         store: &'a dyn KCVStore,
     ) -> Result<Invitation<'a>, StorageError> {
         let (code_type, code) = match id {
-            InvitationCode::Unique(c) => (0, c.slice()),
-            InvitationCode::Multi(c) => (1, c.slice()),
-            InvitationCode::Admin(c) => (2, c.slice()),
+            InvitationCode::Unique(c) => (0u8, c.slice()),
+            InvitationCode::Multi(c) => (1u8, c.slice()),
+            InvitationCode::Admin(c) => (2u8, c.slice()),
         };
         let acc = Invitation {
             id: code.clone(),
@@ -66,23 +72,65 @@ impl<'a> Invitation<'a> {
         if acc.exists() {
             return Err(StorageError::BackendError);
         }
+        let mut value = to_vec(&(code_type, expiry, memo.clone()))?;
         store.write_transaction(&|tx| {
-            tx.put(
-                Self::PREFIX,
-                &to_vec(code)?,
-                Some(Self::TYPE),
-                &to_vec(&code_type)?,
-            )?;
-            tx.put(
-                Self::PREFIX,
-                &to_vec(code)?,
-                Some(Self::EXPIRE),
-                &to_vec(&expiry)?,
-            )?;
+            tx.put(Self::PREFIX, &to_vec(code)?, Some(Self::TYPE), &value)?;
             Ok(())
         })?;
         Ok(acc)
     }
+
+    pub fn get_all_invitations(
+        store: &'a dyn KCVStore,
+        mut admin: bool,
+        mut unique: bool,
+        mut multi: bool,
+    ) -> Result<Vec<(InvitationCode, u32, Option<String>)>, StorageError> {
+        let size = to_vec(&[0u8; 32])?.len();
+        let mut res: Vec<(InvitationCode, u32, Option<String>)> = vec![];
+        if !admin && !unique && !multi {
+            admin = true;
+            unique = true;
+            multi = true;
+        }
+        for invite in store.get_all_keys_and_values(Self::PREFIX, size, None)? {
+            if invite.0.len() == size + 2 {
+                let code: [u8; 32] = from_slice(&invite.0[1..invite.0.len() - 1])?;
+                if invite.0[size + 1] == Self::TYPE {
+                    let code_type: (u8, u32, Option<String>) = from_slice(&invite.1)?;
+                    let inv_code = match code_type {
+                        (0, ex, memo) => {
+                            if unique {
+                                Some((InvitationCode::Unique(SymKey::ChaCha20Key(code)), ex, memo))
+                            } else {
+                                None
+                            }
+                        }
+                        (1, ex, memo) => {
+                            if multi {
+                                Some((InvitationCode::Multi(SymKey::ChaCha20Key(code)), ex, memo))
+                            } else {
+                                None
+                            }
+                        }
+                        (2, ex, memo) => {
+                            if admin {
+                                Some((InvitationCode::Admin(SymKey::ChaCha20Key(code)), ex, memo))
+                            } else {
+                                None
+                            }
+                        }
+                        _ => panic!("invalid code type value"),
+                    };
+                    if inv_code.is_some() {
+                        res.push(inv_code.unwrap());
+                    }
+                }
+            }
+        }
+        Ok(res)
+    }
+
     pub fn exists(&self) -> bool {
         self.store
             .get(
@@ -99,9 +147,9 @@ impl<'a> Invitation<'a> {
     pub fn is_expired(&self) -> Result<bool, StorageError> {
         let expire_ser = self
             .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::EXPIRE))?;
-        let expire: u32 = from_slice(&expire_ser)?;
-        if expire < now_timestamp() {
+            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::TYPE))?;
+        let expire: (u8, u32, Option<String>) = from_slice(&expire_ser)?;
+        if expire.1 < now_timestamp() {
             return Ok(true);
         }
         Ok(false)

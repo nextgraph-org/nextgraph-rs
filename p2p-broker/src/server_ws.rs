@@ -787,7 +787,9 @@ pub async fn run_server_v0(
             overlays_configs: config.overlays_configs,
             registration: config.registration,
             admin_user: config.admin_user,
+            registration_url: config.registration_url,
             peer_id,
+            bootstrap,
         };
         broker.set_server_config(server_config);
     }

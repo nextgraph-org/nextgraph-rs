@@ -935,6 +935,7 @@ async fn main_inner() -> Result<(), ()> {
             overlays_configs: vec![overlays_config],
             registration,
             admin_user,
+            registration_url: args.registration_url,
         }));
 
         if args.print_config {

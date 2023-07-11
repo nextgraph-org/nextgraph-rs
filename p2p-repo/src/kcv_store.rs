@@ -69,6 +69,7 @@ pub trait ReadTransaction {
         value: &Vec<u8>,
     ) -> Result<(), StorageError>;
 
+    /// retrieves all the keys and values with the given prefix and key_size. if no suffix is specified, then all (including none) the suffices are returned
     fn get_all_keys_and_values(
         &self,
         prefix: u8,

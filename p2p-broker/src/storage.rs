@@ -59,7 +59,12 @@ impl LmdbBrokerStorage {
             let accounts_storage = LmdbKCVStore::open(&accounts_path, accounts_key.slice().clone());
             let symkey = SymKey::random();
             let invite_code = InvitationCode::Admin(symkey.clone());
-            let _ = Invitation::create(&invite_code, 0, &accounts_storage)?;
+            let _ = Invitation::create(
+                &invite_code,
+                0,
+                &Some("admin user automatically invited at first startup".to_string()),
+                &accounts_storage,
+            )?;
             let invitation = p2p_net::types::Invitation::V0(InvitationV0 {
                 code: Some(symkey),
                 name: Some("your NG Box, as admin".into()),
@@ -109,5 +114,29 @@ impl BrokerStorage for LmdbBrokerStorage {
     fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError> {
         log_debug!("list_users that are admin == {admins}");
         Ok(Account::get_all_users(admins, &self.accounts_storage)?)
+    }
+    fn list_invitations(
+        &self,
+        admin: bool,
+        unique: bool,
+        multi: bool,
+    ) -> Result<Vec<(InvitationCode, u32, Option<String>)>, ProtocolError> {
+        log_debug!("list_invitations admin={admin} unique={unique} multi={multi}");
+        Ok(Invitation::get_all_invitations(
+            &self.accounts_storage,
+            admin,
+            unique,
+            multi,
+        )?)
+    }
+    fn add_invitation(
+        &self,
+        invite_code: &InvitationCode,
+        expiry: u32,
+        memo: &Option<String>,
+    ) -> Result<(), ProtocolError> {
+        log_debug!("add_invitation {invite_code} expiry {expiry}");
+        Invitation::create(invite_code, expiry, memo, &self.accounts_storage)?;
+        Ok(())
     }
 }

@@ -16,4 +16,16 @@ pub trait BrokerStorage: Send + Sync + std::fmt::Debug {
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError>;
     fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError>;
     fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError>;
+    fn list_invitations(
+        &self,
+        admin: bool,
+        unique: bool,
+        multi: bool,
+    ) -> Result<Vec<(InvitationCode, u32, Option<String>)>, ProtocolError>;
+    fn add_invitation(
+        &self,
+        invite_code: &InvitationCode,
+        expiry: u32,
+        memo: &Option<String>,
+    ) -> Result<(), ProtocolError>;
 }

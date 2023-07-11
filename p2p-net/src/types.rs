@@ -527,6 +527,24 @@ pub enum InvitationCode {
     Multi(SymKey),
 }
 
+impl InvitationCode {
+    pub fn get_symkey(&self) -> SymKey {
+        match self {
+            Self::Unique(s) | Self::Admin(s) | Self::Multi(s) => s.clone(),
+        }
+    }
+}
+
+impl fmt::Display for InvitationCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unique(k) => write!(f, "unique {}", k),
+            Self::Admin(k) => write!(f, "admin {}", k),
+            Self::Multi(k) => write!(f, "multi {}", k),
+        }
+    }
+}
+
 /// Invitation to create an account at a broker. Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InvitationV0 {
@@ -540,6 +558,29 @@ pub struct InvitationV0 {
 
     // an optional url to redirect the user to, for accepting ToS and making payment, if any.
     pub url: Option<String>,
+}
+
+impl InvitationV0 {
+    pub fn set_bootstrap(&mut self, content: BootstrapContent) {
+        match content {
+            BootstrapContent::V0(v0) => self.bootstrap = v0,
+        }
+    }
+    pub fn new(
+        bootstrap_content: BootstrapContent,
+        code: Option<SymKey>,
+        name: Option<String>,
+        url: Option<String>,
+    ) -> Self {
+        match bootstrap_content {
+            BootstrapContent::V0(v0) => InvitationV0 {
+                bootstrap: v0,
+                code,
+                name,
+                url,
+            },
+        }
+    }
 }
 
 impl Invitation {
@@ -591,6 +632,14 @@ impl Invitation {
     pub fn get_servers(&self) -> &Vec<BrokerServerV0> {
         match self {
             Invitation::V0(v0) => &v0.bootstrap.servers,
+        }
+    }
+
+    pub fn set_name(&mut self, name: Option<String>) {
+        if name.is_some() {
+            match self {
+                Invitation::V0(v0) => v0.name = Some(name.unwrap()),
+            }
         }
     }
 
@@ -1753,6 +1802,8 @@ pub enum AdminRequestContentV0 {
     AddUser(AddUser),
     DelUser(DelUser),
     ListUsers(ListUsers),
+    ListInvitations(ListInvitations),
+    AddInvitation(AddInvitation),
 }
 impl AdminRequestContentV0 {
     pub fn type_id(&self) -> TypeId {
@@ -1760,6 +1811,8 @@ impl AdminRequestContentV0 {
             Self::AddUser(a) => a.type_id(),
             Self::DelUser(a) => a.type_id(),
             Self::ListUsers(a) => a.type_id(),
+            Self::ListInvitations(a) => a.type_id(),
+            Self::AddInvitation(a) => a.type_id(),
         }
     }
     pub fn get_actor(&self) -> Box<dyn EActor> {
@@ -1767,6 +1820,8 @@ impl AdminRequestContentV0 {
             Self::AddUser(a) => a.get_actor(),
             Self::DelUser(a) => a.get_actor(),
             Self::ListUsers(a) => a.get_actor(),
+            Self::ListInvitations(a) => a.get_actor(),
+            Self::AddInvitation(a) => a.get_actor(),
         }
     }
 }
@@ -1849,6 +1904,8 @@ impl From<AdminRequest> for ProtocolMessage {
 pub enum AdminResponseContentV0 {
     EmptyResponse,
     Users(Vec<PubKey>),
+    Invitations(Vec<(InvitationCode, u32, Option<String>)>),
+    Invitation(Invitation),
 }
 
 /// Response to an `AdminRequest` V0
