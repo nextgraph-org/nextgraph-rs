@@ -18,7 +18,8 @@ use ed25519_dalek::*;
 use futures::channel::mpsc;
 use rand::rngs::OsRng;
 use rand::RngCore;
-use web_time::{SystemTime, UNIX_EPOCH};
+use time::OffsetDateTime;
+use web_time::{Duration, SystemTime, UNIX_EPOCH};
 use zeroize::Zeroize;
 
 pub fn ed_keypair_from_priv_bytes(secret_key: [u8; 32]) -> (PrivKey, PubKey) {
@@ -163,6 +164,26 @@ pub fn now_timestamp() -> Timestamp {
         - EPOCH_AS_UNIX_TIMESTAMP)
         / 60)
         .try_into()
+        .unwrap()
+}
+
+/// returns a new NextGraph Timestamp equivalent to the duration after now.
+pub fn timestamp_after(duration: Duration) -> Timestamp {
+    (((SystemTime::now().duration_since(UNIX_EPOCH).unwrap() + duration).as_secs()
+        - EPOCH_AS_UNIX_TIMESTAMP)
+        / 60)
+        .try_into()
+        .unwrap()
+}
+
+/// displays the NextGraph Timestamp in UTC.
+pub fn display_timestamp(ts: &Timestamp) -> String {
+    let st = SystemTime::UNIX_EPOCH
+        + Duration::from_secs(EPOCH_AS_UNIX_TIMESTAMP)
+        + Duration::from_secs(*ts as u64 * 60u64);
+    let dt: OffsetDateTime = st.into();
+
+    dt.format(&time::format_description::parse("[day]/[month]/[year] [hour]:[minute] UTC").unwrap())
         .unwrap()
 }
 

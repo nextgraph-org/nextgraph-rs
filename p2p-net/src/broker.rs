@@ -65,6 +65,9 @@ pub struct ServerConfig {
     pub registration: RegistrationConfig,
     pub admin_user: Option<PubKey>,
     pub peer_id: PubKey,
+    // when creating invitation links, an optional url to redirect the user to can be used, for accepting ToS and making payment, if any.
+    pub registration_url: Option<String>,
+    pub bootstrap: BootstrapContent,
 }
 
 pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new(Broker::new())));
@@ -106,6 +109,19 @@ impl<'a> Broker<'a> {
 
     pub fn get_config(&self) -> Option<&ServerConfig> {
         self.config.as_ref()
+    }
+
+    pub fn get_registration_url(&self) -> Option<&String> {
+        self.config
+            .as_ref()
+            .and_then(|c| c.registration_url.as_ref())
+    }
+
+    pub fn get_bootstrap(&self) -> Result<&BootstrapContent, ProtocolError> {
+        self.config
+            .as_ref()
+            .map(|c| &c.bootstrap)
+            .ok_or(ProtocolError::BrokerError)
     }
 
     pub fn set_storage(&mut self, storage: impl BrokerStorage + 'a) {

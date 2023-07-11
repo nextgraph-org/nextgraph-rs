@@ -251,7 +251,8 @@ impl ReadTransaction for LmdbKCVStore {
         let vec_key_start = vec![0u8; key_size];
         let vec_key_end = vec![255u8; key_size];
         let property_start = Self::compute_property(prefix, &vec_key_start, suffix);
-        let property_end = Self::compute_property(prefix, &vec_key_end, suffix);
+        let property_end =
+            Self::compute_property(prefix, &vec_key_end, Some(suffix.unwrap_or(255u8)));
         let lock = self.environment.read().unwrap();
         let reader = lock.read().unwrap();
         let mut iter = self
@@ -270,8 +271,8 @@ impl ReadTransaction for LmdbKCVStore {
                                 {
                                     continue;
                                 }
-                            } else if val.0.len() > (key_size + 1) {
-                                continue;
+                                // } else if val.0.len() > (key_size + 1) {
+                                //     continue;
                             }
                             vector.push((val.0.to_vec(), val.1.to_bytes().unwrap()));
                         }

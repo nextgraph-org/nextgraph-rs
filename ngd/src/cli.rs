@@ -112,6 +112,10 @@ pub(crate) struct Cli {
     #[arg(long, conflicts_with("registration_off"))]
     pub registration_open: bool,
 
+    /// Registration URL used when creating invitation links, an optional url to redirect the user to, for accepting ToS and making payment, if any.
+    #[arg(long)]
+    pub registration_url: Option<String>,
+
     /// Admin userID
     #[arg(long)]
     pub admin: Option<String>,

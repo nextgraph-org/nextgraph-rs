@@ -11,6 +11,7 @@
 
 use ed25519_dalek::*;
 
+use duration_str::parse;
 use futures::{future, pin_mut, stream, SinkExt, StreamExt};
 use p2p_net::actors::*;
 use p2p_repo::object::Object;
@@ -35,7 +36,9 @@ use p2p_net::types::*;
 
 use p2p_repo::log::*;
 use p2p_repo::types::*;
-use p2p_repo::utils::{decode_key, generate_keypair, now_timestamp};
+use p2p_repo::utils::{
+    decode_key, display_timestamp, generate_keypair, now_timestamp, timestamp_after,
+};
 
 use clap::{arg, command, value_parser, ArgAction, Command};
 
@@ -140,6 +143,22 @@ async fn main() -> Result<(), ProtocolError> {
                         Command::new("list-users")
                             .about("list all users registered in the broker")
                             .arg(arg!(-a --admin "only lists admin users. otherwise, lists only non admin users").required(false)))
+                    .subcommand(
+                        Command::new("add-invitation")
+                            .about("add an invitation to register on the server")
+                            .arg(arg!([EXPIRES] "offset (from now) of time after which the invitation should expire. Format example: 1w 1d 1m. default unit is second").conflicts_with("forever"))
+                        .arg(arg!(-a --admin "user registered with this invitation will have admin permissions").required(false))
+                        .arg(arg!(-i --multi "many users can use this invitation to register themselves, until the invitation code is deleted by an admin").required(false).conflicts_with("admin").conflicts_with("unique"))
+                        .arg(arg!(-u --unique "this invitation can be used only once. this is the default").required(false).conflicts_with("admin"))
+                        .arg(arg!(-f --forever "this invitation does not expire. it can be used forever (or until deleted by an admin). default if no EXPIRES provided").required(false))
+                        .arg(arg!(-n --name <NAME> "optional name of this broker that will be displayed to the user when registering: You have been invited to register an account at [NAME]").required(false))
+                        .arg(arg!(-m --memo <MEMO> "optional memo about this invitation that will be kept in the server. it will help you to remember who you invited and to manage the invitation").required(false)))
+                    .subcommand(
+                        Command::new("list-invitations")
+                            .about("list all invitations")
+                            .arg(arg!(-a --admin "only lists admin invitations").required(false))
+                            .arg(arg!(-m --multi "only lists multiple-use invitations").required(false))
+                            .arg(arg!(-u --unique "only lists unique-use invitations").required(false)))
             )
             .subcommand(
                 Command::new("gen-user")
@@ -436,6 +455,114 @@ async fn main() -> Result<(), ProtocolError> {
                         );
                         for user in list {
                             println!("{user}");
+                        }
+                    }
+                    _ => {
+                        log_err!("Invalid response");
+                        return Err(ProtocolError::InvalidValue);
+                    }
+                }
+                return res.map(|_| ());
+            }
+            Some(("add-invitation", sub2_matches)) => {
+                log_debug!("add-invitation");
+                let expires = sub2_matches.get_one::<String>("EXPIRES");
+                let expiry = if expires.is_some() {
+                    let duration = parse(expires.unwrap().as_str()).unwrap();
+                    timestamp_after(duration)
+                } else {
+                    0
+                };
+                let admin = sub2_matches.get_flag("admin");
+                let multi = sub2_matches.get_flag("multi");
+                let _unique = sub2_matches.get_flag("unique");
+
+                let symkey = SymKey::random();
+                let invite_code = if admin {
+                    InvitationCode::Admin(symkey.clone())
+                } else if multi {
+                    InvitationCode::Multi(symkey.clone())
+                } else {
+                    InvitationCode::Unique(symkey.clone())
+                };
+
+                let mut res = do_admin_call(
+                    keys[1],
+                    config_v0,
+                    AddInvitation::V0(AddInvitationV0 {
+                        invite_code,
+                        expiry,
+                        memo: sub2_matches.get_one::<String>("memo").map(|s| s.clone()),
+                    }),
+                )
+                .await;
+                match res.as_mut() {
+                    Err(e) => log_err!("An error occurred: {e}"),
+                    Ok(AdminResponseContentV0::Invitation(invitation)) => {
+                        invitation
+                            .set_name(sub2_matches.get_one::<String>("name").map(|s| s.clone()));
+
+                        log_debug!("{:?}", invitation);
+                        println!("Invitation created successfully. please note carefully the following links. share one of them with the invited user(s)");
+                        for link in invitation.get_urls() {
+                            println!("The invitation link is: {}", link)
+                        }
+                    }
+                    _ => {
+                        log_err!("Invalid response");
+                        return Err(ProtocolError::InvalidValue);
+                    }
+                }
+                return res.map(|_| ());
+            }
+            Some(("list-invitations", sub2_matches)) => {
+                log_debug!("invitations");
+                let admin = sub2_matches.get_flag("admin");
+                let multi = sub2_matches.get_flag("multi");
+                let unique = sub2_matches.get_flag("unique");
+                let res = do_admin_call(
+                    keys[1],
+                    config_v0,
+                    ListInvitations::V0(ListInvitationsV0 {
+                        admin,
+                        multi,
+                        unique,
+                    }),
+                )
+                .await;
+                match &res {
+                    Err(e) => log_err!("An error occurred: {e}"),
+                    Ok(AdminResponseContentV0::Invitations(list)) => {
+                        println!(
+                            "Found {} {}invitations",
+                            list.len(),
+                            if admin && multi && unique {
+                                "".to_string()
+                            } else {
+                                let mut name = vec![];
+                                if admin {
+                                    name.push("admin ");
+                                }
+                                if multi {
+                                    name.push("multi ");
+                                }
+                                if unique {
+                                    name.push("unique ");
+                                }
+                                name.join("or ")
+                            }
+                        );
+                        for invite in list {
+                            println!(
+                                "{} expires {}. memo={}",
+                                invite.0,
+                                if invite.1 == 0 {
+                                    "never".to_string()
+                                } else {
+                                    display_timestamp(&invite.1)
+                                },
+                                invite.2.as_ref().unwrap_or(&"".to_string())
+                            );
                         }
                     }
                     _ => {

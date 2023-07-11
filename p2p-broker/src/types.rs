@@ -21,6 +21,8 @@ pub struct DaemonConfigV0 {
     pub registration: RegistrationConfig,
 
     pub admin_user: Option<PubKey>,
+
+    pub registration_url: Option<String>,
 }
 
 /// Daemon config

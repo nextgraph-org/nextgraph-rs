@@ -69,6 +69,14 @@ impl SymKey {
     }
 }
 
+impl fmt::Display for SymKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ChaCha20Key(k) => write!(f, "{}", base64_url::encode(k)),
+        }
+    }
+}
+
 impl TryFrom<&[u8]> for SymKey {
     type Error = NgError;
     fn try_from(buf: &[u8]) -> Result<Self, NgError> {
