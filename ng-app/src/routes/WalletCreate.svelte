@@ -84,7 +84,7 @@
     }
   };
 
-  let intro = false;
+  let intro = true;
   let registration_error;
   let registration_success;
   let pin = [];

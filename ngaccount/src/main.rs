@@ -61,7 +61,7 @@ impl Server {
 
         // if needed, proceed with payment and verify it here. once validated, add the user
 
-        let duration = parse("5m").unwrap();
+        let duration = parse("1d").unwrap();
         let expiry = timestamp_after(duration);
         let symkey = SymKey::random();
         let invite_code = InvitationCode::Unique(symkey.clone());

@@ -154,10 +154,13 @@ pub async fn retrieve_local_bootstrap(
             if resp.is_ok() {
                 let mut inv: Invitation = resp.unwrap().into();
                 inv.set_url(BROKER.read().await.get_registration_url());
-                return Some(inv);
+                Some(inv)
+            } else {
+                None
             }
+        } else {
+            None
         }
-        None
     };
 
     let res = if invite1.is_none() {
