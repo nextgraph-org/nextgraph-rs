@@ -96,6 +96,8 @@ const handler = {
                 return await tauri.invoke(path[0],{params})
             } else if (path[0].starts_with("get_local_bootstrap")) {
                 return false;
+            } else if (path[0].starts_with("get_local_url")) {
+                return false;
             }
             else {
                 let arg = {};
@@ -111,6 +113,8 @@ const api = createAsyncProxy({}, handler);
 export const NG_EU_BSP = "https://nextgraph.eu";
 export const NG_EU_BSP_REGISTER = "https://account.nextgraph.eu/#/create";
 export const NG_EU_BSP_REGISTERED = "https://nextgraph.eu/#/user/registered";
+
+export const APP_ACCOUNT_REGISTERED_SUFFIX = "/#/user/registered";
 
 export const NG_NET_BSP = "https://nextgraph.net";
 export const NG_NET_BSP_REGISTER = "https://account.nextgraph.net/#/create";

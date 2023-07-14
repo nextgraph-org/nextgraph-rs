@@ -64,6 +64,12 @@ impl From<DelUser> for ProtocolMessage {
     }
 }
 
+impl From<DelUser> for AdminRequestContentV0 {
+    fn from(msg: DelUser) -> AdminRequestContentV0 {
+        AdminRequestContentV0::DelUser(msg)
+    }
+}
+
 impl Actor<'_, DelUser, AdminResponse> {}
 
 #[async_trait::async_trait]
@@ -73,14 +79,11 @@ impl EActor for Actor<'_, DelUser, AdminResponse> {
         msg: ProtocolMessage,
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
-        //let req = DelUser::try_from(msg)?;
-        let res = AdminResponseV0 {
-            id: 0,
-            result: 0,
-            content: AdminResponseContentV0::EmptyResponse,
-            padding: vec![],
-        };
-        fsm.lock().await.send(res.into()).await?;
+        let req = DelUser::try_from(msg)?;
+        let broker = BROKER.read().await;
+        let res = broker.get_storage()?.del_user(req.user());
+        let response: AdminResponseV0 = res.into();
+        fsm.lock().await.send(response.into()).await?;
         Ok(())
     }
 }

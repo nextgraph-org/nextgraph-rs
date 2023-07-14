@@ -140,13 +140,17 @@ async fn main() -> Result<(), ProtocolError> {
                             .arg(arg!([USER_ID] "userId of the user to add. should be a base64-url encoded serde serialization of its pubkey [u8; 32]").required(true))
                             .arg(arg!(-a --admin "make this user admin as well").required(false)))
                     .subcommand(
+                        Command::new("del-user")
+                            .about("removes a user from the broker")
+                            .arg(arg!([USER_ID] "userId of the user to remove. should be a base64-url encoded serde serialization of its pubkey [u8; 32]").required(true)))
+                    .subcommand(
                         Command::new("list-users")
                             .about("list all users registered in the broker")
                             .arg(arg!(-a --admin "only lists admin users. otherwise, lists only non admin users").required(false)))
                     .subcommand(
                         Command::new("add-invitation")
                             .about("add an invitation to register on the server")
-                            .arg(arg!([EXPIRES] "offset (from now) of time after which the invitation should expire. Format example: 1w 1d 1m. default unit is second").conflicts_with("forever"))
+                            .arg(arg!([EXPIRES] "offset (from now) of time after which the invitation should expire. Format example: 1w 1d 1m. default unit is second. see https://crates.io/crates/duration-str for format").conflicts_with("forever"))
                         .arg(arg!(-a --admin "user registered with this invitation will have admin permissions").required(false))
                         .arg(arg!(-i --multi "many users can use this invitation to register themselves, until the invitation code is deleted by an admin").required(false).conflicts_with("admin").conflicts_with("unique"))
                         .arg(arg!(-u --unique "this invitation can be used only once. this is the default").required(false).conflicts_with("admin"))
@@ -437,6 +441,30 @@ async fn main() -> Result<(), ProtocolError> {
                 match &res {
                     Err(e) => log_err!("An error occurred: {e}"),
                     Ok(_) => println!("User added successfully"),
+                }
+                return res.map(|_| ());
+            }
+            Some(("del-user", sub2_matches)) => {
+                log_debug!("add-user");
+                let res = do_admin_call(
+                    keys[1],
+                    config_v0,
+                    DelUser::V0(DelUserV0 {
+                        user: sub2_matches
+                            .get_one::<String>("USER_ID")
+                            .unwrap()
+                            .as_str()
+                            .try_into()
+                            .map_err(|_| {
+                                log_err!("supplied USER_ID is invalid");
+                                ProtocolError::InvalidValue
+                            })?,
+                    }),
+                )
+                .await;
+                match &res {
+                    Err(e) => log_err!("An error occurred: {e}"),
+                    Ok(_) => println!("User removed successfully"),
                 }
                 return res.map(|_| ());
             }

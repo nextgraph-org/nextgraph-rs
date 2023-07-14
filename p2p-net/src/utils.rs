@@ -9,8 +9,7 @@
  * according to those terms.
 */
 
-use crate::types::BootstrapContent;
-use crate::types::Invitation;
+use crate::types::*;
 use crate::NG_BOOTSTRAP_LOCAL_PATH;
 use async_std::task;
 use ed25519_dalek::*;
@@ -22,6 +21,8 @@ use p2p_repo::errors::NgError;
 use p2p_repo::types::PubKey;
 use p2p_repo::{log::*, types::PrivKey};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use url::Host;
+use url::Url;
 
 #[cfg(target_arch = "wasm32")]
 pub fn spawn_and_log_error<F>(fut: F) -> task::JoinHandle<()>
@@ -58,6 +59,79 @@ const APP_PREFIX: &str = "http://localhost:14400";
 #[cfg(not(debug_assertions))]
 const APP_PREFIX: &str = "";
 
+pub fn decode_invitation_string(string: String) -> Option<Invitation> {
+    Invitation::try_from(string).ok()
+}
+
+pub fn check_is_local_url(bootstrap: &BrokerServerV0, location: &String) -> Option<String> {
+    if location.starts_with(APP_NG_ONE_URL) {
+        match &bootstrap.server_type {
+            BrokerServerTypeV0::BoxPublic(_) | BrokerServerTypeV0::BoxPublicDyn(_) => {
+                return Some(APP_NG_ONE_WS_URL.to_string());
+            }
+            _ => {}
+        }
+    } else if let BrokerServerTypeV0::Domain(domain) = &bootstrap.server_type {
+        let url = format!("https://{}", domain);
+        if location.starts_with(&url) {
+            return Some(url);
+        }
+    } else {
+        // localhost
+        if location.starts_with(LOCAL_URLS[0])
+            || location.starts_with(LOCAL_URLS[1])
+            || location.starts_with(LOCAL_URLS[2])
+        {
+            if let BrokerServerTypeV0::Localhost(port) = bootstrap.server_type {
+                return Some(local_http_url(&port));
+            }
+        }
+        // a private address
+        else if location.starts_with("http://") {
+            let url = Url::parse(location).unwrap();
+            match url.host() {
+                Some(Host::Ipv4(ip)) => {
+                    if is_ipv4_private(&ip) {
+                        let res = bootstrap.first_ipv4_http();
+                        if res.is_some() {
+                            return res;
+                        }
+                    }
+                }
+                Some(Host::Ipv6(ip)) => {
+                    if is_ipv6_private(&ip) {
+                        let res = bootstrap.first_ipv6_http();
+                        if res.is_some() {
+                            return res;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+pub async fn retrieve_local_url(location: String) -> Option<String> {
+    let bootstraps: BootstrapContent = {
+        let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_PATH)).await;
+        if resp.is_ok() {
+            let resp = resp.unwrap().json::<BootstrapContent>().await;
+            resp.unwrap()
+        } else {
+            return None;
+        }
+    };
+    for bootstrap in bootstraps.servers() {
+        let res = check_is_local_url(bootstrap, &location);
+        if res.is_some() {
+            return res;
+        }
+    }
+    None
+}
+
 pub async fn retrieve_local_bootstrap(
     location_string: String,
     invite_string: Option<String>,
@@ -93,11 +167,7 @@ pub async fn retrieve_local_bootstrap(
     if res.is_some() {
         for server in res.as_ref().unwrap().get_servers() {
             if must_be_public && server.is_public_server()
-                || !must_be_public
-                    && server
-                        .get_ws_url(Some(location_string.clone()))
-                        .await
-                        .is_some()
+                || !must_be_public && check_is_local_url(server, &location_string).is_some()
             {
                 return res;
             }

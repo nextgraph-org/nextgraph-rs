@@ -164,6 +164,7 @@ pub struct ClientConfig {
     pub client: PubKey,
     pub client_priv: PrivKey,
     pub info: ClientInfo,
+    pub registration: Option<Option<[u8; 32]>>,
 }
 
 #[derive(Debug, Clone)]
@@ -702,6 +703,7 @@ impl NoiseFSM {
                                     /// Nonce from ServerHello
                                     nonce: hello.nonce().clone(),
                                     info: info.clone(),
+                                    registration: client_config.registration,
                                 };
                                 let ser = serde_bare::to_vec(&content)?;
                                 let sig =

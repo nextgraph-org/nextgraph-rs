@@ -171,11 +171,16 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
     /// Delete a property from the store.
     fn del(&mut self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<(), StorageError> {
         let property = LmdbKCVStore::compute_property(prefix, key, suffix);
-        self.store
+        let res = self
+            .store
             .main_store
-            .delete_all(self.writer.as_mut().unwrap(), property)
-            .map_err(|e| StorageError::BackendError)?;
-
+            .delete_all(self.writer.as_mut().unwrap(), property);
+        if res.is_err() {
+            if let StoreError::KeyValuePairNotFound = res.unwrap_err() {
+                return Ok(());
+            }
+            return Err(StorageError::BackendError);
+        }
         Ok(())
     }
 
@@ -367,7 +372,6 @@ impl KCVStore for LmdbKCVStore {
             writer: Some(writer),
         };
         let res = method(&mut transaction);
-
         if res.is_ok() {
             transaction.commit();
         }

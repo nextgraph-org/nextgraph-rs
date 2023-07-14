@@ -12,7 +12,9 @@
 <script>
   import { Button, Alert } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
+  // @ts-ignore
   import EULogo from "../assets/EU.svg?component";
+  // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
 
   import { onMount } from "svelte";
@@ -28,7 +30,7 @@
     scrollToTop();
     let bs;
     try {
-      bs = localStorage.getItem("bootstrap");
+      bs = localStorage.getItem("ng_wallets");
     } catch (e) {}
     if (bs) {
       display_note_on_local_wallets = true;
@@ -133,13 +135,7 @@
           xmlns:xlink="http://www.w3.org/1999/xlink"
         >
           <defs />
-          <g
-            id="Page-1"
-            stroke-width="1"
-            fill="none"
-            fill-rule="evenodd"
-            sketch:type="MSPage"
-          >
+          <g id="Page-1" stroke-width="1" fill="none" fill-rule="evenodd">
             <g
               id="Laptop"
               transform="translate(1.000000, 1.000000)"

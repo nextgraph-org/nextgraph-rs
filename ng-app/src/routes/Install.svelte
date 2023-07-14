@@ -12,23 +12,16 @@
 <script>
   import { Button, Alert } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
+  import { has_wallets } from "../store";
+  // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
 
   import { onMount } from "svelte";
 
   let top;
 
-  let display_note_on_local_wallets = false;
-
   async function bootstrap() {
     scrollToTop();
-    let bs;
-    try {
-      bs = localStorage.getItem("bootstrap");
-    } catch (e) {}
-    if (bs) {
-      display_note_on_local_wallets = true;
-    }
   }
 
   function scrollToTop() {
@@ -50,7 +43,7 @@
     mobile, tablet, laptop and desktop.<br /> The app supports iOS, Android, Linux,
     macOS, Windows and all other platforms that can run a modern web browser.
   </p>
-  {#if display_note_on_local_wallets}
+  {#if $has_wallets}
     <Alert color="yellow" class="mt-5 block">
       A wallet is saved in this browser. If it is yours,<br /> once the
       installation of the app will be finished,<br /> choose the option "Login"

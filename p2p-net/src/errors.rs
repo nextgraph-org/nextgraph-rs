@@ -58,6 +58,7 @@ pub enum ProtocolError {
     InvalidSignature,
     SerializationError,
     AccessDenied,
+    InvitationRequired,
     OverlayNotJoined,
     OverlayNotFound,
     BrokerError,
@@ -70,6 +71,7 @@ pub enum ProtocolError {
 
     ConnectionError,
     Timeout,
+    Expired,
 
     PeerAlreadyConnected,
     OtherError,

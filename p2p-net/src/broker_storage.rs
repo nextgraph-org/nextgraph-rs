@@ -15,6 +15,7 @@ use p2p_repo::{kcv_store::KCVStore, types::PubKey};
 pub trait BrokerStorage: Send + Sync + std::fmt::Debug {
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError>;
     fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError>;
+    fn del_user(&self, user_id: PubKey) -> Result<(), ProtocolError>;
     fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError>;
     fn list_invitations(
         &self,
@@ -28,4 +29,6 @@ pub trait BrokerStorage: Send + Sync + std::fmt::Debug {
         expiry: u32,
         memo: &Option<String>,
     ) -> Result<(), ProtocolError>;
+    fn get_invitation_type(&self, invite: [u8; 32]) -> Result<u8, ProtocolError>;
+    fn remove_invitation(&self, invite: [u8; 32]) -> Result<(), ProtocolError>;
 }

@@ -230,6 +230,8 @@ pub struct BrokerServerV0 {
     pub peer_id: PubKey,
 }
 
+pub const APP_ACCOUNT_REGISTERED_SUFFIX: &str = "/#/user/registered";
+
 pub const NG_ONE_URL: &str = "https://nextgraph.one";
 
 pub const APP_NG_ONE_URL: &str = "https://app.nextgraph.one";
@@ -246,7 +248,7 @@ fn local_ws_url(port: &u16) -> String {
     format!("ws://localhost:{}", if *port == 0 { 80 } else { *port })
 }
 
-fn local_http_url(port: &u16) -> String {
+pub fn local_http_url(port: &u16) -> String {
     format!("http://localhost:{}", if *port == 0 { 80 } else { *port })
 }
 
@@ -291,6 +293,18 @@ impl BrokerServerV0 {
     fn first_ipv6(&self) -> Option<(String, Vec<BindAddress>)> {
         self.server_type.find_first_ipv6().map_or(None, |bindaddr| {
             Some((format!("ws://{}:{}", bindaddr.ip, bindaddr.port), vec![]))
+        })
+    }
+
+    pub fn first_ipv4_http(&self) -> Option<String> {
+        self.server_type.find_first_ipv4().map_or(None, |bindaddr| {
+            Some(format!("http://{}:{}", bindaddr.ip, bindaddr.port))
+        })
+    }
+
+    pub fn first_ipv6_http(&self) -> Option<String> {
+        self.server_type.find_first_ipv6().map_or(None, |bindaddr| {
+            Some(format!("http://{}:{}", bindaddr.ip, bindaddr.port))
         })
     }
 
@@ -520,6 +534,14 @@ pub enum BootstrapContent {
     V0(BootstrapContentV0),
 }
 
+impl BootstrapContent {
+    pub fn servers(&self) -> &Vec<BrokerServerV0> {
+        match self {
+            Self::V0(v0) => &v0.servers,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum InvitationCode {
     Unique(SymKey),
@@ -566,6 +588,14 @@ impl InvitationV0 {
             BootstrapContent::V0(v0) => self.bootstrap = v0,
         }
     }
+    pub fn empty(name: Option<String>) -> Self {
+        InvitationV0 {
+            bootstrap: BootstrapContentV0 { servers: vec![] },
+            code: None,
+            name,
+            url: None,
+        }
+    }
     pub fn new(
         bootstrap_content: BootstrapContent,
         code: Option<SymKey>,
@@ -579,6 +609,12 @@ impl InvitationV0 {
                 name,
                 url,
             },
+        }
+    }
+    pub fn append_bootstraps(&mut self, add: &mut Option<BootstrapContentV0>) {
+        if add.is_some() {
+            let add = add.as_mut().unwrap();
+            self.bootstrap.servers.append(&mut add.servers);
         }
     }
 }
@@ -676,6 +712,14 @@ impl Invitation {
     }
 }
 
+impl fmt::Display for Invitation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let ser = serde_bare::to_vec(&self).unwrap();
+        let string = base64_url::encode(&ser);
+        write!(f, "{}", string)
+    }
+}
+
 impl TryFrom<String> for Invitation {
     type Error = NgError;
     fn try_from(value: String) -> Result<Self, NgError> {
@@ -728,6 +772,26 @@ impl CreateAccountBSP {
             return None;
         }
         Some(base64_url::encode(&payload_ser.unwrap()))
+    }
+    pub fn user(&self) -> PubKey {
+        match self {
+            Self::V0(v0) => v0.user,
+        }
+    }
+    pub fn redirect_url(&self) -> &Option<String> {
+        match self {
+            Self::V0(v0) => &v0.redirect_url,
+        }
+    }
+    pub fn invitation(&self) -> &Option<InvitationV0> {
+        match self {
+            Self::V0(v0) => &v0.invitation,
+        }
+    }
+    pub fn additional_bootstrap(&mut self) -> &mut Option<BootstrapContentV0> {
+        match self {
+            Self::V0(v0) => &mut v0.additional_bootstrap,
+        }
     }
 }
 
@@ -2668,7 +2732,7 @@ pub enum Authorization {
     Discover,
     ExtMessage,
     Core,
-    Client(PubKey),
+    Client((PubKey, Option<Option<[u8; 32]>>)),
     OverlayJoin(PubKey),
     Admin(PubKey),
 }
@@ -2815,6 +2879,8 @@ pub struct ClientAuthContentV0 {
 
     pub info: ClientInfoV0,
 
+    pub registration: Option<Option<[u8; 32]>>,
+
     /// Nonce from ServerHello
     #[serde(with = "serde_bytes")]
     pub nonce: Vec<u8>,
@@ -2826,7 +2892,7 @@ pub struct ClientAuthV0 {
     /// Authentication data
     pub content: ClientAuthContentV0,
 
-    /// Signature by client key
+    /// Signature by user key
     pub sig: Sig,
 }
 
@@ -2860,6 +2926,11 @@ impl ClientAuth {
     pub fn nonce(&self) -> &Vec<u8> {
         match self {
             ClientAuth::V0(o) => &o.content.nonce,
+        }
+    }
+    pub fn registration(&self) -> Option<Option<[u8; 32]>> {
+        match self {
+            ClientAuth::V0(o) => o.content.registration,
         }
     }
 }

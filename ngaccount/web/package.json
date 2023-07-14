@@ -12,7 +12,8 @@
   "dependencies": {
     "flowbite": "^1.6.5",
     "flowbite-svelte": "^0.37.1",
-    "svelte-spa-router": "^3.3.0"
+    "svelte-spa-router": "^3.3.0",
+    "@tauri-apps/api": "2.0.0-alpha.4"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^2.0.4",

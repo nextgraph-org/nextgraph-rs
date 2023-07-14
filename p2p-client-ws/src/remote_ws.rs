@@ -341,6 +341,7 @@ mod test {
                         client,
                         client_priv,
                         info: ClientInfo::new(ClientType::Cli, "".into(), "".into()),
+                        registration: None,
                     }),
                 )
                 .await;

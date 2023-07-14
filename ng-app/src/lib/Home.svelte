@@ -12,20 +12,21 @@
 <script>
   import { Button } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
+  // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
+  import { has_wallets } from "../store";
 
   import { onMount } from "svelte";
-
   export let display_login_create = false;
 </script>
 
-<main class="container3">
-  <div class="row">
-    <Logo class="logo block h-40" alt="NextGraph Logo" />
-  </div>
-  <h1 class="text-2xl mb-10">Welcome to NextGraph</h1>
+{#if !$has_wallets || display_login_create}
+  <main class="container3">
+    <div class="row">
+      <Logo class="logo block h-40" alt="NextGraph Logo" />
+    </div>
+    <h1 class="text-2xl mb-10">Welcome to NextGraph</h1>
 
-  {#if display_login_create}
     <p class="max-w-sm">
       We could not find a wallet saved on this device.<br /> If you already have
       a wallet, select "Log in", otherwise, select "Create Wallet" here below
@@ -80,5 +81,5 @@
         </button>
       </a>
     </div>
-  {/if}
-</main>
+  </main>
+{/if}

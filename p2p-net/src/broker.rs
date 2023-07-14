@@ -182,7 +182,70 @@ impl<'a> Broker<'a> {
                 }
             }
             Authorization::ExtMessage => Err(ProtocolError::AccessDenied),
-            Authorization::Client(user) => Err(ProtocolError::AccessDenied),
+            Authorization::Client(user_and_registration) => {
+                if user_and_registration.1.is_some() {
+                    // use wants to register
+                    let storage = self.storage.as_ref().unwrap();
+                    if storage.get_user(user_and_registration.0).is_ok() {
+                        return Ok(());
+                    }
+                    if let Some(ServerConfig {
+                        registration: reg, ..
+                    }) = &self.config
+                    {
+                        return match reg {
+                            RegistrationConfig::Closed => return Err(ProtocolError::AccessDenied),
+                            RegistrationConfig::Invitation => {
+                                // registration is only possible with an invitation code
+                                if user_and_registration.1.unwrap().is_none() {
+                                    Err(ProtocolError::InvitationRequired)
+                                } else {
+                                    let mut is_admin = false;
+                                    let code = user_and_registration.1.unwrap().unwrap();
+                                    let inv_type = storage.get_invitation_type(code)?;
+                                    if inv_type == 2u8 {
+                                        // admin
+                                        is_admin = true;
+                                        storage.remove_invitation(code)?;
+                                    } else if inv_type == 1u8 {
+                                        storage.remove_invitation(code)?;
+                                    }
+                                    self.storage
+                                        .as_ref()
+                                        .unwrap()
+                                        .add_user(user_and_registration.0, is_admin)?;
+                                    Ok(())
+                                }
+                            }
+                            RegistrationConfig::Open => {
+                                // registration is open (no need for invitation. anybody can register)
+                                let mut is_admin = false;
+                                if user_and_registration.1.unwrap().is_some() {
+                                    // but if there is an invitation code and it says the user should be admin, then we take that into account
+                                    let code = user_and_registration.1.unwrap().unwrap();
+                                    let inv_type = storage.get_invitation_type(code)?;
+                                    if inv_type == 2u8 {
+                                        // admin
+                                        is_admin = true;
+                                        storage.remove_invitation(code)?;
+                                    } else if inv_type == 1u8 {
+                                        storage.remove_invitation(code)?;
+                                    }
+                                }
+                                self.storage
+                                    .as_ref()
+                                    .unwrap()
+                                    .add_user(user_and_registration.0, is_admin)?;
+                                Ok(())
+                            }
+                        };
+                    } else {
+                        return Err(ProtocolError::BrokerError);
+                    }
+                }
+                // if user doesn't want to register, we accept everything, as perms will be checked late ron, once the overlayId is known
+                Ok(())
+            }
             Authorization::Core => Err(ProtocolError::AccessDenied),
             Authorization::Admin(admin_user) => {
                 if listener.config.accepts_client() {
@@ -543,16 +606,25 @@ impl<'a> Broker<'a> {
             .ok_or(ProtocolError::AccessDenied)?;
 
         // authorize
-        if client.is_none() {
+        let is_core = if client.is_none() {
             // it is a Core connection
             if !listener.config.is_core() {
                 return Err(ProtocolError::AccessDenied);
             }
+            true
         } else {
             if !listener.config.accepts_client() {
                 return Err(ProtocolError::AccessDenied);
             }
-        }
+            let client = client.unwrap();
+            self.authorize(
+                &(local_bind_address, remote_bind_address),
+                Authorization::Client((client.user, client.registration)),
+            )?;
+
+            // TODO add client to storage
+            false
+        };
 
         let mut connection = self
             .anonymous_connections
@@ -561,9 +633,7 @@ impl<'a> Broker<'a> {
 
         connection.reset_shutdown(remote_peer_id).await;
         let ip = remote_bind_address.ip;
-        let connected = if let Some(client_auth) = client {
-            // TODO add client to storage
-
+        let connected = if !is_core {
             PeerConnection::Client(connection)
         } else {
             let dc = DirectConnection {
