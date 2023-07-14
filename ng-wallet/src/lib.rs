@@ -341,10 +341,8 @@ pub fn gen_shuffle_for_pin() -> Vec<u8> {
 /// creates a Wallet from a pin, a security text and image (with option to send the bootstrap and wallet to nextgraph.one)
 /// and returns the Wallet, the pazzle and the mnemonic
 pub async fn create_wallet_v0(
-    params: CreateWalletV0,
+    mut params: CreateWalletV0,
 ) -> Result<CreateWalletResultV0, NgWalletError> {
-    // TODO : use some automatically zeroed variable for the 2 first arguments, and for the returned values
-
     let creating_pazzle = Instant::now();
 
     // pazzle_length can only be 9, 12, or 15
@@ -481,7 +479,33 @@ pub async fn create_wallet_v0(
     //Creating a new peerId for this Client and User
     let peer = generate_keypair();
 
-    let wallet_log = WalletLog::new_v0(create_op);
+    let mut wallet_log = WalletLog::new_v0(create_op);
+
+    // adding some more operations in the log
+
+    // pub core_bootstrap: BootstrapContentV0,
+    // #[zeroize(skip)]
+    // pub core_registration: Option<[u8; 32]>,
+    // #[zeroize(skip)]
+    // pub additional_bootstrap: Option<BootstrapContentV0>,
+
+    wallet_log.add(WalletOperation::AddSiteCoreV0((
+        user,
+        params
+            .core_bootstrap
+            .get_first_peer_id()
+            .ok_or(NgWalletError::InvalidBootstrap)?,
+        params.core_registration,
+    )));
+
+    if let Some(additional) = &params.additional_bootstrap {
+        params.core_bootstrap.merge(additional);
+    }
+
+    for server in &params.core_bootstrap.servers {
+        wallet_log.add(WalletOperation::AddBrokerServerV0(server.clone()));
+        wallet_log.add(WalletOperation::AddSiteBootstrapV0((user, server.peer_id)));
+    }
 
     let mut master_key = [0u8; 32];
     getrandom::getrandom(&mut master_key).map_err(|e| NgWalletError::InternalError)?;
@@ -632,6 +656,9 @@ mod test {
             9,
             false,
             false,
+            BootstrapContentV0::new(),
+            None,
+            None,
         ))
         .await
         .expect("create_wallet_v0");

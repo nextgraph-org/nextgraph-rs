@@ -226,6 +226,11 @@ impl WalletLog {
     pub fn new_v0(create_op: WalletOpCreateV0) -> Self {
         WalletLog::V0(WalletLogV0::new(create_op))
     }
+    pub fn add(&mut self, op: WalletOperation) {
+        match self {
+            Self::V0(v0) => v0.add(op),
+        }
+    }
 }
 
 impl WalletLogV0 {
@@ -289,10 +294,10 @@ impl WalletLogV0 {
                         }
                     }
                     WalletOperation::RemoveOverlayCoreOverrideV0(_) => {}
-                    WalletOperation::AddSiteCoreV0((site, core)) => {
+                    WalletOperation::AddSiteCoreV0((site, core, registration)) => {
                         if self.is_first_and_not_deleted_afterwards(op, "RemoveSiteCoreV0") {
                             let _ = wallet.sites.get_mut(&site).and_then(|site| {
-                                site.cores.push(*core);
+                                site.cores.push((*core, *registration));
                                 None::<SiteV0>
                             });
                         }
@@ -460,7 +465,7 @@ pub enum WalletOperation {
     SetClientV0(ClientV0),
     AddOverlayCoreOverrideV0((OverlayId, Vec<PubKey>)),
     RemoveOverlayCoreOverrideV0(OverlayId),
-    AddSiteCoreV0((PubKey, PubKey)),
+    AddSiteCoreV0((PubKey, PubKey, Option<[u8; 32]>)),
     RemoveSiteCoreV0((PubKey, PubKey)),
     AddSiteBootstrapV0((PubKey, PubKey)),
     RemoveSiteBootstrapV0((PubKey, PubKey)),
@@ -763,6 +768,12 @@ pub struct CreateWalletV0 {
     pub result_with_wallet_file: bool,
     #[zeroize(skip)]
     pub local_save: bool,
+    #[zeroize(skip)]
+    pub core_bootstrap: BootstrapContentV0,
+    #[zeroize(skip)]
+    pub core_registration: Option<[u8; 32]>,
+    #[zeroize(skip)]
+    pub additional_bootstrap: Option<BootstrapContentV0>,
 }
 
 impl CreateWalletV0 {
@@ -773,6 +784,9 @@ impl CreateWalletV0 {
         pazzle_length: u8,
         send_bootstrap: bool,
         send_wallet: bool,
+        core_bootstrap: BootstrapContentV0,
+        core_registration: Option<[u8; 32]>,
+        additional_bootstrap: Option<BootstrapContentV0>,
     ) -> Self {
         CreateWalletV0 {
             result_with_wallet_file: false,
@@ -783,6 +797,9 @@ impl CreateWalletV0 {
             pazzle_length,
             send_bootstrap,
             send_wallet,
+            core_bootstrap,
+            core_registration,
+            additional_bootstrap,
         }
     }
 }
@@ -822,6 +839,7 @@ pub enum NgWalletError {
     DecryptionError,
     InvalidSignature,
     NoCreateWalletPresent,
+    InvalidBootstrap,
 }
 
 impl fmt::Display for NgWalletError {

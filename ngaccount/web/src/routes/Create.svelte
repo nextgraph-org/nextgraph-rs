@@ -45,6 +45,7 @@
         error = "We are redirecting you...";
         go_back = false;
       } else {
+        //console.log(result);
         success(result);
       }
     } catch (e) {
