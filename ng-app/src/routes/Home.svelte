@@ -13,25 +13,34 @@
   import { Button } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
   import Home from "../lib/Home.svelte";
-  import { onMount } from "svelte";
+  import { push } from "svelte-spa-router";
+  import { onMount, onDestroy } from "svelte";
+  import {
+    wallets,
+    active_wallet,
+    opened_wallets,
+    active_session,
+    has_wallets,
+    derived,
+  } from "../store";
 
-  let display_login_create = false;
+  let unsubscribe;
+  onMount(() => {
+    const combined = derived([active_wallet, has_wallets], ([$s1, $s2]) => [
+      $s1,
+      $s2,
+    ]);
+    unsubscribe = combined.subscribe((value) => {
+      console.log(value);
+      if (!value[0] && value[1]) {
+        push("#/wallet/login");
+      }
+    });
+  });
 
-  async function bootstrap() {
-    let bs;
-    try {
-      bs = localStorage.getItem("bootstrap");
-    } catch (e) {}
-    if (bs) {
-    } else {
-      // probe localhost and LAN
-
-      // if nothing found, displays login/create account
-      console.log("no wallet found");
-      display_login_create = true;
-    }
-  }
-  onMount(() => bootstrap());
+  onDestroy(() => {
+    unsubscribe();
+  });
 </script>
 
-<Home {display_login_create} />
+<Home />

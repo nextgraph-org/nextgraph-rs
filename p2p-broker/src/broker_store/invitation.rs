@@ -14,6 +14,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::time::SystemTime;
 
+use p2p_net::errors::ProtocolError;
 use p2p_net::types::*;
 use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::store::*;
@@ -144,6 +145,17 @@ impl<'a> Invitation<'a> {
         self.id
     }
 
+    pub fn get_type(&self) -> Result<u8, ProtocolError> {
+        let type_ser = self
+            .store
+            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::TYPE))?;
+        let t: (u8, u32, Option<String>) = from_slice(&type_ser)?;
+        if t.1 < now_timestamp() {
+            return Err(ProtocolError::Expired);
+        }
+        Ok(t.0)
+    }
+
     pub fn is_expired(&self) -> Result<bool, StorageError> {
         let expire_ser = self
             .store
@@ -176,30 +188,5 @@ mod test {
     use crate::broker_store::account::Account;
 
     #[test]
-    pub fn test_account() {
-        let path_str = "test-env";
-        let root = Builder::new().prefix(path_str).tempdir().unwrap();
-        let key: [u8; 32] = [0; 32];
-        fs::create_dir_all(root.path()).unwrap();
-        println!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbKCVStore::open(root.path(), key);
-
-        let user_id = PubKey::Ed25519PubKey([1; 32]);
-
-        let account = Account::create(&user_id, true, &store).unwrap();
-        println!("account created {}", account.id());
-
-        let account2 = Account::open(&user_id, &store).unwrap();
-        println!("account opened {}", account2.id());
-
-        // let client_id = PubKey::Ed25519PubKey([56; 32]);
-        // let client_id_not_added = PubKey::Ed25519PubKey([57; 32]);
-
-        // account2.add_client(&client_id).unwrap();
-
-        // assert!(account2.is_admin().unwrap());
-
-        // account.has_client(&client_id).unwrap();
-        // assert!(account.has_client(&client_id_not_added).is_err());
-    }
+    pub fn test_invitation() {}
 }

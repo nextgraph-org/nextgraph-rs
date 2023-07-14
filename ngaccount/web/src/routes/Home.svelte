@@ -17,7 +17,7 @@
 
   const api_url = import.meta.env.PROD
     ? "api/v1/"
-    : "http://localhost:3030/api/v1/";
+    : "http://localhost:3031/api/v1/";
 
   async function bootstrap() {}
 

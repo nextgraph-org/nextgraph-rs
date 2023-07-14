@@ -120,3 +120,19 @@ module.exports.client_details = function () {
     }
   });
 };
+
+module.exports.session_save = function(key,value) {
+    
+}
+
+module.exports.session_get = function(key) {
+    
+}
+
+module.exports.local_save = function(key,value) {
+    
+}
+
+module.exports.local_get = function(key) {
+    
+}

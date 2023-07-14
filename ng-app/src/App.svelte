@@ -12,31 +12,131 @@
 <script lang="ts">
   // this line is needed to have the SDK working when compiling for a single file bundle (pnpm filebuild)
   // import * as api from "ng-sdk-js";
-  import Router from "svelte-spa-router";
-  import { onMount, tick } from "svelte";
+  import { push, default as Router } from "svelte-spa-router";
+  import { onMount, tick, onDestroy } from "svelte";
+  import {
+    wallets,
+    active_wallet,
+    opened_wallets,
+    active_session,
+  } from "./store";
 
   import Home from "./routes/Home.svelte";
   import Test from "./routes/Test.svelte";
-  import Grid from "./routes/Grid.svelte";
+
   import URI from "./routes/URI.svelte";
   import NotFound from "./routes/NotFound.svelte";
   import WalletCreate from "./routes/WalletCreate.svelte";
+  import WalletLogin from "./routes/WalletLogin.svelte";
+  import UserRegistered from "./routes/UserRegistered.svelte";
   import Install from "./routes/Install.svelte";
 
   import ng from "./api";
 
-  ng.test();
-
   const routes = new Map();
   routes.set("/", Home);
   routes.set("/test", Test);
-  routes.set("/grid", Grid);
+  routes.set("/wallet/login", WalletLogin);
   routes.set("/wallet/create", WalletCreate);
+  routes.set("/user/registered", UserRegistered);
   if (import.meta.env.NG_APP_WEB) routes.set("/install", Install);
   routes.set(/^\/ng(.*)/i, URI);
   routes.set("*", NotFound);
+
+  let unsubscribe = () => {};
+
+  let wallet_channel;
+
+  onMount(async () => {
+    let tauri_platform = import.meta.env.TAURI_PLATFORM;
+    if (!tauri_platform) {
+      window.addEventListener("storage", async (event) => {
+        if (event.storageArea != localStorage) return;
+        if (event.key === "ng_wallets") {
+          wallets.set(
+            Object.fromEntries(await ng.get_wallets_from_localstorage())
+          );
+        }
+      });
+      wallets.set(
+        Object.fromEntries((await ng.get_wallets_from_localstorage()) || [])
+      );
+      wallet_channel = new BroadcastChannel("ng_wallet");
+      wallet_channel.postMessage({ cmd: "is_opened" }, location.href);
+      wallet_channel.onmessage = (event) => {
+        console.log(event);
+        if (!location.href.startsWith(event.origin)) return;
+        console.log("ng_wallet", event.data);
+        switch (event.data.cmd) {
+          case "is_opened":
+            console.log($active_wallet);
+            if ($active_wallet && $active_wallet.wallet) {
+              wallet_channel.postMessage(
+                { cmd: "opened", wallet: $active_wallet },
+                location.href
+              );
+            }
+            for (let opened of Object.keys($opened_wallets)) {
+              wallet_channel.postMessage(
+                {
+                  cmd: "opened",
+                  wallet: { wallet: $opened_wallets[opened], id: opened },
+                },
+                location.href
+              );
+            }
+            break;
+          case "opened":
+            if (!$opened_wallets[event.data.wallet.id]) {
+              opened_wallets.update((w) => {
+                w[event.data.wallet.id] = event.data.wallet.wallet;
+                return w;
+              });
+            }
+            break;
+          case "closed":
+            opened_wallets.update((w) => {
+              delete w[event.data.walletid];
+              return w;
+            });
+            if ($active_wallet && $active_wallet.id == event.data.walletid) {
+              active_session.set(undefined);
+              active_wallet.set(undefined);
+            }
+            break;
+        }
+      };
+      unsubscribe = active_wallet.subscribe((value) => {
+        if (value) {
+          if (value.wallet) {
+            wallet_channel.postMessage(
+              { cmd: "opened", wallet: value },
+              location.href
+            );
+          } else {
+            wallet_channel.postMessage(
+              { cmd: "closed", walletid: value.id },
+              location.href
+            );
+            active_wallet.set(undefined);
+            active_session.set(undefined);
+          }
+        } else {
+          //push("#/wallet/login");
+        }
+      });
+    }
+  });
+
+  onDestroy(unsubscribe);
 </script>
 
 <main class="">
+  <!-- <p>
+    {JSON.stringify(Object.keys($wallets))}
+    {JSON.stringify($active_wallet)}
+    {JSON.stringify(Object.keys($opened_wallets))}
+    {JSON.stringify($active_session)}
+  </p> -->
   <Router {routes} />
 </main>

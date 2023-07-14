@@ -25,7 +25,7 @@
   async function bootstrap() {
     let bs;
     try {
-      bs = localStorage.getItem("bootstrap");
+      bs = localStorage.getItem("ng_wallets");
     } catch (e) {}
     if (bs) {
     } else {

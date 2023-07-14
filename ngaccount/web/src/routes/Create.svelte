@@ -11,14 +11,18 @@
 
 <script>
   import { Button } from "flowbite-svelte";
+  // @ts-ignore
   import EULogo from "../assets/EU.svg?component";
+  // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
   import { link, querystring } from "svelte-spa-router";
+  import { tauri, event } from "@tauri-apps/api";
 
   import { onMount } from "svelte";
   let domain = import.meta.env.NG_ACCOUNT_DOMAIN;
-  const params = new URLSearchParams($querystring);
-  let ca = params.get("ca");
+  const param = new URLSearchParams($querystring);
+  let ca = param.get("ca");
+  let go_back = true;
 
   let top;
   const api_url = import.meta.env.PROD
@@ -29,10 +33,37 @@
     const opts = {
       method: "get",
     };
-    const response = await fetch(api_url + "register/" + ca, opts);
+    try {
+      const response = await fetch(api_url + "register/" + ca, opts);
 
-    const result = await response.text();
-    console.log("Result:", response.status, result); // 400 is error, 201 ok
+      const result = await response.text();
+      console.log("Result:", response.status, result); // 400 is error with redirect, 200 ok, 406 is error without known redirect
+      if (response.status == 406) {
+        close();
+      } else if (response.status == 400) {
+        close(result);
+        error = "We are redirecting you...";
+        go_back = false;
+      } else {
+        success(result);
+      }
+    } catch (e) {
+      error = e.message;
+    }
+  }
+
+  function close(url) {
+    // TODO tauri error code
+    if (url) {
+      window.location.href = url;
+    } else {
+      window.history.go(-1);
+    }
+  }
+
+  function success(url) {
+    window.location.href = url;
+    // TODO tauri success code
   }
 
   async function bootstrap() {}
@@ -44,7 +75,7 @@
     await register();
   };
   const refuse = (event) => {
-    window.history.go(-1);
+    close();
   };
 </script>
 
@@ -60,11 +91,34 @@
     {/if}
   </div>
   {#if error}
-    <div class=" max-w-6xl lg:px-8 mx-auto px-4">
-      <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-        An error occurred while registering on this broker :<br />
-        {error}
+    <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
+      <svg
+        class="animate-bounce mt-10 h-16 w-16 mx-auto"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        viewBox="0 0 24 24"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+        />
+      </svg>
+
+      <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
+        An error occurred while registering on this broker:<br />{error}
       </p>
+      {#if go_back}
+        <button
+          on:click|once={close}
+          class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+        >
+          Go back
+        </button>
+      {/if}
     </div>
   {:else}
     {#if ca}
@@ -218,10 +272,9 @@
             </svg>
             <span
               >Registration is free of charge. And it would be very nice of you
-              if you wanted to donate a small amount for the fees we have to pay
-              for the servers. Here is the donation link: <a
-                target="_blank"
-                href="https://nextgraph.org/donate"
+              if you wanted to donate a small amount to help us cover the fees
+              we have to pay for operating the servers. Here is the donation
+              link: <a target="_blank" href="https://nextgraph.org/donate"
                 >https://nextgraph.org/donate</a
               >
             </span>

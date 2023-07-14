@@ -17,8 +17,8 @@
 
   import { onMount } from "svelte";
 
-  const params = new URLSearchParams($querystring);
-  let ca = params.get("ca");
+  const param = new URLSearchParams($querystring);
+  let ca = param.get("ca");
 
   let domain = import.meta.env.NG_ACCOUNT_DOMAIN;
 

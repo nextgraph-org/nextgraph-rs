@@ -17,6 +17,7 @@ env_logger = "0.10"
 stores-lmdb = { path = "../stores-lmdb" }
 p2p-repo = { path = "../p2p-repo", features = ["server_log_output"] }
 p2p-net = { path = "../p2p-net" }
+p2p-client-ws = { path = "../p2p-client-ws" }
 ng-wallet = { path = "../ng-wallet" }
 serde = { version = "1.0.142", features = ["derive"] }
 serde_bare = "0.5.0"

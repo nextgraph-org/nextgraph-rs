@@ -177,6 +177,7 @@ pub fn timestamp_after(duration: Duration) -> Timestamp {
 }
 
 /// displays the NextGraph Timestamp in UTC.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn display_timestamp(ts: &Timestamp) -> String {
     let st = SystemTime::UNIX_EPOCH
         + Duration::from_secs(EPOCH_AS_UNIX_TIMESTAMP)

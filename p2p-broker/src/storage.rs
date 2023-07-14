@@ -111,6 +111,12 @@ impl BrokerStorage for LmdbBrokerStorage {
         Account::create(&user_id, is_admin, &self.accounts_storage)?;
         Ok(())
     }
+    fn del_user(&self, user_id: PubKey) -> Result<(), ProtocolError> {
+        log_debug!("del_user {user_id}");
+        let acc = Account::open(&user_id, &self.accounts_storage)?;
+        acc.del()?;
+        Ok(())
+    }
     fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError> {
         log_debug!("list_users that are admin == {admins}");
         Ok(Account::get_all_users(admins, &self.accounts_storage)?)
@@ -137,6 +143,17 @@ impl BrokerStorage for LmdbBrokerStorage {
     ) -> Result<(), ProtocolError> {
         log_debug!("add_invitation {invite_code} expiry {expiry}");
         Invitation::create(invite_code, expiry, memo, &self.accounts_storage)?;
+        Ok(())
+    }
+    fn get_invitation_type(&self, invite_code: [u8; 32]) -> Result<u8, ProtocolError> {
+        log_debug!("get_invitation_type {:?}", invite_code);
+        let inv = Invitation::open(&invite_code, &self.accounts_storage)?;
+        inv.get_type()
+    }
+    fn remove_invitation(&self, invite_code: [u8; 32]) -> Result<(), ProtocolError> {
+        log_debug!("remove_invitation {:?}", invite_code);
+        let inv = Invitation::open(&invite_code, &self.accounts_storage)?;
+        inv.del()?;
         Ok(())
     }
 }
