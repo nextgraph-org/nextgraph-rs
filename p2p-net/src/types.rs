@@ -145,7 +145,7 @@ pub struct SiteV0 {
     // Identity::OrgPrivate or Identity::IndividualPrivate
     pub private: SiteStore,
 
-    pub cores: Vec<PubKey>,
+    pub cores: Vec<(PubKey, Option<[u8; 32]>)>,
 
     pub bootstraps: Vec<PubKey>,
 }
@@ -529,6 +529,25 @@ pub struct BootstrapContentV0 {
     pub servers: Vec<BrokerServerV0>,
 }
 
+impl BootstrapContentV0 {
+    pub fn new() -> Self {
+        BootstrapContentV0 { servers: vec![] }
+    }
+    pub fn merge(&mut self, with: &BootstrapContentV0) {
+        'outer: for server2 in &with.servers {
+            for server1 in &self.servers {
+                if *server1 == *server2 {
+                    continue 'outer;
+                }
+            }
+            self.servers.push(server2.clone());
+        }
+    }
+    pub fn get_first_peer_id(&self) -> Option<PubKey> {
+        self.servers.first().map(|s| s.peer_id)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BootstrapContent {
     V0(BootstrapContentV0),
@@ -679,6 +698,14 @@ impl Invitation {
         }
     }
 
+    pub fn set_url(&mut self, url: Option<&String>) {
+        if url.is_some() {
+            match self {
+                Invitation::V0(v0) => v0.url = Some(url.unwrap().clone()),
+            }
+        }
+    }
+
     /// first URL in the list is the ngone one
     pub fn get_urls(&self) -> Vec<String> {
         match self {
@@ -773,37 +800,36 @@ impl CreateAccountBSP {
         }
         Some(base64_url::encode(&payload_ser.unwrap()))
     }
-    pub fn user(&self) -> PubKey {
-        match self {
-            Self::V0(v0) => v0.user,
-        }
-    }
+    // pub fn user(&self) -> PubKey {
+    //     match self {
+    //         Self::V0(v0) => v0.user,
+    //     }
+    // }
     pub fn redirect_url(&self) -> &Option<String> {
         match self {
             Self::V0(v0) => &v0.redirect_url,
         }
     }
-    pub fn invitation(&self) -> &Option<InvitationV0> {
-        match self {
-            Self::V0(v0) => &v0.invitation,
-        }
-    }
-    pub fn additional_bootstrap(&mut self) -> &mut Option<BootstrapContentV0> {
-        match self {
-            Self::V0(v0) => &mut v0.additional_bootstrap,
-        }
-    }
+    // pub fn invitation(&self) -> &Option<InvitationV0> {
+    //     match self {
+    //         Self::V0(v0) => &v0.invitation,
+    //     }
+    // }
+    // pub fn additional_bootstrap(&mut self) -> &mut Option<BootstrapContentV0> {
+    //     match self {
+    //         Self::V0(v0) => &mut v0.additional_bootstrap,
+    //     }
+    // }
 }
 
 /// Create an account at a Broker Service Provider (BSP). Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateAccountBSPV0 {
-    pub invitation: Option<InvitationV0>,
+    //pub invitation: Option<InvitationV0>,
 
-    pub additional_bootstrap: Option<BootstrapContentV0>,
-
+    //pub additional_bootstrap: Option<BootstrapContentV0>,
     /// the user asking to create an account
-    pub user: PubKey,
+    //pub user: PubKey,
 
     /// signature over serialized invitation code, with user key
     // pub sig: Sig,

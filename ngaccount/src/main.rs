@@ -11,8 +11,9 @@ extern crate anyhow;
 
 mod types;
 
+use duration_str::parse;
 use p2p_client_ws::remote_ws::ConnectionWebSocket;
-use p2p_net::actors::add_user::*;
+use p2p_net::actors::add_invitation::*;
 use p2p_net::broker::BROKER;
 use p2p_repo::store::StorageError;
 use warp::reply::Response;
@@ -30,12 +31,12 @@ use std::{env, fs};
 use crate::types::*;
 use ng_wallet::types::*;
 use p2p_net::types::{
-    BindAddress, CreateAccountBSP, Invitation, InvitationV0, APP_ACCOUNT_REGISTERED_SUFFIX,
-    APP_NG_ONE_URL, NG_ONE_URL,
+    AdminResponseContentV0, BindAddress, CreateAccountBSP, Invitation, InvitationCode,
+    InvitationV0, APP_ACCOUNT_REGISTERED_SUFFIX, APP_NG_ONE_URL, NG_ONE_URL,
 };
 use p2p_repo::log::*;
 use p2p_repo::types::*;
-use p2p_repo::utils::{generate_keypair, sign, verify};
+use p2p_repo::utils::{generate_keypair, sign, timestamp_after, verify};
 
 #[derive(RustEmbed)]
 #[folder = "web/dist"]
@@ -60,6 +61,11 @@ impl Server {
 
         // if needed, proceed with payment and verify it here. once validated, add the user
 
+        let duration = parse("5m").unwrap();
+        let expiry = timestamp_after(duration);
+        let symkey = SymKey::random();
+        let invite_code = InvitationCode::Unique(symkey.clone());
+
         let local_peer_pubk = self.local_peer_key.to_pub();
         let res = BROKER
             .write()
@@ -75,42 +81,44 @@ impl Server {
                     port: self.port,
                     ip: (&self.ip).into(),
                 },
-                AddUser::V0(AddUserV0 {
-                    user: cabsp.user(),
-                    is_admin: false,
+                AddInvitation::V0(AddInvitationV0 {
+                    invite_code,
+                    expiry,
+                    memo: None,
+                    tos_url: false,
                 }),
             )
             .await;
 
-        let mut redirect_url = cabsp
+        let redirect_url = cabsp
             .redirect_url()
             .clone()
             .unwrap_or(format!("{}{}", self.domain, APP_ACCOUNT_REGISTERED_SUFFIX));
 
-        match &res {
+        match res {
             Err(e) => {
                 log_err!("error while registering: {e} {:?}", cabsp);
-                Err(Some(format!("{}?e={}", redirect_url, e)))
+                Err(Some(format!("{}?re={}", redirect_url, e)))
             }
-            Ok(_) => {
-                log_info!("User added successfully {}", cabsp.user());
-                let mut return_invitation = if cabsp.invitation().is_some() {
-                    InvitationV0 {
-                        bootstrap: cabsp.invitation().as_ref().unwrap().bootstrap.clone(),
-                        name: cabsp.invitation().as_ref().unwrap().name.clone(),
-                        code: None,
-                        url: None,
-                    }
-                } else {
-                    InvitationV0::empty(Some(self.domain.clone()))
-                };
-                return_invitation.append_bootstraps(cabsp.additional_bootstrap());
+            Ok(AdminResponseContentV0::Invitation(Invitation::V0(mut invitation))) => {
+                log_info!("invitation created successfully {:?}", invitation);
+                invitation.name = Some(self.domain.clone());
                 Ok(format!(
-                    "{}?i={}&u={}",
+                    "{}?i={}&rs={}",
                     redirect_url,
-                    Invitation::V0(return_invitation),
-                    cabsp.user()
+                    Invitation::V0(invitation),
+                    self.domain
                 ))
+            }
+            _ => {
+                log_err!(
+                    "error while registering: invalid response from add_invitation {:?}",
+                    cabsp
+                );
+                Err(Some(format!(
+                    "{}?re={}",
+                    redirect_url, "add_invitation_failed"
+                )))
             }
         }
     }

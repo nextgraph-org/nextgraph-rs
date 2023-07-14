@@ -9,6 +9,7 @@
  * according to those terms.
 */
 
+use crate::broker::BROKER;
 use crate::types::*;
 use crate::NG_BOOTSTRAP_LOCAL_PATH;
 use async_std::task;
@@ -150,10 +151,13 @@ pub async fn retrieve_local_bootstrap(
         let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_PATH)).await;
         if resp.is_ok() {
             let resp = resp.unwrap().json::<BootstrapContent>().await;
-            resp.ok().map(|v| v.into())
-        } else {
-            None
+            if resp.is_ok() {
+                let mut inv: Invitation = resp.unwrap().into();
+                inv.set_url(BROKER.read().await.get_registration_url());
+                return Some(inv);
+            }
         }
+        None
     };
 
     let res = if invite1.is_none() {

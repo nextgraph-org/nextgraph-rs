@@ -95,7 +95,7 @@ async fn main() -> Result<(), ProtocolError> {
             .arg(arg!(
                 -v --verbose ... "Increase the logging output. once : info, twice : debug, 3 times : trace"
             ))
-            .arg(arg!(-b --base [PATH] "Base path for client home folder containing all persistent files, config, and key")
+            .arg(arg!(-b --base <PATH> "Base path for client home folder containing all persistent files, config, and key")
             .required(false)
             .value_parser(value_parser!(PathBuf))
             .default_value(".ng"))
@@ -137,12 +137,12 @@ async fn main() -> Result<(), ProtocolError> {
                     .subcommand(
                         Command::new("add-user")
                             .about("add a user to the server, so it can connect to it")
-                            .arg(arg!([USER_ID] "userId of the user to add. should be a base64-url encoded serde serialization of its pubkey [u8; 32]").required(true))
+                            .arg(arg!(<USER_ID> "userId of the user to add. should be a base64-url encoded serde serialization of its pubkey [u8; 32]").required(true))
                             .arg(arg!(-a --admin "make this user admin as well").required(false)))
                     .subcommand(
                         Command::new("del-user")
                             .about("removes a user from the broker")
-                            .arg(arg!([USER_ID] "userId of the user to remove. should be a base64-url encoded serde serialization of its pubkey [u8; 32]").required(true)))
+                            .arg(arg!(<USER_ID> "userId of the user to remove. should be a base64-url encoded serde serialization of its pubkey [u8; 32]").required(true)))
                     .subcommand(
                         Command::new("list-users")
                             .about("list all users registered in the broker")
@@ -156,7 +156,8 @@ async fn main() -> Result<(), ProtocolError> {
                         .arg(arg!(-u --unique "this invitation can be used only once. this is the default").required(false).conflicts_with("admin"))
                         .arg(arg!(-f --forever "this invitation does not expire. it can be used forever (or until deleted by an admin). default if no EXPIRES provided").required(false))
                         .arg(arg!(-n --name <NAME> "optional name of this broker that will be displayed to the user when registering: You have been invited to register an account at [NAME]").required(false))
-                        .arg(arg!(-m --memo <MEMO> "optional memo about this invitation that will be kept in the server. it will help you to remember who you invited and to manage the invitation").required(false)))
+                        .arg(arg!(-m --memo <MEMO> "optional memo about this invitation that will be kept in the server. it will help you to remember who you invited and to manage the invitation").required(false))
+                        .arg(arg!(--notos "the TOS have already been accepted by the user. No need to redirect to a page for TOS acceptance.").required(false)))
                     .subcommand(
                         Command::new("list-invitations")
                             .about("list all invitations")
@@ -521,6 +522,7 @@ async fn main() -> Result<(), ProtocolError> {
                         invite_code,
                         expiry,
                         memo: sub2_matches.get_one::<String>("memo").map(|s| s.clone()),
+                        tos_url: !sub2_matches.get_flag("notos"),
                     }),
                 )
                 .await;

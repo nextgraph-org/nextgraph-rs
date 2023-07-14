@@ -115,6 +115,7 @@ export const NG_EU_BSP_REGISTER = "https://account.nextgraph.eu/#/create";
 export const NG_EU_BSP_REGISTERED = "https://nextgraph.eu/#/user/registered";
 
 export const APP_ACCOUNT_REGISTERED_SUFFIX = "/#/user/registered";
+export const APP_WALLET_CREATE_SUFFIX = "/#/wallet/create";
 
 export const NG_NET_BSP = "https://nextgraph.net";
 export const NG_NET_BSP_REGISTER = "https://account.nextgraph.net/#/create";

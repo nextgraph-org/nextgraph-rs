@@ -27,6 +27,7 @@ pub struct AddInvitationV0 {
     pub invite_code: InvitationCode,
     pub expiry: u32,
     pub memo: Option<String>,
+    pub tos_url: bool,
 }
 
 /// Add invitation
@@ -49,6 +50,11 @@ impl AddInvitation {
     pub fn memo(&self) -> &Option<String> {
         match self {
             AddInvitation::V0(o) => &o.memo,
+        }
+    }
+    pub fn tos_url(&self) -> bool {
+        match self {
+            AddInvitation::V0(o) => o.tos_url,
         }
     }
     pub fn get_actor(&self) -> Box<dyn EActor> {
@@ -103,7 +109,11 @@ impl EActor for Actor<'_, AddInvitation, AdminResponse> {
             broker.get_bootstrap()?.clone(),
             Some(req.code().get_symkey()),
             None,
-            broker.get_registration_url().map(|s| s.clone()),
+            if req.tos_url() {
+                broker.get_registration_url().map(|s| s.clone())
+            } else {
+                None
+            },
         ));
         let response: AdminResponseV0 = invitation.into();
         fsm.lock().await.send(response.into()).await?;

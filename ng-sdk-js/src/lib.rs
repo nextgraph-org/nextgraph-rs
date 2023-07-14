@@ -78,6 +78,17 @@ pub async fn get_local_url(location: String) -> JsValue {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+pub async fn get_ngone_url_of_invitation(invitation_string: String) -> JsValue {
+    let res = decode_invitation_string(invitation_string);
+    if res.is_some() {
+        serde_wasm_bindgen::to_value(&res.unwrap().get_urls()[0]).unwrap()
+    } else {
+        JsValue::FALSE
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
 pub async fn get_local_bootstrap_with_public(location: String, invite: JsValue) -> JsValue {
     let res = retrieve_local_bootstrap(location, invite.as_string(), true).await;
     if res.is_some() {
@@ -308,11 +319,16 @@ pub async fn wallet_create_wallet(js_params: JsValue) -> Result<JsValue, JsValue
     let mut params = serde_wasm_bindgen::from_value::<CreateWalletV0>(js_params)
         .map_err(|_| "Deserialization error of args")?;
     params.result_with_wallet_file = true;
+    let local_save = params.local_save;
     let res = create_wallet_v0(params).await;
     match res {
         Ok(r) => {
-            let session = save_wallet_locally(&r)?;
-            Ok(serde_wasm_bindgen::to_value(&(r, session)).unwrap())
+            if local_save {
+                let session = save_wallet_locally(&r)?;
+                Ok(serde_wasm_bindgen::to_value(&(r, session)).unwrap())
+            } else {
+                Ok(serde_wasm_bindgen::to_value(&(r, false)).unwrap())
+            }
         }
         Err(e) => Err(e.to_string().into()),
     }
@@ -329,6 +345,9 @@ pub fn test_create_wallet() -> JsValue {
         9,
         false,
         false,
+        BootstrapContentV0::new(),
+        None,
+        None,
     );
     serde_wasm_bindgen::to_value(&r).unwrap()
 }
