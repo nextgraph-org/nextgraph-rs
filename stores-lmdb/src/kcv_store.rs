@@ -13,6 +13,8 @@ use p2p_repo::types::*;
 use p2p_repo::utils::*;
 
 use p2p_repo::log::*;
+use rkv::backend::BackendEnvironmentBuilder;
+use rkv::EnvironmentFlags;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLockReadGuard;
@@ -448,11 +450,19 @@ impl LmdbKCVStore {
     /// The key is the encryption key for the data at rest.
     pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<LmdbKCVStore, StorageError> {
         let mut manager = Manager::<LmdbEnvironment>::singleton().write().unwrap();
+
+        let mut builder = Lmdb::new();
+        builder.set_enc_key(key);
+        builder.set_flags(EnvironmentFlags::WRITE_MAP);
+        builder.set_map_size(1 * 1024 * 1024 * 1024);
+        builder.set_max_dbs(10);
+
         let shared_rkv = manager
             .get_or_create(path, |path| {
                 //Rkv::new::<Lmdb>(path) // use this instead to disable encryption
                 // TODO: fix memory management of the key. it should be zeroized all the way to the LMDB C FFI
-                Rkv::with_encryption_key_and_mapsize::<Lmdb>(path, key, 1 * 1024 * 1024 * 1024)
+
+                Rkv::from_builder::<Lmdb>(path, builder)
             })
             .map_err(|e| {
                 log_debug!("open LMDB failed: {}", e);
