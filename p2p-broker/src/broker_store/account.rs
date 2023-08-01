@@ -249,7 +249,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         println!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbKCVStore::open(root.path(), key);
+        let mut store = LmdbKCVStore::open(root.path(), key).unwrap();
 
         let user_id = PubKey::Ed25519PubKey([1; 32]);
 

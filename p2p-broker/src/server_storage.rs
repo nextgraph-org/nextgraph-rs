@@ -43,7 +43,7 @@ impl LmdbServerStorage {
         wallet_path.push("wallet");
         std::fs::create_dir_all(wallet_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let wallet_storage = LmdbKCVStore::open(&wallet_path, master_key.slice().clone());
+        let wallet_storage = LmdbKCVStore::open(&wallet_path, master_key.slice().clone())?;
         let wallet = Wallet::open(&wallet_storage);
 
         // create/open the ACCOUNTS storage
@@ -54,7 +54,8 @@ impl LmdbServerStorage {
         if admin_invite.is_some() && !accounts_path.exists() && !wallet.exists_accounts_key() {
             accounts_key = wallet.create_accounts_key()?;
             std::fs::create_dir_all(accounts_path.clone()).unwrap();
-            let accounts_storage = LmdbKCVStore::open(&accounts_path, accounts_key.slice().clone());
+            let accounts_storage =
+                LmdbKCVStore::open(&accounts_path, accounts_key.slice().clone())?;
             let symkey = SymKey::random();
             let invite_code = InvitationCode::Admin(symkey.clone());
             let _ = Invitation::create(
@@ -80,7 +81,7 @@ impl LmdbServerStorage {
         }
         std::fs::create_dir_all(accounts_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let accounts_storage = LmdbKCVStore::open(&accounts_path, accounts_key.slice().clone());
+        let accounts_storage = LmdbKCVStore::open(&accounts_path, accounts_key.slice().clone())?;
 
         // create/open the PEERS storage
 
@@ -89,7 +90,7 @@ impl LmdbServerStorage {
         peers_path.push("peers");
         std::fs::create_dir_all(peers_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let peers_storage = LmdbKCVStore::open(&peers_path, peers_key.slice().clone());
+        let peers_storage = LmdbKCVStore::open(&peers_path, peers_key.slice().clone())?;
 
         Ok(LmdbServerStorage {
             wallet_storage,
