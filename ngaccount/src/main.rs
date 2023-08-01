@@ -243,7 +243,7 @@ async fn main() -> anyhow::Result<()> {
         ip,
         port,
         peer_id,
-        domain,
+        domain: domain.clone(),
     });
 
     // GET /api/v1/register/ca with the same ?ca= query param => 201 CREATED
@@ -262,7 +262,8 @@ async fn main() -> anyhow::Result<()> {
 
     #[cfg(not(debug_assertions))]
     {
-        cors = cors.allow_origin(format!("https://{}", domain));
+        let origin = format!("https://{}", domain);
+        cors = cors.allow_origin(origin.as_str());
     }
     #[cfg(debug_assertions)]
     {
