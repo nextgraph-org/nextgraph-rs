@@ -864,7 +864,7 @@ impl<'a> Broker<'a> {
             log_debug!("PEER in BROKER {:?} {:?}", peerId, peerInfo);
         });
         self.direct_connections.iter().for_each(|(ip, directCnx)| {
-            log_debug!("direct_connection in BROKER {:?} {:?}", ip, directCnx)
+            log_debug!("direct_connection in BROKER {:?} {:?}", ip, directCnx);
         });
         self.anonymous_connections.iter().for_each(|(binds, cb)| {
             log_debug!(
