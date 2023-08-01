@@ -20,15 +20,12 @@
     <script type="module">
       import init, { start, test } from "./web/ng_sdk_js.js";
       init().then(() => {
-        //greet("WebAssembly");
-        test();
         start();
-        test();
       });
       // DON'T DO THE FOLLOWING:
       // it will instantiate twice the SDK, which is not what we want
       // init().then(() => {
-      //   test();
+      //   start();
       // });
     </script>
   </body>

@@ -81,7 +81,7 @@ impl EActor for Actor<'_, DelUser, AdminResponse> {
     ) -> Result<(), ProtocolError> {
         let req = DelUser::try_from(msg)?;
         let broker = BROKER.read().await;
-        let res = broker.get_storage()?.del_user(req.user());
+        let res = broker.get_server_storage()?.del_user(req.user());
         let response: AdminResponseV0 = res.into();
         fsm.lock().await.send(response.into()).await?;
         Ok(())

@@ -46,30 +46,44 @@
   let unsubscribe = () => {};
 
   let wallet_channel;
+  let unsub_main_close;
 
   onMount(async () => {
     let tauri_platform = import.meta.env.TAURI_PLATFORM;
-    if (!tauri_platform) {
+    if (tauri_platform) {
+      let walls = await ng.get_wallets_from_localstorage();
+      wallets.set(walls);
+
+      let window_api = await import("@tauri-apps/plugin-window");
+      let event_api = await import("@tauri-apps/api/event");
+      let main = window_api.WebviewWindow.getByLabel("main");
+      unsub_main_close = await main.onCloseRequested(async (event) => {
+        console.log("onCloseRequested main");
+        await event_api.emit("close_all", {});
+        let registration = window_api.WebviewWindow.getByLabel("registration");
+        if (registration) {
+          await registration.close();
+        }
+        let viewer = window_api.WebviewWindow.getByLabel("viewer");
+        if (viewer) {
+          await viewer.close();
+        }
+      });
+    } else {
       window.addEventListener("storage", async (event) => {
         if (event.storageArea != localStorage) return;
         if (event.key === "ng_wallets") {
-          wallets.set(
-            Object.fromEntries(await ng.get_wallets_from_localstorage())
-          );
+          wallets.set(await ng.get_wallets_from_localstorage());
         }
       });
-      wallets.set(
-        Object.fromEntries((await ng.get_wallets_from_localstorage()) || [])
-      );
+      wallets.set(await ng.get_wallets_from_localstorage());
       wallet_channel = new BroadcastChannel("ng_wallet");
       wallet_channel.postMessage({ cmd: "is_opened" }, location.href);
       wallet_channel.onmessage = (event) => {
         console.log(event);
         if (!location.href.startsWith(event.origin)) return;
-        console.log("ng_wallet", event.data);
         switch (event.data.cmd) {
           case "is_opened":
-            console.log($active_wallet);
             if ($active_wallet && $active_wallet.wallet) {
               wallet_channel.postMessage(
                 { cmd: "opened", wallet: $active_wallet },
@@ -128,7 +142,10 @@
     }
   });
 
-  onDestroy(unsubscribe);
+  onDestroy(() => {
+    unsubscribe();
+    if (unsub_main_close) unsub_main_close();
+  });
 </script>
 
 <main class="">

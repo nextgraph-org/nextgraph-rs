@@ -15,10 +15,7 @@ export const has_wallets = derived(wallets,($wallets) => Object.keys($wallets).l
 export const active_session = writable(undefined);
 
 export const set_active_session = function(session) {
-    let v = session.users.values().next().value;
-    v.branches_last_seq = Object.fromEntries(v.branches_last_seq);
-    let users = Object.fromEntries(session.users);
-    active_session.set(users);
+    active_session.set(session.users);
 };
 
 export { writable, readonly, derived };
@@ -72,6 +69,7 @@ const branch_commits = (nura, sub) => {
             }
         },
         subscribe: (run, invalid) => {
+            
             let already_subscribed = all_branches[nura];
             if (!already_subscribed) {
                 const { subscribe, set, update } = writable([]); // create the underlying writable store
@@ -80,9 +78,11 @@ const branch_commits = (nura, sub) => {
                 already_subscribed = {
                     load: async () => {
                         unsub = await ng.doc_sync_branch(nura, async (commit) => {
-                            console.log(commit);
+                            console.log("GOT COMMIT", commit);
                             update( (old) => {old.unshift(commit); return old;} )
                         });
+                        // this is in case decrease has been called before the load function returned.
+                        if (count == 0) {unsub();}
                     },
                     increase: () => {
                         count += 1;

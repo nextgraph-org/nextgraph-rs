@@ -18,8 +18,22 @@ export function session_save(key,value) {
 
     } catch(e) {
         console.error(e);
-        return e.message;
+        return convert_error(e.message);
     }
+}
+
+function convert_error(e) {
+    if (
+        e == "The operation is insecure." ||
+        e ==
+          "Failed to read the 'sessionStorage' property from 'Window': Access is denied for this document." ||
+        e ==
+          "Failed to read the 'localStorage' property from 'Window': Access is denied for this document."
+      ) {
+        return "Please allow this website to store cookies, session and local storage.";
+      } else {
+        return e
+      }
 }
 
 export function session_get(key) {
@@ -39,7 +53,7 @@ export function local_save(key,value) {
 
     } catch(e) {
         console.error(e);
-        return e.message;
+        return convert_error(e.message);
     }
 }
 

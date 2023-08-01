@@ -143,46 +143,6 @@ pub fn wallet_update(js_wallet_id: JsValue, js_operations: JsValue) -> Result<Js
     // }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct SessionWalletStorageV0 {
-    // string is base64_url encoding of userId(pubkey)
-    users: HashMap<String, SessionPeerStorageV0>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-enum SessionWalletStorage {
-    V0(SessionWalletStorageV0),
-}
-
-impl SessionWalletStorageV0 {
-    fn new() -> Self {
-        SessionWalletStorageV0 {
-            users: HashMap::new(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct SessionPeerStorageV0 {
-    user: UserId,
-    peer_key: PrivKey,
-    last_wallet_nonce: u64,
-    // string is base64_url encoding of branchId(pubkey)
-    branches_last_seq: HashMap<String, u64>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct LocalWalletStorageV0 {
-    bootstrap: BootstrapContent,
-    wallet: Wallet,
-    client: ClientId,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-enum LocalWalletStorage {
-    V0(HashMap<String, LocalWalletStorageV0>),
-}
-
 fn get_local_wallets_v0() -> Result<HashMap<String, LocalWalletStorageV0>, ()> {
     let wallets_string = local_get("ng_wallets".to_string());
     if wallets_string.is_some() {
@@ -205,6 +165,25 @@ pub fn get_wallets_from_localstorage() -> JsValue {
     JsValue::UNDEFINED
 }
 
+fn save_new_session(
+    wallet_name: &String,
+    wallet_id: PubKey,
+    user: PubKey,
+) -> Result<SessionWalletStorageV0, String> {
+    let res = create_new_session(wallet_id, user);
+    if res.is_ok() {
+        let sws = res.unwrap();
+        let encoded = base64_url::encode(&sws.1);
+        let r = session_save(format!("ng_wallet@{}", wallet_name), encoded);
+        if r.is_some() {
+            return Err(r.unwrap());
+        }
+        Ok(sws.0)
+    } else {
+        Err(res.unwrap_err().to_string())
+    }
+}
+
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn get_local_session(id: String, key_js: JsValue, user_js: JsValue) -> JsValue {
@@ -213,78 +192,28 @@ pub fn get_local_session(id: String, key_js: JsValue, user_js: JsValue) -> JsVal
         log_debug!("RESUMING SESSION");
         let key = serde_wasm_bindgen::from_value::<PrivKey>(key_js).unwrap();
         let decoded = base64_url::decode(&res.unwrap()).unwrap();
-        let session_ser = crypto_box::seal_open(&(*key.to_dh().slice()).into(), &decoded).unwrap();
-        let session: SessionWalletStorage = serde_bare::from_slice(&session_ser).unwrap();
-        let SessionWalletStorage::V0(v0) = session;
-        return serde_wasm_bindgen::to_value(&v0).unwrap();
-    } else {
-        // create a new session
-        let user = serde_wasm_bindgen::from_value::<PubKey>(user_js).unwrap();
-        let wallet_id: PubKey = id.as_str().try_into().unwrap();
-        let session_v0 = create_new_session(&id, wallet_id, user);
-        if session_v0.is_err() {
-            return JsValue::UNDEFINED;
+        let v0 = dec_session(key, &decoded);
+        if v0.is_ok() {
+            return serde_wasm_bindgen::to_value(&v0.unwrap()).unwrap();
         }
-        return serde_wasm_bindgen::to_value(&session_v0.unwrap()).unwrap();
     }
-    JsValue::UNDEFINED
-}
 
-fn create_new_session(
-    wallet_name: &String,
-    wallet_id: PubKey,
-    user: PubKey,
-) -> Result<SessionWalletStorageV0, String> {
-    let peer = generate_keypair();
-    let mut sws = SessionWalletStorageV0::new();
-    let sps = SessionPeerStorageV0 {
-        user,
-        peer_key: peer.0,
-        last_wallet_nonce: 0,
-        branches_last_seq: HashMap::new(),
-    };
-    sws.users.insert(user.to_string(), sps);
-    let sws_ser = serde_bare::to_vec(&SessionWalletStorage::V0(sws.clone())).unwrap();
-    let mut rng = crypto_box::aead::OsRng {};
-    let cipher = crypto_box::seal(&mut rng, &wallet_id.to_dh_slice().into(), &sws_ser);
-    if cipher.is_ok() {
-        let encoded = base64_url::encode(&cipher.unwrap());
-        let r = session_save(format!("ng_wallet@{}", wallet_name), encoded);
-        if r.is_some() {
-            return Err(r.unwrap());
-        }
+    // create a new session
+    let user = serde_wasm_bindgen::from_value::<PubKey>(user_js).unwrap();
+    let wallet_id: PubKey = id.as_str().try_into().unwrap();
+    let session_v0 = save_new_session(&id, wallet_id, user);
+    if session_v0.is_err() {
+        return JsValue::UNDEFINED;
     }
-    Ok(sws)
+    return serde_wasm_bindgen::to_value(&session_v0.unwrap()).unwrap();
 }
 
 fn save_wallet_locally(res: &CreateWalletResultV0) -> Result<SessionWalletStorageV0, String> {
-    // let mut sws = SessionWalletStorageV0::new();
-    // let sps = SessionPeerStorageV0 {
-    //     user: res.user,
-    //     peer_key: res.peer_key.clone(),
-    //     last_wallet_nonce: res.nonce,
-    //     branches_last_seq: HashMap::new(),
-    // };
-    // sws.users.insert(res.user.to_string(), sps);
-    // let sws_ser = serde_bare::to_vec(&SessionWalletStorage::V0(sws.clone())).unwrap();
-    // let mut rng = crypto_box::aead::OsRng {};
-    // let cipher = crypto_box::seal(&mut rng, &res.wallet.id().to_dh_slice().into(), &sws_ser);
-    // if cipher.is_ok() {
-    //     let encoded = base64_url::encode(&cipher.unwrap());
-    //     let r = session_save(format!("ng_wallet@{}", res.wallet_name), encoded);
-    //     if r.is_some() {
-    //         return Err(r.unwrap());
-    //     }
-    // }
-    let sws = create_new_session(&res.wallet_name, res.wallet.id(), res.user)?;
+    let sws = save_new_session(&res.wallet_name, res.wallet.id(), res.user)?;
     let mut wallets: HashMap<String, LocalWalletStorageV0> =
         get_local_wallets_v0().unwrap_or(HashMap::new());
     // TODO: check that the wallet is not already present in localStorage
-    let lws = LocalWalletStorageV0 {
-        bootstrap: BootstrapContent::V0(BootstrapContentV0 { servers: vec![] }),
-        wallet: res.wallet.clone(),
-        client: res.client.priv_key.to_pub(),
-    };
+    let lws: LocalWalletStorageV0 = res.into();
     wallets.insert(res.wallet_name.clone(), lws);
     let lws_ser = serde_bare::to_vec(&LocalWalletStorage::V0(wallets)).unwrap();
     let encoded = base64_url::encode(&lws_ser);

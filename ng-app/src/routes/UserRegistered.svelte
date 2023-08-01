@@ -20,8 +20,6 @@
   import {
     NG_EU_BSP,
     NG_NET_BSP,
-    NG_EU_BSP_REGISTER,
-    NG_EU_BSP_REGISTERED,
     APP_ACCOUNT_REGISTERED_SUFFIX,
     default as ng,
   } from "../api";

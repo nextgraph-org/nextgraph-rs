@@ -19,14 +19,16 @@
   import {
     NG_EU_BSP,
     NG_NET_BSP,
+    LINK_NG_BOX,
+    LINK_SELF_HOST,
     NG_EU_BSP_REGISTER,
-    NG_EU_BSP_REGISTERED,
+    NG_NET_BSP_REGISTER,
     APP_WALLET_CREATE_SUFFIX,
     default as ng,
   } from "../api";
   import { display_pazzle } from "../wallet_emojis";
 
-  import { onMount, tick } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
   import { wallets, set_active_session, has_wallets } from "../store";
 
   const param = new URLSearchParams($querystring);
@@ -107,6 +109,10 @@
   let cloud_link;
   let animateDownload = true;
   let invitation;
+
+  let unsub_register_accepted;
+  let unsub_register_error;
+  let unsub_register_close;
 
   function scrollToTop() {
     top.scrollIntoView();
@@ -202,7 +208,7 @@
       pazzle_length: 9,
       send_bootstrap: false, //options.cloud || options.bootstrap ?  : undefined,
       send_wallet: options.cloud,
-      local_save: options.trusted, // this is only used for tauri apps
+      local_save: options.trusted,
       result_with_wallet_file: false, // this will be automatically changed to true for browser app
       core_bootstrap: invitation.V0.bootstrap,
       core_registration,
@@ -211,10 +217,8 @@
     console.log(params);
     try {
       let res = await ng.wallet_create_wallet(params);
-      console.log(res);
-      wallets.set(
-        Object.fromEntries((await ng.get_wallets_from_localstorage()) || [])
-      );
+      let walls = await ng.get_wallets_from_localstorage();
+      wallets.set(walls);
       if (res[1]) {
         set_active_session(res[1]);
       }
@@ -227,26 +231,9 @@
       if (ready.wallet_file.length) {
         const blob = new Blob([ready.wallet_file]);
         download_link = URL.createObjectURL(blob);
-
-        // we also save the wallet to localStorage here, and only if options.trusted is true
-        // indeed if a wallet_file is sent in the result, it means we are not on tauri app
-        // therefor we are on a web-browser.
-        if (options.trusted) {
-          //TODO save in localStorage
-        }
       }
     } catch (e) {
       console.log(e);
-      if (
-        e == "The operation is insecure." ||
-        e ==
-          "Failed to read the 'sessionStorage' property from 'Window': Access is denied for this document." ||
-        e ==
-          "Failed to read the 'localStorage' property from 'Window': Access is denied for this document."
-      ) {
-        e =
-          "Please allow this website to store cookies, session and local storage.";
-      }
       error = e;
     }
   }
@@ -276,16 +263,32 @@
   //   },
   // };
 
-  const selectEU = async (event) => {
+  const unsub_register = () => {
+    if (unsub_register_accepted) unsub_register_accepted();
+    if (unsub_register_error) unsub_register_error();
+    if (unsub_register_close) unsub_register_close();
+    unsub_register_close = undefined;
+    unsub_register_error = undefined;
+    unsub_register_accepted = undefined;
+  };
+
+  onDestroy(() => {
+    unsub_register();
+  });
+
+  const select_bsp = async (bsp_url, bsp_name) => {
     if (!tauri_platform) {
       let local_url = await ng.get_local_url(location.href);
+      if (!import.meta.env.PROD) {
+        local_url = "http://localhost:1421";
+      }
       let create = {
         V0: {
           redirect_url: local_url + APP_WALLET_CREATE_SUFFIX,
         },
       };
       let ca = await ng.encode_create_account(create);
-      window.location.href = NG_EU_BSP_REGISTER + "?ca=" + ca;
+      window.location.href = bsp_url + "?ca=" + ca;
       //window.open(), "_self").focus();
     } else {
       let create = {
@@ -294,14 +297,60 @@
         },
       };
       let ca = await ng.encode_create_account(create);
-      // TODO: open window with registration URL : NG_EU_BSP_REGISTER + "?ca=" + ca;
+      await ng.open_window(
+        bsp_url + "?ca=" + ca,
+        "registration",
+        "Registration at a Broker"
+      );
+      let window_api = await import("@tauri-apps/plugin-window");
+      let event_api = await import("@tauri-apps/api/event");
+      let reg_popup = window_api.WebviewWindow.getByLabel("registration");
+      unsub_register_accepted = await event_api.listen(
+        "accepted",
+        async (event) => {
+          console.log("got accepted with payload", event.payload);
+          unsub_register();
+          await reg_popup.close();
+          registration_success = bsp_name;
+          invitation = await ng.decode_invitation(event.payload.invite);
+        }
+      );
+      unsub_register_error = await event_api.listen("error", async (event) => {
+        console.log("got error with payload", event.payload);
+        if (event.payload) registration_error = event.payload.error;
+        else intro = true;
+        unsub_register();
+        await reg_popup.close();
+      });
+      unsub_register_close = await reg_popup.onCloseRequested(async (event) => {
+        console.log("onCloseRequested");
+        intro = true;
+        unsub_register();
+      });
     }
   };
-  const selectNET = (event) => {};
+  const selectEU = async (event) => {
+    await select_bsp(NG_EU_BSP_REGISTER, "nextgraph.eu");
+  };
+  const selectNET = async (event) => {
+    await select_bsp(NG_NET_BSP_REGISTER, "nextgraph.net");
+  };
   const enterINVITE = (event) => {};
   const enterQRcode = (event) => {};
-  const displayNGbox = (event) => {};
-  const displaySelfHost = (event) => {};
+  const displayNGbox = async (event) => {
+    if (!tauri_platform) {
+      window.open(LINK_NG_BOX, "_blank").focus();
+    } else {
+      await ng.open_window(LINK_NG_BOX, "viewer", "Own your NG-Box");
+    }
+  };
+  const displaySelfHost = async (event) => {
+    if (!tauri_platform) {
+      window.open(LINK_SELF_HOST, "_blank").focus();
+    } else {
+      await ng.open_window(LINK_SELF_HOST, "viewer", "Self-host a broker");
+    }
+  };
 </script>
 
 <main class="container3" bind:this={top}>
@@ -869,7 +918,7 @@
     {/if}
     <div class="row mt-5">
       <button
-        on:click|once={displaySelfHost}
+        on:click={displaySelfHost}
         class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
       >
         <svg
@@ -892,7 +941,7 @@
     </div>
     <div class="row mt-5 mb-12">
       <button
-        on:click|once={displayNGbox}
+        on:click={displayNGbox}
         class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
       >
         <svg
@@ -921,7 +970,7 @@
   {:else if pin.length < 4}
     <div class=" max-w-6xl lg:px-8 mx-auto px-4">
       {#if registration_success}
-        <Alert color="green" class="mt-5 mb-5">
+        <Alert color="green" class="mb-5">
           <span class="font-bold text-xl"
             >You have been successfully registered to {registration_success}</span
           >
@@ -934,8 +983,8 @@
         <Alert color="yellow" class="mt-5">
           We recommend you to choose a PIN code that you already know very well.
           <br />
-          Your credit card PIN, by example, is a good choice. (We at NextGraph will
-          never see your PIN)
+          Your credit card PIN, by example, is a good choice.<br />We at
+          NextGraph will never see your PIN.
         </Alert>
       </p>
       <p class="text-left mt-5">Here are the rules for the PIN :</p>
@@ -955,7 +1004,7 @@
             >{digit}</span
           >{/each}
       </Alert>
-      <div class="w-[325px] mx-auto">
+      <div class="w-[325px] mx-auto mb-4">
         {#each [0, 1, 2] as row}
           <div class="">
             {#each [1, 2, 3] as num}
@@ -1202,7 +1251,7 @@
         <span class="text-xl">Create a PDF file of your wallet? </span> <br />
         We can prepare for you a PDF file containing all the information of your
         wallet, unencrypted. You should print this file and then delete the PDF (and
-        empty the trash). Keep this printed documented in a safe place. It contains
+        empty the trash). Keep this printed document in a safe place. It contains
         all the information to regenerate your wallet in case you lost access to
         it.
         <br />

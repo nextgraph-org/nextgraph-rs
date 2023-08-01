@@ -11,7 +11,9 @@
 
 <script>
   import { Button } from "flowbite-svelte";
+  // @ts-ignore
   import EULogo from "../assets/EU.svg?component";
+  // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
   import { link, querystring } from "svelte-spa-router";
 
@@ -155,7 +157,6 @@
     <div class="row mb-20">
       <button
         on:click|once={accept}
-        role="button"
         class="mr-5 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
       >
         <svg

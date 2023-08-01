@@ -7,6 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+use p2p_repo::log::*;
 use std::hash::{Hash, Hasher};
 use std::{collections::HashMap, fmt};
 use web_time::SystemTime;
@@ -58,6 +59,66 @@ impl Bootstrap {
         match self {
             Bootstrap::V0(v0) => v0.sig,
         }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionWalletStorageV0 {
+    // string is base64_url encoding of userId(pubkey)
+    pub users: HashMap<String, SessionPeerStorageV0>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum SessionWalletStorage {
+    V0(SessionWalletStorageV0),
+}
+
+impl SessionWalletStorageV0 {
+    pub fn new() -> Self {
+        SessionWalletStorageV0 {
+            users: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionPeerStorageV0 {
+    pub user: UserId,
+    pub peer_key: PrivKey,
+    pub last_wallet_nonce: u64,
+    // string is base64_url encoding of branchId(pubkey)
+    pub branches_last_seq: HashMap<String, u64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LocalWalletStorageV0 {
+    pub bootstrap: BootstrapContent,
+    pub wallet: Wallet,
+    pub client: ClientId,
+}
+
+impl From<&CreateWalletResultV0> for LocalWalletStorageV0 {
+    fn from(res: &CreateWalletResultV0) -> Self {
+        LocalWalletStorageV0 {
+            bootstrap: BootstrapContent::V0(BootstrapContentV0 { servers: vec![] }),
+            wallet: res.wallet.clone(),
+            client: res.client.priv_key.to_pub(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum LocalWalletStorage {
+    V0(HashMap<String, LocalWalletStorageV0>),
+}
+
+impl LocalWalletStorage {
+    pub fn v0_from_vec(vec: &Vec<u8>) -> Self {
+        let wallets: LocalWalletStorage = serde_bare::from_slice(vec).unwrap();
+        wallets
+    }
+    pub fn v0_to_vec(wallets: HashMap<String, LocalWalletStorageV0>) -> Vec<u8> {
+        serde_bare::to_vec(&LocalWalletStorage::V0(wallets)).unwrap()
     }
 }
 
@@ -121,18 +182,18 @@ pub struct EncryptedWalletV0 {
     pub personal_site: PubKey,
 
     #[zeroize(skip)]
-    pub sites: HashMap<PubKey, SiteV0>,
+    pub sites: HashMap<String, SiteV0>,
 
     // map of brokers and their connection details
     #[zeroize(skip)]
-    pub brokers: HashMap<PubKey, Vec<BrokerInfoV0>>,
+    pub brokers: HashMap<String, Vec<BrokerInfoV0>>,
 
     // map of all devices of the user
     #[zeroize(skip)]
-    pub clients: HashMap<PubKey, ClientV0>,
+    pub clients: HashMap<String, ClientV0>,
 
     #[zeroize(skip)]
-    pub overlay_core_overrides: HashMap<OverlayId, Vec<PubKey>>,
+    pub overlay_core_overrides: HashMap<String, Vec<PubKey>>,
 
     /// third parties data saved in the wallet. the string (key) in the hashmap should be unique among vendors.
     /// the format of the byte array (value) is up to the vendor, to serde as needed.
@@ -143,26 +204,28 @@ pub struct EncryptedWalletV0 {
 impl EncryptedWalletV0 {
     pub fn add_site(&mut self, site: SiteV0) {
         let site_id = site.site_key.to_pub();
-        let _ = self.sites.insert(site_id, site);
+        let _ = self.sites.insert(site_id.to_string(), site);
     }
     pub fn add_brokers(&mut self, brokers: Vec<BrokerInfoV0>) {
         for broker in brokers {
-            let key = broker.get_id();
+            let key = broker.get_id().to_string();
             let mut list = self.brokers.get_mut(&key);
             if list.is_none() {
                 let new_list = vec![];
-                self.brokers.insert(key, new_list);
+                self.brokers.insert(key.clone(), new_list);
                 list = self.brokers.get_mut(&key);
             }
             list.unwrap().push(broker);
         }
     }
     pub fn add_client(&mut self, client: ClientV0) {
-        let client_id = client.priv_key.to_pub();
+        let client_id = client.priv_key.to_pub().to_string();
         let _ = self.clients.insert(client_id, client);
     }
     pub fn add_overlay_core_overrides(&mut self, overlay: &OverlayId, cores: &Vec<PubKey>) {
-        let _ = self.overlay_core_overrides.insert(*overlay, cores.to_vec());
+        let _ = self
+            .overlay_core_overrides
+            .insert(overlay.to_string(), cores.to_vec());
     }
 }
 
@@ -296,7 +359,7 @@ impl WalletLogV0 {
                     WalletOperation::RemoveOverlayCoreOverrideV0(_) => {}
                     WalletOperation::AddSiteCoreV0((site, core, registration)) => {
                         if self.is_first_and_not_deleted_afterwards(op, "RemoveSiteCoreV0") {
-                            let _ = wallet.sites.get_mut(&site).and_then(|site| {
+                            let _ = wallet.sites.get_mut(&site.to_string()).and_then(|site| {
                                 site.cores.push((*core, *registration));
                                 None::<SiteV0>
                             });
@@ -305,7 +368,7 @@ impl WalletLogV0 {
                     WalletOperation::RemoveSiteCoreV0(_) => {}
                     WalletOperation::AddSiteBootstrapV0((site, server)) => {
                         if self.is_first_and_not_deleted_afterwards(op, "RemoveSiteBootstrapV0") {
-                            let _ = wallet.sites.get_mut(&site).and_then(|site| {
+                            let _ = wallet.sites.get_mut(&site.to_string()).and_then(|site| {
                                 site.bootstraps.push(*server);
                                 None::<SiteV0>
                             });
@@ -320,7 +383,7 @@ impl WalletLogV0 {
                     WalletOperation::RemoveThirdPartyDataV0(_) => {}
                     WalletOperation::SetSiteRBDRefV0((site, store_type, rbdr)) => {
                         if self.is_last_occurrence(op.0, &op.1) != 0 {
-                            let _ = wallet.sites.get_mut(&site).and_then(|site| {
+                            let _ = wallet.sites.get_mut(&site.to_string()).and_then(|site| {
                                 match store_type {
                                     SiteStoreType::Public => {
                                         site.public.root_branch_def_ref = rbdr.clone()
@@ -338,7 +401,7 @@ impl WalletLogV0 {
                     }
                     WalletOperation::SetSiteRepoSecretV0((site, store_type, secret)) => {
                         if self.is_last_occurrence(op.0, &op.1) != 0 {
-                            let _ = wallet.sites.get_mut(&site).and_then(|site| {
+                            let _ = wallet.sites.get_mut(&site.to_string()).and_then(|site| {
                                 match store_type {
                                     SiteStoreType::Public => {
                                         site.public.repo_secret = secret.clone()
@@ -356,7 +419,7 @@ impl WalletLogV0 {
                     }
                 }
             }
-
+            log_debug!("reduced {:?}", wallet);
             Ok(wallet)
         } else {
             Err(NgWalletError::NoCreateWalletPresent)
@@ -840,6 +903,7 @@ pub enum NgWalletError {
     InvalidSignature,
     NoCreateWalletPresent,
     InvalidBootstrap,
+    SerializationError,
 }
 
 impl fmt::Display for NgWalletError {

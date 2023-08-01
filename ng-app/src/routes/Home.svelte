@@ -31,7 +31,7 @@
       $s2,
     ]);
     unsubscribe = combined.subscribe((value) => {
-      console.log(value);
+      //console.log(value);
       if (!value[0] && value[1]) {
         push("#/wallet/login");
       }

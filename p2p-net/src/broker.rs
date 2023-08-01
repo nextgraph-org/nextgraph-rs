@@ -10,9 +10,9 @@
 */
 
 use crate::actor::*;
-use crate::broker_storage::BrokerStorage;
 use crate::connection::*;
 use crate::errors::*;
+use crate::server_storage::ServerStorage;
 use crate::types::*;
 use crate::utils::spawn_and_log_error;
 use crate::utils::{Receiver, ResultSend, Sender};
@@ -85,7 +85,7 @@ pub struct Broker<'a> {
     shutdown: Option<Receiver<ProtocolError>>,
     shutdown_sender: Sender<ProtocolError>,
     closing: bool,
-    storage: Option<Box<dyn BrokerStorage + Send + Sync + 'a>>,
+    server_storage: Option<Box<dyn ServerStorage + Send + Sync + 'a>>,
 
     test: u32,
     tauri_streams: HashMap<String, Sender<Commit>>,
@@ -124,10 +124,15 @@ impl<'a> Broker<'a> {
             .ok_or(ProtocolError::BrokerError)
     }
 
-    pub fn set_storage(&mut self, storage: impl BrokerStorage + 'a) {
+    pub fn set_server_storage(&mut self, storage: impl ServerStorage + 'a) {
         //log_debug!("set_storage");
-        self.storage = Some(Box::new(storage));
+        self.server_storage = Some(Box::new(storage));
     }
+
+    // pub fn set_local_storage(&mut self, storage: impl LocalStorage + 'a) {
+    //     //log_debug!("set_storage");
+    //     self.local_storage = Some(Box::new(storage));
+    // }
 
     pub fn set_server_config(&mut self, config: ServerConfig) {
         self.config = Some(config);
@@ -151,9 +156,13 @@ impl<'a> Broker<'a> {
         (copy_listeners, copy_bind_addresses)
     }
 
-    pub fn get_storage(&self) -> Result<&Box<dyn BrokerStorage + Send + Sync + 'a>, ProtocolError> {
-        //log_debug!("GET STORAGE {:?}", self.storage);
-        self.storage.as_ref().ok_or(ProtocolError::BrokerError)
+    pub fn get_server_storage(
+        &self,
+    ) -> Result<&Box<dyn ServerStorage + Send + Sync + 'a>, ProtocolError> {
+        //log_debug!("GET STORAGE {:?}", self.server_storage);
+        self.server_storage
+            .as_ref()
+            .ok_or(ProtocolError::BrokerError)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -184,8 +193,8 @@ impl<'a> Broker<'a> {
             Authorization::ExtMessage => Err(ProtocolError::AccessDenied),
             Authorization::Client(user_and_registration) => {
                 if user_and_registration.1.is_some() {
-                    // use wants to register
-                    let storage = self.storage.as_ref().unwrap();
+                    // user wants to register
+                    let storage = self.get_server_storage()?;
                     if storage.get_user(user_and_registration.0).is_ok() {
                         return Ok(());
                     }
@@ -210,10 +219,7 @@ impl<'a> Broker<'a> {
                                     } else if inv_type == 1u8 {
                                         storage.remove_invitation(code)?;
                                     }
-                                    self.storage
-                                        .as_ref()
-                                        .unwrap()
-                                        .add_user(user_and_registration.0, is_admin)?;
+                                    storage.add_user(user_and_registration.0, is_admin)?;
                                     Ok(())
                                 }
                             }
@@ -232,9 +238,7 @@ impl<'a> Broker<'a> {
                                         storage.remove_invitation(code)?;
                                     }
                                 }
-                                self.storage
-                                    .as_ref()
-                                    .unwrap()
+                                self.get_server_storage()?
                                     .add_user(user_and_registration.0, is_admin)?;
                                 Ok(())
                             }
@@ -243,7 +247,7 @@ impl<'a> Broker<'a> {
                         return Err(ProtocolError::BrokerError);
                     }
                 }
-                // if user doesn't want to register, we accept everything, as perms will be checked late ron, once the overlayId is known
+                // if user doesn't want to register, we accept everything, as perms will be checked later on, once the overlayId is known
                 Ok(())
             }
             Authorization::Core => Err(ProtocolError::AccessDenied),
@@ -258,7 +262,7 @@ impl<'a> Broker<'a> {
                             return Ok(());
                         }
                     }
-                    let found = self.get_storage()?.get_user(admin_user);
+                    let found = self.get_server_storage()?.get_user(admin_user);
                     if found.is_ok() && found.unwrap() {
                         return Ok(());
                     }
@@ -270,11 +274,11 @@ impl<'a> Broker<'a> {
     }
 
     // pub fn add_user(&self, user: PubKey, is_admin: bool) -> Result<(), ProtocolError> {
-    //     self.get_storage()?.add_user(user, is_admin)
+    //     self.get_server_storage()?.add_user(user, is_admin)
     // }
 
     // pub fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError> {
-    //     self.get_storage()?.list_users(admins)
+    //     self.get_server_storage()?.list_users(admins)
     // }
 
     pub async fn get_block_from_store_with_block_id(
@@ -433,7 +437,7 @@ impl<'a> Broker<'a> {
             tauri_streams: HashMap::new(),
             closing: false,
             test: u32::from_be_bytes(random_buf),
-            storage: None,
+            server_storage: None,
         }
     }
 

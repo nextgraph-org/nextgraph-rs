@@ -3,6 +3,7 @@ lockfileVersion: 5.4
 specifiers:
   '@sveltejs/vite-plugin-svelte': ^2.0.4
   '@tauri-apps/api': 2.0.0-alpha.4
+  '@tauri-apps/plugin-window': 2.0.0-alpha.0
   autoprefixer: ^10.4.14
   cross-env: ^7.0.3
   flowbite: ^1.6.5
@@ -18,6 +19,7 @@ specifiers:
 
 dependencies:
   '@tauri-apps/api': 2.0.0-alpha.4
+  '@tauri-apps/plugin-window': 2.0.0-alpha.0
   flowbite: 1.6.6
   flowbite-svelte: 0.37.5_svelte@3.59.1
   svelte-spa-router: 3.3.0
@@ -337,6 +339,12 @@ packages:
   /@tauri-apps/api/2.0.0-alpha.4:
     resolution: {integrity: sha512-gWe5fFHbwFM+dmdDPtlDvVDVtoMneGRM+S8mECevWhKpXYxId0yxznE56YGAvPSJXC3vgsXw16mOmkTnEVKnaw==}
     engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
+    dev: false
+
+  /@tauri-apps/plugin-window/2.0.0-alpha.0:
+    resolution: {integrity: sha512-ZXFXOu9m8QiDB8d8LFFgwcfxIAbr0bhzj06YvmZDB3isuVtlFP9EyU4D+zmumWEWvNN2XP7xgpn68ivOVhmNNQ==}
+    dependencies:
+      '@tauri-apps/api': 2.0.0-alpha.4
     dev: false
 
   /@trysound/sax/0.2.0:

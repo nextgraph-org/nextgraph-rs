@@ -11,7 +11,6 @@
     "version": "0.1.0"
   },
   "tauri": {
-
     "bundle": {
       "active": true,
       "icon": [
@@ -21,7 +20,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "org.nextgraph.dev",
+      "identifier": "org.nextgraph.app",
       "targets": "all",
       "iOS": {
         "developmentTeam": "test"
@@ -42,7 +41,8 @@
         "resizable": true,
         "title": "NextGraph",
         "width": 800,
-        "height": 980
+        "height": 1040,
+        "contentProtected": true
       }
     ]
   }

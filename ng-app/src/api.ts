@@ -19,6 +19,10 @@ const mapping = {
     "wallet_open_wallet_with_pazzle": ["wallet","pazzle","pin"],
     "wallet_create_wallet": ["params"],
     "encode_create_account": ["payload"],
+    "get_local_session": ["id","key","user"],
+    "get_wallets_from_localstorage": [],
+    "open_window": ["url","label","title"],
+    "decode_invitation": ["invite"],
     "test": [ ]
 }
 
@@ -34,6 +38,23 @@ const handler = {
                 client_info.version=version;
                 //console.log(client_info);
                 return client_info;
+            } else if (path[0] === "get_wallets_from_localstorage") {
+                let wallets = await Reflect.apply(sdk[path], caller, args);
+                return Object.fromEntries(wallets || []);
+            } else if (path[0] === "get_local_session") {
+                let res = await Reflect.apply(sdk[path], caller, args);
+                let v = res.users.values().next().value;
+                v.branches_last_seq = Object.fromEntries(v.branches_last_seq);
+                res.users = Object.fromEntries(res.users);
+                return res;
+            } else if (path[0] === "wallet_create_wallet") {
+                let res = await Reflect.apply(sdk[path], caller, args);
+                if (res[1]) {
+                    let v = res[1].users.values().next().value;
+                    v.branches_last_seq = Object.fromEntries(v.branches_last_seq);
+                    res[1].users = Object.fromEntries(res[1].users);
+                }
+                return res;
             } else {
                 return Reflect.apply(sdk[path], caller, args)
             }
@@ -88,17 +109,29 @@ const handler = {
                 let res = await tauri.invoke(path[0],arg);
                 res['File'].V0.content = Uint8Array.from(res['File'].V0.content);
                 res['File'].V0.metadata = Uint8Array.from(res['File'].V0.metadata);
-                return res          
+                return res;
+            } else if (path[0] === "get_wallets_from_localstorage") {
+                let res = await tauri.invoke(path[0],{});
+                for (let e of Object.entries(res)) {
+                    e[1].wallet.V0.content.security_img = Uint8Array.from(e[1].wallet.V0.content.security_img);
+                }
+                return res;
+
             } else if (path[0] === "wallet_create_wallet") {
                 let params = args[0];
                 params.result_with_wallet_file = false;
                 params.security_img = Array.from(new Uint8Array(params.security_img));
                 return await tauri.invoke(path[0],{params})
-            } else if (path[0].starts_with("get_local_bootstrap")) {
+            } else if (path[0] && path[0].startsWith("get_local_bootstrap")) {
                 return false;
-            } else if (path[0].starts_with("get_local_url")) {
+            } else if (path[0] === "get_local_url") {
                 return false;
-            }
+            } else if (path[0] === "wallet_open_wallet_with_pazzle") {
+                let arg = {};
+                args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
+                arg.wallet.V0.content.security_img = Array.from(new Uint8Array(arg.wallet.V0.content.security_img));
+                return tauri.invoke(path[0],arg)
+            } 
             else {
                 let arg = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
@@ -111,15 +144,20 @@ const handler = {
 const api = createAsyncProxy({}, handler);
 
 export const NG_EU_BSP = "https://nextgraph.eu";
-export const NG_EU_BSP_REGISTER = "https://account.nextgraph.eu/#/create";
-export const NG_EU_BSP_REGISTERED = "https://nextgraph.eu/#/user/registered";
+export const NG_EU_BSP_REGISTER = import.meta.env.PROD
+? "https://account.nextgraph.eu/#/create"
+: "http://account-dev.nextgraph.eu:5173/#/create";
+
+export const NG_NET_BSP = "https://nextgraph.net";
+export const NG_NET_BSP_REGISTER = import.meta.env.PROD
+? "https://account.nextgraph.net/#/create"
+: "http://account-dev.nextgraph.net:5173/#/create";
 
 export const APP_ACCOUNT_REGISTERED_SUFFIX = "/#/user/registered";
 export const APP_WALLET_CREATE_SUFFIX = "/#/wallet/create";
 
-export const NG_NET_BSP = "https://nextgraph.net";
-export const NG_NET_BSP_REGISTER = "https://account.nextgraph.net/#/create";
-export const NG_NET_BSP_REGISTERED = "https://nextgraph.net/#/user/registered";
+export const LINK_NG_BOX = "https://nextgraph.org/ng-box/";
+export const LINK_SELF_HOST = "https://nextgraph.org/self-host/";
 
 
 export default api;

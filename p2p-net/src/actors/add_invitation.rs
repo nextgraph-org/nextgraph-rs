@@ -102,7 +102,7 @@ impl EActor for Actor<'_, AddInvitation, AdminResponse> {
         let req = AddInvitation::try_from(msg)?;
         let broker = BROKER.read().await;
         broker
-            .get_storage()?
+            .get_server_storage()?
             .add_invitation(req.code(), req.expiry(), req.memo())?;
 
         let invitation = crate::types::Invitation::V0(InvitationV0::new(

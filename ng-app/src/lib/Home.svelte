@@ -14,13 +14,14 @@
   import { link } from "svelte-spa-router";
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
-  import { has_wallets } from "../store";
+  import Test from "./Test.svelte";
+  import { has_wallets, active_wallet } from "../store";
 
   import { onMount } from "svelte";
   export let display_login_create = false;
 </script>
 
-{#if !$has_wallets || display_login_create}
+{#if !$has_wallets || !$active_wallet || display_login_create}
   <main class="container3">
     <div class="row">
       <Logo class="logo block h-40" alt="NextGraph Logo" />
@@ -80,6 +81,13 @@
           Log in
         </button>
       </a>
+    </div>
+  </main>
+{:else}
+  <main class="container3">
+    <h1>Welcome to test</h1>
+    <div class="row">
+      <Test />
     </div>
   </main>
 {/if}

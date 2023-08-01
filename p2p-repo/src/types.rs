@@ -41,7 +41,7 @@ pub enum Digest {
 impl fmt::Display for Digest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Digest::Blake3Digest32(d) => write!(f, "{}", hex::encode(d)),
+            Digest::Blake3Digest32(d) => write!(f, "{}", base64_url::encode(d)),
         }
     }
 }
