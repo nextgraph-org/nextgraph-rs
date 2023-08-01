@@ -159,8 +159,12 @@ async fn main() {
     log_debug!("data directory: {}", dir.to_str().unwrap());
     fs::create_dir_all(dir.clone()).unwrap();
     let store = LmdbKCVStore::open(&dir, key);
-
-    let server = Arc::new(Server { store });
+    if store.is_err() {
+        return;
+    }
+    let server = Arc::new(Server {
+        store: store.unwrap(),
+    });
 
     // let (wallet_key, wallet_id) = generate_keypair();
     // let content = BootstrapContentV0 { servers: vec![] };

@@ -445,7 +445,7 @@ impl LmdbKCVStore {
 
     /// Opens the store and returns a KCVStore object that should be kept and used to manipulate the properties
     /// The key is the encryption key for the data at rest.
-    pub fn open<'a>(path: &Path, key: [u8; 32]) -> LmdbKCVStore {
+    pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<LmdbKCVStore, StorageError> {
         let mut manager = Manager::<LmdbEnvironment>::singleton().write().unwrap();
         let shared_rkv = manager
             .get_or_create(path, |path| {
@@ -458,12 +458,17 @@ impl LmdbKCVStore {
 
         log_info!("created env with LMDB Version: {}", env.version());
 
-        let main_store = env.open_multi("main", StoreOptions::create()).unwrap();
+        let main_store = env
+            .open_multi("main", StoreOptions::create())
+            .map_err(|e| {
+                log_debug!("open_multi failed {}", e);
+                StorageError::BackendError
+            })?;
 
-        LmdbKCVStore {
+        Ok(LmdbKCVStore {
             environment: shared_rkv.clone(),
             main_store,
             path: path.to_str().unwrap().to_string(),
-        }
+        })
     }
 }
