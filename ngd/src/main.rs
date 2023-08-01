@@ -28,6 +28,7 @@ use p2p_net::utils::{
 };
 use p2p_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
 use p2p_repo::log::*;
+use p2p_repo::types::Sig;
 use p2p_repo::types::SymKey;
 use p2p_repo::utils::ed_keypair_from_priv_bytes;
 use p2p_repo::{
@@ -417,6 +418,43 @@ async fn main_inner() -> Result<(), ()> {
         key.zeroize();
         None::<()>
     });
+
+    let mut sign_path = path.clone();
+    sign_path.push("sign");
+    let sign_from_file: Option<[u8; 32]>;
+    let res = |sign_path| -> Result<(), &str> {
+        let file = std::fs::read(sign_path).map_err(|_| "")?;
+        let sig: Sig = serde_bare::from_slice(&file).map_err(|_| "invalid serialization")?;
+        let privkey: PrivKey = keys[3].into();
+        let pubkey = privkey.to_pub();
+        verify(&vec![110u8, 103u8, 100u8], sig, pubkey).map_err(|_| "invalid signature")?;
+        Ok(())
+    }(&sign_path);
+
+    if res.is_err() {
+        if res.unwrap_err().len() > 0 {
+            log_err!(
+                "provided key is invalid. {}. cannot start",
+                res.unwrap_err()
+            );
+            return Err(());
+        } else {
+            // time to save the signature
+            let privkey: PrivKey = keys[3].into();
+            let pubkey = privkey.to_pub();
+            let sig = sign(&privkey, &pubkey, &vec![110u8, 103u8, 100u8]);
+            if sig.is_err() {
+                log_err!("cannot save signature. cannot start");
+                return Err(());
+            }
+            let sig_ser = serde_bare::to_vec(&sig.unwrap()).unwrap();
+            let res = std::fs::write(sign_path, sig_ser);
+            if res.is_err() {
+                log_err!("cannot save signature. {}. cannot start", res.unwrap_err());
+                return Err(());
+            }
+        }
+    }
 
     // DEALING WITH CONFIG
 
