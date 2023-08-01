@@ -58,6 +58,7 @@ The crates are organized as follow :
 - [ng-sdk-js](ng-sdk-js/README.md) : contains the JS SDK, with example apps: web app, react app, or node service.
 - [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the web app.
 - [ngone](ngone/README.md) : server for nextgraph.one (boostrap into the right app)
+- [ngaccount](ngaccount/README.md) : server for nextgraph's Broker Service Provider account manager.
 
 ### Run
 
