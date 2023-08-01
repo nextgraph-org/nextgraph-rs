@@ -46,13 +46,13 @@ cargo build
 
 The crates are organized as follow :
 
-- p2p-repo : all the common types, traits and structs for the P2P repositories
-- p2p-net : all the common types, traits and structs for the P2P networks
-- p2p-broker : the broker code (as server and core peer)
-- p2p-client-ws : the client connecting to a broker, used by the apps and verifier
+- p2p-repo : NextGraph repositories common library
+- p2p-net : P2P network common library
+- p2p-broker : the broker code (as server and core node)
+- p2p-client-ws : the client connecting to a broker with WebSocket, used by the apps and verifier
 - p2p-verifier : the code of the verifier
 - stores-lmdb : lmdb backed stores
-- ngcli : CLI tool to manipulate the repos
+- ngcli : CLI tool to manipulate the repos and administrate the server
 - ngd : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
 - ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
 - [ng-sdk-js](ng-sdk-js/README.md) : contains the JS SDK, with example apps: web app, react app, or node service.
