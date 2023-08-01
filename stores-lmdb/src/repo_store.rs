@@ -206,14 +206,17 @@ impl RepoStore for LmdbRepoStore {
 impl LmdbRepoStore {
     /// Opens the store and returns a RepoStore object that should be kept and used to call put/get/delete/pin
     /// The key is the encryption key for the data at rest.
-    pub fn open<'a>(path: &Path, key: [u8; 32]) -> LmdbRepoStore {
+    pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<LmdbRepoStore, StorageError> {
         let mut manager = Manager::<LmdbEnvironment>::singleton().write().unwrap();
         let shared_rkv = manager
             .get_or_create(path, |path| {
                 //Rkv::new::<Lmdb>(path) // use this instead to disable encryption
-                Rkv::with_encryption_key_and_mapsize::<Lmdb>(path, key, 2 * 1024 * 1024 * 1024)
+                Rkv::with_encryption_key_and_mapsize::<Lmdb>(path, key, 1 * 1024 * 1024 * 1024)
             })
-            .unwrap();
+            .map_err(|e| {
+                log_debug!("open LMDB failed: {}", e);
+                StorageError::BackendError
+            })?;
         let env = shared_rkv.read().unwrap();
 
         log_debug!(
@@ -229,13 +232,13 @@ impl LmdbRepoStore {
         let expiry_store = env.open_multi_integer("expiry", opts).unwrap();
         let recently_used_store = env.open_multi_integer("recently_used", opts).unwrap();
 
-        LmdbRepoStore {
+        Ok(LmdbRepoStore {
             environment: shared_rkv.clone(),
             main_store,
             meta_store,
             expiry_store,
             recently_used_store,
-        }
+        })
     }
 
     //FIXME: use BlockId, not ObjectId. this is a block level operation
@@ -512,7 +515,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         log_debug!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbRepoStore::open(root.path(), key);
+        let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
         let mut now = now_timestamp();
         now -= 200;
         // TODO: fix the LMDB bug that is triggered with x max set to 86 !!!
@@ -545,7 +548,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         log_debug!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbRepoStore::open(root.path(), key);
+        let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
         let mut now = now_timestamp();
         now -= 200;
         // TODO: fix the LMDB bug that is triggered with x max set to 86 !!!
@@ -602,7 +605,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         log_debug!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbRepoStore::open(root.path(), key);
+        let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
 
         let now = now_timestamp();
         let list = [
@@ -656,7 +659,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         log_debug!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbRepoStore::open(root.path(), key);
+        let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
 
         let now = now_timestamp();
         let list = [
@@ -703,7 +706,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         log_debug!("{}", root.path().to_str().unwrap());
-        let store = LmdbRepoStore::open(root.path(), key);
+        let store = LmdbRepoStore::open(root.path(), key).unwrap();
         store.remove_expired().unwrap();
     }
 
@@ -717,7 +720,7 @@ mod test {
 
         log_debug!("{}", root.path().to_str().unwrap());
 
-        let mut store = LmdbRepoStore::open(root.path(), key);
+        let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
 
         let block = Block::new(
             Vec::new(),
@@ -761,7 +764,7 @@ mod test {
             let shared_rkv = manager
                 .get_or_create(root.path(), |path| {
                     // Rkv::new::<Lmdb>(path) // use this instead to disable encryption
-                    Rkv::with_encryption_key_and_mapsize::<Lmdb>(path, key, 2 * 1024 * 1024 * 1024)
+                    Rkv::with_encryption_key_and_mapsize::<Lmdb>(path, key, 1 * 1024 * 1024 * 1024)
                 })
                 .unwrap();
             let env = shared_rkv.read().unwrap();
@@ -974,7 +977,7 @@ mod test {
             let shared_rkv = manager
                 .get_or_create(root.path(), |path| {
                     //Rkv::new::<Lmdb>(path) // use this instead to disable encryption
-                    Rkv::with_encryption_key_and_mapsize::<Lmdb>(path, key, 2 * 1024 * 1024 * 1024)
+                    Rkv::with_encryption_key_and_mapsize::<Lmdb>(path, key, 1 * 1024 * 1024 * 1024)
                 })
                 .unwrap();
             let env = shared_rkv.read().unwrap();

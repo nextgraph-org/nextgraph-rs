@@ -374,6 +374,7 @@ impl KCVStore for LmdbKCVStore {
         let res = method(&mut transaction);
         if res.is_ok() {
             transaction.commit();
+            //lock.sync(true);
         }
         res
     }
@@ -451,9 +452,12 @@ impl LmdbKCVStore {
             .get_or_create(path, |path| {
                 //Rkv::new::<Lmdb>(path) // use this instead to disable encryption
                 // TODO: fix memory management of the key. it should be zeroized all the way to the LMDB C FFI
-                Rkv::with_encryption_key_and_mapsize::<Lmdb>(path, key, 2 * 1024 * 1024 * 1024)
+                Rkv::with_encryption_key_and_mapsize::<Lmdb>(path, key, 1 * 1024 * 1024 * 1024)
             })
-            .unwrap();
+            .map_err(|e| {
+                log_debug!("open LMDB failed: {}", e);
+                StorageError::BackendError
+            })?;
         let env = shared_rkv.read().unwrap();
 
         log_info!("created env with LMDB Version: {}", env.version());
