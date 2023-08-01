@@ -16,6 +16,7 @@ use p2p_client_ws::remote_ws::ConnectionWebSocket;
 use p2p_net::actors::add_invitation::*;
 use p2p_net::broker::BROKER;
 use p2p_repo::store::StorageError;
+use serde::{Deserialize, Serialize};
 use warp::reply::Response;
 use warp::{Filter, Reply};
 
@@ -51,11 +52,26 @@ struct Server {
     domain: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+struct RegisterResponse {
+    url: Option<String>,
+    invite: Option<String>,
+    error: Option<String>,
+}
+
 impl Server {
-    async fn register_(&self, ca: String) -> Result<String, Option<String>> {
+    async fn register_(&self, ca: String) -> RegisterResponse {
         log_debug!("registering {}", ca);
 
-        let mut cabsp: CreateAccountBSP = ca.try_into().map_err(|_| None)?;
+        let cabsp = TryInto::<CreateAccountBSP>::try_into(ca);
+        if cabsp.is_err() {
+            return RegisterResponse {
+                error: Some("invalid request".into()),
+                invite: None,
+                url: None,
+            };
+        }
+        let mut cabsp = cabsp.unwrap();
 
         log_debug!("{:?}", cabsp);
 
@@ -90,51 +106,62 @@ impl Server {
             )
             .await;
 
-        let redirect_url = cabsp
-            .redirect_url()
-            .clone()
-            .unwrap_or(format!("{}{}", self.domain, APP_ACCOUNT_REGISTERED_SUFFIX));
+        let redirect_url = cabsp.redirect_url().clone().unwrap_or(format!(
+            "https://{}{}",
+            self.domain, APP_ACCOUNT_REGISTERED_SUFFIX
+        ));
 
         match res {
             Err(e) => {
                 log_err!("error while registering: {e} {:?}", cabsp);
-                Err(Some(format!("{}?re={}", redirect_url, e)))
+                RegisterResponse {
+                    url: Some(format!("{}?re={}", redirect_url, e)),
+                    invite: None,
+                    error: Some(e.to_string()),
+                }
             }
             Ok(AdminResponseContentV0::Invitation(Invitation::V0(mut invitation))) => {
                 log_info!("invitation created successfully {:?}", invitation);
                 invitation.name = Some(self.domain.clone());
-                Ok(format!(
-                    "{}?i={}&rs={}",
-                    redirect_url,
-                    Invitation::V0(invitation),
-                    self.domain
-                ))
+                let inv = Invitation::V0(invitation);
+                RegisterResponse {
+                    url: Some(format!("{}?i={}&rs={}", redirect_url, inv, self.domain)),
+                    invite: Some(format!("{inv}")),
+                    error: None,
+                }
             }
             _ => {
                 log_err!(
                     "error while registering: invalid response from add_invitation {:?}",
                     cabsp
                 );
-                Err(Some(format!(
-                    "{}?re={}",
-                    redirect_url, "add_invitation_failed"
-                )))
+                let e = "add_invitation_failed";
+                RegisterResponse {
+                    url: Some(format!("{}?re={}", redirect_url, e)),
+                    invite: None,
+                    error: Some(e.to_string()),
+                }
             }
         }
     }
 
     pub async fn register(self: Arc<Self>, ca: String) -> Result<Response, Infallible> {
-        match self.register_(ca).await {
-            Ok(redirect_url) => {
-                let response = Response::new(redirect_url.into());
+        let res = self.register_(ca).await;
+        match &res {
+            RegisterResponse { error: None, .. } => {
+                let response = warp::reply::json(&res).into_response(); //Response::new(redirect_url.into());
                 let (mut parts, body) = response.into_parts();
                 parts.status = warp::http::StatusCode::OK;
                 let response = Response::from_parts(parts, body);
                 Ok(response)
             }
-            Err(redirect_url) => {
+            RegisterResponse {
+                error: Some(e),
+                url: redirect_url,
+                ..
+            } => {
                 if redirect_url.is_some() {
-                    let response = Response::new(redirect_url.unwrap().into());
+                    let response = warp::reply::json(&res).into_response();
                     let (mut parts, body) = response.into_parts();
                     parts.status = warp::http::StatusCode::BAD_REQUEST;
                     let response = Response::from_parts(parts, body);

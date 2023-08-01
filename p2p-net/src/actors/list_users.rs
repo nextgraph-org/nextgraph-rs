@@ -83,7 +83,11 @@ impl EActor for Actor<'_, ListUsers, AdminResponse> {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         let req = ListUsers::try_from(msg)?;
-        let res = BROKER.read().await.get_storage()?.list_users(req.admins());
+        let res = BROKER
+            .read()
+            .await
+            .get_server_storage()?
+            .list_users(req.admins());
         let response: AdminResponseV0 = res.into();
         fsm.lock().await.send(response.into()).await?;
         Ok(())

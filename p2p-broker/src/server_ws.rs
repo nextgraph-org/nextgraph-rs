@@ -12,7 +12,7 @@
 //! WebSocket implementation of the Broker
 
 use crate::interfaces::*;
-use crate::storage::LmdbBrokerStorage;
+use crate::server_storage::LmdbServerStorage;
 use crate::types::*;
 use async_std::io::ReadExt;
 use async_std::net::{TcpListener, TcpStream};
@@ -767,7 +767,7 @@ pub async fn run_server_v0(
         std::fs::create_dir_all(path.clone()).unwrap();
 
         // opening the server storage (that contains the encryption keys for each store/overlay )
-        let broker_storage = LmdbBrokerStorage::open(
+        let broker_storage = LmdbServerStorage::open(
             &mut path,
             wallet_master_key,
             if admin_invite {
@@ -776,10 +776,10 @@ pub async fn run_server_v0(
                 None
             },
         )
-        .map_err(|e| log_err!("Error while opening broker storage: {:?}", e))?;
+        .map_err(|e| log_err!("Error while opening server storage: {:?}", e))?;
 
         let mut broker = BROKER.write().await;
-        broker.set_storage(broker_storage);
+        broker.set_server_storage(broker_storage);
         LISTENERS_INFO
             .set(broker.set_listeners(listener_infos))
             .unwrap();

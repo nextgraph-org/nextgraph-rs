@@ -19,7 +19,7 @@ pub mod errors;
 
 pub mod broker;
 
-pub mod broker_storage;
+pub mod server_storage;
 
 pub mod connection;
 

@@ -36,35 +36,59 @@
     try {
       const response = await fetch(api_url + "register/" + ca, opts);
 
-      const result = await response.text();
+      const result = await response.json();
       console.log("Result:", response.status, result); // 400 is error with redirect, 200 ok, 406 is error without known redirect
       if (response.status == 406) {
-        close();
+        await close();
       } else if (response.status == 400) {
-        close(result);
-        error = "We are redirecting you...";
-        go_back = false;
+        await close(result);
       } else {
         //console.log(result);
-        success(result);
+        await success(result);
       }
     } catch (e) {
       error = e.message;
     }
   }
 
-  function close(url) {
-    // TODO tauri error code
-    if (url) {
-      window.location.href = url;
+  async function close(result) {
+    // @ts-ignore
+    if (window.__TAURI__) {
+      go_back = false;
+      if (result) {
+        error = "Closing due to " + (result.error || "an error");
+      }
+      let window_api = await import("@tauri-apps/plugin-window");
+      let main = window_api.WebviewWindow.getByLabel("main");
+      if (main) {
+        await main.emit("error", result);
+      } else {
+        await window_api.appWindow.close();
+      }
     } else {
-      window.history.go(-1);
+      if (result && result.url) {
+        error = "We are redirecting you...";
+        go_back = false;
+        window.location.href = result.url;
+      } else {
+        window.history.go(-1);
+      }
     }
   }
 
-  function success(url) {
-    window.location.href = url;
-    // TODO tauri success code
+  async function success(result) {
+    // @ts-ignore
+    if (window.__TAURI__) {
+      let window_api = await import("@tauri-apps/plugin-window");
+      let main = window_api.WebviewWindow.getByLabel("main");
+      if (main) {
+        await main.emit("accepted", result);
+      } else {
+        await window_api.appWindow.close();
+      }
+    } else {
+      window.location.href = result.url;
+    }
   }
 
   async function bootstrap() {}
@@ -127,7 +151,7 @@
         <p class="max-w-xl md:mx-auto lg:max-w-2xl">
           You would like to choose <b>{domain}</b> as your Broker Service
           Provider.<br />Please read carefully the Terms of Service here below,
-          before you accept them.
+          before accepting them.
         </p>
       </div>
     {/if}
@@ -287,7 +311,6 @@
       <div class="row mb-20">
         <button
           on:click|once={accept}
-          role="button"
           class="mr-5 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
         >
           <svg

@@ -10,14 +10,14 @@
 -->
 
 <script lang="ts">
-  import Greet from "../lib/Greet.svelte";
+  import Test from "../lib/Test.svelte";
   export let params = {};
 </script>
 
 <main class="container3">
   <h1>Welcome to test</h1>
   <div class="row">
-    <Greet />
+    <Test />
   </div>
 </main>
 

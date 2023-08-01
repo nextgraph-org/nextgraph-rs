@@ -12,7 +12,7 @@
 use crate::{errors::ProtocolError, types::*};
 use p2p_repo::{kcv_store::KCVStore, types::PubKey};
 
-pub trait BrokerStorage: Send + Sync + std::fmt::Debug {
+pub trait ServerStorage: Send + Sync + std::fmt::Debug {
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError>;
     fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError>;
     fn del_user(&self, user_id: PubKey) -> Result<(), ProtocolError>;

@@ -14,9 +14,10 @@ pnpm --ignore-workspace install
 
 ```
 cd web
-pnpm run dev
+pnpm run dev --host
 // in another terminal
 cd ../
+export NG_ACCOUNT_DOMAIN=[?]; export NG_ACCOUNT_ADMIN=[?]; export NG_ACCOUNT_LOCAL_PEER_KEY=[?]; export NG_ACCOUNT_SERVER=127.0.0.1,14400,[?]; export RUST_LOG=debug
 cargo watch -c -w src -x run
 // then open http://localhost:5173/
 ```

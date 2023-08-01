@@ -15,8 +15,8 @@ use crate::broker_store::account::Account;
 use crate::broker_store::invitation::Invitation;
 use crate::broker_store::wallet::Wallet;
 use crate::types::*;
-use p2p_net::broker_storage::*;
 use p2p_net::errors::ProtocolError;
+use p2p_net::server_storage::*;
 use p2p_net::types::{BootstrapContentV0, InvitationCode, InvitationV0};
 use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::log::*;
@@ -26,20 +26,19 @@ use stores_lmdb::kcv_store::LmdbKCVStore;
 use stores_lmdb::repo_store::LmdbRepoStore;
 
 #[derive(Debug)]
-pub struct LmdbBrokerStorage {
+pub struct LmdbServerStorage {
     wallet_storage: LmdbKCVStore,
     accounts_storage: LmdbKCVStore,
     peers_storage: LmdbKCVStore,
 }
 
-impl LmdbBrokerStorage {
+impl LmdbServerStorage {
     pub fn open(
         path: &mut PathBuf,
         master_key: SymKey,
         admin_invite: Option<BootstrapContentV0>,
     ) -> Result<Self, StorageError> {
         // create/open the WALLET
-
         let mut wallet_path = path.clone();
         wallet_path.push("wallet");
         std::fs::create_dir_all(wallet_path.clone()).unwrap();
@@ -48,7 +47,6 @@ impl LmdbBrokerStorage {
         let wallet = Wallet::open(&wallet_storage);
 
         // create/open the ACCOUNTS storage
-
         let mut accounts_path = path.clone();
         let accounts_key;
         accounts_path.push("accounts");
@@ -93,7 +91,7 @@ impl LmdbBrokerStorage {
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
         let peers_storage = LmdbKCVStore::open(&peers_path, peers_key.slice().clone());
 
-        Ok(LmdbBrokerStorage {
+        Ok(LmdbServerStorage {
             wallet_storage,
             accounts_storage,
             peers_storage,
@@ -101,7 +99,7 @@ impl LmdbBrokerStorage {
     }
 }
 
-impl BrokerStorage for LmdbBrokerStorage {
+impl ServerStorage for LmdbServerStorage {
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError> {
         log_debug!("get_user {user_id}");
         Ok(Account::open(&user_id, &self.accounts_storage)?.is_admin()?)

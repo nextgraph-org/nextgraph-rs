@@ -35,9 +35,9 @@ use image::{imageops::FilterType, io::Reader as ImageReader, ImageOutputFormat};
 use safe_transmute::transmute_to_bytes;
 
 use p2p_net::types::{SiteType, SiteV0};
-use p2p_repo::log::*;
 use p2p_repo::types::{PubKey, Timestamp};
 use p2p_repo::utils::{generate_keypair, now_timestamp, sign, verify};
+use p2p_repo::{log::*, types::PrivKey};
 use rand::prelude::*;
 use serde_bare::{from_slice, to_vec};
 use web_time::Instant;
@@ -130,6 +130,35 @@ pub fn enc_wallet_log(
     Ok(buffer)
 }
 
+pub fn dec_session(key: PrivKey, vec: &Vec<u8>) -> Result<SessionWalletStorageV0, NgWalletError> {
+    let session_ser = crypto_box::seal_open(&(*key.to_dh().slice()).into(), vec)
+        .map_err(|_| NgWalletError::DecryptionError)?;
+    let session: SessionWalletStorage =
+        serde_bare::from_slice(&session_ser).map_err(|_| NgWalletError::SerializationError)?;
+    let SessionWalletStorage::V0(v0) = session;
+    Ok(v0)
+}
+
+pub fn create_new_session(
+    wallet_id: PubKey,
+    user: PubKey,
+) -> Result<(SessionWalletStorageV0, Vec<u8>), NgWalletError> {
+    let peer = generate_keypair();
+    let mut sws = SessionWalletStorageV0::new();
+    let sps = SessionPeerStorageV0 {
+        user,
+        peer_key: peer.0,
+        last_wallet_nonce: 0,
+        branches_last_seq: HashMap::new(),
+    };
+    sws.users.insert(user.to_string(), sps);
+    let sws_ser = serde_bare::to_vec(&SessionWalletStorage::V0(sws.clone())).unwrap();
+    let mut rng = crypto_box::aead::OsRng {};
+    let cipher = crypto_box::seal(&mut rng, &wallet_id.to_dh_slice().into(), &sws_ser)
+        .map_err(|_| NgWalletError::EncryptionError)?;
+    Ok((sws, cipher))
+}
+
 pub fn dec_encrypted_block(
     mut ciphertext: Vec<u8>,
     master_key: &mut [u8; 32],
@@ -151,13 +180,13 @@ pub fn dec_encrypted_block(
         )
         .map_err(|e| NgWalletError::DecryptionError)?;
 
-    // `ciphertext` now contains the decrypted block
-    //log_debug!("decrypted_block {:?}", ciphertext);
-
     let decrypted_log =
         from_slice::<WalletLog>(&ciphertext).map_err(|e| NgWalletError::DecryptionError)?;
 
     master_key.zeroize();
+
+    // `ciphertext` now contains the decrypted block
+    //log_debug!("decrypted_block {:?}", ciphertext);
 
     match decrypted_log {
         WalletLog::V0(v0) => v0.reduce(),

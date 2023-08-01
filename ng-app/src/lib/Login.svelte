@@ -20,56 +20,8 @@
 
   onMount(async () => {
     await load_svg();
-
+    console.log(wallet);
     await init();
-
-    //console.log(JSON.stringify(await ng.test_create_wallet()));
-    //console.log(await ng.test_create_wallet());
-
-    // let ref = {
-    //   id: {
-    //     Blake3Digest32: [
-    //       228, 228, 181, 117, 36, 206, 41, 223, 130, 96, 85, 195, 104, 137, 78,
-    //       145, 42, 176, 58, 244, 111, 97, 246, 39, 11, 76, 135, 150, 188, 111,
-    //       66, 33,
-    //     ],
-    //   },
-    //   key: {
-    //     ChaCha20Key: [
-    //       100, 243, 39, 242, 203, 131, 102, 50, 9, 54, 248, 113, 4, 160, 28, 45,
-    //       73, 56, 217, 112, 95, 150, 144, 137, 9, 57, 106, 5, 39, 202, 146, 94,
-    //     ],
-    //   },
-    // };
-
-    // let img = await ng.doc_get_file_from_store_with_object_ref("ng:", ref);
-
-    // let c = {
-    //   security_img: img["File"].V0.content,
-    //   security_txt: "   know     yourself  ",
-    //   pin: [5, 2, 9, 1],
-    //   pazzle_length: 9,
-    //   send_bootstrap: false,
-    //   send_wallet: false,
-    //   result_with_wallet_file: true,
-    //   local_save: false,
-    // };
-
-    // try {
-    //   let res = await ng.wallet_create_wallet(c);
-    //   console.log(res);
-    //   wallet = res.wallet;
-
-    //   for (const emoji of res.pazzle) {
-    //     let cat = (emoji & 240) >> 4;
-    //     let idx = emoji & 15;
-    //     console.log(emoji_cat[cat], emojis[emoji_cat[cat]][idx].code);
-    //   }
-    // } catch (e) {
-    //   console.error(e);
-    // }
-
-    //await start_pin();
   });
 
   async function init() {
@@ -159,6 +111,7 @@
     }
 
     console.log(pazzle);
+    console.log(wallet);
 
     // open the wallet
     try {
@@ -168,7 +121,6 @@
         pin_code
       );
       step = "end";
-      console.log(secret_wallet);
       dispatch("opened", {
         wallet: secret_wallet,
         id: secret_wallet.V0.wallet_id,
@@ -239,7 +191,7 @@
     </svg>
   </div>
 {:else if step == "pazzle"}
-  <div class="h-screen aspect-[3/5] pazzleline max-w-[500px] min-w-[200px]">
+  <div class="h-screen aspect-[3/5] pazzleline max-w-[600px] min-w-[500px]">
     {#each [0, 1, 2, 3, 4] as row}
       <div class="columns-3 gap-0">
         {#each emojis2[display]?.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i}
@@ -258,7 +210,7 @@
   </div>
 {:else if step == "order"}
   <!-- console.log(cat_idx, emoji_cat[cat_idx], idx, cat[idx].code); -->
-  <div class="h-screen aspect-[3/3] pazzleline max-w-[500px] min-w-[200px]">
+  <div class="h-screen aspect-[3/3] pazzleline max-w-[600px] min-w-[500px]">
     {#each [0, 1, 2] as row}
       <div class="columns-3 gap-0">
         {#each selection.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i}
@@ -401,14 +353,17 @@
   }
 
   .sel {
-    position: relative;
-    top: -56%;
+    position: absolute;
+    width: 100%;
+    top: 45%;
+    left: 0;
     font-size: 100px;
     font-weight: 700;
   }
 
   .sel-emoji {
-    overflow: hidden;
+    /* overflow: hidden; */
+    position: relative;
   }
 
   .emoji {

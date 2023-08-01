@@ -2785,7 +2785,6 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "base64-url",
- "crypto_box",
  "futures",
  "getrandom 0.1.16",
  "gloo-timers",
@@ -2816,6 +2815,7 @@ dependencies = [
  "async-std",
  "base64-url",
  "chacha20poly1305",
+ "crypto_box",
  "getrandom 0.1.16",
  "image",
  "lazy_static",

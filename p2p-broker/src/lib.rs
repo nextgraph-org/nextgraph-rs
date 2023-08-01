@@ -8,4 +8,4 @@ pub mod utils;
 
 pub mod interfaces;
 
-pub mod storage;
+pub mod server_storage;

@@ -25,7 +25,7 @@
     has_wallets,
   } from "../store";
   let wallet;
-  let selected; //= "8Hg1Rf7us3LFhs7HCbxCQOWJoV-OUyALbTuSaKp7D-M";
+  let selected;
   let step;
 
   let wallets_unsub;
@@ -64,6 +64,8 @@
             set_active_session(session);
             loggedin();
           }
+        } else {
+          loggedin();
         }
       }
     });
@@ -112,7 +114,7 @@
     <div class="row">
       <Logo class="logo block h-40" alt="NextGraph Logo" />
     </div>
-    <h2 class="pb-5 text-xl">Select a wallet for log in</h2>
+    <h2 class="pb-5 text-xl">Select a wallet to login with</h2>
     <div class="flex flex-wrap justify-center gap-5 mb-20">
       {#each Object.entries($wallets) as wallet_entry}
         <div

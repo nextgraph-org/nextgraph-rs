@@ -27,7 +27,7 @@
     try {
       //console.log(JSON.stringify(ref));
       let file = await ng.doc_get_file_from_store_with_object_ref("ng:", ref);
-      console.log(file);
+      //console.log(file);
       var blob = new Blob([file["File"].V0.content], {
         type: file["File"].V0.content_type,
       });
@@ -75,10 +75,10 @@
 </script>
 
 <div>
-  <div class="row">
+  <!-- <div class="row">
     <input id="greet-input" placeholder="Enter a name..." bind:value={name} />
     <button on:click={greet}> Greet </button>
-  </div>
+  </div> -->
   <div class="row mt-2">
     <button
       type="button"
@@ -112,7 +112,7 @@
       bind:this={fileinput}
     />
   </div>
-  <p>{greetMsg}</p>
+  <!-- <p>{greetMsg}</p> -->
   {#await commits.load()}
     <p>Currently loading...</p>
   {:then}
