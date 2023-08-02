@@ -1146,9 +1146,8 @@ checksum = "8f215f9b7224f49fb73256115331f677d868b34d18b65dbe4db392e6021eea90"
 
 [[package]]
 name = "default-net"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b06254cc7a9b82a9e3e78849eab1af3dbef006bf629b2928b882534d84ded6b9"
+version = "0.16.2"
+source = "git+https://git.nextgraph.org/NextGraph/default-net.git#a06134963af02c415fda83a9d270499118ff6570"
 dependencies = [
  "dlopen2",
  "libc",
@@ -1229,25 +1228,13 @@ checksum = "bd0c93bb4b0c6d9b77f4435b0ae98c24d17f1c45b2ff844c6151a07256ca923b"
 
 [[package]]
 name = "dlopen2"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b121caccfc363e4d9a4589528f3bef7c71b83c6ed01c8dc68cbeeb7fd29ec698"
+checksum = "09b4f5f101177ff01b8ec4ecc81eead416a8aa42819a2869311b3420fa114ffa"
 dependencies = [
- "dlopen2_derive",
  "libc",
  "once_cell",
  "winapi",
-]
-
-[[package]]
-name = "dlopen2_derive"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a09ac8bb8c16a282264c379dffba707b9c998afc7506009137f3c6136888078"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -2711,21 +2698,20 @@ dependencies = [
 
 [[package]]
 name = "netlink-packet-core"
-version = "0.5.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e5cf0b54effda4b91615c40ff0fd12d0d4c9a6e0f5116874f03941792ff535a"
+checksum = "72724faf704479d67b388da142b186f916188505e7e0b26719019c525882eda4"
 dependencies = [
  "anyhow",
  "byteorder",
- "libc",
  "netlink-packet-utils",
 ]
 
 [[package]]
 name = "netlink-packet-route"
-version = "0.15.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea993e32c77d87f01236c38f572ecb6c311d592e56a06262a007fd2a6e31253c"
+checksum = "f6de2fe935f44cbdfcab77dce2150d68eda75be715cd42d4d6f52b0bd4dcc5b1"
 dependencies = [
  "anyhow",
  "bitflags",
