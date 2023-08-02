@@ -43,6 +43,12 @@ pub enum StorageError {
     AlreadyExists,
 }
 
+impl core::fmt::Display for StorageError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl From<serde_bare::error::Error> for StorageError {
     fn from(e: serde_bare::error::Error) -> Self {
         StorageError::SerializationError

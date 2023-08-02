@@ -11,6 +11,7 @@
 
 use p2p_net::types::*;
 use p2p_repo::kcv_store::KCVStore;
+use p2p_repo::log::*;
 use p2p_repo::store::*;
 use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
@@ -53,6 +54,7 @@ impl<'a> Wallet<'a> {
                 if e == StorageError::NotFound {
                     self.create_single_key(prefix, key)
                 } else {
+                    log_debug!("Error while creating single key {}", e);
                     Err(StorageError::BackendError)
                 }
             }
