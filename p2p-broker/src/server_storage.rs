@@ -42,6 +42,7 @@ impl LmdbServerStorage {
         let mut wallet_path = path.clone();
         wallet_path.push("wallet");
         std::fs::create_dir_all(wallet_path.clone()).unwrap();
+        log_debug!("opening wallet DB");
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
         let wallet_storage = LmdbKCVStore::open(&wallet_path, master_key.slice().clone())?;
         let wallet = Wallet::open(&wallet_storage);
@@ -79,12 +80,13 @@ impl LmdbServerStorage {
             }
             accounts_key = wallet.get_or_create_accounts_key()?;
         }
+        log_debug!("opening accounts DB");
         std::fs::create_dir_all(accounts_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
         let accounts_storage = LmdbKCVStore::open(&accounts_path, accounts_key.slice().clone())?;
 
         // create/open the PEERS storage
-
+        log_debug!("opening peers DB");
         let peers_key = wallet.get_or_create_peers_key()?;
         let mut peers_path = path.clone();
         peers_path.push("peers");
