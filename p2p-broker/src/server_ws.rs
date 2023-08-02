@@ -645,6 +645,7 @@ pub async fn run_server_v0(
     }
 
     let interfaces = get_interface();
+    log_debug!("interfaces {:?}", interfaces);
     let mut listener_infos: HashMap<String, ListenerInfo> = HashMap::new();
     let mut listeners_addrs: Vec<(Vec<SocketAddr>, String)> = vec![];
     let mut listeners: Vec<TcpListener> = vec![];
