@@ -11,6 +11,7 @@
 
 use p2p_net::types::*;
 use p2p_repo::kcv_store::KCVStore;
+use p2p_repo::kcv_store::WriteTransaction;
 use p2p_repo::log::*;
 use p2p_repo::store::*;
 use p2p_repo::types::*;
@@ -44,28 +45,30 @@ impl<'a> Wallet<'a> {
         prefix: u8,
         key: &Vec<u8>,
     ) -> Result<SymKey, StorageError> {
-        // FIXME. this get or create is not using a transaction, because calls will be made from the broker, that is behind a mutex.
-        // if this was to change, we should make the get and put inside one transaction.
-        let get = self
-            .store
-            .get(prefix, key, Some(Self::SUFFIX_FOR_EXIST_CHECK));
-        match get {
-            Err(e) => {
-                if e == StorageError::NotFound {
-                    self.create_single_key(prefix, key)
-                } else {
-                    log_debug!("Error while creating single key {}", e);
-                    Err(StorageError::BackendError)
+        let mut result: Option<SymKey> = None;
+        self.store.write_transaction(&mut |tx| {
+            let got = tx.get(prefix, key, Some(Self::SUFFIX_FOR_EXIST_CHECK));
+            match got {
+                Err(e) => {
+                    if e == StorageError::NotFound {
+                        let res = Self::create_single_key(tx, prefix, key)?;
+                        result = Some(res);
+                    } else {
+                        log_debug!("Error while creating single key {}", e);
+                        return Err(StorageError::BackendError);
+                    }
+                }
+                Ok(p) => {
+                    let k: SymKey = p
+                        .as_slice()
+                        .try_into()
+                        .map_err(|_| StorageError::BackendError)?;
+                    result = Some(k);
                 }
             }
-            Ok(p) => {
-                let k: SymKey = p
-                    .as_slice()
-                    .try_into()
-                    .map_err(|_| StorageError::BackendError)?;
-                Ok(k)
-            }
-        }
+            Ok(())
+        })?;
+        Ok(result.unwrap())
     }
 
     pub fn get_or_create_user_key(&self, user: &UserId) -> Result<SymKey, StorageError> {
@@ -76,10 +79,14 @@ impl<'a> Wallet<'a> {
         self.get_or_create_single_key(Self::PREFIX_USER, &to_vec(overlay)?)
     }
 
-    pub fn create_single_key(&self, prefix: u8, key: &Vec<u8>) -> Result<SymKey, StorageError> {
+    pub fn create_single_key(
+        tx: &mut dyn WriteTransaction,
+        prefix: u8,
+        key: &Vec<u8>,
+    ) -> Result<SymKey, StorageError> {
         let symkey = SymKey::random();
         let vec = symkey.slice().to_vec();
-        self.store.put(prefix, key, Some(Self::SYM_KEY), vec)?;
+        tx.put(prefix, key, Some(Self::SYM_KEY), &vec)?;
         Ok(symkey)
     }
     pub fn exists_single_key(&self, prefix: u8, key: &Vec<u8>) -> bool {
@@ -92,7 +99,13 @@ impl<'a> Wallet<'a> {
         self.exists_single_key(Self::PREFIX, &Self::KEY_ACCOUNTS.to_vec())
     }
     pub fn create_accounts_key(&self) -> Result<SymKey, StorageError> {
-        self.create_single_key(Self::PREFIX, &Self::KEY_ACCOUNTS.to_vec())
+        let mut result: Option<SymKey> = None;
+        self.store.write_transaction(&mut |tx| {
+            let res = Self::create_single_key(tx, Self::PREFIX, &Self::KEY_ACCOUNTS.to_vec())?;
+            result = Some(res);
+            Ok(())
+        })?;
+        Ok(result.unwrap())
     }
     pub fn get_or_create_peers_key(&self) -> Result<SymKey, StorageError> {
         self.get_or_create_single_key(Self::PREFIX, &Self::KEY_PEERS.to_vec())

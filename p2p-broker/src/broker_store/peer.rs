@@ -71,7 +71,7 @@ impl<'a> Peer<'a> {
         if acc.exists() {
             return Err(StorageError::BackendError);
         }
-        store.write_transaction(&|tx| {
+        store.write_transaction(&mut |tx| {
             tx.put(
                 Self::PREFIX,
                 &to_vec(&id)?,
@@ -128,7 +128,7 @@ impl<'a> Peer<'a> {
         if current_advert.version() >= advert.version() {
             return Ok(());
         }
-        self.store.write_transaction(&|tx| {
+        self.store.write_transaction(&mut |tx| {
             tx.replace(
                 Self::PREFIX,
                 &to_vec(&self.id)?,
