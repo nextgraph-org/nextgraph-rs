@@ -364,7 +364,7 @@ impl ReadTransaction for LmdbKCVStore {
 impl KCVStore for LmdbKCVStore {
     fn write_transaction(
         &self,
-        method: &dyn Fn(&mut dyn WriteTransaction) -> Result<(), StorageError>,
+        method: &mut dyn FnMut(&mut dyn WriteTransaction) -> Result<(), StorageError>,
     ) -> Result<(), StorageError> {
         let lock = self.environment.read().unwrap();
         let writer = lock.write().unwrap();
@@ -389,7 +389,7 @@ impl KCVStore for LmdbKCVStore {
         suffix: Option<u8>,
         value: Vec<u8>,
     ) -> Result<(), StorageError> {
-        self.write_transaction(&|tx| tx.put(prefix, key, suffix, &value))
+        self.write_transaction(&mut |tx| tx.put(prefix, key, suffix, &value))
     }
 
     /// Replace the property of a key (single value) to the store.
@@ -400,12 +400,12 @@ impl KCVStore for LmdbKCVStore {
         suffix: Option<u8>,
         value: Vec<u8>,
     ) -> Result<(), StorageError> {
-        self.write_transaction(&|tx| tx.replace(prefix, key, suffix, &value))
+        self.write_transaction(&mut |tx| tx.replace(prefix, key, suffix, &value))
     }
 
     /// Delete a property from the store.
     fn del(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<(), StorageError> {
-        self.write_transaction(&|tx| tx.del(prefix, key, suffix))
+        self.write_transaction(&mut |tx| tx.del(prefix, key, suffix))
     }
 
     /// Delete a specific value for a property from the store.
@@ -416,7 +416,7 @@ impl KCVStore for LmdbKCVStore {
         suffix: Option<u8>,
         value: Vec<u8>,
     ) -> Result<(), StorageError> {
-        self.write_transaction(&|tx| tx.del_property_value(prefix, key, suffix, &value))
+        self.write_transaction(&mut |tx| tx.del_property_value(prefix, key, suffix, &value))
     }
 
     /// Delete all properties of a key from the store.

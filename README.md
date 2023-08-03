@@ -28,7 +28,7 @@ Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/)
 
 ## For contributors
 
-- [Install Rust](https://www.rust-lang.org/tools/install) minimum required 1.64.0
+- [Install Rust](https://www.rust-lang.org/tools/install) minimum required MSRV 1.64.0
 - [Install Nodejs](https://nodejs.org/en/download/)
 
 until this [PR](https://github.com/rustwasm/wasm-pack/pull/1271) is accepted, will have to install wasm-pack this way:

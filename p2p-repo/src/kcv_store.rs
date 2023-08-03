@@ -81,7 +81,7 @@ pub trait ReadTransaction {
 pub trait KCVStore: ReadTransaction {
     fn write_transaction(
         &self,
-        method: &dyn Fn(&mut dyn WriteTransaction) -> Result<(), StorageError>,
+        method: &mut dyn FnMut(&mut dyn WriteTransaction) -> Result<(), StorageError>,
     ) -> Result<(), StorageError>;
 
     /// Save a property value to the store.

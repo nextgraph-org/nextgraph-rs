@@ -116,7 +116,7 @@ impl<'a> Account<'a> {
 
         let info_ser = to_vec(info)?;
 
-        self.store.write_transaction(&|tx| {
+        self.store.write_transaction(&mut |tx| {
             if tx
                 .has_property_value(
                     Self::PREFIX,
@@ -218,7 +218,7 @@ impl<'a> Account<'a> {
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store.write_transaction(&|tx| {
+        self.store.write_transaction(&mut |tx| {
             if let Ok(clients) = tx.get_all(Self::PREFIX, &to_vec(&self.id)?, Some(Self::CLIENT)) {
                 for client in clients {
                     tx.del_all(Self::PREFIX_CLIENT, &client, &Self::ALL_CLIENT_PROPERTIES)?;

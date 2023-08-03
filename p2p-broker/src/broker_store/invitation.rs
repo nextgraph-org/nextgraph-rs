@@ -74,7 +74,7 @@ impl<'a> Invitation<'a> {
             return Err(StorageError::BackendError);
         }
         let mut value = to_vec(&(code_type, expiry, memo.clone()))?;
-        store.write_transaction(&|tx| {
+        store.write_transaction(&mut |tx| {
             tx.put(Self::PREFIX, &to_vec(code)?, Some(Self::TYPE), &value)?;
             Ok(())
         })?;
@@ -168,7 +168,7 @@ impl<'a> Invitation<'a> {
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store.write_transaction(&|tx| {
+        self.store.write_transaction(&mut |tx| {
             tx.del_all(Self::PREFIX, &to_vec(&self.id)?, &Self::ALL_PROPERTIES)?;
             Ok(())
         })
