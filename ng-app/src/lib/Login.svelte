@@ -16,6 +16,9 @@
   import { emoji_cat, emojis, load_svg } from "../wallet_emojis";
   export let wallet;
 
+  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let mobile = tauri_platform == "android" || tauri_platform == "ios";
+
   const dispatch = createEventDispatcher();
 
   onMount(async () => {
@@ -191,7 +194,11 @@
     </svg>
   </div>
 {:else if step == "pazzle"}
-  <div class="h-screen aspect-[3/5] pazzleline max-w-[600px] min-w-[350px]">
+  <div
+    class="h-screen aspect-[3/5] pazzleline min-w-[350px]"
+    class:max-w-[360px]={mobile}
+    class:max-w-[600px]={!mobile}
+  >
     {#each [0, 1, 2, 3, 4] as row}
       <div class="columns-3 gap-0">
         {#each emojis2[display]?.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i}
@@ -210,7 +217,11 @@
   </div>
 {:else if step == "order"}
   <!-- console.log(cat_idx, emoji_cat[cat_idx], idx, cat[idx].code); -->
-  <div class="h-screen aspect-[3/3] pazzleline max-w-[600px] min-w-[350px]">
+  <div
+    class="h-screen aspect-[3/3] pazzleline min-w-[350px]"
+    class:max-w-[360px]={mobile}
+    class:max-w-[600px]={!mobile}
+  >
     {#each [0, 1, 2] as row}
       <div class="columns-3 gap-0">
         {#each selection.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i}

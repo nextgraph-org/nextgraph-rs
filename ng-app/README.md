@@ -69,7 +69,7 @@ cargo tauri dev --target x86_64-pc-windows-msvc
 
 to build the production app installer :
 
-### MacOs
+### MacOs (10.14+)
 
 ```
 cargo tauri build
