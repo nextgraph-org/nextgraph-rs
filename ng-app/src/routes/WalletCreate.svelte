@@ -125,10 +125,14 @@
     }
   }
 
-  function confirm_pin(val) {
+  async function confirm_pin(val) {
     if (pin_confirm.length < 4) {
       pin_confirm.push(val);
       pin_confirm = pin_confirm;
+      if (pin_confirm.length == 4) {
+        await tick();
+        scrollToTop();
+      }
     }
   }
 
@@ -138,7 +142,7 @@
 
   async function bootstrap() {
     //console.log(await ng.client_info());
-    if (!tauri_platform) {
+    if (!tauri_platform || tauri_platform == "android") {
       if (param.get("skipintro") || param.get("rs")) {
         intro = false;
       }
@@ -148,21 +152,22 @@
       if (param.get("rs")) {
         registration_success = param.get("rs");
         invitation = await ng.decode_invitation(param.get("i"));
-      } else {
+        window.location.replace(window.location.href.split("?")[0]);
+      } else if (param.get("i")) {
         invitation = await ng.get_local_bootstrap_with_public(
           location.href,
           param.get("i")
         );
-      }
-      console.log(invitation);
-      if (!invitation && param.get("i")) {
-        let redirect = await ng.get_ngone_url_of_invitation(param.get("i"));
-        if (redirect) {
-          console.error("got an invitation for another broker. redirecting");
-          window.location.href = redirect;
-        } else {
-          //let i = await ng.decode_invitation(param.get("i"));
-          console.error("invalid invitation. ignoring it");
+        console.log(invitation);
+        if (!invitation) {
+          let redirect = await ng.get_ngone_url_of_invitation(param.get("i"));
+          if (redirect) {
+            console.error("got an invitation for another broker. redirecting");
+            window.location.href = redirect;
+          } else {
+            //let i = await ng.decode_invitation(param.get("i"));
+            console.error("invalid invitation. ignoring it");
+          }
         }
       }
     }
@@ -277,14 +282,23 @@
   });
 
   const select_bsp = async (bsp_url, bsp_name) => {
-    if (!tauri_platform) {
-      let local_url = await ng.get_local_url(location.href);
-      if (!import.meta.env.PROD) {
-        local_url = "http://localhost:1421";
+    if (!tauri_platform || tauri_platform == "android") {
+      let redirect_url;
+      if (tauri_platform) {
+        redirect_url = window.location.href;
+      } else {
+        let local_url;
+        if (!import.meta.env.PROD) {
+          local_url = "http://localhost:1421";
+        } else {
+          local_url = await ng.get_local_url(location.href);
+        }
+        redirect_url = local_url + APP_WALLET_CREATE_SUFFIX;
       }
+
       let create = {
         V0: {
-          redirect_url: local_url + APP_WALLET_CREATE_SUFFIX,
+          redirect_url,
         },
       };
       let ca = await ng.encode_create_account(create);
@@ -338,14 +352,14 @@
   const enterINVITE = (event) => {};
   const enterQRcode = (event) => {};
   const displayNGbox = async (event) => {
-    if (!tauri_platform) {
+    if (!tauri_platform || tauri_platform == "android") {
       window.open(LINK_NG_BOX, "_blank").focus();
     } else {
       await ng.open_window(LINK_NG_BOX, "viewer", "Own your NG-Box");
     }
   };
   const displaySelfHost = async (event) => {
-    if (!tauri_platform) {
+    if (!tauri_platform || tauri_platform == "android") {
       window.open(LINK_SELF_HOST, "_blank").focus();
     } else {
       await ng.open_window(LINK_SELF_HOST, "viewer", "Self-host a broker");
@@ -1030,7 +1044,8 @@
   {:else if pin_confirm.length < 4}
     <div class=" max-w-6xl lg:px-8 mx-auto px-4">
       <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-        <span class="text-xl">Please confirm your PIN code.</span>
+        <span class="animate-bounce text-xl">Please confirm your PIN code.</span
+        >
         Enter the same PIN again
       </p>
       <Alert color="blue" class="mt-5">
@@ -1045,7 +1060,7 @@
               <button
                 tabindex="0"
                 class="m-1 select-none align-bottom text-7xl w-[100px] h-[100px] p-0"
-                on:click={async () => confirm_pin(num + row * 3)}
+                on:click={async () => await confirm_pin(num + row * 3)}
               >
                 <span>{num + row * 3}</span>
               </button>
@@ -1055,7 +1070,7 @@
         <button
           tabindex="0"
           class="m-1 select-none mx-auto align-bottom text-7xl w-[100px] h-[100px] p-0"
-          on:click={async () => confirm_pin(0)}
+          on:click={async () => await confirm_pin(0)}
         >
           <span>0</span>
         </button>

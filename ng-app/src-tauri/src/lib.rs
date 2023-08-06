@@ -208,7 +208,8 @@ async fn open_window(
 ) -> Result<(), ()> {
     log_debug!("open window url {:?}", url);
     let already_exists = app.get_window(&label);
-    if (already_exists.is_some()) {
+    #[cfg(desktop)]
+    if already_exists.is_some() {
         let _ = already_exists.unwrap().close();
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
@@ -332,6 +333,7 @@ impl AppBuilder {
                     app.ipc_scope().configure_remote_access(
                         RemoteDomainAccessScope::new(domain)
                             .add_window("registration")
+                            .add_window("main")
                             .add_plugins(["window", "event"]),
                     );
                 }

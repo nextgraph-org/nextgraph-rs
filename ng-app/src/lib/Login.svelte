@@ -191,7 +191,7 @@
     </svg>
   </div>
 {:else if step == "pazzle"}
-  <div class="h-screen aspect-[3/5] pazzleline max-w-[600px] min-w-[500px]">
+  <div class="h-screen aspect-[3/5] pazzleline max-w-[600px] min-w-[350px]">
     {#each [0, 1, 2, 3, 4] as row}
       <div class="columns-3 gap-0">
         {#each emojis2[display]?.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i}
@@ -210,7 +210,7 @@
   </div>
 {:else if step == "order"}
   <!-- console.log(cat_idx, emoji_cat[cat_idx], idx, cat[idx].code); -->
-  <div class="h-screen aspect-[3/3] pazzleline max-w-[600px] min-w-[500px]">
+  <div class="h-screen aspect-[3/3] pazzleline max-w-[600px] min-w-[350px]">
     {#each [0, 1, 2] as row}
       <div class="columns-3 gap-0">
         {#each selection.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i}

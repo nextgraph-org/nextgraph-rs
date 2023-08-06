@@ -76,7 +76,7 @@ impl<'a> Wallet<'a> {
     }
 
     pub fn get_or_create_overlay_key(&self, overlay: &OverlayId) -> Result<SymKey, StorageError> {
-        self.get_or_create_single_key(Self::PREFIX_USER, &to_vec(overlay)?)
+        self.get_or_create_single_key(Self::PREFIX_OVERLAY, &to_vec(overlay)?)
     }
 
     pub fn create_single_key(
