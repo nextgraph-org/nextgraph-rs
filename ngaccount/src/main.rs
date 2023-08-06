@@ -264,16 +264,20 @@ async fn main() -> anyhow::Result<()> {
     {
         let origin = format!("https://{}", domain);
         cors = cors.allow_origin(origin.as_str());
+        log::info!("Starting server on http://localhost:3031");
+        warp::serve(api_v1.or(static_files).with(cors))
+            .run(([127, 0, 0, 1], 3031))
+            .await;
     }
     #[cfg(debug_assertions)]
     {
         log_debug!("CORS: any origin");
         cors = cors.allow_any_origin();
+        log::info!("Starting server on http://192.168.192.2:3031");
+        warp::serve(api_v1.or(static_files).with(cors))
+            .run(([192, 168, 192, 2], 3031))
+            .await;
     }
-    log::info!("Starting server on http://localhost:3031");
-    warp::serve(api_v1.or(static_files).with(cors))
-        .run(([192, 168, 192, 2], 3031))
-        .await;
 
     Ok(())
 }
