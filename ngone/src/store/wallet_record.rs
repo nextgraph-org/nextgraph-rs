@@ -55,7 +55,7 @@ impl<'a> WalletRecord<'a> {
         if wallet.exists() {
             return Err(StorageError::BackendError);
         }
-        store.write_transaction(&|tx| {
+        store.write_transaction(&mut |tx| {
             tx.put(
                 Self::PREFIX,
                 &to_vec(&id)?,

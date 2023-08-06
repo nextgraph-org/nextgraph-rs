@@ -112,10 +112,10 @@ const handler = {
                 return res;
             } else if (path[0] === "get_wallets_from_localstorage") {
                 let res = await tauri.invoke(path[0],{});
-                for (let e of Object.entries(res)) {
+                if (res) for (let e of Object.entries(res)) {
                     e[1].wallet.V0.content.security_img = Uint8Array.from(e[1].wallet.V0.content.security_img);
                 }
-                return res;
+                return res || {};
 
             } else if (path[0] === "wallet_create_wallet") {
                 let params = args[0];

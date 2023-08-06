@@ -15,13 +15,13 @@
 
   import { onMount } from "svelte";
 
-  const api_url = import.meta.env.PROD
-    ? "api/v1/"
-    : "http://localhost:3031/api/v1/";
+  // const api_url = import.meta.env.PROD
+  //   ? "api/v1/"
+  //   : "http://localhost:3031/api/v1/";
 
-  async function bootstrap() {}
+  // async function bootstrap() {}
 
-  onMount(() => bootstrap());
+  // onMount(() => bootstrap());
 </script>
 
 <div />

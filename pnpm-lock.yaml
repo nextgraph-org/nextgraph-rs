@@ -9,7 +9,7 @@ importers:
     specifiers:
       '@popperjs/core': ^2.11.8
       '@sveltejs/vite-plugin-svelte': ^2.0.0
-      '@tauri-apps/api': 2.0.0-alpha.4
+      '@tauri-apps/api': 2.0.0-alpha.5
       '@tauri-apps/cli': 2.0.0-alpha.9
       '@tauri-apps/plugin-window': 2.0.0-alpha.0
       '@tsconfig/svelte': ^3.0.0
@@ -39,7 +39,7 @@ importers:
       vite-plugin-wasm: ^3.2.2
     dependencies:
       '@popperjs/core': 2.11.8
-      '@tauri-apps/api': 2.0.0-alpha.4
+      '@tauri-apps/api': 2.0.0-alpha.5
       '@tauri-apps/plugin-window': 2.0.0-alpha.0
       async-proxy: 0.4.1
       classnames: 2.3.2
@@ -504,6 +504,11 @@ packages:
 
   /@tauri-apps/api/2.0.0-alpha.4:
     resolution: {integrity: sha512-gWe5fFHbwFM+dmdDPtlDvVDVtoMneGRM+S8mECevWhKpXYxId0yxznE56YGAvPSJXC3vgsXw16mOmkTnEVKnaw==}
+    engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
+    dev: false
+
+  /@tauri-apps/api/2.0.0-alpha.5:
+    resolution: {integrity: sha512-OqysC4c819itGxic50RoDMrmd+ofX+MMNkXKeRS0BV2rkKqrnuV17o3TrQXFI1xs/kXRmmPC+3Y42P9Y5uNvRg==}
     engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
     dev: false
 

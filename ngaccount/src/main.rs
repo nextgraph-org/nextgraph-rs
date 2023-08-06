@@ -272,7 +272,7 @@ async fn main() -> anyhow::Result<()> {
     }
     log::info!("Starting server on http://localhost:3031");
     warp::serve(api_v1.or(static_files).with(cors))
-        .run(([127, 0, 0, 1], 3031))
+        .run(([192, 168, 192, 2], 3031))
         .await;
 
     Ok(())
