@@ -27,23 +27,15 @@ pub struct Account<'a> {
 }
 
 impl<'a> Account<'a> {
-    const PREFIX: u8 = b"u"[0];
-    const PREFIX_CLIENT: u8 = b"d"[0];
-
-    // propertie's suffixes
-    const CLIENT: u8 = b"c"[0];
-    const ADMIN: u8 = b"a"[0];
-    //const OVERLAY: u8 = b"o"[0];
+    const PREFIX_ACCOUNT: u8 = b"a"[0];
+    const PREFIX_CLIENT: u8 = b"c"[0];
+    const PREFIX_CLIENT_PROPERTY: u8 = b"d"[0];
 
     // propertie's client suffixes
     const INFO: u8 = b"i"[0];
     const LAST_SEEN: u8 = b"l"[0];
 
-    const ALL_PROPERTIES: [u8; 2] = [Self::CLIENT, Self::ADMIN];
-
     const ALL_CLIENT_PROPERTIES: [u8; 2] = [Self::INFO, Self::LAST_SEEN];
-
-    const SUFFIX_FOR_EXIST_CHECK: u8 = Self::ADMIN;
 
     pub fn open(id: &UserId, store: &'a dyn KCVStore) -> Result<Account<'a>, StorageError> {
         let opening = Account {
@@ -67,12 +59,7 @@ impl<'a> Account<'a> {
         if acc.exists() {
             return Err(StorageError::AlreadyExists);
         }
-        store.put(
-            Self::PREFIX,
-            &to_vec(&id)?,
-            Some(Self::ADMIN),
-            to_vec(&admin)?,
-        )?;
+        store.put(Self::PREFIX_ACCOUNT, &to_vec(&id)?, None, to_vec(&admin)?)?;
         Ok(acc)
     }
     pub fn get_all_users(
@@ -81,7 +68,7 @@ impl<'a> Account<'a> {
     ) -> Result<Vec<UserId>, StorageError> {
         let size = to_vec(&UserId::nil())?.len();
         let mut res: Vec<UserId> = vec![];
-        for user in store.get_all_keys_and_values(Self::PREFIX, size, Some(Self::ADMIN))? {
+        for user in store.get_all_keys_and_values(Self::PREFIX_ACCOUNT, size, vec![], None)? {
             let admin: bool = from_slice(&user.1)?;
             if admin == admins {
                 let id: UserId = from_slice(&user.0[1..user.0.len() - 1])?;
@@ -92,11 +79,7 @@ impl<'a> Account<'a> {
     }
     pub fn exists(&self) -> bool {
         self.store
-            .get(
-                Self::PREFIX,
-                &to_vec(&self.id).unwrap(),
-                Some(Self::SUFFIX_FOR_EXIST_CHECK),
-            )
+            .get(Self::PREFIX_ACCOUNT, &to_vec(&self.id).unwrap(), None)
             .is_ok()
     }
     pub fn id(&self) -> UserId {
@@ -112,39 +95,31 @@ impl<'a> Account<'a> {
         let hash = s.finish();
 
         let client_key = (client.clone(), hash);
-        let client_key_ser = to_vec(&client_key)?;
+        let mut client_key_ser = to_vec(&client_key)?;
 
         let info_ser = to_vec(info)?;
 
         self.store.write_transaction(&mut |tx| {
+            let mut id_and_client = to_vec(&self.id)?;
+            id_and_client.append(&mut client_key_ser);
             if tx
-                .has_property_value(
-                    Self::PREFIX,
-                    &to_vec(&self.id)?,
-                    Some(Self::CLIENT),
-                    &client_key_ser,
-                )
+                .has_property_value(Self::PREFIX_CLIENT, &id_and_client, None, &vec![])
                 .is_err()
             {
-                tx.put(
-                    Self::PREFIX,
-                    &to_vec(&self.id)?,
-                    Some(Self::CLIENT),
-                    &client_key_ser,
-                )?;
+                tx.put(Self::PREFIX_CLIENT, &id_and_client, None, &vec![])?;
             }
             if tx
                 .has_property_value(
-                    Self::PREFIX_CLIENT,
-                    &client_key_ser,
+                    Self::PREFIX_CLIENT_PROPERTY,
+                    &id_and_client,
                     Some(Self::INFO),
                     &info_ser,
                 )
                 .is_err()
             {
                 tx.put(
-                    Self::PREFIX_CLIENT,
-                    &client_key_ser,
+                    Self::PREFIX_CLIENT_PROPERTY,
+                    &id_and_client,
                     Some(Self::INFO),
                     &info_ser,
                 )?;
@@ -154,8 +129,8 @@ impl<'a> Account<'a> {
                 .unwrap()
                 .as_secs();
             tx.replace(
-                Self::PREFIX_CLIENT,
-                &client_key_ser,
+                Self::PREFIX_CLIENT_PROPERTY,
+                &id_and_client,
                 Some(Self::LAST_SEEN),
                 &to_vec(&now)?,
             )?;
@@ -205,9 +180,9 @@ impl<'a> Account<'a> {
         if self
             .store
             .has_property_value(
-                Self::PREFIX,
+                Self::PREFIX_ACCOUNT,
                 &to_vec(&self.id)?,
-                Some(Self::ADMIN),
+                None,
                 &to_vec(&true)?,
             )
             .is_ok()
@@ -219,12 +194,26 @@ impl<'a> Account<'a> {
 
     pub fn del(&self) -> Result<(), StorageError> {
         self.store.write_transaction(&mut |tx| {
-            if let Ok(clients) = tx.get_all(Self::PREFIX, &to_vec(&self.id)?, Some(Self::CLIENT)) {
+            let id = to_vec(&self.id)?;
+            // let mut id_and_client = to_vec(&self.id)?;
+            // let client_key = (client.clone(), hash);
+            // let mut client_key_ser = to_vec(&client_key)?;
+
+            let client_key = (ClientId::nil(), 0u64);
+            let mut client_key_ser = to_vec(&client_key)?;
+            let size = client_key_ser.len() + id.len();
+
+            if let Ok(clients) = tx.get_all_keys_and_values(Self::PREFIX_CLIENT, size, id, None) {
                 for client in clients {
-                    tx.del_all(Self::PREFIX_CLIENT, &client, &Self::ALL_CLIENT_PROPERTIES)?;
+                    tx.del(Self::PREFIX_CLIENT, &client.0, None)?;
+                    tx.del_all(
+                        Self::PREFIX_CLIENT_PROPERTY,
+                        &client.0,
+                        &Self::ALL_CLIENT_PROPERTIES,
+                    )?;
                 }
             }
-            tx.del_all(Self::PREFIX, &to_vec(&self.id)?, &Self::ALL_PROPERTIES)?;
+            tx.del(Self::PREFIX_ACCOUNT, &to_vec(&self.id)?, None)?;
             Ok(())
         })
     }

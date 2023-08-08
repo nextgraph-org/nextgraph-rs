@@ -29,7 +29,7 @@
   import WalletCreate from "./routes/WalletCreate.svelte";
   import WalletLogin from "./routes/WalletLogin.svelte";
   import UserRegistered from "./routes/UserRegistered.svelte";
-  import Install from "./routes/Install.svelte";
+  import Install from "./lib/Install.svelte";
 
   import ng from "./api";
 

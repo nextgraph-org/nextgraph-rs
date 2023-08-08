@@ -14,7 +14,7 @@ warp-embed = "0.4"
 rust-embed = "6"
 log = "0.4"
 env_logger = "0.10"
-stores-lmdb = { path = "../stores-lmdb" }
+stores-rocksdb = { path = "../stores-rocksdb" }
 p2p-repo = { path = "../p2p-repo", features = ["server_log_output"] }
 p2p-net = { path = "../p2p-net" }
 ng-wallet = { path = "../ng-wallet" }

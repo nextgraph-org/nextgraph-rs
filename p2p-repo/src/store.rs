@@ -38,6 +38,7 @@ pub trait RepoStore {
 pub enum StorageError {
     NotFound,
     InvalidValue,
+    DifferentValue,
     BackendError,
     SerializationError,
     AlreadyExists,

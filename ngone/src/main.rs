@@ -29,14 +29,14 @@ use p2p_net::types::{APP_NG_ONE_URL, NG_ONE_URL};
 use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::{generate_keypair, sign, verify};
-use stores_lmdb::kcv_store::LmdbKCVStore;
+use stores_rocksdb::kcv_store::RocksdbKCVStore;
 
 #[derive(RustEmbed)]
 #[folder = "web/dist"]
 struct Static;
 
 struct Server {
-    store: LmdbKCVStore,
+    store: RocksdbKCVStore,
 }
 
 impl Server {
@@ -158,7 +158,7 @@ async fn main() {
     let key: [u8; 32] = [0; 32];
     log_debug!("data directory: {}", dir.to_str().unwrap());
     fs::create_dir_all(dir.clone()).unwrap();
-    let store = LmdbKCVStore::open(&dir, key);
+    let store = RocksdbKCVStore::open(&dir, key);
     if store.is_err() {
         return;
     }
@@ -217,8 +217,8 @@ async fn main() {
         log_debug!("CORS: any origin");
         cors = cors.allow_any_origin();
     }
-    log::info!("Starting server on http://localhost:3030");
+    log::info!("Starting server on http://localhost:3032");
     warp::serve(api_v1.or(static_files).with(cors))
-        .run(([127, 0, 0, 1], 3030))
+        .run(([127, 0, 0, 1], 3032))
         .await;
 }

@@ -9,39 +9,20 @@
 // according to those terms.
 -->
 
-<script>
+<script type="ts">
   import { Button } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
-  import Home from "../lib/Home.svelte";
+  import Install from "../../../../ng-app/src/lib/Install.svelte";
   import { push } from "svelte-spa-router";
   import { onMount, onDestroy } from "svelte";
-  import {
-    wallets,
-    active_wallet,
-    opened_wallets,
-    active_session,
-    has_wallets,
-    derived,
-  } from "../store";
 
-  let display_login_create = !$has_wallets || !$active_wallet;
+  let display_has_wallets_warning = false;
   let unsubscribe;
-  onMount(() => {
-    const combined = derived([active_wallet, has_wallets], ([$s1, $s2]) => [
-      $s1,
-      $s2,
-    ]);
-    unsubscribe = combined.subscribe((value) => {
-      //console.log(value);
-      if (!value[0] && value[1]) {
-        push("#/wallet/login");
-      }
-    });
-  });
+  onMount(() => {});
 
   onDestroy(() => {
     unsubscribe();
   });
 </script>
 
-<Home {display_login_create} />
+<Install {display_has_wallets_warning} />
