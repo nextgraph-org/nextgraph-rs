@@ -13,36 +13,35 @@ use p2p_repo::types::*;
 use p2p_repo::utils::*;
 
 use p2p_repo::log::*;
-use rkv::backend::BackendEnvironmentBuilder;
-use rkv::EnvironmentFlags;
+
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::RwLockReadGuard;
 use std::sync::{Arc, RwLock};
 
-use rkv::backend::{
-    BackendDatabaseFlags, BackendFlags, BackendIter, BackendWriteFlags, DatabaseFlags, Lmdb,
-    LmdbDatabase, LmdbDatabaseFlags, LmdbEnvironment, LmdbRwTransaction, LmdbWriteFlags,
-};
-use rkv::{
-    Manager, MultiStore, Rkv, SingleStore, StoreError, StoreOptions, Value, WriteFlags, Writer,
-};
-
 use serde::{Deserialize, Serialize};
 use serde_bare::error::Error;
 
-pub struct LmdbTransaction<'a> {
-    store: &'a LmdbKCVStore,
-    writer: Option<Writer<LmdbRwTransaction<'a>>>,
+use rocksdb::{
+    ColumnFamilyDescriptor, Direction, Env, ErrorKind, IteratorMode, Options, SingleThreaded,
+    TransactionDB, TransactionDBOptions, DB,
+};
+
+pub struct RocksdbTransaction<'a> {
+    store: &'a RocksdbKCVStore,
+    tx: Option<rocksdb::Transaction<'a, TransactionDB>>,
 }
 
-impl<'a> LmdbTransaction<'a> {
+impl<'a> RocksdbTransaction<'a> {
     fn commit(&mut self) {
-        self.writer.take().unwrap().commit().unwrap();
+        self.tx.take().unwrap().commit().unwrap();
+    }
+    fn tx(&self) -> &rocksdb::Transaction<'a, TransactionDB> {
+        self.tx.as_ref().unwrap()
     }
 }
 
-impl<'a> ReadTransaction for LmdbTransaction<'a> {
+impl<'a> ReadTransaction for RocksdbTransaction<'a> {
     fn get_all_keys_and_values(
         &self,
         prefix: u8,
@@ -50,20 +49,19 @@ impl<'a> ReadTransaction for LmdbTransaction<'a> {
         key_prefix: Vec<u8>,
         suffix: Option<u8>,
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError> {
-        unimplemented!();
+        self.store
+            .get_all_keys_and_values(prefix, key_size, key_prefix, suffix)
     }
+
     /// Load a single value property from the store.
     fn get(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<Vec<u8>, StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
-
-        let mut iter = self
-            .store
-            .main_store
-            .get(self.writer.as_ref().unwrap(), property)
+        let property = RocksdbKCVStore::compute_property(prefix, key, suffix);
+        let mut res = self
+            .tx()
+            .get_for_update(property, true)
             .map_err(|e| StorageError::BackendError)?;
-        match iter.next() {
-            Some(Ok(val)) => Ok(val.1.to_bytes().unwrap()),
-            Some(Err(_e)) => Err(StorageError::BackendError),
+        match res {
+            Some(val) => Ok(val),
             None => Err(StorageError::NotFound),
         }
     }
@@ -75,24 +73,7 @@ impl<'a> ReadTransaction for LmdbTransaction<'a> {
         key: &Vec<u8>,
         suffix: Option<u8>,
     ) -> Result<Vec<Vec<u8>>, StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
-
-        let mut iter = self
-            .store
-            .main_store
-            .get(self.writer.as_ref().unwrap(), property)
-            .map_err(|e| StorageError::BackendError)?;
-        let mut vector: Vec<Vec<u8>> = vec![];
-        while let res = iter.next() {
-            vector.push(match res {
-                Some(Ok(val)) => val.1.to_bytes().unwrap(),
-                Some(Err(_e)) => return Err(StorageError::BackendError),
-                None => {
-                    break;
-                }
-            });
-        }
-        Ok(vector)
+        unimplemented!();
     }
 
     /// Check if a specific value exists for a property from the store.
@@ -103,26 +84,25 @@ impl<'a> ReadTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
-
+        let property = RocksdbKCVStore::compute_property(prefix, key, suffix);
         let exists = self
-            .store
-            .main_store
-            .get_key_value(
-                self.writer.as_ref().unwrap(),
-                property,
-                &Value::Blob(value.as_slice()),
-            )
+            .tx()
+            .get_for_update(property, true)
             .map_err(|e| StorageError::BackendError)?;
-        if exists {
-            Ok(())
-        } else {
-            Err(StorageError::NotFound)
+        match exists {
+            Some(stored_value) => {
+                if stored_value.eq(value) {
+                    Ok(())
+                } else {
+                    Err(StorageError::DifferentValue)
+                }
+            }
+            None => Err(StorageError::NotFound),
         }
     }
 }
 
-impl<'a> WriteTransaction for LmdbTransaction<'a> {
+impl<'a> WriteTransaction for RocksdbTransaction<'a> {
     /// Save a property value to the store.
     fn put(
         &mut self,
@@ -131,14 +111,9 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
-        self.store
-            .main_store
-            .put(
-                self.writer.as_mut().unwrap(),
-                property,
-                &Value::Blob(value.as_slice()),
-            )
+        let property = RocksdbKCVStore::compute_property(prefix, key, suffix);
+        self.tx()
+            .put(property, value)
             .map_err(|e| StorageError::BackendError)?;
 
         Ok(())
@@ -152,20 +127,10 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+        let property = RocksdbKCVStore::compute_property(prefix, key, suffix);
 
-        self.store
-            .main_store
-            .delete_all(self.writer.as_mut().unwrap(), property.clone())
-            .map_err(|e| StorageError::BackendError)?;
-
-        self.store
-            .main_store
-            .put(
-                self.writer.as_mut().unwrap(),
-                property,
-                &Value::Blob(value.as_slice()),
-            )
+        self.tx()
+            .put(property, value)
             .map_err(|e| StorageError::BackendError)?;
 
         Ok(())
@@ -173,13 +138,10 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
 
     /// Delete a property from the store.
     fn del(&mut self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<(), StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
-        let res = self
-            .store
-            .main_store
-            .delete_all(self.writer.as_mut().unwrap(), property);
+        let property = RocksdbKCVStore::compute_property(prefix, key, suffix);
+        let res = self.tx().delete(property);
         if res.is_err() {
-            if let StoreError::KeyValuePairNotFound = res.unwrap_err() {
+            if let ErrorKind::NotFound = res.unwrap_err().kind() {
                 return Ok(());
             }
             return Err(StorageError::BackendError);
@@ -195,16 +157,21 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
-        self.store
-            .main_store
-            .delete(
-                self.writer.as_mut().unwrap(),
-                property,
-                &Value::Blob(value.as_slice()),
-            )
+        let property = RocksdbKCVStore::compute_property(prefix, key, suffix);
+        let exists = self
+            .tx()
+            .get_for_update(property.clone(), true)
             .map_err(|e| StorageError::BackendError)?;
-
+        match exists {
+            Some(val) => {
+                if val.eq(value) {
+                    self.tx()
+                        .delete(property)
+                        .map_err(|e| StorageError::BackendError)?;
+                }
+            }
+            None => return Err(StorageError::DifferentValue),
+        }
         Ok(())
     }
 
@@ -225,12 +192,9 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
     }
 }
 
-#[derive(Debug)]
-pub struct LmdbKCVStore {
+pub struct RocksdbKCVStore {
     /// the main store where all the properties of keys are stored
-    main_store: MultiStore<LmdbDatabase>,
-    /// the opened environment so we can create new transactions
-    environment: Arc<RwLock<Rkv<LmdbEnvironment>>>,
+    main_db: TransactionDB,
     /// path for the storage backend data
     path: String,
 }
@@ -249,7 +213,7 @@ fn compare<T: Ord>(a: &[T], b: &[T]) -> std::cmp::Ordering {
     return a.len().cmp(&b.len());
 }
 
-impl ReadTransaction for LmdbKCVStore {
+impl ReadTransaction for RocksdbKCVStore {
     fn get_all_keys_and_values(
         &self,
         prefix: u8,
@@ -257,6 +221,10 @@ impl ReadTransaction for LmdbKCVStore {
         key_prefix: Vec<u8>,
         suffix: Option<u8>,
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError> {
+        if key_prefix.len() > key_size {
+            return Err(StorageError::InvalidValue);
+        }
+
         let mut vec_key_start = key_prefix.clone();
         let mut trailing_zeros = vec![0u8; key_size - key_prefix.len()];
         vec_key_start.append(&mut trailing_zeros);
@@ -268,17 +236,15 @@ impl ReadTransaction for LmdbKCVStore {
         let property_start = Self::compute_property(prefix, &vec_key_start, suffix);
         let property_end =
             Self::compute_property(prefix, &vec_key_end, Some(suffix.unwrap_or(255u8)));
-        let lock = self.environment.read().unwrap();
-        let reader = lock.read().unwrap();
+
         let mut iter = self
-            .main_store
-            .iter_from(&reader, property_start)
-            .map_err(|e| StorageError::BackendError)?;
+            .main_db
+            .iterator(IteratorMode::From(&property_start, Direction::Forward));
         let mut vector: Vec<(Vec<u8>, Vec<u8>)> = vec![];
         while let res = iter.next() {
             match res {
                 Some(Ok(val)) => {
-                    match compare(val.0, property_end.as_slice()) {
+                    match compare(&val.0, property_end.as_slice()) {
                         std::cmp::Ordering::Less | std::cmp::Ordering::Equal => {
                             if suffix.is_some() {
                                 if val.0.len() < (key_size + 2)
@@ -289,7 +255,7 @@ impl ReadTransaction for LmdbKCVStore {
                                 // } else if val.0.len() > (key_size + 1) {
                                 //     continue;
                             }
-                            vector.push((val.0.to_vec(), val.1.to_bytes().unwrap()));
+                            vector.push((val.0.to_vec(), val.1.to_vec()));
                         }
                         _ => {} //,
                     }
@@ -306,15 +272,12 @@ impl ReadTransaction for LmdbKCVStore {
     /// Load a single value property from the store.
     fn get(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<Vec<u8>, StorageError> {
         let property = Self::compute_property(prefix, key, suffix);
-        let lock = self.environment.read().unwrap();
-        let reader = lock.read().unwrap();
-        let mut iter = self
-            .main_store
-            .get(&reader, property)
+        let mut res = self
+            .main_db
+            .get(property)
             .map_err(|e| StorageError::BackendError)?;
-        match iter.next() {
-            Some(Ok(val)) => Ok(val.1.to_bytes().unwrap()),
-            Some(Err(_e)) => Err(StorageError::BackendError),
+        match res {
+            Some(val) => Ok(val),
             None => Err(StorageError::NotFound),
         }
     }
@@ -326,24 +289,7 @@ impl ReadTransaction for LmdbKCVStore {
         key: &Vec<u8>,
         suffix: Option<u8>,
     ) -> Result<Vec<Vec<u8>>, StorageError> {
-        let property = Self::compute_property(prefix, key, suffix);
-        let lock = self.environment.read().unwrap();
-        let reader = lock.read().unwrap();
-        let mut iter = self
-            .main_store
-            .get(&reader, property)
-            .map_err(|e| StorageError::BackendError)?;
-        let mut vector: Vec<Vec<u8>> = vec![];
-        while let res = iter.next() {
-            vector.push(match res {
-                Some(Ok(val)) => val.1.to_bytes().unwrap(),
-                Some(Err(_e)) => return Err(StorageError::BackendError),
-                None => {
-                    break;
-                }
-            });
-        }
-        Ok(vector)
+        unimplemented!();
     }
 
     /// Check if a specific value exists for a property from the store.
@@ -355,31 +301,33 @@ impl ReadTransaction for LmdbKCVStore {
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
         let property = Self::compute_property(prefix, key, suffix);
-        let lock = self.environment.read().unwrap();
-        let reader = lock.read().unwrap();
         let exists = self
-            .main_store
-            .get_key_value(&reader, property, &Value::Blob(value.as_slice()))
+            .main_db
+            .get(property)
             .map_err(|e| StorageError::BackendError)?;
-        if exists {
-            Ok(())
-        } else {
-            Err(StorageError::NotFound)
+        match exists {
+            Some(stored_value) => {
+                if stored_value.eq(value) {
+                    Ok(())
+                } else {
+                    Err(StorageError::DifferentValue)
+                }
+            }
+            None => Err(StorageError::NotFound),
         }
     }
 }
 
-impl KCVStore for LmdbKCVStore {
+impl KCVStore for RocksdbKCVStore {
     fn write_transaction(
         &self,
         method: &mut dyn FnMut(&mut dyn WriteTransaction) -> Result<(), StorageError>,
     ) -> Result<(), StorageError> {
-        let lock = self.environment.read().unwrap();
-        let writer = lock.write().unwrap();
+        let tx = self.main_db.transaction();
 
-        let mut transaction = LmdbTransaction {
+        let mut transaction = RocksdbTransaction {
             store: self,
-            writer: Some(writer),
+            tx: Some(tx),
         };
         let res = method(&mut transaction);
         if res.is_ok() {
@@ -439,7 +387,7 @@ impl KCVStore for LmdbKCVStore {
     }
 }
 
-impl LmdbKCVStore {
+impl RocksdbKCVStore {
     pub fn path(&self) -> PathBuf {
         PathBuf::from(&self.path)
     }
@@ -456,40 +404,20 @@ impl LmdbKCVStore {
 
     /// Opens the store and returns a KCVStore object that should be kept and used to manipulate the properties
     /// The key is the encryption key for the data at rest.
-    pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<LmdbKCVStore, StorageError> {
-        let mut manager = Manager::<LmdbEnvironment>::singleton().write().unwrap();
+    pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<RocksdbKCVStore, StorageError> {
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        let env = Env::enc_env(key).unwrap();
+        opts.set_env(&env);
+        let tx_options = TransactionDBOptions::new();
+        let db: TransactionDB =
+            TransactionDB::open_cf(&opts, &tx_options, &path, vec!["cf0", "cf1"]).unwrap();
 
-        let mut builder = Lmdb::new();
-        builder.set_enc_key(key);
-        builder.set_flags(EnvironmentFlags::WRITE_MAP);
-        builder.set_map_size(1 * 1024 * 1024 * 1024);
-        builder.set_max_dbs(10);
+        log_info!("created db with Rocksdb Version: {}", Env::version());
 
-        let shared_rkv = manager
-            .get_or_create(path, |path| {
-                //Rkv::new::<Lmdb>(path) // use this instead to disable encryption
-                // TODO: fix memory management of the key. it should be zeroized all the way to the LMDB C FFI
-
-                Rkv::from_builder::<Lmdb>(path, builder)
-            })
-            .map_err(|e| {
-                log_debug!("open LMDB failed: {}", e);
-                StorageError::BackendError
-            })?;
-        let env = shared_rkv.read().unwrap();
-
-        log_info!("created env with LMDB Version: {}", env.version());
-
-        let main_store = env
-            .open_multi("main", StoreOptions::create())
-            .map_err(|e| {
-                log_debug!("open_multi failed {}", e);
-                StorageError::BackendError
-            })?;
-
-        Ok(LmdbKCVStore {
-            environment: shared_rkv.clone(),
-            main_store,
+        Ok(RocksdbKCVStore {
+            main_db: db,
             path: path.to_str().unwrap().to_string(),
         })
     }

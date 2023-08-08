@@ -8,6 +8,8 @@
 
 use crate::store::StorageError;
 
+// TODO:remove mut on self for trait WriteTransaction methods
+
 pub trait WriteTransaction: ReadTransaction {
     /// Save a property value to the store.
     fn put(
@@ -53,6 +55,9 @@ pub trait ReadTransaction {
     fn get(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<Vec<u8>, StorageError>;
 
     /// Load all the values of a property from the store.
+    #[deprecated(
+        note = "KVStore has unique values (since switch from lmdb to rocksdb) use get() instead"
+    )]
     fn get_all(
         &self,
         prefix: u8,
@@ -74,6 +79,7 @@ pub trait ReadTransaction {
         &self,
         prefix: u8,
         key_size: usize,
+        key_prefix: Vec<u8>,
         suffix: Option<u8>,
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError>;
 }

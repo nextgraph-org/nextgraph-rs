@@ -6,6 +6,7 @@ members = [
   "p2p-client-ws",
   "p2p-verifier",
   "stores-lmdb",
+  "stores-rocksdb",
   "ngcli",
   "ngd",
   "ngone",

@@ -94,7 +94,7 @@ impl<'a> Invitation<'a> {
             unique = true;
             multi = true;
         }
-        for invite in store.get_all_keys_and_values(Self::PREFIX, size, None)? {
+        for invite in store.get_all_keys_and_values(Self::PREFIX, size, vec![], None)? {
             if invite.0.len() == size + 2 {
                 let code: [u8; 32] = from_slice(&invite.0[1..invite.0.len() - 1])?;
                 if invite.0[size + 1] == Self::TYPE {

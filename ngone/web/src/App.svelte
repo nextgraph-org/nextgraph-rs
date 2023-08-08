@@ -14,7 +14,7 @@
 
   import Home from "./routes/Home.svelte";
   import WalletCreate from "./routes/WalletCreate.svelte";
-  import Install from "../../../ng-app/src/routes/Install.svelte";
+  import Install from "./routes/Install.svelte";
 
   //import URI from "./routes/URI.svelte";
   import NotFound from "./routes/NotFound.svelte";
