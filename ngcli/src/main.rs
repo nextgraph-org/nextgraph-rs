@@ -25,8 +25,6 @@ use std::io::ErrorKind;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::PathBuf;
 use std::str::FromStr;
-use stores_lmdb::kcv_store::LmdbKCVStore;
-use stores_lmdb::repo_store::LmdbRepoStore;
 use zeroize::Zeroize;
 
 use p2p_client_ws::remote_ws::ConnectionWebSocket;

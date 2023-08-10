@@ -3265,7 +3265,7 @@ dependencies = [
  "serde_bare",
  "serde_bytes",
  "serde_json",
- "stores-lmdb",
+ "stores-rocksdb",
  "tempfile",
 ]
 
