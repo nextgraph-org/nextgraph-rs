@@ -18,7 +18,7 @@ tempfile = "3"
 rand = "0.7"
 ed25519-dalek = "1.0.1"
 assert_cmd = "2.0.5"
-clap = { version = "4.3.4", features = ["env","string","cargo"] }
+clap = { version = "4.3.5", features = ["env","string","cargo"] }
 log = "0.4"
 env_logger = "0.10"
 anyhow = "1.0.71"
