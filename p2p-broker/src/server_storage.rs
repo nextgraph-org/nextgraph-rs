@@ -22,17 +22,15 @@ use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::log::*;
 use p2p_repo::store::StorageError;
 use p2p_repo::types::{PubKey, SymKey};
-use stores_lmdb::kcv_store::LmdbKCVStore;
-use stores_lmdb::repo_store::LmdbRepoStore;
+use stores_rocksdb::kcv_store::RocksdbKCVStore;
 
-#[derive(Debug)]
-pub struct LmdbServerStorage {
-    wallet_storage: LmdbKCVStore,
-    accounts_storage: LmdbKCVStore,
-    peers_storage: LmdbKCVStore,
+pub struct RocksdbServerStorage {
+    wallet_storage: RocksdbKCVStore,
+    accounts_storage: RocksdbKCVStore,
+    peers_storage: RocksdbKCVStore,
 }
 
-impl LmdbServerStorage {
+impl RocksdbServerStorage {
     pub fn open(
         path: &mut PathBuf,
         master_key: SymKey,
@@ -44,7 +42,7 @@ impl LmdbServerStorage {
         std::fs::create_dir_all(wallet_path.clone()).unwrap();
         log_debug!("opening wallet DB");
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let wallet_storage = LmdbKCVStore::open(&wallet_path, master_key.slice().clone())?;
+        let wallet_storage = RocksdbKCVStore::open(&wallet_path, master_key.slice().clone())?;
         let wallet = Wallet::open(&wallet_storage);
 
         // create/open the ACCOUNTS storage
@@ -56,7 +54,7 @@ impl LmdbServerStorage {
             accounts_key = wallet.create_accounts_key()?;
             std::fs::create_dir_all(accounts_path.clone()).unwrap();
             let accounts_storage =
-                LmdbKCVStore::open(&accounts_path, accounts_key.slice().clone())?;
+                RocksdbKCVStore::open(&accounts_path, accounts_key.slice().clone())?;
             let symkey = SymKey::random();
             let invite_code = InvitationCode::Admin(symkey.clone());
             let _ = Invitation::create(
@@ -83,7 +81,7 @@ impl LmdbServerStorage {
         log_debug!("opening accounts DB");
         std::fs::create_dir_all(accounts_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let accounts_storage = LmdbKCVStore::open(&accounts_path, accounts_key.slice().clone())?;
+        let accounts_storage = RocksdbKCVStore::open(&accounts_path, accounts_key.slice().clone())?;
 
         // create/open the PEERS storage
         log_debug!("opening peers DB");
@@ -92,9 +90,9 @@ impl LmdbServerStorage {
         peers_path.push("peers");
         std::fs::create_dir_all(peers_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let peers_storage = LmdbKCVStore::open(&peers_path, peers_key.slice().clone())?;
+        let peers_storage = RocksdbKCVStore::open(&peers_path, peers_key.slice().clone())?;
 
-        Ok(LmdbServerStorage {
+        Ok(RocksdbServerStorage {
             wallet_storage,
             accounts_storage,
             peers_storage,
@@ -102,7 +100,7 @@ impl LmdbServerStorage {
     }
 }
 
-impl ServerStorage for LmdbServerStorage {
+impl ServerStorage for RocksdbServerStorage {
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError> {
         log_debug!("get_user {user_id}");
         Ok(Account::open(&user_id, &self.accounts_storage)?.is_admin()?)
