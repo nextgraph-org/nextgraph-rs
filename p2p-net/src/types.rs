@@ -367,18 +367,18 @@ impl BrokerServerV0 {
                 )
             }
             BrokerServerTypeV0::BoxPublicDyn(addrs) => {
-                let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
-                if resp.is_ok() {
-                    let resp = resp.unwrap().json::<Vec<BindAddress>>().await;
-                    if resp.is_ok() {
-                        return Self::app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
-                            ipv4,
-                            ipv6,
-                            &resp.unwrap(),
-                            self.peer_id,
-                        );
-                    }
-                }
+                // let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
+                // if resp.is_ok() {
+                //     let resp = resp.unwrap().json::<Vec<BindAddress>>().await;
+                //     if resp.is_ok() {
+                //         return Self::app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
+                //             ipv4,
+                //             ipv6,
+                //             &resp.unwrap(),
+                //             self.peer_id,
+                //         );
+                //     }
+                // }
                 if addrs.len() > 0 {
                     Self::app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
                         ipv4,
@@ -436,13 +436,13 @@ impl BrokerServerV0 {
                         Some((APP_NG_ONE_WS_URL.to_string(), addrs.clone()))
                     }
                     BrokerServerTypeV0::BoxPublicDyn(addrs) => {
-                        let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
-                        if resp.is_ok() {
-                            let resp = resp.unwrap().json::<Vec<BindAddress>>().await;
-                            if resp.is_ok() {
-                                return Some((APP_NG_ONE_WS_URL.to_string(), resp.unwrap()));
-                            }
-                        }
+                        // let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
+                        // if resp.is_ok() {
+                        //     let resp = resp.unwrap().json::<Vec<BindAddress>>().await;
+                        //     if resp.is_ok() {
+                        //         return Some((APP_NG_ONE_WS_URL.to_string(), resp.unwrap()));
+                        //     }
+                        // }
                         if addrs.len() > 0 {
                             Some((APP_NG_ONE_WS_URL.to_string(), addrs.clone()))
                         } else {
@@ -503,13 +503,13 @@ impl BrokerServerV0 {
                 BrokerServerTypeV0::BoxPrivate(addrs) => Some((String::new(), addrs.clone())),
                 BrokerServerTypeV0::BoxPublic(addrs) => Some((String::new(), addrs.clone())),
                 BrokerServerTypeV0::BoxPublicDyn(addrs) => {
-                    let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
-                    if resp.is_ok() {
-                        let resp = resp.unwrap().json::<Vec<BindAddress>>().await;
-                        if resp.is_ok() {
-                            return Some((String::new(), resp.unwrap()));
-                        }
-                    }
+                    // let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
+                    // if resp.is_ok() {
+                    //     let resp = resp.unwrap().json::<Vec<BindAddress>>().await;
+                    //     if resp.is_ok() {
+                    //         return Some((String::new(), resp.unwrap()));
+                    //     }
+                    // }
                     if addrs.len() > 0 {
                         Some((String::new(), addrs.clone()))
                     } else {
