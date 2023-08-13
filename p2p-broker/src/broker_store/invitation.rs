@@ -182,7 +182,6 @@ mod test {
     use p2p_repo::types::*;
     use p2p_repo::utils::*;
     use std::fs;
-    use stores_lmdb::kcv_store::LmdbKCVStore;
     use tempfile::Builder;
 
     use crate::broker_store::account::Account;
