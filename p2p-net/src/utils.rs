@@ -116,13 +116,13 @@ pub fn check_is_local_url(bootstrap: &BrokerServerV0, location: &String) -> Opti
 
 pub async fn retrieve_local_url(location: String) -> Option<String> {
     let bootstraps: BootstrapContent = {
-        let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_PATH)).await;
-        if resp.is_ok() {
-            let resp = resp.unwrap().json::<BootstrapContent>().await;
-            resp.unwrap()
-        } else {
-            return None;
-        }
+        // let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_PATH)).await;
+        // if resp.is_ok() {
+        //     let resp = resp.unwrap().json::<BootstrapContent>().await;
+        //     resp.unwrap()
+        // } else {
+        return None;
+        // }
     };
     for bootstrap in bootstraps.servers() {
         let res = check_is_local_url(bootstrap, &location);
@@ -148,19 +148,19 @@ pub async fn retrieve_local_bootstrap(
     log_debug!("invite_String {:?} invite1{:?}", invite_string, invite1);
 
     let invite2: Option<Invitation> = {
-        let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_PATH)).await;
-        if resp.is_ok() {
-            let resp = resp.unwrap().json::<BootstrapContent>().await;
-            if resp.is_ok() {
-                let mut inv: Invitation = resp.unwrap().into();
-                inv.set_url(BROKER.read().await.get_registration_url());
-                Some(inv)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+        // let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_PATH)).await;
+        // if resp.is_ok() {
+        //     let resp = resp.unwrap().json::<BootstrapContent>().await;
+        //     if resp.is_ok() {
+        //         let mut inv: Invitation = resp.unwrap().into();
+        //         inv.set_url(BROKER.read().await.get_registration_url());
+        //         Some(inv)
+        //     } else {
+        //         None
+        //     }
+        // } else {
+        None
+        //}
     };
 
     let res = if invite1.is_none() {
