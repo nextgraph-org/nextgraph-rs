@@ -36,6 +36,7 @@ use std::ops::Deref;
 
 use std::io::BufReader;
 use std::io::Read;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub enum PeerConnection {
@@ -418,6 +419,18 @@ impl<'a> Broker<'a> {
 
     pub fn test(&self) -> u32 {
         self.test
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn test_storage(path: PathBuf) {
+        use stores_rocksdb::kcv_store::RocksdbKCVStore;
+
+        let key: [u8; 32] = [0; 32];
+        let test_storage = RocksdbKCVStore::open(&path, key);
+        match test_storage {
+            Err(e) => log_debug!("storage error {}", e),
+            Ok(_) => log_debug!("storage ok"),
+        }
     }
 
     pub fn new() -> Self {
