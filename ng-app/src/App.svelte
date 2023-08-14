@@ -51,6 +51,7 @@
   onMount(async () => {
     let tauri_platform = import.meta.env.TAURI_PLATFORM;
     if (tauri_platform) {
+      console.log(await ng.test());
       let walls = await ng.get_wallets_from_localstorage();
       wallets.set(walls);
 
