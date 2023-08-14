@@ -34,8 +34,15 @@ pub type SetupHook = Box<dyn FnOnce(&mut App) -> Result<(), Box<dyn std::error::
 // }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn test() -> Result<(), ()> {
+async fn test(app: tauri::AppHandle) -> Result<(), ()> {
     log_debug!("test is {}", BROKER.read().await.test());
+    let path = app
+        .path()
+        .resolve("storage", BaseDirectory::AppLocalData)
+        .map_err(|_| ())?;
+
+    BROKER.read().await.test_storage(path);
+
     Ok(())
 }
 
