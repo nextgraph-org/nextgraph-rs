@@ -46,9 +46,8 @@ in order to build a self-contained html file, useful for offline use, do:
 
 ```
 // uncomment line 14 of src/App.svelte: import * as api from "ng-sdk-js";
-pnpm filebuild
+pnpm webfilebuild
 // single file is available in dist-file/index.html
-// the assets folder can be discarded
 
 ```
 

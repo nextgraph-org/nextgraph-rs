@@ -7,10 +7,10 @@
     "dev": "vite",
     "webdev": "cross-env NG_APP_WEB=1 TAURI_DEBUG=1 vite",
     "webbuild": "cross-env NG_APP_WEB=1 vite build && rm -f ./dist-web/assets/*.svg",
-    "filebuild": "cross-env NG_APP_WEB=1 NG_APP_FILE=1 vite build && node prepare-app-file.cjs",
-    "filebuilddebug": "cross-env NG_APP_WEB=1 NG_APP_FILE=1 TAURI_DEBUG=1 vite build -m debug",
+    "webfilebuild": "cross-env NG_APP_WEB=1 NG_APP_FILE=1 vite build && node prepare-app-file.cjs && rm -rf ./dist-file/assets && tar --exclude .DS_Store -zcvf dist-file.tar.gz dist-file",
+    "webfilebuilddebug": "cross-env NG_APP_WEB=1 NG_APP_FILE=1 TAURI_DEBUG=1 vite build -m debug",
     "build": "vite build && rm -f ./dist/assets/*.svg",
-    "buildfile": "cross-env NG_APP_FILE=1 vite build && rm -r ./dist/assets",
+    "buildfile": "cross-env NG_APP_FILE=1 vite build && rm -rf ./dist/assets && tar --exclude .DS_Store -zcvf dist.tar.gz dist",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "tauri": "tauri"
