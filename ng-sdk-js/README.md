@@ -62,6 +62,7 @@ wasm-pack test --chrome --headless
 
 ```
 wasm-pack build --target bundler
+tar --exclude .DS_Store -zcvf pkg.tar.gz pkg
 wasm-pack build -t nodejs -d pkg-node
 wasm-pack build --target web -d web
 node prepare-node.js
