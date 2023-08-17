@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --base=./",
+    "build": "vite build --base=./ && tar --exclude .DS_Store -zcvf dist.tar.gz dist",
     "preview": "vite preview"
   },
   "dependencies": {
