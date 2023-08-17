@@ -115,17 +115,32 @@ pub fn check_is_local_url(bootstrap: &BrokerServerV0, location: &String) -> Opti
 }
 
 #[cfg(target_arch = "wasm32")]
-pub async fn retrieve_local_url(location: String) -> Option<String> {
-    let bootstraps: BootstrapContent = {
-        let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_PATH)).await;
-        if resp.is_ok() {
-            let resp = resp.unwrap().json::<BootstrapContent>().await;
-            resp.unwrap()
-        } else {
-            return None;
-        }
+async fn retrieve_ng_bootstrap(location: &String) -> Option<BootstrapContent> {
+    let prefix = if (APP_PREFIX == "") {
+        let url = Url::parse(location).unwrap();
+        url.origin().unicode_serialization()
+    } else {
+        APP_PREFIX.to_string()
     };
-    for bootstrap in bootstraps.servers() {
+    let url = format!("{}{}", prefix, NG_BOOTSTRAP_LOCAL_PATH);
+    //log_info!("url {}", url);
+    let resp = reqwest::get(url).await;
+    if resp.is_ok() {
+        let resp = resp.unwrap().json::<BootstrapContent>().await;
+        return Some(resp.unwrap());
+    } else {
+        //log_info!("err {}", resp.unwrap_err());
+        return None;
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub async fn retrieve_local_url(location: String) -> Option<String> {
+    let bootstraps = retrieve_ng_bootstrap(&location).await;
+    if bootstraps.is_none() {
+        return None;
+    }
+    for bootstrap in bootstraps.unwrap().servers() {
         let res = check_is_local_url(bootstrap, &location);
         if res.is_some() {
             return res;
@@ -134,6 +149,7 @@ pub async fn retrieve_local_url(location: String) -> Option<String> {
     None
 }
 
+#[cfg(target_arch = "wasm32")]
 pub async fn retrieve_local_bootstrap(
     location_string: String,
     invite_string: Option<String>,
@@ -149,19 +165,14 @@ pub async fn retrieve_local_bootstrap(
     log_debug!("invite_String {:?} invite1{:?}", invite_string, invite1);
 
     let invite2: Option<Invitation> = {
-        // let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_PATH)).await;
-        // if resp.is_ok() {
-        //     let resp = resp.unwrap().json::<BootstrapContent>().await;
-        //     if resp.is_ok() {
-        //         let mut inv: Invitation = resp.unwrap().into();
-        //         inv.set_url(BROKER.read().await.get_registration_url());
-        //         Some(inv)
-        //     } else {
-        //         None
-        //     }
-        // } else {
-        None
-        //}
+        let bootstraps = retrieve_ng_bootstrap(&location_string).await;
+        if bootstraps.is_none() {
+            None
+        } else {
+            let mut inv: Invitation = bootstraps.unwrap().into();
+            inv.set_url(BROKER.read().await.get_registration_url());
+            Some(inv)
+        }
     };
 
     let res = if invite1.is_none() {
