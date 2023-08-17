@@ -114,15 +114,16 @@ pub fn check_is_local_url(bootstrap: &BrokerServerV0, location: &String) -> Opti
     None
 }
 
+#[cfg(target_arch = "wasm32")]
 pub async fn retrieve_local_url(location: String) -> Option<String> {
     let bootstraps: BootstrapContent = {
-        // let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_PATH)).await;
-        // if resp.is_ok() {
-        //     let resp = resp.unwrap().json::<BootstrapContent>().await;
-        //     resp.unwrap()
-        // } else {
-        return None;
-        // }
+        let resp = reqwest::get(format!("{}{}", APP_PREFIX, NG_BOOTSTRAP_LOCAL_PATH)).await;
+        if resp.is_ok() {
+            let resp = resp.unwrap().json::<BootstrapContent>().await;
+            resp.unwrap()
+        } else {
+            return None;
+        }
     };
     for bootstrap in bootstraps.servers() {
         let res = check_is_local_url(bootstrap, &location);
