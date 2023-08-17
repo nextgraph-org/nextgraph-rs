@@ -263,7 +263,9 @@ async fn main() -> anyhow::Result<()> {
     #[cfg(not(debug_assertions))]
     {
         let origin = format!("https://{}", domain);
+        let origin2 = format!("https://account.{}", domain);
         cors = cors.allow_origin(origin.as_str());
+        cors = cors.allow_origin(origin2.as_str());
         log::info!("Starting server on http://localhost:3031");
         warp::serve(api_v1.or(static_files).with(cors))
             .run(([127, 0, 0, 1], 3031))
