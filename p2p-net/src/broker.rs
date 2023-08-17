@@ -421,21 +421,21 @@ impl<'a> Broker<'a> {
         self.test
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn test_storage(&self, path: PathBuf) {
-        use stores_rocksdb::kcv_store::RocksdbKCVStore;
+    // #[cfg(not(target_arch = "wasm32"))]
+    // pub fn test_storage(&self, path: PathBuf) {
+    //     use stores_rocksdb::kcv_store::RocksdbKCVStore;
 
-        let key: [u8; 32] = [0; 32];
-        let test_storage = RocksdbKCVStore::open(&path, key);
-        match test_storage {
-            Err(e) => {
-                log_debug!("storage error {}", e);
-            }
-            Ok(_) => {
-                log_debug!("storage ok");
-            }
-        }
-    }
+    //     let key: [u8; 32] = [0; 32];
+    //     let test_storage = RocksdbKCVStore::open(&path, key);
+    //     match test_storage {
+    //         Err(e) => {
+    //             log_debug!("storage error {}", e);
+    //         }
+    //         Ok(_) => {
+    //             log_debug!("storage ok");
+    //         }
+    //     }
+    // }
 
     pub fn new() -> Self {
         let (shutdown_sender, shutdown_receiver) = mpsc::unbounded::<ProtocolError>();

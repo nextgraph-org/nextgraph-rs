@@ -164,8 +164,8 @@ async fn main() -> Result<(), ProtocolError> {
                             .arg(arg!(-u --unique "only lists unique-use invitations").required(false)))
             )
             .subcommand(
-                Command::new("gen-user")
-                    .about("Generates a new user public key and private key to be used for authentication.")
+                Command::new("gen-key")
+                    .about("Generates a new key pair () public key and private key ) to be used by example for user authentication.")
             )
             .get_matches();
 
@@ -180,7 +180,7 @@ async fn main() -> Result<(), ProtocolError> {
     }
     env_logger::init();
 
-    if let Some(matches) = matches.subcommand_matches("gen-user") {
+    if let Some(matches) = matches.subcommand_matches("gen-key") {
         let (privkey, pubkey) = generate_keypair();
         println!("Your UserId is: {pubkey}");
         println!("Your Private key is: {privkey}");
