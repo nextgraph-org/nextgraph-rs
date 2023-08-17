@@ -16,7 +16,6 @@
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
   import { link, querystring } from "svelte-spa-router";
-  import { tauri, event } from "@tauri-apps/api";
 
   import { onMount } from "svelte";
   let domain = import.meta.env.NG_ACCOUNT_DOMAIN;
