@@ -276,7 +276,7 @@
               link <a target="_blank" href="https://account.{domain}/#/delete"
                 >https://account.{domain}/#/delete</a
               > or by entering in your NextGraph application and selecting the menu,
-              then Account, then delete</span
+              then Accounts, then under broker "delete registration"</span
             >
           </li>
           <li class="flex space-x-3">

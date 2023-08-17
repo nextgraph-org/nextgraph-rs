@@ -25,10 +25,13 @@ use p2p_net::types::{
     BootstrapContent, BootstrapContentV0, ClientId, ClientInfo, ClientInfoV0, ClientType,
     CreateAccountBSP, DirectPeerId, UserId, IP,
 };
+#[cfg(target_arch = "wasm32")]
+use p2p_net::utils::retrieve_local_url;
 use p2p_net::utils::{
-    decode_invitation_string, retrieve_local_bootstrap, retrieve_local_url, spawn_and_log_error,
-    Receiver, ResultSend, Sender,
+    decode_invitation_string, retrieve_local_bootstrap, spawn_and_log_error, Receiver, ResultSend,
+    Sender,
 };
+
 use p2p_net::WS_PORT;
 use p2p_repo::log::*;
 use p2p_repo::types::*;

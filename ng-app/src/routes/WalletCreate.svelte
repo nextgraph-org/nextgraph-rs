@@ -292,7 +292,7 @@
         } else {
           local_url = await ng.get_local_url(location.href);
         }
-        redirect_url = local_url + APP_WALLET_CREATE_SUFFIX;
+        if (local_url) redirect_url = local_url + APP_WALLET_CREATE_SUFFIX;
       }
 
       let create = {
