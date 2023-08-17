@@ -260,6 +260,21 @@ async fn main() -> anyhow::Result<()> {
         .allow_methods(vec!["GET"])
         .allow_headers(vec!["Content-Type"]);
 
+    let incoming_log = warp::log::custom(|info| {
+        if info.remote_addr().is_some() {
+            log_info!(
+                "{:?} {} {}",
+                info.request_headers()
+                    .get("X-Forwarded-For")
+                    .map(|x| x.to_str().unwrap())
+                    .unwrap_or(info.remote_addr().unwrap().to_string().as_str()),
+                //info.remote_addr().unwrap(),
+                info.method(),
+                info.path()
+            );
+        }
+    });
+
     #[cfg(not(debug_assertions))]
     {
         let origin = format!("https://{}", domain);
@@ -276,7 +291,7 @@ async fn main() -> anyhow::Result<()> {
         log_debug!("CORS: any origin");
         cors = cors.allow_any_origin();
         log::info!("Starting server on http://192.168.192.2:3031");
-        warp::serve(api_v1.or(static_files).with(cors))
+        warp::serve(api_v1.or(static_files).with(cors).with(incoming_log))
             .run(([192, 168, 192, 2], 3031))
             .await;
     }
