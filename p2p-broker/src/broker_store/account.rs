@@ -16,6 +16,7 @@ use std::time::SystemTime;
 
 use p2p_net::types::*;
 use p2p_repo::kcv_store::KCVStore;
+use p2p_repo::log::*;
 use p2p_repo::store::*;
 use p2p_repo::types::Timestamp;
 use serde_bare::{from_slice, to_vec};
@@ -71,7 +72,7 @@ impl<'a> Account<'a> {
         for user in store.get_all_keys_and_values(Self::PREFIX_ACCOUNT, size, vec![], None)? {
             let admin: bool = from_slice(&user.1)?;
             if admin == admins {
-                let id: UserId = from_slice(&user.0[1..user.0.len() - 1])?;
+                let id: UserId = from_slice(&user.0[1..user.0.len()])?;
                 res.push(id);
             }
         }
@@ -226,7 +227,7 @@ mod test {
     use p2p_repo::types::*;
     use p2p_repo::utils::*;
     use std::fs;
-    use stores_lmdb::kcv_store::LmdbKCVStore;
+    use stores_rocksdb::kcv_store::RocksdbKCVStore;
     use tempfile::Builder;
 
     use crate::broker_store::account::Account;
@@ -238,7 +239,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         println!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbKCVStore::open(root.path(), key).unwrap();
+        let mut store = RocksdbKCVStore::open(root.path(), key).unwrap();
 
         let user_id = PubKey::Ed25519PubKey([1; 32]);
 
