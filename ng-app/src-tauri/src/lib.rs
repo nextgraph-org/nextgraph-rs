@@ -41,7 +41,7 @@ async fn test(app: tauri::AppHandle) -> Result<(), ()> {
         .resolve("storage", BaseDirectory::AppLocalData)
         .map_err(|_| ())?;
 
-    BROKER.read().await.test_storage(path);
+    //BROKER.read().await.test_storage(path);
 
     Ok(())
 }
