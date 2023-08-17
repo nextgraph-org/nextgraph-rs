@@ -116,7 +116,8 @@ async fn main() -> Result<(), ProtocolError> {
             .arg(
                 arg!(
                     -s --server <IP_PORT_PEER_ID> "Server to connect to. IP can be IpV4 or IPv6, followed by a 
-                    comma and port as u16 and another comma and PEER_ID should be a base64-url encoded serde serialization of a [u8; 32]"
+                    comma and port as u16 and another comma and PEER_ID 
+                    should be a base64-url encoded serde serialization of a [u8; 32]"
                 )
                 .required(false)
                 .env("NG_CLIENT_SERVER"),
@@ -320,7 +321,7 @@ async fn main() -> Result<(), ProtocolError> {
             ProtocolError::InvalidValue
         })?;
         if config.is_some() {
-            log_warn!("Overwriting the config found in file with new server parameters provided on command line!");
+            log_warn!("Overriding the config found in file with new server parameters provided on command line!");
             let CliConfig::V0(c) = config.as_mut().unwrap();
             c.ip = ip;
             c.port = port;
@@ -349,7 +350,7 @@ async fn main() -> Result<(), ProtocolError> {
         if config.is_some() {
             let CliConfig::V0(c) = config.as_mut().unwrap();
             if c.user.is_some() {
-                log_warn!("Overwriting the config found in file with new user parameter provided on command line!");
+                log_warn!("Overriding the config found in file with new user parameter provided on command line!");
             }
             c.user = Some(privkey);
         } else {
