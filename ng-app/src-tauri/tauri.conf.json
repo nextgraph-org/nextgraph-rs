@@ -32,7 +32,7 @@
       }
     },
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; connect-src ipc: https://ipc.localhost"
     },
 
     "windows": [
