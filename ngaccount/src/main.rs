@@ -282,7 +282,7 @@ async fn main() -> anyhow::Result<()> {
         cors = cors.allow_origin(origin.as_str());
         cors = cors.allow_origin(origin2.as_str());
         log::info!("Starting server on http://localhost:3031");
-        warp::serve(api_v1.or(static_files).with(cors))
+        warp::serve(api_v1.or(static_files).with(cors).with(incoming_log))
             .run(([127, 0, 0, 1], 3031))
             .await;
     }
