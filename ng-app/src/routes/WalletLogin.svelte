@@ -44,7 +44,7 @@
     step = "open";
     wallets_unsub = wallets.subscribe((value) => {
       wallet = selected && $wallets[selected]?.wallet;
-      console.log("wallet found locally", wallet);
+      //console.log("wallet found locally", wallet);
     });
     opened_wallets_unsub = opened_wallets.subscribe(async (value) => {
       if (!$active_wallet && selected && value[selected]) {

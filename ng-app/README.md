@@ -85,6 +85,7 @@ cargo tauri build --target x86_64-unknown-linux-gnu
 ### Windows (7)
 
 ```
+// tar --exclude .DS_Store -zcvf dist.tar.gz dist
 cargo tauri build --target x86_64-pc-windows-msvc
 ```
 
