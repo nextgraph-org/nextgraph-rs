@@ -16,7 +16,7 @@ use p2p_repo::log::*;
 use p2p_repo::types::*;
 use std::collections::HashMap;
 use std::fs::{read, write};
-use tauri::ipc::RemoteDomainAccessScope;
+use tauri::scope::ipc::RemoteDomainAccessScope;
 use tauri::utils::config::WindowConfig;
 use tauri::{path::BaseDirectory, App, Manager, Window};
 

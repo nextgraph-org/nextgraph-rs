@@ -11,7 +11,7 @@
 
 <script lang="ts">
   // this line is needed to have the SDK working when compiling for a single file bundle (pnpm webfilebuild)
-  //import * as api from "ng-sdk-js";
+  import * as api from "ng-sdk-js";
   import { push, default as Router } from "svelte-spa-router";
   import { onMount, tick, onDestroy } from "svelte";
   import {
@@ -51,21 +51,21 @@
   onMount(async () => {
     let tauri_platform = import.meta.env.TAURI_PLATFORM;
     if (tauri_platform) {
-      console.log(await ng.test());
+      //console.log(await ng.test());
       let walls = await ng.get_wallets_from_localstorage();
       wallets.set(walls);
 
       let window_api = await import("@tauri-apps/plugin-window");
       let event_api = await import("@tauri-apps/api/event");
-      let main = window_api.WebviewWindow.getByLabel("main");
+      let main = window_api.Window.getByLabel("main");
       unsub_main_close = await main.onCloseRequested(async (event) => {
         console.log("onCloseRequested main");
         await event_api.emit("close_all", {});
-        let registration = window_api.WebviewWindow.getByLabel("registration");
+        let registration = window_api.Window.getByLabel("registration");
         if (registration) {
           await registration.close();
         }
-        let viewer = window_api.WebviewWindow.getByLabel("viewer");
+        let viewer = window_api.Window.getByLabel("viewer");
         if (viewer) {
           await viewer.close();
         }

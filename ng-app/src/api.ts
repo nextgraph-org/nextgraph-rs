@@ -90,11 +90,11 @@ const handler = {
             } else if (path[0] === "doc_sync_branch") {
                 let stream_id = (lastStreamId += 1).toString();
                 console.log("stream_id",stream_id);
-                let { appWindow } = await import("@tauri-apps/plugin-window");
+                let { getCurrent } = await import("@tauri-apps/plugin-window");
                 let nuri = args[0];
                 let callback = args[1];
 
-                let unlisten = await appWindow.listen(stream_id, (event) => {
+                let unlisten = await getCurrent().listen(stream_id, (event) => {
                     callback(event.payload).then(()=> {})
                 })
                 await tauri.invoke("doc_sync_branch",{nuri, stream_id});
@@ -127,7 +127,7 @@ const handler = {
             } else if (path[0] === "get_local_url") {
                 return false;
             } else if (path[0] === "wallet_open_wallet_with_pazzle") {
-                let arg = {};
+                let arg:any = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 arg.wallet.V0.content.security_img = Array.from(new Uint8Array(arg.wallet.V0.content.security_img));
                 return tauri.invoke(path[0],arg)
