@@ -265,7 +265,7 @@ async fn main() -> anyhow::Result<()> {
 
     let static_files = warp::get()
         .and(warp_embed::embed(&Static))
-        //.with(warp::reply::with::headers(headers))
+        .with(warp::reply::with::headers(headers))
         .boxed();
 
     let mut cors = warp::cors()
