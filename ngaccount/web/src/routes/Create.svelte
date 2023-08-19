@@ -58,7 +58,7 @@
         error = "Closing due to " + (result.error || "an error");
       }
       let window_api = await import("@tauri-apps/plugin-window");
-      let main = window_api.WebviewWindow.getByLabel("main");
+      let main = window_api.Window.getByLabel("main");
       if (main) {
         await main.emit("error", result);
       } else {
@@ -79,7 +79,7 @@
     // @ts-ignore
     if (window.__TAURI__) {
       let window_api = await import("@tauri-apps/plugin-window");
-      let main = window_api.WebviewWindow.getByLabel("main");
+      let main = window_api.Window.getByLabel("main");
       if (main) {
         await main.emit("accepted", result);
       } else {
