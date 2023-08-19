@@ -281,7 +281,6 @@
   });
 
   const select_bsp = async (bsp_url, bsp_name) => {
-    console.log("tauri_platform",tauri_platform);
     if (!tauri_platform || tauri_platform == "android") {
       let redirect_url;
       if (tauri_platform) {
