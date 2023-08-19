@@ -15,7 +15,7 @@ cd ../ng-app
 ```
 
 ```
-cargo install tauri-cli --version "=2.0.0-alpha.10" --frozen
+cargo install tauri-cli --version "=2.0.0-alpha.10" --locked
 npm install -g pnpm
 pnpm install
 ```
@@ -85,7 +85,6 @@ cargo tauri build --target x86_64-unknown-linux-gnu
 ### Windows (7)
 
 ```
-// tar --exclude .DS_Store -zcvf dist.tar.gz dist
 cargo tauri build --target x86_64-pc-windows-msvc
 ```
 
