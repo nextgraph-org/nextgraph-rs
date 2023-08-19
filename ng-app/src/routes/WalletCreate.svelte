@@ -323,7 +323,7 @@
         async (event) => {
           console.log("got accepted with payload", event.payload);
           unsub_register();
-          let reg_popup = window_api.Window.getByLabel("registration");
+          let reg_popup = window_api.WebviewWindow.getByLabel("registration");
           await reg_popup.close();
           registration_success = bsp_name;
           invitation = await ng.decode_invitation(event.payload.invite);
@@ -334,11 +334,12 @@
         if (event.payload) registration_error = event.payload.error;
         else intro = true;
         unsub_register();
-        let reg_popup = window_api.Window.getByLabel("registration");
+        let reg_popup = window_api.WebviewWindow.getByLabel("registration");
         await reg_popup.close();
       });
       await tick();
-      let reg_popup = window_api.Window.getByLabel("registration");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      let reg_popup = window_api.WebviewWindow.getByLabel("registration");
       unsub_register_close = await reg_popup.onCloseRequested(async (event) => {
         console.log("onCloseRequested");
         intro = true;
