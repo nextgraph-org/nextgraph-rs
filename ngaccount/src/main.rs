@@ -17,6 +17,7 @@ use p2p_net::actors::add_invitation::*;
 use p2p_net::broker::BROKER;
 use p2p_repo::store::StorageError;
 use serde::{Deserialize, Serialize};
+use warp::http::header::{HeaderMap, HeaderValue};
 use warp::reply::Response;
 use warp::{Filter, Reply};
 
@@ -254,7 +255,18 @@ async fn main() -> anyhow::Result<()> {
 
     let api_v1 = warp::path!("api" / "v1" / ..).and(register_api);
 
-    let static_files = warp::get().and(warp_embed::embed(&Static)).boxed();
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        "Content-Security-Policy",
+        HeaderValue::from_static(
+            "default-src 'self' data:; connect-src ipc: https://ipc.localhost",
+        ),
+    );
+
+    let static_files = warp::get()
+        .and(warp_embed::embed(&Static))
+        .with(warp::reply::with::headers(headers))
+        .boxed();
 
     let mut cors = warp::cors()
         .allow_methods(vec!["GET"])

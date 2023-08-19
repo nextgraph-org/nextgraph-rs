@@ -26,6 +26,7 @@ cargo watch -c -w src -x run
 
 ```
 cd web
+export NG_ACCOUNT_DOMAIN=[domain name]
 pnpm run build
 cd ..
 cargo build --release
