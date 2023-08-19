@@ -15,7 +15,7 @@ cd ../ng-app
 ```
 
 ```
-cargo install tauri-cli --version "^2.0.0-alpha"
+cargo install tauri-cli --version "=2.0.0-alpha.10" --frozen
 npm install -g pnpm
 pnpm install
 ```
@@ -59,11 +59,11 @@ to run the dev env :
 
 ```
 ## on macos
-cargo tauri dev
+cargo tauri dev --no-watch
 ## on linux
-cargo tauri dev --target x86_64-unknown-linux-gnu
+cargo tauri dev --no-watch --target x86_64-unknown-linux-gnu
 ## on win
-cargo tauri dev --target x86_64-pc-windows-msvc
+cargo tauri dev --no-watch --target x86_64-pc-windows-msvc
 ```
 
 to build the production app installer :

@@ -262,14 +262,14 @@ async fn main() -> anyhow::Result<()> {
             #[cfg(debug_assertions)]
             "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self' http://192.168.192.2:3031",
             #[cfg(not(debug_assertions))]
-            "default-src 'self' data: 'unsafe-inline'; connect-src ipc: https://ipc.localhost 'self'",
+            "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self'",
             
         ),
     );
 
     let static_files = warp::get()
         .and(warp_embed::embed(&Static))
-        .with(warp::reply::with::headers(headers))
+        //.with(warp::reply::with::headers(headers))
         .boxed();
 
     let mut cors = warp::cors()

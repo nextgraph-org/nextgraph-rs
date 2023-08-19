@@ -56,12 +56,6 @@
 
   <body>
     <div id="app"></div>
-    <script>
-      window.__TAURI__.convertFileSrc = function convertFileSrc(filePath, protocol = 'asset') {
-        const path = encodeURIComponent(filePath)
-        return `${protocol}://localhost/${path}`
-      }
-    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
