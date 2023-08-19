@@ -129,7 +129,11 @@ const handler = {
             } else if (path[0] === "wallet_open_wallet_with_pazzle") {
                 let arg:any = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
-                arg.wallet.V0.content.security_img = Array.from(new Uint8Array(arg.wallet.V0.content.security_img));
+                let img = Array.from(new Uint8Array(arg.wallet.V0.content.security_img));
+                let old_content = arg.wallet.V0.content;
+                arg.wallet = {V0:{id:arg.wallet.V0.id, sig:arg.wallet.V0.sig, content:{}}};
+                Object.assign(arg.wallet.V0.content,old_content);
+                arg.wallet.V0.content.security_img = img;
                 return tauri.invoke(path[0],arg)
             } 
             else {
