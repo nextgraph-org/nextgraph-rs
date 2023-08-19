@@ -259,7 +259,11 @@ async fn main() -> anyhow::Result<()> {
     headers.insert(
         "Content-Security-Policy",
         HeaderValue::from_static(
+            #[cfg(debug_assertions)]
+            "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self' http://192.168.192.2:3031",
+            #[cfg(not(debug_assertions))]
             "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self'",
+            
         ),
     );
 
