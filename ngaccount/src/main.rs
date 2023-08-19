@@ -262,7 +262,7 @@ async fn main() -> anyhow::Result<()> {
             #[cfg(debug_assertions)]
             "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self' http://192.168.192.2:3031",
             #[cfg(not(debug_assertions))]
-            "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self'",
+            "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self'; script-src 'unsafe-inline'",
             
         ),
     );
