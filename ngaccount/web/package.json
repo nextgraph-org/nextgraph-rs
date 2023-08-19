@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tauri-apps/api": "2.0.0-alpha.5",
-    "@tauri-apps/plugin-window": "2.0.0-alpha.0",
+    "@tauri-apps/api": "2.0.0-alpha.6",
+    "@tauri-apps/plugin-window": "2.0.0-alpha.1",
     "flowbite": "^1.6.5",
     "flowbite-svelte": "^0.37.1",
     "svelte-spa-router": "^3.3.0"
