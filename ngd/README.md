@@ -1,8 +1,15 @@
 # ngd - NextGraph Daemon
 
+## Building
+
+See [Build release binaries](../README.md#build-release-binaries) in the main page.
+
 ## Usage
 
 ### Create the first admin user
+
+The current directory will be used to save all the config, keys and storage data.
+If you prefer to change the base directory, use the argument `--base [PATH]` when using `ngd` and/or `ngcli`.
 
 ```
 ngcli gen-key

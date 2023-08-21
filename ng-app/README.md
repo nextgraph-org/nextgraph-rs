@@ -2,20 +2,11 @@
 
 NextGraph native apps use the Tauri framework.
 
-All the apps are using an embedded WebView that renders a Svelte app.
+All the native apps are using an embedded WebView that renders a Svelte app.
 
 ## Install
 
-prerequisites: compile the local SDK
-
 ```
-cd ../ng-sdk-js
-wasm-pack build --target bundler
-cd ../ng-app
-```
-
-```
-cargo install tauri-cli --version "=2.0.0-alpha.10" --locked
 npm install -g pnpm
 pnpm install
 ```
@@ -25,6 +16,14 @@ pnpm install
 [VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
 
 ## Web
+
+prerequisites: compile the local SDK
+
+```
+cd ../ng-sdk-js
+wasm-pack build --target bundler
+cd ../ng-app
+```
 
 #### Dev
 
@@ -52,6 +51,10 @@ pnpm webfilebuild
 ```
 
 ## Desktop
+
+```
+cargo install tauri-cli --version "=2.0.0-alpha.10" --locked
+```
 
 Install [all prerequisites](https://next--tauri.netlify.app/next/guides/getting-started/prerequisites/) for your dev platform.
 
@@ -82,13 +85,13 @@ cargo tauri build
 cargo tauri build --target x86_64-unknown-linux-gnu
 ```
 
-### Windows (7)
+### Windows (7+)
 
 ```
 cargo tauri build --target x86_64-pc-windows-msvc
 ```
 
-## Android
+### Android
 
 - [Install Android Studio](https://developer.android.com/studio)
 
@@ -123,7 +126,7 @@ to debug the Svelte app, use Chrome :
 - [chrome://inspect/#devices](chrome://inspect/#devices)
 - install the [svelte extension](https://chrome.google.com/webstore/detail/svelte-devtools/ckolcbmkjpjmangdbmnkpjigpkddpogn)
 
-## iOS
+### iOS
 
 First, make sure Xcode is properly installed. then :
 
