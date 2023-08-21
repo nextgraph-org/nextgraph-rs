@@ -17,8 +17,8 @@
   },
   "dependencies": {
     "@popperjs/core": "^2.11.8",
-    "@tauri-apps/api": "2.0.0-alpha.5",
-    "@tauri-apps/plugin-window": "2.0.0-alpha.0",
+    "@tauri-apps/api": "2.0.0-alpha.6",
+    "@tauri-apps/plugin-window": "2.0.0-alpha.1",
     "async-proxy": "^0.4.1",
     "classnames": "^2.3.2",
     "flowbite": "^1.6.5",
