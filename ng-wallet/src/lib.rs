@@ -195,8 +195,8 @@ pub fn dec_encrypted_block(
 
 pub fn derive_key_from_pass(mut pass: Vec<u8>, salt: [u8; 16], wallet_id: WalletId) -> [u8; 32] {
     let params = ParamsBuilder::new()
-        .m_cost(10 * 1024)
-        .t_cost(12)
+        .m_cost(100 * 1024)
+        .t_cost(24)
         .p_cost(1)
         .data(AssociatedData::new(wallet_id.slice()).unwrap())
         .output_len(32)
