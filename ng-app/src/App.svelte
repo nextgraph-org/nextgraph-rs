@@ -57,15 +57,15 @@
 
       let window_api = await import("@tauri-apps/plugin-window");
       let event_api = await import("@tauri-apps/api/event");
-      let main = window_api.WebviewWindow.getByLabel("main");
+      let main = window_api.Window.getByLabel("main");
       unsub_main_close = await main.onCloseRequested(async (event) => {
         console.log("onCloseRequested main");
         await event_api.emit("close_all", {});
-        let registration = window_api.WebviewWindow.getByLabel("registration");
+        let registration = window_api.Window.getByLabel("registration");
         if (registration) {
           await registration.close();
         }
-        let viewer = window_api.WebviewWindow.getByLabel("viewer");
+        let viewer = window_api.Window.getByLabel("viewer");
         if (viewer) {
           await viewer.close();
         }
