@@ -193,6 +193,16 @@ pub fn dec_encrypted_block(
     }
 }
 
+// FIXME: An important note on the cost parameters !!!
+// here are set to quite high values because the code gets optimized (unfortunately) so the cost params take that into account.
+// on native apps in debug mode (dev mode), the rust code is not optimized and we get a timing above 1 min, which is way too much
+// once compiled for release (prod), the timing goes down to 8 sec on native apps because of the Rust optimization.
+// on the WASM32 target, the wasm-pack has optimization disabled (wasm-opt = false) but we suspect the optimization happens on the V8 runtime, in the browser or node.
+// we get 10 secs on the same machine for web based app. which is acceptable.
+// we should have a look at https://blog.trailofbits.com/2022/01/26/part-1-the-life-of-an-optimization-barrier/
+// and https://blog.trailofbits.com/2022/02/01/part-2-rusty-crypto/
+// the memory size could be too high for iOS which seems to have a limit of 120MB in total for the whole app.
+// we haven't test it yet. https://community.bitwarden.com/t/recommended-settings-for-argon2/50901/16?page=4
 pub fn derive_key_from_pass(mut pass: Vec<u8>, salt: [u8; 16], wallet_id: WalletId) -> [u8; 32] {
     let params = ParamsBuilder::new()
         .m_cost(100 * 1024)
