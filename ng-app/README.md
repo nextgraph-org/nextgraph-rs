@@ -53,7 +53,7 @@ pnpm webfilebuild
 ## Desktop
 
 ```
-cargo install tauri-cli --version "=2.0.0-alpha.10" --locked
+cargo install tauri-cli --version "2.0.0-alpha.11"
 ```
 
 Install [all prerequisites](https://next--tauri.netlify.app/next/guides/getting-started/prerequisites/) for your dev platform.
