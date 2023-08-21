@@ -63,7 +63,7 @@ The crates are organized as follow :
 
 ### Run
 
-Build & run executables:
+Build & run debug executables:
 
 ```
 // runs the daemon
@@ -110,11 +110,24 @@ cargo test --package p2p-client-ws --lib -- remote_ws::test::test_ws --nocapture
 
 ### Build release binaries
 
-First you will need to build the single-file release of ng-app.
+First you will need to have the production build of the frontend.
+If you do not want to setup a whole development environment for the frontend, you can use the precompiled release of the frontend available in `dist-file.tar.gz`
 
 ```
-// uncomment line 14 of src/App.svelte: import * as api from "ng-sdk-js";
 cd ng-app
+tar -xzf dist-file.tar.gz
+cd ..
+```
+
+Otherwise, build from source the single-file release of ng-app
+
+```
+npm install -g pnpm
+cd ng-sdk-js
+wasm-pack build --target bundler
+// uncomment line 14 of ng-app/src/App.svelte: import * as api from "ng-sdk-js";
+cd ../ng-app
+pnpm install
 pnpm webfilebuild
 cd ..
 ```
@@ -126,6 +139,18 @@ cargo build -r -p ngd
 ```
 
 you can then find the binary `ngd` in `target/release`
+
+The CLI tool can be obtained with :
+
+```
+cargo build -r -p ngcli
+```
+
+you can then use the binary `target/release/ngd`
+
+For usage, see the documentation [here](ngd/README.md).
+
+For building the apps, see this [documentation](ng-app/README.md).
 
 ### Generate documentation
 
