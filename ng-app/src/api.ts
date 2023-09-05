@@ -18,6 +18,8 @@ const mapping = {
     "wallet_gen_shuffle_for_pin": [],
     "wallet_open_wallet_with_pazzle": ["wallet","pazzle","pin"],
     "wallet_create_wallet": ["params"],
+    "wallet_open_file": ["file"],
+    "wallet_import": ["previous_wallet","opened_wallet"],
     "encode_create_account": ["payload"],
     "get_local_session": ["id","key","user"],
     "get_wallets_from_localstorage": [],
@@ -122,6 +124,14 @@ const handler = {
                 params.result_with_wallet_file = false;
                 params.security_img = Array.from(new Uint8Array(params.security_img));
                 return await tauri.invoke(path[0],{params})
+            } else if (path[0] === "wallet_open_file") {
+                let file = args[0];
+                file = Array.from(new Uint8Array(file));
+                return await tauri.invoke(path[0],{file})
+            } else if (path[0] === "wallet_import") {
+                let previous_wallet = args[0];
+                previous_wallet.V0.content.security_img = Array.from(new Uint8Array(previous_wallet.V0.content.security_img));
+                return await tauri.invoke(path[0],{previous_wallet, opened_wallet:args[1]})
             } else if (path[0] && path[0].startsWith("get_local_bootstrap")) {
                 return false;
             } else if (path[0] === "get_local_url") {

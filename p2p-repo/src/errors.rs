@@ -22,6 +22,7 @@ pub enum NgError {
     InvalidKey,
     InvalidInvitation,
     InvalidCreateAccount,
+    InvalidFileFormat,
 }
 
 impl Error for NgError {}
