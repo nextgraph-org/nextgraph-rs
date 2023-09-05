@@ -12,6 +12,7 @@ use ng_wallet::*;
 use p2p_net::broker::*;
 use p2p_net::types::{CreateAccountBSP, Invitation};
 use p2p_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend};
+use p2p_repo::errors::NgError;
 use p2p_repo::log::*;
 use p2p_repo::types::*;
 use std::collections::HashMap;
@@ -115,21 +116,92 @@ async fn save_wallet_locally(
         .path()
         .resolve("wallets", BaseDirectory::AppLocalData)
         .map_err(|_| ())?;
-    let sws = save_new_session(&res.wallet_name, res.wallet.id(), res.user, app.clone())?;
-    let mut wallets: HashMap<String, LocalWalletStorageV0> = get_wallets_from_localstorage(app)
-        .await
-        .unwrap_or(Some(HashMap::new()))
-        .unwrap_or(HashMap::new());
-    // TODO: check that the wallet is not already present in localStorage
-    let lws: LocalWalletStorageV0 = res.into();
-    wallets.insert(res.wallet_name.clone(), lws);
-    let lws_ser = LocalWalletStorage::v0_to_vec(wallets);
-    let r = write(path.clone(), &lws_ser);
-    if r.is_err() {
-        log_debug!("write {:?} {}", path, r.unwrap_err());
-        return Err(());
+    let mut wallets: HashMap<String, LocalWalletStorageV0> =
+        get_wallets_from_localstorage(app.clone())
+            .await
+            .unwrap_or(Some(HashMap::new()))
+            .unwrap_or(HashMap::new());
+    // check that the wallet is not already present in localStorage
+    if wallets.get(&res.wallet_name).is_none() {
+        let lws: LocalWalletStorageV0 = res.into();
+        wallets.insert(res.wallet_name.clone(), lws);
+        let lws_ser = LocalWalletStorage::v0_to_vec(wallets);
+        let r = write(path.clone(), &lws_ser);
+        if r.is_err() {
+            log_debug!("write {:?} {}", path, r.unwrap_err());
+            return Err(());
+        }
+        let sws = save_new_session(&res.wallet_name, res.wallet.id(), res.user, app)?;
+        Ok(sws)
+    } else {
+        Err(())
     }
-    Ok(sws)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_open_file(file: Vec<u8>, app: tauri::AppHandle) -> Result<Wallet, String> {
+    let ngf: NgFile = file.try_into().map_err(|e: NgError| e.to_string())?;
+    if let NgFile::V0(NgFileV0::Wallet(wallet)) = ngf {
+        let mut wallets: HashMap<String, LocalWalletStorageV0> =
+            get_wallets_from_localstorage(app.clone())
+                .await
+                .unwrap_or(Some(HashMap::new()))
+                .unwrap_or(HashMap::new());
+        // check that the wallet is not already present in localStorage
+        let wallet_name = wallet.name();
+        if wallets.get(&wallet_name).is_none() {
+            Ok(wallet)
+        } else {
+            Err("Wallet already present on this device".to_string())
+        }
+    } else {
+        Err("File does not contain a wallet".to_string())
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_import(
+    previous_wallet: Wallet,
+    opened_wallet: EncryptedWallet,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let path = app
+        .path()
+        .resolve("wallets", BaseDirectory::AppLocalData)
+        .map_err(|_| "wallet directory error".to_string())?;
+    let mut wallets: HashMap<String, LocalWalletStorageV0> =
+        get_wallets_from_localstorage(app.clone())
+            .await
+            .unwrap_or(Some(HashMap::new()))
+            .unwrap_or(HashMap::new());
+    // check that the wallet is not already present in localStorage
+    let EncryptedWallet::V0(mut opened_wallet_v0) = opened_wallet;
+    let wallet_name = opened_wallet_v0.wallet_id.clone();
+    if wallets.get(&wallet_name).is_none() {
+        let session = save_new_session(
+            &wallet_name,
+            opened_wallet_v0.wallet_privkey.to_pub(),
+            opened_wallet_v0.personal_site,
+            app,
+        )
+        .map_err(|_| "Cannot create new session".to_string())?;
+        let (wallet, client) = opened_wallet_v0
+            .import(previous_wallet, session)
+            .map_err(|e| e.to_string())?;
+        let lws = LocalWalletStorageV0::new(wallet, client);
+
+        wallets.insert(wallet_name, lws);
+        let lws_ser = LocalWalletStorage::v0_to_vec(wallets);
+        let r = write(path.clone(), &lws_ser);
+        if r.is_err() {
+            log_debug!("write {:?} {}", path, r.unwrap_err());
+            Err("Write error".to_string())
+        } else {
+            Ok(())
+        }
+    } else {
+        Err("Already present on this device".to_string())
+    }
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -161,7 +233,7 @@ fn save_new_session(
         .map_err(|_| ())?;
     let session_v0 = create_new_session(wallet_id, user);
     if session_v0.is_err() {
-        log_debug!("create_new_session {}", session_v0.unwrap_err());
+        log_debug!("create_new_session failed {}", session_v0.unwrap_err());
         return Err(());
     }
     let sws = session_v0.unwrap();
@@ -356,6 +428,8 @@ impl AppBuilder {
                 wallet_gen_shuffle_for_pin,
                 wallet_open_wallet_with_pazzle,
                 wallet_create_wallet,
+                wallet_open_file,
+                wallet_import,
                 encode_create_account,
                 get_local_session,
                 get_wallets_from_localstorage,

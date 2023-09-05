@@ -5175,7 +5175,8 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-window"
 version = "2.0.0-alpha.1"
-source = "git+https://git.nextgraph.org/NextGraph/plugins-workspace.git?branch=window-alpha.1-nextgraph#0beae8162f66bcb8a1ec902738507f7ebe6b8a5e"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06f3c1d40ae1a1b2b837e7f9b8db80aa2ee8c4594f63d729d2abd69f0741225a"
 dependencies = [
  "serde",
  "tauri",

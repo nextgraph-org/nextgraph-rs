@@ -23,7 +23,7 @@
 
   onMount(async () => {
     await load_svg();
-    console.log(wallet);
+    //console.log(wallet);
     await init();
   });
 
@@ -81,10 +81,10 @@
 
   async function start_pin() {
     pin_code = [];
-    console.log(ordered);
+    //console.log(ordered);
     shuffle_pin = await ng.wallet_gen_shuffle_for_pin();
     step = "pin";
-    console.log(shuffle_pin);
+    //console.log(shuffle_pin);
   }
 
   function select(val) {
@@ -92,10 +92,10 @@
     let cat_idx = shuffle.category_indices[display];
     let cat = emojis[emoji_cat[cat_idx]];
     let idx = shuffle.emoji_indices[display][val];
-    console.log(cat_idx, emoji_cat[cat_idx], idx, cat[idx].code);
+    //console.log(cat_idx, emoji_cat[cat_idx], idx, cat[idx].code);
 
     selection.push({ cat: cat_idx, index: idx });
-    console.log(selection);
+    //console.log(selection);
 
     if (display == pazzle_length - 1) {
       order();
@@ -113,8 +113,8 @@
       pazzle.push((emoji.cat << 4) + emoji.index);
     }
 
-    console.log(pazzle);
-    console.log(wallet);
+    //console.log(pazzle);
+    //console.log(wallet);
 
     // open the wallet
     try {
@@ -143,7 +143,7 @@
   }
 
   async function pin(val) {
-    console.log(val);
+    //console.log(val);
     pin_code.push(val);
     if (pin_code.length == 4) {
       await finish();
@@ -152,8 +152,8 @@
 
   async function select_order(val, pos) {
     delete last_one[pos];
-    console.log(last_one);
-    console.log(val);
+    //console.log(last_one);
+    //console.log(val);
     ordered.push(val);
     val.sel = ordered.length;
     selection = selection;
@@ -162,7 +162,7 @@
       ordered.push(last);
       last.sel = ordered.length;
       selection = selection;
-      console.log(last);
+      //console.log(last);
       await start_pin();
     }
   }
@@ -195,7 +195,9 @@
   </div>
 {:else if step == "pazzle"}
   <div
-    class="h-screen aspect-[3/5] pazzleline min-w-[350px]"
+    class="h-screen aspect-[3/5] pazzleline"
+    class:min-w-[350px]={mobile}
+    class:min-w-[500px]={!mobile}
     class:max-w-[360px]={mobile}
     class:max-w-[600px]={!mobile}
   >
@@ -218,7 +220,9 @@
 {:else if step == "order"}
   <!-- console.log(cat_idx, emoji_cat[cat_idx], idx, cat[idx].code); -->
   <div
-    class="h-screen aspect-[3/3] pazzleline min-w-[350px]"
+    class="h-screen aspect-[3/3] pazzleline"
+    class:min-w-[350px]={mobile}
+    class:min-w-[500px]={!mobile}
     class:max-w-[360px]={mobile}
     class:max-w-[600px]={!mobile}
   >

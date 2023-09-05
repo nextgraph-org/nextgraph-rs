@@ -35,12 +35,88 @@ use image::{imageops::FilterType, io::Reader as ImageReader, ImageOutputFormat};
 use safe_transmute::transmute_to_bytes;
 
 use p2p_net::types::{SiteType, SiteV0};
-use p2p_repo::types::{PubKey, Timestamp};
+use p2p_repo::types::{PubKey, Sig, Timestamp};
 use p2p_repo::utils::{generate_keypair, now_timestamp, sign, verify};
 use p2p_repo::{log::*, types::PrivKey};
 use rand::prelude::*;
 use serde_bare::{from_slice, to_vec};
 use web_time::Instant;
+
+impl Wallet {
+    pub fn id(&self) -> WalletId {
+        match self {
+            Wallet::V0(v0) => v0.id,
+        }
+    }
+    pub fn content_as_bytes(&self) -> Vec<u8> {
+        match self {
+            Wallet::V0(v0) => serde_bare::to_vec(&v0.content).unwrap(),
+        }
+    }
+    pub fn sig(&self) -> Sig {
+        match self {
+            Wallet::V0(v0) => v0.sig,
+        }
+    }
+    pub fn pazzle_length(&self) -> u8 {
+        match self {
+            Wallet::V0(v0) => v0.content.pazzle_length,
+        }
+    }
+    pub fn name(&self) -> String {
+        match self {
+            Wallet::V0(v0) => base64_url::encode(&v0.id.slice()),
+        }
+    }
+
+    pub fn encrypt(
+        &self,
+        wallet_log: &WalletLog,
+        master_key: &[u8; 32],
+        peer_id: PubKey,
+        nonce: u64,
+        wallet_privkey: PrivKey,
+    ) -> Result<Self, NgWalletError> {
+        let timestamp = now_timestamp();
+        let wallet_id = self.id();
+        let encrypted =
+            enc_wallet_log(wallet_log, master_key, peer_id, nonce, timestamp, wallet_id)?;
+
+        let mut wallet_content = match self {
+            Wallet::V0(v0) => v0.content.clone(),
+        };
+
+        wallet_content.timestamp = timestamp;
+        wallet_content.peer_id = peer_id;
+        wallet_content.nonce = nonce;
+        wallet_content.encrypted = encrypted;
+
+        let ser_wallet = serde_bare::to_vec(&wallet_content).unwrap();
+
+        let sig = sign(&wallet_privkey, &wallet_id, &ser_wallet).unwrap();
+
+        let wallet_v0 = WalletV0 {
+            /// ID
+            id: wallet_id,
+            /// Content
+            content: wallet_content,
+            /// Signature over content by wallet's private key
+            sig,
+        };
+
+        // let content = BootstrapContentV0 { servers: vec![] };
+        // let ser = serde_bare::to_vec(&content).unwrap();
+        // let sig = sign(wallet_key, wallet_id, &ser).unwrap();
+
+        // let bootstrap = Bootstrap::V0(BootstrapV0 {
+        //     id: wallet_id,
+        //     content,
+        //     sig,
+        // });
+
+        Ok(Wallet::V0(wallet_v0))
+    }
+}
 
 pub fn enc_master_key(
     master_key: &[u8; 32],
@@ -161,7 +237,7 @@ pub fn create_new_session(
 
 pub fn dec_encrypted_block(
     mut ciphertext: Vec<u8>,
-    master_key: &mut [u8; 32],
+    master_key: [u8; 32],
     peer_id: PubKey,
     nonce: u64,
     timestamp: Timestamp,
@@ -183,13 +259,13 @@ pub fn dec_encrypted_block(
     let decrypted_log =
         from_slice::<WalletLog>(&ciphertext).map_err(|e| NgWalletError::DecryptionError)?;
 
-    master_key.zeroize();
+    //master_key.zeroize(); // this is now donw in the EncryptedWalletV0
 
     // `ciphertext` now contains the decrypted block
     //log_debug!("decrypted_block {:?}", ciphertext);
 
     match decrypted_log {
-        WalletLog::V0(v0) => v0.reduce(),
+        WalletLog::V0(v0) => v0.reduce(master_key),
     }
 }
 
@@ -244,7 +320,7 @@ pub fn open_wallet_with_pazzle(
             //pazzle.zeroize();
             pin.zeroize();
 
-            let mut master_key = dec_master_key(
+            let master_key = dec_master_key(
                 v0.content.enc_master_key_pazzle,
                 &pazzle_key,
                 v0.content.master_nonce,
@@ -259,7 +335,7 @@ pub fn open_wallet_with_pazzle(
 
             Ok(EncryptedWallet::V0(dec_encrypted_block(
                 v0.content.encrypted,
-                &mut master_key,
+                master_key,
                 v0.content.peer_id,
                 v0.content.nonce,
                 v0.content.timestamp,
@@ -287,7 +363,7 @@ pub fn open_wallet_with_mnemonic(
             mnemonic.zeroize();
             pin.zeroize();
 
-            let mut master_key = dec_master_key(
+            let master_key = dec_master_key(
                 v0.content.enc_master_key_mnemonic,
                 &mnemonic_key,
                 v0.content.master_nonce,
@@ -297,7 +373,7 @@ pub fn open_wallet_with_mnemonic(
 
             Ok(EncryptedWallet::V0(dec_encrypted_block(
                 v0.content.encrypted,
-                &mut master_key,
+                master_key,
                 v0.content.peer_id,
                 v0.content.nonce,
                 v0.content.timestamp,
@@ -497,7 +573,7 @@ pub async fn create_wallet_v0(
     let user = site.site_key.to_pub();
 
     // Creating a new client
-    let client = ClientV0::new(user);
+    let client = ClientV0::new_with_auto_open(user);
 
     let create_op = WalletOpCreateV0 {
         wallet_privkey: wallet_privkey.clone(),

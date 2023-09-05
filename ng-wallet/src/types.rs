@@ -17,7 +17,9 @@ use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 
 use p2p_net::types::*;
+use p2p_repo::errors::NgError;
 use p2p_repo::types::*;
+use p2p_repo::utils::{now_timestamp, sign};
 
 /// WalletId is a PubKey
 pub type WalletId = PubKey;
@@ -79,6 +81,17 @@ impl SessionWalletStorageV0 {
             users: HashMap::new(),
         }
     }
+    pub fn get_first_user_peer_nonce(&self) -> Result<(PubKey, u64), NgWalletError> {
+        if self.users.len() > 1 {
+            panic!("get_first_user_peer_nonce does not work as soon as there are more than one user in SessionWalletStorageV0")
+        };
+        let first = self.users.values().next();
+        if first.is_none() {
+            return Err(NgWalletError::InternalError);
+        }
+        let sps = first.unwrap();
+        Ok((sps.peer_key.to_pub(), sps.last_wallet_nonce))
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -103,6 +116,16 @@ impl From<&CreateWalletResultV0> for LocalWalletStorageV0 {
             bootstrap: BootstrapContent::V0(BootstrapContentV0 { servers: vec![] }),
             wallet: res.wallet.clone(),
             client: res.client.priv_key.to_pub(),
+        }
+    }
+}
+
+impl LocalWalletStorageV0 {
+    pub fn new(wallet: Wallet, client: ClientV0) -> Self {
+        LocalWalletStorageV0 {
+            bootstrap: BootstrapContent::V0(BootstrapContentV0 { servers: vec![] }),
+            wallet,
+            client: client.priv_key.to_pub(),
         }
     }
 }
@@ -143,11 +166,19 @@ impl ClientV0 {
         }
     }
 
-    pub fn new(user: PubKey) -> Self {
+    pub fn new_with_auto_open(user: PubKey) -> Self {
         ClientV0 {
             priv_key: PrivKey::random_ed(),
             storage_master_key: SymKey::random(),
             auto_open: vec![Identity::IndividualSite(user)],
+        }
+    }
+
+    pub fn new() -> Self {
+        ClientV0 {
+            priv_key: PrivKey::random_ed(),
+            storage_master_key: SymKey::random(),
+            auto_open: vec![],
         }
     }
 }
@@ -199,9 +230,39 @@ pub struct EncryptedWalletV0 {
     /// the format of the byte array (value) is up to the vendor, to serde as needed.
     #[zeroize(skip)]
     pub third_parties: HashMap<String, Vec<u8>>,
+
+    #[zeroize(skip)]
+    pub log: Option<WalletLogV0>,
+
+    pub master_key: Option<[u8; 32]>,
 }
 
 impl EncryptedWalletV0 {
+    pub fn import(
+        &mut self,
+        previous_wallet: Wallet,
+        session: SessionWalletStorageV0,
+    ) -> Result<(Wallet, ClientV0), NgWalletError> {
+        if self.log.is_none() {
+            return Err(NgWalletError::InternalError);
+        }
+        // Creating a new client
+        let client = ClientV0::new_with_auto_open(self.personal_site);
+        self.add_client(client.clone());
+        let mut log = self.log.as_mut().unwrap();
+        log.add(WalletOperation::SetClientV0(client.clone()));
+        let (peer_id, nonce) = session.get_first_user_peer_nonce()?;
+        Ok((
+            previous_wallet.encrypt(
+                &WalletLog::V0(log.clone()),
+                self.master_key.as_ref().unwrap(),
+                peer_id,
+                nonce,
+                self.wallet_privkey.clone(),
+            )?,
+            client,
+        ))
+    }
     pub fn add_site(&mut self, site: SiteV0) {
         let site_id = site.site_key.to_pub();
         let _ = self.sites.insert(site_id.to_string(), site);
@@ -312,11 +373,12 @@ impl WalletLogV0 {
     }
 
     /// applies all the operation and produces an encrypted wallet object.
-    pub fn reduce(&self) -> Result<EncryptedWalletV0, NgWalletError> {
+    pub fn reduce(self, master_key: [u8; 32]) -> Result<EncryptedWalletV0, NgWalletError> {
         if self.log.len() < 1 {
             Err(NgWalletError::NoCreateWalletPresent)
         } else if let (_, WalletOperation::CreateWalletV0(create_op)) = &self.log[0] {
             let mut wallet: EncryptedWalletV0 = create_op.into();
+            wallet.master_key = Some(master_key);
 
             for op in &self.log {
                 match &op.1 {
@@ -420,6 +482,7 @@ impl WalletLogV0 {
                 }
             }
             log_debug!("reduced {:?}", wallet);
+            wallet.log = Some(self);
             Ok(wallet)
         } else {
             Err(NgWalletError::NoCreateWalletPresent)
@@ -661,6 +724,8 @@ impl From<&WalletOpCreateV0> for EncryptedWalletV0 {
             clients: HashMap::new(),
             overlay_core_overrides: HashMap::new(),
             third_parties: HashMap::new(),
+            log: None,
+            master_key: None,
         };
         wallet.add_site(op.personal_site.clone());
         //wallet.add_brokers(op.brokers.clone());
@@ -755,29 +820,6 @@ pub struct WalletV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Wallet {
     V0(WalletV0),
-}
-
-impl Wallet {
-    pub fn id(&self) -> WalletId {
-        match self {
-            Wallet::V0(v0) => v0.id,
-        }
-    }
-    pub fn content_as_bytes(&self) -> Vec<u8> {
-        match self {
-            Wallet::V0(v0) => serde_bare::to_vec(&v0.content).unwrap(),
-        }
-    }
-    pub fn sig(&self) -> Sig {
-        match self {
-            Wallet::V0(v0) => v0.sig,
-        }
-    }
-    pub fn pazzle_length(&self) -> u8 {
-        match self {
-            Wallet::V0(v0) => v0.content.pazzle_length,
-        }
-    }
 }
 
 /// Add Wallet Version 0
@@ -915,11 +957,20 @@ impl fmt::Display for NgWalletError {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NgFileV0 {
     Wallet(Wallet),
+    Other,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NgFile {
     V0(NgFileV0),
+}
+
+impl TryFrom<Vec<u8>> for NgFile {
+    type Error = NgError;
+    fn try_from(file: Vec<u8>) -> Result<Self, Self::Error> {
+        let ngf: Self = serde_bare::from_slice(&file).map_err(|_| NgError::InvalidFileFormat)?;
+        Ok(ngf)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -19,3 +19,7 @@ members = [
 [profile.release]
 lto = true
 opt-level = 's'
+
+[patch.crates-io]
+# tauri = { git = "https://github.com/simonhyll/tauri.git",  branch="fix/ipc-mixup"}
+tauri = { git = "https://git.nextgraph.org/NextGraph/tauri.git", branch="alpha.11-nextgraph", features = ["no-ipc-custom-protocol"] }

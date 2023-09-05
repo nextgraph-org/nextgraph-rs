@@ -30,6 +30,7 @@ use p2p_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, Re
 use p2p_net::utils::{retrieve_local_bootstrap, retrieve_local_url};
 
 use p2p_net::WS_PORT;
+use p2p_repo::errors::NgError;
 use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::generate_keypair;
@@ -260,6 +261,73 @@ pub async fn wallet_create_wallet(js_params: JsValue) -> Result<JsValue, JsValue
             }
         }
         Err(e) => Err(e.to_string().into()),
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn wallet_open_file(js_file: JsValue) -> Result<JsValue, String> {
+    let mut file = serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(js_file)
+        .map_err(|_| "Deserialization error of file".to_string())?;
+
+    let ngf: NgFile = file
+        .into_vec()
+        .try_into()
+        .map_err(|e: NgError| e.to_string())?;
+    if let NgFile::V0(NgFileV0::Wallet(wallet)) = ngf {
+        let wallets: HashMap<String, LocalWalletStorageV0> =
+            get_local_wallets_v0().unwrap_or(HashMap::new());
+        // check that the wallet is not already present in localStorage
+        let wallet_name = wallet.name();
+        if wallets.get(&wallet_name).is_none() {
+            Ok(serde_wasm_bindgen::to_value(&wallet).unwrap())
+        } else {
+            Err("Wallet already present on this device".to_string())
+        }
+    } else {
+        Err("File does not contain a wallet".to_string())
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn wallet_import(
+    js_previous_wallet: JsValue, //Wallet,
+    js_opened_wallet: JsValue,   //EncryptedWallet
+) -> Result<(), String> {
+    let previous_wallet = serde_wasm_bindgen::from_value::<Wallet>(js_previous_wallet)
+        .map_err(|_| "Deserialization error of Wallet".to_string())?;
+    let mut opened_wallet = serde_wasm_bindgen::from_value::<EncryptedWallet>(js_opened_wallet)
+        .map_err(|_| "Deserialization error of EncryptedWalletV0".to_string())?;
+
+    let EncryptedWallet::V0(mut opened_wallet_v0) = opened_wallet;
+    let mut wallets: HashMap<String, LocalWalletStorageV0> =
+        get_local_wallets_v0().unwrap_or(HashMap::new());
+    // check that the wallet is not already present in localStorage
+    let wallet_name = opened_wallet_v0.wallet_id.clone();
+    if wallets.get(&wallet_name).is_none() {
+        let session = save_new_session(
+            &wallet_name,
+            opened_wallet_v0.wallet_privkey.to_pub(),
+            opened_wallet_v0.personal_site,
+        )
+        .map_err(|e| format!("Cannot create new session: {e}"))?;
+        let (wallet, client) = opened_wallet_v0
+            .import(previous_wallet, session)
+            .map_err(|e| e.to_string())?;
+        let lws = LocalWalletStorageV0::new(wallet, client);
+
+        wallets.insert(wallet_name, lws);
+
+        let lws_ser = serde_bare::to_vec(&LocalWalletStorage::V0(wallets)).unwrap();
+        let encoded = base64_url::encode(&lws_ser);
+        let r = local_save("ng_wallets".to_string(), encoded);
+        if r.is_some() {
+            return Err(r.unwrap());
+        }
+        Ok(())
+    } else {
+        Err("Wallet already present on this device".to_string())
     }
 }
 
