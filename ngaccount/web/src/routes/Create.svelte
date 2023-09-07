@@ -339,6 +339,34 @@
                 >
               </span>
             </li>
+            {#if !window.__TAURI__}
+              <li class="flex space-x-3">
+                <svg
+                  class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z"
+                  />
+                </svg>
+
+                <span
+                  >By agreeing to those terms, you allow this software to store
+                  some personal data locally in localStorage, the equivalent of
+                  a cookie. This cookie contains your wallet and is never sent
+                  to us. If you delete this cookie without keeping a copy of
+                  your wallet somewhere else, then you will permanently loose
+                  your wallet.
+                </span>
+              </li>
+            {/if}
           </ul>
         </div>
       </div>
