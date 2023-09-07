@@ -996,7 +996,7 @@ async fn main_inner() -> Result<(), ()> {
                 config_path.to_str().unwrap()
             );
             log_info!(
-                "You not be able to use any Quick config options anymore on the command line at the next command-line start of the server. But you can go to modify the config file directly, or delete it.",
+                "You will not be able to use any Quick config options anymore on the command line at the next command-line start of the server. But you can go to modify the config file directly, or delete it.",
             );
         }
     } else {

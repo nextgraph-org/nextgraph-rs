@@ -656,6 +656,8 @@ pub async fn run_server_v0(
 
     let mut servers: Vec<BrokerServerV0> = vec![];
 
+    let registration_url = config.registration_url;
+
     // Preparing the listeners addrs and infos
     for listener in config.listeners {
         if !listener.accept_direct && listener.accept_forward_for == AcceptForwardForV0::No {
@@ -757,8 +759,13 @@ pub async fn run_server_v0(
         log_warn!("There isn't any listener that accept clients. This is a misconfiguration as a core server that cannot receive client connections is useless");
     }
     let bootstrap_v0 = BootstrapContentV0 { servers };
-    let bootstrap = BootstrapContent::V0(bootstrap_v0.clone());
-    BOOTSTRAP_STRING.set(json!(bootstrap).to_string()).unwrap();
+    let local_bootstrap_info = LocalBootstrapInfo::V0(LocalBootstrapInfoV0 {
+        bootstrap: bootstrap_v0.clone(),
+        registration_url: registration_url.clone(),
+    });
+    BOOTSTRAP_STRING
+        .set(json!(local_bootstrap_info).to_string())
+        .unwrap();
 
     // saving the infos in the broker. This needs to happen before we start listening, as new incoming connections can happen anytime after that.
     // and we need those infos for permission checking.
@@ -772,7 +779,7 @@ pub async fn run_server_v0(
             &mut path,
             wallet_master_key,
             if admin_invite {
-                Some(bootstrap_v0)
+                Some(bootstrap_v0.clone())
             } else {
                 None
             },
@@ -788,9 +795,9 @@ pub async fn run_server_v0(
             overlays_configs: config.overlays_configs,
             registration: config.registration,
             admin_user: config.admin_user,
-            registration_url: config.registration_url,
+            registration_url,
             peer_id,
-            bootstrap,
+            bootstrap: BootstrapContent::V0(bootstrap_v0),
         };
         broker.set_server_config(server_config);
     }

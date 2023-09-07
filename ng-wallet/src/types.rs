@@ -113,7 +113,7 @@ pub struct LocalWalletStorageV0 {
 impl From<&CreateWalletResultV0> for LocalWalletStorageV0 {
     fn from(res: &CreateWalletResultV0) -> Self {
         LocalWalletStorageV0 {
-            bootstrap: BootstrapContent::V0(BootstrapContentV0 { servers: vec![] }),
+            bootstrap: BootstrapContent::V0(BootstrapContentV0::new()),
             wallet: res.wallet.clone(),
             client: res.client.priv_key.to_pub(),
         }
@@ -123,7 +123,7 @@ impl From<&CreateWalletResultV0> for LocalWalletStorageV0 {
 impl LocalWalletStorageV0 {
     pub fn new(wallet: Wallet, client: ClientV0) -> Self {
         LocalWalletStorageV0 {
-            bootstrap: BootstrapContent::V0(BootstrapContentV0 { servers: vec![] }),
+            bootstrap: BootstrapContent::V0(BootstrapContentV0::new()),
             wallet,
             client: client.priv_key.to_pub(),
         }

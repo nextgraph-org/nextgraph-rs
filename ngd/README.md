@@ -13,8 +13,13 @@ If you prefer to change the base directory, use the argument `--base [PATH]` whe
 
 ```
 ngcli gen-key
-ngd --save-key -d <DOMAIN_NAME> -l 1440 --admin <THE_USER_ID_YOU_JUST_CREATED>
-// note the server peerID in the logs
+ngd -v --save-key -d <DOMAIN_NAME> -l 1440 --admin <THE_USER_ID_YOU_JUST_CREATED>
+// note the server peerID from the logs
+```
+
+in another terminal:
+
+```
 ngcli --save-key -s 127.0.0.1,1440,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED> admin add-user <THE_USER_ID_YOU_JUST_CREATED> -a
 ```
 
