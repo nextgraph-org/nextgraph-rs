@@ -14,7 +14,7 @@
   import { onMount, createEventDispatcher, tick } from "svelte";
   import ng from "../api";
   import { emoji_cat, emojis, load_svg } from "../wallet_emojis";
-  import Worker from "../worker.js?worker";
+  //import Worker from "../worker.js?worker&inline";
   export let wallet;
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
@@ -131,14 +131,27 @@
           id: secret_wallet.V0.wallet_id,
         });
       } else {
-        //let worker_file = await import("../worker.js?worker");
-        //const myWorker = new worker_file.default();
-        const myWorker = new Worker();
-        myWorker.postMessage({ wallet, pazzle, pin_code });
-
+        let worker_import = await import("../worker.js?worker&inline");
+        const myWorker = new worker_import.default();
+        //const myWorker = new Worker();
+        myWorker.onerror = (e) => {
+          console.error(e);
+          error = e;
+          step = "end";
+          dispatch("error", { error: e });
+        };
+        myWorker.onmessageerror = (e) => {
+          console.error(e);
+          error = e;
+          step = "end";
+          dispatch("error", { error: e });
+        };
         myWorker.onmessage = (msg) => {
-          console.log("Message received from worker", msg.data);
-          if (msg.data.success) {
+          //console.log("Message received from worker", msg.data);
+          if (msg.data.loaded) {
+            myWorker.postMessage({ wallet, pazzle, pin_code });
+            //console.log("postMessage");
+          } else if (msg.data.success) {
             step = "end";
             dispatch("opened", {
               wallet: msg.data.success,
