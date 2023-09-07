@@ -109,6 +109,7 @@
   let cloud_link;
   let animateDownload = true;
   let invitation;
+  let pre_invitation;
 
   let unsub_register_accepted;
   let unsub_register_error;
@@ -159,7 +160,10 @@
           param.get("i")
         );
         console.log(invitation);
-        if (!invitation) {
+        if (invitation && invitation.V0.url) {
+          pre_invitation = invitation;
+          invitation = undefined;
+        } else if (!invitation) {
           let redirect = await ng.get_ngone_url_of_invitation(param.get("i"));
           if (redirect) {
             console.error("got an invitation for another broker. redirecting");
@@ -169,6 +173,11 @@
             console.error("invalid invitation. ignoring it");
           }
         }
+      } else {
+        pre_invitation = await ng.get_local_bootstrap_with_public(
+          location.href
+        );
+        console.log("pre_invitation", pre_invitation);
       }
     }
     scrollToTop();
@@ -176,10 +185,11 @@
 
   function create_wallet() {
     intro = false;
-    if (invitation && invitation.V0.url) {
-      // we redirect to the TOS url of the invitation.
-      window.location.href = invitation.V0.url;
-    }
+    // if (invitation && invitation.V0.url) {
+    //   // we redirect to the TOS url of the invitation.
+    //   wait = "Redirecting to TOS";
+    //   window.location.href = invitation.V0.url;
+    // }
     scrollToTop();
   }
 
@@ -890,39 +900,67 @@
           <h2 class="mt-3 text-xl">Please choose one broker among the list</h2>
         </div>
       </div>
-      <div class="row mt-5">
-        <button
-          on:click|once={selectEU}
-          class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-        >
-          <EULogo class="mr-4 block h-10 w-10" alt="European Union flag" />
-          For European Union citizens
-        </button>
-      </div>
-
-      <div class="row mt-5">
-        <button
-          on:click|once={selectNET}
-          class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-        >
-          <svg
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-            class="mr-4 block h-10 w-10"
+      {#if pre_invitation}
+        <div class="row mt-5">
+          <button
+            on:click|once={async () => {
+              await select_bsp(pre_invitation.V0.url, pre_invitation.V0.name);
+            }}
+            class="choice-button text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
-            />
-          </svg>
-          For the rest of the world
-        </button>
-      </div>
+            <svg
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              class="mr-4 block h-10 w-10"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
+              />
+            </svg>
+            Register with {pre_invitation.V0.name || "this broker"}
+          </button>
+        </div>
+      {:else}
+        <div class="row mt-5">
+          <button
+            on:click|once={selectEU}
+            class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+          >
+            <EULogo class="mr-4 block h-10 w-10" alt="European Union flag" />
+            For European Union citizens
+          </button>
+        </div>
+
+        <div class="row mt-5">
+          <button
+            on:click|once={selectNET}
+            class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+          >
+            <svg
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              class="mr-4 block h-10 w-10"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
+              />
+            </svg>
+            For the rest of the world
+          </button>
+        </div>
+      {/if}
 
       <div class="row mt-5">
         <button

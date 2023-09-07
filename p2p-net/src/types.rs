@@ -546,6 +546,15 @@ impl BootstrapContentV0 {
     pub fn get_first_peer_id(&self) -> Option<PubKey> {
         self.servers.first().map(|s| s.peer_id)
     }
+
+    pub fn get_domain(&self) -> Option<String> {
+        for server in self.servers.iter() {
+            if let BrokerServerTypeV0::Domain(name) = &server.server_type {
+                return Some(name.clone());
+            }
+        }
+        None
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -558,6 +567,43 @@ impl BootstrapContent {
         match self {
             Self::V0(v0) => &v0.servers,
         }
+    }
+}
+
+/// Local Bootstrap info Version 0, served at /.ng_bootstrap
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LocalBootstrapInfoV0 {
+    /// list of servers, in order of preference
+    pub bootstrap: BootstrapContentV0,
+
+    /// optional registration_url for public server that accept to be BSP for new clients
+    pub registration_url: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum LocalBootstrapInfo {
+    V0(LocalBootstrapInfoV0),
+}
+
+impl LocalBootstrapInfo {
+    pub fn servers(&self) -> &Vec<BrokerServerV0> {
+        match self {
+            Self::V0(v0) => &v0.bootstrap.servers,
+        }
+    }
+}
+
+impl From<LocalBootstrapInfo> for Invitation {
+    fn from(value: LocalBootstrapInfo) -> Self {
+        let LocalBootstrapInfo::V0(info) = value;
+        let name = info.bootstrap.get_domain();
+        let url = info.registration_url.clone();
+        Invitation::V0(InvitationV0 {
+            bootstrap: info.bootstrap,
+            code: None,
+            name,
+            url,
+        })
     }
 }
 
@@ -609,7 +655,7 @@ impl InvitationV0 {
     }
     pub fn empty(name: Option<String>) -> Self {
         InvitationV0 {
-            bootstrap: BootstrapContentV0 { servers: vec![] },
+            bootstrap: BootstrapContentV0::new(),
             code: None,
             name,
             url: None,
@@ -668,7 +714,7 @@ impl Invitation {
     pub fn intersects(&self, invite2: Invitation) -> Invitation {
         let Invitation::V0(v0) = self;
         let mut new_invite = InvitationV0 {
-            bootstrap: BootstrapContentV0 { servers: vec![] },
+            bootstrap: BootstrapContentV0::new(),
             code: v0.code.clone(),
             name: v0.name.clone(),
             url: v0.url.clone(),
@@ -763,18 +809,18 @@ pub enum Invitation {
     V0(InvitationV0),
 }
 
-impl From<BootstrapContent> for Invitation {
-    fn from(value: BootstrapContent) -> Self {
-        let BootstrapContent::V0(boot) = value;
-
-        Invitation::V0(InvitationV0 {
-            bootstrap: boot,
-            code: None,
-            name: None,
-            url: None,
-        })
-    }
-}
+// impl From<BootstrapContent> for Invitation {
+//     fn from(value: BootstrapContent) -> Self {
+//         let BootstrapContent::V0(boot) = value;
+//         let name = boot.get_domain();
+//         Invitation::V0(InvitationV0 {
+//             bootstrap: boot,
+//             code: None,
+//             name,
+//             url: None,
+//         })
+//     }
+// }
 
 /// Create an account at a Broker Service Provider (BSP).
 #[derive(Clone, Debug, Serialize, Deserialize)]

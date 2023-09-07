@@ -115,7 +115,7 @@ pub fn check_is_local_url(bootstrap: &BrokerServerV0, location: &String) -> Opti
 }
 
 #[cfg(target_arch = "wasm32")]
-async fn retrieve_ng_bootstrap(location: &String) -> Option<BootstrapContent> {
+async fn retrieve_ng_bootstrap(location: &String) -> Option<LocalBootstrapInfo> {
     let prefix = if (APP_PREFIX == "") {
         let url = Url::parse(location).unwrap();
         url.origin().unicode_serialization()
@@ -126,7 +126,7 @@ async fn retrieve_ng_bootstrap(location: &String) -> Option<BootstrapContent> {
     //log_info!("url {}", url);
     let resp = reqwest::get(url).await;
     if resp.is_ok() {
-        let resp = resp.unwrap().json::<BootstrapContent>().await;
+        let resp = resp.unwrap().json::<LocalBootstrapInfo>().await;
         return Some(resp.unwrap());
     } else {
         //log_info!("err {}", resp.unwrap_err());
@@ -136,11 +136,11 @@ async fn retrieve_ng_bootstrap(location: &String) -> Option<BootstrapContent> {
 
 #[cfg(target_arch = "wasm32")]
 pub async fn retrieve_local_url(location: String) -> Option<String> {
-    let bootstraps = retrieve_ng_bootstrap(&location).await;
-    if bootstraps.is_none() {
+    let info = retrieve_ng_bootstrap(&location).await;
+    if info.is_none() {
         return None;
     }
-    for bootstrap in bootstraps.unwrap().servers() {
+    for bootstrap in info.unwrap().servers() {
         let res = check_is_local_url(bootstrap, &location);
         if res.is_some() {
             return res;
@@ -165,12 +165,11 @@ pub async fn retrieve_local_bootstrap(
     log_debug!("invite_String {:?} invite1{:?}", invite_string, invite1);
 
     let invite2: Option<Invitation> = {
-        let bootstraps = retrieve_ng_bootstrap(&location_string).await;
-        if bootstraps.is_none() {
+        let info = retrieve_ng_bootstrap(&location_string).await;
+        if info.is_none() {
             None
         } else {
-            let mut inv: Invitation = bootstraps.unwrap().into();
-            inv.set_url(BROKER.read().await.get_registration_url());
+            let mut inv: Invitation = info.unwrap().into();
             Some(inv)
         }
     };
