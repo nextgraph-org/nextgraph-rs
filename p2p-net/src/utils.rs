@@ -123,11 +123,16 @@ async fn retrieve_ng_bootstrap(location: &String) -> Option<LocalBootstrapInfo> 
         APP_PREFIX.to_string()
     };
     let url = format!("{}{}", prefix, NG_BOOTSTRAP_LOCAL_PATH);
-    //log_info!("url {}", url);
+    log_info!("url {}", url);
     let resp = reqwest::get(url).await;
+    //log_info!("{:?}", resp);
     if resp.is_ok() {
         let resp = resp.unwrap().json::<LocalBootstrapInfo>().await;
-        return Some(resp.unwrap());
+        return if resp.is_ok() {
+            Some(resp.unwrap())
+        } else {
+            None
+        };
     } else {
         //log_info!("err {}", resp.unwrap_err());
         return None;
