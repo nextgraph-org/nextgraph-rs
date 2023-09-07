@@ -11,6 +11,13 @@ import topLevelAwait from "vite-plugin-top-level-await";
 export default defineConfig(async () => {
   const host = await internalIpV4()
   const config = {
+  worker: {
+    format: 'es',
+    plugins : [
+      wasm(),
+      topLevelAwait(),
+    ]
+  },
   plugins: [
     wasm(),
     topLevelAwait(),
@@ -71,6 +78,9 @@ export default defineConfig(async () => {
     sourcemap: !!process.env.TAURI_DEBUG,
   }
 }
-if (process.env.NG_APP_FILE) config.plugins.push(viteSingleFile());
+if (process.env.NG_APP_FILE) {
+  config.plugins.push(viteSingleFile());
+  config.worker.plugins.push(viteSingleFile());
+}
 return config
 })

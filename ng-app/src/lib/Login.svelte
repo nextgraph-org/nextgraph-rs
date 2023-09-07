@@ -118,16 +118,38 @@
 
     // open the wallet
     try {
-      let secret_wallet = await ng.wallet_open_wallet_with_pazzle(
-        wallet,
-        pazzle,
-        pin_code
-      );
-      step = "end";
-      dispatch("opened", {
-        wallet: secret_wallet,
-        id: secret_wallet.V0.wallet_id,
-      });
+      if (tauri_platform) {
+        let secret_wallet = await ng.wallet_open_wallet_with_pazzle(
+          wallet,
+          pazzle,
+          pin_code
+        );
+        step = "end";
+        dispatch("opened", {
+          wallet: secret_wallet,
+          id: secret_wallet.V0.wallet_id,
+        });
+      } else {
+        let worker_file = await import("../worker.js?worker");
+        const myWorker = new worker_file.default();
+        myWorker.postMessage({ wallet, pazzle, pin_code });
+
+        myWorker.onmessage = (msg) => {
+          //console.log("Message received from worker", msg.data);
+          if (msg.data.success) {
+            step = "end";
+            dispatch("opened", {
+              wallet: msg.data.success,
+              id: msg.data.success.V0.wallet_id,
+            });
+          } else {
+            console.error(msg.data.error);
+            error = msg.data.error;
+            step = "end";
+            dispatch("error", { error: msg.data.error });
+          }
+        };
+      }
     } catch (e) {
       console.error(e);
       error = e;

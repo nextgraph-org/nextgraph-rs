@@ -180,8 +180,8 @@
         <div class=" max-w-6xl lg:px-8 mx-auto px-4">
           <p class="max-w-xl md:mx-auto lg:max-w-2xl">
             You would like to choose <b>{domain}</b> as your Broker Service
-            Provider.<br />Please read carefully the Terms of Service here
-            below, before accepting them.
+            Provider.<br />Please read carefully the Terms of Service below,
+            before accepting them.
           </p>
         </div>
       {/if}
