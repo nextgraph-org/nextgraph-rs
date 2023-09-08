@@ -14,13 +14,13 @@ export default defineConfig(async () => {
   worker: {
     format: 'es',
     plugins : [
-      wasm(),
       topLevelAwait(),
+      wasm(),
     ]
   },
   plugins: [
-    wasm(),
     topLevelAwait(),
+    wasm(),
     svelte({
       preprocess: [
         vitePreprocess(),
