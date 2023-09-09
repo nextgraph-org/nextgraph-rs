@@ -152,6 +152,28 @@ For usage, see the documentation [here](ngd/README.md).
 
 For building the apps, see this [documentation](ng-app/README.md).
 
+#### OpenBSD
+
+On OpenBSD, a conflict between the installed LibreSSL library and the reqwest crate, need a bit of attention.
+Before compiling the daemon for OpenBSD, please comment out lines 32-33 of `p2p-repo/Cargo.toml`. This will be solved soon in a more appropriate way.
+
+```
+#[target.'cfg(target_arch = "wasm32")'.dependencies]
+#reqwest = { version = "0.11.18", features = ["json","native-tls-vendored"] }
+```
+
+to use the app on OpenBSD, you need to run the daemon locally.
+
+```
+ngd -l 14400 --save-key
+```
+
+then open chrome (previously installed with `doas pkg_add chrome`)
+
+```
+env ENABLE_WASM=1 chrome --enable-wasm --process-per-site --new-window --app=http://localhost:14400
+```
+
 ### Generate documentation
 
 Generate documentation for all packages without their dependencies:
