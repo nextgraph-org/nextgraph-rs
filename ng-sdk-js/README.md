@@ -36,6 +36,11 @@ npm i ng-sdk-js
 
 ## For contributors
 
+We recommend contributors to use the production build, as the creation and opening of wallets is very slow in the dev build.
+Only use the dev build when debugging the sdk. see the next chapter for the production build.
+Please note that the dev and prod builds share the same output folder, they thus override each other.
+When building the app, be sure to have the production build of the SDK in the output folder.
+
 ```
 wasm-pack build --dev --target bundler
 
@@ -58,7 +63,7 @@ Or automated testing with headless chrome:
 wasm-pack test --chrome --headless
 ```
 
-## Production built
+## Production build
 
 ```
 wasm-pack build --target bundler
@@ -72,7 +77,7 @@ cd ../pkg-node
 npm publish --access=public
 ```
 
-### Plain JS web app
+### Example Plain JS web app
 
 ```
 cd ../app-web
@@ -84,7 +89,7 @@ npm start
 
 Open this URL in browser : [http://localhost:8080](http://localhost:8080)
 
-### React web app
+### Example React web app
 
 ```
 cd ../app-react
@@ -96,7 +101,7 @@ npm run dev
 
 This URL will open automatically in browser : [http://localhost:8080](http://localhost:8080)
 
-### NodeJS app
+### Example NodeJS app
 
 ```
 cd ../app-node
