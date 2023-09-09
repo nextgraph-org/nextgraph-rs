@@ -42,7 +42,7 @@ pnpm webfilebuild
 
 ```
 
-alternatively, to obtain a regular dist folder with all resources (we dont use it anymore):
+alternatively, to obtain a regular dist folder with all resources in separate files (we dont use it anymore):
 
 ```
 pnpm webbuild
