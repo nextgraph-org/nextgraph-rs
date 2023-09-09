@@ -561,7 +561,7 @@ const mammal: [EmojiDef<'static>; 15] = [
     },
 ];
 
-const fauna: [EmojiDef<'static>; 15] = [
+const animal: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f413",
         shortcode: "rooster",
@@ -639,7 +639,7 @@ const fauna: [EmojiDef<'static>; 15] = [
     },
 ];
 
-const flora: [EmojiDef<'static>; 15] = [
+const plants: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f40c",
         shortcode: "snail",
@@ -717,7 +717,7 @@ const flora: [EmojiDef<'static>; 15] = [
     },
 ];
 
-const greens: [EmojiDef<'static>; 15] = [
+const fruits: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f347",
         shortcode: "grapes",
@@ -795,7 +795,7 @@ const greens: [EmojiDef<'static>; 15] = [
     },
 ];
 
-const foods: [EmojiDef<'static>; 15] = [
+const food: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f950",
         shortcode: "croissant",
@@ -1194,10 +1194,10 @@ lazy_static! {
         ("body", body),
         ("sport", sport),
         ("mammal", mammal),
-        ("fauna", fauna),
-        ("flora", flora),
-        ("greens", greens),
-        ("foods", foods),
+        ("animal", animal),
+        ("plants", plants),
+        ("fruits", fruits),
+        ("food", food),
         ("travel", travel),
         ("sky", sky),
         ("play", play),
@@ -1211,10 +1211,10 @@ pub const EMOJI_CAT: [&str; 15] = [
     "face",
     "sport",
     "mammal",
-    "fauna",
-    "flora",
-    "greens",
-    "foods",
+    "animal",
+    "plants",
+    "fruits",
+    "food",
     "travel",
     "sky",
     "body",

@@ -129,6 +129,8 @@ to debug the Svelte app, use Chrome :
 
 ### iOS
 
+Disclaimer: iOS hasn't been tested yet, for lack of suitable dev env (latest MacOS version needed).
+
 First, make sure Xcode is properly installed. then :
 
 ```

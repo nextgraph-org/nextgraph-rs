@@ -79,7 +79,7 @@
       wallet_channel = new BroadcastChannel("ng_wallet");
       wallet_channel.postMessage({ cmd: "is_opened" }, location.href);
       wallet_channel.onmessage = (event) => {
-        console.log(event);
+        console.log(event.data.cmd, event.data);
         if (!location.href.startsWith(event.origin)) return;
         switch (event.data.cmd) {
           case "is_opened":
@@ -133,9 +133,13 @@
             );
             active_wallet.set(undefined);
             active_session.set(undefined);
+            opened_wallets.update((w) => {
+              delete w[value.id];
+              return w;
+            });
           }
         } else {
-          //push("#/wallet/login");
+          push("#/wallet/login");
         }
       });
     }

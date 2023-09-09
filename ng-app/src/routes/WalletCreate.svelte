@@ -586,7 +586,7 @@
               </svg>
               <span
                 >Don't worry, it is easier to remember 9 images than a password
-                like "69$g&ms%C*%", and it has the same strength than a complex
+                like "69$g&ms%C*%", and it has the same strength as a complex
                 password. The entropy of your pazzle is <b>66bits</b>, which is
                 considered very high by all standards.</span
               >
@@ -1487,9 +1487,38 @@
             ><br />
             Please move it to a safe and durable place.<br /><br />
           {/if}
+          Here is your Pazzle:<br /><br />
           {#each display_pazzle(ready.pazzle) as emoji}
             <span>{emoji}</span><br />
           {/each}
+          <br /><br />
+          Copy it on a piece of paper.<br /> Use that until you memorized it,<br
+          />
+          then throw it away.<br /> The order of each image is important.<br />
+          Now click on "Continue to Login"<br /><br />
+          <a href="/wallet/login" use:link>
+            <button
+              tabindex="-1"
+              class="mb-20 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2"
+            >
+              <svg
+                class="w-8 h-8 mr-2 -ml-1"
+                fill="currentColor"
+                stroke="currentColor"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                />
+              </svg>
+              Continue to Login
+            </button>
+          </a>
         </div>
       {/if}
     {:else}
