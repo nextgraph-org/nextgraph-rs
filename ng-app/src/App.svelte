@@ -53,6 +53,12 @@
       let walls = await ng.get_wallets_from_localstorage();
       wallets.set(walls);
 
+      unsubscribe = active_wallet.subscribe((value) => {
+        if (value && !value.wallet) {
+          active_wallet.set(undefined);
+        }
+      });
+
       let window_api = await import("@tauri-apps/plugin-window");
       let event_api = await import("@tauri-apps/api/event");
       let main = window_api.Window.getByLabel("main");
