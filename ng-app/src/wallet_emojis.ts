@@ -588,7 +588,7 @@ let face = [
     },
   ];
 
-  let fauna = [
+  let animal = [
     {
       hexcode: "1f413",
       shortcode: "rooster",
@@ -671,7 +671,7 @@ let face = [
     },
   ];
 
-  let flora = [
+  let plants = [
     {
       hexcode: "1f40c",
       shortcode: "snail",
@@ -754,7 +754,7 @@ let face = [
     },
   ];
 
-  let greens = [
+  let fruits = [
     {
       hexcode: "1f347",
       shortcode: "grapes",
@@ -837,7 +837,7 @@ let face = [
     },
   ];
 
-  let foods = [
+  let food = [
     {
       hexcode: "1f950",
       shortcode: "croissant",
@@ -1502,103 +1502,103 @@ export async function load_svg() {
       "./assets/pazzle/emoji_u1f43b_200d_2744.svg?component"
     );
 
-    /************** FAUNA *********************/
+    /************** ANIMAL *********************/
 
-    fauna[0].svg = await import("./assets/pazzle/emoji_u1f413.svg?component");
-    fauna[1].svg = await import("./assets/pazzle/emoji_u1f423.svg?component");
-    fauna[2].svg = await import("./assets/pazzle/emoji_u1f985.svg?component");
+    animal[0].svg = await import("./assets/pazzle/emoji_u1f413.svg?component");
+    animal[1].svg = await import("./assets/pazzle/emoji_u1f423.svg?component");
+    animal[2].svg = await import("./assets/pazzle/emoji_u1f985.svg?component");
 
-    fauna[3].svg = await import("./assets/pazzle/emoji_u1f986.svg?component");
-    fauna[4].svg = await import("./assets/pazzle/emoji_u1f989.svg?component");
-    fauna[5].svg = await import("./assets/pazzle/emoji_u1f9a9.svg?component");
+    animal[3].svg = await import("./assets/pazzle/emoji_u1f986.svg?component");
+    animal[4].svg = await import("./assets/pazzle/emoji_u1f989.svg?component");
+    animal[5].svg = await import("./assets/pazzle/emoji_u1f9a9.svg?component");
 
-    fauna[6].svg = await import("./assets/pazzle/emoji_u1f427.svg?component");
-    fauna[7].svg = await import("./assets/pazzle/emoji_u1f98e.svg?component");
-    fauna[8].svg = await import("./assets/pazzle/emoji_u1f422.svg?component");
+    animal[6].svg = await import("./assets/pazzle/emoji_u1f427.svg?component");
+    animal[7].svg = await import("./assets/pazzle/emoji_u1f98e.svg?component");
+    animal[8].svg = await import("./assets/pazzle/emoji_u1f422.svg?component");
 
-    fauna[9].svg = await import("./assets/pazzle/emoji_u1f40d.svg?component");
-    fauna[10].svg = await import("./assets/pazzle/emoji_u1f433.svg?component");
-    fauna[11].svg = await import("./assets/pazzle/emoji_u1f42c.svg?component");
+    animal[9].svg = await import("./assets/pazzle/emoji_u1f40d.svg?component");
+    animal[10].svg = await import("./assets/pazzle/emoji_u1f433.svg?component");
+    animal[11].svg = await import("./assets/pazzle/emoji_u1f42c.svg?component");
 
-    fauna[12].svg = await import("./assets/pazzle/emoji_u1f41f.svg?component");
-    fauna[13].svg = await import("./assets/pazzle/emoji_u1f41a.svg?component");
-    fauna[14].svg = await import("./assets/pazzle/emoji_u1f419.svg?component");
+    animal[12].svg = await import("./assets/pazzle/emoji_u1f41f.svg?component");
+    animal[13].svg = await import("./assets/pazzle/emoji_u1f41a.svg?component");
+    animal[14].svg = await import("./assets/pazzle/emoji_u1f419.svg?component");
 
-    /************** FLORA *********************/
+    /************** PLANTS *********************/
 
-    flora[0].svg = await import("./assets/pazzle/emoji_u1f40c.svg?component");
-    flora[1].svg = await import("./assets/pazzle/emoji_u1f98b.svg?component");
-    flora[2].svg = await import("./assets/pazzle/emoji_u1f41c.svg?component");
+    plants[0].svg = await import("./assets/pazzle/emoji_u1f40c.svg?component");
+    plants[1].svg = await import("./assets/pazzle/emoji_u1f98b.svg?component");
+    plants[2].svg = await import("./assets/pazzle/emoji_u1f41c.svg?component");
 
-    flora[3].svg = await import("./assets/pazzle/emoji_u1f41d.svg?component");
-    flora[4].svg = await import("./assets/pazzle/emoji_u1f41e.svg?component");
-    flora[5].svg = await import("./assets/pazzle/emoji_u1f339.svg?component");
+    plants[3].svg = await import("./assets/pazzle/emoji_u1f41d.svg?component");
+    plants[4].svg = await import("./assets/pazzle/emoji_u1f41e.svg?component");
+    plants[5].svg = await import("./assets/pazzle/emoji_u1f339.svg?component");
 
-    flora[6].svg = await import("./assets/pazzle/emoji_u1f33b.svg?component");
-    flora[7].svg = await import("./assets/pazzle/emoji_u1f332.svg?component");
-    flora[8].svg = await import("./assets/pazzle/emoji_u1f334.svg?component");
+    plants[6].svg = await import("./assets/pazzle/emoji_u1f33b.svg?component");
+    plants[7].svg = await import("./assets/pazzle/emoji_u1f332.svg?component");
+    plants[8].svg = await import("./assets/pazzle/emoji_u1f334.svg?component");
 
-    flora[9].svg = await import("./assets/pazzle/emoji_u1f335.svg?component");
-    flora[10].svg = await import("./assets/pazzle/emoji_u1f340.svg?component");
-    flora[11].svg = await import("./assets/pazzle/emoji_u1fab4.svg?component");
+    plants[9].svg = await import("./assets/pazzle/emoji_u1f335.svg?component");
+    plants[10].svg = await import("./assets/pazzle/emoji_u1f340.svg?component");
+    plants[11].svg = await import("./assets/pazzle/emoji_u1fab4.svg?component");
 
-    flora[12].svg = await import("./assets/pazzle/emoji_u1f490.svg?component");
-    flora[13].svg = await import("./assets/pazzle/emoji_u1f342.svg?component");
-    flora[14].svg = await import("./assets/pazzle/emoji_u1f344.svg?component");
+    plants[12].svg = await import("./assets/pazzle/emoji_u1f490.svg?component");
+    plants[13].svg = await import("./assets/pazzle/emoji_u1f342.svg?component");
+    plants[14].svg = await import("./assets/pazzle/emoji_u1f344.svg?component");
 
-    /************** GREENS *********************/
+    /************** FRUITS *********************/
 
-    greens[0].svg = await import("./assets/pazzle/emoji_u1f347.svg?component");
-    greens[1].svg = await import("./assets/pazzle/emoji_u1f349.svg?component");
-    greens[2].svg = await import("./assets/pazzle/emoji_u1f34b.svg?component");
+    fruits[0].svg = await import("./assets/pazzle/emoji_u1f347.svg?component");
+    fruits[1].svg = await import("./assets/pazzle/emoji_u1f349.svg?component");
+    fruits[2].svg = await import("./assets/pazzle/emoji_u1f34b.svg?component");
 
-    greens[3].svg = await import("./assets/pazzle/emoji_u1f34c.svg?component");
-    greens[4].svg = await import("./assets/pazzle/emoji_u1f34d.svg?component");
-    greens[5].svg = await import("./assets/pazzle/emoji_u1f34e.svg?component");
+    fruits[3].svg = await import("./assets/pazzle/emoji_u1f34c.svg?component");
+    fruits[4].svg = await import("./assets/pazzle/emoji_u1f34d.svg?component");
+    fruits[5].svg = await import("./assets/pazzle/emoji_u1f34e.svg?component");
 
-    greens[6].svg = await import("./assets/pazzle/emoji_u1f352.svg?component");
-    greens[7].svg = await import("./assets/pazzle/emoji_u1f353.svg?component");
-    greens[8].svg = await import("./assets/pazzle/emoji_u1fad0.svg?component");
+    fruits[6].svg = await import("./assets/pazzle/emoji_u1f352.svg?component");
+    fruits[7].svg = await import("./assets/pazzle/emoji_u1f353.svg?component");
+    fruits[8].svg = await import("./assets/pazzle/emoji_u1fad0.svg?component");
 
-    greens[9].svg = await import("./assets/pazzle/emoji_u1f95d.svg?component");
-    greens[10].svg = await import(
+    fruits[9].svg = await import("./assets/pazzle/emoji_u1f95d.svg?component");
+    fruits[10].svg = await import(
       "./assets/pazzle/emoji_u1f951.svg?component"
     );
-    greens[11].svg = await import(
+    fruits[11].svg = await import(
       "./assets/pazzle/emoji_u1f346.svg?component"
     );
 
-    greens[12].svg = await import(
+    fruits[12].svg = await import(
       "./assets/pazzle/emoji_u1f955.svg?component"
     );
-    greens[13].svg = await import(
+    fruits[13].svg = await import(
       "./assets/pazzle/emoji_u1f33d.svg?component"
     );
-    greens[14].svg = await import(
+    fruits[14].svg = await import(
       "./assets/pazzle/emoji_u1f336.svg?component"
     );
 
-    /************** FOODS *********************/
+    /************** FOOD *********************/
 
-    foods[0].svg = await import("./assets/pazzle/emoji_u1f950.svg?component");
-    foods[1].svg = await import("./assets/pazzle/emoji_u1f956.svg?component");
-    foods[2].svg = await import("./assets/pazzle/emoji_u1f968.svg?component");
+    food[0].svg = await import("./assets/pazzle/emoji_u1f950.svg?component");
+    food[1].svg = await import("./assets/pazzle/emoji_u1f956.svg?component");
+    food[2].svg = await import("./assets/pazzle/emoji_u1f968.svg?component");
 
-    foods[3].svg = await import("./assets/pazzle/emoji_u1f9c0.svg?component");
-    foods[4].svg = await import("./assets/pazzle/emoji_u1f355.svg?component");
-    foods[5].svg = await import("./assets/pazzle/emoji_u1f373.svg?component");
+    food[3].svg = await import("./assets/pazzle/emoji_u1f9c0.svg?component");
+    food[4].svg = await import("./assets/pazzle/emoji_u1f355.svg?component");
+    food[5].svg = await import("./assets/pazzle/emoji_u1f373.svg?component");
 
-    foods[6].svg = await import("./assets/pazzle/emoji_u1f366.svg?component");
-    foods[7].svg = await import("./assets/pazzle/emoji_u1f36a.svg?component");
-    foods[8].svg = await import("./assets/pazzle/emoji_u1f370.svg?component");
+    food[6].svg = await import("./assets/pazzle/emoji_u1f366.svg?component");
+    food[7].svg = await import("./assets/pazzle/emoji_u1f36a.svg?component");
+    food[8].svg = await import("./assets/pazzle/emoji_u1f370.svg?component");
 
-    foods[9].svg = await import("./assets/pazzle/emoji_u1f36b.svg?component");
-    foods[10].svg = await import("./assets/pazzle/emoji_u1f36c.svg?component");
-    foods[11].svg = await import("./assets/pazzle/emoji_u2615.svg?component");
+    food[9].svg = await import("./assets/pazzle/emoji_u1f36b.svg?component");
+    food[10].svg = await import("./assets/pazzle/emoji_u1f36c.svg?component");
+    food[11].svg = await import("./assets/pazzle/emoji_u2615.svg?component");
 
-    foods[12].svg = await import("./assets/pazzle/emoji_u1f37e.svg?component");
-    foods[13].svg = await import("./assets/pazzle/emoji_u1f377.svg?component");
-    foods[14].svg = await import("./assets/pazzle/emoji_u1f942.svg?component");
+    food[12].svg = await import("./assets/pazzle/emoji_u1f37e.svg?component");
+    food[13].svg = await import("./assets/pazzle/emoji_u1f377.svg?component");
+    food[14].svg = await import("./assets/pazzle/emoji_u1f942.svg?component");
 
     /************** TRAVEL *********************/
 
@@ -1704,10 +1704,10 @@ export const emojis = {
     body,
     sport,
     mammal,
-    fauna,
-    flora,
-    greens,
-    foods,
+    animal,
+    plants,
+    fruits,
+    food,
     travel,
     sky,
     play,
@@ -1718,10 +1718,10 @@ export const emoji_cat = [
     "face",
     "sport",
     "mammal",
-    "fauna",
-    "flora",
-    "greens",
-    "foods",
+    "animal",
+    "plants",
+    "fruits",
+    "food",
     "travel",
     "sky",
 
@@ -1739,7 +1739,7 @@ export function display_pazzle(pazzle) {
   for (const emoji of pazzle) {
     let cat = (emoji & 240) >> 4;
     let idx = emoji & 15;
-    res.push(emoji_cat[cat] +":"+ emojis[emoji_cat[cat]][idx].code);
+    res.push(emoji_cat[cat] +": "+ emojis[emoji_cat[cat]][idx].code);
   }
   return res;
 }

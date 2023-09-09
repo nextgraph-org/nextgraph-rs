@@ -29,11 +29,12 @@ export const set_active_session = function(session) {
 
 export { writable, readonly, derived };
 
-const close_active_wallet = function() {
+export const close_active_wallet = function() {
 
     active_session.set(undefined);
     active_wallet.update((w) => {
         delete w.wallet;
+        return w;
     });
     
 }

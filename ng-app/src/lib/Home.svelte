@@ -14,9 +14,14 @@
   import { link } from "svelte-spa-router";
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
+  import { close_active_wallet } from "../store";
 
   import { onMount } from "svelte";
   export let display_login_create = false;
+
+  function logout() {
+    close_active_wallet();
+  }
 </script>
 
 {#if display_login_create}
@@ -84,6 +89,29 @@
 {:else}
   <main class="container3">
     <h1>Welcome to test</h1>
-    <div class="row" />
+    <div class="row mt-10">
+      <button
+        on:click={logout}
+        class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
+      >
+        <svg
+          class="w-8 h-8 mr-2 -ml-1"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"
+          />
+        </svg>
+
+        Logout
+      </button>
+    </div>
   </main>
 {/if}
