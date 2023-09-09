@@ -197,8 +197,8 @@
     options = {
       trusted: true,
       cloud: false,
-      bootstrap: true,
-      pdf: true,
+      bootstrap: false,
+      pdf: false,
     };
     console.log("saved");
     await tick();
@@ -963,7 +963,9 @@
       {/if}
 
       <div class="row mt-5">
-        <button
+        <Button
+          disabled
+          style="justify-content: left;"
           on:click|once={enterINVITE}
           class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
         >
@@ -984,9 +986,9 @@
           </svg>
 
           Enter an invitation link
-        </button>
+        </Button>
       </div>
-      {#if mobile}
+      {#if false && mobile}
         <div class="row mt-5">
           <button
             on:click|once={enterQRcode}
@@ -1349,7 +1351,7 @@
             >Terms of Service of our cloud</a
           >.
           <br />
-          <Toggle class="mt-3" bind:checked={options.cloud}
+          <Toggle disabled class="mt-3" bind:checked={options.cloud}
             >Save my wallet in the cloud?</Toggle
           >
         </p>
@@ -1361,7 +1363,7 @@
           all the information to regenerate your wallet in case you lost access to
           it.
           <br />
-          <Toggle class="mt-3" bind:checked={options.pdf}
+          <Toggle disabled class="mt-3" bind:checked={options.pdf}
             >Create a PDF of my wallet?</Toggle
           >
         </p>
@@ -1380,14 +1382,14 @@
               >Terms of Service of our cloud</a
             >.
             <br />
-            <Toggle class="mt-3" bind:checked={options.bootstrap}
+            <Toggle disabled class="mt-3" bind:checked={options.bootstrap}
               >Create a link to my wallet?</Toggle
             >
           </p>
         {/if}
         <button
           on:click|once={do_wallet}
-          class="mt-10 mb-8 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+          class="mt-10 mb-20 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
         >
           <svg
             class="w-8 h-8 mr-2 -ml-1"

@@ -14,7 +14,7 @@
   import { link, push } from "svelte-spa-router";
   import Login from "../lib/Login.svelte";
   import ng from "../api";
-  import { Fileupload } from "flowbite-svelte";
+  import { Fileupload, Button } from "flowbite-svelte";
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
   import {
@@ -196,8 +196,7 @@
         >
           <span class="securitytxt"
             >{wallet_entry[1].wallet.V0.content.security_txt}
-            {wallet_entry[0]}</span
-          >
+          </span>
           <img
             alt={wallet_entry[1].wallet.V0.content.security_txt}
             class="securityimg"
@@ -240,8 +239,10 @@
           </svg>
           Import a Wallet File
         </button>
-        <button
-          class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+        <Button
+          style="min-width: 250px;justify-content: left;"
+          disabled
+          class="disabled mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
         >
           <svg
             class="w-8 h-8 mr-2 -ml-1"
@@ -264,8 +265,10 @@
             />
           </svg>
           Import with QRcode
-        </button>
-        <button
+        </Button>
+        <Button
+          style="min-width: 250px;justify-content: left;"
+          disabled
           class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
         >
           <svg
@@ -285,7 +288,7 @@
           </svg>
 
           Enter a Wallet Link
-        </button>
+        </Button>
         <a href="/wallet/create" use:link>
           <button
             tabindex="-1"
