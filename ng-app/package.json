@@ -9,7 +9,7 @@
     "webbuild": "shx cp index-web.html index.html && cross-env NG_APP_WEB=1 vite build && rm -f ./dist-web/assets/*.svg && tar --exclude .DS_Store -zcvf dist-web.tar.gz dist-web",
     "webfilebuild": "shx cp index-web.html index.html && cross-env NG_APP_WEB=1 NG_APP_FILE=1 vite build && node prepare-app-file.cjs && rm -rf ./dist-file/assets && tar --exclude .DS_Store -zcvf dist-file.tar.gz dist-file",
     "webfilebuilddebug": "shx cp index-web.html index.html && cross-env NG_APP_WEB=1 NG_APP_FILE=1 TAURI_DEBUG=1 vite build -m debug",
-    "build": "shx cp index-native.html index.html && vite build && rm -f ./dist/assets/*.svg",
+    "build": "shx cp index-native.html index.html && vite build && shx rm -f ./dist/assets/*.svg",
     "buildfile": "shx cp index-native.html index.html && cross-env NG_APP_FILE=1 vite build && rm -rf ./dist/assets && tar --exclude .DS_Store -zcvf dist.tar.gz dist",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
