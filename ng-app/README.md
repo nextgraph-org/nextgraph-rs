@@ -34,20 +34,21 @@ pnpm webdev
 
 #### Prod
 
+this will produce a single html file embedding all the resources. this is what you need for production
+
+```
+pnpm webfilebuild
+// single file is available in dist-file/index.html
+
+```
+
+alternatively, to obtain a regular dist folder with all resources (we dont use it anymore):
+
 ```
 pnpm webbuild
 // then the application is available in dist-web folder
 // can be served with:
 cd dist-web ; python3 -m http.server
-```
-
-in order to build a self-contained html file, useful for offline use, do:
-
-```
-// uncomment line 14 of src/App.svelte: import * as api from "ng-sdk-js";
-pnpm webfilebuild
-// single file is available in dist-file/index.html
-
 ```
 
 ## Desktop

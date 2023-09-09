@@ -39,6 +39,7 @@ cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2
 cargo install cargo-watch
 // optionally, if you want a Rust REPL: cargo install evcxr_repl
 git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
+// or if you don't have a git account: git clone https://git.nextgraph.org/NextGraph/nextgraph-rs.git
 cd nextgraph-rs
 cargo build
 ```
@@ -58,7 +59,7 @@ The crates are organized as follow :
 - ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
 - [ng-sdk-js](ng-sdk-js/README.md) : contains the JS SDK, with example apps: web app, react app, or node service.
 - [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the web app.
-- [ngone](ngone/README.md) : server for nextgraph.one (boostrap into the right app)
+- [ngone](ngone/README.md) : server for nextgraph.one (helps user bootstrap into the right app)
 - [ngaccount](ngaccount/README.md) : server for nextgraph's Broker Service Provider account manager.
 
 ### Run
@@ -125,7 +126,6 @@ Otherwise, build from source the single-file release of ng-app
 npm install -g pnpm
 cd ng-sdk-js
 wasm-pack build --target bundler
-// uncomment line 14 of ng-app/src/App.svelte: import * as api from "ng-sdk-js";
 cd ../ng-app
 pnpm install
 pnpm webfilebuild
@@ -146,7 +146,7 @@ The CLI tool can be obtained with :
 cargo build -r -p ngcli
 ```
 
-you can then use the binary `target/release/ngd`
+you can then use the binary `target/release/ngcli`
 
 For usage, see the documentation [here](ngd/README.md).
 
