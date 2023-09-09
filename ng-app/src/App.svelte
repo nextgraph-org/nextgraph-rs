@@ -115,6 +115,7 @@
             if ($active_wallet && $active_wallet.id == event.data.walletid) {
               active_session.set(undefined);
               active_wallet.set(undefined);
+              push("#/wallet/login");
             }
             break;
         }
@@ -137,9 +138,9 @@
               delete w[value.id];
               return w;
             });
+            push("#/wallet/login");
           }
         } else {
-          push("#/wallet/login");
         }
       });
     }
