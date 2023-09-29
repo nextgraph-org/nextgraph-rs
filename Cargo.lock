@@ -1273,7 +1273,7 @@ dependencies = [
  "netlink-sys",
  "once_cell",
  "system-configuration",
- "windows 0.48.0",
+ "windows",
 ]
 
 [[package]]
@@ -1899,7 +1899,7 @@ dependencies = [
  "libc",
  "log",
  "rustversion",
- "windows 0.48.0",
+ "windows",
 ]
 
 [[package]]
@@ -2245,27 +2245,13 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "html5ever"
-version = "0.25.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5c13fb08e5d4dfc151ee5e88bae63f7773d61852f3bdc73c9f4b9e1bde03148"
-dependencies = [
- "log",
- "mac",
- "markup5ever 0.10.1",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "html5ever"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bea68cab48b8459f17cf1c944c67ddc572d272d9f2b274140f223ecb1da4a3b7"
 dependencies = [
  "log",
  "mac",
- "markup5ever 0.11.0",
+ "markup5ever",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -2292,12 +2278,6 @@ dependencies = [
  "http",
  "pin-project-lite",
 ]
-
-[[package]]
-name = "http-range"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21dec9db110f5f872ed9699c3ecf50cf16f423502706ba5c72462e28d3157573"
 
 [[package]]
 name = "httparse"
@@ -2365,7 +2345,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows 0.48.0",
+ "windows",
 ]
 
 [[package]]
@@ -2612,25 +2592,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "kuchiki"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ea8e9c6e031377cff82ee3001dc8026cdf431ed4e2e6b51f98ab8c73484a358"
-dependencies = [
- "cssparser",
- "html5ever 0.25.2",
- "matches",
- "selectors",
-]
-
-[[package]]
 name = "kuchikiki"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f29e4755b7b995046f510a7520c42b2fed58b77bd94d5a87a8eb43d2fd126da8"
 dependencies = [
  "cssparser",
- "html5ever 0.26.0",
+ "html5ever",
  "indexmap",
  "matches",
  "selectors",
@@ -2818,20 +2786,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "markup5ever"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a24f40fb03852d1cdd84330cddcaf98e9ec08a7b7768e952fad3b4cf048ec8fd"
-dependencies = [
- "log",
- "phf 0.8.0",
- "phf_codegen 0.8.0",
- "string_cache",
- "string_cache_codegen",
- "tendril",
 ]
 
 [[package]]
@@ -3094,7 +3048,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tauri",
- "tauri-build 2.0.0-alpha.6",
+ "tauri-build",
  "tauri-plugin-window",
 ]
 
@@ -5025,8 +4979,8 @@ dependencies = [
  "unicode-segmentation",
  "url",
  "uuid 1.3.4",
- "windows 0.48.0",
- "windows-implement 0.48.0",
+ "windows",
+ "windows-implement",
  "x11-dl",
  "zbus",
 ]
@@ -5050,8 +5004,9 @@ checksum = "1b1c7f239eb94671427157bd93b3694320f3668d4e1eff08c7285366fd777fac"
 
 [[package]]
 name = "tauri"
-version = "2.0.0-alpha.11"
-source = "git+https://git.nextgraph.org/NextGraph/tauri.git?branch=alpha.11-nextgraph#61a93f463666b7d42e74acc6083cb2460b8c3e84"
+version = "2.0.0-alpha.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46acc0b6d20fe3a7c27e6036d9ef52d2c28afd1b6178ffc2dd4881f9994fecd7"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5081,11 +5036,11 @@ dependencies = [
  "serialize-to-javascript",
  "state",
  "swift-rs",
- "tauri-build 2.0.0-alpha.7",
+ "tauri-build",
  "tauri-macros",
  "tauri-runtime",
  "tauri-runtime-wry",
- "tauri-utils 2.0.0-alpha.7",
+ "tauri-utils",
  "thiserror",
  "tokio",
  "tray-icon",
@@ -5093,32 +5048,14 @@ dependencies = [
  "uuid 1.3.4",
  "webkit2gtk",
  "webview2-com",
- "windows 0.48.0",
+ "windows",
 ]
 
 [[package]]
 name = "tauri-build"
-version = "2.0.0-alpha.6"
+version = "2.0.0-alpha.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a52990870fd043f1d3bd6719ae713ef2e0c50431334d7249f6ae8509d1b8c326"
-dependencies = [
- "anyhow",
- "cargo_toml",
- "heck",
- "json-patch",
- "semver",
- "serde",
- "serde_json",
- "swift-rs",
- "tauri-utils 2.0.0-alpha.6",
- "tauri-winres",
- "walkdir",
-]
-
-[[package]]
-name = "tauri-build"
-version = "2.0.0-alpha.7"
-source = "git+https://git.nextgraph.org/NextGraph/tauri.git?branch=alpha.11-nextgraph#61a93f463666b7d42e74acc6083cb2460b8c3e84"
+checksum = "dc47d3c84f4aeac397cd956267f3b8060c5a2dba78288a5ccf9a8b7a8c1e7025"
 dependencies = [
  "anyhow",
  "cargo_toml",
@@ -5129,7 +5066,7 @@ dependencies = [
  "serde",
  "serde_json",
  "swift-rs",
- "tauri-utils 2.0.0-alpha.7",
+ "tauri-utils",
  "tauri-winres",
  "walkdir",
 ]
@@ -5137,7 +5074,8 @@ dependencies = [
 [[package]]
 name = "tauri-codegen"
 version = "2.0.0-alpha.7"
-source = "git+https://git.nextgraph.org/NextGraph/tauri.git?branch=alpha.11-nextgraph#61a93f463666b7d42e74acc6083cb2460b8c3e84"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f98a67c7ef3cb3c25de91fe1fa16cc3681997f6ec99da0a7496d6feae2ea91e"
 dependencies = [
  "base64 0.21.2",
  "brotli",
@@ -5151,7 +5089,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.7",
- "tauri-utils 2.0.0-alpha.7",
+ "tauri-utils",
  "thiserror",
  "time 0.3.23",
  "url",
@@ -5162,14 +5100,15 @@ dependencies = [
 [[package]]
 name = "tauri-macros"
 version = "2.0.0-alpha.7"
-source = "git+https://git.nextgraph.org/NextGraph/tauri.git?branch=alpha.11-nextgraph#61a93f463666b7d42e74acc6083cb2460b8c3e84"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b01cb5f945c71e040c5d191c32598565ae26cc266a9d5d4f7dd2dc324c5cfdd0"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
  "tauri-codegen",
- "tauri-utils 2.0.0-alpha.7",
+ "tauri-utils",
 ]
 
 [[package]]
@@ -5185,83 +5124,58 @@ dependencies = [
 
 [[package]]
 name = "tauri-runtime"
-version = "1.0.0-alpha.0"
-source = "git+https://git.nextgraph.org/NextGraph/tauri.git?branch=alpha.11-nextgraph#61a93f463666b7d42e74acc6083cb2460b8c3e84"
+version = "1.0.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "525c4dea52547a13e58816c655bd0928f6c30026515e7b2a77166bcd984da6d0"
 dependencies = [
  "gtk",
  "http",
- "http-range",
  "jni",
  "rand 0.8.5",
  "raw-window-handle",
  "serde",
  "serde_json",
- "tauri-utils 2.0.0-alpha.7",
+ "tauri-utils",
  "thiserror",
  "url",
  "uuid 1.3.4",
- "windows 0.48.0",
+ "windows",
 ]
 
 [[package]]
 name = "tauri-runtime-wry"
-version = "1.0.0-alpha.0"
-source = "git+https://git.nextgraph.org/NextGraph/tauri.git?branch=alpha.11-nextgraph#61a93f463666b7d42e74acc6083cb2460b8c3e84"
+version = "1.0.0-alpha.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fce46e920b62699045e02db3006017d24324119189dfab2b12261aeebf98f4be"
 dependencies = [
  "cocoa 0.24.1",
  "gtk",
+ "http",
  "jni",
  "percent-encoding",
  "rand 0.8.5",
  "raw-window-handle",
  "tauri-runtime",
- "tauri-utils 2.0.0-alpha.7",
+ "tauri-utils",
  "uuid 1.3.4",
  "webkit2gtk",
  "webview2-com",
- "windows 0.48.0",
+ "windows",
  "wry",
 ]
 
 [[package]]
 name = "tauri-utils"
-version = "2.0.0-alpha.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e2812e0cdfffb892c654555b2f1b8c84a035b4c56eb1646cb3eb5a9d8164d8e"
-dependencies = [
- "ctor",
- "dunce",
- "glob",
- "heck",
- "html5ever 0.25.2",
- "infer",
- "json-patch",
- "kuchiki",
- "memchr",
- "phf 0.10.1",
- "proc-macro2",
- "quote",
- "semver",
- "serde",
- "serde_json",
- "serde_with",
- "thiserror",
- "url",
- "walkdir",
- "windows 0.44.0",
-]
-
-[[package]]
-name = "tauri-utils"
 version = "2.0.0-alpha.7"
-source = "git+https://git.nextgraph.org/NextGraph/tauri.git?branch=alpha.11-nextgraph#61a93f463666b7d42e74acc6083cb2460b8c3e84"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06bcd7c6f67fd6371dcc22da7d7f26ec12c4eae26ad7bc54943bb9f35b5db302"
 dependencies = [
  "brotli",
  "ctor",
  "dunce",
  "glob",
  "heck",
- "html5ever 0.26.0",
+ "html5ever",
  "infer",
  "json-patch",
  "kuchikiki",
@@ -5276,7 +5190,7 @@ dependencies = [
  "thiserror",
  "url",
  "walkdir",
- "windows 0.48.0",
+ "windows",
 ]
 
 [[package]]
@@ -6112,9 +6026,9 @@ checksum = "79e563ffe8e84d42e43ffacbace8780c0244fc8910346f334613559d92e203ad"
 dependencies = [
  "webview2-com-macros",
  "webview2-com-sys",
- "windows 0.48.0",
- "windows-implement 0.48.0",
- "windows-interface 0.48.0",
+ "windows",
+ "windows-implement",
+ "windows-interface",
 ]
 
 [[package]]
@@ -6138,7 +6052,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "windows 0.48.0",
+ "windows",
  "windows-bindgen",
  "windows-metadata",
 ]
@@ -6182,23 +6096,12 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windows"
-version = "0.44.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e745dab35a0c4c77aa3ce42d595e13d2003d6902d6b08c9ef5fc326d08da12b"
-dependencies = [
- "windows-implement 0.44.0",
- "windows-interface 0.44.0",
- "windows-targets 0.42.2",
-]
-
-[[package]]
-name = "windows"
 version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e686886bc078bc1b0b600cac0147aadb815089b6e4da64016cbd754b6342700f"
 dependencies = [
- "windows-implement 0.48.0",
- "windows-interface 0.48.0",
+ "windows-implement",
+ "windows-interface",
  "windows-targets 0.48.0",
 ]
 
@@ -6214,31 +6117,9 @@ dependencies = [
 
 [[package]]
 name = "windows-implement"
-version = "0.44.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ce87ca8e3417b02dc2a8a22769306658670ec92d78f1bd420d6310a67c245c6"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "windows-implement"
 version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e2ee588991b9e7e6c8338edf3333fbe4da35dc72092643958ebb43f0ab2c49c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "windows-interface"
-version = "0.44.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "853f69a591ecd4f810d29f17e902d40e349fb05b0b11fff63b08b826bfe39c7f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6430,9 +6311,9 @@ dependencies = [
 
 [[package]]
 name = "wry"
-version = "0.31.1"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07bf838a5430184dfe0b1f568af7998a455c0df75a1df300a3894e0f181e7408"
+checksum = "bf906b43b8042615c85a978dceb4d4b72214d27b850b54abc3edeb7c5a67abab"
 dependencies = [
  "base64 0.21.2",
  "block",
@@ -6444,7 +6325,7 @@ dependencies = [
  "gio",
  "glib",
  "gtk",
- "html5ever 0.26.0",
+ "html5ever",
  "http",
  "javascriptcore-rs",
  "kuchikiki",
@@ -6463,8 +6344,8 @@ dependencies = [
  "webkit2gtk",
  "webkit2gtk-sys",
  "webview2-com",
- "windows 0.48.0",
- "windows-implement 0.48.0",
+ "windows",
+ "windows-implement",
 ]
 
 [[package]]

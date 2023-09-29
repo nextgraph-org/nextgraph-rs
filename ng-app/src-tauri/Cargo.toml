@@ -14,13 +14,14 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "2.0.0-alpha.6", features = [] }
+tauri-build = { version = "2.0.0-alpha.8", features = [] }
 # tauri-macros = { version = "=2.0.0-alpha.6" }
 # tauri-codegen = { version = "=2.0.0-alpha.6" }
 # tauri-utils = { version = "=2.0.0-alpha.6" }
 
 [dependencies]
-tauri = { git = "https://git.nextgraph.org/NextGraph/tauri.git", branch="alpha.11-nextgraph", features = ["no-ipc-custom-protocol"] }
+tauri = { version = "2.0.0-alpha.14", features = [] }
+# tauri = { git = "https://git.nextgraph.org/NextGraph/tauri.git", branch="alpha.11-nextgraph", features = ["no-ipc-custom-protocol"] }
 # tauri = { git = "https://github.com/simonhyll/tauri.git", branch="fix/ipc-mixup", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
