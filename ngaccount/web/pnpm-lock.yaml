@@ -2,7 +2,7 @@ lockfileVersion: 5.4
 
 specifiers:
   '@sveltejs/vite-plugin-svelte': ^2.0.4
-  '@tauri-apps/api': 2.0.0-alpha.6
+  '@tauri-apps/api': 2.0.0-alpha.8
   '@tauri-apps/plugin-window': 2.0.0-alpha.1
   autoprefixer: ^10.4.14
   cross-env: ^7.0.3
@@ -18,7 +18,7 @@ specifiers:
   vite-plugin-svelte-svg: ^2.2.1
 
 dependencies:
-  '@tauri-apps/api': 2.0.0-alpha.6
+  '@tauri-apps/api': 2.0.0-alpha.8
   '@tauri-apps/plugin-window': 2.0.0-alpha.1
   flowbite: 1.6.6
   flowbite-svelte: 0.37.5_svelte@3.59.1
@@ -338,6 +338,11 @@ packages:
 
   /@tauri-apps/api/2.0.0-alpha.6:
     resolution: {integrity: sha512-ZMOc3eu9amwvkC6M69h3hWt4/EsFaAXmtkiw4xd2LN59/lTb4ZQiVfq2QKlRcu1rj3n/Tcr7U30ZopvHwXBGIg==}
+    engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
+    dev: false
+
+  /@tauri-apps/api/2.0.0-alpha.8:
+    resolution: {integrity: sha512-3hZ+7EzUA11KN+O/Y4KgmjR+ldhXLdNllkw//hv/AaNsktEopCRBuKfVRLzVK3yov+Z+GzgxqFlwgJ1v6g1iKw==}
     engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
     dev: false
 
