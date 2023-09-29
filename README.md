@@ -53,7 +53,8 @@ The crates are organized as follow :
 - p2p-broker : the broker code (as server and core node)
 - p2p-client-ws : the client connecting to a broker with WebSocket, used by the apps and verifier
 - p2p-verifier : the code of the verifier
-- stores-lmdb : lmdb backed stores
+- stores-lmdb : lmdb backed stores (not used anymore)
+- stores-rocksdb : RocksDB backed stores. see [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
 - ngcli : CLI tool to manipulate the repos and administrate the server
 - ngd : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
 - ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
