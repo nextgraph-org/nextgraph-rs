@@ -12,7 +12,7 @@
 <script>
   import { Button } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
-  import Home from "../../../../ng-app/src/lib/Home.svelte";
+  import NoWallet from "../../../../ng-app/src/lib/NoWallet.svelte";
 
   import { onMount } from "svelte";
 
@@ -52,4 +52,6 @@
   onMount(() => bootstrap());
 </script>
 
-<Home {display_login_create} />
+{#if display_login_create}
+  <NoWallet />
+{/if}

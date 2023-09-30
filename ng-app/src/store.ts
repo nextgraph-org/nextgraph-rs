@@ -19,6 +19,8 @@ export const active_wallet = writable(undefined);
 
 export const wallets = writable({});
 
+export const online = writable(false);
+
 export const has_wallets = derived(wallets,($wallets) => Object.keys($wallets).length);
 
 export const active_session = writable(undefined);

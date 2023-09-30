@@ -13,6 +13,7 @@
   import { Button } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
   import Home from "../lib/Home.svelte";
+  import NoWallet from "../lib/NoWallet.svelte";
   import { push } from "svelte-spa-router";
   import { onMount, onDestroy } from "svelte";
   import {
@@ -44,4 +45,8 @@
   });
 </script>
 
-<Home {display_login_create} />
+{#if display_login_create}
+  <NoWallet />
+{:else}
+  <Home />
+{/if}
