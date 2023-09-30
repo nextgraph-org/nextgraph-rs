@@ -158,12 +158,10 @@
   });
 </script>
 
-<main class="">
-  <!-- <p>
+<!-- <p>
     {JSON.stringify(Object.keys($wallets))}
     {JSON.stringify($active_wallet)}
     {JSON.stringify(Object.keys($opened_wallets))}
     {JSON.stringify($active_session)}
   </p> -->
-  <Router {routes} />
-</main>
+<Router {routes} />

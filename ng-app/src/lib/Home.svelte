@@ -9,109 +9,157 @@
 // according to those terms.
 -->
 
-<script>
-  import { Button } from "flowbite-svelte";
-  import { link } from "svelte-spa-router";
+<script lang="ts">
+  import {
+    Sidebar,
+    SidebarGroup,
+    SidebarItem,
+    SidebarWrapper,
+  } from "flowbite-svelte";
+  import { link, location } from "svelte-spa-router";
+
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
-  import { close_active_wallet } from "../store";
+  // @ts-ignore
+  import LogoGray from "../assets/nextgraph-gray.svg?component";
+  import { close_active_wallet, online } from "../store";
 
   import { onMount } from "svelte";
-  export let display_login_create = false;
+
+  import {
+    Home,
+    Bolt,
+    MagnifyingGlass,
+    PlusCircle,
+    PaperAirplane,
+    Bell,
+    User,
+    ArrowRightOnRectangle,
+  } from "svelte-heros-v2";
+
+  let width: number;
+  let breakPoint: number = 660;
+  let mobile = false;
+
+  $: if (width >= breakPoint) {
+    mobile = false;
+  } else {
+    mobile = true;
+  }
+
+  $: activeUrl = "#" + $location;
 
   function logout() {
     close_active_wallet();
   }
+
+  let asideClass = "w-48";
+  let spanClass = "flex-1 ml-3 whitespace-nowrap";
+  let nonActiveClass =
+    "flex items-center p-2 text-base font-normal text-gray-900 rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700";
 </script>
 
-{#if display_login_create}
-  <main class="container3">
-    <div class="row">
-      <Logo class="logo block h-40" alt="NextGraph Logo" />
-    </div>
-    <h1 class="text-2xl mb-10">Welcome to NextGraph</h1>
+<div class="full-layout">
+  <Sidebar {activeUrl} {asideClass} {nonActiveClass} class="fixed">
+    <SidebarWrapper class="bg-gray-60">
+      <SidebarGroup>
+        <SidebarItem label="NextGraph" href="#/user">
+          <svelte:fragment slot="icon">
+            {#if $online}
+              <Logo class="w-10 h-10" />
+            {:else}
+              <LogoGray class="w-10 h-10" />
+            {/if}
+          </svelte:fragment>
+        </SidebarItem>
+        <SidebarItem label="Home" href="#/">
+          <svelte:fragment slot="icon">
+            <Home
+              tabindex="-1"
+              class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+            />
+          </svelte:fragment>
+        </SidebarItem>
+        <SidebarItem label="Stream" href="#/stream">
+          <svelte:fragment slot="icon">
+            <Bolt
+              tabindex="-1"
+              class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+            />
+          </svelte:fragment>
+        </SidebarItem>
+        <SidebarItem label="Search" href="#/search">
+          <svelte:fragment slot="icon">
+            <MagnifyingGlass
+              tabindex="-1"
+              class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+            />
+          </svelte:fragment>
+        </SidebarItem>
+        <SidebarItem label="Create" href="#/create">
+          <svelte:fragment slot="icon">
+            <PlusCircle
+              tabindex="-1"
+              class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+            />
+          </svelte:fragment>
+        </SidebarItem>
+        <SidebarItem label="Site" href="#/site">
+          <svelte:fragment slot="icon">
+            <User
+              tabindex="-1"
+              class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+            />
+          </svelte:fragment>
+        </SidebarItem>
+        <SidebarItem label="Messages" href="#/messages">
+          <svelte:fragment slot="icon">
+            <PaperAirplane
+              tabindex="-1"
+              class="-rotate-45 w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+            />
+            <span
+              class="inline-flex justify-center items-center p-3 mt-1 -ml-3 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"
+            >
+              3
+            </span>
+          </svelte:fragment>
+        </SidebarItem>
+        <SidebarItem label="Notifications" href="#/notifications">
+          <svelte:fragment slot="icon">
+            <Bell
+              tabindex="-1"
+              class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+            />
+            <span
+              class="inline-flex justify-center items-center p-3 mt-1 -ml-3 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"
+            >
+              10
+            </span>
+          </svelte:fragment>
+        </SidebarItem>
+      </SidebarGroup>
+    </SidebarWrapper>
+  </Sidebar>
 
-    <p class="max-w-sm">
-      We could not find a wallet saved on this device.<br /> If you already have
-      a wallet, select "Log in", otherwise, select "Create Wallet" here below
-    </p>
-    <div class="row mt-10">
-      <a href="/wallet/create" use:link>
-        <button
-          tabindex="-1"
-          class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mr-2 mb-2"
-        >
-          <svg
-            class="w-8 h-8 mr-2 -ml-1"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
-            />
-          </svg>
-          Create wallet
-        </button>
-      </a>
-    </div>
-    <div class="row mt-10">
-      <a href="/wallet/login" use:link>
-        <button
-          tabindex="-1"
-          class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
-        >
-          <svg
-            class="w-8 h-8 mr-2 -ml-1"
-            fill="currentColor"
-            stroke="currentColor"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-            />
-          </svg>
-          Log in
-        </button>
-      </a>
-    </div>
-  </main>
-{:else}
-  <main class="container3">
-    <h1>Welcome to test</h1>
+  <main class="ml-48">
+    <h1>Welcoe {mobile}</h1>
     <div class="row mt-10">
       <button
         on:click={logout}
-        class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
+        class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
       >
-        <svg
-          class="w-8 h-8 mr-2 -ml-1"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"
-          />
-        </svg>
+        <ArrowRightOnRectangle tabindex="-1" class="w-8 h-8 mr-2 -ml-1" />
 
         Logout
       </button>
     </div>
   </main>
-{/if}
+</div>
+<svelte:window bind:innerWidth={width} />
+
+<style>
+  .full-layout {
+    height: 100vh;
+  }
+</style>

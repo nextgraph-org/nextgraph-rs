@@ -13,6 +13,7 @@
   import { onMount, onDestroy } from "svelte";
   import { link, push } from "svelte-spa-router";
   import Login from "../lib/Login.svelte";
+  import CenteredLayout from "../lib/CenteredLayout.svelte";
   import ng from "../api";
   import { Fileupload, Button } from "flowbite-svelte";
   // @ts-ignore
@@ -135,47 +136,47 @@
   }
 </script>
 
-{#if error}
-  <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
-    <svg
-      class="animate-bounce mt-10 h-16 w-16 mx-auto"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.5"
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-      />
-    </svg>
+<CenteredLayout>
+  {#if error}
+    <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
+      <svg
+        class="animate-bounce mt-10 h-16 w-16 mx-auto"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        viewBox="0 0 24 24"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+        />
+      </svg>
 
-    <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-      An error occurred:<br />{error}
-    </p>
-    <button
-      on:click={() => {
-        importing = false;
-        error = undefined;
-        wallet = undefined;
-      }}
-      class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-    >
-      Start over
-    </button>
-  </div>
-{:else if wallet}
-  <Login
-    {wallet}
-    on:error={gotError}
-    on:opened={gotWallet}
-    on:cancel={cancelLogin}
-  />
-{:else if !$active_wallet && !selected}
-  <main class="">
+      <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
+        An error occurred:<br />{error}
+      </p>
+      <button
+        on:click={() => {
+          importing = false;
+          error = undefined;
+          wallet = undefined;
+        }}
+        class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+      >
+        Start over
+      </button>
+    </div>
+  {:else if wallet}
+    <Login
+      {wallet}
+      on:error={gotError}
+      on:opened={gotWallet}
+      on:cancel={cancelLogin}
+    />
+  {:else if !$active_wallet && !selected}
     <div class="row">
       <Logo class="logo block h-40" alt="NextGraph Logo" />
     </div>
@@ -217,7 +218,7 @@
           on:change={handleWalletUpload}
         />
         <button
-          class=" mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+          class=" mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
           on:click={() => {
             document.getElementById("import_wallet_file").click();
           }}
@@ -242,7 +243,7 @@
         <Button
           style="min-width: 250px;justify-content: left;"
           disabled
-          class="disabled mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
+          class="disabled mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
         >
           <svg
             class="w-8 h-8 mr-2 -ml-1"
@@ -269,7 +270,7 @@
         <Button
           style="min-width: 250px;justify-content: left;"
           disabled
-          class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:outline-none focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+          class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
         >
           <svg
             class="w-8 h-8 mr-2 -ml-1"
@@ -292,7 +293,7 @@
         <a href="/wallet/create" use:link>
           <button
             tabindex="-1"
-            class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:outline-none focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+            class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
           >
             <svg
               class="w-8 h-8 mr-2 -ml-1"
@@ -314,9 +315,9 @@
         </a>
       </div>
     </div>
-  </main>
-{:else if step == "security"}{:else if step == "qrcode"}{:else if step == "cloud"}{:else if step == "loggedin"}you
-  are logged in{/if}
+  {:else if step == "security"}{:else if step == "qrcode"}{:else if step == "cloud"}{:else if step == "loggedin"}you
+    are logged in{/if}
+</CenteredLayout>
 
 <style>
   .wallet-box {

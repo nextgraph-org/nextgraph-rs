@@ -11,10 +11,13 @@
 
 <script>
   import { Alert } from "flowbite-svelte";
+  import CenteredLayout from "../lib/CenteredLayout.svelte";
 </script>
 
-<div class="p-8">
-  <Alert color="red">
-    <span class="font-medium">404</span> Page not found.
-  </Alert>
-</div>
+<CenteredLayout>
+  <div class="p-8">
+    <Alert color="red">
+      <span class="font-medium">404</span> Page not found.
+    </Alert>
+  </div>
+</CenteredLayout>
