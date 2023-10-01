@@ -233,7 +233,7 @@
 {:else if step == "pazzle"}
   <div
     class="h-screen aspect-[3/5] pazzleline"
-    class:min-w-[350px]={mobile}
+    class:min-w-[310px]={mobile}
     class:min-w-[500px]={!mobile}
     class:max-w-[360px]={mobile}
     class:max-w-[600px]={!mobile}
@@ -258,7 +258,7 @@
   <!-- console.log(cat_idx, emoji_cat[cat_idx], idx, cat[idx].code); -->
   <div
     class="h-screen aspect-[3/3] pazzleline"
-    class:min-w-[350px]={mobile}
+    class:min-w-[320px]={mobile}
     class:min-w-[500px]={!mobile}
     class:max-w-[360px]={mobile}
     class:max-w-[600px]={!mobile}
@@ -293,17 +293,17 @@
     {/each}
   </div>
 {:else if step == "pin"}
-  <div class=" max-w-6xl lg:px-8 mx-auto px-4">
+  <div class=" max-w-6xl lg:px-8 mx-auto px-3">
     <p class="max-w-xl md:mx-auto lg:max-w-2xl">
       <span class="text-xl">Enter your PIN code</span>
     </p>
-    <div class="w-[325px] mx-auto">
+    <div class="w-[295px] mx-auto">
       {#each [0, 1, 2] as row}
         <div class="">
           {#each shuffle_pin.slice(0 + row * 3, 3 + row * 3) as num}
             <button
               tabindex="0"
-              class="m-1 select-none align-bottom text-7xl w-[100px] h-[100px] p-0"
+              class="m-1 select-none align-bottom text-7xl w-[90px] h-[90px] p-0"
               on:click={async () => await pin(num)}
             >
               <span>{num}</span>
@@ -313,7 +313,7 @@
       {/each}
       <button
         tabindex="0"
-        class="m-1 select-none mx-auto align-bottom text-7xl w-[100px] h-[100px] p-0"
+        class="m-1 select-none mx-auto align-bottom text-7xl w-[90px] h-[90px] p-0"
         on:click={async () => await pin(shuffle_pin[9])}
       >
         <span>{shuffle_pin[9]}</span>

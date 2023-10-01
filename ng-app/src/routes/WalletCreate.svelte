@@ -245,7 +245,9 @@
         cloud_link = "https://nextgraph.one/#/w/" + ready.wallet_name;
       }
       if (ready.wallet_file.length) {
-        const blob = new Blob([ready.wallet_file]);
+        const blob = new Blob([ready.wallet_file], {
+          type: "application/octet-stream",
+        });
         download_link = URL.createObjectURL(blob);
       }
     } catch (e) {
@@ -1080,7 +1082,7 @@
           </button>
         </div>
       {:else if pin.length < 4}
-        <div class=" max-w-6xl lg:px-8 mx-auto px-4">
+        <div class=" max-w-6xl lg:px-8 mx-auto px-3">
           {#if registration_success}
             <Alert color="green" class="mb-5">
               <span class="font-bold text-xl"
@@ -1117,13 +1119,13 @@
                 >{digit}</span
               >{/each}
           </Alert>
-          <div class="w-[325px] mx-auto mb-4">
+          <div class="w-[295px] mx-auto mb-4">
             {#each [0, 1, 2] as row}
               <div class="">
                 {#each [1, 2, 3] as num}
                   <button
                     tabindex="0"
-                    class="m-1 select-none align-bottom text-7xl w-[100px] h-[100px] p-0"
+                    class="m-1 select-none align-bottom text-7xl w-[90px] h-[90px] p-0"
                     on:click={async () => sel_pin(num + row * 3)}
                   >
                     <span>{num + row * 3}</span>
@@ -1133,7 +1135,7 @@
             {/each}
             <button
               tabindex="0"
-              class="m-1 select-none mx-auto align-bottom text-7xl w-[100px] h-[100px] p-0"
+              class="m-1 select-none mx-auto align-bottom text-7xl w-[90px] h-[90px] p-0"
               on:click={async () => sel_pin(0)}
             >
               <span>0</span>
@@ -1141,9 +1143,9 @@
           </div>
         </div>
       {:else if pin_confirm.length < 4}
-        <div class=" max-w-6xl lg:px-8 mx-auto px-4">
+        <div class=" max-w-6xl lg:px-8 mx-auto px-3">
           <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-            <span class="animate-bounce text-xl"
+            <span class="text-red-800 text-xl"
               >Please confirm your PIN code.</span
             >
             Enter the same PIN again
@@ -1153,13 +1155,13 @@
                 class="font-bold text-xl">{digit}</span
               >{/each}
           </Alert>
-          <div class="w-[325px] mx-auto">
+          <div class="w-[295px] mx-auto">
             {#each [0, 1, 2] as row}
               <div class="">
                 {#each [1, 2, 3] as num}
                   <button
                     tabindex="0"
-                    class="m-1 select-none align-bottom text-7xl w-[100px] h-[100px] p-0"
+                    class="m-1 select-none align-bottom text-7xl w-[90px] h-[90px] p-0"
                     on:click={async () => await confirm_pin(num + row * 3)}
                   >
                     <span>{num + row * 3}</span>
@@ -1169,7 +1171,7 @@
             {/each}
             <button
               tabindex="0"
-              class="m-1 select-none mx-auto align-bottom text-7xl w-[100px] h-[100px] p-0"
+              class="m-1 select-none mx-auto align-bottom text-7xl w-[90px] h-[90px] p-0"
               on:click={async () => await confirm_pin(0)}
             >
               <span>0</span>
@@ -1311,7 +1313,7 @@
             </Dropzone>
             <img
               bind:this={img_preview}
-              class="max-w-[300px] h-[300px] mx-auto mb-10"
+              class="max-w-[250px] h-[250px] mx-auto mb-10"
               src={image_url}
             />
           {:else}

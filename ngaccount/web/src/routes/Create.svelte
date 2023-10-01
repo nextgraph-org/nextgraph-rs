@@ -307,7 +307,7 @@
               <span>
                 You can delete your account with us at any time by going to the
                 link <a target="_blank" href="https://account.{domain}/#/delete"
-                  >https://account.{domain}/#/delete</a
+                  >account.{domain}/#/delete</a
                 > or by entering in your NextGraph application and selecting the
                 menu, then Accounts, then under broker "delete registration"</span
               >
