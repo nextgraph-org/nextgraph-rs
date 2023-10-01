@@ -30,7 +30,7 @@ div[role="alert"] div {
 }
 
 .choice-button {
-  min-width: 340px;
+  min-width: 320px;
 }
 
 .row {
@@ -58,7 +58,7 @@ body {
   margin: 0;
   display: flex;
   place-items: center;
-  min-width: 320px;
+  min-width: 305px;
   min-height: 100vh;
 }
 

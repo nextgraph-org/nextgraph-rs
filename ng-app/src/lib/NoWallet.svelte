@@ -27,7 +27,7 @@
       We could not find a wallet saved on this device.<br /> If you already have
       a wallet, select "Log in", otherwise, select "Create Wallet" here below
     </p>
-    <div class="row mt-10">
+    <div class="row mt-5">
       <a href="/wallet/create" use:link>
         <button
           tabindex="-1"
@@ -52,7 +52,7 @@
         </button>
       </a>
     </div>
-    <div class="row mt-10">
+    <div class="row mt-5">
       <a href="/wallet/login" use:link>
         <button
           tabindex="-1"

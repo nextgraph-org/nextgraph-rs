@@ -30,3 +30,11 @@
 <main class="">
   <Router {routes} />
 </main>
+
+<style>
+  main {
+    margin: 0 auto;
+    padding: 0rem;
+    text-align: center;
+  }
+</style>
