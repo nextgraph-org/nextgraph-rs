@@ -46,11 +46,11 @@
             <LogoGray class="w-7 h-7 tall:w-10 tall:h-10" />
           {/if}
           <span
-            class="ml-4 self-center text-base font-normal text-gray-900 rounded-lg dark:text-white whitespace-nowrap"
+            class="ml-4 self-center text-lg font-normal text-gray-900 rounded-lg dark:text-white whitespace-nowrap"
             >NextGraph</span
           >
         </a>
-        <div class="w-auto flex flex-col">
+        <div class="w-auto flex row">
           <a href="#/messages" class="row items-center" on:click>
             <PaperAirplane
               tabindex="-1"
