@@ -244,7 +244,7 @@
           <div
             role="button"
             tabindex="0"
-            class="w-full aspect-square emoji"
+            class="w-full aspect-square emoji focus:outline-none focus:bg-gray-300"
             on:click={() => select(row * 3 + i)}
             on:keypress={() => select(row * 3 + i)}
           >
