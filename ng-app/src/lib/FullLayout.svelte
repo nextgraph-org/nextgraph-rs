@@ -70,7 +70,13 @@
       <slot />
     </main>
     <MobileBottomBar {activeUrl}>
-      <MobileBottomBarItem href="#/" icon={Home} on:click={scrollToTop} />
+      <MobileBottomBarItem href="#/" icon={Home} on:click={scrollToTop}>
+        <span
+          class="inline-flex justify-center items-center p-3 mt-1 -ml-2 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"
+        >
+          13
+        </span>
+      </MobileBottomBarItem>
       <MobileBottomBarItem href="#/stream" icon={Bolt} on:click={scrollToTop} />
       <MobileBottomBarItem
         href="#/search"
