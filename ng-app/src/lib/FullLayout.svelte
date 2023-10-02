@@ -47,16 +47,14 @@
     mobile = true;
   }
 
+  let top;
   async function scrollToTop() {
     await tick();
-    console.log("scrollToTop");
     top.scrollIntoView();
   }
   onMount(async () => await scrollToTop());
 
   $: activeUrl = "#" + $location;
-
-  let top;
 
   let asideClass = "w-48";
   let spanClass = "flex-1 ml-3 whitespace-nowrap";

@@ -1247,7 +1247,7 @@
               id="security-phrase-input"
               placeholder="Type a security phrase..."
               bind:value={security_txt}
-              on:keydown={security_phrase_ok}
+              on:keypress={security_phrase_ok}
             /><button on:click={async () => await security_phrase_ok()}>
               Ok
             </button><br />

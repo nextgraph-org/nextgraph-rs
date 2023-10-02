@@ -78,38 +78,6 @@
       </div>
     </nav>
   {/if}
-
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-
-  <h1>Welcome</h1>
-
-  <div class="row mt-10">
-    <button
-      on:click={logout}
-      class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
-    >
-      <ArrowRightOnRectangle tabindex="-1" class="w-8 h-8 mr-2 -ml-1" />
-
-      Logout
-    </button>
-  </div>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>Welcome</h1>
-  <h1>End</h1>
+  <div />
 </FullLayout>
 <svelte:window bind:innerWidth={width} />
