@@ -25,6 +25,8 @@ const mapping = {
     "get_wallets_from_localstorage": [],
     "open_window": ["url","label","title"],
     "decode_invitation": ["invite"],
+    "broker_disconnect": [],
+    "broker_connect": ["client","info","session","opened_wallet","location"],
     "test": [ ]
 }
 
@@ -37,7 +39,7 @@ const handler = {
             let sdk = await import("ng-sdk-js")
             if (path[0] === "client_info") {
                 let client_info = await Reflect.apply(sdk[path], caller, args);
-                client_info.version=version;
+                client_info.V0.version=version;
                 //console.log(client_info);
                 return client_info;
             } else if (path[0] === "get_wallets_from_localstorage") {
@@ -89,7 +91,25 @@ const handler = {
                 };
                 //console.log(res);
                 return res;
-            } else if (path[0] === "doc_sync_branch") {
+            } else if (path[0] === "disconnections_subscribe") {
+                let { getCurrent } = await import("@tauri-apps/plugin-window");
+                let callback = args[0];
+                let unlisten = await getCurrent().listen("disconnections", (event) => {
+                    callback(event.payload).then(()=> {})
+                })
+                await tauri.invoke(path[0],{});
+                return () => {
+                    unlisten();
+                }
+            } else if (path[0] === "broker_connect") {
+                let arg = {};
+                args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
+                let ret = await tauri.invoke(path[0],arg);
+                for (let e of Object.entries(ret)) {
+                    e[1].since = new Date(e[1].since);
+                }
+                return ret;
+            }else if (path[0] === "doc_sync_branch") {
                 let stream_id = (lastStreamId += 1).toString();
                 console.log("stream_id",stream_id);
                 let { getCurrent } = await import("@tauri-apps/plugin-window");

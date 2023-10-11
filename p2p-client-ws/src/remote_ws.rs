@@ -48,7 +48,7 @@ impl IConnect for ConnectionWebSocket {
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
         config: StartConfig,
-    ) -> Result<ConnectionBase, NetError> {
+    ) -> Result<ConnectionBase, ProtocolError> {
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
 
         let res = connect_async(url).await;
@@ -56,7 +56,7 @@ impl IConnect for ConnectionWebSocket {
         match res {
             Err(e) => {
                 log_debug!("Cannot connect: {:?}", e);
-                Err(NetError::ConnectionError)
+                Err(ProtocolError::ConnectionError)
             }
             Ok((websocket, _)) => {
                 cnx.start_read_loop(None, Some(peer_privk), Some(remote_peer));
@@ -78,7 +78,7 @@ impl IConnect for ConnectionWebSocket {
                     log_debug!("END of WS loop");
                 });
 
-                cnx.start(config).await;
+                cnx.start(config).await?;
 
                 Ok(cnx)
             }
@@ -330,7 +330,7 @@ mod test {
                 .write()
                 .await
                 .connect(
-                    Box::new(ConnectionWebSocket {}),
+                    Arc::new(Box::new(ConnectionWebSocket {})),
                     keys.0,
                     keys.1,
                     server_key,
@@ -339,7 +339,6 @@ mod test {
                         user,
                         user_priv,
                         client,
-                        client_priv,
                         info: ClientInfo::new(ClientType::Cli, "".into(), "".into()),
                         registration: None,
                     }),

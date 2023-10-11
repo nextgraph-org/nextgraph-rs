@@ -10,16 +10,19 @@
 -->
 
 <script lang="ts">
-  import { close_active_wallet, online } from "../store";
+  import {
+    online,
+    wallets,
+    active_wallet,
+    active_session,
+    connections,
+  } from "../store";
   import FullLayout from "./FullLayout.svelte";
   import { PaperAirplane, Bell, ArrowRightOnRectangle } from "svelte-heros-v2";
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
   // @ts-ignore
   import LogoGray from "../assets/nextgraph-gray.svg?component";
-  function logout() {
-    close_active_wallet();
-  }
 
   let width: number;
   let breakPoint: number = 662;

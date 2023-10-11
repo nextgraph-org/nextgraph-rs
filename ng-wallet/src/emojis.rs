@@ -698,7 +698,7 @@ const plants: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1fab4",
         shortcode: "potted_plant",
-        code: "plant",
+        code: "potted_plant",
     },
     EmojiDef {
         hexcode: "1f490",

@@ -42,13 +42,13 @@ impl IConnect for ConnectionWebSocket {
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
         config: StartConfig,
-    ) -> Result<ConnectionBase, NetError> {
+    ) -> Result<ConnectionBase, ProtocolError> {
         log_debug!("url {}", url);
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
 
         let (mut ws, wsio) = WsMeta::connect(url, None).await.map_err(|e| {
             //log_debug!("{:?}", e);
-            NetError::ConnectionError
+            ProtocolError::ConnectionError
         })?;
 
         cnx.start_read_loop(None, Some(peer_privk), Some(remote_peer));
@@ -62,7 +62,7 @@ impl IConnect for ConnectionWebSocket {
             shutdown,
         ));
 
-        cnx.start(config).await;
+        cnx.start(config).await?;
 
         Ok(cnx)
     }

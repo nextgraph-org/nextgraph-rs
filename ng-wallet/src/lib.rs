@@ -19,7 +19,7 @@ pub mod bip39;
 
 pub mod emojis;
 
-use std::{collections::HashMap, io::Cursor};
+use std::{collections::HashMap, io::Cursor, sync::Arc};
 
 use crate::bip39::bip39_wordlist;
 use crate::types::*;
@@ -34,7 +34,14 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use image::{imageops::FilterType, io::Reader as ImageReader, ImageOutputFormat};
 use safe_transmute::transmute_to_bytes;
 
-use p2p_net::types::{SiteType, SiteV0};
+use p2p_net::{
+    broker::BROKER,
+    connection::{ClientConfig, StartConfig},
+};
+use p2p_net::{
+    connection::IConnect,
+    types::{ClientInfo, Identity, SiteType, SiteV0},
+};
 use p2p_repo::types::{PubKey, Sig, Timestamp};
 use p2p_repo::utils::{generate_keypair, now_timestamp, sign, verify};
 use p2p_repo::{log::*, types::PrivKey};
@@ -429,6 +436,124 @@ pub fn gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> ShuffledPazzle {
         category_indices,
         emoji_indices,
     }
+}
+use web_time::SystemTime;
+fn get_unix_time() -> f64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as f64
+}
+
+// Result is a list of (user_id, server_id, server_ip, error, since_date)
+pub async fn connect_wallet(
+    client: PubKey,
+    info: ClientInfo,
+    session: HashMap<String, SessionPeerStorageV0>,
+    opened_wallet: EncryptedWallet,
+    location: Option<String>,
+    cnx: Box<dyn IConnect>,
+) -> Result<Vec<(String, String, String, Option<String>, f64)>, String> {
+    let mut result: Vec<(String, String, String, Option<String>, f64)> = Vec::new();
+    let arc_cnx = Arc::new(cnx);
+    match opened_wallet {
+        EncryptedWallet::V0(wallet) => {
+            log_debug!("XXXX {} {:?}", client.to_string(), wallet);
+            let auto_open = &wallet
+                .clients
+                .get(&client.to_string())
+                .ok_or("Client is invalid")?
+                .auto_open;
+            for site in auto_open {
+                match site {
+                    Identity::OrgSite(user) | Identity::IndividualSite(user) => {
+                        let user_id = user.to_string();
+                        let peer_key = session
+                            .get(&user_id)
+                            .ok_or("Session is missing")?
+                            .peer_key
+                            .clone();
+                        let peer_id = peer_key.to_pub();
+                        let site = wallet.sites.get(&user_id);
+                        if site.is_none() {
+                            result.push((
+                                user_id,
+                                "".into(),
+                                "".into(),
+                                Some("Site is missing".into()),
+                                get_unix_time(),
+                            ));
+                            continue;
+                        }
+                        let site = site.unwrap();
+                        let user_priv = site.site_key.clone();
+                        let core = site.cores[0]; //TODO: cycle the other cores if failure to connect (failover)
+                        let server_key = core.0;
+                        let broker = wallet.brokers.get(&core.0.to_string());
+                        if broker.is_none() {
+                            result.push((
+                                user_id,
+                                core.0.to_string(),
+                                "".into(),
+                                Some("Broker is missing".into()),
+                                get_unix_time(),
+                            ));
+                            continue;
+                        }
+                        let broker = broker.unwrap();
+                        for broker_info in broker {
+                            match broker_info {
+                                BrokerInfoV0::ServerV0(server) => {
+                                    let url = server.get_ws_url(&location).await;
+                                    //Option<(String, Vec<BindAddress>)>
+                                    if url.is_some() {
+                                        let url = url.unwrap();
+                                        if url.1.len() == 0 {
+                                            // TODO deal with BoxPublic and on tauri all Box...
+                                            let res = BROKER
+                                                .write()
+                                                .await
+                                                .connect(
+                                                    arc_cnx.clone(),
+                                                    peer_key,
+                                                    peer_id,
+                                                    server_key,
+                                                    StartConfig::Client(ClientConfig {
+                                                        url: url.0.clone(),
+                                                        user: *user,
+                                                        user_priv,
+                                                        client,
+                                                        info: info.clone(),
+                                                        registration: Some(core.1),
+                                                    }),
+                                                )
+                                                .await;
+                                            log_debug!("broker.connect : {:?}", res);
+
+                                            result.push((
+                                                user_id,
+                                                core.0.to_string(),
+                                                url.0.into(),
+                                                match res {
+                                                    Ok(_) => None,
+                                                    Err(e) => Some(e.to_string()),
+                                                },
+                                                get_unix_time(),
+                                            ));
+                                        }
+                                        break; // TODO implement failover
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    _ => unimplemented!(),
+                }
+            }
+        }
+    }
+    Ok(result)
 }
 
 pub fn gen_shuffle_for_pin() -> Vec<u8> {

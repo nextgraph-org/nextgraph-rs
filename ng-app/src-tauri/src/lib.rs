@@ -9,12 +9,14 @@
 use async_std::stream::StreamExt;
 use ng_wallet::types::*;
 use ng_wallet::*;
+use p2p_client_ws::remote_ws::ConnectionWebSocket;
 use p2p_net::broker::*;
-use p2p_net::types::{CreateAccountBSP, Invitation};
+use p2p_net::types::{ClientInfo, CreateAccountBSP, Invitation};
 use p2p_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend};
 use p2p_repo::errors::NgError;
 use p2p_repo::log::*;
 use p2p_repo::types::*;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{read, write};
 use tauri::scope::ipc::RemoteDomainAccessScope;
@@ -164,7 +166,7 @@ async fn wallet_import(
     previous_wallet: Wallet,
     opened_wallet: EncryptedWallet,
     app: tauri::AppHandle,
-) -> Result<(), String> {
+) -> Result<(String, ClientV0), String> {
     let path = app
         .path()
         .resolve("wallets", BaseDirectory::AppLocalData)
@@ -185,10 +187,10 @@ async fn wallet_import(
             app,
         )
         .map_err(|_| "Cannot create new session".to_string())?;
-        let (wallet, client) = opened_wallet_v0
+        let (wallet, client_id, client) = opened_wallet_v0
             .import(previous_wallet, session)
             .map_err(|e| e.to_string())?;
-        let lws = LocalWalletStorageV0::new(wallet, client);
+        let lws = LocalWalletStorageV0::new(wallet, &client);
 
         wallets.insert(wallet_name, lws);
         let lws_ser = LocalWalletStorage::v0_to_vec(wallets);
@@ -197,7 +199,7 @@ async fn wallet_import(
             log_debug!("write {:?} {}", path, r.unwrap_err());
             Err("Write error".to_string())
         } else {
-            Ok(())
+            Ok((client_id, client))
         }
     } else {
         Err("Already present on this device".to_string())
@@ -352,6 +354,32 @@ async fn cancel_doc_sync_branch(stream_id: &str) -> Result<(), ()> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn disconnections_subscribe(app: tauri::AppHandle) -> Result<(), ()> {
+    let main_window = app.get_window("main").unwrap();
+
+    let reader = BROKER
+        .write()
+        .await
+        .take_disconnections_receiver()
+        .ok_or(())?;
+
+    async fn inner_task(
+        mut reader: Receiver<String>,
+        main_window: tauri::Window,
+    ) -> ResultSend<()> {
+        while let Some(user_id) = reader.next().await {
+            main_window.emit("disconnections", user_id).unwrap();
+        }
+        log_debug!("END OF disconnections listener");
+        Ok(())
+    }
+
+    spawn_and_log_error(inner_task(reader, main_window));
+
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn doc_get_file_from_store_with_object_ref(
     nuri: &str,
     obj_ref: ObjectRef,
@@ -375,6 +403,58 @@ async fn doc_get_file_from_store_with_object_ref(
         .map_err(|e| e.to_string())?;
 
     Ok(obj_content)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn broker_disconnect() {
+    Broker::close_all_connections().await;
+}
+
+#[derive(Serialize, Deserialize)]
+struct ConnectionInfo {
+    pub server_id: String,
+    pub server_ip: String,
+    pub error: Option<String>,
+    pub since: u64,
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn broker_connect(
+    client: PubKey,
+    info: ClientInfo,
+    session: HashMap<String, SessionPeerStorageV0>,
+    opened_wallet: EncryptedWallet,
+    location: Option<String>,
+) -> Result<HashMap<String, ConnectionInfo>, String> {
+    let mut opened_connections: HashMap<String, ConnectionInfo> = HashMap::new();
+
+    let results = connect_wallet(
+        client,
+        info,
+        session,
+        opened_wallet,
+        location,
+        Box::new(ConnectionWebSocket {}),
+    )
+    .await?;
+
+    log_debug!("{:?}", results);
+
+    for result in results {
+        opened_connections.insert(
+            result.0,
+            ConnectionInfo {
+                server_id: result.1,
+                server_ip: result.2,
+                error: result.3,
+                since: result.4 as u64,
+            },
+        );
+    }
+
+    BROKER.read().await.print_status();
+
+    Ok(opened_connections)
 }
 
 #[derive(Default)]
@@ -435,6 +515,9 @@ impl AppBuilder {
                 get_wallets_from_localstorage,
                 open_window,
                 decode_invitation,
+                disconnections_subscribe,
+                broker_connect,
+                broker_disconnect,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

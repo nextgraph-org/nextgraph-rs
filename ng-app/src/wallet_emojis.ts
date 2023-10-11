@@ -734,7 +734,7 @@ let face = [
     {
       hexcode: "1fab4",
       shortcode: "potted_plant",
-      code: "plant",
+      code: "potted_plant",
     },
 
     {
