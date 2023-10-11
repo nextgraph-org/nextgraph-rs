@@ -68,7 +68,7 @@ pub trait IConnect: Send + Sync {
         peer_pubk: PubKey,
         remote_peer: DirectPeerId,
         config: StartConfig,
-    ) -> Result<ConnectionBase, NetError>;
+    ) -> Result<ConnectionBase, ProtocolError>;
 
     async fn probe(&self, ip: IP, port: u16) -> Result<Option<PubKey>, ProtocolError>;
 }
@@ -162,7 +162,6 @@ pub struct ClientConfig {
     pub user: PubKey,
     pub user_priv: PrivKey,
     pub client: PubKey,
-    pub client_priv: PrivKey,
     pub info: ClientInfo,
     pub registration: Option<Option<[u8; 32]>>,
 }
@@ -212,6 +211,12 @@ impl StartConfig {
     pub fn is_keep_alive(&self) -> bool {
         match self {
             StartConfig::Core(_) | StartConfig::Client(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_admin(&self) -> bool {
+        match self {
+            StartConfig::Admin(_) => true,
             _ => false,
         }
     }
@@ -786,6 +791,16 @@ impl NoiseFSM {
 
                                 log_debug!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the client side");
 
+                                // we notify the actor "Connecting" that the connection is ready
+                                let mut lock = self.actors.lock().await;
+                                let exists = lock.remove(&0);
+                                match exists {
+                                    Some(mut actor_sender) => {
+                                        let _ = actor_sender.send(ConnectionCommand::ReEnter).await;
+                                    }
+                                    _ => {}
+                                }
+
                                 return Ok(StepReply::NONE);
                             }
                         }
@@ -930,7 +945,7 @@ impl ConnectionBase {
                             res = locked_fsm.step(None).await;
                         }
                     } else {
-                        panic!("shouldn't be here. ConnectionCommand is read_loop can only have 5 different variants")
+                        panic!("shouldn't be here. ConnectionCommand in read_loop can only have 5 different variants")
                     }
 
                     match res {
@@ -1084,7 +1099,7 @@ impl ConnectionBase {
                 _ => Err(ProtocolError::ActorError),
             }
         } else {
-            panic!("cannot call probe on a server-side connection");
+            panic!("cannot call admin on a server-side connection");
         }
     }
 
@@ -1145,9 +1160,10 @@ impl ConnectionBase {
         }
     }
 
-    pub async fn start(&mut self, config: StartConfig) {
+    pub async fn start(&mut self, config: StartConfig) -> Result<(), ProtocolError> {
         // BOOTSTRAP the protocol from client-side
         if !self.dir.is_server() {
+            let is_admin = config.is_admin();
             let res;
             {
                 let mut fsm = self.fsm.as_ref().unwrap().lock().await;
@@ -1155,7 +1171,23 @@ impl ConnectionBase {
                 res = fsm.step(None).await;
             }
             if let Err(err) = res {
-                self.send(ConnectionCommand::ProtocolError(err)).await;
+                self.send(ConnectionCommand::ProtocolError(err.clone()))
+                    .await;
+                Err(err)
+            } else if !is_admin {
+                let mut actor = Box::new(Actor::<Connecting, ()>::new(0, true));
+                self.actors.lock().await.insert(0, actor.get_receiver_tx());
+
+                let mut receiver = actor.detach_receiver();
+                match receiver.next().await {
+                    Some(ConnectionCommand::ReEnter) => Ok(()),
+                    Some(ConnectionCommand::ProtocolError(e)) => Err(e),
+                    Some(ConnectionCommand::Error(e)) => Err(e.into()),
+                    Some(ConnectionCommand::Close) => Err(ProtocolError::Closing),
+                    _ => Err(ProtocolError::ActorError),
+                }
+            } else {
+                Ok(())
             }
         } else {
             panic!("cannot call start on a server-side connection");

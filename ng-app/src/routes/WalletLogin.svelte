@@ -89,10 +89,10 @@
     console.error(event.detail);
   }
   async function gotWallet(event) {
-    //console.log(event.detail);
     if (importing) {
       try {
-        await ng.wallet_import(wallet, event.detail.wallet);
+        let new_client = await ng.wallet_import(wallet, event.detail.wallet);
+        event.detail.wallet.V0.clients[new_client[0]] = new_client[1];
         let walls = await ng.get_wallets_from_localstorage();
         wallets.set(walls);
       } catch (e) {
@@ -321,8 +321,10 @@
           </a>
         </div>
       </div>
-    {:else if step == "security"}{:else if step == "qrcode"}{:else if step == "cloud"}{:else if step == "loggedin"}you
-      are logged in{/if}
+    {:else if step == "security"}{:else if step == "qrcode"}{:else if step == "cloud"}
+
+    {:else if step == "loggedin"}
+      You are logged in.<br /> please wait while the app is loading...{/if}
   </CenteredLayout>
 </div>
 

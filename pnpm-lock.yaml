@@ -18,6 +18,7 @@ importers:
       autoprefixer: ^10.4.14
       classnames: ^2.3.2
       cross-env: ^7.0.3
+      dayjs: ^1.11.10
       flowbite: ^1.6.5
       flowbite-svelte: ^0.43.3
       internal-ip: ^7.0.0
@@ -31,6 +32,7 @@ importers:
       svelte-heros-v2: ^0.10.12
       svelte-preprocess: ^5.0.3
       svelte-spa-router: ^3.3.0
+      svelte-time: ^0.8.0
       tailwindcss: ^3.3.1
       tslib: ^2.4.1
       typescript: ^4.9.5
@@ -57,6 +59,7 @@ importers:
       '@types/node': 18.16.16
       autoprefixer: 10.4.14_postcss@8.4.24
       cross-env: 7.0.3
+      dayjs: 1.11.10
       internal-ip: 7.0.0
       node-gzip: 1.1.2
       postcss: 8.4.24
@@ -66,6 +69,7 @@ importers:
       svelte-check: 3.4.3_sxhny56dlbcmwov4vk7qwrzshi
       svelte-heros-v2: 0.10.12_svelte@3.59.1
       svelte-preprocess: 5.0.4_vmz4xia4c7tzh4ii3qac2x3tom
+      svelte-time: 0.8.0
       tailwindcss: 3.3.2
       tslib: 2.5.3
       typescript: 4.9.5
@@ -848,6 +852,10 @@ packages:
     engines: {node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0, npm: '>=7.0.0'}
     dependencies:
       css-tree: 2.2.1
+    dev: true
+
+  /dayjs/1.11.10:
+    resolution: {integrity: sha512-vjAczensTgRcqDERK0SR2XMwsF/tSvnvlv6VcF2GIhg6Sx4yOIt/irsr1RDJsKiIyBzJDpCoXiWWq28MqH2cnQ==}
     dev: true
 
   /debug/4.3.4:
@@ -1860,6 +1868,12 @@ packages:
     dependencies:
       regexparam: 2.0.1
     dev: false
+
+  /svelte-time/0.8.0:
+    resolution: {integrity: sha512-V0LBpJhYV2Q+jqiJ94ITAo51P6RIhrHQpDt3LCSk8PXfL2UMvSMlDzkqHq8mdKqmBCRZURnXhpynN03GQa/G/A==}
+    dependencies:
+      dayjs: 1.11.10
+    dev: true
 
   /svelte/3.59.1:
     resolution: {integrity: sha512-pKj8fEBmqf6mq3/NfrB9SLtcJcUvjYSWyePlfCqN9gujLB25RitWK8PvFzlwim6hD/We35KbPlRteuA6rnPGcQ==}

@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-import { writable, readonly, derived } from "svelte/store";
+import { writable, readonly, derived, get } from "svelte/store";
 import ng from "./api";
 
 let all_branches = {};
@@ -19,7 +19,30 @@ export const active_wallet = writable(undefined);
 
 export const wallets = writable({});
 
-export const online = writable(false);
+export const connections = writable({});
+
+let next_reconnect = 0;
+
+export const online = derived(connections,($connections) => { 
+    for (const cnx of Object.keys($connections)) {
+        if (!$connections[cnx].error) return true;
+        else if ($connections[cnx].error=="PeerAlreadyConnected") { 
+            connections.update((c) => {
+                c[cnx].error = undefined;
+                return c;
+            });
+            return true; }
+        else if ($connections[cnx].error=="ConnectionError" && !$connections[cnx].connecting && next_reconnect==0) {
+            console.log("will try reconnect in 1 min");
+            next_reconnect = 60;
+            setTimeout(async ()=> {
+                next_reconnect = 0;
+                await reconnect();
+            },60000);
+        }
+    }
+    return false;
+});
 
 export const has_wallets = derived(wallets,($wallets) => Object.keys($wallets).length);
 
@@ -31,15 +54,61 @@ export const set_active_session = function(session) {
 
 export { writable, readonly, derived };
 
-export const close_active_wallet = function() {
+export const close_active_wallet = async function() {
 
-    active_session.set(undefined);
+    await close_active_session();
     active_wallet.update((w) => {
         delete w.wallet;
         return w;
     });
-    
 }
+
+export const close_active_session = async function() {
+
+    active_session.set(undefined);
+    await ng.broker_disconnect();
+
+}
+
+const can_connect = derived([active_wallet, active_session], ([$s1, $s2]) => [
+    $s1,
+    $s2,
+  ]
+);
+
+export const reconnect = async function() {
+    try {
+        let client = get(wallets)[get(active_wallet).id].client;
+        let info = await ng.client_info()
+        //console.log("Connecting with",client,info);
+        connections.set(await ng.broker_connect( 
+            client,
+            info,
+            get(active_session),
+            get(active_wallet).wallet,
+            location.href
+        ));
+    }catch (e) {
+        console.error(e)
+    }
+}
+export const disconnections_subscribe = async function() {
+    let disconnections_unsub = await ng.disconnections_subscribe(async (user_id) => {
+        console.log("DISCONNECTION FOR USER", user_id);
+        connections.update((c) => {
+            c[user_id].error = "ConnectionError";
+            c[user_id].since = new Date();
+            return c;
+        });
+    });
+}
+
+can_connect.subscribe(async (value) => {
+    if (value[0] && value[0].wallet && value[1]) {
+
+      await reconnect();
+    }
+  });
 
 const branch_commits = (nura, sub) => {
     // console.log("branch_commits")

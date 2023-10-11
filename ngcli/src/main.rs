@@ -1,7 +1,5 @@
 // Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
-// This code is partly derived from work written by TG x Thoth from P2Pcollab.
-// Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,

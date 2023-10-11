@@ -17,6 +17,8 @@
     active_wallet,
     opened_wallets,
     active_session,
+    close_active_session,
+    disconnections_subscribe,
   } from "./store";
 
   import Home from "./routes/Home.svelte";
@@ -49,6 +51,11 @@
   let unsub_main_close;
 
   onMount(async () => {
+    try {
+      await disconnections_subscribe();
+    } catch (e) {
+      console.log("called disconnections_subscribe twice");
+    }
     let tauri_platform = import.meta.env.TAURI_PLATFORM;
     if (tauri_platform) {
       //console.log(await ng.test());
@@ -58,6 +65,7 @@
       unsubscribe = active_wallet.subscribe((value) => {
         if (value && !value.wallet) {
           active_wallet.set(undefined);
+          push("#/wallet/login");
         }
       });
 
@@ -86,7 +94,7 @@
       wallets.set(await ng.get_wallets_from_localstorage());
       wallet_channel = new BroadcastChannel("ng_wallet");
       wallet_channel.postMessage({ cmd: "is_opened" }, location.href);
-      wallet_channel.onmessage = (event) => {
+      wallet_channel.onmessage = async (event) => {
         console.log(event.data.cmd, event.data);
         if (!location.href.startsWith(event.origin)) return;
         switch (event.data.cmd) {
@@ -121,7 +129,7 @@
               return w;
             });
             if ($active_wallet && $active_wallet.id == event.data.walletid) {
-              active_session.set(undefined);
+              await close_active_session();
               active_wallet.set(undefined);
               push("#/wallet/login");
             }
@@ -141,7 +149,7 @@
               location.href
             );
             active_wallet.set(undefined);
-            active_session.set(undefined);
+            //active_session.set(undefined);
             opened_wallets.update((w) => {
               delete w[value.id];
               return w;

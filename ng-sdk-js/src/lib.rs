@@ -23,7 +23,7 @@ use p2p_net::broker::*;
 use p2p_net::connection::{ClientConfig, StartConfig};
 use p2p_net::types::{
     BootstrapContent, BootstrapContentV0, ClientId, ClientInfo, ClientInfoV0, ClientType,
-    CreateAccountBSP, DirectPeerId, UserId, IP,
+    CreateAccountBSP, DirectPeerId, Identity, UserId, IP,
 };
 use p2p_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend, Sender};
 #[cfg(target_arch = "wasm32")]
@@ -125,7 +125,9 @@ pub fn wallet_open_wallet_with_pazzle(
         .map_err(|_| "Deserialization error of pin")?;
     let res = open_wallet_with_pazzle(wallet, pazzle, pin);
     match res {
-        Ok(r) => Ok(serde_wasm_bindgen::to_value(&r).unwrap()),
+        Ok(r) => Ok(r
+            .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+            .unwrap()),
         Err(e) => Err(e.to_string().into()),
     }
 }
@@ -294,7 +296,7 @@ pub async fn wallet_open_file(js_file: JsValue) -> Result<JsValue, String> {
 pub async fn wallet_import(
     js_previous_wallet: JsValue, //Wallet,
     js_opened_wallet: JsValue,   //EncryptedWallet
-) -> Result<(), String> {
+) -> Result<JsValue, String> {
     let previous_wallet = serde_wasm_bindgen::from_value::<Wallet>(js_previous_wallet)
         .map_err(|_| "Deserialization error of Wallet".to_string())?;
     let mut opened_wallet = serde_wasm_bindgen::from_value::<EncryptedWallet>(js_opened_wallet)
@@ -312,10 +314,10 @@ pub async fn wallet_import(
             opened_wallet_v0.personal_site,
         )
         .map_err(|e| format!("Cannot create new session: {e}"))?;
-        let (wallet, client) = opened_wallet_v0
+        let (wallet, client_id, client) = opened_wallet_v0
             .import(previous_wallet, session)
             .map_err(|e| e.to_string())?;
-        let lws = LocalWalletStorageV0::new(wallet, client);
+        let lws = LocalWalletStorageV0::new(wallet, &client);
 
         wallets.insert(wallet_name, lws);
 
@@ -325,7 +327,7 @@ pub async fn wallet_import(
         if r.is_some() {
             return Err(r.unwrap());
         }
-        Ok(())
+        Ok(serde_wasm_bindgen::to_value(&(client_id, client)).unwrap())
     } else {
         Err("Wallet already present on this device".to_string())
     }
@@ -364,13 +366,13 @@ extern "C" {
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
 pub fn client_info() -> JsValue {
-    let res = ClientInfoV0 {
+    let res = ClientInfo::V0(ClientInfoV0 {
         client_type: ClientType::NodeService,
         details: client_details(),
         version: version(),
         timestamp_install: 0,
         timestamp_updated: 0,
-    };
+    });
     //res
     serde_wasm_bindgen::to_value(&res).unwrap()
 }
@@ -429,7 +431,7 @@ pub fn client_info_() -> ClientInfoV0 {
 #[cfg(all(not(wasmpack_target = "nodejs"), target_arch = "wasm32"))]
 #[wasm_bindgen]
 pub fn client_info() -> JsValue {
-    let res = client_info_();
+    let res = ClientInfo::V0(client_info_());
     serde_wasm_bindgen::to_value(&res).unwrap()
 }
 
@@ -525,6 +527,46 @@ pub async fn doc_sync_branch(anuri: String, callback: &js_sys::Function) -> JsVa
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+pub async fn disconnections_subscribe(callback: &js_sys::Function) -> Result<JsValue, JsValue> {
+    let vec: Vec<u8> = vec![2; 10];
+    let view = unsafe { Uint8Array::view(&vec) };
+    let x = JsValue::from(Uint8Array::new(view.as_ref()));
+
+    let mut reader;
+    {
+        reader = BROKER
+            .write()
+            .await
+            .take_disconnections_receiver()
+            .ok_or(false)?;
+    }
+
+    async fn inner_task(
+        mut reader: Receiver<String>,
+        callback: js_sys::Function,
+    ) -> ResultSend<()> {
+        while let Some(user_id) = reader.next().await {
+            let this = JsValue::null();
+            let xx = serde_wasm_bindgen::to_value(&user_id).unwrap();
+            let jsval: JsValue = callback.call1(&this, &xx).unwrap();
+            let promise_res: Result<js_sys::Promise, JsValue> = jsval.dyn_into();
+            match promise_res {
+                Ok(promise) => {
+                    JsFuture::from(promise).await;
+                }
+                Err(_) => {}
+            }
+        }
+        log_debug!("END OF disconnections reader");
+        Ok(())
+    }
+
+    spawn_and_log_error(inner_task(reader, callback.clone()));
+    Ok(true.into())
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
 pub async fn probe() {
     let res = BROKER
         .write()
@@ -562,7 +604,7 @@ pub async fn start() {
             .write()
             .await
             .connect(
-                Box::new(ConnectionWebSocket {}),
+                Arc::new(Box::new(ConnectionWebSocket {})),
                 keys.0,
                 keys.1,
                 server_key,
@@ -571,7 +613,6 @@ pub async fn start() {
                     user,
                     user_priv,
                     client,
-                    client_priv,
                     info: ClientInfo::V0(client_info_()),
                     registration: None,
                 }),
@@ -610,18 +651,73 @@ pub async fn start() {
     spawn_and_log_error(inner_task()).await;
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn start() {
-    //alert(&format!("I say: {}", name));
-    task::spawn(async move {});
+pub async fn broker_disconnect() {
+    Broker::close_all_connections().await;
 }
 
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn change(name: &str) -> JsValue {
-    let mut random_buf = [0u8; 32];
-    getrandom::getrandom(&mut random_buf).unwrap();
-    JsValue::from_str(&format!("Hellooo, {}!", name))
+pub async fn broker_connect(
+    client_pub_key_js: JsValue,
+    client_info_js: JsValue,
+    session_js: JsValue,
+    opened_wallet_js: JsValue,
+    location: Option<String>,
+) -> Result<JsValue, String> {
+    let client = serde_wasm_bindgen::from_value::<PubKey>(client_pub_key_js)
+        .map_err(|_| "serde error on client")?;
+    let info = serde_wasm_bindgen::from_value::<ClientInfo>(client_info_js)
+        .map_err(|_| "serde error on info")?;
+    let session =
+        serde_wasm_bindgen::from_value::<HashMap<String, SessionPeerStorageV0>>(session_js)
+            .map_err(|_| "serde error on session")?;
+    let opened_wallet = serde_wasm_bindgen::from_value::<EncryptedWallet>(opened_wallet_js)
+        .map_err(|_| "serde error on opened_wallet")?;
+
+    #[derive(Serialize, Deserialize)]
+    struct ConnectionInfo {
+        pub server_id: String,
+        pub server_ip: String,
+        pub error: Option<String>,
+        #[serde(with = "serde_wasm_bindgen::preserve")]
+        pub since: js_sys::Date,
+    }
+
+    let mut opened_connections: HashMap<String, ConnectionInfo> = HashMap::new();
+
+    let results = connect_wallet(
+        client,
+        info,
+        session,
+        opened_wallet,
+        location,
+        Box::new(ConnectionWebSocket {}),
+    )
+    .await?;
+
+    log_debug!("{:?}", results);
+
+    for result in results {
+        let mut date = js_sys::Date::new_0();
+        date.set_time(result.4);
+        opened_connections.insert(
+            result.0,
+            ConnectionInfo {
+                server_id: result.1,
+                server_ip: result.2,
+                error: result.3,
+                since: date,
+            },
+        );
+    }
+
+    BROKER.read().await.print_status();
+
+    Ok(opened_connections
+        .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+        .unwrap())
 }
 
 #[cfg(target_arch = "wasm32")]

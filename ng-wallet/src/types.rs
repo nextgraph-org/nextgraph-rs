@@ -121,7 +121,7 @@ impl From<&CreateWalletResultV0> for LocalWalletStorageV0 {
 }
 
 impl LocalWalletStorageV0 {
-    pub fn new(wallet: Wallet, client: ClientV0) -> Self {
+    pub fn new(wallet: Wallet, client: &ClientV0) -> Self {
         LocalWalletStorageV0 {
             bootstrap: BootstrapContent::V0(BootstrapContentV0::new()),
             wallet,
@@ -157,6 +157,9 @@ pub struct ClientV0 {
 }
 
 impl ClientV0 {
+    pub fn id(&self) -> String {
+        self.priv_key.to_pub().to_string()
+    }
     #[deprecated(note = "**Don't use dummy method**")]
     pub fn dummy() -> Self {
         ClientV0 {
@@ -213,6 +216,9 @@ pub struct EncryptedWalletV0 {
     pub personal_site: PubKey,
 
     #[zeroize(skip)]
+    pub personal_site_id: String,
+
+    #[zeroize(skip)]
     pub sites: HashMap<String, SiteV0>,
 
     // map of brokers and their connection details
@@ -242,7 +248,7 @@ impl EncryptedWalletV0 {
         &mut self,
         previous_wallet: Wallet,
         session: SessionWalletStorageV0,
-    ) -> Result<(Wallet, ClientV0), NgWalletError> {
+    ) -> Result<(Wallet, String, ClientV0), NgWalletError> {
         if self.log.is_none() {
             return Err(NgWalletError::InternalError);
         }
@@ -260,6 +266,7 @@ impl EncryptedWalletV0 {
                 nonce,
                 self.wallet_privkey.clone(),
             )?,
+            client.id(),
             client,
         ))
     }
@@ -711,6 +718,7 @@ pub struct WalletOpCreateV0 {
 
 impl From<&WalletOpCreateV0> for EncryptedWalletV0 {
     fn from(op: &WalletOpCreateV0) -> Self {
+        let personal_site = op.personal_site.site_key.to_pub();
         let mut wallet = EncryptedWalletV0 {
             wallet_privkey: op.wallet_privkey.clone(),
             wallet_id: op.wallet_privkey.to_pub().to_string(),
@@ -718,7 +726,8 @@ impl From<&WalletOpCreateV0> for EncryptedWalletV0 {
             mnemonic: op.mnemonic.clone(),
             pin: op.pin.clone(),
             save_to_ng_one: op.save_to_ng_one.clone(),
-            personal_site: op.personal_site.site_key.to_pub(),
+            personal_site,
+            personal_site_id: personal_site.to_string(),
             sites: HashMap::new(),
             brokers: HashMap::new(),
             clients: HashMap::new(),

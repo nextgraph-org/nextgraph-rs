@@ -373,7 +373,7 @@
     </div>
   {:else}
     <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-green-800">
-      Your wallet is opened!
+      Your wallet is opened! <br />Please wait while the app is loading...
       <svg
         class="my-10 h-16 w-16 mx-auto"
         fill="none"

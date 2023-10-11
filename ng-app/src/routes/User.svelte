@@ -13,6 +13,7 @@
   import { link, push } from "svelte-spa-router";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import { version } from "../../package.json";
+  import Time from "svelte-time";
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
   import {
@@ -35,7 +36,14 @@
     SidebarWrapper,
   } from "flowbite-svelte";
 
-  import { online, close_active_wallet, active_session } from "../store";
+  import {
+    online,
+    close_active_wallet,
+    active_session,
+    active_wallet,
+    connections,
+    reconnect,
+  } from "../store";
 
   import {
     NG_EU_BSP,
@@ -63,9 +71,13 @@
     }
   });
 
-  function logout() {
-    close_active_wallet();
+  async function logout() {
+    await close_active_wallet();
   }
+
+  $: personal_site = $active_wallet?.wallet?.V0.personal_site_id;
+
+  $: personal_site_status = $connections[personal_site];
 </script>
 
 <CenteredLayout>
@@ -161,9 +173,50 @@
             </SidebarItem>
             <li
               class="flex items-center p-2 text-base font-normal text-gray-900"
+              title={(personal_site_status &&
+                personal_site_status.server_ip +
+                  " " +
+                  personal_site_status.server_id) ||
+                "offline"}
             >
-              <Toggle checked={true}>Personal</Toggle>
+              <Toggle
+                on:change={async () => {
+                  if (personal_site_status.error) {
+                    $connections[personal_site].connecting = true;
+                    await reconnect();
+                  } else {
+                    $connections[personal_site].error = "Stopped";
+                    personal_site_status.since = new Date();
+                    await ng.broker_disconnect();
+                  }
+                }}
+                checked={personal_site_status &&
+                  (personal_site_status.connecting ||
+                    !personal_site_status.error)}>Personal</Toggle
+              >
             </li>
+            {#if personal_site_status}
+              <li
+                class="site-cnx-details flex items-center px-2 text-sm text-left font-normal text-gray-600"
+              >
+                {#if personal_site_status.connecting}
+                  Connecting...
+                {:else}
+                  {#if !personal_site_status.error}
+                    Connected
+                  {:else}
+                    {personal_site_status.error}
+                  {/if}
+                  <Time
+                    style="display:contents;"
+                    live={5 * 1_000}
+                    relative
+                    format="dddd @ h:mm A · MMMM D, YYYY"
+                    timestamp={personal_site_status.since}
+                  />
+                {/if}
+              </li>
+            {/if}
           </SidebarGroup>
           <SidebarGroup border>
             <SidebarItem
@@ -252,5 +305,8 @@
 <style>
   li.clickable {
     cursor: pointer;
+  }
+  .site-cnx-details {
+    @apply mt-0 !important;
   }
 </style>

@@ -427,9 +427,12 @@ impl BrokerServerV0 {
     /// filtered by the current location url of the webpage
     /// on native apps (do not pass a location), returns or the connection URL without optional BindAddress or an empty string with
     /// several BindAddresses to try to connect to with .to_ws_url()
-    pub async fn get_ws_url(&self, location: Option<String>) -> Option<(String, Vec<BindAddress>)> {
+    pub async fn get_ws_url(
+        &self,
+        location: &Option<String>,
+    ) -> Option<(String, Vec<BindAddress>)> {
         if location.is_some() {
-            let location = location.unwrap();
+            let location = location.as_ref().unwrap();
             if location.starts_with(APP_NG_ONE_URL) {
                 match &self.server_type {
                     BrokerServerTypeV0::BoxPublic(addrs) => {

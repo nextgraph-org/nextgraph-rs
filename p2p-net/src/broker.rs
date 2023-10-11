@@ -90,6 +90,8 @@ pub struct Broker<'a> {
 
     test: u32,
     tauri_streams: HashMap<String, Sender<Commit>>,
+    disconnections_sender: Sender<String>,
+    disconnections_receiver: Option<Receiver<String>>,
 }
 
 impl<'a> Broker<'a> {
@@ -441,6 +443,7 @@ impl<'a> Broker<'a> {
         let (shutdown_sender, shutdown_receiver) = mpsc::unbounded::<ProtocolError>();
         let mut random_buf = [0u8; 4];
         getrandom::getrandom(&mut random_buf).unwrap();
+        let (disconnections_sender, disconnections_receiver) = mpsc::unbounded::<String>();
         Broker {
             anonymous_connections: HashMap::new(),
             #[cfg(not(target_arch = "wasm32"))]
@@ -455,6 +458,8 @@ impl<'a> Broker<'a> {
             closing: false,
             test: u32::from_be_bytes(random_buf),
             server_storage: None,
+            disconnections_sender,
+            disconnections_receiver: Some(disconnections_receiver),
         }
     }
 
@@ -524,6 +529,29 @@ impl<'a> Broker<'a> {
             .shutdown_sender
             .send(ProtocolError::Closing)
             .await;
+    }
+
+    pub async fn close_all_connections() {
+        let peer_ids;
+        let anonymous;
+        {
+            let broker = BROKER.write().await;
+            if broker.closing {
+                return;
+            }
+            peer_ids = Vec::from_iter(broker.peers.keys().cloned());
+            anonymous = Vec::from_iter(broker.anonymous_connections.keys().cloned());
+        }
+        for peer_id in peer_ids {
+            BROKER
+                .write()
+                .await
+                .close_peer_connection_x(peer_id.1, peer_id.0)
+                .await;
+        }
+        for anon in anonymous {
+            BROKER.write().await.close_anonymous(anon.1, anon.0).await;
+        }
     }
 
     pub async fn shutdown(&mut self) {
@@ -728,14 +756,14 @@ impl<'a> Broker<'a> {
 
     pub async fn connect(
         &mut self,
-        cnx: Box<dyn IConnect>,
+        cnx: Arc<Box<dyn IConnect>>,
         peer_privk: PrivKey,
         peer_pubk: PubKey,
         remote_peer_id: DirectPeerId,
         config: StartConfig,
-    ) -> Result<(), NetError> {
+    ) -> Result<(), ProtocolError> {
         if self.closing {
-            return Err(NetError::Closing);
+            return Err(ProtocolError::Closing);
         }
 
         log_debug!("CONNECTING");
@@ -750,7 +778,7 @@ impl<'a> Broker<'a> {
                 match already.unwrap().connected {
                     PeerConnection::NONE => {}
                     _ => {
-                        return Err(NetError::PeerAlreadyConnected);
+                        return Err(ProtocolError::PeerAlreadyConnected);
                     }
                 };
             }
@@ -784,7 +812,7 @@ impl<'a> Broker<'a> {
                 self.direct_connections.insert(ip, dc);
                 PeerConnection::Core(ip)
             }
-            StartConfig::Client(config) => PeerConnection::Client(connection),
+            StartConfig::Client(_config) => PeerConnection::Client(connection),
             _ => unimplemented!(),
         };
 
@@ -798,15 +826,16 @@ impl<'a> Broker<'a> {
 
         async fn watch_close(
             mut join: Receiver<Either<NetError, X25519PrivKey>>,
-            cnx: Box<dyn IConnect>,
+            cnx: Arc<Box<dyn IConnect>>,
             peer_privk: PrivKey,
             peer_pubkey: PubKey,
             remote_peer_id: [u8; 32],
             config: StartConfig,
+            mut disconnections_sender: Sender<String>,
         ) -> ResultSend<()> {
             async move {
                 let res = join.next().await;
-                log_debug!("SOCKET IS CLOSED {:?} {:?}", res, remote_peer_id);
+                log_info!("SOCKET IS CLOSED {:?} {:?}", res, remote_peer_id);
                 if res.is_some()
                     && res.as_ref().unwrap().is_left()
                     && res.unwrap().unwrap_left() != NetError::Closing
@@ -820,8 +849,13 @@ impl<'a> Broker<'a> {
                     //     .await;
                     // log_debug!("SOCKET RECONNECTION {:?} {:?}", result, &remote_peer_id);
                     // TODO: deal with error and incremental backoff
+
+                    // if all attempts fail :
+                    if let Some(user) = config.get_user() {
+                        disconnections_sender.send(user.to_string()).await;
+                    }
                 } else {
-                    log_debug!("REMOVED");
+                    log_info!("REMOVED");
                     BROKER
                         .write()
                         .await
@@ -838,8 +872,13 @@ impl<'a> Broker<'a> {
             peer_pubk,
             *remote_peer_id_dh.slice(),
             config,
+            self.disconnections_sender.clone(),
         ));
         Ok(())
+    }
+
+    pub fn take_disconnections_receiver(&mut self) -> Option<Receiver<String>> {
+        self.disconnections_receiver.take()
     }
 
     pub async fn close_peer_connection_x(&mut self, peer_id: X25519PubKey, user: Option<PubKey>) {
@@ -878,13 +917,13 @@ impl<'a> Broker<'a> {
 
     pub fn print_status(&self) {
         self.peers.iter().for_each(|(peerId, peerInfo)| {
-            log_debug!("PEER in BROKER {:?} {:?}", peerId, peerInfo);
+            log_info!("PEER in BROKER {:?} {:?}", peerId, peerInfo);
         });
         self.direct_connections.iter().for_each(|(ip, directCnx)| {
-            log_debug!("direct_connection in BROKER {:?} {:?}", ip, directCnx);
+            log_info!("direct_connection in BROKER {:?} {:?}", ip, directCnx);
         });
         self.anonymous_connections.iter().for_each(|(binds, cb)| {
-            log_debug!(
+            log_info!(
                 "ANONYMOUS remote {:?} local {:?} {:?}",
                 binds.1,
                 binds.0,
