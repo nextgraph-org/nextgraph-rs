@@ -21,7 +21,9 @@ export const wallets = writable({});
 
 export const connections = writable({});
 
-let next_reconnect = 0;
+export const active_session = writable(undefined);
+
+let next_reconnect = null;
 
 export const online = derived(connections,($connections) => { 
     for (const cnx of Object.keys($connections)) {
@@ -32,12 +34,14 @@ export const online = derived(connections,($connections) => {
                 return c;
             });
             return true; }
-        else if ($connections[cnx].error=="ConnectionError" && !$connections[cnx].connecting && next_reconnect==0) {
+        else if ($connections[cnx].error=="ConnectionError" && !$connections[cnx].connecting && next_reconnect==null) {
             console.log("will try reconnect in 1 min");
-            next_reconnect = 60;
-            setTimeout(async ()=> {
-                next_reconnect = 0;
-                await reconnect();
+            next_reconnect = setTimeout(async ()=> {
+                next_reconnect = null;
+                if (get(active_session)) {
+                    console.log("attempting to connect...");
+                    await reconnect();
+                }
             },60000);
         }
     }
@@ -46,7 +50,7 @@ export const online = derived(connections,($connections) => {
 
 export const has_wallets = derived(wallets,($wallets) => Object.keys($wallets).length);
 
-export const active_session = writable(undefined);
+
 
 export const set_active_session = function(session) {
     active_session.set(session.users);
@@ -55,7 +59,10 @@ export const set_active_session = function(session) {
 export { writable, readonly, derived };
 
 export const close_active_wallet = async function() {
-
+    if (next_reconnect) { 
+        clearTimeout(next_reconnect);
+        next_reconnect = null;
+    }
     await close_active_session();
     active_wallet.update((w) => {
         delete w.wallet;
