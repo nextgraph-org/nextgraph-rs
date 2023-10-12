@@ -850,6 +850,8 @@ impl<'a> Broker<'a> {
                     // log_debug!("SOCKET RECONNECTION {:?} {:?}", result, &remote_peer_id);
                     // TODO: deal with error and incremental backoff
 
+                    // TODO: incremental reconnections: after 5sec, +10sec, +20sec, +30sec
+
                     // if all attempts fail :
                     if let Some(user) = config.get_user() {
                         disconnections_sender.send(user.to_string()).await;

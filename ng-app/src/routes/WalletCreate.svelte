@@ -256,30 +256,21 @@
     }
   }
 
-  async function getWallet() {
-    const opts = {
-      method: "get",
-    };
-    const response = await fetch(
-      api_url + "bootstrap/I8tuoVE-LRH1wuWQpDBPivlSX8Wle39uHSL576BTxsk",
-      opts
-    );
-    const result = await response.json();
-    console.log("Result:", result);
-  }
+  // async function getWallet() {
+  //   const opts = {
+  //     method: "get",
+  //   };
+  //   const response = await fetch(
+  //     api_url + "bootstrap/I8tuoVE-LRH1wuWQpDBPivlSX8Wle39uHSL576BTxsk",
+  //     opts
+  //   );
+  //   const result = await response.json();
+  //   console.log("Result:", result);
+  // }
 
   onMount(async () => await bootstrap());
 
   ready = false;
-  // {
-  //   user: {
-  //     Ed25519PubKey: [
-  //       141, 114, 111, 29, 59, 133, 182, 172, 177, 211, 238, 224, 62, 208, 206,
-  //       18, 226, 219, 118, 229, 184, 76, 204, 29, 194, 228, 248, 186, 15, 113,
-  //       125, 119,
-  //     ],
-  //   },
-  // };
 
   const unsub_register = () => {
     if (unsub_register_accepted) unsub_register_accepted();
@@ -375,19 +366,25 @@
   };
   const enterINVITE = (event) => {};
   const enterQRcode = (event) => {};
-  const displayNGbox = async (event) => {
+
+  const displayPopup = async (url, title) => {
     if (!tauri_platform || tauri_platform == "android") {
-      window.open(LINK_NG_BOX, "_blank").focus();
+      window.open(url, "_blank").focus();
     } else {
-      await ng.open_window(LINK_NG_BOX, "viewer", "Own your NG-Box");
+      await ng.open_window(url, "viewer", title);
     }
   };
+  const displayNGbox = async (event) => {
+    await displayPopup(LINK_NG_BOX, "Own your NG-Box");
+  };
   const displaySelfHost = async (event) => {
-    if (!tauri_platform || tauri_platform == "android") {
-      window.open(LINK_SELF_HOST, "_blank").focus();
-    } else {
-      await ng.open_window(LINK_SELF_HOST, "viewer", "Self-host a broker");
-    }
+    await displayPopup(LINK_SELF_HOST, "Self-host a broker");
+  };
+  const tos = async () => {
+    await displayPopup(
+      "https://nextgraph.one/#/tos",
+      "Terms of Service NextGraph.one"
+    );
   };
 </script>
 
@@ -1364,8 +1361,11 @@
             Only you will be able to download it with a special link. You would have
             to keep this link safely though. By selecting this option, you agree
             to the
-            <a target="_blank" href="https://nextgraph.one/#/tos"
-              >Terms of Service of our cloud</a
+            <span
+              style="font-weight: 500;cursor: pointer; color: #646cff;"
+              tabindex="0"
+              on:keypress={tos}
+              on:click={tos}>Terms of Service of our cloud</span
             >.
             <br />
             <Toggle disabled class="mt-3" bind:checked={options.cloud}
@@ -1396,8 +1396,11 @@
               do so, we will keep your wallet ID and some information about your
               broker on our cloud servers. If you prefer to opt out, just uncheck
               this option. By selecting this option, you agree to the
-              <a target="_blank" href="https://nextgraph.one/#/tos"
-                >Terms of Service of our cloud</a
+              <span
+                style="font-weight: 500;cursor: pointer; color: #646cff;"
+                tabindex="0"
+                on:keypress={tos}
+                on:click={tos}>Terms of Service of our cloud</span
               >.
               <br />
               <Toggle disabled class="mt-3" bind:checked={options.bootstrap}

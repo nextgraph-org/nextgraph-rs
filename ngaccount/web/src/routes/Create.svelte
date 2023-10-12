@@ -306,8 +306,9 @@
               </svg>
               <span>
                 You can delete your account with us at any time by going to the
-                link <a target="_blank" href="https://account.{domain}/#/delete"
-                  >account.{domain}/#/delete</a
+                link <span
+                  style="font-weight: 500;
+                color: #646cff;">account.{domain}/#/delete</span
                 > or by entering in your NextGraph application and selecting the
                 menu, then Accounts, then under broker "delete registration"</span
               >
@@ -331,12 +332,15 @@
               <span
                 >Registration is free of charge. And it would be very nice of
                 you if you wanted to donate a small amount to help us cover the
-                fees we have to pay for operating the servers. Here is the
-                donation link: <a
-                  target="_blank"
-                  href="https://nextgraph.org/donate"
-                  >https://nextgraph.org/donate</a
-                >
+                fees we have to pay for operating the servers. {#if !window.__TAURI__}
+                  Here is the donation link: <a
+                    target="_blank"
+                    href="https://nextgraph.org/donate"
+                    >https://nextgraph.org/donate</a
+                  >{:else}
+                  You will find the link to donate in your app, by clicking on
+                  the logo of NextGraph on the top-left corner.
+                {/if}
               </span>
             </li>
             {#if !window.__TAURI__}

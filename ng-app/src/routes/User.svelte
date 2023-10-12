@@ -78,6 +78,20 @@
   $: personal_site = $active_wallet?.wallet?.V0.personal_site_id;
 
   $: personal_site_status = $connections[personal_site];
+
+  const displayPopup = async (url, title) => {
+    if (!tauri_platform || tauri_platform == "android") {
+      window.open(url, "_blank").focus();
+    } else {
+      await ng.open_window(url, "viewer", title);
+    }
+  };
+  const donate = async () => {
+    await displayPopup("https://nextgraph.org/donate", "Support NextGraph");
+  };
+  const about = async () => {
+    await displayPopup("https://nextgraph.org", "About NextGraph");
+  };
 </script>
 
 <CenteredLayout>
@@ -219,32 +233,32 @@
             {/if}
           </SidebarGroup>
           <SidebarGroup border>
-            <SidebarItem
-              label="Donate to NextGraph"
-              href="https://nextgraph.org/donate"
-              target="_blank"
-              class="p-2"
+            <li
+              tabindex="0"
+              class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
+              on:keypress={donate}
+              on:click={donate}
             >
-              <svelte:fragment slot="icon">
-                <Gift
-                  tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-              </svelte:fragment>
-            </SidebarItem>
-            <SidebarItem
-              label="About NextGraph"
-              href="https://nextgraph.org"
-              target="_blank"
-              class="p-2"
+              <Gift
+                tabindex="-1"
+                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+              />
+              <span class="ml-3">Donate to NextGraph</span>
+            </li>
+
+            <li
+              tabindex="0"
+              class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
+              on:keypress={about}
+              on:click={about}
             >
-              <svelte:fragment slot="icon">
-                <InformationCircle
-                  tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-              </svelte:fragment>
-            </SidebarItem>
+              <InformationCircle
+                tabindex="-1"
+                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+              />
+              <span class="ml-3">About NextGraph</span>
+            </li>
+
             <li
               class="flex items-center p-2 text-base font-normal text-gray-900"
             >
