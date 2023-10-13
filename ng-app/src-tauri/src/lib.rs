@@ -433,7 +433,7 @@ async fn broker_connect(
         info,
         session,
         opened_wallet,
-        location,
+        None,
         Box::new(ConnectionWebSocket {}),
     )
     .await?;
