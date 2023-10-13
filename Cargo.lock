@@ -323,6 +323,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-native-tls"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9343dc5acf07e79ff82d0c37899f079db3534d99f189a1837c8e549c99405bec"
+dependencies = [
+ "futures-util",
+ "native-tls",
+ "thiserror",
+ "url",
+]
+
+[[package]]
 name = "async-oneshot"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -410,6 +422,7 @@ name = "async-tungstenite"
 version = "0.22.2"
 source = "git+https://git.nextgraph.org/NextGraph/async-tungstenite.git?branch=nextgraph#979de8e77d365af4630607dfdc721d5d9aeea42e"
 dependencies = [
+ "async-native-tls",
  "async-std",
  "futures-io",
  "futures-util",
@@ -3042,6 +3055,7 @@ name = "ng-app"
 version = "0.1.0"
 dependencies = [
  "async-std",
+ "async-tungstenite",
  "ng-wallet",
  "p2p-client-ws",
  "p2p-net",
@@ -5588,6 +5602,7 @@ dependencies = [
  "http",
  "httparse",
  "log",
+ "native-tls",
  "rand 0.8.5",
  "sha1",
  "thiserror",

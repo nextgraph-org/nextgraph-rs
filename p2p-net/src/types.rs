@@ -20,6 +20,7 @@ use crate::utils::{
 use crate::{actor::EActor, actors::*, errors::ProtocolError};
 use core::fmt;
 use p2p_repo::errors::NgError;
+use p2p_repo::log::*;
 use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

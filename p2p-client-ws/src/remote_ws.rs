@@ -13,7 +13,6 @@
 
 use std::sync::Arc;
 
-use async_std::net::TcpStream;
 use async_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use async_tungstenite::tungstenite::protocol::CloseFrame;
 use async_tungstenite::WebSocketStream;
@@ -33,7 +32,7 @@ use p2p_repo::log::*;
 use p2p_repo::types::*;
 use p2p_repo::utils::{generate_keypair, now_timestamp};
 
-use async_tungstenite::async_std::connect_async;
+use async_tungstenite::async_std::{connect_async, ConnectStream};
 use async_tungstenite::tungstenite::{Error, Message};
 
 pub struct ConnectionWebSocket {}
@@ -125,7 +124,7 @@ impl IConnect for ConnectionWebSocket {
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl IAccept for ConnectionWebSocket {
-    type Socket = WebSocketStream<TcpStream>;
+    type Socket = WebSocketStream<ConnectStream>;
     async fn accept(
         &self,
         remote_bind_address: BindAddress,
@@ -161,7 +160,7 @@ impl IAccept for ConnectionWebSocket {
 }
 
 async fn close_ws(
-    stream: &mut WebSocketStream<TcpStream>,
+    stream: &mut WebSocketStream<ConnectStream>,
     receiver: &mut Sender<ConnectionCommand>,
     code: u16,
     reason: &str,
@@ -191,12 +190,12 @@ async fn close_ws(
 }
 
 async fn ws_loop(
-    mut ws: WebSocketStream<TcpStream>,
+    mut ws: WebSocketStream<ConnectStream>,
     sender: Receiver<ConnectionCommand>,
     mut receiver: Sender<ConnectionCommand>,
 ) -> Result<(), NetError> {
     async fn inner_loop(
-        stream: &mut WebSocketStream<TcpStream>,
+        stream: &mut WebSocketStream<ConnectStream>,
         mut sender: Receiver<ConnectionCommand>,
         receiver: &mut Sender<ConnectionCommand>,
     ) -> Result<ProtocolError, NetError> {

@@ -458,7 +458,7 @@ pub async fn connect_wallet(
     let arc_cnx = Arc::new(cnx);
     match opened_wallet {
         EncryptedWallet::V0(wallet) => {
-            log_debug!("XXXX {} {:?}", client.to_string(), wallet);
+            log_info!("XXXX {} {:?}", client.to_string(), wallet);
             let auto_open = &wallet
                 .clients
                 .get(&client.to_string())
@@ -501,10 +501,12 @@ pub async fn connect_wallet(
                             continue;
                         }
                         let broker = broker.unwrap();
+                        let mut tried: Option<(String, String, String, Option<String>, f64)> = None;
                         for broker_info in broker {
                             match broker_info {
                                 BrokerInfoV0::ServerV0(server) => {
                                     let url = server.get_ws_url(&location).await;
+                                    log_debug!("URL {:?}", url);
                                     //Option<(String, Vec<BindAddress>)>
                                     if url.is_some() {
                                         let url = url.unwrap();
@@ -515,13 +517,13 @@ pub async fn connect_wallet(
                                                 .await
                                                 .connect(
                                                     arc_cnx.clone(),
-                                                    peer_key,
+                                                    peer_key.clone(),
                                                     peer_id,
                                                     server_key,
                                                     StartConfig::Client(ClientConfig {
                                                         url: url.0.clone(),
                                                         user: *user,
-                                                        user_priv,
+                                                        user_priv: user_priv.clone(),
                                                         client,
                                                         info: info.clone(),
                                                         registration: Some(core.1),
@@ -530,23 +532,38 @@ pub async fn connect_wallet(
                                                 .await;
                                             log_debug!("broker.connect : {:?}", res);
 
-                                            result.push((
-                                                user_id,
+                                            tried = Some((
+                                                user_id.clone(),
                                                 core.0.to_string(),
                                                 url.0.into(),
-                                                match res {
+                                                match &res {
                                                     Ok(_) => None,
                                                     Err(e) => Some(e.to_string()),
                                                 },
                                                 get_unix_time(),
                                             ));
                                         }
-                                        break; // TODO implement failover
+                                        if tried.is_some() && tried.as_ref().unwrap().3.is_none() {
+                                            // successful. we can stop here
+                                            break;
+                                        } else {
+                                            log_debug!("Failed connection {:?}", tried);
+                                        }
                                     }
                                 }
                                 _ => {}
                             }
                         }
+                        if tried.is_none() {
+                            tried = Some((
+                                user_id,
+                                core.0.to_string(),
+                                "".into(),
+                                Some("No broker found".into()),
+                                get_unix_time(),
+                            ));
+                        }
+                        result.push(tried.unwrap());
                     }
                     _ => unimplemented!(),
                 }
