@@ -150,9 +150,9 @@ impl<'a> Invitation<'a> {
             .store
             .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::TYPE))?;
         let t: (u8, u32, Option<String>) = from_slice(&type_ser)?;
-        if t.1 < now_timestamp() {
-            return Err(ProtocolError::Expired);
-        }
+        // if t.1 < now_timestamp() {
+        //     return Err(ProtocolError::Expired);
+        // }
         Ok(t.0)
     }
 
