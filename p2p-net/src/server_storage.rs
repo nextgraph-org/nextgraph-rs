@@ -10,7 +10,7 @@
 */
 
 use crate::{errors::ProtocolError, types::*};
-use p2p_repo::{kcv_store::KCVStore, types::PubKey};
+use p2p_repo::types::PubKey;
 
 pub trait ServerStorage: Send + Sync {
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError>;
