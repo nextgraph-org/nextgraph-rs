@@ -37,11 +37,7 @@ export const online = derived(connections,($connections) => {
         else if ($connections[cnx].error=="ConnectionError" && !$connections[cnx].connecting && next_reconnect==null) {
             console.log("will try reconnect in 1 min");
             next_reconnect = setTimeout(async ()=> {
-                next_reconnect = null;
-                if (get(active_session)) {
-                    console.log("attempting to connect...");
-                    await reconnect();
-                }
+                await reconnect();
             },60000);
         }
     }
@@ -84,6 +80,14 @@ const can_connect = derived([active_wallet, active_session], ([$s1, $s2]) => [
 );
 
 export const reconnect = async function() {
+    if (next_reconnect) { 
+        clearTimeout(next_reconnect);
+        next_reconnect = null;
+    }
+    if (!get(active_session)) {
+        return;
+    }
+    console.log("attempting to connect...");
     try {
         let client = get(wallets)[get(active_wallet).id].client;
         let info = await ng.client_info()
