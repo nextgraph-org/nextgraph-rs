@@ -1142,13 +1142,14 @@ impl ListenerV0 {
                         self.accept_forward_for.get_domain().to_string(),
                     ));
                 }
-                if self.accept_direct {
-                    if self.if_type == InterfaceType::Private {
-                        res.push(BrokerServerTypeV0::BoxPrivate(addrs));
-                    } else if self.if_type == InterfaceType::Loopback {
-                        res.push(BrokerServerTypeV0::Localhost(addrs[0].port));
-                    }
-                }
+                //// this is removed since a server serving domain requests often needs a local interface too (for ngaccount), but does not want to expose this local interface to clients.
+                // if self.accept_direct {
+                //     if self.if_type == InterfaceType::Private {
+                //         res.push(BrokerServerTypeV0::BoxPrivate(addrs));
+                //     } else if self.if_type == InterfaceType::Loopback {
+                //         res.push(BrokerServerTypeV0::Localhost(addrs[0].port));
+                //     }
+                // }
             }
             AcceptForwardForV0::PrivateDomain(_) => {
                 res.push(BrokerServerTypeV0::Domain(
