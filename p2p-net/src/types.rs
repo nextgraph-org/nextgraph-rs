@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2023 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // This code is partly derived from work written by TG x Thoth from P2Pcollab.
 // Copyright 2022 TG x Thoth
