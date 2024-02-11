@@ -14,6 +14,7 @@
   import { onMount, createEventDispatcher, tick } from "svelte";
   import ng from "../api";
   import { emoji_cat, emojis, load_svg } from "../wallet_emojis";
+  import { PuzzlePiece } from "svelte-heros-v2";
   //import Worker from "../worker.js?worker&inline";
   export let wallet;
 
@@ -23,12 +24,14 @@
   const dispatch = createEventDispatcher();
 
   onMount(async () => {
+    loaded = false;
     await load_svg();
     //console.log(wallet);
     await init();
   });
 
   async function init() {
+    step = "load";
     shuffle = await ng.wallet_gen_shuffle_for_pazzle_opening(pazzle_length);
     emojis2 = [];
 
@@ -46,6 +49,11 @@
     selection = [];
     error = undefined;
 
+    loaded = true;
+  }
+
+  function letsgo() {
+    loaded = false;
     step = "pazzle";
   }
 
@@ -54,6 +62,8 @@
   let shuffle;
 
   let step = "load";
+
+  let loaded = false;
 
   let pazzle_length = 9;
 
@@ -206,29 +216,79 @@
 </script>
 
 {#if step == "load"}
+  <div class=" max-w-xl lg:px-8 mx-auto px-4 mb-10">
+    <h2 class="pb-5 text-xl">How to open your wallet, step by step :</h2>
+    <ul class="mb-8 ml-3 space-y-4 text-left list-decimal">
+      <li>
+        For each category of images, you will be presented with the 15 possible
+        choices. The categories are shuffled at every login. They will not
+        always appear in the same order.
+      </li>
+      <li>
+        At each category, only one of the 15 displayed choices is the correct
+        image that belongs to your pazzle. Find it and tap or click on that one.
+        The 15 images are shuffled too, they will not appear at the same
+        position at each login. On a computer, you can also use the tab key on
+        your keyboard to move to the desired item on the screen.
+      </li>
+      <li>
+        Once you completed the last category, you will be presented with all the
+        images you have previously selected. Their order is displayed as it was
+        when you picked them. But this is not the correct order of the images in
+        your pazzle. You now have to order them correctly.
+      </li>
+      <li>
+        You must remember which image should be the first one in your pazzle.
+        Find it on the screen and click or tap on it. It will be greyed out and
+        the number 1 will appear on top of it.
+      </li>
+      <li>
+        Move on to the second image of your pazzle (that you memorized). Find it
+        on the screen and tap on it. Repeat this step until you reached the last
+        image.
+      </li>
+      <li>
+        Finally, your PIN code will be asked. enter it by clicking or tapping on
+        the digits.
+      </li>
+    </ul>
+  </div>
   <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-primary-700">
-    Loading...
-    <svg
-      class="animate-spin mt-10 h-14 w-14 mx-auto"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <circle
-        class="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
+    {#if !loaded}
+      Loading...
+      <svg
+        class="animate-spin mt-2 h-14 w-14 mx-auto"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
         stroke="currentColor"
-        stroke-width="4"
-      />
-      <path
-        class="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
+        viewBox="0 0 24 24"
+      >
+        <circle
+          class="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          stroke-width="4"
+        />
+        <path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+        />
+      </svg>
+    {:else}
+      <button
+        on:click={letsgo}
+        class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+      >
+        <PuzzlePiece
+          tabindex="-1"
+          class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+        />
+        Open my wallet now!
+      </button>
+    {/if}
   </div>
 {:else if step == "pazzle"}
   <div
