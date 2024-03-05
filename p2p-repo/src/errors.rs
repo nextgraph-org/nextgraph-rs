@@ -11,6 +11,7 @@
 
 //! Errors
 
+use crate::commit::CommitLoadError;
 use core::fmt;
 use std::error::Error;
 
@@ -23,6 +24,9 @@ pub enum NgError {
     InvalidInvitation,
     InvalidCreateAccount,
     InvalidFileFormat,
+    InvalidArgument,
+    PermissionDenied,
+    RepoLoadError,
 }
 
 impl Error for NgError {}
@@ -42,5 +46,11 @@ impl From<serde_bare::error::Error> for NgError {
 impl From<ed25519_dalek::ed25519::Error> for NgError {
     fn from(e: ed25519_dalek::ed25519::Error) -> Self {
         NgError::InvalidSignature
+    }
+}
+
+impl From<CommitLoadError> for NgError {
+    fn from(e: CommitLoadError) -> Self {
+        NgError::RepoLoadError
     }
 }

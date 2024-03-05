@@ -38,11 +38,8 @@ use p2p_net::{
     broker::BROKER,
     connection::{ClientConfig, StartConfig},
 };
-use p2p_net::{
-    connection::IConnect,
-    types::{ClientInfo, Identity, SiteType, SiteV0},
-};
-use p2p_repo::types::{PubKey, Sig, Timestamp};
+use p2p_net::{connection::IConnect, types::ClientInfo};
+use p2p_repo::types::{Identity, PubKey, Sig, SiteType, SiteV0, Timestamp};
 use p2p_repo::utils::{generate_keypair, now_timestamp, sign, verify};
 use p2p_repo::{log::*, types::PrivKey};
 use rand::prelude::*;

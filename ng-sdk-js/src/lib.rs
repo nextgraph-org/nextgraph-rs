@@ -23,7 +23,7 @@ use p2p_net::broker::*;
 use p2p_net::connection::{ClientConfig, StartConfig};
 use p2p_net::types::{
     BootstrapContent, BootstrapContentV0, ClientId, ClientInfo, ClientInfoV0, ClientType,
-    CreateAccountBSP, DirectPeerId, Identity, UserId, IP,
+    CreateAccountBSP, DirectPeerId, IP,
 };
 use p2p_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend, Sender};
 #[cfg(target_arch = "wasm32")]

@@ -13,19 +13,22 @@
 
 use ed25519_dalek::*;
 
-use std::collections::HashSet;
-use std::iter::FromIterator;
-
+use crate::errors::NgError;
 use crate::log::*;
 use crate::object::*;
+use crate::repo::Repo;
 use crate::store::*;
 use crate::types::*;
+use std::collections::HashSet;
+use std::iter::FromIterator;
 
 #[derive(Debug)]
 pub enum CommitLoadError {
     MissingBlocks(Vec<BlockId>),
     ObjectParseError,
     DeserializeError,
+    CannotBeAtRootOfBranch,
+    MustBeAtRootOfBranch,
 }
 
 #[derive(Debug)]
@@ -35,47 +38,33 @@ pub enum CommitVerifyError {
     BodyLoadError(CommitLoadError),
     DepLoadError(CommitLoadError),
 }
-impl CommitBody {
-    /// Get CommitType corresponding to CommitBody
-    pub fn to_type(&self) -> CommitType {
-        match self {
-            CommitBody::Ack(_) => CommitType::Ack,
-            CommitBody::AddBranch(_) => CommitType::AddBranch,
-            CommitBody::AddMembers(_) => CommitType::AddMembers,
-            CommitBody::Branch(_) => CommitType::Branch,
-            CommitBody::EndOfBranch(_) => CommitType::EndOfBranch,
-            CommitBody::RemoveBranch(_) => CommitType::RemoveBranch,
-            CommitBody::Repository(_) => CommitType::Repository,
-            CommitBody::Snapshot(_) => CommitType::Snapshot,
-            CommitBody::Transaction(_) => CommitType::Transaction,
-        }
-    }
-}
 
 impl CommitV0 {
     /// New commit
     pub fn new(
         author_privkey: PrivKey,
         author_pubkey: PubKey,
-        seq: u32,
-        branch: ObjectRef,
+        seq: u64,
+        branch: BranchId,
+        quorum: QuorumType,
         deps: Vec<ObjectRef>,
+        ndeps: Vec<ObjectRef>,
         acks: Vec<ObjectRef>,
+        nacks: Vec<ObjectRef>,
         refs: Vec<ObjectRef>,
+        nrefs: Vec<ObjectRef>,
         metadata: Vec<u8>,
         body: ObjectRef,
-        expiry: Option<Timestamp>,
     ) -> Result<CommitV0, SignatureError> {
+        let headers = CommitHeaderV0::new_with(deps, ndeps, acks, nacks, refs, nrefs);
         let content = CommitContentV0 {
             author: author_pubkey,
             seq,
             branch,
-            deps,
-            acks,
-            refs,
+            header_keys: headers.1,
+            quorum,
             metadata,
             body,
-            expiry,
         };
         let content_ser = serde_bare::to_vec(&content).unwrap();
 
@@ -96,6 +85,7 @@ impl CommitV0 {
             sig,
             id: None,
             key: None,
+            header: headers.0,
         })
     }
 }
@@ -105,32 +95,41 @@ impl Commit {
     pub fn new(
         author_privkey: PrivKey,
         author_pubkey: PubKey,
-        seq: u32,
-        branch: ObjectRef,
+        seq: u64,
+        branch: BranchId,
+        quorum: QuorumType,
         deps: Vec<ObjectRef>,
+        ndeps: Vec<ObjectRef>,
         acks: Vec<ObjectRef>,
+        nacks: Vec<ObjectRef>,
         refs: Vec<ObjectRef>,
+        nrefs: Vec<ObjectRef>,
         metadata: Vec<u8>,
         body: ObjectRef,
-        expiry: Option<Timestamp>,
     ) -> Result<Commit, SignatureError> {
         CommitV0::new(
             author_privkey,
             author_pubkey,
             seq,
             branch,
+            quorum,
             deps,
+            ndeps,
             acks,
+            nacks,
             refs,
+            nrefs,
             metadata,
             body,
-            expiry,
         )
         .map(|c| Commit::V0(c))
     }
 
     /// Load commit from store
-    pub fn load(commit_ref: ObjectRef, store: &impl RepoStore) -> Result<Commit, CommitLoadError> {
+    pub fn load(
+        commit_ref: ObjectRef,
+        store: &Box<impl RepoStore + ?Sized>,
+    ) -> Result<Commit, CommitLoadError> {
         let (id, key) = (commit_ref.id, commit_ref.key);
         match Object::load(id, Some(key.clone()), store) {
             Ok(obj) => {
@@ -138,12 +137,15 @@ impl Commit {
                     .content()
                     .map_err(|_e| CommitLoadError::ObjectParseError)?;
                 let mut commit = match content {
-                    ObjectContent::Commit(c) => c,
+                    ObjectContent::V0(ObjectContentV0::Commit(c)) => c,
                     _ => return Err(CommitLoadError::DeserializeError),
                 };
-                commit.set_id(id);
-                commit.set_key(key.clone());
-                Ok(commit)
+                commit.id = Some(id);
+                commit.key = Some(key.clone());
+                if let Some(CommitHeader::V0(header_v0)) = obj.header() {
+                    commit.header = Some(header_v0.clone());
+                }
+                Ok(Commit::V0(commit))
             }
             Err(ObjectParseError::MissingBlocks(missing)) => {
                 Err(CommitLoadError::MissingBlocks(missing))
@@ -153,8 +155,12 @@ impl Commit {
     }
 
     /// Load commit body from store
-    pub fn load_body(&self, store: &impl RepoStore) -> Result<CommitBody, CommitLoadError> {
-        let content = self.content();
+    pub fn load_body(
+        &self,
+        store: &Box<impl RepoStore + ?Sized>,
+    ) -> Result<CommitBody, CommitLoadError> {
+        // TODO store body in CommitV0 (with #[serde(skip)]) as a cache for subsequent calls to load_body
+        let content = self.content_v0();
         let (id, key) = (content.body.id, content.body.key.clone());
         let obj = Object::load(id.clone(), Some(key.clone()), store).map_err(|e| match e {
             ObjectParseError::MissingBlocks(missing) => CommitLoadError::MissingBlocks(missing),
@@ -164,7 +170,7 @@ impl Commit {
             .content()
             .map_err(|_e| CommitLoadError::ObjectParseError)?;
         match content {
-            ObjectContent::CommitBody(body) => Ok(body),
+            ObjectContent::V0(ObjectContentV0::CommitBody(body)) => Ok(CommitBody::V0(body)),
             _ => Err(CommitLoadError::DeserializeError),
         }
     }
@@ -204,36 +210,92 @@ impl Commit {
         }
     }
 
-    /// Get commit content
-    pub fn content(&self) -> &CommitContentV0 {
+    /// Get commit content V0
+    pub fn content_v0(&self) -> &CommitContentV0 {
         match self {
             Commit::V0(c) => &c.content,
         }
     }
 
+    /// This commit is the first one in the branch (doesn't have any ACKs nor Nacks)
+    pub fn is_root_commit_of_branch(&self) -> bool {
+        match self {
+            Commit::V0(c) => match &c.content.header_keys {
+                Some(hk) => hk.acks.is_empty() && hk.nacks.is_empty(),
+                None => true,
+            },
+            _ => unimplemented!(),
+        }
+    }
+
     /// Get acks
     pub fn acks(&self) -> Vec<ObjectRef> {
+        let mut res: Vec<ObjectRef> = vec![];
         match self {
-            Commit::V0(c) => c.content.acks.clone(),
-        }
+            Commit::V0(c) => match &c.header {
+                Some(header_v0) => match &c.content.header_keys {
+                    Some(hk) => {
+                        for ack in header_v0.acks.iter().zip(hk.acks.iter()) {
+                            res.push(ack.into());
+                        }
+                    }
+                    None => {}
+                },
+                None => {}
+            },
+            _ => {}
+        };
+        res
     }
 
     /// Get deps
     pub fn deps(&self) -> Vec<ObjectRef> {
+        let mut res: Vec<ObjectRef> = vec![];
         match self {
-            Commit::V0(c) => c.content.deps.clone(),
-        }
+            Commit::V0(c) => match &c.header {
+                Some(header_v0) => match &c.content.header_keys {
+                    Some(hk) => {
+                        for dep in header_v0.deps.iter().zip(hk.deps.iter()) {
+                            res.push(dep.into());
+                        }
+                    }
+                    None => {}
+                },
+                None => {}
+            },
+            _ => {}
+        };
+        res
     }
 
-    /// Get all direct commit dependencies of the commit (`deps`, `acks`)
-    pub fn deps_acks(&self) -> Vec<ObjectRef> {
+    /// Get all commits that are in the direct causal past of the commit (`deps`, `acks`, `nacks`, `ndeps`)
+    pub fn direct_causal_past(&self) -> Vec<ObjectRef> {
+        let mut res: Vec<ObjectRef> = vec![];
         match self {
-            Commit::V0(c) => [c.content.acks.clone(), c.content.deps.clone()].concat(),
-        }
+            Commit::V0(c) => match (&c.header, &c.content.header_keys) {
+                (Some(header_v0), Some(hk)) => {
+                    for ack in header_v0.acks.iter().zip(hk.acks.iter()) {
+                        res.push(ack.into());
+                    }
+                    for nack in header_v0.nacks.iter().zip(hk.nacks.iter()) {
+                        res.push(nack.into());
+                    }
+                    for dep in header_v0.deps.iter().zip(hk.deps.iter()) {
+                        res.push(dep.into());
+                    }
+                    for ndep in header_v0.ndeps.iter().zip(hk.ndeps.iter()) {
+                        res.push(ndep.into());
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        };
+        res
     }
 
     /// Get seq
-    pub fn seq(&self) -> u32 {
+    pub fn seq(&self) -> u64 {
         match self {
             Commit::V0(c) => c.content.seq,
         }
@@ -258,32 +320,30 @@ impl Commit {
     }
 
     /// Verify commit permissions
-    pub fn verify_perm(&self, body: &CommitBody, branch: &Branch) -> Result<(), CommitVerifyError> {
-        let content = self.content();
-        match branch.get_member(&content.author) {
-            Some(m) => {
-                if m.has_perm(body.to_type()) {
-                    return Ok(());
-                }
-            }
-            None => (),
-        }
-        Err(CommitVerifyError::PermissionDenied)
+    pub fn verify_perm(&self, repo: &Repo) -> Result<(), CommitVerifyError> {
+        repo.verify_permission(self)
+            .map_err(|_| CommitVerifyError::PermissionDenied)
     }
 
-    /// Verify if the commit's `body` and dependencies (`deps` & `acks`) are available in the `store`
-    pub fn verify_deps(&self, store: &impl RepoStore) -> Result<Vec<ObjectId>, CommitLoadError> {
-        //log_debug!(">> verify_deps: #{}", self.seq());
+    /// Verify if the commit's `body`, `header` and direct_causal_past, and recursively all their refs are available in the `store`
+    pub fn verify_full_object_refs_of_branch_at_commit(
+        &self,
+        store: &Box<impl RepoStore + ?Sized>,
+    ) -> Result<Vec<ObjectId>, CommitLoadError> {
+        //log_debug!(">> verify_full_object_refs_of_branch_at_commit: #{}", self.seq());
+
         /// Load `Commit`s of a `Branch` from the `RepoStore` starting from the given `Commit`,
         /// and collect missing `ObjectId`s
-        fn load_branch(
+        fn load_direct_object_refs(
             commit: &Commit,
-            store: &impl RepoStore,
+            store: &Box<impl RepoStore + ?Sized>,
             visited: &mut HashSet<ObjectId>,
             missing: &mut HashSet<ObjectId>,
         ) -> Result<(), CommitLoadError> {
             //log_debug!(">>> load_branch: #{}", commit.seq());
-            // the commit verify_deps() was called on may not have an ID set,
+
+            // FIXME: what about this comment? seems like a Commit always has an id
+            // the self of verify_full_object_refs_of_branch_at_commit() may not have an ID set,
             // but the commits loaded from store should have it
             match commit.id() {
                 Some(id) => {
@@ -292,40 +352,53 @@ impl Commit {
                     }
                     visited.insert(id);
                 }
-                None => (),
+                None => panic!("Commit without an ID"),
             }
 
-            // load body & check if it's the Branch commit at the root
-            let is_root = match commit.load_body(store) {
-                Ok(body) => body.to_type() == CommitType::Branch,
-                Err(CommitLoadError::MissingBlocks(m)) => {
-                    missing.extend(m);
-                    false
-                }
-                Err(e) => return Err(e),
-            };
-            log_debug!("!!! is_root: {}", is_root);
-
-            // load deps
-            if !is_root {
-                for dep in commit.deps_acks() {
-                    match Commit::load(dep, store) {
-                        Ok(c) => {
-                            load_branch(&c, store, visited, missing)?;
+            // load body & check if it's the Branch root commit
+            match commit.load_body(store) {
+                Ok(body) => {
+                    if commit.is_root_commit_of_branch() {
+                        if body.must_be_root_commit_in_branch() {
+                            Ok(())
+                        } else {
+                            Err(CommitLoadError::CannotBeAtRootOfBranch)
                         }
-                        Err(CommitLoadError::MissingBlocks(m)) => {
-                            missing.extend(m);
+                    } else {
+                        if body.must_be_root_commit_in_branch() {
+                            Err(CommitLoadError::MustBeAtRootOfBranch)
+                        } else {
+                            Ok(())
                         }
-                        Err(e) => return Err(e),
                     }
                 }
+                Err(CommitLoadError::MissingBlocks(m)) => {
+                    // The commit body is missing.
+                    missing.extend(m);
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            }?;
+
+            // load direct causal past
+            for blockref in commit.direct_causal_past() {
+                match Commit::load(blockref, store) {
+                    Ok(c) => {
+                        load_direct_object_refs(&c, store, visited, missing)?;
+                    }
+                    Err(CommitLoadError::MissingBlocks(m)) => {
+                        missing.extend(m);
+                    }
+                    Err(e) => return Err(e),
+                }
             }
+
             Ok(())
         }
 
         let mut visited = HashSet::new();
         let mut missing = HashSet::new();
-        load_branch(self, store, &mut visited, &mut missing)?;
+        load_direct_object_refs(self, store, &mut visited, &mut missing)?;
 
         if !missing.is_empty() {
             return Err(CommitLoadError::MissingBlocks(Vec::from_iter(missing)));
@@ -333,15 +406,16 @@ impl Commit {
         Ok(Vec::from_iter(visited))
     }
 
-    /// Verify signature, permissions, and dependencies
-    pub fn verify(&self, branch: &Branch, store: &impl RepoStore) -> Result<(), CommitVerifyError> {
+    /// Verify signature, permissions, and full causal past
+    pub fn verify(
+        &self,
+        repo: &Repo,
+        store: &Box<impl RepoStore + ?Sized>,
+    ) -> Result<(), CommitVerifyError> {
         self.verify_sig()
             .map_err(|_e| CommitVerifyError::InvalidSignature)?;
-        let body = self
-            .load_body(store)
-            .map_err(|e| CommitVerifyError::BodyLoadError(e))?;
-        self.verify_perm(&body, branch)?;
-        self.verify_deps(store)
+        self.verify_perm(repo)?;
+        self.verify_full_object_refs_of_branch_at_commit(repo.get_store())
             .map_err(|e| CommitVerifyError::DepLoadError(e))?;
         Ok(())
     }
@@ -382,46 +456,40 @@ mod test {
             key: SymKey::ChaCha20Key([2; 32]),
         };
         let obj_refs = vec![obj_ref.clone()];
-        let branch = obj_ref.clone();
+        let branch = pub_key;
         let deps = obj_refs.clone();
         let acks = obj_refs.clone();
         let refs = obj_refs.clone();
         let metadata = vec![1, 2, 3];
         let body_ref = obj_ref.clone();
-        let expiry = Some(2342);
 
         let commit = Commit::new(
-            priv_key, pub_key, seq, branch, deps, acks, refs, metadata, body_ref, expiry,
+            priv_key,
+            pub_key,
+            seq,
+            branch,
+            QuorumType::NoSigning,
+            deps,
+            vec![],
+            acks,
+            vec![],
+            refs,
+            vec![],
+            metadata,
+            body_ref,
         )
         .unwrap();
         log_debug!("commit: {:?}", commit);
 
-        let store = HashMapRepoStore::new();
-        let metadata = [66u8; 64].to_vec();
-        let commit_types = vec![CommitType::Ack, CommitType::Transaction];
-        let key: [u8; 32] = [0; 32];
-        let secret = SymKey::ChaCha20Key(key);
-        let member = MemberV0::new(pub_key, commit_types, metadata.clone());
-        let members = vec![member];
-        let mut quorum = HashMap::new();
-        quorum.insert(CommitType::Transaction, 3);
-        let ack_delay = RelTime::Minutes(3);
-        let tags = [99u8; 32].to_vec();
-        let branch = Branch::new(
-            pub_key.clone(),
-            pub_key.clone(),
-            secret,
-            members,
-            quorum,
-            ack_delay,
-            tags,
-            metadata,
-        );
-        //log_debug!("branch: {:?}", branch);
-        let body = CommitBody::Ack(Ack::V0());
+        let store = Box::new(HashMapRepoStore::new());
+
+        let repo =
+            Repo::new_with_member(&pub_key, pub_key.clone(), &[Permission::Transaction], store);
+
+        //let body = CommitBody::Ack(Ack::V0());
         //log_debug!("body: {:?}", body);
 
-        match commit.load_body(&store) {
+        match commit.load_body(repo.get_store()) {
             Ok(_b) => panic!("Body should not exist"),
             Err(CommitLoadError::MissingBlocks(missing)) => {
                 assert_eq!(missing.len(), 1);
@@ -429,15 +497,13 @@ mod test {
             Err(e) => panic!("Commit verify error: {:?}", e),
         }
 
-        let content = commit.content();
+        let content = commit.content_v0();
         log_debug!("content: {:?}", content);
 
         commit.verify_sig().expect("Invalid signature");
-        commit
-            .verify_perm(&body, &branch)
-            .expect("Permission denied");
+        commit.verify_perm(&repo).expect("Permission denied");
 
-        match commit.verify_deps(&store) {
+        match commit.verify_full_object_refs_of_branch_at_commit(repo.get_store()) {
             Ok(_) => panic!("Commit should not be Ok"),
             Err(CommitLoadError::MissingBlocks(missing)) => {
                 assert_eq!(missing.len(), 1);
@@ -445,7 +511,7 @@ mod test {
             Err(e) => panic!("Commit verify error: {:?}", e),
         }
 
-        match commit.verify(&branch, &store) {
+        match commit.verify(&repo, repo.get_store()) {
             Ok(_) => panic!("Commit should not be Ok"),
             Err(CommitVerifyError::BodyLoadError(CommitLoadError::MissingBlocks(missing))) => {
                 assert_eq!(missing.len(), 1);

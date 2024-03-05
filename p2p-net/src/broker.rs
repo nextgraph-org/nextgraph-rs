@@ -320,7 +320,7 @@ impl<'a> Broker<'a> {
         let blockstream = self
             .get_block_from_store_with_block_id(nuri, obj_ref.id, true)
             .await?;
-        let store = HashMapRepoStore::from_block_stream(blockstream).await;
+        let store = Box::new(HashMapRepoStore::from_block_stream(blockstream).await);
 
         Object::load(obj_ref.id, Some(obj_ref.key), &store)
             .map_err(|e| match e {
@@ -346,7 +346,6 @@ impl<'a> Broker<'a> {
         };
         let refs = vec![obj_ref.clone()];
         let metadata = vec![5u8; 55];
-        let expiry = None;
 
         let (member_privkey, member_pubkey) = generate_keypair();
 
@@ -354,13 +353,16 @@ impl<'a> Broker<'a> {
             member_privkey,
             member_pubkey,
             1,
-            obj_ref.clone(),
+            PubKey::nil(),
+            QuorumType::NoSigning,
+            vec![],
+            vec![],
             vec![],
             vec![],
             refs,
+            vec![],
             metadata,
             obj_ref.clone(),
-            expiry,
         )
         .unwrap();
         async fn send(mut tx: Sender<Commit>, commit: Commit) -> ResultSend<()> {
@@ -782,6 +784,7 @@ impl<'a> Broker<'a> {
                     }
                 };
             }
+            //TODO, if Core, check that IP is not in self.direct_connections
         }
 
         let mut connection = cnx
@@ -844,6 +847,8 @@ impl<'a> Broker<'a> {
                     let mut broker = BROKER.write().await;
                     broker.reconnecting(remote_peer_id, config.get_user());
                     // TODO: deal with cycle error https://users.rust-lang.org/t/recursive-async-method-causes-cycle-error/84628/5
+                    // use a channel and send the reconnect job to it.
+                    // create a spawned loop to read the channel and process the reconnection requests.
                     // let result = broker
                     //     .connect(cnx, ip, core, peer_pubk, peer_privk, remote_peer_id)
                     //     .await;

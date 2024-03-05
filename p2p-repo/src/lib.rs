@@ -20,6 +20,8 @@ pub mod branch;
 
 pub mod repo;
 
+pub mod site;
+
 pub mod utils;
 
 pub mod errors;

@@ -9,11 +9,9 @@
  * according to those terms.
 */
 
-use crate::types::{SiteStore, SiteType, SiteV0};
-
-use p2p_repo::errors::NgError;
-use p2p_repo::types::{BlockRef, PrivKey, SymKey};
-use p2p_repo::utils::{generate_keypair, sign, verify};
+use crate::errors::NgError;
+use crate::types::{BlockRef, PrivKey, SiteStore, SiteType, SiteV0, SymKey};
+use crate::utils::{generate_keypair, sign, verify};
 
 impl SiteV0 {
     // pub fn site_identity(&self) -> &Identity {

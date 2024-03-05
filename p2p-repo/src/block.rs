@@ -16,22 +16,37 @@ use crate::types::*;
 impl BlockV0 {
     pub fn new(
         children: Vec<BlockId>,
-        deps: ObjectDeps,
-        expiry: Option<Timestamp>,
+        header_ref: Option<ObjectRef>,
         content: Vec<u8>,
         key: Option<SymKey>,
     ) -> BlockV0 {
+        let (commit_header_id, commit_header_key) = header_ref.map_or((None, None), |obj_ref| {
+            (Some(obj_ref.id), Some(obj_ref.key))
+        });
+        let bc = BlockContentV0 {
+            children,
+            commit_header_id,
+            encrypted_content: content,
+        };
         let mut b = BlockV0 {
             id: None,
             key,
-            children,
-            deps,
-            expiry,
-            content,
+            content: BlockContent::V0(bc),
+            commit_header_key,
         };
-        let block = Block::V0(b.clone());
-        b.id = Some(block.get_id());
+        b.id = Some(b.compute_id());
         b
+    }
+
+    /// Compute the ID
+    pub fn compute_id(&self) -> BlockId {
+        let ser = serde_bare::to_vec(&self.content).unwrap();
+        let hash = blake3::hash(ser.as_slice());
+        Digest::Blake3Digest32(hash.as_bytes().clone())
+    }
+
+    pub fn children(&self) -> &Vec<BlockId> {
+        self.content.children()
     }
 }
 
@@ -42,68 +57,92 @@ impl From<Digest> for String {
     }
 }
 
-impl Block {
-    pub fn new(
-        children: Vec<BlockId>,
-        deps: ObjectDeps,
-        expiry: Option<Timestamp>,
-        content: Vec<u8>,
-        key: Option<SymKey>,
-    ) -> Block {
-        Block::V0(BlockV0::new(children, deps, expiry, content, key))
-    }
-
-    /// Compute the ID
-    pub fn get_id(&self) -> BlockId {
-        let ser = serde_bare::to_vec(self).unwrap();
-        let hash = blake3::hash(ser.as_slice());
-        Digest::Blake3Digest32(hash.as_bytes().clone())
-    }
-
-    /// Get the already computed ID
-    pub fn id(&self) -> BlockId {
+impl BlockContent {
+    /// Get the encrypted content
+    pub fn encrypted_content(&self) -> &Vec<u8> {
         match self {
-            Block::V0(b) => match b.id {
-                Some(id) => id,
-                None => self.get_id(),
-            },
+            BlockContent::V0(bc) => &bc.encrypted_content,
         }
     }
 
-    /// Get the content
-    pub fn content(&self) -> &Vec<u8> {
+    /// Get the header id
+    pub fn header_id(&self) -> &Option<ObjectId> {
         match self {
-            Block::V0(b) => &b.content,
+            BlockContent::V0(bc) => &bc.commit_header_id,
         }
     }
 
     /// Get the children
     pub fn children(&self) -> &Vec<BlockId> {
         match self {
-            Block::V0(b) => &b.children,
+            BlockContent::V0(b) => &b.children,
+        }
+    }
+}
+
+impl Block {
+    pub fn new(
+        children: Vec<BlockId>,
+        header_ref: Option<ObjectRef>,
+        content: Vec<u8>,
+        key: Option<SymKey>,
+    ) -> Block {
+        Block::V0(BlockV0::new(children, header_ref, content, key))
+    }
+
+    /// Compute the ID
+    pub fn compute_id(&self) -> BlockId {
+        match self {
+            Block::V0(v0) => v0.compute_id(),
         }
     }
 
-    /// Get the dependencies
-    pub fn deps(&self) -> &ObjectDeps {
-        match self {
-            Block::V0(b) => &b.deps,
+    /// Get the already computed ID or computes it, saves it, and returns it
+    pub fn get_and_save_id(&mut self) -> BlockId {
+        match &self {
+            Block::V0(b) => match b.id {
+                Some(id) => id,
+                None => {
+                    let id = self.compute_id();
+                    let Block::V0(c) = self;
+                    c.id = Some(id);
+                    id
+                }
+            },
         }
     }
 
-    /// Get the expiry
-    pub fn expiry(&self) -> Option<Timestamp> {
+    /// Get the already computed ID or computes it
+    pub fn id(&self) -> BlockId {
         match self {
-            Block::V0(b) => b.expiry,
+            Block::V0(b) => match b.id {
+                Some(id) => id,
+                None => self.compute_id(),
+            },
         }
     }
 
-    pub fn set_expiry(&mut self, expiry: Option<Timestamp>) {
+    /// Get the encrypted content
+    pub fn encrypted_content(&self) -> &Vec<u8> {
         match self {
-            Block::V0(b) => {
-                b.id = None;
-                b.expiry = expiry
-            }
+            Block::V0(b) => &b.content.encrypted_content(),
+        }
+    }
+
+    /// Get the children
+    pub fn children(&self) -> &Vec<BlockId> {
+        match self {
+            Block::V0(b) => &b.content.children(),
+        }
+    }
+
+    /// Get the header
+    pub fn header_ref(&self) -> Option<ObjectRef> {
+        match self {
+            Block::V0(b) => b.commit_header_key.as_ref().map(|key| ObjectRef {
+                key: key.clone(),
+                id: b.content.header_id().unwrap().clone(),
+            }),
         }
     }
 
