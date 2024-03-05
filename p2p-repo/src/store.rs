@@ -23,7 +23,7 @@ use std::{
     mem::size_of_val,
 };
 
-pub trait RepoStore {
+pub trait RepoStore: Send + Sync {
     /// Load a block from the store.
     fn get(&self, id: &BlockId) -> Result<Block, StorageError>;
 

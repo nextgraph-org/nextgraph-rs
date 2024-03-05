@@ -163,6 +163,7 @@ pub struct ClientConfig {
     pub user_priv: PrivKey,
     pub client: PubKey,
     pub info: ClientInfo,
+    //pub peer_advert: PeerAdvert,
     pub registration: Option<Option<[u8; 32]>>,
 }
 
@@ -172,7 +173,8 @@ pub struct ExtConfig {}
 #[derive(Debug, Clone)]
 pub struct CoreConfig {
     pub addr: BindAddress,
-    pub interface: String,
+    //pub interface: String,
+    pub overlays_config: CoreBrokerConnect,
 }
 
 #[derive(Debug, Clone)]

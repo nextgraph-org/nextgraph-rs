@@ -12,7 +12,6 @@ use ed25519_dalek::*;
 use duration_str::parse;
 use futures::{future, pin_mut, stream, SinkExt, StreamExt};
 use p2p_net::actors::*;
-use p2p_repo::object::Object;
 use p2p_repo::store::{store_max_value_size, store_valid_value_size, HashMapRepoStore, RepoStore};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};

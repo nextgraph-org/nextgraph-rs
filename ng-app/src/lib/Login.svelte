@@ -221,7 +221,7 @@
     <ul class="mb-8 ml-3 space-y-4 text-left list-decimal">
       <li>
         For each category of images, you will be presented with the 15 possible
-        choices. The categories are shuffled at every login. They will not
+        image choices. The categories are shuffled at every login. They will not
         always appear in the same order.
       </li>
       <li>
@@ -229,7 +229,8 @@
         image that belongs to your pazzle. Find it and tap or click on that one.
         The 15 images are shuffled too, they will not appear at the same
         position at each login. On a computer, you can also use the tab key on
-        your keyboard to move to the desired item on the screen.
+        your keyboard to move to the desired item on the screen, then press the
+        space bar.
       </li>
       <li>
         Once you completed the last category, you will be presented with all the

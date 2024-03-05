@@ -18,7 +18,7 @@ use p2p_net::types::*;
 use p2p_repo::kcv_store::KCVStore;
 use p2p_repo::log::*;
 use p2p_repo::store::*;
-use p2p_repo::types::Timestamp;
+use p2p_repo::types::UserId;
 use serde_bare::{from_slice, to_vec};
 
 pub struct Account<'a> {

@@ -31,7 +31,7 @@ use std::{
 use web_time::SystemTime;
 
 //
-//  Broker common types
+//  Network common types
 //
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,88 +85,6 @@ pub struct Interface {
     pub ipv6: Vec<default_net::ip::Ipv6Net>,
 }
 
-/// List of Identity types
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum Identity {
-    OrgSite(PubKey),
-    IndividualSite(PubKey),
-    OrgPublic(PubKey),
-    OrgProtected(PubKey),
-    OrgPrivate(PubKey),
-    IndividualPublic(PubKey),
-    IndividualProtected(PubKey),
-    IndividualPrivate(PubKey),
-    Group(RepoId),
-    Dialog(RepoId),
-    Document(RepoId),
-    DialogOverlay(Digest),
-}
-
-/// Site type
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum SiteType {
-    Org,
-    Individual, // formerly Personal
-}
-
-/// Site Store
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct SiteStore {
-    // pub identity: Identity,
-    pub key: PrivKey,
-    // signature with site_key
-    // pub sig: Sig,
-    pub root_branch_def_ref: ObjectRef,
-
-    pub repo_secret: SymKey,
-}
-
-/// Site Store type
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum SiteStoreType {
-    Public,
-    Protected,
-    Private,
-}
-
-/// Site V0
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct SiteV0 {
-    pub site_type: SiteType,
-    // Identity::OrgSite or Identity::IndividualSite
-    // pub site_identity: Identity,
-    pub site_key: PrivKey,
-
-    // Identity::OrgPublic or Identity::IndividualPublic
-    pub public: SiteStore,
-
-    // Identity::OrgProtected or Identity::IndividualProtected
-    pub protected: SiteStore,
-
-    // Identity::OrgPrivate or Identity::IndividualPrivate
-    pub private: SiteStore,
-
-    pub cores: Vec<(PubKey, Option<[u8; 32]>)>,
-
-    pub bootstraps: Vec<PubKey>,
-}
-
-/// Reduced Site (for QRcode)
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct ReducedSiteV0 {
-    pub site_key: PrivKey,
-
-    pub private_site_key: PrivKey,
-
-    pub private_site_root_branch_def_ref: ObjectRef,
-
-    pub private_site_repo_secret: SymKey,
-
-    pub core: PubKey,
-
-    pub bootstraps: Vec<PubKey>,
-}
-
 /// Bind address
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct BindAddress {
@@ -193,6 +111,8 @@ impl From<&SocketAddr> for BindAddress {
         BindAddress { ip, port }
     }
 }
+
+/// BROKER common types
 
 /// Core Broker connection details Version 0
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -1239,33 +1159,119 @@ pub enum RegistrationConfig {
 
 pub type DirectPeerId = PubKey;
 
+pub type ForwardedPeerId = PubKey;
+
 /// Peer ID: public key of the node, or an encrypted version of it
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub enum PeerId {
-    DIRECT(DirectPeerId),
-    FORWARDED([u8; 32]),
+    Direct(DirectPeerId),
+    Forwarded(ForwardedPeerId),
 }
+
+pub type OuterOverlayId = Digest;
+
+pub type InnerOverlayId = Digest;
 
 /// Overlay ID
 ///
-/// - for read overlays that need to be discovered by public key:
-///   BLAKE3 hash over the repository public key (of root doc)
-/// - for write overlays:
-///   BLAKE3 keyed hash over the repository public key
-///   - key: BLAKE3 derive_key ("NextGraph OverlayId BLAKE3 key", repo_secret, root_secret)
-pub type OverlayId = Digest;
+/// - for outer overlays that need to be discovered by public key:
+///   BLAKE3 hash over the repository public key (of root repo)
+/// - for inner overlays:
+///   BLAKE3 keyed hash over the repository public key (of root repo)
+///   - key: BLAKE3 derive_key ("NextGraph Overlay Secret BLAKE3 key", root_secret)
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum OverlayId {
+    Outer(OuterOverlayId),
+    Inner(InnerOverlayId),
+    Global,
+}
+
+impl fmt::Display for OverlayId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let overlay_ser = serde_bare::to_vec(&self).unwrap();
+        write!(f, "{}", base64_url::encode(&overlay_ser))
+    }
+}
+
+/// Overlay Access
+///
+/// Used by the Client when opening or pinning a repo.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum OverlayAccess {
+    /// The repo will be accessed on the Outer Overlay in Read Only mode
+    /// This can be used for Public, Protected or Group overlays
+    /// Value should be an OverlayId::Outer
+    ReadOnly(OverlayId),
+    /// The repo will be accessed on the Inner Overlay in Write mode, and the associated Outer overlay is also given
+    /// This is used for Public, Protected and Group overlays
+    /// First value in tuple should be the OverlayId::Inner, second the OverlayId::Outer
+    ReadWrite((OverlayId, OverlayId)),
+    /// The repo will be accessed on the Inner Overlay in Write mode, and it doesn't have an Outer overlay
+    /// This is used for Private and Dialog overlays
+    /// Value should be an OverlayId::Inner
+    WriteOnly(OverlayId),
+}
+
+impl OverlayAccess {
+    pub fn new_ro(outer_overlay: OverlayId) -> Result<Self, NgError> {
+        if let OverlayId::Outer(_digest) = outer_overlay {
+            Ok(OverlayAccess::ReadOnly(outer_overlay))
+        } else {
+            Err(NgError::InvalidArgument)
+        }
+    }
+    pub fn new_rw(inner_overlay: OverlayId, outer_overlay: OverlayId) -> Result<Self, NgError> {
+        if let OverlayId::Inner(_digest) = inner_overlay {
+            if let OverlayId::Outer(_digest) = outer_overlay {
+                Ok(OverlayAccess::ReadWrite((inner_overlay, outer_overlay)))
+            } else {
+                Err(NgError::InvalidArgument)
+            }
+        } else {
+            Err(NgError::InvalidArgument)
+        }
+    }
+    pub fn new_wo(inner_overlay: OverlayId) -> Result<Self, NgError> {
+        if let OverlayId::Inner(_digest) = inner_overlay {
+            Ok(OverlayAccess::WriteOnly(inner_overlay))
+        } else {
+            Err(NgError::InvalidArgument)
+        }
+    }
+}
+
+/// Inner Overlay Link
+///
+/// Details of the inner overlay of an NgLink
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct InnerOverlayLink {
+    /// overlay public key ID
+    pub id: Identity,
+
+    /// current root branch definition commit
+    /// The ref is split in two: id and key.
+    /// The ID can be omitted if reading the overlay members should not be allowed.
+    /// In this case, the pinning broker will not be able to subscribe to the overlay root topic
+    /// and will therefor lose access if the overlay is refreshed.
+    pub root_branch_def_id: Option<ObjectId>,
+    pub root_branch_def_key: ObjectKey,
+}
+
+/// Overlay Link
+///
+/// Details of the overlay of an NgLink
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum OverlayLink {
+    Outer(Identity),
+    Inner(InnerOverlayLink),
+    Inherit,
+}
 
 /// Overlay session ID
 ///
-/// Used as a component for key derivation.
+/// It is a pubkey used for signing all OverlayMessage sent by the peer.
 /// Each peer generates it randomly when (re)joining the overlay network.
-pub type SessionId = u64;
-
-/// Topic ID: public key of the topic
-pub type TopicId = PubKey;
-
-/// User ID: user account for broker
-pub type UserId = PubKey;
+pub type SessionId = PubKey;
 
 /// Client ID: client of a user
 pub type ClientId = PubKey;
@@ -1426,30 +1432,24 @@ impl ClientInfo {
 // OVERLAY MESSAGES
 //
 
-/// Overlay connection request
+/// Overlay leave request
 ///
-/// Sent to an existing overlay member to initiate a session
+/// In outerOverlay: informs the broker that the overlay is not need anymore
+/// In innerOverlay: Sent to all connected overlay participants to terminate a session
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum OverlayConnect {
+pub enum OverlayLeave {
     V0(),
 }
 
-/// Overlay disconnection request
-///
-/// Sent to a connected overlay member to terminate a session
+/// Content of PublisherAdvertV0
+/// the peer is matched with the InnerOverlayMessageV0.Session -> peerId.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum OverlayDisconnect {
-    V0(),
-}
-
-/// Content of TopicAdvertV0
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct TopicAdvertContentV0 {
+pub struct PublisherAdvertContentV0 {
     /// Topic public key
     pub topic: TopicId,
 
     /// Peer public key
-    pub peer: PeerId,
+    pub peer: DirectPeerId,
 }
 
 /// Topic advertisement by a publisher
@@ -1457,8 +1457,8 @@ pub struct TopicAdvertContentV0 {
 /// Flooded to all peers in overlay
 /// Creates subscription routing table entries
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct TopicAdvertV0 {
-    pub content: TopicAdvertContentV0,
+pub struct PublisherAdvertV0 {
+    pub content: PublisherAdvertContentV0,
 
     /// Signature over content by topic key
     pub sig: Sig,
@@ -1466,22 +1466,25 @@ pub struct TopicAdvertV0 {
 
 /// Topic advertisement by a publisher
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum TopicAdvert {
-    V0(TopicAdvertV0),
+pub enum PublisherAdvert {
+    V0(PublisherAdvertV0),
 }
 
 /// Topic subscription request by a peer
 ///
 /// Forwarded towards all publishers along subscription routing table entries
-/// that are created by TopicAdverts
+/// that are created by PublisherAdverts
 /// Creates event routing table entries along the path
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct SubReqV0 {
-    /// Random ID generated by the subscriber
-    pub id: u64,
-
     /// Topic public key
     pub topic: TopicId,
+
+    /// For initial subscription, should be None,
+    /// When updating a subscription after a new publisher has joined (with a PublisherAdvert),
+    /// then the target publisher should be entered here.
+    /// The brokers will only forward the SubscriptionRequest to that publisher (on all available paths)
+    pub publisher: Option<DirectPeerId>,
 }
 
 /// Topic subscription request by a peer
@@ -1490,19 +1493,29 @@ pub enum SubReq {
     V0(SubReqV0),
 }
 
-/// Topic subscription acknowledgement by a publisher
+/// Topic subscription marker sent by all publishers, back to subscriber
 ///
-/// Sent to all subscribers in an Event.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct SubAckV0 {
-    /// SubReq ID to acknowledge
-    pub id: u64,
+/// Forwarded to all subscribers.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SubMarkerV0 {
+    /// The publisher broker that marks its starting cut
+    /// TODO: that could be omitted, because we can retrieve it with the SessionId
+    pub publisher: DirectPeerId,
+
+    /// The subscribed topic
+    pub topic: TopicId,
+
+    /// The subscriber
+    pub subscriber: DirectPeerId,
+
+    /// Current heads at the broker when receiving the SubReq. Can be used to safely do a CoreTopicSyncReq
+    pub known_heads: Vec<ObjectId>,
 }
 
 /// Topic subscription acknowledgement by a publisher
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum SubAck {
-    V0(SubAckV0),
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum SubMarker {
+    V0(SubMarkerV0),
 }
 
 /// Topic unsubscription request by a subscriber
@@ -1521,64 +1534,37 @@ pub enum UnsubReq {
     V0(UnsubReqV0),
 }
 
-/// Topic unsubscription acknowledgement
-/// Sent to the requestor in response to an UnsubReq
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct UnsubAckV0 {
-    /// Topic public key
-    pub topic: TopicId,
-}
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum UnsubAck {
-    V0(UnsubAckV0),
-}
-
-/// Branch change notification
-/// Contains a chunk of a newly added Commit or File referenced by a commit.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ChangeV0 {
-    /// Block with encrypted content
-    pub content: Block,
-
-    /// Encrypted key for the Commit object in content
-    /// Only set for the root block of the object
-    /// The key is encrypted using ChaCha20:
-    /// - key: BLAKE3 derive_key ("NextGraph Event ObjectRef ChaCha20 key",
-    ///                           branch_pubkey + branch_secret + publisher_pubkey)
-    /// - nonce: commit_seq
-    pub key: Option<SymKey>,
-}
-
-/// Body of EventContentV0
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum EventBodyV0 {
-    SubAck,
-    Change,
-}
-
 /// Content of EventV0
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+/// Contains the object of newly published Commit, its optional blocks, and optional refs and their blocks.
+/// If a block is not present in the Event, its ID should be present in block_ids and the block should be put on the emitting broker beforehand with BlocksPut.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventContentV0 {
     /// Pub/sub topic
     pub topic: TopicId,
 
-    /// Publisher pubkey encrypted with ChaCha20:
-    /// - key: BLAKE3 derive_key ("NextGraph Event Publisher ChaCha20 key",
-    ///                           repo_pubkey + repo_secret +
-    ///                           branch_pubkey + branch_secret)
-    pub publisher: [u8; 32], // PubKey
+    pub publisher: ForwardedPeerId,
 
     /// Commit sequence number of publisher
-    pub seq: u32,
+    pub seq: u64,
 
-    /// Event body
-    pub body: EventBodyV0,
+    /// Blocks with encrypted content. First in the list is always the commit block, the others are optional.
+    pub blocks: Vec<Block>,
+
+    /// Ids of additional Blocks with encrypted content that are not to be pushed in the pub/sub
+    pub block_ids: Vec<BlockId>,
+
+    /// Encrypted key for the Commit object (the first Block in blocks)
+    /// The key is encrypted using ChaCha20:
+    /// - key: BLAKE3 derive_key ("NextGraph Event ObjectRef ChaCha20 key",
+    ///                           repo_pubkey + branch_pubkey + branch_secret + publisher)
+    /// - nonce: commit_seq
+    pub key: Option<SymKey>,
 }
 
 /// Pub/sub event published in a topic
 ///
 /// Forwarded along event routing table entries
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventV0 {
     pub content: EventContentV0,
 
@@ -1587,7 +1573,7 @@ pub struct EventV0 {
 }
 
 /// Pub/sub event published in a topic
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Event {
     V0(EventV0),
 }
@@ -1595,11 +1581,17 @@ pub enum Event {
 /// Object search in a pub/sub topic
 ///
 /// Sent along the reverse path of a pub/sub topic
-/// from a subscriber to all publishers.
+/// from a subscriber to one publisher at a time.
+/// fanout is always 1
+/// if result is none, tries another path if several paths available locally
+/// answered with a BlockResult
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockSearchTopicV0 {
     /// Topic to forward the request in
     pub topic: TopicId,
+
+    /// Also search in subscribers
+    pub search_in_subs: bool,
 
     /// List of Object IDs to request
     pub ids: Vec<ObjectId>,
@@ -1611,13 +1603,16 @@ pub struct BlockSearchTopicV0 {
     pub path: Vec<PeerId>,
 }
 
-/// Object request by ID
+/// Object request by ID to publishers
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BlockSearchTopic {
     V0(BlockSearchTopicV0),
 }
 
-/// Block search along a random walk
+/// Block search along a random walk in the overlay
+/// fanout is always 1
+/// if result is none, tries another path if several paths available locally
+/// answered with a BlockResult
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockSearchRandomV0 {
     /// List of Block IDs to request
@@ -1627,13 +1622,14 @@ pub struct BlockSearchRandomV0 {
     pub include_children: bool,
 
     /// Number of random nodes to forward the request to at each step
-    pub fanout: u8,
+    // pub fanout: u8,
+    // for now fanout is always 1
 
-    /// List of Peer IDs the request traversed so far
-    pub path: Vec<PeerId>,
+    /// List of Broker Peer IDs the request traversed so far
+    pub path: Vec<DirectPeerId>,
 }
 
-/// Block request by ID using a random walk
+/// Block request by ID using a random walk in the overlay
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BlockSearchRandom {
     V0(BlockSearchRandomV0),
@@ -1641,13 +1637,9 @@ pub enum BlockSearchRandom {
 
 /// Response to a BlockSearch* request
 ///
-/// Follows request path with possible shortcuts.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockResultV0 {
-    /// Response path
-    pub path: Vec<PeerId>,
-
-    /// Resulting Object(s)
+    /// Resulting Blocks(s)
     pub payload: Vec<Block>,
 }
 
@@ -1657,173 +1649,98 @@ pub enum BlockResult {
     V0(BlockResultV0),
 }
 
-/// Request latest events corresponding to the branch heads in a pub/sub topic
-///
-/// In response an Event is sent for each commit chunk that belong to branch heads
-/// that are not present in the requestor's known heads
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BranchHeadsReqV0 {
-    /// Topic public key of the branch
-    pub topic: TopicId,
-
-    /// Known heads
-    pub known_heads: Vec<ObjectId>,
-}
-
-/// Request latest events corresponding to the branch heads in a pub/sub topic
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum BranchHeadsReq {
-    V0(BranchHeadsReqV0),
-}
-
-/// Branch synchronization request
+/// Topic synchronization request
 ///
 /// In response a stream of `Block`s of the requested Objects are sent
 /// that are not present in the requestor's known heads and commits
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BranchSyncReqV0 {
-    /// Heads to request, including all their dependencies
-    pub heads: Vec<ObjectId>,
+pub struct TopicSyncReqV0 {
+    /// Topic public key
+    pub topic: TopicId,
 
     /// Fully synchronized until these commits
     pub known_heads: Vec<ObjectId>,
 
     /// Known commit IDs since known_heads
+    // TODO: is this going to be used?
     pub known_commits: BloomFilter,
 }
 
-/// Branch synchronization request
+/// Topic synchronization request
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum BranchSyncReq {
-    V0(BranchSyncReqV0),
+pub enum TopicSyncReq {
+    V0(TopicSyncReqV0),
 }
 
-impl BranchSyncReq {
-    pub fn heads(&self) -> &Vec<ObjectId> {
+impl TopicSyncReq {
+    pub fn topic(&self) -> &TopicId {
         match self {
-            BranchSyncReq::V0(o) => &o.heads,
+            TopicSyncReq::V0(o) => &o.topic,
         }
     }
     pub fn known_heads(&self) -> &Vec<ObjectId> {
         match self {
-            BranchSyncReq::V0(o) => &o.known_heads,
+            TopicSyncReq::V0(o) => &o.known_heads,
         }
     }
     pub fn known_commits(&self) -> &BloomFilter {
         match self {
-            BranchSyncReq::V0(o) => &o.known_commits,
+            TopicSyncReq::V0(o) => &o.known_commits,
         }
     }
 }
 
-/// Events the requestor needs, see EventReqV0
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct NeedEventsV0 {
-    /// Publisher ID
-    pub publisher: Digest,
-
-    /// First sequence number to request
-    pub from: u32,
-
-    /// Last sequence number to request
-    pub to: u32,
-}
-
-/// Events the responder has, see EventRespV0
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct HaveEventsV0 {
-    /// Publisher ID
-    pub publisher: Digest,
-
-    /// First sequence number to send
-    pub from: u32,
-
-    /// Last sequence number to send
-    pub to: u32,
-}
-
-/// Request missed events for a pub/sub topic
-/// for the specified range of publisher sequence numbers
-///
-/// In response an EventResp then a stream of Events are sent
+/// Status of a Forwarded Peer, sent in the Advert
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EventReqV0 {
-    /// Topic public key
-    pub topic: TopicId,
-
-    /// Events needed by the requestor
-    pub need: Vec<NeedEventsV0>,
+pub enum PeerStatus {
+    Connected,
+    Disconnected,
 }
 
-/// Request missed events for a pub/sub topic
+/// ForwardedPeerAdvertV0
+/// peer_advert.forwarded_by is matched with sessionid->peerid
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum EventReq {
-    V0(EventReqV0),
+pub struct ForwardedPeerAdvertV0 {
+    /// PeerAdvert received from Client
+    pub peer_advert: PeerAdvertV0,
+
+    /// Hashed user Id, used to prevent concurrent connection from different brokers
+    /// BLAKE3 keyed hash over the UserId
+    ///   - key: BLAKE3 derive_key ("NextGraph Overlay Id BLAKE3 key", overlayId)
+    pub user_hash: Digest,
+
+    /// whether the Advert is about connection or disconnection
+    pub status: PeerStatus,
 }
 
-/// Response to an EventReq
+/// Forwarded Peer advertisement
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct EventRespV0 {
-    /// Events the responder has
-    pub have: Vec<HaveEventsV0>,
+pub enum ForwardedPeerAdvert {
+    V0(ForwardedPeerAdvertV0),
 }
 
-/// Response to an EventReq
+/// ForwardedPeerConflictV0
+/// peer_advert.forwarded_by is matched with sessionid->peerid
+/// When a conflict occurs, the peer is immediately removed locally
+/// When the forwarding broker receives the conflict (or notices it), it disconnects the client(s).
+/// In order to avoid conflicts, the highest version of PeerAdvert should win, when the Forwarding Broker is different.
+/// Disconnect wins over connect, for the exact same peer, version and forwarding broker.
+/// Conflict can occur when same user_hash, on 2 different Forwarding Broker
+/// Or when same peerId appears on 2 different Forwarding Broker.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum EventResp {
-    V0(EventRespV0),
+pub struct ForwardedPeerConflictV0 {
+    /// First conflicting PeerAdvert
+    pub advert_1: ForwardedPeerAdvertV0,
+    /// Second conflicting PeerAdvert
+    pub advert_2: ForwardedPeerAdvertV0,
+
+    pub error_code: u16,
 }
 
-/// Content of CoreRequestV0
+/// Forwarded Peer advertisement conflict
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum CoreRequestContentV0 {
-    EventReq(EventReq),
-    BranchHeadsReq(BranchHeadsReq),
-    BranchSyncReq(BranchSyncReq),
-}
-
-/// Request sent to an overlay
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CoreRequestV0 {
-    /// Request ID
-    pub id: i64,
-
-    /// Request content
-    pub content: CoreRequestContentV0,
-}
-
-/// Request sent to an overlay
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum CoreRequest {
-    V0(CoreRequestV0),
-}
-
-/// Content of CoreResponseV0
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum CoreResponseContentV0 {
-    EmptyResponse(()),
-    Block(Block),
-    EventResp(EventResp),
-    Event(Event),
-}
-
-/// Request sent to an overlay
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CoreResponseV0 {
-    /// Request ID
-    pub id: i64,
-
-    /// Result
-    pub result: u16,
-
-    /// Response content
-    pub content: CoreResponseContentV0,
-}
-
-/// Request sent to an CoreRequest
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum CoreResponse {
-    V0(CoreResponseV0),
+pub enum ForwardedPeerConflict {
+    V0(ForwardedPeerConflictV0),
 }
 
 /// Content of PeerAdvertV0
@@ -1832,10 +1749,13 @@ pub struct PeerAdvertContentV0 {
     /// Peer ID
     pub peer: PeerId,
 
-    /// Topic subscriptions
-    pub subs: BloomFilter128,
+    /// Id of the broker that is forwarding the peer
+    pub forwarded_by: Option<DirectPeerId>,
 
-    /// Network addresses
+    /// Topic subscriptions
+    // pub subs: BloomFilter128,
+
+    /// Network addresses, must be empty for forwarded peers
     pub address: Vec<NetAddr>,
 
     /// Version number
@@ -1848,7 +1768,10 @@ pub struct PeerAdvertContentV0 {
 
 /// Peer advertisement
 ///
-/// Sent periodically across the overlay along random walks.
+/// Sent when a peer joins an inner overlay.
+/// Used only for forwardedPeer for now.
+/// In the future, Core brokers could exchange PeerAdvert on the global overlay, and also do some PeerSearch to search for IPs/newer version of PeerAdvert
+/// When the forwarding broker receives a client connection, it checks that the peer isn't
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PeerAdvertV0 {
     /// Peer advertisement content
@@ -1856,9 +1779,6 @@ pub struct PeerAdvertV0 {
 
     /// Signature over content by peer's private key
     pub sig: Sig,
-
-    /// Time-to-live, decremented at each hop
-    pub ttl: u8,
 }
 
 /// Peer advertisement
@@ -1880,54 +1800,444 @@ impl PeerAdvert {
     }
 }
 
-/// Content of CoreMessagePaddedV0
+/// Content of InnerOverlayMessageV0
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum CoreMessageContentV0 {
-    OverlayConnect(OverlayConnect),
-    OverlayDisconnect(OverlayDisconnect),
-    PeerAdvert(PeerAdvert),
-    TopicAdvert(TopicAdvert),
+pub enum InnerOverlayMessageContentV0 {
+    OverlayLeave(OverlayLeave),
+    ForwardedPeerAdvert(ForwardedPeerAdvert),
+    ForwardedPeerConflict(ForwardedPeerConflict),
+    PublisherJoined(PublisherAdvert),
+    PublisherLeft(PublisherAdvert),
     SubReq(SubReq),
-    SubAck(SubAck),
+    SubMarker(SubMarker),
     UnsubReq(UnsubReq),
-    UnsubAck(UnsubAck),
     Event(Event),
-    BlockSearchTopic(BlockSearchTopic),
-    BlockSearchRandom(BlockSearchRandom),
-    BlockResult(BlockResult),
-    CoreRequest(CoreRequest),
-    CoreResponse(CoreResponse),
+    //PostInboxRequest(PostInboxRequest),
+    //PostInboxResponse(PostInboxResponse),
 }
 
-/// Overlay message
+/// Inner Overlay message payload V0
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CoreMessageV0 {
-    /// Overlay ID
-    pub overlay: OverlayId,
+pub struct InnerOverlayMessagePayloadV0 {
+    /// Sequence number incremented by peer when sending every overlay message in a session
+    /// Used to prevent replay attacks inside the overlay
+    pub seq: u64,
 
+    pub content: InnerOverlayMessageContentV0,
+}
+
+/// Inner Overlay message V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InnerOverlayMessageV0 {
     /// Session ID
     pub session: SessionId,
 
-    /// Padded content encrypted with ChaCha20
-    /// - overlay_secret: BLAKE3 derive_key ("NextGraph Overlay BLAKE3 key",
-    ///                                      repo_pubkey + repo_secret)
-    /// - key: BLAKE3 derive_key ("NextGraph CoreMessage ChaCha20 key",
-    ///                           overlay_secret + session_id)
-    /// - nonce: per-session message sequence number of sending peer
-    pub content: CoreMessageContentV0,
+    pub payload: InnerOverlayMessagePayloadV0,
+
+    /// Signature with Session private key, over payload
+    pub sig: Sig,
 
     /// Optional padding
     #[serde(with = "serde_bytes")]
     pub padding: Vec<u8>,
-
-    /// BLAKE3 MAC
-    /// BLAKE3 keyed hash over the encrypted content
-    /// - key:  BLAKE3 derive_key ("NextGraph CoreMessage BLAKE3 key",
-    ///                            overlay_secret + session_id)
-    pub mac: Digest,
 }
 
-/// Overlay message
+/// Inner Overlay message
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum InnerOverlayMessage {
+    V0(InnerOverlayMessageV0),
+}
+
+/// Overlay Advert Payload V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OverlayAdvertPayloadV0 {
+    /// the target Overlay ID (cannot be an Outer overlay)
+    pub overlay: OverlayId,
+
+    /// the newly generated session ID the peer will use in this overlay
+    /// All the revoked sessionIDs are kept locally by their initiator.
+    pub session: SessionId,
+
+    /// Current sequence number. For a new session, must be zero.
+    pub seq: u64,
+
+    /// the previous session ID the peer was using in this overlay. Used to cleanup seq counters maintained in each other peer
+    /// if the previous session is empty (because it is the first time broker joins this overlay)
+    /// or if a remote peer doesn't find this session kept locally, it is not an error.
+    /// In the later case (if broker missed some intermediary sessions), the remote peer can ask the initiator peer if the last known
+    /// session can be locally revoked with a ConfirmRevokedSession message (answered with yes or no)
+    pub previous_session: Option<SessionId>,
+
+    /// peer ID of the broker issuing this Advert
+    pub peer: DirectPeerId,
+}
+
+/// Overlay Advert V0 : used by a broker peer every time it (re)joins an overlay
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OverlayAdvertV0 {
+    pub payload: OverlayAdvertPayloadV0,
+
+    /// Signature with peerId private key, over payload
+    pub sig: Sig,
+}
+
+/// Overlay Advert : used by a broker peer every time it (re)joins an overlay
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum OverlayAdvert {
+    V0(OverlayAdvertV0),
+}
+
+/// CoreBrokerJoinedAdvert V0
+/// Each broker that is already part of an overlay, when receiving the CoreBrokerJoinedAdvert, should answer with one direct message
+/// to the joining peer (found in OverlayAdvertPayloadV0.peer) for each overlay, containing an OverlayAdvertMarker containing their current sequence number.
+/// This is sent for each path (in case multiple paths arrive to the same broker). Only the first sequence number received by joining peer is kept locally
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreBrokerJoinedAdvertV0 {
+    /// list of overlays joined by an initiator broker, and that the forwarding broker has also previously joined
+    /// the forwarding broker keeps the ingress edge and all egress edges in the coreRoutingTable
+    pub overlays: Vec<OverlayAdvertV0>,
+}
+
+/// CoreBrokerLeftAdvert V0
+/// A broker has disconnected from another broker, and the routes need to be updated
+/// this is not used to leave one specific overlay. see OverlayLeave message for that purpose
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreBrokerLeftAdvertV0 {
+    /// The broker that disconnected from the one that is emitting this advert.
+    pub disconnected: DirectPeerId,
+}
+
+/// CoreOverlayJoinedAdvert V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreOverlayJoinedAdvertV0 {
+    /// One additional overlay joined by an initiator broker, and that the forwarding broker has also previously joined
+    /// the forwarding broker keeps the ingress edge and all egress edges in the coreRoutingTable
+    pub overlay: OverlayAdvertV0,
+}
+
+/// Content of CoreAdvert V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CoreAdvertContentV0 {
+    BrokerJoined(CoreBrokerJoinedAdvertV0),
+    BrokerLeft(CoreBrokerLeftAdvertV0),
+    OverlayJoined(CoreOverlayJoinedAdvertV0),
+}
+
+/// CoreAdvert V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreAdvertV0 {
+    pub content: CoreAdvertContentV0,
+
+    /// list of brokers on the path that was followed to deliver this advert.
+    /// new entry pushed each time a forward is happening in the core network
+    pub path: Vec<DirectPeerId>,
+
+    /// content signed by the first broker in the path
+    pub sig: Sig,
+
+    /// Optional padding
+    #[serde(with = "serde_bytes")]
+    pub padding: Vec<u8>,
+}
+
+/// OverlayAdvertMarker V0
+/// when receiving a marker, the broker saves the ingress edge and the corresponding remote peer and
+/// overlay that can be reached (the OverlayAdvertPayloadV0.peer and .overlay) in the CoreRoutingTable
+/// It also saves the sessionId and seq number
+/// then a ReturnPathTimingAdvert is sent back
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OverlayAdvertMarkerV0 {
+    pub marker: OverlayAdvertV0,
+
+    /// New SessionId that triggered this marker (to avoid replay attacks in the core network)
+    pub in_reply_to: SessionId,
+
+    /// path from the new broker who started a session, to the broker that is sending the marker
+    pub path: Vec<DirectPeerId>,
+
+    /// randomly generated nonce used for the reply (a ReturnPathTimingMarker) that will be sent after receiving the marker
+    pub reply_nonce: u64,
+}
+
+/// Core Block Get V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreBlockGetV0 {
+    /// Block ID to request
+    pub id: BlockId,
+
+    /// Whether or not to include all children recursively
+    pub include_children: bool,
+
+    /// randomly generated number by requester, used for sending reply. Purpose is to defeat replay attacks in the overlay
+    /// the requester keeps track of req_nonce and destination peerid.
+    pub req_nonce: u64,
+}
+
+/// Core Block Result V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreBlockResultV0 {
+    /// Resulting Object(s)
+    pub payload: Vec<Block>,
+
+    /// randomly generated number by requester, as received in the request
+    pub req_nonce: u64,
+}
+
+/// ReturnPathTimingAdvertV0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ReturnPathTimingAdvertV0 {
+    /// Signature over nonce, by sessionId
+    pub sig: Sig,
+
+    /// randomly generated number as received in the OverlayAdvertMarker
+    pub nonce: u64,
+}
+
+/// Content of CoreDirectMessage V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CoreDirectMessageContentV0 {
+    OverlayAdvertMarker(OverlayAdvertMarkerV0),
+    ReturnPathTimingAdvert(ReturnPathTimingAdvertV0),
+    BlockGet(CoreBlockGetV0),
+    BlockResult(CoreBlockResultV0),
+    //PostInbox,
+    //PartialSignature,
+    //ClientDirectMessage //for messages between forwarded or direct peers
+}
+
+/// CoreDirectMessage V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreDirectMessageV0 {
+    pub content: CoreDirectMessageContentV0,
+
+    /// list of brokers on the path that must be followed to deliver this message, next hop is at the bottom of the list.
+    /// last entry on the list is popped each time a broker is forwarding upstream
+    /// when list size is zero, the final destination is reached.
+    /// if only one peer in list, and peer not found in local CoreRoutingTable, use the best route to reach it (without popping)
+    pub reverse_path: Vec<DirectPeerId>,
+
+    /// The sender
+    pub from: DirectPeerId,
+
+    /// content signed by the sender
+    pub sig: Sig,
+
+    /// Optional padding
+    #[serde(with = "serde_bytes")]
+    pub padding: Vec<u8>,
+}
+
+/// CoreBrokerConnect V0
+/// replied with CoreBrokerConnectResponse
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreBrokerConnectV0 {
+    pub inner_overlays: Vec<OverlayAdvertV0>,
+    pub outer_overlays: Vec<Digest>,
+}
+
+/// CoreBrokerConnect
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CoreBrokerConnect {
+    V0(CoreBrokerConnectV0),
+}
+
+/// CoreBrokerConnectResponse
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CoreBrokerConnectResponse {
+    V0(CoreBrokerConnectResponseV0),
+}
+
+impl CoreBrokerConnect {
+    pub fn core_message(&self, id: i64) -> CoreMessage {
+        match self {
+            CoreBrokerConnect::V0(v0) => CoreMessage::V0(CoreMessageV0::Request(CoreRequestV0 {
+                padding: vec![],
+                id,
+                content: CoreRequestContentV0::BrokerConnect(v0.clone()),
+            })),
+        }
+    }
+}
+
+/// sent to a direct peer just before closing the connection
+pub type CoreBrokerDisconnectV0 = ();
+
+/// Content of CoreOverlayJoin V0
+/// // replied with an emptyResponse, and an error code if OverlayId not present on remote broker
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CoreOverlayJoinV0 {
+    Inner(OverlayAdvertV0),
+    Outer(Digest),
+}
+
+/// Content of OuterOverlayResponse V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum OuterOverlayResponseContentV0 {
+    EmptyResponse(()),
+    Block(Block),
+    //PostInboxResponse(PostInboxResponse),
+}
+
+/// Content of OuterOverlayRequest V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum OuterOverlayRequestContentV0 {
+    TopicSyncReq(TopicSyncReq),
+    OverlayLeave(OverlayLeave),
+    TopicSub(PubKey),
+    TopicUnsub(PubKey),
+    BlockGet(BlockGet),
+    //PostInboxRequest(PostInboxRequest),
+}
+
+/// OuterOverlayRequestV0 V0
+/// replied with OuterOverlayResponseV0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OuterOverlayRequestV0 {
+    pub overlay: Digest,
+    pub content: OuterOverlayRequestContentV0,
+}
+
+/// OuterOverlayResponse V0
+/// reply to an OuterOverlayRequest V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OuterOverlayResponseV0 {
+    pub overlay: Digest,
+    pub content: OuterOverlayResponseContentV0,
+}
+
+/// Core Topic synchronization request
+///
+/// behaves like BlockSearchTopic (primarily searches among the publishers)
+/// fanout is 1 for now
+/// In response a stream of `Block`s of the requested Objects are sent
+/// that are not present in the requestor's known heads and commits
+///
+/// if some target_heads are not found locally, then all successors of known_heads are sent anyway.
+/// Then this temporary HEAD is used to propagate the CoreTopicSyncReq to upstream brokers
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreTopicSyncReqV0 {
+    /// Topic public key
+    pub topic: TopicId,
+
+    /// Also search in subscribers, in addition to publishers
+    pub search_in_subs: bool,
+
+    /// Fully synchronized until these commits
+    pub known_heads: Vec<ObjectId>,
+
+    /// Stop synchronizing when these commits are met
+    pub target_heads: Vec<ObjectId>,
+
+    /// Known commit IDs since known_heads
+    // TODO: is this going to be used?
+    pub known_commits: BloomFilter,
+}
+
+/// Topic synchronization request
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CoreTopicSyncReq {
+    V0(CoreTopicSyncReqV0),
+}
+
+/// Content of CoreRequest V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CoreRequestContentV0 {
+    BrokerConnect(CoreBrokerConnectV0),
+    BrokerDisconnect(CoreBrokerDisconnectV0),
+    OverlayJoin(CoreOverlayJoinV0),
+    BlockSearchTopic(BlockSearchTopicV0),
+    BlockSearchRandom(BlockSearchRandomV0),
+    TopicSyncReq(CoreTopicSyncReqV0),
+    OuterOverlayRequest(OuterOverlayRequestV0),
+}
+
+/// CoreRequest V0
+/// replied with CoreResponse V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreRequestV0 {
+    /// Request ID
+    pub id: i64,
+    pub content: CoreRequestContentV0,
+
+    /// Optional padding
+    #[serde(with = "serde_bytes")]
+    pub padding: Vec<u8>,
+}
+
+/// Request sent to a broker in the core network
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CoreRequest {
+    V0(CoreRequestV0),
+}
+
+/// CoreBrokerConnectResponse V0
+/// reply to a CoreBrokerConnect V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreBrokerConnectResponseV0 {
+    pub successes: Vec<OverlayId>,
+    pub errors: Vec<OverlayId>,
+}
+
+/// Content CoreResponse V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CoreResponseContentV0 {
+    BrokerConnectResponse(CoreBrokerConnectResponseV0),
+    BlockResult(BlockResultV0),
+    OuterOverlayResponse(OuterOverlayResponseV0),
+    EmptyResponse(()),
+}
+
+/// CoreResponse V0
+/// reply to an CoreRequest V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreResponseV0 {
+    /// Request ID
+    pub id: i64,
+
+    /// Result
+    pub result: u16,
+    pub content: CoreResponseContentV0,
+
+    /// Optional padding
+    #[serde(with = "serde_bytes")]
+    pub padding: Vec<u8>,
+}
+
+/// Response to a Request sent to a broker in the core network
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CoreResponse {
+    V0(CoreResponseV0),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum OuterOverlayMessageContentV0 {
+    Event(Event),
+}
+
+/// OuterOverlayMessage V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OuterOverlayMessageV0 {
+    pub overlay: Digest,
+
+    pub content: OuterOverlayMessageContentV0,
+
+    /// Optional padding
+    #[serde(with = "serde_bytes")]
+    pub padding: Vec<u8>,
+}
+
+/// CoreMessageV0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CoreMessageV0 {
+    Request(CoreRequestV0),
+    Response(CoreResponseV0),
+    Advert(CoreAdvertV0),
+    Direct(CoreDirectMessageV0),
+    InnerOverlay(InnerOverlayMessageV0),
+    OuterOverlay(OuterOverlayMessageV0),
+}
+
+/// Core message
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum CoreMessage {
     V0(CoreMessageV0),
@@ -2153,70 +2463,220 @@ impl AdminResponse {
 // CLIENT PROTOCOL
 //
 
-/// Request to join an overlay
+/// Request to open a repo in a non-durable way (without pinning it).
+/// When client will disconnect, the subscriptions and publisherAdvert of the topics will be removed,
+/// except if a PinRepo occurred before or after the OpenRepo
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OverlayJoinV0 {
-    /// Overlay secret
-    pub secret: SymKey,
+pub struct OpenRepoV0 {
+    /// Repo Hash
+    pub hash: RepoHash,
 
-    /// Repository the overlay belongs to.
-    /// Only set for local brokers.
-    pub repo_pubkey: Option<PubKey>,
+    // for RW overlay, the overlay that should be used in the clientmessage is the innerOverlay
+    pub overlay: OverlayAccess,
 
-    /// Peers to connect to
+    /// Broker peers to connect to in order to join the overlay
     pub peers: Vec<PeerAdvert>,
+
+    /// Maximum number of peers to connect to for this overlay (only valid for an inner (RW/WO) overlay)
+    pub max_peer_count: u16,
+
+    /// list of topics that should be subscribed to
+    pub ro_topics: Vec<TopicId>,
+
+    /// list of topics for which we will be a publisher
+    /// only possible with inner (RW or WO) overlays.
+    pub rw_topics: Vec<PublisherAdvert>,
 }
 
-/// Request to join an overlay
+/// Request to open a repo
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum OverlayJoin {
-    V0(OverlayJoinV0),
+pub enum OpenRepo {
+    V0(OpenRepoV0),
 }
 
-impl OverlayJoin {
-    pub fn repo_pubkey(&self) -> Option<PubKey> {
-        match self {
-            OverlayJoin::V0(o) => o.repo_pubkey,
-        }
-    }
-    pub fn secret(&self) -> &SymKey {
-        match self {
-            OverlayJoin::V0(o) => &o.secret,
-        }
-    }
+impl OpenRepo {
     pub fn peers(&self) -> &Vec<PeerAdvert> {
         match self {
-            OverlayJoin::V0(o) => &o.peers,
+            OpenRepo::V0(o) => &o.peers,
         }
     }
 }
 
-/// Request to leave an overlay
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum OverlayLeave {
-    V0(),
-}
-
-/// Overlay status request
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum OverlayStatusReq {
-    V0(),
-}
-
-/// Overlay status response
+/// Block pinning strategy. When Pinning a repo, user can choose to Pin locally on the broker:
+/// all their published commits (if they are publisher) or all the commits of all the users.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OverlayStatusRespV0 {
-    /// Whether or not the broker has joined the overlay
-    pub joined: bool,
+pub enum BlockPinningStrategy {
+    MyCommits,
+    AllCommits,
+    None,
+}
 
-    /// List of peers currently connected in the overlay
+/// Request to pin a repo on the broker.
+/// When client will disconnect, the subscriptions and publisherAdvert of the topics will be remain active on the broker,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PinRepoV0 {
+    /// Repo Hash
+    pub hash: RepoHash,
+
+    /// for RW overlay, the overlay that should be used in the clientmessage is the innerOverlay
+    pub overlay: OverlayAccess,
+
+    /// Root topic of the overlay, used to listen to overlay refreshes. Only used for inner (RW or WO) overlays
+    pub overlay_root_topic: Option<TopicId>,
+
+    /// only possible for RW overlays
+    pub expose_outer: bool,
+
+    /// Broker peers to connect to in order to join the overlay
+    /// If the repo has previously been opened (during the same session) then peers info can be omitted
     pub peers: Vec<PeerAdvert>,
+
+    /// Maximum number of peers to connect to for this overlay (only valid for an inner (RW/WO) overlay)
+    pub max_peer_count: u16,
+
+    /// list of topics that should be subscribed to
+    /// If the repo has previously been opened (during the same session) then ro_topics info can be omitted
+    pub ro_topics: Vec<TopicId>,
+
+    /// list of topics for which we will be a publisher
+    /// only possible with inner (RW or WO) overlays.
+    /// If the repo has previously been opened (during the same session) then rw_topics info can be omitted
+    pub rw_topics: Vec<PublisherAdvert>,
+
+    /// Pin incoming commits' blocks (for subscribed topics)
+    pub pin_all_events: bool, // TODO pub inbox_proof
+
+                              // TODO pub signer_proof
 }
 
-/// Overlay status response
+/// Request to pin a repo
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum OverlayStatusResp {
-    V0(OverlayStatusRespV0),
+pub enum PinRepo {
+    V0(PinRepoV0),
+}
+
+impl PinRepo {
+    pub fn peers(&self) -> &Vec<PeerAdvert> {
+        match self {
+            PinRepo::V0(o) => &o.peers,
+        }
+    }
+}
+
+/// Request to unpin a repo on the broker.
+/// When client will disconnect, the subscriptions and publisherAdvert of the topics will be removed on the broker
+/// (for that user only. other users might continue to have the repo pinned)
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UnpinRepoV0 {
+    /// Repo Hash
+    pub hash: RepoHash,
+}
+
+/// Request to unpin a repo
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum UnpinRepo {
+    V0(UnpinRepoV0),
+}
+
+impl UnpinRepo {
+    pub fn hash(&self) -> &RepoHash {
+        match self {
+            UnpinRepo::V0(o) => &o.hash,
+        }
+    }
+}
+
+/// Request the status of pinning for a repo on the broker. V0
+/// returns an error code if not pinned, otherwise returns a RepoPinStatusV0
+/// the overlay entered in ClientMessage is important. if it is the outer, only outer pinning will be checked.
+/// if it is the inner overlay, only the inner pinning will be checked.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RepoPinStatusReqV0 {
+    /// Repo Hash
+    pub hash: RepoHash,
+}
+
+/// Request the status of pinning for a repo on the broker.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum RepoPinStatusReq {
+    V0(RepoPinStatusReqV0),
+}
+
+impl RepoPinStatusReq {
+    pub fn hash(&self) -> &RepoHash {
+        match self {
+            RepoPinStatusReq::V0(o) => &o.hash,
+        }
+    }
+}
+
+/// Response with the status of pinning for a repo on the broker. V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RepoPinStatusV0 {
+    /// Repo Hash
+    pub hash: RepoHash,
+
+    /// only possible for RW overlays
+    pub expose_outer: bool,
+
+    /// list of topics that are subscribed to (not included the RW ones. see list just below)
+    pub ro_topics: Vec<TopicId>,
+
+    /// list of topics that are publisher
+    pub rw_topics: Vec<TopicId>,
+    // TODO pub inbox_proof
+
+    // TODO pub signer_proof
+}
+
+/// Response with the status of pinning for a repo on the broker.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum RepoPinStatus {
+    V0(RepoPinStatusV0),
+}
+
+impl RepoPinStatus {
+    pub fn hash(&self) -> &RepoHash {
+        match self {
+            RepoPinStatus::V0(o) => &o.hash,
+        }
+    }
+}
+
+/// Request subscription to a `Topic` of an already opened or pinned Repo
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct TopicSubV0 {
+    /// Topic to subscribe
+    pub topic: PubKey,
+
+    /// Hash of the repo that was previously opened or pinned
+    pub repo_hash: RepoHash,
+
+    /// Publisher need to provide a signed `PublisherAdvert` for the PeerId of the broker
+    pub publisher: Option<PublisherAdvert>,
+}
+
+/// Request subscription to a `Topic` of an already opened or pinned Repo
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum TopicSub {
+    V0(TopicSubV0),
+}
+
+/// Request unsubscription from a `Topic` of an already opened or pinned Repo
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct TopicUnsubV0 {
+    /// Topic to unsubscribe
+    pub topic: PubKey,
+
+    /// Hash of the repo that was previously opened or pinned
+    pub repo_hash: RepoHash,
+}
+
+/// Request unsubscription from a `Topic` of an already opened or pinned Repo
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum TopicUnsub {
+    V0(TopicUnsubV0),
 }
 
 /// Request a Block by ID
@@ -2256,16 +2716,44 @@ impl BlockGet {
     }
 }
 
-/// Request to store an object
+/// Request to store one or more blocks
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum BlockPut {
-    V0(Block),
+pub struct BlocksPutV0 {
+    /// Blocks to store
+    pub blocks: Vec<Block>,
 }
 
-impl BlockPut {
-    pub fn block(&self) -> &Block {
+/// Request to store one or more blocks
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum BlocksPut {
+    V0(BlocksPutV0),
+}
+
+impl BlocksPut {
+    pub fn blocks(&self) -> &Vec<Block> {
         match self {
-            BlockPut::V0(o) => &o,
+            BlocksPut::V0(o) => &o.blocks,
+        }
+    }
+}
+
+/// Request to know if some blocks are present locally
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BlocksExistV0 {
+    /// Ids of Blocks to check
+    pub blocks: Vec<BlockId>,
+}
+
+/// Request to store one or more blocks
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum BlocksExist {
+    V0(BlocksExistV0),
+}
+
+impl BlocksExist {
+    pub fn blocks(&self) -> &Vec<BlockId> {
+        match self {
+            BlocksExist::V0(o) => &o.blocks,
         }
     }
 }
@@ -2275,9 +2763,6 @@ impl BlockPut {
 /// Brokers maintain an LRU cache of objects,
 /// where old, unused objects might get deleted to free up space for new ones.
 /// Pinned objects are retained, regardless of last access.
-/// Note that expiry is still observed in case of pinned objects.
-/// To make an object survive its expiry,
-/// it needs to be copied with a different expiry time.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct ObjectPinV0 {
     pub id: ObjectId,
@@ -2317,36 +2802,8 @@ impl ObjectUnpin {
     }
 }
 
-/// Request to copy an object with a different expiry time
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct ObjectCopyV0 {
-    /// Object ID to copy
-    pub id: ObjectId,
-
-    /// New expiry time
-    pub expiry: Option<Timestamp>,
-}
-
-/// Request to copy an object with a different expiry time
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum ObjectCopy {
-    V0(ObjectCopyV0),
-}
-
-impl ObjectCopy {
-    pub fn id(&self) -> ObjectId {
-        match self {
-            ObjectCopy::V0(o) => o.id,
-        }
-    }
-    pub fn expiry(&self) -> Option<Timestamp> {
-        match self {
-            ObjectCopy::V0(o) => o.expiry,
-        }
-    }
-}
-
 /// Request to delete an object
+/// only effective if the refcount for this object is zero (basically it removes it from LRU)
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct ObjectDelV0 {
     pub id: ObjectId,
@@ -2366,81 +2823,30 @@ impl ObjectDel {
     }
 }
 
-/// Request subscription to a `Topic`
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct TopicSubV0 {
-    /// Topic to subscribe
-    pub topic: PubKey,
-
-    /// Publisher need to provide a signed `TopicAdvert` for the PeerId of the broker
-    pub advert: Option<TopicAdvert>,
-}
-
-/// Request subscription to a `Topic`
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum TopicSub {
-    V0(TopicSubV0),
-}
-
-/// Request unsubscription from a `Topic`
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct TopicUnsubV0 {
-    /// Topic to unsubscribe
-    pub topic: PubKey,
-}
-
-/// Request unsubscription from a `Topic`
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum TopicUnsub {
-    V0(TopicUnsubV0),
-}
-
-/// Connect to an already subscribed `Topic`, and start receiving its `Event`s
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct TopicConnectV0 {
-    /// Topic to connect
-    pub topic: PubKey,
-}
-
-/// Connect to an already subscribed `Topic`, and start receiving its `Event`s
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum TopicConnect {
-    V0(TopicConnectV0),
-}
-
-/// Disconnect from a Topic, and stop receiving its `Event`s
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct TopicDisconnectV0 {
-    /// Topic to disconnect
-    pub topic: PubKey,
-}
-
-/// Disconnect from a Topic, and stop receiving its `Event`s
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum TopicDisconnect {
-    V0(TopicDisconnectV0),
-}
-
 /// Content of `ClientRequestV0`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientRequestContentV0 {
-    OverlayConnect(OverlayConnect), // FIXME remove
-    OverlayStatusReq(OverlayStatusReq),
-    OverlayJoin(OverlayJoin),
-    OverlayLeave(OverlayLeave),
-    TopicSub(TopicSub),
-    TopicUnsub(TopicUnsub),
-    TopicConnect(TopicConnect),
-    TopicDisconnect(TopicDisconnect),
-    Event(Event),
-    BlockGet(BlockGet),
-    BlockPut(BlockPut),
-    ObjectPin(ObjectPin),
-    ObjectUnpin(ObjectUnpin),
-    ObjectCopy(ObjectCopy),
-    ObjectDel(ObjectDel),
-    BranchHeadsReq(BranchHeadsReq),
-    BranchSyncReq(BranchSyncReq),
+    OpenRepo(OpenRepoV0),
+    PinRepo(PinRepoV0),
+    UnpinRepo(UnpinRepoV0),
+    RepoPinStatusReq(RepoPinStatusReqV0),
+
+    // once repo is opened or pinned:
+    TopicSub(TopicSubV0),
+    TopicUnsub(TopicUnsubV0),
+
+    BlocksExist(BlocksExistV0),
+    BlockGet(BlockGetV0),
+    TopicSyncReq(TopicSyncReqV0),
+
+    // For Pinned Repos only :
+    ObjectPin(ObjectPinV0),
+    ObjectUnpin(ObjectUnpinV0),
+    ObjectDel(ObjectDelV0),
+
+    // For InnerOverlay's only :
+    BlocksPut(BlocksPutV0),
+    PublishEvent(EventV0),
 }
 /// Broker overlay request
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2478,13 +2884,42 @@ impl ClientRequest {
     }
 }
 
+/// Response which blocks have been found locally. V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BlocksFoundV0 {
+    /// Ids of Blocks that were found locally
+    pub found: Vec<BlockId>,
+
+    /// Ids of Blocks that were missing locally
+    pub missing: Vec<BlockId>,
+}
+
+/// Response which blocks have been found locally.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum BlocksFound {
+    V0(BlocksFoundV0),
+}
+
+impl BlocksFound {
+    pub fn found(&self) -> &Vec<BlockId> {
+        match self {
+            BlocksFound::V0(o) => &o.found,
+        }
+    }
+    pub fn missing(&self) -> &Vec<BlockId> {
+        match self {
+            BlocksFound::V0(o) => &o.missing,
+        }
+    }
+}
+
 /// Content of `ClientResponseV0`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientResponseContentV0 {
     EmptyResponse,
     Block(Block),
-    ObjectId(ObjectId),
-    OverlayStatusResp(OverlayStatusResp),
+    BlocksFound(BlocksFoundV0),
+    RepoPinStatus(RepoPinStatusV0),
 }
 
 /// Response to a `ClientRequest`
@@ -2532,14 +2967,6 @@ impl ClientResponse {
             },
         }
     }
-    pub fn object_id(&self) -> ObjectId {
-        match self {
-            ClientResponse::V0(o) => match &o.content {
-                ClientResponseContentV0::ObjectId(id) => id.clone(),
-                _ => panic!("this not an objectId response"),
-            },
-        }
-    }
 }
 
 /// Content of `ClientMessageV0`
@@ -2547,7 +2974,7 @@ impl ClientResponse {
 pub enum ClientMessageContentV0 {
     ClientRequest(ClientRequest),
     ClientResponse(ClientResponse),
-    Event(Event),
+    ForwardedEvent(Event),
 }
 /// Broker message for an overlay
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2603,7 +3030,7 @@ impl ClientMessage {
             ClientMessage::V0(o) => match &o.content {
                 ClientMessageContentV0::ClientResponse(r) => r.id(),
                 ClientMessageContentV0::ClientRequest(r) => r.id(),
-                ClientMessageContentV0::Event(_) => {
+                ClientMessageContentV0::ForwardedEvent(_) => {
                     panic!("it is an event")
                 }
             },
@@ -2614,7 +3041,7 @@ impl ClientMessage {
             ClientMessage::V0(o) => match &mut o.content {
                 ClientMessageContentV0::ClientResponse(ref mut r) => r.set_id(id),
                 ClientMessageContentV0::ClientRequest(ref mut r) => r.set_id(id),
-                ClientMessageContentV0::Event(_) => {
+                ClientMessageContentV0::ForwardedEvent(_) => {
                     panic!("it is an event")
                 }
             },
@@ -2627,7 +3054,7 @@ impl ClientMessage {
                 ClientMessageContentV0::ClientRequest(r) => {
                     panic!("it is not a response");
                 }
-                ClientMessageContentV0::Event(_) => {
+                ClientMessageContentV0::ForwardedEvent(_) => {
                     panic!("it is not a response");
                 }
             },
@@ -2640,20 +3067,7 @@ impl ClientMessage {
                 ClientMessageContentV0::ClientRequest(r) => {
                     panic!("it is not a response");
                 }
-                ClientMessageContentV0::Event(_) => {
-                    panic!("it is not a response");
-                }
-            },
-        }
-    }
-    pub fn object_id<'a>(&self) -> ObjectId {
-        match self {
-            ClientMessage::V0(o) => match &o.content {
-                ClientMessageContentV0::ClientResponse(r) => r.object_id(),
-                ClientMessageContentV0::ClientRequest(r) => {
-                    panic!("it is not a response");
-                }
-                ClientMessageContentV0::Event(_) => {
+                ClientMessageContentV0::ForwardedEvent(_) => {
                     panic!("it is not a response");
                 }
             },
@@ -2693,37 +3107,34 @@ pub enum ExtObjectGet {
     V0(ExtObjectGetV0),
 }
 
-/// Branch heads request
-pub type ExtBranchHeadsReq = BranchHeadsReq;
-
-/// Branch synchronization request
-pub type ExtBranchSyncReq = BranchSyncReq;
+/// Topic synchronization request
+pub type ExtTopicSyncReq = TopicSyncReq;
 
 /// Content of ExtRequestV0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExtRequestContentV0 {
     ExtObjectGet(ExtObjectGet),
-    ExtBranchHeadsReq(ExtBranchHeadsReq),
-    ExtBranchSyncReq(ExtBranchSyncReq),
-}
-
-/// External Request Payload V0
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ExtRequestPayload {
-    content: ExtRequestContentV0,
-    // ...
+    ExtTopicSyncReq(ExtTopicSyncReq),
+    // TODO inbox requests
+    // TODO subreq ?
 }
 
 /// External request with its request ID
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtRequestV0 {
+    /// outer overlayId
+    pub overlay: Digest,
+
     /// Request ID
     pub id: i64,
 
-    /// Request payload
-    pub payload: ExtRequestPayload,
+    /// Request content
+    pub content: ExtRequestContentV0,
 }
 
+/// External request are made by clients directly to a core broker of their choice.
+/// They differ from OuterOverlayRequests in the sense that the broker where the client is attached, is not involved in the request.
+/// It is a direct connection that is established between the client and the core broker that will give the response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExtRequest {
     V0(ExtRequestV0),
@@ -2748,8 +3159,8 @@ impl ExtRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExtResponseContentV0 {
     Block(Block),
-    EventResp(EventResp),
-    Event(Event),
+    // TODO  inbox related replies
+    // TODO event ?
 }
 
 /// Response to an ExtRequest
@@ -3059,15 +3470,17 @@ impl From<AuthResult> for ProtocolMessage {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RepoLinkV0 {
     /// Repository public key ID
-    pub id: PubKey,
+    pub id: Identity,
 
-    /// Repository secret
-    pub secret: SymKey,
+    pub overlay: OverlayLink,
+
+    /// Repository secret. Only set for editors
+    pub repo_secret: Option<SymKey>,
 
     /// current root branch definition commit
     pub root_branch_def_ref: ObjectRef,
 
-    /// Peers to connect to
+    /// Peer brokers to connect to
     pub peers: Vec<PeerAdvert>,
 }
 
@@ -3078,14 +3491,14 @@ pub enum RepoLink {
 }
 
 impl RepoLink {
-    pub fn id(&self) -> &PubKey {
+    pub fn id(&self) -> &Identity {
         match self {
             RepoLink::V0(o) => &o.id,
         }
     }
-    pub fn secret(&self) -> &SymKey {
+    pub fn secret(&self) -> &Option<SymKey> {
         match self {
-            RepoLink::V0(o) => &o.secret,
+            RepoLink::V0(o) => &o.repo_secret,
         }
     }
     pub fn peers(&self) -> &Vec<PeerAdvert> {

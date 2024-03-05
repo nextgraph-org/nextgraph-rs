@@ -20,8 +20,11 @@ use crate::log::*;
 use crate::store::*;
 use crate::types::*;
 
+// TODO: review all those constants. they were done for LMDB but we now use RocksDB.
+// Also, the format of Blocks have changed so all should be checked.
+
 /// Size of a serialized empty Block
-const EMPTY_BLOCK_SIZE: usize = 12;
+const EMPTY_BLOCK_SIZE: usize = 12 + 1;
 /// Size of a serialized BlockId
 const BLOCK_ID_SIZE: usize = 33;
 /// Size of serialized SymKey
@@ -34,16 +37,18 @@ const DEPSREF_OVERLOAD: usize = EMPTY_ROOT_SIZE_DEPSREF - EMPTY_BLOCK_SIZE;
 const BIG_VARINT_EXTRA: usize = 3;
 /// Varint extra bytes when reaching the maximum size of data byte arrays.
 const DATA_VARINT_EXTRA: usize = 4;
-/// Max extra space used by the deps list
-const MAX_DEPS_SIZE: usize = 8 * BLOCK_ID_SIZE;
+// Max extra space used by the deps list
+//const MAX_DEPS_SIZE: usize = 8 * BLOCK_ID_SIZE;
+const MAX_HEADER_SIZE: usize = BLOCK_ID_SIZE;
 
 #[derive(Debug)]
+/// An Object in memory. This is not used to serialize data
 pub struct Object {
     /// Blocks of the Object (nodes of the tree)
     blocks: Vec<Block>,
 
-    /// Dependencies
-    deps: Vec<ObjectId>,
+    /// Header
+    header: Option<CommitHeader>,
 }
 
 /// Object parsing errors
@@ -59,8 +64,8 @@ pub enum ObjectParseError {
     InvalidChildren,
     /// Number of keys does not match number of children of a block
     InvalidKeys,
-    /// Invalid DepList object content
-    InvalidDeps,
+    /// Invalid CommitHeader object content
+    InvalidHeader,
     /// Error deserializing content of a block
     BlockDeserializeError,
     /// Error deserializing content of the object
@@ -89,8 +94,7 @@ impl Object {
         content: &[u8],
         conv_key: &[u8; blake3::OUT_LEN],
         children: Vec<ObjectId>,
-        deps: ObjectDeps,
-        expiry: Option<Timestamp>,
+        header_ref: Option<ObjectRef>,
     ) -> Block {
         let key_hash = blake3::keyed_hash(conv_key, content);
         let nonce = [0u8; 12];
@@ -100,45 +104,38 @@ impl Object {
         let mut content_enc_slice = &mut content_enc.as_mut_slice();
         cipher.apply_keystream(&mut content_enc_slice);
         let key = SymKey::ChaCha20Key(key.clone());
-        let block = Block::new(children, deps, expiry, content_enc, Some(key));
+        let block = Block::new(children, header_ref, content_enc, Some(key));
         //log_debug!(">>> make_block:");
         //log_debug!("!! id: {:?}", obj.id());
         //log_debug!("!! children: ({}) {:?}", children.len(), children);
         block
     }
 
-    fn make_deps(
-        deps_vec: Vec<ObjectId>,
+    fn make_header_v0(
+        header: CommitHeaderV0,
         object_size: usize,
         repo_pubkey: PubKey,
         repo_secret: SymKey,
-    ) -> ObjectDeps {
-        if deps_vec.len() <= 8 {
-            ObjectDeps::ObjectIdList(deps_vec)
-        } else {
-            let dep_list = DepList::V0(deps_vec);
-            let dep_obj = Object::new(
-                ObjectContent::DepList(dep_list),
-                vec![],
-                None,
-                object_size,
-                repo_pubkey,
-                repo_secret,
-            );
-            let dep_ref = ObjectRef {
-                id: dep_obj.id(),
-                key: dep_obj.key().unwrap(),
-            };
-            ObjectDeps::DepListRef(dep_ref)
-        }
+    ) -> ObjectRef {
+        let header_obj = Object::new(
+            ObjectContentV0::CommitHeader(header),
+            None,
+            object_size,
+            repo_pubkey,
+            repo_secret,
+        );
+        let header_ref = ObjectRef {
+            id: header_obj.id(),
+            key: header_obj.key().unwrap(),
+        };
+        header_ref
     }
 
     /// Build tree from leaves, returns parent nodes
     fn make_tree(
         leaves: &[Block],
         conv_key: &ChaCha20Key,
-        root_deps: &ObjectDeps,
-        expiry: Option<Timestamp>,
+        header_ref: &Option<ObjectRef>,
         arity: usize,
     ) -> Vec<Block> {
         let mut parents = vec![];
@@ -147,27 +144,26 @@ impl Object {
         while let Some(nodes) = it.next() {
             let keys = nodes.iter().map(|block| block.key().unwrap()).collect();
             let children = nodes.iter().map(|block| block.id()).collect();
-            let content = BlockContentV0::InternalNode(keys);
+            let content = ChunkContentV0::InternalNode(keys);
             let content_ser = serde_bare::to_vec(&content).unwrap();
-            let child_deps = ObjectDeps::ObjectIdList(vec![]);
-            let deps = if parents.is_empty() && it.peek().is_none() {
-                root_deps.clone()
+            let child_header = None;
+            let header = if parents.is_empty() && it.peek().is_none() {
+                header_ref
             } else {
-                child_deps
+                &child_header
             };
             parents.push(Self::make_block(
                 content_ser.as_slice(),
                 conv_key,
                 children,
-                deps,
-                expiry,
+                header.clone(),
             ));
         }
         //log_debug!("parents += {}", parents.len());
 
         if 1 < parents.len() {
             let mut great_parents =
-                Self::make_tree(parents.as_slice(), conv_key, root_deps, expiry, arity);
+                Self::make_tree(parents.as_slice(), conv_key, header_ref, arity);
             parents.append(&mut great_parents);
         }
         parents
@@ -180,14 +176,13 @@ impl Object {
     ///
     /// Arguments:
     /// * `content`: Object content
-    /// * `deps`: Dependencies of the object
+    /// * `header`: CommitHeaderV0 : All references of the object
     /// * `block_size`: Desired block size for chunking content, rounded up to nearest valid block size
     /// * `repo_pubkey`: Repository public key
     /// * `repo_secret`: Repository secret
     pub fn new(
-        content: ObjectContent,
-        deps: Vec<ObjectId>,
-        expiry: Option<Timestamp>,
+        content: ObjectContentV0,
+        header: Option<CommitHeaderV0>,
         block_size: usize,
         repo_pubkey: PubKey,
         repo_secret: SymKey,
@@ -200,106 +195,66 @@ impl Object {
         let mut blocks: Vec<Block> = vec![];
         let conv_key = Self::convergence_key(repo_pubkey, repo_secret.clone());
 
-        let obj_deps = Self::make_deps(
-            deps.clone(),
-            valid_block_size,
-            repo_pubkey,
-            repo_secret.clone(),
-        );
+        let header_ref = header
+            .clone()
+            .map(|ch| Self::make_header_v0(ch, valid_block_size, repo_pubkey, repo_secret.clone()));
 
         let content_ser = serde_bare::to_vec(&content).unwrap();
 
-        if EMPTY_BLOCK_SIZE + DATA_VARINT_EXTRA + BLOCK_ID_SIZE * deps.len() + content_ser.len()
+        if EMPTY_BLOCK_SIZE
+            + DATA_VARINT_EXTRA
+            + BLOCK_ID_SIZE * header_ref.as_ref().map_or(0, |_| 1)
+            + content_ser.len()
             <= valid_block_size
         {
             // content fits in root node
-            let data_chunk = BlockContentV0::DataChunk(content_ser.clone());
+            let data_chunk = ChunkContentV0::DataChunk(content_ser.clone());
             let content_ser = serde_bare::to_vec(&data_chunk).unwrap();
             blocks.push(Self::make_block(
                 content_ser.as_slice(),
                 &conv_key,
                 vec![],
-                obj_deps,
-                expiry,
+                header_ref,
             ));
         } else {
             // chunk content and create leaf nodes
             for chunk in content_ser.chunks(data_chunk_size) {
-                let data_chunk = BlockContentV0::DataChunk(chunk.to_vec());
+                let data_chunk = ChunkContentV0::DataChunk(chunk.to_vec());
                 let content_ser = serde_bare::to_vec(&data_chunk).unwrap();
                 blocks.push(Self::make_block(
                     content_ser.as_slice(),
                     &conv_key,
                     vec![],
-                    ObjectDeps::ObjectIdList(vec![]),
-                    expiry,
+                    None,
                 ));
             }
 
             // internal nodes
             // arity: max number of ObjectRefs that fit inside an InternalNode Object within the object_size limit
             let arity: usize =
-                (valid_block_size - EMPTY_BLOCK_SIZE - BIG_VARINT_EXTRA * 2 - MAX_DEPS_SIZE)
+                (valid_block_size - EMPTY_BLOCK_SIZE - BIG_VARINT_EXTRA * 2 - MAX_HEADER_SIZE)
                     / (BLOCK_ID_SIZE + BLOCK_KEY_SIZE);
-            let mut parents =
-                Self::make_tree(blocks.as_slice(), &conv_key, &obj_deps, expiry, arity);
+            let mut parents = Self::make_tree(blocks.as_slice(), &conv_key, &header_ref, arity);
             blocks.append(&mut parents);
         }
 
-        Object { blocks, deps }
-    }
-
-    pub fn copy(
-        &self,
-        expiry: Option<Timestamp>,
-        repo_pubkey: PubKey,
-        repo_secret: SymKey,
-    ) -> Result<Object, ObjectCopyError> {
-        // getting the old object from store
-        let leaves: Vec<Block> = self.leaves().map_err(|_e| ObjectCopyError::ParseError)?;
-
-        let conv_key = Self::convergence_key(repo_pubkey, repo_secret);
-        let block_size = leaves.first().unwrap().content().len();
-        let valid_block_size = store_valid_value_size(block_size);
-
-        let mut blocks: Vec<Block> = vec![];
-        for block in leaves {
-            let mut copy = block.clone();
-            copy.set_expiry(expiry);
-            blocks.push(copy);
-        }
-
-        // internal nodes
-        // arity: max number of ObjectRefs that fit inside an InternalNode Object within the object_size limit
-        let arity: usize =
-            (valid_block_size - EMPTY_BLOCK_SIZE - BIG_VARINT_EXTRA * 2 - MAX_DEPS_SIZE)
-                / (BLOCK_ID_SIZE + BLOCK_KEY_SIZE);
-        let mut parents = Self::make_tree(
-            blocks.as_slice(),
-            &conv_key,
-            self.root().deps(),
-            expiry,
-            arity,
-        );
-        blocks.append(&mut parents);
-
-        Ok(Object {
+        Object {
             blocks,
-            deps: self.deps().clone(),
-        })
+            header: header.map(|h| CommitHeader::V0(h)),
+        }
     }
 
     /// Load an Object from RepoStore
     ///
-    /// Returns Ok(Object) or an Err(Vec<ObjectId>) of missing BlockIds
+    /// Returns Ok(Object) or an Err(ObjectParseError::MissingBlocks(Vec<ObjectId>)) of missing BlockIds
     pub fn load(
         id: ObjectId,
         key: Option<SymKey>,
-        store: &impl RepoStore,
+        store: &Box<impl RepoStore + ?Sized>,
     ) -> Result<Object, ObjectParseError> {
         fn load_tree(
             parents: Vec<BlockId>,
-            store: &impl RepoStore,
+            store: &Box<impl RepoStore + ?Sized>,
             blocks: &mut Vec<Block>,
             missing: &mut Vec<BlockId>,
         ) {
@@ -307,13 +262,12 @@ impl Object {
             for id in parents {
                 match store.get(&id) {
                     Ok(block) => {
-                        //FIXME: remove the block.clone()
-                        blocks.insert(0, block.clone());
-                        match block {
+                        match &block {
                             Block::V0(o) => {
-                                children.extend(o.children.iter().rev());
+                                children.extend(o.children().iter().rev());
                             }
                         }
+                        blocks.insert(0, block);
                     }
                     Err(_) => missing.push(id.clone()),
                 }
@@ -337,22 +291,24 @@ impl Object {
             root.set_key(key);
         }
 
-        let deps = match root.deps().clone() {
-            ObjectDeps::ObjectIdList(deps_vec) => deps_vec,
-            ObjectDeps::DepListRef(deps_ref) => {
-                let obj = Object::load(deps_ref.id, Some(deps_ref.key), store)?;
+        let header = match root.header_ref() {
+            Some(header_ref) => {
+                let obj = Object::load(header_ref.id, Some(header_ref.key), store)?;
                 match obj.content()? {
-                    ObjectContent::DepList(DepList::V0(deps_vec)) => deps_vec,
-                    _ => return Err(ObjectParseError::InvalidDeps),
+                    ObjectContent::V0(ObjectContentV0::CommitHeader(commit_header)) => {
+                        Some(CommitHeader::V0(commit_header))
+                    }
+                    _ => return Err(ObjectParseError::InvalidHeader),
                 }
             }
+            None => None,
         };
 
-        Ok(Object { blocks, deps })
+        Ok(Object { blocks, header })
     }
 
     /// Save blocks of the object in the store
-    pub fn save(&self, store: &mut impl RepoStore) -> Result<(), StorageError> {
+    pub fn save(&self, store: &Box<impl RepoStore + ?Sized>) -> Result<(), StorageError> {
         let mut deduplicated: HashSet<ObjectId> = HashSet::new();
         for block in &self.blocks {
             let id = block.id();
@@ -387,20 +343,29 @@ impl Object {
     }
 
     pub fn is_root(&self) -> bool {
-        self.deps().len() == 0
-        //TODO: add && sdeps().len() == 0 && self.acks().len() == 0 && self.nacks().len() == 0
+        self.header.as_ref().map_or(true, |h| h.is_root())
     }
 
-    pub fn root(&self) -> &Block {
+    pub fn deps(&self) -> Vec<ObjectId> {
+        match &self.header {
+            Some(h) => h.deps(),
+            None => vec![],
+        }
+    }
+
+    pub fn acks(&self) -> Vec<ObjectId> {
+        match &self.header {
+            Some(h) => h.acks(),
+            None => vec![],
+        }
+    }
+
+    pub fn root_block(&self) -> &Block {
         self.blocks.last().unwrap()
     }
 
-    pub fn expiry(&self) -> Option<Timestamp> {
-        self.blocks.last().unwrap().expiry()
-    }
-
-    pub fn deps(&self) -> &Vec<ObjectId> {
-        &self.deps
+    pub fn header(&self) -> &Option<CommitHeader> {
+        &self.header
     }
 
     pub fn blocks(&self) -> &Vec<Block> {
@@ -445,7 +410,7 @@ impl Object {
             match block {
                 Block::V0(b) => {
                     // decrypt content
-                    let mut content_dec = b.content.clone();
+                    let mut content_dec = b.content.encrypted_content().clone();
                     match key {
                         SymKey::ChaCha20Key(key) => {
                             let nonce = [0u8; 12];
@@ -456,7 +421,7 @@ impl Object {
                     }
 
                     // deserialize content
-                    let content: BlockContentV0;
+                    let content: ChunkContentV0;
                     match serde_bare::from_slice(content_dec.as_slice()) {
                         Ok(c) => content = c,
                         Err(e) => {
@@ -464,26 +429,26 @@ impl Object {
                             return Err(ObjectParseError::BlockDeserializeError);
                         }
                     }
-
+                    let b_children = b.children();
                     // parse content
                     match content {
-                        BlockContentV0::InternalNode(keys) => {
-                            if keys.len() != b.children.len() {
+                        ChunkContentV0::InternalNode(keys) => {
+                            if keys.len() != b_children.len() {
                                 log_debug!(
                                     "Invalid keys length: got {}, expected {}",
                                     keys.len(),
-                                    b.children.len()
+                                    b_children.len()
                                 );
-                                log_debug!("!!! children: {:?}", b.children);
+                                log_debug!("!!! children: {:?}", b_children);
                                 log_debug!("!!! keys: {:?}", keys);
                                 return Err(ObjectParseError::InvalidKeys);
                             }
 
-                            for (id, key) in b.children.iter().zip(keys.iter()) {
+                            for (id, key) in b_children.iter().zip(keys.iter()) {
                                 children.push((id.clone(), key.clone()));
                             }
                         }
-                        BlockContentV0::DataChunk(chunk) => {
+                        ChunkContentV0::DataChunk(chunk) => {
                             if leaves.is_some() {
                                 let mut leaf = block.clone();
                                 leaf.set_key(Some(key.clone()));
@@ -548,9 +513,9 @@ impl Object {
             &mut Some(&mut obj_content),
         ) {
             Ok(_) => {
-                let content: ObjectContent;
+                let content: ObjectContentV0;
                 match serde_bare::from_slice(obj_content.as_slice()) {
-                    Ok(c) => Ok(c),
+                    Ok(c) => Ok(ObjectContent::V0(c)),
                     Err(e) => {
                         log_debug!("Object deserialize error: {}", e);
                         Err(ObjectParseError::ObjectDeserializeError)
@@ -558,6 +523,14 @@ impl Object {
                 }
             }
             Err(e) => Err(e),
+        }
+    }
+
+    pub fn content_v0(&self) -> Result<ObjectContentV0, ObjectParseError> {
+        match self.content() {
+            Ok(ObjectContent::V0(v0)) => Ok(v0),
+            Err(e) => Err(e),
+            _ => unimplemented!(),
         }
     }
 }
@@ -599,28 +572,20 @@ mod test {
             .read_to_end(&mut img_buffer)
             .expect("read of test.jpg");
 
-        let file = File::V0(FileV0 {
+        let file = FileV0 {
             content_type: "image/jpeg".into(),
             metadata: vec![],
             content: img_buffer,
-        });
-        let content = ObjectContent::File(file);
+        };
+        let content = ObjectContentV0::File(file);
 
         let deps: Vec<ObjectId> = vec![Digest::Blake3Digest32([9; 32])];
-        let exp = Some(2u32.pow(31));
         let max_object_size = store_max_value_size();
 
         let repo_secret = SymKey::ChaCha20Key([0; 32]);
         let repo_pubkey = PubKey::Ed25519PubKey([1; 32]);
 
-        let obj = Object::new(
-            content,
-            vec![],
-            exp,
-            max_object_size,
-            repo_pubkey,
-            repo_secret,
-        );
+        let obj = Object::new(content, None, max_object_size, repo_pubkey, repo_secret);
 
         log_debug!("obj.id: {:?}", obj.id());
         log_debug!("obj.key: {:?}", obj.key());
@@ -642,14 +607,15 @@ mod test {
     /// Test tree API
     #[test]
     pub fn test_object() {
-        let file = File::V0(FileV0 {
+        let file = FileV0 {
             content_type: "file/test".into(),
             metadata: Vec::from("some meta data here"),
             content: [(0..255).collect::<Vec<u8>>().as_slice(); 320].concat(),
-        });
-        let content = ObjectContent::File(file);
+        };
+        let content = ObjectContentV0::File(file);
 
-        let deps: Vec<ObjectId> = vec![Digest::Blake3Digest32([9; 32])];
+        let deps = vec![Digest::Blake3Digest32([9; 32])];
+        let header = CommitHeaderV0::new_with_deps(deps.clone());
         let exp = Some(2u32.pow(31));
         let max_object_size = 0;
 
@@ -658,8 +624,7 @@ mod test {
 
         let obj = Object::new(
             content.clone(),
-            deps.clone(),
-            exp,
+            header,
             max_object_size,
             repo_pubkey,
             repo_secret.clone(),
@@ -667,6 +632,7 @@ mod test {
 
         log_debug!("obj.id: {:?}", obj.id());
         log_debug!("obj.key: {:?}", obj.key());
+        log_debug!("obj.acks: {:?}", obj.acks());
         log_debug!("obj.deps: {:?}", obj.deps());
         log_debug!("obj.blocks.len: {:?}", obj.blocks().len());
 
@@ -679,19 +645,20 @@ mod test {
         assert_eq!(*obj.deps(), deps);
 
         match obj.content() {
-            Ok(cnt) => {
+            Ok(ObjectContent::V0(cnt)) => {
                 assert_eq!(content, cnt);
             }
             Err(e) => panic!("Object parse error: {:?}", e),
         }
-        let mut store = HashMapRepoStore::new();
+        let store = Box::new(HashMapRepoStore::new());
 
-        obj.save(&mut store).expect("Object save error");
+        obj.save(&store).expect("Object save error");
 
         let obj2 = Object::load(obj.id(), obj.key(), &store).unwrap();
 
         log_debug!("obj2.id: {:?}", obj2.id());
         log_debug!("obj2.key: {:?}", obj2.key());
+        log_debug!("obj2.acks: {:?}", obj2.acks());
         log_debug!("obj2.deps: {:?}", obj2.deps());
         log_debug!("obj2.blocks.len: {:?}", obj2.blocks().len());
         let mut i = 0;
@@ -701,9 +668,8 @@ mod test {
         }
 
         assert_eq!(*obj2.deps(), deps);
-        assert_eq!(*obj2.deps(), deps);
 
-        match obj2.content() {
+        match obj2.content_v0() {
             Ok(cnt) => {
                 assert_eq!(content, cnt);
             }
@@ -729,20 +695,6 @@ mod test {
             Err(e) => panic!("Object3 parse error: {:?}", e),
             Ok(_) => panic!("Object3 should not return content"),
         }
-
-        let exp4 = Some(2342);
-        let obj4 = obj.copy(exp4, repo_pubkey, repo_secret).unwrap();
-        obj4.save(&mut store).unwrap();
-
-        assert_eq!(obj4.expiry(), exp4);
-        assert_eq!(*obj.deps(), deps);
-
-        match obj4.content() {
-            Ok(cnt) => {
-                assert_eq!(content, cnt);
-            }
-            Err(e) => panic!("Object3 parse error: {:?}", e),
-        }
     }
 
     /// Checks that a content that fits the root node, will not be chunked into children nodes
@@ -750,27 +702,27 @@ mod test {
     pub fn test_depth_1() {
         let deps: Vec<ObjectId> = vec![Digest::Blake3Digest32([9; 32])];
 
-        let empty_file = ObjectContent::File(File::V0(FileV0 {
+        let empty_file = ObjectContentV0::File(FileV0 {
             content_type: "".into(),
             metadata: vec![],
             content: vec![],
-        }));
+        });
         let empty_file_ser = serde_bare::to_vec(&empty_file).unwrap();
         log_debug!("empty file size: {}", empty_file_ser.len());
 
         let size = store_max_value_size()
             - EMPTY_BLOCK_SIZE
             - DATA_VARINT_EXTRA
-            - BLOCK_ID_SIZE * deps.len()
+            - BLOCK_ID_SIZE
             - empty_file_ser.len()
             - DATA_VARINT_EXTRA;
         log_debug!("file size: {}", size);
 
-        let content = ObjectContent::File(File::V0(FileV0 {
+        let content = ObjectContentV0::File(FileV0 {
             content_type: "".into(),
             metadata: vec![],
             content: vec![99; size],
-        }));
+        });
         let content_ser = serde_bare::to_vec(&content).unwrap();
         log_debug!("content len: {}", content_ser.len());
 
@@ -782,8 +734,7 @@ mod test {
 
         let object = Object::new(
             content,
-            deps,
-            expiry,
+            CommitHeaderV0::new_with_deps(deps),
             max_object_size,
             repo_pubkey,
             repo_secret,
@@ -792,7 +743,7 @@ mod test {
         log_debug!("root_id: {:?}", object.id());
         log_debug!("root_key: {:?}", object.key().unwrap());
         log_debug!("nodes.len: {:?}", object.blocks().len());
-        //log_debug!("root: {:?}", tree.root());
+        //log_debug!("root: {:?}", tree.root_block());
         //log_debug!("nodes: {:?}", object.blocks);
         assert_eq!(object.blocks.len(), 1);
     }
@@ -805,80 +756,48 @@ mod test {
         let id = Digest::Blake3Digest32([0u8; 32]);
         let key = SymKey::ChaCha20Key([0u8; 32]);
 
-        let one_key = BlockContentV0::InternalNode(vec![key.clone()]);
+        let one_key = ChunkContentV0::InternalNode(vec![key.clone()]);
         let one_key_ser = serde_bare::to_vec(&one_key).unwrap();
 
-        let two_keys = BlockContentV0::InternalNode(vec![key.clone(), key.clone()]);
+        let two_keys = ChunkContentV0::InternalNode(vec![key.clone(), key.clone()]);
         let two_keys_ser = serde_bare::to_vec(&two_keys).unwrap();
 
-        let max_keys = BlockContentV0::InternalNode(vec![key.clone(); MAX_ARITY_LEAVES]);
+        let max_keys = ChunkContentV0::InternalNode(vec![key.clone(); MAX_ARITY_LEAVES]);
         let max_keys_ser = serde_bare::to_vec(&max_keys).unwrap();
 
-        let data = BlockContentV0::DataChunk(vec![]);
+        let data = ChunkContentV0::DataChunk(vec![]);
         let data_ser = serde_bare::to_vec(&data).unwrap();
 
-        let data_full = BlockContentV0::DataChunk(vec![0; MAX_DATA_PAYLOAD_SIZE]);
+        let data_full = ChunkContentV0::DataChunk(vec![0; MAX_DATA_PAYLOAD_SIZE]);
         let data_full_ser = serde_bare::to_vec(&data_full).unwrap();
 
-        let leaf_empty = Block::new(
-            vec![],
-            ObjectDeps::ObjectIdList(vec![]),
-            Some(2342),
-            data_ser.clone(),
-            None,
-        );
+        let leaf_empty = Block::new(vec![], None, data_ser.clone(), None);
         let leaf_empty_ser = serde_bare::to_vec(&leaf_empty).unwrap();
 
-        let leaf_full_data = Block::new(
-            vec![],
-            ObjectDeps::ObjectIdList(vec![]),
-            Some(2342),
-            data_full_ser.clone(),
-            None,
-        );
+        let leaf_full_data = Block::new(vec![], None, data_full_ser.clone(), None);
         let leaf_full_data_ser = serde_bare::to_vec(&leaf_full_data).unwrap();
 
         let root_depsref = Block::new(
             vec![],
-            ObjectDeps::DepListRef(ObjectRef { id: id, key: key }),
-            Some(2342),
+            Some(ObjectRef::from_id_key(id, key.clone())),
             data_ser.clone(),
             None,
         );
 
         let root_depsref_ser = serde_bare::to_vec(&root_depsref).unwrap();
 
-        let internal_max = Block::new(
-            vec![id; MAX_ARITY_LEAVES],
-            ObjectDeps::ObjectIdList(vec![]),
-            Some(2342),
-            max_keys_ser.clone(),
-            None,
-        );
+        let internal_max = Block::new(vec![id; MAX_ARITY_LEAVES], None, max_keys_ser.clone(), None);
         let internal_max_ser = serde_bare::to_vec(&internal_max).unwrap();
 
-        let internal_one = Block::new(
-            vec![id; 1],
-            ObjectDeps::ObjectIdList(vec![]),
-            Some(2342),
-            one_key_ser.clone(),
-            None,
-        );
+        let internal_one = Block::new(vec![id; 1], None, one_key_ser.clone(), None);
         let internal_one_ser = serde_bare::to_vec(&internal_one).unwrap();
 
-        let internal_two = Block::new(
-            vec![id; 2],
-            ObjectDeps::ObjectIdList(vec![]),
-            Some(2342),
-            two_keys_ser.clone(),
-            None,
-        );
+        let internal_two = Block::new(vec![id; 2], None, two_keys_ser.clone(), None);
         let internal_two_ser = serde_bare::to_vec(&internal_two).unwrap();
 
         let root_one = Block::new(
             vec![id; 1],
-            ObjectDeps::ObjectIdList(vec![id; 8]),
-            Some(2342),
+            Some(ObjectRef::from_id_key(id, key.clone())),
             one_key_ser.clone(),
             None,
         );
@@ -886,8 +805,7 @@ mod test {
 
         let root_two = Block::new(
             vec![id; 2],
-            ObjectDeps::ObjectIdList(vec![id; 8]),
-            Some(2342),
+            Some(ObjectRef::from_id_key(id, key)),
             two_keys_ser.clone(),
             None,
         );
@@ -906,7 +824,7 @@ mod test {
 
         log_debug!(
             "max_data_payload_depth_1: {}",
-            max_block_size - EMPTY_BLOCK_SIZE - DATA_VARINT_EXTRA - MAX_DEPS_SIZE
+            max_block_size - EMPTY_BLOCK_SIZE - DATA_VARINT_EXTRA - MAX_HEADER_SIZE
         );
 
         log_debug!(
@@ -928,7 +846,7 @@ mod test {
             MAX_DATA_PAYLOAD_SIZE
         );
         let max_arity_root =
-            (max_block_size - EMPTY_BLOCK_SIZE - MAX_DEPS_SIZE - BIG_VARINT_EXTRA * 2)
+            (max_block_size - EMPTY_BLOCK_SIZE - MAX_HEADER_SIZE - BIG_VARINT_EXTRA * 2)
                 / (BLOCK_ID_SIZE + BLOCK_KEY_SIZE);
         log_debug!("max_arity_root: {}", max_arity_root);
         assert_eq!(max_arity_root, MAX_ARITY_ROOT);

@@ -11,9 +11,13 @@
 
 use crate::actors::noise::Noise;
 use crate::connection::NoiseFSM;
-use crate::types::{AdminRequest, ExtResponse};
+use crate::types::{
+    AdminRequest, CoreBrokerConnect, CoreBrokerConnectResponse, CoreBrokerConnectResponseV0,
+    CoreMessage, CoreMessageV0, CoreResponseContentV0, CoreResponseV0, ExtResponse,
+};
 use crate::{actor::*, errors::ProtocolError, types::ProtocolMessage};
 use async_std::sync::Mutex;
+use p2p_repo::log::*;
 use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 use std::sync::Arc;
@@ -21,12 +25,12 @@ use std::sync::Arc;
 // pub struct Noise3(Noise);
 
 /// Start chosen protocol
-/// First message sent by the client
+/// First message sent by the connecting peer
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum StartProtocol {
     Client(ClientHello),
     Ext(ExtHello),
-    //Core(CoreHello),
+    Core(CoreHello),
     Admin(AdminRequest),
 }
 
@@ -34,6 +38,7 @@ impl StartProtocol {
     pub fn type_id(&self) -> TypeId {
         match self {
             StartProtocol::Client(a) => a.type_id(),
+            StartProtocol::Core(a) => a.type_id(),
             StartProtocol::Ext(a) => a.type_id(),
             StartProtocol::Admin(a) => a.type_id(),
         }
@@ -41,6 +46,7 @@ impl StartProtocol {
     pub fn get_actor(&self) -> Box<dyn EActor> {
         match self {
             StartProtocol::Client(a) => a.get_actor(),
+            StartProtocol::Core(a) => a.get_actor(),
             StartProtocol::Ext(a) => a.get_actor(),
             StartProtocol::Admin(a) => a.get_actor(),
         }
@@ -53,7 +59,72 @@ impl From<StartProtocol> for ProtocolMessage {
     }
 }
 
-/// External Hello (finalizes the Noise handshake and send first ExtRequest)
+/// Core Hello (finalizes the Noise handshake and sends CoreConnect)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CoreHello {
+    // contains the 3rd Noise handshake message "s,se"
+    pub noise: Noise,
+
+    /// Noise encrypted payload (a CoreMessage::CoreRequest::BrokerConnect)
+    pub payload: Vec<u8>,
+}
+
+impl CoreHello {
+    pub fn get_actor(&self) -> Box<dyn EActor> {
+        Actor::<CoreBrokerConnect, CoreBrokerConnectResponse>::new_responder()
+    }
+}
+
+impl TryFrom<ProtocolMessage> for CoreBrokerConnectResponse {
+    type Error = ProtocolError;
+    fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
+        if let ProtocolMessage::CoreMessage(CoreMessage::V0(CoreMessageV0::Response(
+            CoreResponseV0 {
+                content: CoreResponseContentV0::BrokerConnectResponse(a),
+                ..
+            },
+        ))) = msg
+        {
+            Ok(CoreBrokerConnectResponse::V0(a))
+        } else {
+            log_debug!("INVALID {:?}", msg);
+            Err(ProtocolError::InvalidValue)
+        }
+    }
+}
+
+impl From<CoreHello> for ProtocolMessage {
+    fn from(msg: CoreHello) -> ProtocolMessage {
+        ProtocolMessage::Start(StartProtocol::Core(msg))
+    }
+}
+
+impl From<CoreBrokerConnect> for ProtocolMessage {
+    fn from(msg: CoreBrokerConnect) -> ProtocolMessage {
+        unimplemented!();
+    }
+}
+
+impl Actor<'_, CoreBrokerConnect, CoreBrokerConnectResponse> {}
+
+#[async_trait::async_trait]
+impl EActor for Actor<'_, CoreBrokerConnect, CoreBrokerConnectResponse> {
+    async fn respond(
+        &mut self,
+        msg: ProtocolMessage,
+        fsm: Arc<Mutex<NoiseFSM>>,
+    ) -> Result<(), ProtocolError> {
+        //let req = CoreBrokerConnect::try_from(msg)?;
+        // let res = CoreBrokerConnectResponse::V0(CoreBrokerConnectResponseV0 {
+        //     successes: vec![],
+        //     errors: vec![],
+        // });
+        // fsm.lock().await.send(res.into()).await?;
+        Ok(())
+    }
+}
+
+/// External Hello (finalizes the Noise handshake and sends first ExtRequest)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtHello {
     // contains the 3rd Noise handshake message "s,se"
