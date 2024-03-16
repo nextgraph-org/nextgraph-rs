@@ -497,9 +497,11 @@ pub async fn connect_wallet(
                             ));
                             continue;
                         }
-                        let broker = broker.unwrap();
+                        let brokers = broker.unwrap();
                         let mut tried: Option<(String, String, String, Option<String>, f64)> = None;
-                        for broker_info in broker {
+                        //TODO: on tauri (or forward in local broker, or CLI), prefer a BoxPublic to a Domain. Domain always comes first though, so we need to reorder the list
+                        //TODO: use site.bootstraps to order the list of brokerInfo.
+                        for broker_info in brokers {
                             match broker_info {
                                 BrokerInfoV0::ServerV0(server) => {
                                     let url = server.get_ws_url(&location).await;
@@ -508,7 +510,7 @@ pub async fn connect_wallet(
                                     if url.is_some() {
                                         let url = url.unwrap();
                                         if url.1.len() == 0 {
-                                            // TODO deal with BoxPublic and on tauri all Box...
+                                            // TODO deal with Box(Dyn)Public -> tunnel, and on tauri/forward/CLIs, deal with all Box -> direct connections (when url.1.len is > 0)
                                             let res = BROKER
                                                 .write()
                                                 .await
@@ -548,6 +550,7 @@ pub async fn connect_wallet(
                                         }
                                     }
                                 }
+                                // Core information is discarded
                                 _ => {}
                             }
                         }

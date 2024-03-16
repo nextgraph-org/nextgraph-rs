@@ -35,20 +35,29 @@ impl Repository {
 
 pub struct UserInfo {
     /// list of permissions granted to user, with optional metadata
-    pub permissions: HashMap<Permission, Vec<u8>>,
+    pub permissions: HashMap<PermissionV0, Vec<u8>>,
+    pub id: UserId,
 }
 
 impl UserInfo {
-    pub fn has_any_perm(&self, perms: &HashSet<&Permission>) -> Result<(), NgError> {
-        let has_perms: HashSet<&Permission> = self.permissions.keys().collect();
-        if has_perms.intersection(perms).count() > 0 {
-            Ok(())
-        } else {
-            Err(NgError::PermissionDenied)
+    pub fn has_any_perm(&self, perms: &HashSet<PermissionV0>) -> Result<(), NgError> {
+        if self.has_perm(&PermissionV0::Owner).is_ok() {
+            return Ok(());
         }
-        //
+        let is_admin = self.has_perm(&PermissionV0::Admin).is_ok();
+        //is_delegated_by_admin
+        let has_perms: HashSet<&PermissionV0> = self.permissions.keys().collect();
+        for perm in perms {
+            if is_admin && perm.is_delegated_by_admin() || has_perms.contains(perm) {
+                return Ok(());
+            }
+        }
+        // if has_perms.intersection(perms).count() > 0 {
+        //     Ok(())
+        // } else {
+        Err(NgError::PermissionDenied)
     }
-    pub fn has_perm(&self, perm: &Permission) -> Result<&Vec<u8>, NgError> {
+    pub fn has_perm(&self, perm: &PermissionV0) -> Result<&Vec<u8>, NgError> {
         self.permissions.get(perm).ok_or(NgError::PermissionDenied)
     }
 }
@@ -58,7 +67,7 @@ pub struct Repo<'a> {
     /// Repo definition
     pub repo_def: Repository,
 
-    pub members: HashMap<UserId, UserInfo>,
+    pub members: HashMap<Digest, UserInfo>,
 
     store: Box<dyn RepoStore + Send + Sync + 'a>,
 }
@@ -66,8 +75,8 @@ pub struct Repo<'a> {
 impl<'a> Repo<'a> {
     pub fn new_with_member(
         id: &PubKey,
-        member: UserId,
-        perms: &[Permission],
+        member: &UserId,
+        perms: &[PermissionV0],
         store: Box<dyn RepoStore + Send + Sync + 'a>,
     ) -> Self {
         let mut members = HashMap::new();
@@ -75,11 +84,17 @@ impl<'a> Repo<'a> {
             perms
                 .iter()
                 .map(|p| (*p, vec![]))
-                .collect::<Vec<(Permission, Vec<u8>)>>()
+                .collect::<Vec<(PermissionV0, Vec<u8>)>>()
                 .iter()
                 .cloned(),
         );
-        members.insert(member, UserInfo { permissions });
+        members.insert(
+            member.into(),
+            UserInfo {
+                id: *member,
+                permissions,
+            },
+        );
         Self {
             repo_def: Repository::new(id, &vec![]),
             members,
@@ -88,9 +103,9 @@ impl<'a> Repo<'a> {
     }
 
     pub fn verify_permission(&self, commit: &Commit) -> Result<(), NgError> {
-        let content = commit.content_v0();
+        let content_author = commit.content_v0().author;
         let body = commit.load_body(&self.store)?;
-        match self.members.get(&content.author) {
+        match self.members.get(&content_author) {
             Some(info) => return info.has_any_perm(&body.required_permission()),
             None => {}
         }

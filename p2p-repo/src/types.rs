@@ -19,6 +19,7 @@ use crate::utils::{
     ed_privkey_to_ed_pubkey, from_ed_privkey_to_dh_privkey, random_key,
 };
 use core::fmt;
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use serde_bare::to_vec;
 use std::collections::{HashMap, HashSet};
@@ -43,6 +44,26 @@ impl fmt::Display for Digest {
         match self {
             Digest::Blake3Digest32(d) => write!(f, "{}", base64_url::encode(d)),
         }
+    }
+}
+
+impl From<&Vec<u8>> for Digest {
+    fn from(ser: &Vec<u8>) -> Self {
+        let hash = blake3::hash(ser.as_slice());
+        Digest::Blake3Digest32(hash.as_bytes().clone())
+    }
+}
+
+impl From<&[u8; 32]> for Digest {
+    fn from(ser: &[u8; 32]) -> Self {
+        let hash = blake3::hash(ser);
+        Digest::Blake3Digest32(hash.as_bytes().clone())
+    }
+}
+
+impl From<&PubKey> for Digest {
+    fn from(key: &PubKey) -> Self {
+        key.slice().into()
     }
 }
 
@@ -340,7 +361,28 @@ pub type ObjectKey = BlockKey;
 /// Object reference
 pub type ObjectRef = BlockRef;
 
-/// IDENTITY, SITE, STORE, OVERLAY common types
+/// Read capability (for a commit, branch, whole repo, or store)
+/// For a store: A ReadCap to the root repo of the store
+/// For a repo: A reference to the latest RootBranch definition commit
+/// For a branch: A reference to the latest Branch definition commit
+/// For a commit or object, the ObjectRef is itself the read capability
+pub type ReadCap = ObjectRef;
+
+/// Read capability secret (for a commit, branch, whole repo, or store)
+/// it is already included in the ReadCap (it is the key part of the reference)
+pub type ReadCapSecret = ObjectKey;
+
+/// Write capability secret (for a whole repo)
+pub type RepoWriteCapSecret = SymKey;
+
+/// Write capability secret (for a branch's topic)
+pub type BranchWriteCapSecret = PrivKey;
+
+//TODO: PermaReadCap (involves sending an InboxPost to some verifiers)
+
+//
+// IDENTITY, SITE, STORE, OVERLAY common types
+//
 
 /// List of Identity types
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -353,27 +395,52 @@ pub enum Identity {
     IndividualPublicStore(PubKey),
     IndividualProtectedStore(PubKey),
     IndividualPrivateStore(PubKey),
+    //Document(RepoId),
 }
 
 /// List of Store Overlay types
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum StoreOverlay {
+pub enum StoreOverlayV0 {
     PublicStore(PubKey),
     ProtectedStore(PubKey),
-    PrivateStore(PubKey),
+    //PrivateStore(PubKey),
     Group(PubKey),
     Dialog(Digest),
-    //Document(RepoId),
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum StoreOverlay {
+    V0(StoreOverlayV0),
+    Own(BranchId), // The repo is a store, so the overlay can be derived from its own ID. In this case, the branchId of the `overlay` branch is entered here.
 }
 
 /// List of Store Root Repo types
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum StoreRootRepo {
+pub enum StoreRepoV0 {
     PublicStore(RepoId),
     ProtectedStore(RepoId),
-    PrivateStore(RepoId),
+    //PrivateStore(RepoId),
     Group(RepoId),
     Dialog(RepoId),
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum StoreRepo {
+    V0(StoreRepoV0),
+}
+
+impl StoreRepo {
+    pub fn repo_id(&self) -> &RepoId {
+        match self {
+            Self::V0(v0) => match v0 {
+                StoreRepoV0::PublicStore(id)
+                | StoreRepoV0::ProtectedStore(id)
+                //| StoreRepoV0::PrivateStore(id)
+                | StoreRepoV0::Group(id)
+                | StoreRepoV0::Dialog(id) => id,
+            },
+        }
+    }
 }
 
 /// Site type
@@ -390,9 +457,10 @@ pub struct SiteStore {
     pub key: PrivKey,
     // signature with site_key
     // pub sig: Sig,
-    pub root_branch_def_ref: ObjectRef,
+    /// current read capabililty
+    pub read_cap: ReadCap,
 
-    pub repo_secret: SymKey,
+    pub write_cap: RepoWriteCapSecret,
 }
 
 /// Site Store type
@@ -432,9 +500,9 @@ pub struct ReducedSiteV0 {
 
     pub private_site_key: PrivKey,
 
-    pub private_site_root_branch_def_ref: ObjectRef,
+    pub private_site_read_cap: ReadCap,
 
-    pub private_site_repo_secret: SymKey,
+    pub private_site_write_cap: RepoWriteCapSecret,
 
     pub core: PubKey,
 
@@ -458,11 +526,20 @@ pub enum ChunkContentV0 {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommitHeaderV0 {
+    /// optional Commit Header ID
+    #[serde(skip)]
+    pub id: Option<ObjectId>,
+
     /// Other objects this commit strongly depends on (ex: ADD for a REMOVE, refs for an nrefs)
     pub deps: Vec<ObjectId>,
 
     /// dependency that is removed after this commit. used for reverts
     pub ndeps: Vec<ObjectId>,
+
+    /// tells brokers that this is a hard snapshot and that all the ACKs and full causal past should be treated as ndeps (their body removed)
+    /// brokers will only perform the deletion of bodies after this commit has been ACKed by at least one subsequent commit
+    /// but if the next commit is a nack, the deletion is prevented.
+    pub compact: bool,
 
     /// current valid commits in head
     pub acks: Vec<ObjectId>,
@@ -499,11 +576,53 @@ impl CommitHeader {
             CommitHeader::V0(v0) => v0.acks.clone(),
         }
     }
+    pub fn id(&self) -> &Option<ObjectId> {
+        match self {
+            CommitHeader::V0(v0) => &v0.id,
+        }
+    }
+
+    pub fn set_id(&mut self, id: Digest) {
+        match self {
+            CommitHeader::V0(v0) => v0.id = Some(id),
+        }
+    }
+
+    pub fn set_compact(&mut self) {
+        match self {
+            CommitHeader::V0(v0) => v0.set_compact(),
+        }
+    }
+
+    pub fn new_with(
+        deps: Vec<ObjectRef>,
+        ndeps: Vec<ObjectRef>,
+        acks: Vec<ObjectRef>,
+        nacks: Vec<ObjectRef>,
+        refs: Vec<ObjectRef>,
+        nrefs: Vec<ObjectRef>,
+    ) -> (Option<Self>, Option<CommitHeaderKeys>) {
+        let res = CommitHeaderV0::new_with(deps, ndeps, acks, nacks, refs, nrefs);
+        (
+            res.0.map(|h| CommitHeader::V0(h)),
+            res.1.map(|h| CommitHeaderKeys::V0(h)),
+        )
+    }
+
+    pub fn new_with_deps(deps: Vec<ObjectId>) -> Option<Self> {
+        CommitHeaderV0::new_with_deps(deps).map(|ch| CommitHeader::V0(ch))
+    }
+
+    pub fn new_with_deps_and_acks(deps: Vec<ObjectId>, acks: Vec<ObjectId>) -> Option<Self> {
+        CommitHeaderV0::new_with_deps_and_acks(deps, acks).map(|ch| CommitHeader::V0(ch))
+    }
 }
 
 impl CommitHeaderV0 {
     fn new_empty() -> Self {
         Self {
+            id: None,
+            compact: false,
             deps: vec![],
             ndeps: vec![],
             acks: vec![],
@@ -511,6 +630,10 @@ impl CommitHeaderV0 {
             refs: vec![],
             nrefs: vec![],
         }
+    }
+
+    pub fn set_compact(&mut self) {
+        self.compact = true;
     }
 
     pub fn new_with(
@@ -538,7 +661,6 @@ impl CommitHeaderV0 {
             let mut inrefs: Vec<ObjectId> = vec![];
 
             let mut kdeps: Vec<ObjectKey> = vec![];
-            let mut kndeps: Vec<ObjectKey> = vec![];
             let mut kacks: Vec<ObjectKey> = vec![];
             let mut knacks: Vec<ObjectKey> = vec![];
             for d in deps {
@@ -547,7 +669,6 @@ impl CommitHeaderV0 {
             }
             for d in ndeps {
                 indeps.push(d.id);
-                kndeps.push(d.key);
             }
             for d in acks {
                 iacks.push(d.id);
@@ -565,6 +686,8 @@ impl CommitHeaderV0 {
             }
             (
                 Some(Self {
+                    id: None,
+                    compact: false,
                     deps: ideps,
                     ndeps: indeps,
                     acks: iacks,
@@ -574,7 +697,6 @@ impl CommitHeaderV0 {
                 }),
                 Some(CommitHeaderKeysV0 {
                     deps: kdeps,
-                    ndeps: kndeps,
                     acks: kacks,
                     nacks: knacks,
                     refs,
@@ -609,9 +731,8 @@ pub struct CommitHeaderKeysV0 {
     /// Other objects this commit strongly depends on (ex: ADD for a REMOVE, refs for an nrefs)
     pub deps: Vec<ObjectKey>,
 
-    /// dependencies that are removed after this commit. used for reverts
-    pub ndeps: Vec<ObjectKey>,
-
+    // ndeps keys are not included because we don't need the keys to access the commits we will not need anymore
+    // the keys are in the deps of their respective subsequent commits in the DAG anyway
     /// current valid commits in head
     pub acks: Vec<ObjectKey>,
 
@@ -622,7 +743,7 @@ pub struct CommitHeaderKeysV0 {
     /// even if the CommitHeader is omitted, we want the Files to be openable.
     pub refs: Vec<ObjectRef>,
     // nrefs keys are not included because we don't need the keys to access the files we will not need anymore
-    // the keys are in the deps anyway
+    // the keys are in the deps of the respective commits that added them anyway
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -631,12 +752,33 @@ pub enum CommitHeaderKeys {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CommitHeaderObject {
+    Id(ObjectId),
+    EncryptedContent(Vec<u8>),
+    None,
+}
+
+pub struct CommitHeaderRef {
+    pub obj: CommitHeaderObject,
+    pub key: ObjectKey,
+}
+
+impl CommitHeaderRef {
+    pub fn from_id_key(id: BlockId, key: ObjectKey) -> Self {
+        CommitHeaderRef {
+            obj: CommitHeaderObject::Id(id),
+            key,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BlockContentV0 {
-    /// Reference (actually, only its ID) to a CommitHeader of the root Block of a commit that contains references to other objects (e.g. Commit deps & acks)
+    /// Reference (actually, only its ID or an embedded block if the size is small enough)
+    /// to a CommitHeader of the root Block of a commit that contains references to other objects (e.g. Commit deps & acks)
     /// Only set if the block is a commit (and it is the root block of the Object).
-    /// It is an easy way to know if the Block is a commit.
-    /// And ObjectRef to an Object containing a CommitHeaderV0
-    pub commit_header_id: Option<ObjectId>,
+    /// It is an easy way to know if the Block is a commit (but be careful because some root commits can be without a header).
+    pub commit_header: CommitHeaderObject,
 
     /// Block IDs for child nodes in the Merkle tree, can be empty if ObjectContent fits in one block
     pub children: Vec<BlockId>,
@@ -645,7 +787,8 @@ pub struct BlockContentV0 {
     ///
     /// Encrypted using convergent encryption with ChaCha20:
     /// - convergence_key: BLAKE3 derive_key ("NextGraph Data BLAKE3 key",
-    ///                                        repo_pubkey + repo_secret)
+    ///                                        StoreRepo + store's repo ReadCapSecret )
+    ///                                     // basically similar to the InnerOverlayId but not hashed, so that brokers cannot do preimage attack
     /// - key: BLAKE3 keyed hash (convergence_key, plain_chunk_content)
     /// - nonce: 0
     #[serde(with = "serde_bytes")]
@@ -656,6 +799,14 @@ pub struct BlockContentV0 {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BlockContent {
     V0(BlockContentV0),
+}
+
+impl BlockContent {
+    pub fn commit_header_obj(&self) -> &CommitHeaderObject {
+        match self {
+            Self::V0(v0) => &v0.commit_header,
+        }
+    }
 }
 
 /// Immutable block with encrypted content
@@ -674,7 +825,8 @@ pub struct BlockV0 {
 
     /// Header
     // #[serde(skip)]
-    // pub header: Option<CommitHeaderV0>,
+    // TODO
+    // pub header: Option<CommitHeader>,
 
     /// Key needed to open the CommitHeader. can be omitted if the Commit is shared without its ancestors,
     /// or if the block is not a root block of commit, or that commit is a root commit (first in branch)
@@ -693,10 +845,10 @@ pub enum Block {
 
 /// Repository definition
 ///
-/// First commit published in root branch, where:
-/// - branch_pubkey: repo_pubkey
-/// - branch_secret: BLAKE3 derive_key ("NextGraph Root Branch secret",
-///                                     repo_pubkey + repo_secret)
+/// First commit published in root branch, signed by repository key
+/// For the Root repo of a store(overlay), the convergence_key should be derived from :
+/// "NextGraph Store Root Repo BLAKE3 convergence key",
+///                                     RepoId + RepoWriteCapSecret)
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RepositoryV0 {
     /// Repo public key ID
@@ -710,7 +862,8 @@ pub struct RepositoryV0 {
     pub creator: Option<UserId>,
 
     // TODO: discrete doc type
-    // TODO: order (partial order, total order, partial sign all commits, fsm, smart contract )
+    // TODO: order (store, partial order, total order, partial sign all commits, fsm, smart contract )
+    // TODO: immutable conditions (allow_change_quorum, min_quorum, allow_inherit_perms, etc...)
     /// Immutable App-specific metadata
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,
@@ -725,39 +878,55 @@ pub enum Repository {
 /// Root Branch definition V0
 ///
 /// Second commit in the root branch, signed by repository key
-/// is used also to update the root branch definition when users are removed
-/// DEPS: Reference to the repository commit, to get the verification_program and repo_id
+/// is used also to update the root branch definition when users are removed, quorum(s) are changed, repo is moved to other store.
+/// In this case, it is signed by its author, and requires an additional group signature by the total_order_quorum or by the owners_quorum.
+/// DEPS: Reference to the previous root branch definition commit, if it is an update
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RootBranchV0 {
     /// Branch public key ID, equal to the repo_id
     pub id: PubKey,
 
-    // Reference to the repository commit, to get the verification_program and repo_id
-    //pub repo_ref: ObjectRef,
-    // this can be omitted as the ref to repo is in deps.
+    /// Reference to the repository commit, to get the verification_program and other immutable details
+    pub repo: ObjectRef,
+
     /// Store ID the repo belongs to
     /// the identity is checked by verifiers (check members, check overlay is matching)
     pub store: StoreOverlay,
-
-    /// Pub/sub topic ID for publishing events
-    pub topic: PubKey,
-
-    /// topic private key, encrypted with the repo_secret, topic_id, branch_id
-    #[serde(with = "serde_bytes")]
-    pub topic_privkey: Vec<u8>,
-
-    /// Permissions are inherited from Store Root Repo. Optional
-    /// (only if this repo is not a root repo itself).
-    /// check that it matches the self.store
-    pub inherit_perms: Option<StoreRootRepo>,
-
-    /// BEC periodic reconciliation interval. zero deactivates it
-    pub reconciliation_interval: RelTime,
 
     /// signature of repoId with MODIFY_STORE_KEY privkey of store
     /// in order to verify that the store recognizes this repo as part of itself.
     /// only if not a store root repo itself
     pub store_sig: Option<Sig>,
+
+    /// Pub/sub topic ID for publishing events about the root branch
+    pub topic: TopicId,
+
+    /// topic private key (a BranchWriteCapSecret), encrypted with a key derived as follow
+    /// BLAKE3 derive_key ("NextGraph Branch WriteCap Secret BLAKE3 key",
+    ///                                        RepoWriteCapSecret, TopicId, BranchId )
+    /// so that only editors of the repo can decrypt the privkey
+    #[serde(with = "serde_bytes")]
+    pub topic_privkey: Vec<u8>,
+
+    /// if set, permissions are inherited from Store Repo.
+    /// Optional is a store_read_cap
+    /// (only set if this repo is not the store repo itself)
+    /// check that it matches the self.store
+    /// can only be committed by an owner
+    /// owners are not inherited from store
+    // TODO: ReadCap or PermaReadCap. If it is a ReadCap, a new RootBranch commit should be published (RefreshReadCap) every time the store read cap changes.
+    pub inherit_perms_users_and_quorum_from_store: Option<ReadCap>,
+
+    /// Quorum definition ObjectRef
+    /// TODO: ObjectKey should be encrypted with SIGNER_KEY ?
+    /// TODO: chain of trust
+    pub quorum: Option<ObjectRef>,
+
+    /// BEC periodic reconciliation interval. zero deactivates it
+    pub reconciliation_interval: RelTime,
+
+    // list of owners. all of them are required to sign any RootBranch that modifies the list of owners or the inherit_perms_users_and_quorum_from_store field.
+    pub owners: Vec<UserId>,
 
     /// Mutable App-specific metadata
     #[serde(with = "serde_bytes")]
@@ -770,18 +939,26 @@ pub enum RootBranch {
     V0(RootBranchV0),
 }
 
-/// Quorum change V0
+impl RootBranch {
+    pub fn owners(&self) -> &Vec<UserId> {
+        match self {
+            Self::V0(v0) => &v0.owners,
+        }
+    }
+}
+
+/// Quorum definition V0
 ///
-/// Sent after RemoveUser, AddUser
+/// Changed when the signers need to be updated. Signers are not necessarily editors of the repo, and they do not need to be members either, as they will be notified of RefreshReadCaps anyway.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct QuorumV0 {
-    /// Number of signatures required for an partial order commit to be valid
+    /// Number of signatures required for a partial order commit to be valid (threshold+1)
     pub partial_order_quorum: u32,
 
     /// List of the users who can sign for partial order
     pub partial_order_users: Vec<UserId>,
 
-    /// Number of signatures required for a total order commit to be valid
+    /// Number of signatures required for a total order commit to be valid (threshold+1)
     pub total_order_quorum: u32,
 
     /// List of the users who can sign for total order
@@ -792,7 +969,8 @@ pub struct QuorumV0 {
     pub metadata: Vec<u8>,
 }
 
-/// Quorum change
+/// Quorum definition, is part of the RootBranch commit
+/// TODO: can it be sent in the root branch without being part of a RootBranch ?
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Quorum {
     V0(QuorumV0),
@@ -814,16 +992,22 @@ pub struct BranchV0 {
     /// Reference to the repository commit
     pub repo: ObjectRef,
 
-    /// object ID of the current root_branch commit, in order to keep in sync the branch with root_branch
-    pub root_branch_def_id: ObjectId,
+    /// object ID of the current root_branch commit (ReadCap), in order to keep in sync this branch with root_branch
+    /// The key is not provided as external readers should not be able to access the root branch definition.
+    /// it is only used by verifiers (who have the key already)
+    pub root_branch_readcap_id: ObjectId,
 
     /// Pub/sub topic for publishing events
     pub topic: PubKey,
 
-    /// topic private key, encrypted with the repo_secret, branch_id, topic_id
+    /// topic private key (a BranchWriteCapSecret), encrypted with a key derived as follow
+    /// BLAKE3 derive_key ("NextGraph Branch WriteCap Secret BLAKE3 key",
+    ///                                        RepoWriteCapSecret, TopicId, BranchId )
+    /// so that only editors of the repo can decrypt the privkey
     #[serde(with = "serde_bytes")]
     pub topic_privkey: Vec<u8>,
 
+    // TODO: chain of trust
     /// App-specific metadata
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,
@@ -836,16 +1020,16 @@ pub enum Branch {
 }
 
 /// Add a branch to the repository
-/// DEPS: if update branch: previous AddBranch or UpdateBranch commit
+/// DEPS: if update branch: previous AddBranch commit of the same branchId
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AddBranchV0 {
     /// the new topic_id (will be needed immediately by future readers
-    /// in order to subscribe to the pub/sub)
+    /// in order to subscribe to the pub/sub). should be identical to the one in the Branch definition
     topic_id: TopicId,
 
     // the new branch definition commit
     // (we need the ObjectKey in order to open the pub/sub Event)
-    branch_def: ObjectRef,
+    branch_read_cap: ReadCap,
 }
 
 /// Add a branch to the repository
@@ -858,7 +1042,7 @@ pub type RemoveBranchV0 = ();
 
 /// Remove a branch from the repository
 ///
-/// DEPS: should point to the previous AddBranch/UpdateBranch, can be several in case of concurrent AddBranch. ORset logiv)
+/// DEPS: should point to the previous AddBranch.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RemoveBranch {
     V0(RemoveBranchV0),
@@ -882,13 +1066,12 @@ pub enum AddMember {
 }
 
 /// Remove member from a repo
+/// An owner cannot be removed
+/// The overlay should be refreshed if user was malicious, after the user is removed from last repo. See REFRESH_READ_CAP on store repo.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RemoveMemberV0 {
     /// Member to remove
     pub member: UserId,
-
-    /// Should the overlay been refreshed. This is used on the last repo, when User is removed from all the repos of the store, because user was malicious.
-    pub refresh_overlay: bool,
 
     /// should this user be banned and prevented from being invited again by anybody else
     pub banned: bool,
@@ -906,23 +1089,41 @@ pub enum RemoveMember {
 
 /// Permissions
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum Permission {
+pub enum PermissionV0 {
     Create, // Used internally by the creator at creation time. Not part of the permission set that can added and removed
-    MoveToStore, // moves the repo to another store
-    AddBranch,
-    RemoveBranch,
-    ChangeName,
-    AddMember,
-    RemoveMember,
-    ChangeQuorum,
-    ChangePermission,
+    Owner,  // used internally for owners
+
+    //
+    // permissions delegated by owners and admins (all admins inherit them)
+    //
+    AddReadMember, // adds a member to the repo (AddMember). without additional perm, the user is a reader. always behind SyncSignature
+    RemoveMember, // if user has any specific perm, RemoveWritePermission, RefreshWriteCap and/or Admin permission is needed. always behind SyncSignature
+    AddWritePermission, // can send AddPermission that add 3 perms to other user: WriteAsync, WriteSync, and RefreshWriteCap
+    WriteAsync, // can send AsyncTransaction, AddFile, RemoveFile, Snapshot, optionally with AsyncSignature
+    WriteSync,  // can send SyncTransaction, AddFile, RemoveFile, always behind SyncSignature
+    Compact,    // can send Compact, always behind SyncSignature
+    RemoveWritePermission, // can send RemovePermission that remove the WriteAsync, WriteSync or RefreshWriteCap permissions from user. RefreshWriteCap will probably be needed by the user who does the RemovePermission
+
+    AddBranch,    // can send AddBranch and Branch commits, always behind SyncSignature
+    RemoveBranch, // can send removeBranch, always behind SyncSignature
+    ChangeName,   // can send AddName and RemoveName
+
+    RefreshReadCap, // can send RefreshReadCap followed by UpdateRootBranch and/or UpdateBranch commits, with or without renewed topicIds. Always behind SyncSignature
+    RefreshWriteCap, // can send RefreshWriteCap followed by UpdateRootBranch and associated UpdateBranch commits on all branches, with renewed topicIds and RepoWriteCapSecret. Always behind SyncSignature
+
+    //
+    // permissions delegated by owners:
+    //
+    ChangeQuorum, // can add and remove Signers, change the quorum thresholds for total order and partial order. implies the RefreshReadCap perm (without changing topicids). Always behind SyncSignature
+    Admin, // can administer the repo: assigns perms to other user with AddPermission and RemovePermission. RemovePermission always behind SyncSignature
     ChangeMainBranch,
-    Transaction,
-    Snapshot,
-    Chat,
-    Inbox,
-    Share,
-    UpdateStore, // only for store root repo (add doc, remove doc)
+
+    // other permissions. TODO: specify them more in details
+    Chat,           // can chat
+    Inbox,          // can read inbox
+    PermaShare,     // can create and answer to PermaReadCap PermaWriteCap PermaLink
+    UpdateStore,    // only for store root repo (add doc, remove doc) to the store special branch
+    RefreshOverlay, // Equivalent to RefreshReadCap for the overlay special branch.
 }
 
 /// Add permission to a member in a repo
@@ -932,12 +1133,13 @@ pub struct AddPermissionV0 {
     pub member: UserId,
 
     /// Permission given to user
-    pub permission: Permission,
+    pub permission: PermissionV0,
 
     /// Metadata
     /// (role, app level permissions, cryptographic material, etc)
     /// Can be some COMMON KEY privkey encrypted with the user pubkey
     /// If a PROOF for the common key is needed, should be sent here too
+    /// COMMON KEYS are: SHARE, INBOX,
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,
 }
@@ -947,6 +1149,14 @@ pub enum AddPermission {
     V0(AddPermissionV0),
 }
 
+impl AddPermission {
+    pub fn permission_v0(&self) -> &PermissionV0 {
+        match self {
+            Self::V0(v0) => &v0.permission,
+        }
+    }
+}
+
 /// Remove permission from a user in a repo
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RemovePermissionV0 {
@@ -954,7 +1164,7 @@ pub struct RemovePermissionV0 {
     pub member: UserId,
 
     /// Permission removed from user
-    pub permission: Permission,
+    pub permission: PermissionV0,
 
     /// Metadata
     /// (reason, new cryptographic materials...)
@@ -970,11 +1180,24 @@ pub enum RemovePermission {
     V0(RemovePermissionV0),
 }
 
+impl RemovePermission {
+    pub fn permission_v0(&self) -> &PermissionV0 {
+        match self {
+            Self::V0(v0) => &v0.permission,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RepoNamedItemV0 {
     Branch(BranchId),
     Commit(ObjectId),
     File(ObjectId),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RepoNamedItem {
+    V0(RepoNamedItemV0),
 }
 
 /// Add a new name in the repo that can point to a branch, a commit or a file
@@ -987,7 +1210,7 @@ pub struct AddNameV0 {
     pub name: String,
 
     /// A branch, commit or file
-    pub item: RepoNamedItemV0,
+    pub item: RepoNamedItem,
 
     /// Metadata
     #[serde(with = "serde_bytes")]
@@ -1019,18 +1242,11 @@ pub enum ChangeMainBranch {
 /// DEPS: all the AddName commits seen for this name
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RemoveNameV0 {
-    /// Member to remove
+    /// name to remove
     /// names `main`, `chat`, `store` are reserved
     pub name: String,
 
-    /// Permission removed from user
-    pub permission: Permission,
-
     /// Metadata
-    /// (reason, new cryptographic materials...)
-    /// If the permission was linked to a COMMON KEY, a new privkey should be generated
-    /// and sent to all users that still have this permission, encrypted with their respective pubkey
-    /// If a PROOF for the common key is needed, should be sent here too
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,
 }
@@ -1086,14 +1302,8 @@ pub enum RemoveFile {
 /// ACKS contains the head the snapshot was made from
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SnapshotV0 {
-    // FIXME: why do we need this?
-    // Branch heads the snapshot was made from
-    // pub heads: Vec<ObjectId>,
-    /// hard snapshot will erase all the CommitBody of ancestors in the branch
-    /// the acks will be present in header, but the CommitContent.header_keys will be set to None so the access to the acks will be lost
-    /// the commit_header_key of BlockV0 can be safely shared outside of the repo, as the header_keys is empty, so the heads will not be readable anyway
-    /// If a branch is based on a hard snapshot, it cannot be merged back into the branch where the hard snapshot was made.
-    pub hard: bool,
+    // Branch heads the snapshot was made from, can be useful when shared outside and the commit_header_key is set to None. otherwise it is redundant to ACKS
+    pub heads: Vec<ObjectId>,
 
     /// Snapshot data structure
     #[serde(with = "serde_bytes")]
@@ -1106,21 +1316,215 @@ pub enum Snapshot {
     V0(SnapshotV0),
 }
 
-/// Threshold Signature of a commit
-/// mandatory for UpdateRootBranch, AddMember, RemoveMember, Quorum, UpdateBranch, hard Snapshot,
-/// DEPS: the signed commit
+/// Compact: Hard Snapshot of a Branch
+///
+/// Contains a data structure
+/// computed from the commits at the specified head.
+/// ACKS contains the head the snapshot was made from
+///
+/// hard snapshot will erase all the CommitBody of ancestors in the branch
+/// the compact boolean should be set in the Header too.
+/// after a hard snapshot, it is recommended to refresh the read capability (to empty the topics of they keys they still hold)
+/// If a branch is based on a hard snapshot, it cannot be merged back into the branch where the hard snapshot was made.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ThresholdSignatureV0 {
-    // TODO: pub chain_of_trust: ,
-    /// Threshold signature
+pub struct CompactV0 {
+    // Branch heads the snapshot was made from, can be useful when shared outside and the commit_header_key is set to None. otherwise it is redundant to ACKS
+    pub heads: Vec<ObjectId>,
+
+    /// Snapshot data structure
     #[serde(with = "serde_bytes")]
-    pub signature: Vec<u8>,
+    pub content: Vec<u8>,
 }
 
 /// Snapshot of a Branch
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum ThresholdSignature {
-    V0(ThresholdSignatureV0),
+pub enum Compact {
+    V0(CompactV0),
+}
+
+/// Async Threshold Signature of a commit V0 based on the partial order quorum
+/// Can sign Transaction, AddFile, and Snapshot, after they have been committed to the DAG.
+/// DEPS: the signed commits
+// #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+// pub struct AsyncSignatureV0 {
+//     /// An Object containing the Threshold signature
+//     pub signature: ObjectRef,
+// }
+
+/// Async Threshold Signature of a commit based on the partial order quorum
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum AsyncSignature {
+    V0(ObjectRef),
+}
+
+/// Sync Threshold Signature of one or a chain of commits . V0 . based on the total order quorum
+/// mandatory for UpdateRootBranch, UpdateBranch, ChangeMainBranch, AddBranch, RemoveBranch, AddMember, RemoveMember, RemovePermission, Quorum, Compact, sync Transaction, RefreshReadCap, RefreshWriteCap
+/// DEPS: the last signed commit in chain
+/// ACKS: previous head before the chain of signed commit(s). should be identical to the HEADS (marked as DEPS) of first commit in chain
+// #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+// pub struct SyncSignatureV0 {
+//     /// An Object containing the Threshold signature
+//     pub signature: ObjectRef,
+// }
+
+/// Threshold Signature of a commit
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum SyncSignature {
+    V0(ObjectRef),
+}
+
+/// RefreshReadCap. renew the ReadCap of a `transactional` branch, or the root_branch, or all transactional branches and the root_branch.
+/// Each branch forms its separate chain for that purpose.
+/// can refresh the topic ids, or not
+/// DEPS: current HEADS in the branch at the moment of refresh.
+/// followed in the chain by a Branch or RootBranch commit (linked with ACK). The key used in EventV0 for the commit in the future of the RefreshReadCap, is the refresh_secret.
+/// the chain can be, by example: RefreshReadCap -> RootBranch -> AddBranch
+/// or for a transactional branch: RefreshReadCap -> Branch
+/// always eventually followed at the end of each chain by a SyncSignature (each branch its own)
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RefreshReadCapV0 {
+    /// A randomly generated secret (SymKey) used for the refresh process, encrypted for each Member, Signer and Owner of the repo (except the one that is being excluded, if any)
+    /// format to be defined (see crypto_box)
+    RefreshSecret(),
+
+    // or a reference to a master RefreshReadCap commit when some transactional branches are refreshed together with the root_branch. the refresh_secret is taken from that referenced commit
+    MasterRefresh(ObjectRef),
+}
+
+/// RefreshReadCap
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RefreshReadCap {
+    V0(RefreshReadCapV0),
+}
+
+/// RefreshWriteCap is always done on the root_branch, and always refreshes all the transaction branches WriteCaps, and TopicIDs.
+/// DEPS: current HEADS in the branch at the moment of refresh.
+/// the chain on the root_branch is : RefreshWriteCap -> RootBranch -> optional AddPermission(s) -> AddBranch
+/// and on each transactional branch: RefreshWriteCap -> Branch
+/// always eventually followed at the end of each chain by a SyncSignature (each branch its own)
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RefreshWriteCapV0 {
+    /// A RefreshReadCapV0::RefreshSecret when on the root_branch, otherwise on transactional branches, a RefreshReadCapV0::MasterRefresh pointing to this RefreshWriteCapV0
+    pub refresh_read_cap: RefreshReadCapV0,
+
+    /// the new RepoWriteCapSecret, encrypted for each Editor (any Member that also has at least one permission, plus all the Owners). See format of RefreshSecret
+    // TODO: format. should be encrypted
+    // None when used for a transaction branch, as we don't want to duplicate this encrypted secret in each branch.
+    pub write_secret: Option<RepoWriteCapSecret>,
+}
+
+/// RefreshWriteCap
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RefreshWriteCap {
+    V0(RefreshWriteCapV0),
+}
+
+/// A Threshold Signature content
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SignatureContentV0 {
+    /// list of all the "end of chain" commit for each branch when doing a SyncSignature, or a list of arbitrary commits to sign, for AsyncSignature.
+    pub commits: Vec<ObjectRef>,
+}
+
+/// A Signature content
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum SignatureContent {
+    V0(SignatureContentV0),
+}
+
+/// A Threshold Signature and the set used to generate it
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ThresholdSignatureV0 {
+    PartialOrder(threshold_crypto::Signature),
+    TotalOrder(threshold_crypto::Signature),
+    Owners(threshold_crypto::Signature),
+}
+
+/// A Threshold Signature object (not a commit) containing all the information that the signers have prepared.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SignatureV0 {
+    /// the content that is signed
+    pub content: SignatureContent,
+
+    /// The threshold signature itself. can come from 3 different sets
+    pub threshold_sig: ThresholdSignatureV0,
+
+    /// A reference to the Certificate that should be used to verify this signature.
+    pub certificate_ref: ObjectRef,
+}
+
+/// A Signature object, referenced in AsyncSignature or SyncSignature
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Signature {
+    V0(SignatureV0),
+}
+
+/// Enum for "orders" PKsets. Can be inherited from the store, in this case, it is an ObjectRef pointing to the latest Certificate of the store.
+/// Or can be 2 PublicKeySets defined specially for this repo,
+/// .0 one for the total_order (first one),
+/// .1 the other for the partial_order (second one. is optional, as some repos are forcefully totally ordered and do not have this set).
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum OrdersPublicKeySetsV0 {
+    Store(ObjectRef),
+    Repo(
+        (
+            threshold_crypto::PublicKeySet,
+            Option<threshold_crypto::PublicKeySet>,
+        ),
+    ),
+    None, // the total_order quorum is not defined (yet, or anymore). here are no signers for the total_order, and none either for the partial_order. The owners replace them.
+}
+
+/// A Certificate content, that will be signed by the previous certificate signers.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CertificateContentV0 {
+    /// the previous certificate in the chain of trust. Can be another Certificate or the Repository commit when we are at the root of the chain of trust.
+    pub previous: ObjectRef,
+
+    /// The Commit Id of the latest RootBranch definition (= the ReadCap ID) in order to keep in sync with the options for signing.
+    /// not used for verifying (this is why the secret is not present).
+    pub readcap_id: ObjectId,
+
+    /// PublicKey Set used by the Owners. verifier uses this PKset if the signature was issued by the Owners.
+    pub owners_PKset: threshold_crypto::PublicKeySet,
+
+    /// two "orders" PublicKey Sets (total_order and partial_order).
+    pub orders_PKsets: OrdersPublicKeySetsV0,
+}
+
+/// A Signature of a Certificate and the threshold set or public key used to generate it
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CertificateSignatureV0 {
+    /// the root Certificate is signed with the PrivKey of the Repo
+    Repo(Sig),
+    /// Any other certificate in the chain of trust is signed by the total_order quorum of the previous certificate, hence establishing the chain of trust.
+    TotalOrder(threshold_crypto::Signature),
+    /// if the previous cert's total order PKset has a threshold value of 0 or 1 (1 or 2 signers in the quorum),
+    /// then it is allowed that the next certificate (this one) will be signed by the owners PKset instead.
+    /// This is for a simple reason: if a user is removed from the list of signers in the total_order quorum,
+    /// then in those 2 cases, the excluded signer will probably not cooperate to their exclusion, and will not sign the new certificate.
+    /// to avoid deadlocks, we allow the owners to step in and sign the new cert instead.
+    /// The Owners are also used when there is no quorum/signer defined (OrdersPublicKeySetsV0::None).
+    Owners(threshold_crypto::Signature),
+    /// in case the new certificate being signed is an update on the store certificate (OrdersPublicKeySetsV0::Store(ObjectRef) has changed from previous cert)
+    /// then the signature is in that new store certificate, and not here. nothing else should have changed in the CertificateContent, and the validity of the new store cert has to be checked
+    Store,
+}
+
+/// A Certificate object (not a commit) containing all the information needed to verify a signature.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CertificateV0 {
+    /// content of the certificate, which is signed here below by the previous certificate signers.
+    pub content: CertificateContentV0,
+
+    /// signature over the content.
+    pub sig: CertificateSignatureV0,
+}
+
+/// A certificate object
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Certificate {
+    V0(CertificateV0),
 }
 
 /// Commit body V0
@@ -1129,36 +1533,41 @@ pub enum CommitBodyV0 {
     //
     // for root branch:
     //
-    Repository(RepositoryV0), // singleton and should be first in root_branch
-    RootBranch(RootBranchV0), // singleton and should be second in root_branch
-    UpdateRootBranch(RootBranchV0), // total order enforced with total_order_quorum
-    AddMember(AddMemberV0),   // total order enforced with total_order_quorum
-    RemoveMember(RemoveMemberV0), // total order enforced with total_order_quorum
-    Quorum(QuorumV0),         // total order enforced with total_order_quorum
-    AddPermission(AddPermissionV0),
-    RemovePermission(RemovePermissionV0),
-    AddBranch(AddBranchV0),
-    ChangeMainBranch(ChangeMainBranchV0),
-    RemoveBranch(RemoveBranchV0),
-    AddName(AddNameV0),
-    RemoveName(RemoveNameV0),
+    Repository(Repository), // singleton and should be first in root_branch
+    RootBranch(RootBranch), // singleton and should be second in root_branch
+    UpdateRootBranch(RootBranch), // total order enforced with total_order_quorum
+    AddMember(AddMember),   // total order enforced with total_order_quorum
+    RemoveMember(RemoveMember), // total order enforced with total_order_quorum
+    AddPermission(AddPermission),
+    RemovePermission(RemovePermission),
+    AddBranch(AddBranch),
+    ChangeMainBranch(ChangeMainBranch),
+    RemoveBranch(RemoveBranch),
+    AddName(AddName),
+    RemoveName(RemoveName),
+    // TODO? Quorum(Quorum), // changes the quorum without changing the RootBranch
 
     //
-    // For regular branches:
+    // For transactional branches:
     //
-    Branch(BranchV0),       // singleton and should be first in branch
-    UpdateBranch(BranchV0), // total order enforced with total_order_quorum
-    Snapshot(SnapshotV0),   // if hard snapshot, total order enforced with total_order_quorum
-    Transaction(TransactionV0),
-    AddFile(AddFileV0),
-    RemoveFile(RemoveFileV0),
-    //Merge(MergeV0),
-    //Revert(RevertV0), // only possible on partial order commit
+    Branch(Branch),                // singleton and should be first in branch
+    UpdateBranch(Branch),          // total order enforced with total_order_quorum
+    Snapshot(Snapshot),            // a soft snapshot
+    AsyncTransaction(Transaction), // partial_order
+    SyncTransaction(Transaction),  // total_order
+    AddFile(AddFile),
+    RemoveFile(RemoveFile),
+    Compact(Compact), // a hard snapshot. total order enforced with total_order_quorum
+    //Merge(Merge),
+    //Revert(Revert), // only possible on partial order commit
+    AsyncSignature(AsyncSignature),
 
     //
     // For both
     //
-    ThresholdSignature(ThresholdSignatureV0),
+    RefreshReadCap(RefreshReadCap),
+    RefreshWriteCap(RefreshWriteCap),
+    SyncSignature(SyncSignature),
 }
 
 /// Commit body
@@ -1167,91 +1576,22 @@ pub enum CommitBody {
     V0(CommitBodyV0),
 }
 
-impl CommitBody {
-    pub fn must_be_root_commit_in_branch(&self) -> bool {
-        match self {
-            Self::V0(v0) => match v0 {
-                CommitBodyV0::Repository(_) => true,
-                CommitBodyV0::Branch(_) => true,
-                _ => false,
-            },
-        }
-    }
-    pub fn total_order_required(&self) -> bool {
-        match self {
-            Self::V0(v0) => match v0 {
-                CommitBodyV0::UpdateRootBranch(_) => true,
-                CommitBodyV0::AddMember(_) => true,
-                CommitBodyV0::RemoveMember(_) => true,
-                CommitBodyV0::Quorum(_) => true,
-                CommitBodyV0::UpdateBranch(_) => true,
-                CommitBodyV0::Snapshot(s) => s.hard,
-                _ => false,
-            },
-        }
-    }
-    pub fn required_permission(&self) -> HashSet<&Permission> {
-        let res: &[Permission];
-        res = match self {
-            Self::V0(v0) => match v0 {
-                CommitBodyV0::Repository(_) => &[Permission::Create],
-                CommitBodyV0::RootBranch(_) => &[Permission::Create],
-                CommitBodyV0::UpdateRootBranch(_) => {
-                    &[Permission::RemoveMember, Permission::MoveToStore]
-                }
-                CommitBodyV0::AddMember(_) => &[Permission::Create, Permission::AddMember],
-                CommitBodyV0::RemoveMember(_) => &[Permission::RemoveMember],
-                CommitBodyV0::Quorum(_) => &[
-                    Permission::Create,
-                    Permission::AddMember,
-                    Permission::RemoveMember,
-                    Permission::ChangeQuorum,
-                ],
-                CommitBodyV0::AddPermission(_) => {
-                    &[Permission::Create, Permission::ChangePermission]
-                }
-                CommitBodyV0::RemovePermission(_) => &[Permission::ChangePermission],
-                CommitBodyV0::AddBranch(_) => &[Permission::Create, Permission::AddBranch],
-                CommitBodyV0::RemoveBranch(_) => &[Permission::RemoveBranch],
-                CommitBodyV0::UpdateBranch(_) => {
-                    &[Permission::RemoveMember, Permission::MoveToStore]
-                }
-                CommitBodyV0::AddName(_) => &[Permission::AddBranch, Permission::ChangeName],
-                CommitBodyV0::RemoveName(_) => &[Permission::ChangeName, Permission::RemoveBranch],
-                CommitBodyV0::Branch(_) => &[Permission::Create, Permission::AddBranch],
-                CommitBodyV0::ChangeMainBranch(_) => {
-                    &[Permission::Create, Permission::ChangeMainBranch]
-                }
-                CommitBodyV0::Snapshot(_) => &[Permission::Snapshot],
-                CommitBodyV0::Transaction(_) => &[Permission::Transaction],
-                CommitBodyV0::AddFile(_) => &[Permission::Transaction],
-                CommitBodyV0::RemoveFile(_) => &[Permission::Transaction],
-                CommitBodyV0::ThresholdSignature(_) => &[
-                    Permission::AddMember,
-                    Permission::ChangeQuorum,
-                    Permission::RemoveMember,
-                    Permission::Snapshot,
-                    Permission::MoveToStore,
-                    Permission::Transaction,
-                ],
-            },
-        };
-        HashSet::from_iter(res.iter())
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum QuorumType {
     NoSigning,
     PartialOrder,
     TotalOrder,
+    Owners,
 }
 
 /// Content of a Commit
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommitContentV0 {
-    /// Commit author (a ForwardedPeerId)
-    pub author: PubKey,
+    /// Commit author (a hash of UserId)
+    /// BLAKE3 keyed hash over UserId
+    /// - key: BLAKE3 derive_key ("NextGraph UserId Hash Overlay Id CommitContentV0 BLAKE3 key", overlayId)
+    /// hash will be different than for ForwardedPeerAdvertV0 so that core brokers dealing with public sites wont be able to correlate commits and editing peers (via common author's hash)
+    pub author: Digest,
 
     /// Author's commit sequence number
     pub seq: u64,
@@ -1259,8 +1599,11 @@ pub struct CommitContentV0 {
     /// BranchId the commit belongs to (not a ref, as readers do not need to access the branch definition)
     pub branch: BranchId,
 
+    /// optional list of dependencies on some commits in the root branch that contain the write permission needed for this commit
+    pub perms: Vec<ObjectId>,
+
     /// Keys to be able to open all the references (deps, acks, refs, etc...)
-    pub header_keys: Option<CommitHeaderKeysV0>,
+    pub header_keys: Option<CommitHeaderKeys>,
 
     /// This commit can only be accepted if signed by this quorum
     pub quorum: QuorumType,
@@ -1272,6 +1615,25 @@ pub struct CommitContentV0 {
     /// reference to an Object with a CommitBody inside.
     /// When the commit is reverted or erased (after compaction/snapshot), the CommitBody is deleted, creating a dangling reference
     pub body: ObjectRef,
+}
+
+/// Content of a Commit
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CommitContent {
+    V0(CommitContentV0),
+}
+
+impl CommitContent {
+    pub fn header_keys(&self) -> &Option<CommitHeaderKeys> {
+        match self {
+            CommitContent::V0(v0) => &v0.header_keys,
+        }
+    }
+    pub fn author(&self) -> &Digest {
+        match self {
+            CommitContent::V0(v0) => &v0.author,
+        }
+    }
 }
 
 /// Commit object
@@ -1288,12 +1650,16 @@ pub struct CommitV0 {
 
     /// optional Commit Header
     #[serde(skip)]
-    pub header: Option<CommitHeaderV0>,
+    pub header: Option<CommitHeader>,
+
+    /// optional Commit Header
+    #[serde(skip)]
+    pub body: OnceCell<CommitBody>,
 
     /// Commit content
-    pub content: CommitContentV0,
+    pub content: CommitContent,
 
-    /// Signature over the content by the author
+    /// Signature over the content by the author. an editor (userId)
     pub sig: Sig,
 }
 
@@ -1324,10 +1690,13 @@ pub enum File {
 /// Immutable data stored encrypted in a Merkle tree V0
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ObjectContentV0 {
-    Commit(CommitV0),
-    CommitBody(CommitBodyV0),
-    CommitHeader(CommitHeaderV0),
-    File(FileV0),
+    Commit(Commit),
+    CommitBody(CommitBody),
+    CommitHeader(CommitHeader),
+    Quorum(Quorum),
+    Signature(Signature),
+    Certificate(Certificate),
+    File(File),
 }
 
 /// Immutable data stored encrypted in a Merkle tree

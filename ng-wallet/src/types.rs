@@ -454,15 +454,11 @@ impl WalletLogV0 {
                         if self.is_last_occurrence(op.0, &op.1) != 0 {
                             let _ = wallet.sites.get_mut(&site.to_string()).and_then(|site| {
                                 match store_type {
-                                    SiteStoreType::Public => {
-                                        site.public.root_branch_def_ref = rbdr.clone()
-                                    }
+                                    SiteStoreType::Public => site.public.read_cap = rbdr.clone(),
                                     SiteStoreType::Protected => {
-                                        site.protected.root_branch_def_ref = rbdr.clone()
+                                        site.protected.read_cap = rbdr.clone()
                                     }
-                                    SiteStoreType::Private => {
-                                        site.private.root_branch_def_ref = rbdr.clone()
-                                    }
+                                    SiteStoreType::Private => site.private.read_cap = rbdr.clone(),
                                 };
                                 None::<SiteV0>
                             });
@@ -472,14 +468,12 @@ impl WalletLogV0 {
                         if self.is_last_occurrence(op.0, &op.1) != 0 {
                             let _ = wallet.sites.get_mut(&site.to_string()).and_then(|site| {
                                 match store_type {
-                                    SiteStoreType::Public => {
-                                        site.public.repo_secret = secret.clone()
-                                    }
+                                    SiteStoreType::Public => site.public.write_cap = secret.clone(),
                                     SiteStoreType::Protected => {
-                                        site.protected.repo_secret = secret.clone()
+                                        site.protected.write_cap = secret.clone()
                                     }
                                     SiteStoreType::Private => {
-                                        site.private.repo_secret = secret.clone()
+                                        site.private.write_cap = secret.clone()
                                     }
                                 };
                                 None::<SiteV0>
@@ -605,7 +599,7 @@ pub enum WalletOperation {
     AddThirdPartyDataV0((String, Vec<u8>)),
     RemoveThirdPartyDataV0(String),
     SetSiteRBDRefV0((PubKey, SiteStoreType, ObjectRef)),
-    SetSiteRepoSecretV0((PubKey, SiteStoreType, SymKey)),
+    SetSiteRepoSecretV0((PubKey, SiteStoreType, RepoWriteCapSecret)),
 }
 use std::collections::hash_map::DefaultHasher;
 

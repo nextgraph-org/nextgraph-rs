@@ -88,8 +88,8 @@ impl RepoStore for LmdbRepoStore {
 
                 match serde_bare::from_slice::<Block>(&block_ser.to_bytes().unwrap()) {
                     Err(_e) => Err(StorageError::InvalidValue),
-                    Ok(o) => {
-                        if o.id() != *block_id {
+                    Ok(mut o) => {
+                        if o.get_and_save_id() != *block_id {
                             log_debug!(
                                 "Invalid ObjectId.\nExp: {:?}\nGot: {:?}\nContent: {:?}",
                                 block_id,

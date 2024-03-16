@@ -71,7 +71,7 @@ pub(crate) struct Cli {
     )]
     pub public: Option<String>,
 
-    /// When --public is used, this option will disallow clients to connect to the public interface too. Otherwise, by default, they can. Should be used in combination with a --domain option
+    /// When --public or --dynamic is used, this option will disallow clients to connect to the public interface too. Otherwise, by default, they can. Should be used in combination with a --domain option
     #[arg(long, conflicts_with("private"))]
     pub public_without_clients: bool,
 

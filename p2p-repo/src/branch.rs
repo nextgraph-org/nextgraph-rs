@@ -24,17 +24,17 @@ impl BranchV0 {
     pub fn new(
         id: PubKey,
         repo: ObjectRef,
-        root_branch_def_id: ObjectId,
+        root_branch_readcap_id: ObjectId,
         topic_priv: PrivKey,
         metadata: Vec<u8>,
     ) -> BranchV0 {
         let topic_privkey: Vec<u8> = vec![];
-        //TODO: topic_privkey is topic_priv encrypted with the repo_secret, branch_id, topic_id
+        //TODO: topic_privkey is topic_priv encrypted with RepoWriteCapSecret, TopicId, BranchId
         let topic = topic_priv.to_pub();
         BranchV0 {
             id,
             repo,
-            root_branch_def_id,
+            root_branch_readcap_id,
             topic,
             topic_privkey,
             metadata,
@@ -46,14 +46,14 @@ impl Branch {
     pub fn new(
         id: PubKey,
         repo: ObjectRef,
-        root_branch_def_id: ObjectId,
+        root_branch_readcap_id: ObjectId,
         topic_priv: PrivKey,
         metadata: Vec<u8>,
     ) -> Branch {
         Branch::V0(BranchV0::new(
             id,
             repo,
-            root_branch_def_id,
+            root_branch_readcap_id,
             topic_priv,
             metadata,
         ))
@@ -81,8 +81,8 @@ impl Branch {
             visited: &mut HashSet<ObjectId>,
             missing: &mut HashSet<ObjectId>,
         ) -> Result<bool, ObjectParseError> {
-            //log_debug!(">>> load_branch: {}", cobj.id());
             let id = cobj.id();
+            //log_debug!(">>> load_branch: {}", id);
 
             // root has no acks
             let is_root = cobj.is_root();
@@ -180,17 +180,23 @@ mod test {
     pub fn test_branch() {
         fn add_obj(
             content: ObjectContentV0,
-            header: Option<CommitHeaderV0>,
-            repo_pubkey: PubKey,
-            repo_secret: SymKey,
+            header: Option<CommitHeader>,
+            store_pubkey: &StoreRepo,
+            store_secret: &ReadCapSecret,
             store: &Box<impl RepoStore + ?Sized>,
         ) -> ObjectRef {
             let max_object_size = 4000;
-            let obj = Object::new(content, header, max_object_size, repo_pubkey, repo_secret);
+            let mut obj = Object::new(
+                ObjectContent::V0(content),
+                header,
+                max_object_size,
+                store_pubkey,
+                store_secret,
+            );
             log_debug!(">>> add_obj");
             log_debug!("     id: {:?}", obj.id());
             log_debug!("     header: {:?}", obj.header());
-            obj.save(store).unwrap();
+            obj.save_in_test(store).unwrap();
             obj.reference().unwrap()
         }
 
@@ -202,11 +208,11 @@ mod test {
             deps: Vec<ObjectRef>,
             acks: Vec<ObjectRef>,
             body_ref: ObjectRef,
-            repo_pubkey: PubKey,
-            repo_secret: SymKey,
+            store_pubkey: &StoreRepo,
+            store_secret: &ReadCapSecret,
             store: &Box<impl RepoStore + ?Sized>,
         ) -> ObjectRef {
-            let header = CommitHeaderV0::new_with_deps_and_acks(
+            let header = CommitHeader::new_with_deps_and_acks(
                 deps.iter().map(|r| r.id).collect(),
                 acks.iter().map(|r| r.id).collect(),
             );
@@ -236,45 +242,45 @@ mod test {
             .unwrap();
             //log_debug!("commit: {:?}", commit);
             add_obj(
-                ObjectContentV0::Commit(commit),
+                ObjectContentV0::Commit(Commit::V0(commit)),
                 header,
-                repo_pubkey,
-                repo_secret,
+                store_pubkey,
+                store_secret,
                 store,
             )
         }
 
         fn add_body_branch(
             branch: BranchV0,
-            repo_pubkey: PubKey,
-            repo_secret: SymKey,
+            store_pubkey: &StoreRepo,
+            store_secret: &ReadCapSecret,
             store: &Box<impl RepoStore + ?Sized>,
         ) -> ObjectRef {
-            let body = CommitBodyV0::Branch(branch);
+            let body: CommitBodyV0 = CommitBodyV0::Branch(Branch::V0(branch));
             //log_debug!("body: {:?}", body);
             add_obj(
-                ObjectContentV0::CommitBody(body),
+                ObjectContentV0::CommitBody(CommitBody::V0(body)),
                 None,
-                repo_pubkey,
-                repo_secret,
+                store_pubkey,
+                store_secret,
                 store,
             )
         }
 
         fn add_body_trans(
-            header: Option<CommitHeaderV0>,
-            repo_pubkey: PubKey,
-            repo_secret: SymKey,
+            header: Option<CommitHeader>,
+            store_pubkey: &StoreRepo,
+            store_secret: &ReadCapSecret,
             store: &Box<impl RepoStore + ?Sized>,
         ) -> ObjectRef {
             let content = [7u8; 777].to_vec();
-            let body = CommitBodyV0::Transaction(content);
+            let body = CommitBodyV0::AsyncTransaction(Transaction::V0(content));
             //log_debug!("body: {:?}", body);
             add_obj(
-                ObjectContentV0::CommitBody(body),
+                ObjectContentV0::CommitBody(CommitBody::V0(body)),
                 header,
-                repo_pubkey,
-                repo_secret,
+                store_pubkey,
+                store_secret,
                 store,
             )
         }
@@ -298,6 +304,7 @@ mod test {
         let repo_privkey = PrivKey::Ed25519PrivKey(repo_keypair.secret.to_bytes());
         let repo_pubkey = PubKey::Ed25519PubKey(repo_keypair.public.to_bytes());
         let repo_secret = SymKey::ChaCha20Key([9; 32]);
+        let store_repo = StoreRepo::V0(StoreRepoV0::PublicStore(repo_pubkey));
 
         // branch
 
@@ -314,8 +321,8 @@ mod test {
 
         let repo = Repo::new_with_member(
             &repo_pubkey,
-            member_pubkey,
-            &[Permission::Transaction],
+            &member_pubkey,
+            &[PermissionV0::WriteAsync],
             store,
         );
 
@@ -352,14 +359,10 @@ mod test {
 
         // commit bodies
 
-        let branch_body = add_body_branch(
-            branch.clone(),
-            repo_pubkey.clone(),
-            repo_secret.clone(),
-            repo.get_store(),
-        );
+        let branch_body =
+            add_body_branch(branch.clone(), &store_repo, &repo_secret, repo.get_store());
 
-        let trans_body = add_body_trans(None, repo_pubkey, repo_secret.clone(), repo.get_store());
+        let trans_body = add_body_trans(None, &store_repo, &repo_secret, repo.get_store());
 
         // create & add commits to store
 
@@ -372,8 +375,8 @@ mod test {
             vec![],
             vec![],
             branch_body.clone(),
-            repo_pubkey,
-            repo_secret.clone(),
+            &store_repo,
+            &repo_secret,
             repo.get_store(),
         );
 
@@ -386,8 +389,8 @@ mod test {
             vec![br.clone()],
             vec![],
             trans_body.clone(),
-            repo_pubkey,
-            repo_secret.clone(),
+            &store_repo,
+            &repo_secret,
             repo.get_store(),
         );
 
@@ -400,8 +403,8 @@ mod test {
             vec![br.clone()],
             vec![],
             trans_body.clone(),
-            repo_pubkey,
-            repo_secret.clone(),
+            &store_repo,
+            &repo_secret,
             repo.get_store(),
         );
 
@@ -428,8 +431,8 @@ mod test {
             vec![t2.clone()],
             vec![t1.clone()],
             trans_body.clone(),
-            repo_pubkey,
-            repo_secret.clone(),
+            &store_repo,
+            &repo_secret,
             repo.get_store(),
         );
 
@@ -442,8 +445,8 @@ mod test {
             vec![t1.clone(), t2.clone()],
             vec![t4.clone()],
             trans_body.clone(),
-            repo_pubkey,
-            repo_secret.clone(),
+            &store_repo,
+            &repo_secret,
             repo.get_store(),
         );
 
@@ -456,8 +459,8 @@ mod test {
             vec![t4.clone()],
             vec![],
             trans_body.clone(),
-            repo_pubkey,
-            repo_secret.clone(),
+            &store_repo,
+            &repo_secret,
             repo.get_store(),
         );
 
@@ -470,13 +473,13 @@ mod test {
             vec![t4.clone()],
             vec![],
             trans_body.clone(),
-            repo_pubkey,
-            repo_secret.clone(),
+            &store_repo,
+            &repo_secret,
             repo.get_store(),
         );
 
-        let c7 = Commit::load(a7.clone(), repo.get_store()).unwrap();
-        c7.verify(&repo, repo.get_store()).unwrap();
+        let mut c7 = Commit::load(a7.clone(), repo.get_store(), true).unwrap();
+        c7.verify(&repo).unwrap();
 
         let mut filter = Filter::new(FilterBuilder::new(10, 0.01));
         for commit_ref in [br, t1, t2, t5.clone(), a6.clone()] {

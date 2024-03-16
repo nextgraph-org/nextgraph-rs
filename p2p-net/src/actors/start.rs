@@ -13,7 +13,7 @@ use crate::actors::noise::Noise;
 use crate::connection::NoiseFSM;
 use crate::types::{
     AdminRequest, CoreBrokerConnect, CoreBrokerConnectResponse, CoreBrokerConnectResponseV0,
-    CoreMessage, CoreMessageV0, CoreResponseContentV0, CoreResponseV0, ExtResponse,
+    CoreMessage, CoreMessageV0, CoreResponse, CoreResponseContentV0, CoreResponseV0, ExtResponse,
 };
 use crate::{actor::*, errors::ProtocolError, types::ProtocolMessage};
 use async_std::sync::Mutex;
@@ -79,13 +79,13 @@ impl TryFrom<ProtocolMessage> for CoreBrokerConnectResponse {
     type Error = ProtocolError;
     fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
         if let ProtocolMessage::CoreMessage(CoreMessage::V0(CoreMessageV0::Response(
-            CoreResponseV0 {
+            CoreResponse::V0(CoreResponseV0 {
                 content: CoreResponseContentV0::BrokerConnectResponse(a),
                 ..
-            },
+            }),
         ))) = msg
         {
-            Ok(CoreBrokerConnectResponse::V0(a))
+            Ok(a)
         } else {
             log_debug!("INVALID {:?}", msg);
             Err(ProtocolError::InvalidValue)
