@@ -16,16 +16,18 @@ use crate::types::*;
 impl BlockV0 {
     pub fn new(
         children: Vec<BlockId>,
-        header_ref: Option<ObjectRef>,
+        mut header_ref: Option<CommitHeaderRef>,
         content: Vec<u8>,
         key: Option<SymKey>,
     ) -> BlockV0 {
-        let (commit_header_id, commit_header_key) = header_ref.map_or((None, None), |obj_ref| {
-            (Some(obj_ref.id), Some(obj_ref.key))
-        });
+        let (commit_header, commit_header_key) = header_ref
+            .take()
+            .map_or((CommitHeaderObject::None, None), |obj_ref| {
+                (obj_ref.obj, Some(obj_ref.key))
+            });
         let bc = BlockContentV0 {
             children,
-            commit_header_id,
+            commit_header: commit_header,
             encrypted_content: content,
         };
         let mut b = BlockV0 {
@@ -65,12 +67,12 @@ impl BlockContent {
         }
     }
 
-    /// Get the header id
-    pub fn header_id(&self) -> &Option<ObjectId> {
-        match self {
-            BlockContent::V0(bc) => &bc.commit_header_id,
-        }
-    }
+    // /// Get the header id
+    // pub fn header_id(&self) -> &Option<ObjectId> {
+    //     match self {
+    //         BlockContent::V0(bc) => &bc.commit_header_id,
+    //     }
+    // }
 
     /// Get the children
     pub fn children(&self) -> &Vec<BlockId> {
@@ -83,7 +85,7 @@ impl BlockContent {
 impl Block {
     pub fn new(
         children: Vec<BlockId>,
-        header_ref: Option<ObjectRef>,
+        header_ref: Option<CommitHeaderRef>,
         content: Vec<u8>,
         key: Option<SymKey>,
     ) -> Block {
@@ -136,13 +138,20 @@ impl Block {
         }
     }
 
-    /// Get the header
-    pub fn header_ref(&self) -> Option<ObjectRef> {
+    /// Get the header reference
+    pub fn header_ref(&self) -> Option<CommitHeaderRef> {
         match self {
-            Block::V0(b) => b.commit_header_key.as_ref().map(|key| ObjectRef {
-                key: key.clone(),
-                id: b.content.header_id().unwrap().clone(),
-            }),
+            Block::V0(b) => match b.commit_header_key.as_ref() {
+                Some(key) => match b.content.commit_header_obj() {
+                    CommitHeaderObject::None => None,
+                    _ => Some(CommitHeaderRef {
+                        obj: b.content.commit_header_obj().clone(),
+                        key: key.clone(),
+                    }),
+                },
+
+                None => None,
+            },
         }
     }
 

@@ -573,7 +573,7 @@ async fn main_inner() -> Result<(), ()> {
                     {
                         if args.domain_peer.is_some() {
                             log_err!(
-                                "--local is not allowed if --domain-peer is selected, and they both use the same port. change the port of one of them. cannot start"
+                                "--local is not allowed if --domain-peer is selected, as they both use the same port. change the port of one of them. cannot start"
                             );
                             return Err(());
                         }
@@ -591,8 +591,8 @@ async fn main_inner() -> Result<(), ()> {
             }
         }
 
-        //// --core
-
+        // --core
+        // core listeners always come after the domain ones, which is good as the first bootstrap in the list should be the domain (if there is also a core_with_clients that generates a BoxPublic bootstrap)
         if args.core.is_some() {
             let arg_value =
                 parse_interface_and_port_for(args.core.as_ref().unwrap(), "--core", DEFAULT_PORT)?;

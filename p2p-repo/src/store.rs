@@ -42,6 +42,7 @@ pub enum StorageError {
     BackendError,
     SerializationError,
     AlreadyExists,
+    DataCorruption,
 }
 
 impl core::fmt::Display for StorageError {
@@ -112,7 +113,15 @@ impl HashMapRepoStore {
 impl RepoStore for HashMapRepoStore {
     fn get(&self, id: &BlockId) -> Result<Block, StorageError> {
         match self.blocks.read().unwrap().get(id) {
-            Some(block) => Ok(block.clone()),
+            Some(block) => {
+                let mut b = block.clone();
+                let i = b.get_and_save_id();
+                if *id == i {
+                    Ok(b)
+                } else {
+                    Err(StorageError::DataCorruption)
+                }
+            }
             None => Err(StorageError::NotFound),
         }
     }

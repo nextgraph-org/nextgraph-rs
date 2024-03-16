@@ -141,7 +141,7 @@ pub fn verify(content: &Vec<u8>, sig: Sig, pub_key: PubKey) -> Result<(), NgErro
     let sig_bytes = match sig {
         Sig::Ed25519Sig(ss) => [ss[0], ss[1]].concat(),
     };
-    let sig = Signature::from_bytes(&sig_bytes)?;
+    let sig = ed25519_dalek::Signature::from_bytes(&sig_bytes)?;
     Ok(pk.verify_strict(content, &sig)?)
 }
 

@@ -33,22 +33,30 @@ impl SiteV0 {
 
         let private_key = PrivKey::random_ed();
 
+        /*    pub key: PrivKey,
+        // signature with site_key
+        // pub sig: Sig,
+        /// current read capabililty
+        pub read_cap: ReadCap,
+
+        pub write_cap: RepoWriteCapSecret, */
+
         let public = SiteStore {
             key: PrivKey::dummy(),
-            root_branch_def_ref: BlockRef::dummy(),
-            repo_secret: SymKey::random(),
+            read_cap: BlockRef::dummy(),
+            write_cap: SymKey::random(),
         };
 
         let protected = SiteStore {
             key: PrivKey::dummy(),
-            root_branch_def_ref: BlockRef::dummy(),
-            repo_secret: SymKey::random(),
+            read_cap: BlockRef::dummy(),
+            write_cap: SymKey::random(),
         };
 
         let private = SiteStore {
             key: PrivKey::dummy(),
-            root_branch_def_ref: BlockRef::dummy(),
-            repo_secret: SymKey::random(),
+            read_cap: BlockRef::dummy(),
+            write_cap: SymKey::random(),
         };
 
         Ok(Self {
