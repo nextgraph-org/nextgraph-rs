@@ -14,7 +14,6 @@ warp-embed = "0.4"
 rust-embed = "6"
 log = "0.4"
 env_logger = "0.10"
-stores-lmdb = { path = "../stores-lmdb" }
 p2p-repo = { path = "../p2p-repo", features = ["server_log_output"] }
 p2p-net = { path = "../p2p-net" }
 p2p-client-ws = { path = "../p2p-client-ws" }

@@ -17,7 +17,7 @@ use std::sync::{Arc, RwLock};
 
 use serde::{Deserialize, Serialize};
 use serde_bare::error::Error;
-
+/*
 #[derive(Debug)]
 pub struct LmdbRepoStore {
     /// the main store where all the repo blocks are stored
@@ -483,112 +483,111 @@ impl LmdbRepoStore {
         }
     }
 }
+*/
 #[cfg(test)]
 mod test {
 
-    use crate::repo_store::LmdbRepoStore;
     use p2p_repo::log::*;
     use p2p_repo::store::*;
     use p2p_repo::types::*;
     use p2p_repo::utils::*;
-    use rkv::backend::{BackendInfo, BackendStat, Lmdb, LmdbEnvironment};
-    use rkv::{Manager, Rkv, StoreOptions, Value};
     #[allow(unused_imports)]
     use std::time::Duration;
     #[allow(unused_imports)]
     use std::{fs, thread};
     use tempfile::Builder;
+    /*
+        #[test]
+        pub fn test_remove_least_used() {
+            let path_str = "test-env";
+            let root = Builder::new().prefix(path_str).tempdir().unwrap();
+            let key: [u8; 32] = [0; 32];
+            fs::create_dir_all(root.path()).unwrap();
+            log_debug!("{}", root.path().to_str().unwrap());
+            let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
+            let mut now = now_timestamp();
+            now -= 200;
+            // TODO: fix the LMDB bug that is triggered with x max set to 86 !!!
+            for x in 1..85 {
+                let block = Block::new(
+                    Vec::new(),
+                    ObjectDeps::ObjectIdList(Vec::new()),
+                    None,
+                    vec![x; 10],
+                    None,
+                );
+                let block_id = store.put(&block).unwrap();
+                log_debug!("#{} -> objId {:?}", x, block_id);
+                store
+                    .has_been_synced(&block_id, Some(now + x as u32))
+                    .unwrap();
+            }
 
-    #[test]
-    pub fn test_remove_least_used() {
-        let path_str = "test-env";
-        let root = Builder::new().prefix(path_str).tempdir().unwrap();
-        let key: [u8; 32] = [0; 32];
-        fs::create_dir_all(root.path()).unwrap();
-        log_debug!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
-        let mut now = now_timestamp();
-        now -= 200;
-        // TODO: fix the LMDB bug that is triggered with x max set to 86 !!!
-        for x in 1..85 {
-            let block = Block::new(
-                Vec::new(),
-                ObjectDeps::ObjectIdList(Vec::new()),
-                None,
-                vec![x; 10],
-                None,
-            );
-            let block_id = store.put(&block).unwrap();
-            log_debug!("#{} -> objId {:?}", x, block_id);
-            store
-                .has_been_synced(&block_id, Some(now + x as u32))
-                .unwrap();
+            let ret = store.remove_least_used(200);
+            log_debug!("removed {}", ret);
+            assert_eq!(ret, 208)
+
+            //store.list_all();
         }
 
-        let ret = store.remove_least_used(200);
-        log_debug!("removed {}", ret);
-        assert_eq!(ret, 208)
+        #[test]
+        pub fn test_set_pin() {
+            let path_str = "test-env";
+            let root = Builder::new().prefix(path_str).tempdir().unwrap();
+            let key: [u8; 32] = [0; 32];
+            fs::create_dir_all(root.path()).unwrap();
+            log_debug!("{}", root.path().to_str().unwrap());
+            let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
+            let mut now = now_timestamp();
+            now -= 200;
+            // TODO: fix the LMDB bug that is triggered with x max set to 86 !!!
+            for x in 1..100 {
+                let block = Block::new(
+                    Vec::new(),
+                    ObjectDeps::ObjectIdList(Vec::new()),
+                    None,
+                    vec![x; 10],
+                    None,
+                );
+                let obj_id = store.put(&block).unwrap();
+                log_debug!("#{} -> objId {:?}", x, obj_id);
+                store.set_pin(&obj_id, true).unwrap();
+                store
+                    .has_been_synced(&obj_id, Some(now + x as u32))
+                    .unwrap();
+            }
 
-        //store.list_all();
-    }
+            let ret = store.remove_least_used(200);
+            log_debug!("removed {}", ret);
+            assert_eq!(ret, 0);
 
-    #[test]
-    pub fn test_set_pin() {
-        let path_str = "test-env";
-        let root = Builder::new().prefix(path_str).tempdir().unwrap();
-        let key: [u8; 32] = [0; 32];
-        fs::create_dir_all(root.path()).unwrap();
-        log_debug!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
-        let mut now = now_timestamp();
-        now -= 200;
-        // TODO: fix the LMDB bug that is triggered with x max set to 86 !!!
-        for x in 1..100 {
-            let block = Block::new(
-                Vec::new(),
-                ObjectDeps::ObjectIdList(Vec::new()),
-                None,
-                vec![x; 10],
-                None,
-            );
-            let obj_id = store.put(&block).unwrap();
-            log_debug!("#{} -> objId {:?}", x, obj_id);
-            store.set_pin(&obj_id, true).unwrap();
-            store
-                .has_been_synced(&obj_id, Some(now + x as u32))
-                .unwrap();
+            store.list_all();
         }
-
-        let ret = store.remove_least_used(200);
-        log_debug!("removed {}", ret);
-        assert_eq!(ret, 0);
-
-        store.list_all();
-    }
-
+    */
     #[test]
     pub fn test_get_valid_value_size() {
-        assert_eq!(store_valid_value_size(0), 4072);
-        assert_eq!(store_valid_value_size(2), 4072);
-        assert_eq!(store_valid_value_size(4072), 4072);
-        assert_eq!(store_valid_value_size(4072 + 1), 4072 + 4096);
-        assert_eq!(store_valid_value_size(4072 + 4096), 4072 + 4096);
-        assert_eq!(store_valid_value_size(4072 + 4096 + 1), 4072 + 4096 + 4096);
+        assert_eq!(store_valid_value_size(0), 4096);
+        assert_eq!(store_valid_value_size(2), 4096);
+        assert_eq!(store_valid_value_size(4096 - 1), 4096);
+        assert_eq!(store_valid_value_size(4096), 4096);
+        assert_eq!(store_valid_value_size(4096 + 1), 4096 + 4096);
+        assert_eq!(store_valid_value_size(4096 + 4096), 4096 + 4096);
+        assert_eq!(store_valid_value_size(4096 + 4096 + 1), 4096 + 4096 + 4096);
         assert_eq!(
-            store_valid_value_size(4072 + 4096 + 4096),
-            4072 + 4096 + 4096
+            store_valid_value_size(4096 + 4096 + 4096),
+            4096 + 4096 + 4096
         );
         assert_eq!(
-            store_valid_value_size(4072 + 4096 + 4096 + 1),
-            4072 + 4096 + 4096 + 4096
+            store_valid_value_size(4096 + 4096 + 4096 + 1),
+            4096 + 4096 + 4096 + 4096
         );
-        assert_eq!(store_valid_value_size(4072 + 4096 * 511), 4072 + 4096 * 511);
+        assert_eq!(store_valid_value_size(4096 + 4096 * 255), 4096 + 4096 * 255);
         assert_eq!(
-            store_valid_value_size(4072 + 4096 * 511 + 1),
-            4072 + 4096 * 511
+            store_valid_value_size(4096 + 4096 * 255 + 1),
+            4096 + 4096 * 255
         );
     }
-
+    /*
     #[test]
     pub fn test_remove_expired() {
         let path_str = "test-env";
@@ -740,7 +739,7 @@ mod test {
     }
 
     #[test]
-    pub fn test_lmdb() {
+    pub fn test_rocksdb() {
         let path_str = "test-env";
         let root = Builder::new().prefix(path_str).tempdir().unwrap();
 
@@ -989,4 +988,5 @@ mod test {
         // uncomment this if you need time to copy them somewhere for analysis, before the temp folder get destroyed
         //thread::sleep(Duration::from_millis(20000));
     }
+    */
 }

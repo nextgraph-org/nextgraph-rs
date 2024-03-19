@@ -1,7 +1,5 @@
 // Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
-// This code is partly derived from work written by TG x Thoth from P2Pcollab.
-// Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
@@ -135,7 +133,7 @@ pub enum BrokerCore {
 pub enum BrokerServerTypeV0 {
     Localhost(u16), // optional port number
     BoxPrivate(Vec<BindAddress>),
-    BoxPublic(Vec<BindAddress>),
+    Public(Vec<BindAddress>),
     BoxPublicDyn(Vec<BindAddress>), // can be empty
     Domain(String),                 // accepts an optional trailing ":port" number
                                     //Core(Vec<BindAddress>),
@@ -279,7 +277,7 @@ impl BrokerServerV0 {
     /// set ipv6 only if the browser connected with a remote IPV6. always set ipv4 as a fallback (for now).
     pub async fn get_url_for_ngone(&self, ipv4: bool, ipv6: bool) -> Option<String> {
         match &self.server_type {
-            BrokerServerTypeV0::BoxPublic(addrs) => {
+            BrokerServerTypeV0::Public(addrs) => {
                 Self::app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
                     ipv4,
                     ipv6,
@@ -338,7 +336,7 @@ impl BrokerServerV0 {
         match &self.server_type {
             BrokerServerTypeV0::Localhost(_) => false,
             BrokerServerTypeV0::BoxPrivate(_) => false,
-            BrokerServerTypeV0::BoxPublic(_) => true,
+            BrokerServerTypeV0::Public(_) => true,
             BrokerServerTypeV0::BoxPublicDyn(_) => true,
             BrokerServerTypeV0::Domain(_) => true,
         }
@@ -356,7 +354,7 @@ impl BrokerServerV0 {
             let location = location.as_ref().unwrap();
             if location.starts_with(APP_NG_ONE_URL) {
                 match &self.server_type {
-                    BrokerServerTypeV0::BoxPublic(addrs) => {
+                    BrokerServerTypeV0::Public(addrs) => {
                         Some((APP_NG_ONE_WS_URL.to_string(), addrs.clone()))
                     }
                     BrokerServerTypeV0::BoxPublicDyn(addrs) => {
@@ -425,7 +423,7 @@ impl BrokerServerV0 {
                 //BrokerServerTypeV0::Core(_) => None,
                 BrokerServerTypeV0::Localhost(port) => Some((local_ws_url(port), vec![])),
                 BrokerServerTypeV0::BoxPrivate(addrs) => Some((String::new(), addrs.clone())),
-                BrokerServerTypeV0::BoxPublic(addrs) => Some((String::new(), addrs.clone())),
+                BrokerServerTypeV0::Public(addrs) => Some((String::new(), addrs.clone())),
                 BrokerServerTypeV0::BoxPublicDyn(addrs) => {
                     // let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
                     // if resp.is_ok() {
@@ -1041,7 +1039,7 @@ impl ListenerV0 {
                 let pub_addrs = self.accept_forward_for.get_public_bind_addresses();
                 //res.push(BrokerServerTypeV0::Core(pub_addrs.clone()));
                 if !self.refuse_clients {
-                    res.push(BrokerServerTypeV0::BoxPublic(pub_addrs));
+                    res.push(BrokerServerTypeV0::Public(pub_addrs));
                 }
                 if self.accept_direct {
                     res.push(BrokerServerTypeV0::BoxPrivate(addrs));
@@ -1083,7 +1081,7 @@ impl ListenerV0 {
                 } else if self.if_type == InterfaceType::Public {
                     //res.push(BrokerServerTypeV0::Core(addrs.clone()));
                     if !self.refuse_clients {
-                        res.push(BrokerServerTypeV0::BoxPublic(addrs));
+                        res.push(BrokerServerTypeV0::Public(addrs));
                     }
                 } else if self.if_type == InterfaceType::Private {
                     res.push(BrokerServerTypeV0::BoxPrivate(addrs));

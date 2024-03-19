@@ -592,7 +592,7 @@ async fn main_inner() -> Result<(), ()> {
         }
 
         // --core
-        // core listeners always come after the domain ones, which is good as the first bootstrap in the list should be the domain (if there is also a core_with_clients that generates a BoxPublic bootstrap)
+        // core listeners always come after the domain ones, which is good as the first bootstrap in the list should be the domain (if there is also a core_with_clients that generates a Public bootstrap)
         if args.core.is_some() {
             let arg_value =
                 parse_interface_and_port_for(args.core.as_ref().unwrap(), "--core", DEFAULT_PORT)?;
@@ -924,7 +924,7 @@ async fn main_inner() -> Result<(), ()> {
                     if is_private_ip(&bind.0) {
                         BrokerServerTypeV0::BoxPrivate(vec![bind_addr])
                     } else if is_public_ip(&bind.0) {
-                        BrokerServerTypeV0::BoxPublic(vec![bind_addr])
+                        BrokerServerTypeV0::Public(vec![bind_addr])
                     } else {
                         log_err!("Invalid IP address given for --forward option. cannot start");
                         return Err(());

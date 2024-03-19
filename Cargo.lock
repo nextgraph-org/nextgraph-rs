@@ -539,15 +539,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
-name = "bincode"
-version = "1.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "bindgen"
 version = "0.65.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -610,7 +601,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83fc15853171b33280f5614e77f5fa4debd33f51a86c44daa4ba3d759674c561"
 dependencies = [
  "base64 0.13.1",
- "uuid 1.3.4",
+ "uuid",
 ]
 
 [[package]]
@@ -790,7 +781,7 @@ checksum = "d38f2da7a0a2c4ccf0065be06397cc26a81f4e528be095826eee9d4adbb8c60f"
 dependencies = [
  "byteorder",
  "fnv",
- "uuid 1.3.4",
+ "uuid",
 ]
 
 [[package]]
@@ -2475,12 +2466,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "id-arena"
-version = "2.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25a2bc672d1148e28034f176e01fffebb08b35768468cc954630da77a1449005"
-
-[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2824,27 +2809,6 @@ name = "linux-raw-sys"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef53942eb7bf7ff43a617b3e2c1c4a5ecf5944a7c1bc12d7ee39bbb15e5c1519"
-
-[[package]]
-name = "lmdb-crypto-rs"
-version = "0.14.0"
-source = "git+https://git.nextgraph.org/NextGraph/lmdb-rs.git?branch=master#e70c3cae74e0d71b6a4e5c81b0c4909210a6d808"
-dependencies = [
- "bitflags",
- "byteorder",
- "libc",
- "lmdb-crypto-sys",
-]
-
-[[package]]
-name = "lmdb-crypto-sys"
-version = "0.11.2"
-source = "git+https://git.nextgraph.org/NextGraph/lmdb-rs.git?branch=master#e70c3cae74e0d71b6a4e5c81b0c4909210a6d808"
-dependencies = [
- "cc",
- "libc",
- "pkg-config",
-]
 
 [[package]]
 name = "lock_api"
@@ -3233,7 +3197,6 @@ dependencies = [
  "serde_bare",
  "serde_bytes",
  "serde_json",
- "stores-lmdb",
  "tokio",
  "warp",
  "warp-embed",
@@ -3549,15 +3512,6 @@ dependencies = [
  "openssl-src",
  "pkg-config",
  "vcpkg",
-]
-
-[[package]]
-name = "ordered-float"
-version = "3.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2fc2dbde8f8a79f2102cc474ceb0ad68e3b80b85289ea62389b60e66777e4213"
-dependencies = [
- "num-traits",
 ]
 
 [[package]]
@@ -4391,28 +4345,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rkv"
-version = "0.18.0"
-source = "git+https://git.nextgraph.org/NextGraph/rkv.git?rev=c746abb443b7bb4541ebbef2b71e8d0f9eb39f6a#c746abb443b7bb4541ebbef2b71e8d0f9eb39f6a"
-dependencies = [
- "arrayref",
- "bincode",
- "bitflags",
- "byteorder",
- "id-arena",
- "lazy_static",
- "lmdb-crypto-rs",
- "log",
- "ordered-float",
- "paste",
- "serde",
- "serde_derive",
- "thiserror",
- "url",
- "uuid 0.8.2",
-]
-
-[[package]]
 name = "rocksdb"
 version = "0.21.0"
 source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#846abdaaa238ad0005d2bcd16a4f6339c96b3a9f"
@@ -4966,18 +4898,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "stores-lmdb"
-version = "0.1.0"
-dependencies = [
- "hex",
- "p2p-repo",
- "rkv",
- "serde",
- "serde_bare",
- "tempfile",
-]
-
-[[package]]
 name = "stores-rocksdb"
 version = "0.1.0"
 dependencies = [
@@ -5148,7 +5068,7 @@ dependencies = [
  "tao-macros",
  "unicode-segmentation",
  "url",
- "uuid 1.3.4",
+ "uuid",
  "windows",
  "windows-implement",
  "x11-dl",
@@ -5215,7 +5135,7 @@ dependencies = [
  "tokio",
  "tray-icon",
  "url",
- "uuid 1.3.4",
+ "uuid",
  "webkit2gtk",
  "webview2-com",
  "windows",
@@ -5263,7 +5183,7 @@ dependencies = [
  "thiserror",
  "time 0.3.23",
  "url",
- "uuid 1.3.4",
+ "uuid",
  "walkdir",
 ]
 
@@ -5308,7 +5228,7 @@ dependencies = [
  "tauri-utils",
  "thiserror",
  "url",
- "uuid 1.3.4",
+ "uuid",
  "windows",
 ]
 
@@ -5327,7 +5247,7 @@ dependencies = [
  "raw-window-handle",
  "tauri-runtime",
  "tauri-utils",
- "uuid 1.3.4",
+ "uuid",
  "webkit2gtk",
  "webview2-com",
  "windows",
@@ -5860,7 +5780,7 @@ checksum = "ae605c39dfbdec433798d4a8b03ffbac711dc51cdeb1ba5c725bdcaf24e464cc"
 dependencies = [
  "blob-uuid",
  "lazy_static",
- "uuid 1.3.4",
+ "uuid",
 ]
 
 [[package]]
@@ -5896,12 +5816,6 @@ name = "utf8parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
-
-[[package]]
-name = "uuid"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
 
 [[package]]
 name = "uuid"
