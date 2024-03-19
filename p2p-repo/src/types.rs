@@ -1,7 +1,5 @@
 // Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
-// This code is partly derived from work written by TG x Thoth from P2Pcollab.
-// Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
@@ -87,6 +85,10 @@ impl SymKey {
     }
     pub fn from_array(array: [u8; 32]) -> Self {
         SymKey::ChaCha20Key(array)
+    }
+    #[deprecated(note = "**Don't use dummy method**")]
+    pub fn dummy() -> Self {
+        SymKey::ChaCha20Key([0; 32])
     }
 }
 
@@ -235,8 +237,8 @@ impl fmt::Display for PrivKey {
         match self {
             Self::Ed25519PrivKey(ed) => {
                 //let priv_key_ser = serde_bare::to_vec(ed).unwrap();
-                let prix_key_encoded = base64_url::encode(ed);
-                write!(f, "{}", prix_key_encoded)
+                let priv_key_encoded = base64_url::encode(ed);
+                write!(f, "{}", priv_key_encoded)
             }
             _ => {
                 unimplemented!();
@@ -254,6 +256,24 @@ pub enum Sig {
     Ed25519Sig(Ed25519Sig),
 }
 
+impl fmt::Display for Sig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Ed25519Sig(ed) => {
+                write!(
+                    f,
+                    "{} {}",
+                    base64_url::encode(&ed[0]),
+                    base64_url::encode(&ed[1])
+                )
+            }
+            _ => {
+                unimplemented!();
+            }
+        }
+    }
+}
+
 /// Timestamp: absolute time in minutes since 2022-02-22 22:22 UTC
 pub type Timestamp = u32;
 
@@ -266,6 +286,17 @@ pub enum RelTime {
     Minutes(u8),
     Hours(u8),
     Days(u8),
+}
+
+impl fmt::Display for RelTime {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Seconds(s) => writeln!(f, "{} sec.", s),
+            Self::Minutes(s) => writeln!(f, "{} min.", s),
+            Self::Hours(s) => writeln!(f, "{} h.", s),
+            Self::Days(s) => writeln!(f, "{} d.", s),
+        }
+    }
 }
 
 /// Bloom filter (variable size)
@@ -330,6 +361,13 @@ pub struct BlockRef {
     pub key: BlockKey,
 }
 
+impl BlockId {
+    #[deprecated(note = "**Don't use dummy method**")]
+    pub fn dummy() -> Self {
+        Digest::Blake3Digest32([0u8; 32])
+    }
+}
+
 impl BlockRef {
     #[deprecated(note = "**Don't use dummy method**")]
     pub fn dummy() -> Self {
@@ -343,12 +381,24 @@ impl BlockRef {
     }
 }
 
+impl From<BlockRef> for (BlockId, BlockKey) {
+    fn from(blockref: BlockRef) -> (BlockId, BlockKey) {
+        (blockref.id.clone(), blockref.key.clone())
+    }
+}
+
 impl From<(&BlockId, &BlockKey)> for BlockRef {
     fn from(id_key: (&BlockId, &BlockKey)) -> Self {
         BlockRef {
             id: id_key.0.clone(),
             key: id_key.1.clone(),
         }
+    }
+}
+
+impl fmt::Display for BlockRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.id, self.key)
     }
 }
 
@@ -414,6 +464,23 @@ pub enum StoreOverlay {
     Own(BranchId), // The repo is a store, so the overlay can be derived from its own ID. In this case, the branchId of the `overlay` branch is entered here.
 }
 
+impl fmt::Display for StoreOverlay {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "StoreOverlay V0")?;
+                match v0 {
+                    StoreOverlayV0::PublicStore(k) => writeln!(f, "PublicStore: {}", k),
+                    StoreOverlayV0::ProtectedStore(k) => writeln!(f, "ProtectedStore: {}", k),
+                    StoreOverlayV0::Group(k) => writeln!(f, "Group: {}", k),
+                    StoreOverlayV0::Dialog(k) => writeln!(f, "Dialog: {}", k),
+                }
+            }
+            Self::Own(b) => writeln!(f, "Own: {}", b),
+        }
+    }
+}
+
 /// List of Store Root Repo types
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum StoreRepoV0 {
@@ -440,6 +507,14 @@ impl StoreRepo {
                 | StoreRepoV0::Dialog(id) => id,
             },
         }
+    }
+    pub fn dummy_public_v0() -> (Self, SymKey) {
+        let readcap = SymKey::dummy();
+        let store_pubkey = PubKey::nil();
+        (
+            StoreRepo::V0(StoreRepoV0::PublicStore(store_pubkey)),
+            readcap,
+        )
     }
 }
 
@@ -560,172 +635,6 @@ pub enum CommitHeader {
     V0(CommitHeaderV0),
 }
 
-impl CommitHeader {
-    pub fn is_root(&self) -> bool {
-        match self {
-            CommitHeader::V0(v0) => v0.is_root(),
-        }
-    }
-    pub fn deps(&self) -> Vec<ObjectId> {
-        match self {
-            CommitHeader::V0(v0) => v0.deps.clone(),
-        }
-    }
-    pub fn acks(&self) -> Vec<ObjectId> {
-        match self {
-            CommitHeader::V0(v0) => v0.acks.clone(),
-        }
-    }
-    pub fn id(&self) -> &Option<ObjectId> {
-        match self {
-            CommitHeader::V0(v0) => &v0.id,
-        }
-    }
-
-    pub fn set_id(&mut self, id: Digest) {
-        match self {
-            CommitHeader::V0(v0) => v0.id = Some(id),
-        }
-    }
-
-    pub fn set_compact(&mut self) {
-        match self {
-            CommitHeader::V0(v0) => v0.set_compact(),
-        }
-    }
-
-    pub fn new_with(
-        deps: Vec<ObjectRef>,
-        ndeps: Vec<ObjectRef>,
-        acks: Vec<ObjectRef>,
-        nacks: Vec<ObjectRef>,
-        refs: Vec<ObjectRef>,
-        nrefs: Vec<ObjectRef>,
-    ) -> (Option<Self>, Option<CommitHeaderKeys>) {
-        let res = CommitHeaderV0::new_with(deps, ndeps, acks, nacks, refs, nrefs);
-        (
-            res.0.map(|h| CommitHeader::V0(h)),
-            res.1.map(|h| CommitHeaderKeys::V0(h)),
-        )
-    }
-
-    pub fn new_with_deps(deps: Vec<ObjectId>) -> Option<Self> {
-        CommitHeaderV0::new_with_deps(deps).map(|ch| CommitHeader::V0(ch))
-    }
-
-    pub fn new_with_deps_and_acks(deps: Vec<ObjectId>, acks: Vec<ObjectId>) -> Option<Self> {
-        CommitHeaderV0::new_with_deps_and_acks(deps, acks).map(|ch| CommitHeader::V0(ch))
-    }
-}
-
-impl CommitHeaderV0 {
-    fn new_empty() -> Self {
-        Self {
-            id: None,
-            compact: false,
-            deps: vec![],
-            ndeps: vec![],
-            acks: vec![],
-            nacks: vec![],
-            refs: vec![],
-            nrefs: vec![],
-        }
-    }
-
-    pub fn set_compact(&mut self) {
-        self.compact = true;
-    }
-
-    pub fn new_with(
-        deps: Vec<ObjectRef>,
-        ndeps: Vec<ObjectRef>,
-        acks: Vec<ObjectRef>,
-        nacks: Vec<ObjectRef>,
-        refs: Vec<ObjectRef>,
-        nrefs: Vec<ObjectRef>,
-    ) -> (Option<Self>, Option<CommitHeaderKeysV0>) {
-        if deps.is_empty()
-            && ndeps.is_empty()
-            && acks.is_empty()
-            && nacks.is_empty()
-            && refs.is_empty()
-            && nrefs.is_empty()
-        {
-            (None, None)
-        } else {
-            let mut ideps: Vec<ObjectId> = vec![];
-            let mut indeps: Vec<ObjectId> = vec![];
-            let mut iacks: Vec<ObjectId> = vec![];
-            let mut inacks: Vec<ObjectId> = vec![];
-            let mut irefs: Vec<ObjectId> = vec![];
-            let mut inrefs: Vec<ObjectId> = vec![];
-
-            let mut kdeps: Vec<ObjectKey> = vec![];
-            let mut kacks: Vec<ObjectKey> = vec![];
-            let mut knacks: Vec<ObjectKey> = vec![];
-            for d in deps {
-                ideps.push(d.id);
-                kdeps.push(d.key);
-            }
-            for d in ndeps {
-                indeps.push(d.id);
-            }
-            for d in acks {
-                iacks.push(d.id);
-                kacks.push(d.key);
-            }
-            for d in nacks {
-                inacks.push(d.id);
-                knacks.push(d.key);
-            }
-            for d in refs.clone() {
-                irefs.push(d.id);
-            }
-            for d in nrefs {
-                inrefs.push(d.id);
-            }
-            (
-                Some(Self {
-                    id: None,
-                    compact: false,
-                    deps: ideps,
-                    ndeps: indeps,
-                    acks: iacks,
-                    nacks: inacks,
-                    refs: irefs,
-                    nrefs: inrefs,
-                }),
-                Some(CommitHeaderKeysV0 {
-                    deps: kdeps,
-                    acks: kacks,
-                    nacks: knacks,
-                    refs,
-                }),
-            )
-        }
-    }
-    pub fn new_with_deps(deps: Vec<ObjectId>) -> Option<Self> {
-        assert!(!deps.is_empty());
-        let mut n = Self::new_empty();
-        n.deps = deps;
-        Some(n)
-    }
-
-    pub fn new_with_deps_and_acks(deps: Vec<ObjectId>, acks: Vec<ObjectId>) -> Option<Self> {
-        assert!(!deps.is_empty() || !acks.is_empty());
-        let mut n = Self::new_empty();
-        n.deps = deps;
-        n.acks = acks;
-        Some(n)
-    }
-
-    pub fn is_root(&self) -> bool {
-        //self.deps.is_empty()
-        //    && self.ndeps.is_empty()
-        self.acks.is_empty() && self.nacks.is_empty()
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommitHeaderKeysV0 {
     /// Other objects this commit strongly depends on (ex: ADD for a REMOVE, refs for an nrefs)
@@ -758,6 +667,7 @@ pub enum CommitHeaderObject {
     None,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommitHeaderRef {
     pub obj: CommitHeaderObject,
     pub key: ObjectKey,
@@ -770,6 +680,18 @@ impl CommitHeaderRef {
             key,
         }
     }
+    pub fn from_content_key(content: Vec<u8>, key: ObjectKey) -> Self {
+        CommitHeaderRef {
+            obj: CommitHeaderObject::EncryptedContent(content),
+            key,
+        }
+    }
+    pub fn encrypted_content_len(&self) -> usize {
+        match &self.obj {
+            CommitHeaderObject::EncryptedContent(ec) => ec.len(),
+            _ => 0,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -780,10 +702,12 @@ pub struct BlockContentV0 {
     /// It is an easy way to know if the Block is a commit (but be careful because some root commits can be without a header).
     pub commit_header: CommitHeaderObject,
 
-    /// Block IDs for child nodes in the Merkle tree, can be empty if ObjectContent fits in one block
+    /// Block IDs for child nodes in the Merkle tree,
+    /// is empty if ObjectContent fits in one block or this block is a leaf. in both cases, encrypted_content is then not empty
     pub children: Vec<BlockId>,
 
-    /// Encrypted ChunkContentV0 (entirety or chunks of ObjectContentV0)
+    /// contains encrypted ChunkContentV0 (entirety, when fitting, or chunks of ObjectContentV0, in DataChunk) used for leafs of the Merkle tree,
+    /// or to store the keys of children (in InternalNode)
     ///
     /// Encrypted using convergent encryption with ChaCha20:
     /// - convergence_key: BLAKE3 derive_key ("NextGraph Data BLAKE3 key",
@@ -862,8 +786,8 @@ pub struct RepositoryV0 {
     pub creator: Option<UserId>,
 
     // TODO: discrete doc type
-    // TODO: order (store, partial order, total order, partial sign all commits, fsm, smart contract )
-    // TODO: immutable conditions (allow_change_quorum, min_quorum, allow_inherit_perms, etc...)
+    // TODO: order (store, partial order, partial sign all commits,(conflict resolution strategy), total order, fsm, smart contract )
+    // TODO: immutable conditions (allow_change_owners, allow_change_quorum, min_quorum, allow_inherit_perms, signers_can_be_editors, all_editors_are_signers, etc...)
     /// Immutable App-specific metadata
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,
@@ -873,6 +797,23 @@ pub struct RepositoryV0 {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Repository {
     V0(RepositoryV0),
+}
+
+impl fmt::Display for Repository {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "V0")?;
+                writeln!(f, "repo_id: {}", v0.id)?;
+                writeln!(
+                    f,
+                    "creator: {}",
+                    v0.creator.map_or("None".to_string(), |c| format!("{}", c))
+                )?;
+                Ok(())
+            }
+        }
+    }
 }
 
 /// Root Branch definition V0
@@ -943,6 +884,42 @@ impl RootBranch {
     pub fn owners(&self) -> &Vec<UserId> {
         match self {
             Self::V0(v0) => &v0.owners,
+        }
+    }
+}
+
+impl fmt::Display for RootBranch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "V0")?;
+                writeln!(f, "repo_id:   {}", v0.id)?;
+                writeln!(f, "repo_ref:  {}", v0.repo)?;
+                write!(f, "store:     {}", v0.store)?;
+                writeln!(
+                    f,
+                    "store_sig: {}",
+                    v0.store_sig
+                        .map_or("None".to_string(), |c| format!("{}", c))
+                )?;
+                writeln!(f, "topic:     {}", v0.repo)?;
+                writeln!(
+                    f,
+                    "inherit_perms: {}",
+                    v0.inherit_perms_users_and_quorum_from_store
+                        .as_ref()
+                        .map_or("None".to_string(), |c| format!("{}", c))
+                )?;
+                writeln!(
+                    f,
+                    "quorum: {}",
+                    v0.quorum
+                        .as_ref()
+                        .map_or("None".to_string(), |c| format!("{}", c))
+                )?;
+                writeln!(f, "reconciliation_interval: {}", v0.reconciliation_interval)?;
+                Ok(())
+            }
         }
     }
 }

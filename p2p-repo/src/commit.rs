@@ -1,7 +1,5 @@
 // Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
-// This code is partly derived from work written by TG x Thoth from P2Pcollab.
-// Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
@@ -11,7 +9,8 @@
 
 //! Commit
 
-use ed25519_dalek::*;
+use core::fmt;
+//use ed25519_dalek::*;
 use once_cell::sync::OnceCell;
 
 use crate::errors::NgError;
@@ -20,6 +19,7 @@ use crate::object::*;
 use crate::repo::Repo;
 use crate::store::*;
 use crate::types::*;
+use crate::utils::*;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
@@ -60,7 +60,7 @@ impl CommitV0 {
         nrefs: Vec<ObjectRef>,
         metadata: Vec<u8>,
         body: ObjectRef,
-    ) -> Result<CommitV0, SignatureError> {
+    ) -> Result<CommitV0, NgError> {
         let headers = CommitHeader::new_with(deps, ndeps, acks, nacks, refs, nrefs);
         let content = CommitContentV0 {
             perms: vec![],
@@ -75,17 +75,7 @@ impl CommitV0 {
         let content_ser = serde_bare::to_vec(&content).unwrap();
 
         // sign commit
-        let kp = match (author_privkey, author_pubkey) {
-            (PrivKey::Ed25519PrivKey(sk), PubKey::Ed25519PubKey(pk)) => [sk, pk].concat(),
-            (_, _) => panic!("cannot sign with Montgomery key"),
-        };
-        let keypair = Keypair::from_bytes(kp.as_slice())?;
-        let sig_bytes = keypair.sign(content_ser.as_slice()).to_bytes();
-        let mut it = sig_bytes.chunks_exact(32);
-        let mut ss: Ed25519Sig = [[0; 32], [0; 32]];
-        ss[0].copy_from_slice(it.next().unwrap());
-        ss[1].copy_from_slice(it.next().unwrap());
-        let sig = Sig::Ed25519Sig(ss);
+        let sig = sign(&author_privkey, &author_pubkey, &content_ser)?;
         Ok(CommitV0 {
             content: CommitContent::V0(content),
             sig,
@@ -113,7 +103,7 @@ impl Commit {
         nrefs: Vec<ObjectRef>,
         metadata: Vec<u8>,
         body: ObjectRef,
-    ) -> Result<Commit, SignatureError> {
+    ) -> Result<Commit, NgError> {
         CommitV0::new(
             author_privkey,
             author_pubkey,
@@ -297,6 +287,13 @@ impl Commit {
         }
     }
 
+    /// Get commit content
+    pub fn content(&self) -> &CommitContent {
+        match self {
+            Commit::V0(CommitV0 { content: c, .. }) => c,
+        }
+    }
+
     pub fn body(&self) -> Option<&CommitBody> {
         match self {
             Commit::V0(c) => c.body.get(),
@@ -432,7 +429,7 @@ impl Commit {
     }
 
     /// Verify commit signature
-    pub fn verify_sig(&self) -> Result<(), SignatureError> {
+    pub fn verify_sig(&self) -> Result<(), NgError> {
         let c = match self {
             Commit::V0(c) => c,
         };
@@ -767,40 +764,377 @@ impl CommitBody {
     }
 }
 
+impl fmt::Display for CommitHeader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CommitHeader::V0(v0) => {
+                writeln!(
+                    f,
+                    "v0 - compact:{} id:{}",
+                    v0.compact,
+                    v0.id.map_or("None".to_string(), |i| format!("{}", i))
+                )?;
+                writeln!(f, "====  acks : {}", v0.acks.len())?;
+                for ack in &v0.acks {
+                    writeln!(f, "============== {}", ack)?;
+                }
+                writeln!(f, "==== nacks : {}", v0.nacks.len())?;
+                for nack in &v0.nacks {
+                    writeln!(f, "============== {}", nack)?;
+                }
+                writeln!(f, "====  deps : {}", v0.deps.len())?;
+                for dep in &v0.deps {
+                    writeln!(f, "============== {}", dep)?;
+                }
+                writeln!(f, "==== ndeps : {}", v0.ndeps.len())?;
+                for ndep in &v0.ndeps {
+                    writeln!(f, "============== {}", ndep)?;
+                }
+                writeln!(f, "====  refs : {}", v0.refs.len())?;
+                for rref in &v0.refs {
+                    writeln!(f, "============== {}", rref)?;
+                }
+                writeln!(f, "==== nrefs : {}", v0.nrefs.len())?;
+                for nref in &v0.nrefs {
+                    writeln!(f, "============== {}", nref)?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl CommitHeader {
+    pub fn is_root(&self) -> bool {
+        match self {
+            CommitHeader::V0(v0) => v0.is_root(),
+        }
+    }
+    pub fn deps(&self) -> Vec<ObjectId> {
+        match self {
+            CommitHeader::V0(v0) => v0.deps.clone(),
+        }
+    }
+    pub fn acks(&self) -> Vec<ObjectId> {
+        match self {
+            CommitHeader::V0(v0) => v0.acks.clone(),
+        }
+    }
+    pub fn acks_and_nacks(&self) -> Vec<ObjectId> {
+        match self {
+            CommitHeader::V0(v0) => {
+                let mut res = v0.acks.clone();
+                res.extend_from_slice(&v0.nacks);
+                res
+            }
+        }
+    }
+    pub fn id(&self) -> &Option<ObjectId> {
+        match self {
+            CommitHeader::V0(v0) => &v0.id,
+        }
+    }
+
+    pub fn set_id(&mut self, id: Digest) {
+        match self {
+            CommitHeader::V0(v0) => v0.id = Some(id),
+        }
+    }
+
+    pub fn set_compact(&mut self) {
+        match self {
+            CommitHeader::V0(v0) => v0.set_compact(),
+        }
+    }
+
+    pub fn new_with(
+        deps: Vec<ObjectRef>,
+        ndeps: Vec<ObjectRef>,
+        acks: Vec<ObjectRef>,
+        nacks: Vec<ObjectRef>,
+        refs: Vec<ObjectRef>,
+        nrefs: Vec<ObjectRef>,
+    ) -> (Option<Self>, Option<CommitHeaderKeys>) {
+        let res = CommitHeaderV0::new_with(deps, ndeps, acks, nacks, refs, nrefs);
+        (
+            res.0.map(|h| CommitHeader::V0(h)),
+            res.1.map(|h| CommitHeaderKeys::V0(h)),
+        )
+    }
+
+    pub fn new_with_deps(deps: Vec<ObjectId>) -> Option<Self> {
+        CommitHeaderV0::new_with_deps(deps).map(|ch| CommitHeader::V0(ch))
+    }
+
+    pub fn new_with_deps_and_acks(deps: Vec<ObjectId>, acks: Vec<ObjectId>) -> Option<Self> {
+        CommitHeaderV0::new_with_deps_and_acks(deps, acks).map(|ch| CommitHeader::V0(ch))
+    }
+
+    pub fn new_with_acks(acks: Vec<ObjectId>) -> Option<Self> {
+        CommitHeaderV0::new_with_acks(acks).map(|ch| CommitHeader::V0(ch))
+    }
+}
+
+impl CommitHeaderV0 {
+    fn new_empty() -> Self {
+        Self {
+            id: None,
+            compact: false,
+            deps: vec![],
+            ndeps: vec![],
+            acks: vec![],
+            nacks: vec![],
+            refs: vec![],
+            nrefs: vec![],
+        }
+    }
+
+    pub fn set_compact(&mut self) {
+        self.compact = true;
+    }
+
+    pub fn new_with(
+        deps: Vec<ObjectRef>,
+        ndeps: Vec<ObjectRef>,
+        acks: Vec<ObjectRef>,
+        nacks: Vec<ObjectRef>,
+        refs: Vec<ObjectRef>,
+        nrefs: Vec<ObjectRef>,
+    ) -> (Option<Self>, Option<CommitHeaderKeysV0>) {
+        if deps.is_empty()
+            && ndeps.is_empty()
+            && acks.is_empty()
+            && nacks.is_empty()
+            && refs.is_empty()
+            && nrefs.is_empty()
+        {
+            (None, None)
+        } else {
+            let mut ideps: Vec<ObjectId> = vec![];
+            let mut indeps: Vec<ObjectId> = vec![];
+            let mut iacks: Vec<ObjectId> = vec![];
+            let mut inacks: Vec<ObjectId> = vec![];
+            let mut irefs: Vec<ObjectId> = vec![];
+            let mut inrefs: Vec<ObjectId> = vec![];
+
+            let mut kdeps: Vec<ObjectKey> = vec![];
+            let mut kacks: Vec<ObjectKey> = vec![];
+            let mut knacks: Vec<ObjectKey> = vec![];
+            for d in deps {
+                ideps.push(d.id);
+                kdeps.push(d.key);
+            }
+            for d in ndeps {
+                indeps.push(d.id);
+            }
+            for d in acks {
+                iacks.push(d.id);
+                kacks.push(d.key);
+            }
+            for d in nacks {
+                inacks.push(d.id);
+                knacks.push(d.key);
+            }
+            for d in refs.clone() {
+                irefs.push(d.id);
+            }
+            for d in nrefs {
+                inrefs.push(d.id);
+            }
+            (
+                Some(Self {
+                    id: None,
+                    compact: false,
+                    deps: ideps,
+                    ndeps: indeps,
+                    acks: iacks,
+                    nacks: inacks,
+                    refs: irefs,
+                    nrefs: inrefs,
+                }),
+                Some(CommitHeaderKeysV0 {
+                    deps: kdeps,
+                    acks: kacks,
+                    nacks: knacks,
+                    refs,
+                }),
+            )
+        }
+    }
+    pub fn new_with_deps(deps: Vec<ObjectId>) -> Option<Self> {
+        assert!(!deps.is_empty());
+        let mut n = Self::new_empty();
+        n.deps = deps;
+        Some(n)
+    }
+
+    pub fn new_with_deps_and_acks(deps: Vec<ObjectId>, acks: Vec<ObjectId>) -> Option<Self> {
+        assert!(!deps.is_empty() || !acks.is_empty());
+        let mut n = Self::new_empty();
+        n.deps = deps;
+        n.acks = acks;
+        Some(n)
+    }
+
+    pub fn new_with_acks(acks: Vec<ObjectId>) -> Option<Self> {
+        assert!(!acks.is_empty());
+        let mut n = Self::new_empty();
+        n.acks = acks;
+        Some(n)
+    }
+
+    /// we do not check the deps because in a forked branch, they point to previous branch heads.
+    pub fn is_root(&self) -> bool {
+        //self.deps.is_empty()
+        //    && self.ndeps.is_empty()
+        self.acks.is_empty() && self.nacks.is_empty()
+    }
+}
+
+impl fmt::Display for Commit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "====== Commit V0 ======")?;
+                if v0.id.is_some() {
+                    writeln!(f, "== ID:    {}", v0.id.as_ref().unwrap())?;
+                }
+                if v0.key.is_some() {
+                    writeln!(f, "== Key:   {}", v0.key.as_ref().unwrap())?;
+                }
+                if v0.header.is_some() {
+                    write!(f, "== Header:   {}", v0.header.as_ref().unwrap())?;
+                }
+                writeln!(f, "== Sig:   {}", v0.sig)?;
+                write!(f, "{}", v0.content)?;
+                if v0.body.get().is_some() {
+                    writeln!(f, "== Body:   {}", v0.body.get().unwrap())?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for CommitBody {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                write!(f, "V0 ")?;
+                match v0 {
+                    //
+                    // for root branch:
+                    //
+                    CommitBodyV0::Repository(b) => writeln!(f, "Repository {}", b),
+                    CommitBodyV0::RootBranch(b) => writeln!(f, "RootBranch {}", b),
+                    _ => unimplemented!(),
+                    /*UpdateRootBranch(RootBranch), // total order enforced with total_order_quorum
+                    AddMember(AddMember),   // total order enforced with total_order_quorum
+                    RemoveMember(RemoveMember), // total order enforced with total_order_quorum
+                    AddPermission(AddPermission),
+                    RemovePermission(RemovePermission),
+                    AddBranch(AddBranch),
+                    ChangeMainBranch(ChangeMainBranch),
+                    RemoveBranch(RemoveBranch),
+                    AddName(AddName),
+                    RemoveName(RemoveName),
+                    // TODO? Quorum(Quorum), // changes the quorum without changing the RootBranch
+
+                    //
+                    // For transactional branches:
+                    //
+                    Branch(Branch),                // singleton and should be first in branch
+                    UpdateBranch(Branch),          // total order enforced with total_order_quorum
+                    Snapshot(Snapshot),            // a soft snapshot
+                    AsyncTransaction(Transaction), // partial_order
+                    SyncTransaction(Transaction),  // total_order
+                    AddFile(AddFile),
+                    RemoveFile(RemoveFile),
+                    Compact(Compact), // a hard snapshot. total order enforced with total_order_quorum
+                    //Merge(Merge),
+                    //Revert(Revert), // only possible on partial order commit
+                    AsyncSignature(AsyncSignature),
+
+                    //
+                    // For both
+                    //
+                    RefreshReadCap(RefreshReadCap),
+                    RefreshWriteCap(RefreshWriteCap),
+                    SyncSignature(SyncSignature),*/
+                }
+            }
+        }
+    }
+}
+
+impl fmt::Display for CommitContent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "=== CommitContent V0 ===")?;
+                writeln!(f, "====== author:   {}", v0.author)?;
+                writeln!(f, "====== seq:      {}", v0.seq)?;
+                writeln!(f, "====== BranchID: {}", v0.branch)?;
+                writeln!(f, "====== quorum:   {:?}", v0.quorum)?;
+                writeln!(f, "====== Ref body: {}", v0.body)?;
+                if v0.header_keys.is_none() {
+                    writeln!(f, "====== header keys: None")?;
+                } else {
+                    write!(f, "{}", v0.header_keys.as_ref().unwrap())?;
+                }
+                writeln!(f, "====== Perms commits: {}", v0.perms.len())?;
+                let mut i = 0;
+                for block in &v0.perms {
+                    writeln!(f, "========== {:03}: {}", i, block)?;
+                    i += 1;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for CommitHeaderKeys {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "=== CommitHeaderKeys V0 ===")?;
+                writeln!(f, "====  acks : {}", v0.acks.len())?;
+                for ack in &v0.acks {
+                    writeln!(f, "============== {}", ack)?;
+                }
+                writeln!(f, "==== nacks : {}", v0.nacks.len())?;
+                for nack in &v0.nacks {
+                    writeln!(f, "============== {}", nack)?;
+                }
+                writeln!(f, "====  deps : {}", v0.deps.len())?;
+                for dep in &v0.deps {
+                    writeln!(f, "============== {}", dep)?;
+                }
+                writeln!(f, "====  refs : {}", v0.refs.len())?;
+                for rref in &v0.refs {
+                    writeln!(f, "============== {}", rref)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 mod test {
     use std::collections::HashMap;
-
-    use ed25519_dalek::*;
-    use rand::rngs::OsRng;
 
     use crate::branch::*;
     use crate::commit::*;
     use crate::store::*;
     use crate::types::*;
+    use crate::utils::*;
 
     #[test]
     pub fn test_commit() {
-        let mut csprng = OsRng {};
-        let keypair: Keypair = Keypair::generate(&mut csprng);
-        log_debug!(
-            "private key: ({}) {:?}",
-            keypair.secret.as_bytes().len(),
-            keypair.secret.as_bytes()
-        );
-        log_debug!(
-            "public key: ({}) {:?}",
-            keypair.public.as_bytes().len(),
-            keypair.public.as_bytes()
-        );
-        let ed_priv_key = keypair.secret.to_bytes();
-        let ed_pub_key = keypair.public.to_bytes();
-        let priv_key = PrivKey::Ed25519PrivKey(ed_priv_key);
-        let pub_key = PubKey::Ed25519PubKey(ed_pub_key);
+        let (priv_key, pub_key) = generate_keypair();
         let seq = 3;
-        let obj_ref = ObjectRef {
-            id: ObjectId::Blake3Digest32([1; 32]),
-            key: SymKey::ChaCha20Key([2; 32]),
-        };
+        let obj_ref = ObjectRef::dummy();
         let obj_refs = vec![obj_ref.clone()];
         let branch = pub_key;
         let deps = obj_refs.clone();
@@ -825,14 +1159,11 @@ mod test {
             body_ref,
         )
         .unwrap();
-        log_debug!("commit: {:?}", commit);
+        log_debug!("{}", commit);
 
         let store = Box::new(HashMapRepoStore::new());
 
         let repo = Repo::new_with_member(&pub_key, &pub_key, &[PermissionV0::WriteAsync], store);
-
-        //let body = CommitBody::Ack(Ack::V0());
-        //log_debug!("body: {:?}", body);
 
         match commit.load_body(repo.get_store()) {
             Ok(_b) => panic!("Body should not exist"),
@@ -841,9 +1172,6 @@ mod test {
             }
             Err(e) => panic!("Commit verify error: {:?}", e),
         }
-
-        let content = commit.content_v0();
-        log_debug!("content: {:?}", content);
 
         commit.verify_sig().expect("Invalid signature");
         commit.verify_perm(&repo).expect("Permission denied");

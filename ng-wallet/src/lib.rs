@@ -499,7 +499,7 @@ pub async fn connect_wallet(
                         }
                         let brokers = broker.unwrap();
                         let mut tried: Option<(String, String, String, Option<String>, f64)> = None;
-                        //TODO: on tauri (or forward in local broker, or CLI), prefer a BoxPublic to a Domain. Domain always comes first though, so we need to reorder the list
+                        //TODO: on tauri (or forward in local broker, or CLI), prefer a Public to a Domain. Domain always comes first though, so we need to reorder the list
                         //TODO: use site.bootstraps to order the list of brokerInfo.
                         for broker_info in brokers {
                             match broker_info {

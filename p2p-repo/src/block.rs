@@ -92,6 +92,10 @@ impl Block {
         Block::V0(BlockV0::new(children, header_ref, content, key))
     }
 
+    pub fn size(&self) -> usize {
+        serde_bare::to_vec(&self).unwrap().len()
+    }
+
     /// Compute the ID
     pub fn compute_id(&self) -> BlockId {
         match self {

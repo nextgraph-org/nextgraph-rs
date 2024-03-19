@@ -1,7 +1,5 @@
 // Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
-// This code is partly derived from work written by TG x Thoth from P2Pcollab.
-// Copyright 2022 TG x Thoth
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
@@ -60,114 +58,97 @@ impl Branch {
     }
 
     /// Branch sync request from another peer
+    /// `target_heads` represents the list of heads the requester would like to reach. this list should not be empty.
+    ///  if the requester doesn't know what to reach, the responder should fill this list with their own current local head.
+    /// `known_heads` represents the list of current heads at the requester replica at the moment of request.
+    ///  an empty list means the requester has an empty branch locally
     ///
     /// Return ObjectIds to send
     pub fn sync_req(
-        our_heads: &[ObjectId],
-        their_heads: &[ObjectId],
-        their_filter: &BloomFilter,
+        target_heads: &[ObjectId],
+        known_heads: &[ObjectId],
+        //their_filter: &BloomFilter,
         store: &Box<impl RepoStore + ?Sized>,
     ) -> Result<Vec<ObjectId>, ObjectParseError> {
         //log_debug!(">> sync_req");
-        //log_debug!("   our_heads: {:?}", our_heads);
-        //log_debug!("   their_heads: {:?}", their_heads);
+        //log_debug!("   target_heads: {:?}", target_heads);
+        //log_debug!("   known_heads: {:?}", known_heads);
 
-        /// Load `Commit` `Object`s of a `Branch` from the `RepoStore` starting from the given `Object`,
-        /// and collect `ObjectId`s starting from `our_heads` towards `their_heads`
-        fn load_branch(
+        /// Load causal past of a Commit `cobj` in a `Branch` from the `RepoStore`,
+        /// and collect in `visited` the ObjectIds encountered on the way, stopping at any commit already belonging to `theirs` or the root of DAG.
+        /// optionally collecting the missing objects/blocks that couldn't be found locally on the way
+        fn load_causal_past(
             cobj: &Object,
             store: &Box<impl RepoStore + ?Sized>,
-            their_heads: &[ObjectId],
+            theirs: &HashSet<ObjectId>,
             visited: &mut HashSet<ObjectId>,
-            missing: &mut HashSet<ObjectId>,
-        ) -> Result<bool, ObjectParseError> {
+            missing: &mut Option<&mut HashSet<ObjectId>>,
+        ) -> Result<(), ObjectParseError> {
             let id = cobj.id();
-            //log_debug!(">>> load_branch: {}", id);
 
-            // root has no acks
-            let is_root = cobj.is_root();
-            //log_debug!("     acks: {:?}", cobj.acks());
-
-            // check if this commit object is present in their_heads
-            let mut their_head_found = their_heads.contains(&id);
-
-            // load deps, stop at the root or if this is a commit object from their_heads
-            if !is_root && !their_head_found {
+            // check if this commit object is present in theirs or has already been visited in the current walk
+            // load deps, stop at the root(including it in visited) or if this is a commit object from known_heads
+            if !theirs.contains(&id) && !visited.contains(&id) {
                 visited.insert(id);
-                for id in cobj.deps() {
+                for id in cobj.acks_and_nacks() {
                     match Object::load(id, None, store) {
                         Ok(o) => {
-                            if !visited.contains(&id) {
-                                if load_branch(&o, store, their_heads, visited, missing)? {
-                                    their_head_found = true;
-                                }
-                            }
+                            load_causal_past(&o, store, theirs, visited, missing)?;
                         }
-                        Err(ObjectParseError::MissingBlocks(m)) => {
-                            missing.extend(m);
+                        Err(ObjectParseError::MissingBlocks(blocks)) => {
+                            missing.as_mut().map(|m| m.extend(blocks));
                         }
                         Err(e) => return Err(e),
                     }
                 }
             }
-            Ok(their_head_found)
+            Ok(())
         }
 
-        // missing commits from our branch
-        let mut missing = HashSet::new();
-        // our commits
-        let mut ours = HashSet::new();
         // their commits
         let mut theirs = HashSet::new();
 
-        // collect all commits reachable from our_heads
-        // up to the root or until encountering a commit from their_heads
-        for id in our_heads {
-            let cobj = Object::load(*id, None, store)?;
-            let mut visited = HashSet::new();
-            let their_head_found =
-                load_branch(&cobj, store, their_heads, &mut visited, &mut missing)?;
-            //log_debug!("<<< load_branch: {}", their_head_found);
-            ours.extend(visited); // add if one of their_heads found
+        // collect causal past of known_heads
+        for id in known_heads {
+            if let Ok(cobj) = Object::load(*id, None, store) {
+                load_causal_past(&cobj, store, &HashSet::new(), &mut theirs, &mut None)?;
+            }
+            // we silently discard any load error on the known_heads as the responder might not know them (yet).
         }
 
-        // collect all commits reachable from their_heads
-        for id in their_heads {
-            let cobj = Object::load(*id, None, store)?;
-            let mut visited = HashSet::new();
-            let their_head_found = load_branch(&cobj, store, &[], &mut visited, &mut missing)?;
-            //log_debug!("<<< load_branch: {}", their_head_found);
-            theirs.extend(visited); // add if one of their_heads found
+        let mut visited = HashSet::new();
+        // collect all commits reachable from target_heads
+        // up to the root or until encountering a commit from theirs
+        for id in target_heads {
+            if let Ok(cobj) = Object::load(*id, None, store) {
+                load_causal_past(&cobj, store, &theirs, &mut visited, &mut None)?;
+            }
+            // we silently discard any load error on the target_heads as they can be wrong if the requester is confused about what the responder has locally.
         }
-
-        let mut result = &ours - &theirs;
 
         //log_debug!("!! ours: {:?}", ours);
         //log_debug!("!! theirs: {:?}", theirs);
-        //log_debug!("!! result: {:?}", result);
 
         // remove their_commits from result
-        let filter = Filter::from_u8_array(their_filter.f.as_slice(), their_filter.k.into());
-        for id in result.clone() {
-            match id {
-                Digest::Blake3Digest32(d) => {
-                    if filter.contains(&d) {
-                        result.remove(&id);
-                    }
-                }
-            }
-        }
+        // let filter = Filter::from_u8_array(their_filter.f.as_slice(), their_filter.k.into());
+        // for id in result.clone() {
+        //     match id {
+        //         Digest::Blake3Digest32(d) => {
+        //             if filter.contains(&d) {
+        //                 result.remove(&id);
+        //             }
+        //         }
+        //     }
+        // }
         //log_debug!("!! result filtered: {:?}", result);
-        Ok(Vec::from_iter(result))
+        Ok(Vec::from_iter(visited))
     }
 }
 
 mod test {
     use std::collections::HashMap;
 
-    use ed25519_dalek::*;
-    use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
-    use rand::rngs::OsRng;
+    //use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
 
     use crate::branch::*;
     use crate::commit::*;
@@ -175,6 +156,7 @@ mod test {
     use crate::repo;
     use crate::repo::Repo;
     use crate::store::*;
+    use crate::utils::*;
 
     #[test]
     pub fn test_branch() {
@@ -286,36 +268,17 @@ mod test {
         }
 
         let store = Box::new(HashMapRepoStore::new());
-        let mut rng = OsRng {};
 
         // repo
 
-        let repo_keypair: Keypair = Keypair::generate(&mut rng);
-        log_debug!(
-            "repo private key: ({}) {:?}",
-            repo_keypair.secret.as_bytes().len(),
-            repo_keypair.secret.as_bytes()
-        );
-        log_debug!(
-            "repo public key: ({}) {:?}",
-            repo_keypair.public.as_bytes().len(),
-            repo_keypair.public.as_bytes()
-        );
-        let repo_privkey = PrivKey::Ed25519PrivKey(repo_keypair.secret.to_bytes());
-        let repo_pubkey = PubKey::Ed25519PubKey(repo_keypair.public.to_bytes());
-        let repo_secret = SymKey::ChaCha20Key([9; 32]);
-        let store_repo = StoreRepo::V0(StoreRepoV0::PublicStore(repo_pubkey));
+        let (repo_privkey, repo_pubkey) = generate_keypair();
+        let (store_repo, repo_secret) = StoreRepo::dummy_public_v0();
 
         // branch
 
-        let branch_keypair: Keypair = Keypair::generate(&mut rng);
-        log_debug!("branch public key: {:?}", branch_keypair.public.as_bytes());
-        let branch_pubkey = PubKey::Ed25519PubKey(branch_keypair.public.to_bytes());
+        let (branch_privkey, branch_pubkey) = generate_keypair();
 
-        let member_keypair: Keypair = Keypair::generate(&mut rng);
-        log_debug!("member public key: {:?}", member_keypair.public.as_bytes());
-        let member_privkey = PrivKey::Ed25519PrivKey(member_keypair.secret.to_bytes());
-        let member_pubkey = PubKey::Ed25519PubKey(member_keypair.public.to_bytes());
+        let (member_privkey, member_pubkey) = generate_keypair();
 
         let metadata = [66u8; 64].to_vec();
 
@@ -481,28 +444,28 @@ mod test {
         let mut c7 = Commit::load(a7.clone(), repo.get_store(), true).unwrap();
         c7.verify(&repo).unwrap();
 
-        let mut filter = Filter::new(FilterBuilder::new(10, 0.01));
-        for commit_ref in [br, t1, t2, t5.clone(), a6.clone()] {
-            match commit_ref.id {
-                ObjectId::Blake3Digest32(d) => filter.add(&d),
-            }
-        }
-        let cfg = filter.config();
-        let their_commits = BloomFilter {
-            k: cfg.hashes,
-            f: filter.get_u8_array().to_vec(),
-        };
+        // let mut filter = Filter::new(FilterBuilder::new(10, 0.01));
+        // for commit_ref in [br, t1, t2, t5.clone(), a6.clone()] {
+        //     match commit_ref.id {
+        //         ObjectId::Blake3Digest32(d) => filter.add(&d),
+        //     }
+        // }
+        // let cfg = filter.config();
+        // let their_commits = BloomFilter {
+        //     k: cfg.hashes,
+        //     f: filter.get_u8_array().to_vec(),
+        // };
 
         print_branch();
         log_debug!(">> sync_req");
         log_debug!("   our_heads: [a3, t5, a6, a7]");
-        log_debug!("   their_heads: [a3, t5]");
+        log_debug!("   known_heads: [a3, t5]");
         log_debug!("   their_commits: [br, t1, t2, a3, t5, a6]");
 
         let ids = Branch::sync_req(
             &[t5.id, a6.id, a7.id],
             &[t5.id],
-            &their_commits,
+            //&their_commits,
             repo.get_store(),
         )
         .unwrap();

@@ -36,8 +36,6 @@ use p2p_repo::store::RepoStore;
 use p2p_repo::store::StorageError;
 use p2p_repo::types::*;
 use p2p_repo::utils::*;
-use stores_lmdb::broker_store::LmdbKCVStore;
-use stores_lmdb::repo_store::LmdbRepoStore;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum BrokerError {

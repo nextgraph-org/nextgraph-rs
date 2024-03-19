@@ -67,7 +67,7 @@ pub fn decode_invitation_string(string: String) -> Option<Invitation> {
 pub fn check_is_local_url(bootstrap: &BrokerServerV0, location: &String) -> Option<String> {
     if location.starts_with(APP_NG_ONE_URL) {
         match &bootstrap.server_type {
-            BrokerServerTypeV0::BoxPublic(_) | BrokerServerTypeV0::BoxPublicDyn(_) => {
+            BrokerServerTypeV0::Public(_) | BrokerServerTypeV0::BoxPublicDyn(_) => {
                 return Some(APP_NG_ONE_WS_URL.to_string());
             }
             _ => {}

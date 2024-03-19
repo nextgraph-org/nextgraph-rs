@@ -255,7 +255,7 @@ impl EncryptedWalletV0 {
         // Creating a new client
         let client = ClientV0::new_with_auto_open(self.personal_site);
         self.add_client(client.clone());
-        let mut log = self.log.as_mut().unwrap();
+        let log = self.log.as_mut().unwrap();
         log.add(WalletOperation::SetClientV0(client.clone()));
         let (peer_id, nonce) = session.get_first_user_peer_nonce()?;
         Ok((

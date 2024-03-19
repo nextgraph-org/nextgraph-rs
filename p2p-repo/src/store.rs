@@ -18,7 +18,7 @@ use crate::utils::Receiver;
 
 use std::sync::{Arc, RwLock};
 use std::{
-    cmp::min,
+    cmp::{max, min},
     collections::{hash_map::Iter, HashMap},
     mem::size_of_val,
 };
@@ -57,6 +57,8 @@ impl From<serde_bare::error::Error> for StorageError {
     }
 }
 
+/* LMDB values:
+
 const MIN_SIZE: usize = 4072;
 const PAGE_SIZE: usize = 4096;
 const HEADER: usize = PAGE_SIZE - MIN_SIZE;
@@ -74,6 +76,29 @@ pub fn store_valid_value_size(size: usize) -> usize {
 /// Returns the maximum value size for the entries of the storage backend.
 pub const fn store_max_value_size() -> usize {
     MAX_FACTOR * PAGE_SIZE - HEADER
+}
+*/
+
+// ROCKSDB values:
+
+const ONE_MEGA_BYTE: usize = 1024 * 1024;
+const DISK_BLOCK_SIZE: usize = 4096;
+// HDD block size at 4096, SSD page size at 4096, on openbsd FFS default is 16384
+// see Rocksdb integrated BlobDB https://rocksdb.org/blog/2021/05/26/integrated-blob-db.html
+// blob values should be multiple of 4096 because of the BlobCache of RocksDB that is in heap memory (so must align on mem page).
+const MAX_FACTOR: usize = 256;
+
+/// Returns a valid/optimal value size for the entries of the storage backend.
+pub fn store_valid_value_size(size: usize) -> usize {
+    min(
+        max(1, (size as f32 / DISK_BLOCK_SIZE as f32).ceil() as usize),
+        MAX_FACTOR,
+    ) * DISK_BLOCK_SIZE
+}
+
+/// Returns the maximum value size for the entries of the storage backend.
+pub const fn store_max_value_size() -> usize {
+    ONE_MEGA_BYTE
 }
 
 /// Store with a HashMap backend

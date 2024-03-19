@@ -53,7 +53,6 @@ The crates are organized as follow :
 - p2p-broker : the broker code (as server and core node)
 - p2p-client-ws : the client connecting to a broker with WebSocket, used by the apps and verifier
 - p2p-verifier : the code of the verifier
-- stores-lmdb : lmdb backed stores (not used anymore)
 - stores-rocksdb : RocksDB backed stores. see [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
 - ngcli : CLI tool to manipulate the repos and administrate the server
 - ngd : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
@@ -82,19 +81,19 @@ For the web apps, see the [README](ng-app/README.md)
 Test all:
 
 ```
-cargo test --all --verbose -- --nocapture
+cargo test --all --verbose -- --show-output --nocapture
 ```
 
 Test a single module:
 
 ```
-cargo test --package p2p-repo --lib -- branch::test --nocapture
+cargo test --package p2p-repo --lib -- branch::test --show-output --nocapture
 ```
 
 Test end-to-end client and server:
 
 ```
-cargo test --package ngcli -- --nocapture
+cargo test --package ngcli -- --show-output --nocapture
 ```
 
 Test WASM websocket
@@ -107,7 +106,7 @@ wasm-pack test --chrome --headless
 Test Rust websocket
 
 ```
-cargo test --package p2p-client-ws --lib -- remote_ws::test::test_ws --nocapture
+cargo test --package p2p-client-ws --lib -- remote_ws::test::test_ws --show-output --nocapture
 ```
 
 ### Build release binaries

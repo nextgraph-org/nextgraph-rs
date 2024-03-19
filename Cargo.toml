@@ -5,7 +5,6 @@ members = [
   "p2p-broker",
   "p2p-client-ws",
   "p2p-verifier",
-  "stores-lmdb",
   "stores-rocksdb",
   "ngcli",
   "ngd",
