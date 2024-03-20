@@ -366,13 +366,7 @@ extern "C" {
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
 pub fn client_info() -> JsValue {
-    let res = ClientInfo::V0(ClientInfoV0 {
-        client_type: ClientType::NodeService,
-        details: client_details(),
-        version: version(),
-        timestamp_install: 0,
-        timestamp_updated: 0,
-    });
+    let res = ClientInfo::V0(client_info_());
     //res
     serde_wasm_bindgen::to_value(&res).unwrap()
 }
@@ -421,6 +415,19 @@ pub fn client_info_() -> ClientInfoV0 {
         client_type: ClientType::Web,
         details: details_string,
         version: "".to_string(),
+        timestamp_install: 0,
+        timestamp_updated: 0,
+    };
+    res
+    //serde_wasm_bindgen::to_value(&res).unwrap()
+}
+
+#[cfg(all(wasmpack_target = "nodejs", target_arch = "wasm32"))]
+pub fn client_info_() -> ClientInfoV0 {
+    let res = ClientInfoV0 {
+        client_type: ClientType::NodeService,
+        details: client_details(),
+        version: version(),
         timestamp_install: 0,
         timestamp_updated: 0,
     };
