@@ -297,7 +297,7 @@ impl<'a> Broker<'a> {
         //     .read_to_end(&mut block_buffer)
         //     .expect("read of test.ng");
 
-        let block = serde_bare::from_slice::<Block>(&crate::tests::file::test).unwrap();
+        let block = serde_bare::from_slice::<Block>(&crate::tests::file::TEST).unwrap();
 
         tx.send(block).await;
         Ok(rx)

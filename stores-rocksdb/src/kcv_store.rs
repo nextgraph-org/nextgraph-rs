@@ -9,18 +9,11 @@
 
 use p2p_repo::kcv_store::*;
 use p2p_repo::store::*;
-use p2p_repo::types::*;
-use p2p_repo::utils::*;
 
 use p2p_repo::log::*;
 
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::RwLockReadGuard;
-use std::sync::{Arc, RwLock};
-
-use serde::{Deserialize, Serialize};
-use serde_bare::error::Error;
 
 use rocksdb::{
     ColumnFamilyDescriptor, Direction, Env, ErrorKind, IteratorMode, Options, SingleThreaded,
@@ -56,10 +49,10 @@ impl<'a> ReadTransaction for RocksdbTransaction<'a> {
     /// Load a single value property from the store.
     fn get(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<Vec<u8>, StorageError> {
         let property = RocksdbKCVStore::compute_property(prefix, key, suffix);
-        let mut res = self
+        let res = self
             .tx()
             .get_for_update(property, true)
-            .map_err(|e| StorageError::BackendError)?;
+            .map_err(|_e| StorageError::BackendError)?;
         match res {
             Some(val) => Ok(val),
             None => Err(StorageError::NotFound),
@@ -88,7 +81,7 @@ impl<'a> ReadTransaction for RocksdbTransaction<'a> {
         let exists = self
             .tx()
             .get_for_update(property, true)
-            .map_err(|e| StorageError::BackendError)?;
+            .map_err(|_e| StorageError::BackendError)?;
         match exists {
             Some(stored_value) => {
                 if stored_value.eq(value) {
@@ -114,7 +107,7 @@ impl<'a> WriteTransaction for RocksdbTransaction<'a> {
         let property = RocksdbKCVStore::compute_property(prefix, key, suffix);
         self.tx()
             .put(property, value)
-            .map_err(|e| StorageError::BackendError)?;
+            .map_err(|_e| StorageError::BackendError)?;
 
         Ok(())
     }
@@ -131,7 +124,7 @@ impl<'a> WriteTransaction for RocksdbTransaction<'a> {
 
         self.tx()
             .put(property, value)
-            .map_err(|e| StorageError::BackendError)?;
+            .map_err(|_e| StorageError::BackendError)?;
 
         Ok(())
     }
@@ -161,13 +154,13 @@ impl<'a> WriteTransaction for RocksdbTransaction<'a> {
         let exists = self
             .tx()
             .get_for_update(property.clone(), true)
-            .map_err(|e| StorageError::BackendError)?;
+            .map_err(|_e| StorageError::BackendError)?;
         match exists {
             Some(val) => {
                 if val.eq(value) {
                     self.tx()
                         .delete(property)
-                        .map_err(|e| StorageError::BackendError)?;
+                        .map_err(|_e| StorageError::BackendError)?;
                 }
             }
             None => return Err(StorageError::DifferentValue),
@@ -241,7 +234,8 @@ impl ReadTransaction for RocksdbKCVStore {
             .main_db
             .iterator(IteratorMode::From(&property_start, Direction::Forward));
         let mut vector: Vec<(Vec<u8>, Vec<u8>)> = vec![];
-        while let res = iter.next() {
+        loop {
+            let res = iter.next();
             match res {
                 Some(Ok(val)) => {
                     match compare(&val.0, property_end.as_slice()) {
@@ -272,10 +266,10 @@ impl ReadTransaction for RocksdbKCVStore {
     /// Load a single value property from the store.
     fn get(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<Vec<u8>, StorageError> {
         let property = Self::compute_property(prefix, key, suffix);
-        let mut res = self
+        let res = self
             .main_db
             .get(property)
-            .map_err(|e| StorageError::BackendError)?;
+            .map_err(|_e| StorageError::BackendError)?;
         match res {
             Some(val) => Ok(val),
             None => Err(StorageError::NotFound),
@@ -304,7 +298,7 @@ impl ReadTransaction for RocksdbKCVStore {
         let exists = self
             .main_db
             .get(property)
-            .map_err(|e| StorageError::BackendError)?;
+            .map_err(|_e| StorageError::BackendError)?;
         match exists {
             Some(stored_value) => {
                 if stored_value.eq(value) {
