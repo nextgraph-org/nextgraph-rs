@@ -665,6 +665,7 @@ pub enum CommitHeaderObject {
     Id(ObjectId),
     EncryptedContent(Vec<u8>),
     None,
+    RandomAccess,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -706,7 +707,7 @@ pub struct BlockContentV0 {
     /// is empty if ObjectContent fits in one block or this block is a leaf. in both cases, encrypted_content is then not empty
     pub children: Vec<BlockId>,
 
-    /// contains encrypted ChunkContentV0 (entirety, when fitting, or chunks of ObjectContentV0, in DataChunk) used for leafs of the Merkle tree,
+    /// contains encrypted ChunkContentV0 (entirety, when fitting, or chunks of ObjectContentV0, in DataChunk) used for leaves of the Merkle tree,
     /// or to store the keys of children (in InternalNode)
     ///
     /// Encrypted using convergent encryption with ChaCha20:
@@ -1664,6 +1665,83 @@ pub enum File {
     V0(FileV0),
 }
 
+/// Random Access File Object
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RandomAccessFileMetaV0 {
+    pub content_type: String,
+
+    #[serde(with = "serde_bytes")]
+    pub metadata: Vec<u8>,
+
+    pub total_size: u64,
+
+    pub chunk_size: u32,
+
+    pub arity: u16,
+
+    pub depth: u8,
+}
+
+/// A Random Access file stored in an Object
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RandomAccessFileMeta {
+    V0(RandomAccessFileMetaV0),
+}
+
+impl RandomAccessFileMeta {
+    pub fn arity(&self) -> u16 {
+        match self {
+            Self::V0(v0) => v0.arity,
+        }
+    }
+
+    pub fn depth(&self) -> u8 {
+        match self {
+            Self::V0(v0) => v0.depth,
+        }
+    }
+
+    pub fn set_depth(&mut self, depth: u8) {
+        match self {
+            Self::V0(v0) => {
+                v0.depth = depth;
+            }
+        }
+    }
+
+    pub fn chunk_size(&self) -> u32 {
+        match self {
+            Self::V0(v0) => v0.chunk_size,
+        }
+    }
+
+    pub fn total_size(&self) -> u64 {
+        match self {
+            Self::V0(v0) => v0.total_size,
+        }
+    }
+
+    pub fn set_total_size(&mut self, size: u64) {
+        match self {
+            Self::V0(v0) => {
+                v0.total_size = size;
+            }
+        }
+    }
+
+    pub fn metadata(&self) -> &Vec<u8> {
+        match self {
+            Self::V0(v0) => &v0.metadata,
+        }
+    }
+
+    pub fn content_type(&self) -> &String {
+        match self {
+            Self::V0(v0) => &v0.content_type,
+        }
+    }
+}
+
 /// Immutable data stored encrypted in a Merkle tree V0
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ObjectContentV0 {
@@ -1674,6 +1752,7 @@ pub enum ObjectContentV0 {
     Signature(Signature),
     Certificate(Certificate),
     File(File),
+    RandomAccessFileMeta(RandomAccessFileMeta),
 }
 
 /// Immutable data stored encrypted in a Merkle tree

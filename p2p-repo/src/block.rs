@@ -40,6 +40,26 @@ impl BlockV0 {
         b
     }
 
+    pub fn new_random_access(
+        children: Vec<BlockId>,
+        content: Vec<u8>,
+        key: Option<SymKey>,
+    ) -> BlockV0 {
+        let bc = BlockContentV0 {
+            children,
+            commit_header: CommitHeaderObject::RandomAccess,
+            encrypted_content: content,
+        };
+        let mut b = BlockV0 {
+            id: None,
+            key,
+            content: BlockContent::V0(bc),
+            commit_header_key: None,
+        };
+        b.id = Some(b.compute_id());
+        b
+    }
+
     /// Compute the ID
     pub fn compute_id(&self) -> BlockId {
         let ser = serde_bare::to_vec(&self.content).unwrap();
@@ -92,6 +112,14 @@ impl Block {
         Block::V0(BlockV0::new(children, header_ref, content, key))
     }
 
+    pub fn new_random_access(
+        children: Vec<BlockId>,
+        content: Vec<u8>,
+        key: Option<SymKey>,
+    ) -> Block {
+        Block::V0(BlockV0::new_random_access(children, content, key))
+    }
+
     pub fn size(&self) -> usize {
         serde_bare::to_vec(&self).unwrap().len()
     }
@@ -128,6 +156,13 @@ impl Block {
         }
     }
 
+    /// Get the content
+    pub fn content(&self) -> &BlockContent {
+        match self {
+            Block::V0(b) => &b.content,
+        }
+    }
+
     /// Get the encrypted content
     pub fn encrypted_content(&self) -> &Vec<u8> {
         match self {
@@ -148,6 +183,7 @@ impl Block {
             Block::V0(b) => match b.commit_header_key.as_ref() {
                 Some(key) => match b.content.commit_header_obj() {
                     CommitHeaderObject::None => None,
+                    CommitHeaderObject::RandomAccess => None,
                     _ => Some(CommitHeaderRef {
                         obj: b.content.commit_header_obj().clone(),
                         key: key.clone(),
