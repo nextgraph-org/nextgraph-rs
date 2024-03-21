@@ -21,21 +21,21 @@ use crate::log::*;
 use crate::store::*;
 use crate::types::*;
 
-const BLOCK_EXTRA: usize = 12; // 8 is the smallest extra + BLOCK_MAX_DATA_EXTRA
-const HEADER_REF_EXTRA: usize = 66;
-const HEADER_EMBED_EXTRA: usize = 34;
-const CHILD_SIZE: usize = 66;
+pub const BLOCK_EXTRA: usize = 12; // 8 is the smallest extra + BLOCK_MAX_DATA_EXTRA
+pub const HEADER_REF_EXTRA: usize = 66;
+pub const HEADER_EMBED_EXTRA: usize = 34;
+pub const CHILD_SIZE: usize = 66;
 
-const BLOCK_ID_SIZE: usize = 33;
+pub const BLOCK_ID_SIZE: usize = 33;
 /// Size of serialized SymKey
-const BLOCK_KEY_SIZE: usize = 33;
+pub const BLOCK_KEY_SIZE: usize = 33;
 /// Size of serialized Object with deps reference.
 /// Varint extra bytes when reaching the maximum value we will ever use in one block
-const BIG_VARINT_EXTRA: usize = 2;
+pub const BIG_VARINT_EXTRA: usize = 2;
 /// Varint extra bytes when reaching the maximum size of data byte arrays.
-const DATA_VARINT_EXTRA: usize = 4;
+pub const DATA_VARINT_EXTRA: usize = 4;
 
-const BLOCK_MAX_DATA_EXTRA: usize = 4;
+pub const BLOCK_MAX_DATA_EXTRA: usize = 4;
 
 #[derive(Debug)]
 /// An Object in memory. This is not used to serialize data
@@ -85,7 +85,7 @@ pub enum ObjectCopyError {
 }
 
 impl Object {
-    fn convergence_key(
+    pub(crate) fn convergence_key(
         store_pubkey: &StoreRepo,
         store_readcap_secret: &ReadCapSecret,
     ) -> [u8; blake3::OUT_LEN] {
@@ -128,15 +128,13 @@ impl Object {
     fn make_header_v0(
         header: CommitHeaderV0,
         object_size: usize,
-        store: &StoreRepo,
-        store_secret: &ReadCapSecret,
+        conv_key: &ChaCha20Key,
     ) -> (ObjectRef, Vec<Block>) {
-        let header_obj = Object::new(
+        let header_obj = Object::new_with_convergence_key(
             ObjectContent::V0(ObjectContentV0::CommitHeader(CommitHeader::V0(header))),
             None,
             object_size,
-            store,
-            store_secret,
+            conv_key,
         );
         let header_ref = ObjectRef {
             id: header_obj.id(),
@@ -148,11 +146,10 @@ impl Object {
     fn make_header(
         header: CommitHeader,
         object_size: usize,
-        store: &StoreRepo,
-        store_secret: &ReadCapSecret,
+        conv_key: &ChaCha20Key,
     ) -> (ObjectRef, Vec<Block>) {
         match header {
-            CommitHeader::V0(v0) => Self::make_header_v0(v0, object_size, store, store_secret),
+            CommitHeader::V0(v0) => Self::make_header_v0(v0, object_size, conv_key),
         }
     }
 
@@ -301,6 +298,16 @@ impl Object {
         store: &StoreRepo,
         store_secret: &ReadCapSecret,
     ) -> Object {
+        let conv_key = Self::convergence_key(store, store_secret);
+        Self::new_with_convergence_key(content, header, block_size, &conv_key)
+    }
+
+    pub fn new_with_convergence_key(
+        content: ObjectContent,
+        mut header: Option<CommitHeader>,
+        block_size: usize,
+        conv_key: &ChaCha20Key,
+    ) -> Object {
         if header.is_some() && !content.can_have_header() {
             panic!(
                 "cannot make a new Object with header if ObjectContent type different from Commit"
@@ -321,13 +328,11 @@ impl Object {
         let mut blocks: Vec<BlockId> = vec![];
         let mut block_contents: HashMap<BlockId, Block> = HashMap::new();
         let mut already_existing: HashMap<BlockKey, BlockId> = HashMap::new();
-        let conv_key = Self::convergence_key(store, store_secret);
 
         let header_prepare = match &header {
             None => (0 as usize, None, vec![]),
             Some(h) => {
-                let block_info =
-                    Self::make_header(h.clone(), valid_block_size, store, store_secret);
+                let block_info = Self::make_header(h.clone(), valid_block_size, conv_key);
                 if block_info.1.len() == 1 {
                     (
                         block_info.1[0].encrypted_content().len(),
@@ -367,7 +372,7 @@ impl Object {
             Self::add_block(
                 Self::make_block(
                     content_ser,
-                    &conv_key,
+                    conv_key,
                     vec![],
                     header_ref,
                     &mut already_existing,
@@ -386,7 +391,7 @@ impl Object {
                 let data_chunk = ChunkContentV0::DataChunk(chunk.to_vec());
                 let chunk_ser = serde_bare::to_vec(&data_chunk).unwrap();
                 Self::add_block(
-                    Self::make_block(chunk_ser, &conv_key, vec![], None, &mut already_existing),
+                    Self::make_block(chunk_ser, conv_key, vec![], None, &mut already_existing),
                     &mut blocks,
                     &mut block_contents,
                     &mut already_existing,
@@ -401,7 +406,7 @@ impl Object {
                 &mut block_contents,
                 &mut already_existing,
                 blocks.as_slice(),
-                &conv_key,
+                conv_key,
                 header_prepare.0,
                 header_prepare.1,
                 header_prepare.2,
@@ -489,7 +494,9 @@ impl Object {
 
         let header = match root.header_ref() {
             Some(header_ref) => match header_ref.obj {
-                CommitHeaderObject::None => panic!("shouldn't happen"),
+                CommitHeaderObject::None | CommitHeaderObject::RandomAccess => {
+                    panic!("shouldn't happen")
+                }
                 CommitHeaderObject::Id(id) => {
                     let obj = Object::load(id, Some(header_ref.key.clone()), store)?;
                     match obj.content()? {
@@ -539,6 +546,7 @@ impl Object {
         }
         Ok(())
     }
+
     #[cfg(test)]
     pub fn save_in_test(
         &mut self,
@@ -891,6 +899,7 @@ impl fmt::Display for ObjectContent {
                     ObjectContentV0::Signature(_) => "Signature",
                     ObjectContentV0::Certificate(_) => "Certificate",
                     ObjectContentV0::File(_) => "File",
+                    ObjectContentV0::RandomAccessFileMeta(_) => "RandomAccessFileMeta",
                 },
             ),
         };
@@ -1300,7 +1309,7 @@ mod test {
         const MAX_ARITY_LEAVES: usize = 61;
         const MAX_DATA_PAYLOAD_SIZE: usize = 4084;
 
-        ////// 55GB of data!
+        ////// 52GB of data!
         let data_size = MAX_ARITY_LEAVES
             * MAX_ARITY_LEAVES
             * MAX_ARITY_LEAVES
@@ -1309,7 +1318,7 @@ mod test {
             - 12;
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
-        log_debug!("creating 55GB of data");
+        log_debug!("creating 52GB of data");
         let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
             content_type: "".into(),
             metadata: vec![],

@@ -14,6 +14,8 @@ pub mod block;
 
 pub mod object;
 
+pub mod file;
+
 pub mod commit;
 
 pub mod branch;

@@ -13,9 +13,9 @@
 
 use futures::StreamExt;
 
+use crate::log::*;
 use crate::types::*;
 use crate::utils::Receiver;
-
 use std::sync::{Arc, RwLock};
 use std::{
     cmp::{max, min},
@@ -24,14 +24,17 @@ use std::{
 };
 
 pub trait RepoStore: Send + Sync {
-    /// Load a block from the store.
+    /// Load a block from the storage.
     fn get(&self, id: &BlockId) -> Result<Block, StorageError>;
 
-    /// Save a block to the store.
+    /// Save a block to the storage.
     fn put(&self, block: &Block) -> Result<BlockId, StorageError>;
 
-    /// Delete a block from the store.
+    /// Delete a block from the storage.
     fn del(&self, id: &BlockId) -> Result<(Block, usize), StorageError>;
+
+    /// number of Blocks in the storage
+    fn len(&self) -> Result<usize, StorageError>;
 }
 
 #[derive(Debug, PartialEq)]
@@ -91,7 +94,7 @@ const MAX_FACTOR: usize = 256;
 /// Returns a valid/optimal value size for the entries of the storage backend.
 pub fn store_valid_value_size(size: usize) -> usize {
     min(
-        max(1, (size as f32 / DISK_BLOCK_SIZE as f32).ceil() as usize),
+        max(1, (size + DISK_BLOCK_SIZE - 1) / DISK_BLOCK_SIZE),
         MAX_FACTOR,
     ) * DISK_BLOCK_SIZE
 }
@@ -151,8 +154,13 @@ impl RepoStore for HashMapRepoStore {
         }
     }
 
+    fn len(&self) -> Result<usize, StorageError> {
+        Ok(self.get_len())
+    }
+
     fn put(&self, block: &Block) -> Result<BlockId, StorageError> {
         let id = block.id();
+        //log_debug!("PUTTING {}", id);
         let mut b = block.clone();
         b.set_key(None);
         self.blocks.write().unwrap().insert(id, b);
