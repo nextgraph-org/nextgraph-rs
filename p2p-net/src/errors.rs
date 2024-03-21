@@ -12,10 +12,7 @@ use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
 use p2p_repo::object::ObjectParseError;
 use p2p_repo::store::StorageError;
-use p2p_repo::types::Block;
-use p2p_repo::types::ObjectId;
 use std::convert::From;
-use std::convert::TryFrom;
 use std::error::Error;
 
 #[derive(Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive, Clone)]
@@ -143,19 +140,19 @@ impl From<p2p_repo::errors::NgError> for ProtocolError {
 }
 
 impl From<ObjectParseError> for ProtocolError {
-    fn from(e: ObjectParseError) -> Self {
+    fn from(_e: ObjectParseError) -> Self {
         ProtocolError::ObjectParseError
     }
 }
 
 impl From<serde_bare::error::Error> for ProtocolError {
-    fn from(e: serde_bare::error::Error) -> Self {
+    fn from(_e: serde_bare::error::Error) -> Self {
         ProtocolError::SerializationError
     }
 }
 
 impl From<serde_bare::error::Error> for NetError {
-    fn from(e: serde_bare::error::Error) -> Self {
+    fn from(_e: serde_bare::error::Error) -> Self {
         NetError::SerializationError
     }
 }

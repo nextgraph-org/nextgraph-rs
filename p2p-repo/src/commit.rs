@@ -14,7 +14,7 @@ use core::fmt;
 use once_cell::sync::OnceCell;
 
 use crate::errors::NgError;
-use crate::log::*;
+
 use crate::object::*;
 use crate::repo::Repo;
 use crate::store::*;
@@ -349,7 +349,6 @@ impl Commit {
                 Some(CommitHeaderKeys::V0(hk)) => hk.acks.is_empty() && hk.nacks.is_empty(),
                 None => true,
             },
-            _ => unimplemented!(),
         }
     }
 
@@ -368,7 +367,6 @@ impl Commit {
                 },
                 None => {}
             },
-            _ => {}
         };
         res
     }
@@ -388,7 +386,6 @@ impl Commit {
                 },
                 None => {}
             },
-            _ => {}
         };
         res
     }
@@ -413,7 +410,6 @@ impl Commit {
                 }
                 _ => {}
             },
-            _ => {}
         };
         res
     }
@@ -1121,14 +1117,10 @@ impl fmt::Display for CommitHeaderKeys {
     }
 }
 
+#[cfg(test)]
 mod test {
-    use std::collections::HashMap;
-
-    use crate::branch::*;
     use crate::commit::*;
-    use crate::store::*;
-    use crate::types::*;
-    use crate::utils::*;
+    use crate::log::*;
 
     #[test]
     pub fn test_commit() {

@@ -9,10 +9,9 @@
 
 //! Branch of a Repository
 
-use crate::log::*;
 use std::collections::HashSet;
 
-use fastbloom_rs::{BloomFilter as Filter, Membership};
+// use fastbloom_rs::{BloomFilter as Filter, Membership};
 
 use crate::object::*;
 use crate::store::*;
@@ -145,17 +144,16 @@ impl Branch {
     }
 }
 
+#[cfg(test)]
 mod test {
-    use std::collections::HashMap;
 
     //use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
 
     use crate::branch::*;
-    use crate::commit::*;
-    use crate::object::*;
-    use crate::repo;
+
     use crate::repo::Repo;
-    use crate::store::*;
+
+    use crate::log::*;
     use crate::utils::*;
 
     #[test]
@@ -441,7 +439,7 @@ mod test {
             repo.get_store(),
         );
 
-        let mut c7 = Commit::load(a7.clone(), repo.get_store(), true).unwrap();
+        let c7 = Commit::load(a7.clone(), repo.get_store(), true).unwrap();
         c7.verify(&repo).unwrap();
 
         // let mut filter = Filter::new(FilterBuilder::new(10, 0.01));

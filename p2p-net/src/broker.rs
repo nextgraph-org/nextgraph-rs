@@ -9,7 +9,6 @@
  * according to those terms.
 */
 
-use crate::actor::*;
 use crate::connection::*;
 use crate::errors::*;
 use crate::server_storage::ServerStorage;
@@ -21,8 +20,6 @@ use async_std::sync::{Arc, RwLock};
 use either::Either;
 use futures::channel::mpsc;
 use futures::SinkExt;
-use noise_protocol::U8Array;
-use noise_rust_crypto::sensitive::Sensitive;
 use once_cell::sync::Lazy;
 use p2p_repo::log::*;
 use p2p_repo::object::Object;
@@ -31,12 +28,6 @@ use p2p_repo::store::HashMapRepoStore;
 use p2p_repo::types::*;
 use p2p_repo::utils::generate_keypair;
 use std::collections::HashMap;
-use std::net::IpAddr;
-use std::ops::Deref;
-
-use std::io::BufReader;
-use std::io::Read;
-use std::path::PathBuf;
 
 #[derive(Debug)]
 pub enum PeerConnection {
@@ -332,7 +323,7 @@ impl<'a> Broker<'a> {
     }
 
     pub async fn doc_sync_branch(&mut self, anuri: String) -> (Receiver<Commit>, Sender<Commit>) {
-        let (mut tx, rx) = mpsc::unbounded::<Commit>();
+        let (tx, rx) = mpsc::unbounded::<Commit>();
 
         let obj_ref = ObjectRef {
             id: ObjectId::Blake3Digest32([
@@ -637,7 +628,7 @@ impl<'a> Broker<'a> {
         log_debug!("ATTACH PEER_ID {:?}", remote_peer_id);
 
         let already = self.peers.get(&(None, remote_peer_id));
-        if (already.is_some()) {
+        if already.is_some() {
             match already.unwrap().connected {
                 PeerConnection::NONE => {}
                 _ => {
@@ -923,11 +914,11 @@ impl<'a> Broker<'a> {
     }
 
     pub fn print_status(&self) {
-        self.peers.iter().for_each(|(peerId, peerInfo)| {
-            log_info!("PEER in BROKER {:?} {:?}", peerId, peerInfo);
+        self.peers.iter().for_each(|(peer_id, peer_info)| {
+            log_info!("PEER in BROKER {:?} {:?}", peer_id, peer_info);
         });
-        self.direct_connections.iter().for_each(|(ip, directCnx)| {
-            log_info!("direct_connection in BROKER {:?} {:?}", ip, directCnx);
+        self.direct_connections.iter().for_each(|(ip, direct_cnx)| {
+            log_info!("direct_connection in BROKER {:?} {:?}", ip, direct_cnx);
         });
         self.anonymous_connections.iter().for_each(|(binds, cb)| {
             log_info!(

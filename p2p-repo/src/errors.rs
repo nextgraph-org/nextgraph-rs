@@ -36,19 +36,19 @@ impl fmt::Display for NgError {
 }
 
 impl From<serde_bare::error::Error> for NgError {
-    fn from(e: serde_bare::error::Error) -> Self {
+    fn from(_e: serde_bare::error::Error) -> Self {
         NgError::SerializationError
     }
 }
 
 impl From<ed25519_dalek::ed25519::Error> for NgError {
-    fn from(e: ed25519_dalek::ed25519::Error) -> Self {
+    fn from(_e: ed25519_dalek::ed25519::Error) -> Self {
         NgError::InvalidSignature
     }
 }
 
 impl From<CommitLoadError> for NgError {
-    fn from(e: CommitLoadError) -> Self {
+    fn from(_e: CommitLoadError) -> Self {
         NgError::RepoLoadError
     }
 }

@@ -8,8 +8,8 @@
  * notice may not be copied, modified, or distributed except
  * according to those terms.
 */
-#[macro_use]
-extern crate p2p_repo;
+//#[macro_use]
+//extern crate p2p_repo;
 
 pub mod types;
 

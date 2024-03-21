@@ -12,16 +12,15 @@
 //! Corresponds to the BARE schema
 
 use crate::utils::{
-    get_domain_without_port, get_domain_without_port_443, is_ipv4_private, is_ipv6_private,
-    is_private_ip, is_public_ip, is_public_ipv4, is_public_ipv6,
+    get_domain_without_port_443, is_ipv4_private, is_ipv6_private, is_private_ip, is_public_ip,
+    is_public_ipv4, is_public_ipv6,
 };
 use crate::{actor::EActor, actors::*, errors::ProtocolError};
 use core::fmt;
 use p2p_repo::errors::NgError;
-use p2p_repo::log::*;
+
 use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::{
     any::{Any, TypeId},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -157,6 +156,7 @@ pub const APP_NG_ONE_URL: &str = "https://app.nextgraph.one";
 
 pub const APP_NG_ONE_WS_URL: &str = "wss://app.nextgraph.one";
 
+#[allow(dead_code)]
 fn api_dyn_peer_url(peer_id: &PubKey) -> String {
     format!("https://nextgraph.one/api/v1/dynpeer/{}", peer_id)
 }
@@ -328,7 +328,6 @@ impl BrokerServerV0 {
                     None
                 }
             }
-            _ => None,
         }
     }
 
@@ -867,8 +866,8 @@ impl AcceptForwardForV0 {
 
     pub fn get_public_bind_ipv6_address(&self) -> Option<IP> {
         match self {
-            AcceptForwardForV0::PublicStatic((ipv4, ipv6, _)) => {
-                let mut res = vec![ipv4.clone()];
+            AcceptForwardForV0::PublicStatic((_ipv4, ipv6, _)) => {
+                //let _res = vec![ipv4.clone()];
                 if ipv6.is_some() {
                     return Some(ipv6.unwrap().ip.clone());
                 } else {
@@ -1087,7 +1086,6 @@ impl ListenerV0 {
                     res.push(BrokerServerTypeV0::BoxPrivate(addrs));
                 }
             }
-            _ => panic!("get_bootstrap missing"),
         }
         res
     }

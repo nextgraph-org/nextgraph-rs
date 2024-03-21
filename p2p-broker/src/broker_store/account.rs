@@ -63,6 +63,8 @@ impl<'a> Account<'a> {
         store.put(Self::PREFIX_ACCOUNT, &to_vec(&id)?, None, to_vec(&admin)?)?;
         Ok(acc)
     }
+
+    #[allow(deprecated)]
     pub fn get_all_users(
         admins: bool,
         store: &'a dyn KCVStore,
@@ -199,7 +201,7 @@ impl<'a> Account<'a> {
             // let mut id_and_client = to_vec(&self.id)?;
             // let client_key = (client.clone(), hash);
             // let mut client_key_ser = to_vec(&client_key)?;
-
+            #[allow(deprecated)]
             let client_key = (ClientId::nil(), 0u64);
             let mut client_key_ser = to_vec(&client_key)?;
             let size = client_key_ser.len() + id.len();

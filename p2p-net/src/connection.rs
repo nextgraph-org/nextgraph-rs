@@ -23,14 +23,12 @@ use crate::errors::NetError;
 use crate::errors::ProtocolError;
 use crate::types::*;
 use crate::utils::*;
-use async_std::future::TimeoutError;
+
 use async_std::stream::StreamExt;
 use async_std::sync::Mutex;
 use either::Either;
-use futures::{channel::mpsc, select, Future, FutureExt, SinkExt};
-use noise_protocol::U8Array;
+use futures::{channel::mpsc, select, FutureExt, SinkExt};
 use noise_protocol::{patterns::noise_xk, CipherState, HandshakeState};
-use noise_rust_crypto::sensitive::Sensitive;
 use noise_rust_crypto::*;
 use p2p_repo::log::*;
 use p2p_repo::types::{PrivKey, PubKey, X25519PrivKey};
@@ -260,7 +258,7 @@ impl NoiseFSM {
             .as_mut()
             .unwrap()
             .decrypt_vec(ciphertext.data())
-            .map_err(|e| ProtocolError::DecryptionError)?;
+            .map_err(|_e| ProtocolError::DecryptionError)?;
 
         Ok(from_slice::<ProtocolMessage>(&ser)?)
     }
@@ -288,13 +286,13 @@ impl NoiseFSM {
             self.sender
                 .send(ConnectionCommand::Msg(ProtocolMessage::Noise(cipher)))
                 .await
-                .map_err(|e| ProtocolError::IoError)?;
+                .map_err(|_e| ProtocolError::IoError)?;
             return Ok(());
         } else {
             self.sender
                 .send(ConnectionCommand::Msg(msg))
                 .await
-                .map_err(|e| ProtocolError::IoError)?;
+                .map_err(|_e| ProtocolError::IoError)?;
             return Ok(());
         }
     }
@@ -351,7 +349,7 @@ impl NoiseFSM {
 
         let _ = handshake
             .read_message_vec(noise.data())
-            .map_err(|e| ProtocolError::NoiseHandshakeFailed)?;
+            .map_err(|_e| ProtocolError::NoiseHandshakeFailed)?;
 
         if !handshake.completed() {
             return Err(ProtocolError::NoiseHandshakeFailed);
@@ -394,14 +392,14 @@ impl NoiseFSM {
                 // CLIENT LOCAL
                 if !self.dir.is_server() && msg_opt.is_none() {
                     self.state = FSMstate::ClientHello;
-                    Box::new(Actor::<ClientHello, ServerHello>::new(0, true));
+                    //Box::new(Actor::<ClientHello, ServerHello>::new(0, true));
                     return Ok(StepReply::NONE);
                 }
                 // SERVER LOCAL
                 else if let Some(msg) = msg_opt.as_ref() {
                     if self.dir.is_server() && msg.type_id() == ClientHello::Local.type_id() {
                         self.state = FSMstate::ServerHello;
-                        Box::new(Actor::<ClientHello, ServerHello>::new(msg.id(), false));
+                        //Box::new(Actor::<ClientHello, ServerHello>::new(msg.id(), false));
                         return Ok(StepReply::NONE);
                     }
                 }
@@ -417,7 +415,7 @@ impl NoiseFSM {
                             self.state = FSMstate::Probe;
                             return Ok(StepReply::NONE);
                         }
-                        StartConfig::Relay(relay_to) => {
+                        StartConfig::Relay(_relay_to) => {
                             // RELAY REQUEST
                             //self.state
                             todo!();
@@ -439,7 +437,7 @@ impl NoiseFSM {
 
                             let payload = handshake
                                 .write_message_vec(&[])
-                                .map_err(|e| ProtocolError::NoiseHandshakeFailed)?;
+                                .map_err(|_e| ProtocolError::NoiseHandshakeFailed)?;
 
                             let noise = Noise::V0(NoiseV0 { data: payload });
                             self.send(noise.into()).await?;
@@ -514,7 +512,7 @@ impl NoiseFSM {
                     if id != 0 {
                         return Err(ProtocolError::InvalidState);
                     }
-                    if let ProtocolMessage::ProbeResponse(probe_res) = &msg {
+                    if let ProtocolMessage::ProbeResponse(_probe_res) = &msg {
                         return Ok(StepReply::Response(msg));
                     }
                 }
@@ -537,7 +535,7 @@ impl NoiseFSM {
 
                             let mut payload = handshake
                                 .read_message_vec(noise.data())
-                                .map_err(|e| ProtocolError::NoiseHandshakeFailed)?;
+                                .map_err(|_e| ProtocolError::NoiseHandshakeFailed)?;
 
                             payload = handshake.write_message_vec(&payload).map_err(|e| {
                                 log_debug!("{:?}", e);
@@ -552,19 +550,19 @@ impl NoiseFSM {
 
                             let mut next_step = StepReply::NONE;
                             match self.config.as_ref().unwrap() {
-                                StartConfig::Client(client_config) => {
+                                StartConfig::Client(_client_config) => {
                                     let noise3 =
                                         ClientHello::Noise3(Noise::V0(NoiseV0 { data: payload }));
                                     self.send(noise3.into()).await?;
                                     self.state = FSMstate::ClientHello;
                                 }
-                                StartConfig::Ext(ext_config) => {
+                                StartConfig::Ext(_ext_config) => {
                                     todo!();
                                 }
-                                StartConfig::Core(core_config) => {
+                                StartConfig::Core(_core_config) => {
                                     todo!();
                                 }
-                                StartConfig::Admin(admin_config) => {
+                                StartConfig::Admin(_admin_config) => {
                                     let noise = Noise::V0(NoiseV0 { data: payload });
                                     self.send(noise.into()).await?;
                                     self.state = FSMstate::Noise3;
@@ -623,10 +621,10 @@ impl NoiseFSM {
                         StartConfig::Client(_) => {
                             return Err(ProtocolError::InvalidState);
                         }
-                        StartConfig::Ext(ext_config) => {
+                        StartConfig::Ext(_ext_config) => {
                             todo!();
                         }
-                        StartConfig::Core(core_config) => {
+                        StartConfig::Core(_core_config) => {
                             todo!();
                         }
                         StartConfig::Admin(admin_config) => {
@@ -656,7 +654,7 @@ impl NoiseFSM {
                             StartProtocol::Client(_) => {
                                 return Err(ProtocolError::InvalidState);
                             }
-                            StartProtocol::Ext(ext_config) => {
+                            StartProtocol::Ext(_ext_config) => {
                                 todo!();
                             }
                             // StartProtocol::Core(core_config) => {
@@ -730,8 +728,7 @@ impl NoiseFSM {
                     }
                 }
             }
-            FSMstate::ServerHello =>
-            {
+            FSMstate::ServerHello => {
                 #[cfg(not(target_arch = "wasm32"))]
                 if let Some(msg) = msg_opt.as_ref() {
                     if self.dir.is_server() {
@@ -742,7 +739,7 @@ impl NoiseFSM {
 
                             let ser = serde_bare::to_vec(&client_auth.content_v0())?;
 
-                            let mut result = ProtocolError::NoError;
+                            let result; //= ProtocolError::NoError;
                             let verif = verify(&ser, client_auth.sig(), client_auth.user());
                             if verif.is_err() {
                                 result = verif.unwrap_err().into();
@@ -768,7 +765,7 @@ impl NoiseFSM {
                             });
                             self.send(auth_result.into()).await?;
 
-                            if (result.is_err()) {
+                            if result.is_err() {
                                 return Err(result);
                             }
                             log_debug!("AUTHENTICATION SUCCESSFUL ! waiting for requests on the server side");
@@ -782,7 +779,7 @@ impl NoiseFSM {
                 if let Some(msg) = msg_opt.as_ref() {
                     if !self.dir.is_server() {
                         if let ProtocolMessage::AuthResult(auth_res) = msg {
-                            if let StartConfig::Client(client_config) =
+                            if let StartConfig::Client(_client_config) =
                                 self.config.as_ref().unwrap()
                             {
                                 if auth_res.result() != 0 {
@@ -930,7 +927,7 @@ impl ConnectionBase {
                     log_debug!("EXIT READ LOOP because : {:?}", msg);
                     let mut lock = actors.lock().await;
                     for actor in lock.values_mut() {
-                        actor.send(msg.clone()).await;
+                        _ = actor.send(msg.clone()).await;
                     }
                     break;
                 }
@@ -1146,7 +1143,7 @@ impl ConnectionBase {
                     self.close().await;
                     return Err(ProtocolError::WhereIsTheMagic);
                 },
-                r = shutdown.next().fuse() => {
+                _r = shutdown.next().fuse() => {
                     self.fsm
                         .as_mut()
                         .unwrap()
@@ -1230,11 +1227,11 @@ impl ConnectionBase {
     }
 }
 
+#[cfg(test)]
 mod test {
 
-    use crate::actor::*;
     use crate::actors::*;
-    use crate::types::*;
+
     use p2p_repo::log::*;
     use std::any::{Any, TypeId};
 

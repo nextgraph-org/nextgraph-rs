@@ -9,16 +9,13 @@
  * according to those terms.
 */
 
-use crate::broker::BROKER;
 use crate::types::*;
-use crate::NG_BOOTSTRAP_LOCAL_PATH;
 use async_std::task;
 use ed25519_dalek::*;
-use futures::{channel::mpsc, select, Future, FutureExt, SinkExt};
+use futures::{channel::mpsc, Future};
 use noise_protocol::U8Array;
 use noise_protocol::DH;
 use noise_rust_crypto::sensitive::Sensitive;
-use p2p_repo::errors::NgError;
 use p2p_repo::types::PubKey;
 use p2p_repo::{log::*, types::PrivKey};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -54,9 +51,11 @@ where
     })
 }
 
+#[cfg(target_arch = "wasm32")]
 #[cfg(debug_assertions)]
 const APP_PREFIX: &str = "http://localhost:14400";
 
+#[cfg(target_arch = "wasm32")]
 #[cfg(not(debug_assertions))]
 const APP_PREFIX: &str = "";
 

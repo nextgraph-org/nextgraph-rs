@@ -160,11 +160,23 @@ impl ClientV0 {
     pub fn id(&self) -> String {
         self.priv_key.to_pub().to_string()
     }
-    #[deprecated(note = "**Don't use dummy method**")]
+
+    #[deprecated(note = "**Don't use nil method**")]
+    #[allow(deprecated)]
+    pub fn nil() -> Self {
+        ClientV0 {
+            priv_key: PrivKey::nil(),
+            storage_master_key: SymKey::nil(),
+            auto_open: vec![],
+        }
+    }
+
+    #[cfg(test)]
+    #[allow(deprecated)]
     pub fn dummy() -> Self {
         ClientV0 {
-            priv_key: PrivKey::dummy(),
-            storage_master_key: SymKey::random(),
+            priv_key: PrivKey::nil(),
+            storage_master_key: SymKey::nil(),
             auto_open: vec![],
         }
     }
