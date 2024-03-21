@@ -42,20 +42,20 @@ impl SiteV0 {
         pub write_cap: RepoWriteCapSecret, */
 
         let public = SiteStore {
-            key: PrivKey::dummy(),
-            read_cap: BlockRef::dummy(),
+            key: PrivKey::nil(),
+            read_cap: BlockRef::nil(),
             write_cap: SymKey::random(),
         };
 
         let protected = SiteStore {
-            key: PrivKey::dummy(),
-            read_cap: BlockRef::dummy(),
+            key: PrivKey::nil(),
+            read_cap: BlockRef::nil(),
             write_cap: SymKey::random(),
         };
 
         let private = SiteStore {
-            key: PrivKey::dummy(),
-            read_cap: BlockRef::dummy(),
+            key: PrivKey::nil(),
+            read_cap: BlockRef::nil(),
             write_cap: SymKey::random(),
         };
 

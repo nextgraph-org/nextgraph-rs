@@ -293,7 +293,7 @@ impl Object {
     /// * `store_secret`: store's read capability secret, needed to generate the convergence key
     pub fn new(
         content: ObjectContent,
-        mut header: Option<CommitHeader>,
+        header: Option<CommitHeader>,
         block_size: usize,
         store: &StoreRepo,
         store_secret: &ReadCapSecret,
@@ -512,7 +512,7 @@ impl Object {
                         Ok(ObjectContent::V0(ObjectContentV0::CommitHeader(commit_header))) => {
                             (Some(commit_header), None)
                         }
-                        Err(e) => return Err(ObjectParseError::InvalidHeader),
+                        Err(_e) => return Err(ObjectParseError::InvalidHeader),
                         _ => return Err(ObjectParseError::InvalidHeader),
                     }
                 }
@@ -688,7 +688,8 @@ impl Object {
                     if leaves.is_none() && obj_content.is_none() {
                         // we just want to calculate the depth. no need to decrypt
                         for id in b_children {
-                            children.push((id.clone(), ObjectKey::dummy()));
+                            #[allow(deprecated)]
+                            children.push((id.clone(), ObjectKey::nil()));
                         }
                         continue;
                     }
@@ -828,7 +829,6 @@ impl Object {
         match self.content() {
             Ok(ObjectContent::V0(v0)) => Ok(v0),
             Err(e) => Err(e),
-            _ => unimplemented!(),
         }
     }
 }
@@ -877,7 +877,7 @@ impl ObjectContent {
         }
     }
 
-    pub fn new_file_V0_with_content(content: Vec<u8>, content_type: &str) -> Self {
+    pub fn new_file_v0_with_content(content: Vec<u8>, content_type: &str) -> Self {
         ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
             content_type: content_type.into(),
             metadata: vec![],
@@ -916,8 +916,6 @@ impl fmt::Display for ObjectContent {
 mod test {
 
     use crate::object::*;
-    use crate::store::*;
-    use crate::types::*;
     use std::io::BufReader;
     use std::io::Read;
     use std::io::Write;
@@ -968,7 +966,7 @@ mod test {
         reader
             .read_to_end(&mut img_buffer)
             .expect("read of test.jpg");
-        let content = ObjectContent::new_file_V0_with_content(img_buffer, "image/jpeg");
+        let content = ObjectContent::new_file_v0_with_content(img_buffer, "image/jpeg");
 
         let max_object_size = store_max_value_size();
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
@@ -1696,69 +1694,5 @@ mod test {
         test_block(store_valid_value_size(100000));
         test_block(store_valid_value_size(1000000));
         test_block(store_valid_value_size(5000));
-
-        ///////////////////
-        /*
-
-
-        let max_arity_leaves = (max_block_size - EMPTY_BLOCK_SIZE - BIG_VARINT_EXTRA * 2)
-            / (BLOCK_ID_SIZE + BLOCK_KEY_SIZE);
-        log_debug!("max_arity_leaves: {}", max_arity_leaves);
-        assert_eq!(max_arity_leaves, MAX_ARITY_LEAVES);
-        assert_eq!(
-            max_block_size - EMPTY_BLOCK_SIZE - DATA_VARINT_EXTRA,
-            max_data_payload_size
-        );
-        let max_arity_root =
-            (max_block_size - EMPTY_BLOCK_SIZE - MAX_HEADER_SIZE - BIG_VARINT_EXTRA * 2)
-                / (BLOCK_ID_SIZE + BLOCK_KEY_SIZE);
-        log_debug!("max_arity_root: {}", max_arity_root);
-        assert_eq!(max_arity_root, MAX_ARITY_ROOT);
-        log_debug!("store_max_value_size: {}", leaf_full_data_ser.len());
-        assert_eq!(leaf_full_data_ser.len(), max_block_size);
-        log_debug!("leaf_empty: {}", leaf_empty_ser.len());
-        assert_eq!(leaf_empty_ser.len(), EMPTY_BLOCK_SIZE);
-        // log_debug!("root_depsref: {}", root_depsref_ser.len());
-        // assert_eq!(root_depsref_ser.len(), EMPTY_ROOT_SIZE_DEPSREF);
-        log_debug!("internal_max: {}", internal_max_ser.len());
-        assert_eq!(
-            internal_max_ser.len(),
-            EMPTY_BLOCK_SIZE
-                + BIG_VARINT_EXTRA * 2
-                + MAX_ARITY_LEAVES * (BLOCK_ID_SIZE + BLOCK_KEY_SIZE)
-        );
-        assert!(internal_max_ser.len() < max_block_size);
-        log_debug!("internal_one: {}", internal_one_ser.len());
-        assert_eq!(
-            internal_one_ser.len(),
-            EMPTY_BLOCK_SIZE + 1 * BLOCK_ID_SIZE + 1 * BLOCK_KEY_SIZE
-        );
-        log_debug!("internal_two: {}", internal_two_ser.len());
-        assert_eq!(
-            internal_two_ser.len(),
-            EMPTY_BLOCK_SIZE + 2 * BLOCK_ID_SIZE + 2 * BLOCK_KEY_SIZE
-        );
-        log_debug!("root_one: {}", root_one_ser.len());
-        assert_eq!(
-            root_one_ser.len(),
-            EMPTY_BLOCK_SIZE + 8 * BLOCK_ID_SIZE + 1 * BLOCK_ID_SIZE + 1 * BLOCK_KEY_SIZE
-        );
-        log_debug!("root_two: {}", root_two_ser.len());
-        assert_eq!(
-            root_two_ser.len(),
-            EMPTY_BLOCK_SIZE + 8 * BLOCK_ID_SIZE + 2 * BLOCK_ID_SIZE + 2 * BLOCK_KEY_SIZE
-        );*/
-
-        // let object_size_1 = 4096 * 1 - VALUE_HEADER_SIZE;
-        // let object_size_512 = 4096 * MAX_PAGES_PER_VALUE - VALUE_HEADER_SIZE;
-        // let arity_1: usize =
-        //     (object_size_1 - 8 * OBJECT_ID_SIZE) / (OBJECT_ID_SIZE + OBJECT_KEY_SIZE);
-        // let arity_512: usize =
-        //     (object_size_512 - 8 * OBJECT_ID_SIZE) / (OBJECT_ID_SIZE + OBJECT_KEY_SIZE);
-
-        // log_debug!("1-page object_size: {}", object_size_1);
-        // log_debug!("512-page object_size: {}", object_size_512);
-        // log_debug!("max arity of 1-page object: {}", arity_1);
-        // log_debug!("max arity of 512-page object: {}", arity_512);
     }
 }

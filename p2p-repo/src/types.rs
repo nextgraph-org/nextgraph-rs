@@ -19,8 +19,6 @@ use crate::utils::{
 use core::fmt;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use serde_bare::to_vec;
-use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -86,7 +84,11 @@ impl SymKey {
     pub fn from_array(array: [u8; 32]) -> Self {
         SymKey::ChaCha20Key(array)
     }
-    #[deprecated(note = "**Don't use dummy method**")]
+    #[deprecated(note = "**Don't use nil method**")]
+    pub fn nil() -> Self {
+        SymKey::ChaCha20Key([0; 32])
+    }
+    #[cfg(test)]
     pub fn dummy() -> Self {
         SymKey::ChaCha20Key([0; 32])
     }
@@ -151,6 +153,8 @@ impl PubKey {
             _ => panic!("can only convert an edward key to montgomery"),
         }
     }
+
+    #[deprecated(note = "**Don't use nil method**")]
     pub fn nil() -> Self {
         PubKey::Ed25519PubKey([0u8; 32])
     }
@@ -194,7 +198,12 @@ impl PrivKey {
         }
     }
 
-    #[deprecated(note = "**Don't use dummy method**")]
+    #[deprecated(note = "**Don't use nil method**")]
+    pub fn nil() -> PrivKey {
+        PrivKey::Ed25519PrivKey([0u8; 32])
+    }
+
+    #[cfg(test)]
     pub fn dummy() -> PrivKey {
         PrivKey::Ed25519PrivKey([0u8; 32])
     }
@@ -266,9 +275,6 @@ impl fmt::Display for Sig {
                     base64_url::encode(&ed[0]),
                     base64_url::encode(&ed[1])
                 )
-            }
-            _ => {
-                unimplemented!();
             }
         }
     }
@@ -362,20 +368,34 @@ pub struct BlockRef {
 }
 
 impl BlockId {
-    #[deprecated(note = "**Don't use dummy method**")]
+    #[cfg(test)]
     pub fn dummy() -> Self {
+        Digest::Blake3Digest32([0u8; 32])
+    }
+
+    #[deprecated(note = "**Don't use nil method**")]
+    pub fn nil() -> Self {
         Digest::Blake3Digest32([0u8; 32])
     }
 }
 
 impl BlockRef {
-    #[deprecated(note = "**Don't use dummy method**")]
+    #[cfg(test)]
     pub fn dummy() -> Self {
         BlockRef {
             id: Digest::Blake3Digest32([0u8; 32]),
             key: SymKey::ChaCha20Key([0u8; 32]),
         }
     }
+
+    #[deprecated(note = "**Don't use nil method**")]
+    pub fn nil() -> Self {
+        BlockRef {
+            id: Digest::Blake3Digest32([0u8; 32]),
+            key: SymKey::ChaCha20Key([0u8; 32]),
+        }
+    }
+
     pub fn from_id_key(id: BlockId, key: BlockKey) -> Self {
         BlockRef { id, key }
     }
@@ -508,6 +528,8 @@ impl StoreRepo {
             },
         }
     }
+    #[cfg(test)]
+    #[allow(deprecated)]
     pub fn dummy_public_v0() -> (Self, SymKey) {
         let readcap = SymKey::dummy();
         let store_pubkey = PubKey::nil();
@@ -1464,10 +1486,10 @@ pub struct CertificateContentV0 {
     pub readcap_id: ObjectId,
 
     /// PublicKey Set used by the Owners. verifier uses this PKset if the signature was issued by the Owners.
-    pub owners_PKset: threshold_crypto::PublicKeySet,
+    pub owners_pk_set: threshold_crypto::PublicKeySet,
 
     /// two "orders" PublicKey Sets (total_order and partial_order).
-    pub orders_PKsets: OrdersPublicKeySetsV0,
+    pub orders_pk_sets: OrdersPublicKeySetsV0,
 }
 
 /// A Signature of a Certificate and the threshold set or public key used to generate it

@@ -13,13 +13,12 @@
 
 use futures::StreamExt;
 
-use crate::log::*;
 use crate::types::*;
 use crate::utils::Receiver;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 use std::{
     cmp::{max, min},
-    collections::{hash_map::Iter, HashMap},
+    collections::HashMap,
     mem::size_of_val,
 };
 
@@ -55,7 +54,7 @@ impl core::fmt::Display for StorageError {
 }
 
 impl From<serde_bare::error::Error> for StorageError {
-    fn from(e: serde_bare::error::Error) -> Self {
+    fn from(_e: serde_bare::error::Error) -> Self {
         StorageError::SerializationError
     }
 }

@@ -10,11 +10,9 @@
 */
 
 use async_std::stream::StreamExt;
-use async_std::sync::{Mutex, MutexGuard};
+use async_std::sync::Mutex;
 use futures::{channel::mpsc, SinkExt};
-use serde::de::DeserializeOwned;
-use std::any::{Any, TypeId};
-use std::convert::From;
+use std::any::TypeId;
 use std::sync::Arc;
 
 use crate::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
@@ -23,7 +21,7 @@ use std::marker::PhantomData;
 
 impl TryFrom<ProtocolMessage> for () {
     type Error = ProtocolError;
-    fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
+    fn try_from(_msg: ProtocolMessage) -> Result<Self, Self::Error> {
         Ok(())
     }
 }
@@ -58,7 +56,7 @@ pub enum SoS<B> {
 
 impl<B> SoS<B> {
     pub fn is_single(&self) -> bool {
-        if let Self::Single(b) = self {
+        if let Self::Single(_b) = self {
             true
         } else {
             false
@@ -70,7 +68,7 @@ impl<B> SoS<B> {
     pub fn unwrap_single(self) -> B {
         match self {
             Self::Single(s) => s,
-            Self::Stream(s) => {
+            Self::Stream(_s) => {
                 panic!("called `unwrap_single()` on a `Stream` value")
             }
         }
@@ -78,7 +76,7 @@ impl<B> SoS<B> {
     pub fn unwrap_stream(self) -> Receiver<B> {
         match self {
             Self::Stream(s) => s,
-            Self::Single(s) => {
+            Self::Single(_s) => {
                 panic!("called `unwrap_stream()` on a `Single` value")
             }
         }
@@ -91,7 +89,7 @@ impl<
     > Actor<'_, A, B>
 {
     pub fn new(id: i64, initiator: bool) -> Self {
-        let (mut receiver_tx, receiver) = mpsc::unbounded::<ConnectionCommand>();
+        let (receiver_tx, receiver) = mpsc::unbounded::<ConnectionCommand>();
         Self {
             id,
             receiver: Some(receiver),
@@ -125,11 +123,11 @@ impl<
                         && TypeId::of::<B>() != TypeId::of::<()>()
                     {
                         let (mut b_sender, b_receiver) = mpsc::unbounded::<B>();
-                        let response = msg.try_into().map_err(|e| ProtocolError::ActorError)?;
+                        let response = msg.try_into().map_err(|_e| ProtocolError::ActorError)?;
                         b_sender
                             .send(response)
                             .await
-                            .map_err(|err| ProtocolError::IoError)?;
+                            .map_err(|_err| ProtocolError::IoError)?;
                         async fn pump_stream<C: TryFrom<ProtocolMessage, Error = ProtocolError>>(
                             mut actor_receiver: Receiver<ConnectionCommand>,
                             mut sos_sender: Sender<C>,
@@ -193,15 +191,15 @@ impl<
     }
 }
 
+#[cfg(test)]
 mod test {
 
     use crate::actor::*;
     use crate::actors::*;
-    use crate::types::*;
 
     #[async_std::test]
     pub async fn test_actor() {
-        let mut a = Actor::<Noise, Noise>::new(1, true);
+        let _a = Actor::<Noise, Noise>::new(1, true);
         // a.handle(ProtocolMessage::Start(StartProtocol::Client(
         //     ClientHello::Noise3(Noise::V0(NoiseV0 { data: vec![] })),
         // )))
