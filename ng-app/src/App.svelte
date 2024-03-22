@@ -27,6 +27,7 @@
   import URI from "./routes/URI.svelte";
   import NotFound from "./routes/NotFound.svelte";
   import WalletCreate from "./routes/WalletCreate.svelte";
+  import Invitation from "./routes/Invitation.svelte";
   import WalletLogin from "./routes/WalletLogin.svelte";
   import User from "./routes/User.svelte";
   import UserRegistered from "./routes/UserRegistered.svelte";
@@ -39,6 +40,7 @@
   routes.set("/test", Test);
   routes.set("/wallet/login", WalletLogin);
   routes.set("/wallet/create", WalletCreate);
+  routes.set("/i/:invitation", Invitation);
   routes.set("/user", User);
   routes.set("/user/registered", UserRegistered);
   if (import.meta.env.NG_APP_WEB) routes.set("/install", Install);

@@ -10,12 +10,16 @@
 */
 
 use crate::types::*;
+#[cfg(target_arch = "wasm32")]
+use crate::NG_BOOTSTRAP_LOCAL_PATH;
 use async_std::task;
 use ed25519_dalek::*;
 use futures::{channel::mpsc, Future};
 use noise_protocol::U8Array;
 use noise_protocol::DH;
 use noise_rust_crypto::sensitive::Sensitive;
+#[cfg(target_arch = "wasm32")]
+use p2p_repo::errors::*;
 use p2p_repo::types::PubKey;
 use p2p_repo::{log::*, types::PrivKey};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
