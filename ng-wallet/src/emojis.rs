@@ -859,7 +859,7 @@ const food: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f37e",
         shortcode: "bottle_with_popping_cork",
-        code: "champagne",
+        code: "champagne_bottle",
     },
     EmojiDef {
         hexcode: "1f377",

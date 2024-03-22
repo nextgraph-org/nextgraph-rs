@@ -10,7 +10,7 @@
 //! Commit
 
 use core::fmt;
-//use ed25519_dalek::*;
+use ed25519_dalek::{PublicKey, Signature};
 use once_cell::sync::OnceCell;
 
 use crate::errors::NgError;
@@ -25,7 +25,7 @@ use crate::utils::*;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum CommitLoadError {
     MissingBlocks(Vec<BlockId>),
     ObjectParseError,
@@ -33,16 +33,16 @@ pub enum CommitLoadError {
     NotACommitBodyError,
     CannotBeAtRootOfBranch,
     MustBeAtRootOfBranch,
-    BodyLoadError,
+    SingletonCannotHaveHeader,
+    BodyLoadError(Vec<BlockId>),
     HeaderLoadError,
     BodyTypeMismatch,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum CommitVerifyError {
     InvalidSignature,
     PermissionDenied,
-    BodyLoadError(CommitLoadError),
     DepLoadError(CommitLoadError),
 }
 
@@ -64,7 +64,7 @@ impl CommitV0 {
         body: ObjectRef,
     ) -> Result<CommitV0, NgError> {
         let headers = CommitHeader::new_with(deps, ndeps, acks, nacks, refs, nrefs);
-        let content = CommitContentV0 {
+        let content = CommitContent::V0(CommitContentV0 {
             perms: vec![],
             author: (&author_pubkey).into(),
             seq,
@@ -73,13 +73,13 @@ impl CommitV0 {
             quorum,
             metadata,
             body,
-        };
+        });
         let content_ser = serde_bare::to_vec(&content).unwrap();
 
         // sign commit
         let sig = sign(&author_privkey, &author_pubkey, &content_ser)?;
         Ok(CommitV0 {
-            content: CommitContent::V0(content),
+            content: content,
             sig,
             id: None,
             key: None,
@@ -124,6 +124,67 @@ impl Commit {
         .map(|c| Commit::V0(c))
     }
 
+    /// New commit
+    pub fn new_with_body_and_save(
+        author_privkey: PrivKey,
+        author_pubkey: PubKey,
+        seq: u64,
+        branch: BranchId,
+        quorum: QuorumType,
+        deps: Vec<ObjectRef>,
+        ndeps: Vec<ObjectRef>,
+        acks: Vec<ObjectRef>,
+        nacks: Vec<ObjectRef>,
+        refs: Vec<ObjectRef>,
+        nrefs: Vec<ObjectRef>,
+        metadata: Vec<u8>,
+        body: CommitBody,
+        block_size: usize,
+        store_pubkey: &StoreRepo,
+        store_secret: &ReadCapSecret,
+        store: &Box<impl RepoStore + ?Sized>,
+    ) -> Result<Commit, NgError> {
+        let body_ref = body
+            .clone()
+            .save(block_size, store_pubkey, store_secret, store)?;
+
+        let mut commit = CommitV0::new(
+            author_privkey,
+            author_pubkey,
+            seq,
+            branch,
+            quorum,
+            deps,
+            ndeps,
+            acks,
+            nacks,
+            refs,
+            nrefs,
+            metadata,
+            body_ref,
+        )
+        .map(|c| Commit::V0(c))?;
+
+        commit.set_body(body);
+
+        let commit_ref = commit.save(block_size, store_pubkey, store_secret, store)?;
+
+        commit.set_id(commit_ref.id);
+        commit.set_key(commit_ref.key);
+        Ok(commit)
+    }
+
+    pub fn reference(&self) -> Option<ObjectRef> {
+        if self.key().is_some() && self.id().is_some() {
+            Some(ObjectRef {
+                id: self.id().unwrap(),
+                key: self.key().unwrap(),
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn save(
         &mut self,
         block_size: usize,
@@ -133,6 +194,12 @@ impl Commit {
     ) -> Result<ObjectRef, StorageError> {
         match self {
             Commit::V0(v0) => {
+                if v0.id.is_some() && v0.key.is_some() {
+                    return Ok(ObjectRef::from_id_key(
+                        v0.id.unwrap(),
+                        v0.key.as_ref().unwrap().clone(),
+                    ));
+                }
                 log_debug!("{:?}", v0.header);
                 let mut obj = Object::new(
                     ObjectContent::V0(ObjectContentV0::Commit(Commit::V0(v0.clone()))),
@@ -198,7 +265,7 @@ impl Commit {
         let content = self.content_v0();
         let (id, key) = (content.body.id, content.body.key.clone());
         let obj = Object::load(id.clone(), Some(key.clone()), store).map_err(|e| match e {
-            ObjectParseError::MissingBlocks(missing) => CommitLoadError::MissingBlocks(missing),
+            ObjectParseError::MissingBlocks(missing) => CommitLoadError::BodyLoadError(missing),
             _ => CommitLoadError::ObjectParseError,
         })?;
         let content = obj
@@ -430,29 +497,51 @@ impl Commit {
     }
 
     /// Verify commit signature
-    pub fn verify_sig(&self) -> Result<(), NgError> {
+    pub fn verify_sig(&self, repo: &Repo) -> Result<(), CommitVerifyError> {
         let c = match self {
             Commit::V0(c) => c,
         };
         let content_ser = serde_bare::to_vec(&c.content).unwrap();
-        unimplemented!();
-        // FIXME : lookup author in member's list
-        // let pubkey = match c.content.author() {
-        //     PubKey::Ed25519PubKey(pk) => pk,
-        //     _ => panic!("author cannot have a Montgomery key"),
-        // };
-        // let pk = PublicKey::from_bytes(pubkey)?;
-        // let sig_bytes = match c.sig {
-        //     Sig::Ed25519Sig(ss) => [ss[0], ss[1]].concat(),
-        // };
-        // let sig = Signature::from_bytes(&sig_bytes)?;
-        // pk.verify_strict(&content_ser, &sig)
+
+        let pubkey = repo
+            .member_pubkey(c.content.author())
+            .map_err(|_| CommitVerifyError::PermissionDenied)?;
+
+        let pubkey_slice = match pubkey {
+            PubKey::Ed25519PubKey(pk) => pk,
+            _ => panic!("author cannot have a Montgomery key"),
+        };
+        let pk = PublicKey::from_bytes(&pubkey_slice)
+            .map_err(|_| CommitVerifyError::InvalidSignature)?;
+        let sig_bytes = match c.sig {
+            Sig::Ed25519Sig(ss) => [ss[0], ss[1]].concat(),
+        };
+        let sig =
+            Signature::from_bytes(&sig_bytes).map_err(|_| CommitVerifyError::InvalidSignature)?;
+        pk.verify_strict(&content_ser, &sig)
+            .map_err(|_| CommitVerifyError::InvalidSignature)
     }
 
     /// Verify commit permissions
-    pub fn verify_perm(&self, repo: &Repo) -> Result<(), CommitVerifyError> {
+    pub fn verify_perm(&self, repo: &Repo) -> Result<(), NgError> {
         repo.verify_permission(self)
-            .map_err(|_| CommitVerifyError::PermissionDenied)
+    }
+
+    pub fn verify_perm_creation(&self, user: Option<&Digest>) -> Result<&Digest, NgError> {
+        let digest = self.content().author();
+        if user.is_some() && *digest != *user.unwrap() {
+            return Err(NgError::PermissionDenied);
+        }
+        let body = self.body().ok_or(NgError::InvalidArgument)?;
+        if !(body.is_repository_singleton_commit() && user.is_none()) {
+            // a user must be provided to verify all subsequent commits of a Repository commit, that have the same author and that are signed with the repository key
+            return Err(NgError::InvalidArgument);
+        }
+        if body.required_permission().contains(&PermissionV0::Create) {
+            Ok(digest)
+        } else {
+            Err(NgError::PermissionDenied)
+        }
     }
 
     /// Verify if the commit's `body` and its direct_causal_past, and recursively all their refs are available in the `store`
@@ -498,8 +587,8 @@ impl Commit {
                 Ok(_) => Ok(()),
                 Err(CommitLoadError::MissingBlocks(m)) => {
                     // The commit body is missing.
-                    missing.extend(m);
-                    Err(CommitLoadError::BodyLoadError)
+                    missing.extend(m.clone());
+                    Err(CommitLoadError::BodyLoadError(m))
                 }
                 Err(e) => Err(e),
             }?;
@@ -509,6 +598,9 @@ impl Commit {
             if commit.is_root_commit_of_branch() {
                 if !body.must_be_root_commit_in_branch() {
                     return Err(CommitLoadError::CannotBeAtRootOfBranch);
+                }
+                if body.is_repository_singleton_commit() && commit.header().is_some() {
+                    return Err(CommitLoadError::SingletonCannotHaveHeader);
                 }
             } else {
                 if body.must_be_root_commit_in_branch() {
@@ -543,12 +635,10 @@ impl Commit {
     }
 
     /// Verify signature, permissions, and full causal past
-    pub fn verify(&self, repo: &Repo) -> Result<(), CommitVerifyError> {
-        self.verify_sig()
-            .map_err(|_e| CommitVerifyError::InvalidSignature)?;
+    pub fn verify(&self, repo: &Repo) -> Result<(), NgError> {
+        self.verify_sig(repo)?;
         self.verify_perm(repo)?;
-        self.verify_full_object_refs_of_branch_at_commit(repo.get_store())
-            .map_err(|e| CommitVerifyError::DepLoadError(e))?;
+        self.verify_full_object_refs_of_branch_at_commit(repo.get_store())?;
         Ok(())
     }
 }
@@ -588,6 +678,24 @@ impl PermissionV0 {
 }
 
 impl CommitBody {
+    pub fn save(
+        self,
+        block_size: usize,
+        store_pubkey: &StoreRepo,
+        store_secret: &ReadCapSecret,
+        store: &Box<impl RepoStore + ?Sized>,
+    ) -> Result<ObjectRef, StorageError> {
+        let obj = Object::new(
+            ObjectContent::V0(ObjectContentV0::CommitBody(self)),
+            None,
+            block_size,
+            store_pubkey,
+            store_secret,
+        );
+        obj.save(store)?;
+        Ok(obj.reference().unwrap())
+    }
+
     pub fn root_branch_commit(&self) -> Result<&RootBranch, CommitLoadError> {
         match self {
             Self::V0(v0) => match v0 {
@@ -1009,7 +1117,7 @@ impl fmt::Display for Commit {
                 writeln!(f, "== Sig:   {}", v0.sig)?;
                 write!(f, "{}", v0.content)?;
                 if v0.body.get().is_some() {
-                    writeln!(f, "== Body:   {}", v0.body.get().unwrap())?;
+                    write!(f, "== Body:   {}", v0.body.get().unwrap())?;
                 }
             }
         }
@@ -1127,6 +1235,21 @@ mod test {
     use crate::commit::*;
     use crate::log::*;
 
+    struct Test<'a> {
+        storage: Box<dyn RepoStore + Send + Sync + 'a>,
+    }
+
+    impl<'a> Test<'a> {
+        fn storage(s: impl RepoStore + 'a) -> Self {
+            Test {
+                storage: Box::new(s),
+            }
+        }
+        fn s(&self) -> &Box<dyn RepoStore + Send + Sync + 'a> {
+            &self.storage
+        }
+    }
+
     fn test_commit_header_ref_content_fits(
         obj_refs: Vec<BlockRef>,
         metadata_size: usize,
@@ -1173,8 +1296,12 @@ mod test {
             .save(max_object_size, &store_repo, &store_secret, &storage)
             .expect("save commit");
 
-        let commit_object = Object::load(commit_ref.id, Some(commit_ref.key), &storage)
-            .expect("load object from storage");
+        let commit_object = Object::load(
+            commit_ref.id.clone(),
+            Some(commit_ref.key.clone()),
+            &storage,
+        )
+        .expect("load object from storage");
 
         assert_eq!(
             commit_object.acks(),
@@ -1186,6 +1313,10 @@ mod test {
         log_debug!("object size:     {}", commit_object.size());
 
         assert_eq!(commit_object.all_blocks_len(), expect_blocks_len);
+
+        let commit = Commit::load(commit_ref, &storage, false).expect("load commit from storage");
+
+        log_debug!("{}", commit);
     }
 
     #[test]
@@ -1206,7 +1337,96 @@ mod test {
     }
 
     #[test]
-    pub fn test_commit() {
+    pub fn test_load_commit_fails_on_non_commit_object() {
+        let file = File::V0(FileV0 {
+            content_type: "file/test".into(),
+            metadata: Vec::from("some meta data here"),
+            content: [(0..255).collect::<Vec<u8>>().as_slice(); 320].concat(),
+        });
+        let content = ObjectContent::V0(ObjectContentV0::File(file));
+
+        let max_object_size = 0;
+
+        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+
+        let obj = Object::new(
+            content.clone(),
+            None,
+            max_object_size,
+            &store_repo,
+            &store_secret,
+        );
+
+        let hashmap_storage = HashMapRepoStore::new();
+        let storage = Box::new(hashmap_storage);
+
+        obj.save(&storage).expect("save object");
+
+        let commit = Commit::load(obj.reference().unwrap(), &storage, false);
+
+        assert_eq!(commit, Err(CommitLoadError::NotACommitError));
+    }
+
+    #[test]
+    pub fn test_load_commit_with_body() {
+        let (priv_key, pub_key) = generate_keypair();
+        let seq = 3;
+        let obj_ref = ObjectRef::dummy();
+
+        let branch = pub_key;
+        let obj_refs = vec![obj_ref.clone()];
+        let deps = obj_refs.clone();
+        let acks = obj_refs.clone();
+        let refs = obj_refs.clone();
+
+        let metadata = Vec::from("some metadata");
+
+        let body = CommitBody::V0(CommitBodyV0::Repository(Repository::V0(RepositoryV0 {
+            id: branch,
+            verification_program: vec![],
+            creator: None,
+            metadata: vec![],
+        })));
+
+        let max_object_size = 0;
+
+        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let hashmap_storage = HashMapRepoStore::new();
+        let storage = Box::new(hashmap_storage);
+
+        let commit = Commit::new_with_body_and_save(
+            priv_key,
+            pub_key,
+            seq,
+            branch,
+            QuorumType::NoSigning,
+            deps,
+            vec![],
+            acks.clone(),
+            vec![],
+            refs,
+            vec![],
+            metadata,
+            body,
+            max_object_size,
+            &store_repo,
+            &store_secret,
+            &storage,
+        )
+        .expect("commit::new_With_body_and_save");
+
+        log_debug!("{}", commit);
+
+        let commit2 = Commit::load(commit.reference().unwrap(), &storage, true)
+            .expect("load commit with body after save");
+
+        log_debug!("{}", commit2);
+
+        assert_eq!(commit, commit2);
+    }
+
+    #[test]
+    pub fn test_commit_load_body_fails() {
         let (priv_key, pub_key) = generate_keypair();
         let seq = 3;
         let obj_ref = ObjectRef::dummy();
@@ -1236,24 +1456,31 @@ mod test {
         .unwrap();
         log_debug!("{}", commit);
 
-        let store = Box::new(HashMapRepoStore::new());
+        let hashmap_storage = HashMapRepoStore::new();
+        let t = Test::storage(hashmap_storage);
 
-        let repo = Repo::new_with_member(&pub_key, &pub_key, &[PermissionV0::WriteAsync], store);
+        let repo = Repo::new_with_member(&pub_key, &pub_key, &[PermissionV0::Create], t.s());
 
         match commit.load_body(repo.get_store()) {
             Ok(_b) => panic!("Body should not exist"),
-            Err(CommitLoadError::MissingBlocks(missing)) => {
+            Err(CommitLoadError::BodyLoadError(missing)) => {
                 assert_eq!(missing.len(), 1);
             }
-            Err(e) => panic!("Commit verify error: {:?}", e),
+            Err(e) => panic!("Commit load error: {:?}", e),
         }
 
-        commit.verify_sig().expect("Invalid signature");
-        commit.verify_perm(&repo).expect("Permission denied");
+        commit.verify_sig(&repo).expect("verify signature");
+        match commit.verify_perm(&repo) {
+            Ok(_) => panic!("Commit should not be Ok"),
+            Err(NgError::CommitLoadError(CommitLoadError::BodyLoadError(missing))) => {
+                assert_eq!(missing.len(), 1);
+            }
+            Err(e) => panic!("Commit verify perm error: {:?}", e),
+        }
 
         match commit.verify_full_object_refs_of_branch_at_commit(repo.get_store()) {
             Ok(_) => panic!("Commit should not be Ok"),
-            Err(CommitLoadError::MissingBlocks(missing)) => {
+            Err(CommitLoadError::BodyLoadError(missing)) => {
                 assert_eq!(missing.len(), 1);
             }
             Err(e) => panic!("Commit verify error: {:?}", e),
@@ -1261,10 +1488,80 @@ mod test {
 
         match commit.verify(&repo) {
             Ok(_) => panic!("Commit should not be Ok"),
-            Err(CommitVerifyError::BodyLoadError(CommitLoadError::MissingBlocks(missing))) => {
+            Err(NgError::CommitLoadError(CommitLoadError::BodyLoadError(missing))) => {
                 assert_eq!(missing.len(), 1);
             }
             Err(e) => panic!("Commit verify error: {:?}", e),
         }
+    }
+
+    #[test]
+    pub fn test_load_commit_with_body_verify_perms() {
+        let (priv_key, pub_key) = generate_keypair();
+        let seq = 3;
+        let obj_ref = ObjectRef::dummy();
+
+        let branch = pub_key;
+        let obj_refs = vec![obj_ref.clone()];
+        let deps = obj_refs.clone();
+        let acks = obj_refs.clone();
+        let refs = obj_refs.clone();
+
+        let metadata = Vec::from("some metadata");
+
+        let body = CommitBody::V0(CommitBodyV0::Repository(Repository::V0(RepositoryV0 {
+            id: branch,
+            verification_program: vec![],
+            creator: None,
+            metadata: vec![],
+        })));
+
+        let max_object_size = 0;
+
+        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let hashmap_storage = HashMapRepoStore::new();
+        let storage = Box::new(hashmap_storage);
+
+        let commit = Commit::new_with_body_and_save(
+            priv_key,
+            pub_key,
+            seq,
+            branch,
+            QuorumType::NoSigning,
+            vec![],
+            vec![],
+            vec![], //acks.clone(),
+            vec![],
+            vec![],
+            vec![],
+            metadata,
+            body,
+            max_object_size,
+            &store_repo,
+            &store_secret,
+            &storage,
+        )
+        .expect("commit::new_with_body_and_save");
+
+        log_debug!("{}", commit);
+
+        let hashmap_storage = HashMapRepoStore::new();
+        let t = Test::storage(hashmap_storage);
+
+        let repo = Repo::new_with_member(&pub_key, &pub_key, &[PermissionV0::Create], t.s());
+
+        commit.load_body(repo.get_store()).expect("load body");
+
+        commit.verify_sig(&repo).expect("verify signature");
+        commit.verify_perm(&repo).expect("verify perms");
+        commit
+            .verify_perm_creation(None)
+            .expect("verify_perm_creation");
+
+        commit
+            .verify_full_object_refs_of_branch_at_commit(repo.get_store())
+            .expect("verify is at root of branch and singleton");
+
+        commit.verify(&repo).expect("verify");
     }
 }

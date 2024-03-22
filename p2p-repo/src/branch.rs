@@ -150,6 +150,21 @@ mod test {
 
     //use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
 
+    struct Test<'a> {
+        storage: Box<dyn RepoStore + Send + Sync + 'a>,
+    }
+
+    impl<'a> Test<'a> {
+        fn storage(s: impl RepoStore + 'a) -> Self {
+            Test {
+                storage: Box::new(s),
+            }
+        }
+        fn s(&self) -> &Box<dyn RepoStore + Send + Sync + 'a> {
+            &self.storage
+        }
+    }
+
     use crate::branch::*;
 
     use crate::repo::Repo;
@@ -266,7 +281,8 @@ mod test {
             )
         }
 
-        let store = Box::new(HashMapRepoStore::new());
+        let hashmap_storage = HashMapRepoStore::new();
+        let t = Test::storage(hashmap_storage);
 
         // repo
 
@@ -285,7 +301,7 @@ mod test {
             &repo_pubkey,
             &member_pubkey,
             &[PermissionV0::WriteAsync],
-            store,
+            t.s(),
         );
 
         let repo_ref = ObjectRef {

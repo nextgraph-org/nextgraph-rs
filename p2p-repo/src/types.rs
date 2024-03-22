@@ -1659,7 +1659,7 @@ pub struct CommitV0 {
     /// Commit content
     pub content: CommitContent,
 
-    /// Signature over the content by the author. an editor (userId)
+    /// Signature over the content (a CommitContent) by the author. an editor (userId)
     pub sig: Sig,
 }
 

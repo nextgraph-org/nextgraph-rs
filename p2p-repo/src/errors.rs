@@ -9,7 +9,8 @@
 
 //! Errors
 
-use crate::commit::CommitLoadError;
+use crate::commit::{CommitLoadError, CommitVerifyError};
+use crate::store::StorageError;
 use crate::types::BlockId;
 use core::fmt;
 use std::error::Error;
@@ -25,7 +26,10 @@ pub enum NgError {
     InvalidFileFormat,
     InvalidArgument,
     PermissionDenied,
-    RepoLoadError,
+    CommitLoadError(CommitLoadError),
+    StorageError(StorageError),
+    NotFound,
+    CommitVerifyError(CommitVerifyError),
 }
 
 impl Error for NgError {}
@@ -49,8 +53,20 @@ impl From<ed25519_dalek::ed25519::Error> for NgError {
 }
 
 impl From<CommitLoadError> for NgError {
-    fn from(_e: CommitLoadError) -> Self {
-        NgError::RepoLoadError
+    fn from(e: CommitLoadError) -> Self {
+        NgError::CommitLoadError(e)
+    }
+}
+
+impl From<CommitVerifyError> for NgError {
+    fn from(e: CommitVerifyError) -> Self {
+        NgError::CommitVerifyError(e)
+    }
+}
+
+impl From<StorageError> for NgError {
+    fn from(e: StorageError) -> Self {
+        NgError::StorageError(e)
     }
 }
 
