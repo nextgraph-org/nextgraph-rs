@@ -14,6 +14,7 @@ members = [
   "ng-app/src-tauri",
   "ng-wallet"
 ]
+default-members = [  "ngcli",  "ngd" ]
 
 [profile.release]
 lto = true
