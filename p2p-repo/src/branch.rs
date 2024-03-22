@@ -13,6 +13,7 @@ use std::collections::HashSet;
 
 // use fastbloom_rs::{BloomFilter as Filter, Membership};
 
+use crate::errors::*;
 use crate::object::*;
 use crate::store::*;
 use crate::types::*;

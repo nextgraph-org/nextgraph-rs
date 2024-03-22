@@ -10,7 +10,7 @@
 use core::fmt;
 use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
-use p2p_repo::object::ObjectParseError;
+use p2p_repo::errors::ObjectParseError;
 use p2p_repo::store::StorageError;
 use std::convert::From;
 use std::error::Error;
