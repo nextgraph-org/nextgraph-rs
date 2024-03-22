@@ -9,7 +9,7 @@ See [Build release binaries](../README.md#build-release-binaries) in the main pa
 ### For a localhost server: The first start will create an invitation for the admin, so you can create your wallet
 
 ```
-ngd --save-key -l 1440 --invite-admin
+ngd --save-key -l 1440 --invite-admin --save-config
 ```
 
 this will give you a link that you should open in your web browser. If there are many links, choose the one that starts with `http://localhost:`.
@@ -17,6 +17,12 @@ this will give you a link that you should open in your web browser. If there are
 The computer you use to open the link should have direct access to the ngd server on localhost. In most of the cases, it will work, as you are running ngd on localhost. If you are running ngd in a docker container, then you need to give access to the container to the local network of the host by using `docker run --network="host"`. https://docs.docker.com/network/drivers/host/
 
 Follow the steps on the screen to create your wallet :)
+
+for the next start of ngd :
+
+```
+ngd
+```
 
 ### For a server behind a domain: create the first admin user
 
