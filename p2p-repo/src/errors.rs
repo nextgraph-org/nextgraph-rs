@@ -10,6 +10,7 @@
 //! Errors
 
 use crate::commit::CommitLoadError;
+use crate::types::BlockId;
 use core::fmt;
 use std::error::Error;
 
@@ -51,4 +52,25 @@ impl From<CommitLoadError> for NgError {
     fn from(_e: CommitLoadError) -> Self {
         NgError::RepoLoadError
     }
+}
+
+/// Object parsing errors
+#[derive(Debug)]
+pub enum ObjectParseError {
+    /// Missing blocks
+    MissingBlocks(Vec<BlockId>),
+    /// Missing root key
+    MissingRootKey,
+    /// Invalid BlockId encountered in the tree
+    InvalidBlockId,
+    /// Too many or too few children of a block
+    InvalidChildren,
+    /// Number of keys does not match number of children of a block
+    InvalidKeys,
+    /// Invalid CommitHeader object content
+    InvalidHeader,
+    /// Error deserializing content of a block
+    BlockDeserializeError,
+    /// Error deserializing content of the object
+    ObjectDeserializeError,
 }

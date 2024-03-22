@@ -140,58 +140,6 @@ impl<'a> RandomAccessFile<'a> {
         Ok((id, key))
     }
 
-    fn read_block(
-        block: Block,
-        key: &SymKey,
-    ) -> Result<(Vec<(BlockId, BlockKey)>, Vec<u8>), ObjectParseError> {
-        match block {
-            Block::V0(b) => {
-                // decrypt content in place (this is why we have to clone first)
-                let mut content_dec = b.content.encrypted_content().clone();
-                match key {
-                    SymKey::ChaCha20Key(key) => {
-                        let nonce = [0u8; 12];
-                        let mut cipher = ChaCha20::new(key.into(), &nonce.into());
-                        let mut content_dec_slice = &mut content_dec.as_mut_slice();
-                        cipher.apply_keystream(&mut content_dec_slice);
-                    }
-                }
-
-                // deserialize content
-                let content: ChunkContentV0;
-                match serde_bare::from_slice(content_dec.as_slice()) {
-                    Ok(c) => content = c,
-                    Err(e) => {
-                        log_debug!("Block deserialize error: {}", e);
-                        return Err(ObjectParseError::BlockDeserializeError);
-                    }
-                }
-                // parse content
-                match content {
-                    ChunkContentV0::InternalNode(keys) => {
-                        let b_children = b.children();
-                        if keys.len() != b_children.len() {
-                            log_debug!(
-                                "Invalid keys length: got {}, expected {}",
-                                keys.len(),
-                                b_children.len()
-                            );
-                            log_debug!("!!! children: {:?}", b_children);
-                            log_debug!("!!! keys: {:?}", keys);
-                            return Err(ObjectParseError::InvalidKeys);
-                        }
-                        let mut children = Vec::with_capacity(b_children.len());
-                        for (id, key) in b_children.iter().zip(keys.iter()) {
-                            children.push((id.clone(), key.clone()));
-                        }
-                        Ok((children, vec![]))
-                    }
-                    ChunkContentV0::DataChunk(chunk) => Ok((vec![], chunk)),
-                }
-            }
-        }
-    }
-
     fn make_parent_block(
         conv_key: &[u8; blake3::OUT_LEN],
         children: Vec<(BlockId, BlockKey)>,
@@ -525,7 +473,7 @@ impl<'a> RandomAccessFile<'a> {
             return Err(FileError::BlockDeserializeError);
         }
 
-        let (root_sub_blocks, _) = Self::read_block(root_block, &key)?;
+        let (root_sub_blocks, _) = root_block.read(&key)?;
 
         // load meta object (first one in root block)
         let meta_object = Object::load(
@@ -571,7 +519,7 @@ impl<'a> RandomAccessFile<'a> {
             let mut level_pos = pos;
             for level in 0..depth {
                 let tree_block = self.storage.get(&current_block_id_key.0)?;
-                let (children, content) = Self::read_block(tree_block, &current_block_id_key.1)?;
+                let (children, content) = tree_block.read(&current_block_id_key.1)?;
                 if children.len() == 0 || content.len() > 0 {
                     return Err(FileError::BlockDeserializeError);
                 }
@@ -588,7 +536,7 @@ impl<'a> RandomAccessFile<'a> {
             let content_block = self.storage.get(&current_block_id_key.0)?;
             //log_debug!("CONTENT BLOCK SIZE {}", content_block.size());
 
-            let (children, content) = Self::read_block(content_block, &current_block_id_key.1)?;
+            let (children, content) = content_block.read(&current_block_id_key.1)?;
 
             if children.len() == 0 && content.len() > 0 {
                 //log_debug!("CONTENT SIZE {}", content.len());
@@ -622,7 +570,7 @@ impl<'a> RandomAccessFile<'a> {
             }
             let block = &self.blocks[index];
             let content_block = self.storage.get(&block.0)?;
-            let (children, content) = Self::read_block(content_block, &block.1)?;
+            let (children, content) = content_block.read(&block.1)?;
             if children.len() == 0 && content.len() > 0 {
                 //log_debug!("CONTENT SIZE {}", content.len());
 

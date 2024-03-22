@@ -15,6 +15,8 @@ use once_cell::sync::OnceCell;
 
 use crate::errors::NgError;
 
+use crate::errors::*;
+use crate::log::*;
 use crate::object::*;
 use crate::repo::Repo;
 use crate::store::*;
@@ -131,6 +133,7 @@ impl Commit {
     ) -> Result<ObjectRef, StorageError> {
         match self {
             Commit::V0(v0) => {
+                log_debug!("{:?}", v0.header);
                 let mut obj = Object::new(
                     ObjectContent::V0(ObjectContentV0::Commit(Commit::V0(v0.clone()))),
                     v0.header.clone(),
@@ -140,7 +143,9 @@ impl Commit {
                 );
                 obj.save(store)?;
                 if let Some(h) = &mut v0.header {
-                    h.set_id(obj.header().as_ref().unwrap().id().unwrap());
+                    if let Some(id) = obj.header().as_ref().unwrap().id() {
+                        h.set_id(*id);
+                    }
                 }
                 self.set_id(obj.get_and_save_id());
                 self.set_key(obj.key().unwrap());
@@ -1121,6 +1126,84 @@ impl fmt::Display for CommitHeaderKeys {
 mod test {
     use crate::commit::*;
     use crate::log::*;
+
+    fn test_commit_header_ref_content_fits(
+        obj_refs: Vec<BlockRef>,
+        metadata_size: usize,
+        expect_blocks_len: usize,
+    ) {
+        let (priv_key, pub_key) = generate_keypair();
+        let seq = 3;
+        let obj_ref = ObjectRef::dummy();
+
+        let branch = pub_key;
+        let deps = obj_refs.clone();
+        let acks = obj_refs.clone();
+        let refs = obj_refs.clone();
+        let body_ref = obj_ref.clone();
+
+        let metadata = vec![66; metadata_size];
+
+        let mut commit = Commit::new(
+            priv_key,
+            pub_key,
+            seq,
+            branch,
+            QuorumType::NoSigning,
+            deps,
+            vec![],
+            acks.clone(),
+            vec![],
+            refs,
+            vec![],
+            metadata,
+            body_ref,
+        )
+        .unwrap();
+
+        log_debug!("{}", commit);
+
+        let max_object_size = 0;
+
+        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let hashmap_storage = HashMapRepoStore::new();
+        let storage = Box::new(hashmap_storage);
+
+        let commit_ref = commit
+            .save(max_object_size, &store_repo, &store_secret, &storage)
+            .expect("save commit");
+
+        let commit_object = Object::load(commit_ref.id, Some(commit_ref.key), &storage)
+            .expect("load object from storage");
+
+        assert_eq!(
+            commit_object.acks(),
+            acks.iter().map(|a| a.id).collect::<Vec<ObjectId>>()
+        );
+
+        log_debug!("{}", commit_object);
+
+        log_debug!("object size:     {}", commit_object.size());
+
+        assert_eq!(commit_object.all_blocks_len(), expect_blocks_len);
+    }
+
+    #[test]
+    pub fn test_commit_header_ref_content_fits_or_not() {
+        let obj_ref = ObjectRef::dummy();
+        let obj_refs2 = vec![obj_ref.clone(), obj_ref.clone()];
+        let obj_refs = vec![obj_ref.clone()];
+        // with 1 refs in header
+        test_commit_header_ref_content_fits(obj_refs.clone(), 3733, 2);
+        test_commit_header_ref_content_fits(obj_refs.clone(), 3734, 3);
+        test_commit_header_ref_content_fits(obj_refs.clone(), 3584, 1);
+        test_commit_header_ref_content_fits(obj_refs.clone(), 3585, 2);
+        // with 2 refs in header
+        test_commit_header_ref_content_fits(obj_refs2.clone(), 3352, 1);
+        test_commit_header_ref_content_fits(obj_refs2.clone(), 3353, 2);
+        test_commit_header_ref_content_fits(obj_refs2.clone(), 3601, 2);
+        test_commit_header_ref_content_fits(obj_refs2.clone(), 3602, 3);
+    }
 
     #[test]
     pub fn test_commit() {

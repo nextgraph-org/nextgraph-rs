@@ -12,11 +12,13 @@
 //! Merkle hash tree of Objects
 
 use core::fmt;
+use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 
 use chacha20::cipher::{KeyIvInit, StreamCipher};
 use chacha20::ChaCha20;
 
+use crate::errors::*;
 use crate::log::*;
 use crate::store::*;
 use crate::types::*;
@@ -54,34 +56,6 @@ pub struct Object {
 
     #[cfg(test)]
     already_saved: bool,
-}
-
-/// Object parsing errors
-#[derive(Debug)]
-pub enum ObjectParseError {
-    /// Missing blocks
-    MissingBlocks(Vec<BlockId>),
-    /// Missing root key
-    MissingRootKey,
-    /// Invalid BlockId encountered in the tree
-    InvalidBlockId,
-    /// Too many or too few children of a block
-    InvalidChildren,
-    /// Number of keys does not match number of children of a block
-    InvalidKeys,
-    /// Invalid CommitHeader object content
-    InvalidHeader,
-    /// Error deserializing content of a block
-    BlockDeserializeError,
-    /// Error deserializing content of the object
-    ObjectDeserializeError,
-}
-
-/// Object copy error
-#[derive(Debug)]
-pub enum ObjectCopyError {
-    NotFound,
-    ParseError,
 }
 
 impl Object {
@@ -313,7 +287,7 @@ impl Object {
                 "cannot make a new Object with header if ObjectContent type different from Commit"
             );
         }
-
+        log_debug!("header {:?}", header);
         // create blocks by chunking + encrypting content
         let valid_block_size = store_valid_value_size(block_size);
         log_debug!("valid_block_size {}", valid_block_size);
@@ -344,6 +318,7 @@ impl Object {
                 }
             }
         };
+        log_debug!("{:?} {:?}", header, header_prepare);
 
         let content_ser = serde_bare::to_vec(&content).unwrap();
         let content_len = content_ser.len();
@@ -386,7 +361,7 @@ impl Object {
         } else {
             // chunk content and create leaf nodes
             let mut i = 0;
-            let total = content_len / (valid_block_size - BLOCK_EXTRA);
+            let total = max(1, content_len / (valid_block_size - BLOCK_EXTRA));
             for chunk in content_ser.chunks(valid_block_size - BLOCK_EXTRA) {
                 let data_chunk = ChunkContentV0::DataChunk(chunk.to_vec());
                 let chunk_ser = serde_bare::to_vec(&data_chunk).unwrap();
@@ -419,6 +394,11 @@ impl Object {
         };
 
         if header_blocks.len() > 0 {
+            log_debug!(
+                "header_blocks.len() {} {}",
+                header_blocks.len(),
+                header_blocks.last().unwrap().id()
+            );
             header
                 .as_mut()
                 .unwrap()
@@ -508,7 +488,9 @@ impl Object {
                     }
                 }
                 CommitHeaderObject::EncryptedContent(content) => {
-                    match serde_bare::from_slice(content.as_slice()) {
+                    let (_, decrypted_content) =
+                        Block::new_with_encrypted_content(content, None).read(&header_ref.key)?;
+                    match serde_bare::from_slice(&decrypted_content) {
                         Ok(ObjectContent::V0(ObjectContentV0::CommitHeader(commit_header))) => {
                             (Some(commit_header), None)
                         }
@@ -635,10 +617,22 @@ impl Object {
             .map(|key| self.block_contents.get(key).unwrap())
     }
 
+    pub fn all_blocks_len(&self) -> usize {
+        self.blocks.len() + self.header_blocks.len()
+    }
+
     pub fn size(&self) -> usize {
         let mut total = 0;
-        self.blocks().for_each(|b| total += b.size());
-        self.header_blocks.iter().for_each(|b| total += b.size());
+        self.blocks().for_each(|b| {
+            let s = b.size();
+            log_debug!("@@@@ {}", s);
+            total += s;
+        });
+        self.header_blocks.iter().for_each(|b| {
+            let s = b.size();
+            log_debug!("@@@@ {}", s);
+            total += s;
+        });
         total
     }
 
@@ -863,6 +857,14 @@ impl fmt::Display for Object {
         for block in &self.header_blocks {
             writeln!(f, "========== {:03}: {}", i, block.id())?;
         }
+        write!(
+            f,
+            "{}",
+            self.content().map_or_else(
+                |e| format!("Error on content: {:?}", e),
+                |c| format!("{}", c)
+            )
+        )?;
         Ok(())
     }
 }
@@ -888,26 +890,25 @@ impl ObjectContent {
 
 impl fmt::Display for ObjectContent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let (version, content_type) = match self {
+        let (version, content) = match self {
             Self::V0(v0) => (
                 "v0",
                 match v0 {
-                    ObjectContentV0::Commit(_) => "Commit",
-                    ObjectContentV0::CommitBody(_) => "CommitBody",
-                    ObjectContentV0::CommitHeader(_) => "CommitHeader",
-                    ObjectContentV0::Quorum(_) => "Quorum",
-                    ObjectContentV0::Signature(_) => "Signature",
-                    ObjectContentV0::Certificate(_) => "Certificate",
-                    ObjectContentV0::File(_) => "File",
-                    ObjectContentV0::RandomAccessFileMeta(_) => "RandomAccessFileMeta",
+                    ObjectContentV0::Commit(c) => ("Commit", format!("{}", c)),
+                    ObjectContentV0::CommitBody(c) => ("CommitBody", format!("{}", c)),
+                    ObjectContentV0::CommitHeader(c) => ("CommitHeader", format!("{}", c)),
+                    ObjectContentV0::Quorum(c) => ("Quorum", format!("{}", "")),
+                    ObjectContentV0::Signature(c) => ("Signature", format!("{}", "")),
+                    ObjectContentV0::Certificate(c) => ("Certificate", format!("{}", "")),
+                    ObjectContentV0::File(c) => ("File", format!("{}", "")),
+                    ObjectContentV0::RandomAccessFileMeta(c) => {
+                        ("RandomAccessFileMeta", format!("{}", ""))
+                    }
                 },
             ),
         };
-        writeln!(
-            f,
-            "====== ObjectContent {} {} ======",
-            version, content_type
-        )?;
+        writeln!(f, "====== ObjectContent {} {} ======", version, content.0)?;
+        write!(f, "{}", content.1)?;
         Ok(())
     }
 }

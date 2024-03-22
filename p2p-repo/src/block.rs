@@ -11,7 +11,12 @@
 
 //! Immutable Block
 
+use crate::errors::*;
+use crate::log::*;
 use crate::types::*;
+
+use chacha20::cipher::{KeyIvInit, StreamCipher};
+use chacha20::ChaCha20;
 
 impl BlockV0 {
     pub fn new(
@@ -120,6 +125,10 @@ impl Block {
         Block::V0(BlockV0::new_random_access(children, content, key))
     }
 
+    pub fn new_with_encrypted_content(content: Vec<u8>, key: Option<SymKey>) -> Block {
+        Block::V0(BlockV0::new(vec![], None, content, key))
+    }
+
     pub fn size(&self) -> usize {
         serde_bare::to_vec(&self).unwrap().len()
     }
@@ -206,6 +215,58 @@ impl Block {
     pub fn set_key(&mut self, key: Option<SymKey>) {
         match self {
             Block::V0(b) => b.key = key,
+        }
+    }
+
+    pub fn read(
+        &self,
+        key: &SymKey,
+    ) -> Result<(Vec<(BlockId, BlockKey)>, Vec<u8>), ObjectParseError> {
+        match self {
+            Block::V0(b) => {
+                // decrypt content in place (this is why we have to clone first)
+                let mut content_dec = b.content.encrypted_content().clone();
+                match key {
+                    SymKey::ChaCha20Key(key) => {
+                        let nonce = [0u8; 12];
+                        let mut cipher = ChaCha20::new(key.into(), &nonce.into());
+                        let mut content_dec_slice = &mut content_dec.as_mut_slice();
+                        cipher.apply_keystream(&mut content_dec_slice);
+                    }
+                }
+
+                // deserialize content
+                let content: ChunkContentV0;
+                match serde_bare::from_slice(content_dec.as_slice()) {
+                    Ok(c) => content = c,
+                    Err(e) => {
+                        log_debug!("Block deserialize error: {}", e);
+                        return Err(ObjectParseError::BlockDeserializeError);
+                    }
+                }
+                // parse content
+                match content {
+                    ChunkContentV0::InternalNode(keys) => {
+                        let b_children = b.children();
+                        if keys.len() != b_children.len() {
+                            log_debug!(
+                                "Invalid keys length: got {}, expected {}",
+                                keys.len(),
+                                b_children.len()
+                            );
+                            log_debug!("!!! children: {:?}", b_children);
+                            log_debug!("!!! keys: {:?}", keys);
+                            return Err(ObjectParseError::InvalidKeys);
+                        }
+                        let mut children = Vec::with_capacity(b_children.len());
+                        for (id, key) in b_children.iter().zip(keys.iter()) {
+                            children.push((id.clone(), key.clone()));
+                        }
+                        Ok((children, vec![]))
+                    }
+                    ChunkContentV0::DataChunk(chunk) => Ok((vec![], chunk)),
+                }
+            }
         }
     }
 }
