@@ -49,8 +49,9 @@
 
   <p class="max-w-sm">
     A <b>NextGraph Wallet</b> is unique to each person.<br /> It stores your
-    credentials to access documents. <br />If you already have a wallet, you
-    should not create a new one, instead,
+    credentials to access documents. You need one in order to start using
+    NextGraph.<br />If you already have a wallet, you should not create a new
+    one, instead,
     {#if display_note_on_local_wallets}
       <a href="/" use:link>login here with your existing wallet.</a>
     {:else}

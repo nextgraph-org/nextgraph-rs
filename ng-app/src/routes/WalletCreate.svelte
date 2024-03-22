@@ -156,7 +156,7 @@
         invitation = await ng.decode_invitation(param.get("i"));
         window.location.replace(window.location.href.split("?")[0]);
       } else if (param.get("i")) {
-        invitation = await ng.get_local_bootstrap_with_public(
+        invitation = await ng.get_local_bootstrap(
           location.href,
           param.get("i")
         );
@@ -473,8 +473,9 @@
         <div class=" max-w-6xl lg:px-8 mx-auto px-4">
           <p class="max-w-xl md:mx-auto lg:max-w-2xl">
             A <b>NextGraph Wallet</b> is unique to each person. It stores your
-            credentials and authorizations to access documents. <br /><br />If
-            you already have a wallet, you should not create a new one, instead,
+            credentials and authorizations to access documents. You need one in
+            order to start using NextGraph.<br /><br />If you already have a
+            wallet, you should not create a new one, instead,
             <a href="/wallet/login" use:link
               >login here with your existing wallet.</a
             >
