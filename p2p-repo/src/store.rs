@@ -36,7 +36,7 @@ pub trait RepoStore: Send + Sync {
     fn len(&self) -> Result<usize, StorageError>;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum StorageError {
     NotFound,
     InvalidValue,

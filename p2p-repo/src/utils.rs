@@ -125,6 +125,12 @@ pub fn sign(
 ) -> Result<Sig, NgError> {
     let keypair = pubkey_privkey_to_keypair(author_pubkey, author_privkey);
     let sig_bytes = keypair.sign(content.as_slice()).to_bytes();
+    // log_debug!(
+    //     "XXXX SIGN {:?} {:?} {:?}",
+    //     author_pubkey,
+    //     content.as_slice(),
+    //     sig_bytes
+    // );
     let mut it = sig_bytes.chunks_exact(32);
     let mut ss: Ed25519Sig = [[0; 32], [0; 32]];
     ss[0].copy_from_slice(it.next().unwrap());

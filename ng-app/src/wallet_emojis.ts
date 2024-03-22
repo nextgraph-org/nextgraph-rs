@@ -906,7 +906,7 @@ let face = [
     {
       hexcode: "1f37e",
       shortcode: "bottle_with_popping_cork",
-      code: "champagne",
+      code: "champagne_bottle",
     },
     {
       hexcode: "1f377",

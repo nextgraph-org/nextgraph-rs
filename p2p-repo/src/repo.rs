@@ -10,6 +10,7 @@
 //! Repository serde implementation and in memory helper
 
 use crate::errors::*;
+use crate::log::*;
 use crate::store::*;
 use crate::types::*;
 
@@ -41,12 +42,15 @@ pub struct UserInfo {
 
 impl UserInfo {
     pub fn has_any_perm(&self, perms: &HashSet<PermissionV0>) -> Result<(), NgError> {
+        //log_debug!("perms {:?}", perms);
         if self.has_perm(&PermissionV0::Owner).is_ok() {
             return Ok(());
         }
         let is_admin = self.has_perm(&PermissionV0::Admin).is_ok();
+        //log_debug!("is_admin {}", is_admin);
         //is_delegated_by_admin
         let has_perms: HashSet<&PermissionV0> = self.permissions.keys().collect();
+        //log_debug!("has_perms {:?}", has_perms);
         for perm in perms {
             if is_admin && perm.is_delegated_by_admin() || has_perms.contains(perm) {
                 return Ok(());
@@ -69,7 +73,7 @@ pub struct Repo<'a> {
 
     pub members: HashMap<Digest, UserInfo>,
 
-    store: Box<dyn RepoStore + Send + Sync + 'a>,
+    store: &'a Box<dyn RepoStore + Send + Sync + 'a>,
 }
 
 impl<'a> Repo<'a> {
@@ -77,7 +81,7 @@ impl<'a> Repo<'a> {
         id: &PubKey,
         member: &UserId,
         perms: &[PermissionV0],
-        store: Box<dyn RepoStore + Send + Sync + 'a>,
+        store: &'a Box<dyn RepoStore + Send + Sync + 'a>,
     ) -> Self {
         let mut members = HashMap::new();
         let permissions = HashMap::from_iter(
@@ -112,7 +116,14 @@ impl<'a> Repo<'a> {
         Err(NgError::PermissionDenied)
     }
 
+    pub fn member_pubkey(&self, hash: &Digest) -> Result<UserId, NgError> {
+        match self.members.get(hash) {
+            Some(user_info) => Ok(user_info.id),
+            None => Err(NgError::NotFound),
+        }
+    }
+
     pub fn get_store(&self) -> &Box<dyn RepoStore + Send + Sync + 'a> {
-        &self.store
+        self.store
     }
 }
