@@ -1540,7 +1540,7 @@ pub enum UnsubReq {
 }
 
 /// Content of EventV0
-/// Contains the objects of newly published Commit, its optional blocks, and optional refs and their blocks.
+/// Contains the objects of newly published Commit, its optional blocks, and optional FILES and their blocks.
 /// If a block is not present in the Event, its ID should be present in block_ids and the block should be put on the emitting broker beforehand with BlocksPut.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventContentV0 {
@@ -1555,7 +1555,7 @@ pub struct EventContentV0 {
     pub seq: u64,
 
     /// Blocks with encrypted content. First in the list is always the commit block followed by its children, then its optional header and body blocks (and eventual children),
-    /// blocks of the REFS are optional (only sent here if user specifically want to push them to the pub/sub).
+    /// blocks of the FILES are optional (only sent here if user specifically want to push them to the pub/sub).
     /// the first in the list MUST contain a commit_header_key
     /// When saved locally (the broker keeps the associated event, until the topic is refreshed(the last heads retain their events) ),
     /// so, this `blocks` list is emptied (as the blocked are saved in the overlay storage anyway) and their IDs are kept on the side.
@@ -1563,7 +1563,7 @@ pub struct EventContentV0 {
     /// so that a valid EventContent can be sent (and so that its signature can be verified successfully)
     pub blocks: Vec<Block>,
 
-    /// Ids of additional Blocks (REFS) with encrypted content that are not to be pushed in the pub/sub
+    /// Ids of additional Blocks (FILES) with encrypted content that are not to be pushed in the pub/sub
     /// they will be retrieved later by interested users
     pub block_ids: Vec<BlockId>,
 

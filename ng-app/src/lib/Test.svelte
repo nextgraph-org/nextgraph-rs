@@ -118,7 +118,7 @@
   {:then}
     {#each $commits as commit}
       <p>
-        {#await get_img(commit.V0.content.refs[0]) then url}
+        {#await get_img(commit.V0.header.V0.files[0]) then url}
           {#if url}
             <img src={url} />
           {/if}
