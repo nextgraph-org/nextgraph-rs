@@ -951,6 +951,9 @@ pub struct ListenerV0 {
     /// local port to listen on
     pub port: u16,
 
+    /// force a private or localhost interface to be accepted as a core interface
+    pub private_core: bool,
+
     /// should the server serve the app files in HTTP mode (not WS). this setting will be discarded and app will not be served anyway if remote IP is public or listener is public
     pub serve_app: bool,
 
@@ -998,6 +1001,7 @@ impl ListenerV0 {
             interface_refresh: 0,
             ipv6,
             port,
+            private_core: false,
             discoverable: false,
             accept_direct: true,
             refuse_clients: false,
@@ -1013,7 +1017,10 @@ impl ListenerV0 {
             AcceptForwardForV0::PublicDyn(_) => true,
             AcceptForwardForV0::PublicDomain(_) | AcceptForwardForV0::PublicDomainPeer(_) => false,
             AcceptForwardForV0::PrivateDomain(_) => false,
-            AcceptForwardForV0::No => self.if_type == InterfaceType::Public,
+            AcceptForwardForV0::No => {
+                self.if_type == InterfaceType::Public
+                    || (self.private_core && self.if_type != InterfaceType::Invalid)
+            }
         }
     }
 
