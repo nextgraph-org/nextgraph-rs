@@ -49,6 +49,7 @@ pub enum FileError {
     StorageError,
     EndOfFile,
     InvalidArgument,
+    NotAFile,
 }
 
 impl From<StorageError> for FileError {
@@ -65,6 +66,67 @@ impl From<ObjectParseError> for FileError {
         match e {
             _ => FileError::BlockDeserializeError,
         }
+    }
+}
+
+trait ReadFile {
+    fn read(&self, pos: usize, size: usize) -> Result<Vec<u8>, FileError>;
+}
+
+/// A File in memory (read access only)
+pub struct File<'a> {
+    internal: Box<dyn ReadFile + 'a>,
+}
+
+impl<'a> File<'a> {
+    pub fn open(
+        id: ObjectId,
+        key: SymKey,
+        storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+    ) -> Result<File<'a>, FileError> {
+        let root_block = storage.get(&id)?;
+
+        if root_block.children().len() == 2
+            && *root_block.content().commit_header_obj() == CommitHeaderObject::RandomAccess
+        {
+            Ok(File {
+                internal: Box::new(RandomAccessFile::open(id, key, storage)?),
+            })
+        } else {
+            let obj = Object::load(id, Some(key), storage)?;
+            match obj.content_v0()? {
+                ObjectContentV0::SmallFile(small_file) => Ok(File {
+                    internal: Box::new(small_file),
+                }),
+                _ => Err(FileError::NotAFile),
+            }
+        }
+    }
+}
+
+impl<'a> ReadFile for File<'a> {
+    fn read(&self, pos: usize, size: usize) -> Result<Vec<u8>, FileError> {
+        self.internal.read(pos, size)
+    }
+}
+
+impl ReadFile for SmallFile {
+    fn read(&self, pos: usize, size: usize) -> Result<Vec<u8>, FileError> {
+        match self {
+            Self::V0(v0) => v0.read(pos, size),
+        }
+    }
+}
+
+impl ReadFile for SmallFileV0 {
+    fn read(&self, pos: usize, size: usize) -> Result<Vec<u8>, FileError> {
+        if size == 0 {
+            return Err(FileError::InvalidArgument);
+        }
+        if pos + size > self.content.len() {
+            return Err(FileError::EndOfFile);
+        }
+        Ok(self.content[pos..pos + size].to_vec())
     }
 }
 
@@ -93,6 +155,92 @@ pub struct RandomAccessFile<'a> {
     conv_key: Option<[u8; 32]>,
     remainder: Vec<u8>,
     size: usize,
+}
+
+impl<'a> ReadFile for RandomAccessFile<'a> {
+    /// reads at most one block from the file. the returned vector should be tested for size. it might be smaller than what you asked for.
+    /// `pos`ition can be anywhere in the file.
+    fn read(&self, pos: usize, size: usize) -> Result<Vec<u8>, FileError> {
+        if size == 0 {
+            return Err(FileError::InvalidArgument);
+        }
+        if self.id.is_some() {
+            if pos + size > self.meta.total_size() as usize {
+                return Err(FileError::EndOfFile);
+            }
+            let mut current_block_id_key = self.content_block.as_ref().unwrap().clone();
+
+            let depth = self.meta.depth();
+            let arity = self.meta.arity();
+
+            let mut level_pos = pos;
+            for level in 0..depth {
+                let tree_block = self.storage.get(&current_block_id_key.0)?;
+                let (children, content) = tree_block.read(&current_block_id_key.1)?;
+                if children.len() == 0 || content.len() > 0 {
+                    return Err(FileError::BlockDeserializeError);
+                }
+                let factor = (arity as usize).pow(depth as u32 - level as u32 - 1)
+                    * self.meta.chunk_size() as usize;
+                let level_index = pos / factor;
+                if level_index >= children.len() {
+                    return Err(FileError::EndOfFile);
+                }
+                current_block_id_key = (children[level_index]).clone();
+                level_pos = pos as usize % factor;
+            }
+
+            let content_block = self.storage.get(&current_block_id_key.0)?;
+            //log_debug!("CONTENT BLOCK SIZE {}", content_block.size());
+
+            let (children, content) = content_block.read(&current_block_id_key.1)?;
+
+            if children.len() == 0 && content.len() > 0 {
+                //log_debug!("CONTENT SIZE {}", content.len());
+
+                if level_pos >= content.len() {
+                    return Err(FileError::EndOfFile);
+                }
+                let end = min(content.len(), level_pos + size);
+                return Ok(content[level_pos..end].to_vec());
+            } else {
+                return Err(FileError::BlockDeserializeError);
+            }
+        } else {
+            // hasn't been saved yet, we can use the self.blocks as a flat array and the remainder too
+            let factor = self.meta.chunk_size() as usize;
+            let index = pos / factor as usize;
+            let level_pos = pos % factor as usize;
+            let remainder_pos = self.blocks.len() * factor;
+            if pos >= remainder_pos {
+                let pos_in_remainder = pos - remainder_pos;
+                if self.remainder.len() > 0 && pos_in_remainder < self.remainder.len() {
+                    let end = min(self.remainder.len(), pos_in_remainder + size);
+                    return Ok(self.remainder[pos_in_remainder..end].to_vec());
+                } else {
+                    return Err(FileError::EndOfFile);
+                }
+            }
+            //log_debug!("{} {} {} {}", index, self.blocks.len(), factor, level_pos);
+            if index >= self.blocks.len() {
+                return Err(FileError::EndOfFile);
+            }
+            let block = &self.blocks[index];
+            let content_block = self.storage.get(&block.0)?;
+            let (children, content) = content_block.read(&block.1)?;
+            if children.len() == 0 && content.len() > 0 {
+                //log_debug!("CONTENT SIZE {}", content.len());
+
+                if level_pos >= content.len() {
+                    return Err(FileError::EndOfFile);
+                }
+                let end = min(content.len(), level_pos + size);
+                return Ok(content[level_pos..end].to_vec());
+            } else {
+                return Err(FileError::BlockDeserializeError);
+            }
+        }
+    }
 }
 
 impl<'a> RandomAccessFile<'a> {
@@ -499,90 +647,6 @@ impl<'a> RandomAccessFile<'a> {
             remainder: vec![],
             size: 0,
         })
-    }
-
-    /// reads at most one block from the file. the returned vector should be tested for size. it might be smaller than what you asked for.
-    /// `pos`ition can be anywhere in the file.
-    pub fn read(&self, pos: usize, size: usize) -> Result<Vec<u8>, FileError> {
-        if size == 0 {
-            return Err(FileError::InvalidArgument);
-        }
-        if self.id.is_some() {
-            if pos + size > self.meta.total_size() as usize {
-                return Err(FileError::EndOfFile);
-            }
-            let mut current_block_id_key = self.content_block.as_ref().unwrap().clone();
-
-            let depth = self.meta.depth();
-            let arity = self.meta.arity();
-
-            let mut level_pos = pos;
-            for level in 0..depth {
-                let tree_block = self.storage.get(&current_block_id_key.0)?;
-                let (children, content) = tree_block.read(&current_block_id_key.1)?;
-                if children.len() == 0 || content.len() > 0 {
-                    return Err(FileError::BlockDeserializeError);
-                }
-                let factor = (arity as usize).pow(depth as u32 - level as u32 - 1)
-                    * self.meta.chunk_size() as usize;
-                let level_index = pos / factor;
-                if level_index >= children.len() {
-                    return Err(FileError::EndOfFile);
-                }
-                current_block_id_key = (children[level_index]).clone();
-                level_pos = pos as usize % factor;
-            }
-
-            let content_block = self.storage.get(&current_block_id_key.0)?;
-            //log_debug!("CONTENT BLOCK SIZE {}", content_block.size());
-
-            let (children, content) = content_block.read(&current_block_id_key.1)?;
-
-            if children.len() == 0 && content.len() > 0 {
-                //log_debug!("CONTENT SIZE {}", content.len());
-
-                if level_pos >= content.len() {
-                    return Err(FileError::EndOfFile);
-                }
-                let end = min(content.len(), level_pos + size);
-                return Ok(content[level_pos..end].to_vec());
-            } else {
-                return Err(FileError::BlockDeserializeError);
-            }
-        } else {
-            // hasn't been saved yet, we can use the self.blocks as a flat array and the remainder too
-            let factor = self.meta.chunk_size() as usize;
-            let index = pos / factor as usize;
-            let level_pos = pos % factor as usize;
-            let remainder_pos = self.blocks.len() * factor;
-            if pos >= remainder_pos {
-                let pos_in_remainder = pos - remainder_pos;
-                if self.remainder.len() > 0 && pos_in_remainder < self.remainder.len() {
-                    let end = min(self.remainder.len(), pos_in_remainder + size);
-                    return Ok(self.remainder[pos_in_remainder..end].to_vec());
-                } else {
-                    return Err(FileError::EndOfFile);
-                }
-            }
-            //log_debug!("{} {} {} {}", index, self.blocks.len(), factor, level_pos);
-            if index >= self.blocks.len() {
-                return Err(FileError::EndOfFile);
-            }
-            let block = &self.blocks[index];
-            let content_block = self.storage.get(&block.0)?;
-            let (children, content) = content_block.read(&block.1)?;
-            if children.len() == 0 && content.len() > 0 {
-                //log_debug!("CONTENT SIZE {}", content.len());
-
-                if level_pos >= content.len() {
-                    return Err(FileError::EndOfFile);
-                }
-                let end = min(content.len(), level_pos + size);
-                return Ok(content[level_pos..end].to_vec());
-            } else {
-                return Err(FileError::BlockDeserializeError);
-            }
-        }
     }
 
     pub fn blocks(&self) -> impl Iterator<Item = Block> + '_ {
@@ -1373,6 +1437,85 @@ mod test {
         assert_eq!(file2.read(29454, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file2.read(29454, 0), Err(FileError::InvalidArgument));
+    }
+
+    /// Test read JPEG file small
+    #[test]
+    pub fn test_read_small_file() {
+        let f = std::fs::File::open("tests/test.jpg").expect("open of tests/test.jpg");
+        let mut reader = BufReader::new(f);
+        let mut img_buffer: Vec<u8> = Vec::new();
+        reader
+            .read_to_end(&mut img_buffer)
+            .expect("read of test.jpg");
+        let len = img_buffer.len();
+        let content = ObjectContent::new_file_v0_with_content(img_buffer.clone(), "image/jpeg");
+
+        let max_object_size = store_max_value_size();
+        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let mut obj = Object::new(content, None, max_object_size, &store_repo, &store_secret);
+
+        log_debug!("{}", obj);
+
+        let hashmap_storage = HashMapRepoStore::new();
+        let t = Test::storage(hashmap_storage);
+
+        let _ = obj.save_in_test(t.s()).expect("save");
+
+        let file = File::open(obj.id(), obj.key().unwrap(), t.s()).expect("open");
+
+        let res = file.read(0, len).expect("read all");
+
+        assert_eq!(res, img_buffer);
+    }
+
+    /// Test read JPEG file random access
+    #[test]
+    pub fn test_read_random_access_file() {
+        let f = std::fs::File::open("tests/test.jpg").expect("open of tests/test.jpg");
+        let mut reader = BufReader::new(f);
+        let mut img_buffer: Vec<u8> = Vec::new();
+        reader
+            .read_to_end(&mut img_buffer)
+            .expect("read of test.jpg");
+        let len = img_buffer.len();
+
+        let max_object_size = store_max_value_size();
+        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+
+        let hashmap_storage = HashMapRepoStore::new();
+        let t = Test::storage(hashmap_storage);
+
+        log_debug!("creating empty file");
+        let mut file: RandomAccessFile = RandomAccessFile::new_empty(
+            max_object_size,
+            "image/jpeg".to_string(),
+            vec![],
+            &store_repo,
+            &store_secret,
+            t.s(),
+        );
+
+        file.write(&img_buffer).expect("write all");
+
+        log_debug!("{}", file);
+
+        file.save().expect("save");
+
+        log_debug!("{}", file);
+
+        let file = File::open(
+            file.id().unwrap(),
+            file.key().as_ref().unwrap().clone(),
+            t.s(),
+        )
+        .expect("open");
+
+        // this only works because we chose a big block size (1MB) so the small JPG file files in one block.
+        // if not, we would have to call read repeatedly and append the results into a buffer, in order to get the full file
+        let res = file.read(0, len).expect("read all");
+
+        assert_eq!(res, img_buffer);
     }
 
     /// Test depth 4, but using write in increments, so the memory burden on the system will be minimal

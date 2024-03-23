@@ -627,7 +627,7 @@ pub struct CommitHeaderV0 {
     #[serde(skip)]
     pub id: Option<ObjectId>,
 
-    /// Other objects this commit strongly depends on (ex: ADD for a REMOVE, refs for an nrefs)
+    /// Other objects this commit strongly depends on (ex: ADD for a REMOVE, files for an nfiles)
     pub deps: Vec<ObjectId>,
 
     /// dependency that is removed after this commit. used for reverts
@@ -645,11 +645,11 @@ pub struct CommitHeaderV0 {
     pub nacks: Vec<ObjectId>,
 
     /// list of Files that are referenced in this commit
-    pub refs: Vec<ObjectId>,
+    pub files: Vec<ObjectId>,
 
     /// list of Files that are not referenced anymore after this commit
-    /// the commit(s) that created the refs should be in deps
-    pub nrefs: Vec<ObjectId>,
+    /// the commit(s) that created the files should be in deps
+    pub nfiles: Vec<ObjectId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -659,7 +659,7 @@ pub enum CommitHeader {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommitHeaderKeysV0 {
-    /// Other objects this commit strongly depends on (ex: ADD for a REMOVE, refs for an nrefs)
+    /// Other objects this commit strongly depends on (ex: ADD for a REMOVE, files for an nfiles)
     pub deps: Vec<ObjectKey>,
 
     // ndeps keys are not included because we don't need the keys to access the commits we will not need anymore
@@ -672,8 +672,8 @@ pub struct CommitHeaderKeysV0 {
 
     /// list of Files that are referenced in this commit. Exceptionally this is an ObjectRef, because
     /// even if the CommitHeader is omitted, we want the Files to be openable.
-    pub refs: Vec<ObjectRef>,
-    // nrefs keys are not included because we don't need the keys to access the files we will not need anymore
+    pub files: Vec<ObjectRef>,
+    // nfiles keys are not included because we don't need the keys to access the files we will not need anymore
     // the keys are in the deps of the respective commits that added them anyway
 }
 
@@ -1268,7 +1268,7 @@ pub enum Transaction {
 }
 
 /// Add a new binary file in a branch
-/// REFS: the file ObjectRef
+/// FILES: the file ObjectRef
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AddFileV0 {
     /// an optional name. does not conflict (not unique across the branch nor repo)
@@ -1286,7 +1286,7 @@ pub enum AddFile {
 
 /// Remove a file from the branch, using ORset CRDT logic
 /// (removes the ref counting. not necessarily the file itself)
-/// NREFS: the file ObjectRef
+/// NFILES: the file ObjectRef
 /// DEPS: all the visible AddFile commits in the branch (ORset)
 pub type RemoveFileV0 = ();
 
@@ -1602,7 +1602,7 @@ pub struct CommitContentV0 {
     /// optional list of dependencies on some commits in the root branch that contain the write permission needed for this commit
     pub perms: Vec<ObjectId>,
 
-    /// Keys to be able to open all the references (deps, acks, refs, etc...)
+    /// Keys to be able to open all the references (deps, acks, files, etc...)
     pub header_keys: Option<CommitHeaderKeys>,
 
     /// This commit can only be accepted if signed by this quorum
@@ -1671,7 +1671,7 @@ pub enum Commit {
 
 /// File Object
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct FileV0 {
+pub struct SmallFileV0 {
     pub content_type: String,
 
     #[serde(with = "serde_bytes")]
@@ -1683,8 +1683,8 @@ pub struct FileV0 {
 
 /// A file stored in an Object
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum File {
-    V0(FileV0),
+pub enum SmallFile {
+    V0(SmallFileV0),
 }
 
 /// Random Access File Object
@@ -1773,7 +1773,7 @@ pub enum ObjectContentV0 {
     Quorum(Quorum),
     Signature(Signature),
     Certificate(Certificate),
-    File(File),
+    SmallFile(SmallFile),
     RandomAccessFileMeta(RandomAccessFileMeta),
 }
 

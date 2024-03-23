@@ -880,7 +880,7 @@ impl ObjectContent {
     }
 
     pub fn new_file_v0_with_content(content: Vec<u8>, content_type: &str) -> Self {
-        ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
             content_type: content_type.into(),
             metadata: vec![],
             content,
@@ -900,7 +900,7 @@ impl fmt::Display for ObjectContent {
                     ObjectContentV0::Quorum(c) => ("Quorum", format!("{}", "")),
                     ObjectContentV0::Signature(c) => ("Signature", format!("{}", "")),
                     ObjectContentV0::Certificate(c) => ("Certificate", format!("{}", "")),
-                    ObjectContentV0::File(c) => ("File", format!("{}", "")),
+                    ObjectContentV0::SmallFile(c) => ("SmallFile", format!("{}", "")),
                     ObjectContentV0::RandomAccessFileMeta(c) => {
                         ("RandomAccessFileMeta", format!("{}", ""))
                     }
@@ -941,12 +941,12 @@ mod test {
     #[test]
     #[should_panic]
     pub fn test_no_header() {
-        let file = File::V0(FileV0 {
+        let file = SmallFile::V0(SmallFileV0 {
             content_type: "image/jpeg".into(),
             metadata: vec![],
             content: vec![],
         });
-        let content = ObjectContent::V0(ObjectContentV0::File(file));
+        let content = ObjectContent::V0(ObjectContentV0::SmallFile(file));
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
         let header = CommitHeader::new_with_acks([ObjectId::dummy()].to_vec());
         let _obj = Object::new(
@@ -990,12 +990,12 @@ mod test {
     /// Test tree API
     #[test]
     pub fn test_object() {
-        let file = File::V0(FileV0 {
+        let file = SmallFile::V0(SmallFileV0 {
             content_type: "file/test".into(),
             metadata: Vec::from("some meta data here"),
             content: [(0..255).collect::<Vec<u8>>().as_slice(); 320].concat(),
         });
-        let content = ObjectContent::V0(ObjectContentV0::File(file));
+        let content = ObjectContent::V0(ObjectContentV0::SmallFile(file));
 
         let acks = vec![];
         //let header = CommitHeader::new_with_acks(acks.clone());
@@ -1058,15 +1058,16 @@ mod test {
     pub fn test_depth_0() {
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
 
-        let empty_file = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
-            content_type: "".into(),
-            metadata: vec![],
-            content: vec![],
-        })));
+        let empty_file =
+            ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
+                content_type: "".into(),
+                metadata: vec![],
+                content: vec![],
+            })));
         let content_ser = serde_bare::to_vec(&empty_file).unwrap();
         log_debug!("content len for empty :     {}", content_ser.len());
 
-        // let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        // let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
         //     content_type: "".into(),
         //     metadata: vec![],
         //     content: vec![99; 1000],
@@ -1074,7 +1075,7 @@ mod test {
         // let content_ser = serde_bare::to_vec(&content).unwrap();
         // log_debug!("content len for 1000    :     {}", content_ser.len());
 
-        // let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        // let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
         //     content_type: "".into(),
         //     metadata: vec![],
         //     content: vec![99; 1048554],
@@ -1082,7 +1083,7 @@ mod test {
         // let content_ser = serde_bare::to_vec(&content).unwrap();
         // log_debug!("content len for 1048554 :     {}", content_ser.len());
 
-        // let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        // let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
         //     content_type: "".into(),
         //     metadata: vec![],
         //     content: vec![99; 1550000],
@@ -1090,7 +1091,7 @@ mod test {
         // let content_ser = serde_bare::to_vec(&content).unwrap();
         // log_debug!("content len for 1550000 :     {}", content_ser.len());
 
-        // let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        // let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
         //     content_type: "".into(),
         //     metadata: vec![],
         //     content: vec![99; 1550000000],
@@ -1098,7 +1099,7 @@ mod test {
         // let content_ser = serde_bare::to_vec(&content).unwrap();
         // log_debug!("content len for 1550000000 :     {}", content_ser.len());
 
-        // let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        // let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
         //     content_type: "".into(),
         //     metadata: vec![99; 1000],
         //     content: vec![99; 1000],
@@ -1106,7 +1107,7 @@ mod test {
         // let content_ser = serde_bare::to_vec(&content).unwrap();
         // log_debug!("content len for 1000+1000:     {}", content_ser.len());
 
-        // let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        // let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
         //     content_type: "".into(),
         //     metadata: vec![99; 1000],
         //     content: vec![99; 524277],
@@ -1114,7 +1115,7 @@ mod test {
         // let content_ser = serde_bare::to_vec(&content).unwrap();
         // log_debug!("content len for 1000+524277:     {}", content_ser.len());
 
-        // let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        // let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
         //     content_type: "".into(),
         //     metadata: vec![99; 524277],
         //     content: vec![99; 524277],
@@ -1137,7 +1138,7 @@ mod test {
             store_max_value_size() - empty_file_size - BLOCK_MAX_DATA_EXTRA - BIG_VARINT_EXTRA;
         log_debug!("full file content size: {}", size);
 
-        let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
             content_type: "".into(),
             metadata: vec![],
             content: vec![99; size],
@@ -1173,7 +1174,7 @@ mod test {
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
         log_debug!("creating 16GB of data");
-        let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
             content_type: "".into(),
             metadata: vec![],
             content: vec![99; data_size],
@@ -1216,7 +1217,7 @@ mod test {
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
         log_debug!("creating 16GB of data");
-        let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
             content_type: "".into(),
             metadata: vec![],
             content: vec![99; data_size],
@@ -1260,7 +1261,7 @@ mod test {
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
         log_debug!("creating 900MB of data");
-        let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
             content_type: "".into(),
             metadata: vec![],
             content: vec![99; data_size],
@@ -1318,7 +1319,7 @@ mod test {
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
         log_debug!("creating 52GB of data");
-        let content = ObjectContent::V0(ObjectContentV0::File(File::V0(FileV0 {
+        let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
             content_type: "".into(),
             metadata: vec![],
             content: vec![99; data_size],

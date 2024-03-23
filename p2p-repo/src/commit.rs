@@ -42,6 +42,7 @@ pub enum CommitLoadError {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum CommitVerifyError {
     InvalidSignature,
+    InvalidHeader,
     PermissionDenied,
     DepLoadError(CommitLoadError),
 }
@@ -58,12 +59,48 @@ impl CommitV0 {
         ndeps: Vec<ObjectRef>,
         acks: Vec<ObjectRef>,
         nacks: Vec<ObjectRef>,
-        refs: Vec<ObjectRef>,
-        nrefs: Vec<ObjectRef>,
+        files: Vec<ObjectRef>,
+        nfiles: Vec<ObjectRef>,
         metadata: Vec<u8>,
         body: ObjectRef,
     ) -> Result<CommitV0, NgError> {
-        let headers = CommitHeader::new_with(deps, ndeps, acks, nacks, refs, nrefs);
+        let headers = CommitHeader::new_with(deps, ndeps, acks, nacks, files, nfiles);
+        let content = CommitContent::V0(CommitContentV0 {
+            perms: vec![],
+            author: (&author_pubkey).into(),
+            seq,
+            branch,
+            header_keys: headers.1,
+            quorum,
+            metadata,
+            body,
+        });
+        let content_ser = serde_bare::to_vec(&content).unwrap();
+
+        // sign commit
+        let sig = sign(&author_privkey, &author_pubkey, &content_ser)?;
+        Ok(CommitV0 {
+            content: content,
+            sig,
+            id: None,
+            key: None,
+            header: headers.0,
+            body: OnceCell::new(),
+        })
+    }
+
+    #[cfg(test)]
+    /// New commit with invalid header, only for test purposes
+    pub fn new_with_invalid_header(
+        author_privkey: PrivKey,
+        author_pubkey: PubKey,
+        seq: u64,
+        branch: BranchId,
+        quorum: QuorumType,
+        metadata: Vec<u8>,
+        body: ObjectRef,
+    ) -> Result<CommitV0, NgError> {
+        let headers = CommitHeader::new_invalid();
         let content = CommitContent::V0(CommitContentV0 {
             perms: vec![],
             author: (&author_pubkey).into(),
@@ -101,8 +138,8 @@ impl Commit {
         ndeps: Vec<ObjectRef>,
         acks: Vec<ObjectRef>,
         nacks: Vec<ObjectRef>,
-        refs: Vec<ObjectRef>,
-        nrefs: Vec<ObjectRef>,
+        files: Vec<ObjectRef>,
+        nfiles: Vec<ObjectRef>,
         metadata: Vec<u8>,
         body: ObjectRef,
     ) -> Result<Commit, NgError> {
@@ -116,8 +153,8 @@ impl Commit {
             ndeps,
             acks,
             nacks,
-            refs,
-            nrefs,
+            files,
+            nfiles,
             metadata,
             body,
         )
@@ -135,8 +172,8 @@ impl Commit {
         ndeps: Vec<ObjectRef>,
         acks: Vec<ObjectRef>,
         nacks: Vec<ObjectRef>,
-        refs: Vec<ObjectRef>,
-        nrefs: Vec<ObjectRef>,
+        files: Vec<ObjectRef>,
+        nfiles: Vec<ObjectRef>,
         metadata: Vec<u8>,
         body: CommitBody,
         block_size: usize,
@@ -158,8 +195,8 @@ impl Commit {
             ndeps,
             acks,
             nacks,
-            refs,
-            nrefs,
+            files,
+            nfiles,
             metadata,
             body_ref,
         )
@@ -463,7 +500,7 @@ impl Commit {
     }
 
     /// Get all commits that are in the direct causal past of the commit (`deps`, `acks`, `nacks`)
-    /// only returns objectRefs that have both an ID from header and a KEY from header_keys (it couldn't be otherwise)
+    /// only returns objectRefs that have both an ID from header and a KEY from header_keys (they all have a key)
     pub fn direct_causal_past(&self) -> Vec<ObjectRef> {
         let mut res: Vec<ObjectRef> = vec![];
         match self {
@@ -476,8 +513,10 @@ impl Commit {
                         res.push(nack.into());
                     }
                     for dep in header_v0.deps.iter().zip(hk_v0.deps.iter()) {
-                        res.push(dep.into());
-                        //TODO deal with deps that are also in acks. should nt be added twice
+                        let obj_ref: ObjectRef = dep.into();
+                        if !res.contains(&obj_ref) {
+                            res.push(obj_ref);
+                        }
                     }
                 }
                 _ => {}
@@ -636,6 +675,9 @@ impl Commit {
 
     /// Verify signature, permissions, and full causal past
     pub fn verify(&self, repo: &Repo) -> Result<(), NgError> {
+        if !self.header().as_ref().map_or(true, |h| h.verify()) {
+            return Err(NgError::CommitVerifyError(CommitVerifyError::InvalidHeader));
+        }
         self.verify_sig(repo)?;
         self.verify_perm(repo)?;
         self.verify_full_object_refs_of_branch_at_commit(repo.get_store())?;
@@ -883,29 +925,29 @@ impl fmt::Display for CommitHeader {
                     v0.compact,
                     v0.id.map_or("None".to_string(), |i| format!("{}", i))
                 )?;
-                writeln!(f, "====  acks : {}", v0.acks.len())?;
+                writeln!(f, "====  acks  : {}", v0.acks.len())?;
                 for ack in &v0.acks {
                     writeln!(f, "============== {}", ack)?;
                 }
-                writeln!(f, "==== nacks : {}", v0.nacks.len())?;
+                writeln!(f, "==== nacks  : {}", v0.nacks.len())?;
                 for nack in &v0.nacks {
                     writeln!(f, "============== {}", nack)?;
                 }
-                writeln!(f, "====  deps : {}", v0.deps.len())?;
+                writeln!(f, "====  deps  : {}", v0.deps.len())?;
                 for dep in &v0.deps {
                     writeln!(f, "============== {}", dep)?;
                 }
-                writeln!(f, "==== ndeps : {}", v0.ndeps.len())?;
+                writeln!(f, "==== ndeps  : {}", v0.ndeps.len())?;
                 for ndep in &v0.ndeps {
                     writeln!(f, "============== {}", ndep)?;
                 }
-                writeln!(f, "====  refs : {}", v0.refs.len())?;
-                for rref in &v0.refs {
-                    writeln!(f, "============== {}", rref)?;
+                writeln!(f, "====  files : {}", v0.files.len())?;
+                for file in &v0.files {
+                    writeln!(f, "============== {}", file)?;
                 }
-                writeln!(f, "==== nrefs : {}", v0.nrefs.len())?;
-                for nref in &v0.nrefs {
-                    writeln!(f, "============== {}", nref)?;
+                writeln!(f, "==== nfiles : {}", v0.nfiles.len())?;
+                for nfile in &v0.nfiles {
+                    writeln!(f, "============== {}", nfile)?;
                 }
                 Ok(())
             }
@@ -956,29 +998,47 @@ impl CommitHeader {
         }
     }
 
+    pub fn verify(&self) -> bool {
+        match self {
+            CommitHeader::V0(v0) => v0.verify(),
+        }
+    }
+
     pub fn new_with(
         deps: Vec<ObjectRef>,
         ndeps: Vec<ObjectRef>,
         acks: Vec<ObjectRef>,
         nacks: Vec<ObjectRef>,
-        refs: Vec<ObjectRef>,
-        nrefs: Vec<ObjectRef>,
+        files: Vec<ObjectRef>,
+        nfiles: Vec<ObjectRef>,
     ) -> (Option<Self>, Option<CommitHeaderKeys>) {
-        let res = CommitHeaderV0::new_with(deps, ndeps, acks, nacks, refs, nrefs);
+        let res = CommitHeaderV0::new_with(deps, ndeps, acks, nacks, files, nfiles);
         (
             res.0.map(|h| CommitHeader::V0(h)),
             res.1.map(|h| CommitHeaderKeys::V0(h)),
         )
     }
 
+    #[cfg(test)]
+    pub fn new_invalid() -> (Option<Self>, Option<CommitHeaderKeys>) {
+        let res = CommitHeaderV0::new_invalid();
+        (
+            res.0.map(|h| CommitHeader::V0(h)),
+            res.1.map(|h| CommitHeaderKeys::V0(h)),
+        )
+    }
+
+    #[cfg(test)]
     pub fn new_with_deps(deps: Vec<ObjectId>) -> Option<Self> {
         CommitHeaderV0::new_with_deps(deps).map(|ch| CommitHeader::V0(ch))
     }
 
+    #[cfg(test)]
     pub fn new_with_deps_and_acks(deps: Vec<ObjectId>, acks: Vec<ObjectId>) -> Option<Self> {
         CommitHeaderV0::new_with_deps_and_acks(deps, acks).map(|ch| CommitHeader::V0(ch))
     }
 
+    #[cfg(test)]
     pub fn new_with_acks(acks: Vec<ObjectId>) -> Option<Self> {
         CommitHeaderV0::new_with_acks(acks).map(|ch| CommitHeader::V0(ch))
     }
@@ -993,9 +1053,60 @@ impl CommitHeaderV0 {
             ndeps: vec![],
             acks: vec![],
             nacks: vec![],
-            refs: vec![],
-            nrefs: vec![],
+            files: vec![],
+            nfiles: vec![],
         }
+    }
+
+    #[cfg(test)]
+    fn new_invalid() -> (Option<Self>, Option<CommitHeaderKeysV0>) {
+        let ideps: Vec<ObjectId> = vec![ObjectId::dummy()];
+        let kdeps: Vec<ObjectKey> = vec![ObjectKey::dummy()];
+
+        let res = Self {
+            id: None,
+            compact: false,
+            deps: ideps.clone(),
+            ndeps: ideps,
+            acks: vec![],
+            nacks: vec![],
+            files: vec![],
+            nfiles: vec![],
+        };
+        (
+            Some(res),
+            Some(CommitHeaderKeysV0 {
+                deps: kdeps,
+                acks: vec![],
+                nacks: vec![],
+                files: vec![],
+            }),
+        )
+    }
+
+    pub fn verify(&self) -> bool {
+        if !self.deps.is_empty() && !self.ndeps.is_empty() {
+            for ndep in self.ndeps.iter() {
+                if self.deps.contains(ndep) {
+                    return false;
+                }
+            }
+        }
+        if !self.acks.is_empty() && !self.nacks.is_empty() {
+            for nack in self.nacks.iter() {
+                if self.acks.contains(nack) {
+                    return false;
+                }
+            }
+        }
+        if !self.files.is_empty() && !self.nfiles.is_empty() {
+            for nref in self.nfiles.iter() {
+                if self.files.contains(nref) {
+                    return false;
+                }
+            }
+        }
+        true
     }
 
     pub fn set_compact(&mut self) {
@@ -1007,15 +1118,15 @@ impl CommitHeaderV0 {
         ndeps: Vec<ObjectRef>,
         acks: Vec<ObjectRef>,
         nacks: Vec<ObjectRef>,
-        refs: Vec<ObjectRef>,
-        nrefs: Vec<ObjectRef>,
+        files: Vec<ObjectRef>,
+        nfiles: Vec<ObjectRef>,
     ) -> (Option<Self>, Option<CommitHeaderKeysV0>) {
         if deps.is_empty()
             && ndeps.is_empty()
             && acks.is_empty()
             && nacks.is_empty()
-            && refs.is_empty()
-            && nrefs.is_empty()
+            && files.is_empty()
+            && nfiles.is_empty()
         {
             (None, None)
         } else {
@@ -1023,8 +1134,8 @@ impl CommitHeaderV0 {
             let mut indeps: Vec<ObjectId> = vec![];
             let mut iacks: Vec<ObjectId> = vec![];
             let mut inacks: Vec<ObjectId> = vec![];
-            let mut irefs: Vec<ObjectId> = vec![];
-            let mut inrefs: Vec<ObjectId> = vec![];
+            let mut ifiles: Vec<ObjectId> = vec![];
+            let mut infiles: Vec<ObjectId> = vec![];
 
             let mut kdeps: Vec<ObjectKey> = vec![];
             let mut kacks: Vec<ObjectKey> = vec![];
@@ -1044,32 +1155,38 @@ impl CommitHeaderV0 {
                 inacks.push(d.id);
                 knacks.push(d.key);
             }
-            for d in refs.clone() {
-                irefs.push(d.id);
+            for d in files.clone() {
+                ifiles.push(d.id);
             }
-            for d in nrefs {
-                inrefs.push(d.id);
+            for d in nfiles {
+                infiles.push(d.id);
+            }
+            let res = Self {
+                id: None,
+                compact: false,
+                deps: ideps,
+                ndeps: indeps,
+                acks: iacks,
+                nacks: inacks,
+                files: ifiles,
+                nfiles: infiles,
+            };
+            if !res.verify() {
+                panic!("cannot create a header with conflicting references");
             }
             (
-                Some(Self {
-                    id: None,
-                    compact: false,
-                    deps: ideps,
-                    ndeps: indeps,
-                    acks: iacks,
-                    nacks: inacks,
-                    refs: irefs,
-                    nrefs: inrefs,
-                }),
+                Some(res),
                 Some(CommitHeaderKeysV0 {
                     deps: kdeps,
                     acks: kacks,
                     nacks: knacks,
-                    refs,
+                    files,
                 }),
             )
         }
     }
+
+    #[cfg(test)]
     pub fn new_with_deps(deps: Vec<ObjectId>) -> Option<Self> {
         assert!(!deps.is_empty());
         let mut n = Self::new_empty();
@@ -1077,6 +1194,7 @@ impl CommitHeaderV0 {
         Some(n)
     }
 
+    #[cfg(test)]
     pub fn new_with_deps_and_acks(deps: Vec<ObjectId>, acks: Vec<ObjectId>) -> Option<Self> {
         assert!(!deps.is_empty() || !acks.is_empty());
         let mut n = Self::new_empty();
@@ -1085,6 +1203,7 @@ impl CommitHeaderV0 {
         Some(n)
     }
 
+    #[cfg(test)]
     pub fn new_with_acks(acks: Vec<ObjectId>) -> Option<Self> {
         assert!(!acks.is_empty());
         let mut n = Self::new_empty();
@@ -1208,21 +1327,21 @@ impl fmt::Display for CommitHeaderKeys {
         match self {
             Self::V0(v0) => {
                 writeln!(f, "=== CommitHeaderKeys V0 ===")?;
-                writeln!(f, "====  acks : {}", v0.acks.len())?;
+                writeln!(f, "====   acks : {}", v0.acks.len())?;
                 for ack in &v0.acks {
                     writeln!(f, "============== {}", ack)?;
                 }
-                writeln!(f, "==== nacks : {}", v0.nacks.len())?;
+                writeln!(f, "====  nacks : {}", v0.nacks.len())?;
                 for nack in &v0.nacks {
                     writeln!(f, "============== {}", nack)?;
                 }
-                writeln!(f, "====  deps : {}", v0.deps.len())?;
+                writeln!(f, "====   deps : {}", v0.deps.len())?;
                 for dep in &v0.deps {
                     writeln!(f, "============== {}", dep)?;
                 }
-                writeln!(f, "====  refs : {}", v0.refs.len())?;
-                for rref in &v0.refs {
-                    writeln!(f, "============== {}", rref)?;
+                writeln!(f, "====   files : {}", v0.files.len())?;
+                for file in &v0.files {
+                    writeln!(f, "============== {}", file)?;
                 }
             }
         }
@@ -1262,7 +1381,7 @@ mod test {
         let branch = pub_key;
         let deps = obj_refs.clone();
         let acks = obj_refs.clone();
-        let refs = obj_refs.clone();
+        let files = obj_refs.clone();
         let body_ref = obj_ref.clone();
 
         let metadata = vec![66; metadata_size];
@@ -1277,7 +1396,7 @@ mod test {
             vec![],
             acks.clone(),
             vec![],
-            refs,
+            files,
             vec![],
             metadata,
             body_ref,
@@ -1338,12 +1457,12 @@ mod test {
 
     #[test]
     pub fn test_load_commit_fails_on_non_commit_object() {
-        let file = File::V0(FileV0 {
+        let file = SmallFile::V0(SmallFileV0 {
             content_type: "file/test".into(),
             metadata: Vec::from("some meta data here"),
             content: [(0..255).collect::<Vec<u8>>().as_slice(); 320].concat(),
         });
-        let content = ObjectContent::V0(ObjectContentV0::File(file));
+        let content = ObjectContent::V0(ObjectContentV0::SmallFile(file));
 
         let max_object_size = 0;
 
@@ -1377,7 +1496,7 @@ mod test {
         let obj_refs = vec![obj_ref.clone()];
         let deps = obj_refs.clone();
         let acks = obj_refs.clone();
-        let refs = obj_refs.clone();
+        let files = obj_refs.clone();
 
         let metadata = Vec::from("some metadata");
 
@@ -1404,7 +1523,7 @@ mod test {
             vec![],
             acks.clone(),
             vec![],
-            refs,
+            files,
             vec![],
             metadata,
             body,
@@ -1434,7 +1553,7 @@ mod test {
         let branch = pub_key;
         let deps = obj_refs.clone();
         let acks = obj_refs.clone();
-        let refs = obj_refs.clone();
+        let files = obj_refs.clone();
         let metadata = vec![1, 2, 3];
         let body_ref = obj_ref.clone();
 
@@ -1448,7 +1567,7 @@ mod test {
             vec![],
             acks,
             vec![],
-            refs,
+            files,
             vec![],
             metadata,
             body_ref,
@@ -1502,10 +1621,6 @@ mod test {
         let obj_ref = ObjectRef::dummy();
 
         let branch = pub_key;
-        let obj_refs = vec![obj_ref.clone()];
-        let deps = obj_refs.clone();
-        let acks = obj_refs.clone();
-        let refs = obj_refs.clone();
 
         let metadata = Vec::from("some metadata");
 
@@ -1520,7 +1635,7 @@ mod test {
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
         let hashmap_storage = HashMapRepoStore::new();
-        let storage = Box::new(hashmap_storage);
+        let t = Test::storage(hashmap_storage);
 
         let commit = Commit::new_with_body_and_save(
             priv_key,
@@ -1539,14 +1654,11 @@ mod test {
             max_object_size,
             &store_repo,
             &store_secret,
-            &storage,
+            t.s(),
         )
         .expect("commit::new_with_body_and_save");
 
         log_debug!("{}", commit);
-
-        let hashmap_storage = HashMapRepoStore::new();
-        let t = Test::storage(hashmap_storage);
 
         let repo = Repo::new_with_member(&pub_key, &pub_key, &[PermissionV0::Create], t.s());
 
@@ -1563,5 +1675,43 @@ mod test {
             .expect("verify is at root of branch and singleton");
 
         commit.verify(&repo).expect("verify");
+    }
+
+    #[test]
+    pub fn test_load_commit_with_invalid_header() {
+        let (priv_key, pub_key) = generate_keypair();
+        let seq = 3;
+        let obj_ref = ObjectRef::dummy();
+
+        let branch = pub_key;
+        let metadata = Vec::from("some metadata");
+
+        //let max_object_size = 0;
+        //let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+
+        let commit = Commit::V0(
+            CommitV0::new_with_invalid_header(
+                priv_key,
+                pub_key,
+                seq,
+                branch,
+                QuorumType::NoSigning,
+                metadata,
+                obj_ref,
+            )
+            .expect("commit::new_with_invalid_header"),
+        );
+
+        log_debug!("{}", commit);
+
+        let hashmap_storage = HashMapRepoStore::new();
+        let t = Test::storage(hashmap_storage);
+
+        let repo = Repo::new_with_member(&pub_key, &pub_key, &[PermissionV0::Create], t.s());
+
+        assert_eq!(
+            commit.verify(&repo),
+            Err(NgError::CommitVerifyError(CommitVerifyError::InvalidHeader))
+        );
     }
 }
