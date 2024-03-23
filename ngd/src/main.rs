@@ -688,6 +688,7 @@ async fn main_inner() -> Result<(), ()> {
                 ipv6: public_part.0.is_some(),
                 interface_refresh: 0,
                 port: private_part.1,
+                private_core: false,
                 discoverable: false,
                 refuse_clients: args.public_without_clients,
                 serve_app: false,

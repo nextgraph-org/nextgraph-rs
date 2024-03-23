@@ -276,7 +276,7 @@ pub fn get_domain_without_port_443(domain: &str) -> &str {
 }
 
 pub fn is_public_ipv4(ip: &Ipv4Addr) -> bool {
-    // TODO, use core::net::Ipv6Addr.is_global when it will be stable
+    // TODO, use core::net::Ipv4Addr.is_global when it will be stable
     return is_ipv4_global(ip);
 }
 

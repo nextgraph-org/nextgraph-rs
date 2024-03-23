@@ -57,6 +57,17 @@ pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
+pub async fn get_local_bootstrap_with_public(location: String, invite: JsValue) -> JsValue {
+    let res = retrieve_local_bootstrap(location, invite.as_string(), true).await;
+    if res.is_some() {
+        serde_wasm_bindgen::to_value(&res.unwrap()).unwrap()
+    } else {
+        JsValue::FALSE
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
 pub async fn decode_invitation(invite: String) -> JsValue {
     let res = decode_invitation_string(invite);
     if res.is_some() {
@@ -83,17 +94,6 @@ pub async fn get_ngone_url_of_invitation(invitation_string: String) -> JsValue {
     let res = decode_invitation_string(invitation_string);
     if res.is_some() {
         serde_wasm_bindgen::to_value(&res.unwrap().get_urls()[0]).unwrap()
-    } else {
-        JsValue::FALSE
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub async fn get_local_bootstrap_with_public(location: String, invite: JsValue) -> JsValue {
-    let res = retrieve_local_bootstrap(location, invite.as_string(), true).await;
-    if res.is_some() {
-        serde_wasm_bindgen::to_value(&res.unwrap()).unwrap()
     } else {
         JsValue::FALSE
     }
