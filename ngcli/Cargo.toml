@@ -1,16 +1,24 @@
 [package]
 name = "ngcli"
-version = "0.1.0"
-edition = "2021"
-license = "MIT/Apache-2.0"
-authors = ["Niko PLP <niko@nextgraph.org>"]
-description = "CLI command-line interpreter of NextGraph"
-repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
+description = "CLI command-line interpreter of NextGraph, a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
+categories = ["command-line-interface"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
+
+[badges]
+maintenance = { status = "actively-developed" }
 
 [dependencies]
-p2p-repo = { path = "../p2p-repo", features = ["server_log_output"] }
-p2p-net = { path = "../p2p-net" }
-p2p-client-ws = { path = "../p2p-client-ws" }
+ng-repo = { path = "../ng-repo", version = "0.1.0", features = ["server_log_output"] }
+ng-net = { path = "../ng-net", version = "0.1.0" }
+ng-client-ws = { path = "../ng-client-ws", version = "0.1.0" }
 async-std = {  version = "1.12.0", features = ["attributes"] }
 futures = "0.3.24"
 tempfile = "3"

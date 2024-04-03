@@ -1,7 +1,7 @@
 {
   "name": "ng-app-react",
   "version": "0.1.0",
-  "description": "React based web application of NextGraph",
+  "description": "React based example web application for NextGraph",
   "main": "src/index.jsx",
   "scripts": {
     "dev": "webpack server"

@@ -49,7 +49,7 @@ export const has_wallets = derived(wallets,($wallets) => Object.keys($wallets).l
 
 
 export const set_active_session = function(session) {
-    active_session.set(session.users);
+    active_session.set(session);
 };
 
 export { writable, readonly, derived };
@@ -64,12 +64,21 @@ export const close_active_wallet = async function() {
         delete w.wallet;
         return w;
     });
+    // this will also trigger the removal of the wallet from opened_wallets, and will close the wallet in all tabs.
 }
 
 export const close_active_session = async function() {
 
+    let session = get(active_session);
+    //console.log("close_active_session",session);
+    if (!session) return;
+
+    await ng.session_stop(session.user);
+
+    connections.set({});
+    
     active_session.set(undefined);
-    await ng.broker_disconnect();
+    //console.log("setting active_session to undefined",get(active_session));
 
 }
 
@@ -89,14 +98,11 @@ export const reconnect = async function() {
     }
     console.log("attempting to connect...");
     try {
-        let client = get(wallets)[get(active_wallet).id].client;
         let info = await ng.client_info()
         //console.log("Connecting with",client,info);
-        connections.set(await ng.broker_connect( 
-            client,
+        connections.set(await ng.user_connect( 
             info,
-            get(active_session),
-            get(active_wallet).wallet,
+            get(active_session).user,
             location.href
         ));
     }catch (e) {

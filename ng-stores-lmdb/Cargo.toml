@@ -1,0 +1,26 @@
+[package]
+name = "ng-stores-lmdb"
+# version = "0.1.0"
+description = "Stores based on LMDB for NextGraph"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+ng-repo = { path = "../ng-repo" }
+serde = { version = "1.0.142", features = ["derive"] }
+serde_bare = "0.5.0"
+tempfile = "3"
+hex = "0.4.3"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.rkv]
+git = "https://git.nextgraph.org/NextGraph/rkv.git"
+rev = "c746abb443b7bb4541ebbef2b71e8d0f9eb39f6a"
+features = [ "lmdb" ]

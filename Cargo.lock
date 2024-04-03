@@ -344,6 +344,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-once-cell"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9338790e78aa95a416786ec8389546c4b6a1dfc3dc36071ed9518a9413a542eb"
+
+[[package]]
 name = "async-oneshot"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3109,20 +3115,150 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
+name = "nextgraph"
+version = "0.1.0"
+dependencies = [
+ "async-once-cell",
+ "async-std",
+ "base64-url",
+ "ng-client-ws",
+ "ng-net",
+ "ng-repo",
+ "ng-verifier",
+ "ng-wallet",
+ "once_cell",
+ "serde",
+ "serde_bare",
+ "serde_bytes",
+ "web-time",
+ "zeroize",
+]
+
+[[package]]
 name = "ng-app"
 version = "0.1.0"
 dependencies = [
  "async-std",
  "async-tungstenite",
+ "nextgraph",
+ "ng-client-ws",
+ "ng-net",
+ "ng-repo",
  "ng-wallet",
- "p2p-client-ws",
- "p2p-net",
- "p2p-repo",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-window",
+]
+
+[[package]]
+name = "ng-broker"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "async-std",
+ "async-trait",
+ "async-tungstenite",
+ "blake3",
+ "chacha20",
+ "default-net",
+ "futures",
+ "getrandom 0.2.10",
+ "hex",
+ "ng-client-ws",
+ "ng-net",
+ "ng-repo",
+ "ng-stores-rocksdb",
+ "once_cell",
+ "rust-embed",
+ "serde",
+ "serde_bare",
+ "serde_bytes",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "ng-client-ws"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "async-oneshot",
+ "async-std",
+ "async-trait",
+ "async-tungstenite",
+ "chacha20",
+ "either",
+ "futures",
+ "getrandom 0.2.10",
+ "ng-net",
+ "ng-repo",
+ "pharos",
+ "serde",
+ "serde_bare",
+ "serde_bytes",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+ "ws_stream_wasm",
+]
+
+[[package]]
+name = "ng-net"
+version = "0.1.0"
+dependencies = [
+ "async-broadcast 0.4.1",
+ "async-std",
+ "async-trait",
+ "base64-url",
+ "blake3",
+ "default-net",
+ "ed25519-dalek",
+ "either",
+ "futures",
+ "getrandom 0.2.10",
+ "ng-repo",
+ "noise-protocol",
+ "noise-rust-crypto",
+ "num_enum",
+ "once_cell",
+ "reqwest",
+ "serde",
+ "serde_bare",
+ "serde_bytes",
+ "unique_id",
+ "url",
+ "wasm-bindgen",
+ "web-time",
+]
+
+[[package]]
+name = "ng-repo"
+version = "0.1.0"
+dependencies = [
+ "base64-url",
+ "blake3",
+ "chacha20",
+ "curve25519-dalek 3.2.0",
+ "debug_print",
+ "ed25519-dalek",
+ "fastbloom-rs",
+ "futures",
+ "getrandom 0.2.10",
+ "gloo-timers",
+ "hex",
+ "log",
+ "once_cell",
+ "rand 0.7.3",
+ "serde",
+ "serde_bare",
+ "serde_bytes",
+ "slice_as_array",
+ "threshold_crypto",
+ "time 0.3.23",
+ "wasm-bindgen",
+ "web-time",
+ "zeroize",
 ]
 
 [[package]]
@@ -3135,10 +3271,12 @@ dependencies = [
  "getrandom 0.1.16",
  "gloo-timers",
  "js-sys",
+ "nextgraph",
+ "ng-client-ws",
+ "ng-net",
+ "ng-repo",
  "ng-wallet",
- "p2p-client-ws",
- "p2p-net",
- "p2p-repo",
+ "once_cell",
  "pharos",
  "rand 0.7.3",
  "serde",
@@ -3153,6 +3291,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "ng-stores-rocksdb"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "ng-repo",
+ "rocksdb",
+ "serde",
+ "serde_bare",
+ "tempfile",
+]
+
+[[package]]
+name = "ng-verifier"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "chacha20",
+ "ng-net",
+ "ng-repo",
+ "serde",
+ "serde_bare",
+ "serde_bytes",
+]
+
+[[package]]
 name = "ng-wallet"
 version = "0.1.0"
 dependencies = [
@@ -3160,13 +3323,14 @@ dependencies = [
  "argon2",
  "async-std",
  "base64-url",
+ "blake3",
  "chacha20poly1305",
  "crypto_box",
  "getrandom 0.1.16",
  "image",
  "lazy_static",
- "p2p-net",
- "p2p-repo",
+ "ng-net",
+ "ng-repo",
  "rand 0.7.3",
  "safe-transmute",
  "serde",
@@ -3187,10 +3351,10 @@ dependencies = [
  "duration-str",
  "env_logger",
  "log",
+ "ng-client-ws",
+ "ng-net",
+ "ng-repo",
  "ng-wallet",
- "p2p-client-ws",
- "p2p-net",
- "p2p-repo",
  "rust-embed",
  "serde",
  "serde-big-array",
@@ -3218,9 +3382,9 @@ dependencies = [
  "futures",
  "getrandom 0.2.10",
  "log",
- "p2p-client-ws",
- "p2p-net",
- "p2p-repo",
+ "ng-client-ws",
+ "ng-net",
+ "ng-repo",
  "rand 0.7.3",
  "serde",
  "serde_bare",
@@ -3241,9 +3405,9 @@ dependencies = [
  "env_logger",
  "lazy_static",
  "log",
- "p2p-broker",
- "p2p-net",
- "p2p-repo",
+ "ng-broker",
+ "ng-net",
+ "ng-repo",
  "regex",
  "serde",
  "serde_bare",
@@ -3260,9 +3424,10 @@ dependencies = [
  "bytes",
  "env_logger",
  "log",
+ "ng-net",
+ "ng-repo",
+ "ng-stores-rocksdb",
  "ng-wallet",
- "p2p-net",
- "p2p-repo",
  "rust-embed",
  "serde",
  "serde-big-array",
@@ -3270,7 +3435,6 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "slice_as_array",
- "stores-rocksdb",
  "tokio",
  "warp",
  "warp-embed",
@@ -3529,127 +3693,6 @@ name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
-
-[[package]]
-name = "p2p-broker"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "async-std",
- "async-trait",
- "async-tungstenite",
- "blake3",
- "chacha20",
- "default-net",
- "futures",
- "getrandom 0.2.10",
- "hex",
- "once_cell",
- "p2p-client-ws",
- "p2p-net",
- "p2p-repo",
- "rust-embed",
- "serde",
- "serde_bare",
- "serde_bytes",
- "serde_json",
- "stores-rocksdb",
- "tempfile",
-]
-
-[[package]]
-name = "p2p-client-ws"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "async-oneshot",
- "async-std",
- "async-trait",
- "async-tungstenite",
- "chacha20",
- "either",
- "futures",
- "getrandom 0.2.10",
- "p2p-net",
- "p2p-repo",
- "pharos",
- "serde",
- "serde_bare",
- "serde_bytes",
- "wasm-bindgen",
- "wasm-bindgen-test",
- "ws_stream_wasm",
-]
-
-[[package]]
-name = "p2p-net"
-version = "0.1.0"
-dependencies = [
- "async-broadcast 0.4.1",
- "async-std",
- "async-trait",
- "base64-url",
- "blake3",
- "default-net",
- "ed25519-dalek",
- "either",
- "futures",
- "getrandom 0.2.10",
- "noise-protocol",
- "noise-rust-crypto",
- "num_enum",
- "once_cell",
- "p2p-repo",
- "reqwest",
- "serde",
- "serde_bare",
- "serde_bytes",
- "unique_id",
- "url",
- "wasm-bindgen",
- "web-time",
-]
-
-[[package]]
-name = "p2p-repo"
-version = "0.1.0"
-dependencies = [
- "base64-url",
- "blake3",
- "chacha20",
- "curve25519-dalek 3.2.0",
- "debug_print",
- "ed25519-dalek",
- "fastbloom-rs",
- "futures",
- "gloo-timers",
- "hex",
- "log",
- "once_cell",
- "rand 0.7.3",
- "serde",
- "serde_bare",
- "serde_bytes",
- "slice_as_array",
- "threshold_crypto",
- "time 0.3.23",
- "wasm-bindgen",
- "web-time",
- "zeroize",
-]
-
-[[package]]
-name = "p2p-verifier"
-version = "0.1.0"
-dependencies = [
- "blake3",
- "chacha20",
- "p2p-net",
- "p2p-repo",
- "serde",
- "serde_bare",
- "serde_bytes",
-]
 
 [[package]]
 name = "packed_simd_2"
@@ -4896,18 +4939,6 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
-name = "stores-rocksdb"
-version = "0.1.0"
-dependencies = [
- "hex",
- "p2p-repo",
- "rocksdb",
- "serde",
- "serde_bare",
- "tempfile",
-]
 
 [[package]]
 name = "string_cache"

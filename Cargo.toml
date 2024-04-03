@@ -1,20 +1,37 @@
 [workspace]
 members = [
-  "p2p-repo",
-  "p2p-net",
-  "p2p-broker",
-  "p2p-client-ws",
-  "p2p-verifier",
-  "stores-rocksdb",
+  "nextgraph",
   "ngcli",
   "ngd",
+  "ng-repo",
+  "ng-net",
+  "ng-broker",
+  "ng-client-ws",
+  "ng-verifier",
+  "ng-wallet",
+  "ng-stores-rocksdb",
   "ngone",
   "ngaccount",
   "ng-sdk-js",
   "ng-app/src-tauri",
-  "ng-wallet"
 ]
-default-members = [  "ngcli",  "ngd" ]
+default-members = [ "nextgraph", "ngcli",  "ngd" ]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.64.0"
+license = "MIT/Apache-2.0"
+authors = ["Niko PLP <niko@nextgraph.org>"]
+repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
+homepage = "https://nextgraph.org"
+keywords = [
+"crdt","dapp","decentralized","e2ee","local-first","p2p","semantic-web","eventual-consistency","json-ld","markdown",
+"ocap","z-cap","offline-first","p2p-network","collaboration","privacy-protection","rdf","rich-text-editor","self-hosted",
+"sparql","byzantine-fault-tolerance",
+"web3"
+]
+documentation = "https://docs.nextgraph.org/"
 
 [profile.release]
 lto = true

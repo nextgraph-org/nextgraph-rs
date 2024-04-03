@@ -16,19 +16,24 @@ const mapping = {
     "doc_get_file_from_store_with_object_ref": [ "nuri","obj_ref" ],
     "wallet_gen_shuffle_for_pazzle_opening": ["pazzle_length"],
     "wallet_gen_shuffle_for_pin": [],
-    "wallet_open_wallet_with_pazzle": ["wallet","pazzle","pin"],
-    "wallet_create_wallet": ["params"],
-    "wallet_open_file": ["file"],
-    "wallet_import": ["previous_wallet","opened_wallet"],
+    "wallet_open_with_pazzle": ["wallet","pazzle","pin"],
+    "wallet_was_opened": ["opened_wallet"],
+    "wallet_create": ["params"],
+    "wallet_read_file": ["file"],
+    "wallet_download_file": ["wallet_name"],
+    "wallet_import": ["encrypted_wallet","opened_wallet","in_memory"],
+    "wallet_close": ["wallet_name"],
     "encode_create_account": ["payload"],
-    "get_local_session": ["id","key","user"],
-    "get_wallets_from_localstorage": [],
+    "session_start": ["wallet_name","user"],
+    "session_stop": ["user_id"],
+    "get_wallets": [],
     "open_window": ["url","label","title"],
     "decode_invitation": ["invite"],
-    "broker_disconnect": [],
-    "broker_connect": ["client","info","session","opened_wallet","location"],
+    "user_connect": ["info","user_id","location"],
+    "user_disconnect": ["user_id"],
     "test": [ ]
 }
+
 
 let lastStreamId = 0;
 
@@ -42,22 +47,14 @@ const handler = {
                 client_info.V0.version=version;
                 //console.log(client_info);
                 return client_info;
-            } else if (path[0] === "get_wallets_from_localstorage") {
+            } else if (path[0] === "get_wallets") {
                 let wallets = await Reflect.apply(sdk[path], caller, args);
                 return Object.fromEntries(wallets || []);
-            } else if (path[0] === "get_local_session") {
+            } else if (path[0] === "session_start") {
                 let res = await Reflect.apply(sdk[path], caller, args);
-                let v = res.users.values().next().value;
-                v.branches_last_seq = Object.fromEntries(v.branches_last_seq);
-                res.users = Object.fromEntries(res.users);
                 return res;
-            } else if (path[0] === "wallet_create_wallet") {
+            } else if (path[0] === "wallet_create") {
                 let res = await Reflect.apply(sdk[path], caller, args);
-                if (res[1]) {
-                    let v = res[1].users.values().next().value;
-                    v.branches_last_seq = Object.fromEntries(v.branches_last_seq);
-                    res[1].users = Object.fromEntries(res[1].users);
-                }
                 return res;
             } else {
                 return Reflect.apply(sdk[path], caller, args)
@@ -101,7 +98,7 @@ const handler = {
                 return () => {
                     unlisten();
                 }
-            } else if (path[0] === "broker_connect") {
+            } else if (path[0] === "user_connect") {
                 let arg = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 let ret = await tauri.invoke(path[0],arg);
@@ -132,31 +129,31 @@ const handler = {
                 res['File'].V0.content = Uint8Array.from(res['File'].V0.content);
                 res['File'].V0.metadata = Uint8Array.from(res['File'].V0.metadata);
                 return res;
-            } else if (path[0] === "get_wallets_from_localstorage") {
+            } else if (path[0] === "get_wallets") {
                 let res = await tauri.invoke(path[0],{});
                 if (res) for (let e of Object.entries(res)) {
                     e[1].wallet.V0.content.security_img = Uint8Array.from(e[1].wallet.V0.content.security_img);
                 }
                 return res || {};
 
-            } else if (path[0] === "wallet_create_wallet") {
+            } else if (path[0] === "wallet_create") {
                 let params = args[0];
                 params.result_with_wallet_file = false;
                 params.security_img = Array.from(new Uint8Array(params.security_img));
                 return await tauri.invoke(path[0],{params})
-            } else if (path[0] === "wallet_open_file") {
+            } else if (path[0] === "wallet_read_file") {
                 let file = args[0];
                 file = Array.from(new Uint8Array(file));
                 return await tauri.invoke(path[0],{file})
             } else if (path[0] === "wallet_import") {
-                let previous_wallet = args[0];
-                previous_wallet.V0.content.security_img = Array.from(new Uint8Array(previous_wallet.V0.content.security_img));
-                return await tauri.invoke(path[0],{previous_wallet, opened_wallet:args[1]})
+                let encrypted_wallet = args[0];
+                encrypted_wallet.V0.content.security_img = Array.from(new Uint8Array(encrypted_wallet.V0.content.security_img));
+                return await tauri.invoke(path[0],{encrypted_wallet, opened_wallet:args[1], in_memory:args[2]})
             } else if (path[0] && path[0].startsWith("get_local_bootstrap")) {
                 return false;
             } else if (path[0] === "get_local_url") {
                 return false;
-            } else if (path[0] === "wallet_open_wallet_with_pazzle") {
+            } else if (path[0] === "wallet_open_with_pazzle") {
                 let arg:any = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 let img = Array.from(new Uint8Array(arg.wallet.V0.content.security_img));

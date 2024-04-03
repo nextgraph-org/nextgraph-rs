@@ -1,7 +1,7 @@
 {
   "name": "ng-app-web",
   "version": "0.1.0",
-  "description": "Web app client of NextGraph",
+  "description": "Web-based example application for NextGraph",
   "main": "index.js",
   "scripts": {
     "build": "webpack --config webpack.config.js",

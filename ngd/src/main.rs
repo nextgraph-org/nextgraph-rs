@@ -14,24 +14,24 @@ mod cli;
 use crate::cli::*;
 use crate::types::*;
 use clap::Parser;
-use p2p_broker::interfaces::*;
-use p2p_broker::server_ws::run_server_v0;
-use p2p_broker::types::*;
-use p2p_broker::utils::*;
-use p2p_net::types::*;
-use p2p_net::utils::is_private_ip;
-use p2p_net::utils::is_public_ip;
-use p2p_net::utils::is_public_ipv4;
-use p2p_net::utils::is_public_ipv6;
-use p2p_net::utils::{
+use ng_broker::interfaces::*;
+use ng_broker::server_ws::run_server_v0;
+use ng_broker::types::*;
+use ng_broker::utils::*;
+use ng_net::types::*;
+use ng_net::utils::is_private_ip;
+use ng_net::utils::is_public_ip;
+use ng_net::utils::is_public_ipv4;
+use ng_net::utils::is_public_ipv6;
+use ng_net::utils::{
     gen_dh_keys, is_ipv4_global, is_ipv4_private, is_ipv6_global, is_ipv6_private,
 };
-use p2p_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
-use p2p_repo::log::*;
-use p2p_repo::types::Sig;
-use p2p_repo::types::SymKey;
-use p2p_repo::utils::ed_keypair_from_priv_bytes;
-use p2p_repo::{
+use ng_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
+use ng_repo::log::*;
+use ng_repo::types::Sig;
+use ng_repo::types::SymKey;
+use ng_repo::utils::ed_keypair_from_priv_bytes;
+use ng_repo::{
     types::{PrivKey, PubKey},
     utils::{decode_key, generate_keypair, sign, verify},
 };

@@ -16,14 +16,7 @@
   import NoWallet from "../lib/NoWallet.svelte";
   import { push } from "svelte-spa-router";
   import { onMount, onDestroy } from "svelte";
-  import {
-    wallets,
-    active_wallet,
-    opened_wallets,
-    active_session,
-    has_wallets,
-    derived,
-  } from "../store";
+  import { active_wallet, has_wallets, derived } from "../store";
 
   let display_login_create = !$has_wallets || !$active_wallet;
   let unsubscribe;

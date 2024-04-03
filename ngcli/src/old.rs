@@ -558,11 +558,11 @@ mod test {
     pub async fn test_local_cnx() {}
 
     use async_std::task;
-    use p2p_broker::server_ws::*;
-    use p2p_net::utils::gen_dh_keys;
-    use p2p_net::WS_PORT;
-    use p2p_repo::log::*;
-    use p2p_repo::types::PubKey;
+    use ng_broker::server_ws::*;
+    use ng_net::utils::gen_dh_keys;
+    use ng_net::WS_PORT;
+    use ng_repo::log::*;
+    use ng_repo::types::PubKey;
 
     #[async_std::test]
     pub async fn test_remote_cnx() -> Result<(), Box<dyn std::error::Error>> {

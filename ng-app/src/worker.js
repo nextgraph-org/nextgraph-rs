@@ -7,7 +7,7 @@ onmessage = (e) => {
   //console.log("Message received by worker", e.data);
   (async function() {
     try {
-      let secret_wallet = await ng.wallet_open_wallet_with_pazzle(
+      let secret_wallet = await ng.wallet_open_with_pazzle(
           e.data.wallet,
           e.data.pazzle,
           e.data.pin_code

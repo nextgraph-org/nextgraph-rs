@@ -10,13 +10,7 @@
 -->
 
 <script lang="ts">
-  import {
-    online,
-    wallets,
-    active_wallet,
-    active_session,
-    connections,
-  } from "../store";
+  import { online } from "../store";
   import FullLayout from "./FullLayout.svelte";
   import { PaperAirplane, Bell, ArrowRightOnRectangle } from "svelte-heros-v2";
   // @ts-ignore

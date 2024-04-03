@@ -1,0 +1,41 @@
+[package]
+name = "ng-client-ws"
+# version = "0.1.0"
+description = "Websocket client library of NextGraph, a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ng-repo = { path = "../ng-repo", version = "0.1.0" }
+ng-net = { path = "../ng-net", version = "0.1.0" }
+chacha20 = "0.9.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_bare = "0.5.0"
+serde_bytes = "0.11.7"
+async-trait = "0.1.64"
+async-std = {  version = "1.12.0", features = ["attributes","unstable"] }
+futures = "0.3.24"
+async-channel = "1.7.1"
+async-oneshot = "0.5.0"
+ws_stream_wasm = "0.7" 
+pharos = "0.5"
+wasm-bindgen = "0.2"
+either = "1.8.1"
+
+[dev-dependencies]
+wasm-bindgen-test = "^0.3"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
+version = "0.2.7"
+features = ["js"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+getrandom = "0.2.7"
+async-tungstenite = {  git = "https://git.nextgraph.org/NextGraph/async-tungstenite.git", branch = "nextgraph",  features = ["async-std-runtime"] }

@@ -9,10 +9,10 @@
 
 //! ng-one bootstrap
 
-use p2p_net::types::*;
-use p2p_repo::kcv_store::KCVStore;
-use p2p_repo::store::*;
-use p2p_repo::types::PubKey;
+use ng_net::types::*;
+use ng_repo::kcv_store::KCVStore;
+use ng_repo::store::*;
+use ng_repo::types::PubKey;
 
 use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};

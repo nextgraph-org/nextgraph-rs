@@ -1,7 +1,7 @@
 {
   "name": "ng-app-node",
   "version": "0.1.0",
-  "description": "NodeJS app for NextGraph",
+  "description": "NodeJS app example for NextGraph",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"

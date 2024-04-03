@@ -11,8 +11,8 @@ use ed25519_dalek::*;
 
 use duration_str::parse;
 use futures::{future, pin_mut, stream, SinkExt, StreamExt};
-use p2p_net::actors::*;
-use p2p_repo::store::{store_max_value_size, store_valid_value_size, HashMapRepoStore, RepoStore};
+use ng_net::actors::*;
+use ng_repo::store::{store_max_value_size, store_valid_value_size, HashMapRepoStore, RepoStore};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string_pretty};
@@ -24,14 +24,14 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use zeroize::Zeroize;
 
-use p2p_client_ws::remote_ws::ConnectionWebSocket;
-use p2p_net::broker::BROKER;
-use p2p_net::errors::*;
-use p2p_net::types::*;
+use ng_client_ws::remote_ws::ConnectionWebSocket;
+use ng_net::broker::BROKER;
+use ng_net::errors::*;
+use ng_net::types::*;
 
-use p2p_repo::log::*;
-use p2p_repo::types::*;
-use p2p_repo::utils::{
+use ng_repo::log::*;
+use ng_repo::types::*;
+use ng_repo::utils::{
     decode_key, display_timestamp, generate_keypair, now_timestamp, timestamp_after,
 };
 
@@ -617,11 +617,11 @@ async fn main() -> Result<(), ProtocolError> {
 //     //test_remote_connection("ws://127.0.0.1:3012").await;
 
 //     use async_std::task;
-//     use p2p_broker::server_ws::*;
-//     use p2p_net::utils::gen_dh_keys;
-//     use p2p_net::WS_PORT;
-//     use p2p_repo::log::*;
-//     use p2p_repo::types::PubKey;
+//     use ng_broker::server_ws::*;
+//     use ng_net::utils::gen_dh_keys;
+//     use ng_net::WS_PORT;
+//     use ng_repo::log::*;
+//     use ng_repo::types::PubKey;
 
 //     //#[async_std::test]
 // }

@@ -1,4 +1,13 @@
+<p align="center">
+    <img src=".github/header.png" alt="nextgraph-header" />
+</p>
+
 # nextgraph-rs
+
+![MSRV][rustc-image]
+[![Apache 2.0 Licensed][license-image]][license-link]
+[![MIT Licensed][license-image2]][license-link2]
+[![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
 
 Rust implementation of NextGraph
 
@@ -8,7 +17,7 @@ This repository is in active development at [https://git.nextgraph.org/NextGraph
 
 > NextGraph brings about the convergence between P2P and Semantic Web technologies, towards a decentralized, secure and privacy-preserving cloud, based on CRDTs.
 >
-> This open source ecosystem provides solutions for end-users and software developers alike, wishing to use or create **decentralized** apps featuring: **live collaboration** on rich-text documents, peer to peer communication with end-to-end encryption, offline-first, **local-first**, portable and interoperable data, total ownership of data and software, security and privacy. Centered on repositories containing **semantic data** (RDF), **rich text**, and structured data formats like **JSON**, synced between peers belonging to permissioned groups of users, it offers strong eventual consistency, thanks to the use of **CRDTs**. Documents can be linked together, signed, shared securely, queried using the **SPARQL** language and organized into sites and containers.
+> This open source ecosystem provides solutions for end-users and software developers alike, wishing to use or create **decentralized** apps featuring: **live collaboration** on rich-text documents, peer to peer communication with **end-to-end encryption**, offline-first, **local-first**, portable and interoperable data, total ownership of data and software, security and privacy. Centered on repositories containing **semantic data** (RDF), **rich text**, and structured data formats like **JSON**, synced between peers belonging to permissioned groups of users, it offers strong eventual consistency, thanks to the use of **CRDTs**. Documents can be linked together, signed, shared securely, queried using the **SPARQL** language and organized into sites and containers.
 >
 > More info here [https://nextgraph.org](https://nextgraph.org)
 
@@ -17,6 +26,9 @@ This repository is in active development at [https://git.nextgraph.org/NextGraph
 Documentation can be found here [https://docs.nextgraph.org](https://docs.nextgraph.org)
 
 And our community forum where you can ask questions is here [https://forum.nextgraph.org](https://forum.nextgraph.org)
+
+[![Mastodon](https://img.shields.io/badge/-MASTODON-%232B90D9?style=for-the-badge&logo=mastodon&logoColor=white)](https://mastodon.lescommuns.org/@nextgraph)
+[![Twitter URL](https://img.shields.io/twitter/url?style=social&url=https%3A%2F%2Ftwitter.com%2Fnextgraph)](https://twitter.com/nextgraph)
 
 ## How to use NextGraph
 
@@ -48,19 +60,20 @@ cargo build
 
 The crates are organized as follow :
 
-- p2p-repo : NextGraph repositories common library
-- p2p-net : P2P network common library
-- p2p-broker : the broker code (as server and core node)
-- p2p-client-ws : the client connecting to a broker with WebSocket, used by the apps and verifier
-- p2p-verifier : the code of the verifier
-- stores-rocksdb : RocksDB backed stores. see [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
-- ngcli : CLI tool to manipulate the repos and administrate the server
-- ngd : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
+- [nextgraph](nextgraph/README.md) : Client library. Use this crate to embed NextGraph client in your Rust application
+- [ngcli](ngcli/README.md) : CLI tool to manipulate the local documents and repos and administrate the server
+- [ngd](ngd/README.md) : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
+- ng-repo : Repositories common library
+- ng-net : Network common library
+- ng-broker : Core and Server Broker library
+- ng-client-ws : Websocket client library
+- ng-verifier : Verifier library, that exposes the document API to the app
+- ng-stores-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
 - ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
 - [ng-sdk-js](ng-sdk-js/README.md) : contains the JS SDK, with example apps: web app, react app, or node service.
 - [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the web app.
-- [ngone](ngone/README.md) : server for nextgraph.one (helps user bootstrap into the right app)
-- [ngaccount](ngaccount/README.md) : server for nextgraph's Broker Service Provider account manager.
+- ngone : server for nextgraph.one. helps user bootstrap into the right app. Not useful to you. Published here for transparency
+- ngaccount : server for nextgraph's Broker Service Provider account manager. Not useful to you. Published here for transparency
 
 ### Run
 
@@ -87,7 +100,7 @@ cargo test --all --verbose -- --show-output --nocapture
 Test a single module:
 
 ```
-cargo test --package p2p-repo --lib -- branch::test --show-output --nocapture
+cargo test --package ng-repo --lib -- branch::test --show-output --nocapture
 ```
 
 Test end-to-end client and server:
@@ -106,7 +119,7 @@ wasm-pack test --chrome --headless
 Test Rust websocket
 
 ```
-cargo test --package p2p-client-ws --lib -- remote_ws::test::test_ws --show-output --nocapture
+cargo test --package ng-client-ws --lib -- remote_ws::test::test_ws --show-output --nocapture
 ```
 
 ### Build release binaries
@@ -155,7 +168,7 @@ For building the apps, see this [documentation](ng-app/README.md).
 #### OpenBSD
 
 On OpenBSD, a conflict between the installed LibreSSL library and the reqwest crate, needs a bit of attention.
-Before compiling the daemon for OpenBSD, please comment out lines 32-33 of `p2p-net/Cargo.toml`. This will be solved soon in a more appropriate way.
+Before compiling the daemon for OpenBSD, please comment out lines 32-33 of `ng-net/Cargo.toml`. This will be solved soon in a more appropriate way.
 
 ```
 #[target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -203,3 +216,9 @@ Licensed under either of
 ---
 
 NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/project/NextGraph/index.html), a fund established by [NLnet](https://nlnet.nl/) with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreement No 957073.
+
+[rustc-image]: https://img.shields.io/badge/rustc-1.64+-blue.svg
+[license-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
+[license-link]: https://git.nextgraph.org/NextGraph/nextgraph-rs/raw/branch/master/LICENSE-APACHE2
+[license-image2]: https://img.shields.io/badge/license-MIT-blue.svg
+[license-link2]: https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/LICENSE-MIT

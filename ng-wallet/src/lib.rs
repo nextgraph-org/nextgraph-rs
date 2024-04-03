@@ -19,6 +19,7 @@ pub mod bip39;
 
 pub mod emojis;
 
+use rand::distributions::{Distribution, Uniform};
 use std::{collections::HashMap, io::Cursor, sync::Arc};
 
 use crate::bip39::bip39_wordlist;
@@ -34,14 +35,9 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use image::{imageops::FilterType, io::Reader as ImageReader, ImageOutputFormat};
 use safe_transmute::transmute_to_bytes;
 
-use p2p_net::{
-    broker::BROKER,
-    connection::{ClientConfig, StartConfig},
-};
-use p2p_net::{connection::IConnect, types::ClientInfo};
-use p2p_repo::types::{Identity, PubKey, Sig, SiteType, SiteV0, Timestamp};
-use p2p_repo::utils::{generate_keypair, now_timestamp, sign, verify};
-use p2p_repo::{log::*, types::PrivKey};
+use ng_repo::types::*;
+use ng_repo::utils::{generate_keypair, now_timestamp, sign, verify};
+use ng_repo::{log::*, types::PrivKey};
 use rand::prelude::*;
 use serde_bare::{from_slice, to_vec};
 use web_time::Instant;
@@ -134,7 +130,9 @@ pub fn enc_master_key(
     let nonce = Nonce::from_slice(&nonce_buffer);
 
     let mut buffer: HeaplessVec<u8, 48> = HeaplessVec::new(); // Note: buffer needs 16-bytes overhead for auth tag
-    buffer.extend_from_slice(master_key);
+    buffer
+        .extend_from_slice(master_key)
+        .map_err(|_| NgWalletError::InternalError)?;
 
     // Encrypt `buffer` in-place, replacing the plaintext contents with ciphertext
     cipher
@@ -229,7 +227,6 @@ pub fn create_new_session(
         user,
         peer_key: peer.0,
         last_wallet_nonce: 0,
-        branches_last_seq: HashMap::new(),
     };
     sws.users.insert(user.to_string(), sps);
     let sws_ser = serde_bare::to_vec(&SessionWalletStorage::V0(sws.clone())).unwrap();
@@ -246,7 +243,7 @@ pub fn dec_encrypted_block(
     nonce: u64,
     timestamp: Timestamp,
     wallet_id: WalletId,
-) -> Result<EncryptedWalletV0, NgWalletError> {
+) -> Result<SensitiveWalletV0, NgWalletError> {
     let nonce_buffer: [u8; 24] = gen_nonce(peer_id, nonce);
 
     let cipher = XChaCha20Poly1305::new(master_key.as_ref().into());
@@ -263,7 +260,7 @@ pub fn dec_encrypted_block(
     let decrypted_log =
         from_slice::<WalletLog>(&ciphertext).map_err(|e| NgWalletError::DecryptionError)?;
 
-    //master_key.zeroize(); // this is now donw in the EncryptedWalletV0
+    //master_key.zeroize(); // this is now done in the SensitiveWalletV0
 
     // `ciphertext` now contains the decrypted block
     //log_debug!("decrypted_block {:?}", ciphertext);
@@ -301,9 +298,9 @@ pub fn derive_key_from_pass(mut pass: Vec<u8>, salt: [u8; 16], wallet_id: Wallet
 
 pub fn open_wallet_with_pazzle(
     wallet: Wallet,
-    pazzle: Vec<u8>,
+    mut pazzle: Vec<u8>,
     mut pin: [u8; 4],
-) -> Result<EncryptedWallet, NgWalletError> {
+) -> Result<SensitiveWallet, NgWalletError> {
     // each digit shouldnt be greater than 9
     if pin[0] > 9 || pin[1] > 9 || pin[2] > 9 || pin[3] > 9 {
         return Err(NgWalletError::InvalidPin);
@@ -316,12 +313,9 @@ pub fn open_wallet_with_pazzle(
 
     match wallet {
         Wallet::V0(v0) => {
-            let mut pazzle_key = derive_key_from_pass(
-                [pazzle, pin.to_vec()].concat(),
-                v0.content.salt_pazzle,
-                v0.id,
-            );
-            //pazzle.zeroize();
+            pazzle.extend_from_slice(&pin);
+            let mut pazzle_key = derive_key_from_pass(pazzle, v0.content.salt_pazzle, v0.id);
+            // pazzle is zeroized in derive_key_from_pass
             pin.zeroize();
 
             let master_key = dec_master_key(
@@ -337,7 +331,7 @@ pub fn open_wallet_with_pazzle(
                 opening_pazzle.elapsed().as_millis()
             );
 
-            Ok(EncryptedWallet::V0(dec_encrypted_block(
+            Ok(SensitiveWallet::V0(dec_encrypted_block(
                 v0.content.encrypted,
                 master_key,
                 v0.content.peer_id,
@@ -353,7 +347,7 @@ pub fn open_wallet_with_mnemonic(
     wallet: Wallet,
     mut mnemonic: [u16; 12],
     mut pin: [u8; 4],
-) -> Result<EncryptedWallet, NgWalletError> {
+) -> Result<SensitiveWallet, NgWalletError> {
     verify(&wallet.content_as_bytes(), wallet.sig(), wallet.id())
         .map_err(|e| NgWalletError::InvalidSignature)?;
 
@@ -375,7 +369,7 @@ pub fn open_wallet_with_mnemonic(
             )?;
             mnemonic_key.zeroize();
 
-            Ok(EncryptedWallet::V0(dec_encrypted_block(
+            Ok(SensitiveWallet::V0(dec_encrypted_block(
                 v0.content.encrypted,
                 master_key,
                 v0.content.peer_id,
@@ -434,144 +428,6 @@ pub fn gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> ShuffledPazzle {
         emoji_indices,
     }
 }
-use web_time::SystemTime;
-fn get_unix_time() -> f64 {
-    SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as f64
-}
-
-// Result is a list of (user_id, server_id, server_ip, error, since_date)
-pub async fn connect_wallet(
-    client: PubKey,
-    info: ClientInfo,
-    session: HashMap<String, SessionPeerStorageV0>,
-    opened_wallet: EncryptedWallet,
-    location: Option<String>,
-    cnx: Box<dyn IConnect>,
-) -> Result<Vec<(String, String, String, Option<String>, f64)>, String> {
-    let mut result: Vec<(String, String, String, Option<String>, f64)> = Vec::new();
-    let arc_cnx = Arc::new(cnx);
-    match opened_wallet {
-        EncryptedWallet::V0(wallet) => {
-            log_info!("XXXX {} {:?}", client.to_string(), wallet);
-            let auto_open = &wallet
-                .clients
-                .get(&client.to_string())
-                .ok_or("Client is invalid")?
-                .auto_open;
-            for site in auto_open {
-                match site {
-                    Identity::OrgSite(user) | Identity::IndividualSite(user) => {
-                        let user_id = user.to_string();
-                        let peer_key = session
-                            .get(&user_id)
-                            .ok_or("Session is missing")?
-                            .peer_key
-                            .clone();
-                        let peer_id = peer_key.to_pub();
-                        let site = wallet.sites.get(&user_id);
-                        if site.is_none() {
-                            result.push((
-                                user_id,
-                                "".into(),
-                                "".into(),
-                                Some("Site is missing".into()),
-                                get_unix_time(),
-                            ));
-                            continue;
-                        }
-                        let site = site.unwrap();
-                        let user_priv = site.site_key.clone();
-                        let core = site.cores[0]; //TODO: cycle the other cores if failure to connect (failover)
-                        let server_key = core.0;
-                        let broker = wallet.brokers.get(&core.0.to_string());
-                        if broker.is_none() {
-                            result.push((
-                                user_id,
-                                core.0.to_string(),
-                                "".into(),
-                                Some("Broker is missing".into()),
-                                get_unix_time(),
-                            ));
-                            continue;
-                        }
-                        let brokers = broker.unwrap();
-                        let mut tried: Option<(String, String, String, Option<String>, f64)> = None;
-                        //TODO: on tauri (or forward in local broker, or CLI), prefer a Public to a Domain. Domain always comes first though, so we need to reorder the list
-                        //TODO: use site.bootstraps to order the list of brokerInfo.
-                        for broker_info in brokers {
-                            match broker_info {
-                                BrokerInfoV0::ServerV0(server) => {
-                                    let url = server.get_ws_url(&location).await;
-                                    log_debug!("URL {:?}", url);
-                                    //Option<(String, Vec<BindAddress>)>
-                                    if url.is_some() {
-                                        let url = url.unwrap();
-                                        if url.1.len() == 0 {
-                                            // TODO deal with Box(Dyn)Public -> tunnel, and on tauri/forward/CLIs, deal with all Box -> direct connections (when url.1.len is > 0)
-                                            let res = BROKER
-                                                .write()
-                                                .await
-                                                .connect(
-                                                    arc_cnx.clone(),
-                                                    peer_key.clone(),
-                                                    peer_id,
-                                                    server_key,
-                                                    StartConfig::Client(ClientConfig {
-                                                        url: url.0.clone(),
-                                                        user: *user,
-                                                        user_priv: user_priv.clone(),
-                                                        client,
-                                                        info: info.clone(),
-                                                        registration: Some(core.1),
-                                                    }),
-                                                )
-                                                .await;
-                                            log_debug!("broker.connect : {:?}", res);
-
-                                            tried = Some((
-                                                user_id.clone(),
-                                                core.0.to_string(),
-                                                url.0.into(),
-                                                match &res {
-                                                    Ok(_) => None,
-                                                    Err(e) => Some(e.to_string()),
-                                                },
-                                                get_unix_time(),
-                                            ));
-                                        }
-                                        if tried.is_some() && tried.as_ref().unwrap().3.is_none() {
-                                            // successful. we can stop here
-                                            break;
-                                        } else {
-                                            log_debug!("Failed connection {:?}", tried);
-                                        }
-                                    }
-                                }
-                                // Core information is discarded
-                                _ => {}
-                            }
-                        }
-                        if tried.is_none() {
-                            tried = Some((
-                                user_id,
-                                core.0.to_string(),
-                                "".into(),
-                                Some("No broker found".into()),
-                                get_unix_time(),
-                            ));
-                        }
-                        result.push(tried.unwrap());
-                    }
-                    _ => unimplemented!(),
-                }
-            }
-        }
-    }
-    Ok(result)
-}
 
 pub fn gen_shuffle_for_pin() -> Vec<u8> {
     let mut rng = rand::thread_rng();
@@ -582,24 +438,9 @@ pub fn gen_shuffle_for_pin() -> Vec<u8> {
     digits
 }
 
-// fn random_pass() {
-//     const choices: &str =
-//         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
-
-//     let mut ran = thread_rng();
-
-//     let mut mnemonic: [char; 11] = [0.into(); 11];
-//     for i in &mut mnemonic {
-//         *i = choices.chars().nth(ran.gen_range(0, 72)).unwrap();
-//     }
-//     log_debug!("{}", mnemonic.iter().collect::<String>());
-// }
-
 /// creates a Wallet from a pin, a security text and image (with option to send the bootstrap and wallet to nextgraph.one)
 /// and returns the Wallet, the pazzle and the mnemonic
-pub async fn create_wallet_v0(
-    mut params: CreateWalletV0,
-) -> Result<CreateWalletResultV0, NgWalletError> {
+pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResultV0, NgWalletError> {
     let creating_pazzle = Instant::now();
 
     // pazzle_length can only be 9, 12, or 15
@@ -684,26 +525,31 @@ pub async fn create_wallet_v0(
 
     let (wallet_privkey, wallet_id) = generate_keypair();
 
-    let site = SiteV0::create(SiteType::Individual).map_err(|e| NgWalletError::InternalError)?;
+    // TODO: should be derived from  OwnershipProof
+    let user_priv_key = PrivKey::random_ed();
 
-    // let mut pazzle_random = vec![0u8; pazzle_length.into()];
-    // getrandom::getrandom(&mut pazzle_random).map_err(|e| NgWalletError::InternalError)?;
+    // TODO: private_store_read_cap
+    let site = SiteV0::create_personal(user_priv_key.clone(), BlockRef::nil())
+        .map_err(|e| NgWalletError::InternalError)?;
 
     let mut ran = thread_rng();
 
     let mut category_indices: Vec<u8> = (0..params.pazzle_length).collect();
     category_indices.shuffle(&mut ran);
 
+    let between = Uniform::try_from(0..15).unwrap();
     let mut pazzle = vec![0u8; params.pazzle_length.into()];
     for (ix, i) in pazzle.iter_mut().enumerate() {
-        *i = ran.gen_range(0, 15) + (category_indices[ix] << 4);
+        //*i = ran.gen_range(0, 15) + (category_indices[ix] << 4);
+        *i = between.sample(&mut ran) + (category_indices[ix] << 4);
     }
 
     //log_debug!("pazzle {:?}", pazzle);
-
+    let between = Uniform::try_from(0..2048).unwrap();
     let mut mnemonic = [0u16; 12];
     for i in &mut mnemonic {
-        *i = ran.gen_range(0, 2048);
+        //*i = ran.gen_range(0, 2048);
+        *i = between.sample(&mut ran);
     }
 
     //log_debug!("mnemonic {:?}", display_mnemonic(&mnemonic));
@@ -712,7 +558,7 @@ pub async fn create_wallet_v0(
     //.ok_or(NgWalletError::InternalError)?
     //.clone(),
 
-    let user = site.site_key.to_pub();
+    let user = user_priv_key.to_pub();
 
     // Creating a new client
     let client = ClientV0::new_with_auto_open(user);
@@ -730,7 +576,7 @@ pub async fn create_wallet_v0(
         } else {
             SaveToNGOne::No
         },
-        client: client.clone(),
+        //client: client.clone(),
     };
 
     //Creating a new peerId for this Client and User
@@ -846,11 +692,12 @@ pub async fn create_wallet_v0(
     );
     let wallet = Wallet::V0(wallet_v0);
     let wallet_file = match params.result_with_wallet_file {
-        false => vec![], // TODO: save locally
+        false => vec![],
         true => to_vec(&NgFile::V0(NgFileV0::Wallet(wallet.clone()))).unwrap(),
     };
     Ok(CreateWalletResultV0 {
         wallet: wallet,
+        wallet_privkey,
         wallet_file,
         pazzle,
         mnemonic: mnemonic.clone(),
@@ -860,13 +707,14 @@ pub async fn create_wallet_v0(
         nonce: 0,
         client,
         user,
+        in_memory: !params.local_save,
     })
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use p2p_net::types::BootstrapContentV0;
+    use ng_net::types::BootstrapContentV0;
     use std::fs::File;
     use std::io::BufReader;
     use std::io::Read;
@@ -917,7 +765,6 @@ mod test {
             None,
             None,
         ))
-        .await
         .expect("create_wallet_v0");
 
         log_debug!(

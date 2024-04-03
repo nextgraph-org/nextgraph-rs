@@ -505,7 +505,7 @@ let face = [
     },
   ];
 
-  let mammal = [
+  let big_animal = [
     {
       hexcode: "1f981",
       shortcode: "lion",
@@ -522,7 +522,6 @@ let face = [
       shortcode: "horse_face",
       code: "horse",
     },
-
     {
       hexcode: "1f993",
       shortcode: "zebra",
@@ -538,7 +537,6 @@ let face = [
       shortcode: "goat",
       code: "goat",
     },
-
     {
       hexcode: "1f411",
       shortcode: "ewe",
@@ -554,7 +552,6 @@ let face = [
       shortcode: "giraffe",
       code: "giraffe",
     },
-
     {
       hexcode: "1f418",
       shortcode: "elephant",
@@ -570,16 +567,15 @@ let face = [
       shortcode: "rabbit",
       code: "rabbit",
     },
-
     {
-      hexcode: "1f994",
-      shortcode: "hedgehog",
-      code: "hedgehog",
+      hexcode: "1f433",
+      shortcode: "spouting_whale",
+      code: "whale",
     },
     {
-      hexcode: "1f987",
-      shortcode: "bat",
-      code: "bat",
+      hexcode: "1f42c",
+      shortcode: "dolphin",
+      code: "dolphin",
     },
     {
       hexcode: "1f43b_200d_2744",
@@ -605,7 +601,6 @@ let face = [
       shortcode: "eagle",
       code: "eagle",
     },
-
     {
       hexcode: "1f986",
       shortcode: "duck",
@@ -621,7 +616,6 @@ let face = [
       shortcode: "flamingo",
       code: "flamingo",
     },
-
     {
       hexcode: "1f427",
       shortcode: "penguin",
@@ -637,23 +631,21 @@ let face = [
       shortcode: "turtle",
       code: "turtle",
     },
-
     {
       hexcode: "1f40d",
       shortcode: "snake",
       code: "snake",
     },
     {
-      hexcode: "1f433",
-      shortcode: "spouting_whale",
-      code: "whale",
+      hexcode: "1f994",
+      shortcode: "hedgehog",
+      code: "hedgehog",
     },
     {
-      hexcode: "1f42c",
-      shortcode: "dolphin",
-      code: "dolphin",
+      hexcode: "1f987",
+      shortcode: "bat",
+      code: "bat",
     },
-
     {
       hexcode: "1f41f",
       shortcode: "fish",
@@ -688,7 +680,6 @@ let face = [
       shortcode: "ant",
       code: "ant",
     },
-
     {
       hexcode: "1f41d",
       shortcode: "honeybee",
@@ -1050,7 +1041,7 @@ let face = [
     {
       hexcode: "2744",
       shortcode: "snowflake",
-      code: "snow",
+      code: "snowflake",
     },
 
     {
@@ -1470,35 +1461,30 @@ export async function load_svg() {
     sport[13].svg = await import("./assets/pazzle/emoji_u1f3d3.svg?component");
     sport[14].svg = await import("./assets/pazzle/emoji_u1f94b.svg?component");
 
-    /************** MAMMAL *********************/
+    /************** BIG ANIMAL *********************/
 
-    mammal[0].svg = await import("./assets/pazzle/emoji_u1f981.svg?component");
-    mammal[1].svg = await import("./assets/pazzle/emoji_u1f406.svg?component");
-    mammal[2].svg = await import("./assets/pazzle/emoji_u1f434.svg?component");
+    big_animal[0].svg = await import("./assets/pazzle/emoji_u1f981.svg?component");
+    big_animal[1].svg = await import("./assets/pazzle/emoji_u1f406.svg?component");
+    big_animal[2].svg = await import("./assets/pazzle/emoji_u1f434.svg?component");
 
-    mammal[3].svg = await import("./assets/pazzle/emoji_u1f993.svg?component");
-    mammal[4].svg = await import("./assets/pazzle/emoji_u1f416.svg?component");
-    mammal[5].svg = await import("./assets/pazzle/emoji_u1f410.svg?component");
+    big_animal[3].svg = await import("./assets/pazzle/emoji_u1f993.svg?component");
+    big_animal[4].svg = await import("./assets/pazzle/emoji_u1f416.svg?component");
+    big_animal[5].svg = await import("./assets/pazzle/emoji_u1f410.svg?component");
 
-    mammal[6].svg = await import("./assets/pazzle/emoji_u1f411.svg?component");
-    mammal[7].svg = await import("./assets/pazzle/emoji_u1f42a.svg?component");
-    mammal[8].svg = await import("./assets/pazzle/emoji_u1f992.svg?component");
+    big_animal[6].svg = await import("./assets/pazzle/emoji_u1f411.svg?component");
+    big_animal[7].svg = await import("./assets/pazzle/emoji_u1f42a.svg?component");
+    big_animal[8].svg = await import("./assets/pazzle/emoji_u1f992.svg?component");
 
-    mammal[9].svg = await import("./assets/pazzle/emoji_u1f418.svg?component");
-    mammal[10].svg = await import(
+    big_animal[9].svg = await import("./assets/pazzle/emoji_u1f418.svg?component");
+    big_animal[10].svg = await import(
       "./assets/pazzle/emoji_u1f98f.svg?component"
     );
-    mammal[11].svg = await import(
+    big_animal[11].svg = await import(
       "./assets/pazzle/emoji_u1f407.svg?component"
     );
-
-    mammal[12].svg = await import(
-      "./assets/pazzle/emoji_u1f994.svg?component"
-    );
-    mammal[13].svg = await import(
-      "./assets/pazzle/emoji_u1f987.svg?component"
-    );
-    mammal[14].svg = await import(
+    big_animal[12].svg = await import("./assets/pazzle/emoji_u1f433.svg?component");
+    big_animal[13].svg = await import("./assets/pazzle/emoji_u1f42c.svg?component");
+    big_animal[14].svg = await import(
       "./assets/pazzle/emoji_u1f43b_200d_2744.svg?component"
     );
 
@@ -1517,8 +1503,12 @@ export async function load_svg() {
     animal[8].svg = await import("./assets/pazzle/emoji_u1f422.svg?component");
 
     animal[9].svg = await import("./assets/pazzle/emoji_u1f40d.svg?component");
-    animal[10].svg = await import("./assets/pazzle/emoji_u1f433.svg?component");
-    animal[11].svg = await import("./assets/pazzle/emoji_u1f42c.svg?component");
+    animal[10].svg = await import(
+      "./assets/pazzle/emoji_u1f994.svg?component"
+    );
+    animal[11].svg = await import(
+      "./assets/pazzle/emoji_u1f987.svg?component"
+    );
 
     animal[12].svg = await import("./assets/pazzle/emoji_u1f41f.svg?component");
     animal[13].svg = await import("./assets/pazzle/emoji_u1f41a.svg?component");
@@ -1703,7 +1693,7 @@ export const emojis = {
     emotion,
     body,
     sport,
-    mammal,
+    big_animal,
     animal,
     plants,
     fruits,
@@ -1717,7 +1707,7 @@ export const emojis = {
 export const emoji_cat = [
     "face",
     "sport",
-    "mammal",
+    "big_animal",
     "animal",
     "plants",
     "fruits",

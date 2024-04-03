@@ -16,14 +16,7 @@
   import { push } from "svelte-spa-router";
   import { onMount, onDestroy } from "svelte";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
-  import {
-    wallets,
-    active_wallet,
-    opened_wallets,
-    active_session,
-    has_wallets,
-    derived,
-  } from "../store";
+  import { has_wallets } from "../store";
 
   let display_has_wallets_warning: boolean = $has_wallets != 0;
   let unsubscribe;

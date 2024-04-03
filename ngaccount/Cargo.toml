@@ -1,11 +1,17 @@
 [package]
 name = "ngaccount"
-version = "0.1.0"
-edition = "2021"
-license = "MIT/Apache-2.0"
-authors = ["Niko PLP <niko@nextgraph.org>"]
-description = "account manager for NextGraph broker service provider"
-repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
+# version = "0.1.0"
+description = "account manager for NextGraph Broker Service Provider"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 tokio = { version = "1.27", features = ["full"] }
@@ -14,10 +20,10 @@ warp-embed = "0.4"
 rust-embed = "6"
 log = "0.4"
 env_logger = "0.10"
-p2p-repo = { path = "../p2p-repo", features = ["server_log_output"] }
-p2p-net = { path = "../p2p-net" }
-p2p-client-ws = { path = "../p2p-client-ws" }
-ng-wallet = { path = "../ng-wallet" }
+ng-repo = { path = "../ng-repo", version = "0.1.0", features = ["server_log_output"] }
+ng-net = { path = "../ng-net", version = "0.1.0" }
+ng-client-ws = { path = "../ng-client-ws", version = "0.1.0" }
+ng-wallet = { path = "../ng-wallet", version = "0.1.0" }
 serde = { version = "1.0.142", features = ["derive"] }
 serde_bare = "0.5.0"
 serde_bytes = "0.11.7"

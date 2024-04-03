@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use p2p_repo::log::*;
+use ng_repo::log::*;
 use std::hash::{Hash, Hasher};
 use std::{collections::HashMap, fmt};
 use web_time::SystemTime;
@@ -16,10 +16,10 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 
-use p2p_net::types::*;
-use p2p_repo::errors::NgError;
-use p2p_repo::types::*;
-use p2p_repo::utils::{now_timestamp, sign};
+use ng_net::types::*;
+use ng_repo::errors::NgError;
+use ng_repo::types::*;
+use ng_repo::utils::{encrypt_in_place, generate_keypair, now_timestamp, sign};
 
 /// WalletId is a PubKey
 pub type WalletId = PubKey;
@@ -65,6 +65,21 @@ impl Bootstrap {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum SessionPeerLastSeq {
+    V0(u64),
+    V1((u64, Sig)),
+}
+
+impl SessionPeerLastSeq {
+    pub fn ser(&self) -> Result<Vec<u8>, NgError> {
+        Ok(serde_bare::to_vec(self)?)
+    }
+    pub fn deser(ser: &[u8]) -> Result<Self, NgError> {
+        Ok(serde_bare::from_slice(ser).map_err(|_| NgError::SerializationError)?)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionWalletStorageV0 {
     // string is base64_url encoding of userId(pubkey)
     pub users: HashMap<String, SessionPeerStorageV0>,
@@ -81,17 +96,48 @@ impl SessionWalletStorageV0 {
             users: HashMap::new(),
         }
     }
-    pub fn get_first_user_peer_nonce(&self) -> Result<(PubKey, u64), NgWalletError> {
-        if self.users.len() > 1 {
-            panic!("get_first_user_peer_nonce does not work as soon as there are more than one user in SessionWalletStorageV0")
-        };
-        let first = self.users.values().next();
-        if first.is_none() {
-            return Err(NgWalletError::InternalError);
-        }
-        let sps = first.unwrap();
-        Ok((sps.peer_key.to_pub(), sps.last_wallet_nonce))
+    pub fn dec_session(
+        wallet_key: PrivKey,
+        vec: &Vec<u8>,
+    ) -> Result<SessionWalletStorageV0, NgWalletError> {
+        let session_ser = crypto_box::seal_open(&(*wallet_key.to_dh().slice()).into(), vec)
+            .map_err(|_| NgWalletError::DecryptionError)?;
+        let session: SessionWalletStorage =
+            serde_bare::from_slice(&session_ser).map_err(|_| NgWalletError::SerializationError)?;
+        let SessionWalletStorage::V0(v0) = session;
+        Ok(v0)
     }
+
+    pub fn create_new_session(
+        wallet_id: &PubKey,
+        user: PubKey,
+    ) -> Result<(SessionPeerStorageV0, Vec<u8>), NgWalletError> {
+        let mut sws = SessionWalletStorageV0::new();
+        let sps = SessionPeerStorageV0::new(user);
+        sws.users.insert(sps.user.to_string(), sps.clone());
+        let cipher = sws.enc_session(wallet_id)?;
+        Ok((sps, cipher))
+    }
+
+    pub fn enc_session(&self, wallet_id: &PubKey) -> Result<Vec<u8>, NgWalletError> {
+        let sws_ser = serde_bare::to_vec(&SessionWalletStorage::V0(self.clone())).unwrap();
+        let mut rng = crypto_box::aead::OsRng {};
+        let cipher = crypto_box::seal(&mut rng, &wallet_id.to_dh_slice().into(), &sws_ser)
+            .map_err(|_| NgWalletError::EncryptionError)?;
+        Ok(cipher)
+    }
+
+    // pub fn get_first_user_peer_nonce(&self) -> Result<(PubKey, u64), NgWalletError> {
+    //     if self.users.len() > 1 {
+    //         panic!("get_first_user_peer_nonce does not work as soon as there are more than one user in SessionWalletStorageV0")
+    //     };
+    //     let first = self.users.values().next();
+    //     if first.is_none() {
+    //         return Err(NgWalletError::InternalError);
+    //     }
+    //     let sps = first.unwrap();
+    //     Ok((sps.peer_key.to_pub(), sps.last_wallet_nonce))
+    // }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -99,15 +145,78 @@ pub struct SessionPeerStorageV0 {
     pub user: UserId,
     pub peer_key: PrivKey,
     pub last_wallet_nonce: u64,
-    // string is base64_url encoding of branchId(pubkey)
-    pub branches_last_seq: HashMap<String, u64>,
+}
+
+impl SessionPeerStorageV0 {
+    pub fn new(user: UserId) -> Self {
+        let peer = generate_keypair();
+        SessionPeerStorageV0 {
+            user,
+            peer_key: peer.0,
+            last_wallet_nonce: 0,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
+pub struct LocalClientStorageV0 {
+    pub priv_key: PrivKey,
+    pub storage_master_key: SymKey,
+}
+
+impl LocalClientStorageV0 {
+    fn crypt(text: &mut Vec<u8>, client: ClientId, wallet_privkey: PrivKey) {
+        let client_ser = serde_bare::to_vec(&client).unwrap();
+        let mut wallet_privkey_ser = serde_bare::to_vec(&wallet_privkey).unwrap();
+        let mut key_material = [client_ser, wallet_privkey_ser].concat();
+
+        let mut key: [u8; 32] = blake3::derive_key(
+            "NextGraph LocalClientStorageV0 BLAKE3 key",
+            key_material.as_slice(),
+        );
+
+        encrypt_in_place(text, key, [0; 12]);
+        key.zeroize();
+        key_material.zeroize();
+    }
+
+    pub fn decrypt(
+        ciphertext: &mut Vec<u8>,
+        client: ClientId,
+        wallet_privkey: PrivKey,
+    ) -> Result<LocalClientStorageV0, NgWalletError> {
+        Self::crypt(ciphertext, client, wallet_privkey);
+
+        let res =
+            serde_bare::from_slice(&ciphertext).map_err(|_| NgWalletError::DecryptionError)?;
+
+        ciphertext.zeroize();
+
+        Ok(res)
+    }
+
+    pub fn encrypt(
+        &self,
+        client: ClientId,
+        wallet_privkey: PrivKey,
+    ) -> Result<Vec<u8>, NgWalletError> {
+        let mut ser = serde_bare::to_vec(self).map_err(|_| NgWalletError::EncryptionError)?;
+
+        Self::crypt(&mut ser, client, wallet_privkey);
+
+        Ok(ser)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LocalWalletStorageV0 {
+    pub in_memory: bool,
     pub bootstrap: BootstrapContent,
     pub wallet: Wallet,
-    pub client: ClientId,
+    pub client_id: ClientId,
+    pub client_auto_open: Vec<PubKey>,
+    pub client_name: Option<String>,
+    pub encrypted_client_storage: Vec<u8>,
 }
 
 impl From<&CreateWalletResultV0> for LocalWalletStorageV0 {
@@ -115,18 +224,54 @@ impl From<&CreateWalletResultV0> for LocalWalletStorageV0 {
         LocalWalletStorageV0 {
             bootstrap: BootstrapContent::V0(BootstrapContentV0::new()),
             wallet: res.wallet.clone(),
-            client: res.client.priv_key.to_pub(),
+            in_memory: res.in_memory,
+            client_id: res.client.id,
+            client_auto_open: res.client.auto_open.clone(),
+            client_name: res.client.name.clone(),
+            encrypted_client_storage: res
+                .client
+                .sensitive_client_storage
+                .encrypt(res.client.id, res.wallet_privkey.clone())
+                .unwrap(),
         }
     }
 }
 
 impl LocalWalletStorageV0 {
-    pub fn new(wallet: Wallet, client: &ClientV0) -> Self {
-        LocalWalletStorageV0 {
+    pub fn new(
+        encrypted_wallet: Wallet,
+        wallet_priv_key: PrivKey,
+        client: &ClientV0,
+        in_memory: bool,
+    ) -> Result<Self, NgWalletError> {
+        Ok(LocalWalletStorageV0 {
             bootstrap: BootstrapContent::V0(BootstrapContentV0::new()),
-            wallet,
-            client: client.priv_key.to_pub(),
-        }
+            wallet: encrypted_wallet,
+            in_memory,
+            client_id: client.id,
+            client_auto_open: client.auto_open.clone(),
+            client_name: client.name.clone(),
+            encrypted_client_storage: client
+                .sensitive_client_storage
+                .encrypt(client.id, wallet_priv_key)?,
+        })
+    }
+
+    pub fn to_client_v0(&self, wallet_privkey: PrivKey) -> Result<ClientV0, NgWalletError> {
+        Ok(ClientV0 {
+            id: self.client_id,
+            auto_open: self.client_auto_open.clone(),
+            name: self.client_name.clone(),
+            sensitive_client_storage: self.local_client_storage_v0(wallet_privkey)?,
+        })
+    }
+
+    fn local_client_storage_v0(
+        &self,
+        wallet_privkey: PrivKey,
+    ) -> Result<LocalClientStorageV0, NgWalletError> {
+        let mut cipher = self.encrypted_client_storage.clone();
+        LocalClientStorageV0::decrypt(&mut cipher, self.client_id, wallet_privkey)
     }
 }
 
@@ -136,64 +281,80 @@ pub enum LocalWalletStorage {
 }
 
 impl LocalWalletStorage {
-    pub fn v0_from_vec(vec: &Vec<u8>) -> Self {
-        let wallets: LocalWalletStorage = serde_bare::from_slice(vec).unwrap();
-        wallets
+    pub fn v0_from_vec(vec: &Vec<u8>) -> Result<Self, NgError> {
+        let wallets: LocalWalletStorage = serde_bare::from_slice(vec)?;
+        Ok(wallets)
     }
-    pub fn v0_to_vec(wallets: HashMap<String, LocalWalletStorageV0>) -> Vec<u8> {
-        serde_bare::to_vec(&LocalWalletStorage::V0(wallets)).unwrap()
+    pub fn v0_to_vec(wallets: &HashMap<String, LocalWalletStorageV0>) -> Vec<u8> {
+        serde_bare::to_vec(&LocalWalletStorage::V0(wallets.clone())).unwrap()
     }
 }
 
 /// Device info Version 0
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub struct ClientV0 {
-    pub priv_key: PrivKey,
-
-    pub storage_master_key: SymKey,
+    #[zeroize(skip)]
+    pub id: PubKey,
 
     /// list of users that should be opened automatically (at launch, after wallet opened) on this device
-    pub auto_open: Vec<Identity>,
+    #[zeroize(skip)]
+    pub auto_open: Vec<PubKey>,
+
+    /// Device name
+    #[zeroize(skip)]
+    pub name: Option<String>,
+
+    pub sensitive_client_storage: LocalClientStorageV0,
 }
 
 impl ClientV0 {
     pub fn id(&self) -> String {
-        self.priv_key.to_pub().to_string()
+        self.id.to_string()
     }
 
     #[deprecated(note = "**Don't use nil method**")]
     #[allow(deprecated)]
     pub fn nil() -> Self {
         ClientV0 {
-            priv_key: PrivKey::nil(),
-            storage_master_key: SymKey::nil(),
+            id: PubKey::nil(),
+            sensitive_client_storage: LocalClientStorageV0 {
+                priv_key: PrivKey::nil(),
+                storage_master_key: SymKey::nil(),
+            },
             auto_open: vec![],
+            name: None,
         }
     }
 
     #[cfg(test)]
     #[allow(deprecated)]
     pub fn dummy() -> Self {
-        ClientV0 {
-            priv_key: PrivKey::nil(),
-            storage_master_key: SymKey::nil(),
-            auto_open: vec![],
-        }
+        Self::nil()
     }
 
     pub fn new_with_auto_open(user: PubKey) -> Self {
+        let (priv_key, id) = generate_keypair();
         ClientV0 {
-            priv_key: PrivKey::random_ed(),
-            storage_master_key: SymKey::random(),
-            auto_open: vec![Identity::IndividualSite(user)],
+            id,
+            sensitive_client_storage: LocalClientStorageV0 {
+                priv_key,
+                storage_master_key: SymKey::random(),
+            },
+            auto_open: vec![user],
+            name: None,
         }
     }
 
     pub fn new() -> Self {
+        let (priv_key, id) = generate_keypair();
         ClientV0 {
-            priv_key: PrivKey::random_ed(),
-            storage_master_key: SymKey::random(),
+            id,
+            sensitive_client_storage: LocalClientStorageV0 {
+                priv_key,
+                storage_master_key: SymKey::random(),
+            },
             auto_open: vec![],
+            name: None,
         }
     }
 }
@@ -206,21 +367,20 @@ pub enum SaveToNGOne {
     Wallet,
 }
 
-/// EncryptedWallet block Version 0
+/// SensitiveWallet block Version 0
 #[derive(Clone, Zeroize, ZeroizeOnDrop, Debug, Serialize, Deserialize)]
-pub struct EncryptedWalletV0 {
+pub struct SensitiveWalletV0 {
     pub wallet_privkey: PrivKey,
 
     #[zeroize(skip)]
     pub wallet_id: String,
 
-    #[serde(with = "serde_bytes")]
-    pub pazzle: Vec<u8>,
+    //#[serde(with = "serde_bytes")]
+    //pub pazzle: Vec<u8>,
 
-    pub mnemonic: [u16; 12],
+    //pub mnemonic: [u16; 12],
 
-    pub pin: [u8; 4],
-
+    //pub pin: [u8; 4],
     #[zeroize(skip)]
     pub save_to_ng_one: SaveToNGOne,
 
@@ -238,9 +398,8 @@ pub struct EncryptedWalletV0 {
     pub brokers: HashMap<String, Vec<BrokerInfoV0>>,
 
     // map of all devices of the user
-    #[zeroize(skip)]
-    pub clients: HashMap<String, ClientV0>,
-
+    //#[zeroize(skip)]
+    //pub clients: HashMap<String, ClientV0>,
     #[zeroize(skip)]
     pub overlay_core_overrides: HashMap<String, Vec<PubKey>>,
 
@@ -253,37 +412,81 @@ pub struct EncryptedWalletV0 {
     pub log: Option<WalletLogV0>,
 
     pub master_key: Option<[u8; 32]>,
+
+    pub client: Option<ClientV0>,
 }
 
-impl EncryptedWalletV0 {
+/// SensitiveWallet block
+#[derive(Clone, Debug, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
+pub enum SensitiveWallet {
+    V0(SensitiveWalletV0),
+}
+
+impl SensitiveWallet {
+    pub fn privkey(&self) -> PrivKey {
+        match self {
+            Self::V0(v0) => v0.wallet_privkey.clone(),
+        }
+    }
+    pub fn id(&self) -> String {
+        match self {
+            Self::V0(v0) => v0.wallet_id.clone(),
+        }
+    }
+    pub fn client(&self) -> &Option<ClientV0> {
+        match self {
+            Self::V0(v0) => &v0.client,
+        }
+    }
+    pub fn sites(&self) -> Keys<String, SiteV0> {
+        match self {
+            Self::V0(v0) => v0.sites.keys(),
+        }
+    }
+    pub fn set_client(&mut self, client: ClientV0) {
+        match self {
+            Self::V0(v0) => v0.client = Some(client),
+        }
+    }
+    pub fn has_user(&self, user_id: &UserId) -> bool {
+        match self {
+            Self::V0(v0) => v0.sites.get(&user_id.to_string()).is_some(),
+        }
+    }
+    pub fn import_v0(
+        &mut self,
+        encrypted_wallet: Wallet,
+        in_memory: bool,
+    ) -> Result<LocalWalletStorageV0, NgWalletError> {
+        match self {
+            Self::V0(v0) => v0.import(encrypted_wallet, in_memory),
+        }
+    }
+}
+
+impl SensitiveWalletV0 {
     pub fn import(
         &mut self,
-        previous_wallet: Wallet,
-        session: SessionWalletStorageV0,
-    ) -> Result<(Wallet, String, ClientV0), NgWalletError> {
-        if self.log.is_none() {
-            return Err(NgWalletError::InternalError);
-        }
+        encrypted_wallet: Wallet,
+        in_memory: bool,
+    ) -> Result<LocalWalletStorageV0, NgWalletError> {
         // Creating a new client
+        // TODO, create client with auto_open taken from wallet log ?
         let client = ClientV0::new_with_auto_open(self.personal_site);
-        self.add_client(client.clone());
-        let log = self.log.as_mut().unwrap();
-        log.add(WalletOperation::SetClientV0(client.clone()));
-        let (peer_id, nonce) = session.get_first_user_peer_nonce()?;
-        Ok((
-            previous_wallet.encrypt(
-                &WalletLog::V0(log.clone()),
-                self.master_key.as_ref().unwrap(),
-                peer_id,
-                nonce,
-                self.wallet_privkey.clone(),
-            )?,
-            client.id(),
-            client,
-        ))
+
+        let lws = LocalWalletStorageV0::new(
+            encrypted_wallet,
+            self.wallet_privkey.clone(),
+            &client,
+            in_memory,
+        )?;
+
+        self.client = Some(client);
+
+        Ok(lws)
     }
     pub fn add_site(&mut self, site: SiteV0) {
-        let site_id = site.site_key.to_pub();
+        let site_id = site.id;
         let _ = self.sites.insert(site_id.to_string(), site);
     }
     pub fn add_brokers(&mut self, brokers: Vec<BrokerInfoV0>) {
@@ -298,21 +501,15 @@ impl EncryptedWalletV0 {
             list.unwrap().push(broker);
         }
     }
-    pub fn add_client(&mut self, client: ClientV0) {
-        let client_id = client.priv_key.to_pub().to_string();
-        let _ = self.clients.insert(client_id, client);
-    }
+    // pub fn add_client(&mut self, client: ClientV0) {
+    //     let client_id = client.priv_key.to_pub().to_string();
+    //     let _ = self.clients.insert(client_id, client);
+    // }
     pub fn add_overlay_core_overrides(&mut self, overlay: &OverlayId, cores: &Vec<PubKey>) {
         let _ = self
             .overlay_core_overrides
             .insert(overlay.to_string(), cores.to_vec());
     }
-}
-
-/// EncryptedWallet block
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum EncryptedWallet {
-    V0(EncryptedWalletV0),
 }
 
 /// Wallet content Version 0
@@ -392,11 +589,11 @@ impl WalletLogV0 {
     }
 
     /// applies all the operation and produces an encrypted wallet object.
-    pub fn reduce(self, master_key: [u8; 32]) -> Result<EncryptedWalletV0, NgWalletError> {
+    pub fn reduce(self, master_key: [u8; 32]) -> Result<SensitiveWalletV0, NgWalletError> {
         if self.log.len() < 1 {
             Err(NgWalletError::NoCreateWalletPresent)
         } else if let (_, WalletOperation::CreateWalletV0(create_op)) = &self.log[0] {
-            let mut wallet: EncryptedWalletV0 = create_op.into();
+            let mut wallet: SensitiveWalletV0 = create_op.into();
             wallet.master_key = Some(master_key);
 
             for op in &self.log {
@@ -425,11 +622,11 @@ impl WalletLogV0 {
                             wallet.add_brokers(vec![BrokerInfoV0::CoreV0(o.clone())]);
                         }
                     }
-                    WalletOperation::SetClientV0(o) => {
-                        if self.is_last_occurrence(op.0, &op.1) != 0 {
-                            wallet.add_client(o.clone());
-                        }
-                    }
+                    // WalletOperation::SetClientV0(o) => {
+                    //     if self.is_last_occurrence(op.0, &op.1) != 0 {
+                    //         wallet.add_client(o.clone());
+                    //     }
+                    // }
                     WalletOperation::AddOverlayCoreOverrideV0((overlay, cores)) => {
                         if self
                             .is_last_and_not_deleted_afterwards(op, "RemoveOverlayCoreOverrideV0")
@@ -461,40 +658,39 @@ impl WalletLogV0 {
                             let _ = wallet.third_parties.insert(key.to_string(), value.to_vec());
                         }
                     }
-                    WalletOperation::RemoveThirdPartyDataV0(_) => {}
-                    WalletOperation::SetSiteRBDRefV0((site, store_type, rbdr)) => {
-                        if self.is_last_occurrence(op.0, &op.1) != 0 {
-                            let _ = wallet.sites.get_mut(&site.to_string()).and_then(|site| {
-                                match store_type {
-                                    SiteStoreType::Public => site.public.read_cap = rbdr.clone(),
-                                    SiteStoreType::Protected => {
-                                        site.protected.read_cap = rbdr.clone()
-                                    }
-                                    SiteStoreType::Private => site.private.read_cap = rbdr.clone(),
-                                };
-                                None::<SiteV0>
-                            });
-                        }
-                    }
-                    WalletOperation::SetSiteRepoSecretV0((site, store_type, secret)) => {
-                        if self.is_last_occurrence(op.0, &op.1) != 0 {
-                            let _ = wallet.sites.get_mut(&site.to_string()).and_then(|site| {
-                                match store_type {
-                                    SiteStoreType::Public => site.public.write_cap = secret.clone(),
-                                    SiteStoreType::Protected => {
-                                        site.protected.write_cap = secret.clone()
-                                    }
-                                    SiteStoreType::Private => {
-                                        site.private.write_cap = secret.clone()
-                                    }
-                                };
-                                None::<SiteV0>
-                            });
-                        }
-                    }
+                    WalletOperation::RemoveThirdPartyDataV0(_) => {} // WalletOperation::SetSiteRBDRefV0((site, store_type, rbdr)) => {
+                                                                     //     if self.is_last_occurrence(op.0, &op.1) != 0 {
+                                                                     //         let _ = wallet.sites.get_mut(&site.to_string()).and_then(|site| {
+                                                                     //             match store_type {
+                                                                     //                 SiteStoreType::Public => site.public.read_cap = rbdr.clone(),
+                                                                     //                 SiteStoreType::Protected => {
+                                                                     //                     site.protected.read_cap = rbdr.clone()
+                                                                     //                 }
+                                                                     //                 SiteStoreType::Private => site.private.read_cap = rbdr.clone(),
+                                                                     //             };
+                                                                     //             None::<SiteV0>
+                                                                     //         });
+                                                                     //     }
+                                                                     // }
+                                                                     // WalletOperation::SetSiteRepoSecretV0((site, store_type, secret)) => {
+                                                                     //     if self.is_last_occurrence(op.0, &op.1) != 0 {
+                                                                     //         let _ = wallet.sites.get_mut(&site.to_string()).and_then(|site| {
+                                                                     //             match store_type {
+                                                                     //                 SiteStoreType::Public => site.public.write_cap = secret.clone(),
+                                                                     //                 SiteStoreType::Protected => {
+                                                                     //                     site.protected.write_cap = secret.clone()
+                                                                     //                 }
+                                                                     //                 SiteStoreType::Private => {
+                                                                     //                     site.private.write_cap = secret.clone()
+                                                                     //                 }
+                                                                     //             };
+                                                                     //             None::<SiteV0>
+                                                                     //         });
+                                                                     //     }
+                                                                     // }
                 }
             }
-            log_debug!("reduced {:?}", wallet);
+            //log_debug!("reduced {:?}", wallet);
             wallet.log = Some(self);
             Ok(wallet)
         } else {
@@ -601,7 +797,7 @@ pub enum WalletOperation {
     RemoveBrokerServerV0(BrokerServerV0),
     SetSaveToNGOneV0(SaveToNGOne),
     SetBrokerCoreV0(BrokerCoreV0),
-    SetClientV0(ClientV0),
+    //SetClientV0(ClientV0),
     AddOverlayCoreOverrideV0((OverlayId, Vec<PubKey>)),
     RemoveOverlayCoreOverrideV0(OverlayId),
     AddSiteCoreV0((PubKey, PubKey, Option<[u8; 32]>)),
@@ -610,10 +806,10 @@ pub enum WalletOperation {
     RemoveSiteBootstrapV0((PubKey, PubKey)),
     AddThirdPartyDataV0((String, Vec<u8>)),
     RemoveThirdPartyDataV0(String),
-    SetSiteRBDRefV0((PubKey, SiteStoreType, ObjectRef)),
-    SetSiteRepoSecretV0((PubKey, SiteStoreType, RepoWriteCapSecret)),
+    //SetSiteRBDRefV0((PubKey, SiteStoreType, ObjectRef)),
+    //SetSiteRepoSecretV0((PubKey, SiteStoreType, RepoWriteCapSecret)),
 }
-use std::collections::hash_map::DefaultHasher;
+use std::collections::hash_map::{DefaultHasher, Iter, Keys};
 
 impl WalletOperation {
     pub fn hash(&self) -> (u64, &str) {
@@ -621,7 +817,7 @@ impl WalletOperation {
         match self {
             Self::CreateWalletV0(t) => (0, "CreateWalletV0"),
             Self::AddSiteV0(t) => {
-                t.site_key.hash(&mut s);
+                t.id.hash(&mut s);
                 (s.finish(), "AddSiteV0")
             }
             Self::RemoveSiteV0(t) => {
@@ -641,10 +837,10 @@ impl WalletOperation {
                 t.peer_id.hash(&mut s);
                 (s.finish(), "SetBrokerCoreV0")
             }
-            Self::SetClientV0(t) => {
-                t.priv_key.hash(&mut s);
-                (s.finish(), "SetClientV0")
-            }
+            // Self::SetClientV0(t) => {
+            //     t.priv_key.hash(&mut s);
+            //     (s.finish(), "SetClientV0")
+            // }
             Self::AddOverlayCoreOverrideV0(t) => {
                 t.0.hash(&mut s);
                 (s.finish(), "AddOverlayCoreOverrideV0")
@@ -680,17 +876,16 @@ impl WalletOperation {
             Self::RemoveThirdPartyDataV0(t) => {
                 t.hash(&mut s);
                 (s.finish(), "RemoveThirdPartyDataV0")
-            }
-            Self::SetSiteRBDRefV0(t) => {
-                t.0.hash(&mut s);
-                t.1.hash(&mut s);
-                (s.finish(), "SetSiteRBDRefV0")
-            }
-            Self::SetSiteRepoSecretV0(t) => {
-                t.0.hash(&mut s);
-                t.1.hash(&mut s);
-                (s.finish(), "SetSiteRepoSecretV0")
-            }
+            } // Self::SetSiteRBDRefV0(t) => {
+              //     t.0.hash(&mut s);
+              //     t.1.hash(&mut s);
+              //     (s.finish(), "SetSiteRBDRefV0")
+              // }
+              // Self::SetSiteRepoSecretV0(t) => {
+              //     t.0.hash(&mut s);
+              //     t.1.hash(&mut s);
+              //     (s.finish(), "SetSiteRepoSecretV0")
+              // }
         }
     }
 }
@@ -702,11 +897,13 @@ impl WalletOperation {
 pub struct WalletOpCreateV0 {
     pub wallet_privkey: PrivKey,
 
-    #[serde(with = "serde_bytes")]
+    #[serde(skip)]
     pub pazzle: Vec<u8>,
 
+    #[serde(skip)]
     pub mnemonic: [u16; 12],
 
+    #[serde(skip)]
     pub pin: [u8; 4],
 
     #[zeroize(skip)]
@@ -714,37 +911,37 @@ pub struct WalletOpCreateV0 {
 
     #[zeroize(skip)]
     pub personal_site: SiteV0,
-
     // list of brokers and their connection details
     //#[zeroize(skip)]
     //pub brokers: Vec<BrokerInfoV0>,
-    #[zeroize(skip)]
-    pub client: ClientV0,
+    //#[serde(skip)]
+    //pub client: ClientV0,
 }
 
-impl From<&WalletOpCreateV0> for EncryptedWalletV0 {
+impl From<&WalletOpCreateV0> for SensitiveWalletV0 {
     fn from(op: &WalletOpCreateV0) -> Self {
-        let personal_site = op.personal_site.site_key.to_pub();
-        let mut wallet = EncryptedWalletV0 {
+        let personal_site = op.personal_site.id;
+        let mut wallet = SensitiveWalletV0 {
             wallet_privkey: op.wallet_privkey.clone(),
             wallet_id: op.wallet_privkey.to_pub().to_string(),
-            pazzle: op.pazzle.clone(),
-            mnemonic: op.mnemonic.clone(),
-            pin: op.pin.clone(),
+            //pazzle: op.pazzle.clone(),
+            //mnemonic: op.mnemonic.clone(),
+            //pin: op.pin.clone(),
             save_to_ng_one: op.save_to_ng_one.clone(),
             personal_site,
             personal_site_id: personal_site.to_string(),
             sites: HashMap::new(),
             brokers: HashMap::new(),
-            clients: HashMap::new(),
+            //clients: HashMap::new(),
             overlay_core_overrides: HashMap::new(),
             third_parties: HashMap::new(),
             log: None,
             master_key: None,
+            client: None, //Some(op.client.clone()),
         };
         wallet.add_site(op.personal_site.clone());
         //wallet.add_brokers(op.brokers.clone());
-        wallet.add_client(op.client.clone());
+        //wallet.add_client(op.client.clone());
         wallet
     }
 }
@@ -777,7 +974,7 @@ pub struct ReducedWalletContentV0 {
     pub peer_id: PubKey,
     pub nonce: u64,
 
-    // ReducedEncryptedWalletV0 content encrypted with XChaCha20Poly1305, AD = timestamp and walletID
+    // ReducedSensitiveWalletV0 content encrypted with XChaCha20Poly1305, AD = timestamp and walletID
     #[serde(with = "serde_bytes")]
     pub encrypted: Vec<u8>,
 }
@@ -798,9 +995,9 @@ impl BrokerInfoV0 {
     }
 }
 
-/// ReducedEncryptedWallet block Version 0
+/// ReducedSensitiveWallet block Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ReducedEncryptedWalletV0 {
+pub struct ReducedSensitiveWalletV0 {
     pub save_to_ng_one: SaveToNGOne,
 
     // main Site (Personal)
@@ -812,10 +1009,10 @@ pub struct ReducedEncryptedWalletV0 {
     pub client: ClientV0,
 }
 
-/// ReducedEncryptedWallet block
+/// ReducedSensitiveWallet block
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ReducedEncryptedWallet {
-    V0(ReducedEncryptedWalletV0),
+pub enum ReducedSensitiveWallet {
+    V0(ReducedSensitiveWalletV0),
 }
 
 /// Wallet Version 0
@@ -928,6 +1125,8 @@ impl CreateWalletV0 {
 pub struct CreateWalletResultV0 {
     #[zeroize(skip)]
     pub wallet: Wallet,
+    #[serde(skip)]
+    pub wallet_privkey: PrivKey,
     #[serde(with = "serde_bytes")]
     #[zeroize(skip)]
     pub wallet_file: Vec<u8>,
@@ -940,10 +1139,11 @@ pub struct CreateWalletResultV0 {
     pub peer_key: PrivKey,
     #[zeroize(skip)]
     pub nonce: u64,
-    #[zeroize(skip)]
     pub client: ClientV0,
     #[zeroize(skip)]
     pub user: PubKey,
+    #[zeroize(skip)]
+    pub in_memory: bool,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -961,6 +1161,19 @@ pub enum NgWalletError {
     NoCreateWalletPresent,
     InvalidBootstrap,
     SerializationError,
+}
+
+impl From<NgWalletError> for NgError {
+    fn from(wallet_error: NgWalletError) -> NgError {
+        match wallet_error {
+            NgWalletError::SerializationError => NgError::SerializationError,
+            NgWalletError::InvalidSignature => NgError::InvalidSignature,
+            NgWalletError::EncryptionError | NgWalletError::DecryptionError => {
+                NgError::EncryptionError
+            }
+            _ => NgError::WalletError(wallet_error.to_string()),
+        }
+    }
 }
 
 impl fmt::Display for NgWalletError {

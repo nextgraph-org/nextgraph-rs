@@ -10,13 +10,14 @@
 -->
 
 <script lang="ts">
-  import { Alert } from "flowbite-svelte";
+  import { Alert, Toggle } from "flowbite-svelte";
   import { onMount, createEventDispatcher, tick } from "svelte";
   import ng from "../api";
   import { emoji_cat, emojis, load_svg } from "../wallet_emojis";
   import { PuzzlePiece } from "svelte-heros-v2";
   //import Worker from "../worker.js?worker&inline";
   export let wallet;
+  export let for_import = false;
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
   let mobile = tauri_platform == "android" || tauri_platform == "ios";
@@ -81,6 +82,8 @@
 
   let error;
 
+  let trusted = false;
+
   function order() {
     step = "order";
     ordered = [];
@@ -130,20 +133,30 @@
     // open the wallet
     try {
       if (tauri_platform) {
-        let secret_wallet = await ng.wallet_open_wallet_with_pazzle(
+        let opened_wallet = await ng.wallet_open_with_pazzle(
           wallet,
           pazzle,
           pin_code
         );
+        // try {
+        //   let client = await ng.wallet_was_opened(opened_wallet);
+        //   opened_wallet.V0.client = client;
+        // } catch (e) {
+        //   console.log(e);
+        //   error = e;
+        //   step = "end";
+        //   dispatch("error", { error: e });
+        //   return;
+        // }
         step = "end";
         dispatch("opened", {
-          wallet: secret_wallet,
-          id: secret_wallet.V0.wallet_id,
+          wallet: opened_wallet,
+          id: opened_wallet.V0.wallet_id,
+          trusted,
         });
       } else {
         let worker_import = await import("../worker.js?worker&inline");
         const myWorker = new worker_import.default();
-        //const myWorker = new Worker();
         myWorker.onerror = (e) => {
           console.error(e);
           error = e;
@@ -156,16 +169,28 @@
           step = "end";
           dispatch("error", { error: e });
         };
-        myWorker.onmessage = (msg) => {
+        myWorker.onmessage = async (msg) => {
           //console.log("Message received from worker", msg.data);
           if (msg.data.loaded) {
             myWorker.postMessage({ wallet, pazzle, pin_code });
             //console.log("postMessage");
           } else if (msg.data.success) {
+            //console.log(msg.data);
+            // try {
+            //   let client = await ng.wallet_was_opened(msg.data.success);
+            //   msg.data.success.V0.client = client;
+            // } catch (e) {
+            //   console.log(e);
+            //   error = e;
+            //   step = "end";
+            //   dispatch("error", { error: e });
+            //   return;
+            // }
             step = "end";
             dispatch("opened", {
               wallet: msg.data.success,
               id: msg.data.success.V0.wallet_id,
+              trusted,
             });
           } else {
             console.error(msg.data.error);
@@ -216,13 +241,13 @@
 </script>
 
 {#if step == "load"}
-  <div class=" max-w-xl lg:px-8 mx-auto px-4 mb-10">
+  <div class=" max-w-xl lg:px-8 mx-auto px-4 mt-10">
     <h2 class="pb-5 text-xl">How to open your wallet, step by step :</h2>
     <ul class="mb-8 ml-3 space-y-4 text-left list-decimal">
       <li>
-        For each category of images, you will be presented with the 15 possible
-        image choices. The categories are shuffled at every login. They will not
-        always appear in the same order.
+        For each one of the 9 categories of images, you will be presented with
+        the 15 possible image choices. The categories are shuffled at every
+        login. They will not always appear in the same order.
       </li>
       <li>
         At each category, only one of the 15 displayed choices is the correct
@@ -230,7 +255,7 @@
         The 15 images are shuffled too, they will not appear at the same
         position at each login. On a computer, you can also use the tab key on
         your keyboard to move to the desired item on the screen, then press the
-        space bar.
+        space bar to select each one.
       </li>
       <li>
         Once you completed the last category, you will be presented with all the
@@ -254,11 +279,11 @@
       </li>
     </ul>
   </div>
-  <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-primary-700">
+  <div class=" max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
     {#if !loaded}
-      Loading...
+      Loading pazzle...
       <svg
-        class="animate-spin mt-2 h-14 w-14 mx-auto"
+        class="animate-spin my-4 h-14 w-14 mx-auto"
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         stroke="currentColor"
@@ -291,6 +316,24 @@
       </button>
     {/if}
   </div>
+  {#if for_import}
+    <div class=" max-w-xl lg:px-8 mx-auto px-4 mb-8">
+      <span class="text-xl">Do you trust this device? </span> <br />
+      <div class="flex justify-center items-center my-4">
+        <Toggle class="" bind:checked={trusted}
+          >Save my wallet on this device</Toggle
+        >
+      </div>
+      <p class="text-sm">
+        If you do, if this device is yours or is used by few trusted persons of
+        your family or workplace, and you would like to login again from this
+        device in the future, then you can save your wallet on this device. To
+        the contrary, if this device is public and shared by strangers, do not
+        save your wallet here. {#if !tauri_platform}By selecting this option,
+          you agree to save some cookies on your browser.{/if}<br />
+      </p>
+    </div>
+  {/if}
 {:else if step == "pazzle"}
   <div
     class="h-screen aspect-[3/5] pazzleline"

@@ -52,6 +52,11 @@
   let wallet_channel;
   let unsub_main_close;
 
+  // window.refresh_wallets = async () => {
+  //   let walls = await ng.get_wallets();
+  //   wallets.set(walls);
+  // };
+
   onMount(async () => {
     try {
       await disconnections_subscribe();
@@ -59,15 +64,27 @@
       console.log("called disconnections_subscribe twice");
     }
     let tauri_platform = import.meta.env.TAURI_PLATFORM;
+    //console.log(await ng.test());
     if (tauri_platform) {
-      //console.log(await ng.test());
-      let walls = await ng.get_wallets_from_localstorage();
+      let walls = await ng.get_wallets();
       wallets.set(walls);
 
-      unsubscribe = active_wallet.subscribe((value) => {
-        if (value && !value.wallet) {
-          active_wallet.set(undefined);
-          push("#/wallet/login");
+      unsubscribe = active_wallet.subscribe(async (value) => {
+        if (value) {
+          if (value.wallet) {
+            opened_wallets.update((w) => {
+              w[value.id] = value.wallet;
+              return w;
+            });
+          } else {
+            await ng.wallet_close(value.id);
+            active_wallet.set(undefined);
+            opened_wallets.update((w) => {
+              delete w[value.id];
+              return w;
+            });
+            push("#/wallet/login");
+          }
         }
       });
 
@@ -87,26 +104,47 @@
         }
       });
     } else {
+      // ON WEB CLIENTS
       window.addEventListener("storage", async (event) => {
         if (event.storageArea != localStorage) return;
         if (event.key === "ng_wallets") {
-          wallets.set(await ng.get_wallets_from_localstorage());
+          await ng.reload_wallets();
+          wallets.set(await ng.get_wallets());
         }
       });
-      wallets.set(await ng.get_wallets_from_localstorage());
+      wallets.set(await ng.get_wallets());
+      // TODO: check the possibility of XS-Leaks. I don't see any, but it should be checked
+      // https://github.com/privacycg/storage-partitioning
+      // https://github.com/whatwg/html/issues/5803
+      // https://w3cping.github.io/privacy-threat-model/
+      // https://chromium.googlesource.com/chromium/src/+/fa17a6142f99d58de533d65cd8f3cd0e9a8ee58e
+      // https://bugs.webkit.org/show_bug.cgi?id=229814
       wallet_channel = new BroadcastChannel("ng_wallet");
-      wallet_channel.postMessage({ cmd: "is_opened" }, location.href);
+      window.wallet_channel = wallet_channel;
+      wallet_channel.postMessage({ cmd: "startup" }, location.href);
       wallet_channel.onmessage = async (event) => {
         console.log(event.data.cmd, event.data);
         if (!location.href.startsWith(event.origin)) return;
         switch (event.data.cmd) {
-          case "is_opened":
-            if ($active_wallet && $active_wallet.wallet) {
-              wallet_channel.postMessage(
-                { cmd: "opened", wallet: $active_wallet },
-                location.href
-              );
+          case "startup":
+            for (let saved_id of Object.keys($wallets)) {
+              if ($wallets[saved_id].in_memory) {
+                wallet_channel.postMessage(
+                  {
+                    cmd: "new_in_mem",
+                    name: saved_id,
+                    lws: $wallets[saved_id],
+                  },
+                  location.href
+                );
+              }
             }
+            // if ($active_wallet && $active_wallet.wallet) {
+            //   wallet_channel.postMessage(
+            //     { cmd: "opened", wallet: $active_wallet },
+            //     location.href
+            //   );
+            // }
             for (let opened of Object.keys($opened_wallets)) {
               wallet_channel.postMessage(
                 {
@@ -116,13 +154,46 @@
                 location.href
               );
             }
+
             break;
           case "opened":
             if (!$opened_wallets[event.data.wallet.id]) {
+              console.log(
+                "ADDING TO OPENED",
+                event.data.wallet.id,
+                JSON.stringify($opened_wallets),
+                event.data.wallet.wallet
+              );
+              try {
+                await ng.wallet_was_opened(event.data.wallet.wallet);
+              } catch (e) {
+                console.error(e);
+              }
               opened_wallets.update((w) => {
                 w[event.data.wallet.id] = event.data.wallet.wallet;
                 return w;
               });
+            }
+            break;
+          case "new_in_mem":
+            console.log("GOT new_in_mem", event.data);
+            if (event.data.lws) {
+              if (!$wallets[event.data.name]) {
+                await ng.add_in_memory_wallet(event.data.lws);
+                wallets.update((w) => {
+                  w[event.data.name] = event.data.lws;
+                  return w;
+                });
+              }
+            }
+            if (event.data.opened) {
+              if (!$opened_wallets[event.data.name]) {
+                await ng.wallet_was_opened(event.data.opened);
+                opened_wallets.update((w) => {
+                  w[event.data.name] = event.data.opened;
+                  return w;
+                });
+              }
             }
             break;
           case "closed":
@@ -130,6 +201,7 @@
               delete w[event.data.walletid];
               return w;
             });
+            await ng.wallet_close(event.data.walletid);
             if ($active_wallet && $active_wallet.id == event.data.walletid) {
               await close_active_session();
               active_wallet.set(undefined);
@@ -138,9 +210,13 @@
             break;
         }
       };
-      unsubscribe = active_wallet.subscribe((value) => {
+      unsubscribe = active_wallet.subscribe(async (value) => {
         if (value) {
           if (value.wallet) {
+            opened_wallets.update((w) => {
+              w[value.id] = value.wallet;
+              return w;
+            });
             wallet_channel.postMessage(
               { cmd: "opened", wallet: value },
               location.href
@@ -151,6 +227,7 @@
               location.href
             );
             active_wallet.set(undefined);
+            await ng.wallet_close(value.id);
             //active_session.set(undefined);
             opened_wallets.update((w) => {
               delete w[value.id];
@@ -171,9 +248,10 @@
 </script>
 
 <!-- <p>
-    {JSON.stringify(Object.keys($wallets))}
-    {JSON.stringify($active_wallet)}
-    {JSON.stringify(Object.keys($opened_wallets))}
-    {JSON.stringify($active_session)}
-  </p> -->
+  {!$active_session}
+  {JSON.stringify(Object.keys($wallets))}
+  {JSON.stringify($active_wallet)}
+  {JSON.stringify(Object.keys($opened_wallets))}
+  {JSON.stringify($active_session)}
+</p> -->
 <Router {routes} />

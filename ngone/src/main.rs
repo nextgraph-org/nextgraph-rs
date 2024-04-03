@@ -12,7 +12,7 @@ extern crate slice_as_array;
 mod store;
 mod types;
 
-use p2p_repo::store::StorageError;
+use ng_repo::store::StorageError;
 use warp::reply::Response;
 use warp::{Filter, Reply};
 
@@ -24,12 +24,12 @@ use std::{env, fs};
 
 use crate::store::wallet_record::*;
 use crate::types::*;
+use ng_net::types::{APP_NG_ONE_URL, NG_ONE_URL};
+use ng_repo::log::*;
+use ng_repo::types::*;
+use ng_repo::utils::{generate_keypair, sign, verify};
+use ng_stores_rocksdb::kcv_store::RocksdbKCVStore;
 use ng_wallet::types::*;
-use p2p_net::types::{APP_NG_ONE_URL, NG_ONE_URL};
-use p2p_repo::log::*;
-use p2p_repo::types::*;
-use p2p_repo::utils::{generate_keypair, sign, verify};
-use stores_rocksdb::kcv_store::RocksdbKCVStore;
 
 #[derive(RustEmbed)]
 #[folder = "web/dist"]

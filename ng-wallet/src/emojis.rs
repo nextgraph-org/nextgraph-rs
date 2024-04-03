@@ -483,7 +483,7 @@ const sport: [EmojiDef<'static>; 15] = [
     },
 ];
 
-const mammal: [EmojiDef<'static>; 15] = [
+const big_animal: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f981",
         shortcode: "lion",
@@ -545,14 +545,14 @@ const mammal: [EmojiDef<'static>; 15] = [
         code: "rabbit",
     },
     EmojiDef {
-        hexcode: "1f994",
-        shortcode: "hedgehog",
-        code: "hedgehog",
+        hexcode: "1f433",
+        shortcode: "spouting_whale",
+        code: "whale",
     },
     EmojiDef {
-        hexcode: "1f987",
-        shortcode: "bat",
-        code: "bat",
+        hexcode: "1f42c",
+        shortcode: "dolphin",
+        code: "dolphin",
     },
     EmojiDef {
         hexcode: "1f43b_200d_2744",
@@ -613,14 +613,14 @@ const animal: [EmojiDef<'static>; 15] = [
         code: "snake",
     },
     EmojiDef {
-        hexcode: "1f433",
-        shortcode: "spouting_whale",
-        code: "whale",
+        hexcode: "1f994",
+        shortcode: "hedgehog",
+        code: "hedgehog",
     },
     EmojiDef {
-        hexcode: "1f42c",
-        shortcode: "dolphin",
-        code: "dolphin",
+        hexcode: "1f987",
+        shortcode: "bat",
+        code: "bat",
     },
     EmojiDef {
         hexcode: "1f41f",
@@ -995,7 +995,7 @@ const sky: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "2744",
         shortcode: "snowflake",
-        code: "snow",
+        code: "snowflake",
     },
     EmojiDef {
         hexcode: "26c4",
@@ -1193,7 +1193,7 @@ lazy_static! {
         ("emotion", emotion),
         ("body", body),
         ("sport", sport),
-        ("mammal", mammal),
+        ("big_animal", big_animal),
         ("animal", animal),
         ("plants", plants),
         ("fruits", fruits),
@@ -1210,7 +1210,7 @@ lazy_static! {
 pub const EMOJI_CAT: [&str; 15] = [
     "face",
     "sport",
-    "mammal",
+    "big_animal",
     "animal",
     "plants",
     "fruits",

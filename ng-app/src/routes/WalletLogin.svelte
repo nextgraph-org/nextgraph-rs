@@ -26,6 +26,9 @@
     set_active_session,
     has_wallets,
   } from "../store";
+
+  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+
   let wallet;
   let selected;
   let step;
@@ -59,9 +62,8 @@
     active_wallet_unsub = active_wallet.subscribe(async (value) => {
       if (value && value.wallet) {
         if (!$active_session) {
-          let session = await ng.get_local_session(
+          let session = await ng.session_start(
             value.id,
-            value.wallet.V0.wallet_privkey,
             value.wallet.V0.personal_site
           );
           //console.log(session);
@@ -91,20 +93,52 @@
   async function gotWallet(event) {
     if (importing) {
       try {
-        let new_client = await ng.wallet_import(wallet, event.detail.wallet);
-        event.detail.wallet.V0.clients[new_client[0]] = new_client[1];
-        let walls = await ng.get_wallets_from_localstorage();
-        wallets.set(walls);
+        let in_memory = !event.detail.trusted;
+        //console.log("IMPORTING", in_memory, event.detail.wallet, wallet);
+        let client = await ng.wallet_import(
+          wallet,
+          event.detail.wallet,
+          in_memory
+        );
+        event.detail.wallet.V0.client = client;
+        // refreshing the wallets
+        wallets.set(await ng.get_wallets());
+        //console.log($wallets);
+        let session = await ng.session_start(
+          event.detail.id,
+          event.detail.wallet.V0.personal_site
+        );
+        console.log(session);
+        if (session) {
+          set_active_session(session);
+        }
+        if (in_memory && !tauri_platform) {
+          // send a message in BroadcastChannel new_in_mem(lws, opened_wallet=event.detail.wallet).
+          let name = event.detail.id;
+          let lws = $wallets[name];
+          if (lws.in_memory) {
+            let new_in_mem = {
+              lws,
+              name,
+              opened: event.detail.wallet,
+              cmd: "new_in_mem",
+            };
+            window.wallet_channel.postMessage(new_in_mem, location.href);
+          }
+        }
       } catch (e) {
         importing = false;
         wallet = undefined;
         error = e;
         return;
       }
+    } else {
+      let client = await ng.wallet_was_opened(event.detail.wallet);
+      event.detail.wallet.V0.client = client;
     }
     active_wallet.set(event.detail);
-    // wallet
-    // id
+    // { wallet,
+    // id }
   }
   function cancelLogin(event) {
     importing = false;
@@ -127,7 +161,7 @@
       reader.onload = async (e) => {
         try {
           //console.log(e.target.result);
-          wallet = await ng.wallet_open_file(e.target.result);
+          wallet = await ng.wallet_read_file(e.target.result);
           importing = true;
         } catch (e) {
           error = e;
@@ -178,6 +212,7 @@
     {:else if wallet}
       <Login
         {wallet}
+        bind:for_import={importing}
         on:error={gotError}
         on:opened={gotWallet}
         on:cancel={cancelLogin}

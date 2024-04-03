@@ -1,19 +1,25 @@
 [package]
 name = "ng-wallet"
-version = "0.1.0"
-edition = "2021"
-license = "MIT/Apache-2.0"
-authors = ["Niko PLP <niko@nextgraph.org>"]
-description = "keeps the secret keys of all identities of the user in a safe wallet"
-repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
+# version = "0.1.0"
+description = "Wallet library of NextGraph. keeps the secret keys of all identities of the user in a safe wallet. NextGraph is a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
+categories = ["authentication "]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 serde = { version = "1.0.142", features = ["derive"] }
 serde_bare = "0.5.0"
 serde_bytes = "0.11.7"
 serde-big-array = "0.5.1"
-p2p-repo = { path = "../p2p-repo" }
-p2p-net = { path = "../p2p-net" }
+ng-repo = { path = "../ng-repo", version = "0.1.0" }
+ng-net = { path = "../ng-net", version = "0.1.0" }
 image = "0.24.6"
 getrandom = { version = "0.1.1", features = ["wasm-bindgen"] }
 rand =  { version = "0.7", features = ["getrandom"] }
@@ -29,3 +35,4 @@ web-time = "0.2.0"
 lazy_static = "1.4.0"
 zeroize = { version = "1.6.0", features = ["zeroize_derive"] }
 crypto_box = { version = "0.8.2", features = ["seal"] }
+blake3 = "1.3.1"

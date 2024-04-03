@@ -1,11 +1,17 @@
 [package]
 name = "ngone"
-version = "0.1.0"
-edition = "2021"
-license = "MIT/Apache-2.0"
-authors = ["Niko PLP <niko@nextgraph.org>"]
+# version = "0.1.0"
 description = "nextgraph.one server. used to bootstrap the app"
-repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 tokio = { version = "1.27", features = ["full"] }
@@ -14,9 +20,9 @@ warp-embed = "0.4"
 rust-embed = "6"
 log = "0.4"
 env_logger = "0.10"
-stores-rocksdb = { path = "../stores-rocksdb" }
-p2p-repo = { path = "../p2p-repo", features = ["server_log_output"] }
-p2p-net = { path = "../p2p-net" }
+ng-stores-rocksdb = { path = "../ng-stores-rocksdb" }
+ng-repo = { path = "../ng-repo", features = ["server_log_output"] }
+ng-net = { path = "../ng-net" }
 ng-wallet = { path = "../ng-wallet" }
 serde = { version = "1.0.142", features = ["derive"] }
 serde_bare = "0.5.0"

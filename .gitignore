@@ -7,5 +7,5 @@
 /result*
 .DS_Store
 node_modules
-/p2p-repo/tests/*.ng
+*/tests/*.ng
 .vscode/settings.json

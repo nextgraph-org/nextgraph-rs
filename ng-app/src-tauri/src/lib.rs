@@ -7,18 +7,20 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 use async_std::stream::StreamExt;
+use nextgraph::local_broker::*;
+use ng_net::broker::*;
+use ng_net::types::{ClientInfo, CreateAccountBSP, Invitation};
+use ng_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend};
+use ng_repo::errors::NgError;
+use ng_repo::log::*;
+use ng_repo::types::*;
 use ng_wallet::types::*;
 use ng_wallet::*;
-use p2p_client_ws::remote_ws::ConnectionWebSocket;
-use p2p_net::broker::*;
-use p2p_net::types::{ClientInfo, CreateAccountBSP, Invitation};
-use p2p_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend};
-use p2p_repo::errors::NgError;
-use p2p_repo::log::*;
-use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::{read, write};
+use std::fs::{read, write, File, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
 use tauri::scope::ipc::RemoteDomainAccessScope;
 use tauri::utils::config::WindowConfig;
 use tauri::{path::BaseDirectory, App, Manager, Window};
@@ -30,15 +32,27 @@ pub use mobile::*;
 
 pub type SetupHook = Box<dyn FnOnce(&mut App) -> Result<(), Box<dyn std::error::Error>> + Send>;
 
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-// #[tauri::command(rename_all = "snake_case")]
-// fn greet(name: &str) -> String {
-//     format!("Hello, {}! You've been greeted from Rust!", name)
-// }
-
 #[tauri::command(rename_all = "snake_case")]
 async fn test(app: tauri::AppHandle) -> Result<(), ()> {
-    log_debug!("test is {}", BROKER.read().await.test());
+    let path = app
+        .path()
+        .resolve("", BaseDirectory::AppLocalData)
+        .map_err(|_| NgError::SerializationError)
+        .unwrap();
+    init_local_broker(Box::new(move || LocalBrokerConfig::BasePath(path.clone()))).await;
+
+    // init_local_broker(&Lazy::new(|| {
+    //     Box::new(move || LocalBrokerConfig::BasePath(path.clone()))
+    // }))
+    // .await;
+    //pub type LastSeqFn = dyn Fn(PubKey, u16) -> Result<u64, NgError> + 'static + Sync + Send;
+
+    // let test: Box<LastSeqFn> = Box::new(move |peer_id: PubKey, qty: u16| {
+    //     take_some_peer_last_seq_numbers(peer_id, qty, path.clone())
+    // });
+    //pub type ConfigInitFn = dyn Fn() -> LocalBrokerConfig + 'static + Sync + Send;
+
+    //log_debug!("test is {}", BROKER.read().await.test());
     let path = app
         .path()
         .resolve("storage", BaseDirectory::AppLocalData)
@@ -51,227 +65,270 @@ async fn test(app: tauri::AppHandle) -> Result<(), ()> {
 
 #[tauri::command(rename_all = "snake_case")]
 async fn wallet_gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> Result<ShuffledPazzle, ()> {
-    log_debug!(
-        "wallet_gen_shuffle_for_pazzle_opening from rust {}",
-        pazzle_length
-    );
+    // log_debug!(
+    //     "wallet_gen_shuffle_for_pazzle_opening from rust {}",
+    //     pazzle_length
+    // );
     Ok(gen_shuffle_for_pazzle_opening(pazzle_length))
 }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn wallet_gen_shuffle_for_pin() -> Result<Vec<u8>, ()> {
-    log_debug!("wallet_gen_shuffle_for_pin from rust");
+    //log_debug!("wallet_gen_shuffle_for_pin from rust");
     Ok(gen_shuffle_for_pin())
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn wallet_open_wallet_with_pazzle(
+async fn wallet_open_with_pazzle(
     wallet: Wallet,
     pazzle: Vec<u8>,
     pin: [u8; 4],
-) -> Result<EncryptedWallet, String> {
-    log_debug!("wallet_open_wallet_with_pazzle from rust {:?}", pazzle);
-    open_wallet_with_pazzle(wallet, pazzle, pin).map_err(|e| e.to_string())
+    app: tauri::AppHandle,
+) -> Result<SensitiveWallet, String> {
+    //log_debug!("wallet_open_with_pazzle from rust {:?}", pazzle);
+    let wallet = nextgraph::local_broker::wallet_open_with_pazzle(wallet, pazzle, pin)
+        .map_err(|e| e.to_string())?;
+    Ok(wallet)
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn wallet_create_wallet(
-    mut params: CreateWalletV0,
-    app: tauri::AppHandle,
-) -> Result<(CreateWalletResultV0, Option<SessionWalletStorageV0>), String> {
-    //log_debug!("wallet_create_wallet from rust {:?}", params);
-    params.result_with_wallet_file = !params.local_save;
-    let local_save = params.local_save;
-    let res = create_wallet_v0(params).await.map_err(|e| e.to_string());
-    if res.is_ok() {
-        let mut cwr = res.unwrap();
-        if local_save {
-            // save in local store
+async fn wallet_download_file(wallet_name: String, app: tauri::AppHandle) -> Result<(), String> {
+    let ser = nextgraph::local_broker::wallet_download_file(&wallet_name)
+        .await
+        .map_err(|e| e.to_string())?;
 
-            let session = save_wallet_locally(&cwr, app).await;
-            if session.is_err() {
-                return Err("Cannot save wallet locally".to_string());
-            }
-            return Ok((cwr, Some(session.unwrap())));
-        } else {
-            // save wallet file to Downloads folder
-            let path = app
-                .path()
-                .resolve(
-                    format!("wallet-{}.ngw", cwr.wallet_name),
-                    BaseDirectory::Download,
-                )
-                .unwrap();
-            let _r = write(path, &cwr.wallet_file);
-            cwr.wallet_file = vec![];
-            return Ok((cwr, None));
-        }
-    }
-    Err(res.unwrap_err())
-}
-
-async fn save_wallet_locally(
-    res: &CreateWalletResultV0,
-    app: tauri::AppHandle,
-) -> Result<SessionWalletStorageV0, ()> {
+    // save wallet file to Downloads folder
     let path = app
         .path()
-        .resolve("wallets", BaseDirectory::AppLocalData)
-        .map_err(|_| ())?;
-    let mut wallets: HashMap<String, LocalWalletStorageV0> =
-        get_wallets_from_localstorage(app.clone())
-            .await
-            .unwrap_or(Some(HashMap::new()))
-            .unwrap_or(HashMap::new());
-    // check that the wallet is not already present in localStorage
-    if wallets.get(&res.wallet_name).is_none() {
-        let lws: LocalWalletStorageV0 = res.into();
-        wallets.insert(res.wallet_name.clone(), lws);
-        let lws_ser = LocalWalletStorage::v0_to_vec(wallets);
-        let r = write(path.clone(), &lws_ser);
-        if r.is_err() {
-            log_debug!("write {:?} {}", path, r.unwrap_err());
-            return Err(());
-        }
-        let sws = save_new_session(&res.wallet_name, res.wallet.id(), res.user, app)?;
-        Ok(sws)
-    } else {
-        Err(())
-    }
+        .resolve(
+            format!("wallet-{}.ngw", wallet_name),
+            BaseDirectory::Download,
+        )
+        .unwrap();
+    write(path, &ser).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn wallet_open_file(file: Vec<u8>, app: tauri::AppHandle) -> Result<Wallet, String> {
-    let ngf: NgFile = file.try_into().map_err(|e: NgError| e.to_string())?;
-    if let NgFile::V0(NgFileV0::Wallet(wallet)) = ngf {
-        let mut wallets: HashMap<String, LocalWalletStorageV0> =
-            get_wallets_from_localstorage(app.clone())
-                .await
-                .unwrap_or(Some(HashMap::new()))
-                .unwrap_or(HashMap::new());
-        // check that the wallet is not already present in localStorage
-        let wallet_name = wallet.name();
-        if wallets.get(&wallet_name).is_none() {
-            Ok(wallet)
-        } else {
-            Err("Wallet already present on this device".to_string())
-        }
-    } else {
-        Err("File does not contain a wallet".to_string())
+async fn wallet_create(
+    mut params: CreateWalletV0,
+    app: tauri::AppHandle,
+) -> Result<CreateWalletResultV0, String> {
+    //log_debug!("wallet_create from rust {:?}", params);
+    params.result_with_wallet_file = !params.local_save;
+    let local_save = params.local_save;
+    let mut cwr = nextgraph::local_broker::wallet_create_v0(params)
+        .await
+        .map_err(|e| e.to_string())?;
+    if !local_save {
+        // save wallet file to Downloads folder
+        let path = app
+            .path()
+            .resolve(
+                format!("wallet-{}.ngw", cwr.wallet_name),
+                BaseDirectory::Download,
+            )
+            .unwrap();
+        let _r = write(path, &cwr.wallet_file);
+        cwr.wallet_file = vec![];
     }
+    Ok(cwr)
+}
+
+// // TODO: use https://lib.rs/crates/keyring instead of AppLocalData
+// async fn save_wallet_locally(
+//     res: &CreateWalletResultV0,
+//     app: tauri::AppHandle,
+// ) -> Result<SessionWalletStorageV0, ()> {
+//     let path = app
+//         .path()
+//         .resolve("wallets", BaseDirectory::AppLocalData)
+//         .map_err(|_| ())?;
+//     let mut wallets: HashMap<String, LocalWalletStorageV0> =
+//         get_all_wallets().unwrap_or(HashMap::new());
+//     // check that the wallet is not already present in localStorage
+//     if wallets.get(&res.wallet_name).is_none() {
+//         let lws: LocalWalletStorageV0 = res.into();
+//         wallets.insert(res.wallet_name.clone(), lws);
+//         let lws_ser = LocalWalletStorage::v0_to_vec(&wallets);
+//         let r = write(path.clone(), &lws_ser);
+//         if r.is_err() {
+//             log_debug!("write {:?} {}", path, r.unwrap_err());
+//             return Err(());
+//         }
+//         let sws = save_new_session(&res.wallet_name, res.wallet.id(), res.user, app)?;
+//         Ok(sws)
+//     } else {
+//         Err(())
+//     }
+// }
+
+fn take_some_peer_last_seq_numbers(
+    peer_id: PubKey,
+    qty: u16,
+    mut path: PathBuf,
+) -> Result<u64, NgError> {
+    std::fs::create_dir_all(path.clone()).unwrap();
+    path.push(peer_id.to_string());
+    log_debug!("{}", path.display());
+
+    let file = read(path.clone());
+    let (mut file_save, val) = match file {
+        Ok(ser) => {
+            let old_val = match SessionPeerLastSeq::deser(&ser)? {
+                SessionPeerLastSeq::V0(v) => v,
+                _ => unimplemented!(),
+            };
+            (
+                OpenOptions::new()
+                    .write(true)
+                    .open(path)
+                    .map_err(|_| NgError::SerializationError)?,
+                old_val,
+            )
+        }
+        Err(_) => (
+            File::create(path).map_err(|_| NgError::SerializationError)?,
+            0,
+        ),
+    };
+    let new_val = val + qty as u64;
+    let spls = SessionPeerLastSeq::V0(new_val);
+    let ser = spls.ser()?;
+    file_save
+        .write_all(&ser)
+        .map_err(|_| NgError::SerializationError)?;
+
+    file_save
+        .sync_data()
+        .map_err(|_| NgError::SerializationError)?;
+
+    Ok(val)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_read_file(file: Vec<u8>, app: tauri::AppHandle) -> Result<Wallet, String> {
+    nextgraph::local_broker::wallet_read_file(file)
+        .await
+        .map_err(|e: NgError| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_was_opened(
+    opened_wallet: SensitiveWallet,
+    app: tauri::AppHandle,
+) -> Result<ClientV0, String> {
+    nextgraph::local_broker::wallet_was_opened(opened_wallet)
+        .await
+        .map_err(|e: NgError| e.to_string())
 }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn wallet_import(
-    previous_wallet: Wallet,
-    opened_wallet: EncryptedWallet,
+    encrypted_wallet: Wallet,
+    opened_wallet: SensitiveWallet,
+    in_memory: bool,
     app: tauri::AppHandle,
-) -> Result<(String, ClientV0), String> {
-    let path = app
-        .path()
-        .resolve("wallets", BaseDirectory::AppLocalData)
-        .map_err(|_| "wallet directory error".to_string())?;
-    let mut wallets: HashMap<String, LocalWalletStorageV0> =
-        get_wallets_from_localstorage(app.clone())
-            .await
-            .unwrap_or(Some(HashMap::new()))
-            .unwrap_or(HashMap::new());
-    // check that the wallet is not already present in localStorage
-    let EncryptedWallet::V0(mut opened_wallet_v0) = opened_wallet;
-    let wallet_name = opened_wallet_v0.wallet_id.clone();
-    if wallets.get(&wallet_name).is_none() {
-        let session = save_new_session(
-            &wallet_name,
-            opened_wallet_v0.wallet_privkey.to_pub(),
-            opened_wallet_v0.personal_site,
-            app,
-        )
-        .map_err(|_| "Cannot create new session".to_string())?;
-        let (wallet, client_id, client) = opened_wallet_v0
-            .import(previous_wallet, session)
-            .map_err(|e| e.to_string())?;
-        let lws = LocalWalletStorageV0::new(wallet, &client);
+) -> Result<ClientV0, String> {
+    nextgraph::local_broker::wallet_import(encrypted_wallet, opened_wallet, in_memory)
+        .await
+        .map_err(|e: NgError| e.to_string())
 
-        wallets.insert(wallet_name, lws);
-        let lws_ser = LocalWalletStorage::v0_to_vec(wallets);
-        let r = write(path.clone(), &lws_ser);
-        if r.is_err() {
-            log_debug!("write {:?} {}", path, r.unwrap_err());
-            Err("Write error".to_string())
-        } else {
-            Ok((client_id, client))
-        }
-    } else {
-        Err("Already present on this device".to_string())
-    }
+    // let path = app
+    //     .path()
+    //     .resolve("wallets", BaseDirectory::AppLocalData)
+    //     .map_err(|_| "wallet directory error".to_string())?;
+    // let mut wallets: HashMap<String, LocalWalletStorageV0> =
+    //     get_all_wallets().unwrap_or(HashMap::new());
+    // // check that the wallet is not already present in localStorage
+    // let SensitiveWallet::V0(mut opened_wallet_v0) = opened_wallet;
+    // let wallet_name = opened_wallet_v0.wallet_id.clone();
+    // if wallets.get(&wallet_name).is_none() {
+    //     let session = save_new_session(
+    //         &wallet_name,
+    //         opened_wallet_v0.wallet_privkey.to_pub(),
+    //         opened_wallet_v0.personal_site,
+    //         app,
+    //     )
+    //     .map_err(|_| "Cannot create new session".to_string())?;
+    //     let lws = opened_wallet_v0
+    //         .import(previous_wallet)
+    //         .map_err(|e| e.to_string())?;
+    //     //let lws = LocalWalletStorageV0::new(wallet, &client);
+
+    //     wallets.insert(wallet_name, lws);
+    //     let lws_ser = LocalWalletStorage::v0_to_vec(&wallets);
+    //     let r = write(path.clone(), &lws_ser);
+    //     if r.is_err() {
+    //         log_debug!("write {:?} {}", path, r.unwrap_err());
+    //         Err("Write error".to_string())
+    //     } else {
+    //         Ok(client)
+    //     }
+    // } else {
+    //     Err("Already present on this device".to_string())
+    // }
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn get_wallets_from_localstorage(
+async fn get_wallets(
     app: tauri::AppHandle,
-) -> Result<Option<HashMap<String, LocalWalletStorageV0>>, ()> {
+) -> Result<Option<HashMap<String, LocalWalletStorageV0>>, String> {
     let path = app
         .path()
-        .resolve("wallets", BaseDirectory::AppLocalData)
-        .map_err(|_| ())?;
-    let map_ser = read(path);
-    if map_ser.is_ok() {
-        let wallets = LocalWalletStorage::v0_from_vec(&map_ser.unwrap());
-        let LocalWalletStorage::V0(v0) = wallets;
-        return Ok(Some(v0));
+        .resolve("", BaseDirectory::AppLocalData)
+        .map_err(|_| NgError::SerializationError)
+        .unwrap();
+    init_local_broker(Box::new(move || LocalBrokerConfig::BasePath(path.clone()))).await;
+
+    let res = get_all_wallets().await.map_err(|e| {
+        log_err!("get_all_wallets error {}", e.to_string());
+    });
+    if res.is_ok() {
+        return Ok(Some(res.unwrap()));
     }
     Ok(None)
 }
 
-fn save_new_session(
-    wallet_name: &String,
-    wallet_id: PubKey,
-    user: PubKey,
-    app: tauri::AppHandle,
-) -> Result<SessionWalletStorageV0, ()> {
-    let mut path = app
-        .path()
-        .resolve("sessions", BaseDirectory::AppLocalData)
-        .map_err(|_| ())?;
-    let session_v0 = create_new_session(wallet_id, user);
-    if session_v0.is_err() {
-        log_debug!("create_new_session failed {}", session_v0.unwrap_err());
-        return Err(());
-    }
-    let sws = session_v0.unwrap();
-    std::fs::create_dir_all(path.clone()).unwrap();
-    path.push(wallet_name);
-    let res = write(path.clone(), &sws.1);
-    if res.is_err() {
-        log_debug!("write {:?} {}", path, res.unwrap_err());
-        return Err(());
-    }
-    Ok(sws.0)
-}
+// fn save_new_session(
+//     wallet_name: &String,
+//     wallet_id: PubKey,
+//     user: PubKey,
+//     app: tauri::AppHandle,
+// ) -> Result<SessionWalletStorageV0, ()> {
+//     let mut path = app
+//         .path()
+//         .resolve("sessions", BaseDirectory::AppLocalData)
+//         .map_err(|_| ())?;
+//     let session_v0 = create_new_session(wallet_id, user);
+//     if session_v0.is_err() {
+//         log_debug!("create_new_session failed {}", session_v0.unwrap_err());
+//         return Err(());
+//     }
+//     let sws = session_v0.unwrap();
+//     std::fs::create_dir_all(path.clone()).unwrap();
+//     path.push(wallet_name);
+//     let res = write(path.clone(), &sws.1);
+//     if res.is_err() {
+//         log_debug!("write {:?} {}", path, res.unwrap_err());
+//         return Err(());
+//     }
+//     Ok(sws.0)
+// }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn get_local_session(
-    id: String,
-    key: PrivKey,
+async fn session_start(
+    wallet_name: String,
     user: PubKey,
     app: tauri::AppHandle,
-) -> Result<SessionWalletStorageV0, ()> {
-    let path = app
-        .path()
-        .resolve(format!("sessions/{id}"), BaseDirectory::AppLocalData)
-        .map_err(|_| ())?;
-    let res = read(path.clone());
-    if res.is_ok() {
-        log_debug!("RESUMING SESSION");
-        let v0 = dec_session(key, &res.unwrap());
-        if v0.is_ok() {
-            return Ok(v0.unwrap());
-        }
-    }
-
-    // create a new session
-    let wallet_id: PubKey = id.as_str().try_into().unwrap();
-    save_new_session(&id, wallet_id, user, app)
+) -> Result<SessionPeerStorageV0, String> {
+    let config = SessionConfig::V0(SessionConfigV0 {
+        user_id: user,
+        wallet_name,
+    });
+    nextgraph::local_broker::session_start(config)
+        .await
+        .map_err(|e: NgError| e.to_string())
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -368,6 +425,7 @@ async fn disconnections_subscribe(app: tauri::AppHandle) -> Result<(), ()> {
         main_window: tauri::Window,
     ) -> ResultSend<()> {
         while let Some(user_id) = reader.next().await {
+            log_debug!("DISCONNECTION FOR {user_id}");
             main_window.emit("disconnections", user_id).unwrap();
         }
         log_debug!("END OF disconnections listener");
@@ -406,8 +464,24 @@ async fn doc_get_file_from_store_with_object_ref(
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn broker_disconnect() {
-    Broker::close_all_connections().await;
+async fn session_stop(user_id: UserId) -> Result<(), String> {
+    nextgraph::local_broker::session_stop(user_id)
+        .await
+        .map_err(|e: NgError| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn user_disconnect(user_id: UserId) -> Result<(), String> {
+    nextgraph::local_broker::user_disconnect(user_id)
+        .await
+        .map_err(|e: NgError| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_close(wallet_name: String) -> Result<(), String> {
+    nextgraph::local_broker::wallet_close(wallet_name)
+        .await
+        .map_err(|e: NgError| e.to_string())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -419,24 +493,16 @@ struct ConnectionInfo {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn broker_connect(
-    client: PubKey,
+async fn user_connect(
     info: ClientInfo,
-    session: HashMap<String, SessionPeerStorageV0>,
-    opened_wallet: EncryptedWallet,
+    user_id: UserId,
     location: Option<String>,
 ) -> Result<HashMap<String, ConnectionInfo>, String> {
     let mut opened_connections: HashMap<String, ConnectionInfo> = HashMap::new();
 
-    let results = connect_wallet(
-        client,
-        info,
-        session,
-        opened_wallet,
-        None,
-        Box::new(ConnectionWebSocket {}),
-    )
-    .await?;
+    let results = nextgraph::local_broker::user_connect(info, user_id, None)
+        .await
+        .map_err(|e| e.to_string())?;
 
     log_debug!("{:?}", results);
 
@@ -452,7 +518,7 @@ async fn broker_connect(
         );
     }
 
-    BROKER.read().await.print_status();
+    //BROKER.read().await.print_status();
 
     Ok(opened_connections)
 }
@@ -488,6 +554,7 @@ impl AppBuilder {
                 if let Some(setup) = setup {
                     (setup)(app)?;
                 }
+
                 for domain in ALLOWED_BSP_DOMAINS {
                     app.ipc_scope().configure_remote_access(
                         RemoteDomainAccessScope::new(domain)
@@ -506,18 +573,22 @@ impl AppBuilder {
                 doc_get_file_from_store_with_object_ref,
                 wallet_gen_shuffle_for_pazzle_opening,
                 wallet_gen_shuffle_for_pin,
-                wallet_open_wallet_with_pazzle,
-                wallet_create_wallet,
-                wallet_open_file,
+                wallet_open_with_pazzle,
+                wallet_was_opened,
+                wallet_create,
+                wallet_read_file,
+                wallet_download_file,
                 wallet_import,
+                wallet_close,
                 encode_create_account,
-                get_local_session,
-                get_wallets_from_localstorage,
+                session_start,
+                session_stop,
+                get_wallets,
                 open_window,
                 decode_invitation,
                 disconnections_subscribe,
-                broker_connect,
-                broker_disconnect,
+                user_connect,
+                user_disconnect,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

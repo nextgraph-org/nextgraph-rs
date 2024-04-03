@@ -1,0 +1,32 @@
+[package]
+name = "nextgraph"
+description = "NextGraph client library. Nextgraph is a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
+categories = ["asynchronous","text-editors","web-programming","development-tools","database-implementations"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+ng-repo = { path = "../ng-repo", version = "0.1.0" }
+ng-net = { path = "../ng-net", version = "0.1.0" }
+ng-wallet = { path = "../ng-wallet", version = "0.1.0" }
+ng-client-ws = { path = "../ng-client-ws", version = "0.1.0" }
+ng-verifier = { path = "../ng-verifier", version = "0.1.0" }
+async-once-cell = "0.5.3"
+once_cell = "1.17.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_bare = "0.5.0"
+serde_bytes = "0.11.7"
+base64-url = "2.0.0"
+web-time = "0.2.0"
+async-std = {  version = "1.12.0", features = ["attributes","unstable"] }
+zeroize = { version = "1.6.0", features = ["zeroize_derive"] }

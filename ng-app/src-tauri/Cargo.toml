@@ -1,17 +1,21 @@
 [package]
 name = "ng-app"
-version = "0.1.0"
+# version = "0.1.0"
 description = "NextGraph App"
-authors = ["Niko PLP <niko@nextgraph.org>"]
-license = "MIT/Apache-2.0"
-repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
-edition = "2021"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
 
 [lib]
 name = "nativelib"
 crate-type = ["staticlib", "cdylib", "rlib"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
 tauri-build = { version = "2.0.0-alpha.8", features = [] }
@@ -25,10 +29,11 @@ tauri = { version = "2.0.0-alpha.14", features = [] }
 # tauri = { git = "https://github.com/simonhyll/tauri.git", branch="fix/ipc-mixup", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-p2p-repo = { path = "../../p2p-repo" }
-p2p-net = { path = "../../p2p-net" }
-p2p-client-ws = { path = "../../p2p-client-ws" }
+ng-repo = { path = "../../ng-repo" }
+ng-net = { path = "../../ng-net" }
+ng-client-ws = { path = "../../ng-client-ws" }
 ng-wallet = { path = "../../ng-wallet" }
+nextgraph = { path = "../../nextgraph" }
 async-std = {  version = "1.12.0", features = ["attributes", "unstable"] }
 # tauri-plugin-window = { git = "https://git.nextgraph.org/NextGraph/plugins-workspace.git", branch="window-alpha.1-nextgraph" }
 tauri-plugin-window = "2.0.0-alpha.1"

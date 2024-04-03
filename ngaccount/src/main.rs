@@ -12,9 +12,9 @@ extern crate anyhow;
 mod types;
 
 use duration_str::parse;
-use p2p_client_ws::remote_ws::ConnectionWebSocket;
-use p2p_net::actors::add_invitation::*;
-use p2p_net::broker::BROKER;
+use ng_client_ws::remote_ws::ConnectionWebSocket;
+use ng_net::actors::add_invitation::*;
+use ng_net::broker::BROKER;
 use serde::{Deserialize, Serialize};
 use warp::http::header::{HeaderMap, HeaderValue};
 use warp::reply::Response;
@@ -31,13 +31,13 @@ use std::{env, fs};
 
 use crate::types::*;
 use ng_wallet::types::*;
-use p2p_net::types::{
+use ng_net::types::{
     AdminResponseContentV0, BindAddress, CreateAccountBSP, Invitation, InvitationCode,
     InvitationV0, APP_ACCOUNT_REGISTERED_SUFFIX, APP_NG_ONE_URL, NG_ONE_URL,
 };
-use p2p_repo::log::*;
-use p2p_repo::types::*;
-use p2p_repo::utils::{generate_keypair, sign, timestamp_after, verify};
+use ng_repo::log::*;
+use ng_repo::types::*;
+use ng_repo::utils::{generate_keypair, sign, timestamp_after, verify};
 
 #[derive(RustEmbed)]
 #[folder = "web/dist"]

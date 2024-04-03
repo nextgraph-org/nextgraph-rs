@@ -1,0 +1,49 @@
+[package]
+name = "ng-repo"
+# version = "0.1.0"
+description = "Repository library of NextGraph, a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
+categories = ["asynchronous","database-implementations"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+server_log_output = []
+
+[dependencies]
+blake3 = "1.3.1"
+chacha20 = "0.9.0"
+ed25519-dalek = "1.0.1"
+rand =  { version = "0.7", features = ["getrandom"] }
+serde = { version = "1.0.142", features = ["derive"] }
+serde_bare = "0.5.0"
+serde_bytes = "0.11.7"
+fastbloom-rs = "0.5.3"
+hex = "0.4.3"
+futures = "0.3.24"
+base64-url = "2.0.0"
+web-time = "0.2.0"
+wasm-bindgen = "0.2"
+slice_as_array = "1.1.0"
+curve25519-dalek = "3.2.0"
+threshold_crypto = "0.4.0"
+zeroize = { version = "1.6.0", features = ["zeroize_derive"] }
+time = { version= "0.3.23", features = ["formatting"] }
+once_cell = "1.17.1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+debug_print = "1.0.0"
+log = "0.4"
+getrandom = "0.2.7"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+gloo-timers = "0.2.6"

@@ -44,7 +44,7 @@
     reader.readAsArrayBuffer(image);
     reader.onload = async (e) => {
       security_img = e.target.result;
-      console.log(security_img);
+      //console.log(security_img);
       var blob = new Blob([security_img], {
         type: image.type,
       });
@@ -160,7 +160,7 @@
           location.href,
           param.get("i")
         );
-        console.log(invitation);
+        console.log("invitation", invitation);
         if (invitation && invitation.V0.url) {
           pre_invitation = invitation;
           invitation = undefined;
@@ -201,7 +201,6 @@
       bootstrap: false,
       pdf: false,
     };
-    console.log("saved");
     await tick();
     scrollToTop();
   }
@@ -230,15 +229,23 @@
       core_registration,
       additional_bootstrap,
     };
-    console.log(params);
+    console.log("do wallet with params", params);
     try {
-      let res = await ng.wallet_create_wallet(params);
-      let walls = await ng.get_wallets_from_localstorage();
-      wallets.set(walls);
-      if (res[1]) {
-        set_active_session(res[1]);
+      ready = await ng.wallet_create(params);
+      wallets.set(await ng.get_wallets());
+      if (!options.trusted && !tauri_platform) {
+        let lws = $wallets[ready.wallet_name];
+        if (lws.in_memory) {
+          let new_in_mem = {
+            lws,
+            name: ready.wallet_name,
+            opened: false,
+            cmd: "new_in_mem",
+          };
+          window.wallet_channel.postMessage(new_in_mem, location.href);
+        }
       }
-      ready = res[0];
+
       console.log(display_pazzle(ready.pazzle));
       download_name = "wallet-" + ready.wallet_name + ".ngw";
       if (options.cloud) {
@@ -251,7 +258,7 @@
         download_link = URL.createObjectURL(blob);
       }
     } catch (e) {
-      console.log(e);
+      console.error(e);
       error = e;
     }
   }

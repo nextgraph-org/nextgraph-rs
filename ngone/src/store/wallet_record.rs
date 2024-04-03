@@ -9,10 +9,10 @@
 
 //! ng-wallet
 
+use ng_repo::kcv_store::KCVStore;
+use ng_repo::store::*;
+use ng_repo::types::*;
 use ng_wallet::types::*;
-use p2p_repo::kcv_store::KCVStore;
-use p2p_repo::store::*;
-use p2p_repo::types::*;
 use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};
 

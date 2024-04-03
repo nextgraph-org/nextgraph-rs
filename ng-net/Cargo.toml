@@ -1,0 +1,51 @@
+[package]
+name = "ng-net"
+# version = "0.1.0"
+description = "Network library of NextGraph, a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
+categories = ["network-programming"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+ng-repo = { path = "../ng-repo", version = "0.1.0" }
+serde = { version = "1.0", features = ["derive"] }
+serde_bare = "0.5.0"
+serde_bytes = "0.11.7"
+num_enum = "0.5.7"
+async-broadcast = "0.4.1"
+futures = "0.3.24"
+async-trait = "0.1.64"
+blake3 = "1.3.1"
+async-std = {  version = "1.12.0", features = ["attributes","unstable"] }
+wasm-bindgen = "0.2"
+unique_id = "0.1.5"
+once_cell = "1.17.1"
+noise-protocol = "0.2.0-rc1"
+noise-rust-crypto = "0.6.0-rc.1"
+ed25519-dalek = "1.0.1"
+either = "1.8.1"
+url = "2.4.0"
+base64-url = "2.0.0"
+web-time = "0.2.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+reqwest = { version = "0.11.18", features = ["json","native-tls-vendored"] } 
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
+version = "0.2.7"
+features = ["js"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+getrandom = "0.2.7"
+default-net = {  git = "https://git.nextgraph.org/NextGraph/default-net.git" }
+# ng-stores-rocksdb = { path = "../ng-stores-rocksdb", version = "0.1.0" }
