@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Block store
+//! Storage of Blocks
 
 use futures::StreamExt;
 

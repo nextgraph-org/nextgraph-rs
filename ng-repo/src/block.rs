@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Immutable Block
+//! Immutable Block, used to store and exchange File and Commit
 
 use crate::errors::*;
 use crate::log::*;

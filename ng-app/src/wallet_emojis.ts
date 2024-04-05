@@ -33,7 +33,7 @@ let face = [
     {
       hexcode: "1f60d",
       shortcode: "smiling_face_with_heart_eyes",
-      code: "two_hearts",
+      code: "with_two_hearts",
     },
     {
       hexcode: "1f618",
@@ -44,12 +44,12 @@ let face = [
     {
       hexcode: "1f61d",
       shortcode: "squinting_face_with_tongue",
-      code: "tongue",
+      code: "with_tongue",
     },
     {
       hexcode: "1f917",
       shortcode: "hugging_face",
-      code: "two_hands",
+      code: "with_two_hands",
     },
     {
       hexcode: "1f92d",
@@ -100,7 +100,7 @@ let face = [
     {
       hexcode: "1f912",
       shortcode: "face_with_thermometer",
-      code: "thermometer",
+      code: "fever",
     },
     {
       hexcode: "1f915",
@@ -137,7 +137,7 @@ let face = [
     {
       hexcode: "1f92f",
       shortcode: "exploding_head",
-      code: "explosion",
+      code: "exploding",
     },
 
     {
@@ -266,7 +266,7 @@ let face = [
     {
       hexcode: "2764",
       shortcode: "red_heart",
-      code: "one_heart",
+      code: "red_heart",
     },
     {
       hexcode: "1f495",

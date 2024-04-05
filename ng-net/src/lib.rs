@@ -29,18 +29,25 @@ pub mod actors;
 
 pub mod utils;
 
+#[doc(hidden)]
 pub mod tests;
 
+#[doc(hidden)]
 pub static NG_BOOTSTRAP_LOCAL_PATH: &str = "/.ng_bootstrap";
 
 #[cfg(debug_assertions)]
+#[doc(hidden)]
 pub static WS_PORT: u16 = 14400;
 
 #[cfg(not(debug_assertions))]
+#[doc(hidden)]
 pub static WS_PORT: u16 = 80;
 
+#[doc(hidden)]
 pub static WS_PORT_ALTERNATE: [u16; 4] = [14400, 28800, 43200, 57600];
 
+#[doc(hidden)]
 pub static WS_PORT_ALTERNATE_SUPERUSER: u16 = 144;
 
+#[doc(hidden)]
 pub static WS_PORT_REVERSE_PROXY: u16 = 1440;

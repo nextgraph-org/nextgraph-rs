@@ -47,7 +47,7 @@ pub(crate) struct Cli {
     #[arg(long, requires("core"))]
     pub core_with_clients: bool,
 
-    /// Quick config to forward all requests to another BROKER. format is "[DOMAIN/IP:PORT]@PEER_ID". An IPv6 should be encased in square brackets [IPv6] and the whole option should be between double quotes. Port defaults to 80 for IPs and 443 for domains
+    /// Quick config to forward all requests to another BROKER. format is "[DOMAIN/IP:PORT]@PEER_ID". An IPv6 should be encased in square brackets `[IPv6]` and the whole option should be between double quotes. Port defaults to 80 for IPs and 443 for domains
     #[arg(
         short,
         long,

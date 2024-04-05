@@ -95,7 +95,7 @@
   async function download_wallet() {
     try {
       downloading = true;
-      let file = await ng.wallet_download_file($active_wallet.id);
+      let file = await ng.wallet_get_file($active_wallet.id);
       // @ts-ignore
       wallet_file_ready = "wallet-" + $active_wallet.id + ".ngw";
       if (!tauri_platform) {

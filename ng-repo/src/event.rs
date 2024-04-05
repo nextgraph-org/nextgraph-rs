@@ -6,7 +6,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Event
+//! Event, a message sent in the PUB/SUB
 
 use crate::errors::*;
 use crate::object::*;

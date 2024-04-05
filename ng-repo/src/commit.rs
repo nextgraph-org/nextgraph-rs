@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Commit
+//! Commit that composes the DAG of a Branch
 
 use core::fmt;
 use ed25519_dalek::{PublicKey, Signature};

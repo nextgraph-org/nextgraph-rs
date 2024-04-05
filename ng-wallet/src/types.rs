@@ -144,6 +144,12 @@ impl SessionWalletStorageV0 {
 pub struct SessionPeerStorageV0 {
     pub user: UserId,
     pub peer_key: PrivKey,
+    /// The current nonce used for encrypting this wallet by the user on this device.
+    /// It should be incremented BEFORE encrypting the wallet again
+    /// when some new operations have been added to the log of the Wallet.
+    /// The nonce is by PeerId. It is saved together with the PeerId in the SessionPeerStorage.
+    /// If the session is not saved (in-memory) it is lost, but it is fine, as the PeerId is also lost, and a new one
+    /// will be generated for the next session.
     pub last_wallet_nonce: u64,
 }
 
@@ -222,7 +228,7 @@ pub struct LocalWalletStorageV0 {
 impl From<&CreateWalletResultV0> for LocalWalletStorageV0 {
     fn from(res: &CreateWalletResultV0) -> Self {
         LocalWalletStorageV0 {
-            bootstrap: BootstrapContent::V0(BootstrapContentV0::new()),
+            bootstrap: BootstrapContent::V0(BootstrapContentV0::new_empty()),
             wallet: res.wallet.clone(),
             in_memory: res.in_memory,
             client_id: res.client.id,
@@ -238,6 +244,7 @@ impl From<&CreateWalletResultV0> for LocalWalletStorageV0 {
 }
 
 impl LocalWalletStorageV0 {
+    #[doc(hidden)]
     pub fn new(
         encrypted_wallet: Wallet,
         wallet_priv_key: PrivKey,
@@ -245,7 +252,7 @@ impl LocalWalletStorageV0 {
         in_memory: bool,
     ) -> Result<Self, NgWalletError> {
         Ok(LocalWalletStorageV0 {
-            bootstrap: BootstrapContent::V0(BootstrapContentV0::new()),
+            bootstrap: BootstrapContent::V0(BootstrapContentV0::new_empty()),
             wallet: encrypted_wallet,
             in_memory,
             client_id: client.id,
@@ -256,7 +263,7 @@ impl LocalWalletStorageV0 {
                 .encrypt(client.id, wallet_priv_key)?,
         })
     }
-
+    #[doc(hidden)]
     pub fn to_client_v0(&self, wallet_privkey: PrivKey) -> Result<ClientV0, NgWalletError> {
         Ok(ClientV0 {
             id: self.client_id,
@@ -266,7 +273,8 @@ impl LocalWalletStorageV0 {
         })
     }
 
-    fn local_client_storage_v0(
+    /// decrypts the client_storage field, given the wallet PrivKey
+    pub fn local_client_storage_v0(
         &self,
         wallet_privkey: PrivKey,
     ) -> Result<LocalClientStorageV0, NgWalletError> {
@@ -294,16 +302,18 @@ impl LocalWalletStorage {
 #[derive(Clone, Debug, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub struct ClientV0 {
     #[zeroize(skip)]
+    /// ClientID
     pub id: PubKey,
 
     /// list of users that should be opened automatically (at launch, after wallet opened) on this device
     #[zeroize(skip)]
     pub auto_open: Vec<PubKey>,
 
-    /// Device name
+    /// user supplied Device name. can be useful to distinguish between several devices (phone, tablet, laptop, office desktop, etc...)
     #[zeroize(skip)]
     pub name: Option<String>,
 
+    /// contains the decrypted information needed when user is opening their wallet on this client.
     pub sensitive_client_storage: LocalClientStorageV0,
 }
 
@@ -433,6 +443,9 @@ impl SensitiveWallet {
             Self::V0(v0) => v0.wallet_id.clone(),
         }
     }
+    pub fn name(&self) -> String {
+        self.id()
+    }
     pub fn client(&self) -> &Option<ClientV0> {
         match self {
             Self::V0(v0) => &v0.client,
@@ -451,6 +464,11 @@ impl SensitiveWallet {
     pub fn has_user(&self, user_id: &UserId) -> bool {
         match self {
             Self::V0(v0) => v0.sites.get(&user_id.to_string()).is_some(),
+        }
+    }
+    pub fn personal_identity(&self) -> UserId {
+        match self {
+            Self::V0(v0) => v0.personal_site,
         }
     }
     pub fn import_v0(
@@ -897,15 +915,14 @@ impl WalletOperation {
 pub struct WalletOpCreateV0 {
     pub wallet_privkey: PrivKey,
 
-    #[serde(skip)]
-    pub pazzle: Vec<u8>,
+    // #[serde(skip)]
+    // pub pazzle: Vec<u8>,
 
-    #[serde(skip)]
-    pub mnemonic: [u16; 12],
+    // #[serde(skip)]
+    // pub mnemonic: [u16; 12],
 
-    #[serde(skip)]
-    pub pin: [u8; 4],
-
+    // #[serde(skip)]
+    // pub pin: [u8; 4],
     #[zeroize(skip)]
     pub save_to_ng_one: SaveToNGOne,
 
@@ -1068,28 +1085,58 @@ impl AddWallet {
     }
 }
 
-/// Create Wallet Version 0, used by the API create_wallet_v0
+/// Create Wallet Version 0, used by the API create_wallet_v0 as a list of arguments
 #[derive(Clone, Zeroize, ZeroizeOnDrop, Debug, Serialize, Deserialize)]
 pub struct CreateWalletV0 {
+    /// a vector containing the binary content of an image file that will be used at every login, displayed (on devices that can)
+    /// to the user so they can check the wallet is theirs and that entering their pazzle and PIN is safe and there is no phishing attack.
+    /// an attacker would redirect the user to a clone of the wallet opener app, and would try to steal what the user enters
+    /// but this attacker would not possess the security_img of the user as it is only present locally in the wallet file.
+    /// the image should be bigger than 150x150px. There is no need to provide more than 400x400px as it will be scaled down anyway.
+    /// We accept several formats like JPEG, PNG, GIF, WEBP and more.
+    /// The image should be unique to the user. But it should not be too personal neither. Do not upload face picture, this is not a profile pic.
+    /// The best would be any picture that the user recognizes as unique.
+    /// Please be aware that other users who are sharing the same device, will be able to see this image.
     #[zeroize(skip)]
     #[serde(with = "serde_bytes")]
     pub security_img: Vec<u8>,
+    /// A string of characters of minimum length 10.
+    /// This phrase will be presented to the user every time they are about to enter their pazzle and PIN in order to unlock their wallet.
+    /// It should be something the user will remember, but not something too personal.
+    /// Do not enter full name, nor address, nor phone number.
+    /// Instead, the user can enter a quote, a small phrase that they like, or something meaningless to others, but unique to them.
+    /// Please be aware that other users who are sharing the same device, will be able to see this phrase.
     pub security_txt: String,
+    /// chose a PIN code.
+    /// We recommend the user to choose a PIN code they already know very well (unlock phone, credit card).
+    /// The PIN and the rest of the Wallet will never be sent to NextGraph or any other third party (check the source code if you don't believe us).
+    /// It cannot be a series like 1234 or 8765. The same digit cannot repeat more than once. By example 4484 is invalid.
+    /// Try to avoid birth date, last digits of phone number, or zip code for privacy concern
     pub pin: [u8; 4],
+    /// For now, only 9 is supported. 12 and 15 are planned.
+    /// A value of 0 will deactivate the pazzle mechanism on this Wallet, and only the mnemonic could be used to open it.
     pub pazzle_length: u8,
     #[zeroize(skip)]
+    /// Not implemented yet. Will send the bootstrap to our cloud servers, if needed
     pub send_bootstrap: bool,
     #[zeroize(skip)]
+    /// Not implemented yet. Will send an encrypted Wallet file to our cloud servers, if needed. (and no, it does not contain the user's pazzle nor PIN)
     pub send_wallet: bool,
     #[zeroize(skip)]
+    /// Do you want a binary file containing the whole Wallet ?
     pub result_with_wallet_file: bool,
     #[zeroize(skip)]
+    /// Should the wallet be saved locally on disk, by the LocalBroker. It will not work on a in-memory LocalBroker, obviously.
     pub local_save: bool,
     #[zeroize(skip)]
+    /// What Broker Server to contact when there is internet and we want to sync.
     pub core_bootstrap: BootstrapContentV0,
     #[zeroize(skip)]
+    /// What is the registration code at that Broker Server. Only useful the first time you connect to the Server.
+    /// Can be None the rest of the time, or if your server does not need an Invitation.
     pub core_registration: Option<[u8; 32]>,
     #[zeroize(skip)]
+    /// Bootstrap of another server that you might use in order to connect to NextGraph network. It can be another interface on the same `core` server.
     pub additional_bootstrap: Option<BootstrapContentV0>,
 }
 
@@ -1124,25 +1171,32 @@ impl CreateWalletV0 {
 #[derive(Clone, Zeroize, ZeroizeOnDrop, Debug, Serialize, Deserialize)]
 pub struct CreateWalletResultV0 {
     #[zeroize(skip)]
+    /// The encrypted form of the Wallet object that was created.
+    /// basically the same as what the file contains.
     pub wallet: Wallet,
     #[serde(skip)]
+    /// The private key of the Wallet. Used for signing the wallet and other internal purposes.
+    /// it is contained in the opened wallet. No need to save it anywhere.
     pub wallet_privkey: PrivKey,
     #[serde(with = "serde_bytes")]
     #[zeroize(skip)]
+    /// The binary file that can be saved to disk and given to the user
     pub wallet_file: Vec<u8>,
+    /// randomly generated pazzle
     pub pazzle: Vec<u8>,
+    /// randomly generated mnemonic. It is an alternate way to open the wallet.
+    /// A BIP39 list of 12 words. We argue that the Pazzle is easier to remember than this.
     pub mnemonic: [u16; 12],
     #[zeroize(skip)]
+    /// a string identifying uniquely the wallet
     pub wallet_name: String,
-    #[zeroize(skip)]
-    pub peer_id: PubKey,
-    pub peer_key: PrivKey,
-    #[zeroize(skip)]
-    pub nonce: u64,
+    /// newly created Client that uniquely identifies the device where the wallet has been created.
     pub client: ClientV0,
     #[zeroize(skip)]
+    /// UserId of the "personal identity" of the user
     pub user: PubKey,
     #[zeroize(skip)]
+    /// is this an in_memory wallet that should not be saved to disk by the LocalBroker?
     pub in_memory: bool,
 }
 

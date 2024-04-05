@@ -9,6 +9,8 @@
  * according to those terms.
 */
 
+//! Broker singleton present in every instance of NextGraph (Client, Server, Core node)
+
 use crate::connection::*;
 use crate::errors::*;
 use crate::server_storage::ServerStorage;

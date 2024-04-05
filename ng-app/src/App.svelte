@@ -108,7 +108,7 @@
       window.addEventListener("storage", async (event) => {
         if (event.storageArea != localStorage) return;
         if (event.key === "ng_wallets") {
-          await ng.reload_wallets();
+          await ng.wallets_reload();
           wallets.set(await ng.get_wallets());
         }
       });
@@ -158,12 +158,12 @@
             break;
           case "opened":
             if (!$opened_wallets[event.data.wallet.id]) {
-              console.log(
-                "ADDING TO OPENED",
-                event.data.wallet.id,
-                JSON.stringify($opened_wallets),
-                event.data.wallet.wallet
-              );
+              // console.log(
+              //   "ADDING TO OPENED",
+              //   event.data.wallet.id,
+              //   JSON.stringify($opened_wallets),
+              //   event.data.wallet.wallet
+              // );
               try {
                 await ng.wallet_was_opened(event.data.wallet.wallet);
               } catch (e) {
@@ -176,7 +176,7 @@
             }
             break;
           case "new_in_mem":
-            console.log("GOT new_in_mem", event.data);
+            //console.log("GOT new_in_mem", event.data);
             if (event.data.lws) {
               if (!$wallets[event.data.name]) {
                 await ng.add_in_memory_wallet(event.data.lws);

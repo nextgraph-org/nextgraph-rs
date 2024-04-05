@@ -7,28 +7,50 @@
 ![MSRV][rustc-image]
 [![Apache 2.0 Licensed][license-image]][license-link]
 [![MIT Licensed][license-image2]][license-link2]
+![Crates.io Version](https://img.shields.io/crates/v/nextgraph)
+![docs.rs](https://img.shields.io/docsrs/nextgraph)
 
-Rust client library of NextGraph
+Rust client library of NextGraph framework
 
-This repository is in active development at [https://git.nextgraph.org/NextGraph/nextgraph-rs](https://git.nextgraph.org/NextGraph/nextgraph-rs), a Gitea instance. For bug reports, issues, merge requests, and in order to join the dev team, please visit the link above and create an account (you can do so with a github account). The [github repo](https://github.com/nextgraph-org/nextgraph-rs) is just a read-only mirror that does not accept issues.
+This library is in active development at [https://git.nextgraph.org/NextGraph/nextgraph-rs](https://git.nextgraph.org/NextGraph/nextgraph-rs), a Gitea instance. For bug reports, issues, merge requests, and in order to join the dev team, please visit the link above and create an account (you can do so with a github account). The [github repo](https://github.com/nextgraph-org/nextgraph-rs) is just a read-only mirror that does not accept issues.
 
 ## NextGraph
 
-> NextGraph brings about the convergence between P2P and Semantic Web technologies, towards a decentralized, secure and privacy-preserving cloud, based on CRDTs.
+> NextGraph brings about the convergence of P2P and Semantic Web technologies, towards a decentralized, secure and privacy-preserving cloud, based on CRDTs.
 >
-> This open source ecosystem provides solutions for end-users and software developers alike, wishing to use or create **decentralized** apps featuring: **live collaboration** on rich-text documents, peer to peer communication with **end-to-end encryption**, offline-first, **local-first**, portable and interoperable data, total ownership of data and software, security and privacy. Centered on repositories containing **semantic data** (RDF), **rich text**, and structured data formats like **JSON**, synced between peers belonging to permissioned groups of users, it offers strong eventual consistency, thanks to the use of **CRDTs**. Documents can be linked together, signed, shared securely, queried using the **SPARQL** language and organized into sites and containers.
+> This open source ecosystem provides solutions for end-users (a platform) and software developers (a framework), wishing to use or create **decentralized** apps featuring: **live collaboration** on rich-text documents, peer to peer communication with **end-to-end encryption**, offline-first, **local-first**, portable and interoperable data, total ownership of data and software, security and privacy. Centered on repositories containing **semantic data** (RDF), **rich text**, and structured data formats like **JSON**, synced between peers belonging to permissioned groups of users, it offers strong eventual consistency, thanks to the use of **CRDTs**. Documents can be linked together, signed, shared securely, queried using the **SPARQL** language and organized into sites and containers.
 >
 > More info here [https://nextgraph.org](https://nextgraph.org)
 
 ## Support
 
+This crate has official documentation at [docs.rs](https://docs.rs/nextgraph/0.1.0/nextgraph/)
+
 Documentation can be found here [https://docs.nextgraph.org](https://docs.nextgraph.org)
 
 And our community forum where you can ask questions is here [https://forum.nextgraph.org](https://forum.nextgraph.org)
 
-## How to use the library
+## Status
 
 NextGraph is not ready yet. You can subscribe to [our newsletter](https://list.nextgraph.org/subscription/form) to get updates, and support us with a [donation](https://nextgraph.org/donate/).
+
+## Dependencies
+
+Nextgraph library is dependent on [async-std](https://async.rs/). You must include it in your `Cargo.toml`.
+A tokio-based version (as a feature) might be available in the future.
+
+```toml
+[dependencies]
+nextgraph = "0.1.0"
+async-std = "1.12.0"
+```
+
+## Examples
+
+You can find some examples on how to use the library:
+
+- [in_memory](examples/in_memory)
+- [persistent](examples/persistent)
 
 ## License
 

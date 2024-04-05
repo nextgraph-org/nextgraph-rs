@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! File and RandomAccessFile objects
+//! SmallFile and RandomAccessFile objects
 
 use core::fmt;
 use std::cmp::min;

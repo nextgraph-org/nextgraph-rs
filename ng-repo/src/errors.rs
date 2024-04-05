@@ -28,6 +28,7 @@ pub enum NgError {
     InvalidFileFormat,
     InvalidArgument,
     PermissionDenied,
+    InvalidPazzle,
     CommitLoadError(CommitLoadError),
     StorageError(StorageError),
     NotFound,
@@ -42,7 +43,6 @@ pub enum NgError {
     WalletAlreadyOpened,
     WalletError(String),
     BrokerError,
-    LockError,
     SessionNotFound,
 }
 
@@ -53,6 +53,48 @@ impl fmt::Display for NgError {
         match self {
             Self::WalletError(string) => write!(f, "WalletError: {}", string),
             _ => write!(f, "{:?}", self),
+        }
+    }
+}
+
+impl From<NgError> for std::io::Error {
+    fn from(err: NgError) -> std::io::Error {
+        match err {
+            NgError::InvalidArgument => std::io::Error::from(std::io::ErrorKind::InvalidInput),
+            NgError::PermissionDenied => std::io::Error::from(std::io::ErrorKind::PermissionDenied),
+            NgError::CommitLoadError(commit_load_error) => std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("CommitLoadError: {:?}", commit_load_error),
+            ),
+            NgError::StorageError(storage_error) => std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("StorageError: {:?}", storage_error),
+            ),
+            NgError::NotFound => std::io::Error::from(std::io::ErrorKind::NotFound),
+            NgError::CommitVerifyError(commit_verify_error) => std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("CommitVerifyError: {:?}", commit_verify_error),
+            ),
+            /*NgError::InvalidSignature => ,
+            NgError::IncompleteSignature =>
+            NgError::SerializationError => ,
+            NgError::EncryptionError => ,
+            NgError::InvalidKey => ,
+            NgError::InvalidInvitation => ,
+            NgError::InvalidCreateAccount => ,
+            NgError::InvalidFileFormat => ,
+            NgError::LocalBrokerNotInitialized => ,
+            NgError::JsStorageReadError => ,
+            NgError::JsStorageWriteError(String) => ,
+            NgError::CannotSaveWhenInMemoryConfig => ,
+            NgError::WalletNotFound => ,
+            NgError::WalletAlreadyAdded => ,
+            NgError::WalletAlreadyOpened => ,
+            NgError::WalletError(String) => ,
+            NgError::BrokerError => ,
+            NgError::SessionNotFound,
+            NgError::IoError => ,*/
+            _ => std::io::Error::new(std::io::ErrorKind::Other, err.to_string().as_str()),
         }
     }
 }

@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! P2P network protocol types
+//! NextGraph network protocol types
 //!
 //! Corresponds to the BARE schema
 
@@ -15,6 +15,7 @@ use crate::utils::{
     get_domain_without_port_443, is_ipv4_private, is_ipv6_private, is_private_ip, is_public_ip,
     is_public_ipv4, is_public_ipv6,
 };
+use crate::WS_PORT_ALTERNATE;
 use crate::{actor::EActor, actors::*, errors::ProtocolError};
 use core::fmt;
 use ng_repo::errors::NgError;
@@ -109,7 +110,9 @@ impl From<&SocketAddr> for BindAddress {
     }
 }
 
-/// BROKER common types
+//
+// BROKER common types
+//
 
 /// Core Broker connection details Version 0
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -144,16 +147,33 @@ pub struct BrokerServerV0 {
     /// Network addresses
     pub server_type: BrokerServerTypeV0,
 
+    /// is this server capable of running a verifier
+    pub can_verify: bool,
+
     /// peerId of the server
     pub peer_id: PubKey,
 }
 
+impl BrokerServerV0 {
+    pub fn new_localhost(peer_id: PubKey) -> Self {
+        BrokerServerV0 {
+            server_type: BrokerServerTypeV0::Localhost(WS_PORT_ALTERNATE[0]),
+            can_verify: false,
+            peer_id,
+        }
+    }
+}
+
+#[doc(hidden)]
 pub const APP_ACCOUNT_REGISTERED_SUFFIX: &str = "/#/user/registered";
 
+#[doc(hidden)]
 pub const NG_ONE_URL: &str = "https://nextgraph.one";
 
+#[doc(hidden)]
 pub const APP_NG_ONE_URL: &str = "https://app.nextgraph.one";
 
+#[doc(hidden)]
 pub const APP_NG_ONE_WS_URL: &str = "wss://app.nextgraph.one";
 
 #[allow(dead_code)]
@@ -161,16 +181,18 @@ fn api_dyn_peer_url(peer_id: &PubKey) -> String {
     format!("https://nextgraph.one/api/v1/dynpeer/{}", peer_id)
 }
 
+#[doc(hidden)]
 pub const LOCAL_HOSTS: [&str; 3] = ["localhost", "127.0.0.1", "[::1]"];
 
 fn local_ws_url(port: &u16) -> String {
     format!("ws://localhost:{}", if *port == 0 { 80 } else { *port })
 }
-
-pub fn local_http_url(port: &u16) -> String {
+#[doc(hidden)]
+pub(crate) fn local_http_url(port: &u16) -> String {
     format!("http://localhost:{}", if *port == 0 { 80 } else { *port })
 }
 
+#[doc(hidden)]
 pub const LOCAL_URLS: [&str; 3] = ["http://localhost", "http://127.0.0.1", "http://[::1]"];
 use url::{Host, Url};
 
@@ -451,7 +473,12 @@ pub struct BootstrapContentV0 {
 }
 
 impl BootstrapContentV0 {
-    pub fn new() -> Self {
+    pub fn new_localhost(peer_id: PubKey) -> Self {
+        BootstrapContentV0 {
+            servers: vec![BrokerServerV0::new_localhost(peer_id)],
+        }
+    }
+    pub fn new_empty() -> Self {
         BootstrapContentV0 { servers: vec![] }
     }
     pub fn merge(&mut self, with: &BootstrapContentV0) {
@@ -576,7 +603,7 @@ impl InvitationV0 {
     }
     pub fn empty(name: Option<String>) -> Self {
         InvitationV0 {
-            bootstrap: BootstrapContentV0::new(),
+            bootstrap: BootstrapContentV0::new_empty(),
             code: None,
             name,
             url: None,
@@ -635,7 +662,7 @@ impl Invitation {
     pub fn intersects(&self, invite2: Invitation) -> Invitation {
         let Invitation::V0(v0) = self;
         let mut new_invite = InvitationV0 {
-            bootstrap: BootstrapContentV0::new(),
+            bootstrap: BootstrapContentV0::new_empty(),
             code: v0.code.clone(),
             name: v0.name.clone(),
             url: v0.url.clone(),
@@ -816,6 +843,7 @@ pub struct ListenerInfo {
 }
 
 /// AcceptForwardForV0 type
+///
 /// allow answers to connection requests originating from a client behind a reverse proxy
 /// Format of last param in the tuple is a list of comma separated hosts or CIDR subnetworks IPv4 and/or IPv6 addresses accepted as X-Forwarded-For
 /// Empty string means all addresses are accepted
@@ -1406,6 +1434,7 @@ pub enum OverlayLeave {
 }
 
 /// Content of PublisherAdvertV0
+///
 /// the peer is matched with the InnerOverlayMessageV0.Session -> peerId.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct PublisherAdvertContentV0 {
@@ -1530,6 +1559,7 @@ pub enum BlockSearchTopic {
 }
 
 /// Block search along a random walk in the overlay
+///
 /// fanout is always 1
 /// if result is none, tries another path if several paths available locally
 /// answered with a stream BlockResult
@@ -1556,6 +1586,7 @@ pub enum BlockSearchRandom {
 }
 
 /// Response to a BlockSearch* request
+///
 /// can be a stream
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockResultV0 {
@@ -1564,6 +1595,7 @@ pub struct BlockResultV0 {
 }
 
 /// Response to a BlockSearch* request
+///
 /// can be a stream
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BlockResult {
@@ -1613,6 +1645,7 @@ pub enum PeerStatus {
 }
 
 /// ForwardedPeerAdvertV0
+///
 /// peer_advert.forwarded_by is matched with sessionid->peerid
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ForwardedPeerAdvertV0 {
@@ -1636,6 +1669,7 @@ pub enum ForwardedPeerAdvert {
 }
 
 /// ForwardedPeerConflictV0
+///
 /// peer_advert.forwarded_by is matched with sessionid->peerid
 /// When the forwarding broker receives the conflict (or notices it), it sends a notification
 /// In order to avoid conflicts, the highest version of PeerAdvert should win, when the Forwarding Broker is different.
@@ -1803,6 +1837,7 @@ pub enum OverlayAdvert {
 }
 
 /// CoreBrokerJoinedAdvert V0
+///
 /// Each broker that is already part of an overlay, when receiving the CoreBrokerJoinedAdvert, should answer with one direct message
 /// to the joining peer (found in OverlayAdvertPayloadV0.peer) for each overlay, containing an OverlayAdvertMarker containing their current sequence number.
 /// This is sent for each path (in case multiple paths arrive to the same broker). Only the first sequence number received by joining peer is kept locally
@@ -1814,6 +1849,7 @@ pub struct CoreBrokerJoinedAdvertV0 {
 }
 
 /// CoreBrokerLeftAdvert V0
+///
 /// A broker has disconnected from another broker, and the routes need to be updated
 /// this is not used to leave one specific overlay. see OverlayLeave message for that purpose
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1871,6 +1907,7 @@ pub struct CoreAdvertV0 {
 }
 
 /// OverlayAdvertMarker V0
+///
 /// when receiving a marker, the broker saves the ingress edge and the corresponding remote peer and
 /// overlay that can be reached (the OverlayAdvertPayloadV0.peer and .overlay) in the CoreRoutingTable
 /// It also saves the sessionId and seq number
@@ -1905,6 +1942,7 @@ pub struct CoreBlockGetV0 {
 }
 
 /// Core Block Result V0
+///
 /// can be a stream
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CoreBlockResultV0 {
@@ -1980,6 +2018,7 @@ pub struct CoreDirectMessageV0 {
 }
 
 /// CoreBrokerConnect V0
+///
 /// replied with CoreBrokerConnectResponse
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CoreBrokerConnectV0 {
@@ -2017,7 +2056,8 @@ impl CoreBrokerConnect {
 pub type CoreBrokerDisconnectV0 = ();
 
 /// Content of CoreOverlayJoin V0
-/// // replied with an emptyResponse, and an error code if OverlayId not present on remote broker
+///
+/// replied with an emptyResponse, and an error code if OverlayId not present on remote broker
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum CoreOverlayJoinV0 {
     Inner(OverlayAdvert),
@@ -2045,6 +2085,7 @@ pub enum OuterOverlayRequestContentV0 {
 }
 
 /// OuterOverlayRequestV0 V0
+///
 /// replied with OuterOverlayResponseV0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OuterOverlayRequestV0 {
@@ -2053,6 +2094,7 @@ pub struct OuterOverlayRequestV0 {
 }
 
 /// OuterOverlayResponse V0
+///
 /// reply to an OuterOverlayRequest V0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OuterOverlayResponseV0 {
@@ -2100,6 +2142,7 @@ pub enum TopicSyncResV0 {
 }
 
 /// Topic synchronization response
+///
 /// it is a stream of blocks and or events.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TopicSyncRes {
@@ -2134,6 +2177,7 @@ pub enum CoreRequestContentV0 {
 }
 
 /// CoreRequest V0
+///
 /// replied with CoreResponse V0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CoreRequestV0 {
@@ -2153,6 +2197,7 @@ pub enum CoreRequest {
 }
 
 /// CoreBrokerConnectResponse V0
+///
 /// reply to a CoreBrokerConnect V0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CoreBrokerConnectResponseV0 {
@@ -2176,7 +2221,8 @@ pub enum CoreResponseContentV0 {
 }
 
 /// CoreResponse V0
-/// reply to an CoreRequest V0
+///
+/// reply to a CoreRequest V0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CoreResponseV0 {
     /// Request ID
@@ -2467,6 +2513,7 @@ impl AdminResponse {
 //
 
 /// Request to open a repo in a non-durable way (without pinning it).
+///
 /// When client will disconnect, the subscriptions and publisherAdvert of the topics will be removed,
 /// except if a PinRepo occurred before or after the OpenRepo
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2515,6 +2562,7 @@ impl OpenRepo {
 }
 
 /// Request to pin a repo on the broker.
+///
 /// When client will disconnect, the subscriptions and publisherAdvert of the topics will be remain active on the broker,
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PinRepoV0 {
@@ -2570,6 +2618,7 @@ impl PinRepo {
 }
 
 /// Request to refresh the Pinning of a previously pinned repo.
+///
 /// it can consist of updating the expose_outer, the list of ro_topics and/or rw_topics,
 /// and in case of a ban_member, the broker will effectively flush the topics locally after all local members except the banned one, have refreshed
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2599,6 +2648,7 @@ pub enum RefreshPinRepo {
 }
 
 /// Request to unpin a repo on the broker.
+///
 /// When client will disconnect, the subscriptions and publisherAdvert of the topics will be removed on the broker
 /// (for that user only. other users might continue to have the repo pinned)
 
@@ -2623,6 +2673,7 @@ impl UnpinRepo {
 }
 
 /// Request the status of pinning for a repo on the broker. V0
+///
 /// returns an error code if not pinned, otherwise returns a RepoPinStatusV0
 /// the overlay entered in ClientMessage is important. if it is the outer, only outer pinning will be checked.
 /// if it is the inner overlay, only the inner pinning will be checked.
@@ -2715,6 +2766,7 @@ pub enum TopicUnsub {
 }
 
 /// Request a Block by ID
+///
 /// commit_header_key is always set to None in the reply when request is made on OuterOverlay of protected or Group overlays
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlockGetV0 {
@@ -2775,6 +2827,7 @@ impl BlocksPut {
 }
 
 /// Request to know if some blocks are present locally
+///
 /// used by client before publishing an event, to know what to push
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlocksExistV0 {
@@ -2841,6 +2894,7 @@ impl ObjectUnpin {
 }
 
 /// Request to delete an object
+///
 /// only effective if the refcount for this object is zero (basically it removes it from LRU)
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct ObjectDelV0 {
@@ -3173,6 +3227,7 @@ pub struct ExtRequestV0 {
 }
 
 /// External request are made by clients directly to a core broker of their choice.
+///
 /// They differ from OuterOverlayRequests in the sense that the broker where the client is attached, is not involved in the request.
 /// It is a direct connection that is established between the client and the core broker that will give the response.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3248,11 +3303,12 @@ impl TryFrom<ProtocolMessage> for ExtResponse {
     }
 }
 
-///
-/// PROTOCOL MESSAGES
-///
-
+//
+// PROTOCOL MESSAGES
+//
+#[doc(hidden)]
 pub static MAGIC_NG_REQUEST: [u8; 2] = [78u8, 71u8];
+#[doc(hidden)]
 pub static MAGIC_NG_RESPONSE: [u8; 4] = [89u8, 88u8, 78u8, 75u8];
 
 #[derive(Clone, Debug)]
@@ -3392,9 +3448,9 @@ impl ProtocolMessage {
     }
 }
 
-///
-/// AUTHENTICATION MESSAGES
-///
+//
+// AUTHENTICATION MESSAGES
+//
 
 /// Content of ClientAuthV0
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3510,6 +3566,7 @@ impl From<AuthResult> for ProtocolMessage {
 //
 
 /// Link to a repository
+///
 /// Consists of an identifier (repoid), a ReadCap or WriteCap, and a locator (peers and overlayLink)
 /// Those capabilities are not durable: They can be refreshed by the members and previously shared Caps will become obsolete/revoked.
 /// As long as the user is a member of the repo and subscribes to the root topic (of the repo, and of the store if needed/applicable), they will receive the updated capabilities.
@@ -3555,11 +3612,13 @@ impl RepoLink {
     }
 }
 
+/// Link for a Public Repo
+///
 /// The latest ReadCap of the branch (or main branch) will be downloaded from the outerOverlay, if the peer brokers listed below allow it.
 /// The snapshot can be downloaded instead
-/// This locator is durable, because the public site are served differently by brokers.
+/// This link is durable, because the public site are served differently by brokers.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PublicRepoLocatorV0 {
+pub struct PublicRepoLinkV0 {
     /// Repository ID
     pub repo: RepoId,
 
@@ -3583,11 +3642,12 @@ pub struct PublicRepoLocatorV0 {
 
 /// Link to a public repository
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum PublicRepoLocator {
-    V0(PublicRepoLocatorV0),
+pub enum PublicRepoLink {
+    V0(PublicRepoLinkV0),
 }
 
 /// Read access to a branch of a Public, Protected or Group store.
+///
 /// The overlay to join can be the outer or the inner, depending on what was offered in the link.
 /// The difference between the two is that in the outer overlay, only one broker is contacted.
 /// In the inner overlay, all the publisher's brokers are contacted, so subscription to the pub/sub is more reliable, less prone to outage.
@@ -3623,8 +3683,9 @@ pub enum ReadBranchLink {
 }
 
 /// Obtains one or more objects of a repo (Commit, File) by their ID.
+///
 /// On an outerOverlay, the header is always emptied (no way to reconstruct the DAG of commits) except on public overlays or if a topicId is provided
-/// If the intent is to share a whole DAG of commits at a definite CommitID/HEAD, then ReadBranchLink should be used instead (or PublicRepoLocator if public site)
+/// If the intent is to share a whole DAG of commits at a definite CommitID/HEAD, then ReadBranchLink should be used instead (or PublicRepoLink if public site)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ObjectLinkV0 {
     /// Repository ID: not used to make the request. but useful for commits, to know which repo they are from without needing to fetch and open the full DAG of commits.
@@ -3658,7 +3719,7 @@ pub enum ObjectLink {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NgLinkV0 {
     Repo(RepoLink),
-    PublicRepo(PublicRepoLocator),
+    PublicRepo(PublicRepoLink),
     Branch(ReadBranchLink),
     Object(ObjectLink),
 }
@@ -3683,6 +3744,7 @@ mod test {
             BootstrapContentV0 {
                 servers: vec![BrokerServerV0 {
                     server_type: BrokerServerTypeV0::Localhost(14400),
+                    can_verify: false,
                     peer_id: PubKey::Ed25519PubKey([
                         95, 73, 225, 250, 3, 147, 24, 164, 177, 211, 34, 244, 45, 130, 111, 136,
                         229, 145, 53, 167, 50, 168, 140, 227, 65, 111, 203, 41, 210, 186, 162, 149,

@@ -20,7 +20,7 @@ const mapping = {
     "wallet_was_opened": ["opened_wallet"],
     "wallet_create": ["params"],
     "wallet_read_file": ["file"],
-    "wallet_download_file": ["wallet_name"],
+    "wallet_get_file": ["wallet_name"],
     "wallet_import": ["encrypted_wallet","opened_wallet","in_memory"],
     "wallet_close": ["wallet_name"],
     "encode_create_account": ["payload"],
@@ -62,7 +62,8 @@ const handler = {
         } else {
             let tauri = await import("@tauri-apps/api/tauri");
             if (path[0] === "client_info") {
-
+                let from_rust = await tauri.invoke("client_info_rust",{});
+                
                 let tauri_platform = import.meta.env.TAURI_PLATFORM;
                 let client_type;
                 switch (tauri_platform) {
@@ -73,20 +74,25 @@ const handler = {
                     case 'ios': client_type = "NativeIos";break;
                 }
                 let info = Bowser.parse(window.navigator.userAgent);
+                info.os.type = import.meta.env.TAURI_PLATFORM_TYPE;
+                info.os.family = import.meta.env.TAURI_FAMILY;
+                info.os.version_tauri = import.meta.env.TAURI_PLATFORM_VERSION;
+                info.os.version_uname = from_rust.uname.version;
+                info.os.name_rust = from_rust.rust.os_name;
+                info.os.name_uname = from_rust.uname.os_name;
                 info.platform.arch = import.meta.env.TAURI_ARCH;
-                info.platform.tauri = {
-                    family: import.meta.env.TAURI_FAMILY,
-                    os_version: import.meta.env.TAURI_PLATFORM_VERSION,
-                    type: import.meta.env.TAURI_PLATFORM_TYPE,
-                    debug: import.meta.env.TAURI_DEBUG,
-                    target: import.meta.env.TAURI_TARGET_TRIPLE
-                };
+                info.platform.debug = import.meta.env.TAURI_DEBUG;
+                info.platform.target = import.meta.env.TAURI_TARGET_TRIPLE;
+                info.platform.arch_uname = from_rust.uname.arch;
+                info.platform.bitness = from_rust.uname.bitness;
+                info.platform.codename = from_rust.uname.codename || undefined;
+                info.platform.edition = from_rust.uname.edition || undefined;
                 info.browser.ua = window.navigator.userAgent;
                 let res = {
                     // TODO: install timestamp 
                     V0 : { client_type, details: JSON.stringify(info), version, timestamp_install:0, timestamp_updated:0 }
                 };
-                //console.log(res);
+                console.log(info,res);
                 return res;
             } else if (path[0] === "disconnections_subscribe") {
                 let { getCurrent } = await import("@tauri-apps/plugin-window");

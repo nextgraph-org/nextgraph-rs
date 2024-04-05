@@ -30,8 +30,6 @@ use async_tungstenite::tungstenite::http::{
 
 use async_tungstenite::tungstenite::protocol::Message;
 use futures::{SinkExt, StreamExt};
-use once_cell::sync::Lazy;
-use once_cell::sync::OnceCell;
 use ng_client_ws::remote_ws::ConnectionWebSocket;
 use ng_net::broker::*;
 use ng_net::connection::IAccept;
@@ -44,6 +42,8 @@ use ng_repo::log::*;
 use ng_repo::types::SymKey;
 use ng_repo::types::{PrivKey, PubKey};
 use ng_repo::utils::generate_keypair;
+use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
 use rust_embed::RustEmbed;
 use serde_json::json;
 use std::collections::HashMap;
@@ -733,6 +733,7 @@ pub async fn run_server_v0(
                 for server_type in server_types {
                     servers.push(BrokerServerV0 {
                         peer_id: common_peer_id.unwrap_or(peer_id),
+                        can_verify: false,
                         server_type,
                     })
                 }

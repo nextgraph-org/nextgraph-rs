@@ -69,6 +69,12 @@ impl Wallet {
         }
     }
 
+    /// `nonce` : The current nonce used for encrypting this wallet by the user on this device.
+    /// It should be incremented BEFORE encrypting the wallet again
+    /// when some new operations have been added to the log of the Wallet.
+    /// The nonce is by PeerId. It is saved together with the PeerId in the SessionPeerStorage.
+    /// If the session is not saved (in-memory) it is lost, but it is fine, as the PeerId is also lost, and a new one
+    /// will be generated for the next session.
     pub fn encrypt(
         &self,
         wallet_log: &WalletLog,
@@ -208,33 +214,33 @@ pub fn enc_wallet_log(
     Ok(buffer)
 }
 
-pub fn dec_session(key: PrivKey, vec: &Vec<u8>) -> Result<SessionWalletStorageV0, NgWalletError> {
-    let session_ser = crypto_box::seal_open(&(*key.to_dh().slice()).into(), vec)
-        .map_err(|_| NgWalletError::DecryptionError)?;
-    let session: SessionWalletStorage =
-        serde_bare::from_slice(&session_ser).map_err(|_| NgWalletError::SerializationError)?;
-    let SessionWalletStorage::V0(v0) = session;
-    Ok(v0)
-}
+// pub fn dec_session(key: PrivKey, vec: &Vec<u8>) -> Result<SessionWalletStorageV0, NgWalletError> {
+//     let session_ser = crypto_box::seal_open(&(*key.to_dh().slice()).into(), vec)
+//         .map_err(|_| NgWalletError::DecryptionError)?;
+//     let session: SessionWalletStorage =
+//         serde_bare::from_slice(&session_ser).map_err(|_| NgWalletError::SerializationError)?;
+//     let SessionWalletStorage::V0(v0) = session;
+//     Ok(v0)
+// }
 
-pub fn create_new_session(
-    wallet_id: PubKey,
-    user: PubKey,
-) -> Result<(SessionWalletStorageV0, Vec<u8>), NgWalletError> {
-    let peer = generate_keypair();
-    let mut sws = SessionWalletStorageV0::new();
-    let sps = SessionPeerStorageV0 {
-        user,
-        peer_key: peer.0,
-        last_wallet_nonce: 0,
-    };
-    sws.users.insert(user.to_string(), sps);
-    let sws_ser = serde_bare::to_vec(&SessionWalletStorage::V0(sws.clone())).unwrap();
-    let mut rng = crypto_box::aead::OsRng {};
-    let cipher = crypto_box::seal(&mut rng, &wallet_id.to_dh_slice().into(), &sws_ser)
-        .map_err(|_| NgWalletError::EncryptionError)?;
-    Ok((sws, cipher))
-}
+// pub fn create_new_session(
+//     wallet_id: PubKey,
+//     user: PubKey,
+// ) -> Result<(SessionWalletStorageV0, Vec<u8>), NgWalletError> {
+//     let peer = generate_keypair();
+//     let mut sws = SessionWalletStorageV0::new();
+//     let sps = SessionPeerStorageV0 {
+//         user,
+//         peer_key: peer.0,
+//         last_wallet_nonce: 0,
+//     };
+//     sws.users.insert(user.to_string(), sps);
+//     let sws_ser = serde_bare::to_vec(&SessionWalletStorage::V0(sws.clone())).unwrap();
+//     let mut rng = crypto_box::aead::OsRng {};
+//     let cipher = crypto_box::seal(&mut rng, &wallet_id.to_dh_slice().into(), &sws_ser)
+//         .map_err(|_| NgWalletError::EncryptionError)?;
+//     Ok((sws, cipher))
+// }
 
 pub fn dec_encrypted_block(
     mut ciphertext: Vec<u8>,
@@ -264,6 +270,7 @@ pub fn dec_encrypted_block(
 
     // `ciphertext` now contains the decrypted block
     //log_debug!("decrypted_block {:?}", ciphertext);
+    ciphertext.zeroize();
 
     match decrypted_log {
         WalletLog::V0(v0) => v0.reduce(master_key),
@@ -297,7 +304,7 @@ pub fn derive_key_from_pass(mut pass: Vec<u8>, salt: [u8; 16], wallet_id: Wallet
 }
 
 pub fn open_wallet_with_pazzle(
-    wallet: Wallet,
+    wallet: &Wallet,
     mut pazzle: Vec<u8>,
     mut pin: [u8; 4],
 ) -> Result<SensitiveWallet, NgWalletError> {
@@ -330,9 +337,9 @@ pub fn open_wallet_with_pazzle(
                 "opening of wallet with pazzle took: {} ms",
                 opening_pazzle.elapsed().as_millis()
             );
-
+            let cipher = v0.content.encrypted.clone();
             Ok(SensitiveWallet::V0(dec_encrypted_block(
-                v0.content.encrypted,
+                cipher,
                 master_key,
                 v0.content.peer_id,
                 v0.content.nonce,
@@ -445,8 +452,8 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
 
     // pazzle_length can only be 9, 12, or 15
     if params.pazzle_length != 9
-        && params.pazzle_length != 12
-        && params.pazzle_length != 15
+        //&& params.pazzle_length != 12
+        //&& params.pazzle_length != 15
         && params.pazzle_length != 0
     {
         return Err(NgWalletError::InvalidPazzleLength);
@@ -565,9 +572,9 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
 
     let create_op = WalletOpCreateV0 {
         wallet_privkey: wallet_privkey.clone(),
-        pazzle: pazzle.clone(),
-        mnemonic,
-        pin: params.pin,
+        // pazzle: pazzle.clone(),
+        // mnemonic,
+        // pin: params.pin,
         personal_site: site,
         save_to_ng_one: if params.send_wallet {
             SaveToNGOne::Wallet
@@ -579,8 +586,8 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
         //client: client.clone(),
     };
 
-    //Creating a new peerId for this Client and User
-    let peer = generate_keypair();
+    //Creating a new peerId for this Client and User. we don't do that anymore
+    //let peer = generate_keypair();
 
     let mut wallet_log = WalletLog::new_v0(create_op);
 
@@ -645,7 +652,15 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
 
     let timestamp = now_timestamp();
 
-    let encrypted = enc_wallet_log(&wallet_log, &master_key, peer.1, 0, timestamp, wallet_id)?;
+    let encrypted = enc_wallet_log(
+        &wallet_log,
+        &master_key,
+        // the peer_id used to generate the nonce at creation time is always zero
+        PubKey::nil(),
+        0,
+        timestamp,
+        wallet_id,
+    )?;
     master_key.zeroize();
 
     let wallet_content = WalletContentV0 {
@@ -658,7 +673,7 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
         enc_master_key_mnemonic,
         master_nonce: 0,
         timestamp,
-        peer_id: peer.1,
+        peer_id: PubKey::nil(),
         nonce: 0,
         encrypted,
     };
@@ -702,9 +717,6 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
         pazzle,
         mnemonic: mnemonic.clone(),
         wallet_name: base64_url::encode(&wallet_id.slice()),
-        peer_id: peer.1,
-        peer_key: peer.0,
-        nonce: 0,
         client,
         user,
         in_memory: !params.local_save,
@@ -761,7 +773,7 @@ mod test {
             9,
             false,
             false,
-            BootstrapContentV0::new(),
+            BootstrapContentV0::new_empty(),
             None,
             None,
         ))
@@ -816,7 +828,7 @@ mod test {
 
             if v0.content.pazzle_length > 0 {
                 let opening_pazzle = Instant::now();
-                let w = open_wallet_with_pazzle(Wallet::V0(v0.clone()), res.pazzle.clone(), pin)
+                let w = open_wallet_with_pazzle(&Wallet::V0(v0.clone()), res.pazzle.clone(), pin)
                     .expect("open with pazzle");
                 log_debug!(
                     "opening of wallet with pazzle took: {} ms",

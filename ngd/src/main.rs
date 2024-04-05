@@ -49,12 +49,16 @@ use regex::Regex;
 
 //For windows: {846EE342-7039-11DE-9D20-806E6F6E6963}
 //For the other OSes: en0 lo ...
+
 #[cfg(not(target_os = "windows"))]
 lazy_static! {
+    #[doc(hidden)]
     static ref RE_INTERFACE: Regex = Regex::new(r"^([0-9a-z]{2,16})(\:\d{1,5})?$").unwrap();
 }
+
 #[cfg(target_os = "windows")]
 lazy_static! {
+    #[doc(hidden)]
     static ref RE_INTERFACE: Regex = Regex::new(
         r"^(\{[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}\})(\:\d{1,5})?$"
     )
@@ -62,6 +66,7 @@ lazy_static! {
 }
 
 lazy_static! {
+    #[doc(hidden)]
     static ref RE_IPV6_WITH_PORT: Regex =
         Regex::new(r"^\[([0-9a-fA-F:]{3,39})\](\:\d{1,5})?$").unwrap();
 }
@@ -944,6 +949,7 @@ async fn main_inner() -> Result<(), ()> {
             };
             overlays_config.forward = vec![BrokerServerV0 {
                 server_type,
+                can_verify: false,
                 peer_id,
             }];
         }

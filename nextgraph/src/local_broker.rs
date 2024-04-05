@@ -11,9 +11,12 @@ use async_once_cell::OnceCell;
 use async_std::sync::{Arc, RwLock};
 use core::fmt;
 use ng_net::connection::{ClientConfig, IConnect, StartConfig};
-use ng_net::types::ClientInfo;
+use ng_net::types::{ClientInfo, ClientType};
+use ng_repo::os_info::get_os_info;
+use ng_wallet::emojis::encode_pazzle;
 use once_cell::sync::Lazy;
 use serde_bare::to_vec;
+use serde_json::json;
 use std::collections::HashMap;
 use std::fs::{read, write, File, OpenOptions};
 use std::path::PathBuf;
@@ -34,6 +37,7 @@ type JsStorageReadFn = dyn Fn(String) -> Result<String, NgError> + 'static + Syn
 type JsStorageWriteFn = dyn Fn(String, String) -> Result<(), NgError> + 'static + Sync + Send;
 type JsCallback = dyn Fn() + 'static + Sync + Send;
 
+#[doc(hidden)]
 pub struct JsStorageConfig {
     pub local_read: Box<JsStorageReadFn>,
     pub local_write: Box<JsStorageWriteFn>,
@@ -47,10 +51,15 @@ impl fmt::Debug for JsStorageConfig {
     }
 }
 
+/// Configuration for the LocalBroker. must be returned by a function or closure passed to [init_local_broker]
 #[derive(Debug)]
 pub enum LocalBrokerConfig {
+    /// Local broker will not save any wallet, session or user's data
     InMemory,
+    /// Local broker will save all wallets, sessions and user's data on disk, in the provided `Path`
     BasePath(PathBuf),
+    #[doc(hidden)]
+    /// used internally for the JS SDK
     JsStorage(JsStorageConfig),
 }
 
@@ -61,12 +70,14 @@ impl LocalBrokerConfig {
             _ => false,
         }
     }
+    #[doc(hidden)]
     pub fn is_js(&self) -> bool {
         match self {
             Self::JsStorage(_) => true,
             _ => false,
         }
     }
+    #[doc(hidden)]
     pub fn js_config(&self) -> Option<&JsStorageConfig> {
         match self {
             Self::JsStorage(c) => Some(c),
@@ -78,14 +89,14 @@ impl LocalBrokerConfig {
 //type LastSeqFn = fn(PubKey, u16) -> Result<u64, NgError>;
 pub type LastSeqFn = dyn Fn(PubKey, u16) -> Result<u64, NgError> + 'static + Sync + Send;
 
-/// peer_id: PubKey, seq_num:u64, event_ser: vec<u8>,
+// peer_id: PubKey, seq_num:u64, event_ser: vec<u8>,
 pub type OutboxWriteFn =
     dyn Fn(PubKey, u64, Vec<u8>) -> Result<(), NgError> + 'static + Sync + Send;
 
-/// peer_id: PubKey,
+// peer_id: PubKey,
 pub type OutboxReadFn = dyn Fn(PubKey) -> Result<Vec<Vec<u8>>, NgError> + 'static + Sync + Send;
 
-/// Session Config to initiate a session at a local broker V0
+/// used to initiate a session at a local broker V0
 pub struct SessionConfigV0 {
     pub user_id: UserId,
     pub wallet_name: String,
@@ -94,7 +105,7 @@ pub struct SessionConfigV0 {
     // pub outbox_read_function: Box<OutboxReadFn>,
 }
 
-/// Session Config to initiate a session at a local broker
+/// used to initiate a session at a local broker
 pub enum SessionConfig {
     V0(SessionConfigV0),
 }
@@ -117,6 +128,14 @@ impl SessionConfig {
         match self {
             Self::V0(v0) => v0.wallet_name.clone(),
         }
+    }
+    /// Creates a new SessionConfig with a UserId and a wallet name
+    /// that should be passed to [session_start]
+    pub fn new(user_id: &UserId, wallet_name: &String) -> Self {
+        SessionConfig::V0(SessionConfigV0 {
+            user_id: user_id.clone(),
+            wallet_name: wallet_name.clone(),
+        })
     }
 }
 
@@ -164,9 +183,7 @@ impl LocalBroker {
     }
 }
 
-//static LOCAL_BROKER: OnceCell<Result<(), NgError>> = OnceCell::new();
-
-static LOCAL_BROKER: OnceCell<Result<Arc<RwLock<LocalBroker>>, NgError>> = OnceCell::new(); //Lazy::new(|| Arc::new(RwLock::new(Broker::new())));
+static LOCAL_BROKER: OnceCell<Result<Arc<RwLock<LocalBroker>>, NgError>> = OnceCell::new();
 
 pub type ConfigInitFn = dyn Fn() -> LocalBrokerConfig + 'static + Sync + Send;
 
@@ -213,7 +230,7 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
     Ok(Arc::new(RwLock::new(local_broker)))
 }
 
-//-> &'static Result<Arc<RwLock<LocalBroker>>, NgError>
+#[doc(hidden)]
 pub async fn init_local_broker_with_lazy(config_fn: &Lazy<Box<ConfigInitFn>>) {
     LOCAL_BROKER
         .get_or_init(async {
@@ -223,6 +240,11 @@ pub async fn init_local_broker_with_lazy(config_fn: &Lazy<Box<ConfigInitFn>>) {
         .await;
 }
 
+/// Initialize the configuration of your local broker
+///
+/// , by passing in a function (or closure) that returns a `LocalBrokerConfig`.
+/// You must call `init_local_broker` at least once before you can start to use the broker.
+/// After the first call, all subsequent calls will have no effect.
 pub async fn init_local_broker(config_fn: Box<ConfigInitFn>) {
     LOCAL_BROKER
         .get_or_init(async {
@@ -232,7 +254,8 @@ pub async fn init_local_broker(config_fn: Box<ConfigInitFn>) {
         .await;
 }
 
-pub async fn get_all_wallets() -> Result<HashMap<String, LocalWalletStorageV0>, NgError> {
+/// Retrieves a HashMap of wallets known to the LocalBroker. The name of the Wallet is used as key
+pub async fn wallets_get_all() -> Result<HashMap<String, LocalWalletStorageV0>, NgError> {
     let broker = match LOCAL_BROKER.get() {
         Some(Err(e)) => {
             log_err!("LocalBrokerNotInitialized: {}", e);
@@ -247,14 +270,32 @@ pub async fn get_all_wallets() -> Result<HashMap<String, LocalWalletStorageV0>, 
     Ok(broker.wallets.clone())
 }
 
+/// Creates a new Wallet for the user. Each user should create only one Wallet.
+///
+/// See [CreateWalletV0] for a list of parameters.
+///
+/// Wallets are transferable to to other devices (see [wallet_get_file] and [wallet_import])
 pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResultV0, NgError> {
+    {
+        // entering sub-block to release the lock asap
+        let broker = match LOCAL_BROKER.get() {
+            None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+            Some(Ok(broker)) => broker.read().await,
+        };
+        if params.local_save && broker.config.is_in_memory() {
+            return Err(NgError::CannotSaveWhenInMemoryConfig);
+        }
+    }
     let res = create_wallet_v0(params)?;
     let lws: LocalWalletStorageV0 = (&res).into();
     wallet_add(lws).await?;
+
     Ok(res)
 }
 
-pub async fn reload_wallets() -> Result<(), NgError> {
+#[doc(hidden)]
+/// Only used by JS SDK when the localStorage changes and brings out of sync for the Rust side copy of the wallets
+pub async fn wallets_reload() -> Result<(), NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
@@ -274,6 +315,10 @@ pub async fn reload_wallets() -> Result<(), NgError> {
     Ok(())
 }
 
+#[doc(hidden)]
+/// This should not be used by programmers. Only here because the JS SDK needs it.
+///
+/// It will throw and error if you use it.
 pub async fn wallet_add(lws: LocalWalletStorageV0) -> Result<(), NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
@@ -319,6 +364,11 @@ pub async fn wallet_add(lws: LocalWalletStorageV0) -> Result<(), NgError> {
     Ok(())
 }
 
+/// Reads a binary Wallet File and decodes it to a Wallet object.
+///
+/// This object can be used to import the wallet into a new Device
+/// with the help of the function [wallet_open_with_pazzle_words]
+/// followed by [wallet_import]
 pub async fn wallet_read_file(file: Vec<u8>) -> Result<Wallet, NgError> {
     let ngf: NgFile = file.try_into()?;
     if let NgFile::V0(NgFileV0::Wallet(wallet)) = ngf {
@@ -338,7 +388,8 @@ pub async fn wallet_read_file(file: Vec<u8>) -> Result<Wallet, NgError> {
     }
 }
 
-pub async fn wallet_download_file(wallet_name: &String) -> Result<Vec<u8>, NgError> {
+/// Retrieves the binary content of a Wallet File for the Wallet identified by its name
+pub async fn wallet_get_file(wallet_name: &String) -> Result<Vec<u8>, NgError> {
     let broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.read().await,
@@ -350,8 +401,11 @@ pub async fn wallet_download_file(wallet_name: &String) -> Result<Vec<u8>, NgErr
     }
 }
 
+#[doc(hidden)]
+/// This is a bit hard to use as the pazzle words are encoded in unsigned bytes.
+/// prefer the function wallet_open_with_pazzle_words
 pub fn wallet_open_with_pazzle(
-    wallet: Wallet,
+    wallet: &Wallet,
     pazzle: Vec<u8>,
     pin: [u8; 4],
 ) -> Result<SensitiveWallet, NgError> {
@@ -360,6 +414,25 @@ pub fn wallet_open_with_pazzle(
     Ok(opened_wallet)
 }
 
+/// Opens a wallet by providing an ordered list of words, and the pin.
+///
+/// If you are opening a wallet that is already known to the LocalBroker, you must then call [wallet_was_opened].
+/// Otherwise, if you are importing, then you must call [wallet_import].
+///
+/// For a list of words, see [list_all_words](crate::wallet::emojis::list_all_words)
+pub fn wallet_open_with_pazzle_words(
+    wallet: &Wallet,
+    pazzle_words: &Vec<String>,
+    pin: [u8; 4],
+) -> Result<SensitiveWallet, NgError> {
+    wallet_open_with_pazzle(wallet, encode_pazzle(pazzle_words)?, pin)
+}
+
+/// Imports a wallet into the LocalBroker so the user can then access its content.
+///
+/// the wallet should have been previous opened with [wallet_open_with_pazzle_words].
+/// Once import is done, the wallet is already marked as opened, and the user can start a new session right away.
+/// There is no need to call wallet_was_opened.
 pub async fn wallet_import(
     encrypted_wallet: Wallet,
     mut opened_wallet: SensitiveWallet,
@@ -374,7 +447,7 @@ pub async fn wallet_import(
 
         let wallet_name = encrypted_wallet.name();
         if broker.wallets.get(&wallet_name).is_some() {
-            return Err(NgError::WalletAlreadyOpened);
+            return Err(NgError::WalletAlreadyAdded);
         }
     }
 
@@ -385,6 +458,7 @@ pub async fn wallet_import(
     wallet_was_opened(opened_wallet).await
 }
 
+/// Must be called after [wallet_open_with_pazzle_words] if you are not importing
 pub async fn wallet_was_opened(mut wallet: SensitiveWallet) -> Result<ClientV0, NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
@@ -411,6 +485,11 @@ pub async fn wallet_was_opened(mut wallet: SensitiveWallet) -> Result<ClientV0, 
     Ok(client)
 }
 
+/// Starts a session with the LocalBroker. The type of verifier is selected at this moment.
+///
+/// The session is valid even if there is no internet. The local data will be used in this case.
+/// The returned value is not really useful. Might be removed
+//TODO: remove return value?
 pub async fn session_start(config: SessionConfig) -> Result<SessionPeerStorageV0, NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
@@ -489,7 +568,7 @@ pub async fn session_start(config: SessionConfig) -> Result<SessionPeerStorageV0
                                     }
                                     None => {
                                         // the user was not found in the SWS. we need to create a SPS, add it, encrypt and serialize the new SWS,
-                                        // add the SPS to broker.sessions, and return the newly created SPS and the new SWS encryped serialization
+                                        // add the SPS to broker.sessions, and return the newly created SPS and the new SWS encrypted serialization
                                         let sps = SessionPeerStorageV0::new(user_id);
                                         sws.users.insert(user_id.to_string(), sps.clone());
                                         let encrypted = sws.enc_session(&wallet_id)?;
@@ -551,10 +630,58 @@ fn get_unix_time() -> f64 {
         .as_millis() as f64
 }
 
+/// Attempts a TCP connection to the Server Broker of the User.
+///
+/// The configuration about which Server to contact is stored in the Wallet.
+/// The LocalBroker will be in charge of maintaining this connection alive,
+/// cycling through optional alternative servers to contact in case of failure,
+/// and will notify the user if connection is lost permanently.
 /// Result is a list of (user_id, server_id, server_ip, error, since_date)
+/// If error is None, it means the connection is successful
+///
+/// Once the connection is established, the user can sync data, open documents, etc.. with the Verifier API
+///
+/// In a future version, it will be possible to be connected to several brokers at the same time
+/// (for different users/identities opened concurrently on the same Client)
+// TODO: improve this return value
+// TODO: give public access to the API for subscribing to disconnections
 pub async fn user_connect(
+    user_id: &UserId,
+) -> Result<Vec<(String, String, String, Option<String>, f64)>, NgError> {
+    let os_info = get_os_info();
+    let info = json!({
+        "platform": {
+            "type": "program",
+            "arch": os_info.get("rust").unwrap().get("arch"),
+            "debug": os_info.get("rust").unwrap().get("debug"),
+            "target": os_info.get("rust").unwrap().get("target"),
+            "arch_uname": os_info.get("uname").unwrap().get("arch"),
+            "bitness": os_info.get("uname").unwrap().get("bitness"),
+            "codename": os_info.get("uname").unwrap().get("codename"),
+            "edition": os_info.get("uname").unwrap().get("edition"),
+        },
+        "os": {
+            "name": os_info.get("uname").unwrap().get("os_name"),
+            "family": os_info.get("rust").unwrap().get("family"),
+            "version": os_info.get("uname").unwrap().get("version"),
+            "name_rust": os_info.get("rust").unwrap().get("os_name"),
+        }
+    });
+
+    let client_info = ClientInfo::new(
+        ClientType::NativeService,
+        info.to_string(),
+        env!("CARGO_PKG_VERSION").to_string(),
+    );
+
+    user_connect_with_device_info(client_info, &user_id, None).await
+}
+
+/// Used internally by JS SDK and Tauri Apps. Do not use "as is". See [user_connect] instead.
+#[doc(hidden)]
+pub async fn user_connect_with_device_info(
     info: ClientInfo,
-    user_id: UserId,
+    user_id: &UserId,
     location: Option<String>,
 ) -> Result<Vec<(String, String, String, Option<String>, f64)>, NgError> {
     let local_broker = match LOCAL_BROKER.get() {
@@ -564,7 +691,7 @@ pub async fn user_connect(
 
     let session = local_broker
         .opened_sessions
-        .get(&user_id)
+        .get(user_id)
         .ok_or(NgError::SessionNotFound)?;
     let wallet = local_broker.get_wallet_for_session(&session.config)?;
 
@@ -574,7 +701,6 @@ pub async fn user_connect(
     match wallet {
         SensitiveWallet::V0(wallet) => {
             let client = wallet.client.as_ref().unwrap();
-            let client_id = client.id;
             let client_priv = &client.sensitive_client_storage.priv_key;
             let client_name = &client.name;
             let auto_open = &client.auto_open;
@@ -688,13 +814,14 @@ pub async fn user_connect(
     Ok(result)
 }
 
-pub async fn session_stop(user_id: UserId) -> Result<(), NgError> {
+/// Stops the session, that can be resumed later on. All the local data is flushed from RAM.
+pub async fn session_stop(user_id: &UserId) -> Result<(), NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
     };
 
-    if broker.opened_sessions.remove(&user_id).is_some() {
+    if broker.opened_sessions.remove(user_id).is_some() {
         // TODO: change the logic here once it will be possible to have several users connected at the same time
         Broker::close_all_connections().await;
     }
@@ -702,13 +829,14 @@ pub async fn session_stop(user_id: UserId) -> Result<(), NgError> {
     Ok(())
 }
 
-pub async fn user_disconnect(user_id: UserId) -> Result<(), NgError> {
+/// Disconnects the user from the Server Broker(s), but keep all the local data opened and ready.
+pub async fn user_disconnect(user_id: &UserId) -> Result<(), NgError> {
     let broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.read().await,
     };
 
-    if broker.opened_sessions.get(&user_id).is_some() {
+    if broker.opened_sessions.get(user_id).is_some() {
         // TODO: change the logic here once it will be possible to have several users connected at the same time
         Broker::close_all_connections().await;
     }
@@ -716,13 +844,14 @@ pub async fn user_disconnect(user_id: UserId) -> Result<(), NgError> {
     Ok(())
 }
 
-pub async fn wallet_close(wallet_name: String) -> Result<(), NgError> {
+/// Closes a wallet, which means that the pazzle will have to be entered again if the user wants to use it
+pub async fn wallet_close(wallet_name: &String) -> Result<(), NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
     };
 
-    match broker.opened_wallets.remove(&wallet_name) {
+    match broker.opened_wallets.remove(wallet_name) {
         Some(mut wallet) => {
             for user in wallet.sites() {
                 let key: PubKey = (user.as_str()).try_into().unwrap();
@@ -738,6 +867,7 @@ pub async fn wallet_close(wallet_name: String) -> Result<(), NgError> {
     Ok(())
 }
 
+/// (not implemented yet)
 pub async fn wallet_remove(wallet_name: String) -> Result<(), NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),

@@ -9,6 +9,8 @@
  * according to those terms.
 */
 
+//! Actor handles messages in the Protocol. common types are here
+
 use async_std::stream::StreamExt;
 use async_std::sync::Mutex;
 use futures::{channel::mpsc, SinkExt};

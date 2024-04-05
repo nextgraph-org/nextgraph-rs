@@ -125,7 +125,7 @@ pub fn wallet_open_with_pazzle(
         .map_err(|_| "Deserialization error of wallet")?;
     let mut pin = serde_wasm_bindgen::from_value::<[u8; 4]>(js_pin)
         .map_err(|_| "Deserialization error of pin")?;
-    let res = nextgraph::local_broker::wallet_open_with_pazzle(encrypted_wallet, pazzle, pin);
+    let res = nextgraph::local_broker::wallet_open_with_pazzle(&encrypted_wallet, pazzle, pin);
     match res {
         Ok(r) => Ok(r
             .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
@@ -153,7 +153,7 @@ pub fn wallet_update(js_wallet_id: JsValue, js_operations: JsValue) -> Result<Js
 pub async fn get_wallets() -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
 
-    let res = get_all_wallets().await.map_err(|e| {
+    let res = wallets_get_all().await.map_err(|e| {
         log_err!("{}", e.to_string());
     });
     if res.is_ok() {
@@ -161,25 +161,6 @@ pub async fn get_wallets() -> Result<JsValue, JsValue> {
     }
     Ok(JsValue::UNDEFINED)
 }
-
-// fn save_new_session(
-//     wallet_name: &String,
-//     wallet_id: PubKey,
-//     user: PubKey,
-// ) -> Result<SessionWalletStorageV0, String> {
-//     let res = create_new_session(wallet_id, user);
-//     if res.is_ok() {
-//         let sws = res.unwrap();
-//         let encoded = base64_url::encode(&sws.1);
-//         let r = session_save(format!("ng_wallet@{}", wallet_name), encoded);
-//         if r.is_some() {
-//             return Err(r.unwrap());
-//         }
-//         Ok(sws.0)
-//     } else {
-//         Err(res.unwrap_err().to_string())
-//     }
-// }
 
 fn take_some_peer_last_seq_numbers(peer_id: PubKey, qty: u16) -> Result<u64, NgError> {
     let res = session_get(format!("ng_peer_last_seq@{}", peer_id));
@@ -266,49 +247,11 @@ pub async fn session_start(wallet_name: String, user_js: JsValue) -> Result<JsVa
     Ok(serde_wasm_bindgen::to_value(&res).unwrap())
 }
 
-// fn save_wallet_locally(res: &CreateWalletResultV0) -> Result<SessionWalletStorageV0, String> {
-//     let sws = save_new_session(&res.wallet_name, res.wallet.id(), res.user)?;
-//     let mut wallets: HashMap<String, LocalWalletStorageV0> =
-//         get_all_wallets().unwrap_or(HashMap::new());
-//     // TODO: check that the wallet is not already present in localStorage
-//     let lws: LocalWalletStorageV0 = res.into();
-//     wallets.insert(res.wallet_name.clone(), lws);
-//     let lws_ser = serde_bare::to_vec(&LocalWalletStorage::V0(wallets)).unwrap();
-//     let encoded = base64_url::encode(&lws_ser);
-//     let r = local_save("ng_wallets".to_string(), encoded);
-//     if r.is_some() {
-//         return Err(r.unwrap());
-//     }
-//     Ok(sws)
-// }
-
-// #[cfg(target_arch = "wasm32")]
-// #[wasm_bindgen]
-// pub async fn get_wallet_client(
-//     wallet_id: String,
-//     wallet_privkey_js: JsValue,
-// ) -> Result<JsValue, String> {
-//     let mut wallet_privkey = serde_wasm_bindgen::from_value::<PrivKey>(wallet_privkey_js)
-//         .map_err(|_| "Deserialization error of wallet_privkey")?;
-//     match get_all_wallets().await {
-//         Ok(wallets) => match wallets.get(&wallet_id) {
-//             Some(wallet) => {
-//                 let res = wallet
-//                     .to_client_v0(wallet_privkey)
-//                     .map_err(|e| e.to_string())?;
-//                 Ok(serde_wasm_bindgen::to_value(&res).unwrap())
-//             }
-//             None => Err("Cannot find this wallet locally".to_string()),
-//         },
-//         Err(_) => Err("Cannot find this wallet locally".to_string()),
-//     }
-// }
-
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub async fn reload_wallets() -> Result<(), String> {
+pub async fn wallets_reload() -> Result<(), String> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
-    nextgraph::local_broker::reload_wallets()
+    nextgraph::local_broker::wallets_reload()
         .await
         .map_err(|e: NgError| e.to_string())
 }
@@ -398,10 +341,10 @@ pub async fn wallet_create(js_params: JsValue) -> Result<JsValue, JsValue> {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub async fn wallet_download_file(wallet_name: String) -> Result<JsValue, JsValue> {
+pub async fn wallet_get_file(wallet_name: String) -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
 
-    let res = nextgraph::local_broker::wallet_download_file(&wallet_name).await;
+    let res = nextgraph::local_broker::wallet_get_file(&wallet_name).await;
     match res {
         Ok(r) => Ok(serde_wasm_bindgen::to_value(&serde_bytes::ByteBuf::from(r)).unwrap()),
         Err(e) => Err(e.to_string().into()),
@@ -454,36 +397,6 @@ pub async fn wallet_import(
         .map_err(|e: NgError| e.to_string())?;
 
     Ok(serde_wasm_bindgen::to_value(&client).unwrap())
-
-    // let SensitiveWallet::V0(mut opened_wallet_v0) = opened_wallet;
-    // let mut wallets: HashMap<String, LocalWalletStorageV0> =
-    //     get_all_wallets().unwrap_or(HashMap::new());
-    // // check that the wallet is not already present in localStorage
-    // let wallet_name = opened_wallet_v0.wallet_id.clone();
-    // if wallets.get(&wallet_name).is_none() {
-    //     let session = save_new_session(
-    //         &wallet_name,
-    //         opened_wallet_v0.wallet_privkey.to_pub(),
-    //         opened_wallet_v0.personal_site,
-    //     )
-    //     .map_err(|e| format!("Cannot create new session: {e}"))?;
-    //     let (lws, client) = opened_wallet_v0
-    //         .import(previous_wallet, session)
-    //         .map_err(|e| e.to_string())?;
-    //     //let lws = LocalWalletStorageV0::new(wallet, &client);
-
-    //     wallets.insert(wallet_name, lws);
-
-    //     let lws_ser = serde_bare::to_vec(&LocalWalletStorage::V0(wallets)).unwrap();
-    //     let encoded = base64_url::encode(&lws_ser);
-    //     let r = local_save("ng_wallets".to_string(), encoded);
-    //     if r.is_some() {
-    //         return Err(r.unwrap());
-    //     }
-    //     Ok(serde_wasm_bindgen::to_value(&client).unwrap())
-    // } else {
-    //     Err("Wallet already present on this device".to_string())
-    // }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -497,7 +410,7 @@ pub fn test_create_wallet() -> JsValue {
         9,
         false,
         false,
-        BootstrapContentV0::new(),
+        BootstrapContentV0::new_empty(),
         None,
         None,
     );
@@ -813,7 +726,7 @@ pub async fn session_stop(user_id_js: JsValue) -> Result<(), String> {
     let user_id = serde_wasm_bindgen::from_value::<UserId>(user_id_js)
         .map_err(|_| "serde error on user_id")?;
 
-    nextgraph::local_broker::session_stop(user_id)
+    nextgraph::local_broker::session_stop(&user_id)
         .await
         .map_err(|e: NgError| e.to_string())
 }
@@ -824,7 +737,7 @@ pub async fn user_disconnect(user_id_js: JsValue) -> Result<(), String> {
     let user_id = serde_wasm_bindgen::from_value::<UserId>(user_id_js)
         .map_err(|_| "serde error on user_id")?;
 
-    nextgraph::local_broker::user_disconnect(user_id)
+    nextgraph::local_broker::user_disconnect(&user_id)
         .await
         .map_err(|e: NgError| e.to_string())
 }
@@ -832,7 +745,7 @@ pub async fn user_disconnect(user_id_js: JsValue) -> Result<(), String> {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn wallet_close(wallet_name: String) -> Result<(), String> {
-    nextgraph::local_broker::wallet_close(wallet_name)
+    nextgraph::local_broker::wallet_close(&wallet_name)
         .await
         .map_err(|e: NgError| e.to_string())
 }
@@ -860,7 +773,7 @@ pub async fn user_connect(
 
     let mut opened_connections: HashMap<String, ConnectionInfo> = HashMap::new();
 
-    let results = nextgraph::local_broker::user_connect(info, user_id, location)
+    let results = nextgraph::local_broker::user_connect_with_device_info(info, &user_id, location)
         .await
         .map_err(|e: NgError| e.to_string())?;
 

@@ -32,6 +32,8 @@ pub mod errors;
 
 pub mod kcv_store;
 
+pub mod os_info;
+
 #[macro_use]
 extern crate slice_as_array;
 

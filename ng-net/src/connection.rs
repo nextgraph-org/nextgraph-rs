@@ -9,6 +9,8 @@
  * according to those terms.
 */
 
+//! Finite State Machine of the connection/protocol/Noise channel
+
 //static NOISE_CONFIG: &'static str = "Noise_XK_25519_ChaChaPoly_BLAKE2b";
 
 use std::any::TypeId;
@@ -28,11 +30,11 @@ use async_std::stream::StreamExt;
 use async_std::sync::Mutex;
 use either::Either;
 use futures::{channel::mpsc, select, FutureExt, SinkExt};
-use noise_protocol::{patterns::noise_xk, CipherState, HandshakeState};
-use noise_rust_crypto::*;
 use ng_repo::log::*;
 use ng_repo::types::{DirectPeerId, PrivKey, PubKey, X25519PrivKey};
 use ng_repo::utils::{sign, verify};
+use noise_protocol::{patterns::noise_xk, CipherState, HandshakeState};
+use noise_rust_crypto::*;
 use serde_bare::from_slice;
 use unique_id::sequence::SequenceGenerator;
 use unique_id::Generator;

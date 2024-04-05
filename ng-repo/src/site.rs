@@ -9,6 +9,8 @@
  * according to those terms.
 */
 
+//! Site (Public, Protected, Private) of Individual and Org
+
 use crate::errors::NgError;
 use crate::types::*;
 use crate::utils::{generate_keypair, sign, verify};

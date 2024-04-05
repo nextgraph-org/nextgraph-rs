@@ -7,6 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+use ng_repo::errors::NgError;
 use std::collections::HashMap;
 pub struct EmojiDef<'a> {
     pub hexcode: &'a str,
@@ -38,7 +39,7 @@ const face: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f60d",
         shortcode: "smiling_face_with_heart_eyes",
-        code: "two_hearts",
+        code: "with_two_hearts",
     },
     EmojiDef {
         hexcode: "1f618",
@@ -48,12 +49,12 @@ const face: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f61d",
         shortcode: "squinting_face_with_tongue",
-        code: "tongue",
+        code: "with_tongue",
     },
     EmojiDef {
         hexcode: "1f917",
         shortcode: "hugging_face",
-        code: "two_hands",
+        code: "with_two_hands",
     },
     EmojiDef {
         hexcode: "1f92d",
@@ -102,7 +103,7 @@ const face_unwell: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f912",
         shortcode: "face_with_thermometer",
-        code: "thermometer",
+        code: "fever",
     },
     EmojiDef {
         hexcode: "1f915",
@@ -137,7 +138,7 @@ const face_unwell: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f92f",
         shortcode: "exploding_head",
-        code: "explosion",
+        code: "exploding",
     },
     EmojiDef {
         hexcode: "2639",
@@ -258,7 +259,7 @@ const emotion: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "2764",
         shortcode: "red_heart",
-        code: "one_heart",
+        code: "red_heart",
     },
     EmojiDef {
         hexcode: "1f495",
@@ -1201,13 +1202,13 @@ lazy_static! {
         ("travel", travel),
         ("sky", sky),
         ("play", play),
-        ("house", play),
+        ("house", house),
     ]
     .into_iter()
     .collect();
 }
 
-pub const EMOJI_CAT: [&str; 15] = [
+pub const EMOJI_CAT: [&'static str; 15] = [
     "face",
     "sport",
     "big_animal",
@@ -1224,3 +1225,68 @@ pub const EMOJI_CAT: [&str; 15] = [
     "face_costume",
     "emotion",
 ];
+
+lazy_static! {
+    pub static ref EMOJI_CODES: HashMap<&'static str, u8> = generate_tuples();
+}
+
+fn generate_tuples() -> HashMap<&'static str, u8> {
+    let mut tuples = vec![];
+    for (icat, cat_name) in EMOJI_CAT.iter().enumerate() {
+        for (iemoji, emoji) in EMOJIS.get(cat_name).unwrap().iter().enumerate() {
+            let nbr = (icat << 4) + iemoji;
+            tuples.push((emoji.code, nbr as u8));
+        }
+    }
+    // let mut map = HashMap::new();
+    // for t in tuples.into_iter() {
+    //     match map.insert(t.0, t.1) {
+    //         Some(double) => log_info!("{} {} {}", t.0, t.1, double),
+    //         None => {}
+    //     }
+    // }
+    // map
+    tuples.into_iter().collect()
+}
+
+/// returns a list of tuples of 2 strings (category,emoji)
+pub fn display_pazzle(pazzle: &Vec<u8>) -> Vec<(&'static str, &'static str)> {
+    let mut res = vec![];
+    for emoji in pazzle {
+        let cat = (emoji & 240) >> 4;
+        let idx = emoji & 15;
+        res.push((
+            EMOJI_CAT[cat as usize],
+            EMOJIS.get(&EMOJI_CAT[cat as usize]).unwrap()[idx as usize].code,
+        ));
+    }
+    res
+}
+//use ng_repo::log::*;
+
+/// taking a list of pazzle words, returns a list of u8 codes
+pub fn encode_pazzle(words: &Vec<String>) -> Result<Vec<u8>, NgError> {
+    //assert_eq!(EMOJI_CODES.len(), 15 * 15);
+    let mut res = vec![];
+    for word in words {
+        res.push(
+            *EMOJI_CODES
+                .get(word.as_str())
+                .ok_or(NgError::InvalidPazzle)?,
+        );
+    }
+    //log_info!("{:?}", res);
+    Ok(res)
+}
+
+/// lists all the words available for a pazzle, together with its category and u8 code
+pub fn list_all_words() -> Vec<(&'static str, &'static str, u8)> {
+    let mut tuples = vec![];
+    for (icat, cat_name) in EMOJI_CAT.iter().enumerate() {
+        for (iemoji, emoji) in EMOJIS.get(cat_name).unwrap().iter().enumerate() {
+            let nbr = (icat << 4) + iemoji;
+            tuples.push((emoji.code, *cat_name, nbr as u8));
+        }
+    }
+    tuples
+}

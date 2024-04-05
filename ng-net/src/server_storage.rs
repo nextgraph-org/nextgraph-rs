@@ -9,6 +9,8 @@
  * according to those terms.
 */
 
+//! Trait for ServerStorage
+
 use crate::{
     errors::{ProtocolError, ServerError},
     types::*,

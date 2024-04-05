@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! P2P Repo types
+//! NextGraph Repo types
 //!
 //! Corresponds to the BARE schema
 
@@ -367,14 +367,13 @@ pub type RepoHash = Digest;
 /// Topic ID: public key of the topic
 pub type TopicId = PubKey;
 
-/// User ID: user account for broker
+/// User ID: user account for broker and member of a repo
 pub type UserId = PubKey;
 
 /// BranchId is a PubKey
 pub type BranchId = PubKey;
 
-/// Block ID:
-/// BLAKE3 hash over the serialized BlockContent (contains encrypted content)
+/// Block ID: BLAKE3 hash over the serialized BlockContent (contains encrypted content)
 pub type BlockId = Digest;
 
 pub type BlockKey = SymKey;
@@ -382,10 +381,10 @@ pub type BlockKey = SymKey;
 /// Block reference
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct BlockRef {
-    /// Object ID
+    /// Block ID
     pub id: BlockId,
 
-    /// Key for decrypting the Object
+    /// Key for decrypting the Block
     pub key: BlockKey,
 }
 
@@ -454,6 +453,7 @@ pub type ObjectKey = BlockKey;
 pub type ObjectRef = BlockRef;
 
 /// Read capability (for a commit, branch, whole repo, or store)
+///
 /// For a store: A ReadCap to the root repo of the store
 /// For a repo: A reference to the latest RootBranch definition commit
 /// For a branch: A reference to the latest Branch definition commit
@@ -461,6 +461,7 @@ pub type ObjectRef = BlockRef;
 pub type ReadCap = ObjectRef;
 
 /// Read capability secret (for a commit, branch, whole repo, or store)
+///
 /// it is already included in the ReadCap (it is the key part of the reference)
 pub type ReadCapSecret = ObjectKey;
 
@@ -718,20 +719,17 @@ pub struct SiteV0 {
 /// Reduced Site (for QRcode)
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ReducedSiteV0 {
-    pub site_key: PrivKey,
+    pub user_key: PrivKey,
 
-    pub private_site_key: PrivKey,
-
-    pub private_site_read_cap: ReadCap,
-
-    pub private_site_write_cap: RepoWriteCapSecret,
+    pub private_store_read_cap: ReadCap,
 
     pub core: PubKey,
-
     pub bootstraps: Vec<PubKey>,
 }
 
-/// BLOCKS common types
+//
+// BLOCKS common types
+//
 
 /// Internal node of a Merkle tree
 pub type InternalNode = Vec<BlockKey>;
@@ -746,6 +744,7 @@ pub enum ChunkContentV0 {
     DataChunk(Vec<u8>),
 }
 
+/// Header of a Commit, can be embedded or as a ref
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommitHeaderV0 {
     /// optional Commit Header ID
@@ -782,6 +781,7 @@ pub enum CommitHeader {
     V0(CommitHeaderV0),
 }
 
+/// Keys for the corresponding IDs contained in the Header
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommitHeaderKeysV0 {
     /// Other objects this commit strongly depends on (ex: ADD for a REMOVE, files for an nfiles)
@@ -842,6 +842,7 @@ impl CommitHeaderRef {
     }
 }
 
+/// unencrypted part of the Block
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BlockContentV0 {
     /// Reference (actually, only its ID or an embedded block if the size is small enough)
@@ -913,7 +914,9 @@ pub enum Block {
     V0(BlockV0),
 }
 
-/// REPO IMPLEMENTATION
+//
+// REPO IMPLEMENTATION
+//
 
 /// Repository definition
 ///
@@ -1106,7 +1109,7 @@ pub struct QuorumV0 {
 }
 
 /// Quorum definition, is part of the RootBranch commit
-/// TODO: can it be sent in the root branch without being part of a RootBranch ?
+// TODO: can it be sent in the root branch without being part of a RootBranch ?
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Quorum {
     V0(QuorumV0),
@@ -1199,6 +1202,7 @@ impl fmt::Display for BranchType {
 }
 
 /// Add a branch to the repository
+///
 /// DEPS: if update branch: previous AddBranch commit of the same branchId
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AddBranchV0 {
@@ -1260,7 +1264,8 @@ pub enum AddMember {
 }
 
 /// Remove member from a repo
-/// An owner cannot be removed
+///
+/// An owner cannot be removed (it cannot be added even)
 /// The overlay should be refreshed if user was malicious, after the user is removed from last repo. See REFRESH_READ_CAP on store repo.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RemoveMemberV0 {
@@ -1412,6 +1417,7 @@ pub enum RepoNamedItem {
 }
 
 /// Add a new name in the repo that can point to a branch, a commit or a file
+///
 /// Or change the value of a name
 /// DEPS: if it is a change of value: all the previous AddName commits seen for this name
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1433,6 +1439,7 @@ pub enum AddName {
 }
 
 /// Remove a name from the repo, using ORset CRDT logic
+///
 /// DEPS: all the AddName commits seen for this name
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RemoveNameV0 {
@@ -1454,6 +1461,7 @@ pub enum RemoveName {
 //
 
 /// Adds a repo into the store branch.
+///
 /// The repo's `store` field should match the store
 /// DEPS to the previous AddRepo commit(s) if it is an update. in this case, repo_id of the referenced rootbranch definition(s) should match
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1471,6 +1479,7 @@ pub enum AddRepo {
 }
 
 /// Removes a repo from the store branch.
+///
 /// DEPS to the previous AddRepo commit(s) (ORset logic) with matching repo_id
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RemoveRepoV0 {
@@ -1493,6 +1502,7 @@ pub enum RemoveRepo {
 //
 
 /// Adds a link into the user branch, so that a user can share with all its device a new Link they received.
+///
 /// The repo's `store` field should not match with any store of the user. Only external repos are accepted here.
 /// DEPS to the previous AddLink commit(s) if it is an update. in this case, repo_id of the referenced rootbranch definition(s) should match
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1510,6 +1520,7 @@ pub enum AddLink {
 }
 
 /// Removes a link from the `user` branch.
+///
 /// DEPS to the previous AddLink commit(s) (ORset logic) with matching repo_id
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RemoveLinkV0 {
@@ -1525,7 +1536,9 @@ pub enum RemoveLink {
     V0(RemoveLinkV0),
 }
 
-/// Adds a SignerCap into the user branch, so that a user can share with all its device a new signing capability that was just created.
+/// Adds a SignerCap into the user branch,
+///
+/// so that a user can share with all its device a new signing capability that was just created.
 /// The cap's `epoch` field should be dereferenced and the user must be part of the quorum/owners.
 /// DEPS to the previous AddSignerCap commit(s) if it is an update. in this case, repo_ids have to match,
 /// and the the referenced rootbranch definition(s) should have compatible causal past (the newer AddSignerCap must have a newer epoch compared to the one of the replaced cap )
@@ -1544,6 +1557,7 @@ pub enum AddSignerCap {
 }
 
 /// Removes a SignerCap from the `user` branch.
+///
 /// DEPS to the previous AddSignerCap commit(s) (ORset logic) with matching repo_id
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RemoveSignerCapV0 {
@@ -1560,6 +1574,7 @@ pub enum RemoveSignerCap {
 }
 
 /// Adds a wallet operation so all the devices can sync their locally saved wallet on disk (at the next wallet opening)
+///
 /// DEPS are the last HEAD of wallet updates.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WalletUpdateV0 {
@@ -1576,6 +1591,7 @@ pub enum WalletUpdate {
 }
 
 /// Updates the ReadCap of the public and protected sites (and potentially also Group stores)
+///
 /// DEPS to the previous ones.
 /// this is used to speedup joining the overlay of such stores, for new devices on new brokers
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1613,6 +1629,7 @@ pub enum Transaction {
 }
 
 /// Add a new binary file in a branch
+///
 /// FILES: the file ObjectRef
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AddFileV0 {
@@ -1630,6 +1647,7 @@ pub enum AddFile {
 }
 
 /// Remove a file from the branch, using ORset CRDT logic
+///
 /// (removes the ref counting. not necessarily the file itself)
 /// NFILES: the file ObjectRef
 /// DEPS: all the visible AddFile commits in the branch (ORset)
@@ -1687,9 +1705,10 @@ pub enum Compact {
     V0(CompactV0),
 }
 
-/// Async Threshold Signature of a commit V0 based on the partial order quorum
-/// Can sign Transaction, AddFile, and Snapshot, after they have been committed to the DAG.
-/// DEPS: the signed commits
+// Async Threshold Signature of a commit V0 based on the partial order quorum
+//
+// Can sign Transaction, AddFile, and Snapshot, after they have been committed to the DAG.
+// DEPS: the signed commits
 // #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 // pub struct AsyncSignatureV0 {
 //     /// An Object containing the Threshold signature
@@ -1709,7 +1728,10 @@ impl AsyncSignature {
     }
 }
 
-/// Sync Threshold Signature of one or a chain of commits . V0 . based on the total order quorum (or owners quorum)
+/// Sync Threshold Signature of one or a chain of commits . V0
+///
+/// points to the new Signature Object
+/// based on the total order quorum (or owners quorum)
 /// mandatory for UpdateRootBranch, UpdateBranch, some AddBranch, RemoveBranch, RemoveMember, RemovePermission, Quorum, Compact, sync Transaction, RefreshReadCap, RefreshWriteCap
 /// DEPS: the last signed commit in chain
 /// ACKS: previous head before the chain of signed commit(s). should be identical to the HEADS (marked as DEPS) of first commit in chain
@@ -1718,9 +1740,6 @@ impl AsyncSignature {
 //     /// An Object containing the Threshold signature
 //     pub signature: ObjectRef,
 // }
-
-/// Threshold Signature of a commit
-/// points to the new Signature Object
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SyncSignature {
     V0(ObjectRef),
@@ -1746,6 +1765,7 @@ impl fmt::Display for SyncSignature {
 }
 
 /// RefreshReadCap. renew the ReadCap of a `transactional` branch, or the root_branch, or all transactional branches and the root_branch.
+///
 /// Each branch forms its separate chain for that purpose.
 /// can refresh the topic ids, or not
 /// DEPS: current HEADS in the branch at the moment of refresh.
@@ -1770,6 +1790,7 @@ pub enum RefreshReadCap {
 }
 
 /// RefreshWriteCap is always done on the root_branch, and always refreshes all the transaction branches WriteCaps, and TopicIDs.
+///
 /// DEPS: current HEADS in the branch at the moment of refresh.
 /// the chain on the root_branch is : RemovePermission/RemoveMember -> RefreshWriteCap -> RootBranch -> optional AddPermission(s) -> AddBranch
 /// and on each transactional branch: RefreshWriteCap -> Branch
@@ -1877,7 +1898,9 @@ pub enum Signature {
     V0(SignatureV0),
 }
 
-/// Enum for "orders" PKsets. Can be inherited from the store, in this case, it is an ObjectRef pointing to the latest Certificate of the store.
+/// Enum for "orders" PKsets.
+///
+/// Can be inherited from the store, in this case, it is an ObjectRef pointing to the latest Certificate of the store.
 /// Or can be 2 PublicKey defined specially for this repo,
 /// .0 one for the total_order (first one). it is a PublicKeysSet so that verifier can see the threshold value, and can also verify Shares individually
 /// .1 the other for the partial_order (second one. a PublicKey. is optional, as some repos are forcefully totally ordered and do not have this set).
@@ -2086,7 +2109,8 @@ impl CommitContent {
 }
 
 /// Commit object
-/// Signed by branch key, or a member key authorized to publish this commit type
+///
+/// Signed by member key authorized to publish this commit type
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommitV0 {
     /// ID of containing Object
@@ -2279,6 +2303,7 @@ impl fmt::Display for PeerId {
 }
 
 /// Content of EventV0
+///
 /// Contains the objects of newly published Commit, its optional blocks, and optional FILES and their blocks.
 /// If a block is not present in the Event, its ID should be present in block_ids and the block should be put on the emitting broker beforehand with BlocksPut.
 #[derive(Clone, Debug, Serialize, Deserialize)]

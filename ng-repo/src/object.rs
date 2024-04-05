@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Merkle hash tree of Objects
+//! Object: Merkle hash tree of Blocks
 
 use core::fmt;
 use std::borrow::BorrowMut;

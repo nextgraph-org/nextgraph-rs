@@ -6,6 +6,8 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+//! KeyColumnValue Store abstraction
+
 use crate::store::StorageError;
 
 // TODO:remove mut on self for trait WriteTransaction methods

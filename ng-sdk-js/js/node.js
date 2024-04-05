@@ -102,7 +102,11 @@ function osName(platform, release) {
   if (platform === 'win32') {
     return release ? windowsRelease(release) : {name: "Windows"};
   }
-
+  if (platform === 'aix') { platform = 'AIX'; }
+  else if (platform === 'freebsd') { platform = 'FreeBSD'; }
+  else if (platform === 'openbsd') { platform = 'OpenBSD'; }
+  else if (platform === 'android') { platform = 'Android'; }
+  else if (platform === 'sunos') { platform = 'SunOS'; }
   return {name:platform, version:release};
 }
 module.exports.version = function () {
@@ -111,18 +115,26 @@ module.exports.version = function () {
 
 module.exports.client_details = function () {
   const process = require('process');
+  let arch = osnode.machine? osnode.machine() : process.arch;
+  if (arch=="ia32") {arch="x86"}
+  else if (arch=="x64") {arch="x86_64"}
+  else if (arch=="i386") {arch="x86"}
+  else if (arch=="i686") {arch="x86"}
+  else if (arch=="amd64") {arch="x86_64"}
+  else if (arch=="arm64") {arch="aarch64"}
   const osnode = require('os');
   let os = osName(osnode.platform(),osnode.release());
   if (osnode.version) os.uname = osnode.version();
   os.type = osnode.type();
 
   return JSON.stringify({
-    platform: { type: "server", arch: osnode.machine? osnode.machine() : process.arch },
+    platform: { type: "server", arch },
     os,
     engine: {
       name: "nodejs",
       version: process.version,
       arch : process.arch,
+      machine: osnode.machine? osnode.machine() : undefined,
       versions: process.versions
     }
   });

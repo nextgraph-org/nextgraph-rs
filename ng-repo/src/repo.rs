@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Repository serde implementation and in memory helper
+//! Repository
 
 use crate::errors::*;
 use crate::event::*;

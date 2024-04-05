@@ -8,6 +8,8 @@
 [![Apache 2.0 Licensed][license-image]][license-link]
 [![MIT Licensed][license-image2]][license-link2]
 [![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
+![Crates.io Version](https://img.shields.io/crates/v/nextgraph)
+![docs.rs](https://img.shields.io/docsrs/nextgraph)
 
 Rust implementation of NextGraph
 
@@ -15,9 +17,9 @@ This repository is in active development at [https://git.nextgraph.org/NextGraph
 
 ## NextGraph
 
-> NextGraph brings about the convergence between P2P and Semantic Web technologies, towards a decentralized, secure and privacy-preserving cloud, based on CRDTs.
+> NextGraph brings about the convergence of P2P and Semantic Web technologies, towards a decentralized, secure and privacy-preserving cloud, based on CRDTs.
 >
-> This open source ecosystem provides solutions for end-users and software developers alike, wishing to use or create **decentralized** apps featuring: **live collaboration** on rich-text documents, peer to peer communication with **end-to-end encryption**, offline-first, **local-first**, portable and interoperable data, total ownership of data and software, security and privacy. Centered on repositories containing **semantic data** (RDF), **rich text**, and structured data formats like **JSON**, synced between peers belonging to permissioned groups of users, it offers strong eventual consistency, thanks to the use of **CRDTs**. Documents can be linked together, signed, shared securely, queried using the **SPARQL** language and organized into sites and containers.
+> This open source ecosystem provides solutions for end-users (a platform) and software developers (a framework), wishing to use or create **decentralized** apps featuring: **live collaboration** on rich-text documents, peer to peer communication with **end-to-end encryption**, offline-first, **local-first**, portable and interoperable data, total ownership of data and software, security and privacy. Centered on repositories containing **semantic data** (RDF), **rich text**, and structured data formats like **JSON**, synced between peers belonging to permissioned groups of users, it offers strong eventual consistency, thanks to the use of **CRDTs**. Documents can be linked together, signed, shared securely, queried using the **SPARQL** language and organized into sites and containers.
 >
 > More info here [https://nextgraph.org](https://nextgraph.org)
 
@@ -65,11 +67,11 @@ The crates are organized as follow :
 - [ngd](ngd/README.md) : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
 - ng-repo : Repositories common library
 - ng-net : Network common library
+- ng-verifier : Verifier library, that exposes the document API to the app
+- ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
 - ng-broker : Core and Server Broker library
 - ng-client-ws : Websocket client library
-- ng-verifier : Verifier library, that exposes the document API to the app
 - ng-stores-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
-- ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
 - [ng-sdk-js](ng-sdk-js/README.md) : contains the JS SDK, with example apps: web app, react app, or node service.
 - [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the web app.
 - ngone : server for nextgraph.one. helps user bootstrap into the right app. Not useful to you. Published here for transparency

@@ -1,3 +1,5 @@
+//! List of actors, each one for a specific Protocol message
+
 pub mod noise;
 pub use noise::*;
 
