@@ -458,7 +458,11 @@ pub async fn wallet_import(
     wallet_was_opened(opened_wallet).await
 }
 
-/// Must be called after [wallet_open_with_pazzle_words] if you are not importing
+/// Must be called after [wallet_open_with_pazzle_words] if you are not importing.
+///
+/// this is a separate step because in JS webapp, the opening of a wallet takes time and freezes the GUI.
+/// We need to run it in the background in a WebWorker. but there, the LocalBroker cannot access localStorage...
+/// So a separate function must be called, once the WebWorker is done.
 pub async fn wallet_was_opened(mut wallet: SensitiveWallet) -> Result<ClientV0, NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
