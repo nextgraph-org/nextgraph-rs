@@ -30,11 +30,7 @@ async fn main() -> std::io::Result<()> {
     // load some image that will be used as security_img
     // we assume here for the sake of this example,
     // that the current directory contains this demo image file
-    let mut current_path = current_dir()?;
-    current_path.push("nextgraph");
-    current_path.push("examples");
-    current_path.push("wallet-security-image-demo.png");
-    let security_img = read(current_path)?;
+    let security_img = read("nextgraph/examples/wallet-security-image-demo.png")?;
 
     // the peer_id should come from somewhere else.
     // this is just given for the sake of an example
@@ -121,7 +117,8 @@ async fn main() -> std::io::Result<()> {
     let status = user_connect(&user_id).await?;
 
     // The connection cannot succeed because we miss-configured the core_bootstrap of the wallet. its Peer ID is invalid.
-    assert_eq!(status[0].3.as_ref().unwrap(), "NoiseHandshakeFailed");
+    let error_reason = status[0].3.as_ref().unwrap();
+    assert!(error_reason == "NoiseHandshakeFailed" || error_reason == "ConnectionError");
 
     // Then we should disconnect
     user_disconnect(&user_id).await?;

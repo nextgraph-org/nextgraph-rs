@@ -883,3 +883,149 @@ pub async fn wallet_remove(wallet_name: String) -> Result<(), NgError> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use super::{
+        init_local_broker, session_start, session_stop, user_connect, user_disconnect,
+        wallet_close, wallet_create_v0, wallet_get_file, wallet_import,
+        wallet_open_with_pazzle_words, wallet_read_file, wallet_was_opened, LocalBrokerConfig,
+        SessionConfig,
+    };
+    use ng_net::types::BootstrapContentV0;
+    use ng_wallet::{display_mnemonic, emojis::display_pazzle};
+    use std::fs::{create_dir_all, File};
+    use std::io::BufReader;
+    use std::io::Read;
+    use std::io::Write;
+    use std::path::Path;
+
+    #[async_std::test]
+    async fn gen_wallet_for_test() {
+        if Path::new("tests/wallet.ngw").exists() {
+            println!("test files already generated. skipping");
+            return;
+        }
+
+        // loading an image file from disk
+        let f = File::open("examples/wallet-security-image-demo.png")
+            .expect("open of examples/wallet-security-image-demo.png");
+        let mut reader = BufReader::new(f);
+        let mut security_img = Vec::new();
+        // Read file into vector.
+        reader
+            .read_to_end(&mut security_img)
+            .expect("read of valid_security_image.jpg");
+
+        init_local_broker(Box::new(|| LocalBrokerConfig::InMemory)).await;
+
+        #[allow(deprecated)]
+        let peer_id_of_server_broker = PubKey::nil();
+
+        let wallet_result = wallet_create_v0(CreateWalletV0 {
+            security_img,
+            security_txt: "know yourself".to_string(),
+            pin: [1, 2, 1, 2],
+            pazzle_length: 9,
+            send_bootstrap: false,
+            send_wallet: false,
+            result_with_wallet_file: true,
+            local_save: false,
+            // we default to localhost:14400. this is just for the sake of an example
+            core_bootstrap: BootstrapContentV0::new_localhost(peer_id_of_server_broker),
+            core_registration: None,
+            additional_bootstrap: None,
+        })
+        .await
+        .expect("wallet_create_v0");
+
+        let pazzle = display_pazzle(&wallet_result.pazzle);
+        let mut pazzle_words = vec![];
+        println!("Your pazzle is: {:?}", wallet_result.pazzle);
+        for emoji in pazzle {
+            println!("    {}:\t{}", emoji.0, emoji.1);
+            pazzle_words.push(emoji.1.to_string());
+        }
+
+        create_dir_all("tests").expect("create test file");
+
+        let mut file = File::create("tests/wallet.pazzle").expect("open for write pazzle file");
+        file.write_all(pazzle_words.join(" ").as_bytes())
+            .expect("write of pazzle");
+
+        println!("Your mnemonic is:");
+
+        let mut mnemonic_words = vec![];
+        display_mnemonic(&wallet_result.mnemonic)
+            .iter()
+            .for_each(|word| {
+                mnemonic_words.push(word.clone());
+                print!("{} ", word.as_str());
+            });
+        println!("");
+        let mut file = File::create("tests/wallet.mnemonic").expect("open for write mnemonic file");
+        file.write_all(mnemonic_words.join(" ").as_bytes())
+            .expect("write of mnemonic");
+
+        let opened_wallet =
+            wallet_open_with_pazzle_words(&wallet_result.wallet, &pazzle_words, [1, 2, 1, 2])
+                .expect("opening of wallet");
+
+        let mut file = File::create("tests/wallet.ngw").expect("open for write wallet file");
+        let ser_wallet =
+            to_vec(&NgFile::V0(NgFileV0::Wallet(wallet_result.wallet.clone()))).unwrap();
+        file.write_all(&ser_wallet).expect("write of wallet file");
+
+        let mut file =
+            File::create("tests/opened_wallet.ngw").expect("open for write opened_wallet file");
+        let ser = serde_bare::to_vec(&opened_wallet).expect("serialization of opened wallet");
+
+        file.write_all(&ser).expect("write of opened_wallet file");
+    }
+
+    async fn init_session_for_test() -> (UserId, String) {
+        let wallet_file = read("tests/wallet.ngw").expect("read wallet file");
+        let opened_wallet_file = read("tests/opened_wallet.ngw").expect("read opened_wallet file");
+        let opened_wallet: SensitiveWallet =
+            serde_bare::from_slice(&opened_wallet_file).expect("deserialization of opened_wallet");
+
+        init_local_broker(Box::new(|| LocalBrokerConfig::InMemory)).await;
+
+        let wallet = wallet_read_file(wallet_file)
+            .await
+            .expect("wallet_read_file");
+
+        let wallet_name = wallet.name();
+        let user_id = opened_wallet.personal_identity();
+
+        let _client = wallet_import(wallet, opened_wallet, true)
+            .await
+            .expect("wallet_import");
+
+        let _session = session_start(SessionConfig::new(&user_id, &wallet_name))
+            .await
+            .expect("");
+
+        (user_id, wallet_name)
+    }
+
+    #[async_std::test]
+    async fn import_wallet() {
+        let (user_id, wallet_name) = init_session_for_test().await;
+
+        let status = user_connect(&user_id).await.expect("user_connect");
+
+        let error_reason = status[0].3.as_ref().unwrap();
+        assert!(error_reason == "NoiseHandshakeFailed" || error_reason == "ConnectionError");
+
+        // Then we should disconnect
+        user_disconnect(&user_id).await.expect("user_disconnect");
+
+        // stop the session
+        session_stop(&user_id).await.expect("session_stop");
+
+        // closes the wallet
+        wallet_close(&wallet_name).await.expect("wallet_close");
+    }
+}

@@ -443,6 +443,7 @@ impl SensitiveWallet {
             Self::V0(v0) => v0.wallet_id.clone(),
         }
     }
+    // TODO: this is unfortunate. id should return the PubKey, name should return the String
     pub fn name(&self) -> String {
         self.id()
     }
