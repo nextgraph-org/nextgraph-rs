@@ -11,5 +11,5 @@ cargo run -p nextgraph --example persistent
 
 See the code:
 
-- [in_memory](in_memory)
-- [persistent](persistent)
+- [in_memory](in_memory.md)
+- [persistent](persistent.md)
