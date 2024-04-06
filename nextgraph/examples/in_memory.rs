@@ -96,16 +96,19 @@ async fn main() -> std::io::Result<()> {
 
         // on another device, you could use the Wallet File and import it there so it could be used for login.
         // first you would read and decode the Wallet File
-        // this fails here because we already added this wallet in the LocalBroker (when we created it). But on another device, it would work.
+        // this fails here because we already added this wallet in the LocalBroker (when we created it).
+        // But on another device, it would work.
         let wallet = wallet_read_file(wallet_file).await;
         assert_eq!(wallet.unwrap_err(), NgError::WalletAlreadyAdded);
 
-        // on another device, we would then open the wallet (here we take the Wallet as we received it from wallet_create_v0, but in real case you would use `wallet`)
+        // on another device, we would then open the wallet
+        // (here we take the Wallet as we received it from wallet_create_v0, but in real case you would use `wallet`)
         let opened_wallet2 =
             wallet_open_with_pazzle_words(&wallet_result.wallet, &pazzle_words, [1, 2, 1, 2])?;
 
         // once it has been opened, the Wallet can be imported into the LocalBroker
-        // if you try to import the same wallet in a LocalBroker where it is already opened, it will fail. So here it fails. But on another device, it would work.
+        // if you try to import the same wallet in a LocalBroker where it is already opened, it will fail.
+        // So here it fails. But on another device, it would work.
         let client_fail = wallet_import(wallet_result.wallet.clone(), opened_wallet2, true).await;
         assert_eq!(client_fail.unwrap_err(), NgError::WalletAlreadyAdded);
     }
@@ -117,7 +120,7 @@ async fn main() -> std::io::Result<()> {
     // if the user has internet access, they can now decide to connect to its Server Broker, in order to sync data
     let status = user_connect(&user_id).await?;
 
-    // The connection cannot succeed because we miss-configured the core_bootstrap of the wallet. it's Peer ID is invalid.
+    // The connection cannot succeed because we miss-configured the core_bootstrap of the wallet. its Peer ID is invalid.
     assert_eq!(status[0].3.as_ref().unwrap(), "NoiseHandshakeFailed");
 
     // Then we should disconnect
