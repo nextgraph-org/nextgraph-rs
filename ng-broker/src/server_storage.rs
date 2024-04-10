@@ -15,18 +15,18 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use crate::broker_store::account::Account;
-use crate::broker_store::invitation::Invitation;
-use crate::broker_store::wallet::Wallet;
+use crate::broker_storage::account::Account;
+use crate::broker_storage::invitation::Invitation;
+use crate::broker_storage::wallet::Wallet;
 use crate::types::*;
 use ng_net::errors::{ProtocolError, ServerError};
 use ng_net::server_storage::*;
 use ng_net::types::{BootstrapContentV0, InvitationCode, InvitationV0};
-use ng_repo::kcv_store::KCVStore;
+use ng_repo::errors::StorageError;
+use ng_repo::kcv_storage::KCVStore;
 use ng_repo::log::*;
-use ng_repo::store::StorageError;
 use ng_repo::types::{PeerId, PubKey, SymKey};
-use ng_stores_rocksdb::kcv_store::RocksdbKCVStore;
+use ng_storage_rocksdb::kcv_storage::RocksdbKCVStore;
 
 pub struct RocksdbServerStorage {
     wallet_storage: RocksdbKCVStore,

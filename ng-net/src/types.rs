@@ -154,6 +154,11 @@ pub struct BrokerServerV0 {
     pub peer_id: PubKey,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum BrokerServer {
+    V0(BrokerServerV0),
+}
+
 impl BrokerServerV0 {
     pub fn new_localhost(peer_id: PubKey) -> Self {
         BrokerServerV0 {
@@ -2516,6 +2521,7 @@ impl AdminResponse {
 ///
 /// When client will disconnect, the subscriptions and publisherAdvert of the topics will be removed,
 /// except if a PinRepo occurred before or after the OpenRepo
+/// replied with a RepoOpened
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OpenRepoV0 {
     /// Repo Hash
@@ -2536,6 +2542,7 @@ pub struct OpenRepoV0 {
     pub allowed_peers: Vec<DirectPeerId>,
 
     /// Maximum number of peers to connect to for this overlay (only valid for an inner (RW/WO) overlay)
+    /// 0 means automatic/unlimited
     pub max_peer_count: u16,
 
     /// list of topics that should be subscribed to
@@ -2636,7 +2643,7 @@ pub struct RefreshPinRepoV0 {
     /// The userId of banned user is revealed to the local broker where it was attached, which is a breach of privacy deemed acceptable
     /// as only a broker that already knew the userid will enforce it, and
     /// that broker might be interested to know that the offending user was banned from a repo, as only malicious users are banned.
-    /// The broker might also discard this information, and just proceeed with the flush without much ado.
+    /// The broker might also discard this information, and just proceed with the flush without much ado.
     /// Of course, if the broker is controlled by the malicious user, it might not proceed with the ban/flush. But who cares. That broker will keep old data forever, but it is a malicious broker anyway.
     pub flush_topics: Vec<(TopicId, Sig)>,
 }
@@ -2731,6 +2738,8 @@ impl RepoPinStatus {
 }
 
 /// Request subscription to a `Topic` of an already opened or pinned Repo
+///
+/// replied with a list of TopicSubRes containing the current heads that should be used to do a TopicSync
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct TopicSubV0 {
     /// Topic to subscribe
@@ -3005,11 +3014,29 @@ impl BlocksFound {
     }
 }
 
+/// Topic subscription response V0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TopicSubResV0 {
+    /// Topic subscribed
+    pub topic: PubKey,
+    pub known_heads: Vec<ObjectId>,
+}
+
+/// Topic subscription response
+///
+/// it is a stream of blocks and or events.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TopicSubRes {
+    V0(TopicSubResV0),
+}
+
 /// Content of `ClientResponseV0`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientResponseContentV0 {
     EmptyResponse,
     Block(Block),
+    RepoOpened(Vec<TopicSubRes>),
+    TopicSubRes(TopicSubRes),
     TopicSyncRes(TopicSyncRes),
     BlocksFound(BlocksFound),
     RepoPinStatus(RepoPinStatus),

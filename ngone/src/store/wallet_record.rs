@@ -9,8 +9,8 @@
 
 //! ng-wallet
 
-use ng_repo::kcv_store::KCVStore;
-use ng_repo::store::*;
+use ng_repo::errors::StorageError;
+use ng_repo::kcv_storage::KCVStore;
 use ng_repo::types::*;
 use ng_wallet::types::*;
 use serde::{Deserialize, Serialize};

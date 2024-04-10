@@ -22,6 +22,10 @@ use time::OffsetDateTime;
 use web_time::{Duration, SystemTime, UNIX_EPOCH};
 use zeroize::Zeroize;
 
+pub fn derive_key(context: &str, key_material: &[u8]) -> [u8; 32] {
+    blake3::derive_key(context, key_material)
+}
+
 pub fn ed_keypair_from_priv_bytes(secret_key: [u8; 32]) -> (PrivKey, PubKey) {
     let sk = SecretKey::from_bytes(&secret_key).unwrap();
     let pk: PublicKey = (&sk).into();
@@ -200,4 +204,4 @@ pub fn display_timestamp(ts: &Timestamp) -> String {
         .unwrap()
 }
 
-pub type Receiver<T> = mpsc::UnboundedReceiver<T>;
+pub(crate) type Receiver<T> = mpsc::UnboundedReceiver<T>;

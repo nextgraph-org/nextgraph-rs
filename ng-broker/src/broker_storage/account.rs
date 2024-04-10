@@ -15,9 +15,9 @@ use std::hash::Hasher;
 use std::time::SystemTime;
 
 use ng_net::types::*;
-use ng_repo::kcv_store::KCVStore;
+use ng_repo::errors::StorageError;
+use ng_repo::kcv_storage::KCVStore;
 use ng_repo::log::*;
-use ng_repo::store::*;
 use ng_repo::types::UserId;
 use serde_bare::{from_slice, to_vec};
 
@@ -225,14 +225,14 @@ impl<'a> Account<'a> {
 #[cfg(test)]
 mod test {
 
-    use ng_repo::store::*;
+    use ng_repo::errors::StorageError;
     use ng_repo::types::*;
     use ng_repo::utils::*;
-    use ng_stores_rocksdb::kcv_store::RocksdbKCVStore;
+    use ng_storage_rocksdb::kcv_storage::RocksdbKCVStore;
     use std::fs;
     use tempfile::Builder;
 
-    use crate::broker_store::account::Account;
+    use crate::broker_storage::account::Account;
 
     #[test]
     pub fn test_account() {

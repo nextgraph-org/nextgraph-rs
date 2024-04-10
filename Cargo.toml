@@ -9,7 +9,7 @@ members = [
   "ng-client-ws",
   "ng-verifier",
   "ng-wallet",
-  "ng-stores-rocksdb",
+  "ng-storage-rocksdb",
   "ngone",
   "ngaccount",
   "ng-sdk-js",
@@ -20,7 +20,7 @@ default-members = [ "nextgraph", "ngcli",  "ngd" ]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.64.0"
+rust-version = "1.74.0"
 license = "MIT/Apache-2.0"
 authors = ["Niko PLP <niko@nextgraph.org>"]
 repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
@@ -29,7 +29,7 @@ keywords = [
 "crdt","dapp","decentralized","e2ee","local-first","p2p","semantic-web","eventual-consistency","json-ld","markdown",
 "ocap","z-cap","offline-first","p2p-network","collaboration","privacy-protection","rdf","rich-text-editor","self-hosted",
 "sparql","byzantine-fault-tolerance",
-"web3"
+"web3", "graph-database", "database","triplestore"
 ]
 documentation = "https://docs.nextgraph.org/"
 

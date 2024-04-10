@@ -1,5 +1,5 @@
 [package]
-name = "ng-stores-rocksdb"
+name = "ng-storage-rocksdb"
 # version = "0.1.0"
 description = "Stores based on RocksDB for NextGraph"
 version.workspace = true

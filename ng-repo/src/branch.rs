@@ -14,9 +14,9 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 // use fastbloom_rs::{BloomFilter as Filter, Membership};
 
+use crate::block_storage::*;
 use crate::errors::*;
 use crate::object::*;
-use crate::store::*;
 use crate::types::*;
 use crate::utils::encrypt_in_place;
 
@@ -33,6 +33,7 @@ impl BranchV0 {
         let topic = topic_priv.to_pub();
         BranchV0 {
             id,
+            content_type: BranchContentType::None,
             repo,
             root_branch_readcap_id,
             topic,
@@ -96,18 +97,18 @@ impl Branch {
         target_heads: &[ObjectId],
         known_heads: &[ObjectId],
         //their_filter: &BloomFilter,
-        store: &Box<impl RepoStore + ?Sized>,
+        store: &Box<impl BlockStorage + ?Sized>,
     ) -> Result<Vec<ObjectId>, ObjectParseError> {
         //log_debug!(">> sync_req");
         //log_debug!("   target_heads: {:?}", target_heads);
         //log_debug!("   known_heads: {:?}", known_heads);
 
-        /// Load causal past of a Commit `cobj` in a `Branch` from the `RepoStore`,
+        /// Load causal past of a Commit `cobj` in a `Branch` from the `BlockStorage`,
         /// and collect in `visited` the ObjectIds encountered on the way, stopping at any commit already belonging to `theirs` or the root of DAG.
         /// optionally collecting the missing objects/blocks that couldn't be found locally on the way
         fn load_causal_past(
             cobj: &Object,
-            store: &Box<impl RepoStore + ?Sized>,
+            store: &Box<impl BlockStorage + ?Sized>,
             theirs: &HashSet<ObjectId>,
             visited: &mut HashSet<ObjectId>,
             missing: &mut Option<&mut HashSet<ObjectId>>,
@@ -179,16 +180,16 @@ mod test {
     //use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
 
     struct Test<'a> {
-        storage: Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: Box<dyn BlockStorage + Send + Sync + 'a>,
     }
 
     impl<'a> Test<'a> {
-        fn storage(s: impl RepoStore + 'a) -> Self {
+        fn storage(s: impl BlockStorage + 'a) -> Self {
             Test {
                 storage: Box::new(s),
             }
         }
-        fn s(&self) -> &Box<dyn RepoStore + Send + Sync + 'a> {
+        fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
             &self.storage
         }
     }
@@ -207,7 +208,7 @@ mod test {
             header: Option<CommitHeader>,
             store_pubkey: &StoreRepo,
             store_secret: &ReadCapSecret,
-            store: &Box<impl RepoStore + ?Sized>,
+            store: &Box<impl BlockStorage + ?Sized>,
         ) -> ObjectRef {
             let max_object_size = 4000;
             let mut obj = Object::new(
@@ -234,7 +235,7 @@ mod test {
             body_ref: ObjectRef,
             store_pubkey: &StoreRepo,
             store_secret: &ReadCapSecret,
-            store: &Box<impl RepoStore + ?Sized>,
+            store: &Box<impl BlockStorage + ?Sized>,
         ) -> ObjectRef {
             let header = CommitHeader::new_with_deps_and_acks(
                 deps.iter().map(|r| r.id).collect(),
@@ -280,7 +281,7 @@ mod test {
             branch: BranchV0,
             store_pubkey: &StoreRepo,
             store_secret: &ReadCapSecret,
-            store: &Box<impl RepoStore + ?Sized>,
+            store: &Box<impl BlockStorage + ?Sized>,
         ) -> ObjectRef {
             let body: CommitBodyV0 = CommitBodyV0::Branch(Branch::V0(branch));
             //log_debug!("body: {:?}", body);
@@ -297,7 +298,7 @@ mod test {
             header: Option<CommitHeader>,
             store_pubkey: &StoreRepo,
             store_secret: &ReadCapSecret,
-            store: &Box<impl RepoStore + ?Sized>,
+            store: &Box<impl BlockStorage + ?Sized>,
         ) -> ObjectRef {
             let content = [7u8; 777].to_vec();
             let body = CommitBodyV0::AsyncTransaction(Transaction::V0(content));
@@ -311,7 +312,7 @@ mod test {
             )
         }
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         // repo

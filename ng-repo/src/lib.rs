@@ -8,7 +8,7 @@
 
 pub mod types;
 
-pub mod store;
+pub mod block_storage;
 
 pub mod block;
 
@@ -30,7 +30,7 @@ pub mod utils;
 
 pub mod errors;
 
-pub mod kcv_store;
+pub mod kcv_storage;
 
 pub mod os_info;
 

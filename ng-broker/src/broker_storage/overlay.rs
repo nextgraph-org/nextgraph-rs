@@ -10,8 +10,8 @@
 //! Overlay
 
 use ng_net::types::*;
-use ng_repo::kcv_store::KCVStore;
-use ng_repo::store::*;
+use ng_repo::errors::StorageError;
+use ng_repo::kcv_storage::KCVStore;
 use ng_repo::types::*;
 use ng_repo::utils::now_timestamp;
 use serde::{Deserialize, Serialize};

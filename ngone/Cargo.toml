@@ -20,7 +20,7 @@ warp-embed = "0.4"
 rust-embed = "6"
 log = "0.4"
 env_logger = "0.10"
-ng-stores-rocksdb = { path = "../ng-stores-rocksdb" }
+ng-storage-rocksdb = { path = "../ng-storage-rocksdb" }
 ng-repo = { path = "../ng-repo", features = ["server_log_output"] }
 ng-net = { path = "../ng-net" }
 ng-wallet = { path = "../ng-wallet" }

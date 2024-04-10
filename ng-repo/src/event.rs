@@ -8,9 +8,9 @@
 
 //! Event, a message sent in the PUB/SUB
 
+use crate::block_storage::*;
 use crate::errors::*;
 use crate::object::*;
-use crate::store::*;
 use crate::types::*;
 use crate::utils::*;
 use core::fmt;
@@ -61,7 +61,7 @@ impl Event {
         topic_id: TopicId,
         branch_read_cap_secret: ReadCapSecret,
         topic_priv_key: &BranchWriteCapSecret,
-        storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Result<Event, NgError> {
         Ok(Event::V0(EventV0::new(
             publisher,
@@ -85,7 +85,7 @@ impl EventV0 {
         topic_id: TopicId,
         branch_read_cap_secret: ReadCapSecret,
         topic_priv_key: &BranchWriteCapSecret,
-        storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Result<EventV0, NgError> {
         let mut blocks = vec![];
         for bid in commit.blocks().iter() {

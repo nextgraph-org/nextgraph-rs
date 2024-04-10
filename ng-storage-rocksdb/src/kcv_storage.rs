@@ -7,9 +7,9 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use ng_repo::kcv_store::*;
-use ng_repo::store::*;
+use ng_repo::kcv_storage::*;
 
+use ng_repo::errors::*;
 use ng_repo::log::*;
 
 use std::path::Path;

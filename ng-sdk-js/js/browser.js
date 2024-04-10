@@ -31,6 +31,10 @@ export function session_save(key,value) {
     }
 }
 
+export function is_browser() {
+    return true;
+}
+
 function convert_error(e) {
     if (
         e == "The operation is insecure." ||
@@ -49,6 +53,17 @@ export function session_get(key) {
 
     try {
         return sessionStorage.getItem(key);
+
+    } catch(e) {
+        console.error(e);
+    }
+    
+}
+
+export function session_remove(key) {
+
+    try {
+        return sessionStorage.removeItem(key);
 
     } catch(e) {
         console.error(e);

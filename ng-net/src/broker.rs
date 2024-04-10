@@ -22,11 +22,11 @@ use async_std::sync::{Arc, RwLock};
 use either::Either;
 use futures::channel::mpsc;
 use futures::SinkExt;
+use ng_repo::block_storage::HashMapBlockStorage;
 use ng_repo::errors::NgError;
 use ng_repo::errors::ObjectParseError;
 use ng_repo::log::*;
 use ng_repo::object::Object;
-use ng_repo::store::HashMapRepoStore;
 use ng_repo::types::*;
 use ng_repo::utils::generate_keypair;
 use once_cell::sync::Lazy;
@@ -88,9 +88,6 @@ pub struct Broker<'a> {
     tauri_streams: HashMap<String, Sender<Commit>>,
     disconnections_sender: Sender<String>,
     disconnections_receiver: Option<Receiver<String>>,
-    //last_seq_function: Option<Box<LastSeqFn>>,
-    //base_path: Option<PathBuf>,
-    //in_memory: bool,
     local_broker: Option<Box<dyn ILocalBroker + Send + Sync + 'a>>,
 }
 
@@ -346,7 +343,7 @@ impl<'a> Broker<'a> {
         let blockstream = self
             .get_block_from_store_with_block_id(nuri, obj_ref.id, true)
             .await?;
-        let store = Box::new(HashMapRepoStore::from_block_stream(blockstream).await);
+        let store = Box::new(HashMapBlockStorage::from_block_stream(blockstream).await);
 
         Object::load(obj_ref.id, Some(obj_ref.key), &store)
             .map_err(|e| match e {
@@ -451,7 +448,7 @@ impl<'a> Broker<'a> {
 
     // #[cfg(not(target_arch = "wasm32"))]
     // pub fn test_storage(&self, path: PathBuf) {
-    //     use ng_stores_rocksdb::kcv_store::RocksdbKCVStore;
+    //     use ng_storage_rocksdb::kcv_store::RocksdbKCVStore;
 
     //     let key: [u8; 32] = [0; 32];
     //     let test_storage = RocksdbKCVStore::open(&path, key);

@@ -165,6 +165,11 @@ impl PubKey {
     pub fn nil() -> Self {
         PubKey::Ed25519PubKey([0u8; 32])
     }
+
+    pub fn to_hash_string(&self) -> String {
+        let hash = blake3::hash(self.slice());
+        base64_url::encode(&hash.as_bytes())
+    }
 }
 
 impl fmt::Display for PubKey {
@@ -593,6 +598,22 @@ impl StoreOverlay {
             | StoreOverlay::V0(StoreOverlayV0::ProtectedStore(id))
             | StoreOverlay::V0(StoreOverlayV0::PrivateStore(id))
             | StoreOverlay::V0(StoreOverlayV0::Group(id)) => OverlayId::outer(id),
+            StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => unimplemented!(),
+            StoreOverlay::Own(_) => unimplemented!(),
+        }
+    }
+
+    pub fn overlay_id_for_write_purpose(
+        &self,
+        store_overlay_branch_readcap_secret: ReadCapSecret,
+    ) -> OverlayId {
+        match self {
+            StoreOverlay::V0(StoreOverlayV0::PublicStore(id))
+            | StoreOverlay::V0(StoreOverlayV0::ProtectedStore(id))
+            | StoreOverlay::V0(StoreOverlayV0::PrivateStore(id))
+            | StoreOverlay::V0(StoreOverlayV0::Group(id)) => {
+                OverlayId::inner(id, store_overlay_branch_readcap_secret)
+            }
             StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => unimplemented!(),
             StoreOverlay::Own(_) => unimplemented!(),
         }
@@ -1115,6 +1136,21 @@ pub enum Quorum {
     V0(QuorumV0),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum BranchContentType {
+    GraphOnly,
+    YMap,
+    YXml,
+    YText,
+    Automerge,
+    //Rdfs,
+    //Owl,
+    //Shacl,
+    //Shex,
+    None, // this is used by Store, Overlay and User BranchTypes
+          //Chat,
+}
+
 /// Branch definition
 ///
 /// First commit in a branch, signed by branch key
@@ -1127,6 +1163,8 @@ pub enum Quorum {
 pub struct BranchV0 {
     /// Branch public key ID
     pub id: PubKey,
+
+    pub content_type: BranchContentType,
 
     /// Reference to the repository commit
     pub repo: ObjectRef,
@@ -1176,12 +1214,12 @@ pub enum Branch {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BranchType {
-    Main,
+    Main, // Main is also transactional
     Chat,
     Store,
     Overlay,
     User,
-    Transactional,
+    Transactional, // this could have been called OtherTransaction, but for the sake of simplicity, we use Transaction for any branch that is not the Main one.
 }
 
 impl fmt::Display for BranchType {
@@ -1594,6 +1632,7 @@ pub enum WalletUpdate {
 ///
 /// DEPS to the previous ones.
 /// this is used to speedup joining the overlay of such stores, for new devices on new brokers
+/// so they don't have to read the whole pub/sub of the StoreRepo in order to get the last ReadCap
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StoreUpdateV0 {
     // id of the store.

@@ -10,7 +10,7 @@
 //! Errors
 
 use crate::commit::{CommitLoadError, CommitVerifyError};
-use crate::store::StorageError;
+
 use crate::types::BlockId;
 use core::fmt;
 use std::error::Error;
@@ -148,4 +148,27 @@ pub enum ObjectParseError {
     BlockDeserializeError,
     /// Error deserializing content of the object
     ObjectDeserializeError,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum StorageError {
+    NotFound,
+    InvalidValue,
+    DifferentValue,
+    BackendError,
+    SerializationError,
+    AlreadyExists,
+    DataCorruption,
+}
+
+impl core::fmt::Display for StorageError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl From<serde_bare::error::Error> for StorageError {
+    fn from(_e: serde_bare::error::Error) -> Self {
+        StorageError::SerializationError
+    }
 }

@@ -9,11 +9,11 @@
 
 //! Repository
 
+use crate::block_storage::*;
 use crate::errors::*;
 use crate::event::*;
 use crate::log::*;
 use crate::object::Object;
-use crate::store::*;
 use crate::types::*;
 use crate::utils::generate_keypair;
 use crate::utils::sign;
@@ -84,7 +84,7 @@ pub struct Repo<'a> {
 
     pub members: HashMap<Digest, UserInfo>,
 
-    storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+    storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
 }
 
 impl<'a> fmt::Display for Repo<'a> {
@@ -112,7 +112,7 @@ impl<'a> Repo<'a> {
         peer_last_seq_num: &mut u64,
         store_repo: &StoreRepo,
         store_secret: &ReadCapSecret,
-        storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Result<(Self, Vec<Event>), NgError> {
         let mut events = Vec::with_capacity(6);
 
@@ -223,6 +223,7 @@ impl<'a> Repo<'a> {
 
         let main_branch_commit_body = CommitBody::V0(CommitBodyV0::Branch(Branch::V0(BranchV0 {
             id: main_branch_pub_key,
+            content_type: BranchContentType::None,
             repo: repository_commit_ref.clone(),
             root_branch_readcap_id: root_branch_commit.id().unwrap(),
             topic: main_branch_topic_pub_key,
@@ -467,7 +468,7 @@ impl<'a> Repo<'a> {
         member: &UserId,
         perms: &[PermissionV0],
         overlay: OverlayId,
-        storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Self {
         let mut members = HashMap::new();
         let permissions = HashMap::from_iter(
@@ -510,7 +511,7 @@ impl<'a> Repo<'a> {
         }
     }
 
-    pub fn get_storage(&self) -> &Box<dyn RepoStore + Send + Sync + 'a> {
+    pub fn get_storage(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
         self.storage
     }
 }
@@ -522,16 +523,16 @@ mod test {
     use crate::repo::*;
 
     struct Test<'a> {
-        storage: Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: Box<dyn BlockStorage + Send + Sync + 'a>,
     }
 
     impl<'a> Test<'a> {
-        fn storage(s: impl RepoStore + 'a) -> Self {
+        fn storage(s: impl BlockStorage + 'a) -> Self {
             Test {
                 storage: Box::new(s),
             }
         }
-        fn s(&self) -> &Box<dyn RepoStore + Send + Sync + 'a> {
+        fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
             &self.storage
         }
     }
@@ -546,7 +547,7 @@ mod test {
         let mut peer_last_seq_num = 10;
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         let (repo, events) = Repo::new_default(

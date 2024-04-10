@@ -266,7 +266,7 @@ where
         topic: Option<PubKey>,
     ) -> Result<Object, ProtocolError> {
         let mut blockstream = self.get_block(id, true, topic).await?;
-        let mut store = HashMapRepoStore::new();
+        let mut store = HashMapBlockStorage::new();
         while let Some(block) = blockstream.next().await {
             store.put(&block).unwrap();
         }

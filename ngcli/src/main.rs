@@ -12,7 +12,9 @@ use ed25519_dalek::*;
 use duration_str::parse;
 use futures::{future, pin_mut, stream, SinkExt, StreamExt};
 use ng_net::actors::*;
-use ng_repo::store::{store_max_value_size, store_valid_value_size, HashMapRepoStore, RepoStore};
+use ng_repo::block_storage::{
+    store_max_value_size, store_valid_value_size, BlockStorage, HashMapBlockStorage,
+};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string_pretty};

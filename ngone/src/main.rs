@@ -12,7 +12,7 @@ extern crate slice_as_array;
 mod store;
 mod types;
 
-use ng_repo::store::StorageError;
+use ng_repo::errors::StorageError;
 use warp::reply::Response;
 use warp::{Filter, Reply};
 
@@ -28,7 +28,7 @@ use ng_net::types::{APP_NG_ONE_URL, NG_ONE_URL};
 use ng_repo::log::*;
 use ng_repo::types::*;
 use ng_repo::utils::{generate_keypair, sign, verify};
-use ng_stores_rocksdb::kcv_store::RocksdbKCVStore;
+use ng_storage_rocksdb::kcv_storage::RocksdbKCVStore;
 use ng_wallet::types::*;
 
 #[derive(RustEmbed)]

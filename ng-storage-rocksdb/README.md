@@ -1,4 +1,4 @@
-# ng-stores-rocksdb
+# ng-storage-rocksdb
 
 ![MSRV][rustc-image]
 [![Apache 2.0 Licensed][license-image]][license-link]
@@ -48,7 +48,7 @@ additional terms or conditions.
 
 NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/project/NextGraph/index.html), a fund established by [NLnet](https://nlnet.nl/) with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreement No 957073.
 
-[rustc-image]: https://img.shields.io/badge/rustc-1.64+-blue.svg
+[rustc-image]: https://img.shields.io/badge/rustc-1.74+-blue.svg
 [license-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
 [license-link]: https://git.nextgraph.org/NextGraph/nextgraph-rs/raw/branch/master/LICENSE-APACHE2
 [license-image2]: https://img.shields.io/badge/license-MIT-blue.svg

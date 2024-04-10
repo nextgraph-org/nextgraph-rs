@@ -233,11 +233,21 @@ async fn session_start(
     wallet_name: String,
     user: PubKey,
     app: tauri::AppHandle,
-) -> Result<SessionPeerStorageV0, String> {
-    let config = SessionConfig::V0(SessionConfigV0 {
-        user_id: user,
-        wallet_name,
-    });
+) -> Result<SessionInfo, String> {
+    let config = SessionConfig::new_rocksdb(&user, &wallet_name);
+    nextgraph::local_broker::session_start(config)
+        .await
+        .map_err(|e: NgError| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn session_start_remote(
+    wallet_name: String,
+    user: PubKey,
+    peer_id: Option<PubKey>,
+    app: tauri::AppHandle,
+) -> Result<SessionInfo, String> {
+    let config = SessionConfig::new_remote(&user, &wallet_name, peer_id);
     nextgraph::local_broker::session_start(config)
         .await
         .map_err(|e: NgError| e.to_string())
@@ -497,6 +507,7 @@ impl AppBuilder {
                 wallet_close,
                 encode_create_account,
                 session_start,
+                session_start_remote,
                 session_stop,
                 get_wallets,
                 open_window,

@@ -8,7 +8,7 @@
 
 //! KeyColumnValue Store abstraction
 
-use crate::store::StorageError;
+use crate::errors::StorageError;
 
 // TODO:remove mut on self for trait WriteTransaction methods
 

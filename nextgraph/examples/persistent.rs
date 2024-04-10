@@ -15,10 +15,11 @@ use std::fs::create_dir_all;
 async fn main() -> std::io::Result<()> {
     // get the current working directory
     let mut current_path = current_dir()?;
-    current_path.push("ng-example");
+    current_path.push(".ng");
+    current_path.push("example");
     create_dir_all(current_path.clone())?;
 
-    // initialize the local_broker with config to save to disk in a folder called `ng` in the current directory
+    // initialize the local_broker with config to save to disk in a folder called `.ng/example` in the current directory
     init_local_broker(Box::new(move || {
         LocalBrokerConfig::BasePath(current_path.clone())
     }))

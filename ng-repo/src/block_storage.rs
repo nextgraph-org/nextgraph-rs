@@ -11,6 +11,7 @@
 
 use futures::StreamExt;
 
+use crate::errors::*;
 use crate::types::*;
 use crate::utils::Receiver;
 use std::sync::RwLock;
@@ -20,7 +21,7 @@ use std::{
     mem::size_of_val,
 };
 
-pub trait RepoStore: Send + Sync {
+pub trait BlockStorage: Send + Sync {
     /// Load a block from the storage.
     fn get(&self, id: &BlockId) -> Result<Block, StorageError>;
 
@@ -32,29 +33,6 @@ pub trait RepoStore: Send + Sync {
 
     /// number of Blocks in the storage
     fn len(&self) -> Result<usize, StorageError>;
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum StorageError {
-    NotFound,
-    InvalidValue,
-    DifferentValue,
-    BackendError,
-    SerializationError,
-    AlreadyExists,
-    DataCorruption,
-}
-
-impl core::fmt::Display for StorageError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl From<serde_bare::error::Error> for StorageError {
-    fn from(_e: serde_bare::error::Error) -> Self {
-        StorageError::SerializationError
-    }
 }
 
 /* LMDB values:
@@ -102,13 +80,13 @@ pub const fn store_max_value_size() -> usize {
 }
 
 /// Store with a HashMap backend
-pub struct HashMapRepoStore {
+pub struct HashMapBlockStorage {
     blocks: RwLock<HashMap<BlockId, Block>>,
 }
 
-impl HashMapRepoStore {
-    pub fn new() -> HashMapRepoStore {
-        HashMapRepoStore {
+impl HashMapBlockStorage {
+    pub fn new() -> HashMapBlockStorage {
+        HashMapBlockStorage {
             blocks: RwLock::new(HashMap::new()),
         }
     }
@@ -135,7 +113,7 @@ impl HashMapRepoStore {
     }
 }
 
-impl RepoStore for HashMapRepoStore {
+impl BlockStorage for HashMapBlockStorage {
     fn get(&self, id: &BlockId) -> Result<Block, StorageError> {
         match self.blocks.read().unwrap().get(id) {
             Some(block) => {

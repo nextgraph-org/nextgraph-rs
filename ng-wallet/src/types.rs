@@ -141,6 +141,12 @@ impl SessionWalletStorageV0 {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionInfo {
+    pub session_id: u8,
+    pub user: UserId,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionPeerStorageV0 {
     pub user: UserId,
     pub peer_key: PrivKey,
@@ -173,7 +179,7 @@ pub struct LocalClientStorageV0 {
 impl LocalClientStorageV0 {
     fn crypt(text: &mut Vec<u8>, client: ClientId, wallet_privkey: PrivKey) {
         let client_ser = serde_bare::to_vec(&client).unwrap();
-        let mut wallet_privkey_ser = serde_bare::to_vec(&wallet_privkey).unwrap();
+        let wallet_privkey_ser = serde_bare::to_vec(&wallet_privkey).unwrap();
         let mut key_material = [client_ser, wallet_privkey_ser].concat();
 
         let mut key: [u8; 32] = blake3::derive_key(
@@ -460,6 +466,17 @@ impl SensitiveWallet {
     pub fn set_client(&mut self, client: ClientV0) {
         match self {
             Self::V0(v0) => v0.client = Some(client),
+        }
+    }
+    pub fn individual_site(&self, user_id: &UserId) -> Option<&(PrivKey, ReadCap)> {
+        match self {
+            Self::V0(v0) => match v0.sites.get(&user_id.to_string()) {
+                Some(site) => match &site.site_type {
+                    SiteType::Individual(creds) => Some(creds),
+                    _ => None,
+                },
+                None => None,
+            },
         }
     }
     pub fn has_user(&self, user_id: &UserId) -> bool {

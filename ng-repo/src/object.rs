@@ -18,9 +18,9 @@ use chacha20::cipher::{KeyIvInit, StreamCipher};
 use chacha20::ChaCha20;
 use zeroize::Zeroize;
 
+use crate::block_storage::*;
 use crate::errors::*;
 use crate::log::*;
-use crate::store::*;
 use crate::types::*;
 
 pub const BLOCK_EXTRA: usize = 12; // 8 is the smallest extra + BLOCK_MAX_DATA_EXTRA
@@ -418,17 +418,17 @@ impl Object {
         }
     }
 
-    /// Load an Object from RepoStore
+    /// Load an Object from BlockStorage
     ///
     /// Returns Ok(Object) or an Err(ObjectParseError::MissingBlocks(Vec<ObjectId>)) of missing BlockIds
     pub fn load(
         id: ObjectId,
         key: Option<SymKey>,
-        store: &Box<impl RepoStore + ?Sized>,
+        store: &Box<impl BlockStorage + ?Sized>,
     ) -> Result<Object, ObjectParseError> {
         fn load_tree(
             parents: Vec<BlockId>,
-            store: &Box<impl RepoStore + ?Sized>,
+            store: &Box<impl BlockStorage + ?Sized>,
             blocks: &mut Vec<BlockId>,
             missing: &mut Vec<BlockId>,
             block_contents: &mut HashMap<BlockId, Block>,
@@ -517,7 +517,10 @@ impl Object {
     }
 
     /// Save blocks of the object and the blocks of the header object in the store
-    pub fn save(&self, store: &Box<impl RepoStore + ?Sized>) -> Result<Vec<BlockId>, StorageError> {
+    pub fn save(
+        &self,
+        store: &Box<impl BlockStorage + ?Sized>,
+    ) -> Result<Vec<BlockId>, StorageError> {
         let mut deduplicated: HashSet<ObjectId> = HashSet::new();
         //.chain(self.header_blocks.iter())
         for block_id in self.blocks.iter() {
@@ -543,7 +546,7 @@ impl Object {
     #[cfg(test)]
     pub fn save_in_test(
         &mut self,
-        store: &Box<impl RepoStore + ?Sized>,
+        store: &Box<impl BlockStorage + ?Sized>,
     ) -> Result<Vec<BlockId>, StorageError> {
         assert!(self.already_saved == false);
         self.already_saved = true;
@@ -963,7 +966,7 @@ mod test {
     use std::io::Read;
     use std::io::Write;
 
-    // Those constants are calculated with RepoStore::get_max_value_size
+    // Those constants are calculated with BlockStorage::get_max_value_size
     /// Maximum arity of branch containing max number of leaves
     // const MAX_ARITY_LEAVES: usize = 15887;
     // /// Maximum arity of root branch
@@ -1064,7 +1067,7 @@ mod test {
             }
             Err(e) => panic!("Object parse error: {:?}", e),
         }
-        let store = Box::new(HashMapRepoStore::new());
+        let store = Box::new(HashMapBlockStorage::new());
 
         obj.save_in_test(&store).expect("Object save error");
 

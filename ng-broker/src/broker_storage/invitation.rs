@@ -16,8 +16,8 @@ use std::time::SystemTime;
 
 use ng_net::errors::ProtocolError;
 use ng_net::types::*;
-use ng_repo::kcv_store::KCVStore;
-use ng_repo::store::*;
+use ng_repo::errors::StorageError;
+use ng_repo::kcv_storage::KCVStore;
 use ng_repo::types::SymKey;
 use ng_repo::types::Timestamp;
 use ng_repo::utils::now_timestamp;
@@ -178,13 +178,13 @@ impl<'a> Invitation<'a> {
 #[cfg(test)]
 mod test {
 
-    use ng_repo::store::*;
+    use ng_repo::errors::StorageError;
     use ng_repo::types::*;
     use ng_repo::utils::*;
     use std::fs;
     use tempfile::Builder;
 
-    use crate::broker_store::account::Account;
+    use crate::broker_storage::account::Account;
 
     #[test]
     pub fn test_invitation() {}

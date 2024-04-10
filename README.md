@@ -42,7 +42,7 @@ Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/)
 
 ## For contributors
 
-- [Install Rust](https://www.rust-lang.org/tools/install) minimum required MSRV 1.64.0
+- [Install Rust](https://www.rust-lang.org/tools/install) minimum required MSRV 1.74.0
 - [Install Nodejs](https://nodejs.org/en/download/)
 - [Install LLVM](https://rust-lang.github.io/rust-bindgen/requirements.html)
 
@@ -71,7 +71,7 @@ The crates are organized as follow :
 - ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
 - ng-broker : Core and Server Broker library
 - ng-client-ws : Websocket client library
-- ng-stores-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
+- ng-storage-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
 - [ng-sdk-js](ng-sdk-js/README.md) : contains the JS SDK, with example apps: web app, react app, or node service.
 - [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the web app.
 - ngone : server for nextgraph.one. helps user bootstrap into the right app. Not useful to you. Published here for transparency
@@ -170,7 +170,7 @@ For building the apps, see this [documentation](ng-app/README.md).
 #### OpenBSD
 
 On OpenBSD, a conflict between the installed LibreSSL library and the reqwest crate, needs a bit of attention.
-Before compiling the daemon for OpenBSD, please comment out lines 32-33 of `ng-net/Cargo.toml`. This will be solved soon in a more appropriate way.
+Before compiling the daemon for OpenBSD, please comment out lines 41-42 of `ng-net/Cargo.toml`. This will be solved soon by using `resolver = "2"`.
 
 ```
 #[target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -219,7 +219,7 @@ Licensed under either of
 
 NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/project/NextGraph/index.html), a fund established by [NLnet](https://nlnet.nl/) with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreement No 957073.
 
-[rustc-image]: https://img.shields.io/badge/rustc-1.64+-blue.svg
+[rustc-image]: https://img.shields.io/badge/rustc-1.74+-blue.svg
 [license-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
 [license-link]: https://git.nextgraph.org/NextGraph/nextgraph-rs/raw/branch/master/LICENSE-APACHE2
 [license-image2]: https://img.shields.io/badge/license-MIT-blue.svg

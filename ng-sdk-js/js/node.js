@@ -140,11 +140,21 @@ module.exports.client_details = function () {
   });
 };
 
+
+module.exports.is_browser = function() {
+    return false;
+}
+
+
 module.exports.session_save = function(key,value) {
     
 }
 
 module.exports.session_get = function(key) {
+    
+}
+
+module.exports.session_remove = function(key) {
     
 }
 

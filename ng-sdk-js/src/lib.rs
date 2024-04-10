@@ -236,10 +236,28 @@ pub async fn session_start(wallet_name: String, user_js: JsValue) -> Result<JsVa
     let user_id = serde_wasm_bindgen::from_value::<PubKey>(user_js)
         .map_err(|_| "Deserialization error of user_id")?;
 
-    let config = SessionConfig::V0(SessionConfigV0 {
-        user_id,
-        wallet_name,
-    });
+    let config = SessionConfig::new_in_memory(&user_id, &wallet_name);
+    let res = nextgraph::local_broker::session_start(config)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(serde_wasm_bindgen::to_value(&res).unwrap())
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn session_start_remote(
+    wallet_name: String,
+    user_js: JsValue,
+    peer_id_js: JsValue,
+) -> Result<JsValue, String> {
+    let user_id = serde_wasm_bindgen::from_value::<PubKey>(user_js)
+        .map_err(|_| "Deserialization error of user_id")?;
+
+    let peer_id = serde_wasm_bindgen::from_value::<Option<PubKey>>(peer_id_js)
+        .map_err(|_| "Deserialization error of peer_id")?;
+
+    let config = SessionConfig::new_remote(&user_id, &wallet_name, peer_id);
     let res = nextgraph::local_broker::session_start(config)
         .await
         .map_err(|e: NgError| e.to_string())?;
@@ -274,8 +292,10 @@ pub async fn add_in_memory_wallet(lws_js: JsValue) -> Result<(), String> {
 extern "C" {
     fn session_save(key: String, value: String) -> Option<String>;
     fn session_get(key: String) -> Option<String>;
+    fn session_remove(key: String);
     fn local_save(key: String, value: String) -> Option<String>;
     fn local_get(key: String) -> Option<String>;
+    fn is_browser() -> bool;
 }
 
 #[cfg(wasmpack_target = "nodejs")]
@@ -283,8 +303,10 @@ extern "C" {
 extern "C" {
     fn session_save(key: String, value: String) -> Option<String>;
     fn session_get(key: String) -> Option<String>;
+    fn session_remove(key: String);
     fn local_save(key: String, value: String) -> Option<String>;
     fn local_get(key: String) -> Option<String>;
+    fn is_browser() -> bool;
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -314,13 +336,21 @@ fn session_write(key: String, value: String) -> Result<(), NgError> {
 }
 
 #[cfg(target_arch = "wasm32")]
+fn session_del(key: String) -> Result<(), NgError> {
+    session_remove(key);
+    Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
 static INIT_LOCAL_BROKER: Lazy<Box<ConfigInitFn>> = Lazy::new(|| {
     Box::new(|| {
         LocalBrokerConfig::JsStorage(JsStorageConfig {
             local_read: Box::new(local_read),
             local_write: Box::new(local_write),
-            session_read: Box::new(session_read),
-            session_write: Box::new(session_write),
+            session_read: Arc::new(Box::new(session_read)),
+            session_write: Arc::new(Box::new(session_write)),
+            session_del: Arc::new(Box::new(session_del)),
+            is_browser: is_browser(),
         })
     })
 });
@@ -354,6 +384,7 @@ pub async fn wallet_get_file(wallet_name: String) -> Result<JsValue, JsValue> {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn wallet_read_file(js_file: JsValue) -> Result<JsValue, String> {
+    init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
     let mut file = serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(js_file)
         .map_err(|_| "Deserialization error of file".to_string())?;
 

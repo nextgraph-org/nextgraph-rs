@@ -12,7 +12,9 @@ use async_std::sync::{Arc, RwLock};
 use core::fmt;
 use ng_net::connection::{ClientConfig, IConnect, StartConfig};
 use ng_net::types::{ClientInfo, ClientType};
+use ng_net::utils::{Receiver, Sender};
 use ng_repo::os_info::get_os_info;
+use ng_verifier::types::*;
 use ng_wallet::emojis::encode_pazzle;
 use once_cell::sync::Lazy;
 use serde_bare::to_vec;
@@ -26,6 +28,7 @@ use ng_net::broker::*;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
 use ng_repo::types::*;
+use ng_repo::utils::derive_key;
 use ng_wallet::{create_wallet_v0, types::*};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -35,19 +38,105 @@ use ng_client_ws::remote_ws_wasm::ConnectionWebSocket;
 
 type JsStorageReadFn = dyn Fn(String) -> Result<String, NgError> + 'static + Sync + Send;
 type JsStorageWriteFn = dyn Fn(String, String) -> Result<(), NgError> + 'static + Sync + Send;
+type JsStorageDelFn = dyn Fn(String) -> Result<(), NgError> + 'static + Sync + Send;
 type JsCallback = dyn Fn() + 'static + Sync + Send;
 
 #[doc(hidden)]
 pub struct JsStorageConfig {
     pub local_read: Box<JsStorageReadFn>,
     pub local_write: Box<JsStorageWriteFn>,
-    pub session_read: Box<JsStorageReadFn>,
-    pub session_write: Box<JsStorageWriteFn>,
+    pub session_read: Arc<Box<JsStorageReadFn>>,
+    pub session_write: Arc<Box<JsStorageWriteFn>>,
+    pub session_del: Arc<Box<JsStorageDelFn>>,
+    pub is_browser: bool,
+}
+
+impl JsStorageConfig {
+    fn get_js_storage_config(&self) -> JsSaveSessionConfig {
+        let session_read2 = Arc::clone(&self.session_read);
+        let session_write2 = Arc::clone(&self.session_write);
+        let session_read3 = Arc::clone(&self.session_read);
+        let session_write3 = Arc::clone(&self.session_write);
+        let session_read4 = Arc::clone(&self.session_read);
+        let session_del = Arc::clone(&self.session_del);
+        JsSaveSessionConfig {
+            last_seq_function: Box::new(move |peer_id: PubKey, qty: u16| -> Result<u64, NgError> {
+                let res = (session_read2)(format!("ng_peer_last_seq@{}", peer_id));
+                let val = match res {
+                    Ok(old_str) => {
+                        let decoded = base64_url::decode(&old_str)
+                            .map_err(|_| NgError::SerializationError)?;
+                        match serde_bare::from_slice(&decoded)? {
+                            SessionPeerLastSeq::V0(old_val) => old_val,
+                            _ => unimplemented!(),
+                        }
+                    }
+                    Err(_) => 0,
+                };
+                let new_val = val + qty as u64;
+                let spls = SessionPeerLastSeq::V0(new_val);
+                let ser = serde_bare::to_vec(&spls)?;
+                //saving the new val
+                let encoded = base64_url::encode(&ser);
+                let r = (session_write2)(format!("ng_peer_last_seq@{}", peer_id), encoded);
+                if r.is_ok() {
+                    return Err(NgError::SerializationError);
+                }
+                Ok(val)
+            }),
+            outbox_write_function: Box::new(
+                move |peer_id: PubKey, seq: u64, event: Vec<u8>| -> Result<(), NgError> {
+                    let seq_str = format!("{}", seq);
+                    let res = (session_read3)(format!("ng_outboxes@{}@start", peer_id));
+                    let start = match res {
+                        Err(_) => {
+                            (session_write3)(format!("ng_outboxes@{}@start", peer_id), seq_str)?;
+                            seq
+                        }
+                        Ok(start_str) => start_str
+                            .parse::<u64>()
+                            .map_err(|_| NgError::InvalidFileFormat)?,
+                    };
+                    let idx = seq - start;
+                    let idx_str = format!("{:05}", idx);
+                    let encoded = base64_url::encode(&event);
+                    (session_write3)(format!("ng_outboxes@{}@{idx_str}", peer_id), encoded)
+                },
+            ),
+            outbox_read_function: Box::new(
+                move |peer_id: PubKey| -> Result<Vec<Vec<u8>>, NgError> {
+                    let res = (session_read4)(format!("ng_outboxes@{}@start", peer_id));
+                    let mut start = match res {
+                        Err(_) => return Err(NgError::NotFound),
+                        Ok(start_str) => start_str
+                            .parse::<u64>()
+                            .map_err(|_| NgError::InvalidFileFormat)?,
+                    };
+                    let mut result = vec![];
+                    loop {
+                        let idx_str = format!("{:05}", start);
+                        let str = format!("ng_outboxes@{}@{idx_str}", peer_id);
+                        let res = (session_read4)(str.clone());
+                        let res = match res {
+                            Err(_) => break,
+                            Ok(res) => res,
+                        };
+                        (session_del)(str)?;
+                        let decoded =
+                            base64_url::decode(&res).map_err(|_| NgError::SerializationError)?;
+                        result.push(decoded);
+                        start += 1;
+                    }
+                    Ok(result)
+                },
+            ),
+        }
+    }
 }
 
 impl fmt::Debug for JsStorageConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "JsStorageConfig")
+        write!(f, "JsStorageConfig. is_browser {}", self.is_browser)
     }
 }
 
@@ -86,25 +175,14 @@ impl LocalBrokerConfig {
     }
 }
 
-//type LastSeqFn = fn(PubKey, u16) -> Result<u64, NgError>;
-pub type LastSeqFn = dyn Fn(PubKey, u16) -> Result<u64, NgError> + 'static + Sync + Send;
-
-// peer_id: PubKey, seq_num:u64, event_ser: vec<u8>,
-pub type OutboxWriteFn =
-    dyn Fn(PubKey, u64, Vec<u8>) -> Result<(), NgError> + 'static + Sync + Send;
-
-// peer_id: PubKey,
-pub type OutboxReadFn = dyn Fn(PubKey) -> Result<Vec<Vec<u8>>, NgError> + 'static + Sync + Send;
-
+#[derive(Debug)]
 /// used to initiate a session at a local broker V0
 pub struct SessionConfigV0 {
     pub user_id: UserId,
     pub wallet_name: String,
-    // pub last_seq_function: Box<LastSeqFn>,
-    // pub outbox_write_function: Box<OutboxWriteFn>,
-    // pub outbox_read_function: Box<OutboxReadFn>,
+    pub verifier_type: VerifierType,
 }
-
+#[derive(Debug)]
 /// used to initiate a session at a local broker
 pub enum SessionConfig {
     V0(SessionConfigV0),
@@ -115,7 +193,7 @@ struct Session {
     config: SessionConfig,
     peer_key: PrivKey,
     last_wallet_nonce: u64,
-    //verifier,
+    verifier: Verifier,
 }
 
 impl SessionConfig {
@@ -129,33 +207,94 @@ impl SessionConfig {
             Self::V0(v0) => v0.wallet_name.clone(),
         }
     }
-    /// Creates a new SessionConfig with a UserId and a wallet name
+    pub fn verifier_type(&self) -> &VerifierType {
+        match self {
+            Self::V0(v0) => &v0.verifier_type,
+        }
+    }
+    /// Creates a new in_memory SessionConfig with a UserId and a wallet name
+    ///
     /// that should be passed to [session_start]
-    pub fn new(user_id: &UserId, wallet_name: &String) -> Self {
+    pub fn new_in_memory(user_id: &UserId, wallet_name: &String) -> Self {
         SessionConfig::V0(SessionConfigV0 {
             user_id: user_id.clone(),
             wallet_name: wallet_name.clone(),
+            verifier_type: VerifierType::Memory,
         })
     }
-}
 
-impl fmt::Debug for SessionConfigV0 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "SessionConfigV0 user={} wallet={}",
-            self.user_id, self.wallet_name
-        )
+    /// Creates a new SessionConfig backed by RocksDb, with a UserId and a wallet name
+    ///
+    /// that should be passed to [session_start]
+    pub fn new_rocksdb(user_id: &UserId, wallet_name: &String) -> Self {
+        SessionConfig::V0(SessionConfigV0 {
+            user_id: user_id.clone(),
+            wallet_name: wallet_name.clone(),
+            verifier_type: VerifierType::RocksDb,
+        })
     }
-}
 
-impl fmt::Debug for SessionConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SessionConfig::V0(v0) => v0.fmt(f),
+    /// Creates a new remote SessionConfig, with a UserId, a wallet name and optional remote peer_id
+    ///
+    /// that should be passed to [session_start]
+    pub fn new_remote(
+        user_id: &UserId,
+        wallet_name: &String,
+        remote_verifier_peer_id: Option<PubKey>,
+    ) -> Self {
+        SessionConfig::V0(SessionConfigV0 {
+            user_id: user_id.clone(),
+            wallet_name: wallet_name.clone(),
+            verifier_type: VerifierType::Remote(remote_verifier_peer_id),
+        })
+    }
+
+    fn valid_verifier_config_for_local_broker_config(
+        &mut self,
+        local_broker_config: &LocalBrokerConfig,
+    ) -> Result<(), NgError> {
+        if match self {
+            Self::V0(v0) => match local_broker_config {
+                LocalBrokerConfig::InMemory => {
+                    v0.verifier_type = VerifierType::Memory;
+                    true
+                }
+                LocalBrokerConfig::JsStorage(js_config) => match v0.verifier_type {
+                    VerifierType::Memory | VerifierType::Remote(_) => true,
+                    VerifierType::RocksDb => false,
+                    VerifierType::WebRocksDb => js_config.is_browser,
+                },
+                LocalBrokerConfig::BasePath(_) => match v0.verifier_type {
+                    VerifierType::RocksDb | VerifierType::Remote(_) => true,
+                    //VerifierType::Memory => true,
+                    _ => false,
+                },
+            },
+        } {
+            Ok(())
+        } else {
+            Err(NgError::InvalidArgument)
         }
     }
 }
+
+// impl fmt::Debug for SessionConfigV0 {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(
+//             f,
+//             "SessionConfigV0 user={} wallet={}",
+//             self.user_id, self.wallet_name
+//         )
+//     }
+// }
+
+// impl fmt::Debug for SessionConfig {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         match self {
+//             SessionConfig::V0(v0) => v0.fmt(f),
+//         }
+//     }
+// }
 
 #[derive(Debug)]
 struct LocalBroker {
@@ -167,19 +306,78 @@ struct LocalBroker {
 
     pub sessions: HashMap<UserId, SessionPeerStorageV0>,
 
-    pub opened_sessions: HashMap<UserId, Session>,
+    pub opened_sessions: HashMap<UserId, u8>,
+
+    pub opened_sessions_list: Vec<Option<Session>>,
 }
 
 impl ILocalBroker for LocalBroker {}
 
 impl LocalBroker {
-    fn get_wallet_for_session(&self, config: &SessionConfig) -> Result<&SensitiveWallet, NgError> {
-        match config {
+    fn storage_path_for_user(&self, user_id: &UserId) -> Option<PathBuf> {
+        match &self.config {
+            LocalBrokerConfig::InMemory | LocalBrokerConfig::JsStorage(_) => None,
+            LocalBrokerConfig::BasePath(base) => {
+                let mut path = base.clone();
+                path.push(user_id.to_hash_string());
+                Some(path)
+            }
+        }
+    }
+
+    fn verifier_config_type_from_session_config(
+        &self,
+        config: &SessionConfig,
+    ) -> VerifierConfigType {
+        match (config.verifier_type(), &self.config) {
+            (VerifierType::Memory, LocalBrokerConfig::InMemory) => VerifierConfigType::Memory,
+            (VerifierType::RocksDb, LocalBrokerConfig::BasePath(base)) => {
+                let mut path = base.clone();
+                path.push(config.user_id().to_hash_string());
+                VerifierConfigType::RocksDb(path)
+            }
+            (VerifierType::Remote(to), _) => VerifierConfigType::Remote(*to),
+            (VerifierType::WebRocksDb, _) => VerifierConfigType::WebRocksDb,
+            (VerifierType::Memory, LocalBrokerConfig::JsStorage(js)) => {
+                VerifierConfigType::JsSaveSession(js.get_js_storage_config())
+            }
+            (_, _) => panic!("invalid combination in verifier_config_type_from_session_config"),
+        }
+    }
+
+    fn get_wallet_and_session(
+        &mut self,
+        user_id: &UserId,
+    ) -> Result<(&SensitiveWallet, &mut Session), NgError> {
+        let session_idx = self
+            .opened_sessions
+            .get(user_id)
+            .ok_or(NgError::SessionNotFound)?;
+        let session = self.opened_sessions_list[*session_idx as usize]
+            .as_mut()
+            .ok_or(NgError::SessionNotFound)?;
+        let wallet = match &session.config {
             SessionConfig::V0(v0) => self
                 .opened_wallets
                 .get(&v0.wallet_name)
                 .ok_or(NgError::WalletNotFound),
+        }?;
+
+        Ok((wallet, session))
+    }
+    async fn disconnect_session(&mut self, user_id: &PubKey) -> Result<(), NgError> {
+        match self.opened_sessions.get(user_id) {
+            Some(session) => {
+                // TODO: change the logic here once it will be possible to have several users connected at the same time
+                Broker::close_all_connections().await;
+                let session = self.opened_sessions_list[*session as usize]
+                    .as_mut()
+                    .ok_or(NgError::SessionNotFound)?;
+                session.verifier.connected_server_id = None;
+            }
+            None => {}
         }
+        Ok(())
     }
 }
 
@@ -224,6 +422,7 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
         opened_wallets: HashMap::new(),
         sessions: HashMap::new(),
         opened_sessions: HashMap::new(),
+        opened_sessions_list: vec![],
     };
     //log_debug!("{:?}", &local_broker);
 
@@ -492,24 +691,36 @@ pub async fn wallet_was_opened(mut wallet: SensitiveWallet) -> Result<ClientV0, 
 /// Starts a session with the LocalBroker. The type of verifier is selected at this moment.
 ///
 /// The session is valid even if there is no internet. The local data will be used in this case.
-/// The returned value is not really useful. Might be removed
-//TODO: remove return value?
-pub async fn session_start(config: SessionConfig) -> Result<SessionPeerStorageV0, NgError> {
+/// Return value is the index of the session, will be used in all the doc_* API calls.
+pub async fn session_start(mut config: SessionConfig) -> Result<SessionInfo, NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
     };
 
-    let wallet_name = config.wallet_name();
+    config.valid_verifier_config_for_local_broker_config(&broker.config)?;
+
+    let wallet_name: String = config.wallet_name();
     let wallet_id: PubKey = (*wallet_name).try_into()?;
     let user_id = config.user_id();
 
     match broker.opened_wallets.get(&wallet_name) {
         None => return Err(NgError::WalletNotFound),
         Some(wallet) => {
-            if !wallet.has_user(&user_id) {
-                return Err(NgError::NotFound);
-            }
+            let credentials = match wallet.individual_site(&user_id) {
+                Some(creds) => creds.clone(),
+                None => return Err(NgError::NotFound),
+            };
+
+            let client_storage_master_key = serde_bare::to_vec(
+                &wallet
+                    .client()
+                    .as_ref()
+                    .unwrap()
+                    .sensitive_client_storage
+                    .storage_master_key,
+            )
+            .unwrap();
 
             let session = match broker.sessions.get(&user_id) {
                 Some(session) => session,
@@ -612,16 +823,35 @@ pub async fn session_start(config: SessionConfig) -> Result<SessionPeerStorageV0
                 }
             };
             let session = session.clone();
-            broker.opened_sessions.insert(
-                user_id,
-                Session {
-                    config,
-                    peer_key: session.peer_key.clone(),
-                    last_wallet_nonce: session.last_wallet_nonce,
-                },
+
+            // derive user_master_key from client's storage_master_key
+            let user_id_ser = serde_bare::to_vec(&user_id).unwrap();
+            let mut key_material = [user_id_ser, client_storage_master_key].concat(); //
+            let mut key: [u8; 32] = derive_key(
+                "NextGraph user_master_key BLAKE3 key",
+                key_material.as_slice(),
             );
-            // FIXME: is this return value useful ?
-            Ok(session)
+            key_material.zeroize();
+            let verifier = Verifier::new(VerifierConfig {
+                config_type: broker.verifier_config_type_from_session_config(&config),
+                user_master_key: key,
+                peer_priv_key: session.peer_key.clone(),
+                user_priv_key: credentials.0,
+                private_store_read_cap: credentials.1,
+            })?;
+            key.zeroize();
+            broker.opened_sessions_list.push(Some(Session {
+                config,
+                peer_key: session.peer_key.clone(),
+                last_wallet_nonce: session.last_wallet_nonce,
+                verifier,
+            }));
+            let idx = broker.opened_sessions_list.len() - 1;
+            broker.opened_sessions.insert(user_id, idx as u8);
+            Ok(SessionInfo {
+                session_id: idx as u8,
+                user: user_id,
+            })
         }
     }
 }
@@ -688,16 +918,14 @@ pub async fn user_connect_with_device_info(
     user_id: &UserId,
     location: Option<String>,
 ) -> Result<Vec<(String, String, String, Option<String>, f64)>, NgError> {
-    let local_broker = match LOCAL_BROKER.get() {
+    //FIXME: release this write lock much sooner than at the end of the loop of all tries to connect to some servers ?
+    // or maybe it is good to block as we dont want concurrent connection attemps potentially to the same server
+    let mut local_broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
-        Some(Ok(broker)) => broker.read().await,
+        Some(Ok(broker)) => broker.write().await,
     };
 
-    let session = local_broker
-        .opened_sessions
-        .get(user_id)
-        .ok_or(NgError::SessionNotFound)?;
-    let wallet = local_broker.get_wallet_for_session(&session.config)?;
+    let (wallet, session) = local_broker.get_wallet_and_session(user_id)?;
 
     let mut result: Vec<(String, String, String, Option<String>, f64)> = Vec::new();
     let arc_cnx: Arc<Box<dyn IConnect>> = Arc::new(Box::new(ConnectionWebSocket {}));
@@ -791,6 +1019,7 @@ pub async fn user_connect_with_device_info(
                                     ));
                                 }
                                 if tried.is_some() && tried.as_ref().unwrap().3.is_none() {
+                                    session.verifier.connected_server_id = Some(server_key);
                                     // successful. we can stop here
                                     break;
                                 } else {
@@ -825,9 +1054,13 @@ pub async fn session_stop(user_id: &UserId) -> Result<(), NgError> {
         Some(Ok(broker)) => broker.write().await,
     };
 
-    if broker.opened_sessions.remove(user_id).is_some() {
-        // TODO: change the logic here once it will be possible to have several users connected at the same time
-        Broker::close_all_connections().await;
+    match broker.opened_sessions.remove(user_id) {
+        Some(id) => {
+            broker.opened_sessions_list[id as usize].take();
+            // TODO: change the logic here once it will be possible to have several users connected at the same time
+            Broker::close_all_connections().await;
+        }
+        None => {}
     }
 
     Ok(())
@@ -835,17 +1068,12 @@ pub async fn session_stop(user_id: &UserId) -> Result<(), NgError> {
 
 /// Disconnects the user from the Server Broker(s), but keep all the local data opened and ready.
 pub async fn user_disconnect(user_id: &UserId) -> Result<(), NgError> {
-    let broker = match LOCAL_BROKER.get() {
+    let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
-        Some(Ok(broker)) => broker.read().await,
+        Some(Ok(broker)) => broker.write().await,
     };
 
-    if broker.opened_sessions.get(user_id).is_some() {
-        // TODO: change the logic here once it will be possible to have several users connected at the same time
-        Broker::close_all_connections().await;
-    }
-
-    Ok(())
+    broker.disconnect_session(user_id).await
 }
 
 /// Closes a wallet, which means that the pazzle will have to be entered again if the user wants to use it
@@ -859,7 +1087,12 @@ pub async fn wallet_close(wallet_name: &String) -> Result<(), NgError> {
         Some(mut wallet) => {
             for user in wallet.sites() {
                 let key: PubKey = (user.as_str()).try_into().unwrap();
-                broker.opened_sessions.remove(&key);
+                match broker.opened_sessions.remove(&key) {
+                    Some(id) => {
+                        broker.opened_sessions_list[id as usize].take();
+                    }
+                    None => {}
+                }
             }
             wallet.zeroize();
         }
@@ -882,6 +1115,26 @@ pub async fn wallet_remove(wallet_name: String) -> Result<(), NgError> {
     // should close the wallet, then remove all the saved sessions and remove the wallet
 
     Ok(())
+}
+
+/// fetches a document's content, or performs a mutation on the document.
+pub async fn doc_fetch(
+    session_id: u8,
+    nuri: String,
+    payload: Option<AppRequestPayload>,
+) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
+    let broker = match LOCAL_BROKER.get() {
+        None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+        Some(Ok(broker)) => broker.read().await,
+    };
+    if session_id as usize >= broker.opened_sessions_list.len() {
+        return Err(NgError::InvalidArgument);
+    }
+    let session = broker.opened_sessions_list[session_id as usize]
+        .as_ref()
+        .ok_or(NgError::SessionNotFound)?;
+
+    session.verifier.doc_fetch(nuri, payload)
 }
 
 #[cfg(test)]
@@ -1003,7 +1256,7 @@ mod test {
             .await
             .expect("wallet_import");
 
-        let _session = session_start(SessionConfig::new(&user_id, &wallet_name))
+        let _session = session_start(SessionConfig::new_in_memory(&user_id, &wallet_name))
             .await
             .expect("");
 

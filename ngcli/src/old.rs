@@ -10,7 +10,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         expiry: Option<Timestamp>,
         repo_pubkey: PubKey,
         repo_secret: SymKey,
-        store: &mut impl RepoStore,
+        store: &mut impl BlockStorage,
     ) -> ObjectRef {
         let max_object_size = 4000;
         let obj = Object::new(
@@ -38,7 +38,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         body_ref: ObjectRef,
         repo_pubkey: PubKey,
         repo_secret: SymKey,
-        store: &mut impl RepoStore,
+        store: &mut impl BlockStorage,
     ) -> ObjectRef {
         let mut obj_deps: Vec<ObjectId> = vec![];
         obj_deps.extend(deps.iter().map(|r| r.id));
@@ -80,7 +80,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         branch: Branch,
         repo_pubkey: PubKey,
         repo_secret: SymKey,
-        store: &mut impl RepoStore,
+        store: &mut impl BlockStorage,
     ) -> ObjectRef {
         let deps = vec![];
         let expiry = None;
@@ -100,7 +100,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         deps: Vec<ObjectId>,
         repo_pubkey: PubKey,
         repo_secret: SymKey,
-        store: &mut impl RepoStore,
+        store: &mut impl BlockStorage,
     ) -> ObjectRef {
         let expiry = None;
         let content = [7u8; 777].to_vec();
@@ -120,7 +120,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         deps: Vec<ObjectId>,
         repo_pubkey: PubKey,
         repo_secret: SymKey,
-        store: &mut impl RepoStore,
+        store: &mut impl BlockStorage,
     ) -> ObjectRef {
         let expiry = None;
         let body = CommitBody::Ack(Ack::V0());
@@ -135,7 +135,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
         )
     }
 
-    let mut store = HashMapRepoStore::new();
+    let mut store = HashMapBlockStorage::new();
     let mut rng = OsRng {};
 
     // repo
@@ -346,7 +346,7 @@ async fn test_sync(cnx: &mut impl BrokerConnection, user_pub_key: PubKey, userpr
 
     // Now emptying the local store of the client, and adding only 1 commit into it (br)
     // we also have received an commit (t5) but we don't know what to do with it...
-    let mut store = HashMapRepoStore::new();
+    let mut store = HashMapBlockStorage::new();
 
     let br = add_commit(
         branch_body,

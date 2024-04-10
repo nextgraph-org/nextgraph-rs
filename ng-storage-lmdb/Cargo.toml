@@ -1,5 +1,5 @@
 [package]
-name = "ng-stores-lmdb"
+name = "ng-storage-lmdb"
 # version = "0.1.0"
 description = "Stores based on LMDB for NextGraph"
 version.workspace = true

@@ -1,8 +1,8 @@
 # NextGraph apps (Linux, MacOS, Windows, Android, iOS, web)
 
-NextGraph native apps use the Tauri framework.
+All the apps are based on Svelte and share the same code.
 
-All the native apps are using an embedded WebView that renders a Svelte app.
+The native apps are using the Tauri framework with an embedded WebView to render the Svelte app.
 
 ## Install
 

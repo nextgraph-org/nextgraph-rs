@@ -8,8 +8,7 @@
 // according to those terms.
 
 use core::fmt;
-use ng_repo::errors::ObjectParseError;
-use ng_repo::store::StorageError;
+use ng_repo::errors::{ObjectParseError, StorageError};
 use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
 use std::convert::From;

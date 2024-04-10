@@ -10,10 +10,10 @@
 //! Broker Wallet, persists to store all the SymKeys needed to open other storages
 
 use ng_net::types::*;
-use ng_repo::kcv_store::KCVStore;
-use ng_repo::kcv_store::WriteTransaction;
+use ng_repo::errors::StorageError;
+use ng_repo::kcv_storage::KCVStore;
+use ng_repo::kcv_storage::WriteTransaction;
 use ng_repo::log::*;
-use ng_repo::store::*;
 use ng_repo::types::*;
 use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};

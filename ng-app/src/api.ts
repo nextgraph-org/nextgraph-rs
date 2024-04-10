@@ -25,6 +25,7 @@ const mapping = {
     "wallet_close": ["wallet_name"],
     "encode_create_account": ["payload"],
     "session_start": ["wallet_name","user"],
+    "session_start_remote": ["wallet_name","user","peer_id"],
     "session_stop": ["user_id"],
     "get_wallets": [],
     "open_window": ["url","label","title"],
@@ -50,12 +51,12 @@ const handler = {
             } else if (path[0] === "get_wallets") {
                 let wallets = await Reflect.apply(sdk[path], caller, args);
                 return Object.fromEntries(wallets || []);
-            } else if (path[0] === "session_start") {
-                let res = await Reflect.apply(sdk[path], caller, args);
-                return res;
-            } else if (path[0] === "wallet_create") {
-                let res = await Reflect.apply(sdk[path], caller, args);
-                return res;
+            // } else if (path[0] === "session_start") {
+            //     let res = await Reflect.apply(sdk[path], caller, args);
+            //     return res;
+            // } else if (path[0] === "wallet_create") {
+            //     let res = await Reflect.apply(sdk[path], caller, args);
+            //     return res;
             } else {
                 return Reflect.apply(sdk[path], caller, args)
             }

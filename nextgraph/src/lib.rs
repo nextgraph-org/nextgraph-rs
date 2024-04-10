@@ -17,7 +17,7 @@
 //!  - the blocks of the repos,
 //!  - the connection(s) to your Server Broker
 //!  - the events that you send to the Overlay, if there is no connectivity (Outbox)
-//!  - A reference to the verifier (optional)
+//!  - A reference to the verifier
 //!
 //! In addition, the API for creating and managing your wallet is provided here.
 //!

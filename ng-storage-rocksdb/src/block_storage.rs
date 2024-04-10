@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use ng_repo::store::*;
+use ng_repo::errors::StorageError;
 use ng_repo::types::*;
 use ng_repo::utils::*;
 
@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_bare::error::Error;
 /*
 #[derive(Debug)]
-pub struct LmdbRepoStore {
+pub struct LmdbBlockStorage {
     /// the main store where all the repo blocks are stored
     main_store: SingleStore<LmdbDatabase>,
     /// store for the pin boolean, recently_used timestamp, and synced boolean
@@ -40,7 +40,7 @@ struct BlockMeta {
     pub synced: bool,
 }
 
-impl RepoStore for LmdbRepoStore {
+impl BlockStorage for LmdbBlockStorage {
     /// Retrieves a block from the storage backend.
     fn get(&self, block_id: &BlockId) -> Result<Block, StorageError> {
         let lock = self.environment.read().unwrap();
@@ -194,10 +194,10 @@ impl RepoStore for LmdbRepoStore {
     }
 }
 
-impl LmdbRepoStore {
-    /// Opens the store and returns a RepoStore object that should be kept and used to call put/get/delete/pin
+impl LmdbBlockStorage {
+    /// Opens the store and returns a BlockStorage object that should be kept and used to call put/get/delete/pin
     /// The key is the encryption key for the data at rest.
-    pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<LmdbRepoStore, StorageError> {
+    pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<LmdbBlockStorage, StorageError> {
         let mut manager = Manager::<LmdbEnvironment>::singleton().write().unwrap();
         let shared_rkv = manager
             .get_or_create(path, |path| {
@@ -223,7 +223,7 @@ impl LmdbRepoStore {
         let expiry_store = env.open_multi_integer("expiry", opts).unwrap();
         let recently_used_store = env.open_multi_integer("recently_used", opts).unwrap();
 
-        Ok(LmdbRepoStore {
+        Ok(LmdbBlockStorage {
             environment: shared_rkv.clone(),
             main_store,
             meta_store,
@@ -487,8 +487,8 @@ impl LmdbRepoStore {
 #[cfg(test)]
 mod test {
 
+    use ng_repo::block_storage::*;
     use ng_repo::log::*;
-    use ng_repo::store::*;
     use ng_repo::types::*;
     use ng_repo::utils::*;
     #[allow(unused_imports)]
@@ -504,7 +504,7 @@ mod test {
             let key: [u8; 32] = [0; 32];
             fs::create_dir_all(root.path()).unwrap();
             log_debug!("{}", root.path().to_str().unwrap());
-            let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
+            let mut store = LmdbBlockStorage::open(root.path(), key).unwrap();
             let mut now = now_timestamp();
             now -= 200;
             // TODO: fix the LMDB bug that is triggered with x max set to 86 !!!
@@ -537,7 +537,7 @@ mod test {
             let key: [u8; 32] = [0; 32];
             fs::create_dir_all(root.path()).unwrap();
             log_debug!("{}", root.path().to_str().unwrap());
-            let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
+            let mut store = LmdbBlockStorage::open(root.path(), key).unwrap();
             let mut now = now_timestamp();
             now -= 200;
             // TODO: fix the LMDB bug that is triggered with x max set to 86 !!!
@@ -595,7 +595,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         log_debug!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
+        let mut store = LmdbBlockStorage::open(root.path(), key).unwrap();
 
         let now = now_timestamp();
         let list = [
@@ -649,7 +649,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         log_debug!("{}", root.path().to_str().unwrap());
-        let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
+        let mut store = LmdbBlockStorage::open(root.path(), key).unwrap();
 
         let now = now_timestamp();
         let list = [
@@ -696,7 +696,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         log_debug!("{}", root.path().to_str().unwrap());
-        let store = LmdbRepoStore::open(root.path(), key).unwrap();
+        let store = LmdbBlockStorage::open(root.path(), key).unwrap();
         store.remove_expired().unwrap();
     }
 
@@ -710,7 +710,7 @@ mod test {
 
         log_debug!("{}", root.path().to_str().unwrap());
 
-        let mut store = LmdbRepoStore::open(root.path(), key).unwrap();
+        let mut store = LmdbBlockStorage::open(root.path(), key).unwrap();
 
         let block = Block::new(
             Vec::new(),

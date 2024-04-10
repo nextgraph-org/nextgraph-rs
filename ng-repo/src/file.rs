@@ -17,10 +17,10 @@ use chacha20::cipher::{KeyIvInit, StreamCipher};
 use chacha20::ChaCha20;
 use zeroize::Zeroize;
 
+use crate::block_storage::*;
 use crate::errors::*;
 use crate::log::*;
 use crate::object::*;
-use crate::store::*;
 use crate::types::*;
 
 /// File errors
@@ -83,7 +83,7 @@ impl<'a> File<'a> {
     pub fn open(
         id: ObjectId,
         key: SymKey,
-        storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Result<File<'a>, FileError> {
         let root_block = storage.get(&id)?;
 
@@ -133,8 +133,8 @@ impl ReadFile for SmallFileV0 {
 
 /// A RandomAccessFile in memory. This is not used to serialize data
 pub struct RandomAccessFile<'a> {
-    //storage: Arc<&'a dyn RepoStore>,
-    storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+    //storage: Arc<&'a dyn BlockStorage>,
+    storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
     /// accurate once saved or opened
     meta: RandomAccessFileMeta,
 
@@ -263,7 +263,7 @@ impl<'a> RandomAccessFile<'a> {
         conv_key: &[u8; blake3::OUT_LEN],
         children: Vec<ObjectId>,
         already_existing: &mut HashMap<BlockKey, BlockId>,
-        storage: &Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Result<(BlockId, BlockKey), StorageError> {
         let key_hash = blake3::keyed_hash(conv_key, &content);
 
@@ -294,7 +294,7 @@ impl<'a> RandomAccessFile<'a> {
         conv_key: &[u8; blake3::OUT_LEN],
         children: Vec<(BlockId, BlockKey)>,
         already_existing: &mut HashMap<BlockKey, BlockId>,
-        storage: &Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Result<(BlockId, BlockKey), StorageError> {
         let mut ids: Vec<BlockId> = Vec::with_capacity(children.len());
         let mut keys: Vec<BlockKey> = Vec::with_capacity(children.len());
@@ -314,7 +314,7 @@ impl<'a> RandomAccessFile<'a> {
         leaves: &[(BlockId, BlockKey)],
         conv_key: &ChaCha20Key,
         arity: u16,
-        storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Result<(BlockId, BlockKey), StorageError> {
         let mut parents: Vec<(BlockId, BlockKey)> = vec![];
         let mut chunks = leaves.chunks(arity as usize);
@@ -347,7 +347,7 @@ impl<'a> RandomAccessFile<'a> {
         blocks: &[(BlockId, BlockKey)],
         meta: &mut RandomAccessFileMeta,
         conv_key: &ChaCha20Key,
-        storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Result<((BlockId, BlockKey), (BlockId, BlockKey)), FileError> {
         let leaf_blocks_nbr = blocks.len();
         let arity = meta.arity();
@@ -406,7 +406,7 @@ impl<'a> RandomAccessFile<'a> {
         metadata: Vec<u8>,
         store: &StoreRepo,
         store_secret: &ReadCapSecret,
-        storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Result<RandomAccessFile<'a>, FileError> {
         //let max_block_size = store_max_value_size();
         let valid_block_size = store_valid_value_size(block_size) - BLOCK_EXTRA;
@@ -477,7 +477,7 @@ impl<'a> RandomAccessFile<'a> {
         metadata: Vec<u8>,
         store: &StoreRepo,
         store_secret: &ReadCapSecret,
-        storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Self {
         let valid_block_size = store_valid_value_size(block_size) - BLOCK_EXTRA;
 
@@ -617,7 +617,7 @@ impl<'a> RandomAccessFile<'a> {
     pub fn open(
         id: ObjectId,
         key: SymKey,
-        storage: &'a Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
     ) -> Result<RandomAccessFile<'a>, FileError> {
         // load root block
         let root_block = storage.get(&id)?;
@@ -735,16 +735,16 @@ mod test {
     use std::io::Read;
 
     struct Test<'a> {
-        storage: Box<dyn RepoStore + Send + Sync + 'a>,
+        storage: Box<dyn BlockStorage + Send + Sync + 'a>,
     }
 
     impl<'a> Test<'a> {
-        fn storage(s: impl RepoStore + 'a) -> Self {
+        fn storage(s: impl BlockStorage + 'a) -> Self {
             Test {
                 storage: Box::new(s),
             }
         }
-        fn s(&self) -> &Box<dyn RepoStore + Send + Sync + 'a> {
+        fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
             &self.storage
         }
     }
@@ -755,10 +755,10 @@ mod test {
         let block_size = store_max_value_size();
         //store_valid_value_size(0)
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
-        //let storage: Arc<&dyn RepoStore> = Arc::new(&hashmap_storage);
+        //let storage: Arc<&dyn BlockStorage> = Arc::new(&hashmap_storage);
 
         ////// 1 MB of data!
         let data_size = block_size - BLOCK_EXTRA;
@@ -834,7 +834,7 @@ mod test {
         const MAX_ARITY_LEAVES: usize = 15887;
         const MAX_DATA_PAYLOAD_SIZE: usize = 1048564;
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         ////// 16 GB of data!
@@ -873,7 +873,7 @@ mod test {
         const MAX_ARITY_LEAVES: usize = 15887;
         const MAX_DATA_PAYLOAD_SIZE: usize = 1048564;
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         ////// 16 GB of data!
@@ -911,7 +911,7 @@ mod test {
     pub fn test_depth_3() {
         const MAX_ARITY_LEAVES: usize = 61;
         const MAX_DATA_PAYLOAD_SIZE: usize = 4084;
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         ////// 900 MB of data!
@@ -981,7 +981,7 @@ mod test {
             * MAX_ARITY_LEAVES
             * MAX_DATA_PAYLOAD_SIZE;
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
@@ -1022,7 +1022,7 @@ mod test {
             .read_to_end(&mut img_buffer)
             .expect("read of test.jpg");
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
@@ -1097,7 +1097,7 @@ mod test {
             .read_to_end(&mut img_buffer)
             .expect("read of test.jpg");
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
@@ -1174,7 +1174,7 @@ mod test {
             .read_to_end(&mut img_buffer)
             .expect("read of test.jpg");
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
@@ -1259,7 +1259,7 @@ mod test {
 
         let first_block_content = img_buffer[0..4084].to_vec();
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
@@ -1342,7 +1342,7 @@ mod test {
         let chunk_nbr = data_size / 5000000;
         let last_chunk = data_size % 5000000;
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
@@ -1396,7 +1396,7 @@ mod test {
             .read_to_end(&mut img_buffer)
             .expect("read of test.jpg");
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
@@ -1464,7 +1464,7 @@ mod test {
 
         log_debug!("{}", obj);
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         let _ = obj.save_in_test(t.s()).expect("save");
@@ -1490,7 +1490,7 @@ mod test {
         let max_object_size = store_max_value_size();
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         log_debug!("creating empty file");
@@ -1533,7 +1533,7 @@ mod test {
         let f = std::fs::File::open("[enter path of a big file here]").expect("open of a big file");
         let mut reader = BufReader::new(f);
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
@@ -1587,7 +1587,7 @@ mod test {
         let f = std::fs::File::open("[enter path of a big file here]").expect("open of a big file");
         let mut reader = BufReader::new(f);
 
-        let hashmap_storage = HashMapRepoStore::new();
+        let hashmap_storage = HashMapBlockStorage::new();
         let t = Test::storage(hashmap_storage);
 
         let (store_repo, store_secret) = StoreRepo::dummy_public_v0();

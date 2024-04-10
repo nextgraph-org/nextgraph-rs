@@ -25,6 +25,8 @@ s.on('end', function() {
     var buf = Buffer.concat(bufs);
     gzip(buf).then((compressed) => {fs.writeFileSync(gzip_file, compressed);});
 
+    fs.rm(filename,()=>{});
+
   })
 
 

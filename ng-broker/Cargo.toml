@@ -19,7 +19,7 @@ maintenance = { status = "actively-developed" }
 ng-repo = { path = "../ng-repo", version = "0.1.0" }
 ng-net = { path = "../ng-net", version = "0.1.0" }
 ng-client-ws = { path = "../ng-client-ws", version = "0.1.0" }
-ng-stores-rocksdb = { path = "../ng-stores-rocksdb", version = "0.1.0" }
+ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0" }
 chacha20 = "0.9.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_bare = "0.5.0"
