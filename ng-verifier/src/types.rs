@@ -11,22 +11,29 @@
 
 use core::fmt;
 //use oxigraph::io::{RdfFormat, RdfParser, RdfSerializer};
-use oxigraph::store::Store;
+//use oxigraph::store::Store;
 //use oxigraph::model::GroundQuad;
 #[cfg(not(target_family = "wasm"))]
 use crate::rocksdb_user_storage::RocksDbUserStorage;
 use crate::user_storage::{InMemoryUserStorage, UserStorage};
-use std::path::PathBuf;
+use async_std::sync::Mutex;
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use ng_net::{
+    connection::NoiseFSM,
+    errors::ProtocolError,
     types::*,
     utils::{Receiver, Sender},
 };
 use ng_repo::{
+    block_storage::BlockStorage,
     errors::{NgError, StorageError},
+    file::RandomAccessFile,
+    store::Store,
     types::*,
 };
 use serde::{Deserialize, Serialize};
+use web_time::SystemTime;
 //use yrs::{StateVector, Update};
 
 #[derive(Debug, Clone)]
@@ -40,6 +47,7 @@ pub enum VerifierType {
     Remote(Option<PubKey>),
     /// IndexedDb based rocksdb compiled to WASM... not ready yet. obviously. only works in the browser
     WebRocksDb,
+    // Server, this type is for Server Broker that act as verifier. They answer to VerifierType::Remote types of verifier.
 }
 
 impl VerifierType {
@@ -101,68 +109,57 @@ pub struct VerifierConfig {
 
 pub type CancelFn = Box<dyn FnOnce()>;
 
-pub struct Verifier {
-    pub config: VerifierConfig,
-    pub connected_server_id: Option<PubKey>,
-    graph_dataset: Option<Store>,
-    user_storage: Option<Box<dyn UserStorage>>,
-}
-
-impl fmt::Debug for Verifier {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Verifier\nconfig: {:?}", self.config)?;
-        writeln!(f, "connected_server_id: {:?}", self.connected_server_id)
-    }
-}
-
-impl Verifier {
-    pub fn new(config: VerifierConfig) -> Result<Self, StorageError> {
-        let (graph, user) = match &config.config_type {
-            VerifierConfigType::Memory | VerifierConfigType::JsSaveSession(_) => (
-                Some(Store::new().unwrap()),
-                Some(Box::new(InMemoryUserStorage::new()) as Box<dyn UserStorage>),
-            ),
-            #[cfg(not(target_family = "wasm"))]
-            VerifierConfigType::RocksDb(path) => (
-                // FIXME BIG TIME: we are reusing the same encryption key here.
-                // this is very temporary, until we remove the code in oxi_rocksdb of oxigraph,
-                // and have oxigraph use directly the UserStorage
-                Some(Store::open_with_key(path, config.user_master_key).unwrap()),
-                Some(
-                    Box::new(RocksDbUserStorage::open(path, config.user_master_key)?)
-                        as Box<dyn UserStorage>,
-                ),
-            ),
-            VerifierConfigType::Remote(_) => (None, None),
-            _ => unimplemented!(), // can be WebRocksDb or RocksDb on wasm platforms
-        };
-        Ok(Verifier {
-            config,
-            connected_server_id: None,
-            graph_dataset: graph,
-            user_storage: user,
-        })
-    }
-
-    pub fn doc_fetch(
-        &self,
-        nuri: String,
-        payload: Option<AppRequestPayload>,
-    ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-        unimplemented!();
-    }
-}
-
 //
 // APP PROTOCOL (between APP and VERIFIER)
 //
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AppRequestV0 {}
+pub enum AppFetchContentV0 {
+    Get,        // more to be detailed
+    ReadQuery,  // more to be detailed
+    WriteQuery, // more to be detailed
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppFetchV0 {
+    pub doc_id: RepoId,
+
+    pub branch_id: Option<BranchId>,
+
+    pub store: StoreRepo,
+
+    pub content: AppFetchContentV0,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AppRequestContentV0 {
+    FetchNuri,
+    Fetch(AppFetchV0),
+    Pin,
+    UnPin,
+    Delete,
+    Create,
+    FileGet, // needs the Nuri of branch/doc/store AND ObjectId
+    FilePut, // needs the Nuri of branch/doc/store
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppRequestV0 {
+    pub nuri: Option<String>,
+
+    pub content: AppRequestContentV0,
+
+    pub payload: Option<AppRequestPayload>,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppRequest {
     V0(AppRequestV0),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AppQuery {
+    V0(String), // Sparql
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -202,8 +199,12 @@ pub struct AppDelete {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppRequestPayloadV0 {
     Create(AppCreate),
+    Query(AppQuery),
     Update(AppUpdate),
     Delete(AppDelete),
+    SmallFilePut(SmallFile),
+    RandomAccessFilePut(String),                   // content_type
+    RandomAccessFilePutChunk((ObjectId, Vec<u8>)), // end the upload with an empty vec
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -257,9 +258,19 @@ pub struct AppPatch {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FileName {
+    name: Option<String>,
+    reference: ObjectRef,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppResponseV0 {
     State(AppState),
     Patch(AppPatch),
+    Text(String),
+    File(FileName),
+    FileBinary(Vec<u8>),
+    QueryResult, // see sparesults
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

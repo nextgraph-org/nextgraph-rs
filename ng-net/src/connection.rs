@@ -31,7 +31,7 @@ use async_std::sync::Mutex;
 use either::Either;
 use futures::{channel::mpsc, select, FutureExt, SinkExt};
 use ng_repo::log::*;
-use ng_repo::types::{DirectPeerId, PrivKey, PubKey, X25519PrivKey};
+use ng_repo::types::{DirectPeerId, PrivKey, PubKey, UserId, X25519PrivKey};
 use ng_repo::utils::{sign, verify};
 use noise_protocol::{patterns::noise_xk, CipherState, HandshakeState};
 use noise_rust_crypto::*;
@@ -252,6 +252,13 @@ impl NoiseFSM {
             remote,
             nonce_for_hello: vec![],
             config: None,
+        }
+    }
+
+    pub fn user_id(&self) -> Option<UserId> {
+        match &self.config {
+            Some(start_config) => start_config.get_user(),
+            _ => None,
         }
     }
 

@@ -17,6 +17,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use crate::block_storage::*;
 use crate::errors::*;
 use crate::object::*;
+use crate::store::Store;
 use crate::types::*;
 use crate::utils::encrypt_in_place;
 
@@ -97,7 +98,7 @@ impl Branch {
         target_heads: &[ObjectId],
         known_heads: &[ObjectId],
         //their_filter: &BloomFilter,
-        store: &Box<impl BlockStorage + ?Sized>,
+        store: &Store,
     ) -> Result<Vec<ObjectId>, ObjectParseError> {
         //log_debug!(">> sync_req");
         //log_debug!("   target_heads: {:?}", target_heads);
@@ -108,7 +109,7 @@ impl Branch {
         /// optionally collecting the missing objects/blocks that couldn't be found locally on the way
         fn load_causal_past(
             cobj: &Object,
-            store: &Box<impl BlockStorage + ?Sized>,
+            store: &Store,
             theirs: &HashSet<ObjectId>,
             visited: &mut HashSet<ObjectId>,
             missing: &mut Option<&mut HashSet<ObjectId>>,
@@ -179,26 +180,27 @@ mod test {
 
     //use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
 
-    struct Test<'a> {
-        storage: Box<dyn BlockStorage + Send + Sync + 'a>,
-    }
+    // struct Test<'a> {
+    //     storage: Box<dyn BlockStorage + Send + Sync + 'a>,
+    // }
 
-    impl<'a> Test<'a> {
-        fn storage(s: impl BlockStorage + 'a) -> Self {
-            Test {
-                storage: Box::new(s),
-            }
-        }
-        fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
-            &self.storage
-        }
-    }
+    // impl<'a> Test<'a> {
+    //     fn storage(s: impl BlockStorage + 'a) -> Self {
+    //         Test {
+    //             storage: Box::new(s),
+    //         }
+    //     }
+    //     fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
+    //         &self.storage
+    //     }
+    // }
 
     use crate::branch::*;
 
     use crate::repo::Repo;
 
     use crate::log::*;
+    use crate::store::Store;
     use crate::utils::*;
 
     #[test]
@@ -206,18 +208,10 @@ mod test {
         fn add_obj(
             content: ObjectContentV0,
             header: Option<CommitHeader>,
-            store_pubkey: &StoreRepo,
-            store_secret: &ReadCapSecret,
-            store: &Box<impl BlockStorage + ?Sized>,
+            store: &Store,
         ) -> ObjectRef {
             let max_object_size = 4000;
-            let mut obj = Object::new(
-                ObjectContent::V0(content),
-                header,
-                max_object_size,
-                store_pubkey,
-                store_secret,
-            );
+            let mut obj = Object::new(ObjectContent::V0(content), header, max_object_size, store);
             log_debug!(">>> add_obj");
             log_debug!("     id: {:?}", obj.id());
             log_debug!("     header: {:?}", obj.header());
@@ -233,16 +227,14 @@ mod test {
             deps: Vec<ObjectRef>,
             acks: Vec<ObjectRef>,
             body_ref: ObjectRef,
-            store_pubkey: &StoreRepo,
-            store_secret: &ReadCapSecret,
-            store: &Box<impl BlockStorage + ?Sized>,
+            store: &Store,
         ) -> ObjectRef {
             let header = CommitHeader::new_with_deps_and_acks(
                 deps.iter().map(|r| r.id).collect(),
                 acks.iter().map(|r| r.id).collect(),
             );
 
-            let overlay = store_pubkey.overlay_id_for_read_purpose();
+            let overlay = store.get_store_repo().overlay_id_for_read_purpose();
 
             let obj_ref = ObjectRef {
                 id: ObjectId::Blake3Digest32([1; 32]),
@@ -268,57 +260,34 @@ mod test {
             )
             .unwrap();
             //log_debug!("commit: {:?}", commit);
-            add_obj(
-                ObjectContentV0::Commit(Commit::V0(commit)),
-                header,
-                store_pubkey,
-                store_secret,
-                store,
-            )
+            add_obj(ObjectContentV0::Commit(Commit::V0(commit)), header, store)
         }
 
-        fn add_body_branch(
-            branch: BranchV0,
-            store_pubkey: &StoreRepo,
-            store_secret: &ReadCapSecret,
-            store: &Box<impl BlockStorage + ?Sized>,
-        ) -> ObjectRef {
+        fn add_body_branch(branch: BranchV0, store: &Store) -> ObjectRef {
             let body: CommitBodyV0 = CommitBodyV0::Branch(Branch::V0(branch));
             //log_debug!("body: {:?}", body);
             add_obj(
                 ObjectContentV0::CommitBody(CommitBody::V0(body)),
                 None,
-                store_pubkey,
-                store_secret,
                 store,
             )
         }
 
-        fn add_body_trans(
-            header: Option<CommitHeader>,
-            store_pubkey: &StoreRepo,
-            store_secret: &ReadCapSecret,
-            store: &Box<impl BlockStorage + ?Sized>,
-        ) -> ObjectRef {
+        fn add_body_trans(header: Option<CommitHeader>, store: &Store) -> ObjectRef {
             let content = [7u8; 777].to_vec();
             let body = CommitBodyV0::AsyncTransaction(Transaction::V0(content));
             //log_debug!("body: {:?}", body);
             add_obj(
                 ObjectContentV0::CommitBody(CommitBody::V0(body)),
                 header,
-                store_pubkey,
-                store_secret,
                 store,
             )
         }
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
         // repo
 
         let (repo_privkey, repo_pubkey) = generate_keypair();
-        let (store_repo, repo_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_with_key(repo_pubkey);
 
         // branch
 
@@ -332,8 +301,8 @@ mod test {
             &repo_pubkey,
             &member_pubkey,
             &[PermissionV0::WriteAsync],
-            store_repo.overlay_id_for_read_purpose(),
-            t.s(),
+            store.get_store_repo().overlay_id_for_read_purpose(),
+            store,
         );
 
         let repo_ref = ObjectRef {
@@ -369,14 +338,9 @@ mod test {
 
         // commit bodies
 
-        let branch_body = add_body_branch(
-            branch.clone(),
-            &store_repo,
-            &repo_secret,
-            repo.get_storage(),
-        );
+        let branch_body = add_body_branch(branch.clone(), &repo.store);
 
-        let trans_body = add_body_trans(None, &store_repo, &repo_secret, repo.get_storage());
+        let trans_body = add_body_trans(None, &repo.store);
 
         // create & add commits to store
 
@@ -389,9 +353,7 @@ mod test {
             vec![],
             vec![],
             branch_body.clone(),
-            &store_repo,
-            &repo_secret,
-            repo.get_storage(),
+            &repo.store,
         );
 
         log_debug!(">> t1");
@@ -403,9 +365,7 @@ mod test {
             vec![br.clone()],
             vec![],
             trans_body.clone(),
-            &store_repo,
-            &repo_secret,
-            repo.get_storage(),
+            &repo.store,
         );
 
         log_debug!(">> t2");
@@ -417,9 +377,7 @@ mod test {
             vec![br.clone()],
             vec![],
             trans_body.clone(),
-            &store_repo,
-            &repo_secret,
-            repo.get_storage(),
+            &repo.store,
         );
 
         // log_debug!(">> a3");
@@ -445,9 +403,7 @@ mod test {
             vec![t2.clone()],
             vec![t1.clone()],
             trans_body.clone(),
-            &store_repo,
-            &repo_secret,
-            repo.get_storage(),
+            &repo.store,
         );
 
         log_debug!(">> t5");
@@ -459,9 +415,7 @@ mod test {
             vec![t1.clone(), t2.clone()],
             vec![t4.clone()],
             trans_body.clone(),
-            &store_repo,
-            &repo_secret,
-            repo.get_storage(),
+            &repo.store,
         );
 
         log_debug!(">> a6");
@@ -473,9 +427,7 @@ mod test {
             vec![t4.clone()],
             vec![],
             trans_body.clone(),
-            &store_repo,
-            &repo_secret,
-            repo.get_storage(),
+            &repo.store,
         );
 
         log_debug!(">> a7");
@@ -487,12 +439,10 @@ mod test {
             vec![t4.clone()],
             vec![],
             trans_body.clone(),
-            &store_repo,
-            &repo_secret,
-            repo.get_storage(),
+            &repo.store,
         );
 
-        let c7 = Commit::load(a7.clone(), repo.get_storage(), true).unwrap();
+        let c7 = Commit::load(a7.clone(), &repo.store, true).unwrap();
         c7.verify(&repo).unwrap();
 
         // let mut filter = Filter::new(FilterBuilder::new(10, 0.01));
@@ -517,7 +467,7 @@ mod test {
             &[t5.id, a6.id, a7.id],
             &[t5.id],
             //&their_commits,
-            repo.get_storage(),
+            &repo.store,
         )
         .unwrap();
 

@@ -79,6 +79,7 @@ impl<'a> Overlay<'a> {
                 &to_vec(&id)?,
                 Some(Self::SECRET),
                 &to_vec(&secret)?,
+                &None,
             )?;
             if repo.is_some() {
                 tx.put(
@@ -86,6 +87,7 @@ impl<'a> Overlay<'a> {
                     &to_vec(&id)?,
                     Some(Self::REPO),
                     &to_vec(&repo.unwrap())?,
+                    &None,
                 )?;
             }
             let meta = OverlayMeta {
@@ -97,6 +99,7 @@ impl<'a> Overlay<'a> {
                 &to_vec(&id)?,
                 Some(Self::META),
                 &to_vec(&meta)?,
+                &None,
             )?;
             Ok(())
         })?;
@@ -108,6 +111,7 @@ impl<'a> Overlay<'a> {
                 Self::PREFIX,
                 &to_vec(&self.id).unwrap(),
                 Some(Self::SUFFIX_FOR_EXIST_CHECK),
+                &None,
             )
             .is_ok()
     }
@@ -122,7 +126,8 @@ impl<'a> Overlay<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::PEER),
-            to_vec(peer)?,
+            &to_vec(peer)?,
+            &None,
         )
     }
     pub fn remove_peer(&self, peer: &PeerId) -> Result<(), StorageError> {
@@ -130,7 +135,8 @@ impl<'a> Overlay<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::PEER),
-            to_vec(peer)?,
+            &to_vec(peer)?,
+            &None,
         )
     }
 
@@ -140,6 +146,7 @@ impl<'a> Overlay<'a> {
             &to_vec(&self.id)?,
             Some(Self::PEER),
             &to_vec(peer)?,
+            &None,
         )
     }
 
@@ -151,7 +158,8 @@ impl<'a> Overlay<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::TOPIC),
-            to_vec(topic)?,
+            &to_vec(topic)?,
+            &None,
         )
     }
     pub fn remove_topic(&self, topic: &TopicId) -> Result<(), StorageError> {
@@ -159,7 +167,8 @@ impl<'a> Overlay<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::TOPIC),
-            to_vec(topic)?,
+            &to_vec(topic)?,
+            &None,
         )
     }
 
@@ -169,13 +178,14 @@ impl<'a> Overlay<'a> {
             &to_vec(&self.id)?,
             Some(Self::TOPIC),
             &to_vec(topic)?,
+            &None,
         )
     }
 
     pub fn secret(&self) -> Result<SymKey, StorageError> {
         match self
             .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::SECRET))
+            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::SECRET), &None)
         {
             Ok(secret) => Ok(from_slice::<SymKey>(&secret)?),
             Err(e) => Err(e),
@@ -185,7 +195,7 @@ impl<'a> Overlay<'a> {
     pub fn metadata(&self) -> Result<OverlayMeta, StorageError> {
         match self
             .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::META))
+            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::META), &None)
         {
             Ok(meta) => Ok(from_slice::<OverlayMeta>(&meta)?),
             Err(e) => Err(e),
@@ -199,14 +209,15 @@ impl<'a> Overlay<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::META),
-            to_vec(meta)?,
+            &to_vec(meta)?,
+            &None,
         )
     }
 
     pub fn repo(&self) -> Result<PubKey, StorageError> {
         match self
             .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::REPO))
+            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::REPO), &None)
         {
             Ok(repo) => Ok(from_slice::<PubKey>(&repo)?),
             Err(e) => Err(e),
@@ -214,7 +225,11 @@ impl<'a> Overlay<'a> {
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store
-            .del_all(Self::PREFIX, &to_vec(&self.id)?, &Self::ALL_PROPERTIES)
+        self.store.del_all(
+            Self::PREFIX,
+            &to_vec(&self.id)?,
+            &Self::ALL_PROPERTIES,
+            &None,
+        )
     }
 }

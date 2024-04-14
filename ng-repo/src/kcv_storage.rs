@@ -8,6 +8,8 @@
 
 //! KeyColumnValue Store abstraction
 
+use std::collections::HashMap;
+
 use crate::errors::StorageError;
 
 // TODO:remove mut on self for trait WriteTransaction methods
@@ -15,46 +17,62 @@ use crate::errors::StorageError;
 pub trait WriteTransaction: ReadTransaction {
     /// Save a property value to the store.
     fn put(
-        &mut self,
+        &self,
         prefix: u8,
         key: &Vec<u8>,
         suffix: Option<u8>,
         value: &Vec<u8>,
+        family: &Option<String>,
     ) -> Result<(), StorageError>;
 
     /// Replace the property of a key (single value) to the store.
     fn replace(
-        &mut self,
+        &self,
         prefix: u8,
         key: &Vec<u8>,
         suffix: Option<u8>,
         value: &Vec<u8>,
+        family: &Option<String>,
     ) -> Result<(), StorageError>;
 
     /// Delete a property from the store.
-    fn del(&mut self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<(), StorageError>;
+    fn del(
+        &self,
+        prefix: u8,
+        key: &Vec<u8>,
+        suffix: Option<u8>,
+        family: &Option<String>,
+    ) -> Result<(), StorageError>;
 
     /// Delete all properties of a key from the store.
     fn del_all(
-        &mut self,
+        &self,
         prefix: u8,
         key: &Vec<u8>,
         all_suffixes: &[u8],
+        family: &Option<String>,
     ) -> Result<(), StorageError>;
 
     /// Delete a specific value for a property from the store.
     fn del_property_value(
-        &mut self,
+        &self,
         prefix: u8,
         key: &Vec<u8>,
         suffix: Option<u8>,
         value: &Vec<u8>,
+        family: &Option<String>,
     ) -> Result<(), StorageError>;
 }
 
 pub trait ReadTransaction {
     /// Load a property from the store.
-    fn get(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<Vec<u8>, StorageError>;
+    fn get(
+        &self,
+        prefix: u8,
+        key: &Vec<u8>,
+        suffix: Option<u8>,
+        family: &Option<String>,
+    ) -> Result<Vec<u8>, StorageError>;
 
     /// Load all the values of a property from the store.
     #[deprecated(
@@ -65,7 +83,16 @@ pub trait ReadTransaction {
         prefix: u8,
         key: &Vec<u8>,
         suffix: Option<u8>,
+        family: &Option<String>,
     ) -> Result<Vec<Vec<u8>>, StorageError>;
+
+    fn get_all_properties_of_key(
+        &self,
+        prefix: u8,
+        key: Vec<u8>,
+        properties: Vec<u8>,
+        family: &Option<String>,
+    ) -> Result<HashMap<u8, Vec<u8>>, StorageError>;
 
     /// Check if a specific value exists for a property from the store.
     fn has_property_value(
@@ -74,6 +101,7 @@ pub trait ReadTransaction {
         key: &Vec<u8>,
         suffix: Option<u8>,
         value: &Vec<u8>,
+        family: &Option<String>,
     ) -> Result<(), StorageError>;
 
     /// retrieves all the keys and values with the given prefix and key_size. if no suffix is specified, then all (including none) the suffices are returned
@@ -83,45 +111,46 @@ pub trait ReadTransaction {
         key_size: usize,
         key_prefix: Vec<u8>,
         suffix: Option<u8>,
+        family: &Option<String>,
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError>;
 }
 
-pub trait KCVStore: ReadTransaction {
+pub trait KCVStore: WriteTransaction {
     fn write_transaction(
         &self,
         method: &mut dyn FnMut(&mut dyn WriteTransaction) -> Result<(), StorageError>,
     ) -> Result<(), StorageError>;
 
-    /// Save a property value to the store.
-    fn put(
-        &self,
-        prefix: u8,
-        key: &Vec<u8>,
-        suffix: Option<u8>,
-        value: Vec<u8>,
-    ) -> Result<(), StorageError>;
+    // /// Save a property value to the store.
+    // fn put(
+    //     &self,
+    //     prefix: u8,
+    //     key: &Vec<u8>,
+    //     suffix: Option<u8>,
+    //     value: Vec<u8>,
+    // ) -> Result<(), StorageError>;
 
-    /// Replace the property of a key (single value) to the store.
-    fn replace(
-        &self,
-        prefix: u8,
-        key: &Vec<u8>,
-        suffix: Option<u8>,
-        value: Vec<u8>,
-    ) -> Result<(), StorageError>;
+    // /// Replace the property of a key (single value) to the store.
+    // fn replace(
+    //     &self,
+    //     prefix: u8,
+    //     key: &Vec<u8>,
+    //     suffix: Option<u8>,
+    //     value: Vec<u8>,
+    // ) -> Result<(), StorageError>;
 
-    /// Delete a property from the store.
-    fn del(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<(), StorageError>;
+    // /// Delete a property from the store.
+    // fn del(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<(), StorageError>;
 
-    /// Delete all properties of a key from the store.
-    fn del_all(&self, prefix: u8, key: &Vec<u8>, all_suffixes: &[u8]) -> Result<(), StorageError>;
+    // /// Delete all properties of a key from the store.
+    // fn del_all(&self, prefix: u8, key: &Vec<u8>, all_suffixes: &[u8]) -> Result<(), StorageError>;
 
-    /// Delete a specific value for a property from the store.
-    fn del_property_value(
-        &self,
-        prefix: u8,
-        key: &Vec<u8>,
-        suffix: Option<u8>,
-        value: Vec<u8>,
-    ) -> Result<(), StorageError>;
+    // /// Delete a specific value for a property from the store.
+    // fn del_property_value(
+    //     &self,
+    //     prefix: u8,
+    //     key: &Vec<u8>,
+    //     suffix: Option<u8>,
+    //     value: Vec<u8>,
+    // ) -> Result<(), StorageError>;
 }

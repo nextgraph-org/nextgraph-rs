@@ -11,6 +11,7 @@
 use crate::block_storage::*;
 use crate::errors::*;
 use crate::object::*;
+use crate::store::Store;
 use crate::types::*;
 use crate::utils::*;
 use core::fmt;
@@ -55,13 +56,12 @@ impl fmt::Display for EventContentV0 {
 impl Event {
     pub fn new<'a>(
         publisher: &PrivKey,
-        seq: &mut u64,
+        seq: u64,
         commit: &Commit,
         additional_blocks: &Vec<BlockId>,
         topic_id: TopicId,
-        branch_read_cap_secret: ReadCapSecret,
         topic_priv_key: &BranchWriteCapSecret,
-        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
+        store: &'a Store,
     ) -> Result<Event, NgError> {
         Ok(Event::V0(EventV0::new(
             publisher,
@@ -69,9 +69,8 @@ impl Event {
             commit,
             additional_blocks,
             topic_id,
-            branch_read_cap_secret,
             topic_priv_key,
-            storage,
+            store,
         )?))
     }
 }
@@ -79,27 +78,27 @@ impl Event {
 impl EventV0 {
     pub fn new<'a>(
         publisher: &PrivKey,
-        seq: &mut u64,
+        seq: u64,
         commit: &Commit,
         additional_blocks: &Vec<BlockId>,
         topic_id: TopicId,
-        branch_read_cap_secret: ReadCapSecret,
         topic_priv_key: &BranchWriteCapSecret,
-        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
+        store: &'a Store,
     ) -> Result<EventV0, NgError> {
+        let branch_read_cap_secret = &store.get_store_readcap().key;
         let mut blocks = vec![];
         for bid in commit.blocks().iter() {
-            blocks.push(storage.get(bid)?);
+            blocks.push(store.get(bid)?);
         }
         for bid in additional_blocks.iter() {
-            blocks.push(storage.get(bid)?);
+            blocks.push(store.get(bid)?);
         }
-        (*seq) += 1;
+        // (*seq) += 1;
         let publisher_pubkey = publisher.to_pub();
         let event_content = EventContentV0 {
             topic: topic_id,
             publisher: PeerId::Forwarded(publisher_pubkey),
-            seq: *seq,
+            seq,
             blocks,
             file_ids: commit
                 .header()

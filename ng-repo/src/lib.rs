@@ -24,6 +24,8 @@ pub mod repo;
 
 pub mod site;
 
+pub mod store;
+
 pub mod event;
 
 pub mod utils;

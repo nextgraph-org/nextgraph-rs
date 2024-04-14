@@ -21,6 +21,7 @@ use crate::block_storage::*;
 use crate::errors::*;
 use crate::log::*;
 use crate::object::*;
+use crate::store::Store;
 use crate::types::*;
 
 /// File errors
@@ -80,21 +81,17 @@ pub struct File<'a> {
 }
 
 impl<'a> File<'a> {
-    pub fn open(
-        id: ObjectId,
-        key: SymKey,
-        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
-    ) -> Result<File<'a>, FileError> {
-        let root_block = storage.get(&id)?;
+    pub fn open(id: ObjectId, key: SymKey, store: &'a Store) -> Result<File<'a>, FileError> {
+        let root_block = store.get(&id)?;
 
         if root_block.children().len() == 2
             && *root_block.content().commit_header_obj() == CommitHeaderObject::RandomAccess
         {
             Ok(File {
-                internal: Box::new(RandomAccessFile::open(id, key, storage)?),
+                internal: Box::new(RandomAccessFile::open(id, key, store)?),
             })
         } else {
-            let obj = Object::load(id, Some(key), storage)?;
+            let obj = Object::load(id, Some(key), store)?;
             match obj.content_v0()? {
                 ObjectContentV0::SmallFile(small_file) => Ok(File {
                     internal: Box::new(small_file),
@@ -134,7 +131,7 @@ impl ReadFile for SmallFileV0 {
 /// A RandomAccessFile in memory. This is not used to serialize data
 pub struct RandomAccessFile<'a> {
     //storage: Arc<&'a dyn BlockStorage>,
-    storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
+    store: &'a Store,
     /// accurate once saved or opened
     meta: RandomAccessFileMeta,
 
@@ -177,7 +174,7 @@ impl<'a> ReadFile for RandomAccessFile<'a> {
 
             let mut level_pos = pos;
             for level in 0..depth {
-                let tree_block = self.storage.get(&current_block_id_key.0)?;
+                let tree_block = self.store.get(&current_block_id_key.0)?;
                 let (children, content) = tree_block.read(&current_block_id_key.1)?;
                 if children.len() == 0 || content.len() > 0 {
                     return Err(FileError::BlockDeserializeError);
@@ -192,7 +189,7 @@ impl<'a> ReadFile for RandomAccessFile<'a> {
                 level_pos = pos as usize % factor;
             }
 
-            let content_block = self.storage.get(&current_block_id_key.0)?;
+            let content_block = self.store.get(&current_block_id_key.0)?;
             //log_debug!("CONTENT BLOCK SIZE {}", content_block.size());
 
             let (children, content) = content_block.read(&current_block_id_key.1)?;
@@ -228,7 +225,7 @@ impl<'a> ReadFile for RandomAccessFile<'a> {
                 return Err(FileError::EndOfFile);
             }
             let block = &self.blocks[index];
-            let content_block = self.storage.get(&block.0)?;
+            let content_block = self.store.get(&block.0)?;
             let (children, content) = content_block.read(&block.1)?;
             if children.len() == 0 && content.len() > 0 {
                 //log_debug!("CONTENT SIZE {}", content.len());
@@ -263,7 +260,7 @@ impl<'a> RandomAccessFile<'a> {
         conv_key: &[u8; blake3::OUT_LEN],
         children: Vec<ObjectId>,
         already_existing: &mut HashMap<BlockKey, BlockId>,
-        storage: &Box<dyn BlockStorage + Send + Sync + 'a>,
+        store: &Store,
     ) -> Result<(BlockId, BlockKey), StorageError> {
         let key_hash = blake3::keyed_hash(conv_key, &content);
 
@@ -286,7 +283,7 @@ impl<'a> RandomAccessFile<'a> {
         let id = block.get_and_save_id();
         already_existing.insert(key.clone(), id);
         //log_debug!("putting *** {}", id);
-        storage.put(&block)?;
+        store.put(&block)?;
         Ok((id, key))
     }
 
@@ -294,7 +291,7 @@ impl<'a> RandomAccessFile<'a> {
         conv_key: &[u8; blake3::OUT_LEN],
         children: Vec<(BlockId, BlockKey)>,
         already_existing: &mut HashMap<BlockKey, BlockId>,
-        storage: &Box<dyn BlockStorage + Send + Sync + 'a>,
+        store: &Store,
     ) -> Result<(BlockId, BlockKey), StorageError> {
         let mut ids: Vec<BlockId> = Vec::with_capacity(children.len());
         let mut keys: Vec<BlockKey> = Vec::with_capacity(children.len());
@@ -305,7 +302,7 @@ impl<'a> RandomAccessFile<'a> {
         let content = ChunkContentV0::InternalNode(keys);
         let content_ser = serde_bare::to_vec(&content).unwrap();
 
-        Self::make_block(content_ser, conv_key, ids, already_existing, storage)
+        Self::make_block(content_ser, conv_key, ids, already_existing, store)
     }
 
     /// Build tree from leaves, returns parent nodes
@@ -314,7 +311,7 @@ impl<'a> RandomAccessFile<'a> {
         leaves: &[(BlockId, BlockKey)],
         conv_key: &ChaCha20Key,
         arity: u16,
-        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
+        store: &Store,
     ) -> Result<(BlockId, BlockKey), StorageError> {
         let mut parents: Vec<(BlockId, BlockKey)> = vec![];
         let mut chunks = leaves.chunks(arity as usize);
@@ -324,19 +321,13 @@ impl<'a> RandomAccessFile<'a> {
                 conv_key,
                 nodes.to_vec(),
                 already_existing,
-                storage,
+                store,
             )?);
         }
         //log_debug!("level with {} parents", parents.len());
 
         if 1 < parents.len() {
-            return Self::make_tree(
-                already_existing,
-                parents.as_slice(),
-                conv_key,
-                arity,
-                storage,
-            );
+            return Self::make_tree(already_existing, parents.as_slice(), conv_key, arity, store);
         }
         Ok(parents[0].clone())
     }
@@ -347,7 +338,7 @@ impl<'a> RandomAccessFile<'a> {
         blocks: &[(BlockId, BlockKey)],
         meta: &mut RandomAccessFileMeta,
         conv_key: &ChaCha20Key,
-        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
+        store: &Store,
     ) -> Result<((BlockId, BlockKey), (BlockId, BlockKey)), FileError> {
         let leaf_blocks_nbr = blocks.len();
         let arity = meta.arity();
@@ -370,7 +361,7 @@ impl<'a> RandomAccessFile<'a> {
             blocks[0].clone()
         } else {
             // we create the tree
-            Self::make_tree(already_existing, &blocks, &conv_key, arity, storage)?
+            Self::make_tree(already_existing, &blocks, &conv_key, arity, store)?
         };
 
         let meta_object = Object::new_with_convergence_key(
@@ -380,7 +371,7 @@ impl<'a> RandomAccessFile<'a> {
             conv_key,
         );
         //log_debug!("saving meta object");
-        _ = meta_object.save(storage)?;
+        _ = meta_object.save(store)?;
 
         // creating the root block that contains as first child the meta_object, and as second child the content_block
         // it is added to storage in make_parent_block
@@ -392,21 +383,20 @@ impl<'a> RandomAccessFile<'a> {
                 content_block.clone(),
             ],
             already_existing,
-            storage,
+            store,
         )?;
         Ok((content_block, root_block))
     }
 
     /// Creates a new file based on a content that is fully known at the time of creation.
+    ///
     /// If you want to stream progressively the content into the new file, you should use new_empty(), write() and save() instead
     pub fn new_from_slice(
         content: &[u8],
         block_size: usize,
         content_type: String,
         metadata: Vec<u8>,
-        store: &StoreRepo,
-        store_secret: &ReadCapSecret,
-        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
+        store: &'a Store,
     ) -> Result<RandomAccessFile<'a>, FileError> {
         //let max_block_size = store_max_value_size();
         let valid_block_size = store_valid_value_size(block_size) - BLOCK_EXTRA;
@@ -415,7 +405,7 @@ impl<'a> RandomAccessFile<'a> {
 
         let total_size = content.len() as u64;
 
-        let mut conv_key = Object::convergence_key(store, store_secret);
+        let mut conv_key = Object::convergence_key(store);
 
         let mut blocks: Vec<(BlockId, BlockKey)> = vec![];
 
@@ -430,7 +420,7 @@ impl<'a> RandomAccessFile<'a> {
                 &conv_key,
                 vec![],
                 &mut already_existing,
-                storage,
+                store,
             )?);
         }
         assert_eq!(
@@ -447,18 +437,13 @@ impl<'a> RandomAccessFile<'a> {
             depth: 0,
         });
 
-        let (content_block, root_block) = Self::save_(
-            &mut already_existing,
-            &blocks,
-            &mut meta,
-            &conv_key,
-            storage,
-        )?;
+        let (content_block, root_block) =
+            Self::save_(&mut already_existing, &blocks, &mut meta, &conv_key, store)?;
 
         conv_key.zeroize();
 
         Ok(Self {
-            storage,
+            store,
             meta,
             block_contents: HashMap::new(), // not used in this case
             blocks: vec![],                 // not used in this case
@@ -475,9 +460,7 @@ impl<'a> RandomAccessFile<'a> {
         block_size: usize,
         content_type: String,
         metadata: Vec<u8>,
-        store: &StoreRepo,
-        store_secret: &ReadCapSecret,
-        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
+        store: &'a Store,
     ) -> Self {
         let valid_block_size = store_valid_value_size(block_size) - BLOCK_EXTRA;
 
@@ -493,14 +476,14 @@ impl<'a> RandomAccessFile<'a> {
         });
 
         Self {
-            storage,
+            store,
             meta,
             block_contents: HashMap::new(),
             blocks: vec![],
             id: None,
             key: None,
             content_block: None,
-            conv_key: Some(Object::convergence_key(store, store_secret)),
+            conv_key: Some(Object::convergence_key(store)),
             remainder: vec![],
             size: 0,
         }
@@ -535,7 +518,7 @@ impl<'a> RandomAccessFile<'a> {
                     &conv_key,
                     vec![],
                     &mut already_existing,
-                    self.storage,
+                    self.store,
                 )?);
             } else {
                 // not enough data to create a new block
@@ -558,7 +541,7 @@ impl<'a> RandomAccessFile<'a> {
                     &conv_key,
                     vec![],
                     &mut already_existing,
-                    self.storage,
+                    self.store,
                 )?);
             } else {
                 self.remainder = Vec::from(chunck);
@@ -585,7 +568,7 @@ impl<'a> RandomAccessFile<'a> {
                 &self.conv_key.unwrap(),
                 vec![],
                 &mut HashMap::new(),
-                self.storage,
+                self.store,
             )?);
         }
 
@@ -597,7 +580,7 @@ impl<'a> RandomAccessFile<'a> {
             &self.blocks,
             &mut self.meta,
             self.conv_key.as_ref().unwrap(),
-            self.storage,
+            self.store,
         )?;
 
         self.conv_key.as_mut().unwrap().zeroize();
@@ -617,10 +600,10 @@ impl<'a> RandomAccessFile<'a> {
     pub fn open(
         id: ObjectId,
         key: SymKey,
-        storage: &'a Box<dyn BlockStorage + Send + Sync + 'a>,
+        store: &'a Store,
     ) -> Result<RandomAccessFile<'a>, FileError> {
         // load root block
-        let root_block = storage.get(&id)?;
+        let root_block = store.get(&id)?;
 
         if root_block.children().len() != 2
             || *root_block.content().commit_header_obj() != CommitHeaderObject::RandomAccess
@@ -634,7 +617,7 @@ impl<'a> RandomAccessFile<'a> {
         let meta_object = Object::load(
             root_sub_blocks[0].0,
             Some(root_sub_blocks[0].1.clone()),
-            storage,
+            store,
         )?;
 
         let meta = match meta_object.content_v0()? {
@@ -643,7 +626,7 @@ impl<'a> RandomAccessFile<'a> {
         };
 
         Ok(RandomAccessFile {
-            storage,
+            store,
             meta,
             block_contents: HashMap::new(), // not used in this case
             blocks: vec![],                 // not used in this case
@@ -659,7 +642,7 @@ impl<'a> RandomAccessFile<'a> {
     pub fn blocks(&self) -> impl Iterator<Item = Block> + '_ {
         self.blocks
             .iter()
-            .map(|key| self.storage.get(&key.0).unwrap())
+            .map(|key| self.store.get(&key.0).unwrap())
     }
 
     /// Size once encoded, before deduplication. Only available before save()
@@ -674,7 +657,7 @@ impl<'a> RandomAccessFile<'a> {
         let mut total = 0;
         self.block_contents
             .values()
-            .for_each(|b| total += self.storage.get(b).unwrap().size());
+            .for_each(|b| total += self.store.get(b).unwrap().size());
         total
     }
 
@@ -734,20 +717,20 @@ mod test {
     use std::io::BufReader;
     use std::io::Read;
 
-    struct Test<'a> {
-        storage: Box<dyn BlockStorage + Send + Sync + 'a>,
-    }
+    // struct Test<'a> {
+    //     storage: Box<dyn BlockStorage + Send + Sync + 'a>,
+    // }
 
-    impl<'a> Test<'a> {
-        fn storage(s: impl BlockStorage + 'a) -> Self {
-            Test {
-                storage: Box::new(s),
-            }
-        }
-        fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
-            &self.storage
-        }
-    }
+    // impl<'a> Test<'a> {
+    //     fn storage(s: impl BlockStorage + 'a) -> Self {
+    //         Test {
+    //             storage: Box::new(s),
+    //         }
+    //     }
+    //     fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
+    //         &self.store
+    //     }
+    // }
 
     /// Checks that a content that does fit in one block, creates an arity of 0
     #[test]
@@ -755,15 +738,10 @@ mod test {
         let block_size = store_max_value_size();
         //store_valid_value_size(0)
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
-        //let storage: Arc<&dyn BlockStorage> = Arc::new(&hashmap_storage);
-
         ////// 1 MB of data!
         let data_size = block_size - BLOCK_EXTRA;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
         log_debug!("creating 1MB of data");
         let content: Vec<u8> = vec![99; data_size];
 
@@ -773,9 +751,7 @@ mod test {
             block_size,
             "text/plain".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         )
         .expect("new_from_slice");
         log_debug!("{}", file);
@@ -818,9 +794,9 @@ mod test {
         //     MAX_ARITY_LEAVES * (MAX_ARITY_LEAVES + 1) * MAX_ARITY_LEAVES + MAX_ARITY_LEAVES + 1
         // );
         assert_eq!(file.depth(), Ok(0));
-        assert_eq!(t.s().len(), Ok(3));
+        assert_eq!(store.len(), Ok(3));
 
-        let file = RandomAccessFile::open(id, file.key.unwrap(), t.s()).expect("re open");
+        let file = RandomAccessFile::open(id, file.key.unwrap(), &store).expect("re open");
 
         log_debug!("{}", file);
 
@@ -834,13 +810,10 @@ mod test {
         const MAX_ARITY_LEAVES: usize = 15887;
         const MAX_DATA_PAYLOAD_SIZE: usize = 1048564;
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
         ////// 16 GB of data!
         let data_size = MAX_ARITY_LEAVES * MAX_DATA_PAYLOAD_SIZE;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
         log_debug!("creating 16GB of data");
 
         let content: Vec<u8> = vec![99; data_size];
@@ -851,9 +824,7 @@ mod test {
             store_max_value_size(),
             "text/plain".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         )
         .expect("new_from_slice");
         log_debug!("{}", file);
@@ -864,7 +835,7 @@ mod test {
 
         assert_eq!(file.depth(), Ok(1));
 
-        assert_eq!(t.s().len(), Ok(4));
+        assert_eq!(store.len(), Ok(4));
     }
 
     /// Checks that a content that doesn't fit in all the children of first level in tree
@@ -873,13 +844,10 @@ mod test {
         const MAX_ARITY_LEAVES: usize = 15887;
         const MAX_DATA_PAYLOAD_SIZE: usize = 1048564;
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
         ////// 16 GB of data!
         let data_size = MAX_ARITY_LEAVES * MAX_DATA_PAYLOAD_SIZE + 1;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
         log_debug!("creating 16GB of data");
         let content: Vec<u8> = vec![99; data_size];
 
@@ -889,9 +857,7 @@ mod test {
             store_max_value_size(),
             "text/plain".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         )
         .expect("new_from_slice");
         log_debug!("{}", file);
@@ -903,7 +869,7 @@ mod test {
 
         assert_eq!(file.depth().unwrap(), 2);
 
-        assert_eq!(t.s().len(), Ok(7));
+        assert_eq!(store.len(), Ok(7));
     }
 
     /// Checks that a content that doesn't fit in all the children of first level in tree
@@ -911,14 +877,12 @@ mod test {
     pub fn test_depth_3() {
         const MAX_ARITY_LEAVES: usize = 61;
         const MAX_DATA_PAYLOAD_SIZE: usize = 4084;
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
 
         ////// 900 MB of data!
         let data_size =
             MAX_ARITY_LEAVES * MAX_ARITY_LEAVES * MAX_ARITY_LEAVES * MAX_DATA_PAYLOAD_SIZE;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
         log_debug!("creating 900MB of data");
         let content: Vec<u8> = vec![99; data_size];
 
@@ -928,9 +892,7 @@ mod test {
             store_valid_value_size(0),
             "text/plain".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         )
         .expect("new_from_slice");
         log_debug!("{}", file);
@@ -965,7 +927,7 @@ mod test {
         // );
         assert_eq!(file.depth().unwrap(), 3);
 
-        assert_eq!(t.s().len(), Ok(6));
+        assert_eq!(store.len(), Ok(6));
     }
 
     /// Checks that a content that doesn't fit in all the children of first level in tree
@@ -981,10 +943,7 @@ mod test {
             * MAX_ARITY_LEAVES
             * MAX_DATA_PAYLOAD_SIZE;
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
         log_debug!("creating 55GB of data");
         let content: Vec<u8> = vec![99; data_size];
 
@@ -994,9 +953,7 @@ mod test {
             store_valid_value_size(0),
             "text/plain".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         )
         .expect("new_from_slice");
 
@@ -1009,7 +966,7 @@ mod test {
 
         assert_eq!(file.depth().unwrap(), 4);
 
-        assert_eq!(t.s().len(), Ok(7));
+        assert_eq!(store.len(), Ok(7));
     }
 
     /// Test async write to a file all at once
@@ -1022,19 +979,14 @@ mod test {
             .read_to_end(&mut img_buffer)
             .expect("read of test.jpg");
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
 
         log_debug!("creating file with the JPG content");
         let mut file: RandomAccessFile = RandomAccessFile::new_empty(
             store_max_value_size(), //store_valid_value_size(0),//
             "image/jpeg".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         );
 
         log_debug!("{}", file);
@@ -1097,19 +1049,14 @@ mod test {
             .read_to_end(&mut img_buffer)
             .expect("read of test.jpg");
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
 
         log_debug!("creating file with the JPG content");
         let mut file: RandomAccessFile = RandomAccessFile::new_empty(
             store_max_value_size(), //store_valid_value_size(0),//
             "image/jpeg".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         );
 
         log_debug!("{}", file);
@@ -1174,19 +1121,14 @@ mod test {
             .read_to_end(&mut img_buffer)
             .expect("read of test.jpg");
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
 
         log_debug!("creating file with the JPG content");
         let mut file: RandomAccessFile = RandomAccessFile::new_empty(
             store_valid_value_size(0),
             "image/jpeg".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         );
 
         log_debug!("{}", file);
@@ -1259,19 +1201,14 @@ mod test {
 
         let first_block_content = img_buffer[0..4084].to_vec();
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
 
         log_debug!("creating file with the JPG content");
         let mut file: RandomAccessFile = RandomAccessFile::new_empty(
             store_valid_value_size(0),
             "image/jpeg".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         );
 
         log_debug!("{}", file);
@@ -1342,19 +1279,14 @@ mod test {
         let chunk_nbr = data_size / 5000000;
         let last_chunk = data_size % 5000000;
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
 
         log_debug!("creating empty file");
         let mut file: RandomAccessFile = RandomAccessFile::new_empty(
             store_valid_value_size(0),
             "image/jpeg".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         );
 
         log_debug!("{}", file);
@@ -1383,7 +1315,7 @@ mod test {
 
         assert_eq!(file.depth().unwrap(), 4);
 
-        assert_eq!(t.s().len(), Ok(7));
+        assert_eq!(store.len(), Ok(7));
     }
 
     /// Test open
@@ -1396,19 +1328,14 @@ mod test {
             .read_to_end(&mut img_buffer)
             .expect("read of test.jpg");
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
 
         log_debug!("creating file with the JPG content");
         let mut file: RandomAccessFile = RandomAccessFile::new_empty(
             store_max_value_size(), //store_valid_value_size(0),//
             "image/jpeg".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         );
 
         log_debug!("{}", file);
@@ -1419,7 +1346,7 @@ mod test {
 
         file.save().expect("save");
 
-        let file2 = RandomAccessFile::open(file.id().unwrap(), file.key.unwrap(), t.s())
+        let file2 = RandomAccessFile::open(file.id().unwrap(), file.key.unwrap(), &store)
             .expect("reopen file");
 
         // this works only because store_max_value_size() is bigger than the actual size of the JPEG file. so it fits in one block.
@@ -1459,17 +1386,14 @@ mod test {
         let content = ObjectContent::new_file_v0_with_content(img_buffer.clone(), "image/jpeg");
 
         let max_object_size = store_max_value_size();
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
-        let mut obj = Object::new(content, None, max_object_size, &store_repo, &store_secret);
+        let store = Store::dummy_public_v0();
+        let mut obj = Object::new(content, None, max_object_size, &store);
 
         log_debug!("{}", obj);
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
+        let _ = obj.save_in_test(&store).expect("save");
 
-        let _ = obj.save_in_test(t.s()).expect("save");
-
-        let file = File::open(obj.id(), obj.key().unwrap(), t.s()).expect("open");
+        let file = File::open(obj.id(), obj.key().unwrap(), &store).expect("open");
 
         let res = file.read(0, len).expect("read all");
 
@@ -1488,20 +1412,11 @@ mod test {
         let len = img_buffer.len();
 
         let max_object_size = store_max_value_size();
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
-
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
+        let store = Store::dummy_public_v0();
 
         log_debug!("creating empty file");
-        let mut file: RandomAccessFile = RandomAccessFile::new_empty(
-            max_object_size,
-            "image/jpeg".to_string(),
-            vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
-        );
+        let mut file: RandomAccessFile =
+            RandomAccessFile::new_empty(max_object_size, "image/jpeg".to_string(), vec![], &store);
 
         file.write(&img_buffer).expect("write all");
 
@@ -1514,7 +1429,7 @@ mod test {
         let file = File::open(
             file.id().unwrap(),
             file.key().as_ref().unwrap().clone(),
-            t.s(),
+            &store,
         )
         .expect("open");
 
@@ -1533,19 +1448,14 @@ mod test {
         let f = std::fs::File::open("[enter path of a big file here]").expect("open of a big file");
         let mut reader = BufReader::new(f);
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
 
         log_debug!("creating empty file");
         let mut file: RandomAccessFile = RandomAccessFile::new_empty(
             store_valid_value_size(0),
             "image/jpeg".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         );
 
         log_debug!("{}", file);
@@ -1587,19 +1497,14 @@ mod test {
         let f = std::fs::File::open("[enter path of a big file here]").expect("open of a big file");
         let mut reader = BufReader::new(f);
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
 
         log_debug!("creating empty file");
         let mut file: RandomAccessFile = RandomAccessFile::new_empty(
             store_max_value_size(),
             "image/jpeg".to_string(),
             vec![],
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         );
 
         log_debug!("{}", file);

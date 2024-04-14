@@ -159,6 +159,7 @@ pub enum StorageError {
     SerializationError,
     AlreadyExists,
     DataCorruption,
+    UnknownColumnFamily,
 }
 
 impl core::fmt::Display for StorageError {

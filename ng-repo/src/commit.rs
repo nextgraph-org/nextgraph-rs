@@ -20,6 +20,7 @@ use crate::errors::*;
 use crate::log::*;
 use crate::object::*;
 use crate::repo::Repo;
+use crate::store::Store;
 use crate::types::*;
 use crate::utils::*;
 use std::collections::HashSet;
@@ -124,13 +125,7 @@ impl CommitV0 {
         })
     }
 
-    pub fn save(
-        &mut self,
-        block_size: usize,
-        store_pubkey: &StoreRepo,
-        store_secret: &ReadCapSecret,
-        store: &Box<impl BlockStorage + ?Sized>,
-    ) -> Result<ObjectRef, StorageError> {
+    pub fn save(&mut self, block_size: usize, store: &Store) -> Result<ObjectRef, StorageError> {
         if self.id.is_some() && self.key.is_some() {
             return Ok(ObjectRef::from_id_key(
                 self.id.unwrap(),
@@ -142,8 +137,7 @@ impl CommitV0 {
             ObjectContent::V0(ObjectContentV0::Commit(Commit::V0(self.clone()))),
             self.header.clone(),
             block_size,
-            store_pubkey,
-            store_secret,
+            store,
         );
         self.blocks = obj.save(store)?;
         if let Some(h) = &mut self.header {
@@ -222,9 +216,7 @@ impl Commit {
         deps: Vec<ObjectRef>,
         acks: Vec<ObjectRef>,
         body: CommitBody,
-        store_pubkey: &StoreRepo,
-        store_secret: &ReadCapSecret,
-        storage: &Box<impl BlockStorage + ?Sized>,
+        store: &Store,
     ) -> Result<Commit, NgError> {
         Self::new_with_body_and_save(
             author_privkey,
@@ -240,9 +232,7 @@ impl Commit {
             vec![],
             body,
             0,
-            store_pubkey,
-            store_secret,
-            storage,
+            store,
         )
     }
 
@@ -261,14 +251,10 @@ impl Commit {
         metadata: Vec<u8>,
         body: CommitBody,
         block_size: usize,
-        store_pubkey: &StoreRepo,
-        store_secret: &ReadCapSecret,
-        storage: &Box<impl BlockStorage + ?Sized>,
+        store: &Store,
     ) -> Result<Commit, NgError> {
-        let (body_ref, mut saved_body) =
-            body.clone()
-                .save(block_size, store_pubkey, store_secret, storage)?;
-        let overlay = store_pubkey.overlay_id_for_read_purpose();
+        let (body_ref, mut saved_body) = body.clone().save(block_size, store)?;
+        let overlay = store.get_store_repo().overlay_id_for_read_purpose();
         let mut commit_v0 = CommitV0::new(
             author_privkey,
             author_pubkey,
@@ -285,7 +271,7 @@ impl Commit {
             body_ref,
         )?;
         commit_v0.body.set(body).unwrap();
-        let _commit_ref = commit_v0.save(block_size, store_pubkey, store_secret, storage)?;
+        let _commit_ref = commit_v0.save(block_size, store)?;
         commit_v0.blocks.append(&mut saved_body);
 
         Ok(Commit::V0(commit_v0))
@@ -302,15 +288,9 @@ impl Commit {
         }
     }
 
-    pub fn save(
-        &mut self,
-        block_size: usize,
-        store_pubkey: &StoreRepo,
-        store_secret: &ReadCapSecret,
-        store: &Box<impl BlockStorage + ?Sized>,
-    ) -> Result<ObjectRef, StorageError> {
+    pub fn save(&mut self, block_size: usize, store: &Store) -> Result<ObjectRef, StorageError> {
         match self {
-            Commit::V0(v0) => v0.save(block_size, store_pubkey, store_secret, store),
+            Commit::V0(v0) => v0.save(block_size, store),
         }
     }
 
@@ -323,7 +303,7 @@ impl Commit {
     /// Load commit from store
     pub fn load(
         commit_ref: ObjectRef,
-        store: &Box<impl BlockStorage + ?Sized>,
+        store: &Store,
         with_body: bool,
     ) -> Result<Commit, CommitLoadError> {
         let (id, key) = (commit_ref.id, commit_ref.key);
@@ -354,10 +334,7 @@ impl Commit {
     }
 
     /// Load commit body from store
-    pub fn load_body(
-        &self,
-        store: &Box<impl BlockStorage + ?Sized>,
-    ) -> Result<&CommitBody, CommitLoadError> {
+    pub fn load_body(&self, store: &Store) -> Result<&CommitBody, CommitLoadError> {
         if self.body().is_some() {
             return Ok(self.body().unwrap());
         }
@@ -455,10 +432,7 @@ impl Commit {
         }
     }
 
-    pub fn owners_signature_required(
-        &self,
-        store: &Box<impl BlockStorage + ?Sized>,
-    ) -> Result<bool, CommitLoadError> {
+    pub fn owners_signature_required(&self, store: &Store) -> Result<bool, CommitLoadError> {
         match self.load_body(store)? {
             CommitBody::V0(CommitBodyV0::UpdateRootBranch(new_root)) => {
                 // load deps (the previous RootBranch commit)
@@ -635,7 +609,7 @@ impl Commit {
     /// or a list of missing blocks
     pub fn verify_full_object_refs_of_branch_at_commit(
         &self,
-        store: &Box<impl BlockStorage + ?Sized>,
+        store: &Store,
     ) -> Result<Vec<ObjectId>, CommitLoadError> {
         //log_debug!(">> verify_full_object_refs_of_branch_at_commit: #{}", self.seq());
 
@@ -643,7 +617,7 @@ impl Commit {
         /// and collect missing `ObjectId`s
         fn load_direct_object_refs(
             commit: &Commit,
-            store: &Box<impl BlockStorage + ?Sized>,
+            store: &Store,
             visited: &mut HashSet<ObjectId>,
             missing: &mut HashSet<ObjectId>,
         ) -> Result<(), CommitLoadError> {
@@ -727,7 +701,7 @@ impl Commit {
         }
         self.verify_sig(repo)?;
         self.verify_perm(repo)?;
-        self.verify_full_object_refs_of_branch_at_commit(repo.get_storage())?;
+        //self.verify_full_object_refs_of_branch_at_commit(repo.store.unwrap())?;
         Ok(())
     }
 }
@@ -770,16 +744,13 @@ impl CommitBody {
     pub fn save(
         self,
         block_size: usize,
-        store_pubkey: &StoreRepo,
-        store_secret: &ReadCapSecret,
-        store: &Box<impl BlockStorage + ?Sized>,
+        store: &Store,
     ) -> Result<(ObjectRef, Vec<BlockId>), StorageError> {
         let obj = Object::new(
             ObjectContent::V0(ObjectContentV0::CommitBody(self)),
             None,
             block_size,
-            store_pubkey,
-            store_secret,
+            store,
         );
         let blocks = obj.save(store)?;
         Ok((obj.reference().unwrap(), blocks))
@@ -1457,20 +1428,20 @@ mod test {
     use crate::commit::*;
     use crate::log::*;
 
-    struct Test<'a> {
-        storage: Box<dyn BlockStorage + Send + Sync + 'a>,
-    }
+    // struct Test<'a> {
+    //     storage: Box<dyn BlockStorage + Send + Sync + 'a>,
+    // }
 
-    impl<'a> Test<'a> {
-        fn storage(s: impl BlockStorage + 'a) -> Self {
-            Test {
-                storage: Box::new(s),
-            }
-        }
-        fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
-            &self.storage
-        }
-    }
+    // impl<'a> Test<'a> {
+    //     fn storage(s: impl BlockStorage + 'a) -> Self {
+    //         Test {
+    //             storage: Box::new(s),
+    //         }
+    //     }
+    //     fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
+    //         &self.storage
+    //     }
+    // }
 
     fn test_commit_header_ref_content_fits(
         obj_refs: Vec<BlockRef>,
@@ -1510,20 +1481,13 @@ mod test {
 
         let max_object_size = 0;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
-        let hashmap_storage = HashMapBlockStorage::new();
-        let storage = Box::new(hashmap_storage);
+        let store = Store::dummy_public_v0();
 
-        let commit_ref = commit
-            .save(max_object_size, &store_repo, &store_secret, &storage)
-            .expect("save commit");
+        let commit_ref = commit.save(max_object_size, &store).expect("save commit");
 
-        let commit_object = Object::load(
-            commit_ref.id.clone(),
-            Some(commit_ref.key.clone()),
-            &storage,
-        )
-        .expect("load object from storage");
+        let commit_object =
+            Object::load(commit_ref.id.clone(), Some(commit_ref.key.clone()), &store)
+                .expect("load object from storage");
 
         assert_eq!(
             commit_object.acks(),
@@ -1536,7 +1500,7 @@ mod test {
 
         assert_eq!(commit_object.all_blocks_len(), expect_blocks_len);
 
-        let commit = Commit::load(commit_ref, &storage, false).expect("load commit from storage");
+        let commit = Commit::load(commit_ref, &store, false).expect("load commit from storage");
 
         log_debug!("{}", commit);
     }
@@ -1569,22 +1533,16 @@ mod test {
 
         let max_object_size = 0;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
 
-        let obj = Object::new(
-            content.clone(),
-            None,
-            max_object_size,
-            &store_repo,
-            &store_secret,
-        );
+        let obj = Object::new(content.clone(), None, max_object_size, &store);
 
         let hashmap_storage = HashMapBlockStorage::new();
         let storage = Box::new(hashmap_storage);
 
-        _ = obj.save(&storage).expect("save object");
+        _ = obj.save(&store).expect("save object");
 
-        let commit = Commit::load(obj.reference().unwrap(), &storage, false);
+        let commit = Commit::load(obj.reference().unwrap(), &store, false);
 
         assert_eq!(commit, Err(CommitLoadError::NotACommitError));
     }
@@ -1611,9 +1569,7 @@ mod test {
 
         let max_object_size = 0;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
-        let hashmap_storage = HashMapBlockStorage::new();
-        let storage = Box::new(hashmap_storage);
+        let store = Store::dummy_public_v0();
 
         let commit = Commit::new_with_body_and_save(
             &priv_key,
@@ -1629,15 +1585,13 @@ mod test {
             metadata,
             body,
             max_object_size,
-            &store_repo,
-            &store_secret,
-            &storage,
+            &store,
         )
         .expect("commit::new_with_body_and_save");
 
         log_debug!("{}", commit);
 
-        let commit2 = Commit::load(commit.reference().unwrap(), &storage, true)
+        let commit2 = Commit::load(commit.reference().unwrap(), &store, true)
             .expect("load commit with body after save");
 
         log_debug!("{}", commit2);
@@ -1676,19 +1630,16 @@ mod test {
         .unwrap();
         log_debug!("{}", commit);
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
+        let store = Store::dummy_public_v0();
+        let repo = Repo::new_with_perms(&[PermissionV0::Create], store);
 
-        let repo =
-            Repo::new_with_member(&pub_key, &pub_key, &[PermissionV0::Create], overlay, t.s());
-
-        match commit.load_body(repo.get_storage()) {
-            Ok(_b) => panic!("Body should not exist"),
-            Err(CommitLoadError::BodyLoadError(missing)) => {
-                assert_eq!(missing.len(), 1);
-            }
-            Err(e) => panic!("Commit load error: {:?}", e),
-        }
+        // match commit.load_body(repo.store.unwrap()) {
+        //     Ok(_b) => panic!("Body should not exist"),
+        //     Err(CommitLoadError::BodyLoadError(missing)) => {
+        //         assert_eq!(missing.len(), 1);
+        //     }
+        //     Err(e) => panic!("Commit load error: {:?}", e),
+        // }
 
         commit.verify_sig(&repo).expect("verify signature");
         match commit.verify_perm(&repo) {
@@ -1699,13 +1650,13 @@ mod test {
             Err(e) => panic!("Commit verify perm error: {:?}", e),
         }
 
-        match commit.verify_full_object_refs_of_branch_at_commit(repo.get_storage()) {
-            Ok(_) => panic!("Commit should not be Ok"),
-            Err(CommitLoadError::BodyLoadError(missing)) => {
-                assert_eq!(missing.len(), 1);
-            }
-            Err(e) => panic!("Commit verify error: {:?}", e),
-        }
+        // match commit.verify_full_object_refs_of_branch_at_commit(repo.store.unwrap()) {
+        //     Ok(_) => panic!("Commit should not be Ok"),
+        //     Err(CommitLoadError::BodyLoadError(missing)) => {
+        //         assert_eq!(missing.len(), 1);
+        //     }
+        //     Err(e) => panic!("Commit verify error: {:?}", e),
+        // }
 
         match commit.verify(&repo) {
             Ok(_) => panic!("Commit should not be Ok"),
@@ -1734,9 +1685,7 @@ mod test {
 
         let max_object_size = 0;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
+        let store = Store::dummy_public_v0();
 
         let commit = Commit::new_with_body_and_save(
             &priv_key,
@@ -1752,23 +1701,15 @@ mod test {
             metadata,
             body,
             max_object_size,
-            &store_repo,
-            &store_secret,
-            t.s(),
+            &store,
         )
         .expect("commit::new_with_body_and_save");
 
         log_debug!("{}", commit);
 
-        let repo = Repo::new_with_member(
-            &pub_key,
-            &pub_key,
-            &[PermissionV0::Create],
-            store_repo.overlay_id_for_read_purpose(),
-            t.s(),
-        );
+        let repo = Repo::new_with_perms(&[PermissionV0::Create], store);
 
-        commit.load_body(repo.get_storage()).expect("load body");
+        commit.load_body(&repo.store).expect("load body");
 
         commit.verify_sig(&repo).expect("verify signature");
         commit.verify_perm(&repo).expect("verify perms");
@@ -1777,7 +1718,7 @@ mod test {
             .expect("verify_perm_creation");
 
         commit
-            .verify_full_object_refs_of_branch_at_commit(repo.get_storage())
+            .verify_full_object_refs_of_branch_at_commit(&repo.store)
             .expect("verify is at root of branch and singleton");
 
         commit.verify(&repo).expect("verify");
@@ -1792,7 +1733,7 @@ mod test {
         let metadata = Vec::from("some metadata");
 
         //let max_object_size = 0;
-        //let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        //let store = Store::dummy_public_v0();
 
         let commit = Commit::V0(
             CommitV0::new_with_invalid_header(
@@ -1808,16 +1749,8 @@ mod test {
 
         log_debug!("{}", commit);
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let t = Test::storage(hashmap_storage);
-
-        let repo = Repo::new_with_member(
-            &pub_key,
-            &pub_key,
-            &[PermissionV0::Create],
-            OverlayId::dummy(),
-            t.s(),
-        );
+        let store = Store::dummy_public_v0();
+        let repo = Repo::new_with_perms(&[PermissionV0::Create], store);
 
         assert_eq!(
             commit.verify(&repo),

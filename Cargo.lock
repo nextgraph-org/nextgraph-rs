@@ -3223,10 +3223,12 @@ version = "0.1.0"
 dependencies = [
  "async-once-cell",
  "async-std",
+ "async-trait",
  "base64-url",
  "ng-client-ws",
  "ng-net",
  "ng-repo",
+ "ng-storage-rocksdb",
  "ng-verifier",
  "ng-wallet",
  "once_cell",
@@ -3413,16 +3415,21 @@ dependencies = [
 name = "ng-verifier"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "automerge",
  "blake3",
  "chacha20",
+ "getrandom 0.2.10",
  "ng-net",
  "ng-repo",
  "ng-storage-rocksdb",
  "oxigraph",
+ "rand 0.7.3",
  "serde",
  "serde_bare",
  "serde_bytes",
+ "threshold_crypto",
+ "web-time",
  "yrs",
 ]
 

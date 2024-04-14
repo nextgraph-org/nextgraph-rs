@@ -669,18 +669,46 @@ impl StoreRepo {
     }
     #[cfg(test)]
     #[allow(deprecated)]
-    pub fn dummy_public_v0() -> (Self, SymKey) {
-        let readcap = SymKey::dummy();
+    pub fn dummy_public_v0() -> Self {
         let store_pubkey = PubKey::nil();
-        (
-            StoreRepo::V0(StoreRepoV0::PublicStore(store_pubkey)),
-            readcap,
-        )
+        StoreRepo::V0(StoreRepoV0::PublicStore(store_pubkey))
+    }
+    #[cfg(test)]
+    pub fn dummy_with_key(repo_pubkey: PubKey) -> Self {
+        StoreRepo::V0(StoreRepoV0::PublicStore(repo_pubkey))
     }
 
     pub fn overlay_id_for_read_purpose(&self) -> OverlayId {
-        let store_overlay: StoreOverlay = self.into();
-        store_overlay.overlay_id_for_read_purpose()
+        //let store_overlay: StoreOverlay = self.into();
+        //store_overlay.overlay_id_for_read_purpose()
+        OverlayId::outer(self.repo_id())
+    }
+
+    // pub fn overlay_id_for_storage_purpose(
+    //     &self,
+    //     store_overlay_branch_readcap_secret: Option<ReadCapSecret>,
+    // ) -> OverlayId {
+    //     match self {
+    //         Self::V0(StoreRepoV0::PublicStore(id))
+    //         | Self::V0(StoreRepoV0::ProtectedStore(id))
+    //         | Self::V0(StoreRepoV0::Group(id))
+    //         | Self::V0(StoreRepoV0::PrivateStore(id)) => self.overlay_id_for_read_purpose(),
+    //         Self::V0(StoreRepoV0::Dialog(d)) => OverlayId::inner(
+    //             &d.0,
+    //             store_overlay_branch_readcap_secret
+    //                 .expect("Dialog needs store_overlay_branch_readcap_secret"),
+    //         ),
+    //     }
+    // }
+
+    pub fn overlay_id_for_storage_purpose(&self) -> OverlayId {
+        match self {
+            Self::V0(StoreRepoV0::PublicStore(id))
+            | Self::V0(StoreRepoV0::ProtectedStore(id))
+            | Self::V0(StoreRepoV0::Group(id))
+            | Self::V0(StoreRepoV0::PrivateStore(id)) => self.overlay_id_for_read_purpose(),
+            Self::V0(StoreRepoV0::Dialog(d)) => OverlayId::Inner(d.1.clone()),
+        }
     }
 }
 
@@ -1628,7 +1656,7 @@ pub enum WalletUpdate {
     V0(WalletUpdateV0),
 }
 
-/// Updates the ReadCap of the public and protected sites (and potentially also Group stores)
+/// Updates the ReadCap of the public, protected sites, Group and Dialog stores of the User
 ///
 /// DEPS to the previous ones.
 /// this is used to speedup joining the overlay of such stores, for new devices on new brokers
@@ -1636,7 +1664,7 @@ pub enum WalletUpdate {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct StoreUpdateV0 {
     // id of the store.
-    pub id: PubKey,
+    pub store: StoreRepo,
 
     pub store_read_cap: ReadCap,
 

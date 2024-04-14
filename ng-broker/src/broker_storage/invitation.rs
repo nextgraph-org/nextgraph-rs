@@ -75,7 +75,13 @@ impl<'a> Invitation<'a> {
         }
         let mut value = to_vec(&(code_type, expiry, memo.clone()))?;
         store.write_transaction(&mut |tx| {
-            tx.put(Self::PREFIX, &to_vec(code)?, Some(Self::TYPE), &value)?;
+            tx.put(
+                Self::PREFIX,
+                &to_vec(code)?,
+                Some(Self::TYPE),
+                &value,
+                &None,
+            )?;
             Ok(())
         })?;
         Ok(acc)
@@ -94,7 +100,7 @@ impl<'a> Invitation<'a> {
             unique = true;
             multi = true;
         }
-        for invite in store.get_all_keys_and_values(Self::PREFIX, size, vec![], None)? {
+        for invite in store.get_all_keys_and_values(Self::PREFIX, size, vec![], None, &None)? {
             if invite.0.len() == size + 2 {
                 let code: [u8; 32] = from_slice(&invite.0[1..invite.0.len() - 1])?;
                 if invite.0[size + 1] == Self::TYPE {
@@ -138,6 +144,7 @@ impl<'a> Invitation<'a> {
                 Self::PREFIX,
                 &to_vec(&self.id).unwrap(),
                 Some(Self::SUFFIX_FOR_EXIST_CHECK),
+                &None,
             )
             .is_ok()
     }
@@ -148,7 +155,7 @@ impl<'a> Invitation<'a> {
     pub fn get_type(&self) -> Result<u8, ProtocolError> {
         let type_ser = self
             .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::TYPE))?;
+            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::TYPE), &None)?;
         let t: (u8, u32, Option<String>) = from_slice(&type_ser)?;
         // if t.1 < now_timestamp() {
         //     return Err(ProtocolError::Expired);
@@ -157,9 +164,9 @@ impl<'a> Invitation<'a> {
     }
 
     pub fn is_expired(&self) -> Result<bool, StorageError> {
-        let expire_ser = self
-            .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::TYPE))?;
+        let expire_ser =
+            self.store
+                .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::TYPE), &None)?;
         let expire: (u8, u32, Option<String>) = from_slice(&expire_ser)?;
         if expire.1 < now_timestamp() {
             return Ok(true);
@@ -169,7 +176,12 @@ impl<'a> Invitation<'a> {
 
     pub fn del(&self) -> Result<(), StorageError> {
         self.store.write_transaction(&mut |tx| {
-            tx.del_all(Self::PREFIX, &to_vec(&self.id)?, &Self::ALL_PROPERTIES)?;
+            tx.del_all(
+                Self::PREFIX,
+                &to_vec(&self.id)?,
+                &Self::ALL_PROPERTIES,
+                &None,
+            )?;
             Ok(())
         })
     }

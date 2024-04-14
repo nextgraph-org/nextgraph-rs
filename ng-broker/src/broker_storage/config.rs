@@ -75,7 +75,8 @@ impl<'a> Config<'a> {
             Self::PREFIX,
             &to_vec(&Self::KEY)?,
             Some(Self::MODE),
-            to_vec(&mode)?,
+            &to_vec(&mode)?,
+            &None,
         )?;
         Ok(acc)
     }
@@ -85,13 +86,14 @@ impl<'a> Config<'a> {
                 Self::PREFIX,
                 &to_vec(&Self::KEY).unwrap(),
                 Some(Self::SUFFIX_FOR_EXIST_CHECK),
+                &None,
             )
             .is_ok()
     }
     pub fn mode(&self) -> Result<ConfigMode, StorageError> {
         match self
             .store
-            .get(Self::PREFIX, &to_vec(&Self::KEY)?, Some(Self::MODE))
+            .get(Self::PREFIX, &to_vec(&Self::KEY)?, Some(Self::MODE), &None)
         {
             Ok(ver) => Ok(from_slice::<ConfigMode>(&ver)?),
             Err(e) => Err(e),

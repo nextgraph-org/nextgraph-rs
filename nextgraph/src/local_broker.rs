@@ -8,13 +8,17 @@
 // according to those terms.
 
 use async_once_cell::OnceCell;
-use async_std::sync::{Arc, RwLock};
+use async_std::sync::{Arc, Mutex, RwLock};
 use core::fmt;
-use ng_net::connection::{ClientConfig, IConnect, StartConfig};
-use ng_net::types::{ClientInfo, ClientType};
+use ng_net::actor::EActor;
+use ng_net::connection::{ClientConfig, IConnect, NoiseFSM, StartConfig};
+use ng_net::errors::ProtocolError;
+use ng_net::types::{ClientInfo, ClientType, ProtocolMessage};
 use ng_net::utils::{Receiver, Sender};
+use ng_repo::block_storage::HashMapBlockStorage;
 use ng_repo::os_info::get_os_info;
 use ng_verifier::types::*;
+use ng_verifier::verifier::Verifier;
 use ng_wallet::emojis::encode_pazzle;
 use once_cell::sync::Lazy;
 use serde_bare::to_vec;
@@ -25,6 +29,7 @@ use std::path::PathBuf;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use ng_net::broker::*;
+use ng_repo::block_storage::BlockStorage;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
 use ng_repo::types::*;
@@ -35,6 +40,8 @@ use ng_wallet::{create_wallet_v0, types::*};
 use ng_client_ws::remote_ws::ConnectionWebSocket;
 #[cfg(target_arch = "wasm32")]
 use ng_client_ws::remote_ws_wasm::ConnectionWebSocket;
+#[cfg(not(target_arch = "wasm32"))]
+use ng_storage_rocksdb::block_storage::RocksDbBlockStorage;
 
 type JsStorageReadFn = dyn Fn(String) -> Result<String, NgError> + 'static + Sync + Send;
 type JsStorageWriteFn = dyn Fn(String, String) -> Result<(), NgError> + 'static + Sync + Send;
@@ -173,6 +180,16 @@ impl LocalBrokerConfig {
             _ => None,
         }
     }
+    fn compute_path(&self, dir: &String) -> Result<PathBuf, NgError> {
+        match self {
+            Self::BasePath(path) => {
+                let mut new_path = path.clone();
+                new_path.push(dir);
+                Ok(new_path)
+            }
+            _ => Err(NgError::InvalidArgument),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -296,13 +313,24 @@ impl SessionConfig {
 //     }
 // }
 
+struct OpenedWallet {
+    wallet: SensitiveWallet,
+    block_storage: Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>,
+}
+
+impl fmt::Debug for OpenedWallet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "OpenedWallet.\nwallet {:?}", self.wallet)
+    }
+}
+
 #[derive(Debug)]
 struct LocalBroker {
     pub config: LocalBrokerConfig,
 
     pub wallets: HashMap<String, LocalWalletStorageV0>,
 
-    pub opened_wallets: HashMap<String, SensitiveWallet>,
+    pub opened_wallets: HashMap<String, OpenedWallet>,
 
     pub sessions: HashMap<UserId, SessionPeerStorageV0>,
 
@@ -311,7 +339,31 @@ struct LocalBroker {
     pub opened_sessions_list: Vec<Option<Session>>,
 }
 
-impl ILocalBroker for LocalBroker {}
+// used to deliver events to the verifier on Clients, or Core that have Verifiers attached.
+#[async_trait::async_trait]
+impl ILocalBroker for LocalBroker {
+    async fn deliver(&mut self, event: Event) {}
+}
+
+// this is used if an Actor does a BROKER.local_broker.respond
+// it happens when a remote peer is doing a request on the verifier
+#[async_trait::async_trait]
+impl EActor for LocalBroker {
+    async fn respond(
+        &mut self,
+        msg: ProtocolMessage,
+        fsm: Arc<Mutex<NoiseFSM>>,
+    ) -> Result<(), ProtocolError> {
+        // search opened_sessions by user_id of fsm
+        let session = match fsm.lock().await.user_id() {
+            Some(user) => self
+                .get_mut_session_for_user(&user)
+                .ok_or(ProtocolError::ActorError)?,
+            None => return Err(ProtocolError::ActorError),
+        };
+        session.verifier.respond(msg, fsm).await
+    }
+}
 
 impl LocalBroker {
     fn storage_path_for_user(&self, user_id: &UserId) -> Option<PathBuf> {
@@ -322,6 +374,13 @@ impl LocalBroker {
                 path.push(user_id.to_hash_string());
                 Some(path)
             }
+        }
+    }
+
+    fn get_mut_session_for_user(&mut self, user: &UserId) -> Option<&mut Session> {
+        match self.opened_sessions.get(user) {
+            Some(idx) => self.opened_sessions_list[*idx as usize].as_mut(),
+            None => None,
         }
     }
 
@@ -356,12 +415,13 @@ impl LocalBroker {
         let session = self.opened_sessions_list[*session_idx as usize]
             .as_mut()
             .ok_or(NgError::SessionNotFound)?;
-        let wallet = match &session.config {
+        let wallet = &match &session.config {
             SessionConfig::V0(v0) => self
                 .opened_wallets
                 .get(&v0.wallet_name)
                 .ok_or(NgError::WalletNotFound),
-        }?;
+        }?
+        .wallet;
 
         Ok((wallet, session))
     }
@@ -426,7 +486,13 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
     };
     //log_debug!("{:?}", &local_broker);
 
-    Ok(Arc::new(RwLock::new(local_broker)))
+    let broker = Arc::new(RwLock::new(local_broker));
+
+    BROKER.write().await.set_local_broker(Arc::clone(
+        &(Arc::clone(&broker) as Arc<RwLock<dyn ILocalBroker>>),
+    ));
+
+    Ok(broker)
 }
 
 #[doc(hidden)]
@@ -671,20 +737,54 @@ pub async fn wallet_was_opened(mut wallet: SensitiveWallet) -> Result<ClientV0, 
     if broker.opened_wallets.get(&wallet.id()).is_some() {
         return Err(NgError::WalletAlreadyOpened);
     }
+    let wallet_id = wallet.id();
 
-    match broker.wallets.get(&(wallet.id())) {
+    let lws = match broker.wallets.get(&wallet_id) {
         Some(lws) => {
             if wallet.client().is_none() {
                 // this case happens when the wallet is opened and not when it is imported (as the client is already there)
                 wallet.set_client(lws.to_client_v0(wallet.privkey())?);
             }
+            lws
         }
         None => {
             return Err(NgError::WalletNotFound);
         }
-    }
+    };
+    let block_storage = if lws.in_memory {
+        Arc::new(std::sync::RwLock::new(HashMapBlockStorage::new()))
+            as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
+    } else {
+        #[cfg(not(target_family = "wasm"))]
+        {
+            let mut key_material = wallet
+                .client()
+                .as_ref()
+                .unwrap()
+                .sensitive_client_storage
+                .priv_key
+                .slice();
+            let path = broker
+                .config
+                .compute_path(&wallet.client().as_ref().unwrap().id.to_hash_string())?;
+            let mut key: [u8; 32] =
+                derive_key("NextGraph Client BlockStorage BLAKE3 key", key_material);
+            Arc::new(std::sync::RwLock::new(RocksDbBlockStorage::open(
+                &path, key,
+            )?)) as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
+        }
+        #[cfg(target_family = "wasm")]
+        {
+            panic!("no RocksDB in WASM");
+        }
+    };
     let client = wallet.client().as_ref().unwrap().clone();
-    broker.opened_wallets.insert(wallet.id(), wallet);
+    let opened_wallet = OpenedWallet {
+        wallet,
+        block_storage,
+    };
+
+    broker.opened_wallets.insert(wallet_id, opened_wallet);
     Ok(client)
 }
 
@@ -706,14 +806,16 @@ pub async fn session_start(mut config: SessionConfig) -> Result<SessionInfo, NgE
 
     match broker.opened_wallets.get(&wallet_name) {
         None => return Err(NgError::WalletNotFound),
-        Some(wallet) => {
-            let credentials = match wallet.individual_site(&user_id) {
+        Some(opened_wallet) => {
+            let block_storage = Arc::clone(&opened_wallet.block_storage);
+            let credentials = match opened_wallet.wallet.individual_site(&user_id) {
                 Some(creds) => creds.clone(),
                 None => return Err(NgError::NotFound),
             };
 
             let client_storage_master_key = serde_bare::to_vec(
-                &wallet
+                &opened_wallet
+                    .wallet
                     .client()
                     .as_ref()
                     .unwrap()
@@ -744,7 +846,7 @@ pub async fn session_start(mut config: SessionConfig) -> Result<SessionInfo, NgE
                                         let decoded = base64_url::decode(&string)
                                             .map_err(|_| NgError::SerializationError)?;
                                         Some(SessionWalletStorageV0::dec_session(
-                                            wallet.privkey(),
+                                            opened_wallet.wallet.privkey(),
                                             &decoded,
                                         )?)
                                     }
@@ -759,7 +861,7 @@ pub async fn session_start(mut config: SessionConfig) -> Result<SessionInfo, NgE
                                 let res = read(path);
                                 if res.is_ok() {
                                     Some(SessionWalletStorageV0::dec_session(
-                                        wallet.privkey(),
+                                        opened_wallet.wallet.privkey(),
                                         &res.unwrap(),
                                     )?)
                                 } else {
@@ -832,13 +934,16 @@ pub async fn session_start(mut config: SessionConfig) -> Result<SessionInfo, NgE
                 key_material.as_slice(),
             );
             key_material.zeroize();
-            let verifier = Verifier::new(VerifierConfig {
-                config_type: broker.verifier_config_type_from_session_config(&config),
-                user_master_key: key,
-                peer_priv_key: session.peer_key.clone(),
-                user_priv_key: credentials.0,
-                private_store_read_cap: credentials.1,
-            })?;
+            let verifier = Verifier::new(
+                VerifierConfig {
+                    config_type: broker.verifier_config_type_from_session_config(&config),
+                    user_master_key: key,
+                    peer_priv_key: session.peer_key.clone(),
+                    user_priv_key: credentials.0,
+                    private_store_read_cap: credentials.1,
+                },
+                block_storage,
+            )?;
             key.zeroize();
             broker.opened_sessions_list.push(Some(Session {
                 config,
@@ -919,7 +1024,7 @@ pub async fn user_connect_with_device_info(
     location: Option<String>,
 ) -> Result<Vec<(String, String, String, Option<String>, f64)>, NgError> {
     //FIXME: release this write lock much sooner than at the end of the loop of all tries to connect to some servers ?
-    // or maybe it is good to block as we dont want concurrent connection attemps potentially to the same server
+    // or maybe it is good to block as we dont want concurrent connection attempts potentially to the same server
     let mut local_broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
@@ -1084,8 +1189,8 @@ pub async fn wallet_close(wallet_name: &String) -> Result<(), NgError> {
     };
 
     match broker.opened_wallets.remove(wallet_name) {
-        Some(mut wallet) => {
-            for user in wallet.sites() {
+        Some(mut opened_wallet) => {
+            for user in opened_wallet.wallet.sites() {
                 let key: PubKey = (user.as_str()).try_into().unwrap();
                 match broker.opened_sessions.remove(&key) {
                     Some(id) => {
@@ -1094,7 +1199,7 @@ pub async fn wallet_close(wallet_name: &String) -> Result<(), NgError> {
                     None => {}
                 }
             }
-            wallet.zeroize();
+            opened_wallet.wallet.zeroize();
         }
         None => return Err(NgError::WalletNotFound),
     }
@@ -1123,15 +1228,15 @@ pub async fn doc_fetch(
     nuri: String,
     payload: Option<AppRequestPayload>,
 ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-    let broker = match LOCAL_BROKER.get() {
+    let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
-        Some(Ok(broker)) => broker.read().await,
+        Some(Ok(broker)) => broker.write().await,
     };
     if session_id as usize >= broker.opened_sessions_list.len() {
         return Err(NgError::InvalidArgument);
     }
     let session = broker.opened_sessions_list[session_id as usize]
-        .as_ref()
+        .as_mut()
         .ok_or(NgError::SessionNotFound)?;
 
     session.verifier.doc_fetch(nuri, payload)

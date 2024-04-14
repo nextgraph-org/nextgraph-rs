@@ -63,7 +63,8 @@ impl<'a> Topic<'a> {
             Self::PREFIX,
             &to_vec(&id)?,
             Some(Self::META),
-            to_vec(&meta)?,
+            &to_vec(&meta)?,
+            &None,
         )?;
         Ok(acc)
     }
@@ -73,6 +74,7 @@ impl<'a> Topic<'a> {
                 Self::PREFIX,
                 &to_vec(&self.id).unwrap(),
                 Some(Self::SUFFIX_FOR_EXIST_CHECK),
+                &None,
             )
             .is_ok()
     }
@@ -87,7 +89,8 @@ impl<'a> Topic<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::HEAD),
-            to_vec(head)?,
+            &to_vec(head)?,
+            &None,
         )
     }
     pub fn remove_head(&self, head: &ObjectId) -> Result<(), StorageError> {
@@ -95,7 +98,8 @@ impl<'a> Topic<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::HEAD),
-            to_vec(head)?,
+            &to_vec(head)?,
+            &None,
         )
     }
 
@@ -105,13 +109,14 @@ impl<'a> Topic<'a> {
             &to_vec(&self.id)?,
             Some(Self::HEAD),
             &to_vec(head)?,
+            &None,
         )
     }
 
     pub fn metadata(&self) -> Result<TopicMeta, StorageError> {
         match self
             .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::META))
+            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::META), &None)
         {
             Ok(meta) => Ok(from_slice::<TopicMeta>(&meta)?),
             Err(e) => Err(e),
@@ -125,12 +130,17 @@ impl<'a> Topic<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::META),
-            to_vec(meta)?,
+            &to_vec(meta)?,
+            &None,
         )
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store
-            .del_all(Self::PREFIX, &to_vec(&self.id)?, &Self::ALL_PROPERTIES)
+        self.store.del_all(
+            Self::PREFIX,
+            &to_vec(&self.id)?,
+            &Self::ALL_PROPERTIES,
+            &None,
+        )
     }
 }

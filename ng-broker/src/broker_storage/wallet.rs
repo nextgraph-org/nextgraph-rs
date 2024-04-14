@@ -47,7 +47,7 @@ impl<'a> Wallet<'a> {
     ) -> Result<SymKey, StorageError> {
         let mut result: Option<SymKey> = None;
         self.store.write_transaction(&mut |tx| {
-            let got = tx.get(prefix, key, Some(Self::SUFFIX_FOR_EXIST_CHECK));
+            let got = tx.get(prefix, key, Some(Self::SUFFIX_FOR_EXIST_CHECK), &None);
             match got {
                 Err(e) => {
                     if e == StorageError::NotFound {
@@ -86,12 +86,12 @@ impl<'a> Wallet<'a> {
     ) -> Result<SymKey, StorageError> {
         let symkey = SymKey::random();
         let vec = symkey.slice().to_vec();
-        tx.put(prefix, key, Some(Self::SYM_KEY), &vec)?;
+        tx.put(prefix, key, Some(Self::SYM_KEY), &vec, &None)?;
         Ok(symkey)
     }
     pub fn exists_single_key(&self, prefix: u8, key: &Vec<u8>) -> bool {
         self.store
-            .get(prefix, key, Some(Self::SUFFIX_FOR_EXIST_CHECK))
+            .get(prefix, key, Some(Self::SUFFIX_FOR_EXIST_CHECK), &None)
             .is_ok()
     }
 

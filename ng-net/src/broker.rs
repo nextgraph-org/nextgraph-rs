@@ -11,6 +11,7 @@
 
 //! Broker singleton present in every instance of NextGraph (Client, Server, Core node)
 
+use crate::actor::EActor;
 use crate::connection::*;
 use crate::errors::*;
 use crate::server_storage::ServerStorage;
@@ -66,7 +67,17 @@ pub struct ServerConfig {
     pub bootstrap: BootstrapContent,
 }
 
-pub trait ILocalBroker: Send + Sync {}
+/*pub trait EActor: Send + Sync + std::fmt::Debug {
+    async fn respond(
+        &mut self,
+        msg: ProtocolMessage,
+        fsm: Arc<Mutex<NoiseFSM>>,
+    ) -> Result<(), ProtocolError>;
+}*/
+#[async_trait::async_trait]
+pub trait ILocalBroker: Send + Sync + EActor {
+    async fn deliver(&mut self, event: Event);
+}
 
 pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new(Broker::new())));
 
@@ -88,7 +99,8 @@ pub struct Broker<'a> {
     tauri_streams: HashMap<String, Sender<Commit>>,
     disconnections_sender: Sender<String>,
     disconnections_receiver: Option<Receiver<String>>,
-    local_broker: Option<Box<dyn ILocalBroker + Send + Sync + 'a>>,
+    //local_broker: Option<Box<dyn ILocalBroker + Send + Sync + 'a>>,
+    local_broker: Option<Arc<RwLock<dyn ILocalBroker + 'a>>>,
 }
 
 impl<'a> Broker<'a> {
@@ -148,9 +160,9 @@ impl<'a> Broker<'a> {
         self.server_storage = Some(Box::new(storage));
     }
 
-    pub fn set_local_broker(&mut self, broker: impl ILocalBroker + 'a) {
+    pub fn set_local_broker(&mut self, broker: Arc<RwLock<dyn ILocalBroker + 'a>>) {
         //log_debug!("set_local_broker");
-        self.local_broker = Some(Box::new(broker));
+        self.local_broker = Some(broker);
     }
 
     pub fn set_server_config(&mut self, config: ServerConfig) {
@@ -183,12 +195,11 @@ impl<'a> Broker<'a> {
             .as_ref()
             .ok_or(ProtocolError::BrokerError)
     }
-
-    pub fn get_local_broker_mut(
-        &mut self,
-    ) -> Result<&mut Box<dyn ILocalBroker + Send + Sync + 'a>, NgError> {
-        //log_debug!("GET STORAGE {:?}", self.server_storage);
-        self.local_broker.as_mut().ok_or(NgError::BrokerError)
+    //Option<Arc<RwLock<dyn ILocalBroker>>>,
+    pub fn get_local_broker(&self) -> Result<Arc<RwLock<dyn ILocalBroker + 'a>>, NgError> {
+        Ok(Arc::clone(
+            self.local_broker.as_ref().ok_or(NgError::BrokerError)?,
+        ))
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -340,18 +351,19 @@ impl<'a> Broker<'a> {
         nuri: String,
         obj_ref: ObjectRef,
     ) -> Result<ObjectContent, ProtocolError> {
-        let blockstream = self
-            .get_block_from_store_with_block_id(nuri, obj_ref.id, true)
-            .await?;
-        let store = Box::new(HashMapBlockStorage::from_block_stream(blockstream).await);
+        unimplemented!();
+        // let blockstream = self
+        //     .get_block_from_store_with_block_id(nuri, obj_ref.id, true)
+        //     .await?;
+        // let store = Box::new(HashMapBlockStorage::from_block_stream(blockstream).await);
 
-        Object::load(obj_ref.id, Some(obj_ref.key), &store)
-            .map_err(|e| match e {
-                ObjectParseError::MissingBlocks(_missing) => ProtocolError::MissingBlocks,
-                _ => ProtocolError::ObjectParseError,
-            })?
-            .content()
-            .map_err(|_| ProtocolError::ObjectParseError)
+        // Object::load(obj_ref.id, Some(obj_ref.key), &store)
+        //     .map_err(|e| match e {
+        //         ObjectParseError::MissingBlocks(_missing) => ProtocolError::MissingBlocks,
+        //         _ => ProtocolError::ObjectParseError,
+        //     })?
+        //     .content()
+        //     .map_err(|_| ProtocolError::ObjectParseError)
     }
 
     pub async fn doc_sync_branch(&mut self, anuri: String) -> (Receiver<Commit>, Sender<Commit>) {

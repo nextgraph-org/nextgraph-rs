@@ -77,12 +77,14 @@ impl<'a> Peer<'a> {
                 &to_vec(&id)?,
                 Some(Self::VERSION),
                 &to_vec(&advert.version())?,
+                &None,
             )?;
             tx.put(
                 Self::PREFIX,
                 &to_vec(&id)?,
                 Some(Self::ADVERT),
                 &to_vec(&advert)?,
+                &None,
             )?;
             Ok(())
         })?;
@@ -94,6 +96,7 @@ impl<'a> Peer<'a> {
                 Self::PREFIX,
                 &to_vec(&self.id).unwrap(),
                 Some(Self::SUFFIX_FOR_EXIST_CHECK),
+                &None,
             )
             .is_ok()
     }
@@ -103,7 +106,7 @@ impl<'a> Peer<'a> {
     pub fn version(&self) -> Result<u32, StorageError> {
         match self
             .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::VERSION))
+            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::VERSION), &None)
         {
             Ok(ver) => Ok(from_slice::<u32>(&ver)?),
             Err(e) => Err(e),
@@ -117,7 +120,8 @@ impl<'a> Peer<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::VERSION),
-            to_vec(&version)?,
+            &to_vec(&version)?,
+            &None,
         )
     }
     pub fn update_advert(&self, advert: &PeerAdvert) -> Result<(), StorageError> {
@@ -134,12 +138,14 @@ impl<'a> Peer<'a> {
                 &to_vec(&self.id)?,
                 Some(Self::VERSION),
                 &to_vec(&advert.version())?,
+                &None,
             )?;
             tx.replace(
                 Self::PREFIX,
                 &to_vec(&self.id)?,
                 Some(Self::ADVERT),
                 &to_vec(&advert)?,
+                &None,
             )?;
             Ok(())
         })
@@ -147,7 +153,7 @@ impl<'a> Peer<'a> {
     pub fn advert(&self) -> Result<PeerAdvert, StorageError> {
         match self
             .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::ADVERT))
+            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::ADVERT), &None)
         {
             Ok(advert) => Ok(from_slice::<PeerAdvert>(&advert)?),
             Err(e) => Err(e),
@@ -161,12 +167,17 @@ impl<'a> Peer<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::ADVERT),
-            to_vec(advert)?,
+            &to_vec(advert)?,
+            &None,
         )
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store
-            .del_all(Self::PREFIX, &to_vec(&self.id)?, &Self::ALL_PROPERTIES)
+        self.store.del_all(
+            Self::PREFIX,
+            &to_vec(&self.id)?,
+            &Self::ALL_PROPERTIES,
+            &None,
+        )
     }
 }

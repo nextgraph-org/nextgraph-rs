@@ -23,13 +23,13 @@ use std::{
 
 pub trait BlockStorage: Send + Sync {
     /// Load a block from the storage.
-    fn get(&self, id: &BlockId) -> Result<Block, StorageError>;
+    fn get(&self, overlay: &OverlayId, id: &BlockId) -> Result<Block, StorageError>;
 
     /// Save a block to the storage.
-    fn put(&self, block: &Block) -> Result<BlockId, StorageError>;
+    fn put(&self, overlay: &OverlayId, block: &Block) -> Result<BlockId, StorageError>;
 
     /// Delete a block from the storage.
-    fn del(&self, id: &BlockId) -> Result<(Block, usize), StorageError>;
+    fn del(&self, overlay: &OverlayId, id: &BlockId) -> Result<usize, StorageError>;
 
     /// number of Blocks in the storage
     fn len(&self) -> Result<usize, StorageError>;
@@ -91,10 +91,10 @@ impl HashMapBlockStorage {
         }
     }
 
-    pub async fn from_block_stream(mut blockstream: Receiver<Block>) -> Self {
+    pub async fn from_block_stream(overlay: &OverlayId, mut blockstream: Receiver<Block>) -> Self {
         let this = Self::new();
         while let Some(block) = blockstream.next().await {
-            this.put(&block).unwrap();
+            this.put(overlay, &block).unwrap();
         }
         this
     }
@@ -114,7 +114,7 @@ impl HashMapBlockStorage {
 }
 
 impl BlockStorage for HashMapBlockStorage {
-    fn get(&self, id: &BlockId) -> Result<Block, StorageError> {
+    fn get(&self, overlay: &OverlayId, id: &BlockId) -> Result<Block, StorageError> {
         match self.blocks.read().unwrap().get(id) {
             Some(block) => {
                 let mut b = block.clone();
@@ -133,7 +133,7 @@ impl BlockStorage for HashMapBlockStorage {
         Ok(self.get_len())
     }
 
-    fn put(&self, block: &Block) -> Result<BlockId, StorageError> {
+    fn put(&self, overlay: &OverlayId, block: &Block) -> Result<BlockId, StorageError> {
         let id = block.id();
         //log_debug!("PUTTING {}", id);
         let mut b = block.clone();
@@ -142,7 +142,7 @@ impl BlockStorage for HashMapBlockStorage {
         Ok(id)
     }
 
-    fn del(&self, id: &BlockId) -> Result<(Block, usize), StorageError> {
+    fn del(&self, overlay: &OverlayId, id: &BlockId) -> Result<usize, StorageError> {
         let block = self
             .blocks
             .write()
@@ -150,6 +150,6 @@ impl BlockStorage for HashMapBlockStorage {
             .remove(id)
             .ok_or(StorageError::NotFound)?;
         let size = size_of_val(&block);
-        Ok((block, size))
+        Ok(size)
     }
 }

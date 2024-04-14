@@ -21,6 +21,7 @@ use zeroize::Zeroize;
 use crate::block_storage::*;
 use crate::errors::*;
 use crate::log::*;
+use crate::store::Store;
 use crate::types::*;
 
 pub const BLOCK_EXTRA: usize = 12; // 8 is the smallest extra + BLOCK_MAX_DATA_EXTRA
@@ -60,10 +61,14 @@ pub struct Object {
 
 impl Object {
     pub(crate) fn convergence_key(
-        store_pubkey: &StoreRepo,
-        store_readcap_secret: &ReadCapSecret,
+        /*store_pubkey: &StoreRepo,
+        store_readcap_secret: &ReadCapSecret,*/
+        store: &Store,
     ) -> [u8; blake3::OUT_LEN] {
-        let mut key_material = match (*store_pubkey.repo_id(), store_readcap_secret.clone()) {
+        let mut key_material = match (
+            *store.get_store_repo().repo_id(),
+            store.get_store_readcap_secret().clone(),
+        ) {
             (PubKey::Ed25519PubKey(pubkey), SymKey::ChaCha20Key(secret)) => {
                 [pubkey, secret].concat()
             }
@@ -271,10 +276,9 @@ impl Object {
         content: ObjectContent,
         header: Option<CommitHeader>,
         block_size: usize,
-        store: &StoreRepo,
-        store_secret: &ReadCapSecret,
+        store: &Store,
     ) -> Object {
-        let mut conv_key = Self::convergence_key(store, store_secret);
+        let mut conv_key = Self::convergence_key(store);
         let res = Self::new_with_convergence_key(content, header, block_size, &conv_key);
         conv_key.zeroize();
         res
@@ -424,11 +428,11 @@ impl Object {
     pub fn load(
         id: ObjectId,
         key: Option<SymKey>,
-        store: &Box<impl BlockStorage + ?Sized>,
+        store: &Store,
     ) -> Result<Object, ObjectParseError> {
         fn load_tree(
             parents: Vec<BlockId>,
-            store: &Box<impl BlockStorage + ?Sized>,
+            store: &Store,
             blocks: &mut Vec<BlockId>,
             missing: &mut Vec<BlockId>,
             block_contents: &mut HashMap<BlockId, Block>,
@@ -517,10 +521,7 @@ impl Object {
     }
 
     /// Save blocks of the object and the blocks of the header object in the store
-    pub fn save(
-        &self,
-        store: &Box<impl BlockStorage + ?Sized>,
-    ) -> Result<Vec<BlockId>, StorageError> {
+    pub fn save(&self, store: &Store) -> Result<Vec<BlockId>, StorageError> {
         let mut deduplicated: HashSet<ObjectId> = HashSet::new();
         //.chain(self.header_blocks.iter())
         for block_id in self.blocks.iter() {
@@ -544,10 +545,7 @@ impl Object {
     }
 
     #[cfg(test)]
-    pub fn save_in_test(
-        &mut self,
-        store: &Box<impl BlockStorage + ?Sized>,
-    ) -> Result<Vec<BlockId>, StorageError> {
+    pub fn save_in_test(&mut self, store: &Store) -> Result<Vec<BlockId>, StorageError> {
         assert!(self.already_saved == false);
         self.already_saved = true;
 
@@ -992,15 +990,9 @@ mod test {
             content: vec![],
         });
         let content = ObjectContent::V0(ObjectContentV0::SmallFile(file));
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
         let header = CommitHeader::new_with_acks([ObjectId::dummy()].to_vec());
-        let _obj = Object::new(
-            content,
-            header,
-            store_max_value_size(),
-            &store_repo,
-            &store_secret,
-        );
+        let _obj = Object::new(content, header, store_max_value_size(), &store);
     }
 
     /// Test JPEG file
@@ -1015,8 +1007,8 @@ mod test {
         let content = ObjectContent::new_file_v0_with_content(img_buffer, "image/jpeg");
 
         let max_object_size = store_max_value_size();
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
-        let obj = Object::new(content, None, max_object_size, &store_repo, &store_secret);
+        let store = Store::dummy_public_v0();
+        let obj = Object::new(content, None, max_object_size, &store);
 
         log_debug!("{}", obj);
 
@@ -1046,15 +1038,9 @@ mod test {
         //let header = CommitHeader::new_with_acks(acks.clone());
         let max_object_size = 0;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
 
-        let mut obj = Object::new(
-            content.clone(),
-            None,
-            max_object_size,
-            &store_repo,
-            &store_secret,
-        );
+        let mut obj = Object::new(content.clone(), None, max_object_size, &store);
 
         log_debug!("{}", obj);
 
@@ -1067,7 +1053,6 @@ mod test {
             }
             Err(e) => panic!("Object parse error: {:?}", e),
         }
-        let store = Box::new(HashMapBlockStorage::new());
 
         obj.save_in_test(&store).expect("Object save error");
 
@@ -1101,7 +1086,7 @@ mod test {
     /// Checks that a content that fits the root node, will not be chunked into children nodes
     #[test]
     pub fn test_depth_0() {
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
 
         let empty_file =
             ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
@@ -1168,13 +1153,7 @@ mod test {
         // let content_ser = serde_bare::to_vec(&content).unwrap();
         // log_debug!("content len for 2*524277:     {}", content_ser.len());
 
-        let empty_obj = Object::new(
-            empty_file,
-            None,
-            store_max_value_size(),
-            &store_repo,
-            &store_secret,
-        );
+        let empty_obj = Object::new(empty_file, None, store_max_value_size(), &store);
 
         let empty_file_size = empty_obj.size();
         log_debug!("empty file size: {}", empty_file_size);
@@ -1191,13 +1170,7 @@ mod test {
         let content_ser = serde_bare::to_vec(&content).unwrap();
         log_debug!("content len:     {}", content_ser.len());
 
-        let object = Object::new(
-            content,
-            None,
-            store_max_value_size(),
-            &store_repo,
-            &store_secret,
-        );
+        let object = Object::new(content, None, store_max_value_size(), &store);
         log_debug!("{}", object);
 
         log_debug!("object size:     {}", object.size());
@@ -1217,7 +1190,7 @@ mod test {
         ////// 16 GB of data!
         let data_size = MAX_ARITY_LEAVES * MAX_DATA_PAYLOAD_SIZE - 10;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
         log_debug!("creating 16GB of data");
         let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
             content_type: "".into(),
@@ -1227,13 +1200,7 @@ mod test {
         //let content_ser = serde_bare::to_vec(&content).unwrap();
         //log_debug!("content len:     {}", content_ser.len());
         log_debug!("creating object with that data");
-        let object = Object::new(
-            content,
-            None,
-            store_max_value_size(),
-            &store_repo,
-            &store_secret,
-        );
+        let object = Object::new(content, None, store_max_value_size(), &store);
         log_debug!("{}", object);
 
         let obj_size = object.size();
@@ -1260,7 +1227,7 @@ mod test {
         ////// 16 GB of data!
         let data_size = MAX_ARITY_LEAVES * MAX_DATA_PAYLOAD_SIZE;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
         log_debug!("creating 16GB of data");
         let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
             content_type: "".into(),
@@ -1270,13 +1237,7 @@ mod test {
         //let content_ser = serde_bare::to_vec(&content).unwrap();
         //log_debug!("content len:     {}", content_ser.len());
         log_debug!("creating object with that data");
-        let object = Object::new(
-            content,
-            None,
-            store_max_value_size(),
-            &store_repo,
-            &store_secret,
-        );
+        let object = Object::new(content, None, store_max_value_size(), &store);
         log_debug!("{}", object);
 
         let obj_size = object.size();
@@ -1304,7 +1265,7 @@ mod test {
         let data_size =
             MAX_ARITY_LEAVES * MAX_ARITY_LEAVES * MAX_ARITY_LEAVES * MAX_DATA_PAYLOAD_SIZE - 10;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
         log_debug!("creating 900MB of data");
         let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
             content_type: "".into(),
@@ -1314,13 +1275,7 @@ mod test {
         //let content_ser = serde_bare::to_vec(&content).unwrap();
         //log_debug!("content len:     {}", content_ser.len());
         log_debug!("creating object with that data");
-        let object = Object::new(
-            content,
-            None,
-            store_valid_value_size(0),
-            &store_repo,
-            &store_secret,
-        );
+        let object = Object::new(content, None, store_valid_value_size(0), &store);
         log_debug!("{}", object);
 
         let obj_size = object.size();
@@ -1362,7 +1317,7 @@ mod test {
             * MAX_DATA_PAYLOAD_SIZE
             - 12;
 
-        let (store_repo, store_secret) = StoreRepo::dummy_public_v0();
+        let store = Store::dummy_public_v0();
         log_debug!("creating 52GB of data");
         let content = ObjectContent::V0(ObjectContentV0::SmallFile(SmallFile::V0(SmallFileV0 {
             content_type: "".into(),
@@ -1372,13 +1327,7 @@ mod test {
         //let content_ser = serde_bare::to_vec(&content).unwrap();
         //log_debug!("content len:     {}", content_ser.len());
         log_debug!("creating object with that data");
-        let object = Object::new(
-            content,
-            None,
-            store_valid_value_size(0),
-            &store_repo,
-            &store_secret,
-        );
+        let object = Object::new(content, None, store_valid_value_size(0), &store);
         log_debug!("{}", object);
 
         let obj_size = object.size();
