@@ -90,8 +90,6 @@ impl Store {
 
         let (repo_priv_key, repo_pub_key) = generate_keypair();
 
-        //let overlay = store_repo.overlay_id_for_read_purpose();
-
         let repository = Repository::V0(RepositoryV0 {
             id: repo_pub_key,
             verification_program: vec![],
@@ -158,31 +156,9 @@ impl Store {
         let root_branch_readcap_id = root_branch_readcap.id;
         // adding the 2 events for the Repository and Rootbranch commits
 
-        //peer_last_seq_num += 1;
         events.push((repository_commit, vec![]));
-        // events.push(Event::new(
-        //     publisher_peer,
-        //     peer_last_seq_num,
-        //     &repository_commit,
-        //     &vec![],
-        //     topic_pub_key,
-        //     root_branch_commit.key().unwrap(),
-        //     &topic_priv_key,
-        //     store,
-        // )?);
 
-        //peer_last_seq_num += 1;
         events.push((root_branch_commit, vec![]));
-        // events.push(Event::new(
-        //     publisher_peer,
-        //     peer_last_seq_num,
-        //     &root_branch_commit,
-        //     &vec![],
-        //     topic_pub_key,
-        //     root_branch_commit.key().unwrap(),
-        //     &topic_priv_key,
-        //     storage,
-        // )?);
 
         // creating the main branch
 
@@ -222,18 +198,7 @@ impl Store {
 
         // adding the event for the Branch commit
 
-        // peer_last_seq_num += 1;
         events.push((main_branch_commit, vec![]));
-        // events.push(Event::new(
-        //     publisher_peer,
-        //     peer_last_seq_num,
-        //     &main_branch_commit,
-        //     &vec![],
-        //     main_branch_topic_pub_key,
-        //     main_branch_commit.key().unwrap(),
-        //     &main_branch_topic_priv_key,
-        //     storage,
-        // )?);
 
         // creating the AddBranch commit (on root_branch), deps to the RootBranch commit
         // author is the owner
@@ -365,18 +330,7 @@ impl Store {
         additional_blocks.extend(sig_obj_blocks.iter());
         additional_blocks.extend(add_branch_commit.blocks().iter());
 
-        //peer_last_seq_num += 1;
         events.push((sync_sig_on_root_branch_commit, additional_blocks));
-        // events.push(Event::new(
-        //     publisher_peer,
-        //     peer_last_seq_num,
-        //     &sync_sig_on_root_branch_commit,
-        //     &additional_blocks,
-        //     topic_pub_key,
-        //     root_branch_commit.key().unwrap(),
-        //     &topic_priv_key,
-        //     storage,
-        // )?);
 
         // creating the SyncSignature for the main branch with deps to the Branch commit and acks also to this commit as it is its direct causal future.
 
@@ -398,22 +352,9 @@ impl Store {
         additional_blocks.append(&mut cert_obj_blocks);
         additional_blocks.append(&mut sig_obj_blocks);
 
-        // peer_last_seq_num += 1;
         events.push((sync_sig_on_main_branch_commit, additional_blocks));
-        // events.push(Event::new(
-        //     publisher_peer,
-        //     peer_last_seq_num,
-        //     &sync_sig_on_main_branch_commit,
-        //     &additional_blocks,
-        //     main_branch_topic_pub_key,
-        //     main_branch_commit.key().unwrap(),
-        //     &main_branch_topic_priv_key,
-        //     storage,
-        // )?);
 
         // TODO: add the CertificateRefresh event on main branch
-
-        // += 1;
 
         // preparing the Repo
 
@@ -425,7 +366,6 @@ impl Store {
             store: self,
         };
 
-        //let repo_ref = self.repos.entry(repo_pub_key).or_insert(repo);
         Ok((repo, events))
     }
 
@@ -439,7 +379,6 @@ impl Store {
             store_readcap,
             overlay_id: store_repo.overlay_id_for_storage_purpose(),
             storage,
-            //repos: HashMap::new(),
         }
     }
 
@@ -449,7 +388,6 @@ impl Store {
         use crate::block_storage::HashMapBlockStorage;
         let store_repo = StoreRepo::dummy_public_v0();
         let store_readcap = ReadCap::dummy();
-        //let storage = Box::new() as Box<dyn BlockStorage + Send + Sync>;
         Arc::new(Self::new(
             store_repo,
             store_readcap,
@@ -463,7 +401,6 @@ impl Store {
         use crate::block_storage::HashMapBlockStorage;
         let store_repo = StoreRepo::dummy_with_key(repo_pubkey);
         let store_readcap = ReadCap::dummy();
-        //let storage = Box::new() as Box<dyn BlockStorage + Send + Sync>;
         Arc::new(Self::new(
             store_repo,
             store_readcap,
