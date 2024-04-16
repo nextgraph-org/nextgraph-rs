@@ -80,7 +80,7 @@ impl Store {
     }
 
     pub fn create_repo_default(
-        self: Box<Self>,
+        self: Arc<Self>,
         creator: &UserId,
         creator_priv_key: &PrivKey,
     ) -> Result<(Repo, Vec<(Commit, Vec<Digest>)>), NgError> {
@@ -443,14 +443,14 @@ impl Store {
         }
     }
 
-    #[cfg(test)]
     #[allow(deprecated)]
-    pub fn dummy_public_v0() -> Box<Self> {
+    #[cfg(any(test, feature = "testing"))]
+    pub fn dummy_public_v0() -> Arc<Self> {
         use crate::block_storage::HashMapBlockStorage;
         let store_repo = StoreRepo::dummy_public_v0();
         let store_readcap = ReadCap::dummy();
         //let storage = Box::new() as Box<dyn BlockStorage + Send + Sync>;
-        Box::new(Self::new(
+        Arc::new(Self::new(
             store_repo,
             store_readcap,
             Arc::new(RwLock::new(HashMapBlockStorage::new()))
@@ -458,13 +458,13 @@ impl Store {
         ))
     }
 
-    #[cfg(test)]
-    pub fn dummy_with_key(repo_pubkey: PubKey) -> Box<Self> {
+    #[cfg(any(test, feature = "testing"))]
+    pub fn dummy_with_key(repo_pubkey: PubKey) -> Arc<Self> {
         use crate::block_storage::HashMapBlockStorage;
         let store_repo = StoreRepo::dummy_with_key(repo_pubkey);
         let store_readcap = ReadCap::dummy();
         //let storage = Box::new() as Box<dyn BlockStorage + Send + Sync>;
-        Box::new(Self::new(
+        Arc::new(Self::new(
             store_repo,
             store_readcap,
             Arc::new(RwLock::new(HashMapBlockStorage::new()))

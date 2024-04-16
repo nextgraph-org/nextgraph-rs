@@ -22,6 +22,7 @@ use core::fmt;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 impl RepositoryV0 {
     pub fn new(id: &PubKey, metadata: &Vec<u8>) -> RepositoryV0 {
@@ -82,7 +83,7 @@ pub struct Repo {
     pub signer: Option<SignerCap>,
 
     pub members: HashMap<Digest, UserInfo>,
-    pub store: Box<Store>,
+    pub store: Arc<Store>,
 }
 
 impl fmt::Display for Repo {
@@ -102,9 +103,9 @@ impl fmt::Display for Repo {
 }
 
 impl Repo {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     #[allow(deprecated)]
-    pub fn new_with_perms(perms: &[PermissionV0], store: Box<Store>) -> Self {
+    pub fn new_with_perms(perms: &[PermissionV0], store: Arc<Store>) -> Self {
         let pub_key = PubKey::nil();
         Self::new_with_member(&pub_key, &pub_key, perms, OverlayId::dummy(), store)
     }
@@ -114,7 +115,7 @@ impl Repo {
         member: &UserId,
         perms: &[PermissionV0],
         overlay: OverlayId,
-        store: Box<Store>,
+        store: Arc<Store>,
     ) -> Self {
         let mut members = HashMap::new();
         let permissions = HashMap::from_iter(

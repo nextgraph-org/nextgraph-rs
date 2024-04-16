@@ -53,7 +53,7 @@ pub struct Verifier {
     peer_id: PubKey,
     max_reserved_seq_num: u64,
     last_reservation: SystemTime,
-    stores: HashMap<OverlayId, Store>,
+    stores: HashMap<OverlayId, Arc<Store>>,
     repos: HashMap<RepoId, Repo>,
 }
 
@@ -67,16 +67,17 @@ impl fmt::Debug for Verifier {
 impl Verifier {
     #[cfg(test)]
     pub fn new_dummy() -> Self {
+        use ng_repo::block_storage::HashMapBlockStorage;
         let (peer_priv_key, peer_id) = generate_keypair();
-        let block_storage = Arc::new(RwLock::new(HashMapBlockStorage::new()))
-            as Arc<RwLock<Box<dyn BlockStorage + Send + Sync + 'static>>>;
+        let block_storage = Arc::new(std::sync::RwLock::new(HashMapBlockStorage::new()))
+            as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>;
         Verifier {
             config: VerifierConfig {
                 config_type: VerifierConfigType::Memory,
                 user_master_key: [0; 32],
                 peer_priv_key,
                 user_priv_key: PrivKey::random_ed(),
-                private_store_read_cap: ObjectRef::dummy(),
+                private_store_read_cap: ObjectRef::nil(),
             },
             connected_server_id: None,
             graph_dataset: None,
@@ -91,9 +92,9 @@ impl Verifier {
         }
     }
 
-    pub fn get_store(&mut self, store_repo: &StoreRepo) -> &mut Store {
+    pub fn get_store(&mut self, store_repo: &StoreRepo) -> Arc<Store> {
         let overlay_id = store_repo.overlay_id_for_storage_purpose();
-        if self.stores.get(&overlay_id).is_none() {
+        let store = self.stores.entry(overlay_id).or_insert_with(|| {
             // FIXME: get store_readcap from user storage
             let store_readcap = ReadCap::nil();
             let store = Store::new(
@@ -108,11 +109,18 @@ impl Verifier {
                 ),
             );
             //self.stores.insert(overlay_id, store);
-            let store = self.stores.entry(overlay_id).or_insert(store);
-            store
-        } else {
-            self.stores.get_mut(&overlay_id).unwrap()
+            //let store = self.stores.entry(overlay_id).or_insert(store);
+            Arc::new(store)
+        });
+        Arc::clone(store)
+    }
+
+    pub fn add_store(&mut self, store: Arc<Store>) {
+        let overlay_id = store.get_store_repo().overlay_id_for_storage_purpose();
+        if self.stores.contains_key(&overlay_id) {
+            return;
         }
+        self.stores.insert(overlay_id, store);
     }
 
     pub(crate) fn new_event(
@@ -125,12 +133,28 @@ impl Verifier {
         //topic_priv_key: &BranchWriteCapSecret,
         store: &Store, // store could be omitted and a store repo ID would be given instead.
     ) -> Result<Event, NgError> {
+        if self.last_seq_num + 1 >= self.max_reserved_seq_num {
+            self.reserve_more(1)?;
+        }
+        self.new_event_(commit, additional_blocks, store)
+    }
+
+    fn new_event_(
+        &mut self,
+        //publisher: &PrivKey,
+        //seq: &mut u64,
+        commit: &Commit,
+        additional_blocks: &Vec<BlockId>,
+        //topic_id: TopicId,
+        //topic_priv_key: &BranchWriteCapSecret,
+        store: &Store, // store could be omitted and a store repo ID would be given instead.
+    ) -> Result<Event, NgError> {
         let topic_id = TopicId::nil(); // should be fetched from user storage, based on the Commit.branch
         let topic_priv_key = BranchWriteCapSecret::nil(); // should be fetched from user storage, based on repoId found in user storage (search by branchId)
-        let seq = self.last_seq_number()?;
+        self.last_seq_num += 1;
         Event::new(
             &self.config.peer_priv_key,
-            seq,
+            self.last_seq_num,
             commit,
             additional_blocks,
             topic_id,
@@ -140,7 +164,7 @@ impl Verifier {
     }
 
     pub(crate) fn last_seq_number(&mut self) -> Result<u64, NgError> {
-        if self.last_seq_num - 1 >= self.max_reserved_seq_num {
+        if self.last_seq_num + 1 >= self.max_reserved_seq_num {
             self.reserve_more(1)?;
         }
         self.last_seq_num += 1;
@@ -154,24 +178,13 @@ impl Verifier {
     ) -> Result<Vec<Event>, NgError> {
         let missing_count = events.len() as i64 - self.available_seq_nums() as i64;
         // this is reducing the capacity of reserver_seq_num by half (cast from u64 to i64)
-        // but we will never reach situation where so many seq_nums are reserved, neither such a big list of events to processs
+        // but we will never reach situation where so many seq_nums are reserved, neither such a big list of events to process
         if missing_count >= 0 {
             self.reserve_more(missing_count as u64 + 1)?;
         }
         let mut res = vec![];
         for event in events {
-            let topic_id = TopicId::nil(); // should be fetched from user storage, based on the Commit.branch
-            let topic_priv_key = BranchWriteCapSecret::nil(); // should be fetched from user storage, based on repoId found in user storage (search by branchId)
-            self.last_seq_num += 1;
-            let event = Event::new(
-                &self.config.peer_priv_key,
-                self.last_seq_num,
-                &event.0,
-                &event.1,
-                topic_id,
-                &topic_priv_key,
-                store,
-            )?;
+            let event = self.new_event_(&event.0, &event.1, store)?;
             res.push(event);
         }
         Ok(res)
@@ -192,6 +205,11 @@ impl Verifier {
     fn take_some_peer_last_seq_numbers(&mut self, qty: u16) -> Result<(), NgError> {
         // TODO the magic
 
+        self.max_reserved_seq_num += qty as u64;
+        log_debug!(
+            "reserving more seq_nums {qty}. now at {}",
+            self.max_reserved_seq_num
+        );
         Ok(())
     }
 
@@ -259,14 +277,16 @@ impl Verifier {
         &'a mut self,
         creator: &UserId,
         creator_priv_key: &PrivKey,
-        //store_repo: &StoreRepo,
-        store: Box<Store>,
+        store_repo: &StoreRepo,
     ) -> Result<(&'a Repo, Vec<Event>), NgError> {
-        //let store = self.get_store(store_repo);
+        let store = self.get_store(store_repo);
         let (repo, proto_events) = store.create_repo_default(creator, creator_priv_key)?;
 
-        //repo.store = Some(store);
         let events = self.new_events(proto_events, &repo.store)?;
+        // let mut events = vec![];
+        // for event in proto_events {
+        //     events.push(self.new_event(&event.0, &event.1, &repo.store)?);
+        // }
 
         let repo_ref = self.repos.entry(repo.id).or_insert(repo);
         Ok((repo_ref, events))
@@ -278,6 +298,7 @@ mod test {
     use crate::types::*;
     use crate::verifier::*;
     use ng_repo::log::*;
+    use ng_repo::store::Store;
 
     #[test]
     pub fn test_new_repo_default() {
@@ -287,12 +308,12 @@ mod test {
         let publisher_peer = PeerId::Forwarded(publisher_pubkey);
 
         let store = Store::dummy_public_v0();
-
+        let store_repo = store.get_store_repo().clone();
         let mut verifier = Verifier::new_dummy();
-        //let store = verifier.get_store(store_repo);
+        verifier.add_store(store);
 
         let (repo, events) = verifier
-            .new_repo_default(&creator_pub_key, &creator_priv_key, store)
+            .new_repo_default(&creator_pub_key, &creator_priv_key, &store_repo)
             .expect("new_default");
 
         log_debug!("REPO OBJECT {}", repo);
@@ -304,6 +325,6 @@ mod test {
             i += 1;
         }
 
-        assert_eq!(verifier.last_seq_number(), 6);
+        assert_eq!(verifier.last_seq_number(), Ok(6));
     }
 }

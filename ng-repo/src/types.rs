@@ -95,7 +95,7 @@ impl SymKey {
     pub fn nil() -> Self {
         SymKey::ChaCha20Key([0; 32])
     }
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn dummy() -> Self {
         SymKey::ChaCha20Key([0; 32])
     }
@@ -222,7 +222,7 @@ impl PrivKey {
         PrivKey::Ed25519PrivKey([0u8; 32])
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn dummy() -> PrivKey {
         PrivKey::Ed25519PrivKey([0u8; 32])
     }
@@ -394,7 +394,7 @@ pub struct BlockRef {
 }
 
 impl BlockId {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn dummy() -> Self {
         Digest::Blake3Digest32([0u8; 32])
     }
@@ -406,7 +406,7 @@ impl BlockId {
 }
 
 impl BlockRef {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn dummy() -> Self {
         BlockRef {
             id: Digest::Blake3Digest32([0u8; 32]),
@@ -543,7 +543,7 @@ impl OverlayId {
         let store_id = serde_bare::to_vec(store_id).unwrap();
         OverlayId::Outer((&store_id).into())
     }
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn dummy() -> OverlayId {
         OverlayId::Outer(Digest::dummy())
     }
@@ -667,13 +667,13 @@ impl StoreRepo {
             },
         }
     }
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     #[allow(deprecated)]
     pub fn dummy_public_v0() -> Self {
         let store_pubkey = PubKey::nil();
         StoreRepo::V0(StoreRepoV0::PublicStore(store_pubkey))
     }
-    #[cfg(test)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn dummy_with_key(repo_pubkey: PubKey) -> Self {
         StoreRepo::V0(StoreRepoV0::PublicStore(repo_pubkey))
     }
