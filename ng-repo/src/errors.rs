@@ -44,6 +44,10 @@ pub enum NgError {
     WalletError(String),
     BrokerError,
     SessionNotFound,
+    SessionAlreadyStarted,
+    RepoNotFound,
+    BranchNotFound,
+    StoreNotFound,
 }
 
 impl Error for NgError {}

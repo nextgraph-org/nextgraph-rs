@@ -734,6 +734,7 @@ pub async fn run_server_v0(
                     servers.push(BrokerServerV0 {
                         peer_id: common_peer_id.unwrap_or(peer_id),
                         can_verify: false,
+                        can_forward: !run_core,
                         server_type,
                     })
                 }

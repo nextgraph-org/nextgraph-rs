@@ -74,15 +74,36 @@ impl UserInfo {
     }
 }
 
+#[derive(Debug)]
+pub struct BranchInfo {
+    pub id: BranchId,
+
+    pub branch_type: BranchType,
+
+    pub topic: TopicId,
+
+    pub topic_priv_key: BranchWriteCapSecret,
+
+    pub read_cap: ReadCap,
+}
+
 /// In memory Repository representation. With helper functions that access the underlying UserStore and keeps proxy of the values
+#[derive(Debug)]
 pub struct Repo {
     pub id: RepoId,
     /// Repo definition
     pub repo_def: Repository,
 
+    pub read_cap: Option<ReadCap>,
+
+    pub write_cap: Option<RepoWriteCapSecret>,
+
     pub signer: Option<SignerCap>,
 
     pub members: HashMap<Digest, UserInfo>,
+
+    pub branches: HashMap<BranchId, BranchInfo>,
+
     pub store: Arc<Store>,
 }
 
@@ -139,16 +160,19 @@ impl Repo {
             members,
             store,
             signer: None,
+            read_cap: None,
+            write_cap: None,
+            branches: HashMap::new(),
         }
     }
 
     pub fn verify_permission(&self, commit: &Commit) -> Result<(), NgError> {
         let content_author = commit.content_v0().author;
-        // let body = commit.load_body(self.store.unwrap())?;
-        // match self.members.get(&content_author) {
-        //     Some(info) => return info.has_any_perm(&body.required_permission()),
-        //     None => {}
-        // }
+        let body = commit.load_body(&self.store)?;
+        match self.members.get(&content_author) {
+            Some(info) => return info.has_any_perm(&body.required_permission()),
+            None => {}
+        }
         Err(NgError::PermissionDenied)
     }
 
@@ -156,6 +180,27 @@ impl Repo {
         match self.members.get(hash) {
             Some(user_info) => Ok(user_info.id),
             None => Err(NgError::NotFound),
+        }
+    }
+
+    pub fn branch(&self, id: &BranchId) -> Result<&BranchInfo, NgError> {
+        //TODO: load the BranchInfo from storage
+        self.branches.get(id).ok_or(NgError::BranchNotFound)
+    }
+
+    pub fn overlay_branch(&self) -> Option<&BranchInfo> {
+        for (_, branch) in self.branches.iter() {
+            if branch.branch_type == BranchType::Overlay {
+                return Some(branch);
+            }
+        }
+        None
+    }
+
+    pub fn overlay_branch_read_cap(&self) -> Option<&ReadCap> {
+        match self.overlay_branch() {
+            Some(bi) => Some(&bi.read_cap),
+            None => self.read_cap.as_ref(), // this is for private stores that don't have an overlay branch
         }
     }
 

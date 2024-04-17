@@ -11,36 +11,61 @@
 
 //! Store of a Site, or of a Group or Dialog
 
+use core::fmt;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use crate::block_storage::BlockStorage;
 use crate::errors::{NgError, StorageError};
 use crate::object::Object;
-use crate::repo::Repo;
+use crate::repo::{BranchInfo, Repo};
 use crate::types::*;
 use crate::utils::{generate_keypair, sign, verify};
 
 use crate::log::*;
 
 use rand::prelude::*;
-
 use threshold_crypto::{SecretKeySet, SecretKeyShare};
 
 pub struct Store {
     store_repo: StoreRepo,
     store_readcap: ReadCap,
+    store_overlay_branch_readcap: ReadCap,
     overlay_id: OverlayId,
     storage: Arc<RwLock<dyn BlockStorage + Send + Sync>>,
-    //repos: HashMap<RepoId, Repo>,
 }
+
+impl fmt::Debug for Store {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Store.\nstore_repo {:?}", self.store_repo)?;
+        writeln!(f, "store_readcap {:?}", self.store_readcap)?;
+        writeln!(
+            f,
+            "store_overlay_branch_readcap {:?}",
+            self.store_overlay_branch_readcap
+        )?;
+        writeln!(f, "overlay_id {:?}", self.overlay_id)
+    }
+}
+
 impl Store {
+    pub fn set_read_caps(&mut self, read_cap: ReadCap, overlay_read_cap: Option<ReadCap>) {
+        self.store_readcap = read_cap;
+        if let Some(overlay_read_cap) = overlay_read_cap {
+            self.store_overlay_branch_readcap = overlay_read_cap;
+        }
+    }
+
     pub fn get_store_repo(&self) -> &StoreRepo {
         &self.store_repo
     }
 
     pub fn get_store_readcap(&self) -> &ReadCap {
         &self.store_readcap
+    }
+
+    pub fn get_store_overlay_branch_readcap_secret(&self) -> &ReadCapSecret {
+        &self.store_overlay_branch_readcap.key
     }
 
     pub fn get_store_readcap_secret(&self) -> &ReadCapSecret {
@@ -83,6 +108,7 @@ impl Store {
         self: Arc<Self>,
         creator: &UserId,
         creator_priv_key: &PrivKey,
+        repo_write_cap_secret: SymKey,
     ) -> Result<(Repo, Vec<(Commit, Vec<Digest>)>), NgError> {
         let mut events = Vec::with_capacity(6);
 
@@ -117,8 +143,6 @@ impl Store {
         let (topic_priv_key, topic_pub_key) = generate_keypair();
 
         // creating the RootBranch commit, acks to Repository commit
-
-        let repo_write_cap_secret = SymKey::random();
 
         let root_branch_commit_body =
             CommitBody::V0(CommitBodyV0::RootBranch(RootBranch::V0(RootBranchV0 {
@@ -316,7 +340,7 @@ impl Store {
             repo_pub_key,
             QuorumType::IamTheSignature,
             vec![add_branch_commit.reference().unwrap()],
-            vec![root_branch_readcap],
+            vec![root_branch_readcap.clone()],
             sync_sig_commit_body.clone(),
             &self,
         )?;
@@ -340,7 +364,7 @@ impl Store {
             main_branch_pub_key,
             QuorumType::IamTheSignature,
             vec![branch_read_cap.clone()],
-            vec![branch_read_cap],
+            vec![branch_read_cap.clone()],
             sync_sig_commit_body,
             &self,
         )?;
@@ -358,12 +382,34 @@ impl Store {
 
         // preparing the Repo
 
+        let root_branch = BranchInfo {
+            id: repo_pub_key.clone(),
+            branch_type: BranchType::Root,
+            topic: topic_pub_key,
+            topic_priv_key: topic_priv_key,
+            read_cap: root_branch_readcap.clone(),
+        };
+
+        let main_branch = BranchInfo {
+            id: main_branch_pub_key.clone(),
+            branch_type: BranchType::Main,
+            topic: main_branch_topic_pub_key,
+            topic_priv_key: main_branch_topic_priv_key,
+            read_cap: branch_read_cap,
+        };
+
         let repo = Repo {
             id: repo_pub_key,
             repo_def: repository,
             signer: Some(signer_cap),
             members: HashMap::new(),
-            store: self,
+            store: Arc::clone(&self),
+            read_cap: Some(root_branch_readcap),
+            write_cap: Some(repo_write_cap_secret),
+            branches: HashMap::from([
+                (repo_pub_key, root_branch),
+                (main_branch_pub_key, main_branch),
+            ]),
         };
 
         Ok((repo, events))
@@ -372,6 +418,7 @@ impl Store {
     pub fn new(
         store_repo: StoreRepo,
         store_readcap: ReadCap,
+        store_overlay_branch_readcap: ReadCap,
         storage: Arc<RwLock<dyn BlockStorage + Send + Sync>>,
     ) -> Self {
         Self {
@@ -379,6 +426,7 @@ impl Store {
             store_readcap,
             overlay_id: store_repo.overlay_id_for_storage_purpose(),
             storage,
+            store_overlay_branch_readcap,
         }
     }
 
@@ -388,9 +436,11 @@ impl Store {
         use crate::block_storage::HashMapBlockStorage;
         let store_repo = StoreRepo::dummy_public_v0();
         let store_readcap = ReadCap::dummy();
+        let store_overlay_branch_readcap = ReadCap::dummy();
         Arc::new(Self::new(
             store_repo,
             store_readcap,
+            store_overlay_branch_readcap,
             Arc::new(RwLock::new(HashMapBlockStorage::new()))
                 as Arc<RwLock<dyn BlockStorage + Send + Sync>>,
         ))
@@ -401,9 +451,11 @@ impl Store {
         use crate::block_storage::HashMapBlockStorage;
         let store_repo = StoreRepo::dummy_with_key(repo_pubkey);
         let store_readcap = ReadCap::dummy();
+        let store_overlay_branch_readcap = ReadCap::dummy();
         Arc::new(Self::new(
             store_repo,
             store_readcap,
+            store_overlay_branch_readcap,
             Arc::new(RwLock::new(HashMapBlockStorage::new()))
                 as Arc<RwLock<dyn BlockStorage + Send + Sync>>,
         ))

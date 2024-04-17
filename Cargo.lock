@@ -3449,6 +3449,7 @@ dependencies = [
  "lazy_static",
  "ng-net",
  "ng-repo",
+ "ng-verifier",
  "rand 0.7.3",
  "safe-transmute",
  "serde",

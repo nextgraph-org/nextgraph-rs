@@ -8,13 +8,20 @@
 
 //! Event, a message sent in the PUB/SUB
 
+use zeroize::Zeroize;
+
 use crate::block_storage::*;
 use crate::errors::*;
 use crate::object::*;
+use crate::repo::Repo;
 use crate::store::Store;
 use crate::types::*;
 use crate::utils::*;
 use core::fmt;
+use std::sync::Arc;
+
+use chacha20::cipher::{KeyIvInit, StreamCipher};
+use chacha20::ChaCha20;
 
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -54,38 +61,75 @@ impl fmt::Display for EventContentV0 {
 }
 
 impl Event {
-    pub fn new<'a>(
+    pub fn new(
         publisher: &PrivKey,
         seq: u64,
         commit: &Commit,
         additional_blocks: &Vec<BlockId>,
-        topic_id: TopicId,
-        topic_priv_key: &BranchWriteCapSecret,
-        store: &'a Store,
+        repo: &Repo,
     ) -> Result<Event, NgError> {
         Ok(Event::V0(EventV0::new(
             publisher,
             seq,
             commit,
             additional_blocks,
-            topic_id,
-            topic_priv_key,
-            store,
+            repo,
         )?))
+    }
+
+    pub fn seq_num(&self) -> u64 {
+        match self {
+            Event::V0(v0) => v0.content.seq,
+        }
     }
 }
 
 impl EventV0 {
-    pub fn new<'a>(
+    pub fn derive_key(
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        branch_secret: &ReadCapSecret,
+        publisher: &PubKey,
+    ) -> [u8; blake3::OUT_LEN] {
+        let mut key_material = match (*repo_id, *branch_id, branch_secret.clone(), *publisher) {
+            (
+                PubKey::Ed25519PubKey(repo),
+                PubKey::Ed25519PubKey(branch),
+                SymKey::ChaCha20Key(branch_sec),
+                PubKey::Ed25519PubKey(publ),
+            ) => [repo, branch, branch_sec, publ].concat(),
+            (_, _, _, _) => panic!("cannot derive key with Montgomery key"),
+        };
+        let res = blake3::derive_key(
+            "NextGraph Event Commit ObjectKey ChaCha20 key",
+            key_material.as_slice(),
+        );
+        key_material.zeroize();
+        res
+    }
+
+    pub fn new(
         publisher: &PrivKey,
         seq: u64,
         commit: &Commit,
         additional_blocks: &Vec<BlockId>,
-        topic_id: TopicId,
-        topic_priv_key: &BranchWriteCapSecret,
-        store: &'a Store,
+        repo: &Repo,
     ) -> Result<EventV0, NgError> {
-        let branch_read_cap_secret = &store.get_store_readcap().key;
+        let branch_id = commit.branch();
+        let repo_id = repo.id;
+        let store = Arc::clone(&repo.store);
+        let branch = repo.branch(branch_id)?;
+        let topic_id = &branch.topic;
+        let topic_priv_key = &branch.topic_priv_key;
+        let publisher_pubkey = publisher.to_pub();
+        let key = Self::derive_key(&repo_id, branch_id, &branch.read_cap.key, &publisher_pubkey);
+        let commit_key = commit.key().unwrap();
+        let mut encrypted_commit_key = Vec::from(commit_key.slice());
+        let mut nonce = seq.to_le_bytes().to_vec();
+        nonce.append(&mut vec![0; 4]);
+        let mut cipher = ChaCha20::new((&key).into(), (nonce.as_slice()).into());
+        cipher.apply_keystream(encrypted_commit_key.as_mut_slice());
+
         let mut blocks = vec![];
         for bid in commit.blocks().iter() {
             blocks.push(store.get(bid)?);
@@ -93,10 +137,8 @@ impl EventV0 {
         for bid in additional_blocks.iter() {
             blocks.push(store.get(bid)?);
         }
-        // (*seq) += 1;
-        let publisher_pubkey = publisher.to_pub();
         let event_content = EventContentV0 {
-            topic: topic_id,
+            topic: *topic_id,
             publisher: PeerId::Forwarded(publisher_pubkey),
             seq,
             blocks,
@@ -104,10 +146,10 @@ impl EventV0 {
                 .header()
                 .as_ref()
                 .map_or_else(|| vec![], |h| h.files().to_vec()),
-            key: vec![], // TODO
+            key: encrypted_commit_key,
         };
         let event_content_ser = serde_bare::to_vec(&event_content).unwrap();
-        let topic_sig = sign(topic_priv_key, &topic_id, &event_content_ser)?;
+        let topic_sig = sign(topic_priv_key, topic_id, &event_content_ser)?;
         let peer_sig = sign(publisher, &publisher_pubkey, &event_content_ser)?;
         Ok(EventV0 {
             content: event_content,

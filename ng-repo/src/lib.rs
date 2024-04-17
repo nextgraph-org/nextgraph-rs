@@ -22,8 +22,6 @@ pub mod branch;
 
 pub mod repo;
 
-pub mod site;
-
 pub mod store;
 
 pub mod event;

@@ -950,6 +950,7 @@ async fn main_inner() -> Result<(), ()> {
             overlays_config.forward = vec![BrokerServerV0 {
                 server_type,
                 can_verify: false,
+                can_forward: false,
                 peer_id,
             }];
         }

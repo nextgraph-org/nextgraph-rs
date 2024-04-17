@@ -36,7 +36,22 @@ use serde::{Deserialize, Serialize};
 use web_time::SystemTime;
 //use yrs::{StateVector, Update};
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum SessionPeerLastSeq {
+    V0(u64),
+    V1((u64, Sig)),
+}
+
+impl SessionPeerLastSeq {
+    pub fn ser(&self) -> Result<Vec<u8>, NgError> {
+        Ok(serde_bare::to_vec(self)?)
+    }
+    pub fn deser(ser: &[u8]) -> Result<Self, NgError> {
+        Ok(serde_bare::from_slice(ser).map_err(|_| NgError::SerializationError)?)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VerifierType {
     /// nothing will be saved on disk during the session
     Memory,
@@ -59,7 +74,7 @@ impl VerifierType {
     }
 }
 
-//type LastSeqFn = fn(PubKey, u16) -> Result<u64, NgError>;
+//type LastSeqFn = fn(peer_id: PubKey, qty: u16) -> Result<u64, NgError>;
 pub type LastSeqFn = dyn Fn(PubKey, u16) -> Result<u64, NgError> + 'static + Sync + Send;
 
 // peer_id: PubKey, seq_num:u64, event_ser: vec<u8>,
@@ -96,6 +111,15 @@ pub enum VerifierConfigType {
     WebRocksDb,
 }
 
+impl VerifierConfigType {
+    pub(crate) fn should_load_last_seq_num(&self) -> bool {
+        match self {
+            Self::JsSaveSession(_) | Self::RocksDb(_) => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct VerifierConfig {
     pub config_type: VerifierConfigType,
@@ -104,7 +128,8 @@ pub struct VerifierConfig {
     /// not used for Memory
     pub peer_priv_key: PrivKey,
     pub user_priv_key: PrivKey,
-    pub private_store_read_cap: ObjectRef,
+    pub private_store_read_cap: Option<ObjectRef>,
+    pub private_store_id: Option<RepoId>,
 }
 
 pub type CancelFn = Box<dyn FnOnce()>;

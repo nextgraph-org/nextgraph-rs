@@ -402,6 +402,11 @@ impl Commit {
         }
     }
 
+    /// Get branch ID this commit is about
+    pub fn branch(&self) -> &BranchId {
+        self.content().branch()
+    }
+
     /// Get commit signature
     pub fn header(&self) -> &Option<CommitHeader> {
         match self {
@@ -701,7 +706,7 @@ impl Commit {
         }
         self.verify_sig(repo)?;
         self.verify_perm(repo)?;
-        //self.verify_full_object_refs_of_branch_at_commit(repo.store.unwrap())?;
+        self.verify_full_object_refs_of_branch_at_commit(&repo.store)?;
         Ok(())
     }
 }

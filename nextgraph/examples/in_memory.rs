@@ -8,9 +8,10 @@
 // according to those terms.
 
 use nextgraph::local_broker::{
-    init_local_broker, session_start, session_stop, user_connect, user_disconnect, wallet_close,
-    wallet_create_v0, wallet_get_file, wallet_import, wallet_open_with_pazzle_words,
-    wallet_read_file, wallet_was_opened, LocalBrokerConfig, SessionConfig,
+    doc_fetch, init_local_broker, session_start, session_stop, user_connect, user_disconnect,
+    wallet_close, wallet_create_v0, wallet_get, wallet_get_file, wallet_import,
+    wallet_open_with_pazzle_words, wallet_read_file, wallet_was_opened, LocalBrokerConfig,
+    SessionConfig,
 };
 use nextgraph::net::types::BootstrapContentV0;
 use nextgraph::repo::errors::NgError;
@@ -57,6 +58,8 @@ async fn main() -> std::io::Result<()> {
     })
     .await?;
 
+    println!("Your wallet name is : {}", wallet_result.wallet_name);
+
     let pazzle = display_pazzle(&wallet_result.pazzle);
     let mut pazzle_words = vec![];
     println!("Your pazzle is: {:?}", wallet_result.pazzle);
@@ -70,16 +73,21 @@ async fn main() -> std::io::Result<()> {
         .for_each(|word| print!("{} ", word.as_str()));
     println!("");
 
-    // at this point, the wallet is kept in the internal memory of the LocalBroker, but it hasn't been saved to disk
-    // and it hasn't been opened yet, so it is not usable right away.
-    // now let's open the wallet, by providing the pazzle and PIN code
-    let opened_wallet =
-        wallet_open_with_pazzle_words(&wallet_result.wallet, &pazzle_words, [1, 2, 1, 2])?;
+    // A session has been opened for you and you can directly use it without the need to call [wallet_was_opened] nor [session_start].
+    let user_id = wallet_result.personal_identity();
 
-    let user_id = opened_wallet.personal_identity();
+    // if the user has internet access, they can now decide to connect to its Server Broker, in order to sync data
+    let status = user_connect(&user_id).await?;
 
-    // once the wallet is opened, we notify the LocalBroker that we have opened it.
-    let _client = wallet_was_opened(opened_wallet).await?;
+    // The connection cannot succeed because we miss-configured the core_bootstrap of the wallet. its Peer ID is invalid.
+    let error_reason = status[0].3.as_ref().unwrap();
+    assert!(error_reason == "NoiseHandshakeFailed" || error_reason == "ConnectionError");
+
+    // a session ID has been assigned to you in `wallet_result.session_id` you can use it to fetch a document
+    //let _ = doc_fetch(wallet_result.session_id, "ng:example".to_string(), None).await?;
+
+    // Then we should disconnect
+    user_disconnect(&user_id).await?;
 
     // if you need the Wallet File again (if you didn't select `result_with_wallet_file` by example), you can retrieve it with:
     let wallet_file = wallet_get_file(&wallet_result.wallet_name).await?;
@@ -87,17 +95,39 @@ async fn main() -> std::io::Result<()> {
     // if you did ask for `result_with_wallet_file`, as we did above, then the 2 vectors should be identical
     assert_eq!(wallet_file, wallet_result.wallet_file);
 
-    {
-        // this part should happen on another device. just given here as an example
+    // stop the session
+    session_stop(&user_id).await?;
 
-        // on another device, you could use the Wallet File and import it there so it could be used for login.
+    // closes the wallet
+    wallet_close(&wallet_result.wallet_name).await?;
+
+    // if you have saved the wallet locally (which we haven't done in the example above, see `local_save: false`), next time you want to connect,
+    // you can retrieve the wallet, display the security phrase and image to the user, ask for the pazzle or mnemonic, and then open the wallet
+    // if you haven't saved the wallet, the next line will not work once you restart the LocalBroker.
+    let wallet = wallet_get(&wallet_result.wallet_name).await?;
+
+    // at this point, the wallet is kept in the internal memory of the LocalBroker
+    // and it hasn't been opened yet, so it is not usable right away.
+    // now let's open the wallet, by providing the pazzle and PIN code
+    let opened_wallet =
+        wallet_open_with_pazzle_words(&wallet_result.wallet, &pazzle_words, [1, 2, 1, 2])?;
+
+    // once the wallet is opened, we notify the LocalBroker that we have opened it.
+    let _client = wallet_was_opened(opened_wallet).await?;
+
+    // if instead of saving the wallet locally, you want to provide the Wallet File for every login,
+    // then you have to import the wallet. here is an example:
+    {
+        // this part should happen on another device or on the same machine if you haven't saved the wallet locally
+
+        // you could use the Wallet File and import it there so it could be used for login.
         // first you would read and decode the Wallet File
         // this fails here because we already added this wallet in the LocalBroker (when we created it).
-        // But on another device, it would work.
+        // But on another device or after a restart of LocalBroker, it would work.
         let wallet = wallet_read_file(wallet_file).await;
         assert_eq!(wallet.unwrap_err(), NgError::WalletAlreadyAdded);
 
-        // on another device, we would then open the wallet
+        // we would then open the wallet
         // (here we take the Wallet as we received it from wallet_create_v0, but in real case you would use `wallet`)
         let opened_wallet2 =
             wallet_open_with_pazzle_words(&wallet_result.wallet, &pazzle_words, [1, 2, 1, 2])?;
@@ -109,7 +139,7 @@ async fn main() -> std::io::Result<()> {
         assert_eq!(client_fail.unwrap_err(), NgError::WalletAlreadyAdded);
     }
 
-    // anyway, now that the wallet is opened, let's start a session.
+    // now that the wallet is opened or imported, let's start a session.
     // we pass the user_id and the wallet_name
     let _session = session_start(SessionConfig::new_in_memory(
         &user_id,

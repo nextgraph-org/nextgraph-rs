@@ -585,7 +585,10 @@ impl RocksdbKCVStore {
         let db: TransactionDB =
             TransactionDB::open_cf(&opts, &tx_options, &path, vec!["cf0", "cf1"]).unwrap();
 
-        log_info!("created db with Rocksdb Version: {}", Env::version());
+        log_info!(
+            "created kcv storage with Rocksdb Version: {}",
+            Env::version()
+        );
 
         Ok(RocksdbKCVStore {
             db: db,

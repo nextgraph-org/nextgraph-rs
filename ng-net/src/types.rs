@@ -150,6 +150,9 @@ pub struct BrokerServerV0 {
     /// is this server capable of running a verifier
     pub can_verify: bool,
 
+    /// is this server capable of forwarding client connections to another broker
+    pub can_forward: bool,
+
     /// peerId of the server
     pub peer_id: PubKey,
 }
@@ -164,6 +167,7 @@ impl BrokerServerV0 {
         BrokerServerV0 {
             server_type: BrokerServerTypeV0::Localhost(WS_PORT_ALTERNATE[0]),
             can_verify: false,
+            can_forward: true,
             peer_id,
         }
     }
@@ -3772,6 +3776,7 @@ mod test {
                 servers: vec![BrokerServerV0 {
                     server_type: BrokerServerTypeV0::Localhost(14400),
                     can_verify: false,
+                    can_forward: false,
                     peer_id: PubKey::Ed25519PubKey([
                         95, 73, 225, 250, 3, 147, 24, 164, 177, 211, 34, 244, 45, 130, 111, 136,
                         229, 145, 53, 167, 50, 168, 140, 227, 65, 111, 203, 41, 210, 186, 162, 149,

@@ -91,7 +91,6 @@ impl SymKey {
     pub fn from_array(array: [u8; 32]) -> Self {
         SymKey::ChaCha20Key(array)
     }
-    #[deprecated(note = "**Don't use nil method**")]
     pub fn nil() -> Self {
         SymKey::ChaCha20Key([0; 32])
     }
@@ -399,7 +398,6 @@ impl BlockId {
         Digest::Blake3Digest32([0u8; 32])
     }
 
-    #[deprecated(note = "**Don't use nil method**")]
     pub fn nil() -> Self {
         Digest::Blake3Digest32([0u8; 32])
     }
@@ -414,7 +412,6 @@ impl BlockRef {
         }
     }
 
-    #[deprecated(note = "**Don't use nil method**")]
     pub fn nil() -> Self {
         BlockRef {
             id: Digest::Blake3Digest32([0u8; 32]),
@@ -742,29 +739,6 @@ pub enum SiteName {
     Name(String),
 }
 
-/// Site V0
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct SiteV0 {
-    pub site_type: SiteType,
-
-    pub id: PubKey,
-
-    pub name: SiteName,
-
-    // Identity::OrgPublicStore or Identity::IndividualPublicStore
-    pub public: SiteStore,
-
-    // Identity::OrgProtectedStore or Identity::IndividualProtectedStore
-    pub protected: SiteStore,
-
-    // Identity::OrgPrivateStore or Identity::IndividualPrivateStore
-    pub private: SiteStore,
-
-    /// Only for IndividualSite: TODO reorganize those 2 fields
-    pub cores: Vec<(PubKey, Option<[u8; 32]>)>,
-    pub bootstraps: Vec<PubKey>,
-}
-
 /// Reduced Site (for QRcode)
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ReducedSiteV0 {
@@ -971,9 +945,8 @@ pub enum Block {
 ///
 /// First commit published in root branch, signed by repository key
 /// For the Root repo of a store(overlay), the convergence_key should be derived from :
-/// "NextGraph Store Root Repo BLAKE3 convergence key",
-///                                     RepoId + RepoWriteCapSecret)
-/// for a private store root repo, the repowritecapsecret can be omitted
+/// "NextGraph Data BLAKE3 key", RepoId + RepoWriteCapSecret)
+/// for a private store root repo, the RepoWriteCapSecret can be omitted
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RepositoryV0 {
     /// Repo public key ID
@@ -1077,7 +1050,7 @@ pub struct RootBranchV0 {
 
     /// Mutable App-specific metadata
     /// when the list of owners is changed, a crypto_box containing the RepoWriteCapSecret should be included here for each owner.
-    /// this should also be done at creation time, with the UserId of the first owner, except for individual store repo, because it doesnt have a RepoWriteCapSecret
+    /// this should also be done at creation time, with the UserId of the first owner, except for individual private store repo, because it doesnt have a RepoWriteCapSecret
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,
 }
@@ -1247,7 +1220,8 @@ pub enum BranchType {
     Store,
     Overlay,
     User,
-    Transactional, // this could have been called OtherTransaction, but for the sake of simplicity, we use Transaction for any branch that is not the Main one.
+    Transactional, // this could have been called OtherTransaction, but for the sake of simplicity, we use Transactional for any branch that is not the Main one.
+    Root,          // only used for BranchInfo
 }
 
 impl fmt::Display for BranchType {
@@ -1262,6 +1236,7 @@ impl fmt::Display for BranchType {
                 Self::Overlay => "Overlay",
                 Self::User => "User",
                 Self::Transactional => "Transactional",
+                Self::Root => "Root",
             }
         )
     }
@@ -2159,6 +2134,11 @@ impl CommitContent {
     pub fn author(&self) -> &Digest {
         match self {
             CommitContent::V0(v0) => &v0.author,
+        }
+    }
+    pub fn branch(&self) -> &BranchId {
+        match self {
+            CommitContent::V0(v0) => &v0.branch,
         }
     }
 

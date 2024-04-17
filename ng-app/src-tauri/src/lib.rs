@@ -21,7 +21,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::{read, write, File, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
 use tauri::scope::ipc::RemoteDomainAccessScope;
 use tauri::utils::config::WindowConfig;
 use tauri::{path::BaseDirectory, App, Manager, Window};
@@ -41,17 +40,6 @@ async fn test(app: tauri::AppHandle) -> Result<(), ()> {
         .map_err(|_| NgError::SerializationError)
         .unwrap();
     init_local_broker(Box::new(move || LocalBrokerConfig::BasePath(path.clone()))).await;
-
-    // init_local_broker(&Lazy::new(|| {
-    //     Box::new(move || LocalBrokerConfig::BasePath(path.clone()))
-    // }))
-    // .await;
-    //pub type LastSeqFn = dyn Fn(PubKey, u16) -> Result<u64, NgError> + 'static + Sync + Send;
-
-    // let test: Box<LastSeqFn> = Box::new(move |peer_id: PubKey, qty: u16| {
-    //     take_some_peer_last_seq_numbers(peer_id, qty, path.clone())
-    // });
-    //pub type ConfigInitFn = dyn Fn() -> LocalBrokerConfig + 'static + Sync + Send;
 
     //log_debug!("test is {}", BROKER.read().await.test());
     let path = app
@@ -134,49 +122,6 @@ async fn wallet_create(
         cwr.wallet_file = vec![];
     }
     Ok(cwr)
-}
-
-fn take_some_peer_last_seq_numbers(
-    peer_id: PubKey,
-    qty: u16,
-    mut path: PathBuf,
-) -> Result<u64, NgError> {
-    std::fs::create_dir_all(path.clone()).unwrap();
-    path.push(peer_id.to_string());
-    log_debug!("{}", path.display());
-
-    let file = read(path.clone());
-    let (mut file_save, val) = match file {
-        Ok(ser) => {
-            let old_val = match SessionPeerLastSeq::deser(&ser)? {
-                SessionPeerLastSeq::V0(v) => v,
-                _ => unimplemented!(),
-            };
-            (
-                OpenOptions::new()
-                    .write(true)
-                    .open(path)
-                    .map_err(|_| NgError::SerializationError)?,
-                old_val,
-            )
-        }
-        Err(_) => (
-            File::create(path).map_err(|_| NgError::SerializationError)?,
-            0,
-        ),
-    };
-    let new_val = val + qty as u64;
-    let spls = SessionPeerLastSeq::V0(new_val);
-    let ser = spls.ser()?;
-    file_save
-        .write_all(&ser)
-        .map_err(|_| NgError::SerializationError)?;
-
-    file_save
-        .sync_data()
-        .map_err(|_| NgError::SerializationError)?;
-
-    Ok(val)
 }
 
 #[tauri::command(rename_all = "snake_case")]

@@ -20,6 +20,7 @@ use ng_net::types::*;
 use ng_repo::errors::NgError;
 use ng_repo::types::*;
 use ng_repo::utils::{encrypt_in_place, generate_keypair, now_timestamp, sign};
+use ng_verifier::site::SiteV0;
 
 /// WalletId is a PubKey
 pub type WalletId = PubKey;
@@ -61,21 +62,6 @@ impl Bootstrap {
         match self {
             Bootstrap::V0(v0) => v0.sig,
         }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum SessionPeerLastSeq {
-    V0(u64),
-    V1((u64, Sig)),
-}
-
-impl SessionPeerLastSeq {
-    pub fn ser(&self) -> Result<Vec<u8>, NgError> {
-        Ok(serde_bare::to_vec(self)?)
-    }
-    pub fn deser(ser: &[u8]) -> Result<Self, NgError> {
-        Ok(serde_bare::from_slice(ser).map_err(|_| NgError::SerializationError)?)
     }
 }
 
@@ -231,11 +217,11 @@ pub struct LocalWalletStorageV0 {
     pub encrypted_client_storage: Vec<u8>,
 }
 
-impl From<&CreateWalletResultV0> for LocalWalletStorageV0 {
-    fn from(res: &CreateWalletResultV0) -> Self {
+impl From<&CreateWalletIntermediaryV0> for LocalWalletStorageV0 {
+    fn from(res: &CreateWalletIntermediaryV0) -> Self {
         LocalWalletStorageV0 {
             bootstrap: BootstrapContent::V0(BootstrapContentV0::new_empty()),
-            wallet: res.wallet.clone(),
+            wallet: Wallet::TemporarilyEmpty,
             in_memory: res.in_memory,
             client_id: res.client.id,
             client_auto_open: res.client.auto_open.clone(),
@@ -246,6 +232,38 @@ impl From<&CreateWalletResultV0> for LocalWalletStorageV0 {
                 .encrypt(res.client.id, res.wallet_privkey.clone())
                 .unwrap(),
         }
+    }
+}
+
+impl From<&CreateWalletIntermediaryV0> for SensitiveWalletV0 {
+    fn from(res: &CreateWalletIntermediaryV0) -> Self {
+        SensitiveWalletV0 {
+            wallet_privkey: res.wallet_privkey.clone(),
+            wallet_id: res.wallet_name.clone(),
+            save_to_ng_one: if res.send_wallet {
+                SaveToNGOne::Wallet
+            } else if res.send_bootstrap {
+                SaveToNGOne::Bootstrap
+            } else {
+                SaveToNGOne::No
+            },
+            // for now, personal_site is null. will be replaced later
+            personal_site: PubKey::nil(),
+            personal_site_id: "".to_string(),
+            sites: HashMap::new(),
+            brokers: HashMap::new(),
+            overlay_core_overrides: HashMap::new(),
+            third_parties: HashMap::new(),
+            log: None,
+            master_key: None,
+            client: None,
+        }
+    }
+}
+
+impl From<&CreateWalletIntermediaryV0> for SensitiveWallet {
+    fn from(res: &CreateWalletIntermediaryV0) -> SensitiveWallet {
+        SensitiveWallet::V0(res.into())
     }
 }
 
@@ -468,11 +486,16 @@ impl SensitiveWallet {
             Self::V0(v0) => v0.client = Some(client),
         }
     }
-    pub fn individual_site(&self, user_id: &UserId) -> Option<&(PrivKey, ReadCap)> {
+    pub fn individual_site(
+        &self,
+        user_id: &UserId,
+    ) -> Option<(PrivKey, Option<ReadCap>, Option<RepoId>)> {
         match self {
             Self::V0(v0) => match v0.sites.get(&user_id.to_string()) {
                 Some(site) => match &site.site_type {
-                    SiteType::Individual(creds) => Some(creds),
+                    SiteType::Individual((user, readcap)) => {
+                        Some((user.clone(), Some(readcap.clone()), Some(site.private.id)))
+                    }
                     _ => None,
                 },
                 None => None,
@@ -496,6 +519,16 @@ impl SensitiveWallet {
     ) -> Result<LocalWalletStorageV0, NgWalletError> {
         match self {
             Self::V0(v0) => v0.import(encrypted_wallet, in_memory),
+        }
+    }
+
+    pub fn complete_with_site_and_brokers(
+        &mut self,
+        site: SiteV0,
+        brokers: HashMap<String, Vec<BrokerInfoV0>>,
+    ) {
+        match self {
+            Self::V0(v0) => v0.complete_with_site_and_brokers(site, brokers),
         }
     }
 }
@@ -545,6 +578,19 @@ impl SensitiveWalletV0 {
         let _ = self
             .overlay_core_overrides
             .insert(overlay.to_string(), cores.to_vec());
+    }
+
+    pub fn complete_with_site_and_brokers(
+        &mut self,
+        site: SiteV0,
+        brokers: HashMap<String, Vec<BrokerInfoV0>>,
+    ) {
+        let personal_site = site.id;
+        let personal_site_id = personal_site.to_string();
+        self.personal_site = personal_site;
+        self.personal_site_id = personal_site_id.clone();
+        self.sites.insert(personal_site_id, site);
+        self.brokers = brokers;
     }
 }
 
@@ -1067,6 +1113,7 @@ pub struct WalletV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Wallet {
     V0(WalletV0),
+    TemporarilyEmpty,
 }
 
 /// Add Wallet Version 0
@@ -1186,16 +1233,28 @@ impl CreateWalletV0 {
     }
 }
 
+// #[derive(Clone, Zeroize, ZeroizeOnDrop, Debug, Serialize, Deserialize)]
+// pub struct WalletCreationSiteEventsV0 {
+//     store_id: RepoId,
+//     store_read_cap: ReadCap,
+//     topic_id: TopicId,
+//     topic_priv_key: BranchWriteCapSecret,
+//     events: Vec<(Commit, Vec<Digest>)>,
+// }
+
+// #[derive(Clone, Zeroize, ZeroizeOnDrop, Debug, Serialize, Deserialize)]
+// pub struct WalletCreationEventsV0 {}
+
 #[derive(Clone, Zeroize, ZeroizeOnDrop, Debug, Serialize, Deserialize)]
 pub struct CreateWalletResultV0 {
     #[zeroize(skip)]
     /// The encrypted form of the Wallet object that was created.
     /// basically the same as what the file contains.
     pub wallet: Wallet,
-    #[serde(skip)]
-    /// The private key of the Wallet. Used for signing the wallet and other internal purposes.
-    /// it is contained in the opened wallet. No need to save it anywhere.
-    pub wallet_privkey: PrivKey,
+    // #[serde(skip)]
+    // /// The private key of the Wallet. Used for signing the wallet and other internal purposes.
+    // /// it is contained in the opened wallet. No need to save it anywhere.
+    // pub wallet_privkey: PrivKey,
     #[serde(with = "serde_bytes")]
     #[zeroize(skip)]
     /// The binary file that can be saved to disk and given to the user
@@ -1216,6 +1275,53 @@ pub struct CreateWalletResultV0 {
     #[zeroize(skip)]
     /// is this an in_memory wallet that should not be saved to disk by the LocalBroker?
     pub in_memory: bool,
+
+    pub session_id: u8,
+}
+
+impl CreateWalletResultV0 {
+    pub fn personal_identity(&self) -> UserId {
+        self.user
+    }
+}
+
+#[derive(Clone, Zeroize, ZeroizeOnDrop, Debug)]
+pub struct CreateWalletIntermediaryV0 {
+    /// The private key of the Wallet. Used for signing the wallet and other internal purposes.
+    /// it is contained in the opened wallet. No need to save it anywhere.
+    pub wallet_privkey: PrivKey,
+    #[zeroize(skip)]
+    /// a string identifying uniquely the wallet
+    pub wallet_name: String,
+    /// newly created Client that uniquely identifies the device where the wallet has been created.
+    pub client: ClientV0,
+
+    /// User priv key of the "personal identity" of the user
+    pub user_privkey: PrivKey,
+    #[zeroize(skip)]
+    /// is this an in_memory wallet that should not be saved to disk by the LocalBroker?
+    pub in_memory: bool,
+
+    #[zeroize(skip)]
+    pub security_img: Vec<u8>,
+
+    pub security_txt: String,
+
+    pub pazzle_length: u8,
+
+    pub pin: [u8; 4],
+
+    #[zeroize(skip)]
+    pub send_bootstrap: bool,
+    #[zeroize(skip)]
+    pub send_wallet: bool,
+    #[zeroize(skip)]
+    pub result_with_wallet_file: bool,
+    #[zeroize(skip)]
+    pub core_bootstrap: BootstrapContentV0,
+    pub core_registration: Option<[u8; 32]>,
+    #[zeroize(skip)]
+    pub additional_bootstrap: Option<BootstrapContentV0>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]

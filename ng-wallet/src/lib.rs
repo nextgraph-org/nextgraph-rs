@@ -19,6 +19,7 @@ pub mod bip39;
 
 pub mod emojis;
 
+use ng_verifier::{site::SiteV0, verifier::Verifier};
 use rand::distributions::{Distribution, Uniform};
 use std::{collections::HashMap, io::Cursor, sync::Arc};
 
@@ -46,26 +47,31 @@ impl Wallet {
     pub fn id(&self) -> WalletId {
         match self {
             Wallet::V0(v0) => v0.id,
+            _ => unimplemented!(),
         }
     }
     pub fn content_as_bytes(&self) -> Vec<u8> {
         match self {
             Wallet::V0(v0) => serde_bare::to_vec(&v0.content).unwrap(),
+            _ => unimplemented!(),
         }
     }
     pub fn sig(&self) -> Sig {
         match self {
             Wallet::V0(v0) => v0.sig,
+            _ => unimplemented!(),
         }
     }
     pub fn pazzle_length(&self) -> u8 {
         match self {
             Wallet::V0(v0) => v0.content.pazzle_length,
+            _ => unimplemented!(),
         }
     }
     pub fn name(&self) -> String {
         match self {
             Wallet::V0(v0) => base64_url::encode(&v0.id.slice()),
+            _ => unimplemented!(),
         }
     }
 
@@ -90,6 +96,7 @@ impl Wallet {
 
         let mut wallet_content = match self {
             Wallet::V0(v0) => v0.content.clone(),
+            _ => unimplemented!(),
         };
 
         wallet_content.timestamp = timestamp;
@@ -347,6 +354,7 @@ pub fn open_wallet_with_pazzle(
                 v0.id,
             )?))
         }
+        _ => unimplemented!(),
     }
 }
 
@@ -385,6 +393,7 @@ pub fn open_wallet_with_mnemonic(
                 v0.id,
             )?))
         }
+        _ => unimplemented!(),
     }
 }
 
@@ -447,9 +456,9 @@ pub fn gen_shuffle_for_pin() -> Vec<u8> {
 
 /// creates a Wallet from a pin, a security text and image (with option to send the bootstrap and wallet to nextgraph.one)
 /// and returns the Wallet, the pazzle and the mnemonic
-pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResultV0, NgWalletError> {
-    let creating_pazzle = Instant::now();
-
+pub fn create_wallet_first_step_v0(
+    params: CreateWalletV0,
+) -> Result<CreateWalletIntermediaryV0, NgWalletError> {
     // pazzle_length can only be 9, 12, or 15
     if params.pazzle_length != 9
         //&& params.pazzle_length != 12
@@ -533,11 +542,53 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
     let (wallet_privkey, wallet_id) = generate_keypair();
 
     // TODO: should be derived from  OwnershipProof
-    let user_priv_key = PrivKey::random_ed();
+    let user_privkey = PrivKey::random_ed();
 
-    // TODO: private_store_read_cap
-    let site = SiteV0::create_personal(user_priv_key.clone(), BlockRef::nil())
-        .map_err(|e| NgWalletError::InternalError)?;
+    let user = user_privkey.to_pub();
+
+    let client = ClientV0::new_with_auto_open(user);
+
+    let intermediary = CreateWalletIntermediaryV0 {
+        wallet_privkey,
+        wallet_name: base64_url::encode(&wallet_id.slice()),
+        client,
+        user_privkey,
+        in_memory: !params.local_save,
+        security_img: cursor.into_inner(),
+        security_txt: new_string,
+        pazzle_length: params.pazzle_length,
+        pin: params.pin,
+        send_bootstrap: params.send_bootstrap,
+        send_wallet: params.send_wallet,
+        result_with_wallet_file: params.result_with_wallet_file,
+        core_bootstrap: params.core_bootstrap.clone(),
+        core_registration: params.core_registration,
+        additional_bootstrap: params.additional_bootstrap.clone(),
+    };
+    Ok(intermediary)
+}
+
+pub fn create_wallet_second_step_v0(
+    mut params: CreateWalletIntermediaryV0,
+    verifier: &mut Verifier,
+) -> Result<
+    (
+        CreateWalletResultV0,
+        SiteV0,
+        HashMap<String, Vec<BrokerInfoV0>>,
+    ),
+    NgWalletError,
+> {
+    let creating_pazzle = Instant::now();
+
+    let mut site = SiteV0::create_personal(params.user_privkey.clone(), verifier).map_err(|e| {
+        log_err!("{e}");
+        NgWalletError::InternalError
+    })?;
+
+    let user = params.user_privkey.to_pub();
+
+    let wallet_id = params.wallet_privkey.to_pub();
 
     let mut ran = thread_rng();
 
@@ -565,17 +616,12 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
     //.ok_or(NgWalletError::InternalError)?
     //.clone(),
 
-    let user = user_priv_key.to_pub();
-
-    // Creating a new client
-    let client = ClientV0::new_with_auto_open(user);
-
     let create_op = WalletOpCreateV0 {
-        wallet_privkey: wallet_privkey.clone(),
+        wallet_privkey: params.wallet_privkey.clone(),
         // pazzle: pazzle.clone(),
         // mnemonic,
         // pin: params.pin,
-        personal_site: site,
+        personal_site: site.clone(),
         save_to_ng_one: if params.send_wallet {
             SaveToNGOne::Wallet
         } else if params.send_bootstrap {
@@ -599,14 +645,19 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
     // #[zeroize(skip)]
     // pub additional_bootstrap: Option<BootstrapContentV0>,
 
+    let mut brokers: HashMap<String, Vec<BrokerInfoV0>> = HashMap::new();
+
+    let core_pubkey = params
+        .core_bootstrap
+        .get_first_peer_id()
+        .ok_or(NgWalletError::InvalidBootstrap)?;
     wallet_log.add(WalletOperation::AddSiteCoreV0((
         user,
-        params
-            .core_bootstrap
-            .get_first_peer_id()
-            .ok_or(NgWalletError::InvalidBootstrap)?,
+        core_pubkey,
         params.core_registration,
     )));
+
+    site.cores.push((core_pubkey, params.core_registration));
 
     if let Some(additional) = &params.additional_bootstrap {
         params.core_bootstrap.merge(additional);
@@ -615,6 +666,17 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
     for server in &params.core_bootstrap.servers {
         wallet_log.add(WalletOperation::AddBrokerServerV0(server.clone()));
         wallet_log.add(WalletOperation::AddSiteBootstrapV0((user, server.peer_id)));
+        site.bootstraps.push(server.peer_id);
+
+        let broker = BrokerInfoV0::ServerV0(server.clone());
+        let key = broker.get_id().to_string();
+        let mut list = brokers.get_mut(&key);
+        if list.is_none() {
+            let new_list = vec![];
+            brokers.insert(key.clone(), new_list);
+            list = brokers.get_mut(&key);
+        }
+        list.unwrap().push(broker);
     }
 
     let mut master_key = [0u8; 32];
@@ -664,8 +726,8 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
     master_key.zeroize();
 
     let wallet_content = WalletContentV0 {
-        security_img: cursor.into_inner(),
-        security_txt: new_string,
+        security_img: params.security_img.clone(),
+        security_txt: params.security_txt.clone(),
         pazzle_length: params.pazzle_length,
         salt_pazzle,
         salt_mnemonic,
@@ -680,7 +742,7 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
 
     let ser_wallet = serde_bare::to_vec(&wallet_content).unwrap();
 
-    let sig = sign(&wallet_privkey, &wallet_id, &ser_wallet).unwrap();
+    let sig = sign(&params.wallet_privkey, &wallet_id, &ser_wallet).unwrap();
 
     let wallet_v0 = WalletV0 {
         /// ID
@@ -705,22 +767,27 @@ pub fn create_wallet_v0(mut params: CreateWalletV0) -> Result<CreateWalletResult
         "creating of wallet took: {} ms",
         creating_pazzle.elapsed().as_millis()
     );
+
     let wallet = Wallet::V0(wallet_v0);
     let wallet_file = match params.result_with_wallet_file {
         false => vec![],
         true => to_vec(&NgFile::V0(NgFileV0::Wallet(wallet.clone()))).unwrap(),
     };
-    Ok(CreateWalletResultV0 {
-        wallet: wallet,
-        wallet_privkey,
-        wallet_file,
-        pazzle,
-        mnemonic: mnemonic.clone(),
-        wallet_name: base64_url::encode(&wallet_id.slice()),
-        client,
-        user,
-        in_memory: !params.local_save,
-    })
+    Ok((
+        CreateWalletResultV0 {
+            wallet: wallet,
+            wallet_file,
+            pazzle,
+            mnemonic: mnemonic.clone(),
+            wallet_name: params.wallet_name.clone(),
+            client: params.client.clone(),
+            user,
+            in_memory: params.in_memory,
+            session_id: 0,
+        },
+        site,
+        brokers,
+    ))
 }
 
 #[cfg(test)]
@@ -766,7 +833,7 @@ mod test {
 
         let creation = Instant::now();
 
-        let res = create_wallet_v0(CreateWalletV0::new(
+        let res = create_wallet_first_step_v0(CreateWalletV0::new(
             img_buffer,
             "   know     yourself  ".to_string(),
             pin,
@@ -777,7 +844,11 @@ mod test {
             None,
             None,
         ))
-        .expect("create_wallet_v0");
+        .expect("create_wallet_first_step_v0");
+
+        let mut verifier = Verifier::new_dummy();
+        let (res, _, _) =
+            create_wallet_second_step_v0(res, &mut verifier).expect("create_wallet_second_step_v0");
 
         log_debug!(
             "creation of wallet took: {} ms",

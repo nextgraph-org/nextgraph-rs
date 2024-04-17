@@ -34,7 +34,7 @@ use ng_repo::errors::NgError;
 use ng_repo::log::*;
 use ng_repo::types::*;
 use ng_repo::utils::derive_key;
-use ng_wallet::{create_wallet_v0, types::*};
+use ng_wallet::{create_wallet_first_step_v0, create_wallet_second_step_v0, types::*};
 
 #[cfg(not(target_arch = "wasm32"))]
 use ng_client_ws::remote_ws::ConnectionWebSocket;
@@ -80,14 +80,16 @@ impl JsStorageConfig {
                     }
                     Err(_) => 0,
                 };
-                let new_val = val + qty as u64;
-                let spls = SessionPeerLastSeq::V0(new_val);
-                let ser = serde_bare::to_vec(&spls)?;
-                //saving the new val
-                let encoded = base64_url::encode(&ser);
-                let r = (session_write2)(format!("ng_peer_last_seq@{}", peer_id), encoded);
-                if r.is_ok() {
-                    return Err(NgError::SerializationError);
+                if qty > 0 {
+                    let new_val = val + qty as u64;
+                    let spls = SessionPeerLastSeq::V0(new_val);
+                    let ser = serde_bare::to_vec(&spls)?;
+                    //saving the new val
+                    let encoded = base64_url::encode(&ser);
+                    let r = (session_write2)(format!("ng_peer_last_seq@{}", peer_id), encoded);
+                    if r.is_ok() {
+                        return Err(NgError::SerializationError);
+                    }
                 }
                 Ok(val)
             }),
@@ -266,6 +268,31 @@ impl SessionConfig {
         })
     }
 
+    pub fn new_for_local_broker_config(
+        user_id: &UserId,
+        wallet_name: &String,
+        local_broker_config: &LocalBrokerConfig,
+        in_memory: bool,
+    ) -> Result<SessionConfig, NgError> {
+        Ok(SessionConfig::V0(SessionConfigV0 {
+            user_id: user_id.clone(),
+            wallet_name: wallet_name.clone(),
+            verifier_type: match local_broker_config {
+                LocalBrokerConfig::InMemory => {
+                    if !in_memory {
+                        return Err(NgError::CannotSaveWhenInMemoryConfig);
+                    }
+                    VerifierType::Memory
+                }
+                LocalBrokerConfig::JsStorage(js_config) => VerifierType::Memory,
+                LocalBrokerConfig::BasePath(_) => match in_memory {
+                    true => VerifierType::Memory,
+                    false => VerifierType::RocksDb,
+                },
+            },
+        }))
+    }
+
     fn valid_verifier_config_for_local_broker_config(
         &mut self,
         local_broker_config: &LocalBrokerConfig,
@@ -283,7 +310,7 @@ impl SessionConfig {
                 },
                 LocalBrokerConfig::BasePath(_) => match v0.verifier_type {
                     VerifierType::RocksDb | VerifierType::Remote(_) => true,
-                    //VerifierType::Memory => true,
+                    VerifierType::Memory => true,
                     _ => false,
                 },
             },
@@ -366,16 +393,16 @@ impl EActor for LocalBroker {
 }
 
 impl LocalBroker {
-    fn storage_path_for_user(&self, user_id: &UserId) -> Option<PathBuf> {
-        match &self.config {
-            LocalBrokerConfig::InMemory | LocalBrokerConfig::JsStorage(_) => None,
-            LocalBrokerConfig::BasePath(base) => {
-                let mut path = base.clone();
-                path.push(user_id.to_hash_string());
-                Some(path)
-            }
-        }
-    }
+    // fn storage_path_for_user(&self, user_id: &UserId) -> Option<PathBuf> {
+    //     match &self.config {
+    //         LocalBrokerConfig::InMemory | LocalBrokerConfig::JsStorage(_) => None,
+    //         LocalBrokerConfig::BasePath(base) => {
+    //             let mut path = base.clone();
+    //             path.push(format!("user{}", user_id.to_hash_string()));
+    //             Some(path)
+    //         }
+    //     }
+    // }
 
     fn get_mut_session_for_user(&mut self, user: &UserId) -> Option<&mut Session> {
         match self.opened_sessions.get(user) {
@@ -390,9 +417,10 @@ impl LocalBroker {
     ) -> VerifierConfigType {
         match (config.verifier_type(), &self.config) {
             (VerifierType::Memory, LocalBrokerConfig::InMemory) => VerifierConfigType::Memory,
+            (VerifierType::Memory, LocalBrokerConfig::BasePath(_)) => VerifierConfigType::Memory,
             (VerifierType::RocksDb, LocalBrokerConfig::BasePath(base)) => {
                 let mut path = base.clone();
-                path.push(config.user_id().to_hash_string());
+                path.push(format!("user{}", config.user_id().to_hash_string()));
                 VerifierConfigType::RocksDb(path)
             }
             (VerifierType::Remote(to), _) => VerifierConfigType::Remote(*to),
@@ -436,6 +464,295 @@ impl LocalBroker {
                 session.verifier.connected_server_id = None;
             }
             None => {}
+        }
+        Ok(())
+    }
+
+    async fn wallet_was_opened(
+        &mut self,
+        mut wallet: SensitiveWallet,
+    ) -> Result<ClientV0, NgError> {
+        let broker = self;
+
+        match broker.opened_wallets.get(&wallet.id()) {
+            Some(opened_wallet) => {
+                return Ok(opened_wallet.wallet.client().to_owned().unwrap());
+            }
+            None => {} //Err(NgError::WalletAlreadyOpened);
+        }
+        let wallet_id = wallet.id();
+        let lws = match broker.wallets.get(&wallet_id) {
+            Some(lws) => {
+                if wallet.client().is_none() {
+                    // this case happens when the wallet is opened and not when it is imported (as the client is already there)
+                    wallet.set_client(lws.to_client_v0(wallet.privkey())?);
+                }
+                lws
+            }
+            None => {
+                return Err(NgError::WalletNotFound);
+            }
+        };
+        let block_storage = if lws.in_memory {
+            Arc::new(std::sync::RwLock::new(HashMapBlockStorage::new()))
+                as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
+        } else {
+            #[cfg(not(target_family = "wasm"))]
+            {
+                let mut key_material = wallet
+                    .client()
+                    .as_ref()
+                    .unwrap()
+                    .sensitive_client_storage
+                    .priv_key
+                    .slice();
+                let path = broker.config.compute_path(&format!(
+                    "block{}",
+                    wallet.client().as_ref().unwrap().id.to_hash_string()
+                ))?;
+                let mut key: [u8; 32] =
+                    derive_key("NextGraph Client BlockStorage BLAKE3 key", key_material);
+                Arc::new(std::sync::RwLock::new(RocksDbBlockStorage::open(
+                    &path, key,
+                )?))
+                    as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
+            }
+            #[cfg(target_family = "wasm")]
+            {
+                panic!("no RocksDB in WASM");
+            }
+        };
+        let client = wallet.client().as_ref().unwrap().clone();
+        let opened_wallet = OpenedWallet {
+            wallet,
+            block_storage,
+        };
+
+        broker.opened_wallets.insert(wallet_id, opened_wallet);
+        Ok(client)
+    }
+
+    async fn session_start(
+        &mut self,
+        mut config: SessionConfig,
+        user_priv_key: Option<PrivKey>,
+    ) -> Result<SessionInfo, NgError> {
+        let broker = self;
+
+        config.valid_verifier_config_for_local_broker_config(&broker.config)?;
+
+        let wallet_name: String = config.wallet_name();
+        let wallet_id: PubKey = (*wallet_name).try_into()?;
+        let user_id = config.user_id();
+
+        match broker.opened_sessions.get(&user_id) {
+            Some(idx) => {
+                let ses = &(broker.opened_sessions_list)[*idx as usize];
+                match ses.as_ref() {
+                    Some(sess) => {
+                        if sess.config.verifier_type() != config.verifier_type() {
+                            return Err(NgError::SessionAlreadyStarted);
+                        } else {
+                            return Ok(SessionInfo {
+                                session_id: *idx,
+                                user: user_id,
+                            });
+                        }
+                    }
+                    None => {}
+                }
+            }
+            None => {}
+        };
+
+        // log_info!("wallet_name {} {:?}", wallet_name, broker.opened_wallets);
+        match broker.opened_wallets.get(&wallet_name) {
+            None => return Err(NgError::WalletNotFound),
+            Some(opened_wallet) => {
+                let block_storage = Arc::clone(&opened_wallet.block_storage);
+                let credentials = match opened_wallet.wallet.individual_site(&user_id) {
+                    Some(creds) => creds,
+                    None => match user_priv_key {
+                        Some(user_pk) => (user_pk, None, None),
+                        None => return Err(NgError::NotFound),
+                    },
+                };
+
+                let client_storage_master_key = serde_bare::to_vec(
+                    &opened_wallet
+                        .wallet
+                        .client()
+                        .as_ref()
+                        .unwrap()
+                        .sensitive_client_storage
+                        .storage_master_key,
+                )
+                .unwrap();
+
+                let session = match broker.sessions.get(&user_id) {
+                    Some(session) => session,
+                    None => {
+                        // creating the session now
+                        let closed_wallet = broker.wallets.get(&wallet_name).unwrap();
+                        if closed_wallet.in_memory {
+                            let session = SessionPeerStorageV0::new(user_id);
+                            broker.sessions.insert(user_id, session);
+                            broker.sessions.get(&user_id).unwrap()
+                        } else {
+                            // first check if there is a saved SessionWalletStorage
+                            let mut sws = match &broker.config {
+                                LocalBrokerConfig::InMemory => panic!("cannot open saved session"),
+                                LocalBrokerConfig::JsStorage(js_config) => {
+                                    // read session wallet storage from JsStorage
+                                    let res = (js_config.session_read)(format!(
+                                        "ng_wallet@{}",
+                                        wallet_name
+                                    ));
+                                    match res {
+                                        Ok(string) => {
+                                            let decoded = base64_url::decode(&string)
+                                                .map_err(|_| NgError::SerializationError)?;
+                                            Some(SessionWalletStorageV0::dec_session(
+                                                opened_wallet.wallet.privkey(),
+                                                &decoded,
+                                            )?)
+                                        }
+                                        Err(_) => None,
+                                    }
+                                }
+                                LocalBrokerConfig::BasePath(base_path) => {
+                                    // read session wallet storage from disk
+                                    let mut path = base_path.clone();
+                                    path.push("sessions");
+                                    path.push(format!("session{}", wallet_name.clone()));
+                                    let res = read(path);
+                                    if res.is_ok() {
+                                        Some(SessionWalletStorageV0::dec_session(
+                                            opened_wallet.wallet.privkey(),
+                                            &res.unwrap(),
+                                        )?)
+                                    } else {
+                                        None
+                                    }
+                                }
+                            };
+                            let (session, new_sws) = match &mut sws {
+                                None => {
+                                    let (s, sws_ser) = SessionWalletStorageV0::create_new_session(
+                                        &wallet_id, user_id,
+                                    )?;
+                                    broker.sessions.insert(user_id, s);
+                                    (broker.sessions.get(&user_id).unwrap(), sws_ser)
+                                }
+                                Some(sws) => {
+                                    match sws.users.get(&user_id.to_string()) {
+                                        Some(sps) => {
+                                            broker.sessions.insert(user_id, sps.clone());
+                                            (broker.sessions.get(&user_id).unwrap(), vec![])
+                                        }
+                                        None => {
+                                            // the user was not found in the SWS. we need to create a SPS, add it, encrypt and serialize the new SWS,
+                                            // add the SPS to broker.sessions, and return the newly created SPS and the new SWS encrypted serialization
+                                            let sps = SessionPeerStorageV0::new(user_id);
+                                            sws.users.insert(user_id.to_string(), sps.clone());
+                                            let encrypted = sws.enc_session(&wallet_id)?;
+                                            broker.sessions.insert(user_id, sps);
+                                            (broker.sessions.get(&user_id).unwrap(), encrypted)
+                                        }
+                                    }
+                                }
+                            };
+                            // save the new sws
+                            if new_sws.len() > 0 {
+                                match &broker.config {
+                                    LocalBrokerConfig::InMemory => {
+                                        panic!("cannot save session when InMemory mode")
+                                    }
+                                    LocalBrokerConfig::JsStorage(js_config) => {
+                                        // save session wallet storage to JsStorage
+                                        let encoded = base64_url::encode(&new_sws);
+                                        (js_config.session_write)(
+                                            format!("ng_wallet@{}", wallet_name),
+                                            encoded,
+                                        )?;
+                                    }
+                                    LocalBrokerConfig::BasePath(base_path) => {
+                                        // save session wallet storage to disk
+                                        let mut path = base_path.clone();
+                                        path.push("sessions");
+                                        std::fs::create_dir_all(path.clone()).unwrap();
+                                        path.push(format!("session{}", wallet_name));
+                                        //log_debug!("{}", path.clone().display());
+                                        write(path.clone(), &new_sws)
+                                            .map_err(|_| NgError::IoError)?;
+                                    }
+                                }
+                            }
+                            session
+                        }
+                    }
+                };
+                let session = session.clone();
+
+                // derive user_master_key from client's storage_master_key
+                let user_id_ser = serde_bare::to_vec(&user_id).unwrap();
+                let mut key_material = [user_id_ser, client_storage_master_key].concat(); //
+                let mut key: [u8; 32] = derive_key(
+                    "NextGraph user_master_key BLAKE3 key",
+                    key_material.as_slice(),
+                );
+                key_material.zeroize();
+                let verifier = Verifier::new(
+                    VerifierConfig {
+                        config_type: broker.verifier_config_type_from_session_config(&config),
+                        user_master_key: key,
+                        peer_priv_key: session.peer_key.clone(),
+                        user_priv_key: credentials.0,
+                        private_store_read_cap: credentials.1,
+                        private_store_id: credentials.2,
+                    },
+                    block_storage,
+                )?;
+                key.zeroize();
+                broker.opened_sessions_list.push(Some(Session {
+                    config,
+                    peer_key: session.peer_key.clone(),
+                    last_wallet_nonce: session.last_wallet_nonce,
+                    verifier,
+                }));
+                let idx = broker.opened_sessions_list.len() - 1;
+                broker.opened_sessions.insert(user_id, idx as u8);
+                Ok(SessionInfo {
+                    session_id: idx as u8,
+                    user: user_id,
+                })
+            }
+        }
+    }
+
+    pub(crate) fn wallet_save(broker: &mut Self) -> Result<(), NgError> {
+        match &broker.config {
+            LocalBrokerConfig::JsStorage(js_config) => {
+                // JS save
+                let lws_ser = LocalWalletStorage::v0_to_vec(&broker.wallets);
+                let encoded = base64_url::encode(&lws_ser);
+                (js_config.local_write)("ng_wallets".to_string(), encoded)?;
+            }
+            LocalBrokerConfig::BasePath(base_path) => {
+                // save on disk
+                // TODO: use https://lib.rs/crates/keyring instead of AppLocalData on Tauri apps
+                let mut path = base_path.clone();
+                std::fs::create_dir_all(path.clone()).unwrap();
+                path.push("wallets");
+
+                let lws_ser = LocalWalletStorage::v0_to_vec(&broker.wallets);
+                let r = write(path.clone(), &lws_ser);
+                if r.is_err() {
+                    log_debug!("write {:?} {}", path, r.unwrap_err());
+                    return Err(NgError::IoError);
+                }
+            }
+            _ => panic!("wrong LocalBrokerConfig"),
         }
         Ok(())
     }
@@ -541,20 +858,52 @@ pub async fn wallets_get_all() -> Result<HashMap<String, LocalWalletStorageV0>, 
 ///
 /// Wallets are transferable to to other devices (see [wallet_get_file] and [wallet_import])
 pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResultV0, NgError> {
-    {
-        // entering sub-block to release the lock asap
-        let broker = match LOCAL_BROKER.get() {
-            None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
-            Some(Ok(broker)) => broker.read().await,
-        };
-        if params.local_save && broker.config.is_in_memory() {
-            return Err(NgError::CannotSaveWhenInMemoryConfig);
-        }
+    // TODO: entering sub-block to release the lock asap
+    let mut broker = match LOCAL_BROKER.get() {
+        None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+        Some(Ok(broker)) => broker.write().await,
+    };
+    if params.local_save && broker.config.is_in_memory() {
+        return Err(NgError::CannotSaveWhenInMemoryConfig);
     }
-    let res = create_wallet_v0(params)?;
-    let lws: LocalWalletStorageV0 = (&res).into();
-    wallet_add(lws).await?;
+    let intermediate = create_wallet_first_step_v0(params)?;
+    let lws: LocalWalletStorageV0 = (&intermediate).into();
 
+    let wallet_name = intermediate.wallet_name.clone();
+    broker.wallets.insert(wallet_name, lws);
+
+    let sensitive_wallet: SensitiveWallet = (&intermediate).into();
+
+    let _client = broker.wallet_was_opened(sensitive_wallet).await?;
+
+    let session_config = SessionConfig::new_for_local_broker_config(
+        &intermediate.user_privkey.to_pub(),
+        &intermediate.wallet_name,
+        &broker.config,
+        intermediate.in_memory,
+    )?;
+
+    let session_info = broker
+        .session_start(session_config, Some(intermediate.user_privkey.clone()))
+        .await?;
+
+    let session = broker.opened_sessions_list[session_info.session_id as usize]
+        .as_mut()
+        .unwrap();
+
+    let (mut res, site, brokers) =
+        create_wallet_second_step_v0(intermediate, &mut session.verifier)?;
+
+    broker.wallets.get_mut(&res.wallet_name).unwrap().wallet = res.wallet.clone();
+    LocalBroker::wallet_save(&mut broker)?;
+    //TODO: change read_cap in verifier
+    broker
+        .opened_wallets
+        .get_mut(&res.wallet_name)
+        .unwrap()
+        .wallet
+        .complete_with_site_and_brokers(site, brokers);
+    res.session_id = session_info.session_id;
     Ok(res)
 }
 
@@ -602,29 +951,7 @@ pub async fn wallet_add(lws: LocalWalletStorageV0) -> Result<(), NgError> {
         //     (broker.config.js_config().unwrap().wallets_in_mem_changed)();
         // }
     } else {
-        match &broker.config {
-            LocalBrokerConfig::JsStorage(js_config) => {
-                // JS save
-                let lws_ser = LocalWalletStorage::v0_to_vec(&broker.wallets);
-                let encoded = base64_url::encode(&lws_ser);
-                (js_config.local_write)("ng_wallets".to_string(), encoded)?;
-            }
-            LocalBrokerConfig::BasePath(base_path) => {
-                // save on disk
-                // TODO: use https://lib.rs/crates/keyring instead of AppLocalData on Tauri apps
-                let mut path = base_path.clone();
-                std::fs::create_dir_all(path.clone()).unwrap();
-                path.push("wallets");
-
-                let lws_ser = LocalWalletStorage::v0_to_vec(&broker.wallets);
-                let r = write(path.clone(), &lws_ser);
-                if r.is_err() {
-                    log_debug!("write {:?} {}", path, r.unwrap_err());
-                    return Err(NgError::IoError);
-                }
-            }
-            _ => panic!("wrong LocalBrokerConfig"),
-        }
+        LocalBroker::wallet_save(&mut broker)?;
     }
     Ok(())
 }
@@ -650,6 +977,19 @@ pub async fn wallet_read_file(file: Vec<u8>) -> Result<Wallet, NgError> {
         }
     } else {
         Err(NgError::InvalidFileFormat)
+    }
+}
+
+/// Retrieves the the Wallet by its name, to be used for opening it
+pub async fn wallet_get(wallet_name: &String) -> Result<Wallet, NgError> {
+    let broker = match LOCAL_BROKER.get() {
+        None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+        Some(Ok(broker)) => broker.read().await,
+    };
+    // check that the wallet exists
+    match broker.wallets.get(wallet_name) {
+        None => Err(NgError::WalletNotFound),
+        Some(lws) => Ok(lws.wallet.clone()),
     }
 }
 
@@ -734,63 +1074,13 @@ pub async fn wallet_was_opened(mut wallet: SensitiveWallet) -> Result<ClientV0, 
         Some(Ok(broker)) => broker.write().await,
     };
 
-    if broker.opened_wallets.get(&wallet.id()).is_some() {
-        return Err(NgError::WalletAlreadyOpened);
-    }
-    let wallet_id = wallet.id();
-
-    let lws = match broker.wallets.get(&wallet_id) {
-        Some(lws) => {
-            if wallet.client().is_none() {
-                // this case happens when the wallet is opened and not when it is imported (as the client is already there)
-                wallet.set_client(lws.to_client_v0(wallet.privkey())?);
-            }
-            lws
-        }
-        None => {
-            return Err(NgError::WalletNotFound);
-        }
-    };
-    let block_storage = if lws.in_memory {
-        Arc::new(std::sync::RwLock::new(HashMapBlockStorage::new()))
-            as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
-    } else {
-        #[cfg(not(target_family = "wasm"))]
-        {
-            let mut key_material = wallet
-                .client()
-                .as_ref()
-                .unwrap()
-                .sensitive_client_storage
-                .priv_key
-                .slice();
-            let path = broker
-                .config
-                .compute_path(&wallet.client().as_ref().unwrap().id.to_hash_string())?;
-            let mut key: [u8; 32] =
-                derive_key("NextGraph Client BlockStorage BLAKE3 key", key_material);
-            Arc::new(std::sync::RwLock::new(RocksDbBlockStorage::open(
-                &path, key,
-            )?)) as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
-        }
-        #[cfg(target_family = "wasm")]
-        {
-            panic!("no RocksDB in WASM");
-        }
-    };
-    let client = wallet.client().as_ref().unwrap().clone();
-    let opened_wallet = OpenedWallet {
-        wallet,
-        block_storage,
-    };
-
-    broker.opened_wallets.insert(wallet_id, opened_wallet);
-    Ok(client)
+    broker.wallet_was_opened(wallet).await
 }
 
 /// Starts a session with the LocalBroker. The type of verifier is selected at this moment.
 ///
 /// The session is valid even if there is no internet. The local data will be used in this case.
+/// wallet_creation_events should be the list of events that was returned by wallet_create_v0
 /// Return value is the index of the session, will be used in all the doc_* API calls.
 pub async fn session_start(mut config: SessionConfig) -> Result<SessionInfo, NgError> {
     let mut broker = match LOCAL_BROKER.get() {
@@ -798,167 +1088,7 @@ pub async fn session_start(mut config: SessionConfig) -> Result<SessionInfo, NgE
         Some(Ok(broker)) => broker.write().await,
     };
 
-    config.valid_verifier_config_for_local_broker_config(&broker.config)?;
-
-    let wallet_name: String = config.wallet_name();
-    let wallet_id: PubKey = (*wallet_name).try_into()?;
-    let user_id = config.user_id();
-
-    match broker.opened_wallets.get(&wallet_name) {
-        None => return Err(NgError::WalletNotFound),
-        Some(opened_wallet) => {
-            let block_storage = Arc::clone(&opened_wallet.block_storage);
-            let credentials = match opened_wallet.wallet.individual_site(&user_id) {
-                Some(creds) => creds.clone(),
-                None => return Err(NgError::NotFound),
-            };
-
-            let client_storage_master_key = serde_bare::to_vec(
-                &opened_wallet
-                    .wallet
-                    .client()
-                    .as_ref()
-                    .unwrap()
-                    .sensitive_client_storage
-                    .storage_master_key,
-            )
-            .unwrap();
-
-            let session = match broker.sessions.get(&user_id) {
-                Some(session) => session,
-                None => {
-                    // creating the session now
-                    let closed_wallet = broker.wallets.get(&wallet_name).unwrap();
-                    if closed_wallet.in_memory {
-                        let session = SessionPeerStorageV0::new(user_id);
-                        broker.sessions.insert(user_id, session);
-                        broker.sessions.get(&user_id).unwrap()
-                    } else {
-                        // first check if there is a saved SessionWalletStorage
-                        let mut sws = match &broker.config {
-                            LocalBrokerConfig::InMemory => panic!("cannot open saved session"),
-                            LocalBrokerConfig::JsStorage(js_config) => {
-                                // read session wallet storage from JsStorage
-                                let res =
-                                    (js_config.session_read)(format!("ng_wallet@{}", wallet_name));
-                                match res {
-                                    Ok(string) => {
-                                        let decoded = base64_url::decode(&string)
-                                            .map_err(|_| NgError::SerializationError)?;
-                                        Some(SessionWalletStorageV0::dec_session(
-                                            opened_wallet.wallet.privkey(),
-                                            &decoded,
-                                        )?)
-                                    }
-                                    Err(_) => None,
-                                }
-                            }
-                            LocalBrokerConfig::BasePath(base_path) => {
-                                // read session wallet storage from disk
-                                let mut path = base_path.clone();
-                                path.push("sessions");
-                                path.push(wallet_name.clone());
-                                let res = read(path);
-                                if res.is_ok() {
-                                    Some(SessionWalletStorageV0::dec_session(
-                                        opened_wallet.wallet.privkey(),
-                                        &res.unwrap(),
-                                    )?)
-                                } else {
-                                    None
-                                }
-                            }
-                        };
-                        let (session, new_sws) = match &mut sws {
-                            None => {
-                                let (s, sws_ser) = SessionWalletStorageV0::create_new_session(
-                                    &wallet_id, user_id,
-                                )?;
-                                broker.sessions.insert(user_id, s);
-                                (broker.sessions.get(&user_id).unwrap(), sws_ser)
-                            }
-                            Some(sws) => {
-                                match sws.users.get(&user_id.to_string()) {
-                                    Some(sps) => {
-                                        broker.sessions.insert(user_id, sps.clone());
-                                        (broker.sessions.get(&user_id).unwrap(), vec![])
-                                    }
-                                    None => {
-                                        // the user was not found in the SWS. we need to create a SPS, add it, encrypt and serialize the new SWS,
-                                        // add the SPS to broker.sessions, and return the newly created SPS and the new SWS encrypted serialization
-                                        let sps = SessionPeerStorageV0::new(user_id);
-                                        sws.users.insert(user_id.to_string(), sps.clone());
-                                        let encrypted = sws.enc_session(&wallet_id)?;
-                                        broker.sessions.insert(user_id, sps);
-                                        (broker.sessions.get(&user_id).unwrap(), encrypted)
-                                    }
-                                }
-                            }
-                        };
-                        // save the new sws
-                        if new_sws.len() > 0 {
-                            match &broker.config {
-                                LocalBrokerConfig::InMemory => {
-                                    panic!("cannot save session when InMemory mode")
-                                }
-                                LocalBrokerConfig::JsStorage(js_config) => {
-                                    // save session wallet storage to JsStorage
-                                    let encoded = base64_url::encode(&new_sws);
-                                    (js_config.session_write)(
-                                        format!("ng_wallet@{}", wallet_name),
-                                        encoded,
-                                    )?;
-                                }
-                                LocalBrokerConfig::BasePath(base_path) => {
-                                    // save session wallet storage to disk
-                                    let mut path = base_path.clone();
-                                    path.push("sessions");
-                                    std::fs::create_dir_all(path.clone()).unwrap();
-                                    path.push(wallet_name);
-                                    //log_debug!("{}", path.clone().display());
-                                    write(path.clone(), &new_sws).map_err(|_| NgError::IoError)?;
-                                }
-                            }
-                        }
-                        session
-                    }
-                }
-            };
-            let session = session.clone();
-
-            // derive user_master_key from client's storage_master_key
-            let user_id_ser = serde_bare::to_vec(&user_id).unwrap();
-            let mut key_material = [user_id_ser, client_storage_master_key].concat(); //
-            let mut key: [u8; 32] = derive_key(
-                "NextGraph user_master_key BLAKE3 key",
-                key_material.as_slice(),
-            );
-            key_material.zeroize();
-            let verifier = Verifier::new(
-                VerifierConfig {
-                    config_type: broker.verifier_config_type_from_session_config(&config),
-                    user_master_key: key,
-                    peer_priv_key: session.peer_key.clone(),
-                    user_priv_key: credentials.0,
-                    private_store_read_cap: credentials.1,
-                },
-                block_storage,
-            )?;
-            key.zeroize();
-            broker.opened_sessions_list.push(Some(Session {
-                config,
-                peer_key: session.peer_key.clone(),
-                last_wallet_nonce: session.last_wallet_nonce,
-                verifier,
-            }));
-            let idx = broker.opened_sessions_list.len() - 1;
-            broker.opened_sessions.insert(user_id, idx as u8);
-            Ok(SessionInfo {
-                session_id: idx as u8,
-                user: user_id,
-            })
-        }
-    }
+    broker.session_start(config, None).await
 }
 
 use web_time::SystemTime;

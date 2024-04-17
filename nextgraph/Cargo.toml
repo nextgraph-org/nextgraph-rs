@@ -43,3 +43,7 @@ required-features = []
 [[example]]
 name = "persistent"
 required-features = []
+
+[[example]]
+name = "open"
+required-features = []

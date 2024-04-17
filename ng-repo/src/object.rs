@@ -60,19 +60,17 @@ pub struct Object {
 }
 
 impl Object {
-    pub(crate) fn convergence_key(
-        /*store_pubkey: &StoreRepo,
-        store_readcap_secret: &ReadCapSecret,*/
-        store: &Store,
-    ) -> [u8; blake3::OUT_LEN] {
+    // if it is a Store root repo, the key_material is derived from RepoId + RepoWriteCapSecret
+    // for a private store root repo, the repowritecapsecret is omitted (zeros)
+    pub(crate) fn convergence_key(store: &Store) -> [u8; blake3::OUT_LEN] {
         let mut key_material = match (
             *store.get_store_repo().repo_id(),
-            store.get_store_readcap_secret().clone(),
+            store.get_store_overlay_branch_readcap_secret().clone(),
         ) {
             (PubKey::Ed25519PubKey(pubkey), SymKey::ChaCha20Key(secret)) => {
                 [pubkey, secret].concat()
             }
-            (_, _) => panic!("cannot sign with Montgomery key"),
+            (_, _) => panic!("cannot derive key with Montgomery key"),
         };
         let res = blake3::derive_key("NextGraph Data BLAKE3 key", key_material.as_slice());
         key_material.zeroize();
