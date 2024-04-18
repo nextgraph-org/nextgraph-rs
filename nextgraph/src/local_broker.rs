@@ -8,7 +8,7 @@
 // according to those terms.
 
 use async_once_cell::OnceCell;
-use async_std::sync::{Arc, Mutex, RwLock};
+use async_std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use core::fmt;
 use ng_net::actor::EActor;
 use ng_net::connection::{ClientConfig, IConnect, NoiseFSM, StartConfig};
@@ -1320,7 +1320,7 @@ pub async fn wallet_close(wallet_name: &String) -> Result<(), NgError> {
 
     match broker.opened_wallets.remove(wallet_name) {
         Some(mut opened_wallet) => {
-            for user in opened_wallet.wallet.sites() {
+            for user in opened_wallet.wallet.site_names() {
                 let key: PubKey = (user.as_str()).try_into().unwrap();
                 match broker.opened_sessions.remove(&key) {
                     Some(id) => {
@@ -1370,6 +1370,29 @@ pub async fn doc_fetch(
         .ok_or(NgError::SessionNotFound)?;
 
     session.verifier.doc_fetch(nuri, payload)
+}
+
+/// retrieves the ID of the one of the 3 stores of a the personal Site (3P: public, protected, or private)
+pub async fn personal_site_store(session_id: u8, store: SiteStoreType) -> Result<PubKey, NgError> {
+    let broker = match LOCAL_BROKER.get() {
+        None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+        Some(Ok(broker)) => broker.read().await,
+    };
+    if session_id as usize >= broker.opened_sessions_list.len() {
+        return Err(NgError::InvalidArgument);
+    }
+    let session = broker.opened_sessions_list[session_id as usize]
+        .as_ref()
+        .ok_or(NgError::SessionNotFound)?;
+
+    match broker.opened_wallets.get(&session.config.wallet_name()) {
+        Some(opened_wallet) => {
+            let user_id = session.config.user_id();
+            let site = opened_wallet.wallet.site(&user_id)?;
+            Ok(site.get_site_store_id(store))
+        }
+        None => Err(NgError::WalletNotFound),
+    }
 }
 
 #[cfg(test)]

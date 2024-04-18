@@ -48,6 +48,7 @@ pub enum NgError {
     RepoNotFound,
     BranchNotFound,
     StoreNotFound,
+    UserNotFound,
 }
 
 impl Error for NgError {}

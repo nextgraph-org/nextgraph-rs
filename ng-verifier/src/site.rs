@@ -57,6 +57,14 @@ impl SiteV0 {
         })
     }
 
+    pub fn get_site_store_id(&self, store_type: SiteStoreType) -> PubKey {
+        match store_type {
+            SiteStoreType::Public => self.public.id,
+            SiteStoreType::Protected => self.protected.id,
+            SiteStoreType::Private => self.private.id,
+        }
+    }
+
     fn create_individual_(
         user_priv_key: PrivKey,
         verifier: &mut Verifier,

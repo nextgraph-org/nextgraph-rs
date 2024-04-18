@@ -476,9 +476,17 @@ impl SensitiveWallet {
             Self::V0(v0) => &v0.client,
         }
     }
-    pub fn sites(&self) -> Keys<String, SiteV0> {
+    pub fn site_names(&self) -> Keys<String, SiteV0> {
         match self {
             Self::V0(v0) => v0.sites.keys(),
+        }
+    }
+    pub fn site(&self, user_id: &UserId) -> Result<&SiteV0, NgError> {
+        match self {
+            Self::V0(v0) => match v0.sites.get(&user_id.to_string()) {
+                Some(site) => Ok(site),
+                None => Err(NgError::UserNotFound),
+            },
         }
     }
     pub fn set_client(&mut self, client: ClientV0) {
