@@ -12,7 +12,7 @@
 //! Store of a Site, or of a Group or Dialog
 
 use core::fmt;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
 
 use crate::block_storage::BlockStorage;
@@ -31,7 +31,7 @@ pub struct Store {
     store_repo: StoreRepo,
     store_readcap: ReadCap,
     store_overlay_branch_readcap: ReadCap,
-    overlay_id: OverlayId,
+    pub overlay_id: OverlayId,
     storage: Arc<RwLock<dyn BlockStorage + Send + Sync>>,
 }
 
@@ -49,6 +49,9 @@ impl fmt::Debug for Store {
 }
 
 impl Store {
+    pub fn id(&self) -> &PubKey {
+        self.store_repo.repo_id()
+    }
     pub fn set_read_caps(&mut self, read_cap: ReadCap, overlay_read_cap: Option<ReadCap>) {
         self.store_readcap = read_cap;
         if let Some(overlay_read_cap) = overlay_read_cap {
@@ -386,7 +389,7 @@ impl Store {
             id: repo_pub_key.clone(),
             branch_type: BranchType::Root,
             topic: topic_pub_key,
-            topic_priv_key: topic_priv_key,
+            topic_priv_key: Some(topic_priv_key),
             read_cap: root_branch_readcap.clone(),
         };
 
@@ -394,7 +397,7 @@ impl Store {
             id: main_branch_pub_key.clone(),
             branch_type: BranchType::Main,
             topic: main_branch_topic_pub_key,
-            topic_priv_key: main_branch_topic_priv_key,
+            topic_priv_key: Some(main_branch_topic_priv_key),
             read_cap: branch_read_cap,
         };
 
@@ -410,6 +413,7 @@ impl Store {
                 (repo_pub_key, root_branch),
                 (main_branch_pub_key, main_branch),
             ]),
+            opened_branches: HashMap::new(),
         };
 
         Ok((repo, events))

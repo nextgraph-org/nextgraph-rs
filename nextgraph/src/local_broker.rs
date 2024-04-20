@@ -168,6 +168,12 @@ impl LocalBrokerConfig {
             _ => false,
         }
     }
+    pub fn is_persistent(&self) -> bool {
+        match self {
+            Self::BasePath(_) => true,
+            _ => false,
+        }
+    }
     #[doc(hidden)]
     pub fn is_js(&self) -> bool {
         match self {
@@ -702,7 +708,7 @@ impl LocalBroker {
                     key_material.as_slice(),
                 );
                 key_material.zeroize();
-                let verifier = Verifier::new(
+                let mut verifier = Verifier::new(
                     VerifierConfig {
                         config_type: broker.verifier_config_type_from_session_config(&config),
                         user_master_key: key,
@@ -714,6 +720,10 @@ impl LocalBroker {
                     block_storage,
                 )?;
                 key.zeroize();
+
+                //load verifier from local_storage (if rocks_db)
+                let _ = verifier.load();
+
                 broker.opened_sessions_list.push(Some(Session {
                     config,
                     peer_key: session.peer_key.clone(),
@@ -722,6 +732,7 @@ impl LocalBroker {
                 }));
                 let idx = broker.opened_sessions_list.len() - 1;
                 broker.opened_sessions.insert(user_id, idx as u8);
+
                 Ok(SessionInfo {
                     session_id: idx as u8,
                     user: user_id,
@@ -892,7 +903,7 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
         .unwrap();
 
     let (mut res, site, brokers) =
-        create_wallet_second_step_v0(intermediate, &mut session.verifier)?;
+        create_wallet_second_step_v0(intermediate, &mut session.verifier).await?;
 
     broker.wallets.get_mut(&res.wallet_name).unwrap().wallet = res.wallet.clone();
     LocalBroker::wallet_save(&mut broker)?;
@@ -1256,6 +1267,13 @@ pub async fn user_connect_with_device_info(
                                 if tried.is_some() && tried.as_ref().unwrap().3.is_none() {
                                     session.verifier.connected_server_id = Some(server_key);
                                     // successful. we can stop here
+
+                                    // we immediately send the events present in the outbox
+                                    let res = session.verifier.send_outbox().await;
+                                    log_info!("SENDING EVENTS FROM OUTBOX: {:?}", res);
+
+                                    // TODO: load verifier from remote connection (if not RocksDb type)
+
                                     break;
                                 } else {
                                     log_debug!("Failed connection {:?}", tried);
@@ -1406,6 +1424,7 @@ mod test {
     };
     use ng_net::types::BootstrapContentV0;
     use ng_wallet::{display_mnemonic, emojis::display_pazzle};
+    use std::fs::read_to_string;
     use std::fs::{create_dir_all, File};
     use std::io::BufReader;
     use std::io::Read;
@@ -1431,7 +1450,7 @@ mod test {
 
         init_local_broker(Box::new(|| LocalBrokerConfig::InMemory)).await;
 
-        #[allow(deprecated)]
+        let peer_id = "X0nh-gOTGKSx0yL0LYJviOWRNacyqIzjQW_LKdK6opU";
         let peer_id_of_server_broker = PubKey::nil();
 
         let wallet_result = wallet_create_v0(CreateWalletV0 {
@@ -1495,7 +1514,30 @@ mod test {
         file.write_all(&ser).expect("write of opened_wallet file");
     }
 
-    async fn init_session_for_test() -> (UserId, String) {
+    #[async_std::test]
+    async fn gen_opened_wallet_file_for_test() {
+        let wallet_file = read("tests/wallet.ngw").expect("read wallet file");
+
+        init_local_broker(Box::new(|| LocalBrokerConfig::InMemory)).await;
+
+        let wallet = wallet_read_file(wallet_file)
+            .await
+            .expect("wallet_read_file");
+
+        let pazzle_string = read_to_string("tests/wallet.pazzle").expect("read pazzle file");
+        let pazzle_words = pazzle_string.split(' ').map(|s| s.to_string()).collect();
+
+        let opened_wallet = wallet_open_with_pazzle_words(&wallet, &pazzle_words, [2, 3, 2, 3])
+            .expect("opening of wallet");
+
+        let mut file =
+            File::create("tests/opened_wallet.ngw").expect("open for write opened_wallet file");
+        let ser = serde_bare::to_vec(&opened_wallet).expect("serialization of opened wallet");
+
+        file.write_all(&ser).expect("write of opened_wallet file");
+    }
+
+    async fn import_session_for_test() -> (UserId, String) {
         let wallet_file = read("tests/wallet.ngw").expect("read wallet file");
         let opened_wallet_file = read("tests/opened_wallet.ngw").expect("read opened_wallet file");
         let opened_wallet: SensitiveWallet =
@@ -1523,7 +1565,7 @@ mod test {
 
     #[async_std::test]
     async fn import_wallet() {
-        let (user_id, wallet_name) = init_session_for_test().await;
+        let (user_id, wallet_name) = import_session_for_test().await;
 
         let status = user_connect(&user_id).await.expect("user_connect");
 

@@ -32,7 +32,7 @@ pub struct RocksDbBlockStorage {
 }
 
 impl RocksDbBlockStorage {
-    /// Opens the store and returns a KCVStore object that should be kept and used to manipulate the properties
+    /// Opens the store and returns a KCVStorage object that should be kept and used to manipulate the properties
     /// The key is the encryption key for the data at rest.
     pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<RocksDbBlockStorage, StorageError> {
         let mut opts = Options::default();
@@ -80,22 +80,20 @@ impl BlockStorage for RocksDbBlockStorage {
     fn put(&self, overlay: &OverlayId, block: &Block) -> Result<BlockId, StorageError> {
         // TODO? return an error if already present in blockstorage?
         let block_id = block.id();
-        let block_id_ser = serde_bare::to_vec(&block_id).unwrap();
         let ser = serde_bare::to_vec(block)?;
         let tx = self.db.transaction();
         tx.put(Self::compute_key(overlay, &block_id), &ser)
             .map_err(|_e| StorageError::BackendError)?;
-        tx.commit();
+        tx.commit().map_err(|_| StorageError::BackendError)?;
         Ok(block_id)
     }
 
     /// Delete a block from the storage.
     fn del(&self, overlay: &OverlayId, id: &BlockId) -> Result<usize, StorageError> {
-        let block_id_ser = serde_bare::to_vec(id).unwrap();
         let tx = self.db.transaction();
         tx.delete(Self::compute_key(overlay, id))
             .map_err(|_e| StorageError::BackendError)?;
-        tx.commit();
+        tx.commit().map_err(|_| StorageError::BackendError)?;
         // TODO, return real size
         Ok(0)
     }

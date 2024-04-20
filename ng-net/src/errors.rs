@@ -85,6 +85,9 @@ pub enum ProtocolError {
     EncryptionError,
     WhereIsTheMagic,
 
+    RepoAlreadyOpened,
+    False,
+
     InvalidNonce,
 } //MAX 949 ProtocolErrors
 

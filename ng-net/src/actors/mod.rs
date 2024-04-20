@@ -26,3 +26,5 @@ pub use list_invitations::*;
 
 pub mod connecting;
 pub use connecting::*;
+
+pub mod client;

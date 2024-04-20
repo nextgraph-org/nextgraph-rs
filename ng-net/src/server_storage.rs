@@ -15,7 +15,7 @@ use crate::{
     errors::{ProtocolError, ServerError},
     types::*,
 };
-use ng_repo::types::{PeerId, PubKey};
+use ng_repo::types::*;
 
 pub trait ServerStorage: Send + Sync {
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError>;
@@ -38,4 +38,26 @@ pub trait ServerStorage: Send + Sync {
     fn remove_invitation(&self, invite: [u8; 32]) -> Result<(), ProtocolError>;
 
     fn next_seq_for_peer(&self, peer: &PeerId, seq: u64) -> Result<(), ServerError>;
+
+    fn get_repo_pin_status(
+        &self,
+        overlay: &OverlayId,
+        repo: &RepoHash,
+    ) -> Result<RepoPinStatus, ProtocolError>;
+
+    fn pin_repo(
+        &self,
+        overlay: &OverlayId,
+        repo: &RepoHash,
+        ro_topics: &Vec<TopicId>,
+        rw_topics: &Vec<PublisherAdvert>,
+    ) -> Result<RepoOpened, ProtocolError>;
+
+    fn topic_sub(
+        &self,
+        overlay: &OverlayId,
+        repo: &RepoHash,
+        topic: &TopicId,
+        publisher: Option<&PublisherAdvert>,
+    ) -> Result<TopicSubRes, ProtocolError>;
 }

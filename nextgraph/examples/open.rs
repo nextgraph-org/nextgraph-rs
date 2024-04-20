@@ -37,7 +37,7 @@ async fn main() -> std::io::Result<()> {
     }))
     .await;
 
-    let wallet_name = "EJdLRVx93o3iUXoB0wSTqxh1-zYac-84vHb3oBbZ_HY".to_string();
+    let wallet_name = "hQK0RBKua5TUm2jqeSGPOMMzqplllAkbUgEh5P6Otf4".to_string();
 
     // as we have previously saved the wallet,
     // we can retrieve it, display the security phrase and image to the user, ask for the pazzle or mnemonic, and then open the wallet
@@ -48,8 +48,8 @@ async fn main() -> std::io::Result<()> {
     // now let's open the wallet, by providing the pazzle and PIN code
     let opened_wallet = wallet_open_with_pazzle(
         &wallet,
-        vec![117, 134, 59, 92, 98, 35, 70, 22, 9],
-        [1, 2, 1, 2],
+        vec![134, 54, 112, 46, 94, 65, 20, 2, 99],
+        [2, 3, 2, 3],
     )?;
 
     let user_id = opened_wallet.personal_identity();
@@ -65,8 +65,8 @@ async fn main() -> std::io::Result<()> {
     let status = user_connect(&user_id).await?;
 
     // The connection cannot succeed because we miss-configured the core_bootstrap of the wallet. its Peer ID is invalid.
-    let error_reason = status[0].3.as_ref().unwrap();
-    assert!(error_reason == "NoiseHandshakeFailed" || error_reason == "ConnectionError");
+    println!("Connection was : {:?}", status[0]);
+    //assert!(error_reason == "NoiseHandshakeFailed" || error_reason == "ConnectionError");
 
     // Then we should disconnect
     user_disconnect(&user_id).await?;

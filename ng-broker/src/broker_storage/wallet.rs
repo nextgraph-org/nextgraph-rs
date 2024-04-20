@@ -11,7 +11,7 @@
 
 use ng_net::types::*;
 use ng_repo::errors::StorageError;
-use ng_repo::kcv_storage::KCVStore;
+use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::kcv_storage::WriteTransaction;
 use ng_repo::log::*;
 use ng_repo::types::*;
@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};
 
 pub struct Wallet<'a> {
-    store: &'a dyn KCVStore,
+    store: &'a dyn KCVStorage,
 }
 
 impl<'a> Wallet<'a> {
@@ -37,7 +37,7 @@ impl<'a> Wallet<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::SYM_KEY;
 
-    pub fn open(store: &'a dyn KCVStore) -> Wallet<'a> {
+    pub fn open(store: &'a dyn KCVStorage) -> Wallet<'a> {
         Wallet { store }
     }
     pub fn get_or_create_single_key(

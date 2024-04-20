@@ -10,7 +10,7 @@
 //! ng-wallet
 
 use ng_repo::errors::StorageError;
-use ng_repo::kcv_storage::KCVStore;
+use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::types::*;
 use ng_wallet::types::*;
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ use serde_bare::{from_slice, to_vec};
 pub struct WalletRecord<'a> {
     /// Wallet ID
     id: WalletId,
-    store: &'a dyn KCVStore,
+    store: &'a dyn KCVStorage,
 }
 
 impl<'a> WalletRecord<'a> {
@@ -33,7 +33,10 @@ impl<'a> WalletRecord<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::BOOTSTRAP;
 
-    pub fn open(id: &WalletId, store: &'a dyn KCVStore) -> Result<WalletRecord<'a>, StorageError> {
+    pub fn open(
+        id: &WalletId,
+        store: &'a dyn KCVStorage,
+    ) -> Result<WalletRecord<'a>, StorageError> {
         let opening = WalletRecord {
             id: id.clone(),
             store,
@@ -46,7 +49,7 @@ impl<'a> WalletRecord<'a> {
     pub fn create(
         id: &WalletId,
         bootstrap: &Bootstrap,
-        store: &'a dyn KCVStore,
+        store: &'a dyn KCVStorage,
     ) -> Result<WalletRecord<'a>, StorageError> {
         let wallet = WalletRecord {
             id: id.clone(),

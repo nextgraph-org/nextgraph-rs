@@ -12,6 +12,7 @@
 //! Broker singleton present in every instance of NextGraph (Client, Server, Core node)
 
 use crate::actor::EActor;
+use crate::actor::SoS;
 use crate::connection::*;
 use crate::errors::*;
 use crate::server_storage::ServerStorage;
@@ -431,7 +432,7 @@ impl<'a> Broker<'a> {
             None => {}
         }
     }
-    pub fn remove_peer_id(&mut self, peer_id: X25519PrivKey, user: Option<PubKey>) {
+    fn remove_peer_id(&mut self, peer_id: X25519PrivKey, user: Option<PubKey>) {
         let removed = self.peers.remove(&(user, peer_id));
         match removed {
             Some(info) => match info.connected {
@@ -460,10 +461,10 @@ impl<'a> Broker<'a> {
 
     // #[cfg(not(target_arch = "wasm32"))]
     // pub fn test_storage(&self, path: PathBuf) {
-    //     use ng_storage_rocksdb::kcv_store::RocksdbKCVStore;
+    //     use ng_storage_rocksdb::kcv_store::RocksdbKCVStorage;
 
     //     let key: [u8; 32] = [0; 32];
-    //     let test_storage = RocksdbKCVStore::open(&path, key);
+    //     let test_storage = RocksdbKCVStorage::open(&path, key);
     //     match test_storage {
     //         Err(e) => {
     //             log_debug!("storage error {}", e);
@@ -494,9 +495,6 @@ impl<'a> Broker<'a> {
             server_storage: None,
             disconnections_sender,
             disconnections_receiver: Some(disconnections_receiver),
-            // last_seq_function: None,
-            // in_memory: true,
-            // base_path: None,
             local_broker: None,
         }
     }
@@ -918,11 +916,31 @@ impl<'a> Broker<'a> {
         Ok(())
     }
 
+    pub async fn request<
+        A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
+        B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,
+    >(
+        &self,
+        user: &UserId,
+        remote_peer_id: &DirectPeerId,
+        msg: A,
+    ) -> Result<SoS<B>, ProtocolError> {
+        let bpi = self
+            .peers
+            .get(&(Some(*user), remote_peer_id.to_dh_slice()))
+            .ok_or(ProtocolError::InvalidValue)?;
+        if let PeerConnection::Client(cnx) = &bpi.connected {
+            cnx.request(msg).await
+        } else {
+            Err(ProtocolError::BrokerError)
+        }
+    }
+
     pub fn take_disconnections_receiver(&mut self) -> Option<Receiver<String>> {
         self.disconnections_receiver.take()
     }
 
-    pub async fn close_peer_connection_x(&mut self, peer_id: X25519PubKey, user: Option<PubKey>) {
+    async fn close_peer_connection_x(&mut self, peer_id: X25519PubKey, user: Option<PubKey>) {
         if let Some(peer) = self.peers.get_mut(&(user, peer_id)) {
             match &mut peer.connected {
                 PeerConnection::Core(_) => {

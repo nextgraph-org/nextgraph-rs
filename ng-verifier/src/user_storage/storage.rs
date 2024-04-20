@@ -9,18 +9,33 @@
 
 //! Storage of user application data (RDF, content of rich-text document, etc)
 
-use ng_repo::{errors::StorageError, types::*};
+use ng_repo::{
+    block_storage::BlockStorage, errors::StorageError, repo::Repo, store::Store, types::*,
+};
 
 use crate::types::*;
 use std::{
     cmp::{max, min},
     collections::HashMap,
     mem::size_of_val,
+    sync::{Arc, RwLock},
 };
 
 pub trait UserStorage: Send + Sync {
     /// Gets the StoreRepo for a given RepoId
     fn repo_id_to_store_overlay(&self, id: &RepoId) -> Result<StoreOverlay, StorageError>;
+
+    fn get_all_store_and_repo_ids(&self) -> Result<HashMap<StoreRepo, Vec<RepoId>>, StorageError>;
+
+    fn load_store(
+        &self,
+        repo_store: &StoreRepo,
+        block_storage: Arc<RwLock<dyn BlockStorage + Send + Sync>>,
+    ) -> Result<Repo, StorageError>;
+
+    fn load_repo(&self, repo_id: &RepoId, store: Arc<Store>) -> Result<Repo, StorageError>;
+
+    fn save_repo(&self, repo: &Repo) -> Result<(), StorageError>;
 }
 
 pub(crate) struct InMemoryUserStorage {
@@ -42,5 +57,24 @@ impl UserStorage for InMemoryUserStorage {
             .get(&id)
             .ok_or(StorageError::NotFound)?
             .to_owned())
+    }
+
+    fn get_all_store_and_repo_ids(&self) -> Result<HashMap<StoreRepo, Vec<RepoId>>, StorageError> {
+        unimplemented!();
+    }
+
+    fn load_store(
+        &self,
+        repo_store: &StoreRepo,
+        block_storage: Arc<RwLock<dyn BlockStorage + Send + Sync>>,
+    ) -> Result<Repo, StorageError> {
+        unimplemented!();
+    }
+    fn load_repo(&self, repo_id: &RepoId, store: Arc<Store>) -> Result<Repo, StorageError> {
+        unimplemented!();
+    }
+
+    fn save_repo(&self, repo: &Repo) -> Result<(), StorageError> {
+        unimplemented!();
     }
 }

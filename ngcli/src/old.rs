@@ -528,7 +528,7 @@ async fn test_local_connection() {
     let master_key: [u8; 32] = [0; 32];
     std::fs::create_dir_all(root.path()).unwrap();
     log_debug!("{}", root.path().to_str().unwrap());
-    let store = LmdbKCVStore::open(root.path(), master_key);
+    let store = LmdbKCVStorage::open(root.path(), master_key);
 
     //let mut server = BrokerServer::new(store, ConfigMode::Local).expect("starting broker");
 

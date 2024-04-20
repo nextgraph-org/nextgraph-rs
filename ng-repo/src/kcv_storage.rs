@@ -62,6 +62,16 @@ pub trait WriteTransaction: ReadTransaction {
         value: &Vec<u8>,
         family: &Option<String>,
     ) -> Result<(), StorageError>;
+
+    /// Delete all properties' values of a key from the store in case the property is a multi-values one
+    fn del_all_values(
+        &self,
+        prefix: u8,
+        key: &Vec<u8>,
+        property_size: usize,
+        suffix: Option<u8>,
+        family: &Option<String>,
+    ) -> Result<(), StorageError>;
 }
 
 pub trait ReadTransaction {
@@ -115,7 +125,7 @@ pub trait ReadTransaction {
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError>;
 }
 
-pub trait KCVStore: WriteTransaction {
+pub trait KCVStorage: WriteTransaction {
     fn write_transaction(
         &self,
         method: &mut dyn FnMut(&mut dyn WriteTransaction) -> Result<(), StorageError>,

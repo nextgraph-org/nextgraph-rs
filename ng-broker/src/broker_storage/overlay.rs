@@ -11,7 +11,7 @@
 
 use ng_net::types::*;
 use ng_repo::errors::StorageError;
-use ng_repo::kcv_storage::KCVStore;
+use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::types::*;
 use ng_repo::utils::now_timestamp;
 use serde::{Deserialize, Serialize};
@@ -27,7 +27,7 @@ pub struct OverlayMeta {
 pub struct Overlay<'a> {
     /// Overlay ID
     id: OverlayId,
-    store: &'a dyn KCVStore,
+    store: &'a dyn KCVStorage,
 }
 
 impl<'a> Overlay<'a> {
@@ -50,7 +50,7 @@ impl<'a> Overlay<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::SECRET;
 
-    pub fn open(id: &OverlayId, store: &'a dyn KCVStore) -> Result<Overlay<'a>, StorageError> {
+    pub fn open(id: &OverlayId, store: &'a dyn KCVStorage) -> Result<Overlay<'a>, StorageError> {
         let opening = Overlay {
             id: id.clone(),
             store,
@@ -64,7 +64,7 @@ impl<'a> Overlay<'a> {
         id: &OverlayId,
         secret: &SymKey,
         repo: Option<PubKey>,
-        store: &'a dyn KCVStore,
+        store: &'a dyn KCVStorage,
     ) -> Result<Overlay<'a>, StorageError> {
         let acc = Overlay {
             id: id.clone(),

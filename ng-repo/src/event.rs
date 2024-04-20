@@ -82,6 +82,12 @@ impl Event {
             Event::V0(v0) => v0.content.seq,
         }
     }
+
+    pub fn topic_id(&self) -> &TopicId {
+        match self {
+            Event::V0(v0) => &v0.content.topic,
+        }
+    }
 }
 
 impl EventV0 {
@@ -120,7 +126,10 @@ impl EventV0 {
         let store = Arc::clone(&repo.store);
         let branch = repo.branch(branch_id)?;
         let topic_id = &branch.topic;
-        let topic_priv_key = &branch.topic_priv_key;
+        let topic_priv_key = branch
+            .topic_priv_key
+            .as_ref()
+            .ok_or(NgError::PermissionDenied)?;
         let publisher_pubkey = publisher.to_pub();
         let key = Self::derive_key(&repo_id, branch_id, &branch.read_cap.key, &publisher_pubkey);
         let commit_key = commit.key().unwrap();

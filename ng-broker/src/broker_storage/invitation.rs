@@ -17,7 +17,7 @@ use std::time::SystemTime;
 use ng_net::errors::ProtocolError;
 use ng_net::types::*;
 use ng_repo::errors::StorageError;
-use ng_repo::kcv_storage::KCVStore;
+use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::types::SymKey;
 use ng_repo::types::Timestamp;
 use ng_repo::utils::now_timestamp;
@@ -25,9 +25,9 @@ use serde_bare::from_slice;
 use serde_bare::to_vec;
 
 pub struct Invitation<'a> {
-    /// User ID
+    /// code
     id: [u8; 32],
-    store: &'a dyn KCVStore,
+    store: &'a dyn KCVStorage,
 }
 
 impl<'a> Invitation<'a> {
@@ -45,7 +45,7 @@ impl<'a> Invitation<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::TYPE;
 
-    pub fn open(id: &[u8; 32], store: &'a dyn KCVStore) -> Result<Invitation<'a>, StorageError> {
+    pub fn open(id: &[u8; 32], store: &'a dyn KCVStorage) -> Result<Invitation<'a>, StorageError> {
         let opening = Invitation {
             id: id.clone(),
             store,
@@ -59,7 +59,7 @@ impl<'a> Invitation<'a> {
         id: &InvitationCode,
         expiry: u32,
         memo: &Option<String>,
-        store: &'a dyn KCVStore,
+        store: &'a dyn KCVStorage,
     ) -> Result<Invitation<'a>, StorageError> {
         let (code_type, code) = match id {
             InvitationCode::Unique(c) => (0u8, c.slice()),
@@ -88,7 +88,7 @@ impl<'a> Invitation<'a> {
     }
 
     pub fn get_all_invitations(
-        store: &'a dyn KCVStore,
+        store: &'a dyn KCVStorage,
         mut admin: bool,
         mut unique: bool,
         mut multi: bool,

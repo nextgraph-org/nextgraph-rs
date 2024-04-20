@@ -72,6 +72,12 @@ impl VerifierType {
             _ => false,
         }
     }
+    pub fn is_persistent(&self) -> bool {
+        match self {
+            Self::RocksDb => true,
+            _ => false,
+        }
+    }
 }
 
 //type LastSeqFn = fn(peer_id: PubKey, qty: u16) -> Result<u64, NgError>;
@@ -115,6 +121,13 @@ impl VerifierConfigType {
     pub(crate) fn should_load_last_seq_num(&self) -> bool {
         match self {
             Self::JsSaveSession(_) | Self::RocksDb(_) => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_persistent(&self) -> bool {
+        match self {
+            Self::RocksDb(_) => true,
             _ => false,
         }
     }

@@ -19,7 +19,7 @@ use crate::WS_PORT_ALTERNATE;
 use crate::{actor::EActor, actors::*, errors::ProtocolError};
 use core::fmt;
 use ng_repo::errors::NgError;
-
+use ng_repo::log::*;
 use ng_repo::types::*;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -1238,6 +1238,13 @@ impl OverlayAccess {
             Err(NgError::InvalidArgument)
         }
     }
+    pub fn overlay_id_for_client_protocol_purpose(&self) -> &OverlayId {
+        match self {
+            Self::ReadOnly(ro) => ro,
+            Self::ReadWrite((inner, outer)) => inner,
+            Self::WriteOnly(wo) => wo,
+        }
+    }
 }
 
 /// Inner Overlay Link
@@ -1470,6 +1477,29 @@ pub struct PublisherAdvertV0 {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum PublisherAdvert {
     V0(PublisherAdvertV0),
+}
+
+use ng_repo::utils::sign;
+
+impl PublisherAdvert {
+    pub fn new(
+        topic_id: TopicId,
+        topic_key: BranchWriteCapSecret,
+        broker_peer: DirectPeerId,
+    ) -> PublisherAdvert {
+        let content = PublisherAdvertContentV0 {
+            peer: broker_peer,
+            topic: topic_id,
+        };
+        let content_ser = serde_bare::to_vec(&content).unwrap();
+        let sig = sign(&topic_key, &topic_id, &content_ser).unwrap();
+        PublisherAdvert::V0(PublisherAdvertV0 { content, sig })
+    }
+    pub fn topic_id(&self) -> &TopicId {
+        match self {
+            Self::V0(v0) => &v0.content.topic,
+        }
+    }
 }
 
 /// Topic subscription request by a peer
@@ -2574,7 +2604,8 @@ impl OpenRepo {
 
 /// Request to pin a repo on the broker.
 ///
-/// When client will disconnect, the subscriptions and publisherAdvert of the topics will be remain active on the broker,
+/// When client will disconnect, the subscriptions and publisherAdvert of the topics will be remain active on the broker.
+/// replied with a RepoOpened
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PinRepoV0 {
     /// Repo Hash
@@ -2590,7 +2621,8 @@ pub struct PinRepoV0 {
     pub expose_outer: bool,
 
     /// Broker peers to connect to in order to join the overlay
-    /// If the repo has previously been opened (during the same session) or if it is a private overlay, then peers info can be omitted
+    /// If the repo has previously been opened (during the same session) or if it is a private overlay, then peers info can be omitted.
+    /// If there are no known peers in the overlay yet, vector is left empty (creation of a store, or repo in a store that is owned by user).
     pub peers: Vec<PeerAdvert>,
 
     /// Maximum number of peers to connect to for this overlay (only valid for an inner (RW/WO) overlay)
@@ -2624,6 +2656,26 @@ impl PinRepo {
     pub fn peers(&self) -> &Vec<PeerAdvert> {
         match self {
             PinRepo::V0(o) => &o.peers,
+        }
+    }
+    pub fn hash(&self) -> &RepoHash {
+        match self {
+            PinRepo::V0(o) => &o.hash,
+        }
+    }
+    pub fn ro_topics(&self) -> &Vec<TopicId> {
+        match self {
+            PinRepo::V0(o) => &o.ro_topics,
+        }
+    }
+    pub fn rw_topics(&self) -> &Vec<PublisherAdvert> {
+        match self {
+            PinRepo::V0(o) => &o.rw_topics,
+        }
+    }
+    pub fn overlay(&self) -> &OverlayId {
+        match self {
+            PinRepo::V0(o) => &o.overlay.overlay_id_for_client_protocol_purpose(),
         }
     }
 }
@@ -2692,6 +2744,9 @@ impl UnpinRepo {
 pub struct RepoPinStatusReqV0 {
     /// Repo Hash
     pub hash: RepoHash,
+
+    #[serde(skip)]
+    pub overlay: Option<OverlayId>,
 }
 
 /// Request the status of pinning for a repo on the broker.
@@ -2706,6 +2761,17 @@ impl RepoPinStatusReq {
             RepoPinStatusReq::V0(o) => &o.hash,
         }
     }
+    pub fn set_overlay(&mut self, overlay: OverlayId) {
+        match self {
+            Self::V0(v0) => v0.overlay = Some(overlay),
+        }
+    }
+
+    pub fn overlay(&self) -> &OverlayId {
+        match self {
+            Self::V0(v0) => v0.overlay.as_ref().unwrap(),
+        }
+    }
 }
 
 /// Response with the status of pinning for a repo on the broker. V0
@@ -2717,11 +2783,8 @@ pub struct RepoPinStatusV0 {
     /// only possible for RW overlays
     pub expose_outer: bool,
 
-    /// list of topics that are subscribed to (not included the RW ones. see list just below)
-    pub ro_topics: Vec<TopicId>,
-
-    /// list of topics that are publisher
-    pub rw_topics: Vec<TopicId>,
+    /// list of topics that are subscribed to
+    pub topics: Vec<TopicSubRes>,
     // TODO pub inbox_proof
 
     // TODO pub signer_proof
@@ -2739,27 +2802,70 @@ impl RepoPinStatus {
             RepoPinStatus::V0(o) => &o.hash,
         }
     }
+    pub fn is_topic_subscribed_as_publisher(&self, topic: &TopicId) -> bool {
+        match self {
+            Self::V0(v0) => {
+                for sub in &v0.topics {
+                    if sub.is_publisher() {
+                        return true;
+                    }
+                }
+                false
+            }
+        }
+    }
 }
 
 /// Request subscription to a `Topic` of an already opened or pinned Repo
 ///
-/// replied with a list of TopicSubRes containing the current heads that should be used to do a TopicSync
+/// replied with a TopicSubRes containing the current heads that should be used to do a TopicSync
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct TopicSubV0 {
     /// Topic to subscribe
-    pub topic: PubKey,
+    pub topic: TopicId,
 
     /// Hash of the repo that was previously opened or pinned
     pub repo_hash: RepoHash,
 
     /// Publisher need to provide a signed `PublisherAdvert` for the PeerId of the broker
     pub publisher: Option<PublisherAdvert>,
+
+    #[serde(skip)]
+    pub overlay: Option<OverlayId>,
 }
 
 /// Request subscription to a `Topic` of an already opened or pinned Repo
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum TopicSub {
     V0(TopicSubV0),
+}
+
+impl TopicSub {
+    pub fn overlay(&self) -> &OverlayId {
+        match self {
+            Self::V0(v0) => v0.overlay.as_ref().unwrap(),
+        }
+    }
+    pub fn hash(&self) -> &RepoHash {
+        match self {
+            Self::V0(o) => &o.repo_hash,
+        }
+    }
+    pub fn topic(&self) -> &TopicId {
+        match self {
+            Self::V0(o) => &o.topic,
+        }
+    }
+    pub fn publisher(&self) -> Option<&PublisherAdvert> {
+        match self {
+            Self::V0(o) => o.publisher.as_ref(),
+        }
+    }
+    pub fn set_overlay(&mut self, overlay: OverlayId) {
+        match self {
+            Self::V0(v0) => v0.overlay = Some(overlay),
+        }
+    }
 }
 
 /// Request unsubscription from a `Topic` of an already opened or pinned Repo
@@ -2953,6 +3059,18 @@ pub enum ClientRequestContentV0 {
     BlocksPut(BlocksPut),
     PublishEvent(Event),
 }
+
+impl ClientRequestContentV0 {
+    pub fn set_overlay(&mut self, overlay: OverlayId) {
+        match self {
+            ClientRequestContentV0::RepoPinStatusReq(a) => a.set_overlay(overlay),
+            ClientRequestContentV0::TopicSub(a) => a.set_overlay(overlay),
+            ClientRequestContentV0::PinRepo(a) => {}
+            _ => unimplemented!(),
+        }
+    }
+}
+
 /// Broker overlay request
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientRequestV0 {
@@ -2985,6 +3103,36 @@ impl ClientRequest {
     pub fn content_v0(&self) -> &ClientRequestContentV0 {
         match self {
             ClientRequest::V0(o) => &o.content,
+        }
+    }
+    pub fn get_actor(&self) -> Box<dyn EActor> {
+        match self {
+            Self::V0(ClientRequestV0 { content, .. }) => match content {
+                ClientRequestContentV0::RepoPinStatusReq(r) => r.get_actor(),
+                _ => unimplemented!(),
+            },
+        }
+    }
+}
+
+impl TryFrom<ProtocolMessage> for ClientRequestContentV0 {
+    type Error = ProtocolError;
+    fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
+        if let ProtocolMessage::ClientMessage(ClientMessage::V0(ClientMessageV0 {
+            overlay: overlay,
+            content:
+                ClientMessageContentV0::ClientRequest(ClientRequest::V0(ClientRequestV0 {
+                    content: mut content,
+                    ..
+                })),
+            ..
+        })) = msg
+        {
+            content.set_overlay(overlay);
+            Ok(content)
+        } else {
+            log_debug!("INVALID {:?}", msg);
+            Err(ProtocolError::InvalidValue)
         }
     }
 }
@@ -3022,8 +3170,9 @@ impl BlocksFound {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TopicSubResV0 {
     /// Topic subscribed
-    pub topic: PubKey,
+    pub topic: TopicId,
     pub known_heads: Vec<ObjectId>,
+    pub publisher: bool,
 }
 
 /// Topic subscription response
@@ -3034,12 +3183,47 @@ pub enum TopicSubRes {
     V0(TopicSubResV0),
 }
 
+impl TopicSubRes {
+    pub fn topic_id(&self) -> &TopicId {
+        match self {
+            Self::V0(v0) => &v0.topic,
+        }
+    }
+    pub fn is_publisher(&self) -> bool {
+        match self {
+            Self::V0(v0) => v0.publisher,
+        }
+    }
+}
+
+impl From<TopicId> for TopicSubRes {
+    fn from(topic: TopicId) -> Self {
+        TopicSubRes::V0(TopicSubResV0 {
+            topic,
+            known_heads: vec![],
+            publisher: false,
+        })
+    }
+}
+
+impl From<PublisherAdvert> for TopicSubRes {
+    fn from(topic: PublisherAdvert) -> Self {
+        TopicSubRes::V0(TopicSubResV0 {
+            topic: topic.topic_id().clone(),
+            known_heads: vec![],
+            publisher: true,
+        })
+    }
+}
+
+pub type RepoOpened = Vec<TopicSubRes>;
+
 /// Content of `ClientResponseV0`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientResponseContentV0 {
     EmptyResponse,
     Block(Block),
-    RepoOpened(Vec<TopicSubRes>),
+    RepoOpened(RepoOpened),
     TopicSubRes(TopicSubRes),
     TopicSyncRes(TopicSyncRes),
     BlocksFound(BlocksFound),
@@ -3063,6 +3247,16 @@ pub struct ClientResponseV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientResponse {
     V0(ClientResponseV0),
+}
+
+impl From<ProtocolError> for ClientResponse {
+    fn from(err: ProtocolError) -> ClientResponse {
+        ClientResponse::V0(ClientResponseV0 {
+            id: 0,
+            result: err.into(),
+            content: ClientResponseContentV0::EmptyResponse,
+        })
+    }
 }
 
 impl ClientResponse {
@@ -3089,6 +3283,31 @@ impl ClientResponse {
                 ClientResponseContentV0::Block(b) => Some(b),
                 _ => panic!("this not a block response"),
             },
+        }
+    }
+}
+
+impl TryFrom<ProtocolMessage> for ClientResponseContentV0 {
+    type Error = ProtocolError;
+    fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
+        if let ProtocolMessage::ClientMessage(ClientMessage::V0(ClientMessageV0 {
+            content:
+                ClientMessageContentV0::ClientResponse(ClientResponse::V0(ClientResponseV0 {
+                    content: content,
+                    result: res,
+                    ..
+                })),
+            ..
+        })) = msg
+        {
+            if res == 0 {
+                Ok(content)
+            } else {
+                Err(ProtocolError::try_from(res).unwrap())
+            }
+        } else {
+            log_debug!("INVALID {:?}", msg);
+            Err(ProtocolError::InvalidValue)
         }
     }
 }
@@ -3194,6 +3413,19 @@ impl ClientMessage {
                 | ClientMessageContentV0::ForwardedEvent(_)
                 | ClientMessageContentV0::ForwardedBlock(_) => {
                     panic!("it is not a response");
+                }
+            },
+        }
+    }
+
+    pub fn get_actor(&self) -> Box<dyn EActor> {
+        match self {
+            ClientMessage::V0(o) => match &o.content {
+                ClientMessageContentV0::ClientRequest(req) => req.get_actor(),
+                ClientMessageContentV0::ClientResponse(_)
+                | ClientMessageContentV0::ForwardedEvent(_)
+                | ClientMessageContentV0::ForwardedBlock(_) => {
+                    panic!("it is not a request");
                 }
             },
         }
@@ -3468,6 +3700,7 @@ impl ProtocolMessage {
         match self {
             //ProtocolMessage::Noise(a) => a.get_actor(),
             ProtocolMessage::Start(a) => a.get_actor(),
+            ProtocolMessage::ClientMessage(a) => a.get_actor(),
             // ProtocolMessage::ServerHello(a) => a.get_actor(),
             // ProtocolMessage::ClientAuth(a) => a.get_actor(),
             // ProtocolMessage::AuthResult(a) => a.get_actor(),
@@ -3476,6 +3709,46 @@ impl ProtocolMessage {
             // ProtocolMessage::BrokerMessage(a) => a.get_actor(),
             _ => unimplemented!(),
         }
+    }
+
+    pub fn from_client_response_err(err: ProtocolError) -> ProtocolMessage {
+        let res: ClientResponse = err.into();
+        res.into()
+    }
+
+    pub fn from_client_request_v0(
+        req: ClientRequestContentV0,
+        overlay: OverlayId,
+    ) -> ProtocolMessage {
+        ProtocolMessage::ClientMessage(ClientMessage::V0(ClientMessageV0 {
+            overlay,
+            content: ClientMessageContentV0::ClientRequest(ClientRequest::V0(ClientRequestV0 {
+                id: 0,
+                content: req,
+            })),
+            padding: vec![],
+        }))
+    }
+}
+
+impl From<ClientResponseContentV0> for ProtocolMessage {
+    fn from(msg: ClientResponseContentV0) -> ProtocolMessage {
+        let client_res = ClientResponse::V0(ClientResponseV0 {
+            id: 0,
+            result: 0,
+            content: msg,
+        });
+        client_res.into()
+    }
+}
+
+impl From<ClientResponse> for ProtocolMessage {
+    fn from(msg: ClientResponse) -> ProtocolMessage {
+        ProtocolMessage::ClientMessage(ClientMessage::V0(ClientMessageV0 {
+            overlay: OverlayId::nil(),
+            content: ClientMessageContentV0::ClientResponse(msg),
+            padding: vec![],
+        }))
     }
 }
 

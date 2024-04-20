@@ -11,7 +11,7 @@
 
 use ng_net::types::*;
 use ng_repo::errors::StorageError;
-use ng_repo::kcv_storage::KCVStore;
+use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::types::PubKey;
 
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ use serde_bare::{from_slice, to_vec};
 pub struct DynPeer<'a> {
     /// peer ID
     id: PubKey,
-    store: &'a dyn KCVStore,
+    store: &'a dyn KCVStorage,
 }
 
 impl<'a> DynPeer<'a> {
@@ -33,7 +33,7 @@ impl<'a> DynPeer<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::ADDRS;
 
-    pub fn open(id: &PubKey, store: &'a dyn KCVStore) -> Result<DynPeer<'a>, StorageError> {
+    pub fn open(id: &PubKey, store: &'a dyn KCVStorage) -> Result<DynPeer<'a>, StorageError> {
         let opening = DynPeer {
             id: id.clone(),
             store,
@@ -46,7 +46,7 @@ impl<'a> DynPeer<'a> {
     pub fn create(
         id: &PubKey,
         addrs: &Vec<NetAddr>,
-        store: &'a dyn KCVStore,
+        store: &'a dyn KCVStorage,
     ) -> Result<DynPeer<'a>, StorageError> {
         let acc = DynPeer {
             id: id.clone(),

@@ -3419,6 +3419,7 @@ dependencies = [
  "automerge",
  "blake3",
  "chacha20",
+ "either",
  "getrandom 0.2.10",
  "ng-net",
  "ng-repo",

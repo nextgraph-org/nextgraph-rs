@@ -16,7 +16,7 @@ use std::time::SystemTime;
 
 use ng_net::types::*;
 use ng_repo::errors::StorageError;
-use ng_repo::kcv_storage::KCVStore;
+use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::log::*;
 use ng_repo::types::UserId;
 use serde_bare::{from_slice, to_vec};
@@ -24,7 +24,7 @@ use serde_bare::{from_slice, to_vec};
 pub struct Account<'a> {
     /// User ID
     id: UserId,
-    store: &'a dyn KCVStore,
+    store: &'a dyn KCVStorage,
 }
 
 impl<'a> Account<'a> {
@@ -38,7 +38,7 @@ impl<'a> Account<'a> {
 
     const ALL_CLIENT_PROPERTIES: [u8; 2] = [Self::INFO, Self::LAST_SEEN];
 
-    pub fn open(id: &UserId, store: &'a dyn KCVStore) -> Result<Account<'a>, StorageError> {
+    pub fn open(id: &UserId, store: &'a dyn KCVStorage) -> Result<Account<'a>, StorageError> {
         let opening = Account {
             id: id.clone(),
             store,
@@ -51,7 +51,7 @@ impl<'a> Account<'a> {
     pub fn create(
         id: &UserId,
         admin: bool,
-        store: &'a dyn KCVStore,
+        store: &'a dyn KCVStorage,
     ) -> Result<Account<'a>, StorageError> {
         let acc = Account {
             id: id.clone(),
@@ -73,7 +73,7 @@ impl<'a> Account<'a> {
     #[allow(deprecated)]
     pub fn get_all_users(
         admins: bool,
-        store: &'a dyn KCVStore,
+        store: &'a dyn KCVStorage,
     ) -> Result<Vec<UserId>, StorageError> {
         let size = to_vec(&UserId::nil())?.len();
         let mut res: Vec<UserId> = vec![];
@@ -248,7 +248,7 @@ mod test {
     use ng_repo::errors::StorageError;
     use ng_repo::types::*;
     use ng_repo::utils::*;
-    use ng_storage_rocksdb::kcv_storage::RocksdbKCVStore;
+    use ng_storage_rocksdb::kcv_storage::RocksdbKCVStorage;
     use std::fs;
     use tempfile::Builder;
 
@@ -261,7 +261,7 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         println!("{}", root.path().to_str().unwrap());
-        let mut store = RocksdbKCVStore::open(root.path(), key).unwrap();
+        let mut store = RocksdbKCVStorage::open(root.path(), key).unwrap();
 
         let user_id = PubKey::Ed25519PubKey([1; 32]);
 

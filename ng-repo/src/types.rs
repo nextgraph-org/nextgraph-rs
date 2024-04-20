@@ -12,6 +12,7 @@
 //! Corresponds to the BARE schema
 
 use crate::errors::NgError;
+use crate::store::Store;
 use crate::utils::{
     decode_key, dh_pubkey_array_from_ed_pubkey_slice, dh_pubkey_from_ed_pubkey_slice,
     ed_privkey_to_ed_pubkey, from_ed_privkey_to_dh_privkey, random_key,
@@ -160,7 +161,6 @@ impl PubKey {
         }
     }
 
-    #[deprecated(note = "**Don't use nil method**")]
     pub fn nil() -> Self {
         PubKey::Ed25519PubKey([0u8; 32])
     }
@@ -362,6 +362,12 @@ pub type RepoId = PubKey;
 /// RepoHash is the BLAKE3 Digest over the RepoId
 pub type RepoHash = Digest;
 
+impl From<RepoId> for RepoHash {
+    fn from(id: RepoId) -> Self {
+        Digest::Blake3Digest32(*blake3::hash(id.slice()).as_bytes())
+    }
+}
+
 // impl From<RepoHash> for String {
 //     fn from(id: RepoHash) -> Self {
 //         hex::encode(to_vec(&id).unwrap())
@@ -519,19 +525,22 @@ impl fmt::Display for OverlayId {
 }
 
 impl OverlayId {
+    pub fn inner_from_store(store: &Store) -> OverlayId {
+        Self::inner(store.id(), store.get_store_overlay_branch_readcap_secret())
+    }
     pub fn inner(
         store_id: &PubKey,
-        store_overlay_branch_readcap_secret: ReadCapSecret,
+        store_overlay_branch_readcap_secret: &ReadCapSecret,
     ) -> OverlayId {
         let store_id = serde_bare::to_vec(store_id).unwrap();
-        let mut store_overlay_branch_readcap_secret =
-            serde_bare::to_vec(&store_overlay_branch_readcap_secret).unwrap();
+        let mut store_overlay_branch_readcap_secret_ser =
+            serde_bare::to_vec(store_overlay_branch_readcap_secret).unwrap();
         let mut key: [u8; 32] = blake3::derive_key(
             "NextGraph Overlay ReadCapSecret BLAKE3 key",
-            store_overlay_branch_readcap_secret.as_slice(),
+            store_overlay_branch_readcap_secret_ser.as_slice(),
         );
         let key_hash = blake3::keyed_hash(&key, &store_id);
-        store_overlay_branch_readcap_secret.zeroize();
+        store_overlay_branch_readcap_secret_ser.zeroize();
         key.zeroize();
         OverlayId::Inner(Digest::from_slice(*key_hash.as_bytes()))
     }
@@ -544,7 +553,6 @@ impl OverlayId {
     pub fn dummy() -> OverlayId {
         OverlayId::Outer(Digest::dummy())
     }
-    #[deprecated(note = "**Don't use nil method**")]
     pub fn nil() -> OverlayId {
         OverlayId::Outer(Digest::nil())
     }
@@ -609,7 +617,7 @@ impl StoreOverlay {
             | StoreOverlay::V0(StoreOverlayV0::ProtectedStore(id))
             | StoreOverlay::V0(StoreOverlayV0::PrivateStore(id))
             | StoreOverlay::V0(StoreOverlayV0::Group(id)) => {
-                OverlayId::inner(id, store_overlay_branch_readcap_secret)
+                OverlayId::inner(id, &store_overlay_branch_readcap_secret)
             }
             StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => unimplemented!(),
             StoreOverlay::Own(_) => unimplemented!(),
@@ -679,6 +687,13 @@ impl StoreRepo {
         //let store_overlay: StoreOverlay = self.into();
         //store_overlay.overlay_id_for_read_purpose()
         OverlayId::outer(self.repo_id())
+    }
+
+    pub fn is_private(&self) -> bool {
+        match self {
+            Self::V0(StoreRepoV0::PrivateStore(_)) => true,
+            _ => false,
+        }
     }
 
     // pub fn overlay_id_for_storage_purpose(
@@ -1220,7 +1235,7 @@ pub enum BranchType {
     Store,
     Overlay,
     User,
-    Transactional, // this could have been called OtherTransaction, but for the sake of simplicity, we use Transactional for any branch that is not the Main one.
+    Transactional, // this could have been called OtherTransactional, but for the sake of simplicity, we use Transactional for any branch that is not the Main one.
     Root,          // only used for BranchInfo
 }
 

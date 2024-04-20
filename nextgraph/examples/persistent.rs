@@ -44,7 +44,6 @@ async fn main() -> std::io::Result<()> {
 
     // the peer_id should come from somewhere else.
     // this is just given for the sake of an example
-    #[allow(deprecated)]
     let peer_id_of_server_broker = PubKey::nil();
 
     // Create your wallet

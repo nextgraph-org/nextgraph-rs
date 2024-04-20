@@ -11,7 +11,7 @@
 
 use ng_net::types::*;
 use ng_repo::errors::StorageError;
-use ng_repo::kcv_storage::KCVStore;
+use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::types::*;
 use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};
@@ -24,7 +24,7 @@ pub enum ConfigMode {
 }
 
 pub struct Config<'a> {
-    store: &'a dyn KCVStore,
+    store: &'a dyn KCVStorage,
 }
 
 impl<'a> Config<'a> {
@@ -39,7 +39,7 @@ impl<'a> Config<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::MODE;
 
-    pub fn open(store: &'a dyn KCVStore) -> Result<Config<'a>, StorageError> {
+    pub fn open(store: &'a dyn KCVStorage) -> Result<Config<'a>, StorageError> {
         let opening = Config { store };
         if !opening.exists() {
             return Err(StorageError::NotFound);
@@ -48,7 +48,7 @@ impl<'a> Config<'a> {
     }
     pub fn get_or_create(
         mode: &ConfigMode,
-        store: &'a dyn KCVStore,
+        store: &'a dyn KCVStorage,
     ) -> Result<Config<'a>, StorageError> {
         match Self::open(store) {
             Err(e) => {
@@ -66,7 +66,10 @@ impl<'a> Config<'a> {
             }
         }
     }
-    pub fn create(mode: &ConfigMode, store: &'a dyn KCVStore) -> Result<Config<'a>, StorageError> {
+    pub fn create(
+        mode: &ConfigMode,
+        store: &'a dyn KCVStorage,
+    ) -> Result<Config<'a>, StorageError> {
         let acc = Config { store };
         if acc.exists() {
             return Err(StorageError::BackendError);

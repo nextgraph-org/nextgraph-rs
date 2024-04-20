@@ -21,17 +21,17 @@ use crate::broker_storage::wallet::Wallet;
 use crate::types::*;
 use ng_net::errors::{ProtocolError, ServerError};
 use ng_net::server_storage::*;
-use ng_net::types::{BootstrapContentV0, InvitationCode, InvitationV0};
+use ng_net::types::*;
 use ng_repo::errors::StorageError;
-use ng_repo::kcv_storage::KCVStore;
+use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::log::*;
-use ng_repo::types::{PeerId, PubKey, SymKey};
-use ng_storage_rocksdb::kcv_storage::RocksdbKCVStore;
+use ng_repo::types::*;
+use ng_storage_rocksdb::kcv_storage::RocksdbKCVStorage;
 
 pub struct RocksdbServerStorage {
-    wallet_storage: RocksdbKCVStore,
-    accounts_storage: RocksdbKCVStore,
-    peers_storage: RocksdbKCVStore,
+    wallet_storage: RocksdbKCVStorage,
+    accounts_storage: RocksdbKCVStorage,
+    peers_storage: RocksdbKCVStorage,
     peers_last_seq_path: PathBuf,
     peers_last_seq: Mutex<HashMap<PeerId, u64>>,
 }
@@ -48,7 +48,7 @@ impl RocksdbServerStorage {
         std::fs::create_dir_all(wallet_path.clone()).unwrap();
         log_debug!("opening wallet DB");
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let wallet_storage = RocksdbKCVStore::open(&wallet_path, master_key.slice().clone())?;
+        let wallet_storage = RocksdbKCVStorage::open(&wallet_path, master_key.slice().clone())?;
         let wallet = Wallet::open(&wallet_storage);
 
         // create/open the ACCOUNTS storage
@@ -60,7 +60,7 @@ impl RocksdbServerStorage {
             accounts_key = wallet.create_accounts_key()?;
             std::fs::create_dir_all(accounts_path.clone()).unwrap();
             let accounts_storage =
-                RocksdbKCVStore::open(&accounts_path, accounts_key.slice().clone())?;
+                RocksdbKCVStorage::open(&accounts_path, accounts_key.slice().clone())?;
             let symkey = SymKey::random();
             let invite_code = InvitationCode::Admin(symkey.clone());
             let _ = Invitation::create(
@@ -87,7 +87,8 @@ impl RocksdbServerStorage {
         log_debug!("opening accounts DB");
         std::fs::create_dir_all(accounts_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let accounts_storage = RocksdbKCVStore::open(&accounts_path, accounts_key.slice().clone())?;
+        let accounts_storage =
+            RocksdbKCVStorage::open(&accounts_path, accounts_key.slice().clone())?;
 
         // create/open the PEERS storage
         log_debug!("opening peers DB");
@@ -96,7 +97,7 @@ impl RocksdbServerStorage {
         peers_path.push("peers");
         std::fs::create_dir_all(peers_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let peers_storage = RocksdbKCVStore::open(&peers_path, peers_key.slice().clone())?;
+        let peers_storage = RocksdbKCVStorage::open(&peers_path, peers_key.slice().clone())?;
 
         // creates the path for peers_last_seq
         let mut peers_last_seq_path = path.clone();
@@ -197,5 +198,54 @@ impl ServerStorage for RocksdbServerStorage {
         let inv = Invitation::open(&invite_code, &self.accounts_storage)?;
         inv.del()?;
         Ok(())
+    }
+    fn get_repo_pin_status(
+        &self,
+        overlay: &OverlayId,
+        repo: &RepoHash,
+    ) -> Result<RepoPinStatus, ProtocolError> {
+        //TODO: implement correctly !
+        Ok(RepoPinStatus::V0(RepoPinStatusV0 {
+            hash: repo.clone(),
+
+            // only possible for RW overlays
+            expose_outer: false,
+
+            // list of topics that are subscribed to
+            topics: vec![],
+        }))
+    }
+
+    fn pin_repo(
+        &self,
+        overlay: &OverlayId,
+        repo: &RepoHash,
+        ro_topics: &Vec<TopicId>,
+        rw_topics: &Vec<PublisherAdvert>,
+    ) -> Result<RepoOpened, ProtocolError> {
+        //TODO: implement correctly !
+        let mut opened = Vec::with_capacity(ro_topics.len() + rw_topics.len());
+        for topic in ro_topics {
+            opened.push((*topic).into());
+        }
+        for topic in rw_topics {
+            opened.push((*topic).into());
+        }
+        Ok(opened)
+    }
+
+    fn topic_sub(
+        &self,
+        overlay: &OverlayId,
+        repo: &RepoHash,
+        topic: &TopicId,
+        publisher: Option<&PublisherAdvert>,
+    ) -> Result<TopicSubRes, ProtocolError> {
+        //TODO: implement correctly !
+        Ok(TopicSubRes::V0(TopicSubResV0 {
+            topic: topic.clone(),
+            known_heads: vec![],
+            publisher: publisher.is_some(),
+        }))
     }
 }

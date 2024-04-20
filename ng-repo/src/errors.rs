@@ -49,6 +49,10 @@ pub enum NgError {
     BranchNotFound,
     StoreNotFound,
     UserNotFound,
+    TopicNotFound,
+    NotConnected,
+    ProtocolError,
+    ActorError,
 }
 
 impl Error for NgError {}
@@ -165,6 +169,9 @@ pub enum StorageError {
     AlreadyExists,
     DataCorruption,
     UnknownColumnFamily,
+    PropertyNotFound,
+    NotAStoreRepo,
+    OverlayBranchNotFound,
 }
 
 impl core::fmt::Display for StorageError {

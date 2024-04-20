@@ -320,6 +320,8 @@ pub fn open_wallet_with_pazzle(
         return Err(NgWalletError::InvalidPin);
     }
 
+    log_info!("pazzle={:?}", pazzle);
+
     let opening_pazzle = Instant::now();
 
     verify(&wallet.content_as_bytes(), wallet.sig(), wallet.id())
@@ -568,7 +570,7 @@ pub fn create_wallet_first_step_v0(
     Ok(intermediary)
 }
 
-pub fn create_wallet_second_step_v0(
+pub async fn create_wallet_second_step_v0(
     mut params: CreateWalletIntermediaryV0,
     verifier: &mut Verifier,
 ) -> Result<
@@ -581,10 +583,12 @@ pub fn create_wallet_second_step_v0(
 > {
     let creating_pazzle = Instant::now();
 
-    let mut site = SiteV0::create_personal(params.user_privkey.clone(), verifier).map_err(|e| {
-        log_err!("{e}");
-        NgWalletError::InternalError
-    })?;
+    let mut site = SiteV0::create_personal(params.user_privkey.clone(), verifier)
+        .await
+        .map_err(|e| {
+            log_err!("{e}");
+            NgWalletError::InternalError
+        })?;
 
     let user = params.user_privkey.to_pub();
 
@@ -847,8 +851,9 @@ mod test {
         .expect("create_wallet_first_step_v0");
 
         let mut verifier = Verifier::new_dummy();
-        let (res, _, _) =
-            create_wallet_second_step_v0(res, &mut verifier).expect("create_wallet_second_step_v0");
+        let (res, _, _) = create_wallet_second_step_v0(res, &mut verifier)
+            .await
+            .expect("create_wallet_second_step_v0");
 
         log_debug!(
             "creation of wallet took: {} ms",

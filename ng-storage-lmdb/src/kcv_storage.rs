@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use serde_bare::error::Error;
 
 pub struct LmdbTransaction<'a> {
-    store: &'a LmdbKCVStore,
+    store: &'a LmdbKCVStorage,
     writer: Option<Writer<LmdbRwTransaction<'a>>>,
 }
 
@@ -54,7 +54,7 @@ impl<'a> ReadTransaction for LmdbTransaction<'a> {
     }
     /// Load a single value property from the store.
     fn get(&self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<Vec<u8>, StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+        let property = LmdbKCVStorage::compute_property(prefix, key, suffix);
 
         let mut iter = self
             .store
@@ -75,7 +75,7 @@ impl<'a> ReadTransaction for LmdbTransaction<'a> {
         key: &Vec<u8>,
         suffix: Option<u8>,
     ) -> Result<Vec<Vec<u8>>, StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+        let property = LmdbKCVStorage::compute_property(prefix, key, suffix);
 
         let mut iter = self
             .store
@@ -103,7 +103,7 @@ impl<'a> ReadTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+        let property = LmdbKCVStorage::compute_property(prefix, key, suffix);
 
         let exists = self
             .store
@@ -131,7 +131,7 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+        let property = LmdbKCVStorage::compute_property(prefix, key, suffix);
         self.store
             .main_store
             .put(
@@ -152,7 +152,7 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+        let property = LmdbKCVStorage::compute_property(prefix, key, suffix);
 
         self.store
             .main_store
@@ -173,7 +173,7 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
 
     /// Delete a property from the store.
     fn del(&mut self, prefix: u8, key: &Vec<u8>, suffix: Option<u8>) -> Result<(), StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+        let property = LmdbKCVStorage::compute_property(prefix, key, suffix);
         let res = self
             .store
             .main_store
@@ -195,7 +195,7 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
         suffix: Option<u8>,
         value: &Vec<u8>,
     ) -> Result<(), StorageError> {
-        let property = LmdbKCVStore::compute_property(prefix, key, suffix);
+        let property = LmdbKCVStorage::compute_property(prefix, key, suffix);
         self.store
             .main_store
             .delete(
@@ -226,7 +226,7 @@ impl<'a> WriteTransaction for LmdbTransaction<'a> {
 }
 
 #[derive(Debug)]
-pub struct LmdbKCVStore {
+pub struct LmdbKCVStorage {
     /// the main store where all the properties of keys are stored
     main_store: MultiStore<LmdbDatabase>,
     /// the opened environment so we can create new transactions
@@ -249,7 +249,7 @@ fn compare<T: Ord>(a: &[T], b: &[T]) -> std::cmp::Ordering {
     return a.len().cmp(&b.len());
 }
 
-impl ReadTransaction for LmdbKCVStore {
+impl ReadTransaction for LmdbKCVStorage {
     fn get_all_keys_and_values(
         &self,
         prefix: u8,
@@ -369,7 +369,7 @@ impl ReadTransaction for LmdbKCVStore {
     }
 }
 
-impl KCVStore for LmdbKCVStore {
+impl KCVStorage for LmdbKCVStorage {
     fn write_transaction(
         &self,
         method: &mut dyn FnMut(&mut dyn WriteTransaction) -> Result<(), StorageError>,
@@ -439,7 +439,7 @@ impl KCVStore for LmdbKCVStore {
     }
 }
 
-impl LmdbKCVStore {
+impl LmdbKCVStorage {
     pub fn path(&self) -> PathBuf {
         PathBuf::from(&self.path)
     }
@@ -454,9 +454,9 @@ impl LmdbKCVStore {
         new
     }
 
-    /// Opens the store and returns a KCVStore object that should be kept and used to manipulate the properties
+    /// Opens the store and returns a KCVStorage object that should be kept and used to manipulate the properties
     /// The key is the encryption key for the data at rest.
-    pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<LmdbKCVStore, StorageError> {
+    pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<LmdbKCVStorage, StorageError> {
         let mut manager = Manager::<LmdbEnvironment>::singleton().write().unwrap();
 
         let mut builder = Lmdb::new();
@@ -487,7 +487,7 @@ impl LmdbKCVStore {
                 StorageError::BackendError
             })?;
 
-        Ok(LmdbKCVStore {
+        Ok(LmdbKCVStorage {
             environment: shared_rkv.clone(),
             main_store,
             path: path.to_str().unwrap().to_string(),

@@ -65,7 +65,7 @@ impl SiteV0 {
         }
     }
 
-    fn create_individual_(
+    async fn create_individual_(
         user_priv_key: PrivKey,
         verifier: &mut Verifier,
         site_name: SiteName,
@@ -99,14 +99,17 @@ impl SiteV0 {
 
         verifier.reserve_more(18)?;
 
-        let public_repo =
-            verifier.new_store_default(&site_pubkey, &user_priv_key, &public_store, false)?;
+        let public_repo = verifier
+            .new_store_default(&site_pubkey, &user_priv_key, &public_store, false)
+            .await?;
 
-        let protected_repo =
-            verifier.new_store_default(&site_pubkey, &user_priv_key, &protected_store, false)?;
+        let protected_repo = verifier
+            .new_store_default(&site_pubkey, &user_priv_key, &protected_store, false)
+            .await?;
 
-        let private_repo =
-            verifier.new_store_default(&site_pubkey, &user_priv_key, &private_store, true)?;
+        let private_repo = verifier
+            .new_store_default(&site_pubkey, &user_priv_key, &private_store, true)
+            .await?;
 
         // TODO: create user branch
         // TODO: add the 2 commits in user branch about StoreUpdate of public and protected stores.
@@ -126,22 +129,22 @@ impl SiteV0 {
         })
     }
 
-    pub fn create_individual(
+    pub async fn create_individual(
         name: String,
         user_priv_key: PrivKey,
         verifier: &mut Verifier,
     ) -> Result<Self, NgError> {
-        Self::create_individual_(user_priv_key, verifier, SiteName::Name(name))
+        Self::create_individual_(user_priv_key, verifier, SiteName::Name(name)).await
     }
 
-    pub fn create_personal(
+    pub async fn create_personal(
         user_priv_key: PrivKey,
         verifier: &mut Verifier,
     ) -> Result<Self, NgError> {
-        Self::create_individual_(user_priv_key, verifier, SiteName::Personal)
+        Self::create_individual_(user_priv_key, verifier, SiteName::Personal).await
     }
 
-    pub fn create_org(name: String) -> Result<Self, NgError> {
+    pub async fn create_org(name: String) -> Result<Self, NgError> {
         let (site_privkey, site_pubkey) = generate_keypair();
 
         let (public_store_privkey, public_store_pubkey) = generate_keypair();

@@ -28,7 +28,7 @@ use ng_net::types::{APP_NG_ONE_URL, NG_ONE_URL};
 use ng_repo::log::*;
 use ng_repo::types::*;
 use ng_repo::utils::{generate_keypair, sign, verify};
-use ng_storage_rocksdb::kcv_storage::RocksdbKCVStore;
+use ng_storage_rocksdb::kcv_storage::RocksdbKCVStorage;
 use ng_wallet::types::*;
 
 #[derive(RustEmbed)]
@@ -36,7 +36,7 @@ use ng_wallet::types::*;
 struct Static;
 
 struct Server {
-    store: RocksdbKCVStore,
+    store: RocksdbKCVStorage,
 }
 
 impl Server {
@@ -158,7 +158,7 @@ async fn main() {
     let key: [u8; 32] = [0; 32];
     log_debug!("data directory: {}", dir.to_str().unwrap());
     fs::create_dir_all(dir.clone()).unwrap();
-    let store = RocksdbKCVStore::open(&dir, key);
+    let store = RocksdbKCVStorage::open(&dir, key);
     if store.is_err() {
         return;
     }

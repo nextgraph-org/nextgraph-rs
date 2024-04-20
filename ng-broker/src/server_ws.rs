@@ -586,7 +586,7 @@ pub async fn run_server_accept_one(
     // let master_key: [u8; 32] = [0; 32];
     // std::fs::create_dir_all(root.path()).unwrap();
     // log_debug!("data directory: {}", root.path().to_str().unwrap());
-    // let store = RocksdbKCVStore::open(root.path(), master_key);
+    // let store = RocksdbKCVStorage::open(root.path(), master_key);
 
     let socket = TcpListener::bind(addrs.as_str()).await?;
     log_debug!("Listening on {}", addrs.as_str());

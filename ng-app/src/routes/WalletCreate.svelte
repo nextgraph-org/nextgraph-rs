@@ -1527,7 +1527,10 @@
             />
             then throw it away.<br /> The order of each image is important.<br
             />
-            Now click on "Continue to Login"<br /><br />
+            Now click on "Continue to Login."<br /><br />It is important that
+            you login with this wallet at least once from this device<br />
+            (while connected to the internet), so that your personal site is
+            created on your broker.<br /><br />
             <a href="/wallet/login" use:link>
               <button
                 tabindex="-1"

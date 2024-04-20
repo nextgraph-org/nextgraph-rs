@@ -82,7 +82,7 @@ pub struct BranchInfo {
 
     pub topic: TopicId,
 
-    pub topic_priv_key: BranchWriteCapSecret,
+    pub topic_priv_key: Option<BranchWriteCapSecret>,
 
     pub read_cap: ReadCap,
 }
@@ -104,6 +104,21 @@ pub struct Repo {
 
     pub branches: HashMap<BranchId, BranchInfo>,
 
+    /// if opened_branches is empty, it means the repo has not been opened yet.
+    /// if a branchId is present in the hashmap, it means it is opened.
+    /// the boolean indicates if the branch is opened as publisher or not
+    pub opened_branches: HashMap<BranchId, bool>,
+
+    /*pub main_branch_rc: Option<BranchId>,
+
+    pub chat_branch_rc: Option<BranchId>,
+
+    // only used if it is a StoreRepo
+    pub store_branch_rc: Option<BranchId>,
+    pub overlay_branch_rc: Option<BranchId>,
+
+    // only used if it is a private StoreRepo
+    pub user_branch_rc: Option<BranchId>,*/
     pub store: Arc<Store>,
 }
 
@@ -163,6 +178,7 @@ impl Repo {
             read_cap: None,
             write_cap: None,
             branches: HashMap::new(),
+            opened_branches: HashMap::new(),
         }
     }
 
@@ -201,6 +217,17 @@ impl Repo {
         match self.overlay_branch() {
             Some(bi) => Some(&bi.read_cap),
             None => self.read_cap.as_ref(), // this is for private stores that don't have an overlay branch
+        }
+    }
+
+    pub fn branch_is_opened(&self, branch: &BranchId) -> bool {
+        self.opened_branches.contains_key(branch)
+    }
+
+    pub fn branch_is_opened_as_publisher(&self, branch: &BranchId) -> bool {
+        match self.opened_branches.get(branch) {
+            Some(val) => *val,
+            None => false,
         }
     }
 
