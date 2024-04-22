@@ -17,7 +17,7 @@ use ng_repo::log::*;
 use ng_repo::object::Object;
 use ng_repo::{
     block_storage::BlockStorage,
-    errors::{NgError, StorageError},
+    errors::{NgError, ProtocolError, ServerError, StorageError},
     file::RandomAccessFile,
     repo::Repo,
     store::Store,
@@ -40,7 +40,6 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use ng_net::{
     connection::NoiseFSM,
-    errors::ProtocolError,
     types::*,
     utils::{Receiver, Sender},
 };
@@ -112,12 +111,19 @@ impl Verifier {
     }
 
     pub fn load(&mut self) -> Result<(), NgError> {
+        // log_info!(
+        //     "SHOULD LOAD? {} {} {}",
+        //     self.is_persistent(),
+        //     self.user_storage.is_some(),
+        //     self.block_storage.is_some()
+        // );
         if self.is_persistent() && self.user_storage.is_some() && self.block_storage.is_some() {
             let user_storage = Arc::clone(self.user_storage.as_ref().unwrap());
-
+            //log_info!("LOADING ...");
             let stores = user_storage.get_all_store_and_repo_ids()?;
 
             for (store, repos) in stores.iter() {
+                //log_info!("LOADING STORE: {}", store);
                 let repo = user_storage
                     .load_store(store, Arc::clone(self.block_storage.as_ref().unwrap()))?;
                 self.stores.insert(
@@ -128,6 +134,7 @@ impl Verifier {
                 self.add_repo_without_saving(repo);
 
                 for repo_id in repos {
+                    //log_info!("LOADING REPO: {}", repo_id);
                     let repo = user_storage.load_repo(repo_id, Arc::clone(&store))?;
                     self.add_repo_without_saving(repo);
                 }
@@ -204,15 +211,15 @@ impl Verifier {
 
     pub fn get_repo_mut(
         &mut self,
-        id: RepoId,
+        id: &RepoId,
         store_repo: &StoreRepo,
     ) -> Result<&mut Repo, NgError> {
         let store = self.get_store(store_repo);
-        let repo_ref = self.repos.get_mut(&id).ok_or(NgError::RepoNotFound);
+        let repo_ref = self.repos.get_mut(id).ok_or(NgError::RepoNotFound);
         // .or_insert_with(|| {
         //     // load from storage
         //     Repo {
-        //         id,
+        //         id: *id,
         //         repo_def: Repository::new(&PubKey::nil(), &vec![]),
         //         read_cap: None,
         //         write_cap: None,
@@ -240,6 +247,21 @@ impl Verifier {
         self.stores.insert(overlay_id, store);
     }
 
+    pub(crate) fn update_current_heads(
+        &mut self,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        current_heads: Vec<ObjectRef>,
+    ) -> Result<(), NgError> {
+        let repo = self.repos.get_mut(repo_id).ok_or(NgError::RepoNotFound)?;
+        let branch = repo
+            .branches
+            .get_mut(branch_id)
+            .ok_or(NgError::BranchNotFound)?;
+        branch.current_heads = current_heads;
+        Ok(())
+    }
+
     pub(crate) async fn new_event(
         &mut self,
         commit: &Commit,
@@ -251,6 +273,19 @@ impl Verifier {
             self.reserve_more(1)?;
         }
         self.new_event_(commit, additional_blocks, repo_id, store_repo)
+            .await
+    }
+
+    pub(crate) async fn new_event_with_repo(
+        &mut self,
+        commit: &Commit,
+        additional_blocks: &Vec<BlockId>,
+        repo: &Repo,
+    ) -> Result<(), NgError> {
+        if self.last_seq_num + 1 >= self.max_reserved_seq_num {
+            self.reserve_more(1)?;
+        }
+        self.new_event_with_repo_(commit, additional_blocks, repo)
             .await
     }
 
@@ -267,7 +302,7 @@ impl Verifier {
         let repo = self.get_repo(repo_id, store_repo)?;
 
         let event = Event::new(&publisher, seq_num, commit, additional_blocks, repo)?;
-        self.send_or_save_event_to_outbox(event, repo.store.overlay_id)
+        self.send_or_save_event_to_outbox(event, repo.store.inner_overlay())
             .await?;
         Ok(())
     }
@@ -283,7 +318,7 @@ impl Verifier {
         let seq_num = self.last_seq_num;
 
         let event = Event::new(&publisher, seq_num, commit, additional_blocks, repo)?;
-        self.send_or_save_event_to_outbox(event, repo.store.overlay_id)
+        self.send_or_save_event_to_outbox(event, repo.store.inner_overlay())
             .await?;
         Ok(())
     }
@@ -414,7 +449,7 @@ impl Verifier {
             // send the event to the server already
             let broker = BROKER.write().await;
             let user = self.config.user_priv_key.to_pub();
-            let remote = self.connected_server_id.as_ref().unwrap().to_owned();
+            let remote = self.connected_server_id.to_owned().unwrap();
             self.send_event(event, &broker, &user, &remote, overlay)
                 .await?;
         } else {
@@ -465,6 +500,8 @@ impl Verifier {
         remote: &DirectPeerId,
         overlay: OverlayId,
     ) -> Result<(), NgError> {
+        assert!(overlay.is_inner());
+        //log_info!("searching for topic {} {}", overlay, event.topic_id());
         let (repo_id, branch_id) = self
             .topics
             .get(&(overlay, *event.topic_id()))
@@ -484,24 +521,28 @@ impl Verifier {
                 .request::<RepoPinStatusReq, RepoPinStatus>(user, remote, msg)
                 .await
             {
-                Err(ProtocolError::False) | Err(ProtocolError::RepoAlreadyOpened) => {
+                Err(NgError::ServerError(ServerError::False))
+                | Err(NgError::ServerError(ServerError::RepoAlreadyOpened)) => {
                     // pinning the repo on the server broker
                     let pin_req;
                     {
                         let repo = self.repos.get(&repo_id).ok_or(NgError::RepoNotFound)?;
                         pin_req = PinRepo::from_repo(repo, remote);
                     }
-                    if let Ok(SoS::Single(opened)) = broker
+                    match broker
                         .request::<PinRepo, RepoOpened>(user, remote, pin_req)
                         .await
                     {
-                        self.repo_was_opened(&repo_id, &opened)?;
-                        //TODO: check that in the returned opened_repo, the branch we are interested in has effectively been subscribed as publisher by the broker.
-                    } else {
-                        return Err(NgError::ProtocolError);
+                        Ok(SoS::Single(opened)) => {
+                            //log_info!("OPENED {:?}", opened);
+                            self.repo_was_opened(&repo_id, &opened)?;
+                            //TODO: check that in the returned opened_repo, the branch we are interested in has effectively been subscribed as publisher by the broker.
+                        }
+                        Ok(_) => return Err(NgError::InvalidResponse),
+                        Err(e) => return Err(e),
                     }
                 }
-                Err(_) => return Err(NgError::ProtocolError),
+                Err(e) => return Err(e),
                 Ok(SoS::Single(pin_status)) => {
                     // checking that the branch is subscribed as publisher
 
@@ -520,24 +561,27 @@ impl Verifier {
                             .request::<TopicSub, TopicSubRes>(user, remote, topic_sub)
                             .await
                         {
-                            Ok(_) => {
+                            Ok(SoS::Single(sub)) => {
                                 // TODO, deal with heads
-                                // update Repo locally
                                 let repo =
                                     self.repos.get_mut(&repo_id).ok_or(NgError::RepoNotFound)?;
-                                repo.opened_branches.insert(*event.topic_id(), true);
+                                Self::branch_was_opened(&self.topics, repo, &sub)?;
                             }
-                            Err(_) => {
-                                return Err(NgError::BrokerError);
+                            Ok(_) => return Err(NgError::InvalidResponse),
+                            Err(e) => {
+                                return Err(e);
                             }
                         }
                     }
                 }
-                _ => return Err(NgError::ActorError),
+                _ => return Err(NgError::InvalidResponse),
             }
             // TODO: deal with received known_heads.
             // DO a TopicSync
         }
+        let _ = broker
+            .request::<PublishEvent, ()>(user, remote, PublishEvent::new(event, overlay))
+            .await?;
 
         Ok(())
     }
@@ -669,6 +713,7 @@ impl Verifier {
         if verif.config.config_type.should_load_last_seq_num() {
             verif.take_some_peer_last_seq_numbers(0)?;
             verif.last_seq_num = verif.max_reserved_seq_num;
+            verif.last_reservation = SystemTime::UNIX_EPOCH;
         }
         Ok(verif)
     }
@@ -699,7 +744,7 @@ impl Verifier {
             .as_ref()
             .map(|us| Arc::clone(us))
             .and_then(|u| if self.is_persistent() { Some(u) } else { None });
-        let repo_ref = self.add_repo_(repo);
+        let repo_ref: &Repo = self.add_repo_(repo);
         // save in user_storage
         if user_storage.is_some() {
             let _ = user_storage.unwrap().save_repo(repo_ref);
@@ -709,18 +754,33 @@ impl Verifier {
 
     fn add_repo_(&mut self, repo: Repo) -> &Repo {
         for (branch_id, info) in repo.branches.iter() {
-            let overlay_id = repo.store.overlay_id.clone();
+            //log_info!("LOADING BRANCH: {}", branch_id);
+            let overlay_id: OverlayId = repo.store.inner_overlay();
             let topic_id = info.topic.clone();
+            //log_info!("LOADING TOPIC: {} {}", overlay_id, topic_id);
             let repo_id = repo.id.clone();
             let branch_id = branch_id.clone();
-            assert_eq!(
-                self.topics
-                    .insert((overlay_id, topic_id), (repo_id, branch_id)),
-                None
-            );
+            let res = self
+                .topics
+                .insert((overlay_id, topic_id), (repo_id, branch_id));
+            assert_eq!(res, None);
         }
         let repo_ref = self.repos.entry(repo.id).or_insert(repo);
         repo_ref
+    }
+
+    fn branch_was_opened(
+        topics: &HashMap<(OverlayId, PubKey), (PubKey, PubKey)>,
+        repo: &mut Repo,
+        sub: &TopicSubRes,
+    ) -> Result<(), NgError> {
+        let overlay = repo.store.inner_overlay();
+        //log_info!("branch_was_opened searching for topic {}", sub.topic_id());
+        let (_, branch_id) = topics
+            .get(&(overlay, *sub.topic_id()))
+            .ok_or(NgError::TopicNotFound)?;
+        repo.opened_branches.insert(*branch_id, sub.is_publisher());
+        Ok(())
     }
 
     fn repo_was_opened(
@@ -730,8 +790,7 @@ impl Verifier {
     ) -> Result<(), NgError> {
         let repo = self.repos.get_mut(repo_id).ok_or(NgError::RepoNotFound)?;
         for sub in opened_repo {
-            repo.opened_branches
-                .insert(*sub.topic_id(), sub.is_publisher());
+            Self::branch_was_opened(&self.topics, repo, sub)?;
         }
         Ok(())
     }
@@ -740,6 +799,7 @@ impl Verifier {
         &'a mut self,
         creator: &UserId,
         creator_priv_key: &PrivKey,
+        priv_key: PrivKey,
         store_repo: &StoreRepo,
         private: bool,
     ) -> Result<&'a Repo, NgError> {
@@ -767,13 +827,17 @@ impl Verifier {
             );
             Arc::new(store)
         });
-        let (repo, proto_events) = Arc::clone(store).create_repo_default(
+        let (repo, proto_events) = Arc::clone(store).create_repo_with_keys(
             creator,
             creator_priv_key,
+            priv_key,
+            store_repo.repo_id().clone(),
             repo_write_cap_secret,
+            true,
+            private,
         )?;
-        self.new_events_with_repo(proto_events, &repo).await?;
         let repo = self.complete_site_store(store_repo, repo)?;
+        self.new_events_with_repo(proto_events, &repo).await?;
         let repo_ref = self.add_repo_and_save(repo);
         Ok(repo_ref)
     }
@@ -787,8 +851,13 @@ impl Verifier {
     ) -> Result<&'a Repo, NgError> {
         let store = self.get_store_or_load(store_repo);
         let repo_write_cap_secret = SymKey::random();
-        let (repo, proto_events) =
-            store.create_repo_default(creator, creator_priv_key, repo_write_cap_secret)?;
+        let (repo, proto_events) = store.create_repo_default(
+            creator,
+            creator_priv_key,
+            repo_write_cap_secret,
+            false,
+            false,
+        )?;
         self.new_events_with_repo(proto_events, &repo).await?;
         let repo_ref = self.add_repo_and_save(repo);
         Ok(repo_ref)

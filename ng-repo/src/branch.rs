@@ -30,7 +30,7 @@ impl BranchV0 {
         metadata: Vec<u8>,
     ) -> BranchV0 {
         let topic_privkey: Vec<u8> = vec![];
-        //TODO: topic_privkey is topic_priv encrypted with RepoWriteCapSecret, TopicId, BranchId
+        //TODO: use encrypt_topic_priv_key
         let topic = topic_priv.to_pub();
         BranchV0 {
             id,
@@ -88,6 +88,7 @@ impl Branch {
     }
 
     /// Branch sync request from another peer
+    ///
     /// `target_heads` represents the list of heads the requester would like to reach. this list should not be empty.
     ///  if the requester doesn't know what to reach, the responder should fill this list with their own current local head.
     /// `known_heads` represents the list of current heads at the requester replica at the moment of request.
@@ -179,21 +180,6 @@ impl Branch {
 mod test {
 
     //use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
-
-    // struct Test<'a> {
-    //     storage: Box<dyn BlockStorage + Send + Sync + 'a>,
-    // }
-
-    // impl<'a> Test<'a> {
-    //     fn storage(s: impl BlockStorage + 'a) -> Self {
-    //         Test {
-    //             storage: Box::new(s),
-    //         }
-    //     }
-    //     fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
-    //         &self.storage
-    //     }
-    // }
 
     use crate::branch::*;
 

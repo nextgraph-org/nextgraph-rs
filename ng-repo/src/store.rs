@@ -35,6 +35,17 @@ pub struct Store {
     storage: Arc<RwLock<dyn BlockStorage + Send + Sync>>,
 }
 
+impl From<&Store> for StoreUpdate {
+    fn from(s: &Store) -> StoreUpdate {
+        StoreUpdate::V0(StoreUpdateV0 {
+            store: s.store_repo,
+            store_read_cap: s.store_readcap.clone(),
+            overlay_branch_read_cap: s.store_overlay_branch_readcap.clone(),
+            metadata: vec![],
+        })
+    }
+}
+
 impl fmt::Debug for Store {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Store.\nstore_repo {:?}", self.store_repo)?;
@@ -83,6 +94,11 @@ impl Store {
             .get(&self.overlay_id, id)
     }
 
+    /// fetch a block from broker or core overlay
+    pub async fn fetch(&self, id: &BlockId) -> Result<Block, StorageError> {
+        todo!();
+    }
+
     /// Save a block to the storage.
     pub fn put(&self, block: &Block) -> Result<BlockId, StorageError> {
         self.storage
@@ -107,17 +123,125 @@ impl Store {
             .len()
     }
 
+    /// returns the (branch_commit, add_branch_commit, branch_info)
+    fn create_branch(
+        &self,
+        branch_type: BranchType,
+        creator: &UserId,
+        creator_priv_key: &PrivKey,
+        repo_pub_key: BranchId,
+        repository_commit_ref: ObjectRef,
+        root_branch_readcap_id: ObjectId,
+        repo_write_cap_secret: &RepoWriteCapSecret,
+        add_branch_deps: Vec<ObjectRef>,
+        add_branch_acks: Vec<ObjectRef>,
+    ) -> Result<(Commit, Commit, BranchInfo), NgError> {
+        let (branch_priv_key, branch_pub_key) = generate_keypair();
+
+        let (branch_topic_priv_key, branch_topic_pub_key) = generate_keypair();
+
+        let branch_commit_body = CommitBody::V0(CommitBodyV0::Branch(Branch::V0(BranchV0 {
+            id: branch_pub_key,
+            content_type: BranchContentType::None,
+            repo: repository_commit_ref,
+            root_branch_readcap_id,
+            topic: branch_topic_pub_key,
+            topic_privkey: Branch::encrypt_topic_priv_key(
+                &branch_topic_priv_key,
+                branch_topic_pub_key,
+                branch_pub_key,
+                repo_write_cap_secret,
+            ),
+            metadata: vec![],
+        })));
+
+        let branch_commit = Commit::new_with_body_acks_deps_and_save(
+            &branch_priv_key,
+            &branch_pub_key,
+            branch_pub_key,
+            QuorumType::NoSigning,
+            vec![],
+            vec![],
+            branch_commit_body,
+            self,
+        )?;
+        let branch_read_cap = branch_commit.reference().unwrap();
+
+        log_debug!("{:?} BRANCH COMMIT {}", branch_type, branch_commit);
+
+        // creating the AddBranch commit (on root_branch), deps to the RootBranch commit
+        // author is the owner
+
+        let add_branch_commit_body =
+            CommitBody::V0(CommitBodyV0::AddBranch(AddBranch::V0(AddBranchV0 {
+                branch_type: branch_type.clone(),
+                topic_id: branch_topic_pub_key,
+                branch_read_cap: branch_read_cap.clone(),
+            })));
+
+        let add_branch_commit = Commit::new_with_body_acks_deps_and_save(
+            creator_priv_key,
+            creator,
+            repo_pub_key,
+            QuorumType::Owners,
+            add_branch_deps,
+            add_branch_acks,
+            add_branch_commit_body,
+            self,
+        )?;
+
+        log_debug!(
+            "ADD_BRANCH {:?} BRANCH COMMIT {}",
+            &branch_type,
+            add_branch_commit
+        );
+
+        let branch_info = BranchInfo {
+            id: branch_pub_key,
+            branch_type,
+            topic: branch_topic_pub_key,
+            topic_priv_key: Some(branch_topic_priv_key),
+            read_cap: branch_read_cap,
+            current_heads: vec![],
+        };
+
+        Ok((branch_commit, add_branch_commit, branch_info))
+    }
+
     pub fn create_repo_default(
         self: Arc<Self>,
         creator: &UserId,
         creator_priv_key: &PrivKey,
         repo_write_cap_secret: SymKey,
+        is_store: bool,
+        is_private_store: bool,
+    ) -> Result<(Repo, Vec<(Commit, Vec<Digest>)>), NgError> {
+        let (repo_priv_key, repo_pub_key) = generate_keypair();
+
+        self.create_repo_with_keys(
+            creator,
+            creator_priv_key,
+            repo_priv_key,
+            repo_pub_key,
+            repo_write_cap_secret,
+            is_store,
+            is_private_store,
+        )
+    }
+
+    pub fn create_repo_with_keys(
+        self: Arc<Self>,
+        creator: &UserId,
+        creator_priv_key: &PrivKey,
+        repo_priv_key: PrivKey,
+        repo_pub_key: PubKey,
+        repo_write_cap_secret: SymKey,
+        is_store: bool,
+        is_private_store: bool,
     ) -> Result<(Repo, Vec<(Commit, Vec<Digest>)>), NgError> {
         let mut events = Vec::with_capacity(6);
 
         // creating the Repository commit
-
-        let (repo_priv_key, repo_pub_key) = generate_keypair();
 
         let repository = Repository::V0(RepositoryV0 {
             id: repo_pub_key,
@@ -164,6 +288,7 @@ impl Store {
                 quorum: None,
                 reconciliation_interval: RelTime::None,
                 owners: vec![creator.clone()],
+                //TODO: add crypto_box of repo_write_cap_secret for creator
                 metadata: vec![],
             })));
 
@@ -189,69 +314,79 @@ impl Store {
 
         // creating the main branch
 
-        let (main_branch_priv_key, main_branch_pub_key) = generate_keypair();
-
-        let (main_branch_topic_priv_key, main_branch_topic_pub_key) = generate_keypair();
-
-        let main_branch_commit_body = CommitBody::V0(CommitBodyV0::Branch(Branch::V0(BranchV0 {
-            id: main_branch_pub_key,
-            content_type: BranchContentType::None,
-            repo: repository_commit_ref.clone(),
-            root_branch_readcap_id,
-            topic: main_branch_topic_pub_key,
-            topic_privkey: Branch::encrypt_topic_priv_key(
-                &main_branch_topic_priv_key,
-                main_branch_topic_pub_key,
-                main_branch_pub_key,
+        let (main_branch_commit, main_add_branch_commit, mut main_branch_info) =
+            self.as_ref().create_branch(
+                BranchType::Main,
+                creator,
+                creator_priv_key,
+                repo_pub_key,
+                repository_commit_ref.clone(),
+                root_branch_readcap_id,
                 &repo_write_cap_secret,
-            ),
-            metadata: vec![],
-        })));
-
-        let main_branch_commit = Commit::new_with_body_acks_deps_and_save(
-            &main_branch_priv_key,
-            &main_branch_pub_key,
-            main_branch_pub_key,
-            QuorumType::NoSigning,
-            vec![],
-            vec![],
-            main_branch_commit_body,
-            &self,
-        )?;
-        let branch_read_cap = main_branch_commit.reference().unwrap();
-        let branch_read_cap_id = branch_read_cap.id;
-
-        log_debug!("MAIN BRANCH COMMIT {}", main_branch_commit);
-
-        // adding the event for the Branch commit
+                vec![root_branch_readcap.clone()],
+                vec![],
+            )?;
 
         events.push((main_branch_commit, vec![]));
 
-        // creating the AddBranch commit (on root_branch), deps to the RootBranch commit
-        // author is the owner
-
-        let add_branch_commit_body =
-            CommitBody::V0(CommitBodyV0::AddBranch(AddBranch::V0(AddBranchV0 {
-                branch_type: BranchType::Main,
-                topic_id: main_branch_topic_pub_key,
-                branch_read_cap: branch_read_cap.clone(),
-            })));
-
-        let add_branch_commit = Commit::new_with_body_acks_deps_and_save(
-            creator_priv_key,
-            creator,
-            repo_pub_key,
-            QuorumType::Owners,
-            vec![root_branch_readcap.clone()],
-            vec![],
-            add_branch_commit_body,
-            &self,
-        )?;
-
-        log_debug!("ADD_BRANCH COMMIT {}", add_branch_commit);
-
         // TODO: optional AddMember and AddPermission, that should be added as deps to the SynSignature below (and to the commits of the SignatureContent)
         // using the creator as author (and incrementing their peer's seq_num)
+
+        let extra_branches = if is_store {
+            // creating the store branch
+            let (store_branch_commit, store_add_branch_commit, store_branch_info) =
+                self.as_ref().create_branch(
+                    BranchType::Store,
+                    creator,
+                    creator_priv_key,
+                    repo_pub_key,
+                    repository_commit_ref.clone(),
+                    root_branch_readcap_id,
+                    &repo_write_cap_secret,
+                    vec![main_add_branch_commit.reference().unwrap()],
+                    vec![],
+                )?;
+
+            events.push((store_branch_commit, vec![]));
+
+            // creating the overlay or user branch
+            let (
+                overlay_or_user_branch_commit,
+                overlay_or_user_add_branch_commit,
+                overlay_or_user_branch_info,
+            ) = self.as_ref().create_branch(
+                if is_private_store {
+                    BranchType::User
+                } else {
+                    BranchType::Overlay
+                },
+                creator,
+                creator_priv_key,
+                repo_pub_key,
+                repository_commit_ref.clone(),
+                root_branch_readcap_id,
+                &repo_write_cap_secret,
+                vec![store_add_branch_commit.reference().unwrap()],
+                vec![],
+            )?;
+
+            events.push((overlay_or_user_branch_commit, vec![]));
+
+            Some((
+                store_add_branch_commit,
+                store_branch_info,
+                overlay_or_user_add_branch_commit,
+                overlay_or_user_branch_info,
+            ))
+        } else {
+            None
+        };
+
+        let sync_sign_deps = if is_store {
+            extra_branches.as_ref().unwrap().2.reference().unwrap()
+        } else {
+            main_add_branch_commit.reference().unwrap()
+        };
 
         // preparing the threshold keys for the unique owner
         let mut rng = rand::thread_rng();
@@ -263,12 +398,24 @@ impl Store {
         // creating signature for RootBranch, AddBranch and Branch commits
         // signed with owner threshold signature (threshold = 0)
 
+        let mut signed_commits = vec![
+            root_branch_readcap_id,
+            main_add_branch_commit.id().unwrap(),
+            main_branch_info.read_cap.id,
+        ];
+
+        if let Some((store_add_branch, store_branch, oou_add_branch, oou_branch)) = &extra_branches
+        {
+            signed_commits.append(&mut vec![
+                store_add_branch.id().unwrap(),
+                store_branch.read_cap.id,
+                oou_add_branch.id().unwrap(),
+                oou_branch.read_cap.id,
+            ]);
+        }
+
         let signature_content = SignatureContent::V0(SignatureContentV0 {
-            commits: vec![
-                root_branch_readcap_id,
-                add_branch_commit.id().unwrap(),
-                branch_read_cap_id,
-            ],
+            commits: signed_commits,
         });
 
         let signature_content_ser = serde_bare::to_vec(&signature_content).unwrap();
@@ -277,7 +424,7 @@ impl Store {
             .combine_signatures([(0, &sig_share)])
             .map_err(|_| NgError::IncompleteSignature)?;
 
-        let threshold_sig = ThresholdSignatureV0::Owners((sig));
+        let threshold_sig = ThresholdSignatureV0::Owners(sig);
 
         // creating root certificate of the repo
 
@@ -304,7 +451,7 @@ impl Store {
             0,
             &self,
         );
-        let mut cert_obj_blocks = cert_object.save(&self)?;
+        let cert_obj_blocks = cert_object.save(&self)?;
 
         // finally getting the signature:
 
@@ -321,7 +468,7 @@ impl Store {
             0,
             &self,
         );
-        let mut sig_obj_blocks = sig_object.save(&self)?;
+        let sig_obj_blocks = sig_object.save(&self)?;
 
         // keeping the Secret Key Share of the owner
         let signer_cap = SignerCap {
@@ -342,46 +489,65 @@ impl Store {
             creator,
             repo_pub_key,
             QuorumType::IamTheSignature,
-            vec![add_branch_commit.reference().unwrap()],
+            vec![sync_sign_deps],
             vec![root_branch_readcap.clone()],
             sync_sig_commit_body.clone(),
             &self,
         )?;
 
+        let mut branches = vec![(main_branch_info.id, main_branch_info)];
+
         // adding the event for the sync_sig_on_root_branch_commit
 
         let mut additional_blocks = Vec::with_capacity(
-            cert_obj_blocks.len() + sig_obj_blocks.len() + add_branch_commit.blocks().len(),
+            cert_obj_blocks.len() + sig_obj_blocks.len() + main_add_branch_commit.blocks().len(),
         );
         additional_blocks.extend(cert_obj_blocks.iter());
         additional_blocks.extend(sig_obj_blocks.iter());
-        additional_blocks.extend(add_branch_commit.blocks().iter());
+        additional_blocks.extend(main_add_branch_commit.blocks().iter());
+        if let Some((store_add_branch, store_branch_info, oou_add_branch, oou_branch_info)) =
+            extra_branches
+        {
+            additional_blocks.extend(store_add_branch.blocks().iter());
+            additional_blocks.extend(oou_add_branch.blocks().iter());
+            branches.push((store_branch_info.id, store_branch_info));
+            branches.push((oou_branch_info.id, oou_branch_info));
+        }
+
+        let sync_sig_on_root_branch_commit_ref =
+            sync_sig_on_root_branch_commit.reference().unwrap();
 
         events.push((sync_sig_on_root_branch_commit, additional_blocks));
 
-        // creating the SyncSignature for the main branch with deps to the Branch commit and acks also to this commit as it is its direct causal future.
+        // creating the SyncSignature for the all branches with deps to the Branch commit and acks also to this commit as it is its direct causal future.
 
-        let sync_sig_on_main_branch_commit = Commit::new_with_body_acks_deps_and_save(
-            creator_priv_key,
-            creator,
-            main_branch_pub_key,
-            QuorumType::IamTheSignature,
-            vec![branch_read_cap.clone()],
-            vec![branch_read_cap.clone()],
-            sync_sig_commit_body,
-            &self,
-        )?;
+        for (branch_id, branch_info) in &mut branches {
+            let sync_sig_on_branch_commit = Commit::new_with_body_acks_deps_and_save(
+                creator_priv_key,
+                creator,
+                *branch_id,
+                QuorumType::IamTheSignature,
+                vec![branch_info.read_cap.clone()],
+                vec![branch_info.read_cap.clone()],
+                sync_sig_commit_body.clone(),
+                &self,
+            )?;
 
-        // adding the event for the sync_sig_on_main_branch_commit
+            let sync_sig_on_branch_commit_ref = sync_sig_on_branch_commit.reference().unwrap();
 
-        let mut additional_blocks =
-            Vec::with_capacity(cert_obj_blocks.len() + sig_obj_blocks.len());
-        additional_blocks.append(&mut cert_obj_blocks);
-        additional_blocks.append(&mut sig_obj_blocks);
+            // adding the event for the sync_sig_on_branch_commit
 
-        events.push((sync_sig_on_main_branch_commit, additional_blocks));
+            let mut additional_blocks =
+                Vec::with_capacity(cert_obj_blocks.len() + sig_obj_blocks.len());
+            additional_blocks.extend(cert_obj_blocks.iter());
+            additional_blocks.extend(sig_obj_blocks.iter());
 
-        // TODO: add the CertificateRefresh event on main branch
+            events.push((sync_sig_on_branch_commit, additional_blocks));
+
+            branch_info.current_heads = vec![sync_sig_on_branch_commit_ref];
+
+            // TODO: add the CertificateRefresh event on main branch
+        }
 
         // preparing the Repo
 
@@ -391,15 +557,10 @@ impl Store {
             topic: topic_pub_key,
             topic_priv_key: Some(topic_priv_key),
             read_cap: root_branch_readcap.clone(),
+            current_heads: vec![sync_sig_on_root_branch_commit_ref],
         };
 
-        let main_branch = BranchInfo {
-            id: main_branch_pub_key.clone(),
-            branch_type: BranchType::Main,
-            topic: main_branch_topic_pub_key,
-            topic_priv_key: Some(main_branch_topic_priv_key),
-            read_cap: branch_read_cap,
-        };
+        branches.push((root_branch.id, root_branch));
 
         let repo = Repo {
             id: repo_pub_key,
@@ -409,10 +570,7 @@ impl Store {
             store: Arc::clone(&self),
             read_cap: Some(root_branch_readcap),
             write_cap: Some(repo_write_cap_secret),
-            branches: HashMap::from([
-                (repo_pub_key, root_branch),
-                (main_branch_pub_key, main_branch),
-            ]),
+            branches: branches.into_iter().collect(),
             opened_branches: HashMap::new(),
         };
 
@@ -432,6 +590,15 @@ impl Store {
             storage,
             store_overlay_branch_readcap,
         }
+    }
+
+    pub fn inner_overlay(&self) -> OverlayId {
+        self.store_repo
+            .overlay_id_for_write_purpose(&self.store_overlay_branch_readcap.key)
+    }
+
+    pub fn outer_overlay(&self) -> OverlayId {
+        self.store_repo.outer_overlay()
     }
 
     #[allow(deprecated)]

@@ -37,7 +37,7 @@ async fn main() -> std::io::Result<()> {
     }))
     .await;
 
-    let wallet_name = "hQK0RBKua5TUm2jqeSGPOMMzqplllAkbUgEh5P6Otf4".to_string();
+    let wallet_name = "9ivXl3TpgcQlDKTmR9NOipjhPWxQw6Yg5jkWBTlJuXw".to_string();
 
     // as we have previously saved the wallet,
     // we can retrieve it, display the security phrase and image to the user, ask for the pazzle or mnemonic, and then open the wallet
@@ -48,7 +48,7 @@ async fn main() -> std::io::Result<()> {
     // now let's open the wallet, by providing the pazzle and PIN code
     let opened_wallet = wallet_open_with_pazzle(
         &wallet,
-        vec![134, 54, 112, 46, 94, 65, 20, 2, 99],
+        vec![110, 139, 115, 94, 9, 40, 74, 25, 52],
         [2, 3, 2, 3],
     )?;
 

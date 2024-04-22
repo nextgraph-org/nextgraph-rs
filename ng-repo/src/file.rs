@@ -717,21 +717,6 @@ mod test {
     use std::io::BufReader;
     use std::io::Read;
 
-    // struct Test<'a> {
-    //     storage: Box<dyn BlockStorage + Send + Sync + 'a>,
-    // }
-
-    // impl<'a> Test<'a> {
-    //     fn storage(s: impl BlockStorage + 'a) -> Self {
-    //         Test {
-    //             storage: Box::new(s),
-    //         }
-    //     }
-    //     fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
-    //         &self.store
-    //     }
-    // }
-
     /// Checks that a content that does fit in one block, creates an arity of 0
     #[test]
     pub fn test_depth_0() {

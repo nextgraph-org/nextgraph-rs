@@ -24,10 +24,10 @@ use futures::{future, pin_mut, select, stream, StreamExt};
 use futures::{FutureExt, SinkExt};
 
 use async_std::task;
-use ng_net::errors::*;
 use ng_net::types::*;
 use ng_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
 use ng_net::{connection::*, WS_PORT};
+use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::types::*;
 use ng_repo::utils::{generate_keypair, now_timestamp};
@@ -302,10 +302,9 @@ mod test {
     use crate::remote_ws::*;
     use async_std::task;
     use ng_net::broker::*;
-    use ng_net::errors::NetError;
     use ng_net::types::IP;
     use ng_net::utils::{spawn_and_log_error, ResultSend};
-    use ng_repo::errors::NgError;
+    use ng_repo::errors::{NetError, NgError};
     use ng_repo::log::*;
     use ng_repo::utils::generate_keypair;
     use std::net::IpAddr;

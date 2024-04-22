@@ -11,9 +11,9 @@
 use crate::broker::{ServerConfig, BROKER};
 use crate::connection::NoiseFSM;
 use crate::types::*;
-use crate::{actor::*, errors::ProtocolError, types::ProtocolMessage};
-
+use crate::{actor::*, types::ProtocolMessage};
 use async_std::sync::Mutex;
+use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::repo::Repo;
 use ng_repo::types::*;
@@ -21,14 +21,12 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 impl PinRepo {
-    pub fn get_actor(&self) -> Box<dyn EActor> {
-        Actor::<PinRepo, RepoOpened>::new_responder()
+    pub fn get_actor(&self, id: i64) -> Box<dyn EActor> {
+        Actor::<PinRepo, RepoOpened>::new_responder(id)
     }
     pub fn from_repo(repo: &Repo, broker_id: &DirectPeerId) -> PinRepo {
-        let overlay = OverlayAccess::ReadWrite((
-            OverlayId::inner_from_store(&repo.store),
-            OverlayId::outer(repo.store.id()),
-        ));
+        let overlay =
+            OverlayAccess::ReadWrite((repo.store.inner_overlay(), repo.store.outer_overlay()));
         let mut rw_topics = Vec::with_capacity(repo.branches.len());
         let mut ro_topics = vec![];
         for (_, branch) in repo.branches.iter() {
@@ -116,9 +114,12 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
             req.hash(),
             req.ro_topics(),
             req.rw_topics(),
-        )?;
+        );
 
-        fsm.lock().await.send(res.into()).await?;
+        fsm.lock()
+            .await
+            .send_in_reply_to(res.into(), self.id())
+            .await?;
         Ok(())
     }
 }

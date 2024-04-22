@@ -11,9 +11,9 @@
 use crate::broker::{ServerConfig, BROKER};
 use crate::connection::NoiseFSM;
 use crate::types::*;
-use crate::{actor::*, errors::ProtocolError, types::ProtocolMessage};
-
+use crate::{actor::*, types::ProtocolMessage};
 use async_std::sync::Mutex;
+use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::repo::{BranchInfo, Repo};
 use ng_repo::types::*;
@@ -21,14 +21,14 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 impl TopicSub {
-    pub fn get_actor(&self) -> Box<dyn EActor> {
-        Actor::<TopicSub, TopicSubRes>::new_responder()
+    pub fn get_actor(&self, id: i64) -> Box<dyn EActor> {
+        Actor::<TopicSub, TopicSubRes>::new_responder(id)
     }
     /// only set broker_id if you want to be a publisher
     pub fn new(repo: &Repo, branch: &BranchInfo, broker_id: Option<&DirectPeerId>) -> TopicSub {
         let (overlay, publisher) = if broker_id.is_some() && branch.topic_priv_key.is_some() {
             (
-                OverlayId::inner_from_store(&repo.store),
+                repo.store.inner_overlay(),
                 Some(PublisherAdvert::new(
                     branch.topic,
                     branch.topic_priv_key.to_owned().unwrap(),
@@ -36,7 +36,7 @@ impl TopicSub {
                 )),
             )
         } else {
-            (OverlayId::outer(repo.store.id()), None)
+            (repo.store.outer_overlay(), None)
         };
 
         TopicSub::V0(TopicSubV0 {
@@ -105,9 +105,12 @@ impl EActor for Actor<'_, TopicSub, TopicSubRes> {
             req.hash(),
             req.topic(),
             req.publisher(),
-        )?;
+        );
 
-        fsm.lock().await.send(res.into()).await?;
+        fsm.lock()
+            .await
+            .send_in_reply_to(res.into(), self.id())
+            .await?;
         Ok(())
     }
 }

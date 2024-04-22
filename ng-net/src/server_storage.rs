@@ -11,10 +11,8 @@
 
 //! Trait for ServerStorage
 
-use crate::{
-    errors::{ProtocolError, ServerError},
-    types::*,
-};
+use crate::types::*;
+use ng_repo::errors::*;
 use ng_repo::types::*;
 
 pub trait ServerStorage: Send + Sync {
@@ -43,7 +41,7 @@ pub trait ServerStorage: Send + Sync {
         &self,
         overlay: &OverlayId,
         repo: &RepoHash,
-    ) -> Result<RepoPinStatus, ProtocolError>;
+    ) -> Result<RepoPinStatus, ServerError>;
 
     fn pin_repo(
         &self,
@@ -51,7 +49,7 @@ pub trait ServerStorage: Send + Sync {
         repo: &RepoHash,
         ro_topics: &Vec<TopicId>,
         rw_topics: &Vec<PublisherAdvert>,
-    ) -> Result<RepoOpened, ProtocolError>;
+    ) -> Result<RepoOpened, ServerError>;
 
     fn topic_sub(
         &self,
@@ -59,5 +57,5 @@ pub trait ServerStorage: Send + Sync {
         repo: &RepoHash,
         topic: &TopicId,
         publisher: Option<&PublisherAdvert>,
-    ) -> Result<TopicSubRes, ProtocolError>;
+    ) -> Result<TopicSubRes, ServerError>;
 }

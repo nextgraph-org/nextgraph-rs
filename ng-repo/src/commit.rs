@@ -1433,21 +1433,6 @@ mod test {
     use crate::commit::*;
     use crate::log::*;
 
-    // struct Test<'a> {
-    //     storage: Box<dyn BlockStorage + Send + Sync + 'a>,
-    // }
-
-    // impl<'a> Test<'a> {
-    //     fn storage(s: impl BlockStorage + 'a) -> Self {
-    //         Test {
-    //             storage: Box::new(s),
-    //         }
-    //     }
-    //     fn s(&self) -> &Box<dyn BlockStorage + Send + Sync + 'a> {
-    //         &self.storage
-    //     }
-    // }
-
     fn test_commit_header_ref_content_fits(
         obj_refs: Vec<BlockRef>,
         metadata_size: usize,

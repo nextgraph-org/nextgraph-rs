@@ -14,6 +14,7 @@
 use crate::types::*;
 use crate::verifier::Verifier;
 use ng_repo::errors::NgError;
+use ng_repo::store::*;
 use ng_repo::types::*;
 use ng_repo::utils::{generate_keypair, sign, verify};
 use serde::{Deserialize, Serialize};
@@ -97,28 +98,123 @@ impl SiteV0 {
         let protected_store = Self::site_store_to_store_repo(&protected);
         let private_store = Self::site_store_to_store_repo(&private);
 
-        verifier.reserve_more(18)?;
+        verifier.reserve_more(33)?;
+
+        let mut signer_caps = Vec::with_capacity(3);
 
         let public_repo = verifier
-            .new_store_default(&site_pubkey, &user_priv_key, &public_store, false)
+            .new_store_default(
+                &site_pubkey,
+                &user_priv_key,
+                public_store_privkey,
+                &public_store,
+                false,
+            )
             .await?;
+
+        let public_store_update: StoreUpdate = public_repo.store.as_ref().into();
+        signer_caps.push(public_repo.signer.to_owned().unwrap());
 
         let protected_repo = verifier
-            .new_store_default(&site_pubkey, &user_priv_key, &protected_store, false)
+            .new_store_default(
+                &site_pubkey,
+                &user_priv_key,
+                protected_store_privkey,
+                &protected_store,
+                false,
+            )
             .await?;
+
+        let protected_store_update: StoreUpdate = protected_repo.store.as_ref().into();
+        signer_caps.push(protected_repo.signer.to_owned().unwrap());
 
         let private_repo = verifier
-            .new_store_default(&site_pubkey, &user_priv_key, &private_store, true)
+            .new_store_default(
+                &site_pubkey,
+                &user_priv_key,
+                private_store_privkey,
+                &private_store,
+                true,
+            )
             .await?;
 
-        // TODO: create user branch
-        // TODO: add the 2 commits in user branch about StoreUpdate of public and protected stores.
+        signer_caps.push(private_repo.signer.to_owned().unwrap());
+        let user_branch = private_repo.user_branch().unwrap();
+
+        // Creating the StoreUpdate about public store.
+        let public_store_update_commit_body =
+            CommitBody::V0(CommitBodyV0::StoreUpdate(public_store_update));
+
+        let public_store_update_commit = Commit::new_with_body_acks_deps_and_save(
+            &user_priv_key,
+            &site_pubkey,
+            user_branch.id,
+            QuorumType::NoSigning,
+            vec![],
+            user_branch.current_heads.clone(),
+            public_store_update_commit_body,
+            &private_repo.store,
+        )?;
+
+        // Creating the StoreUpdate about protected store.
+        let protected_store_update_commit_body =
+            CommitBody::V0(CommitBodyV0::StoreUpdate(protected_store_update));
+
+        let protected_store_update_commit = Commit::new_with_body_acks_deps_and_save(
+            &user_priv_key,
+            &site_pubkey,
+            user_branch.id,
+            QuorumType::NoSigning,
+            vec![],
+            vec![public_store_update_commit.reference().unwrap()],
+            protected_store_update_commit_body,
+            &private_repo.store,
+        )?;
+
+        let mut current_head = protected_store_update_commit.reference().unwrap();
+
+        let private_repo_id = private_repo.id;
+        let private_store_repo = private_repo.store.get_store_repo().clone();
+        let private_repo_read_cap = private_repo.read_cap.to_owned().unwrap();
+        let user_branch_id = user_branch.id;
+
+        // Creating the AddSignerCap for each store
+        let mut commits = Vec::with_capacity(5);
+        commits.push((public_store_update_commit, vec![]));
+        commits.push((protected_store_update_commit, vec![]));
+
+        for cap in signer_caps {
+            let add_signer_cap_commit_body = CommitBody::V0(CommitBodyV0::AddSignerCap(
+                AddSignerCap::V0(AddSignerCapV0 {
+                    cap,
+                    metadata: vec![],
+                }),
+            ));
+
+            let add_signer_cap_commit = Commit::new_with_body_acks_deps_and_save(
+                &user_priv_key,
+                &site_pubkey,
+                user_branch.id,
+                QuorumType::NoSigning,
+                vec![],
+                vec![current_head],
+                add_signer_cap_commit_body,
+                &private_repo.store,
+            )?;
+            current_head = add_signer_cap_commit.reference().unwrap();
+            commits.push((add_signer_cap_commit, vec![]));
+        }
+
+        // update the current_heads
+        verifier.update_current_heads(&private_repo_id, &user_branch_id, vec![current_head])?;
+
+        // sending the 5 events
+        verifier
+            .new_events(commits, private_repo_id, &private_store_repo)
+            .await?;
 
         Ok(Self {
-            site_type: SiteType::Individual((
-                user_priv_key,
-                private_repo.read_cap.to_owned().unwrap(),
-            )),
+            site_type: SiteType::Individual((user_priv_key, private_repo_read_cap)),
             id: site_pubkey,
             name: site_name,
             public,

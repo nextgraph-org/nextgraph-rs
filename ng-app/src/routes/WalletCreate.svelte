@@ -245,7 +245,7 @@
           window.wallet_channel.postMessage(new_in_mem, location.href);
         }
       }
-
+      console.log(ready.pazzle);
       console.log(display_pazzle(ready.pazzle));
       download_name = "wallet-" + ready.wallet_name + ".ngw";
       if (options.cloud) {
@@ -1207,10 +1207,12 @@
                 would be the victim of a phishing attempt.
               </Alert>
             </p>
-            <p class="text-left mt-5">
+            <p class="max-w-xl md:mx-auto lg:max-w-2xl text-left mt-5 text-sm">
               Here are the rules for the security phrase and image :
             </p>
-            <ul class="text-left list-disc list-inside">
+            <ul
+              class="max-w-xl md:mx-auto lg:max-w-2xl text-left mt-5 text-sm list-disc list-inside"
+            >
               <li>The phrase should be at least 10 characters long</li>
               <li>
                 It should be something you will remember, but not something too
@@ -1246,6 +1248,7 @@
                 with you, will be able to see this image and phrase.
               </li>
             </ul>
+
             <input
               bind:this={phrase}
               class="mt-10 mr-0"
@@ -1529,8 +1532,8 @@
             />
             Now click on "Continue to Login."<br /><br />It is important that
             you login with this wallet at least once from this device<br />
-            (while connected to the internet), so that your personal site is
-            created on your broker.<br /><br />
+            (while connected to the internet), so that your personal site is created
+            on your broker.<br /><br />
             <a href="/wallet/login" use:link>
               <button
                 tabindex="-1"

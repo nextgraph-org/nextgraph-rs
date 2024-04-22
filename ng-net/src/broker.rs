@@ -14,7 +14,6 @@
 use crate::actor::EActor;
 use crate::actor::SoS;
 use crate::connection::*;
-use crate::errors::*;
 use crate::server_storage::ServerStorage;
 use crate::types::*;
 use crate::utils::spawn_and_log_error;
@@ -25,8 +24,7 @@ use either::Either;
 use futures::channel::mpsc;
 use futures::SinkExt;
 use ng_repo::block_storage::HashMapBlockStorage;
-use ng_repo::errors::NgError;
-use ng_repo::errors::ObjectParseError;
+use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::object::Object;
 use ng_repo::types::*;
@@ -68,13 +66,6 @@ pub struct ServerConfig {
     pub bootstrap: BootstrapContent,
 }
 
-/*pub trait EActor: Send + Sync + std::fmt::Debug {
-    async fn respond(
-        &mut self,
-        msg: ProtocolMessage,
-        fsm: Arc<Mutex<NoiseFSM>>,
-    ) -> Result<(), ProtocolError>;
-}*/
 #[async_trait::async_trait]
 pub trait ILocalBroker: Send + Sync + EActor {
     async fn deliver(&mut self, event: Event);
@@ -924,15 +915,15 @@ impl<'a> Broker<'a> {
         user: &UserId,
         remote_peer_id: &DirectPeerId,
         msg: A,
-    ) -> Result<SoS<B>, ProtocolError> {
+    ) -> Result<SoS<B>, NgError> {
         let bpi = self
             .peers
             .get(&(Some(*user), remote_peer_id.to_dh_slice()))
-            .ok_or(ProtocolError::InvalidValue)?;
+            .ok_or(NgError::ConnectionNotFound)?;
         if let PeerConnection::Client(cnx) = &bpi.connected {
             cnx.request(msg).await
         } else {
-            Err(ProtocolError::BrokerError)
+            Err(NgError::BrokerError)
         }
     }
 

@@ -16,9 +16,9 @@ use crate::utils::{
     is_public_ipv4, is_public_ipv6,
 };
 use crate::WS_PORT_ALTERNATE;
-use crate::{actor::EActor, actors::*, errors::ProtocolError};
+use crate::{actor::EActor, actors::*};
 use core::fmt;
-use ng_repo::errors::NgError;
+use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::types::*;
 use serde::{Deserialize, Serialize};
@@ -2806,8 +2806,8 @@ impl RepoPinStatus {
         match self {
             Self::V0(v0) => {
                 for sub in &v0.topics {
-                    if sub.is_publisher() {
-                        return true;
+                    if sub.topic_id() == topic {
+                        return sub.is_publisher();
                     }
                 }
                 false
@@ -3034,6 +3034,10 @@ impl ObjectDel {
     }
 }
 
+/// Request to delete an object
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PublishEvent(pub Event, #[serde(skip)] pub Option<OverlayId>);
+
 /// Content of `ClientRequestV0`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientRequestContentV0 {
@@ -3057,7 +3061,7 @@ pub enum ClientRequestContentV0 {
 
     // For InnerOverlay's only :
     BlocksPut(BlocksPut),
-    PublishEvent(Event),
+    PublishEvent(PublishEvent),
 }
 
 impl ClientRequestContentV0 {
@@ -3066,6 +3070,7 @@ impl ClientRequestContentV0 {
             ClientRequestContentV0::RepoPinStatusReq(a) => a.set_overlay(overlay),
             ClientRequestContentV0::TopicSub(a) => a.set_overlay(overlay),
             ClientRequestContentV0::PinRepo(a) => {}
+            ClientRequestContentV0::PublishEvent(a) => a.set_overlay(overlay),
             _ => unimplemented!(),
         }
     }
@@ -3108,7 +3113,10 @@ impl ClientRequest {
     pub fn get_actor(&self) -> Box<dyn EActor> {
         match self {
             Self::V0(ClientRequestV0 { content, .. }) => match content {
-                ClientRequestContentV0::RepoPinStatusReq(r) => r.get_actor(),
+                ClientRequestContentV0::RepoPinStatusReq(r) => r.get_actor(self.id()),
+                ClientRequestContentV0::PinRepo(r) => r.get_actor(self.id()),
+                ClientRequestContentV0::TopicSub(r) => r.get_actor(self.id()),
+                ClientRequestContentV0::PublishEvent(r) => r.get_actor(self.id()),
                 _ => unimplemented!(),
             },
         }
@@ -3119,10 +3127,10 @@ impl TryFrom<ProtocolMessage> for ClientRequestContentV0 {
     type Error = ProtocolError;
     fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
         if let ProtocolMessage::ClientMessage(ClientMessage::V0(ClientMessageV0 {
-            overlay: overlay,
+            overlay,
             content:
                 ClientMessageContentV0::ClientRequest(ClientRequest::V0(ClientRequestV0 {
-                    content: mut content,
+                    mut content,
                     ..
                 })),
             ..
@@ -3249,13 +3257,32 @@ pub enum ClientResponse {
     V0(ClientResponseV0),
 }
 
-impl From<ProtocolError> for ClientResponse {
-    fn from(err: ProtocolError) -> ClientResponse {
+impl From<ServerError> for ClientResponse {
+    fn from(err: ServerError) -> ClientResponse {
         ClientResponse::V0(ClientResponseV0 {
             id: 0,
             result: err.into(),
             content: ClientResponseContentV0::EmptyResponse,
         })
+    }
+}
+
+impl<A> From<Result<A, ServerError>> for ProtocolMessage
+where
+    A: Into<ProtocolMessage> + std::fmt::Debug,
+{
+    fn from(res: Result<A, ServerError>) -> ProtocolMessage {
+        match res {
+            Ok(a) => a.into(),
+            Err(e) => ProtocolMessage::from_client_response_err(e),
+        }
+    }
+}
+
+impl From<()> for ProtocolMessage {
+    fn from(msg: ()) -> ProtocolMessage {
+        let cm: ClientResponse = ServerError::Ok.into();
+        cm.into()
     }
 }
 
@@ -3303,7 +3330,7 @@ impl TryFrom<ProtocolMessage> for ClientResponseContentV0 {
             if res == 0 {
                 Ok(content)
             } else {
-                Err(ProtocolError::try_from(res).unwrap())
+                Err(ProtocolError::ServerError)
             }
         } else {
             log_debug!("INVALID {:?}", msg);
@@ -3657,6 +3684,19 @@ pub enum ProtocolMessage {
     CoreMessage(CoreMessage),
 }
 
+impl TryFrom<&ProtocolMessage> for ServerError {
+    type Error = NgError;
+    fn try_from(msg: &ProtocolMessage) -> Result<Self, NgError> {
+        if let ProtocolMessage::ClientMessage(ref bm) = msg {
+            let res = bm.result();
+            if res != 0 {
+                return Ok(ServerError::try_from(res).unwrap());
+            }
+        }
+        Err(NgError::NotAServerError)
+    }
+}
+
 impl ProtocolMessage {
     pub fn id(&self) -> i64 {
         match self {
@@ -3711,7 +3751,7 @@ impl ProtocolMessage {
         }
     }
 
-    pub fn from_client_response_err(err: ProtocolError) -> ProtocolMessage {
+    pub fn from_client_response_err(err: ServerError) -> ProtocolMessage {
         let res: ClientResponse = err.into();
         res.into()
     }

@@ -11,9 +11,9 @@
 use crate::broker::{ServerConfig, BROKER};
 use crate::connection::NoiseFSM;
 use crate::types::*;
-use crate::{actor::*, errors::ProtocolError, types::ProtocolMessage};
-
+use crate::{actor::*, types::ProtocolMessage};
 use async_std::sync::Mutex;
+use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::types::PubKey;
 use serde::{Deserialize, Serialize};
@@ -58,7 +58,7 @@ impl AddInvitation {
         }
     }
     pub fn get_actor(&self) -> Box<dyn EActor> {
-        Actor::<AddInvitation, AdminResponse>::new_responder()
+        Actor::<AddInvitation, AdminResponse>::new_responder(0)
     }
 }
 

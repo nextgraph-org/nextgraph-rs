@@ -19,10 +19,9 @@ use crate::broker_storage::account::Account;
 use crate::broker_storage::invitation::Invitation;
 use crate::broker_storage::wallet::Wallet;
 use crate::types::*;
-use ng_net::errors::{ProtocolError, ServerError};
 use ng_net::server_storage::*;
 use ng_net::types::*;
-use ng_repo::errors::StorageError;
+use ng_repo::errors::{ProtocolError, ServerError, StorageError};
 use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::log::*;
 use ng_repo::types::*;
@@ -203,17 +202,18 @@ impl ServerStorage for RocksdbServerStorage {
         &self,
         overlay: &OverlayId,
         repo: &RepoHash,
-    ) -> Result<RepoPinStatus, ProtocolError> {
+    ) -> Result<RepoPinStatus, ServerError> {
+        Err(ServerError::False)
         //TODO: implement correctly !
-        Ok(RepoPinStatus::V0(RepoPinStatusV0 {
-            hash: repo.clone(),
+        // Ok(RepoPinStatus::V0(RepoPinStatusV0 {
+        //     hash: repo.clone(),
 
-            // only possible for RW overlays
-            expose_outer: false,
+        //     // only possible for RW overlays
+        //     expose_outer: false,
 
-            // list of topics that are subscribed to
-            topics: vec![],
-        }))
+        //     // list of topics that are subscribed to
+        //     topics: vec![],
+        // }))
     }
 
     fn pin_repo(
@@ -222,7 +222,7 @@ impl ServerStorage for RocksdbServerStorage {
         repo: &RepoHash,
         ro_topics: &Vec<TopicId>,
         rw_topics: &Vec<PublisherAdvert>,
-    ) -> Result<RepoOpened, ProtocolError> {
+    ) -> Result<RepoOpened, ServerError> {
         //TODO: implement correctly !
         let mut opened = Vec::with_capacity(ro_topics.len() + rw_topics.len());
         for topic in ro_topics {
@@ -240,7 +240,7 @@ impl ServerStorage for RocksdbServerStorage {
         repo: &RepoHash,
         topic: &TopicId,
         publisher: Option<&PublisherAdvert>,
-    ) -> Result<TopicSubRes, ProtocolError> {
+    ) -> Result<TopicSubRes, ServerError> {
         //TODO: implement correctly !
         Ok(TopicSubRes::V0(TopicSubResV0 {
             topic: topic.clone(),

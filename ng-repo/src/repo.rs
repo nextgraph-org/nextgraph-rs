@@ -85,6 +85,8 @@ pub struct BranchInfo {
     pub topic_priv_key: Option<BranchWriteCapSecret>,
 
     pub read_cap: ReadCap,
+
+    pub current_heads: Vec<ObjectRef>,
 }
 
 /// In memory Repository representation. With helper functions that access the underlying UserStore and keeps proxy of the values
@@ -207,6 +209,15 @@ impl Repo {
     pub fn overlay_branch(&self) -> Option<&BranchInfo> {
         for (_, branch) in self.branches.iter() {
             if branch.branch_type == BranchType::Overlay {
+                return Some(branch);
+            }
+        }
+        None
+    }
+
+    pub fn user_branch(&self) -> Option<&BranchInfo> {
+        for (_, branch) in self.branches.iter() {
+            if branch.branch_type == BranchType::User {
                 return Some(branch);
             }
         }

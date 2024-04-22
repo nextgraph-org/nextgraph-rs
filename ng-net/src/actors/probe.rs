@@ -11,8 +11,9 @@
 
 use crate::connection::NoiseFSM;
 use crate::types::{ProbeResponse, MAGIC_NG_REQUEST};
-use crate::{actor::*, errors::ProtocolError, types::ProtocolMessage};
+use crate::{actor::*, types::ProtocolMessage};
 use async_std::sync::Mutex;
+use ng_repo::errors::*;
 use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 use std::sync::Arc;

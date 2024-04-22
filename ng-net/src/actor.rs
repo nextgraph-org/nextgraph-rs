@@ -18,7 +18,8 @@ use std::any::TypeId;
 use std::sync::Arc;
 
 use crate::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
-use crate::{connection::*, errors::ProtocolError, types::ProtocolMessage};
+use crate::{connection::*, types::ProtocolMessage};
+use ng_repo::errors::{NgError, ProtocolError, ServerError};
 use std::marker::PhantomData;
 
 impl TryFrom<ProtocolMessage> for () {
@@ -35,6 +36,8 @@ pub trait EActor: Send + Sync + std::fmt::Debug {
         msg: ProtocolMessage,
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError>;
+
+    fn set_id(&mut self, id: i64) {}
 }
 
 #[derive(Debug)]
@@ -115,13 +118,13 @@ impl<
         &mut self,
         msg: ProtocolMessage,
         fsm: Arc<Mutex<NoiseFSM>>,
-    ) -> Result<SoS<B>, ProtocolError> {
+    ) -> Result<SoS<B>, NgError> {
         fsm.lock().await.send(msg).await?;
         let mut receiver = self.receiver.take().unwrap();
         match receiver.next().await {
             Some(ConnectionCommand::Msg(msg)) => {
                 if let ProtocolMessage::ClientMessage(ref bm) = msg {
-                    if bm.result() == Into::<u16>::into(ProtocolError::PartialContent)
+                    if bm.result() == Into::<u16>::into(ServerError::PartialContent)
                         && TypeId::of::<B>() != TypeId::of::<()>()
                     {
                         let (mut b_sender, b_receiver) = mpsc::unbounded::<B>();
@@ -142,7 +145,7 @@ impl<
                                 {
                                     if let ProtocolMessage::ClientMessage(ref bm) = msg {
                                         if bm.result()
-                                            == Into::<u16>::into(ProtocolError::EndOfStream)
+                                            == Into::<u16>::into(ServerError::EndOfStream)
                                         {
                                             break;
                                         }
@@ -174,22 +177,33 @@ impl<
                     }
                 }
                 fsm.lock().await.remove_actor(self.id).await;
-                let response: B = msg.try_into()?;
+                let server_error: Result<ServerError, NgError> = (&msg).try_into();
+                let response: B = match msg.try_into() {
+                    Ok(b) => b,
+                    Err(ProtocolError::ServerError) => {
+                        return Err(NgError::ServerError(server_error?));
+                    }
+                    Err(e) => return Err(NgError::ProtocolError(e)),
+                };
                 Ok(SoS::<B>::Single(response))
             }
-            Some(ConnectionCommand::ProtocolError(e)) => Err(e),
-            Some(ConnectionCommand::Error(e)) => Err(e.into()),
-            Some(ConnectionCommand::Close) => Err(ProtocolError::Closing),
-            _ => Err(ProtocolError::ActorError),
+            Some(ConnectionCommand::ProtocolError(e)) => Err(e.into()),
+            Some(ConnectionCommand::Error(e)) => Err(ProtocolError::from(e).into()),
+            Some(ConnectionCommand::Close) => Err(ProtocolError::Closing.into()),
+            _ => Err(ProtocolError::ActorError.into()),
         }
     }
 
-    pub fn new_responder() -> Box<Self> {
-        Box::new(Self::new(0, false))
+    pub fn new_responder(id: i64) -> Box<Self> {
+        Box::new(Self::new(id, false))
     }
 
     pub fn get_receiver_tx(&self) -> Sender<ConnectionCommand> {
         self.receiver_tx.clone()
+    }
+
+    pub fn id(&self) -> i64 {
+        self.id
     }
 }
 

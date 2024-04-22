@@ -11,8 +11,9 @@
 
 use std::sync::Arc;
 
-use crate::{actor::*, connection::NoiseFSM, errors::ProtocolError, types::ProtocolMessage};
+use crate::{actor::*, connection::NoiseFSM, types::ProtocolMessage};
 use async_std::sync::Mutex;
+use ng_repo::errors::*;
 use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
 

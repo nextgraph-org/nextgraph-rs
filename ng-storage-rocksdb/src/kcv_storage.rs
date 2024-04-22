@@ -569,12 +569,20 @@ impl RocksdbKCVStorage {
             let res = iter.next();
             match res {
                 Some(Ok(val)) => {
+                    //log_info!("{:?} {:?}", val.0, val.1);
                     match compare(&val.0, property_end.as_slice()) {
                         std::cmp::Ordering::Less | std::cmp::Ordering::Equal => {
                             if suffix.is_some() {
-                                if val.0.len() < (key_size + 2)
+                                if val.0.len() < key_size + 2
                                     || val.0[1 + key_size] != suffix.unwrap()
                                 {
+                                    // log_info!(
+                                    //     "SKIPPED cause suffix {} {} {} {}",
+                                    //     val.0.len(),
+                                    //     key_size + 2,
+                                    //     val.0[1 + key_size],
+                                    //     suffix.unwrap()
+                                    // );
                                     continue;
                                 }
                                 // } else if val.0.len() > (key_size + 1) {
@@ -582,7 +590,10 @@ impl RocksdbKCVStorage {
                             }
                             vector.push((val.0.to_vec(), val.1.to_vec()));
                         }
-                        _ => {} //,
+                        _ => {
+                            //log_info!("SKIPPED cause above END");
+                            break;
+                        } //,
                     }
                 }
                 Some(Err(_e)) => return Err(StorageError::BackendError),

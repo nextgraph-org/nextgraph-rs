@@ -15,9 +15,9 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::time::SystemTime;
 
-use ng_net::errors::ProtocolError;
 use ng_net::types::*;
 use ng_repo::block_storage::BlockStorage;
+use ng_repo::errors::ProtocolError;
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::repo::BranchInfo;
@@ -27,11 +27,13 @@ use ng_repo::types::BranchId;
 use ng_repo::types::BranchType;
 use ng_repo::types::BranchWriteCapSecret;
 use ng_repo::types::ObjectId;
+use ng_repo::types::ObjectRef;
 use ng_repo::types::ReadCap;
 use ng_repo::types::RepoId;
 use ng_repo::types::SymKey;
 use ng_repo::types::Timestamp;
 use ng_repo::types::TopicId;
+use serde_bare::from_slice;
 use serde_bare::to_vec;
 
 use super::prop;
@@ -80,6 +82,7 @@ impl<'a> BranchStorage<'a> {
             &info.branch_type,
             &info.topic,
             info.topic_priv_key.as_ref(),
+            &info.current_heads,
             storage,
         )
     }
@@ -90,6 +93,7 @@ impl<'a> BranchStorage<'a> {
         branch_type: &BranchType,
         topic: &TopicId,
         publisher: Option<&BranchWriteCapSecret>,
+        current_heads: &Vec<ObjectRef>,
         storage: &'a dyn KCVStorage,
     ) -> Result<BranchStorage<'a>, StorageError> {
         let bs = BranchStorage {
@@ -112,6 +116,13 @@ impl<'a> BranchStorage<'a> {
                 let value = to_vec(privkey)?;
                 tx.put(Self::PREFIX, &id_ser, Some(Self::PUBLISHER), &value, &None)?;
             }
+            for head in current_heads {
+                let mut head_ser = to_vec(head)?;
+                let mut key = Vec::with_capacity(id_ser.len() + head_ser.len());
+                key.append(&mut id_ser.clone());
+                key.append(&mut head_ser);
+                tx.put(Self::PREFIX_HEADS, &key, None, &vec![], &None)?;
+            }
             Ok(())
         })?;
         Ok(bs)
@@ -131,8 +142,32 @@ impl<'a> BranchStorage<'a> {
             read_cap: prop(Self::READ_CAP, &props)?,
             topic: prop(Self::TOPIC, &props)?,
             topic_priv_key: prop(Self::PUBLISHER, &props).ok(),
+            current_heads: Self::get_all_heads(id, storage)?,
         };
         Ok(bs)
+    }
+
+    pub fn get_all_heads(
+        id: &BranchId,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<Vec<ObjectRef>, StorageError> {
+        let size = to_vec(&ObjectRef::nil())?.len();
+        let key_prefix = to_vec(id).unwrap();
+        let mut res: Vec<ObjectRef> = vec![];
+        let total_size = key_prefix.len() + size;
+        for head in storage.get_all_keys_and_values(
+            Self::PREFIX_HEADS,
+            total_size,
+            key_prefix,
+            None,
+            &None,
+        )? {
+            if head.0.len() == total_size + 1 {
+                let head: ObjectRef = from_slice(&head.0[1..head.0.len()])?;
+                res.push(head);
+            }
+        }
+        Ok(res)
     }
 
     pub fn exists(&self) -> bool {
@@ -153,7 +188,7 @@ impl<'a> BranchStorage<'a> {
         self.storage.write_transaction(&mut |tx| {
             let key = &to_vec(&self.id)?;
             tx.del_all(Self::PREFIX, key, &Self::ALL_PROPERTIES, &None)?;
-            let size = to_vec(&ObjectId::nil())?.len();
+            let size = to_vec(&ObjectRef::nil())?.len();
             tx.del_all_values(Self::PREFIX_HEADS, key, size, None, &None)?;
             Ok(())
         })

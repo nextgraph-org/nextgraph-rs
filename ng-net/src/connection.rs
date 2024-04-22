@@ -21,8 +21,6 @@ use std::sync::Arc;
 use crate::actor::{Actor, SoS};
 use crate::actors::*;
 use crate::broker::BROKER;
-use crate::errors::NetError;
-use crate::errors::ProtocolError;
 use crate::types::*;
 use crate::utils::*;
 
@@ -30,6 +28,7 @@ use async_std::stream::StreamExt;
 use async_std::sync::Mutex;
 use either::Either;
 use futures::{channel::mpsc, select, FutureExt, SinkExt};
+use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::types::{DirectPeerId, PrivKey, PubKey, UserId, X25519PrivKey};
 use ng_repo::utils::{sign, verify};
@@ -290,6 +289,17 @@ impl NoiseFSM {
     }
 
     pub async fn send(&mut self, msg: ProtocolMessage) -> Result<(), ProtocolError> {
+        self.send_in_reply_to(msg, 0).await
+    }
+
+    pub async fn send_in_reply_to(
+        &mut self,
+        mut msg: ProtocolMessage,
+        in_reply_to: i64,
+    ) -> Result<(), ProtocolError> {
+        if in_reply_to != 0 {
+            msg.set_id(in_reply_to);
+        }
         log_debug!("SENDING: {:?}", msg);
         if self.noise_cipher_state_enc.is_some() {
             let cipher = self.encrypt(msg)?;
@@ -825,7 +835,7 @@ impl NoiseFSM {
                     if msg.type_id() != TypeId::of::<ClientMessage>() {
                         return Err(ProtocolError::AccessDenied);
                     }
-                    let id = msg.id();
+                    let id: i64 = msg.id();
                     if self.dir.is_server() && id > 0 || !self.dir.is_server() && id < 0 {
                         return Ok(StepReply::Responder(msg));
                     } else if id != 0 {
@@ -1038,9 +1048,9 @@ impl ConnectionBase {
     >(
         &self,
         msg: A,
-    ) -> Result<SoS<B>, ProtocolError> {
+    ) -> Result<SoS<B>, NgError> {
         if self.fsm.is_none() {
-            return Err(ProtocolError::FsmNotReady);
+            return Err(NgError::ProtocolError(ProtocolError::FsmNotReady));
         }
 
         let mut id = self.next_request_id.next_id();

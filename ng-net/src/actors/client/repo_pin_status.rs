@@ -11,17 +11,17 @@
 use crate::broker::{ServerConfig, BROKER};
 use crate::connection::NoiseFSM;
 use crate::types::*;
-use crate::{actor::*, errors::ProtocolError, types::ProtocolMessage};
-
+use crate::{actor::*, types::ProtocolMessage};
 use async_std::sync::Mutex;
+use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::types::PubKey;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 impl RepoPinStatusReq {
-    pub fn get_actor(&self) -> Box<dyn EActor> {
-        Actor::<RepoPinStatusReq, RepoPinStatus>::new_responder()
+    pub fn get_actor(&self, id: i64) -> Box<dyn EActor> {
+        Actor::<RepoPinStatusReq, RepoPinStatus>::new_responder(id)
     }
 }
 
@@ -80,9 +80,11 @@ impl EActor for Actor<'_, RepoPinStatusReq, RepoPinStatus> {
         let broker = BROKER.read().await;
         let res = broker
             .get_server_storage()?
-            .get_repo_pin_status(req.overlay(), req.hash())?;
-
-        fsm.lock().await.send(res.into()).await?;
+            .get_repo_pin_status(req.overlay(), req.hash());
+        fsm.lock()
+            .await
+            .send_in_reply_to(res.into(), self.id())
+            .await?;
         Ok(())
     }
 }

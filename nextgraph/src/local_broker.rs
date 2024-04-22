@@ -12,7 +12,6 @@ use async_std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use core::fmt;
 use ng_net::actor::EActor;
 use ng_net::connection::{ClientConfig, IConnect, NoiseFSM, StartConfig};
-use ng_net::errors::ProtocolError;
 use ng_net::types::{ClientInfo, ClientType, ProtocolMessage};
 use ng_net::utils::{Receiver, Sender};
 use ng_repo::block_storage::HashMapBlockStorage;
@@ -30,7 +29,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use ng_net::broker::*;
 use ng_repo::block_storage::BlockStorage;
-use ng_repo::errors::NgError;
+use ng_repo::errors::{NgError, ProtocolError};
 use ng_repo::log::*;
 use ng_repo::types::*;
 use ng_repo::utils::derive_key;
@@ -1424,6 +1423,7 @@ mod test {
     };
     use ng_net::types::BootstrapContentV0;
     use ng_wallet::{display_mnemonic, emojis::display_pazzle};
+    use std::env::current_dir;
     use std::fs::read_to_string;
     use std::fs::{create_dir_all, File};
     use std::io::BufReader;
@@ -1535,6 +1535,62 @@ mod test {
         let ser = serde_bare::to_vec(&opened_wallet).expect("serialization of opened wallet");
 
         file.write_all(&ser).expect("write of opened_wallet file");
+    }
+
+    #[async_std::test]
+    async fn gen_opened_wallet_file_for_test_with_pazzle_array() {
+        let wallet_file = read("tests/wallet.ngw").expect("read wallet file");
+
+        init_local_broker(Box::new(|| LocalBrokerConfig::InMemory)).await;
+
+        let wallet = wallet_read_file(wallet_file)
+            .await
+            .expect("wallet_read_file");
+
+        let pazzle = vec![114, 45, 86, 104, 1, 135, 17, 50, 65];
+        let opened_wallet =
+            wallet_open_with_pazzle(&wallet, pazzle, [2, 3, 2, 3]).expect("opening of wallet");
+
+        let mut file =
+            File::create("tests/opened_wallet.ngw").expect("open for write opened_wallet file");
+        let ser = serde_bare::to_vec(&opened_wallet).expect("serialization of opened wallet");
+
+        file.write_all(&ser).expect("write of opened_wallet file");
+    }
+
+    #[async_std::test]
+    async fn import_session_for_test_to_disk() {
+        let wallet_file = read("tests/wallet.ngw").expect("read wallet file");
+        let opened_wallet_file = read("tests/opened_wallet.ngw").expect("read opened_wallet file");
+        let opened_wallet: SensitiveWallet =
+            serde_bare::from_slice(&opened_wallet_file).expect("deserialization of opened_wallet");
+
+        let mut current_path = current_dir().expect("cur_dir");
+        current_path.push("..");
+        current_path.push(".ng");
+        current_path.push("example");
+        create_dir_all(current_path.clone()).expect("create_dir");
+
+        // initialize the local_broker with config to save to disk in a folder called `.ng/example` in the current directory
+        init_local_broker(Box::new(move || {
+            LocalBrokerConfig::BasePath(current_path.clone())
+        }))
+        .await;
+
+        let wallet = wallet_read_file(wallet_file)
+            .await
+            .expect("wallet_read_file");
+
+        let wallet_name = wallet.name();
+        let user_id = opened_wallet.personal_identity();
+
+        let _client = wallet_import(wallet, opened_wallet, false)
+            .await
+            .expect("wallet_import");
+
+        let _session = session_start(SessionConfig::new_in_memory(&user_id, &wallet_name))
+            .await
+            .expect("");
     }
 
     async fn import_session_for_test() -> (UserId, String) {

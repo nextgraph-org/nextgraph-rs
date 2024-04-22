@@ -525,9 +525,9 @@ impl fmt::Display for OverlayId {
 }
 
 impl OverlayId {
-    pub fn inner_from_store(store: &Store) -> OverlayId {
-        Self::inner(store.id(), store.get_store_overlay_branch_readcap_secret())
-    }
+    // pub fn inner_from_store(store: &Store) -> OverlayId {
+    //     Self::inner(store.id(), store.get_store_overlay_branch_readcap_secret())
+    // }
     pub fn inner(
         store_id: &PubKey,
         store_overlay_branch_readcap_secret: &ReadCapSecret,
@@ -555,6 +555,13 @@ impl OverlayId {
     }
     pub fn nil() -> OverlayId {
         OverlayId::Outer(Digest::nil())
+    }
+
+    pub fn is_inner(&self) -> bool {
+        match self {
+            Self::Inner(_) => true,
+            _ => false,
+        }
     }
 }
 
@@ -603,7 +610,7 @@ impl StoreOverlay {
             | StoreOverlay::V0(StoreOverlayV0::ProtectedStore(id))
             | StoreOverlay::V0(StoreOverlayV0::PrivateStore(id))
             | StoreOverlay::V0(StoreOverlayV0::Group(id)) => OverlayId::outer(id),
-            StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => unimplemented!(),
+            StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => OverlayId::Inner(d.clone()),
             StoreOverlay::Own(_) => unimplemented!(),
         }
     }
@@ -619,7 +626,7 @@ impl StoreOverlay {
             | StoreOverlay::V0(StoreOverlayV0::Group(id)) => {
                 OverlayId::inner(id, &store_overlay_branch_readcap_secret)
             }
-            StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => unimplemented!(),
+            StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => OverlayId::Inner(d.clone()),
             StoreOverlay::Own(_) => unimplemented!(),
         }
     }
@@ -660,6 +667,12 @@ pub enum StoreRepo {
     V0(StoreRepoV0),
 }
 
+impl fmt::Display for StoreRepo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "StoreRepo V0 {}", self.repo_id())
+    }
+}
+
 impl StoreRepo {
     pub fn repo_id(&self) -> &RepoId {
         match self {
@@ -683,10 +696,14 @@ impl StoreRepo {
         StoreRepo::V0(StoreRepoV0::PublicStore(repo_pubkey))
     }
 
+    pub fn outer_overlay(&self) -> OverlayId {
+        self.overlay_id_for_read_purpose()
+    }
+
     pub fn overlay_id_for_read_purpose(&self) -> OverlayId {
-        //let store_overlay: StoreOverlay = self.into();
-        //store_overlay.overlay_id_for_read_purpose()
-        OverlayId::outer(self.repo_id())
+        let store_overlay: StoreOverlay = self.into();
+        store_overlay.overlay_id_for_read_purpose()
+        //OverlayId::outer(self.repo_id())
     }
 
     pub fn is_private(&self) -> bool {
@@ -719,6 +736,21 @@ impl StoreRepo {
             | Self::V0(StoreRepoV0::ProtectedStore(id))
             | Self::V0(StoreRepoV0::Group(id))
             | Self::V0(StoreRepoV0::PrivateStore(id)) => self.overlay_id_for_read_purpose(),
+            Self::V0(StoreRepoV0::Dialog(d)) => OverlayId::Inner(d.1.clone()),
+        }
+    }
+
+    pub fn overlay_id_for_write_purpose(
+        &self,
+        store_overlay_branch_readcap_secret: &ReadCapSecret,
+    ) -> OverlayId {
+        match self {
+            Self::V0(StoreRepoV0::PublicStore(id))
+            | Self::V0(StoreRepoV0::ProtectedStore(id))
+            | Self::V0(StoreRepoV0::Group(id))
+            | Self::V0(StoreRepoV0::PrivateStore(id)) => {
+                OverlayId::inner(id, store_overlay_branch_readcap_secret)
+            }
             Self::V0(StoreRepoV0::Dialog(d)) => OverlayId::Inner(d.1.clone()),
         }
     }
@@ -1658,7 +1690,7 @@ pub struct StoreUpdateV0 {
 
     pub store_read_cap: ReadCap,
 
-    pub inner_overlay_read_cap: ReadCap,
+    pub overlay_branch_read_cap: ReadCap,
 
     /// Metadata
     #[serde(with = "serde_bytes")]

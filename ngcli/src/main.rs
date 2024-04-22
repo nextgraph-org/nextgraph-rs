@@ -28,8 +28,8 @@ use zeroize::Zeroize;
 
 use ng_client_ws::remote_ws::ConnectionWebSocket;
 use ng_net::broker::BROKER;
-use ng_net::errors::*;
 use ng_net::types::*;
+use ng_repo::errors::*;
 
 use ng_repo::log::*;
 use ng_repo::types::*;

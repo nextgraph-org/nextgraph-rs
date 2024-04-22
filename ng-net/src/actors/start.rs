@@ -15,8 +15,9 @@ use crate::types::{
     AdminRequest, CoreBrokerConnect, CoreBrokerConnectResponse, CoreBrokerConnectResponseV0,
     CoreMessage, CoreMessageV0, CoreResponse, CoreResponseContentV0, CoreResponseV0, ExtResponse,
 };
-use crate::{actor::*, errors::ProtocolError, types::ProtocolMessage};
+use crate::{actor::*, types::ProtocolMessage};
 use async_std::sync::Mutex;
+use ng_repo::errors::*;
 use ng_repo::log::*;
 use serde::{Deserialize, Serialize};
 use std::any::{Any, TypeId};
@@ -71,7 +72,7 @@ pub struct CoreHello {
 
 impl CoreHello {
     pub fn get_actor(&self) -> Box<dyn EActor> {
-        Actor::<CoreBrokerConnect, CoreBrokerConnectResponse>::new_responder()
+        Actor::<CoreBrokerConnect, CoreBrokerConnectResponse>::new_responder(0)
     }
 }
 
@@ -136,7 +137,7 @@ pub struct ExtHello {
 
 impl ExtHello {
     pub fn get_actor(&self) -> Box<dyn EActor> {
-        Actor::<ExtHello, ExtResponse>::new_responder()
+        Actor::<ExtHello, ExtResponse>::new_responder(0)
     }
 }
 
@@ -162,7 +163,7 @@ impl ClientHello {
         }
     }
     pub fn get_actor(&self) -> Box<dyn EActor> {
-        Actor::<ClientHello, ServerHello>::new_responder()
+        Actor::<ClientHello, ServerHello>::new_responder(0)
     }
 }
 

@@ -21,13 +21,12 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use ng_net::{
     connection::NoiseFSM,
-    errors::ProtocolError,
     types::*,
     utils::{Receiver, Sender},
 };
 use ng_repo::{
     block_storage::BlockStorage,
-    errors::{NgError, StorageError},
+    errors::{NgError, ProtocolError, StorageError},
     file::RandomAccessFile,
     store::Store,
     types::*,

@@ -10,6 +10,8 @@
 //! Errors
 
 use crate::commit::{CommitLoadError, CommitVerifyError};
+use num_enum::IntoPrimitive;
+use num_enum::TryFromPrimitive;
 
 use crate::types::BlockId;
 use core::fmt;
@@ -22,6 +24,8 @@ pub enum NgError {
     IncompleteSignature,
     SerializationError,
     EncryptionError,
+    InvalidValue,
+    ConnectionNotFound,
     InvalidKey,
     InvalidInvitation,
     InvalidCreateAccount,
@@ -51,8 +55,11 @@ pub enum NgError {
     UserNotFound,
     TopicNotFound,
     NotConnected,
-    ProtocolError,
     ActorError,
+    ProtocolError(ProtocolError),
+    ServerError(ServerError),
+    InvalidResponse,
+    NotAServerError,
 }
 
 impl Error for NgError {}
@@ -183,5 +190,174 @@ impl core::fmt::Display for StorageError {
 impl From<serde_bare::error::Error> for StorageError {
     fn from(_e: serde_bare::error::Error) -> Self {
         StorageError::SerializationError
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive, Clone)]
+#[repr(u16)]
+pub enum ServerError {
+    Ok = 0,
+    PartialContent,
+    EndOfStream,
+    False,
+    SequenceMismatch,
+    FileError,
+    RepoAlreadyOpened,
+}
+
+impl ServerError {
+    pub fn is_stream(&self) -> bool {
+        *self == ServerError::PartialContent || *self == ServerError::EndOfStream
+    }
+    pub fn is_err(&self) -> bool {
+        *self != ServerError::Ok
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive, Clone)]
+#[repr(u16)]
+pub enum NetError {
+    DirectionAlreadySet = 1,
+    WsError,
+    IoError,
+    ConnectionError,
+    SerializationError,
+    ProtocolError,
+    AccessDenied,
+    InternalError,
+    PeerAlreadyConnected,
+    Closing,
+} //MAX 50 NetErrors
+
+impl Error for NetError {}
+
+impl fmt::Display for NetError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive, Clone)]
+#[repr(u16)]
+pub enum ProtocolError {
+    NoError = 0,
+
+    IoError,
+    WsError,
+    ActorError,
+    InvalidState,
+    SignatureError,
+    InvalidSignature,
+    SerializationError,
+    AccessDenied,
+    InvitationRequired,
+    BrokerError,
+    NotFound,
+    MissingBlocks,
+    ObjectParseError,
+    InvalidValue,
+    AlreadyExists,
+    RepoIdRequired,
+
+    ConnectionError,
+    Timeout,
+    Expired,
+
+    PeerAlreadyConnected,
+    OtherError,
+    NetError,
+    StorageError,
+    ServerError,
+    Closing,
+    FsmNotReady,
+    MustBeEncrypted,
+    NoiseHandshakeFailed,
+    DecryptionError,
+    EncryptionError,
+    WhereIsTheMagic,
+
+    InvalidNonce,
+} //MAX 949 ProtocolErrors
+
+impl From<NetError> for ProtocolError {
+    fn from(e: NetError) -> Self {
+        match e {
+            NetError::IoError => ProtocolError::IoError,
+            NetError::WsError => ProtocolError::WsError,
+            NetError::ConnectionError => ProtocolError::ConnectionError,
+            NetError::SerializationError => ProtocolError::SerializationError,
+            NetError::ProtocolError => ProtocolError::OtherError,
+            NetError::AccessDenied => ProtocolError::AccessDenied,
+            NetError::PeerAlreadyConnected => ProtocolError::PeerAlreadyConnected,
+            NetError::Closing => ProtocolError::Closing,
+            _ => ProtocolError::NetError,
+        }
+    }
+}
+
+impl From<StorageError> for ProtocolError {
+    fn from(e: StorageError) -> Self {
+        match e {
+            StorageError::NotFound => ProtocolError::NotFound,
+            StorageError::InvalidValue => ProtocolError::InvalidValue,
+            StorageError::BackendError => ProtocolError::StorageError,
+            StorageError::SerializationError => ProtocolError::SerializationError,
+            StorageError::AlreadyExists => ProtocolError::AlreadyExists,
+            _ => ProtocolError::StorageError,
+        }
+    }
+}
+
+impl From<ProtocolError> for NgError {
+    fn from(e: ProtocolError) -> Self {
+        NgError::ProtocolError(e)
+    }
+}
+
+impl From<ServerError> for NgError {
+    fn from(e: ServerError) -> Self {
+        NgError::ServerError(e)
+    }
+}
+
+impl ProtocolError {
+    pub fn is_err(&self) -> bool {
+        *self != ProtocolError::NoError
+    }
+}
+
+impl Error for ProtocolError {}
+
+impl fmt::Display for ProtocolError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl From<NgError> for ProtocolError {
+    fn from(e: NgError) -> Self {
+        match e {
+            NgError::InvalidSignature => ProtocolError::InvalidSignature,
+            NgError::SerializationError => ProtocolError::SerializationError,
+            _ => ProtocolError::OtherError,
+        }
+    }
+}
+
+impl From<ObjectParseError> for ProtocolError {
+    fn from(_e: ObjectParseError) -> Self {
+        ProtocolError::ObjectParseError
+    }
+}
+
+impl From<serde_bare::error::Error> for ProtocolError {
+    fn from(_e: serde_bare::error::Error) -> Self {
+        ProtocolError::SerializationError
+    }
+}
+
+impl From<serde_bare::error::Error> for NetError {
+    fn from(_e: serde_bare::error::Error) -> Self {
+        NetError::SerializationError
     }
 }

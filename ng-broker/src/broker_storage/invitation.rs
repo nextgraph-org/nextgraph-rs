@@ -14,8 +14,8 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::time::SystemTime;
 
-use ng_net::errors::ProtocolError;
 use ng_net::types::*;
+use ng_repo::errors::ProtocolError;
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::types::SymKey;

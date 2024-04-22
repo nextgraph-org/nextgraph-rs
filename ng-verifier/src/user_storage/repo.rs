@@ -17,11 +17,12 @@ use std::hash::Hasher;
 use std::time::SystemTime;
 
 use either::{Either, Left, Right};
-use ng_net::errors::ProtocolError;
 use ng_net::types::*;
 use ng_repo::block_storage::BlockStorage;
+use ng_repo::errors::ProtocolError;
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::KCVStorage;
+use ng_repo::log::*;
 use ng_repo::repo::BranchInfo;
 use ng_repo::repo::Repo;
 use ng_repo::store::Store;
@@ -31,6 +32,7 @@ use ng_repo::types::ReadCap;
 use ng_repo::types::RepoId;
 use ng_repo::types::RepoWriteCapSecret;
 use ng_repo::types::Repository;
+use ng_repo::types::SignerCap;
 use ng_repo::types::StoreRepo;
 use ng_repo::types::SymKey;
 use ng_repo::types::Timestamp;
@@ -52,8 +54,8 @@ impl<'a> RepoStorage<'a> {
     const PREFIX: u8 = b'r';
 
     // repo properties suffixes
-    const SIGNER_CAP_OWNER: u8 = b'a';
-    const SIGNER_CAP_PARTIAL: u8 = b'b';
+    const SIGNER_CAP: u8 = b'a';
+    //const SIGNER_CAP_PARTIAL: u8 = b'b';
     const CHAT_BRANCH: u8 = b'c';
     const DEFINITION: u8 = b'd';
     const STORE_BRANCH: u8 = b'e';
@@ -65,13 +67,13 @@ impl<'a> RepoStorage<'a> {
     const QUORUM: u8 = b'q';
     const READ_CAP: u8 = b'r';
     const STORE_REPO: u8 = b's';
-    const SIGNER_CAP_TOTAL: u8 = b't';
+    //const SIGNER_CAP_TOTAL: u8 = b't';
     const USER_BRANCH: u8 = b'u';
     const WRITE_CAP_SECRET: u8 = b'w';
 
-    const ALL_PROPERTIES: [u8; 16] = [
-        Self::SIGNER_CAP_OWNER,
-        Self::SIGNER_CAP_PARTIAL,
+    const ALL_PROPERTIES: [u8; 14] = [
+        Self::SIGNER_CAP,
+        //Self::SIGNER_CAP_PARTIAL,
         Self::CHAT_BRANCH,
         Self::DEFINITION,
         Self::STORE_BRANCH,
@@ -83,7 +85,7 @@ impl<'a> RepoStorage<'a> {
         Self::QUORUM,
         Self::READ_CAP,
         Self::STORE_REPO,
-        Self::SIGNER_CAP_TOTAL,
+        //Self::SIGNER_CAP_TOTAL,
         Self::USER_BRANCH,
         Self::WRITE_CAP_SECRET,
     ];
@@ -111,6 +113,7 @@ impl<'a> RepoStorage<'a> {
             &repo.id,
             repo.read_cap.as_ref().unwrap(),
             repo.write_cap.as_ref(),
+            repo.signer.as_ref(),
             repo.store.get_store_repo(),
             &repo.repo_def,
             &repo.branches,
@@ -118,11 +121,11 @@ impl<'a> RepoStorage<'a> {
         )
     }
 
-    // TODO: signers
     pub fn create(
         id: &RepoId,
         read_cap: &ReadCap,
         write_cap: Option<&RepoWriteCapSecret>,
+        signer_cap: Option<&SignerCap>,
         store_repo: &StoreRepo,
         repo_def: &Repository,
         branches: &HashMap<BranchId, BranchInfo>,
@@ -134,6 +137,16 @@ impl<'a> RepoStorage<'a> {
         };
         if repo.exists() {
             return Err(StorageError::AlreadyExists);
+        }
+
+        let mut store_branch = None;
+
+        // FIXME: use the same transaction for all branches and the repo
+        for branch in branches.values() {
+            BranchStorage::create_from_info(branch, storage)?;
+            if branch.branch_type == BranchType::Store {
+                store_branch = Some(branch.id);
+            }
         }
 
         storage.write_transaction(&mut |tx| {
@@ -154,12 +167,29 @@ impl<'a> RepoStorage<'a> {
                     &None,
                 )?;
             }
+            if let Some(sb) = store_branch {
+                let value = to_vec(&sb)?;
+                tx.put(
+                    Self::PREFIX,
+                    &id_ser,
+                    Some(Self::STORE_BRANCH),
+                    &value,
+                    &None,
+                )?;
+            }
+            if let Some(sc) = signer_cap {
+                let value = to_vec(sc)?;
+                tx.put(Self::PREFIX, &id_ser, Some(Self::SIGNER_CAP), &value, &None)?;
+            }
+            for branch in branches.keys() {
+                let mut branch_ser = to_vec(branch)?;
+                let mut key = Vec::with_capacity(id_ser.len() + branch_ser.len());
+                key.append(&mut id_ser.clone());
+                key.append(&mut branch_ser);
+                tx.put(Self::PREFIX_BRANCHES, &key, None, &vec![], &None)?;
+            }
             Ok(())
         })?;
-
-        for branch in branches.values() {
-            BranchStorage::create_from_info(branch, storage)?;
-        }
 
         Ok(repo)
     }
@@ -169,6 +199,7 @@ impl<'a> RepoStorage<'a> {
         store: Either<Arc<Store>, Arc<RwLock<dyn BlockStorage + Send + Sync>>>,
         storage: &'a dyn KCVStorage,
     ) -> Result<Repo, StorageError> {
+        //("LOADING repo {}", id);
         let branch_ids = Self::get_all_branches(id, storage)?;
         let mut branches = HashMap::new();
         let mut overlay_branch_read_cap = None;
@@ -177,6 +208,8 @@ impl<'a> RepoStorage<'a> {
             if info.branch_type == BranchType::Overlay {
                 overlay_branch_read_cap = Some(info.read_cap.clone());
             }
+            //log_info!("LOADING BRANCH INFO {}", branch);
+            //log_info!("TOPIC {}", info.topic);
             let _ = branches.insert(branch, info);
         }
 
@@ -214,8 +247,7 @@ impl<'a> RepoStorage<'a> {
             repo_def: prop(Self::DEFINITION, &props)?,
             read_cap: prop(Self::READ_CAP, &props)?,
             write_cap: prop(Self::WRITE_CAP_SECRET, &props).ok(),
-            //TODO: signer
-            signer: None,
+            signer: prop(Self::SIGNER_CAP, &props).ok(),
             //TODO: members
             members: HashMap::new(),
             branches,
@@ -246,7 +278,8 @@ impl<'a> RepoStorage<'a> {
         let size = to_vec(&BranchId::nil())?.len();
         let key_prefix = to_vec(id).unwrap();
         let mut res: Vec<BranchId> = vec![];
-        let total_size = key_prefix.len() + size;
+        let key_prefix_len = key_prefix.len();
+        let total_size = key_prefix_len + size;
         for branch in storage.get_all_keys_and_values(
             Self::PREFIX_BRANCHES,
             total_size,
@@ -255,7 +288,8 @@ impl<'a> RepoStorage<'a> {
             &None,
         )? {
             if branch.0.len() == total_size + 1 {
-                let branch_id: BranchId = from_slice(&branch.0[1..branch.0.len()])?;
+                let branch_id: BranchId =
+                    from_slice(&branch.0[1 + key_prefix_len..total_size + 1])?;
                 res.push(branch_id);
             }
         }
@@ -265,6 +299,7 @@ impl<'a> RepoStorage<'a> {
     pub fn get_all_store_and_repo_ids(
         storage: &'a dyn KCVStorage,
     ) -> Result<HashMap<StoreRepo, Vec<RepoId>>, StorageError> {
+        //log_info!("get_all_store_and_repo_ids");
         let mut res = HashMap::new();
         let size = to_vec(&RepoId::nil())?.len();
         let mut store_ids = HashSet::new();
@@ -275,7 +310,8 @@ impl<'a> RepoStorage<'a> {
             Some(Self::STORE_BRANCH),
             &None,
         )? {
-            let store_id: RepoId = from_slice(&store_id_ser)?;
+            let store_id: RepoId = from_slice(&store_id_ser[1..1 + size])?;
+            //log_info!("FOUND store_id {}", store_id);
             store_ids.insert(store_id);
         }
         let mut repo_ids = HashMap::new();
@@ -286,7 +322,8 @@ impl<'a> RepoStorage<'a> {
             Some(Self::STORE_REPO),
             &None,
         )? {
-            let repo_id: RepoId = from_slice(&repo_id_ser)?;
+            let repo_id: RepoId = from_slice(&repo_id_ser[1..1 + size])?;
+            //log_info!("FOUND repo_id {}", repo_id);
             let store_repo: StoreRepo = from_slice(&store_repo_ser)?;
             repo_ids.insert(repo_id, store_repo);
         }
@@ -294,12 +331,14 @@ impl<'a> RepoStorage<'a> {
         for store in store_ids.iter() {
             let store_repo = repo_ids.get(store).ok_or(StorageError::NotAStoreRepo)?;
             res.insert(*store_repo, vec![]);
+            //log_info!("INSERTED store_id {}", store);
         }
 
         for (repo_id, store_repo) in repo_ids.iter() {
             if store_ids.get(repo_id).is_none() {
                 let repos = res.get_mut(store_repo).ok_or(StorageError::NotFound)?;
                 repos.push(*repo_id);
+                //log_info!("INSERTED repo_id {}", repo_id);
             }
         }
 
