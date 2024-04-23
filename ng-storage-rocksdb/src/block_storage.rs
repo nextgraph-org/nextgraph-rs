@@ -36,7 +36,7 @@ impl RocksDbBlockStorage {
     /// The key is the encryption key for the data at rest.
     pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<RocksDbBlockStorage, StorageError> {
         let mut opts = Options::default();
-        opts.set_use_fsync(true);
+        //opts.set_use_fsync(true);
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
         let env = Env::enc_env(key).unwrap();

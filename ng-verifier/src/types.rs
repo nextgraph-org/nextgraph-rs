@@ -54,14 +54,14 @@ impl SessionPeerLastSeq {
 pub enum VerifierType {
     /// nothing will be saved on disk during the session
     Memory,
-    /// will save all user data locally, with RocksDb backend
-    RocksDb,
+    /// will save all user data locally, with RocksDb backend on native, and on webapp, will save only the session and wallet, not the data itself
+    Save,
     /// the verifier will be remote. a Noise connection will be opened
     /// optional peerId to connect to. If None, will try any that has the flag `can_verify`
     Remote(Option<PubKey>),
     /// IndexedDb based rocksdb compiled to WASM... not ready yet. obviously. only works in the browser
     WebRocksDb,
-    // Server, this type is for Server Broker that act as verifier. They answer to VerifierType::Remote types of verifier.
+    // Server, this type is for Server Broker that act as verifier. They answer to VerifierType::Remote types of verifier. deprecated
 }
 
 impl VerifierType {
@@ -73,7 +73,7 @@ impl VerifierType {
     }
     pub fn is_persistent(&self) -> bool {
         match self {
-            Self::RocksDb => true,
+            Self::Save => true,
             _ => false,
         }
     }

@@ -59,7 +59,7 @@ async fn main() -> std::io::Result<()> {
 
     // now that the wallet is opened, let's start a session.
     // we pass the user_id and the wallet_name
-    let _session = session_start(SessionConfig::new_rocksdb(&user_id, &wallet_name)).await?;
+    let _session = session_start(SessionConfig::new_save(&user_id, &wallet_name)).await?;
 
     // if the user has internet access, they can now decide to connect to its Server Broker, in order to sync data
     let status = user_connect(&user_id).await?;

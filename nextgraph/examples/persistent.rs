@@ -124,7 +124,7 @@ async fn main() -> std::io::Result<()> {
 
     // now that the wallet is opened, let's start a session.
     // we pass the user_id and the wallet_name
-    let _session = session_start(SessionConfig::new_rocksdb(
+    let _session = session_start(SessionConfig::new_save(
         &user_id,
         &wallet_result.wallet_name,
     ))

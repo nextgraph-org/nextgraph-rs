@@ -179,7 +179,7 @@ async fn session_start(
     user: PubKey,
     app: tauri::AppHandle,
 ) -> Result<SessionInfo, String> {
-    let config = SessionConfig::new_rocksdb(&user, &wallet_name);
+    let config = SessionConfig::new_save(&user, &wallet_name);
     nextgraph::local_broker::session_start(config)
         .await
         .map_err(|e: NgError| e.to_string())

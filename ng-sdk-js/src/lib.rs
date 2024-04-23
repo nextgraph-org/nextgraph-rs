@@ -168,7 +168,7 @@ pub async fn session_start(wallet_name: String, user_js: JsValue) -> Result<JsVa
     let user_id = serde_wasm_bindgen::from_value::<PubKey>(user_js)
         .map_err(|_| "Deserialization error of user_id")?;
 
-    let config = SessionConfig::new_in_memory(&user_id, &wallet_name);
+    let config = SessionConfig::new_save(&user_id, &wallet_name);
     let res = nextgraph::local_broker::session_start(config)
         .await
         .map_err(|e: NgError| e.to_string())?;

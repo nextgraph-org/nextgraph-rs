@@ -85,10 +85,7 @@ impl JsStorageConfig {
                     let ser = serde_bare::to_vec(&spls)?;
                     //saving the new val
                     let encoded = base64_url::encode(&ser);
-                    let r = (session_write2)(format!("ng_peer_last_seq@{}", peer_id), encoded);
-                    if r.is_ok() {
-                        return Err(NgError::SerializationError);
-                    }
+                    (session_write2)(format!("ng_peer_last_seq@{}", peer_id), encoded)?;
                 }
                 Ok(val)
             }),
@@ -113,16 +110,18 @@ impl JsStorageConfig {
             ),
             outbox_read_function: Box::new(
                 move |peer_id: PubKey| -> Result<Vec<Vec<u8>>, NgError> {
-                    let res = (session_read4)(format!("ng_outboxes@{}@start", peer_id));
-                    let mut start = match res {
+                    let start_key = format!("ng_outboxes@{}@start", peer_id);
+                    let res = (session_read4)(start_key.clone());
+                    let _start = match res {
                         Err(_) => return Err(NgError::NotFound),
                         Ok(start_str) => start_str
                             .parse::<u64>()
                             .map_err(|_| NgError::InvalidFileFormat)?,
                     };
+                    let mut idx: u64 = 0;
                     let mut result = vec![];
                     loop {
-                        let idx_str = format!("{:05}", start);
+                        let idx_str = format!("{:05}", idx);
                         let str = format!("ng_outboxes@{}@{idx_str}", peer_id);
                         let res = (session_read4)(str.clone());
                         let res = match res {
@@ -133,8 +132,9 @@ impl JsStorageConfig {
                         let decoded =
                             base64_url::decode(&res).map_err(|_| NgError::SerializationError)?;
                         result.push(decoded);
-                        start += 1;
+                        idx += 1;
                     }
+                    (session_del)(start_key)?;
                     Ok(result)
                 },
             ),
@@ -236,6 +236,12 @@ impl SessionConfig {
             Self::V0(v0) => &v0.verifier_type,
         }
     }
+
+    pub fn is_memory(&self) -> bool {
+        match self {
+            Self::V0(v0) => v0.verifier_type.is_memory(),
+        }
+    }
     /// Creates a new in_memory SessionConfig with a UserId and a wallet name
     ///
     /// that should be passed to [session_start]
@@ -247,14 +253,15 @@ impl SessionConfig {
         })
     }
 
-    /// Creates a new SessionConfig backed by RocksDb, with a UserId and a wallet name
+    /// Creates a new SessionConfig that tentatively saves data and/or session, with a UserId and a wallet name
     ///
+    /// the session might be downgraded to in_memory if the wallet was added with the in_memory option
     /// that should be passed to [session_start]
-    pub fn new_rocksdb(user_id: &UserId, wallet_name: &String) -> Self {
+    pub fn new_save(user_id: &UserId, wallet_name: &String) -> Self {
         SessionConfig::V0(SessionConfigV0 {
             user_id: user_id.clone(),
             wallet_name: wallet_name.clone(),
-            verifier_type: VerifierType::RocksDb,
+            verifier_type: VerifierType::Save,
         })
     }
 
@@ -273,6 +280,12 @@ impl SessionConfig {
         })
     }
 
+    fn force_in_memory(&mut self) {
+        match self {
+            Self::V0(v0) => v0.verifier_type = VerifierType::Memory,
+        }
+    }
+
     pub fn new_for_local_broker_config(
         user_id: &UserId,
         wallet_name: &String,
@@ -289,10 +302,10 @@ impl SessionConfig {
                     }
                     VerifierType::Memory
                 }
-                LocalBrokerConfig::JsStorage(js_config) => VerifierType::Memory,
-                LocalBrokerConfig::BasePath(_) => match in_memory {
+                LocalBrokerConfig::BasePath(_) | LocalBrokerConfig::JsStorage(_) => match in_memory
+                {
                     true => VerifierType::Memory,
-                    false => VerifierType::RocksDb,
+                    false => VerifierType::Save,
                 },
             },
         }))
@@ -310,11 +323,11 @@ impl SessionConfig {
                 }
                 LocalBrokerConfig::JsStorage(js_config) => match v0.verifier_type {
                     VerifierType::Memory | VerifierType::Remote(_) => true,
-                    VerifierType::RocksDb => false,
+                    VerifierType::Save => true,
                     VerifierType::WebRocksDb => js_config.is_browser,
                 },
                 LocalBrokerConfig::BasePath(_) => match v0.verifier_type {
-                    VerifierType::RocksDb | VerifierType::Remote(_) => true,
+                    VerifierType::Save | VerifierType::Remote(_) => true,
                     VerifierType::Memory => true,
                     _ => false,
                 },
@@ -423,14 +436,15 @@ impl LocalBroker {
         match (config.verifier_type(), &self.config) {
             (VerifierType::Memory, LocalBrokerConfig::InMemory) => VerifierConfigType::Memory,
             (VerifierType::Memory, LocalBrokerConfig::BasePath(_)) => VerifierConfigType::Memory,
-            (VerifierType::RocksDb, LocalBrokerConfig::BasePath(base)) => {
+            (VerifierType::Save, LocalBrokerConfig::BasePath(base)) => {
                 let mut path = base.clone();
                 path.push(format!("user{}", config.user_id().to_hash_string()));
                 VerifierConfigType::RocksDb(path)
             }
             (VerifierType::Remote(to), _) => VerifierConfigType::Remote(*to),
             (VerifierType::WebRocksDb, _) => VerifierConfigType::WebRocksDb,
-            (VerifierType::Memory, LocalBrokerConfig::JsStorage(js)) => {
+            (VerifierType::Memory, LocalBrokerConfig::JsStorage(_)) => VerifierConfigType::Memory,
+            (VerifierType::Save, LocalBrokerConfig::JsStorage(js)) => {
                 VerifierConfigType::JsSaveSession(js.get_js_storage_config())
             }
             (_, _) => panic!("invalid combination in verifier_config_type_from_session_config"),
@@ -524,7 +538,8 @@ impl LocalBroker {
             }
             #[cfg(target_family = "wasm")]
             {
-                panic!("no RocksDB in WASM");
+                Arc::new(std::sync::RwLock::new(HashMapBlockStorage::new()))
+                    as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
             }
         };
         let client = wallet.client().as_ref().unwrap().clone();
@@ -544,9 +559,21 @@ impl LocalBroker {
     ) -> Result<SessionInfo, NgError> {
         let broker = self;
 
+        let wallet_name: String = config.wallet_name();
+
+        {
+            match broker.wallets.get(&wallet_name) {
+                Some(closed_wallet) => {
+                    if closed_wallet.in_memory {
+                        config.force_in_memory();
+                    }
+                }
+                None => return Err(NgError::WalletNotFound),
+            }
+        }
+
         config.valid_verifier_config_for_local_broker_config(&broker.config)?;
 
-        let wallet_name: String = config.wallet_name();
         let wallet_id: PubKey = (*wallet_name).try_into()?;
         let user_id = config.user_id();
 
@@ -555,7 +582,7 @@ impl LocalBroker {
                 let ses = &(broker.opened_sessions_list)[*idx as usize];
                 match ses.as_ref() {
                     Some(sess) => {
-                        if sess.config.verifier_type() != config.verifier_type() {
+                        if !sess.config.is_memory() && config.is_memory() {
                             return Err(NgError::SessionAlreadyStarted);
                         } else {
                             return Ok(SessionInfo {
@@ -598,8 +625,7 @@ impl LocalBroker {
                     Some(session) => session,
                     None => {
                         // creating the session now
-                        let closed_wallet = broker.wallets.get(&wallet_name).unwrap();
-                        if closed_wallet.in_memory {
+                        if config.is_memory() {
                             let session = SessionPeerStorageV0::new(user_id);
                             broker.sessions.insert(user_id, session);
                             broker.sessions.get(&user_id).unwrap()
@@ -706,6 +732,11 @@ impl LocalBroker {
                     "NextGraph user_master_key BLAKE3 key",
                     key_material.as_slice(),
                 );
+                log_info!(
+                    "USER MASTER KEY {user_id} {} {:?}",
+                    user_id.to_hash_string(),
+                    key
+                );
                 key_material.zeroize();
                 let mut verifier = Verifier::new(
                     VerifierConfig {
@@ -741,10 +772,16 @@ impl LocalBroker {
     }
 
     pub(crate) fn wallet_save(broker: &mut Self) -> Result<(), NgError> {
+        let wallets_to_be_saved = broker
+            .wallets
+            .iter()
+            .filter(|(_, w)| !w.in_memory)
+            .map(|(a, b)| (a.clone(), b.clone()))
+            .collect();
         match &broker.config {
             LocalBrokerConfig::JsStorage(js_config) => {
                 // JS save
-                let lws_ser = LocalWalletStorage::v0_to_vec(&broker.wallets);
+                let lws_ser = LocalWalletStorage::v0_to_vec(&wallets_to_be_saved);
                 let encoded = base64_url::encode(&lws_ser);
                 (js_config.local_write)("ng_wallets".to_string(), encoded)?;
             }
@@ -755,7 +792,7 @@ impl LocalBroker {
                 std::fs::create_dir_all(path.clone()).unwrap();
                 path.push("wallets");
 
-                let lws_ser = LocalWalletStorage::v0_to_vec(&broker.wallets);
+                let lws_ser = LocalWalletStorage::v0_to_vec(&wallets_to_be_saved);
                 let r = write(path.clone(), &lws_ser);
                 if r.is_err() {
                     log_debug!("write {:?} {}", path, r.unwrap_err());
@@ -1192,6 +1229,7 @@ pub async fn user_connect_with_device_info(
                 let user_id = user.to_string();
                 let peer_key = &session.peer_key;
                 let peer_id = peer_key.to_pub();
+                log_info!("local peer_id {}", peer_id);
                 let site = wallet.sites.get(&user_id);
                 if site.is_none() {
                     result.push((

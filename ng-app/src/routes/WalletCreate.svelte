@@ -1526,13 +1526,12 @@
               <span>{emoji}</span><br />
             {/each}
             <br /><br />
-            Copy it on a piece of paper.<br /> Use that until you memorized it,<br
-            />
-            then throw it away.<br /> The order of each image is important.<br
-            />
-            Now click on "Continue to Login."<br /><br />It is important that
-            you login with this wallet at least once from this device<br />
-            (while connected to the internet), so that your personal site is created
+            Copy it on a piece of paper. Use that until you memorized it, then throw
+            it away.<br /> The order of each image is important!<br />
+            Now click on "Continue to Login" and select your wallet.<br /><br
+            />It is important that you login with this wallet at least once from
+            this {#if tauri_platform}device{:else}browser tab{/if},<br />
+            while connected to the internet, so your personal site can be created
             on your broker.<br /><br />
             <a href="/wallet/login" use:link>
               <button
