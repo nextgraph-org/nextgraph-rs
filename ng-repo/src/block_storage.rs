@@ -25,6 +25,11 @@ pub trait BlockStorage: Send + Sync {
     /// Load a block from the storage.
     fn get(&self, overlay: &OverlayId, id: &BlockId) -> Result<Block, StorageError>;
 
+    // fetch a block from broker or core overlay
+    // pub async fn fetch(&self, id: &BlockId) -> Result<Block, StorageError> {
+    //     todo!();
+    // }
+
     /// Save a block to the storage.
     fn put(&self, overlay: &OverlayId, block: &Block) -> Result<BlockId, StorageError>;
 

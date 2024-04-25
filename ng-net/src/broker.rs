@@ -23,7 +23,6 @@ use async_std::sync::{Arc, RwLock};
 use either::Either;
 use futures::channel::mpsc;
 use futures::SinkExt;
-use ng_repo::block_storage::HashMapBlockStorage;
 use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::object::Object;
@@ -452,10 +451,10 @@ impl<'a> Broker<'a> {
 
     // #[cfg(not(target_arch = "wasm32"))]
     // pub fn test_storage(&self, path: PathBuf) {
-    //     use ng_storage_rocksdb::kcv_store::RocksdbKCVStorage;
+    //     use ng_storage_rocksdb::kcv_store::RocksDbKCVStorage;
 
     //     let key: [u8; 32] = [0; 32];
-    //     let test_storage = RocksdbKCVStorage::open(&path, key);
+    //     let test_storage = RocksDbKCVStorage::open(&path, key);
     //     match test_storage {
     //         Err(e) => {
     //             log_debug!("storage error {}", e);

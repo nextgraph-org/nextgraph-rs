@@ -12,7 +12,7 @@
 //! WebSocket implementation of the Broker
 
 use crate::interfaces::*;
-use crate::server_storage::RocksdbServerStorage;
+use crate::server_storage::RocksDbServerStorage;
 use crate::types::*;
 use async_std::io::ReadExt;
 use async_std::net::{TcpListener, TcpStream};
@@ -586,7 +586,7 @@ pub async fn run_server_accept_one(
     // let master_key: [u8; 32] = [0; 32];
     // std::fs::create_dir_all(root.path()).unwrap();
     // log_debug!("data directory: {}", root.path().to_str().unwrap());
-    // let store = RocksdbKCVStorage::open(root.path(), master_key);
+    // let store = RocksDbKCVStorage::open(root.path(), master_key);
 
     let socket = TcpListener::bind(addrs.as_str()).await?;
     log_debug!("Listening on {}", addrs.as_str());
@@ -777,7 +777,7 @@ pub async fn run_server_v0(
         std::fs::create_dir_all(path.clone()).unwrap();
 
         // opening the server storage (that contains the encryption keys for each store/overlay )
-        let broker_storage = RocksdbServerStorage::open(
+        let broker_storage = RocksDbServerStorage::open(
             &mut path,
             wallet_master_key,
             if admin_invite {

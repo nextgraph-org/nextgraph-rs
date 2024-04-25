@@ -43,6 +43,10 @@ impl BlockV0 {
         b
     }
 
+    pub fn dummy() -> BlockV0 {
+        BlockV0::new(vec![], None, vec![], None)
+    }
+
     pub fn new_random_access(
         children: Vec<BlockId>,
         content: Vec<u8>,
@@ -113,6 +117,10 @@ impl Block {
         key: Option<SymKey>,
     ) -> Block {
         Block::V0(BlockV0::new(children, header_ref, content, key))
+    }
+
+    pub fn dummy() -> Block {
+        Block::V0(BlockV0::dummy())
     }
 
     pub fn new_random_access(

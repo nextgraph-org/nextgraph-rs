@@ -3421,6 +3421,7 @@ dependencies = [
  "blake3",
  "chacha20",
  "either",
+ "futures",
  "getrandom 0.2.10",
  "ng-net",
  "ng-repo",

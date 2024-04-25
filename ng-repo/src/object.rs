@@ -40,7 +40,7 @@ pub const DATA_VARINT_EXTRA: usize = 4;
 
 pub const BLOCK_MAX_DATA_EXTRA: usize = 4;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 /// An Object in memory. This is not used to serialize data
 pub struct Object {
     /// keeps the deduplicated blocks of the Object
@@ -491,13 +491,29 @@ impl Object {
                     panic!("shouldn't happen")
                 }
                 CommitHeaderObject::Id(id) => {
-                    let obj = Object::load(id, Some(header_ref.key.clone()), store)?;
-                    match obj.content()? {
-                        ObjectContent::V0(ObjectContentV0::CommitHeader(mut commit_header)) => {
-                            commit_header.set_id(id);
-                            (Some(commit_header), Some(obj.blocks().cloned().collect()))
+                    let obj_res = Object::load(id, Some(header_ref.key.clone()), store);
+                    match obj_res {
+                        Err(ObjectParseError::MissingBlocks(m)) => {
+                            return Err(ObjectParseError::MissingHeaderBlocks((
+                                Object {
+                                    blocks,
+                                    block_contents,
+                                    header: None,
+                                    header_blocks: vec![],
+                                    #[cfg(test)]
+                                    already_saved: false,
+                                },
+                                m,
+                            )));
                         }
-                        _ => return Err(ObjectParseError::InvalidHeader),
+                        Err(e) => return Err(e),
+                        Ok(obj) => match obj.content()? {
+                            ObjectContent::V0(ObjectContentV0::CommitHeader(mut commit_header)) => {
+                                commit_header.set_id(id);
+                                (Some(commit_header), Some(obj.blocks().cloned().collect()))
+                            }
+                            _ => return Err(ObjectParseError::InvalidHeader),
+                        },
                     }
                 }
                 CommitHeaderObject::EncryptedContent(content) => {

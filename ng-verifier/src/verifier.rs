@@ -10,6 +10,7 @@
 //! Repo object (on heap) to handle a Repository
 use crate::commits::*;
 use crate::types::*;
+use async_std::stream::StreamExt;
 use ng_net::actor::SoS;
 use ng_net::broker::{Broker, BROKER};
 use ng_repo::log::*;
@@ -35,7 +36,7 @@ use core::fmt;
 #[cfg(not(target_family = "wasm"))]
 use crate::rocksdb_user_storage::RocksDbUserStorage;
 use crate::user_storage::{InMemoryUserStorage, UserStorage};
-use async_std::sync::{Mutex, RwLockWriteGuard};
+use async_std::sync::{Mutex, RwLockReadGuard, RwLockWriteGuard};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use ng_net::{
@@ -169,8 +170,25 @@ impl Verifier {
         self.config.config_type.is_persistent()
     }
 
+    fn is_in_memory(&self) -> bool {
+        self.config.config_type.is_in_memory()
+    }
+
+    fn get_arc_block_storage(
+        &self,
+    ) -> Result<Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>, VerifierError> {
+        Ok(Arc::clone(
+            self.block_storage
+                .as_ref()
+                .ok_or(VerifierError::NoBlockStorageAvailable)?,
+        ))
+    }
+
     pub fn get_store_or_load(&mut self, store_repo: &StoreRepo) -> Arc<Store> {
         let overlay_id = store_repo.overlay_id_for_storage_purpose();
+        let block_storage = self
+            .get_arc_block_storage()
+            .expect("get_store_or_load cannot be called on Remote Verifier");
         let store = self.stores.entry(overlay_id).or_insert_with(|| {
             // FIXME: get store_readcap and store_overlay_branch_readcap from user storage
             let store_readcap = ReadCap::nil();
@@ -179,13 +197,7 @@ impl Verifier {
                 *store_repo,
                 store_readcap,
                 store_overlay_branch_readcap,
-                Arc::clone(
-                    &self
-                        .block_storage
-                        .as_ref()
-                        .ok_or(core::fmt::Error)
-                        .expect("get_store_or_load cannot be called on Remote Verifier"),
-                ),
+                block_storage,
             );
             Arc::new(store)
         });
@@ -260,9 +272,12 @@ impl Verifier {
         Ok(())
     }
 
-    pub fn get_store(&self, store_repo: &StoreRepo) -> Result<Arc<Store>, NgError> {
+    pub fn get_store(&self, store_repo: &StoreRepo) -> Result<Arc<Store>, VerifierError> {
         let overlay_id = store_repo.overlay_id_for_storage_purpose();
-        let store = self.stores.get(&overlay_id).ok_or(NgError::StoreNotFound)?;
+        let store = self
+            .stores
+            .get(&overlay_id)
+            .ok_or(VerifierError::StoreNotFound)?;
         Ok(Arc::clone(store))
     }
 
@@ -303,12 +318,15 @@ impl Verifier {
         repo_id: &RepoId,
         branch_id: &BranchId,
         current_heads: Vec<ObjectRef>,
-    ) -> Result<(), NgError> {
-        let repo = self.repos.get_mut(repo_id).ok_or(NgError::RepoNotFound)?;
+    ) -> Result<(), VerifierError> {
+        let repo = self
+            .repos
+            .get_mut(repo_id)
+            .ok_or(VerifierError::RepoNotFound)?;
         let branch = repo
             .branches
             .get_mut(branch_id)
-            .ok_or(NgError::BranchNotFound)?;
+            .ok_or(VerifierError::BranchNotFound)?;
         branch.current_heads = current_heads;
         Ok(())
     }
@@ -498,7 +516,7 @@ impl Verifier {
 
         if self.connected_server_id.is_some() {
             // send the event to the server already
-            let broker = BROKER.write().await;
+            let broker = BROKER.read().await;
             let user = self.config.user_priv_key.to_pub();
             let remote = self.connected_server_id.to_owned().unwrap();
             self.send_event(event, &broker, &user, &remote, overlay)
@@ -546,7 +564,7 @@ impl Verifier {
     async fn send_event<'a>(
         &mut self,
         event: Event,
-        broker: &RwLockWriteGuard<'a, Broker<'a>>,
+        broker: &RwLockReadGuard<'a, Broker<'a>>,
         user: &UserId,
         remote: &DirectPeerId,
         overlay: OverlayId,
@@ -665,20 +683,26 @@ impl Verifier {
         }
     }
 
+    fn user_storage_if_persistent(&self) -> Option<Arc<Box<dyn UserStorage>>> {
+        if self.is_persistent() {
+            if let Some(us) = self.user_storage.as_ref() {
+                Some(Arc::clone(us))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn add_branch_and_save(
         &mut self,
         repo_id: &RepoId,
         branch_info: BranchInfo,
         store_repo: &StoreRepo,
     ) -> Result<(), VerifierError> {
-        let user_storage = self
-            .user_storage
-            .as_ref()
-            .map(|us| Arc::clone(us))
-            .and_then(|u| if self.is_persistent() { Some(u) } else { None });
-
-        if user_storage.is_some() {
-            user_storage.unwrap().add_branch(repo_id, &branch_info)?;
+        if let Some(user_storage) = self.user_storage_if_persistent() {
+            user_storage.add_branch(repo_id, &branch_info)?;
         }
         let branch_id = branch_info.id.clone();
         let topic_id = branch_info.topic.clone();
@@ -702,56 +726,82 @@ impl Verifier {
         branch_id: &BranchId,
         store_repo: &StoreRepo,
     ) -> Result<(), VerifierError> {
-        let user_storage = self
-            .user_storage
-            .as_ref()
-            .map(|us| Arc::clone(us))
-            .and_then(|u| if self.is_persistent() { Some(u) } else { None });
-        if user_storage.is_some() {
+        if let Some(user_storage) = self.user_storage_if_persistent() {
             let repo = self.get_repo(repo_id, store_repo)?;
-            user_storage
-                .unwrap()
-                .add_branch(repo_id, repo.branch(branch_id)?)?;
+            user_storage.add_branch(repo_id, repo.branch(branch_id)?)?;
         }
         Ok(())
     }
 
     pub(crate) fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), VerifierError> {
-        let user_storage = self
-            .user_storage
-            .as_ref()
-            .map(|us| Arc::clone(us))
-            .and_then(|u| if self.is_persistent() { Some(u) } else { None });
-        if user_storage.is_some() {
-            user_storage.unwrap().update_signer_cap(signer_cap)?;
+        if let Some(user_storage) = self.user_storage_if_persistent() {
+            user_storage.update_signer_cap(signer_cap)?;
         }
         Ok(())
     }
 
     pub(crate) fn add_repo_and_save(&mut self, repo: Repo) -> &Repo {
-        let user_storage = self
-            .user_storage
-            .as_ref()
-            .map(|us| Arc::clone(us))
-            .and_then(|u| if self.is_persistent() { Some(u) } else { None });
+        let us = self.user_storage_if_persistent();
         let repo_ref: &Repo = self.add_repo_(repo);
         // save in user_storage
-        if user_storage.is_some() {
-            let _ = user_storage.unwrap().save_repo(repo_ref);
+        if let Some(user_storage) = us {
+            let _ = user_storage.save_repo(repo_ref);
         }
         repo_ref
     }
 
-    pub(crate) fn get_repo(&self, id: &RepoId, store_repo: &StoreRepo) -> Result<&Repo, NgError> {
+    pub(crate) fn get_repo(
+        &self,
+        id: &RepoId,
+        store_repo: &StoreRepo,
+    ) -> Result<&Repo, VerifierError> {
         //let store = self.get_store(store_repo);
-        let repo_ref = self.repos.get(id).ok_or(NgError::RepoNotFound);
+        let repo_ref = self.repos.get(id).ok_or(VerifierError::RepoNotFound);
         repo_ref
+    }
+
+    pub async fn bootstrap(&mut self) -> Result<(), NgError> {
+        if self.is_in_memory() {
+            // TODO only bootstrap if 3P stores of personal site not already loaded (by replay)
+
+            let broker = BROKER.read().await;
+            let user = self.config.user_priv_key.to_pub();
+            let remote = self.connected_server_id.to_owned().unwrap();
+            let read_cap = self.config.private_store_read_cap.as_ref().unwrap();
+            // first we fetch the read_cap commit of private store repo.
+            let msg = CommitGet::V0(CommitGetV0 {
+                id: read_cap.id,
+                topic: None, // we dont have the topic (only available from RepoLink/BranchLink) but we are pretty sure the Broker has the commit anyway.
+                overlay: Some(OverlayId::outer(
+                    self.config.private_store_id.as_ref().unwrap(),
+                )),
+            });
+            match broker
+                .request::<CommitGet, Block>(&user, &remote, msg)
+                .await
+            {
+                Err(NgError::ServerError(ServerError::NotFound)) => {
+                    // TODO: fallback to BlockGet, then Commit::load(with_body:true), which will return an Err(CommitLoadError::MissingBlocks), then do another BlockGet with those, and then again Commit::load...
+                    return Err(NgError::SiteNotFoundOnBroker);
+                }
+                Ok(SoS::Stream(mut blockstream)) => {
+                    while let Some(block) = blockstream.next().await {
+                        log_info!("GOT BLOCK {:?}", block);
+                    }
+                    Ok(())
+                }
+                Ok(_) => return Err(NgError::InvalidResponse),
+                Err(e) => return Err(e),
+            }
+        } else {
+            Ok(())
+        }
     }
 
     fn load_from_credentials_and_events(
         &mut self,
         events: &Vec<EventOutboxStorage>,
-    ) -> Result<(), NgError> {
+    ) -> Result<(), VerifierError> {
         let private_store_id = self.config.private_store_id.as_ref().unwrap();
         let private_outer_overlay_id = OverlayId::outer(private_store_id);
         let private_inner_overlay_id = OverlayId::inner(
@@ -767,13 +817,7 @@ impl Verifier {
             store_repo,
             self.config.private_store_read_cap.to_owned().unwrap(),
             self.config.private_store_read_cap.to_owned().unwrap(),
-            Arc::clone(
-                &self
-                    .block_storage
-                    .as_ref()
-                    .ok_or(core::fmt::Error)
-                    .expect("couldn't get the block_storage"),
-            ),
+            self.get_arc_block_storage()?,
         ));
 
         let store = self
@@ -946,7 +990,7 @@ impl Verifier {
 
     pub async fn send_outbox(&mut self) -> Result<(), NgError> {
         let events: Vec<EventOutboxStorage> = self.take_events_from_outbox()?;
-        let broker = BROKER.write().await;
+        let broker = BROKER.read().await;
         let user = self.config.user_priv_key.to_pub();
         let remote = self
             .connected_server_id
@@ -1191,14 +1235,7 @@ impl Verifier {
         &mut self,
         update: &StoreUpdate,
     ) -> Result<(), VerifierError> {
-        let store = Store::new_from(
-            update,
-            Arc::clone(
-                self.block_storage
-                    .as_ref()
-                    .ok_or(VerifierError::NoBlockStorageAvailable)?,
-            ),
-        );
+        let store = Store::new_from(update, self.get_arc_block_storage()?);
         let overlay_id = store.get_store_repo().overlay_id_for_storage_purpose();
         let store = self
             .stores
@@ -1220,6 +1257,7 @@ impl Verifier {
             true => SymKey::nil(),
         };
         let overlay_id = store_repo.overlay_id_for_storage_purpose();
+        let block_storage = self.get_arc_block_storage()?;
         let store = self.stores.entry(overlay_id).or_insert_with(|| {
             let store_readcap = ReadCap::nil();
             // temporarily set the store_overlay_branch_readcap to an objectRef that has an empty id, and a key = to the repo_write_cap_secret
@@ -1229,13 +1267,7 @@ impl Verifier {
                 *store_repo,
                 store_readcap,
                 store_overlay_branch_readcap,
-                Arc::clone(
-                    &self
-                        .block_storage
-                        .as_ref()
-                        .ok_or(core::fmt::Error)
-                        .expect("get_store_or_load cannot be called on Remote Verifier"),
-                ),
+                block_storage,
             );
             Arc::new(store)
         });

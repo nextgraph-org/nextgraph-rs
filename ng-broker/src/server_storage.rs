@@ -25,17 +25,20 @@ use ng_repo::errors::{ProtocolError, ServerError, StorageError};
 use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::log::*;
 use ng_repo::types::*;
-use ng_storage_rocksdb::kcv_storage::RocksdbKCVStorage;
+use ng_storage_rocksdb::block_storage::RocksDbBlockStorage;
+use ng_storage_rocksdb::kcv_storage::RocksDbKCVStorage;
 
-pub struct RocksdbServerStorage {
-    wallet_storage: RocksdbKCVStorage,
-    accounts_storage: RocksdbKCVStorage,
-    peers_storage: RocksdbKCVStorage,
+pub struct RocksDbServerStorage {
+    wallet_storage: RocksDbKCVStorage,
+    accounts_storage: RocksDbKCVStorage,
+    peers_storage: RocksDbKCVStorage,
     peers_last_seq_path: PathBuf,
     peers_last_seq: Mutex<HashMap<PeerId, u64>>,
+    block_storage: RocksDbBlockStorage,
+    core_storage: RocksDbKCVStorage,
 }
 
-impl RocksdbServerStorage {
+impl RocksDbServerStorage {
     pub fn open(
         path: &mut PathBuf,
         master_key: SymKey,
@@ -47,7 +50,7 @@ impl RocksdbServerStorage {
         std::fs::create_dir_all(wallet_path.clone()).unwrap();
         log_debug!("opening wallet DB");
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let wallet_storage = RocksdbKCVStorage::open(&wallet_path, master_key.slice().clone())?;
+        let wallet_storage = RocksDbKCVStorage::open(&wallet_path, master_key.slice().clone())?;
         let wallet = Wallet::open(&wallet_storage);
 
         // create/open the ACCOUNTS storage
@@ -59,7 +62,7 @@ impl RocksdbServerStorage {
             accounts_key = wallet.create_accounts_key()?;
             std::fs::create_dir_all(accounts_path.clone()).unwrap();
             let accounts_storage =
-                RocksdbKCVStorage::open(&accounts_path, accounts_key.slice().clone())?;
+                RocksDbKCVStorage::open(&accounts_path, accounts_key.slice().clone())?;
             let symkey = SymKey::random();
             let invite_code = InvitationCode::Admin(symkey.clone());
             let _ = Invitation::create(
@@ -87,7 +90,7 @@ impl RocksdbServerStorage {
         std::fs::create_dir_all(accounts_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
         let accounts_storage =
-            RocksdbKCVStorage::open(&accounts_path, accounts_key.slice().clone())?;
+            RocksDbKCVStorage::open(&accounts_path, accounts_key.slice().clone())?;
 
         // create/open the PEERS storage
         log_debug!("opening peers DB");
@@ -96,24 +99,42 @@ impl RocksdbServerStorage {
         peers_path.push("peers");
         std::fs::create_dir_all(peers_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let peers_storage = RocksdbKCVStorage::open(&peers_path, peers_key.slice().clone())?;
+        let peers_storage = RocksDbKCVStorage::open(&peers_path, peers_key.slice().clone())?;
 
         // creates the path for peers_last_seq
         let mut peers_last_seq_path = path.clone();
         peers_last_seq_path.push("peers_last_seq");
         std::fs::create_dir_all(peers_last_seq_path.clone()).unwrap();
 
-        Ok(RocksdbServerStorage {
+        // opening block_storage
+        let mut blocks_path = path.clone();
+        blocks_path.push("blocks");
+        std::fs::create_dir_all(blocks_path.clone()).unwrap();
+        let blocks_key = wallet.get_or_create_blocks_key()?;
+        let block_storage = RocksDbBlockStorage::open(&blocks_path, *blocks_key.slice())?;
+
+        // create/open the PEERS storage
+        log_debug!("opening core DB");
+        let core_key = wallet.get_or_create_core_key()?;
+        let mut core_path = path.clone();
+        core_path.push("core");
+        std::fs::create_dir_all(core_path.clone()).unwrap();
+        //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
+        let core_storage = RocksDbKCVStorage::open(&core_path, core_key.slice().clone())?;
+
+        Ok(RocksDbServerStorage {
             wallet_storage,
             accounts_storage,
             peers_storage,
             peers_last_seq_path,
             peers_last_seq: Mutex::new(HashMap::new()),
+            block_storage,
+            core_storage,
         })
     }
 }
 
-impl ServerStorage for RocksdbServerStorage {
+impl ServerStorage for RocksDbServerStorage {
     fn next_seq_for_peer(&self, peer: &PeerId, seq: u64) -> Result<(), ServerError> {
         // for now we don't use the hashmap.
         // TODO: let's see if the lock is even needed
@@ -247,5 +268,10 @@ impl ServerStorage for RocksdbServerStorage {
             known_heads: vec![],
             publisher: publisher.is_some(),
         }))
+    }
+
+    fn get_commit(&self, overlay: &OverlayId, id: &ObjectId) -> Result<Vec<Block>, ServerError> {
+        //TODO: implement correctly !
+        Ok(vec![Block::dummy()])
     }
 }

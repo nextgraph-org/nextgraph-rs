@@ -23,7 +23,7 @@ use rocksdb::{
 };
 
 pub struct RocksdbTransaction<'a> {
-    store: &'a RocksdbKCVStorage,
+    store: &'a RocksDbKCVStorage,
     tx: Option<rocksdb::Transaction<'a, TransactionDB>>,
 }
 
@@ -64,7 +64,7 @@ impl<'a> ReadTransaction for RocksdbTransaction<'a> {
         family: &Option<String>,
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError> {
         let property_start =
-            RocksdbKCVStorage::calc_key_start(prefix, key_size, &key_prefix, &suffix);
+            RocksDbKCVStorage::calc_key_start(prefix, key_size, &key_prefix, &suffix);
         let iter = self.get_iterator(&property_start, &family)?;
         self.store
             .get_all_keys_and_values_(prefix, key_size, key_prefix, suffix, iter)
@@ -79,7 +79,7 @@ impl<'a> ReadTransaction for RocksdbTransaction<'a> {
     ) -> Result<HashMap<u8, Vec<u8>>, StorageError> {
         let key_size = key.len();
         let prop_values = self.get_all_keys_and_values(prefix, key_size, key, None, family)?;
-        Ok(RocksdbKCVStorage::get_all_properties_of_key(
+        Ok(RocksDbKCVStorage::get_all_properties_of_key(
             prop_values,
             key_size,
             &properties,
@@ -94,7 +94,7 @@ impl<'a> ReadTransaction for RocksdbTransaction<'a> {
         suffix: Option<u8>,
         family: &Option<String>,
     ) -> Result<Vec<u8>, StorageError> {
-        let property = RocksdbKCVStorage::compute_property(prefix, key, &suffix);
+        let property = RocksDbKCVStorage::compute_property(prefix, key, &suffix);
         let res = match family {
             Some(cf) => self.tx().get_for_update_cf(
                 self.store
@@ -152,7 +152,7 @@ impl<'a> WriteTransaction for RocksdbTransaction<'a> {
         value: &Vec<u8>,
         family: &Option<String>,
     ) -> Result<(), StorageError> {
-        let property = RocksdbKCVStorage::compute_property(prefix, key, &suffix);
+        let property = RocksDbKCVStorage::compute_property(prefix, key, &suffix);
         match family {
             Some(cf) => self.tx().put_cf(
                 self.store
@@ -189,7 +189,7 @@ impl<'a> WriteTransaction for RocksdbTransaction<'a> {
         suffix: Option<u8>,
         family: &Option<String>,
     ) -> Result<(), StorageError> {
-        let property = RocksdbKCVStorage::compute_property(prefix, key, &suffix);
+        let property = RocksDbKCVStorage::compute_property(prefix, key, &suffix);
         let res = match family {
             Some(cf) => self.tx().delete_cf(
                 self.store
@@ -253,7 +253,7 @@ impl<'a> WriteTransaction for RocksdbTransaction<'a> {
         family: &Option<String>,
     ) -> Result<(), StorageError> {
         let key_size = key.len() + property_size;
-        let property_start = RocksdbKCVStorage::calc_key_start(prefix, key_size, &key, &suffix);
+        let property_start = RocksDbKCVStorage::calc_key_start(prefix, key_size, &key, &suffix);
         let mut iter = self.get_iterator(&property_start, &family)?;
 
         let mut vec_key_end = key.clone();
@@ -261,7 +261,7 @@ impl<'a> WriteTransaction for RocksdbTransaction<'a> {
         vec_key_end.append(&mut trailing_max);
 
         // let property_start = Self::compute_property(prefix, &vec_key_start, suffix);
-        let property_end = RocksdbKCVStorage::compute_property(
+        let property_end = RocksDbKCVStorage::compute_property(
             prefix,
             &vec_key_end,
             &Some(suffix.unwrap_or(255u8)),
@@ -299,7 +299,7 @@ impl<'a> WriteTransaction for RocksdbTransaction<'a> {
     }
 }
 
-pub struct RocksdbKCVStorage {
+pub struct RocksDbKCVStorage {
     /// the main store where all the properties of keys are stored
     db: TransactionDB,
     /// path for the storage backend data
@@ -320,7 +320,7 @@ fn compare<T: Ord>(a: &[T], b: &[T]) -> std::cmp::Ordering {
     return a.len().cmp(&b.len());
 }
 
-impl ReadTransaction for RocksdbKCVStorage {
+impl ReadTransaction for RocksDbKCVStorage {
     /// returns a list of (key,value) that are in the range specified in the request
     fn get_all_keys_and_values(
         &self,
@@ -407,7 +407,7 @@ impl ReadTransaction for RocksdbKCVStorage {
     }
 }
 
-impl KCVStorage for RocksdbKCVStorage {
+impl KCVStorage for RocksDbKCVStorage {
     fn write_transaction(
         &self,
         method: &mut dyn FnMut(&mut dyn WriteTransaction) -> Result<(), StorageError>,
@@ -427,7 +427,7 @@ impl KCVStorage for RocksdbKCVStorage {
     }
 }
 
-impl WriteTransaction for RocksdbKCVStorage {
+impl WriteTransaction for RocksDbKCVStorage {
     /// Save a property value to the store.
     fn put(
         &self,
@@ -508,7 +508,7 @@ impl WriteTransaction for RocksdbKCVStorage {
     }
 }
 
-impl RocksdbKCVStorage {
+impl RocksDbKCVStorage {
     pub fn path(&self) -> PathBuf {
         PathBuf::from(&self.path)
     }
@@ -652,7 +652,7 @@ impl RocksdbKCVStorage {
 
     /// Opens the store and returns a KCVStorage object that should be kept and used to manipulate the properties
     /// The key is the encryption key for the data at rest.
-    pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<RocksdbKCVStorage, StorageError> {
+    pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<RocksDbKCVStorage, StorageError> {
         let mut opts = Options::default();
         //opts.set_use_fsync(true);
         opts.create_if_missing(true);
@@ -668,7 +668,7 @@ impl RocksdbKCVStorage {
             Env::version()
         );
 
-        Ok(RocksdbKCVStorage {
+        Ok(RocksDbKCVStorage {
             db: db,
             path: path.to_str().unwrap().to_string(),
         })

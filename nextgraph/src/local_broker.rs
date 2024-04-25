@@ -113,7 +113,7 @@ impl JsStorageConfig {
                     let start_key = format!("ng_outboxes@{}@start", peer_id);
                     let res = (session_read4)(start_key.clone());
                     let _start = match res {
-                        Err(_) => return Err(NgError::NotFound),
+                        Err(_) => return Err(NgError::JsStorageKeyNotFound),
                         Ok(start_str) => start_str
                             .parse::<u64>()
                             .map_err(|_| NgError::InvalidFileFormat)?,
@@ -1310,6 +1310,11 @@ pub async fn user_connect_with_device_info(
                                     log_info!("SENDING EVENTS FROM OUTBOX: {:?}", res);
 
                                     // TODO: load verifier from remote connection (if not RocksDb type)
+                                    if let Err(e) = session.verifier.bootstrap().await {
+                                        session.verifier.connected_server_id = None;
+                                        Broker::close_all_connections().await;
+                                        tried.as_mut().unwrap().3 = Some(e.to_string());
+                                    }
 
                                     break;
                                 } else {

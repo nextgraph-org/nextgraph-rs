@@ -300,7 +300,7 @@ impl NoiseFSM {
         if in_reply_to != 0 {
             msg.set_id(in_reply_to);
         }
-        log_debug!("SENDING: {:?}", msg);
+        log_info!("SENDING: {:?}", msg);
         if self.noise_cipher_state_enc.is_some() {
             let cipher = self.encrypt(msg)?;
             self.sender

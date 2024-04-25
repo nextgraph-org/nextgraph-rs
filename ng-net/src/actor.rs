@@ -14,6 +14,7 @@
 use async_std::stream::StreamExt;
 use async_std::sync::Mutex;
 use futures::{channel::mpsc, SinkExt};
+use ng_repo::log::*;
 use std::any::TypeId;
 use std::sync::Arc;
 
@@ -128,7 +129,10 @@ impl<
                         && TypeId::of::<B>() != TypeId::of::<()>()
                     {
                         let (mut b_sender, b_receiver) = mpsc::unbounded::<B>();
-                        let response = msg.try_into().map_err(|_e| ProtocolError::ActorError)?;
+                        let response = msg.try_into().map_err(|e| {
+                            log_err!("msg.try_into {}", e);
+                            ProtocolError::ActorError
+                        })?;
                         b_sender
                             .send(response)
                             .await

@@ -2924,6 +2924,39 @@ impl BlockGet {
     }
 }
 
+/// Request a Commit by ID
+///
+/// commit_header_key is always set to None in the reply when request is made on OuterOverlay of protected or Group overlays
+/// The difference with BlockGet is that the Broker will try to return all the commit blocks as they were sent in the Pub/Sub Event, if it has it.
+/// This will help in having all the blocks (including the header and body blocks), while a BlockGet would inevitably return only the blocks of the ObjectContent,
+/// and not the header nor the body. And the load() would fail with CommitLoadError::MissingBlocks. That's what happens when the Commit is not present in the pubsub,
+/// and we need to default to using BlockGet instead.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CommitGetV0 {
+    /// Block IDs to request
+    pub id: ObjectId,
+
+    /// Topic the commit is referenced from, if it is known by the requester.
+    /// can be used to do a BlockSearchTopic in the core overlay.
+    pub topic: Option<TopicId>,
+
+    #[serde(skip)]
+    pub overlay: Option<OverlayId>,
+}
+
+/// Request a Commit by ID (see [CommitGetV0] for more details)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CommitGet {
+    V0(CommitGetV0),
+}
+impl CommitGet {
+    pub fn id(&self) -> &ObjectId {
+        match self {
+            CommitGet::V0(o) => &o.id,
+        }
+    }
+}
+
 /// Request to store one or more blocks
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlocksPutV0 {
@@ -3052,6 +3085,7 @@ pub enum ClientRequestContentV0 {
 
     BlocksExist(BlocksExist),
     BlockGet(BlockGet),
+    CommitGet(CommitGet),
     TopicSyncReq(TopicSyncReq),
 
     // For Pinned Repos only :
@@ -3071,6 +3105,7 @@ impl ClientRequestContentV0 {
             ClientRequestContentV0::TopicSub(a) => a.set_overlay(overlay),
             ClientRequestContentV0::PinRepo(a) => {}
             ClientRequestContentV0::PublishEvent(a) => a.set_overlay(overlay),
+            ClientRequestContentV0::CommitGet(a) => a.set_overlay(overlay),
             _ => unimplemented!(),
         }
     }
@@ -3117,6 +3152,7 @@ impl ClientRequest {
                 ClientRequestContentV0::PinRepo(r) => r.get_actor(self.id()),
                 ClientRequestContentV0::TopicSub(r) => r.get_actor(self.id()),
                 ClientRequestContentV0::PublishEvent(r) => r.get_actor(self.id()),
+                ClientRequestContentV0::CommitGet(r) => r.get_actor(self.id()),
                 _ => unimplemented!(),
             },
         }
@@ -3251,6 +3287,14 @@ pub struct ClientResponseV0 {
     pub content: ClientResponseContentV0,
 }
 
+impl ClientResponse {
+    pub fn set_result(&mut self, res: u16) {
+        match self {
+            Self::V0(v0) => v0.result = res,
+        }
+    }
+}
+
 /// Response to a `ClientRequest`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientResponse {
@@ -3280,7 +3324,7 @@ where
 }
 
 impl From<()> for ProtocolMessage {
-    fn from(msg: ()) -> ProtocolMessage {
+    fn from(_msg: ()) -> ProtocolMessage {
         let cm: ClientResponse = ServerError::Ok.into();
         cm.into()
     }
@@ -3327,7 +3371,8 @@ impl TryFrom<ProtocolMessage> for ClientResponseContentV0 {
             ..
         })) = msg
         {
-            if res == 0 {
+            let err = ServerError::try_from(res).unwrap();
+            if !err.is_err() {
                 Ok(content)
             } else {
                 Err(ProtocolError::ServerError)
@@ -3768,6 +3813,16 @@ impl ProtocolMessage {
             })),
             padding: vec![],
         }))
+    }
+}
+
+impl From<ClientResponseContentV0> for ClientResponse {
+    fn from(msg: ClientResponseContentV0) -> ClientResponse {
+        ClientResponse::V0(ClientResponseV0 {
+            id: 0,
+            result: 0,
+            content: msg,
+        })
     }
 }
 

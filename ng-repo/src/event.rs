@@ -213,7 +213,7 @@ impl EventV0 {
     //             first_id = Some(id)
     //         }
     //     }
-    //     first_id.ok_or(NgError::CommitLoadError(CommitLoadError::NotACommitError))
+    //     first_id.ok_or(NgError::CommitLoadError(CommitLoadError::NotACommit))
     // }
 
     /// opens an event with the key derived from information kept in Repo.

@@ -10,6 +10,7 @@
 //! Errors
 
 pub use crate::commit::{CommitLoadError, CommitVerifyError};
+use crate::object::Object;
 use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
 
@@ -35,8 +36,10 @@ pub enum NgError {
     PermissionDenied,
     InvalidPazzle,
     CommitLoadError(CommitLoadError),
+    ObjectParseError(ObjectParseError),
     StorageError(StorageError),
     NotFound,
+    JsStorageKeyNotFound,
     IoError,
     CommitVerifyError(CommitVerifyError),
     LocalBrokerNotInitialized,
@@ -62,6 +65,7 @@ pub enum NgError {
     InvalidResponse,
     NotAServerError,
     VerifierError(VerifierError),
+    SiteNotFoundOnBroker,
 }
 
 impl Error for NgError {}
@@ -70,6 +74,7 @@ impl fmt::Display for NgError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::WalletError(string) => write!(f, "WalletError: {}", string),
+            Self::JsStorageWriteError(string) => write!(f, "JsStorageWriteError: {}", string),
             _ => write!(f, "{:?}", self),
         }
     }
@@ -149,7 +154,18 @@ impl From<StorageError> for NgError {
 
 impl From<VerifierError> for NgError {
     fn from(e: VerifierError) -> Self {
-        NgError::VerifierError(e)
+        match e {
+            VerifierError::InvalidKey => NgError::InvalidKey,
+            VerifierError::SerializationError => NgError::SerializationError,
+            VerifierError::CommitLoadError(e) => NgError::CommitLoadError(e),
+            VerifierError::StorageError(e) => NgError::StorageError(e),
+            VerifierError::ObjectParseError(e) => NgError::ObjectParseError(e),
+            VerifierError::TopicNotFound => NgError::TopicNotFound,
+            VerifierError::RepoNotFound => NgError::RepoNotFound,
+            VerifierError::StoreNotFound => NgError::StoreNotFound,
+            VerifierError::BranchNotFound => NgError::BranchNotFound,
+            _ => NgError::VerifierError(e),
+        }
     }
 }
 
@@ -172,6 +188,8 @@ pub enum ObjectParseError {
     BlockDeserializeError,
     /// Error deserializing content of the object
     ObjectDeserializeError,
+
+    MissingHeaderBlocks((Object, Vec<BlockId>)),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -211,6 +229,8 @@ pub enum ServerError {
     SequenceMismatch,
     FileError,
     RepoAlreadyOpened,
+    NotFound,
+    EmptyStream,
 }
 
 impl ServerError {
@@ -218,7 +238,7 @@ impl ServerError {
         *self == ServerError::PartialContent || *self == ServerError::EndOfStream
     }
     pub fn is_err(&self) -> bool {
-        *self != ServerError::Ok
+        *self != ServerError::Ok && !self.is_stream()
     }
 }
 
@@ -228,6 +248,7 @@ pub enum VerifierError {
     MissingCommitInDag,
     CommitBodyNotFound,
     InvalidKey,
+    SerializationError,
     OtherError(String),
     CommitLoadError(CommitLoadError),
     InvalidRepositoryCommit,
@@ -240,6 +261,8 @@ pub enum VerifierError {
     MalformedSyncSignatureDeps,
     TopicNotFound,
     RepoNotFound,
+    StoreNotFound,
+    BranchNotFound,
     InvalidBranch,
     NoBlockStorageAvailable,
     RootBranchNotFound,
@@ -250,6 +273,12 @@ impl From<NgError> for VerifierError {
         match e {
             NgError::InvalidKey => VerifierError::InvalidKey,
             NgError::RepoNotFound => VerifierError::RepoNotFound,
+            NgError::BranchNotFound => VerifierError::BranchNotFound,
+            NgError::SerializationError => VerifierError::SerializationError,
+            // NgError::JsStorageReadError
+            // NgError::JsStorageWriteError(String)
+            // NgError::JsStorageKeyNotFound
+            // NgError::InvalidFileFormat
             _ => VerifierError::OtherError(e.to_string()),
         }
     }

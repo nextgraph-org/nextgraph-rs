@@ -105,6 +105,7 @@ impl fmt::Debug for JsSaveSessionConfig {
 pub enum VerifierConfigType {
     /// nothing will be saved on disk during the session
     Memory,
+    /// only the session information is saved locally. the UserStorage is not saved.
     JsSaveSession(JsSaveSessionConfig),
     /// will save all user data locally, with RocksDb backend
     RocksDb(PathBuf),
@@ -127,6 +128,13 @@ impl VerifierConfigType {
     pub(crate) fn is_persistent(&self) -> bool {
         match self {
             Self::RocksDb(_) => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_in_memory(&self) -> bool {
+        match self {
+            Self::Memory | Self::JsSaveSession(_) => true,
             _ => false,
         }
     }

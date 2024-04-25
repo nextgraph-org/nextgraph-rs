@@ -17,7 +17,7 @@ use ng_repo::block_storage::BlockStorage;
 use ng_repo::repo::{BranchInfo, Repo};
 use ng_repo::store::Store;
 use ng_repo::{errors::StorageError, types::*};
-use ng_storage_rocksdb::kcv_storage::RocksdbKCVStorage;
+use ng_storage_rocksdb::kcv_storage::RocksDbKCVStorage;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::{
@@ -27,13 +27,13 @@ use std::{
 };
 
 pub(crate) struct RocksDbUserStorage {
-    user_storage: RocksdbKCVStorage,
+    user_storage: RocksDbKCVStorage,
 }
 
 impl RocksDbUserStorage {
     pub fn open(path: &PathBuf, master_key: [u8; 32]) -> Result<Self, StorageError> {
         Ok(RocksDbUserStorage {
-            user_storage: RocksdbKCVStorage::open(path, master_key)?,
+            user_storage: RocksDbKCVStorage::open(path, master_key)?,
         })
     }
 }

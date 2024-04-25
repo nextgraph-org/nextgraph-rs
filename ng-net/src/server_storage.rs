@@ -58,4 +58,6 @@ pub trait ServerStorage: Send + Sync {
         topic: &TopicId,
         publisher: Option<&PublisherAdvert>,
     ) -> Result<TopicSubRes, ServerError>;
+
+    fn get_commit(&self, overlay: &OverlayId, id: &ObjectId) -> Result<Vec<Block>, ServerError>;
 }

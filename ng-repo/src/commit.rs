@@ -30,13 +30,12 @@ use std::iter::FromIterator;
 pub enum CommitLoadError {
     MissingBlocks(Vec<BlockId>),
     ObjectParseError,
-    NotACommitError,
-    NotACommitBodyError,
+    NotACommit,
+    NotACommitBody,
     CannotBeAtRootOfBranch,
     MustBeAtRootOfBranch,
     SingletonCannotHaveHeader,
-    BodyLoadError(Vec<BlockId>),
-    HeaderLoadError,
+    MalformedHeader,
     BodyTypeMismatch,
 }
 
@@ -45,7 +44,6 @@ pub enum CommitVerifyError {
     InvalidSignature,
     InvalidHeader,
     PermissionDenied,
-    DepLoadError(CommitLoadError),
 }
 
 impl CommitV0 {
@@ -308,13 +306,36 @@ impl Commit {
     ) -> Result<Commit, CommitLoadError> {
         let (id, key) = (commit_ref.id, commit_ref.key);
         match Object::load(id, Some(key.clone()), store) {
+            Err(ObjectParseError::MissingHeaderBlocks((obj, mut missing))) => {
+                if with_body {
+                    let content = obj
+                        .content()
+                        .map_err(|_e| CommitLoadError::ObjectParseError)?;
+                    let mut commit = match content {
+                        ObjectContent::V0(ObjectContentV0::Commit(c)) => c,
+                        _ => return Err(CommitLoadError::NotACommit),
+                    };
+                    commit.set_id(id);
+                    commit.set_key(key.clone());
+                    match commit.load_body(store) {
+                        Ok(_) => return Err(CommitLoadError::MissingBlocks(missing)),
+                        Err(CommitLoadError::MissingBlocks(mut missing_body)) => {
+                            missing.append(&mut missing_body);
+                            return Err(CommitLoadError::MissingBlocks(missing));
+                        }
+                        Err(e) => return Err(e),
+                    }
+                } else {
+                    return Err(CommitLoadError::MissingBlocks(missing));
+                }
+            }
             Ok(obj) => {
                 let content = obj
                     .content()
                     .map_err(|_e| CommitLoadError::ObjectParseError)?;
                 let mut commit = match content {
                     ObjectContent::V0(ObjectContentV0::Commit(c)) => c,
-                    _ => return Err(CommitLoadError::NotACommitError),
+                    _ => return Err(CommitLoadError::NotACommit),
                 };
                 commit.set_id(id);
                 commit.set_key(key.clone());
@@ -341,7 +362,7 @@ impl Commit {
         let content = self.content_v0();
         let (id, key) = (content.body.id, content.body.key.clone());
         let obj = Object::load(id.clone(), Some(key.clone()), store).map_err(|e| match e {
-            ObjectParseError::MissingBlocks(missing) => CommitLoadError::BodyLoadError(missing),
+            ObjectParseError::MissingBlocks(missing) => CommitLoadError::MissingBlocks(missing),
             _ => CommitLoadError::ObjectParseError,
         })?;
         let content = obj
@@ -352,7 +373,7 @@ impl Commit {
                 self.set_body(body);
                 Ok(self.body().unwrap())
             }
-            _ => Err(CommitLoadError::NotACommitBodyError),
+            _ => Err(CommitLoadError::NotACommitBody),
         }
     }
 
@@ -448,7 +469,7 @@ impl Commit {
                 // load deps (the previous RootBranch commit)
                 let deps = self.deps();
                 if deps.len() != 1 {
-                    Err(CommitLoadError::HeaderLoadError)
+                    Err(CommitLoadError::MalformedHeader)
                 } else {
                     let previous_rootbranch_commit = Commit::load(deps[0].clone(), store, true)?;
                     let previous_rootbranch = previous_rootbranch_commit
@@ -472,7 +493,7 @@ impl Commit {
                         return Ok(false);
                     }
                 }
-                Err(CommitLoadError::HeaderLoadError)
+                Err(CommitLoadError::MalformedHeader)
             }
             CommitBody::V0(CommitBodyV0::Delete(_)) => Ok(true),
             _ => Ok(false),
@@ -623,7 +644,7 @@ impl Commit {
     ) -> Result<Vec<ObjectId>, CommitLoadError> {
         //log_debug!(">> verify_full_object_refs_of_branch_at_commit: #{}", self.seq());
 
-        /// Load `Commit`s of a `Branch` from the `BlockStorage` starting from the given `Commit`,
+        /// Load `Commit`s of a `Branch` from the `Store` starting from the given `Commit`,
         /// and collect missing `ObjectId`s
         fn load_direct_object_refs(
             commit: &Commit,
@@ -658,7 +679,7 @@ impl Commit {
                 Err(CommitLoadError::MissingBlocks(m)) => {
                     // The commit body is missing.
                     missing.extend(m.clone());
-                    Err(CommitLoadError::BodyLoadError(m))
+                    Err(CommitLoadError::MissingBlocks(m))
                 }
                 Err(e) => Err(e),
             }?;
@@ -1551,14 +1572,11 @@ mod test {
 
         let obj = Object::new(content.clone(), None, max_object_size, &store);
 
-        let hashmap_storage = HashMapBlockStorage::new();
-        let storage = Box::new(hashmap_storage);
-
         _ = obj.save(&store).expect("save object");
 
         let commit = Commit::load(obj.reference().unwrap(), &store, false);
 
-        assert_eq!(commit, Err(CommitLoadError::NotACommitError));
+        assert_eq!(commit, Err(CommitLoadError::NotACommit));
     }
 
     #[test]
@@ -1649,7 +1667,7 @@ mod test {
 
         // match commit.load_body(repo.store.unwrap()) {
         //     Ok(_b) => panic!("Body should not exist"),
-        //     Err(CommitLoadError::BodyLoadError(missing)) => {
+        //     Err(CommitLoadError::MissingBlocks(missing)) => {
         //         assert_eq!(missing.len(), 1);
         //     }
         //     Err(e) => panic!("Commit load error: {:?}", e),
@@ -1658,7 +1676,7 @@ mod test {
         commit.verify_sig(&repo).expect("verify signature");
         match commit.verify_perm(&repo) {
             Ok(_) => panic!("Commit should not be Ok"),
-            Err(NgError::CommitLoadError(CommitLoadError::BodyLoadError(missing))) => {
+            Err(NgError::CommitLoadError(CommitLoadError::MissingBlocks(missing))) => {
                 assert_eq!(missing.len(), 1);
             }
             Err(e) => panic!("Commit verify perm error: {:?}", e),
@@ -1666,7 +1684,7 @@ mod test {
 
         // match commit.verify_full_object_refs_of_branch_at_commit(repo.store.unwrap()) {
         //     Ok(_) => panic!("Commit should not be Ok"),
-        //     Err(CommitLoadError::BodyLoadError(missing)) => {
+        //     Err(CommitLoadError::MissingBlocks(missing)) => {
         //         assert_eq!(missing.len(), 1);
         //     }
         //     Err(e) => panic!("Commit verify error: {:?}", e),
@@ -1674,7 +1692,7 @@ mod test {
 
         match commit.verify(&repo) {
             Ok(_) => panic!("Commit should not be Ok"),
-            Err(NgError::CommitLoadError(CommitLoadError::BodyLoadError(missing))) => {
+            Err(NgError::CommitLoadError(CommitLoadError::MissingBlocks(missing))) => {
                 assert_eq!(missing.len(), 1);
             }
             Err(e) => panic!("Commit verify error: {:?}", e),

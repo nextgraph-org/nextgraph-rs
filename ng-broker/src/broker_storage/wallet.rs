@@ -23,12 +23,14 @@ pub struct Wallet<'a> {
 }
 
 impl<'a> Wallet<'a> {
-    const PREFIX: u8 = b"w"[0];
-    const PREFIX_OVERLAY: u8 = b"o"[0];
-    const PREFIX_USER: u8 = b"u"[0];
+    const PREFIX: u8 = b'w';
+    const PREFIX_OVERLAY: u8 = b'o';
+    const PREFIX_USER: u8 = b'u';
 
     const KEY_ACCOUNTS: [u8; 8] = *b"accounts";
     const KEY_PEERS: [u8; 5] = *b"peers";
+    const KEY_CORE: [u8; 4] = *b"core";
+    const KEY_BLOCKS: [u8; 6] = *b"blocks";
 
     // propertie's suffixes
     const SYM_KEY: u8 = b"s"[0];
@@ -109,6 +111,12 @@ impl<'a> Wallet<'a> {
     }
     pub fn get_or_create_peers_key(&self) -> Result<SymKey, StorageError> {
         self.get_or_create_single_key(Self::PREFIX, &Self::KEY_PEERS.to_vec())
+    }
+    pub fn get_or_create_blocks_key(&self) -> Result<SymKey, StorageError> {
+        self.get_or_create_single_key(Self::PREFIX, &Self::KEY_BLOCKS.to_vec())
+    }
+    pub fn get_or_create_core_key(&self) -> Result<SymKey, StorageError> {
+        self.get_or_create_single_key(Self::PREFIX, &Self::KEY_CORE.to_vec())
     }
     pub fn get_or_create_accounts_key(&self) -> Result<SymKey, StorageError> {
         self.get_or_create_single_key(Self::PREFIX, &Self::KEY_ACCOUNTS.to_vec())
