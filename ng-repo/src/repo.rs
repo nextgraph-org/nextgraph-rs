@@ -39,6 +39,11 @@ impl Repository {
     pub fn new(id: &PubKey, metadata: &Vec<u8>) -> Repository {
         Repository::V0(RepositoryV0::new(id, metadata))
     }
+    pub fn id(&self) -> &PubKey {
+        match self {
+            Self::V0(v0) => &v0.id,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -206,6 +211,11 @@ impl Repo {
         self.branches.get(id).ok_or(NgError::BranchNotFound)
     }
 
+    pub fn branch_mut(&mut self, id: &BranchId) -> Result<&mut BranchInfo, NgError> {
+        //TODO: load the BranchInfo from storage
+        self.branches.get_mut(id).ok_or(NgError::BranchNotFound)
+    }
+
     pub fn overlay_branch(&self) -> Option<&BranchInfo> {
         for (_, branch) in self.branches.iter() {
             if branch.branch_type == BranchType::Overlay {
@@ -218,6 +228,15 @@ impl Repo {
     pub fn user_branch(&self) -> Option<&BranchInfo> {
         for (_, branch) in self.branches.iter() {
             if branch.branch_type == BranchType::User {
+                return Some(branch);
+            }
+        }
+        None
+    }
+
+    pub fn root_branch(&self) -> Option<&BranchInfo> {
+        for (_, branch) in self.branches.iter() {
+            if branch.branch_type == BranchType::Root {
                 return Some(branch);
             }
         }

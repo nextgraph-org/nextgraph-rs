@@ -14,7 +14,7 @@ use crate::user_storage::repo::RepoStorage;
 use crate::user_storage::*;
 use either::Either::{Left, Right};
 use ng_repo::block_storage::BlockStorage;
-use ng_repo::repo::Repo;
+use ng_repo::repo::{BranchInfo, Repo};
 use ng_repo::store::Store;
 use ng_repo::{errors::StorageError, types::*};
 use ng_storage_rocksdb::kcv_storage::RocksdbKCVStorage;
@@ -66,5 +66,13 @@ impl UserStorage for RocksDbUserStorage {
     fn save_repo(&self, repo: &Repo) -> Result<(), StorageError> {
         RepoStorage::create_from_repo(repo, &self.user_storage)?;
         Ok(())
+    }
+
+    fn add_branch(&self, repo_id: &RepoId, branch_info: &BranchInfo) -> Result<(), StorageError> {
+        RepoStorage::add_branch_from_info(repo_id, branch_info, &self.user_storage)
+    }
+
+    fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError> {
+        RepoStorage::update_signer_cap(signer_cap, &self.user_storage)
     }
 }

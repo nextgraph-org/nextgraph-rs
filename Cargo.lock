@@ -3344,6 +3344,7 @@ dependencies = [
  "base64-url",
  "blake3",
  "chacha20",
+ "crypto_box",
  "current_platform",
  "curve25519-dalek 3.2.0",
  "debug_print",

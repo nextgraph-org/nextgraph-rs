@@ -424,6 +424,11 @@ impl Commit {
         }
     }
 
+    /// Get quorum_type
+    pub fn quorum_type(&self) -> &QuorumType {
+        &self.content_v0().quorum
+    }
+
     /// Get commit content
     pub fn content(&self) -> &CommitContent {
         match self {
@@ -469,7 +474,7 @@ impl Commit {
                 }
                 Err(CommitLoadError::HeaderLoadError)
             }
-            CommitBody::V0(CommitBodyV0::Delete) => Ok(true),
+            CommitBody::V0(CommitBodyV0::Delete(_)) => Ok(true),
             _ => Ok(false),
         }
     }
@@ -761,6 +766,15 @@ impl CommitBody {
         Ok((obj.reference().unwrap(), blocks))
     }
 
+    pub fn is_add_signer_cap(&self) -> bool {
+        match self {
+            Self::V0(v0) => match v0 {
+                CommitBodyV0::AddSignerCap(_) => true,
+                _ => false,
+            },
+        }
+    }
+
     pub fn root_branch_commit(&self) -> Result<&RootBranch, CommitLoadError> {
         match self {
             Self::V0(v0) => match v0 {
@@ -806,7 +820,7 @@ impl CommitBody {
                 CommitBodyV0::RefreshReadCap(_) => true,
                 CommitBodyV0::RefreshWriteCap(_) => true,
                 CommitBodyV0::SyncSignature(_) => true,
-                CommitBodyV0::Delete => true,
+                CommitBodyV0::Delete(_) => true,
                 _ => false,
             },
         }
@@ -970,7 +984,7 @@ impl CommitBody {
                 ],
                 CommitBodyV0::RefreshReadCap(_) => vec![PermissionV0::RefreshReadCap],
                 CommitBodyV0::RefreshWriteCap(_) => vec![PermissionV0::RefreshWriteCap],
-                CommitBodyV0::Delete => vec![],
+                CommitBodyV0::Delete(_) => vec![],
                 CommitBodyV0::AddRepo(_)
                 | CommitBodyV0::RemoveRepo(_)
                 | CommitBodyV0::AddLink(_)
@@ -1367,6 +1381,16 @@ impl fmt::Display for CommitBody {
                     //     write!(f, "RefreshWriteCap {}", b)
                     // }
                     CommitBodyV0::SyncSignature(b) => write!(f, "SyncSignature {}", b),
+                    //CommitBodyV0::AddRepo(b) => write!(f, "AddRepo {}", b),
+                    //CommitBodyV0::RemoveRepo(b) => write!(f, "RemoveRepo {}", b),
+                    CommitBodyV0::AddSignerCap(b) => write!(f, "AddSignerCap {}", b),
+                    CommitBodyV0::StoreUpdate(b) => write!(f, "StoreUpdate {}", b),
+                    /*    AddLink(AddLink),
+                    RemoveLink(RemoveLink),
+                    AddSignerCap(AddSignerCap),
+                    RemoveSignerCap(RemoveSignerCap),
+                    WalletUpdate(WalletUpdate),
+                    StoreUpdate(StoreUpdate), */
                     _ => unimplemented!(),
                 }
             }

@@ -420,6 +420,13 @@ impl Object {
         }
     }
 
+    /// Load an Object from BlockStorage (taking a reference)
+    ///
+    /// Returns Ok(Object) or an Err(ObjectParseError::MissingBlocks(Vec<ObjectId>)) of missing BlockIds
+    pub fn load_ref(reference: &ObjectRef, store: &Store) -> Result<Object, ObjectParseError> {
+        Self::load(reference.id.clone(), Some(reference.key.clone()), store)
+    }
+
     /// Load an Object from BlockStorage
     ///
     /// Returns Ok(Object) or an Err(ObjectParseError::MissingBlocks(Vec<ObjectId>)) of missing BlockIds

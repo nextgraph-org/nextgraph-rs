@@ -4005,6 +4005,8 @@ pub struct ReadBranchLinkV0 {
 
     pub branch: BranchId, // must match the one in read_cap
 
+    pub topic: TopicId,
+
     /// an optional list of heads that can be fetched in this branch
     /// useful if a specific head is to be shared
     pub heads: Vec<ObjectRef>,

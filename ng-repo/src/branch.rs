@@ -50,13 +50,12 @@ impl Branch {
     ///                                        RepoWriteCapSecret, TopicId, BranchId )
     /// so that only editors of the repo can decrypt the privkey
     /// nonce = 0
-    pub fn encrypt_topic_priv_key(
-        privkey: &BranchWriteCapSecret,
+    fn encrypt_topic_priv_key(
+        mut plaintext: Vec<u8>,
         topic_id: TopicId,
         branch_id: BranchId,
         repo_write_cap_secret: &RepoWriteCapSecret,
     ) -> Vec<u8> {
-        let mut plaintext = serde_bare::to_vec(privkey).unwrap();
         let repo_write_cap_secret = serde_bare::to_vec(repo_write_cap_secret).unwrap();
         let topic_id = serde_bare::to_vec(&topic_id).unwrap();
         let branch_id = serde_bare::to_vec(&branch_id).unwrap();
@@ -69,6 +68,27 @@ impl Branch {
         key.zeroize();
         key_material.zeroize();
         plaintext
+    }
+
+    pub fn encrypt_branch_write_cap_secret(
+        privkey: &BranchWriteCapSecret,
+        topic_id: TopicId,
+        branch_id: BranchId,
+        repo_write_cap_secret: &RepoWriteCapSecret,
+    ) -> Vec<u8> {
+        let plaintext = serde_bare::to_vec(privkey).unwrap();
+        Branch::encrypt_topic_priv_key(plaintext, topic_id, branch_id, repo_write_cap_secret)
+    }
+
+    pub fn decrypt_branch_write_cap_secret(
+        ciphertext: Vec<u8>,
+        topic_id: TopicId,
+        branch_id: BranchId,
+        repo_write_cap_secret: &RepoWriteCapSecret,
+    ) -> Result<BranchWriteCapSecret, NgError> {
+        let plaintext =
+            Branch::encrypt_topic_priv_key(ciphertext, topic_id, branch_id, repo_write_cap_secret);
+        Ok(serde_bare::from_slice(&plaintext)?)
     }
 
     pub fn new(

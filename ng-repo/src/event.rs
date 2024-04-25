@@ -13,12 +13,14 @@ use zeroize::Zeroize;
 use crate::block_storage::*;
 use crate::errors::*;
 use crate::object::*;
+use crate::repo::BranchInfo;
 use crate::repo::Repo;
 use crate::store::Store;
 use crate::types::*;
 use crate::utils::*;
 use core::fmt;
 use std::sync::Arc;
+use std::sync::RwLockWriteGuard;
 
 use chacha20::cipher::{KeyIvInit, StreamCipher};
 use chacha20::ChaCha20;
@@ -88,6 +90,38 @@ impl Event {
             Event::V0(v0) => &v0.content.topic,
         }
     }
+
+    /// opens an event with the key derived from information kept in Repo.
+    ///
+    /// returns the Commit object and optional list of additional block IDs.
+    /// Those blocks have been added to the storage of store of repo so they can be retrieved.
+    pub fn open_with_info(&self, repo: &Repo, branch: &BranchInfo) -> Result<Commit, NgError> {
+        match self {
+            Self::V0(v0) => v0.open_with_info(repo, branch),
+        }
+    }
+
+    pub fn open(
+        &self,
+        store: &Store,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        branch_secret: &ReadCapSecret,
+    ) -> Result<Commit, NgError> {
+        match self {
+            Self::V0(v0) => v0.open(store, repo_id, branch_id, branch_secret),
+        }
+    }
+
+    // pub fn put_blocks<'a>(
+    //     &self,
+    //     overlay: &OverlayId,
+    //     storage: &RwLockWriteGuard<'a, dyn BlockStorage + Send + Sync + 'static>,
+    // ) -> Result<ObjectId, NgError> {
+    //     match self {
+    //         Self::V0(v0) => v0.put_blocks(overlay, storage),
+    //     }
+    // }
 }
 
 impl EventV0 {
@@ -165,5 +199,58 @@ impl EventV0 {
             topic_sig,
             peer_sig,
         })
+    }
+
+    // pub fn put_blocks<'a>(
+    //     &self,
+    //     overlay: &OverlayId,
+    //     storage: &RwLockWriteGuard<'a, dyn BlockStorage + Send + Sync + 'static>,
+    // ) -> Result<ObjectId, NgError> {
+    //     let mut first_id = None;
+    //     for block in &self.content.blocks {
+    //         let id = storage.put(overlay, block)?;
+    //         if first_id.is_none() {
+    //             first_id = Some(id)
+    //         }
+    //     }
+    //     first_id.ok_or(NgError::CommitLoadError(CommitLoadError::NotACommitError))
+    // }
+
+    /// opens an event with the key derived from information kept in Repo.
+    ///
+    /// returns the Commit object and optional list of additional block IDs.
+    /// Those blocks have been added to the storage of store of repo so they can be retrieved.
+    pub fn open_with_info(&self, repo: &Repo, branch: &BranchInfo) -> Result<Commit, NgError> {
+        self.open(&repo.store, &repo.id, &branch.id, &branch.read_cap.key)
+    }
+
+    pub fn open(
+        &self,
+        store: &Store,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        branch_secret: &ReadCapSecret,
+    ) -> Result<Commit, NgError> {
+        // TODO: verifier event signature
+
+        let publisher_pubkey = self.content.publisher.get_pub_key();
+        let key = Self::derive_key(repo_id, branch_id, branch_secret, &publisher_pubkey);
+        let mut encrypted_commit_key = self.content.key.clone();
+        let mut nonce = self.content.seq.to_le_bytes().to_vec();
+        nonce.append(&mut vec![0; 4]);
+        let mut cipher = ChaCha20::new((&key).into(), (nonce.as_slice()).into());
+        cipher.apply_keystream(encrypted_commit_key.as_mut_slice());
+
+        let commit_key: SymKey = encrypted_commit_key.as_slice().try_into()?;
+
+        let mut first_id = None;
+        for block in &self.content.blocks {
+            let id = store.put(block)?;
+            if first_id.is_none() {
+                first_id = Some(id)
+            }
+        }
+        let commit_ref = ObjectRef::from_id_key(first_id.unwrap(), commit_key);
+        Ok(Commit::load(commit_ref, &store, true)?)
     }
 }

@@ -732,11 +732,11 @@ impl LocalBroker {
                     "NextGraph user_master_key BLAKE3 key",
                     key_material.as_slice(),
                 );
-                log_info!(
-                    "USER MASTER KEY {user_id} {} {:?}",
-                    user_id.to_hash_string(),
-                    key
-                );
+                // log_info!(
+                //     "USER MASTER KEY {user_id} {} {:?}",
+                //     user_id.to_hash_string(),
+                //     key
+                // );
                 key_material.zeroize();
                 let mut verifier = Verifier::new(
                     VerifierConfig {
@@ -1427,7 +1427,7 @@ pub async fn doc_fetch(
     session.verifier.doc_fetch(nuri, payload)
 }
 
-/// retrieves the ID of the one of the 3 stores of a the personal Site (3P: public, protected, or private)
+/// retrieves the ID of one of the 3 stores of a the personal Site (3P: public, protected, or private)
 pub async fn personal_site_store(session_id: u8, store: SiteStoreType) -> Result<PubKey, NgError> {
     let broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),

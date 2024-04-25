@@ -8,16 +8,16 @@
 // according to those terms.
 
 //! Repo object (on heap) to handle a Repository
-
+use crate::commits::*;
 use crate::types::*;
-use crate::user_storage::repo::RepoStorage;
 use ng_net::actor::SoS;
 use ng_net::broker::{Broker, BROKER};
 use ng_repo::log::*;
 use ng_repo::object::Object;
+use ng_repo::repo::BranchInfo;
 use ng_repo::{
     block_storage::BlockStorage,
-    errors::{NgError, ProtocolError, ServerError, StorageError},
+    errors::{NgError, ProtocolError, ServerError, StorageError, VerifierError},
     file::RandomAccessFile,
     repo::Repo,
     store::Store,
@@ -48,6 +48,19 @@ use serde::{Deserialize, Serialize};
 use web_time::SystemTime;
 //use yrs::{StateVector, Update};
 
+// pub trait IVerifier {
+//     fn add_branch_and_save(
+//         &mut self,
+//         repo_id: &RepoId,
+//         branch_info: BranchInfo,
+//         store_repo: &StoreRepo,
+//     ) -> Result<(), VerifierError>;
+
+//     fn add_repo_and_save(&mut self, repo: Repo) -> &Repo;
+
+//     fn get_repo(&self, id: &RepoId, store_repo: &StoreRepo) -> Result<&Repo, NgError>;
+// }
+
 pub struct Verifier {
     pub config: VerifierConfig,
     pub connected_server_id: Option<PubKey>,
@@ -60,7 +73,12 @@ pub struct Verifier {
     last_reservation: SystemTime,
     stores: HashMap<OverlayId, Arc<Store>>,
     repos: HashMap<RepoId, Repo>,
-    topics: HashMap<(OverlayId, TopicId), (RepoId, BranchId)>,
+    // TODO: deal with collided repo_ids. self.repos should be a HashMap<RepoId,Collision> enum Collision {Yes, No(Repo)}
+    // add a collided_repos: HashMap<(OverlayId, RepoId), Repo>
+    // only use get_repo() everywhere in the code (always passing the overlay) so that collisions can be handled.
+    // also do the same in RocksdbStorage
+    /// (OverlayId, TopicId), (RepoId, BranchId)
+    pub(crate) topics: HashMap<(OverlayId, TopicId), (RepoId, BranchId)>,
     /// only used for InMemory type, to store the outbox
     in_memory_outbox: Vec<EventOutboxStorage>,
 }
@@ -79,6 +97,10 @@ struct EventOutboxStorage {
 }
 
 impl Verifier {
+    pub fn user_privkey(&self) -> &PrivKey {
+        &self.config.user_priv_key
+    }
+
     #[allow(deprecated)]
     #[cfg(any(test, feature = "testing"))]
     pub fn new_dummy() -> Self {
@@ -183,24 +205,59 @@ impl Verifier {
             .stores
             .remove(&overlay_id)
             .ok_or(NgError::StoreNotFound)?;
-        // let mut repo = self
-        //     .repos
-        //     .remove(store_repo.repo_id())
-        //     .ok_or(NgError::RepoNotFound)?;
-        // log_info!(
-        //     "{}",
-        //     Arc::<ng_repo::store::Store>::strong_count(&repo.store)
-        // );
+        // if repo_already_inserted {
+        //     let mut repo = self
+        //         .repos
+        //         .remove(store_repo.repo_id())
+        //         .ok_or(NgError::RepoNotFound)?;
+        //     log_info!(
+        //         "{}",
+        //         Arc::<ng_repo::store::Store>::strong_count(&repo.store)
+        //     );
+        // }
         drop(repo.store);
         //log_info!("{}", Arc::<ng_repo::store::Store>::strong_count(&store));
         let mut mut_store = Arc::<ng_repo::store::Store>::into_inner(store).unwrap();
         mut_store.set_read_caps(read_cap, overlay_read_cap);
         let new_store = Arc::new(mut_store);
         let _ = self.stores.insert(overlay_id, Arc::clone(&new_store));
-        // TODO: store in user_storage
         repo.store = new_store;
-        //let _ = self.repos.insert(*store_repo.repo_id(), repo);
+        // if repo_already_inserted {
+        //     let _ = self.repos.insert(*store_repo.repo_id(), repo);
+        // }
+
         Ok(repo)
+    }
+
+    pub fn complete_site_store_already_inserted(
+        &mut self,
+        store_repo: StoreRepo,
+    ) -> Result<(), NgError> {
+        let overlay_id = store_repo.overlay_id_for_storage_purpose();
+        let store = self
+            .stores
+            .remove(&overlay_id)
+            .ok_or(NgError::StoreNotFound)?;
+
+        let mut repo = self.repos.remove(store.id()).ok_or(NgError::RepoNotFound)?;
+        // log_info!(
+        //     "{}",
+        //     Arc::<ng_repo::store::Store>::strong_count(&repo.store)
+        // );
+        let read_cap = repo.read_cap.to_owned().unwrap();
+        let overlay_read_cap = repo.overlay_branch_read_cap().cloned();
+
+        drop(repo.store);
+        //log_info!("{}", Arc::<ng_repo::store::Store>::strong_count(&store));
+        let mut mut_store = Arc::<ng_repo::store::Store>::into_inner(store).unwrap();
+        mut_store.set_read_caps(read_cap, overlay_read_cap);
+        let new_store = Arc::new(mut_store);
+        let _ = self.stores.insert(overlay_id, Arc::clone(&new_store));
+        repo.store = new_store;
+
+        let _ = self.repos.insert(*store_repo.repo_id(), repo);
+
+        Ok(())
     }
 
     pub fn get_store(&self, store_repo: &StoreRepo) -> Result<Arc<Store>, NgError> {
@@ -213,9 +270,9 @@ impl Verifier {
         &mut self,
         id: &RepoId,
         store_repo: &StoreRepo,
-    ) -> Result<&mut Repo, NgError> {
+    ) -> Result<&mut Repo, VerifierError> {
         let store = self.get_store(store_repo);
-        let repo_ref = self.repos.get_mut(id).ok_or(NgError::RepoNotFound);
+        let repo_ref = self.repos.get_mut(id).ok_or(VerifierError::RepoNotFound);
         // .or_insert_with(|| {
         //     // load from storage
         //     Repo {
@@ -229,12 +286,6 @@ impl Verifier {
         //         store,
         //     }
         // });
-        repo_ref
-    }
-
-    pub fn get_repo(&self, id: RepoId, store_repo: &StoreRepo) -> Result<&Repo, NgError> {
-        //let store = self.get_store(store_repo);
-        let repo_ref = self.repos.get(&id).ok_or(NgError::RepoNotFound);
         repo_ref
     }
 
@@ -299,7 +350,7 @@ impl Verifier {
         let publisher = self.config.peer_priv_key.clone();
         self.last_seq_num += 1;
         let seq_num = self.last_seq_num;
-        let repo = self.get_repo(repo_id, store_repo)?;
+        let repo = self.get_repo(&repo_id, store_repo)?;
 
         let event = Event::new(&publisher, seq_num, commit, additional_blocks, repo)?;
         self.send_or_save_event_to_outbox(event, repo.store.inner_overlay())
@@ -443,7 +494,7 @@ impl Verifier {
         event: Event,
         overlay: OverlayId,
     ) -> Result<(), NgError> {
-        log_debug!("========== EVENT {:03}: {}", event.seq_num(), event);
+        //log_info!("========== EVENT {:03}: {}", event.seq_num(), event);
 
         if self.connected_server_id.is_some() {
             // send the event to the server already
@@ -586,8 +637,315 @@ impl Verifier {
         Ok(())
     }
 
+    pub fn deliver(&mut self, event: Event) {}
+
+    pub fn verify_commit(
+        &mut self,
+        commit: Commit,
+        store: Arc<Store>,
+    ) -> Result<(), VerifierError> {
+        //let quorum_type = commit.quorum_type();
+        // log_info!(
+        //     "VERIFYING {} {} {:?}",
+        //     store.get_store_repo(),
+        //     commit,
+        //     store
+        // );
+        match commit.body().ok_or(VerifierError::CommitBodyNotFound)? {
+            CommitBody::V0(v0) => match v0 {
+                CommitBodyV0::Repository(a) => a.verify(&commit, self, store),
+                CommitBodyV0::RootBranch(a) => a.verify(&commit, self, store),
+                CommitBodyV0::Branch(a) => a.verify(&commit, self, store),
+                CommitBodyV0::SyncSignature(a) => a.verify(&commit, self, store),
+                CommitBodyV0::AddBranch(a) => a.verify(&commit, self, store),
+                CommitBodyV0::StoreUpdate(a) => a.verify(&commit, self, store),
+                CommitBodyV0::AddSignerCap(a) => a.verify(&commit, self, store),
+                _ => unimplemented!(),
+            },
+        }
+    }
+
+    pub(crate) fn add_branch_and_save(
+        &mut self,
+        repo_id: &RepoId,
+        branch_info: BranchInfo,
+        store_repo: &StoreRepo,
+    ) -> Result<(), VerifierError> {
+        let user_storage = self
+            .user_storage
+            .as_ref()
+            .map(|us| Arc::clone(us))
+            .and_then(|u| if self.is_persistent() { Some(u) } else { None });
+
+        if user_storage.is_some() {
+            user_storage.unwrap().add_branch(repo_id, &branch_info)?;
+        }
+        let branch_id = branch_info.id.clone();
+        let topic_id = branch_info.topic.clone();
+        let repo = self.get_repo_mut(repo_id, store_repo)?;
+        let res = repo.branches.insert(branch_info.id.clone(), branch_info);
+        assert!(res.is_none());
+
+        let overlay_id: OverlayId = repo.store.inner_overlay();
+        let repo_id = repo_id.clone();
+        let res = self
+            .topics
+            .insert((overlay_id, topic_id), (repo_id, branch_id));
+        assert_eq!(res, None);
+
+        Ok(())
+    }
+
+    pub(crate) fn update_branch(
+        &self,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        store_repo: &StoreRepo,
+    ) -> Result<(), VerifierError> {
+        let user_storage = self
+            .user_storage
+            .as_ref()
+            .map(|us| Arc::clone(us))
+            .and_then(|u| if self.is_persistent() { Some(u) } else { None });
+        if user_storage.is_some() {
+            let repo = self.get_repo(repo_id, store_repo)?;
+            user_storage
+                .unwrap()
+                .add_branch(repo_id, repo.branch(branch_id)?)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), VerifierError> {
+        let user_storage = self
+            .user_storage
+            .as_ref()
+            .map(|us| Arc::clone(us))
+            .and_then(|u| if self.is_persistent() { Some(u) } else { None });
+        if user_storage.is_some() {
+            user_storage.unwrap().update_signer_cap(signer_cap)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn add_repo_and_save(&mut self, repo: Repo) -> &Repo {
+        let user_storage = self
+            .user_storage
+            .as_ref()
+            .map(|us| Arc::clone(us))
+            .and_then(|u| if self.is_persistent() { Some(u) } else { None });
+        let repo_ref: &Repo = self.add_repo_(repo);
+        // save in user_storage
+        if user_storage.is_some() {
+            let _ = user_storage.unwrap().save_repo(repo_ref);
+        }
+        repo_ref
+    }
+
+    pub(crate) fn get_repo(&self, id: &RepoId, store_repo: &StoreRepo) -> Result<&Repo, NgError> {
+        //let store = self.get_store(store_repo);
+        let repo_ref = self.repos.get(id).ok_or(NgError::RepoNotFound);
+        repo_ref
+    }
+
+    fn load_from_credentials_and_events(
+        &mut self,
+        events: &Vec<EventOutboxStorage>,
+    ) -> Result<(), NgError> {
+        let private_store_id = self.config.private_store_id.as_ref().unwrap();
+        let private_outer_overlay_id = OverlayId::outer(private_store_id);
+        let private_inner_overlay_id = OverlayId::inner(
+            private_store_id,
+            &self.config.private_store_read_cap.as_ref().unwrap().key,
+        );
+
+        // let storage = self.block_storage.as_ref().unwrap().write().unwrap();
+
+        let store_repo = StoreRepo::new_private(*private_store_id);
+
+        let store = Arc::new(Store::new(
+            store_repo,
+            self.config.private_store_read_cap.to_owned().unwrap(),
+            self.config.private_store_read_cap.to_owned().unwrap(),
+            Arc::clone(
+                &self
+                    .block_storage
+                    .as_ref()
+                    .ok_or(core::fmt::Error)
+                    .expect("couldn't get the block_storage"),
+            ),
+        ));
+
+        let store = self
+            .stores
+            .entry(private_outer_overlay_id)
+            .or_insert_with(|| store);
+        let private_store = Arc::clone(store);
+
+        // for e in events {
+        //     if e.overlay == private_inner_overlay_id {
+        //         // it is an event about the private store
+        //         // we will load only the commits on the root branch.
+        //         let load = if let Ok(repo) =
+        //             self.get_repo(private_store.id(), private_store.get_store_repo())
+        //         {
+        //             if let Some(root) = repo.root_branch() {
+        //                 root.topic == *e.event.topic_id()
+        //             } else {
+        //                 true
+        //             }
+        //         } else {
+        //             true
+        //         };
+        //         if !load {
+        //             continue;
+        //         }
+        //         let commit = e.event.open(
+        //             &private_store,
+        //             private_store.id(),
+        //             private_store.id(),
+        //             private_store.get_store_readcap_secret(),
+        //         )?;
+        //         self.verify_commit(commit, Arc::clone(&private_store))?;
+        //     }
+        // }
+
+        // let repo = self.get_repo(private_store.id(), private_store.get_store_repo())?;
+        // let root_topic = repo
+        //     .root_branch()
+        //     .ok_or(VerifierError::RootBranchNotFound)?
+        //     .topic;
+
+        // 2nd pass: load all the other branches of the private store repo.
+
+        // 1st pass: load all events about private store
+        let mut postponed_signer_caps = Vec::with_capacity(3);
+
+        for e in events {
+            if e.overlay == private_inner_overlay_id {
+                // it is an event about the private store
+                //log_info!("VERIFYING EVENT {} {}", e.overlay, e.event);
+                let (branch_id, branch_secret) =
+                    match self.get_repo(private_store.id(), private_store.get_store_repo()) {
+                        Err(_) => (private_store.id(), private_store.get_store_readcap_secret()),
+                        Ok(repo) => {
+                            let (_, branch_id) = self
+                                .topics
+                                .get(&(e.overlay, *e.event.topic_id()))
+                                .ok_or(VerifierError::TopicNotFound)?;
+                            let branch = repo.branch(branch_id)?;
+                            (branch_id, &branch.read_cap.key)
+                        }
+                    };
+
+                let commit =
+                    e.event
+                        .open(&private_store, private_store.id(), branch_id, branch_secret)?;
+
+                if commit
+                    .body()
+                    .ok_or(VerifierError::CommitBodyNotFound)?
+                    .is_add_signer_cap()
+                {
+                    postponed_signer_caps.push(commit);
+                } else {
+                    self.verify_commit(commit, Arc::clone(&private_store))?;
+                }
+            }
+        }
+
+        // for e in events {
+        //     if e.overlay == private_inner_overlay_id {
+        //         // it is an event about the private store
+        //         // we will load only the commits that are not on the root branch.
+        //         if root_topic == *e.event.topic_id() {
+        //             continue;
+        //         }
+        //         let repo = self.get_repo(private_store.id(), private_store.get_store_repo())?;
+        //         let (_, branch_id) = self
+        //             .topics
+        //             .get(&(e.overlay, *e.event.topic_id()))
+        //             .ok_or(VerifierError::TopicNotFound)?;
+        //         let branch = repo.branch(branch_id)?;
+
+        //         let commit = e.event.open_with_info(repo, branch)?;
+
+        //         if commit
+        //             .body()
+        //             .ok_or(VerifierError::CommitBodyNotFound)?
+        //             .is_add_signer_cap()
+        //         {
+        //             postponed_signer_caps.push(commit);
+        //         } else {
+        //             self.verify_commit(commit, Arc::clone(&private_store))?;
+        //         }
+        //     }
+        // }
+
+        //log_info!("{:?}\n{:?}\n{:?}", self.repos, self.stores, self.topics);
+
+        // 2nd pass : load the other events (that are not from private store)
+        for (overlay, store) in self.stores.clone().iter() {
+            //log_info!("TRYING OVERLAY {} {}", overlay, private_outer_overlay_id);
+            if *overlay == private_outer_overlay_id {
+                //log_info!("SKIPPED");
+                continue;
+                // we skip the private store, as we already loaded it
+            }
+            let store_inner_overlay_id = store.inner_overlay();
+
+            for e in events {
+                if e.overlay == store_inner_overlay_id {
+                    // it is an event about the store we are loading
+                    //log_info!("VERIFYING EVENT {} {}", e.overlay, e.event);
+                    let (branch_id, branch_secret) =
+                        match self.get_repo(store.id(), store.get_store_repo()) {
+                            Err(_) => (store.id(), store.get_store_readcap_secret()),
+                            Ok(repo) => {
+                                let (_, branch_id) = self
+                                    .topics
+                                    .get(&(e.overlay, *e.event.topic_id()))
+                                    .ok_or(VerifierError::TopicNotFound)?;
+                                let branch = repo.branch(branch_id)?;
+                                (branch_id, &branch.read_cap.key)
+                            }
+                        };
+
+                    let commit = e.event.open(store, store.id(), branch_id, branch_secret)?;
+
+                    self.verify_commit(commit, Arc::clone(store))?;
+                } else {
+                    // log_info!(
+                    //     "SKIPPED wrong overlay {} {}",
+                    //     e.overlay,
+                    //     store_inner_overlay_id
+                    // );
+                }
+            }
+        }
+        // let list: Vec<(OverlayId, StoreRepo)> = self
+        //     .stores
+        //     .iter()
+        //     .map(|(o, s)| (o.clone(), s.get_store_repo().clone()))
+        //     .collect();
+        // for (overlay, store_repo) in list {
+        //     if overlay == private_outer_overlay_id {
+        //         continue;
+        //         // we skip the private store, as we already loaded it
+        //     }
+        //     self.complete_site_store_already_inserted(store_repo)?;
+        // }
+
+        // finally, ingest the signer_caps.
+        for signer_cap in postponed_signer_caps {
+            self.verify_commit(signer_cap, Arc::clone(&private_store))?;
+        }
+
+        Ok(())
+    }
+
     pub async fn send_outbox(&mut self) -> Result<(), NgError> {
-        let events = self.take_events_from_outbox()?;
+        let events: Vec<EventOutboxStorage> = self.take_events_from_outbox()?;
         let broker = BROKER.write().await;
         let user = self.config.user_priv_key.to_pub();
         let remote = self
@@ -595,6 +953,54 @@ impl Verifier {
             .as_ref()
             .ok_or(NgError::NotConnected)?
             .clone();
+
+        // for all the events, check that they are valid (topic exists, current_heads match with event)
+        let mut need_replay = false;
+        let mut branch_heads: HashMap<BranchId, Vec<ObjectRef>> = HashMap::new();
+        for e in events.iter() {
+            match self.topics.get(&(e.overlay, *e.event.topic_id())) {
+                Some((repo_id, branch_id)) => match self.repos.get(repo_id) {
+                    Some(repo) => match repo.branches.get(branch_id) {
+                        Some(branch) => {
+                            let commit = e.event.open_with_info(repo, branch)?;
+                            let acks = commit.acks();
+                            match branch_heads.insert(*branch_id, vec![commit.reference().unwrap()])
+                            {
+                                Some(previous_heads) => {
+                                    if previous_heads != acks {
+                                        need_replay = true;
+                                        break;
+                                    }
+                                }
+                                None => {
+                                    if acks != branch.current_heads {
+                                        need_replay = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        None => {
+                            need_replay = true;
+                            break;
+                        }
+                    },
+                    None => {
+                        need_replay = true;
+                        break;
+                    }
+                },
+                None => {
+                    need_replay = true;
+                    break;
+                }
+            }
+        }
+        log_info!("NEED REPLAY {need_replay}");
+        if need_replay {
+            self.load_from_credentials_and_events(&events)?;
+        }
+
         for e in events {
             self.send_event(e.event, &broker, &user, &remote, e.overlay)
                 .await?;
@@ -738,20 +1144,6 @@ impl Verifier {
         self.add_repo_(repo);
     }
 
-    fn add_repo_and_save(&mut self, repo: Repo) -> &Repo {
-        let user_storage = self
-            .user_storage
-            .as_ref()
-            .map(|us| Arc::clone(us))
-            .and_then(|u| if self.is_persistent() { Some(u) } else { None });
-        let repo_ref: &Repo = self.add_repo_(repo);
-        // save in user_storage
-        if user_storage.is_some() {
-            let _ = user_storage.unwrap().save_repo(repo_ref);
-        }
-        repo_ref
-    }
-
     fn add_repo_(&mut self, repo: Repo) -> &Repo {
         for (branch_id, info) in repo.branches.iter() {
             //log_info!("LOADING BRANCH: {}", branch_id);
@@ -792,6 +1184,26 @@ impl Verifier {
         for sub in opened_repo {
             Self::branch_was_opened(&self.topics, repo, sub)?;
         }
+        Ok(())
+    }
+
+    pub(crate) fn new_store_from_update(
+        &mut self,
+        update: &StoreUpdate,
+    ) -> Result<(), VerifierError> {
+        let store = Store::new_from(
+            update,
+            Arc::clone(
+                self.block_storage
+                    .as_ref()
+                    .ok_or(VerifierError::NoBlockStorageAvailable)?,
+            ),
+        );
+        let overlay_id = store.get_store_repo().overlay_id_for_storage_purpose();
+        let store = self
+            .stores
+            .entry(overlay_id)
+            .or_insert_with(|| Arc::new(store));
         Ok(())
     }
 

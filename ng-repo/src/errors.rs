@@ -9,7 +9,7 @@
 
 //! Errors
 
-use crate::commit::{CommitLoadError, CommitVerifyError};
+pub use crate::commit::{CommitLoadError, CommitVerifyError};
 use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
 
@@ -24,6 +24,7 @@ pub enum NgError {
     IncompleteSignature,
     SerializationError,
     EncryptionError,
+    DecryptionError,
     InvalidValue,
     ConnectionNotFound,
     InvalidKey,
@@ -60,6 +61,7 @@ pub enum NgError {
     ServerError(ServerError),
     InvalidResponse,
     NotAServerError,
+    VerifierError(VerifierError),
 }
 
 impl Error for NgError {}
@@ -145,8 +147,14 @@ impl From<StorageError> for NgError {
     }
 }
 
+impl From<VerifierError> for NgError {
+    fn from(e: VerifierError) -> Self {
+        NgError::VerifierError(e)
+    }
+}
+
 /// Object parsing errors
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ObjectParseError {
     /// Missing blocks
     MissingBlocks(Vec<BlockId>),
@@ -211,6 +219,57 @@ impl ServerError {
     }
     pub fn is_err(&self) -> bool {
         *self != ServerError::Ok
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub enum VerifierError {
+    MalformedDag,
+    MissingCommitInDag,
+    CommitBodyNotFound,
+    InvalidKey,
+    OtherError(String),
+    CommitLoadError(CommitLoadError),
+    InvalidRepositoryCommit,
+    MissingRepoWriteCapSecret,
+    StorageError(StorageError),
+    ObjectParseError(ObjectParseError),
+    NotImplemented,
+    InvalidSignatureObject,
+    MalformedSyncSignatureAcks,
+    MalformedSyncSignatureDeps,
+    TopicNotFound,
+    RepoNotFound,
+    InvalidBranch,
+    NoBlockStorageAvailable,
+    RootBranchNotFound,
+}
+
+impl From<NgError> for VerifierError {
+    fn from(e: NgError) -> Self {
+        match e {
+            NgError::InvalidKey => VerifierError::InvalidKey,
+            NgError::RepoNotFound => VerifierError::RepoNotFound,
+            _ => VerifierError::OtherError(e.to_string()),
+        }
+    }
+}
+
+impl From<CommitLoadError> for VerifierError {
+    fn from(e: CommitLoadError) -> Self {
+        VerifierError::CommitLoadError(e)
+    }
+}
+
+impl From<ObjectParseError> for VerifierError {
+    fn from(e: ObjectParseError) -> Self {
+        VerifierError::ObjectParseError(e)
+    }
+}
+
+impl From<StorageError> for VerifierError {
+    fn from(e: StorageError) -> Self {
+        VerifierError::StorageError(e)
     }
 }
 

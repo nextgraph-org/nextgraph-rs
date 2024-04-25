@@ -100,9 +100,9 @@ impl<'a> BranchStorage<'a> {
             id: id.clone(),
             storage,
         };
-        if bs.exists() {
-            return Err(StorageError::AlreadyExists);
-        }
+        // if bs.exists() {
+        //     return Err(StorageError::AlreadyExists);
+        // }
 
         storage.write_transaction(&mut |tx| {
             let id_ser = to_vec(&id)?;

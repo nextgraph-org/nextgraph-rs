@@ -121,6 +121,49 @@ impl<'a> RepoStorage<'a> {
         )
     }
 
+    pub fn add_branch_from_info(
+        repo_id: &RepoId,
+        branch_info: &BranchInfo,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<(), StorageError> {
+        BranchStorage::create_from_info(branch_info, storage)?;
+        storage.write_transaction(&mut |tx| {
+            let repo_id_ser = to_vec(&repo_id)?;
+            let branch_id_ser = to_vec(&branch_info.id)?;
+            let mut key = Vec::with_capacity(repo_id_ser.len() + branch_id_ser.len());
+            key.append(&mut repo_id_ser.clone());
+            key.append(&mut branch_id_ser.clone());
+            tx.put(Self::PREFIX_BRANCHES, &key, None, &vec![], &None)?;
+
+            if branch_info.branch_type == BranchType::Store {
+                tx.put(
+                    Self::PREFIX,
+                    &repo_id_ser,
+                    Some(Self::STORE_BRANCH),
+                    &branch_id_ser,
+                    &None,
+                )?;
+            }
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    pub fn update_signer_cap(
+        signer_cap: &SignerCap,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<(), StorageError> {
+        let repo_id = signer_cap.repo;
+        let _ = Self::open(&repo_id, storage)?;
+        storage.write_transaction(&mut |tx| {
+            let id_ser = to_vec(&repo_id)?;
+            let value = to_vec(signer_cap)?;
+            tx.put(Self::PREFIX, &id_ser, Some(Self::SIGNER_CAP), &value, &None)?;
+            Ok(())
+        })?;
+        Ok(())
+    }
+
     pub fn create(
         id: &RepoId,
         read_cap: &ReadCap,

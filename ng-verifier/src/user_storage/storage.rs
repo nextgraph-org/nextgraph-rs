@@ -10,7 +10,11 @@
 //! Storage of user application data (RDF, content of rich-text document, etc)
 
 use ng_repo::{
-    block_storage::BlockStorage, errors::StorageError, repo::Repo, store::Store, types::*,
+    block_storage::BlockStorage,
+    errors::StorageError,
+    repo::{BranchInfo, Repo},
+    store::Store,
+    types::*,
 };
 
 use crate::types::*;
@@ -36,6 +40,10 @@ pub trait UserStorage: Send + Sync {
     fn load_repo(&self, repo_id: &RepoId, store: Arc<Store>) -> Result<Repo, StorageError>;
 
     fn save_repo(&self, repo: &Repo) -> Result<(), StorageError>;
+
+    fn add_branch(&self, repo_id: &RepoId, branch_info: &BranchInfo) -> Result<(), StorageError>;
+
+    fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError>;
 }
 
 pub(crate) struct InMemoryUserStorage {
@@ -75,6 +83,14 @@ impl UserStorage for InMemoryUserStorage {
     }
 
     fn save_repo(&self, repo: &Repo) -> Result<(), StorageError> {
+        unimplemented!();
+    }
+
+    fn add_branch(&self, repo_id: &RepoId, branch_info: &BranchInfo) -> Result<(), StorageError> {
+        unimplemented!();
+    }
+
+    fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError> {
         unimplemented!();
     }
 }

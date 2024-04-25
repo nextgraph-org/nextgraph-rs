@@ -585,7 +585,7 @@ impl fmt::Display for StoreOverlay {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::V0(v0) => {
-                writeln!(f, "StoreOverlay V0")?;
+                write!(f, "StoreOverlay V0 ")?;
                 match v0 {
                     StoreOverlayV0::PublicStore(k) => writeln!(f, "PublicStore: {}", k),
                     StoreOverlayV0::ProtectedStore(k) => writeln!(f, "ProtectedStore: {}", k),
@@ -669,7 +669,20 @@ pub enum StoreRepo {
 
 impl fmt::Display for StoreRepo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "StoreRepo V0 {}", self.repo_id())
+        writeln!(
+            f,
+            "StoreRepo V0 {} {}",
+            match self {
+                StoreRepo::V0(v0) => match v0 {
+                    StoreRepoV0::PublicStore(_) => "PublicStore",
+                    StoreRepoV0::ProtectedStore(_) => "ProtectedStore",
+                    StoreRepoV0::PrivateStore(_) => "PrivateStore",
+                    StoreRepoV0::Group(_) => "Group",
+                    StoreRepoV0::Dialog(_) => "Dialog",
+                },
+            },
+            self.repo_id()
+        )
     }
 }
 
@@ -694,6 +707,10 @@ impl StoreRepo {
     #[cfg(any(test, feature = "testing"))]
     pub fn dummy_with_key(repo_pubkey: PubKey) -> Self {
         StoreRepo::V0(StoreRepoV0::PublicStore(repo_pubkey))
+    }
+
+    pub fn new_private(repo_pubkey: PubKey) -> Self {
+        StoreRepo::V0(StoreRepoV0::PrivateStore(repo_pubkey))
     }
 
     pub fn outer_overlay(&self) -> OverlayId {
@@ -1095,9 +1112,12 @@ pub struct RootBranchV0 {
     // list of owners. all of them are required to sign any RootBranch that modifies the list of owners or the inherit_perms_users_and_quorum_from_store field.
     pub owners: Vec<UserId>,
 
-    /// Mutable App-specific metadata
     /// when the list of owners is changed, a crypto_box containing the RepoWriteCapSecret should be included here for each owner.
     /// this should also be done at creation time, with the UserId of the first owner, except for individual private store repo, because it doesnt have a RepoWriteCapSecret
+    /// the vector has the same order and size as the owners one. each owner finds their write_cap here.
+    pub owners_write_cap: Vec<serde_bytes::ByteBuf>,
+
+    /// Mutable App-specific metadata
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,
 }
@@ -1113,6 +1133,26 @@ impl RootBranch {
         match self {
             Self::V0(v0) => &v0.owners,
         }
+    }
+    pub fn encrypt_write_cap(
+        for_user: &UserId,
+        write_cap: &RepoWriteCapSecret,
+    ) -> Result<Vec<u8>, NgError> {
+        let ser = serde_bare::to_vec(write_cap).unwrap();
+        let mut rng = crypto_box::aead::OsRng {};
+        let cipher = crypto_box::seal(&mut rng, &for_user.to_dh_slice().into(), &ser)
+            .map_err(|_| NgError::EncryptionError)?;
+        Ok(cipher)
+    }
+    pub fn decrypt_write_cap(
+        by_user: &PrivKey,
+        cipher: &Vec<u8>,
+    ) -> Result<RepoWriteCapSecret, NgError> {
+        let ser = crypto_box::seal_open(&(*by_user.to_dh().slice()).into(), cipher)
+            .map_err(|_| NgError::DecryptionError)?;
+        let write_cap: RepoWriteCapSecret =
+            serde_bare::from_slice(&ser).map_err(|_| NgError::SerializationError)?;
+        Ok(write_cap)
     }
 }
 
@@ -1131,7 +1171,7 @@ impl fmt::Display for RootBranch {
                         .as_ref()
                         .map_or("None".to_string(), |c| format!("{}", c))
                 )?;
-                writeln!(f, "topic:     {}", v0.repo)?;
+                writeln!(f, "topic:     {}", v0.topic)?;
                 writeln!(
                     f,
                     "inherit_perms: {}",
@@ -1229,7 +1269,7 @@ pub struct BranchV0 {
     /// BLAKE3 derive_key ("NextGraph Branch WriteCap Secret BLAKE3 key",
     ///                                        RepoWriteCapSecret, TopicId, BranchId )
     /// so that only editors of the repo can decrypt the privkey
-    /// not encrypted for individual store repo.
+    /// For individual store repo, the RepoWriteCapSecret is zero
     #[serde(with = "serde_bytes")]
     pub topic_privkey: Vec<u8>,
 
@@ -1269,6 +1309,7 @@ pub enum BranchType {
     User,
     Transactional, // this could have been called OtherTransactional, but for the sake of simplicity, we use Transactional for any branch that is not the Main one.
     Root,          // only used for BranchInfo
+                   //Unknown, // only used temporarily when loading a branch info from commits (Branch commit, then AddBranch commit)
 }
 
 impl fmt::Display for BranchType {
@@ -1284,6 +1325,7 @@ impl fmt::Display for BranchType {
                 Self::User => "User",
                 Self::Transactional => "Transactional",
                 Self::Root => "Root",
+                //Self::Unknown => "==unknown==",
             }
         )
     }
@@ -1297,6 +1339,8 @@ pub struct AddBranchV0 {
     /// the new topic_id (will be needed immediately by future readers
     /// in order to subscribe to the pub/sub). should be identical to the one in the Branch definition
     pub topic_id: TopicId,
+
+    pub branch_id: BranchId,
 
     pub branch_type: BranchType,
 
@@ -1644,6 +1688,19 @@ pub enum AddSignerCap {
     V0(AddSignerCapV0),
 }
 
+impl fmt::Display for AddSignerCap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "V0")?;
+                writeln!(f, "cap:   {:?}", v0.cap)?;
+
+                Ok(())
+            }
+        }
+    }
+}
+
 /// Removes a SignerCap from the `user` branch.
 ///
 /// DEPS to the previous AddSignerCap commit(s) (ORset logic) with matching repo_id
@@ -1700,6 +1757,24 @@ pub struct StoreUpdateV0 {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StoreUpdate {
     V0(StoreUpdateV0),
+}
+
+impl fmt::Display for StoreUpdate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "V0")?;
+                writeln!(f, "store:   {}", v0.store)?;
+                writeln!(f, "store_read_cap:  {}", v0.store_read_cap)?;
+                write!(
+                    f,
+                    "overlay_branch_read_cap:     {}",
+                    v0.overlay_branch_read_cap
+                )?;
+                Ok(())
+            }
+        }
+    }
 }
 
 //
@@ -1835,7 +1910,7 @@ pub enum SyncSignature {
 }
 
 impl SyncSignature {
-    pub fn verify(&self) -> bool {
+    pub fn verify_quorum(&self) -> bool {
         // check that the signature object referenced here, is of type threshold_sig Total or Owner
         unimplemented!();
     }
@@ -2074,7 +2149,7 @@ pub enum CommitBodyV0 {
     RemoveBranch(RemoveBranch),
     AddName(AddName),
     RemoveName(RemoveName),
-    Delete, // signed with owners key. Deleted the repo
+    Delete(()), // signed with owners key. Deletes the repo
 
     // TODO? Quorum(Quorum), // changes the quorum without changing the RootBranch
 
@@ -2392,6 +2467,15 @@ impl fmt::Display for PeerId {
             Self::ForwardedObfuscated(p) => {
                 write!(f, "ForwardedObfuscated    : {}", p)
             }
+        }
+    }
+}
+
+impl PeerId {
+    pub fn get_pub_key(&self) -> PubKey {
+        match self {
+            Self::Direct(pk) | Self::Forwarded(pk) => pk.clone(),
+            _ => panic!("cannot get a pubkey for ForwardedObfuscated"),
         }
     }
 }
