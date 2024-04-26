@@ -1,4 +1,5 @@
 *~
+*.tar.gz
 .ng
 .direnv
 !.github

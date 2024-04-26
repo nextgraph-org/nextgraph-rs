@@ -903,7 +903,7 @@ pub async fn wallets_get_all() -> Result<HashMap<String, LocalWalletStorageV0>, 
 ///
 /// See [CreateWalletV0] for a list of parameters.
 ///
-/// Wallets are transferable to to other devices (see [wallet_get_file] and [wallet_import])
+/// Wallets are transferable to other devices (see [wallet_get_file] and [wallet_import])
 pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResultV0, NgError> {
     // TODO: entering sub-block to release the lock asap
     let mut broker = match LOCAL_BROKER.get() {
