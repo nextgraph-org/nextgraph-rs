@@ -26,8 +26,7 @@ use std::{
 };
 
 pub trait UserStorage: Send + Sync {
-    /// Gets the StoreRepo for a given RepoId
-    fn repo_id_to_store_overlay(&self, id: &RepoId) -> Result<StoreOverlay, StorageError>;
+    //fn repo_id_to_store_overlay(&self, id: &RepoId) -> Result<StoreOverlay, StorageError>;
 
     fn get_all_store_and_repo_ids(&self) -> Result<HashMap<StoreRepo, Vec<RepoId>>, StorageError>;
 
@@ -46,51 +45,51 @@ pub trait UserStorage: Send + Sync {
     fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError>;
 }
 
-pub(crate) struct InMemoryUserStorage {
-    repo_id_to_store_overlay: HashMap<RepoId, StoreOverlay>,
-}
+// pub(crate) struct InMemoryUserStorage {
+//     repo_id_to_store_overlay: HashMap<RepoId, StoreOverlay>,
+// }
 
-impl InMemoryUserStorage {
-    pub fn new() -> Self {
-        InMemoryUserStorage {
-            repo_id_to_store_overlay: HashMap::new(),
-        }
-    }
-}
+// impl InMemoryUserStorage {
+//     pub fn new() -> Self {
+//         InMemoryUserStorage {
+//             repo_id_to_store_overlay: HashMap::new(),
+//         }
+//     }
+// }
 
-impl UserStorage for InMemoryUserStorage {
-    fn repo_id_to_store_overlay(&self, id: &RepoId) -> Result<StoreOverlay, StorageError> {
-        Ok(self
-            .repo_id_to_store_overlay
-            .get(&id)
-            .ok_or(StorageError::NotFound)?
-            .to_owned())
-    }
+// impl UserStorage for InMemoryUserStorage {
+//     fn repo_id_to_store_overlay(&self, id: &RepoId) -> Result<StoreOverlay, StorageError> {
+//         Ok(self
+//             .repo_id_to_store_overlay
+//             .get(&id)
+//             .ok_or(StorageError::NotFound)?
+//             .to_owned())
+//     }
 
-    fn get_all_store_and_repo_ids(&self) -> Result<HashMap<StoreRepo, Vec<RepoId>>, StorageError> {
-        unimplemented!();
-    }
+//     fn get_all_store_and_repo_ids(&self) -> Result<HashMap<StoreRepo, Vec<RepoId>>, StorageError> {
+//         unimplemented!();
+//     }
 
-    fn load_store(
-        &self,
-        repo_store: &StoreRepo,
-        block_storage: Arc<RwLock<dyn BlockStorage + Send + Sync>>,
-    ) -> Result<Repo, StorageError> {
-        unimplemented!();
-    }
-    fn load_repo(&self, repo_id: &RepoId, store: Arc<Store>) -> Result<Repo, StorageError> {
-        unimplemented!();
-    }
+//     fn load_store(
+//         &self,
+//         repo_store: &StoreRepo,
+//         block_storage: Arc<RwLock<dyn BlockStorage + Send + Sync>>,
+//     ) -> Result<Repo, StorageError> {
+//         unimplemented!();
+//     }
+//     fn load_repo(&self, repo_id: &RepoId, store: Arc<Store>) -> Result<Repo, StorageError> {
+//         unimplemented!();
+//     }
 
-    fn save_repo(&self, repo: &Repo) -> Result<(), StorageError> {
-        unimplemented!();
-    }
+//     fn save_repo(&self, repo: &Repo) -> Result<(), StorageError> {
+//         unimplemented!();
+//     }
 
-    fn add_branch(&self, repo_id: &RepoId, branch_info: &BranchInfo) -> Result<(), StorageError> {
-        unimplemented!();
-    }
+//     fn add_branch(&self, repo_id: &RepoId, branch_info: &BranchInfo) -> Result<(), StorageError> {
+//         unimplemented!();
+//     }
 
-    fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError> {
-        unimplemented!();
-    }
-}
+//     fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError> {
+//         unimplemented!();
+//     }
+// }

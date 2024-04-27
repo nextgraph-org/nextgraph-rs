@@ -676,6 +676,7 @@ impl RocksDbKCVStorage {
         opts.set_max_bytes_for_level_base(256 * 1024 * 1024);
         opts.set_target_file_size_multiplier(10);
         opts.set_level_compaction_dynamic_level_bytes(true);
+        opts.set_num_levels(7); // the default
 
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
@@ -685,6 +686,7 @@ impl RocksDbKCVStorage {
         let cache = Cache::new_lru_cache(64 * 1024 * 1024);
         block_based_opts.set_block_cache(&cache);
         block_based_opts.set_cache_index_and_filter_blocks(true);
+        block_based_opts.set_pin_l0_filter_and_index_blocks_in_cache(true);
         block_based_opts.set_block_size(16 * 1024);
         block_based_opts.set_bloom_filter(10.0, false);
         block_based_opts.set_format_version(6);

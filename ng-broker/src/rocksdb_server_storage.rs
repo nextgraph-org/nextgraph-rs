@@ -15,11 +15,11 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use crate::broker_storage::account::Account;
-use crate::broker_storage::invitation::Invitation;
-use crate::broker_storage::wallet::Wallet;
+use crate::server_storage::admin::account::Account;
+use crate::server_storage::admin::invitation::Invitation;
+use crate::server_storage::admin::wallet::Wallet;
 use crate::types::*;
-use ng_net::server_storage::*;
+use ng_net::server_broker::*;
 use ng_net::types::*;
 use ng_repo::errors::{ProtocolError, ServerError, StorageError};
 use ng_repo::kcv_storage::KCVStorage;
@@ -28,7 +28,7 @@ use ng_repo::types::*;
 use ng_storage_rocksdb::block_storage::RocksDbBlockStorage;
 use ng_storage_rocksdb::kcv_storage::RocksDbKCVStorage;
 
-pub struct RocksDbServerStorage {
+pub(crate) struct RocksDbServerStorage {
     wallet_storage: RocksDbKCVStorage,
     accounts_storage: RocksDbKCVStorage,
     //peers_storage: RocksDbKCVStorage,
@@ -39,7 +39,7 @@ pub struct RocksDbServerStorage {
 }
 
 impl RocksDbServerStorage {
-    pub fn open(
+    pub(crate) fn open(
         path: &mut PathBuf,
         master_key: SymKey,
         admin_invite: Option<BootstrapContentV0>,
@@ -132,10 +132,8 @@ impl RocksDbServerStorage {
             core_storage,
         })
     }
-}
 
-impl ServerStorage for RocksDbServerStorage {
-    fn next_seq_for_peer(&self, peer: &PeerId, seq: u64) -> Result<(), ServerError> {
+    pub(crate) fn next_seq_for_peer(&self, peer: &PeerId, seq: u64) -> Result<(), ServerError> {
         // for now we don't use the hashmap.
         // TODO: let's see if the lock is even needed
         let _ = self.peers_last_seq.lock();
@@ -165,26 +163,26 @@ impl ServerStorage for RocksDbServerStorage {
         Ok(())
     }
 
-    fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError> {
+    pub(crate) fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError> {
         log_debug!("get_user {user_id}");
         Ok(Account::open(&user_id, &self.accounts_storage)?.is_admin()?)
     }
-    fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError> {
+    pub(crate) fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError> {
         log_debug!("add_user {user_id} is admin {is_admin}");
         Account::create(&user_id, is_admin, &self.accounts_storage)?;
         Ok(())
     }
-    fn del_user(&self, user_id: PubKey) -> Result<(), ProtocolError> {
+    pub(crate) fn del_user(&self, user_id: PubKey) -> Result<(), ProtocolError> {
         log_debug!("del_user {user_id}");
         let acc = Account::open(&user_id, &self.accounts_storage)?;
         acc.del()?;
         Ok(())
     }
-    fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError> {
+    pub(crate) fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError> {
         log_debug!("list_users that are admin == {admins}");
         Ok(Account::get_all_users(admins, &self.accounts_storage)?)
     }
-    fn list_invitations(
+    pub(crate) fn list_invitations(
         &self,
         admin: bool,
         unique: bool,
@@ -198,7 +196,7 @@ impl ServerStorage for RocksDbServerStorage {
             multi,
         )?)
     }
-    fn add_invitation(
+    pub(crate) fn add_invitation(
         &self,
         invite_code: &InvitationCode,
         expiry: u32,
@@ -208,18 +206,18 @@ impl ServerStorage for RocksDbServerStorage {
         Invitation::create(invite_code, expiry, memo, &self.accounts_storage)?;
         Ok(())
     }
-    fn get_invitation_type(&self, invite_code: [u8; 32]) -> Result<u8, ProtocolError> {
+    pub(crate) fn get_invitation_type(&self, invite_code: [u8; 32]) -> Result<u8, ProtocolError> {
         log_debug!("get_invitation_type {:?}", invite_code);
         let inv = Invitation::open(&invite_code, &self.accounts_storage)?;
         inv.get_type()
     }
-    fn remove_invitation(&self, invite_code: [u8; 32]) -> Result<(), ProtocolError> {
+    pub(crate) fn remove_invitation(&self, invite_code: [u8; 32]) -> Result<(), ProtocolError> {
         log_debug!("remove_invitation {:?}", invite_code);
         let inv = Invitation::open(&invite_code, &self.accounts_storage)?;
         inv.del()?;
         Ok(())
     }
-    fn get_repo_pin_status(
+    pub(crate) fn get_repo_pin_status(
         &self,
         overlay: &OverlayId,
         repo: &RepoHash,
@@ -237,7 +235,7 @@ impl ServerStorage for RocksDbServerStorage {
         // }))
     }
 
-    fn pin_repo(
+    pub(crate) fn pin_repo(
         &self,
         overlay: &OverlayId,
         repo: &RepoHash,
@@ -255,7 +253,7 @@ impl ServerStorage for RocksDbServerStorage {
         Ok(opened)
     }
 
-    fn topic_sub(
+    pub(crate) fn topic_sub(
         &self,
         overlay: &OverlayId,
         repo: &RepoHash,
@@ -270,7 +268,11 @@ impl ServerStorage for RocksDbServerStorage {
         }))
     }
 
-    fn get_commit(&self, overlay: &OverlayId, id: &ObjectId) -> Result<Vec<Block>, ServerError> {
+    pub(crate) fn get_commit(
+        &self,
+        overlay: &OverlayId,
+        id: &ObjectId,
+    ) -> Result<Vec<Block>, ServerError> {
         //TODO: implement correctly !
         Ok(vec![Block::dummy()])
     }

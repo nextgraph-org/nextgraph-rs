@@ -39,9 +39,9 @@ impl RocksDbUserStorage {
 }
 
 impl UserStorage for RocksDbUserStorage {
-    fn repo_id_to_store_overlay(&self, id: &RepoId) -> Result<StoreOverlay, StorageError> {
-        unimplemented!();
-    }
+    // fn repo_id_to_store_overlay(&self, id: &RepoId) -> Result<StoreOverlay, StorageError> {
+    //     unimplemented!();
+    // }
 
     fn get_all_store_and_repo_ids(&self) -> Result<HashMap<StoreRepo, Vec<RepoId>>, StorageError> {
         RepoStorage::get_all_store_and_repo_ids(&self.user_storage)

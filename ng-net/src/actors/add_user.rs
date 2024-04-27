@@ -101,7 +101,7 @@ impl EActor for Actor<'_, AddUser, AdminResponse> {
                 is_admin = true;
             }
         }
-        let res = broker.get_server_storage()?.add_user(req.user(), is_admin);
+        let res = broker.get_server_broker()?.add_user(req.user(), is_admin);
         let response: AdminResponseV0 = res.into();
         fsm.lock().await.send(response.into()).await?;
         Ok(())

@@ -9,6 +9,7 @@
 
 use ed25519_dalek::*;
 
+use core::fmt;
 use duration_str::parse;
 use futures::{future, pin_mut, stream, SinkExt, StreamExt};
 use ng_net::actors::*;
@@ -19,6 +20,7 @@ use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string_pretty};
 use std::collections::HashMap;
+use std::error::Error;
 use std::fs::{read_to_string, write};
 use std::io::ErrorKind;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -65,6 +67,66 @@ impl CliConfig {
     }
 }
 
+#[derive(Debug)]
+pub enum NgcliError {
+    IoError(std::io::Error),
+    NgError(NgError),
+    InvalidKeyFile(String),
+    CannotSaveKey(String),
+    InvalidConfigFile(String),
+    ProtocolError(ProtocolError),
+    OtherConfigError(String),
+    OtherConfigErrorStr(&'static str),
+    CannotSaveConfig(String),
+}
+
+impl Error for NgcliError {}
+
+impl From<NgcliError> for std::io::Error {
+    fn from(err: NgcliError) -> std::io::Error {
+        match err {
+            NgcliError::NgError(e) => e.into(),
+            NgcliError::ProtocolError(e) => Into::<NgError>::into(e).into(),
+            NgcliError::IoError(e) => e,
+            _ => std::io::Error::new(std::io::ErrorKind::Other, err.to_string().as_str()),
+        }
+    }
+}
+
+impl From<NgError> for NgcliError {
+    fn from(err: NgError) -> NgcliError {
+        Self::NgError(err)
+    }
+}
+
+impl From<ProtocolError> for NgcliError {
+    fn from(err: ProtocolError) -> NgcliError {
+        Self::ProtocolError(err)
+    }
+}
+
+impl From<std::io::Error> for NgcliError {
+    fn from(io: std::io::Error) -> NgcliError {
+        NgcliError::IoError(io)
+    }
+}
+
+impl fmt::Display for NgcliError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidKeyFile(s) => write!(f, "provided key file is invalid. {}", s),
+            Self::CannotSaveKey(s) => write!(f, "cannot save key to file. {}", s),
+            Self::NgError(e) => write!(f, "{}", e.to_string()),
+            Self::InvalidConfigFile(s) => write!(f, "provided config file is invalid. {}", s),
+            Self::IoError(e) => write!(f, "IoError : {:?}", e),
+            Self::ProtocolError(e) => write!(f, "{}", e),
+            Self::OtherConfigError(s) => write!(f, "{}", s),
+            Self::OtherConfigErrorStr(s) => write!(f, "{}", s),
+            _ => write!(f, "{:?}", self),
+        }
+    }
+}
+
 fn gen_client_keys(key: Option<[u8; 32]>) -> [[u8; 32]; 4] {
     let key = match key {
         None => {
@@ -87,7 +149,14 @@ fn gen_client_keys(key: Option<[u8; 32]>) -> [[u8; 32]; 4] {
 }
 
 #[async_std::main]
-async fn main() -> Result<(), ProtocolError> {
+async fn main() -> std::io::Result<()> {
+    if let Err(err) = main_inner().await {
+        log_err!("An error occurred: {}", err.to_string());
+        return Err(err.into());
+    }
+    Ok(())
+}
+async fn main_inner() -> Result<(), NgcliError> {
     let matches = command!()
             .arg(arg!(
                 -v --verbose ... "Increase the logging output. once : info, twice : debug, 3 times : trace"
@@ -203,23 +272,19 @@ async fn main() -> Result<(), ProtocolError> {
     // reading key from file, if any
     let mut key_path = path.clone();
     key_path.push("key");
-    let key_from_file: Option<[u8; 32]>;
-    let res = |key_path| -> Result<[u8; 32], &str> {
-        let mut file = read_to_string(key_path).map_err(|_| "")?;
-        let first_line = file.lines().nth(0).ok_or("empty file")?;
-        let res = decode_key(first_line.trim()).map_err(|_| "invalid file");
-        file.zeroize();
-        res
-    }(&key_path);
-
-    if res.is_err() && res.unwrap_err().len() > 0 {
-        log_err!(
-            "provided key file is incorrect. {}. cannot start",
-            res.unwrap_err()
-        );
-        return Err(ProtocolError::InvalidValue);
-    }
-    key_from_file = res.ok();
+    let key_from_file: Option<[u8; 32]> = match read_to_string(key_path.clone()) {
+        Err(_) => None,
+        Ok(mut file) => {
+            let first_line = file
+                .lines()
+                .nth(0)
+                .ok_or(NgcliError::InvalidKeyFile("empty file".to_string()))?;
+            let res = decode_key(first_line.trim())
+                .map_err(|_| NgcliError::InvalidKeyFile("deserialization error".to_string()))?;
+            file.zeroize();
+            Some(res)
+        }
+    };
 
     let mut keys: [[u8; 32]; 4] = match matches.get_one::<String>("key") {
         Some(key_string) => {
@@ -229,15 +294,14 @@ async fn main() -> Result<(), ProtocolError> {
                 gen_client_keys(key_from_file)
             } else {
                 let res = decode_key(key_string.as_str()).map_err(|_| {
-                    log_err!("provided key is invalid. cannot start");
-                    ProtocolError::InvalidValue
+                    NgcliError::InvalidKeyFile(
+                        "check the argument provided in command line".to_string(),
+                    )
                 })?;
                 if matches.get_flag("save_key") {
                     let mut master_key = base64_url::encode(&res);
-                    write(key_path.clone(), &master_key).map_err(|e| {
-                        log_err!("cannot save key to file. {}.cannot start", e.to_string());
-                        ProtocolError::InvalidValue
-                    })?;
+                    write(key_path.clone(), &master_key)
+                        .map_err(|e| NgcliError::CannotSaveKey(e.to_string()))?;
                     master_key.zeroize();
                     log_info!("The key has been saved to {}", key_path.to_str().unwrap());
                 }
@@ -252,10 +316,8 @@ async fn main() -> Result<(), ProtocolError> {
                 let res = gen_client_keys(None);
                 let mut master_key = base64_url::encode(&res[0]);
                 if matches.get_flag("save_key") {
-                    write(key_path.clone(), &master_key).map_err(|e| {
-                        log_err!("cannot save key to file. {}.cannot start", e.to_string());
-                        ProtocolError::InvalidValue
-                    })?;
+                    write(key_path.clone(), &master_key)
+                        .map_err(|e| NgcliError::CannotSaveKey(e.to_string()))?;
                     log_info!("The key has been saved to {}", key_path.to_str().unwrap());
                 } else {
                     // on purpose we don't log the key, just print it out to stdout, as it should not be saved in logger's files
@@ -277,47 +339,31 @@ async fn main() -> Result<(), ProtocolError> {
     // reading config from file, if any
     let mut config_path = path.clone();
     config_path.push("config.json");
-    let mut config: Option<CliConfig>;
-    let res = |config_path| -> Result<CliConfig, String> {
-        let file = read_to_string(config_path).map_err(|_| "".to_string())?;
-        from_str(&file).map_err(|e| e.to_string())
-    }(&config_path);
-
-    if res.is_err() && res.as_ref().unwrap_err().len() > 0 {
-        log_err!(
-            "provided config file is incorrect. {}. cannot start",
-            res.unwrap_err()
-        );
-        return Err(ProtocolError::InvalidValue);
-    }
-    config = res.ok();
+    let mut config: Option<CliConfig> = match read_to_string(config_path.clone()) {
+        Err(_) => None,
+        Ok(file) => {
+            Some(from_str(&file).map_err(|e| NgcliError::InvalidConfigFile(e.to_string()))?)
+        }
+    };
 
     if let Some(server) = matches.get_one::<String>("server") {
         let addr: Vec<&str> = server.split(',').collect();
         if addr.len() != 3 {
-            log_err!(
-                "NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID. cannot start"
-            );
-            return Err(ProtocolError::InvalidValue);
+            return Err(NgcliError::OtherConfigErrorStr(
+                "NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID.",
+            ));
         }
         let ip = IpAddr::from_str(addr[0]).map_err(|_| {
-                log_err!("NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID. The first part is not an IP address. cannot start");
-                ProtocolError::InvalidValue
+            NgcliError::OtherConfigErrorStr("NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID. The first part is not an IP address.")
             })?;
 
-        let port = match from_str::<u16>(addr[1]) {
-            Err(_) => {
-                log_err!("NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID. The port is invalid. It should be a number. cannot start");
-                return Err(ProtocolError::InvalidValue);
-            }
-            Ok(val) => val,
-        };
+        let port = from_str::<u16>(addr[1]).map_err(|_| {
+            NgcliError::OtherConfigErrorStr("NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID. The port is invalid. It should be a number.")
+        })?;
         let peer_id: PubKey = addr[2].try_into().map_err(|_| {
-            log_err!(
-                "NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID.
-                 The PEER_ID is invalid. It should be a base64-url encoded serde serialization of a [u8; 32]. cannot start"
-            );
-            ProtocolError::InvalidValue
+            NgcliError::OtherConfigErrorStr(
+                "NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID. The PEER_ID is invalid. It should be a base64-url encoded serde serialization of a [u8; 32]."
+            )
         })?;
         if config.is_some() {
             log_warn!("Overriding the config found in file with new server parameters provided on command line!");
@@ -331,20 +377,16 @@ async fn main() -> Result<(), ProtocolError> {
     }
 
     if config.is_none() {
-        log_err!(
-            "No config found for the server to connect to. The config file is missing. 
-            You must provide NG_CLIENT_SERVER or the --server option. cannot start"
-        );
-        return Err(ProtocolError::InvalidValue);
+        return Err(NgcliError::OtherConfigErrorStr(
+            "No config found for the server to connect to. The config file is missing. You must provide NG_CLIENT_SERVER or the --server option.",
+        ));
     }
 
     if let Some(user) = matches.get_one::<String>("user") {
         let privkey: PrivKey = user.as_str().try_into().map_err(|_| {
-            log_err!(
-                "NG_CLIENT_USER or the --user option is invalid. It should be a base64-url encoded 
-                 serde serialization of a [u8; 32] of a private key for a user. cannot start"
-            );
-            ProtocolError::InvalidValue
+            NgcliError::OtherConfigErrorStr(
+                "NG_CLIENT_USER or the --user option is invalid. It should be a base64-url encoded serde serialization of a [u8; 32] of a private key for a user.",
+            )
         })?;
         if config.is_some() {
             let CliConfig::V0(c) = config.as_mut().unwrap();
@@ -359,23 +401,18 @@ async fn main() -> Result<(), ProtocolError> {
 
     let CliConfig::V0(config_v0) = config.as_ref().unwrap();
     if config_v0.user.is_none() {
-        log_err!(
-            "No config found for the user. The config file is missing. 
-            You must provide NG_CLIENT_USER or the --user option. cannot start"
-        );
-        return Err(ProtocolError::InvalidValue);
+        return Err(NgcliError::OtherConfigErrorStr(
+            "No config found for the user. The config file is missing. You must provide NG_CLIENT_USER or the --user option.",
+        ));
     }
 
     if matches.get_flag("save_config") {
         // saves the config to file
-        let json_string = to_string_pretty(&config).unwrap();
+        let json_string = to_string_pretty(config.as_ref().unwrap()).unwrap();
         write(config_path.clone(), json_string).map_err(|e| {
-            log_err!(
-                "cannot save config to file. {}. cannot start",
-                e.to_string()
-            );
-            ProtocolError::InvalidValue
+            NgcliError::CannotSaveConfig(format!("cannot save config to file. {}.", e.to_string()))
         })?;
+
         log_info!(
             "The config file has been saved to {}",
             config_path.to_str().unwrap()
@@ -430,18 +467,15 @@ async fn main() -> Result<(), ProtocolError> {
                             .as_str()
                             .try_into()
                             .map_err(|_| {
-                                log_err!("supplied USER_ID is invalid");
-                                ProtocolError::InvalidValue
+                                NgcliError::OtherConfigErrorStr("supplied USER_ID is invalid")
                             })?,
                         is_admin: sub2_matches.get_flag("admin"),
                     }),
                 )
-                .await;
-                match &res {
-                    Err(e) => log_err!("An error occurred: {e}"),
-                    Ok(_) => println!("User added successfully"),
-                }
-                return res.map(|_| ());
+                .await?;
+
+                println!("User added successfully");
+                return Ok(());
             }
             Some(("del-user", sub2_matches)) => {
                 log_debug!("add-user");
@@ -455,26 +489,21 @@ async fn main() -> Result<(), ProtocolError> {
                             .as_str()
                             .try_into()
                             .map_err(|_| {
-                                log_err!("supplied USER_ID is invalid");
-                                ProtocolError::InvalidValue
+                                NgcliError::OtherConfigErrorStr("supplied USER_ID is invalid")
                             })?,
                     }),
                 )
-                .await;
-                match &res {
-                    Err(e) => log_err!("An error occurred: {e}"),
-                    Ok(_) => println!("User removed successfully"),
-                }
-                return res.map(|_| ());
+                .await?;
+                println!("User removed successfully");
+                return Ok(());
             }
             Some(("list-users", sub2_matches)) => {
                 log_debug!("list-users");
                 let admins = sub2_matches.get_flag("admin");
-                let res =
-                    do_admin_call(keys[1], config_v0, ListUsers::V0(ListUsersV0 { admins })).await;
+                let res = do_admin_call(keys[1], config_v0, ListUsers::V0(ListUsersV0 { admins }))
+                    .await?;
                 match &res {
-                    Err(e) => log_err!("An error occurred: {e}"),
-                    Ok(AdminResponseContentV0::Users(list)) => {
+                    AdminResponseContentV0::Users(list) => {
                         println!(
                             "Found {} {}users",
                             list.len(),
@@ -484,12 +513,9 @@ async fn main() -> Result<(), ProtocolError> {
                             println!("{user}");
                         }
                     }
-                    _ => {
-                        log_err!("Invalid response");
-                        return Err(ProtocolError::InvalidValue);
-                    }
+                    _ => return Err(NgError::InvalidResponse.into()),
                 }
-                return res.map(|_| ());
+                return Ok(());
             }
             Some(("add-invitation", sub2_matches)) => {
                 log_debug!("add-invitation");
@@ -523,10 +549,9 @@ async fn main() -> Result<(), ProtocolError> {
                         tos_url: !sub2_matches.get_flag("notos"),
                     }),
                 )
-                .await;
-                match res.as_mut() {
-                    Err(e) => log_err!("An error occurred: {e}"),
-                    Ok(AdminResponseContentV0::Invitation(invitation)) => {
+                .await?;
+                match &mut res {
+                    AdminResponseContentV0::Invitation(invitation) => {
                         invitation
                             .set_name(sub2_matches.get_one::<String>("name").map(|s| s.clone()));
 
@@ -536,12 +561,9 @@ async fn main() -> Result<(), ProtocolError> {
                             println!("The invitation link is: {}", link)
                         }
                     }
-                    _ => {
-                        log_err!("Invalid response");
-                        return Err(ProtocolError::InvalidValue);
-                    }
+                    _ => return Err(NgError::InvalidResponse.into()),
                 }
-                return res.map(|_| ());
+                return Ok(());
             }
             Some(("list-invitations", sub2_matches)) => {
                 log_debug!("invitations");
@@ -557,10 +579,9 @@ async fn main() -> Result<(), ProtocolError> {
                         unique,
                     }),
                 )
-                .await;
+                .await?;
                 match &res {
-                    Err(e) => log_err!("An error occurred: {e}"),
-                    Ok(AdminResponseContentV0::Invitations(list)) => {
+                    AdminResponseContentV0::Invitations(list) => {
                         println!(
                             "Found {} {}invitations",
                             list.len(),
@@ -593,12 +614,9 @@ async fn main() -> Result<(), ProtocolError> {
                             );
                         }
                     }
-                    _ => {
-                        log_err!("Invalid response");
-                        return Err(ProtocolError::InvalidValue);
-                    }
+                    _ => return Err(NgError::InvalidResponse.into()),
                 }
-                return res.map(|_| ());
+                return Ok(());
             }
             _ => panic!("shouldn't happen"),
         },

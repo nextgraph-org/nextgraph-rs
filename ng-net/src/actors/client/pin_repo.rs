@@ -109,7 +109,7 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
 
         //TODO implement all the server side logic
         let broker = BROKER.read().await;
-        let res = broker.get_server_storage()?.pin_repo(
+        let res = broker.get_server_broker()?.pin_repo(
             req.overlay(),
             req.hash(),
             req.ro_topics(),

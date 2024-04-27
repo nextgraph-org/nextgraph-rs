@@ -15,7 +15,7 @@ use core::fmt;
 //use oxigraph::model::GroundQuad;
 #[cfg(not(target_family = "wasm"))]
 use crate::rocksdb_user_storage::RocksDbUserStorage;
-use crate::user_storage::{InMemoryUserStorage, UserStorage};
+use crate::user_storage::UserStorage;
 use async_std::sync::Mutex;
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 

@@ -53,11 +53,9 @@ pub fn from_ed_privkey_to_dh_privkey(private: &PrivKey) -> PrivKey {
 }
 
 /// don't forget to zeroize the string later on
-pub fn decode_key(key_string: &str) -> Result<[u8; 32], ()> {
-    let vec = base64_url::decode(key_string).map_err(|_| log_err!("key has invalid content"))?;
-    Ok(*slice_as_array!(&vec, [u8; 32])
-        .ok_or(())
-        .map_err(|_| log_err!("key has invalid content array"))?)
+pub fn decode_key(key_string: &str) -> Result<[u8; 32], NgError> {
+    let vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    Ok(*slice_as_array!(&vec, [u8; 32]).ok_or(NgError::InvalidKey)?)
 }
 
 pub fn ed_privkey_to_ed_pubkey(privkey: &PrivKey) -> PubKey {

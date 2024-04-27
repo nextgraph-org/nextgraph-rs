@@ -86,7 +86,7 @@ impl EActor for Actor<'_, ListUsers, AdminResponse> {
         let res = BROKER
             .read()
             .await
-            .get_server_storage()?
+            .get_server_broker()?
             .list_users(req.admins());
         let response: AdminResponseV0 = res.into();
         fsm.lock().await.send(response.into()).await?;

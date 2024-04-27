@@ -28,13 +28,13 @@ pub struct Account<'a> {
 }
 
 impl<'a> Account<'a> {
-    const PREFIX_ACCOUNT: u8 = b"a"[0];
-    const PREFIX_CLIENT: u8 = b"c"[0];
-    const PREFIX_CLIENT_PROPERTY: u8 = b"d"[0];
+    const PREFIX_ACCOUNT: u8 = b'a';
+    const PREFIX_CLIENT: u8 = b'c';
+    const PREFIX_CLIENT_PROPERTY: u8 = b'd';
 
     // propertie's client suffixes
-    const INFO: u8 = b"i"[0];
-    const LAST_SEEN: u8 = b"l"[0];
+    const INFO: u8 = b'i';
+    const LAST_SEEN: u8 = b'l';
 
     const ALL_CLIENT_PROPERTIES: [u8; 2] = [Self::INFO, Self::LAST_SEEN];
 
@@ -252,7 +252,7 @@ mod test {
     use std::fs;
     use tempfile::Builder;
 
-    use crate::broker_storage::account::Account;
+    use crate::server_storage::admin::account::Account;
 
     #[test]
     pub fn test_account() {

@@ -66,6 +66,8 @@ pub enum NgError {
     NotAServerError,
     VerifierError(VerifierError),
     SiteNotFoundOnBroker,
+    BrokerConfigErrorStr(&'static str),
+    BrokerConfigError(String),
 }
 
 impl Error for NgError {}
@@ -75,6 +77,19 @@ impl fmt::Display for NgError {
         match self {
             Self::WalletError(string) => write!(f, "WalletError: {}", string),
             Self::JsStorageWriteError(string) => write!(f, "JsStorageWriteError: {}", string),
+            Self::CommitVerifyError(commit_verify_error) => {
+                write!(f, "CommitVerifyError: {:?}", commit_verify_error)
+            }
+            Self::ProtocolError(error) => write!(f, "ProtocolError: {:?}", error),
+            Self::ServerError(error) => write!(f, "ServerError: {:?}", error),
+            Self::VerifierError(error) => write!(f, "VerifierError: {:?}", error),
+            Self::CommitLoadError(commit_load_error) => {
+                write!(f, "CommitLoadError: {:?}", commit_load_error)
+            }
+            Self::ObjectParseError(error) => write!(f, "ObjectParseError: {:?}", error),
+            Self::StorageError(storage_error) => write!(f, "StorageError: {:?}", storage_error),
+            Self::BrokerConfigErrorStr(s) => write!(f, "BrokerConfigError: {s}"),
+            Self::BrokerConfigError(s) => write!(f, "BrokerConfigError: {s}"),
             _ => write!(f, "{:?}", self),
         }
     }
@@ -85,38 +100,7 @@ impl From<NgError> for std::io::Error {
         match err {
             NgError::InvalidArgument => std::io::Error::from(std::io::ErrorKind::InvalidInput),
             NgError::PermissionDenied => std::io::Error::from(std::io::ErrorKind::PermissionDenied),
-            NgError::CommitLoadError(commit_load_error) => std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("CommitLoadError: {:?}", commit_load_error),
-            ),
-            NgError::StorageError(storage_error) => std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("StorageError: {:?}", storage_error),
-            ),
             NgError::NotFound => std::io::Error::from(std::io::ErrorKind::NotFound),
-            NgError::CommitVerifyError(commit_verify_error) => std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("CommitVerifyError: {:?}", commit_verify_error),
-            ),
-            /*NgError::InvalidSignature => ,
-            NgError::IncompleteSignature =>
-            NgError::SerializationError => ,
-            NgError::EncryptionError => ,
-            NgError::InvalidKey => ,
-            NgError::InvalidInvitation => ,
-            NgError::InvalidCreateAccount => ,
-            NgError::InvalidFileFormat => ,
-            NgError::LocalBrokerNotInitialized => ,
-            NgError::JsStorageReadError => ,
-            NgError::JsStorageWriteError(String) => ,
-            NgError::CannotSaveWhenInMemoryConfig => ,
-            NgError::WalletNotFound => ,
-            NgError::WalletAlreadyAdded => ,
-            NgError::WalletAlreadyOpened => ,
-            NgError::WalletError(String) => ,
-            NgError::BrokerError => ,
-            NgError::SessionNotFound,
-            NgError::IoError => ,*/
             _ => std::io::Error::new(std::io::ErrorKind::Other, err.to_string().as_str()),
         }
     }

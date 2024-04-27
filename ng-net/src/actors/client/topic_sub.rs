@@ -100,7 +100,7 @@ impl EActor for Actor<'_, TopicSub, TopicSubRes> {
 
         //TODO implement all the server side logic
         let broker = BROKER.read().await;
-        let res = broker.get_server_storage()?.topic_sub(
+        let res = broker.get_server_broker()?.topic_sub(
             req.overlay(),
             req.hash(),
             req.topic(),

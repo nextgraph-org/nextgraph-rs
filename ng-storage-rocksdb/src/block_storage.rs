@@ -55,6 +55,7 @@ impl RocksDbBlockStorage {
         opts.set_max_bytes_for_level_base(16 * 1024 * 1024);
         opts.set_target_file_size_multiplier(10);
         opts.set_level_compaction_dynamic_level_bytes(true);
+        opts.set_num_levels(7); // the default
 
         opts.create_if_missing(true);
         opts.create_missing_column_families(false);
@@ -67,7 +68,7 @@ impl RocksDbBlockStorage {
         opts.set_blob_compression_type(DBCompressionType::None);
         opts.set_enable_blob_gc(true);
         // the oldest half of blob files will be selected for GC
-        opts.set_blob_gc_age_cutoff(0.5);
+        opts.set_blob_gc_age_cutoff(0.75);
         // in those oldest blob files, if 50% of it (8MB) is garbage, a forced compact will occur.
         // this way we are reducing the space amplification by small decrements of 8MB
         opts.set_blob_gc_force_threshold(0.5);

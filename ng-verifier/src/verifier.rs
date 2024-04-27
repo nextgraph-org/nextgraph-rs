@@ -35,7 +35,7 @@ use core::fmt;
 //use oxigraph::model::GroundQuad;
 #[cfg(not(target_family = "wasm"))]
 use crate::rocksdb_user_storage::RocksDbUserStorage;
-use crate::user_storage::{InMemoryUserStorage, UserStorage};
+use crate::user_storage::UserStorage;
 use async_std::sync::{Mutex, RwLockReadGuard, RwLockWriteGuard};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
@@ -1114,7 +1114,7 @@ impl Verifier {
         let (graph, user, block) = match &config.config_type {
             VerifierConfigType::Memory | VerifierConfigType::JsSaveSession(_) => (
                 Some(oxigraph::store::Store::new().unwrap()),
-                Some(Box::new(InMemoryUserStorage::new()) as Box<dyn UserStorage>),
+                None, //Some(Box::new(InMemoryUserStorage::new()) as Box<dyn UserStorage>),
                 Some(block_storage),
             ),
             #[cfg(not(target_family = "wasm"))]

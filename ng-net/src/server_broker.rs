@@ -9,13 +9,13 @@
  * according to those terms.
 */
 
-//! Trait for ServerStorage
+//! Trait for ServerBroker
 
 use crate::types::*;
 use ng_repo::errors::*;
 use ng_repo::types::*;
 
-pub trait ServerStorage: Send + Sync {
+pub trait IServerBroker: Send + Sync {
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError>;
     fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError>;
     fn del_user(&self, user_id: PubKey) -> Result<(), ProtocolError>;

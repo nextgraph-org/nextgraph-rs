@@ -12,7 +12,8 @@
 //! WebSocket implementation of the Broker
 
 use crate::interfaces::*;
-use crate::server_storage::RocksDbServerStorage;
+use crate::rocksdb_server_storage::RocksDbServerStorage;
+use crate::server_broker::ServerBroker;
 use crate::types::*;
 use async_std::io::ReadExt;
 use async_std::net::{TcpListener, TcpStream};
@@ -38,6 +39,7 @@ use ng_net::utils::get_domain_without_port;
 use ng_net::utils::is_private_ip;
 use ng_net::utils::is_public_ip;
 use ng_net::NG_BOOTSTRAP_LOCAL_PATH;
+use ng_repo::errors::NgError;
 use ng_repo::log::*;
 use ng_repo::types::SymKey;
 use ng_repo::types::{PrivKey, PubKey};
@@ -610,7 +612,7 @@ pub async fn run_server_v0(
     config: DaemonConfigV0,
     mut path: PathBuf,
     admin_invite: bool,
-) -> Result<(), ()> {
+) -> Result<(), NgError> {
     // check config
 
     let mut run_core = false;
@@ -624,8 +626,9 @@ pub async fn run_server_v0(
         }
     }
     if !run_core && !run_server {
-        log_err!("There isn't any overlay_config that should run as core or server. Check your config. cannot start");
-        return Err(());
+        return Err(NgError::BrokerConfigErrorStr(
+            "There isn't any overlay_config that should run as core or server. Check your config.",
+        ));
     }
 
     if run_core && !run_server {
@@ -636,11 +639,10 @@ pub async fn run_server_v0(
     for listener in &config.listeners {
         let id: String = listener.to_string();
         if !listeners.insert(id.clone()) {
-            log_err!(
-                "The listener {} is defined twice. Check your config file. cannot start",
+            return Err(NgError::BrokerConfigError(format!(
+                "The listener {} is defined twice. Check your config file.",
                 id
-            );
-            return Err(());
+            )));
         }
     }
 
@@ -670,11 +672,10 @@ pub async fn run_server_v0(
 
         match find_name(&interfaces, &listener.interface_name) {
             None => {
-                log_err!(
-                    "The interface {} does not exist on your host. Check your config file. cannot start",
+                return Err(NgError::BrokerConfigError(format!(
+                    "The interface {} does not exist on your host. Check your config file.",
                     listener.interface_name
-                );
-                return Err(());
+                )));
             }
             Some(interface) => {
                 let mut addrs: Vec<SocketAddr> = interface
@@ -689,11 +690,10 @@ pub async fn run_server_v0(
                     })
                     .collect();
                 if addrs.len() == 0 {
-                    log_err!(
-                        "The interface {} does not have any IPv4 address. cannot start",
+                    return Err(NgError::BrokerConfigError(format!(
+                        "The interface {} does not have any IPv4 address.",
                         listener.interface_name
-                    );
-                    return Err(());
+                    )));
                 }
                 if listener.ipv6 {
                     let mut ipv6s: Vec<SocketAddr> = interface
@@ -753,8 +753,7 @@ pub async fn run_server_v0(
     }
 
     if listeners_addrs.len() == 0 {
-        log_err!("No listener configured. cannot start",);
-        return Err(());
+        return Err(NgError::BrokerConfigErrorStr("No listener configured."));
     }
 
     if !accept_clients {
@@ -777,7 +776,7 @@ pub async fn run_server_v0(
         std::fs::create_dir_all(path.clone()).unwrap();
 
         // opening the server storage (that contains the encryption keys for each store/overlay )
-        let broker_storage = RocksDbServerStorage::open(
+        let server_storage = RocksDbServerStorage::open(
             &mut path,
             wallet_master_key,
             if admin_invite {
@@ -786,10 +785,15 @@ pub async fn run_server_v0(
                 None
             },
         )
-        .map_err(|e| log_err!("Error while opening server storage: {:?}", e))?;
+        .map_err(|e| {
+            NgError::BrokerConfigError(format!("Error while opening server storage: {}", e))
+        })?;
+
+        let server_broker = ServerBroker::new(server_storage);
 
         let mut broker = BROKER.write().await;
-        broker.set_server_storage(broker_storage);
+        broker.set_server_broker(server_broker);
+
         LISTENERS_INFO
             .set(broker.set_listeners(listener_infos))
             .unwrap();
@@ -815,12 +819,12 @@ pub async fn run_server_v0(
 
         for addr in addrs.0 {
             let tcp_listener = TcpListener::bind(addr).await.map_err(|e| {
-                log_err!(
+                NgError::BrokerConfigError(format!(
                     "cannot bind to {} with addresses {} : {}",
                     addrs.1,
                     addrs_string,
                     e.to_string()
-                )
+                ))
             })?;
             listeners.push(tcp_listener);
         }

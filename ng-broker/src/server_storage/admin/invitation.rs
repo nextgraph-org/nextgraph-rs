@@ -31,15 +31,15 @@ pub struct Invitation<'a> {
 }
 
 impl<'a> Invitation<'a> {
-    const PREFIX: u8 = b"i"[0];
+    const PREFIX: u8 = b'i';
 
     // propertie's invitation suffixes
-    const TYPE: u8 = b"t"[0];
-    //const EXPIRE: u8 = b"e"[0];
+    const TYPE: u8 = b't';
+    //const EXPIRE: u8 = b'e';
 
-    const PREFIX_EXPIRE: u8 = b"e"[0];
+    const PREFIX_EXPIRE: u8 = b'e';
     // propertie's expiry suffixes
-    const INVITATION: u8 = b"i"[0];
+    const INVITATION: u8 = b'i';
 
     const ALL_PROPERTIES: [u8; 1] = [Self::TYPE];
 
@@ -196,7 +196,7 @@ mod test {
     use std::fs;
     use tempfile::Builder;
 
-    use crate::broker_storage::account::Account;
+    use crate::server_storage::admin::account::Account;
 
     #[test]
     pub fn test_invitation() {}

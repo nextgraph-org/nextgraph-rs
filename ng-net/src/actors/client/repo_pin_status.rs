@@ -79,7 +79,7 @@ impl EActor for Actor<'_, RepoPinStatusReq, RepoPinStatus> {
         let req = RepoPinStatusReq::try_from(msg)?;
         let broker = BROKER.read().await;
         let res = broker
-            .get_server_storage()?
+            .get_server_broker()?
             .get_repo_pin_status(req.overlay(), req.hash());
         fsm.lock()
             .await

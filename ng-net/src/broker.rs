@@ -14,7 +14,7 @@
 use crate::actor::EActor;
 use crate::actor::SoS;
 use crate::connection::*;
-use crate::server_storage::ServerStorage;
+use crate::server_broker::IServerBroker;
 use crate::types::*;
 use crate::utils::spawn_and_log_error;
 use crate::utils::{Receiver, ResultSend, Sender};
@@ -85,7 +85,7 @@ pub struct Broker<'a> {
     shutdown: Option<Receiver<ProtocolError>>,
     shutdown_sender: Sender<ProtocolError>,
     closing: bool,
-    server_storage: Option<Box<dyn ServerStorage + Send + Sync + 'a>>,
+    server_broker: Option<Box<dyn IServerBroker + Send + Sync + 'a>>,
 
     tauri_streams: HashMap<String, Sender<Commit>>,
     disconnections_sender: Sender<String>,
@@ -146,9 +146,9 @@ impl<'a> Broker<'a> {
             .ok_or(ProtocolError::BrokerError)
     }
 
-    pub fn set_server_storage(&mut self, storage: impl ServerStorage + 'a) {
-        //log_debug!("set_storage");
-        self.server_storage = Some(Box::new(storage));
+    pub fn set_server_broker(&mut self, broker: impl IServerBroker + 'a) {
+        //log_debug!("set_server_broker");
+        self.server_broker = Some(Box::new(broker));
     }
 
     pub fn set_local_broker(&mut self, broker: Arc<RwLock<dyn ILocalBroker + 'a>>) {
@@ -178,11 +178,11 @@ impl<'a> Broker<'a> {
         (copy_listeners, copy_bind_addresses)
     }
 
-    pub fn get_server_storage(
+    pub fn get_server_broker(
         &self,
-    ) -> Result<&Box<dyn ServerStorage + Send + Sync + 'a>, ProtocolError> {
+    ) -> Result<&Box<dyn IServerBroker + Send + Sync + 'a>, ProtocolError> {
         //log_debug!("GET STORAGE {:?}", self.server_storage);
-        self.server_storage
+        self.server_broker
             .as_ref()
             .ok_or(ProtocolError::BrokerError)
     }
@@ -222,7 +222,7 @@ impl<'a> Broker<'a> {
             Authorization::Client(user_and_registration) => {
                 if user_and_registration.1.is_some() {
                     // user wants to register
-                    let storage = self.get_server_storage()?;
+                    let storage = self.get_server_broker()?;
                     if storage.get_user(user_and_registration.0).is_ok() {
                         return Ok(());
                     }
@@ -266,7 +266,7 @@ impl<'a> Broker<'a> {
                                         storage.remove_invitation(code)?;
                                     }
                                 }
-                                self.get_server_storage()?
+                                self.get_server_broker()?
                                     .add_user(user_and_registration.0, is_admin)?;
                                 Ok(())
                             }
@@ -290,7 +290,7 @@ impl<'a> Broker<'a> {
                             return Ok(());
                         }
                     }
-                    let found = self.get_server_storage()?.get_user(admin_user);
+                    let found = self.get_server_broker()?.get_user(admin_user);
                     if found.is_ok() && found.unwrap() {
                         return Ok(());
                     }
@@ -302,11 +302,11 @@ impl<'a> Broker<'a> {
     }
 
     // pub fn add_user(&self, user: PubKey, is_admin: bool) -> Result<(), ProtocolError> {
-    //     self.get_server_storage()?.add_user(user, is_admin)
+    //     self.get_server_broker()?.add_user(user, is_admin)
     // }
 
     // pub fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError> {
-    //     self.get_server_storage()?.list_users(admins)
+    //     self.get_server_broker()?.list_users(admins)
     // }
 
     pub async fn get_block_from_store_with_block_id(
@@ -482,7 +482,7 @@ impl<'a> Broker<'a> {
             peers: HashMap::new(),
             tauri_streams: HashMap::new(),
             closing: false,
-            server_storage: None,
+            server_broker: None,
             disconnections_sender,
             disconnections_receiver: Some(disconnections_receiver),
             local_broker: None,

@@ -14,6 +14,7 @@ mod cli;
 use crate::cli::*;
 use crate::types::*;
 use clap::Parser;
+use core::fmt;
 use ng_broker::interfaces::*;
 use ng_broker::server_ws::run_server_v0;
 use ng_broker::types::*;
@@ -27,6 +28,7 @@ use ng_net::utils::{
     gen_dh_keys, is_ipv4_global, is_ipv4_private, is_ipv6_global, is_ipv6_private,
 };
 use ng_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
+use ng_repo::errors::NgError;
 use ng_repo::log::*;
 use ng_repo::types::Sig;
 use ng_repo::types::SymKey;
@@ -36,6 +38,7 @@ use ng_repo::{
     utils::{decode_key, generate_keypair, sign, verify},
 };
 use serde_json::{from_str, to_string_pretty};
+use std::error::Error;
 use std::fs::{read_to_string, write};
 use std::io::ErrorKind;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -79,7 +82,7 @@ fn parse_interface_and_port_for(
     string: &String,
     for_option: &str,
     default_port: u16,
-) -> Result<(String, u16), ()> {
+) -> Result<(String, u16), NgdError> {
     let c = RE_INTERFACE.captures(string);
 
     if c.is_some() && c.as_ref().unwrap().get(1).is_some() {
@@ -104,20 +107,19 @@ fn parse_interface_and_port_for(
         };
         Ok((interface.to_string(), port))
     } else {
-        log_err!(
-            "The <INTERFACE:PORT> value submitted for the {} option is invalid. It should be the name of an interface found with --list-interfaces, with an optional port suffix of the form :123. cannot start",
+        Err(NgdError::OtherConfigError(format!(
+            "The <INTERFACE:PORT> value submitted for the {} option is invalid. It should be the name of an interface found with --list-interfaces, with an optional port suffix of the form :123.",
             for_option
-        );
-        Err(())
+        )))
     }
 }
 
-fn parse_ipv6_for(string: String, for_option: &str) -> Result<Ipv6Addr, ()> {
+fn parse_ipv6_for(string: String, for_option: &str) -> Result<Ipv6Addr, NgdError> {
     string.parse::<Ipv6Addr>().map_err(|_| {
-        log_err!(
-            "The <IPv6> value submitted for the {} option is invalid. cannot start",
+        NgdError::OtherConfigError(format!(
+            "The <IPv6> value submitted for the {} option is invalid.",
             for_option
-        )
+        ))
     })
 }
 
@@ -125,18 +127,17 @@ fn parse_ipv4_and_port_for(
     string: String,
     for_option: &str,
     default_port: u16,
-) -> Result<(Ipv4Addr, u16), ()> {
+) -> Result<(Ipv4Addr, u16), NgdError> {
     let parts: Vec<&str> = string.split(":").collect();
     let ipv4 = parts[0].parse::<Ipv4Addr>().map_err(|_| {
-        log_err!(
-            "The <IPv4:PORT> value submitted for the {} option is invalid. cannot start",
+        NgdError::OtherConfigError(format!(
+            "The <IPv4:PORT> value submitted for the {} option is invalid.",
             for_option
-        )
+        ))
     })?;
 
-    let port;
-    if parts.len() > 1 {
-        port = match from_str::<u16>(parts[1]) {
+    let port = if parts.len() > 1 {
+        match from_str::<u16>(parts[1]) {
             Err(_) => default_port,
             Ok(p) => {
                 if p == 0 {
@@ -145,14 +146,14 @@ fn parse_ipv4_and_port_for(
                     p
                 }
             }
-        };
+        }
     } else {
-        port = default_port;
-    }
-    return Ok((ipv4, port));
+        default_port
+    };
+    Ok((ipv4, port))
 }
 
-fn parse_ip_and_port_for(string: String, for_option: &str) -> Result<(IpAddr, u16), ()> {
+fn parse_ip_and_port_for(string: String, for_option: &str) -> Result<(IpAddr, u16), NgdError> {
     let c = RE_IPV6_WITH_PORT.captures(&string);
     let ipv6;
     let port;
@@ -177,24 +178,24 @@ fn parse_ip_and_port_for(string: String, for_option: &str) -> Result<(IpAddr, u1
             }
         };
         let ipv6 = ipv6_str.parse::<Ipv6Addr>().map_err(|_| {
-            log_err!(
-                "The <[IPv6]:PORT> value submitted for the {} option is invalid. cannot start",
+            NgdError::OtherConfigError(format!(
+                "The <[IPv6]:PORT> value submitted for the {} option is invalid.",
                 for_option
-            )
+            ))
         })?;
-        return Ok((IpAddr::V6(ipv6), port));
+        Ok((IpAddr::V6(ipv6), port))
     } else {
         // we try just an IPV6 without port
         let ipv6_res = string.parse::<Ipv6Addr>();
         if ipv6_res.is_err() {
             // let's try IPv4
 
-            return parse_ipv4_and_port_for(string, for_option, DEFAULT_PORT)
-                .map(|ipv4| (IpAddr::V4(ipv4.0), ipv4.1));
+            parse_ipv4_and_port_for(string, for_option, DEFAULT_PORT)
+                .map(|ipv4| (IpAddr::V4(ipv4.0), ipv4.1))
         } else {
             ipv6 = ipv6_res.unwrap();
             port = DEFAULT_PORT;
-            return Ok((IpAddr::V6(ipv6), port));
+            Ok((IpAddr::V6(ipv6), port))
         }
     }
 }
@@ -202,72 +203,59 @@ fn parse_ip_and_port_for(string: String, for_option: &str) -> Result<(IpAddr, u1
 fn parse_triple_interface_and_port_for(
     string: &String,
     for_option: &str,
-) -> Result<((String, u16), (Option<Ipv6Addr>, (Ipv4Addr, u16))), ()> {
+) -> Result<((String, u16), (Option<Ipv6Addr>, (Ipv4Addr, u16))), NgdError> {
     let parts: Vec<&str> = string.split(',').collect();
     if parts.len() < 2 {
-        log_err!(
-            "The <PRIVATE_INTERFACE:PORT,[PUBLIC_IPV6,]PUBLIC_IPV4:PORT> value submitted for the {} option is invalid. It should be composed of at least 2 parts separated by a comma. cannot start",
+        return Err(NgdError::OtherConfigError(format!(
+            "The <PRIVATE_INTERFACE:PORT,[PUBLIC_IPV6,]PUBLIC_IPV4:PORT> value submitted for the {} option is invalid. It should be composed of at least 2 parts separated by a comma.",
             for_option
-        );
-        return Err(());
+        )));
     }
     let first_part = parse_interface_and_port_for(
         &parts[0].to_string(),
         &format!("private interface+PORT (left) part of the {}", for_option),
         DEFAULT_PORT,
-    );
-    if first_part.is_err() {
-        return Err(());
-    }
+    )?;
 
     let mut middle_part = None;
     if parts.len() == 3 {
         let middle_part_res = parse_ipv6_for(
             parts[1].to_string(),
             &format!("public IPv6 (middle) part of the {}", for_option),
-        );
-        if middle_part_res.is_err() {
-            return Err(());
-        }
-        middle_part = middle_part_res.ok();
+        )?;
     }
 
     let last_part = parse_ipv4_and_port_for(
         parts[parts.len() - 1].to_string(),
         &format!("public IPv4+PORT (right) part of the {}", for_option),
         DEFAULT_PORT,
-    );
-    if last_part.is_err() {
-        return Err(());
-    }
+    )?;
 
-    Ok((first_part.unwrap(), (middle_part, last_part.unwrap())))
+    Ok((first_part, (middle_part, last_part)))
 }
 
 fn parse_domain_and_port(
     domain_string: &String,
     option: &str,
     default_port: u16,
-) -> Result<(String, String, u16), ()> {
+) -> Result<(String, String, u16), NgdError> {
     let parts: Vec<&str> = domain_string.split(':').collect();
 
     // check validity of domain name
     let valid_domain = List.parse_dns_name(parts[0]);
     match valid_domain {
         Err(e) => {
-            log_err!(
-                "The domain name provided for option {} is invalid. {}. cannot start",
+            return Err(NgdError::OtherConfigError(format!(
+                "The domain name provided for option {} is invalid. {}.",
                 option,
                 e.to_string()
-            );
-            return Err(());
+            )));
         }
         Ok(name) => {
             if !name.has_known_suffix() {
-                log_err!(
-                            "The domain name provided for option {} is invalid. Unknown suffix in public list. cannot start", option
-                        );
-                return Err(());
+                return Err(NgdError::OtherConfigError(format!(
+                            "The domain name provided for option {} is invalid. Unknown suffix in public list.", option
+                        )));
             }
         }
     }
@@ -296,7 +284,7 @@ fn parse_domain_and_port(
 fn prepare_accept_forward_for_domain(
     domain: String,
     args: &mut Cli,
-) -> Result<AcceptForwardForV0, ()> {
+) -> Result<AcceptForwardForV0, NgError> {
     if args.domain_peer.is_some() {
         let key = decode_key(args.domain_peer.as_ref().unwrap().as_str())?;
         args.domain_peer.as_mut().unwrap().zeroize();
@@ -310,15 +298,84 @@ fn prepare_accept_forward_for_domain(
         Ok(AcceptForwardForV0::PublicDomain((domain, "".to_string())))
     }
 }
+#[derive(Debug)]
+pub enum NgdError {
+    IoError(std::io::Error),
+    NgError(NgError),
+    InvalidKeyFile(String),
+    CannotSaveKey(String),
+    InvalidSignature,
+    CannotSaveSignature(String),
+    InvalidConfigFile(String),
+    ConfigCannotSave,
+    ConfigFilePresent,
+    ConfigDomainPeerConflict,
+    NoLoopback,
+    OtherConfigError(String),
+    OtherConfigErrorStr(&'static str),
+    CannotSaveConfig(String),
+}
+
+impl Error for NgdError {}
+
+impl From<NgdError> for std::io::Error {
+    fn from(err: NgdError) -> std::io::Error {
+        match err {
+            NgdError::NgError(e) => e.into(),
+            NgdError::IoError(e) => e,
+            _ => std::io::Error::new(std::io::ErrorKind::Other, err.to_string().as_str()),
+        }
+    }
+}
+
+impl From<NgError> for NgdError {
+    fn from(err: NgError) -> NgdError {
+        Self::NgError(err)
+    }
+}
+
+impl From<std::io::Error> for NgdError {
+    fn from(io: std::io::Error) -> NgdError {
+        NgdError::IoError(io)
+    }
+}
+
+impl fmt::Display for NgdError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidKeyFile(s) => write!(f, "provided key file is invalid. {}", s),
+            Self::CannotSaveKey(s) => write!(f, "cannot save key to file. {}", s),
+            Self::NgError(e) => write!(f, "{}", e.to_string()),
+            Self::InvalidConfigFile(s) => write!(f, "provided config file is invalid. {}", s),
+            Self::IoError(e) => write!(f, "IoError : {:?}", e),
+            Self::ConfigCannotSave => write!(
+                f,
+                "A config file is present. We cannot override it with Quick config options"
+            ),
+            Self::ConfigFilePresent => write!(
+                f,
+                "A config file is present. You cannot use the Quick config options on the command-line. In order to use them, delete your config file first."
+            ),
+            Self::ConfigDomainPeerConflict => write!(
+                f,"The --domain-peer option can only be set when the --domain or --domain-private option is also present on the command line."),
+            Self::NoLoopback => write!(
+                f,"That's pretty unusual, but no loopback interface could be found on your host. --domain option failed for that reason."),
+            Self::OtherConfigError(s) => write!(f, "{}", s),
+            Self::OtherConfigErrorStr(s) => write!(f, "{}", s),
+            _ => write!(f, "{:?}", self),
+        }
+    }
+}
 
 #[async_std::main]
 async fn main() -> std::io::Result<()> {
-    main_inner()
-        .await
-        .map_err(|_| ErrorKind::InvalidInput.into())
+    if let Err(err) = main_inner().await {
+        log_err!("Cannot start: {}", err.to_string());
+        return Err(err.into());
+    }
+    Ok(())
 }
-
-async fn main_inner() -> Result<(), ()> {
+async fn main_inner() -> Result<(), NgdError> {
     let mut args = Cli::parse();
 
     if args.list_interfaces {
@@ -340,7 +397,10 @@ async fn main_inner() -> Result<(), ()> {
     }
     env_logger::init();
 
-    log_info!("Starting NextGraph daemon (ngd)");
+    log_info!(
+        "Starting NextGraph daemon (ngd) version {}",
+        env!("CARGO_PKG_VERSION").to_string()
+    );
 
     log_debug!("base {:?}", args.base);
 
@@ -357,23 +417,20 @@ async fn main_inner() -> Result<(), ()> {
     // reading key from file, if any
     let mut key_path = path.clone();
     key_path.push("key");
-    let key_from_file: Option<[u8; 32]>;
-    let res = |key_path| -> Result<[u8; 32], &str> {
-        let mut file = read_to_string(key_path).map_err(|_| "")?;
-        let first_line = file.lines().nth(0).ok_or("empty file")?;
-        let res = decode_key(first_line.trim()).map_err(|_| "invalid file");
-        file.zeroize();
-        res
-    }(&key_path);
 
-    if res.is_err() && res.unwrap_err().len() > 0 {
-        log_err!(
-            "provided key file is incorrect. {}. cannot start",
-            res.unwrap_err()
-        );
-        return Err(());
-    }
-    key_from_file = res.ok();
+    let key_from_file: Option<[u8; 32]> = match read_to_string(key_path.clone()) {
+        Err(_) => None,
+        Ok(mut file) => {
+            let first_line = file
+                .lines()
+                .nth(0)
+                .ok_or(NgdError::InvalidKeyFile("empty file".to_string()))?;
+            let res = decode_key(first_line.trim())
+                .map_err(|_| NgdError::InvalidKeyFile("deserialization error".to_string()))?;
+            file.zeroize();
+            Some(res)
+        }
+    };
 
     let mut keys: [[u8; 32]; 4] = match &args.key {
         Some(key_string) => {
@@ -382,13 +439,15 @@ async fn main_inner() -> Result<(), ()> {
                 args.key.as_mut().unwrap().zeroize();
                 gen_broker_keys(key_from_file)
             } else {
-                let res = decode_key(key_string.as_str())
-                    .map_err(|_| log_err!("provided key is invalid. cannot start"))?;
+                let res = decode_key(key_string.as_str()).map_err(|_| {
+                    NgdError::InvalidKeyFile(
+                        "check the argument provided in command line".to_string(),
+                    )
+                })?;
                 if args.save_key {
                     let mut master_key = base64_url::encode(&res);
-                    write(key_path.clone(), &master_key).map_err(|e| {
-                        log_err!("cannot save key to file. {}.cannot start", e.to_string())
-                    })?;
+                    write(key_path.clone(), &master_key)
+                        .map_err(|e| NgdError::CannotSaveKey(e.to_string()))?;
                     master_key.zeroize();
                     log_info!("The key has been saved to {}", key_path.to_str().unwrap());
                 }
@@ -403,9 +462,8 @@ async fn main_inner() -> Result<(), ()> {
                 let res = gen_broker_keys(None);
                 let mut master_key = base64_url::encode(&res[0]);
                 if args.save_key {
-                    write(key_path.clone(), &master_key).map_err(|e| {
-                        log_err!("cannot save key to file. {}.cannot start", e.to_string())
-                    })?;
+                    write(key_path.clone(), &master_key)
+                        .map_err(|e| NgdError::CannotSaveKey(e.to_string()))?;
                     log_info!("The key has been saved to {}", key_path.to_str().unwrap());
                 } else {
                     // on purpose we don't log the key, just print it out to stdout, as it should not be saved in logger's files
@@ -427,38 +485,25 @@ async fn main_inner() -> Result<(), ()> {
     let mut sign_path = path.clone();
     sign_path.push("sign");
     let sign_from_file: Option<[u8; 32]>;
-    let res = |sign_path| -> Result<(), &str> {
-        let file = std::fs::read(sign_path).map_err(|_| "")?;
-        let sig: Sig = serde_bare::from_slice(&file).map_err(|_| "invalid serialization")?;
-        let privkey: PrivKey = keys[3].into();
-        let pubkey = privkey.to_pub();
-        verify(&vec![110u8, 103u8, 100u8], sig, pubkey).map_err(|_| "invalid signature")?;
-        Ok(())
-    }(&sign_path);
+    let privkey: PrivKey = keys[3].into();
+    let pubkey = privkey.to_pub();
 
-    if res.is_err() {
-        if res.unwrap_err().len() > 0 {
-            log_err!(
-                "provided key is invalid. {}. cannot start",
-                res.unwrap_err()
-            );
-            return Err(());
-        } else {
-            // time to save the signature
-            let privkey: PrivKey = keys[3].into();
-            let pubkey = privkey.to_pub();
-            let sig = sign(&privkey, &pubkey, &vec![110u8, 103u8, 100u8]);
-            if sig.is_err() {
-                log_err!("cannot save signature. cannot start");
-                return Err(());
-            }
-            let sig_ser = serde_bare::to_vec(&sig.unwrap()).unwrap();
-            let res = std::fs::write(sign_path, sig_ser);
-            if res.is_err() {
-                log_err!("cannot save signature. {}. cannot start", res.unwrap_err());
-                return Err(());
-            }
+    if match std::fs::read(sign_path.clone()) {
+        Err(_) => true,
+        Ok(file) => {
+            let sig: Sig = serde_bare::from_slice(&file).map_err(|_| NgdError::InvalidSignature)?;
+            verify(&vec![110u8, 103u8, 100u8], sig, pubkey)
+                .map_err(|_| NgdError::InvalidSignature)?;
+            false
         }
+    } {
+        // time to save the signature
+        let sig = sign(&privkey, &pubkey, &vec![110u8, 103u8, 100u8])
+            .map_err(|e| NgdError::CannotSaveSignature(e.to_string()))?;
+
+        let sig_ser = serde_bare::to_vec(&sig).unwrap();
+        let res = std::fs::write(sign_path, sig_ser)
+            .map_err(|e| NgdError::CannotSaveSignature(e.to_string()))?;
     }
 
     // DEALING WITH CONFIG
@@ -466,24 +511,13 @@ async fn main_inner() -> Result<(), ()> {
     // reading config from file, if any
     let mut config_path = path.clone();
     config_path.push("config.json");
-    let mut config: Option<DaemonConfig>;
-    let res = |config_path| -> Result<DaemonConfig, String> {
-        let file = read_to_string(config_path).map_err(|_| "".to_string())?;
-        from_str(&file).map_err(|e| e.to_string())
-    }(&config_path);
-
-    if res.is_err() && res.as_ref().unwrap_err().len() > 0 {
-        log_err!(
-            "provided config file is incorrect. {}. cannot start",
-            res.unwrap_err()
-        );
-        return Err(());
-    }
-    config = res.ok();
+    let mut config: Option<DaemonConfig> = match read_to_string(config_path.clone()) {
+        Err(_) => None,
+        Ok(file) => Some(from_str(&file).map_err(|e| NgdError::InvalidConfigFile(e.to_string()))?),
+    };
 
     if config.is_some() && args.save_config {
-        log_err!("A config file is present. We cannot override it with Quick config options. cannot start");
-        return Err(());
+        return Err(NgdError::ConfigCannotSave);
     }
 
     if args.local.is_some()
@@ -498,17 +532,11 @@ async fn main_inner() -> Result<(), ()> {
         // QUICK CONFIG
 
         if config.is_some() && !args.print_config {
-            log_err!(
-                "A config file is present. You cannot use the Quick config options on the command-line. In order to use them, delete your config file first. cannot start"
-            );
-            return Err(());
+            return Err(NgdError::ConfigFilePresent);
         }
 
         if args.domain_peer.is_some() && args.domain_private.is_none() && args.domain.is_none() {
-            log_err!(
-                "The --domain-peer option can only be set when the --domain or --domain-private option is also present on the command line. cannot start"
-            );
-            return Err(());
+            return Err(NgdError::ConfigCannotSave);
         }
 
         let mut listeners: Vec<ListenerV0> = vec![];
@@ -541,17 +569,14 @@ async fn main_inner() -> Result<(), ()> {
 
             match find_first(&interfaces, InterfaceType::Loopback) {
                 None => {
-                    log_err!(
-                        "That's pretty unusual, but no loopback interface could be found on your host. --domain option failed for that reason. cannot start"
-                    );
-                    return Err(());
+                    return Err(NgdError::NoLoopback);
                 }
                 Some(loopback) => {
                     overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
                     let mut listener = ListenerV0::new_direct(loopback, !args.no_ipv6, local_port);
                     listener.accept_direct = false;
                     let res = prepare_accept_forward_for_domain(domain, &mut args).map_err(|_| {
-                        log_err!("The --domain-peer option has an invalid key. it must be a base64_url encoded serialization of a PrivKey. cannot start")
+                        NgdError::OtherConfigErrorStr("The --domain-peer option has an invalid key. it must be a base64_url encoded serialization of a PrivKey.")
                     })?;
                     listener.accept_forward_for = res;
                     listeners.push(listener);
@@ -564,10 +589,7 @@ async fn main_inner() -> Result<(), ()> {
         if args.local.is_some() {
             match find_first(&interfaces, InterfaceType::Loopback) {
                 None => {
-                    log_err!(
-                        "That's pretty unusual, but no loopback interface could be found on your host. cannot start"
-                    );
-                    return Err(());
+                    return Err(NgdError::OtherConfigErrorStr("That's pretty unusual, but no loopback interface could be found on your host."));
                 }
                 Some(loopback) => {
                     overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
@@ -577,10 +599,7 @@ async fn main_inner() -> Result<(), ()> {
                         && listeners.last().unwrap().port == args.local.unwrap()
                     {
                         if args.domain_peer.is_some() {
-                            log_err!(
-                                "--local is not allowed if --domain-peer is selected, as they both use the same port. change the port of one of them. cannot start"
-                            );
-                            return Err(());
+                            return Err(NgdError::OtherConfigErrorStr( "--local is not allowed if --domain-peer is selected, as they both use the same port. change the port of one of them"));
                         }
                         let r = listeners.last_mut().unwrap();
                         r.accept_direct = true;
@@ -605,18 +624,14 @@ async fn main_inner() -> Result<(), ()> {
             let if_name = &arg_value.0;
             match find_first_or_name(&interfaces, InterfaceType::Public, &if_name) {
                 None => {
-                    log_err!(
-                        "{}",
-                        if if_name == "default" {
-                            "We could not find a public IP interface on your host. If you are setting up a server behind a reverse proxy, enter the config manually in the config file. cannot start".to_string()
-                        } else {
-                            format!(
-                                "We could not find a public IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host. cannot start",
+                    if if_name == "default" {
+                        return Err(NgdError::OtherConfigErrorStr("We could not find a public IP interface on your host. If you are setting up a server behind a reverse proxy, enter the config manually in the config file."));
+                    } else {
+                        return Err(NgdError::OtherConfigError(format!(
+                                "We could not find a public IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host.",
                                 if_name
-                            )
-                        }
-                    );
-                    return Err(());
+                            )));
+                    }
                 }
                 Some(public) => {
                     overlays_config.core = BrokerOverlayPermission::AllRegisteredUser;
@@ -644,19 +659,14 @@ async fn main_inner() -> Result<(), ()> {
             let if_name = &private_part.0;
             match find_first_or_name(&interfaces, InterfaceType::Private, &if_name) {
                 None => {
-                    log_err!(
-                        "{}",
-                        if if_name == "default" {
-                            "We could not find a private IP interface on your host for --public option. cannot start"
-                                .to_string()
-                        } else {
-                            format!(
-                                "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host. cannot start",
+                    if if_name == "default" {
+                        return Err(NgdError::OtherConfigErrorStr("We could not find a private IP interface on your host for --public option."));
+                    } else {
+                        return Err(NgdError::OtherConfigError(format!(
+                                "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host.",
                                 if_name
-                            )
-                        }
-                    );
-                    return Err(());
+                            )));
+                    }
                 }
                 Some(inter) => {
                     private_interface = inter;
@@ -666,15 +676,15 @@ async fn main_inner() -> Result<(), ()> {
             if !is_public_ipv4(&public_part.1 .0)
                 || public_part.0.is_some() && !is_public_ipv6(public_part.0.as_ref().unwrap())
             {
-                log_err!("The provided IPs are not public. cannot start");
-                return Err(());
+                return Err(NgdError::OtherConfigErrorStr(
+                    "The provided IPs are not public.",
+                ));
             }
 
             if args.no_ipv6 && public_part.0.is_some() {
-                log_err!(
-                    "The public IP is IPv6 but you selected the --no-ipv6 option. cannot start"
-                );
-                return Err(());
+                return Err(NgdError::OtherConfigErrorStr(
+                    "The public IP is IPv6 but you selected the --no-ipv6 option.",
+                ));
             }
 
             overlays_config.core = BrokerOverlayPermission::AllRegisteredUser;
@@ -738,19 +748,14 @@ async fn main_inner() -> Result<(), ()> {
 
             match find_first_or_name(&interfaces, InterfaceType::Private, if_name) {
                 None => {
-                    log_err!(
-                        "{}",
-                        if if_name == "default" {
-                            "We could not find a private IP interface on your host for --dynamic option. cannot start"
-                                .to_string()
-                        } else {
-                            format!(
-                                "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host. cannot start",
+                    if if_name == "default" {
+                        return Err(NgdError::OtherConfigErrorStr("We could not find a private IP interface on your host for --dynamic option."));
+                    } else {
+                        return Err(NgdError::OtherConfigError(format!(
+                                "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host.",
                                 if_name
-                            )
-                        }
-                    );
-                    return Err(());
+                            )));
+                    }
                 }
                 Some(inter) => {
                     overlays_config.core = BrokerOverlayPermission::AllRegisteredUser;
@@ -764,8 +769,7 @@ async fn main_inner() -> Result<(), ()> {
                     {
                         let r = listeners.last_mut().unwrap();
                         if r.accept_forward_for != AcceptForwardForV0::No {
-                            log_err!("The same private interface is already forwarding with a different setting, probably because of a --public option conflicting with a --dynamic option. Changing the port on one of the interfaces can help. cannot start");
-                            return Err(());
+                            return Err(NgdError::OtherConfigErrorStr("The same private interface is already forwarding with a different setting, probably because of a --public option conflicting with a --dynamic option. Changing the port on one of the interfaces can help."));
                         }
                         panic!("this should never happen. --dynamic created after a --private");
                         //r.ipv6 = !args.no_ipv6;
@@ -804,25 +808,20 @@ async fn main_inner() -> Result<(), ()> {
             let if_name = &arg_value.0;
             match find_first_or_name(&interfaces, InterfaceType::Private, &if_name) {
                 None => {
-                    log_err!(
-                        "{}",
-                        if if_name == "default" {
-                            "We could not find a private IP interface on your host for --domain-private option. cannot start"
-                                .to_string()
-                        } else {
-                            format!(
-                                "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host. cannot start",
+                    if if_name == "default" {
+                        return Err(NgdError::OtherConfigErrorStr("We could not find a private IP interface on your host for --domain-private option."));
+                    } else {
+                        return Err(NgdError::OtherConfigError(format!(
+                                "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host.",
                                 if_name
-                            )
-                        }
-                    );
-                    return Err(());
+                            )));
+                    }
                 }
                 Some(inter) => {
                     overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
 
                     let res = prepare_accept_forward_for_domain(domain, &mut args).map_err(|_| {
-                        log_err!("The --domain-peer option has an invalid key. it must be a base64_url encoded serialization of a PrivKey. cannot start")})?;
+                        NgdError::OtherConfigErrorStr("The --domain-peer option has an invalid key. it must be a base64_url encoded serialization of a PrivKey.")})?;
 
                     if listeners.last().is_some()
                         && listeners.last().unwrap().interface_name == inter.name
@@ -830,8 +829,7 @@ async fn main_inner() -> Result<(), ()> {
                     {
                         let r = listeners.last_mut().unwrap();
                         if r.accept_forward_for != AcceptForwardForV0::No {
-                            log_err!("The same private interface is already forwarding with a different setting, probably because of a --public or --dynamic option conflicting with the --domain-private option. Changing the port on one of the interfaces can help. cannot start");
-                            return Err(());
+                            return Err(NgdError::OtherConfigErrorStr("The same private interface is already forwarding with a different setting, probably because of a --public or --dynamic option conflicting with the --domain-private option. Changing the port on one of the interfaces can help."));
                         }
                         panic!(
                             "this should never happen. --domain-private created after a --private"
@@ -862,19 +860,17 @@ async fn main_inner() -> Result<(), ()> {
             let if_name = &arg_value.0;
             match find_first_or_name(&interfaces, InterfaceType::Private, &if_name) {
                 None => {
-                    log_err!(
-                        "{}",
-                        if if_name == "default" {
-                            "We could not find a private IP interface on your host. cannot start"
-                                .to_string()
-                        } else {
+                    if if_name == "default" {
+                        return Err(NgdError::OtherConfigErrorStr(
+                            "We could not find a private IP interface on your host.",
+                        ));
+                    } else {
+                        return Err(NgdError::OtherConfigError(
                             format!(
-                                        "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host. cannot start",
+                                        "We could not find a private IP interface named {} on your host. use --list-interfaces to find the available interfaces on your host.",
                                         if_name
-                                    )
-                        }
-                    );
-                    return Err(());
+                                    )));
+                    }
                 }
                 Some(inter) => {
                     overlays_config.server = BrokerOverlayPermission::AllRegisteredUser;
@@ -884,10 +880,9 @@ async fn main_inner() -> Result<(), ()> {
                         && listeners.last().unwrap().port == arg_value.1
                     {
                         if args.domain_peer.is_some() {
-                            log_err!(
-                                "--private is not allowed if --domain-peer is selected, and they both use the same port. change the port of one of them. cannot start"
+                            return Err(NgdError::OtherConfigErrorStr(
+                                "--private is not allowed if --domain-peer is selected, and they both use the same port. change the port of one of them.")
                             );
-                            return Err(());
                         }
                         let r = listeners.last_mut().unwrap();
                         r.accept_direct = true;
@@ -908,13 +903,15 @@ async fn main_inner() -> Result<(), ()> {
             let parts: Vec<&str> = forward_string.split('@').collect();
 
             if parts.len() != 2 {
-                log_err!(
-                    "The option --forward is invalid. It must contain two parts separated by a @ character. cannot start"
-                );
-                return Err(());
+                return Err(NgdError::OtherConfigErrorStr(
+                    "The option --forward is invalid. It must contain two parts separated by a @ character."
+                ));
             }
-            let pub_key_array = decode_key(parts[1])
-                .map_err(|_| log_err!("The PEER_ID provided in the --forward option is invalid"))?;
+            let pub_key_array = decode_key(parts[1]).map_err(|_| {
+                NgdError::OtherConfigErrorStr(
+                    "The PEER_ID provided in the --forward option is invalid",
+                )
+            })?;
             let peer_id = PubKey::Ed25519PubKey(pub_key_array);
 
             let server_type = if parts[0].len() > 0 {
@@ -932,8 +929,9 @@ async fn main_inner() -> Result<(), ()> {
                     } else if is_public_ip(&bind.0) {
                         BrokerServerTypeV0::Public(vec![bind_addr])
                     } else {
-                        log_err!("Invalid IP address given for --forward option. cannot start");
-                        return Err(());
+                        return Err(NgdError::OtherConfigErrorStr(
+                            "Invalid IP address given for --forward option.",
+                        ));
                     }
                 } else {
                     // a domain name
@@ -994,10 +992,10 @@ async fn main_inner() -> Result<(), ()> {
             // saves the config to file
             let json_string = to_string_pretty(config.as_ref().unwrap()).unwrap();
             write(config_path.clone(), json_string).map_err(|e| {
-                log_err!(
-                    "cannot save config to file. {}. cannot start",
+                NgdError::CannotSaveConfig(format!(
+                    "cannot save config to file. {}.",
                     e.to_string()
-                )
+                ))
             })?;
             log_info!(
                 "The config file has been saved to {}",
@@ -1009,10 +1007,9 @@ async fn main_inner() -> Result<(), ()> {
         }
     } else {
         if config.is_none() {
-            log_err!(
-                "No Quick config option passed, neither is a config file present. We cannot start the server. Choose at least one Quick config option. see --help for details"
-            );
-            return Err(());
+            return Err(NgdError::OtherConfigErrorStr(
+                "No Quick config option passed, neither is a config file present. Choose at least one Quick config option. see --help for details"
+            ));
         }
         if args.print_config {
             let json_string = to_string_pretty(config.as_ref().unwrap()).unwrap();

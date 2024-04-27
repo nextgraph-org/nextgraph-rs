@@ -90,7 +90,7 @@ impl EActor for Actor<'_, CommitGet, Block> {
         log_info!("GOT CommitGet {:?}", req);
         let broker = BROKER.read().await;
         let blocks_res = broker
-            .get_server_storage()?
+            .get_server_broker()?
             .get_commit(req.overlay(), req.id());
 
         match blocks_res {

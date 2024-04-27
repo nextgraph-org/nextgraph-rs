@@ -184,7 +184,7 @@ impl fmt::Display for PubKey {
 impl TryFrom<&str> for PubKey {
     type Error = NgError;
     fn try_from(str: &str) -> Result<Self, NgError> {
-        let key = decode_key(str).map_err(|_| NgError::InvalidKey)?;
+        let key = decode_key(str)?;
         Ok(PubKey::Ed25519PubKey(key))
     }
 }
@@ -254,7 +254,7 @@ impl TryFrom<&[u8]> for PrivKey {
 impl TryFrom<&str> for PrivKey {
     type Error = NgError;
     fn try_from(str: &str) -> Result<Self, NgError> {
-        let key = decode_key(str).map_err(|_| NgError::InvalidKey)?;
+        let key = decode_key(str)?;
         Ok(PrivKey::Ed25519PrivKey(key))
     }
 }
