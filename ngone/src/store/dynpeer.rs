@@ -61,6 +61,7 @@ impl<'a> DynPeer<'a> {
                 &to_vec(&id)?,
                 Some(Self::ADDRS),
                 &to_vec(&addrs)?,
+                &None,
             )?;
             Ok(())
         })?;
@@ -72,6 +73,7 @@ impl<'a> DynPeer<'a> {
                 Self::PREFIX,
                 &to_vec(&self.id).unwrap(),
                 Some(Self::SUFFIX_FOR_EXIST_CHECK),
+                &None,
             )
             .is_ok()
     }
@@ -86,16 +88,21 @@ impl<'a> DynPeer<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::ADDRS),
-            to_vec(addrs)?,
+            &to_vec(addrs)?,
+            &None,
         )
     }
     pub fn remove_addresses(&self) -> Result<(), StorageError> {
         self.store
-            .del(Self::PREFIX, &to_vec(&self.id)?, Some(Self::ADDRS))
+            .del(Self::PREFIX, &to_vec(&self.id)?, Some(Self::ADDRS), &None)
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store
-            .del_all(Self::PREFIX, &to_vec(&self.id)?, &Self::ALL_PROPERTIES)
+        self.store.del_all(
+            Self::PREFIX,
+            &to_vec(&self.id)?,
+            &Self::ALL_PROPERTIES,
+            &None,
+        )
     }
 }

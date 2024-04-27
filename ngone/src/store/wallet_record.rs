@@ -64,6 +64,7 @@ impl<'a> WalletRecord<'a> {
                 &to_vec(&id)?,
                 Some(Self::BOOTSTRAP),
                 &to_vec(bootstrap)?,
+                &None,
             )?;
             Ok(())
         })?;
@@ -75,6 +76,7 @@ impl<'a> WalletRecord<'a> {
                 Self::PREFIX,
                 &to_vec(&self.id).unwrap(),
                 Some(Self::SUFFIX_FOR_EXIST_CHECK),
+                &None,
             )
             .is_ok()
     }
@@ -89,7 +91,8 @@ impl<'a> WalletRecord<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::WALLET),
-            to_vec(wallet)?,
+            &to_vec(wallet)?,
+            &None,
         )
     }
 
@@ -101,14 +104,15 @@ impl<'a> WalletRecord<'a> {
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::BOOTSTRAP),
-            to_vec(boot)?,
+            &to_vec(boot)?,
+            &None,
         )
     }
 
     pub fn wallet(&self) -> Result<Wallet, StorageError> {
         match self
             .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::WALLET))
+            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::WALLET), &None)
         {
             Ok(w) => Ok(from_slice::<Wallet>(&w)?),
             Err(e) => Err(e),
@@ -116,17 +120,23 @@ impl<'a> WalletRecord<'a> {
     }
 
     pub fn bootstrap(&self) -> Result<Bootstrap, StorageError> {
-        match self
-            .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::BOOTSTRAP))
-        {
+        match self.store.get(
+            Self::PREFIX,
+            &to_vec(&self.id)?,
+            Some(Self::BOOTSTRAP),
+            &None,
+        ) {
             Ok(meta) => Ok(from_slice::<Bootstrap>(&meta)?),
             Err(e) => Err(e),
         }
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store
-            .del_all(Self::PREFIX, &to_vec(&self.id)?, &Self::ALL_PROPERTIES)
+        self.store.del_all(
+            Self::PREFIX,
+            &to_vec(&self.id)?,
+            &Self::ALL_PROPERTIES,
+            &None,
+        )
     }
 }
