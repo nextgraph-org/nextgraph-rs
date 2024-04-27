@@ -109,9 +109,9 @@ impl<'a> Wallet<'a> {
         })?;
         Ok(result.unwrap())
     }
-    pub fn get_or_create_peers_key(&self) -> Result<SymKey, StorageError> {
-        self.get_or_create_single_key(Self::PREFIX, &Self::KEY_PEERS.to_vec())
-    }
+    // pub fn get_or_create_peers_key(&self) -> Result<SymKey, StorageError> {
+    //     self.get_or_create_single_key(Self::PREFIX, &Self::KEY_PEERS.to_vec())
+    // }
     pub fn get_or_create_blocks_key(&self) -> Result<SymKey, StorageError> {
         self.get_or_create_single_key(Self::PREFIX, &Self::KEY_BLOCKS.to_vec())
     }

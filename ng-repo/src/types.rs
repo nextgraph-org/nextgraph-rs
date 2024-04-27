@@ -485,18 +485,18 @@ pub type BranchWriteCapSecret = PrivKey;
 // IDENTITY, SITE, STORE, OVERLAY common types
 //
 
-/// List of Identity types
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum Identity {
-    OrgSite(PubKey),
-    IndividualSite(PubKey),
-    OrgPublicStore(PubKey),
-    OrgProtectedStore(PubKey),
-    OrgPrivateStore(PubKey),
-    IndividualPublicStore(PubKey),
-    IndividualProtectedStore(PubKey),
-    IndividualPrivateStore(PubKey),
-}
+// /// List of Identity types
+// #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+// pub enum Identity {
+//     OrgSite(PubKey),
+//     IndividualSite(PubKey),
+//     OrgPublicStore(PubKey),
+//     OrgProtectedStore(PubKey),
+//     OrgPrivateStore(PubKey),
+//     IndividualPublicStore(PubKey),
+//     IndividualProtectedStore(PubKey),
+//     IndividualPrivateStore(PubKey),
+// }
 
 pub type OuterOverlayId = Digest;
 

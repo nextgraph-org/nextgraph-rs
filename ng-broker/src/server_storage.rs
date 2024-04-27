@@ -31,7 +31,7 @@ use ng_storage_rocksdb::kcv_storage::RocksDbKCVStorage;
 pub struct RocksDbServerStorage {
     wallet_storage: RocksDbKCVStorage,
     accounts_storage: RocksDbKCVStorage,
-    peers_storage: RocksDbKCVStorage,
+    //peers_storage: RocksDbKCVStorage,
     peers_last_seq_path: PathBuf,
     peers_last_seq: Mutex<HashMap<PeerId, u64>>,
     block_storage: RocksDbBlockStorage,
@@ -93,13 +93,13 @@ impl RocksDbServerStorage {
             RocksDbKCVStorage::open(&accounts_path, accounts_key.slice().clone())?;
 
         // create/open the PEERS storage
-        log_debug!("opening peers DB");
-        let peers_key = wallet.get_or_create_peers_key()?;
-        let mut peers_path = path.clone();
-        peers_path.push("peers");
-        std::fs::create_dir_all(peers_path.clone()).unwrap();
-        //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let peers_storage = RocksDbKCVStorage::open(&peers_path, peers_key.slice().clone())?;
+        // log_debug!("opening peers DB");
+        // let peers_key = wallet.get_or_create_peers_key()?;
+        // let mut peers_path = path.clone();
+        // peers_path.push("peers");
+        // std::fs::create_dir_all(peers_path.clone()).unwrap();
+        // //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
+        // let peers_storage = RocksDbKCVStorage::open(&peers_path, peers_key.slice().clone())?;
 
         // creates the path for peers_last_seq
         let mut peers_last_seq_path = path.clone();
@@ -125,7 +125,7 @@ impl RocksDbServerStorage {
         Ok(RocksDbServerStorage {
             wallet_storage,
             accounts_storage,
-            peers_storage,
+            //peers_storage,
             peers_last_seq_path,
             peers_last_seq: Mutex::new(HashMap::new()),
             block_storage,

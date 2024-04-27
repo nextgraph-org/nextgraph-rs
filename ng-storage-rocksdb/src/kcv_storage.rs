@@ -11,11 +11,14 @@ use ng_repo::kcv_storage::*;
 
 use ng_repo::errors::*;
 use ng_repo::log::*;
+use rocksdb::BlockBasedOptions;
+use rocksdb::Cache;
 use rocksdb::DBIteratorWithThreadMode;
 
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
+use std::thread::available_parallelism;
 
 use rocksdb::{
     ColumnFamily, ColumnFamilyDescriptor, Direction, Env, ErrorKind, IteratorMode, Options,
@@ -654,14 +657,46 @@ impl RocksDbKCVStorage {
     /// The key is the encryption key for the data at rest.
     pub fn open<'a>(path: &Path, key: [u8; 32]) -> Result<RocksDbKCVStorage, StorageError> {
         let mut opts = Options::default();
+        let default_parallelism_approx = available_parallelism()
+            .unwrap_or(std::num::NonZeroUsize::new(1).unwrap())
+            .get();
         //opts.set_use_fsync(true);
+        opts.set_max_background_jobs(default_parallelism_approx as i32);
+        opts.increase_parallelism(default_parallelism_approx as i32);
+
+        // the default WAL size is CF_nbr * write_buffer_size * max_write_buffer_number * 4
+        // we limit it to 1GB
+        opts.set_max_total_wal_size(1024 * 1024 * 1024);
+        opts.set_write_buffer_size(64 * 1024 * 1024); // which is the default. might have to reduce this on smartphones.
+        let nbr_of_cf = 1;
+        opts.set_db_write_buffer_size(64 * 1024 * 1024 * nbr_of_cf);
+        opts.set_target_file_size_base(64 * 1024 * 1024); // the default
+        opts.set_max_write_buffer_number(2); // the default
+        opts.set_level_zero_file_num_compaction_trigger(4); // the default
+        opts.set_max_bytes_for_level_base(256 * 1024 * 1024);
+        opts.set_target_file_size_multiplier(10);
+        opts.set_level_compaction_dynamic_level_bytes(true);
+
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
+
+        let mut block_based_opts = BlockBasedOptions::default();
+        // we will have a cache of decrypted objects, so there is no point in caching also the encrypted blocks.
+        let cache = Cache::new_lru_cache(64 * 1024 * 1024);
+        block_based_opts.set_block_cache(&cache);
+        block_based_opts.set_cache_index_and_filter_blocks(true);
+        block_based_opts.set_block_size(16 * 1024);
+        block_based_opts.set_bloom_filter(10.0, false);
+        block_based_opts.set_format_version(6);
+        opts.set_block_based_table_factory(&block_based_opts);
+
         let env = Env::enc_env(key).unwrap();
         opts.set_env(&env);
+
+        // TODO: use open_cf and choose which column family to create/ versus using set_prefix_extractor and doing prefix seek
+
         let tx_options = TransactionDBOptions::new();
-        let db: TransactionDB =
-            TransactionDB::open_cf(&opts, &tx_options, &path, vec!["cf0", "cf1"]).unwrap();
+        let db: TransactionDB = TransactionDB::open(&opts, &tx_options, &path).unwrap();
 
         log_info!(
             "created kcv storage with Rocksdb Version: {}",
