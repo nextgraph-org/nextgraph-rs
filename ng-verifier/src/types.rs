@@ -215,10 +215,14 @@ pub struct GraphUpdate {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DiscreteUpdate {
     /// A yrs::Update
+    #[serde(with = "serde_bytes")]
     YMap(Vec<u8>),
+    #[serde(with = "serde_bytes")]
     YXml(Vec<u8>),
+    #[serde(with = "serde_bytes")]
     YText(Vec<u8>),
     /// An automerge::Patch
+    #[serde(with = "serde_bytes")]
     Automerge(Vec<u8>),
 }
 
@@ -248,8 +252,8 @@ pub enum AppRequestPayloadV0 {
     Update(AppUpdate),
     Delete(AppDelete),
     SmallFilePut(SmallFile),
-    RandomAccessFilePut(String),                   // content_type
-    RandomAccessFilePutChunk((ObjectId, Vec<u8>)), // end the upload with an empty vec
+    RandomAccessFilePut(String), // content_type
+    RandomAccessFilePutChunk((ObjectId, serde_bytes::ByteBuf)), // end the upload with an empty vec
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -260,10 +264,14 @@ pub enum AppRequestPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DiscretePatch {
     /// A yrs::Update
+    #[serde(with = "serde_bytes")]
     YMap(Vec<u8>),
+    #[serde(with = "serde_bytes")]
     YXml(Vec<u8>),
+    #[serde(with = "serde_bytes")]
     YText(Vec<u8>),
     /// An automerge::Patch
+    #[serde(with = "serde_bytes")]
     Automerge(Vec<u8>),
 }
 
@@ -277,10 +285,14 @@ pub struct GraphPatch {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DiscreteState {
     /// A yrs::StateVector
+    #[serde(with = "serde_bytes")]
     YMap(Vec<u8>),
+    #[serde(with = "serde_bytes")]
     YXml(Vec<u8>),
+    #[serde(with = "serde_bytes")]
     YText(Vec<u8>),
     // the output of Automerge::save()
+    #[serde(with = "serde_bytes")]
     Automerge(Vec<u8>),
 }
 
@@ -314,6 +326,7 @@ pub enum AppResponseV0 {
     Patch(AppPatch),
     Text(String),
     File(FileName),
+    #[serde(with = "serde_bytes")]
     FileBinary(Vec<u8>),
     QueryResult, // see sparesults
 }

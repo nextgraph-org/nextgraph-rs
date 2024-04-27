@@ -128,7 +128,7 @@ impl SessionWalletStorageV0 {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionInfo {
-    pub session_id: u8,
+    pub session_id: u64,
     pub user: UserId,
 }
 
@@ -214,6 +214,7 @@ pub struct LocalWalletStorageV0 {
     pub client_id: ClientId,
     pub client_auto_open: Vec<PubKey>,
     pub client_name: Option<String>,
+    #[serde(with = "serde_bytes")]
     pub encrypted_client_storage: Vec<u8>,
 }
 
@@ -440,7 +441,7 @@ pub struct SensitiveWalletV0 {
     /// third parties data saved in the wallet. the string (key) in the hashmap should be unique among vendors.
     /// the format of the byte array (value) is up to the vendor, to serde as needed.
     #[zeroize(skip)]
-    pub third_parties: HashMap<String, Vec<u8>>,
+    pub third_parties: HashMap<String, serde_bytes::ByteBuf>,
 
     #[zeroize(skip)]
     pub log: Option<WalletLogV0>,
@@ -745,7 +746,7 @@ impl WalletLogV0 {
                     WalletOperation::RemoveSiteBootstrapV0(_) => {}
                     WalletOperation::AddThirdPartyDataV0((key, value)) => {
                         if self.is_last_and_not_deleted_afterwards(op, "RemoveThirdPartyDataV0") {
-                            let _ = wallet.third_parties.insert(key.to_string(), value.to_vec());
+                            let _ = wallet.third_parties.insert(key.to_string(), value.clone());
                         }
                     }
                     WalletOperation::RemoveThirdPartyDataV0(_) => {} // WalletOperation::SetSiteRBDRefV0((site, store_type, rbdr)) => {
@@ -894,7 +895,7 @@ pub enum WalletOperation {
     RemoveSiteCoreV0((PubKey, PubKey)),
     AddSiteBootstrapV0((PubKey, PubKey)),
     RemoveSiteBootstrapV0((PubKey, PubKey)),
-    AddThirdPartyDataV0((String, Vec<u8>)),
+    AddThirdPartyDataV0((String, serde_bytes::ByteBuf)),
     RemoveThirdPartyDataV0(String),
     //SetSiteRBDRefV0((PubKey, SiteStoreType, ObjectRef)),
     //SetSiteRepoSecretV0((PubKey, SiteStoreType, RepoWriteCapSecret)),
@@ -1284,7 +1285,7 @@ pub struct CreateWalletResultV0 {
     /// is this an in_memory wallet that should not be saved to disk by the LocalBroker?
     pub in_memory: bool,
 
-    pub session_id: u8,
+    pub session_id: u64,
 }
 
 impl CreateWalletResultV0 {

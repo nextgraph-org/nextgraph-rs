@@ -1723,6 +1723,7 @@ pub enum RemoveSignerCap {
 /// DEPS are the last HEAD of wallet updates.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WalletUpdateV0 {
+    #[serde(with = "serde_bytes")]
     pub op: Vec<u8>,
 
     /// Metadata

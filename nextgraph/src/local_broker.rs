@@ -379,7 +379,7 @@ struct LocalBroker {
 
     pub sessions: HashMap<UserId, SessionPeerStorageV0>,
 
-    pub opened_sessions: HashMap<UserId, u8>,
+    pub opened_sessions: HashMap<UserId, u64>,
 
     pub opened_sessions_list: Vec<Option<Session>>,
 }
@@ -518,7 +518,7 @@ impl LocalBroker {
         } else {
             #[cfg(not(target_family = "wasm"))]
             {
-                let mut key_material = wallet
+                let key_material = wallet
                     .client()
                     .as_ref()
                     .unwrap()
@@ -529,8 +529,9 @@ impl LocalBroker {
                     "block{}",
                     wallet.client().as_ref().unwrap().id.to_hash_string()
                 ))?;
-                let mut key: [u8; 32] =
+                let key: [u8; 32] =
                     derive_key("NextGraph Client BlockStorage BLAKE3 key", key_material);
+
                 Arc::new(std::sync::RwLock::new(RocksDbBlockStorage::open(
                     &path, key,
                 )?))
@@ -761,10 +762,10 @@ impl LocalBroker {
                     verifier,
                 }));
                 let idx = broker.opened_sessions_list.len() - 1;
-                broker.opened_sessions.insert(user_id, idx as u8);
+                broker.opened_sessions.insert(user_id, idx as u64);
 
                 Ok(SessionInfo {
-                    session_id: idx as u8,
+                    session_id: idx as u64,
                     user: user_id,
                 })
             }
@@ -1414,7 +1415,7 @@ pub async fn wallet_remove(wallet_name: String) -> Result<(), NgError> {
 
 /// fetches a document's content, or performs a mutation on the document.
 pub async fn doc_fetch(
-    session_id: u8,
+    session_id: u64,
     nuri: String,
     payload: Option<AppRequestPayload>,
 ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
@@ -1433,7 +1434,7 @@ pub async fn doc_fetch(
 }
 
 /// retrieves the ID of one of the 3 stores of a the personal Site (3P: public, protected, or private)
-pub async fn personal_site_store(session_id: u8, store: SiteStoreType) -> Result<PubKey, NgError> {
+pub async fn personal_site_store(session_id: u64, store: SiteStoreType) -> Result<PubKey, NgError> {
     let broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.read().await,

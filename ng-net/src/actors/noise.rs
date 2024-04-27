@@ -20,6 +20,7 @@ use std::any::{Any, TypeId};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NoiseV0 {
     // contains the handshake messages or the encrypted content of a ProtocolMessage
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
 }
 

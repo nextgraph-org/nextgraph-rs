@@ -67,6 +67,7 @@ pub struct CoreHello {
     pub noise: Noise,
 
     /// Noise encrypted payload (a CoreMessage::CoreRequest::BrokerConnect)
+    #[serde(with = "serde_bytes")]
     pub payload: Vec<u8>,
 }
 
@@ -132,6 +133,7 @@ pub struct ExtHello {
     pub noise: Noise,
 
     /// Noise encrypted payload (an ExtRequest)
+    #[serde(with = "serde_bytes")]
     pub payload: Vec<u8>,
 }
 
