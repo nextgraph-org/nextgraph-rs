@@ -968,6 +968,7 @@ impl fmt::Display for ObjectContent {
                     ObjectContentV0::RandomAccessFileMeta(c) => {
                         ("RandomAccessFileMeta", format!("{}", ""))
                     }
+                    ObjectContentV0::RefreshCap(c) => ("RefreshCap", format!("{}", "")),
                 },
             ),
         };

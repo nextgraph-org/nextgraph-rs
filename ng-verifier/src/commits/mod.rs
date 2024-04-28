@@ -426,7 +426,7 @@ impl CommitVerifier for AsyncSignature {
     }
 }
 
-impl CommitVerifier for RefreshReadCap {
+impl CommitVerifier for RootCapRefresh {
     fn verify(
         &self,
         commit: &Commit,
@@ -437,7 +437,7 @@ impl CommitVerifier for RefreshReadCap {
     }
 }
 
-impl CommitVerifier for RefreshWriteCap {
+impl CommitVerifier for BranchCapRefresh {
     fn verify(
         &self,
         commit: &Commit,

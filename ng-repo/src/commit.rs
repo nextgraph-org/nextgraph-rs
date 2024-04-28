@@ -838,8 +838,8 @@ impl CommitBody {
                 CommitBodyV0::AddName(_) => true,
                 CommitBodyV0::RemoveName(_) => true,
                 //CommitBodyV0::Quorum(_) => true,
-                CommitBodyV0::RefreshReadCap(_) => true,
-                CommitBodyV0::RefreshWriteCap(_) => true,
+                CommitBodyV0::RootCapRefresh(_) => true,
+                CommitBodyV0::CapRefreshed(_) => true,
                 CommitBodyV0::SyncSignature(_) => true,
                 CommitBodyV0::Delete(_) => true,
                 _ => false,
@@ -859,8 +859,8 @@ impl CommitBody {
                 CommitBodyV0::RemoveFile(_) => true,
                 CommitBodyV0::Compact(_) => true,
                 CommitBodyV0::AsyncSignature(_) => true,
-                CommitBodyV0::RefreshReadCap(_) => true,
-                CommitBodyV0::RefreshWriteCap(_) => true,
+                CommitBodyV0::BranchCapRefresh(_) => true,
+                CommitBodyV0::CapRefreshed(_) => true,
                 CommitBodyV0::SyncSignature(_) => true,
                 _ => false,
             },
@@ -921,8 +921,8 @@ impl CommitBody {
                 //CommitBodyV0::Quorum(_) => true,
                 CommitBodyV0::Compact(_) => true,
                 CommitBodyV0::SyncTransaction(_) => true, // check Quorum::TotalOrder in CommitContent
-                CommitBodyV0::RefreshReadCap(_) => true,
-                CommitBodyV0::RefreshWriteCap(_) => true,
+                CommitBodyV0::RootCapRefresh(_) => true,
+                CommitBodyV0::BranchCapRefresh(_) => true,
                 _ => false,
             },
         }
@@ -1003,8 +1003,15 @@ impl CommitBody {
                     PermissionV0::RemoveWritePermission,
                     PermissionV0::Compact,
                 ],
-                CommitBodyV0::RefreshReadCap(_) => vec![PermissionV0::RefreshReadCap],
-                CommitBodyV0::RefreshWriteCap(_) => vec![PermissionV0::RefreshWriteCap],
+                CommitBodyV0::RootCapRefresh(_) => {
+                    vec![PermissionV0::RefreshReadCap, PermissionV0::RefreshWriteCap]
+                }
+                CommitBodyV0::BranchCapRefresh(_) => {
+                    vec![PermissionV0::RefreshReadCap, PermissionV0::RefreshWriteCap]
+                }
+                CommitBodyV0::CapRefreshed(_) => {
+                    vec![PermissionV0::RefreshReadCap, PermissionV0::RefreshWriteCap]
+                }
                 CommitBodyV0::Delete(_) => vec![],
                 CommitBodyV0::AddRepo(_)
                 | CommitBodyV0::RemoveRepo(_)
@@ -1397,9 +1404,9 @@ impl fmt::Display for CommitBody {
                     //
                     // For both
                     //
-                    // CommitBodyV0::RefreshReadCap(b) => write!(f, "RefreshReadCap {}", b),
-                    // CommitBodyV0::RefreshWriteCap(b) => {
-                    //     write!(f, "RefreshWriteCap {}", b)
+                    // CommitBodyV0::RootCapRefresh(b) => write!(f, "RootCapRefresh {}", b),
+                    // CommitBodyV0::BranchCapRefresh(b) => {
+                    //     write!(f, "BranchCapRefresh {}", b)
                     // }
                     CommitBodyV0::SyncSignature(b) => write!(f, "SyncSignature {}", b),
                     //CommitBodyV0::AddRepo(b) => write!(f, "AddRepo {}", b),

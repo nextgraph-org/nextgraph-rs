@@ -1258,8 +1258,8 @@ pub struct InnerOverlayLink {
     /// The store has a special branch called `overlay` that is used to manage access to the InnerOverlay
     /// only the ReadCapSecret is needed to access the InnerOverlay
     /// the full readcap of this branch is needed in order to subscribe to the topic and decrypt the events. The branchId can be found in the branch Definition
-    /// it can be useful to subscribe to this topic if the user is a member of the store's repo, so it will be notified of refreshReadCap on the overlay
-    /// if the user is an external user to the store, it will lose access to the InnerOverlay after a RefreshReadCap of the overlay branch of the store.
+    /// it can be useful to subscribe to this topic if the user is a member of the store's repo, so it will be notified of BranchCapRefresh on the overlay
+    /// if the user is an external user to the store, it will lose access to the InnerOverlay after a BranchCapRefresh of the overlay branch of the store.
     pub store_overlay_readcap: ReadCap,
 }
 

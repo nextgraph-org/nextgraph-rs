@@ -1103,7 +1103,7 @@ pub struct RootBranchV0 {
     /// can only be committed by an owner
     /// it generates a new certificate
     /// owners are not inherited from store
-    // TODO: ReadCap or PermaCap. If it is a ReadCap, a new RootBranch commit should be published (RefreshReadCap) every time the store read cap changes.
+    // TODO: ReadCap or PermaCap. If it is a ReadCap, a new RootBranch commit should be published (RootCapRefresh, only read_cap changes) every time the store read cap changes.
     /// empty for private repos, eventhough they are all implicitly inheriting perms from private store
     pub inherit_perms_users_and_quorum_from_store: Option<ReadCap>,
 
@@ -1200,7 +1200,7 @@ impl fmt::Display for RootBranch {
 
 /// Quorum definition V0
 ///
-/// Changed when the signers need to be updated. Signers are not necessarily editors of the repo, and they do not need to be members either, as they will be notified of RefreshReadCaps anyway.
+/// Changed when the signers need to be updated. Signers are not necessarily editors of the repo, and they do not need to be members either, as they will be notified of RootCapRefresh anyway.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct QuorumV0 {
     /// Number of signatures required for a partial order commit to be valid (threshold+1)
@@ -1464,8 +1464,8 @@ pub enum PermissionV0 {
     RemoveBranch, // can send removeBranch, always behind SyncSignature
     ChangeName,   // can send AddName and RemoveName
 
-    RefreshReadCap, // can send RefreshReadCap followed by UpdateRootBranch and/or UpdateBranch commits, with or without renewed topicIds. Always behind SyncSignature
-    RefreshWriteCap, // can send RefreshWriteCap followed by UpdateRootBranch and associated UpdateBranch commits on all branches, with renewed topicIds and RepoWriteCapSecret. Always behind SyncSignature
+    RefreshReadCap, // can send RootCapRefresh or BranchCapRefresh that do not contain a write_cap, followed by UpdateRootBranch and/or UpdateBranch commits, with or without renewed topicIds. Always behind SyncSignature
+    RefreshWriteCap, // can send RootCapRefresh that contains a write_cap and associated BranchCapRefreshes, followed by UpdateRootBranch and associated UpdateBranch commits on all branches, with renewed topicIds and RepoWriteCapSecret. Always behind SyncSignature
 
     //
     // permissions delegated by owners:
@@ -1479,7 +1479,7 @@ pub enum PermissionV0 {
     Inbox,          // can read inbox
     PermaShare,     // can create and answer to PermaCap (PermaLink)
     UpdateStore,    // only for store root repo (add repo, remove repo) to the store special branch
-    RefreshOverlay, // Equivalent to RefreshReadCap for the overlay special branch.
+    RefreshOverlay, // Equivalent to BranchCapRefresh for the overlay special branch.
 }
 
 /// Add permission to a member in a repo
@@ -1911,7 +1911,7 @@ impl AsyncSignature {
 ///
 /// points to the new Signature Object
 /// based on the total order quorum (or owners quorum)
-/// mandatory for UpdateRootBranch, UpdateBranch, some AddBranch, RemoveBranch, RemoveMember, RemovePermission, Quorum, Compact, sync Transaction, RefreshReadCap, RefreshWriteCap
+/// mandatory for UpdateRootBranch, UpdateBranch, some AddBranch, RemoveBranch, RemoveMember, RemovePermission, Quorum, Compact, sync Transaction, RootCapRefresh, BranchCapRefresh
 /// DEPS: the last signed commit in chain
 /// ACKS: previous head before the chain of signed commit(s). should be identical to the HEADS (marked as DEPS) of first commit in chain
 // #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1943,52 +1943,92 @@ impl fmt::Display for SyncSignature {
     }
 }
 
-/// RefreshReadCap. renew the ReadCap of a `transactional` branch, or the root_branch, or all transactional branches and the root_branch.
+/// the second tuple member is only set when a write_cap refresh is performed, and for users that are Editor (any Member that also has at least one permission, plus all the Owners)
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RefreshSecretV0(SymKey, Option<SymKey>);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RefreshCapV0 {
+    /// an ordered list of user IDs, with their corresponding crypto_box of a RefreshSecretV0.
+    /// A User ID for each Member, Signer and Owner of the repo (except the one that is being excluded, if any)
+    /// the ordering is important as it allows receivers to perform a binary search on the array (searching for their own ID)
+    /// the refresh secret is used for encrypting the SyncSignature commit's key in the event sent in old topic (RefreshSecretV0.0) and for an optional write_cap refresh (RefreshSecretV0.1)
+    pub refresh_secret: Vec<(UserId, serde_bytes::ByteBuf)>,
+}
+
+/// RefreshCap
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum RefreshCap {
+    V0(RefreshCapV0),
+}
+
+/// RootCapRefresh. renew the capabilities of the root branch, or all transactional branches and the root_branch.
 ///
 /// Each branch forms its separate chain for that purpose.
 /// can refresh the topic ids, or not
-/// DEPS: current HEADS in the branch at the moment of refresh.
-/// followed in the chain by a Branch or RootBranch commit (linked with ACK). The key used in EventV0 for the commit in the future of the RefreshReadCap, is the refresh_secret.
-/// the chain can be, by example: RefreshReadCap -> RootBranch -> AddBranch
-/// or for a transactional branch: RefreshReadCap -> Branch
-/// always eventually followed at the end of each chain by a SyncSignature (each branch its own)
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum RefreshReadCapV0 {
-    /// A randomly generated secret (SymKey) used for the refresh process, encrypted for each Member, Signer and Owner of the repo (except the one that is being excluded, if any)
-    /// format to be defined (see crypto_box)
-    RefreshSecret(),
-
-    // or a reference to a master RefreshReadCap commit when some transactional branches are refreshed together with the root_branch. the refresh_secret is taken from that referenced commit
-    MasterRefresh(ObjectRef),
-}
-
-/// RefreshReadCap
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum RefreshReadCap {
-    V0(RefreshReadCapV0),
-}
-
-/// RefreshWriteCap is always done on the root_branch, and always refreshes all the transaction branches WriteCaps, and TopicIDs.
+/// ACKS: current HEADS in the branch at the moment of refresh. DEPS to the previous RootBranch commit that will be superseded.
+/// the chain on the root_branch is : RootCapRefresh -> RemovePermission/RemoveMember -> UpdateRootBranch -> optional AddPermission(s) -> AddBranch x for each branch
+/// and on each transactional branch: BranchCapRefresh -> UpdateBranch
+/// always eventually followed at the end of each chain by a SyncSignature (each branch its own).
+/// The key used in EventV0 to encrypt the key for that SyncSignature commit is the refresh_secret (RefreshSecretV0.0).
 ///
-/// DEPS: current HEADS in the branch at the moment of refresh.
-/// the chain on the root_branch is : RemovePermission/RemoveMember -> RefreshWriteCap -> RootBranch -> optional AddPermission(s) -> AddBranch
-/// and on each transactional branch: RefreshWriteCap -> Branch
-/// always eventually followed at the end of each chain by a SyncSignature (each branch its own)
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct RefreshWriteCapV0 {
-    /// A RefreshReadCapV0::RefreshSecret when on the root_branch, otherwise on transactional branches, a RefreshReadCapV0::MasterRefresh pointing to this RefreshWriteCapV0
-    pub refresh_read_cap: RefreshReadCapV0,
+/// On each new topic, the first commit (singleton) is a BranchCapRefreshed that contains internal references to the old branch (but no DEPS or ACKS).
 
-    /// the new RepoWriteCapSecret, encrypted for each Editor (any Member that also has at least one permission, plus all the Owners). See format of RefreshSecret
-    // TODO: format. should be encrypted
-    // None when used for a transaction branch, as we don't want to duplicate this encrypted secret in each branch.
-    pub write_secret: Option<RepoWriteCapSecret>,
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RootCapRefreshV0 {
+    // ObjectRef to the RefreshCap object
+    pub refresh_ref: ObjectRef,
+
+    /// write cap encrypted with the refresh_secret RefreshSecretV0.1
+    /// only allowed if the user has RefreshWriteCap permission
+    pub write_cap: Option<RepoWriteCapSecret>,
 }
 
-/// RefreshWriteCap
+///
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum RefreshWriteCap {
-    V0(RefreshWriteCapV0),
+pub enum RootCapRefresh {
+    V0(RootCapRefreshV0),
+}
+
+/// BranchCapRefresh renew the capabilities of one specific transactional branch
+///
+/// ACKS: current HEADS in the branch at the moment of refresh.  DEPS to the previous Branch commit that will be superseded.
+/// the chain is, on the transactional branch: BranchCapRefresh -> UpdateBranch
+/// if this is an isolated branch refresh (not part of a rootcaprefresh), then the root branch chain is : AddBranch (ACKS to HEADS, quorumtype:TotalOrder )
+/// always eventually followed at the end of each chain by a SyncSignature (each branch its own)
+/// The key used in EventV0 to encrypt the key for that SyncSignature commit is the refresh_secret (RefreshSecretV0.0), but not on the root branch if it is an isolated branch refresh
+///
+/// On the new topic, the first commit (singleton) is a BranchCapRefreshed that contains internal references to the old branch (but no DEPS or ACKS).
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BranchCapRefreshV0 {
+    /// ObjectRef to the RefreshCap object (shared with a root branch and other transac branches, or specially crafted for this branch if it is an isolated branch refresh)
+    pub refresh_ref: ObjectRef,
+}
+
+/// BranchCapRefresh
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum BranchCapRefresh {
+    V0(BranchCapRefreshV0),
+}
+
+/// BranchCapRefreshed is a singleton in a new topic. it has no ACKS nor DEPS.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BranchCapRefreshedV0 {
+    /// reference to the previous read_cap of the branch
+    pub continuation_of: ReadCap,
+
+    /// reference to the SyncSignature commit that did the refresh
+    pub refresh: ObjectRef,
+
+    /// reference to the UpdateBranch/UpdateRootBranch commit within the event  of the SyncSignature
+    pub new_read_cap: ReadCap,
+}
+
+/// BranchCapRefreshed
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum BranchCapRefreshed {
+    V0(BranchCapRefreshedV0),
 }
 
 /// A Threshold Signature content
@@ -2156,6 +2196,7 @@ pub enum CommitBodyV0 {
     Repository(Repository), // singleton and should be first in root_branch
     RootBranch(RootBranch), // singleton and should be second in root_branch
     UpdateRootBranch(RootBranch), // total order enforced with total_order_quorum
+    RootCapRefresh(RootCapRefresh), // total order enforced with total_order_quorum
     AddMember(AddMember),   // total order enforced with total_order_quorum
     RemoveMember(RemoveMember), // total order enforced with total_order_quorum
     AddPermission(AddPermission),
@@ -2171,11 +2212,12 @@ pub enum CommitBodyV0 {
     //
     // For transactional branches:
     //
-    Branch(Branch),                // singleton and should be first in branch
-    UpdateBranch(Branch),          // total order enforced with total_order_quorum
-    Snapshot(Snapshot),            // a soft snapshot
-    AsyncTransaction(Transaction), // partial_order
-    SyncTransaction(Transaction),  // total_order
+    Branch(Branch),                     // singleton and should be first in branch
+    BranchCapRefresh(BranchCapRefresh), // total order enforced with total_order_quorum
+    UpdateBranch(Branch),               // total order enforced with total_order_quorum
+    Snapshot(Snapshot),                 // a soft snapshot
+    AsyncTransaction(Transaction),      // partial_order
+    SyncTransaction(Transaction),       // total_order
     AddFile(AddFile),
     RemoveFile(RemoveFile),
     Compact(Compact), // a hard snapshot. total order enforced with total_order_quorum
@@ -2186,8 +2228,7 @@ pub enum CommitBodyV0 {
     //
     // For both
     //
-    RefreshReadCap(RefreshReadCap),
-    RefreshWriteCap(RefreshWriteCap),
+    CapRefreshed(BranchCapRefreshed), // singleton and should be first in renewed branch
     SyncSignature(SyncSignature),
 
     //
@@ -2436,6 +2477,7 @@ pub enum ObjectContentV0 {
     Certificate(Certificate),
     SmallFile(SmallFile),
     RandomAccessFileMeta(RandomAccessFileMeta),
+    RefreshCap(RefreshCap),
 }
 
 /// Immutable data stored encrypted in a Merkle tree
