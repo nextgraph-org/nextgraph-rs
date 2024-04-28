@@ -39,6 +39,7 @@ impl BranchV0 {
             root_branch_readcap_id,
             topic,
             topic_privkey,
+            pulled_from: vec![],
             metadata,
         }
     }

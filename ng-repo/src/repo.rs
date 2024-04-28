@@ -25,19 +25,29 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 impl RepositoryV0 {
-    pub fn new(id: &PubKey, metadata: &Vec<u8>) -> RepositoryV0 {
+    pub fn new_with_meta(id: &PubKey, metadata: &Vec<u8>) -> RepositoryV0 {
         RepositoryV0 {
             id: id.clone(),
             metadata: metadata.clone(),
             verification_program: vec![],
+            fork_of: vec![],
             creator: None,
         }
     }
 }
 
 impl Repository {
-    pub fn new(id: &PubKey, metadata: &Vec<u8>) -> Repository {
-        Repository::V0(RepositoryV0::new(id, metadata))
+    pub fn new(id: &RepoId) -> Self {
+        Repository::V0(RepositoryV0 {
+            id: id.clone(),
+            verification_program: vec![],
+            creator: None,
+            fork_of: vec![],
+            metadata: vec![],
+        })
+    }
+    pub fn new_with_meta(id: &PubKey, metadata: &Vec<u8>) -> Repository {
+        Repository::V0(RepositoryV0::new_with_meta(id, metadata))
     }
     pub fn id(&self) -> &PubKey {
         match self {
@@ -178,7 +188,7 @@ impl Repo {
         );
         Self {
             id: id.clone(),
-            repo_def: Repository::new(id, &vec![]),
+            repo_def: Repository::new(&id),
             members,
             store,
             signer: None,

@@ -173,6 +173,7 @@ impl Store {
                 branch_pub_key,
                 repo_write_cap_secret,
             ),
+            pulled_from: vec![],
             metadata: vec![],
         })));
 
@@ -266,12 +267,7 @@ impl Store {
 
         // creating the Repository commit
 
-        let repository = Repository::V0(RepositoryV0 {
-            id: repo_pub_key,
-            verification_program: vec![],
-            creator: None,
-            metadata: vec![],
-        });
+        let repository = Repository::new(&repo_pub_key);
 
         let repository_commit_body = CommitBody::V0(CommitBodyV0::Repository(repository.clone()));
 

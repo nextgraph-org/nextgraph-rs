@@ -1020,6 +1020,11 @@ pub struct RepositoryV0 {
     #[serde(with = "serde_bytes")]
     pub verification_program: Vec<u8>,
 
+    /// Optional serialization of a ReadBranchLink (of a rootbranch or a transactional branch), if the repository is a fork of another one.
+    /// then transaction branches of this new repo, will be able to reference the forked repo/branches commits as DEPS in their singleton Branch commit.
+    #[serde(with = "serde_bytes")]
+    pub fork_of: Vec<u8>,
+
     /// User ID who created this repo
     pub creator: Option<UserId>,
 
@@ -1246,7 +1251,7 @@ pub enum BranchContentType {
 /// the previous branch heads, and the ACKS are empty.
 ///
 /// Can be used also to update the branch definition when users are removed
-/// In this case, the total_order quorum is needed, and DEPS indicates the previous branch definition, ACKS indicate the current HEAD
+/// In this case, the total_order quorum is needed, and DEPS indicates the BranchCapRefresh commit
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BranchV0 {
     /// Branch public key ID
@@ -1272,6 +1277,11 @@ pub struct BranchV0 {
     /// For individual store repo, the RepoWriteCapSecret is zero
     #[serde(with = "serde_bytes")]
     pub topic_privkey: Vec<u8>,
+
+    /// optional: this branch is the result of a pull request coming from another repo.
+    /// contains a serialization of a ReadBranchLink of a transactional branch from another repo
+    #[serde(with = "serde_bytes")]
+    pub pulled_from: Vec<u8>,
 
     /// App-specific metadata
     #[serde(with = "serde_bytes")]
@@ -1858,6 +1868,10 @@ pub enum Snapshot {
 pub struct CompactV0 {
     // Branch heads the snapshot was made from, can be useful when shared outside and the commit_header_key is set to None. otherwise it is redundant to ACKS
     pub heads: Vec<ObjectId>,
+
+    // optional serialization of a ReadBranchLink, if the snapshot is made from another repo.
+    #[serde(with = "serde_bytes")]
+    pub origin: Vec<u8>,
 
     /// Snapshot data structure
     #[serde(with = "serde_bytes")]

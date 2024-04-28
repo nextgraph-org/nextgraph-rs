@@ -3067,7 +3067,7 @@ impl ObjectDel {
     }
 }
 
-/// Request to delete an object
+/// Request to publish an event in pubsub
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PublishEvent(pub Event, #[serde(skip)] pub Option<OverlayId>);
 

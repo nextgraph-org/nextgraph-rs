@@ -1592,12 +1592,7 @@ mod test {
 
         let metadata = Vec::from("some metadata");
 
-        let body = CommitBody::V0(CommitBodyV0::Repository(Repository::V0(RepositoryV0 {
-            id: branch,
-            verification_program: vec![],
-            creator: None,
-            metadata: vec![],
-        })));
+        let body = CommitBody::V0(CommitBodyV0::Repository(Repository::new(&branch)));
 
         let max_object_size = 0;
 
@@ -1708,12 +1703,7 @@ mod test {
 
         let metadata = Vec::from("some metadata");
 
-        let body = CommitBody::V0(CommitBodyV0::Repository(Repository::V0(RepositoryV0 {
-            id: branch,
-            verification_program: vec![],
-            creator: None,
-            metadata: vec![],
-        })));
+        let body = CommitBody::V0(CommitBodyV0::Repository(Repository::new(&branch)));
 
         let max_object_size = 0;
 
