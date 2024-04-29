@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Topic
+//! Topic OKM (Object Key/Col/Value Mapping)
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -37,29 +37,33 @@ impl<'a> IModel for Topic<'a> {
     fn class(&self) -> &Class {
         &Self::CLASS
     }
-    fn existential(&mut self) -> &mut dyn IExistentialValue {
-        &mut self.repo
+    fn existential(&mut self) -> Option<&mut dyn IExistentialValue> {
+        Some(&mut self.repo)
     }
+    // fn name(&self) -> String {
+    //     format_type_of(self)
+    // }
 }
 
 impl<'a> Topic<'a> {
     const PREFIX: u8 = b't';
 
     // Topic properties
-    const ADVERT: SingleValueColumn<Self, PublisherAdvert> = SingleValueColumn::new(b'a');
-    const REPO: ExistentialValueColumn = ExistentialValueColumn::new(b'r');
-    const ROOT_COMMIT: SingleValueColumn<Self, ObjectId> = SingleValueColumn::new(b'o');
+    pub const ADVERT: SingleValueColumn<Self, PublisherAdvert> = SingleValueColumn::new(b'a');
+    pub const REPO: ExistentialValueColumn = ExistentialValueColumn::new(b'r');
+    pub const ROOT_COMMIT: SingleValueColumn<Self, ObjectId> = SingleValueColumn::new(b'o');
 
     // Topic <-> Users who pinned it (with boolean: R or W)
     pub const USERS: MultiMapColumn<Self, UserId, bool> = MultiMapColumn::new(b'u');
     // Topic <-> heads
     pub const HEADS: MultiValueColumn<Self, ObjectId> = MultiValueColumn::new(b'h');
 
-    const CLASS: Class<'a> = Class::new(
-        Self::PREFIX,
-        &Self::REPO,
-        vec![&Self::ADVERT, &Self::ROOT_COMMIT],
-        vec![&Self::USERS, &Self::HEADS],
+    pub const CLASS: Class<'a> = Class::new(
+        "Topic",
+        Some(Self::PREFIX),
+        Some(&Self::REPO),
+        &[&Self::ADVERT as &dyn ISingleValueColumn, &Self::ROOT_COMMIT],
+        &[&Self::USERS as &dyn IMultiValueColumn, &Self::HEADS],
     );
 
     pub fn load(
@@ -70,7 +74,8 @@ impl<'a> Topic<'a> {
         let mut opening = Topic::new(id, overlay, storage);
         let props = opening.load_props()?;
         let existential = col(&Self::REPO, &props)?;
-        opening.repo.set(&existential, &opening)?;
+        opening.repo.set(&existential)?;
+        //ExistentialValue::save(&opening, &existential)?;
         let ti = TopicInfo {
             repo: existential,
             publisher_advert: col(&Self::ADVERT, &props).ok(),
@@ -111,12 +116,13 @@ impl<'a> Topic<'a> {
         if topic.exists() {
             return Err(StorageError::AlreadyExists);
         }
-        topic.repo.set(repo, &topic)?;
+        topic.repo.set(repo)?;
+        ExistentialValue::save(&topic, repo)?;
 
         Ok(topic)
     }
 
-    pub fn repo_hash(&self) -> &RepoHash {
+    pub fn repo_hash(&mut self) -> &RepoHash {
         self.repo.get().unwrap()
     }
 

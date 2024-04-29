@@ -18,6 +18,7 @@ use std::sync::Mutex;
 use crate::server_storage::admin::account::Account;
 use crate::server_storage::admin::invitation::Invitation;
 use crate::server_storage::admin::wallet::Wallet;
+use crate::server_storage::core::*;
 use crate::types::*;
 use ng_net::server_broker::*;
 use ng_net::types::*;
@@ -50,7 +51,7 @@ impl RocksDbServerStorage {
         std::fs::create_dir_all(wallet_path.clone()).unwrap();
         log_debug!("opening wallet DB");
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let wallet_storage = RocksDbKCVStorage::open(&wallet_path, master_key.slice().clone())?;
+        let mut wallet_storage = RocksDbKCVStorage::open(&wallet_path, master_key.slice().clone())?;
         let wallet = Wallet::open(&wallet_storage);
 
         // create/open the ACCOUNTS storage
@@ -89,7 +90,7 @@ impl RocksDbServerStorage {
         log_debug!("opening accounts DB");
         std::fs::create_dir_all(accounts_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let accounts_storage =
+        let mut accounts_storage =
             RocksDbKCVStorage::open(&accounts_path, accounts_key.slice().clone())?;
 
         // create/open the PEERS storage
@@ -120,7 +121,21 @@ impl RocksDbServerStorage {
         core_path.push("core");
         std::fs::create_dir_all(core_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let core_storage = RocksDbKCVStorage::open(&core_path, core_key.slice().clone())?;
+        let mut core_storage = RocksDbKCVStorage::open(&core_path, core_key.slice().clone())?;
+
+        // check unicity of class prefixes, by storage
+        #[cfg(debug_assertions)]
+        {
+            //log_debug!("CHECKING...");
+            // wallet_storage.add_class(&Wallet::CLASS);
+            // wallet_storage.check_prefixes();
+            // accounts_storage.add_class(&Account::CLASS);
+            // accounts_storage.add_class(&Invitation::CLASS);
+            // accounts_storage.check_prefixes();
+            core_storage.add_class(&Topic::CLASS);
+            core_storage.add_class(&RepoOKM::CLASS);
+            core_storage.check_prefixes();
+        }
 
         Ok(RocksDbServerStorage {
             wallet_storage,

@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Overlay
+//! Overlay OKM (Object Key/Col/Value Mapping)
 
 use ng_net::types::*;
 use ng_repo::errors::StorageError;

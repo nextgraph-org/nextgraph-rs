@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Repo storage on disk
+//! Repo storage OKM (Object Key/Col/Value Mapping)
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;

@@ -22,28 +22,28 @@ use ng_repo::{
 use crate::rocksdb_server_storage::RocksDbServerStorage;
 
 pub struct TopicInfo {
-    repo: RepoHash,
+    pub repo: RepoHash,
 
-    publisher_advert: Option<PublisherAdvert>,
+    pub publisher_advert: Option<PublisherAdvert>,
 
-    current_heads: HashSet<ObjectId>,
+    pub current_heads: HashSet<ObjectId>,
 
-    root_commit: Option<ObjectId>,
+    pub root_commit: Option<ObjectId>,
 
     /// indicates which users have opened the topic (boolean says if as publisher or not)
-    users: HashMap<UserId, bool>,
+    pub users: HashMap<UserId, bool>,
 }
 
-struct RepoInfo {
+pub struct RepoInfo {
     /// set of users that requested the repo to be exposed on the outer overlay
     /// only possible if the user is a publisher
-    expose_outer: HashSet<UserId>,
+    pub expose_outer: HashSet<UserId>,
 
     /// set of topics of this repo
-    topics: HashSet<TopicId>,
+    pub topics: HashSet<TopicId>,
 }
 
-struct OverlayInfo {
+pub struct OverlayInfo {
     inner: Option<OverlayId>,
 
     overlay_topic: Option<TopicId>,

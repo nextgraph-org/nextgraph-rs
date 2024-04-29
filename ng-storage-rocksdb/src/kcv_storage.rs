@@ -307,6 +307,9 @@ pub struct RocksDbKCVStorage {
     db: TransactionDB,
     /// path for the storage backend data
     path: String,
+
+    #[cfg(debug_assertions)]
+    pub classes: Vec<(String, Vec<u8>)>,
 }
 
 fn compare<T: Ord>(a: &[T], b: &[T]) -> std::cmp::Ordering {
@@ -708,6 +711,34 @@ impl RocksDbKCVStorage {
         Ok(RocksDbKCVStorage {
             db: db,
             path: path.to_str().unwrap().to_string(),
+            #[cfg(debug_assertions)]
+            classes: Vec::new(),
         })
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn add_class(&mut self, class: &Class) {
+        class.check();
+        self.classes
+            .push((class.name.to_string(), class.prefixes()));
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn check_prefixes(&self) {
+        use std::collections::HashSet;
+        //log_debug!("CHECKING PREFIXES");
+        let mut all_prefixes = HashSet::new();
+        for (class, prefixes) in self.classes.iter() {
+            //log_debug!("CHECKING CLASS {class}");
+            for prefix in prefixes {
+                //log_debug!("CHECKING PREFIX {prefix}");
+                if !all_prefixes.insert(prefix) {
+                    panic!(
+                        "duplicate prefix {} for class {class} !!! check the code",
+                        *prefix as char
+                    );
+                }
+            }
+        }
     }
 }

@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::{collections::HashSet, marker::PhantomData};
 
 use crate::errors::StorageError;
+use crate::log::*;
 use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};
 
@@ -39,53 +40,104 @@ where
 }
 
 pub struct Class<'a> {
-    columns: Vec<&'a dyn ISingleValueColumn>,
-    multi_value_columns: Vec<&'a dyn IMultiValueColumn>,
-    existential_column: &'a dyn ISingleValueColumn,
-    prefix: u8,
+    prefix: Option<u8>,
+    pub name: &'static str,
+    existential_column: Option<&'a dyn ISingleValueColumn>,
+    columns: &'a [&'a dyn ISingleValueColumn],
+    multi_value_columns: &'a [&'a dyn IMultiValueColumn],
 }
 
 impl<'a> Class<'a> {
-    pub fn new(
-        prefix: u8,
-        existential_column: &'a dyn ISingleValueColumn,
-        columns: Vec<&'a dyn ISingleValueColumn>,
-        multi_value_columns: Vec<&'a dyn IMultiValueColumn>,
+    pub const fn new(
+        name: &'static str,
+        prefix: Option<u8>,
+        existential_column: Option<&'a dyn ISingleValueColumn>,
+        columns: &'a [&'a dyn ISingleValueColumn],
+        multi_value_columns: &'a [&'a dyn IMultiValueColumn],
     ) -> Self {
-        // check unicity of prefixes and suffixes
-        #[cfg(test)]
-        {
-            let mut prefixes = HashSet::from([prefix]);
-            let mut suffixes = HashSet::from([existential_column.suffix()]);
-            for column in columns.iter() {
-                if !suffixes.insert(column.suffix()) {
-                    panic!("duplicate suffix {} !!! check the code", column.suffix());
-                }
+        if prefix.is_none() {
+            if existential_column.is_some() {
+                panic!("cannot have an existential_column without a prefix");
             }
-            for mvc in multi_value_columns.iter() {
-                if !prefixes.insert(mvc.prefix()) {
-                    panic!("duplicate prefix {} !!! check the code", mvc.prefix());
-                }
+            if columns.len() > 0 {
+                panic!("cannot have some property columns without a prefix");
             }
         }
         Self {
             columns,
+            name,
             multi_value_columns,
             prefix,
             existential_column,
         }
     }
-    fn suffices(&self) -> Vec<u8> {
-        let mut res: Vec<u8> = self.columns.iter().map(|c| c.suffix()).collect();
-        res.push(self.existential_column.suffix());
+
+    /// check unicity of prefixes and suffixes
+    #[cfg(debug_assertions)]
+    pub fn check(&self) {
+        let mut prefixes = if self.prefix.is_some() {
+            HashSet::from([self.prefix.unwrap()])
+        } else {
+            HashSet::new()
+        };
+
+        let mut suffixes = if self.existential_column.is_some() {
+            HashSet::from([self.existential_column.unwrap().suffix()])
+        } else {
+            HashSet::new()
+        };
+        let name = self.name;
+        //log_debug!("CHECKING CLASS {name}");
+        for column in self.columns.iter() {
+            //log_debug!("INSERTING SUFFIX {}", column.suffix());
+            if !suffixes.insert(column.suffix()) {
+                panic!(
+                    "duplicate suffix {} in {name}!!! check the code",
+                    column.suffix() as char
+                );
+            }
+        }
+        //log_debug!("SUFFIXES {:?}", suffixes);
+        for mvc in self.multi_value_columns.iter() {
+            //log_debug!("INSERTING PREFIX {}", mvc.prefix());
+            if !prefixes.insert(mvc.prefix()) {
+                panic!(
+                    "duplicate prefix {} in {name}!!! check the code",
+                    mvc.prefix() as char
+                );
+            }
+        }
+        //log_debug!("PREFIXES {:?}", prefixes);
+    }
+
+    pub fn prefixes(&self) -> Vec<u8> {
+        let mut res: Vec<u8> = self
+            .multi_value_columns
+            .iter()
+            .map(|c| c.prefix())
+            .collect();
+        if self.prefix.is_some() {
+            res.push(self.prefix.unwrap());
+        }
         res
     }
+    fn suffices(&self) -> Vec<u8> {
+        let mut res: Vec<u8> = self.columns.iter().map(|c| c.suffix()).collect();
+        if self.existential_column.is_some() {
+            res.push(self.existential_column.unwrap().suffix());
+        }
+        res
+    }
+}
+
+pub fn format_type_of<T>(_: &T) -> String {
+    format!("{}", std::any::type_name::<T>())
 }
 
 pub trait IModel {
     fn key(&self) -> &Vec<u8>;
     fn prefix(&self) -> u8 {
-        self.class().prefix
+        self.class().prefix.unwrap()
     }
     fn check_exists(&mut self) -> Result<(), StorageError> {
         if !self.exists() {
@@ -93,17 +145,20 @@ pub trait IModel {
         }
         Ok(())
     }
-    fn existential(&mut self) -> &mut dyn IExistentialValue;
+    fn existential(&mut self) -> Option<&mut dyn IExistentialValue>;
     fn exists(&mut self) -> bool {
-        if self.existential().exists() {
+        if self.existential().is_none() || self.class().existential_column.is_none() {
+            return true;
+        }
+        if self.existential().as_mut().unwrap().exists() {
             return true;
         }
         let prefix = self.prefix();
         let key = self.key();
-        let suffix = self.class().existential_column.suffix();
+        let suffix = self.class().existential_column.unwrap().suffix();
         match self.storage().get(prefix, key, Some(suffix), &None) {
             Ok(res) => {
-                self.existential().process_exists(res);
+                self.existential().as_mut().unwrap().process_exists(res);
                 true
             }
             Err(e) => false,
@@ -111,6 +166,9 @@ pub trait IModel {
     }
     fn storage(&self) -> &dyn KCVStorage;
     fn load_props(&self) -> Result<HashMap<u8, Vec<u8>>, StorageError> {
+        if self.class().prefix.is_none() {
+            panic!("cannot call load_props on a Class without prefix");
+        }
         self.storage().get_all_properties_of_key(
             self.prefix(),
             self.key().to_vec(),
@@ -121,10 +179,12 @@ pub trait IModel {
     fn class(&self) -> &Class;
     fn del(&self) -> Result<(), StorageError> {
         self.storage().write_transaction(&mut |tx| {
-            tx.del_all(self.prefix(), self.key(), &self.class().suffices(), &None)?;
+            if self.class().prefix.is_some() {
+                tx.del_all(self.prefix(), self.key(), &self.class().suffices(), &None)?;
+            }
             for mvc in self.class().multi_value_columns.iter() {
                 let size = mvc.value_size()?;
-                tx.del_all_values(self.prefix(), self.key(), size, None, &None)?;
+                tx.del_all_values(mvc.prefix(), self.key(), size, None, &None)?;
             }
             Ok(())
         })?;
@@ -139,7 +199,7 @@ pub struct MultiValueColumn<
     prefix: u8,
     phantom: PhantomData<Column>,
     model: PhantomData<Model>,
-    value_size: usize,
+    //value_size: usize,
 }
 
 impl<
@@ -147,14 +207,11 @@ impl<
         Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
     > MultiValueColumn<Model, Column>
 {
-    pub fn new(prefix: u8) -> Self {
+    pub const fn new(prefix: u8) -> Self {
         MultiValueColumn {
             prefix,
             phantom: PhantomData,
             model: PhantomData,
-            value_size: to_vec(&Column::default())
-                .expect("serialization of default Column value")
-                .len(),
         }
     }
 
@@ -191,7 +248,7 @@ impl<
         let key_prefix = model.key();
         let key_prefix_len = key_prefix.len();
         let mut res: HashSet<Column> = HashSet::new();
-        let total_size = key_prefix_len + self.value_size;
+        let total_size = key_prefix_len + self.value_size()?;
         for val in model.storage().get_all_keys_and_values(
             self.prefix,
             total_size,
@@ -229,7 +286,7 @@ pub struct MultiMapColumn<
     phantom_column: PhantomData<Column>,
     phantom_model: PhantomData<Model>,
     phantom_value: PhantomData<Value>,
-    value_size: usize,
+    //value_size: usize,
 }
 
 impl<
@@ -238,15 +295,12 @@ impl<
         Value: Serialize + for<'a> Deserialize<'a>,
     > MultiMapColumn<Model, Column, Value>
 {
-    pub fn new(prefix: u8) -> Self {
+    pub const fn new(prefix: u8) -> Self {
         MultiMapColumn {
             prefix,
             phantom_column: PhantomData,
             phantom_model: PhantomData,
             phantom_value: PhantomData,
-            value_size: to_vec(&Column::default())
-                .expect("serialization of default Column value")
-                .len(),
         }
     }
     pub fn add(
@@ -312,7 +366,7 @@ impl<
         let key_prefix = model.key();
         let key_prefix_len = key_prefix.len();
         let mut res: HashMap<Column, Value> = HashMap::new();
-        let total_size = key_prefix_len + self.value_size;
+        let total_size = key_prefix_len + self.value_size()?;
         for val in model.storage().get_all_keys_and_values(
             self.prefix,
             total_size,
@@ -363,7 +417,7 @@ impl ISingleValueColumn for ExistentialValueColumn {
 }
 
 impl ExistentialValueColumn {
-    pub fn new(suffix: u8) -> Self {
+    pub const fn new(suffix: u8) -> Self {
         ExistentialValueColumn { suffix }
     }
 }
@@ -383,7 +437,7 @@ impl<Model: IModel, Value: Serialize + for<'d> Deserialize<'d>> ISingleValueColu
 }
 
 impl<Model: IModel, Value: Serialize + for<'d> Deserialize<'d>> SingleValueColumn<Model, Value> {
-    pub fn new(suffix: u8) -> Self {
+    pub const fn new(suffix: u8) -> Self {
         SingleValueColumn {
             suffix,
             phantom_value: PhantomData,
@@ -423,13 +477,14 @@ impl<Model: IModel, Value: Serialize + for<'d> Deserialize<'d>> SingleValueColum
         )
     }
 
-    pub fn del(
-        &self,
-        model: &mut Model,
-        tx: &mut dyn WriteTransaction,
-    ) -> Result<(), StorageError> {
-        tx.del(model.prefix(), model.key(), Some(self.suffix), &None)
-    }
+    // should call the Model::del() instead
+    // pub fn del(
+    //     &self,
+    //     model: &mut Model,
+    //     tx: &mut dyn WriteTransaction,
+    // ) -> Result<(), StorageError> {
+    //     tx.del(model.prefix(), model.key(), Some(self.suffix), &None)
+    // }
 }
 
 pub struct ExistentialValue<Column: Serialize + for<'d> Deserialize<'d>> {
@@ -459,22 +514,23 @@ impl<Column: Clone + Serialize + for<'d> Deserialize<'d>> ExistentialValue<Colum
         }
     }
 
-    pub fn set<Model: IModel>(
-        &mut self,
-        value: &Column,
-        model: &Model,
-    ) -> Result<(), StorageError> {
+    pub fn set(&mut self, value: &Column) -> Result<(), StorageError> {
         if self.value.is_some() {
             return Err(StorageError::AlreadyExists);
         }
+        self.value = Some(value.clone());
+
+        Ok(())
+    }
+
+    pub fn save<Model: IModel>(model: &Model, value: &Column) -> Result<(), StorageError> {
         model.storage().replace(
             model.prefix(),
             model.key(),
-            Some(model.class().existential_column.suffix()),
+            Some(model.class().existential_column.unwrap().suffix()),
             &to_vec(value)?,
             &None,
         )?;
-        self.value = Some(value.clone());
         Ok(())
     }
 
