@@ -21,14 +21,14 @@ use ng_repo::{
 
 use crate::rocksdb_server_storage::RocksDbServerStorage;
 
-struct TopicInfo {
+pub struct TopicInfo {
     repo: RepoHash,
 
     publisher_advert: Option<PublisherAdvert>,
 
     current_heads: HashSet<ObjectId>,
 
-    expose_outer: bool,
+    root_commit: Option<ObjectId>,
 
     /// indicates which users have opened the topic (boolean says if as publisher or not)
     users: HashMap<UserId, bool>,

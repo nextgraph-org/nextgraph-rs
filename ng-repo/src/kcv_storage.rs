@@ -24,6 +24,20 @@ where
     )?)
 }
 
+pub fn col<A>(
+    column: &dyn ISingleValueColumn,
+    props: &HashMap<u8, Vec<u8>>,
+) -> Result<A, StorageError>
+where
+    A: for<'a> Deserialize<'a>,
+{
+    Ok(from_slice(
+        &props
+            .get(&column.suffix())
+            .ok_or(StorageError::PropertyNotFound)?,
+    )?)
+}
+
 pub struct Class<'a> {
     columns: Vec<&'a dyn ISingleValueColumn>,
     multi_value_columns: Vec<&'a dyn IMultiValueColumn>,

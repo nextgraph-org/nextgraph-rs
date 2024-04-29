@@ -48,7 +48,7 @@ impl PinRepo {
             expose_outer: false,
             peers: vec![],
             max_peer_count: 0,
-            allowed_peers: vec![],
+            //allowed_peers: vec![],
             ro_topics,
             rw_topics,
         })

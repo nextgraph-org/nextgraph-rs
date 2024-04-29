@@ -19,6 +19,8 @@ use ng_repo::types::*;
 
 use serde_bare::to_vec;
 
+use crate::server_broker::TopicInfo;
+
 pub struct Topic<'a> {
     key: Vec<u8>,
     repo: ExistentialValue<RepoHash>,
@@ -60,18 +62,23 @@ impl<'a> Topic<'a> {
         vec![&Self::USERS, &Self::HEADS],
     );
 
-    pub fn load(&self) -> Result<(), StorageError> {
-        let props = self.load_props()?;
-        // let bs = BranchInfo {
-        //     id: id.clone(),
-        //     branch_type: prop(Self::TYPE, &props)?,
-        //     read_cap: prop(Self::READ_CAP, &props)?,
-        //     topic: prop(Self::TOPIC, &props)?,
-        //     topic_priv_key: prop(Self::PUBLISHER, &props).ok(),
-        //     current_heads: Self::get_all_heads(id, storage)?,
-        // };
-        // Ok(bs)
-        Ok(())
+    pub fn load(
+        id: &TopicId,
+        overlay: &OverlayId,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<TopicInfo, StorageError> {
+        let mut opening = Topic::new(id, overlay, storage);
+        let props = opening.load_props()?;
+        let existential = col(&Self::REPO, &props)?;
+        opening.repo.set(&existential, &opening)?;
+        let ti = TopicInfo {
+            repo: existential,
+            publisher_advert: col(&Self::ADVERT, &props).ok(),
+            root_commit: col(&Self::ROOT_COMMIT, &props).ok(),
+            users: Self::USERS.get_all(&mut opening)?,
+            current_heads: Self::HEADS.get_all(&mut opening)?,
+        };
+        Ok(ti)
     }
 
     pub fn new(id: &TopicId, overlay: &OverlayId, storage: &'a dyn KCVStorage) -> Self {
