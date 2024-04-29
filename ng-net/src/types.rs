@@ -1849,6 +1849,12 @@ pub struct OverlayAdvertPayloadV0 {
     /// Current sequence number. For a new session, must be zero.
     pub seq: u64,
 
+    /// list of publisher currently registered on the peer.
+    /// flooded in overlay (with this overlayAdvert) when first joining an overlay, so that subscription routing tables can be updated
+    /// or sent in an OverlayAdvertMarker, to a specific new peer that just joined the overlay (in the point of view of the emitter)
+    /// it can be left empty when a CoreBrokerConnect is made on a broker that is known to be already part of the overlay.
+    pub publishers: Vec<PublisherAdvert>,
+
     /// the previous session ID the peer was using in this overlay. Used to cleanup seq counters maintained in each other peer
     /// if the previous session is empty (because it is the first time broker joins this overlay)
     /// or if a remote peer doesn't find this session kept locally, it is not an error.
@@ -2573,7 +2579,7 @@ pub struct OpenRepoV0 {
     /// a list of core brokers that are allowed to connect to the overlay (only valid for an inner (RW/WO) overlay).
     /// an empty list means any core broker is allowed. this is the default behaviour.
     /// to restrict the overlay to only the current core, its DirectPeerId should be entered here.
-    pub allowed_peers: Vec<DirectPeerId>,
+    // pub allowed_peers: Vec<DirectPeerId>,
 
     /// Maximum number of peers to connect to for this overlay (only valid for an inner (RW/WO) overlay)
     /// 0 means automatic/unlimited
@@ -2628,12 +2634,12 @@ pub struct PinRepoV0 {
     /// Maximum number of peers to connect to for this overlay (only valid for an inner (RW/WO) overlay)
     pub max_peer_count: u16,
 
-    /// a list of core brokers that are allowed to connect to the overlay (only valid for an inner (RW/WO) overlay).
-    /// an empty list means any core broker is allowed. this is the default behaviour.
-    /// to restrict the overlay to only the current core, its DirectPeerId should be entered here.
-    /// not compatible with expose_outer
-    pub allowed_peers: Vec<DirectPeerId>,
-
+    // /// a list of core brokers that are allowed to connect to the overlay (only valid for an inner (RW/WO) overlay).
+    // /// an empty list means any core broker is allowed. this is the default behaviour.
+    // /// to restrict the overlay to only the current core, its DirectPeerId should be entered here.
+    // /// not compatible with expose_outer
+    // this is probably going to be a config in the server itself.
+    // pub allowed_peers: Vec<DirectPeerId>,
     /// list of topics that should be subscribed to
     /// If the repo has previously been opened (during the same session) then ro_topics info can be omitted
     pub ro_topics: Vec<TopicId>,
