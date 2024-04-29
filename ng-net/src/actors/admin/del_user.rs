@@ -18,7 +18,7 @@ use ng_repo::types::PubKey;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::StartProtocol;
+use super::super::StartProtocol;
 
 /// Delete user account V0
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]

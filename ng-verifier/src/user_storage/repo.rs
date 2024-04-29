@@ -21,6 +21,7 @@ use ng_net::types::*;
 use ng_repo::block_storage::BlockStorage;
 use ng_repo::errors::ProtocolError;
 use ng_repo::errors::StorageError;
+use ng_repo::kcv_storage::prop;
 use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::log::*;
 use ng_repo::repo::BranchInfo;
@@ -43,7 +44,6 @@ use serde_bare::to_vec;
 use std::sync::{Arc, RwLock};
 
 use super::branch::BranchStorage;
-use super::prop;
 
 pub struct RepoStorage<'a> {
     storage: &'a dyn KCVStorage,

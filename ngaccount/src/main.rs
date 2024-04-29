@@ -13,7 +13,7 @@ mod types;
 
 use duration_str::parse;
 use ng_client_ws::remote_ws::ConnectionWebSocket;
-use ng_net::actors::add_invitation::*;
+use ng_net::actors::admin::add_invitation::*;
 use ng_net::broker::BROKER;
 use serde::{Deserialize, Serialize};
 use warp::http::header::{HeaderMap, HeaderValue};

@@ -12,7 +12,7 @@ use ed25519_dalek::*;
 use core::fmt;
 use duration_str::parse;
 use futures::{future, pin_mut, stream, SinkExt, StreamExt};
-use ng_net::actors::*;
+use ng_net::actors::admin::*;
 use ng_repo::block_storage::{
     store_max_value_size, store_valid_value_size, BlockStorage, HashMapBlockStorage,
 };

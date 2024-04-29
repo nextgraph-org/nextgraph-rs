@@ -22,16 +22,15 @@ use ng_repo::{
 use crate::rocksdb_server_storage::RocksDbServerStorage;
 
 struct TopicInfo {
-    /// can be None if the Broker is not currently serving this topic for its clients.
-    repo: Option<RepoHash>,
+    repo: RepoHash,
 
     publisher_advert: Option<PublisherAdvert>,
 
-    current_heads: Vec<ObjectId>,
+    current_heads: HashSet<ObjectId>,
 
     expose_outer: bool,
 
-    /// indicates which users have subscribed to topic (boolean says if as publisher or not)
+    /// indicates which users have opened the topic (boolean says if as publisher or not)
     users: HashMap<UserId, bool>,
 }
 
@@ -46,6 +45,8 @@ struct RepoInfo {
 
 struct OverlayInfo {
     inner: Option<OverlayId>,
+
+    overlay_topic: Option<TopicId>,
 
     topics: HashMap<TopicId, TopicInfo>,
 

@@ -16,7 +16,7 @@ use crate::utils::{
     is_public_ipv4, is_public_ipv6,
 };
 use crate::WS_PORT_ALTERNATE;
-use crate::{actor::EActor, actors::*};
+use crate::{actor::EActor, actors::admin::*, actors::*};
 use core::fmt;
 use ng_repo::errors::*;
 use ng_repo::log::*;

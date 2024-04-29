@@ -14,16 +14,3 @@ pub use storage::*;
 pub mod repo;
 
 pub mod branch;
-
-use ng_repo::errors::StorageError;
-use serde::Deserialize;
-use serde_bare::from_slice;
-use std::collections::HashMap;
-pub(crate) fn prop<A>(prop: u8, props: &HashMap<u8, Vec<u8>>) -> Result<A, StorageError>
-where
-    A: for<'a> Deserialize<'a>,
-{
-    Ok(from_slice(
-        &props.get(&prop).ok_or(StorageError::PropertyNotFound)?,
-    )?)
-}

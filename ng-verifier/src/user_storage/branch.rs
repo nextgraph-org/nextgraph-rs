@@ -19,6 +19,7 @@ use ng_net::types::*;
 use ng_repo::block_storage::BlockStorage;
 use ng_repo::errors::ProtocolError;
 use ng_repo::errors::StorageError;
+use ng_repo::kcv_storage::prop;
 use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::repo::BranchInfo;
 use ng_repo::repo::Repo;
@@ -35,8 +36,6 @@ use ng_repo::types::Timestamp;
 use ng_repo::types::TopicId;
 use serde_bare::from_slice;
 use serde_bare::to_vec;
-
-use super::prop;
 
 pub struct BranchStorage<'a> {
     storage: &'a dyn KCVStorage,
@@ -86,6 +85,8 @@ impl<'a> BranchStorage<'a> {
             storage,
         )
     }
+
+    //TODO: save all branch info under the repo_id (key prefix should be repo_id)
 
     pub fn create(
         id: &BranchId,

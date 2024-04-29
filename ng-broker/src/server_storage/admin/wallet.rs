@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Broker Wallet, persists to store all the SymKeys needed to open other storages
+//! Broker Wallet, persists to storage all the SymKeys needed to open other storages
 
 use ng_net::types::*;
 use ng_repo::errors::StorageError;
@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};
 
 pub struct Wallet<'a> {
-    store: &'a dyn KCVStorage,
+    storage: &'a dyn KCVStorage,
 }
 
 impl<'a> Wallet<'a> {
@@ -39,8 +39,8 @@ impl<'a> Wallet<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::SYM_KEY;
 
-    pub fn open(store: &'a dyn KCVStorage) -> Wallet<'a> {
-        Wallet { store }
+    pub fn open(storage: &'a dyn KCVStorage) -> Wallet<'a> {
+        Wallet { storage }
     }
     pub fn get_or_create_single_key(
         &self,
@@ -48,7 +48,7 @@ impl<'a> Wallet<'a> {
         key: &Vec<u8>,
     ) -> Result<SymKey, StorageError> {
         let mut result: Option<SymKey> = None;
-        self.store.write_transaction(&mut |tx| {
+        self.storage.write_transaction(&mut |tx| {
             let got = tx.get(prefix, key, Some(Self::SUFFIX_FOR_EXIST_CHECK), &None);
             match got {
                 Err(e) => {
@@ -92,7 +92,7 @@ impl<'a> Wallet<'a> {
         Ok(symkey)
     }
     pub fn exists_single_key(&self, prefix: u8, key: &Vec<u8>) -> bool {
-        self.store
+        self.storage
             .get(prefix, key, Some(Self::SUFFIX_FOR_EXIST_CHECK), &None)
             .is_ok()
     }
@@ -102,7 +102,7 @@ impl<'a> Wallet<'a> {
     }
     pub fn create_accounts_key(&self) -> Result<SymKey, StorageError> {
         let mut result: Option<SymKey> = None;
-        self.store.write_transaction(&mut |tx| {
+        self.storage.write_transaction(&mut |tx| {
             let res = Self::create_single_key(tx, Self::PREFIX, &Self::KEY_ACCOUNTS.to_vec())?;
             result = Some(res);
             Ok(())

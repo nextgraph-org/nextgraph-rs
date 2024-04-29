@@ -137,6 +137,12 @@ pub enum PubKey {
     X25519PubKey(X25519PubKey),
 }
 
+impl Default for PubKey {
+    fn default() -> Self {
+        Self::nil()
+    }
+}
+
 impl PubKey {
     pub fn slice(&self) -> &[u8; 32] {
         match self {
@@ -396,6 +402,12 @@ pub struct BlockRef {
 
     /// Key for decrypting the Block
     pub key: BlockKey,
+}
+
+impl Default for BlockId {
+    fn default() -> Self {
+        Self::nil()
+    }
 }
 
 impl BlockId {

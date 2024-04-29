@@ -27,7 +27,7 @@ use serde_bare::to_vec;
 pub struct Invitation<'a> {
     /// code
     id: [u8; 32],
-    store: &'a dyn KCVStorage,
+    storage: &'a dyn KCVStorage,
 }
 
 impl<'a> Invitation<'a> {
@@ -45,10 +45,13 @@ impl<'a> Invitation<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::TYPE;
 
-    pub fn open(id: &[u8; 32], store: &'a dyn KCVStorage) -> Result<Invitation<'a>, StorageError> {
+    pub fn open(
+        id: &[u8; 32],
+        storage: &'a dyn KCVStorage,
+    ) -> Result<Invitation<'a>, StorageError> {
         let opening = Invitation {
             id: id.clone(),
-            store,
+            storage,
         };
         if !opening.exists() {
             return Err(StorageError::NotFound);
@@ -59,7 +62,7 @@ impl<'a> Invitation<'a> {
         id: &InvitationCode,
         expiry: u32,
         memo: &Option<String>,
-        store: &'a dyn KCVStorage,
+        storage: &'a dyn KCVStorage,
     ) -> Result<Invitation<'a>, StorageError> {
         let (code_type, code) = match id {
             InvitationCode::Unique(c) => (0u8, c.slice()),
@@ -68,13 +71,13 @@ impl<'a> Invitation<'a> {
         };
         let acc = Invitation {
             id: code.clone(),
-            store,
+            storage,
         };
         if acc.exists() {
             return Err(StorageError::BackendError);
         }
         let mut value = to_vec(&(code_type, expiry, memo.clone()))?;
-        store.write_transaction(&mut |tx| {
+        storage.write_transaction(&mut |tx| {
             tx.put(
                 Self::PREFIX,
                 &to_vec(code)?,
@@ -88,7 +91,7 @@ impl<'a> Invitation<'a> {
     }
 
     pub fn get_all_invitations(
-        store: &'a dyn KCVStorage,
+        storage: &'a dyn KCVStorage,
         mut admin: bool,
         mut unique: bool,
         mut multi: bool,
@@ -100,7 +103,7 @@ impl<'a> Invitation<'a> {
             unique = true;
             multi = true;
         }
-        for invite in store.get_all_keys_and_values(Self::PREFIX, size, vec![], None, &None)? {
+        for invite in storage.get_all_keys_and_values(Self::PREFIX, size, vec![], None, &None)? {
             if invite.0.len() == size + 2 {
                 let code: [u8; 32] = from_slice(&invite.0[1..invite.0.len() - 1])?;
                 if invite.0[size + 1] == Self::TYPE {
@@ -139,7 +142,7 @@ impl<'a> Invitation<'a> {
     }
 
     pub fn exists(&self) -> bool {
-        self.store
+        self.storage
             .get(
                 Self::PREFIX,
                 &to_vec(&self.id).unwrap(),
@@ -153,9 +156,9 @@ impl<'a> Invitation<'a> {
     }
 
     pub fn get_type(&self) -> Result<u8, ProtocolError> {
-        let type_ser = self
-            .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::TYPE), &None)?;
+        let type_ser =
+            self.storage
+                .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::TYPE), &None)?;
         let t: (u8, u32, Option<String>) = from_slice(&type_ser)?;
         // if t.1 < now_timestamp() {
         //     return Err(ProtocolError::Expired);
@@ -165,7 +168,7 @@ impl<'a> Invitation<'a> {
 
     pub fn is_expired(&self) -> Result<bool, StorageError> {
         let expire_ser =
-            self.store
+            self.storage
                 .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::TYPE), &None)?;
         let expire: (u8, u32, Option<String>) = from_slice(&expire_ser)?;
         if expire.1 < now_timestamp() {
@@ -175,7 +178,7 @@ impl<'a> Invitation<'a> {
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store.write_transaction(&mut |tx| {
+        self.storage.write_transaction(&mut |tx| {
             tx.del_all(
                 Self::PREFIX,
                 &to_vec(&self.id)?,

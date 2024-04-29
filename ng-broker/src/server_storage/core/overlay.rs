@@ -27,7 +27,7 @@ pub struct OverlayMeta {
 pub struct Overlay<'a> {
     /// Overlay ID
     id: OverlayId,
-    store: &'a dyn KCVStorage,
+    storage: &'a dyn KCVStorage,
 }
 
 impl<'a> Overlay<'a> {
@@ -50,10 +50,10 @@ impl<'a> Overlay<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::SECRET;
 
-    pub fn open(id: &OverlayId, store: &'a dyn KCVStorage) -> Result<Overlay<'a>, StorageError> {
+    pub fn open(id: &OverlayId, storage: &'a dyn KCVStorage) -> Result<Overlay<'a>, StorageError> {
         let opening = Overlay {
             id: id.clone(),
-            store,
+            storage,
         };
         if !opening.exists() {
             return Err(StorageError::NotFound);
@@ -64,16 +64,16 @@ impl<'a> Overlay<'a> {
         id: &OverlayId,
         secret: &SymKey,
         repo: Option<PubKey>,
-        store: &'a dyn KCVStorage,
+        storage: &'a dyn KCVStorage,
     ) -> Result<Overlay<'a>, StorageError> {
         let acc = Overlay {
             id: id.clone(),
-            store,
+            storage,
         };
         if acc.exists() {
             return Err(StorageError::BackendError);
         }
-        store.write_transaction(&mut |tx| {
+        storage.write_transaction(&mut |tx| {
             tx.put(
                 Self::PREFIX,
                 &to_vec(&id)?,
@@ -106,7 +106,7 @@ impl<'a> Overlay<'a> {
         Ok(acc)
     }
     pub fn exists(&self) -> bool {
-        self.store
+        self.storage
             .get(
                 Self::PREFIX,
                 &to_vec(&self.id).unwrap(),
@@ -122,7 +122,7 @@ impl<'a> Overlay<'a> {
         if !self.exists() {
             return Err(StorageError::BackendError);
         }
-        self.store.put(
+        self.storage.put(
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::PEER),
@@ -131,7 +131,7 @@ impl<'a> Overlay<'a> {
         )
     }
     pub fn remove_peer(&self, peer: &PeerId) -> Result<(), StorageError> {
-        self.store.del_property_value(
+        self.storage.del_property_value(
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::PEER),
@@ -141,7 +141,7 @@ impl<'a> Overlay<'a> {
     }
 
     pub fn has_peer(&self, peer: &PeerId) -> Result<(), StorageError> {
-        self.store.has_property_value(
+        self.storage.has_property_value(
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::PEER),
@@ -154,7 +154,7 @@ impl<'a> Overlay<'a> {
         if !self.exists() {
             return Err(StorageError::BackendError);
         }
-        self.store.put(
+        self.storage.put(
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::TOPIC),
@@ -163,7 +163,7 @@ impl<'a> Overlay<'a> {
         )
     }
     pub fn remove_topic(&self, topic: &TopicId) -> Result<(), StorageError> {
-        self.store.del_property_value(
+        self.storage.del_property_value(
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::TOPIC),
@@ -173,7 +173,7 @@ impl<'a> Overlay<'a> {
     }
 
     pub fn has_topic(&self, topic: &TopicId) -> Result<(), StorageError> {
-        self.store.has_property_value(
+        self.storage.has_property_value(
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::TOPIC),
@@ -184,7 +184,7 @@ impl<'a> Overlay<'a> {
 
     pub fn secret(&self) -> Result<SymKey, StorageError> {
         match self
-            .store
+            .storage
             .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::SECRET), &None)
         {
             Ok(secret) => Ok(from_slice::<SymKey>(&secret)?),
@@ -194,7 +194,7 @@ impl<'a> Overlay<'a> {
 
     pub fn metadata(&self) -> Result<OverlayMeta, StorageError> {
         match self
-            .store
+            .storage
             .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::META), &None)
         {
             Ok(meta) => Ok(from_slice::<OverlayMeta>(&meta)?),
@@ -205,7 +205,7 @@ impl<'a> Overlay<'a> {
         if !self.exists() {
             return Err(StorageError::BackendError);
         }
-        self.store.replace(
+        self.storage.replace(
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::META),
@@ -216,7 +216,7 @@ impl<'a> Overlay<'a> {
 
     pub fn repo(&self) -> Result<PubKey, StorageError> {
         match self
-            .store
+            .storage
             .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::REPO), &None)
         {
             Ok(repo) => Ok(from_slice::<PubKey>(&repo)?),
@@ -225,7 +225,7 @@ impl<'a> Overlay<'a> {
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store.del_all(
+        self.storage.del_all(
             Self::PREFIX,
             &to_vec(&self.id)?,
             &Self::ALL_PROPERTIES,

@@ -9,138 +9,151 @@
 
 //! Topic
 
+use std::collections::HashMap;
+use std::collections::HashSet;
+
 use ng_net::types::*;
 use ng_repo::errors::StorageError;
-use ng_repo::kcv_storage::KCVStorage;
+use ng_repo::kcv_storage::*;
 use ng_repo::types::*;
-use serde::{Deserialize, Serialize};
-use serde_bare::{from_slice, to_vec};
 
-// TODO: versioning V0
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct TopicMeta {
-    pub users: u32,
-}
+use serde_bare::to_vec;
 
 pub struct Topic<'a> {
-    /// Topic ID
-    id: TopicId,
-    store: &'a dyn KCVStorage,
+    key: Vec<u8>,
+    repo: ExistentialValue<RepoHash>,
+    storage: &'a dyn KCVStorage,
+}
+
+impl<'a> IModel for Topic<'a> {
+    fn key(&self) -> &Vec<u8> {
+        &self.key
+    }
+    fn storage(&self) -> &dyn KCVStorage {
+        self.storage
+    }
+    fn class(&self) -> &Class {
+        &Self::CLASS
+    }
+    fn existential(&mut self) -> &mut dyn IExistentialValue {
+        &mut self.repo
+    }
 }
 
 impl<'a> Topic<'a> {
-    const PREFIX: u8 = b"t"[0];
+    const PREFIX: u8 = b't';
 
-    // propertie's suffixes
-    const ADVERT: u8 = b"a"[0];
-    const HEAD: u8 = b"h"[0];
-    const META: u8 = b"m"[0];
+    // Topic properties
+    const ADVERT: SingleValueColumn<Self, PublisherAdvert> = SingleValueColumn::new(b'a');
+    const REPO: ExistentialValueColumn = ExistentialValueColumn::new(b'r');
+    const ROOT_COMMIT: SingleValueColumn<Self, ObjectId> = SingleValueColumn::new(b'o');
 
-    const ALL_PROPERTIES: [u8; 3] = [Self::ADVERT, Self::HEAD, Self::META];
+    // Topic <-> Users who pinned it
+    pub const USERS: MultiValueColumn<Self, UserId> = MultiValueColumn::new(b'u');
+    // Topic <-> heads
+    pub const HEADS: MultiValueColumn<Self, ObjectId> = MultiValueColumn::new(b'h');
 
-    const SUFFIX_FOR_EXIST_CHECK: u8 = Self::META;
+    const CLASS: Class<'a> = Class::new(
+        Self::PREFIX,
+        &Self::REPO,
+        vec![&Self::ADVERT, &Self::ROOT_COMMIT],
+        vec![&Self::USERS, &Self::HEADS],
+    );
 
-    pub fn open(id: &TopicId, store: &'a dyn KCVStorage) -> Result<Topic<'a>, StorageError> {
-        let opening = Topic {
-            id: id.clone(),
-            store,
-        };
-        if !opening.exists() {
-            return Err(StorageError::NotFound);
+    pub fn load(&self) -> Result<(), StorageError> {
+        let props = self.load_props()?;
+        // let bs = BranchInfo {
+        //     id: id.clone(),
+        //     branch_type: prop(Self::TYPE, &props)?,
+        //     read_cap: prop(Self::READ_CAP, &props)?,
+        //     topic: prop(Self::TOPIC, &props)?,
+        //     topic_priv_key: prop(Self::PUBLISHER, &props).ok(),
+        //     current_heads: Self::get_all_heads(id, storage)?,
+        // };
+        // Ok(bs)
+        Ok(())
+    }
+
+    pub fn new(id: &TopicId, overlay: &OverlayId, storage: &'a dyn KCVStorage) -> Self {
+        let mut key: Vec<u8> = Vec::with_capacity(33 + 33);
+        key.append(&mut to_vec(overlay).unwrap());
+        key.append(&mut to_vec(id).unwrap());
+        Topic {
+            key,
+            repo: ExistentialValue::<RepoHash>::new(),
+            storage,
         }
+    }
+
+    pub fn open(
+        id: &TopicId,
+        overlay: &OverlayId,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<Topic<'a>, StorageError> {
+        let mut opening = Topic::new(id, overlay, storage);
+        opening.check_exists()?;
         Ok(opening)
     }
-    pub fn create(id: &TopicId, store: &'a mut dyn KCVStorage) -> Result<Topic<'a>, StorageError> {
-        let acc = Topic {
-            id: id.clone(),
-            store,
-        };
-        if acc.exists() {
-            return Err(StorageError::BackendError);
+    pub fn create(
+        id: &TopicId,
+        overlay: &OverlayId,
+        repo: &RepoHash,
+        storage: &'a mut dyn KCVStorage,
+    ) -> Result<Topic<'a>, StorageError> {
+        let mut topic = Topic::new(id, overlay, storage);
+        if topic.exists() {
+            return Err(StorageError::AlreadyExists);
         }
-        let meta = TopicMeta { users: 0 };
-        store.put(
-            Self::PREFIX,
-            &to_vec(&id)?,
-            Some(Self::META),
-            &to_vec(&meta)?,
-            &None,
-        )?;
-        Ok(acc)
-    }
-    pub fn exists(&self) -> bool {
-        self.store
-            .get(
-                Self::PREFIX,
-                &to_vec(&self.id).unwrap(),
-                Some(Self::SUFFIX_FOR_EXIST_CHECK),
-                &None,
-            )
-            .is_ok()
-    }
-    pub fn id(&self) -> TopicId {
-        self.id
-    }
-    pub fn add_head(&self, head: &ObjectId) -> Result<(), StorageError> {
-        if !self.exists() {
-            return Err(StorageError::BackendError);
-        }
-        self.store.put(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::HEAD),
-            &to_vec(head)?,
-            &None,
-        )
-    }
-    pub fn remove_head(&self, head: &ObjectId) -> Result<(), StorageError> {
-        self.store.del_property_value(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::HEAD),
-            &to_vec(head)?,
-            &None,
-        )
+        topic.repo.set(repo, &topic)?;
+
+        Ok(topic)
     }
 
-    pub fn has_head(&self, head: &ObjectId) -> Result<(), StorageError> {
-        self.store.has_property_value(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::HEAD),
-            &to_vec(head)?,
-            &None,
-        )
+    pub fn repo_hash(&self) -> &RepoHash {
+        self.repo.get().unwrap()
     }
 
-    pub fn metadata(&self) -> Result<TopicMeta, StorageError> {
-        match self
-            .store
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::META), &None)
-        {
-            Ok(meta) => Ok(from_slice::<TopicMeta>(&meta)?),
-            Err(e) => Err(e),
-        }
+    pub fn root_commit(&mut self) -> Result<ObjectId, StorageError> {
+        Self::ROOT_COMMIT.get(self)
     }
-    pub fn set_metadata(&self, meta: &TopicMeta) -> Result<(), StorageError> {
-        if !self.exists() {
-            return Err(StorageError::BackendError);
-        }
-        self.store.replace(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::META),
-            &to_vec(meta)?,
-            &None,
-        )
+    pub fn set_root_commit(&mut self, commit: &ObjectId) -> Result<(), StorageError> {
+        Self::ROOT_COMMIT.set(self, commit)
     }
 
-    pub fn del(&self) -> Result<(), StorageError> {
-        self.store.del_all(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            &Self::ALL_PROPERTIES,
-            &None,
-        )
+    pub fn publisher_advert(&mut self) -> Result<PublisherAdvert, StorageError> {
+        Self::ADVERT.get(self)
+    }
+    pub fn set_publisher_advert(&mut self, advert: &PublisherAdvert) -> Result<(), StorageError> {
+        Self::ADVERT.set(self, advert)
+    }
+
+    pub fn add_head(&mut self, head: &ObjectId) -> Result<(), StorageError> {
+        Self::HEADS.add(self, head)
+    }
+    pub fn remove_head(&mut self, head: &ObjectId) -> Result<(), StorageError> {
+        Self::HEADS.remove(self, head)
+    }
+
+    pub fn has_head(&mut self, head: &ObjectId) -> Result<(), StorageError> {
+        Self::HEADS.has(self, head)
+    }
+
+    pub fn get_all_heads(&mut self) -> Result<HashSet<ObjectId>, StorageError> {
+        Self::HEADS.get_all(self)
+    }
+
+    pub fn add_user(&mut self, user: &UserId) -> Result<(), StorageError> {
+        Self::USERS.add(self, user)
+    }
+    pub fn remove_user(&mut self, user: &UserId) -> Result<(), StorageError> {
+        Self::USERS.remove(self, user)
+    }
+
+    pub fn has_user(&mut self, user: &UserId) -> Result<(), StorageError> {
+        Self::USERS.has(self, user)
+    }
+
+    pub fn get_all_users(&mut self) -> Result<HashSet<UserId>, StorageError> {
+        Self::USERS.get_all(self)
     }
 }

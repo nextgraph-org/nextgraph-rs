@@ -19,7 +19,7 @@ use ng_repo::types::PubKey;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::StartProtocol;
+use super::super::StartProtocol;
 
 /// List users registered on this broker
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]

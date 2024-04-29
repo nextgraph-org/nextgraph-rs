@@ -24,7 +24,7 @@ use serde_bare::{from_slice, to_vec};
 pub struct Account<'a> {
     /// User ID
     id: UserId,
-    store: &'a dyn KCVStorage,
+    storage: &'a dyn KCVStorage,
 }
 
 impl<'a> Account<'a> {
@@ -38,10 +38,10 @@ impl<'a> Account<'a> {
 
     const ALL_CLIENT_PROPERTIES: [u8; 2] = [Self::INFO, Self::LAST_SEEN];
 
-    pub fn open(id: &UserId, store: &'a dyn KCVStorage) -> Result<Account<'a>, StorageError> {
+    pub fn open(id: &UserId, storage: &'a dyn KCVStorage) -> Result<Account<'a>, StorageError> {
         let opening = Account {
             id: id.clone(),
-            store,
+            storage,
         };
         if !opening.exists() {
             return Err(StorageError::NotFound);
@@ -51,16 +51,16 @@ impl<'a> Account<'a> {
     pub fn create(
         id: &UserId,
         admin: bool,
-        store: &'a dyn KCVStorage,
+        storage: &'a dyn KCVStorage,
     ) -> Result<Account<'a>, StorageError> {
         let acc = Account {
             id: id.clone(),
-            store,
+            storage,
         };
         if acc.exists() {
             return Err(StorageError::AlreadyExists);
         }
-        store.put(
+        storage.put(
             Self::PREFIX_ACCOUNT,
             &to_vec(&id)?,
             None,
@@ -73,12 +73,12 @@ impl<'a> Account<'a> {
     #[allow(deprecated)]
     pub fn get_all_users(
         admins: bool,
-        store: &'a dyn KCVStorage,
+        storage: &'a dyn KCVStorage,
     ) -> Result<Vec<UserId>, StorageError> {
         let size = to_vec(&UserId::nil())?.len();
         let mut res: Vec<UserId> = vec![];
         for user in
-            store.get_all_keys_and_values(Self::PREFIX_ACCOUNT, size, vec![], None, &None)?
+            storage.get_all_keys_and_values(Self::PREFIX_ACCOUNT, size, vec![], None, &None)?
         {
             let admin: bool = from_slice(&user.1)?;
             if admin == admins {
@@ -89,7 +89,7 @@ impl<'a> Account<'a> {
         Ok(res)
     }
     pub fn exists(&self) -> bool {
-        self.store
+        self.storage
             .get(
                 Self::PREFIX_ACCOUNT,
                 &to_vec(&self.id).unwrap(),
@@ -115,7 +115,7 @@ impl<'a> Account<'a> {
 
         let info_ser = to_vec(info)?;
 
-        self.store.write_transaction(&mut |tx| {
+        self.storage.write_transaction(&mut |tx| {
             let mut id_and_client = to_vec(&self.id)?;
             id_and_client.append(&mut client_key_ser);
             if tx
@@ -158,7 +158,7 @@ impl<'a> Account<'a> {
     }
 
     // pub fn has_client(&self, client: &ClientId) -> Result<(), StorageError> {
-    //     self.store.has_property_value(
+    //     self.storage.has_property_value(
     //         Self::PREFIX,
     //         &to_vec(&self.id)?,
     //         Some(Self::CLIENT),
@@ -170,7 +170,7 @@ impl<'a> Account<'a> {
     //     if !self.exists() {
     //         return Err(StorageError::BackendError);
     //     }
-    //     self.store.put(
+    //     self.storage.put(
     //         Self::PREFIX,
     //         &to_vec(&self.id)?,
     //         Some(Self::OVERLAY),
@@ -178,7 +178,7 @@ impl<'a> Account<'a> {
     //     )
     // }
     // pub fn remove_overlay(&self, overlay: &OverlayId) -> Result<(), StorageError> {
-    //     self.store.del_property_value(
+    //     self.storage.del_property_value(
     //         Self::PREFIX,
     //         &to_vec(&self.id)?,
     //         Some(Self::OVERLAY),
@@ -187,7 +187,7 @@ impl<'a> Account<'a> {
     // }
 
     // pub fn has_overlay(&self, overlay: &OverlayId) -> Result<(), StorageError> {
-    //     self.store.has_property_value(
+    //     self.storage.has_property_value(
     //         Self::PREFIX,
     //         &to_vec(&self.id)?,
     //         Some(Self::OVERLAY),
@@ -197,7 +197,7 @@ impl<'a> Account<'a> {
 
     pub fn is_admin(&self) -> Result<bool, StorageError> {
         if self
-            .store
+            .storage
             .has_property_value(
                 Self::PREFIX_ACCOUNT,
                 &to_vec(&self.id)?,
@@ -213,7 +213,7 @@ impl<'a> Account<'a> {
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store.write_transaction(&mut |tx| {
+        self.storage.write_transaction(&mut |tx| {
             let id = to_vec(&self.id)?;
             // let mut id_and_client = to_vec(&self.id)?;
             // let client_key = (client.clone(), hash);
@@ -261,14 +261,14 @@ mod test {
         let key: [u8; 32] = [0; 32];
         fs::create_dir_all(root.path()).unwrap();
         println!("{}", root.path().to_str().unwrap());
-        let mut store = RocksDbKCVStorage::open(root.path(), key).unwrap();
+        let mut storage = RocksDbKCVStorage::open(root.path(), key).unwrap();
 
         let user_id = PubKey::Ed25519PubKey([1; 32]);
 
-        let account = Account::create(&user_id, true, &store).unwrap();
+        let account = Account::create(&user_id, true, &storage).unwrap();
         println!("account created {}", account.id());
 
-        let account2 = Account::open(&user_id, &store).unwrap();
+        let account2 = Account::open(&user_id, &storage).unwrap();
         println!("account opened {}", account2.id());
 
         // let client_id = PubKey::Ed25519PubKey([56; 32]);

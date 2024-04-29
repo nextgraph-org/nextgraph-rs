@@ -19,7 +19,7 @@ use serde_bare::{from_slice, to_vec};
 pub struct Peer<'a> {
     /// Topic ID
     id: PeerId,
-    store: &'a dyn KCVStorage,
+    storage: &'a dyn KCVStorage,
 }
 
 impl<'a> Peer<'a> {
@@ -33,10 +33,10 @@ impl<'a> Peer<'a> {
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::VERSION;
 
-    pub fn open(id: &PeerId, store: &'a dyn KCVStorage) -> Result<Peer<'a>, StorageError> {
+    pub fn open(id: &PeerId, storage: &'a dyn KCVStorage) -> Result<Peer<'a>, StorageError> {
         let opening = Peer {
             id: id.clone(),
-            store,
+            storage,
         };
         if !opening.exists() {
             return Err(StorageError::NotFound);
@@ -45,13 +45,13 @@ impl<'a> Peer<'a> {
     }
     pub fn update_or_create(
         advert: &PeerAdvert,
-        store: &'a dyn KCVStorage,
+        storage: &'a dyn KCVStorage,
     ) -> Result<Peer<'a>, StorageError> {
         let id = advert.peer();
-        match Self::open(id, store) {
+        match Self::open(id, storage) {
             Err(e) => {
                 if e == StorageError::NotFound {
-                    Self::create(advert, store)
+                    Self::create(advert, storage)
                 } else {
                     Err(StorageError::BackendError)
                 }
@@ -64,17 +64,17 @@ impl<'a> Peer<'a> {
     }
     pub fn create(
         advert: &PeerAdvert,
-        store: &'a dyn KCVStorage,
+        storage: &'a dyn KCVStorage,
     ) -> Result<Peer<'a>, StorageError> {
         let id = advert.peer();
         let acc = Peer {
             id: id.clone(),
-            store,
+            storage,
         };
         if acc.exists() {
             return Err(StorageError::BackendError);
         }
-        store.write_transaction(&mut |tx| {
+        storage.write_transaction(&mut |tx| {
             tx.put(
                 Self::PREFIX,
                 &to_vec(&id)?,
@@ -94,7 +94,7 @@ impl<'a> Peer<'a> {
         Ok(acc)
     }
     pub fn exists(&self) -> bool {
-        self.store
+        self.storage
             .get(
                 Self::PREFIX,
                 &to_vec(&self.id).unwrap(),
@@ -108,7 +108,7 @@ impl<'a> Peer<'a> {
     }
     pub fn version(&self) -> Result<u32, StorageError> {
         match self
-            .store
+            .storage
             .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::VERSION), &None)
         {
             Ok(ver) => Ok(from_slice::<u32>(&ver)?),
@@ -119,7 +119,7 @@ impl<'a> Peer<'a> {
         if !self.exists() {
             return Err(StorageError::BackendError);
         }
-        self.store.replace(
+        self.storage.replace(
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::VERSION),
@@ -135,7 +135,7 @@ impl<'a> Peer<'a> {
         if current_advert.version() >= advert.version() {
             return Ok(());
         }
-        self.store.write_transaction(&mut |tx| {
+        self.storage.write_transaction(&mut |tx| {
             tx.replace(
                 Self::PREFIX,
                 &to_vec(&self.id)?,
@@ -155,7 +155,7 @@ impl<'a> Peer<'a> {
     }
     pub fn advert(&self) -> Result<PeerAdvert, StorageError> {
         match self
-            .store
+            .storage
             .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::ADVERT), &None)
         {
             Ok(advert) => Ok(from_slice::<PeerAdvert>(&advert)?),
@@ -166,7 +166,7 @@ impl<'a> Peer<'a> {
         if !self.exists() {
             return Err(StorageError::BackendError);
         }
-        self.store.replace(
+        self.storage.replace(
             Self::PREFIX,
             &to_vec(&self.id)?,
             Some(Self::ADVERT),
@@ -176,7 +176,7 @@ impl<'a> Peer<'a> {
     }
 
     pub fn del(&self) -> Result<(), StorageError> {
-        self.store.del_all(
+        self.storage.del_all(
             Self::PREFIX,
             &to_vec(&self.id)?,
             &Self::ALL_PROPERTIES,
