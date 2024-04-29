@@ -1962,10 +1962,10 @@ pub struct RefreshSecretV0(SymKey, Option<SymKey>);
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RefreshCapV0 {
     /// an ordered list of user IDs, with their corresponding crypto_box of a RefreshSecretV0.
-    /// A User ID for each Member, Signer and Owner of the repo (except the one that is being excluded, if any)
+    /// A hashed User ID for each Member (use author_digest()), Signer and Owner of the repo (except the one that is being excluded, if any)
     /// the ordering is important as it allows receivers to perform a binary search on the array (searching for their own ID)
     /// the refresh secret is used for encrypting the SyncSignature commit's key in the event sent in old topic (RefreshSecretV0.0) and for an optional write_cap refresh (RefreshSecretV0.1)
-    pub refresh_secret: Vec<(UserId, serde_bytes::ByteBuf)>,
+    pub refresh_secret: Vec<(Digest, serde_bytes::ByteBuf)>,
 }
 
 /// RefreshCap
@@ -2280,7 +2280,7 @@ pub enum QuorumType {
 pub struct CommitContentV0 {
     /// Commit author (a hash of UserId)
     /// BLAKE3 keyed hash over UserId
-    /// - key: BLAKE3 derive_key ("NextGraph UserId Hash Overlay Id CommitContentV0 BLAKE3 key", overlayId)
+    /// - key: BLAKE3 derive_key ("NextGraph UserId Hash Overlay Id for Commit BLAKE3 key", overlayId)
     /// hash will be different than for ForwardedPeerAdvertV0 so that core brokers dealing with public sites wont be able to correlate commits and editing peers (via common author's hash).
     /// only the brokers of the authors that pin a repo for outeroverlay exposure, will be able to correlate.
     /// it also is a different hash than the InboxId, and the OuterOverlayId, which is good to prevent correlation when the RepoId is used as author (for Repository, RootBranch and Branch commits)
@@ -2336,7 +2336,7 @@ impl CommitContent {
         let author_id = serde_bare::to_vec(author).unwrap();
         let overlay_id = serde_bare::to_vec(&overlay).unwrap();
         let mut key: [u8; 32] = blake3::derive_key(
-            "NextGraph UserId Hash Overlay Id CommitContentV0 BLAKE3 key",
+            "NextGraph UserId Hash Overlay Id for Commit BLAKE3 key",
             overlay_id.as_slice(),
         );
         let key_hash = blake3::keyed_hash(&key, &author_id);
