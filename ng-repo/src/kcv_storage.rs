@@ -125,6 +125,7 @@ pub struct MultiValueColumn<
     prefix: u8,
     phantom: PhantomData<Column>,
     model: PhantomData<Model>,
+    value_size: usize,
 }
 
 impl<
@@ -137,45 +138,56 @@ impl<
             prefix,
             phantom: PhantomData,
             model: PhantomData,
+            value_size: to_vec(&Column::default())
+                .expect("serialization of default Column value")
+                .len(),
         }
     }
+
+    fn compute_key(model: &Model, column: &Column) -> Result<Vec<u8>, StorageError> {
+        let model_key = model.key();
+        let mut column_ser = to_vec(column)?;
+        let mut key = Vec::with_capacity(model_key.len() + column_ser.len());
+        key.append(&mut model_key.to_vec());
+        key.append(&mut column_ser);
+        Ok(key)
+    }
+
     pub fn add(&self, model: &mut Model, column: &Column) -> Result<(), StorageError> {
         model.check_exists()?;
-        model
-            .storage()
-            .put(self.prefix, model.key(), None, &to_vec(column)?, &None)
+        let key = Self::compute_key(model, column)?;
+        model.storage().put(self.prefix, &key, None, &vec![], &None)
     }
     pub fn remove(&self, model: &mut Model, column: &Column) -> Result<(), StorageError> {
         model.check_exists()?;
-        model
-            .storage()
-            .del_property_value(self.prefix, model.key(), None, &to_vec(column)?, &None)
+        let key = Self::compute_key(model, column)?;
+        model.storage().del(self.prefix, &key, None, &None)
     }
 
     pub fn has(&self, model: &mut Model, column: &Column) -> Result<(), StorageError> {
         model.check_exists()?;
+        let key = Self::compute_key(model, column)?;
         model
             .storage()
-            .has_property_value(self.prefix, model.key(), None, &to_vec(column)?, &None)
+            .has_property_value(self.prefix, &key, None, &vec![], &None)
     }
 
     pub fn get_all(&self, model: &mut Model) -> Result<HashSet<Column>, StorageError> {
         model.check_exists()?;
         let key_prefix = model.key();
-        let value_size = to_vec(&Column::default())?.len();
-
+        let key_prefix_len = key_prefix.len();
         let mut res: HashSet<Column> = HashSet::new();
-        let total_size = key_prefix.len() + value_size;
-        for user in model.storage().get_all_keys_and_values(
+        let total_size = key_prefix_len + self.value_size;
+        for val in model.storage().get_all_keys_and_values(
             self.prefix,
             total_size,
             key_prefix.to_vec(),
             None,
             &None,
         )? {
-            if user.0.len() == total_size + 1 {
-                let user: Column = from_slice(&user.0[1..user.0.len()])?;
-                res.insert(user);
+            if val.0.len() == total_size + 1 {
+                let val: Column = from_slice(&val.0[1 + key_prefix_len..total_size + 1])?;
+                res.insert(val);
             }
         }
         Ok(res)
@@ -194,6 +206,129 @@ impl<
     }
 }
 
+pub struct MultiMapColumn<
+    Model: IModel,
+    Column: Eq + PartialEq + Hash + Serialize + Default + for<'a> Deserialize<'a>,
+    Value: Serialize + for<'a> Deserialize<'a>,
+> {
+    prefix: u8,
+    phantom_column: PhantomData<Column>,
+    phantom_model: PhantomData<Model>,
+    phantom_value: PhantomData<Value>,
+    value_size: usize,
+}
+
+impl<
+        Model: IModel,
+        Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
+        Value: Serialize + for<'a> Deserialize<'a>,
+    > MultiMapColumn<Model, Column, Value>
+{
+    pub fn new(prefix: u8) -> Self {
+        MultiMapColumn {
+            prefix,
+            phantom_column: PhantomData,
+            phantom_model: PhantomData,
+            phantom_value: PhantomData,
+            value_size: to_vec(&Column::default())
+                .expect("serialization of default Column value")
+                .len(),
+        }
+    }
+    pub fn add(
+        &self,
+        model: &mut Model,
+        column: &Column,
+        value: &Value,
+    ) -> Result<(), StorageError> {
+        model.check_exists()?;
+        let key = MultiValueColumn::compute_key(model, column)?;
+        model
+            .storage()
+            .put(self.prefix, &key, None, &to_vec(value)?, &None)
+    }
+    pub fn remove(
+        &self,
+        model: &mut Model,
+        column: &Column,
+        value: &Value,
+    ) -> Result<(), StorageError> {
+        model.check_exists()?;
+        let key = MultiValueColumn::compute_key(model, column)?;
+        model
+            .storage()
+            .del_property_value(self.prefix, &key, None, &to_vec(value)?, &None)
+    }
+    pub fn remove_regardless_value(
+        &self,
+        model: &mut Model,
+        column: &Column,
+    ) -> Result<(), StorageError> {
+        model.check_exists()?;
+        let key = MultiValueColumn::compute_key(model, column)?;
+        model.storage().del(self.prefix, &key, None, &None)
+    }
+
+    pub fn has(
+        &self,
+        model: &mut Model,
+        column: &Column,
+        value: &Value,
+    ) -> Result<(), StorageError> {
+        model.check_exists()?;
+        let key = MultiValueColumn::compute_key(model, column)?;
+        model
+            .storage()
+            .has_property_value(self.prefix, &key, None, &to_vec(value)?, &None)
+    }
+
+    pub fn has_regardless_value(
+        &self,
+        model: &mut Model,
+        column: &Column,
+    ) -> Result<(), StorageError> {
+        model.check_exists()?;
+        let key = MultiValueColumn::compute_key(model, column)?;
+        model.storage().get(self.prefix, &key, None, &None)?;
+        Ok(())
+    }
+
+    pub fn get_all(&self, model: &mut Model) -> Result<HashMap<Column, Value>, StorageError> {
+        model.check_exists()?;
+        let key_prefix = model.key();
+        let key_prefix_len = key_prefix.len();
+        let mut res: HashMap<Column, Value> = HashMap::new();
+        let total_size = key_prefix_len + self.value_size;
+        for val in model.storage().get_all_keys_and_values(
+            self.prefix,
+            total_size,
+            key_prefix.to_vec(),
+            None,
+            &None,
+        )? {
+            if val.0.len() == total_size + 1 {
+                let col: Column = from_slice(&val.0[1 + key_prefix_len..total_size + 1])?;
+                let val = from_slice(&val.1)?;
+                res.insert(col, val);
+            }
+        }
+        Ok(res)
+    }
+}
+impl<
+        Model: IModel,
+        Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
+        Value: Serialize + for<'a> Deserialize<'a>,
+    > IMultiValueColumn for MultiMapColumn<Model, Column, Value>
+{
+    fn value_size(&self) -> Result<usize, StorageError> {
+        Ok(to_vec(&Column::default())?.len())
+    }
+    fn prefix(&self) -> u8 {
+        self.prefix
+    }
+}
+
 pub trait ISingleValueColumn {
     fn suffix(&self) -> u8;
 }
@@ -201,20 +336,6 @@ pub trait ISingleValueColumn {
 pub trait IMultiValueColumn {
     fn prefix(&self) -> u8;
     fn value_size(&self) -> Result<usize, StorageError>;
-}
-
-pub struct SingleValueColumn<Model: IModel, Column: Serialize + for<'a> Deserialize<'a>> {
-    suffix: u8,
-    phantom: PhantomData<Column>,
-    model: PhantomData<Model>,
-}
-
-impl<Model: IModel, Column: Serialize + for<'d> Deserialize<'d>> ISingleValueColumn
-    for SingleValueColumn<Model, Column>
-{
-    fn suffix(&self) -> u8 {
-        self.suffix
-    }
 }
 
 pub struct ExistentialValueColumn {
@@ -233,43 +354,57 @@ impl ExistentialValueColumn {
     }
 }
 
-impl<Model: IModel, Column: Serialize + for<'d> Deserialize<'d>> SingleValueColumn<Model, Column> {
+pub struct SingleValueColumn<Model: IModel, Value: Serialize + for<'a> Deserialize<'a>> {
+    suffix: u8,
+    phantom_value: PhantomData<Value>,
+    phantom_model: PhantomData<Model>,
+}
+
+impl<Model: IModel, Value: Serialize + for<'d> Deserialize<'d>> ISingleValueColumn
+    for SingleValueColumn<Model, Value>
+{
+    fn suffix(&self) -> u8 {
+        self.suffix
+    }
+}
+
+impl<Model: IModel, Value: Serialize + for<'d> Deserialize<'d>> SingleValueColumn<Model, Value> {
     pub fn new(suffix: u8) -> Self {
         SingleValueColumn {
             suffix,
-            phantom: PhantomData,
-            model: PhantomData,
+            phantom_value: PhantomData,
+            phantom_model: PhantomData,
         }
     }
 
-    pub fn set(&self, model: &mut Model, column: &Column) -> Result<(), StorageError> {
+    pub fn set(&self, model: &mut Model, value: &Value) -> Result<(), StorageError> {
         model.check_exists()?;
         model.storage().replace(
             model.prefix(),
             model.key(),
             Some(self.suffix),
-            &to_vec(column)?,
+            &to_vec(value)?,
             &None,
         )
     }
-    pub fn get(&self, model: &mut Model) -> Result<Column, StorageError> {
+    pub fn get(&self, model: &mut Model) -> Result<Value, StorageError> {
         model.check_exists()?;
         match model
             .storage()
             .get(model.prefix(), model.key(), Some(self.suffix), &None)
         {
-            Ok(res) => Ok(from_slice::<Column>(&res)?),
+            Ok(res) => Ok(from_slice::<Value>(&res)?),
             Err(e) => Err(e),
         }
     }
 
-    pub fn has(&self, model: &mut Model, column: &Column) -> Result<(), StorageError> {
+    pub fn has(&self, model: &mut Model, value: &Value) -> Result<(), StorageError> {
         model.check_exists()?;
         model.storage().has_property_value(
             model.prefix(),
             model.key(),
             Some(self.suffix),
-            &to_vec(column)?,
+            &to_vec(value)?,
             &None,
         )
     }

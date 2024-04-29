@@ -154,8 +154,9 @@ impl<'a> BranchStorage<'a> {
     ) -> Result<Vec<ObjectRef>, StorageError> {
         let size = to_vec(&ObjectRef::nil())?.len();
         let key_prefix = to_vec(id).unwrap();
+        let key_prefix_len = key_prefix.len();
         let mut res: Vec<ObjectRef> = vec![];
-        let total_size = key_prefix.len() + size;
+        let total_size = key_prefix_len + size;
         for head in storage.get_all_keys_and_values(
             Self::PREFIX_HEADS,
             total_size,
@@ -164,7 +165,7 @@ impl<'a> BranchStorage<'a> {
             &None,
         )? {
             if head.0.len() == total_size + 1 {
-                let head: ObjectRef = from_slice(&head.0[1..head.0.len()])?;
+                let head: ObjectRef = from_slice(&head.0[1 + key_prefix_len..total_size + 1])?;
                 res.push(head);
             }
         }

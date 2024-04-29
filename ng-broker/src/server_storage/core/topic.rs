@@ -48,8 +48,8 @@ impl<'a> Topic<'a> {
     const REPO: ExistentialValueColumn = ExistentialValueColumn::new(b'r');
     const ROOT_COMMIT: SingleValueColumn<Self, ObjectId> = SingleValueColumn::new(b'o');
 
-    // Topic <-> Users who pinned it
-    pub const USERS: MultiValueColumn<Self, UserId> = MultiValueColumn::new(b'u');
+    // Topic <-> Users who pinned it (with boolean: R or W)
+    pub const USERS: MultiMapColumn<Self, UserId, bool> = MultiMapColumn::new(b'u');
     // Topic <-> heads
     pub const HEADS: MultiValueColumn<Self, ObjectId> = MultiValueColumn::new(b'h');
 
@@ -142,18 +142,18 @@ impl<'a> Topic<'a> {
         Self::HEADS.get_all(self)
     }
 
-    pub fn add_user(&mut self, user: &UserId) -> Result<(), StorageError> {
-        Self::USERS.add(self, user)
+    pub fn add_user(&mut self, user: &UserId, publisher: bool) -> Result<(), StorageError> {
+        Self::USERS.add(self, user, &publisher)
     }
-    pub fn remove_user(&mut self, user: &UserId) -> Result<(), StorageError> {
-        Self::USERS.remove(self, user)
-    }
-
-    pub fn has_user(&mut self, user: &UserId) -> Result<(), StorageError> {
-        Self::USERS.has(self, user)
+    pub fn remove_user(&mut self, user: &UserId, publisher: bool) -> Result<(), StorageError> {
+        Self::USERS.remove(self, user, &publisher)
     }
 
-    pub fn get_all_users(&mut self) -> Result<HashSet<UserId>, StorageError> {
+    pub fn has_user(&mut self, user: &UserId, publisher: bool) -> Result<(), StorageError> {
+        Self::USERS.has(self, user, &publisher)
+    }
+
+    pub fn get_all_users(&mut self) -> Result<HashMap<UserId, bool>, StorageError> {
         Self::USERS.get_all(self)
     }
 }
