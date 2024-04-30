@@ -66,6 +66,27 @@ pub enum OverlayType {
     InnerOnly,
 }
 
+impl OverlayType {
+    pub fn is_inner_get_outer(&self) -> Option<&OverlayId> {
+        match self {
+            Self::Inner(outer) => Some(outer),
+            _ => None,
+        }
+    }
+}
+
+impl From<OverlayAccess> for OverlayType {
+    fn from(oa: OverlayAccess) -> OverlayType {
+        match oa {
+            OverlayAccess::ReadOnly(_) => {
+                panic!("cannot create an OverlayType from a ReadOnly OverlayAccess")
+            }
+            OverlayAccess::ReadWrite((inner, outer)) => OverlayType::Inner(outer),
+            OverlayAccess::WriteOnly(inner) => OverlayType::InnerOnly,
+        }
+    }
+}
+
 pub struct OverlayInfo {
     pub overlay_type: OverlayType,
     pub overlay_topic: Option<TopicId>,
@@ -75,6 +96,7 @@ pub struct OverlayInfo {
 
 pub struct ServerBroker {
     storage: RocksDbServerStorage,
+
     overlays: HashMap<OverlayId, OverlayInfo>,
     inner_overlays: HashMap<OverlayId, Option<OverlayId>>,
 }
@@ -92,6 +114,9 @@ impl ServerBroker {
         Ok(())
     }
 }
+
+//TODO: the purpose of this trait is to have a level of indirection so we can keep some data in memory (cache) and avoid hitting the storage backend (rocksdb) at every call.
+//for now this cache is not implemented, but the structs are ready (see above), and it would just require to change slightly the implementation of the trait functions here below.
 
 impl IServerBroker for ServerBroker {
     fn next_seq_for_peer(&self, peer: &PeerId, seq: u64) -> Result<(), ServerError> {
@@ -136,36 +161,41 @@ impl IServerBroker for ServerBroker {
         &self,
         overlay: &OverlayId,
         repo: &RepoHash,
+        user: &UserId,
     ) -> Result<RepoPinStatus, ServerError> {
-        Err(ServerError::False)
-        //TODO: implement correctly !
-        // Ok(RepoPinStatus::V0(RepoPinStatusV0 {
-        //     hash: repo.clone(),
-
-        //     // only possible for RW overlays
-        //     expose_outer: false,
-
-        //     // list of topics that are subscribed to
-        //     topics: vec![],
-        // }))
+        self.storage.get_repo_pin_status(overlay, repo, user)
     }
 
-    fn pin_repo(
+    fn pin_repo_write(
+        &self,
+        overlay: &OverlayAccess,
+        repo: &RepoHash,
+        user_id: &UserId,
+        ro_topics: &Vec<TopicId>,
+        rw_topics: &Vec<PublisherAdvert>,
+        overlay_root_topic: &Option<TopicId>,
+        expose_outer: bool,
+    ) -> Result<RepoOpened, ServerError> {
+        self.storage.pin_repo_write(
+            overlay,
+            repo,
+            user_id,
+            ro_topics,
+            rw_topics,
+            overlay_root_topic,
+            expose_outer,
+        )
+    }
+
+    fn pin_repo_read(
         &self,
         overlay: &OverlayId,
         repo: &RepoHash,
+        user_id: &UserId,
         ro_topics: &Vec<TopicId>,
-        rw_topics: &Vec<PublisherAdvert>,
     ) -> Result<RepoOpened, ServerError> {
-        //TODO: implement correctly !
-        let mut opened = Vec::with_capacity(ro_topics.len() + rw_topics.len());
-        for topic in ro_topics {
-            opened.push((*topic).into());
-        }
-        for topic in rw_topics {
-            opened.push((*topic).into());
-        }
-        Ok(opened)
+        self.storage
+            .pin_repo_read(overlay, repo, user_id, ro_topics)
     }
 
     fn topic_sub(
@@ -173,18 +203,13 @@ impl IServerBroker for ServerBroker {
         overlay: &OverlayId,
         repo: &RepoHash,
         topic: &TopicId,
+        user: &UserId,
         publisher: Option<&PublisherAdvert>,
     ) -> Result<TopicSubRes, ServerError> {
-        //TODO: implement correctly !
-        Ok(TopicSubRes::V0(TopicSubResV0 {
-            topic: topic.clone(),
-            known_heads: vec![],
-            publisher: publisher.is_some(),
-        }))
+        self.storage.topic_sub(overlay, repo, topic, publisher)
     }
 
     fn get_commit(&self, overlay: &OverlayId, id: &ObjectId) -> Result<Vec<Block>, ServerError> {
-        //TODO: implement correctly !
-        Ok(vec![Block::dummy()])
+        self.storage.get_commit(overlay, id)
     }
 }

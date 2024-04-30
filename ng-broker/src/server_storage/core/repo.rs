@@ -61,10 +61,40 @@ impl<'a> RepoHashStorage<'a> {
         storage: &'a dyn KCVStorage,
     ) -> Result<RepoInfo, StorageError> {
         let mut opening = Self::new(repo, overlay, storage);
-
         let info = RepoInfo {
             topics: Self::TOPICS.get_all(&mut opening)?,
             expose_outer: Self::EXPOSE_OUTER.get_all(&mut opening)?,
+        };
+        Ok(info)
+    }
+
+    pub fn load_topics(
+        repo: &RepoHash,
+        overlay: &OverlayId,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<RepoInfo, StorageError> {
+        let mut opening = Self::new(repo, overlay, storage);
+        let info = RepoInfo {
+            topics: Self::TOPICS.get_all(&mut opening)?,
+            expose_outer: HashSet::new(),
+        };
+        Ok(info)
+    }
+
+    pub fn load_for_user(
+        user: &UserId,
+        repo: &RepoHash,
+        overlay: &OverlayId,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<RepoInfo, StorageError> {
+        let mut opening = Self::new(repo, overlay, storage);
+        let mut expose_outer = HashSet::new();
+        if let Ok(()) = Self::EXPOSE_OUTER.has(&mut opening, user) {
+            expose_outer.insert(*user);
+        }
+        let info = RepoInfo {
+            topics: Self::TOPICS.get_all(&mut opening)?,
+            expose_outer,
         };
         Ok(info)
     }
@@ -87,7 +117,7 @@ impl<'a> RepoHashStorage<'a> {
     pub fn create(
         repo: &RepoHash,
         overlay: &OverlayId,
-        storage: &'a mut dyn KCVStorage,
+        storage: &'a dyn KCVStorage,
     ) -> Result<RepoHashStorage<'a>, StorageError> {
         let mut creating = Self::new(repo, overlay, storage);
         Ok(creating)

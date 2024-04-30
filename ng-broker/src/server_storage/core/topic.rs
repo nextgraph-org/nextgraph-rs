@@ -109,11 +109,16 @@ impl<'a> TopicStorage<'a> {
         id: &TopicId,
         overlay: &OverlayId,
         repo: &RepoHash,
-        storage: &'a mut dyn KCVStorage,
+        storage: &'a dyn KCVStorage,
+        or_open: bool,
     ) -> Result<TopicStorage<'a>, StorageError> {
         let mut topic = TopicStorage::new(id, overlay, storage);
         if topic.exists() {
-            return Err(StorageError::AlreadyExists);
+            if or_open {
+                return Ok(topic);
+            } else {
+                return Err(StorageError::AlreadyExists);
+            }
         }
         topic.repo.set(repo)?;
         ExistentialValue::save(&topic, repo)?;

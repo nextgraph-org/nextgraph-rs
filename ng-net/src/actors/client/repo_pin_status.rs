@@ -78,9 +78,11 @@ impl EActor for Actor<'_, RepoPinStatusReq, RepoPinStatus> {
     ) -> Result<(), ProtocolError> {
         let req = RepoPinStatusReq::try_from(msg)?;
         let broker = BROKER.read().await;
-        let res = broker
-            .get_server_broker()?
-            .get_repo_pin_status(req.overlay(), req.hash());
+        let res = broker.get_server_broker()?.get_repo_pin_status(
+            req.overlay(),
+            req.hash(),
+            &fsm.lock().await.user_id_or_err()?,
+        );
         fsm.lock()
             .await
             .send_in_reply_to(res.into(), self.id())

@@ -215,6 +215,28 @@ pub enum ServerError {
     RepoAlreadyOpened,
     NotFound,
     EmptyStream,
+    StorageError,
+    InvalidRequest,
+    InvalidSignature,
+    OtherError,
+}
+
+impl From<StorageError> for ServerError {
+    fn from(e: StorageError) -> Self {
+        match e {
+            StorageError::NotFound => ServerError::NotFound,
+            _ => ServerError::StorageError,
+        }
+    }
+}
+
+impl From<NgError> for ServerError {
+    fn from(e: NgError) -> Self {
+        match e {
+            NgError::InvalidSignature => ServerError::InvalidSignature,
+            _ => ServerError::OtherError,
+        }
+    }
 }
 
 impl ServerError {
@@ -318,7 +340,6 @@ pub enum ProtocolError {
     WsError,
     ActorError,
     InvalidState,
-    SignatureError,
     InvalidSignature,
     SerializationError,
     AccessDenied,
@@ -330,6 +351,7 @@ pub enum ProtocolError {
     InvalidValue,
     AlreadyExists,
     RepoIdRequired,
+    InvalidPublisherAdvert,
 
     ConnectionError,
     Timeout,

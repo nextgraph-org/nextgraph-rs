@@ -25,8 +25,7 @@ impl PinRepo {
         Actor::<PinRepo, RepoOpened>::new_responder(id)
     }
     pub fn from_repo(repo: &Repo, broker_id: &DirectPeerId) -> PinRepo {
-        let overlay =
-            OverlayAccess::ReadWrite((repo.store.inner_overlay(), repo.store.outer_overlay()));
+        let overlay = OverlayAccess::new_write_access_from_store(&repo.store);
         let mut rw_topics = Vec::with_capacity(repo.branches.len());
         let mut ro_topics = vec![];
         for (_, branch) in repo.branches.iter() {
@@ -107,18 +106,73 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
     ) -> Result<(), ProtocolError> {
         let req = PinRepo::try_from(msg)?;
 
-        //TODO implement all the server side logic
         let broker = BROKER.read().await;
-        let res = broker.get_server_broker()?.pin_repo(
-            req.overlay(),
-            req.hash(),
-            req.ro_topics(),
-            req.rw_topics(),
-        );
 
+        // check the validity of the PublisherAdvert(s)
+        let server_peer_id = broker.get_config().unwrap().peer_id;
+        for pub_ad in req.rw_topics() {
+            pub_ad.verify_for_broker(&server_peer_id)?;
+        }
+
+        let result = {
+            match req.overlay_access() {
+                OverlayAccess::ReadOnly(r) => {
+                    if r.is_inner()
+                        || req.overlay() != r
+                        || req.rw_topics().len() > 0
+                        || req.overlay_root_topic().is_some()
+                    {
+                        Err(ServerError::InvalidRequest)
+                    } else {
+                        broker.get_server_broker()?.pin_repo_read(
+                            req.overlay(),
+                            req.hash(),
+                            &fsm.lock().await.user_id_or_err()?,
+                            req.ro_topics(),
+                        )
+                    }
+                }
+                OverlayAccess::ReadWrite((w, r)) => {
+                    if req.overlay() != w
+                        || !w.is_inner()
+                        || r.is_inner()
+                        || req.expose_outer() && req.rw_topics().len() == 0
+                    {
+                        // we do not allow to expose_outer if not a publisher for at least one topic
+                        // TODO add a check on "|| overlay_root_topic.is_none()"  because it should be mandatory to have one (not sent by client at the moment)
+                        Err(ServerError::InvalidRequest)
+                    } else {
+                        broker.get_server_broker()?.pin_repo_write(
+                            req.overlay_access(),
+                            req.hash(),
+                            &fsm.lock().await.user_id_or_err()?,
+                            req.ro_topics(),
+                            req.rw_topics(),
+                            req.overlay_root_topic(),
+                            req.expose_outer(),
+                        )
+                    }
+                }
+                OverlayAccess::WriteOnly(w) => {
+                    if !w.is_inner() || req.overlay() != w || req.expose_outer() {
+                        Err(ServerError::InvalidRequest)
+                    } else {
+                        broker.get_server_broker()?.pin_repo_write(
+                            req.overlay_access(),
+                            req.hash(),
+                            &fsm.lock().await.user_id_or_err()?,
+                            req.ro_topics(),
+                            req.rw_topics(),
+                            req.overlay_root_topic(),
+                            false,
+                        )
+                    }
+                }
+            }
+        };
         fsm.lock()
             .await
-            .send_in_reply_to(res.into(), self.id())
+            .send_in_reply_to(result.into(), self.id())
             .await?;
         Ok(())
     }

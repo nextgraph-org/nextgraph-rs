@@ -92,7 +92,7 @@ impl EActor for Actor<'_, CommitGet, Block> {
         let blocks_res = broker
             .get_server_broker()?
             .get_commit(req.overlay(), req.id());
-
+        // IF NEEDED, the get_commit could be changed to be async, and then the send_in_reply_to would be also totally async
         match blocks_res {
             Ok(blocks) => {
                 if blocks.len() == 0 {

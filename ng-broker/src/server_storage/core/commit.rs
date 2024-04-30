@@ -115,7 +115,7 @@ impl<'a> CommitStorage<'a> {
         id: &ObjectId,
         overlay: &OverlayId,
         event: &Option<EventInfo>,
-        storage: &'a mut dyn KCVStorage,
+        storage: &'a dyn KCVStorage,
     ) -> Result<CommitStorage<'a>, StorageError> {
         let mut creating = CommitStorage::new(id, overlay, storage);
         if creating.exists() {

@@ -20,8 +20,11 @@ use crate::{actor::EActor, actors::admin::*, actors::*};
 use core::fmt;
 use ng_repo::errors::*;
 use ng_repo::log::*;
+use ng_repo::store::Store;
 use ng_repo::types::*;
+use ng_repo::utils::{sign, verify};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::{
     any::{Any, TypeId},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -1213,6 +1216,38 @@ pub enum OverlayAccess {
 }
 
 impl OverlayAccess {
+    pub fn is_read_only(&self) -> bool {
+        match self {
+            Self::ReadOnly(_) => true,
+            _ => false,
+        }
+    }
+    pub fn new_write_access_from_store(store: &Store) -> OverlayAccess {
+        match store.get_store_repo() {
+            StoreRepo::V0(StoreRepoV0::PrivateStore(_)) | StoreRepo::V0(StoreRepoV0::Dialog(_)) => {
+                OverlayAccess::WriteOnly(store.inner_overlay())
+            }
+            StoreRepo::V0(StoreRepoV0::ProtectedStore(_))
+            | StoreRepo::V0(StoreRepoV0::Group(_))
+            | StoreRepo::V0(StoreRepoV0::PublicStore(_)) => {
+                OverlayAccess::ReadWrite((store.inner_overlay(), store.outer_overlay()))
+            }
+        }
+    }
+
+    pub fn new_read_access_from_store(store: &Store) -> OverlayAccess {
+        match store.get_store_repo() {
+            StoreRepo::V0(StoreRepoV0::PrivateStore(_)) | StoreRepo::V0(StoreRepoV0::Dialog(_)) => {
+                panic!("cannot get read access to a private or dialog store");
+            }
+            StoreRepo::V0(StoreRepoV0::ProtectedStore(_))
+            | StoreRepo::V0(StoreRepoV0::Group(_))
+            | StoreRepo::V0(StoreRepoV0::PublicStore(_)) => {
+                OverlayAccess::ReadOnly(store.outer_overlay())
+            }
+        }
+    }
+
     pub fn new_ro(outer_overlay: OverlayId) -> Result<Self, NgError> {
         if let OverlayId::Outer(_digest) = outer_overlay {
             Ok(OverlayAccess::ReadOnly(outer_overlay))
@@ -1479,8 +1514,6 @@ pub enum PublisherAdvert {
     V0(PublisherAdvertV0),
 }
 
-use ng_repo::utils::sign;
-
 impl PublisherAdvert {
     pub fn new(
         topic_id: TopicId,
@@ -1499,6 +1532,27 @@ impl PublisherAdvert {
         match self {
             Self::V0(v0) => &v0.content.topic,
         }
+    }
+
+    pub fn verify(&self) -> Result<(), NgError> {
+        match self {
+            Self::V0(v0) => verify(
+                &serde_bare::to_vec(&v0.content).unwrap(),
+                v0.sig,
+                v0.content.topic,
+            ),
+        }
+    }
+
+    pub fn verify_for_broker(&self, peer_id: &DirectPeerId) -> Result<(), ProtocolError> {
+        match self {
+            Self::V0(v0) => {
+                if v0.content.peer != *peer_id {
+                    return Err(ProtocolError::InvalidPublisherAdvert);
+                }
+            }
+        }
+        Ok(self.verify()?)
     }
 }
 
@@ -2684,6 +2738,23 @@ impl PinRepo {
             PinRepo::V0(o) => &o.overlay.overlay_id_for_client_protocol_purpose(),
         }
     }
+    pub fn overlay_access(&self) -> &OverlayAccess {
+        match self {
+            PinRepo::V0(o) => &o.overlay,
+        }
+    }
+
+    pub fn overlay_root_topic(&self) -> &Option<TopicId> {
+        match self {
+            PinRepo::V0(o) => &o.overlay_root_topic,
+        }
+    }
+
+    pub fn expose_outer(&self) -> bool {
+        match self {
+            PinRepo::V0(o) => o.expose_outer,
+        }
+    }
 }
 
 /// Request to refresh the Pinning of a previously pinned repo.
@@ -3243,6 +3314,13 @@ impl TopicSubRes {
         match self {
             Self::V0(v0) => v0.publisher,
         }
+    }
+    pub fn new_from_heads(topics: HashSet<ObjectId>, publisher: bool, topic: TopicId) -> Self {
+        TopicSubRes::V0(TopicSubResV0 {
+            topic,
+            known_heads: topics.into_iter().collect(),
+            publisher,
+        })
     }
 }
 

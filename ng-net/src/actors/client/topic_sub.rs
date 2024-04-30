@@ -104,6 +104,7 @@ impl EActor for Actor<'_, TopicSub, TopicSubRes> {
             req.overlay(),
             req.hash(),
             req.topic(),
+            &fsm.lock().await.user_id_or_err()?,
             req.publisher(),
         );
 

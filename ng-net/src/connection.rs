@@ -261,6 +261,13 @@ impl NoiseFSM {
         }
     }
 
+    pub fn user_id_or_err(&self) -> Result<UserId, ProtocolError> {
+        match &self.config {
+            Some(start_config) => start_config.get_user().ok_or(ProtocolError::ActorError),
+            _ => Err(ProtocolError::ActorError),
+        }
+    }
+
     fn decrypt(&mut self, ciphertext: &Noise) -> Result<ProtocolMessage, ProtocolError> {
         let ser = self
             .noise_cipher_state_dec

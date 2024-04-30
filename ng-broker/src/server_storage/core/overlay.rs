@@ -100,7 +100,7 @@ impl<'a> OverlayStorage<'a> {
     pub fn create(
         id: &OverlayId,
         overlay_type: &OverlayType,
-        storage: &'a mut dyn KCVStorage,
+        storage: &'a dyn KCVStorage,
     ) -> Result<OverlayStorage<'a>, StorageError> {
         let mut overlay = OverlayStorage::new(id, storage);
         if overlay.exists() {
@@ -108,6 +108,18 @@ impl<'a> OverlayStorage<'a> {
         }
         overlay.overlay_type.set(overlay_type)?;
         ExistentialValue::save(&overlay, overlay_type)?;
+
+        if id.is_inner() {
+            if let Some(outer) = overlay_type.is_inner_get_outer() {
+                match OverlayStorage::create(outer, &OverlayType::Outer(*id), storage) {
+                    Err(StorageError::AlreadyExists) => {
+                        //it is ok if the Outer overlay already exists. someone else had pinned it before, in read_only, and the broker ahd subscribed to it from another broker
+                    }
+                    Err(e) => return Err(e), //TODO: remove the existentialvalue that was previously saved (or use a transaction)
+                    Ok(_) => {}
+                }
+            }
+        }
 
         Ok(overlay)
     }

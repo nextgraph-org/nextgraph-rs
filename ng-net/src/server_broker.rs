@@ -41,14 +41,26 @@ pub trait IServerBroker: Send + Sync {
         &self,
         overlay: &OverlayId,
         repo: &RepoHash,
+        user_id: &UserId,
     ) -> Result<RepoPinStatus, ServerError>;
 
-    fn pin_repo(
+    fn pin_repo_write(
+        &self,
+        overlay: &OverlayAccess,
+        repo: &RepoHash,
+        user_id: &UserId,
+        ro_topics: &Vec<TopicId>,
+        rw_topics: &Vec<PublisherAdvert>,
+        overlay_root_topic: &Option<TopicId>,
+        expose_outer: bool,
+    ) -> Result<RepoOpened, ServerError>;
+
+    fn pin_repo_read(
         &self,
         overlay: &OverlayId,
         repo: &RepoHash,
+        user_id: &UserId,
         ro_topics: &Vec<TopicId>,
-        rw_topics: &Vec<PublisherAdvert>,
     ) -> Result<RepoOpened, ServerError>;
 
     fn topic_sub(
@@ -56,6 +68,7 @@ pub trait IServerBroker: Send + Sync {
         overlay: &OverlayId,
         repo: &RepoHash,
         topic: &TopicId,
+        user_id: &UserId,
         publisher: Option<&PublisherAdvert>,
     ) -> Result<TopicSubRes, ServerError>;
 

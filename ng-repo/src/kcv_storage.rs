@@ -229,6 +229,22 @@ impl<
         let key = Self::compute_key(model, column)?;
         model.storage().put(self.prefix, &key, None, &vec![], &None)
     }
+
+    pub fn add_lazy(&self, model: &mut Model, column: &Column) -> Result<(), StorageError> {
+        model.check_exists()?;
+        let key = Self::compute_key(model, column)?;
+        model.storage().write_transaction(&mut |tx| {
+            match tx.has_property_value(self.prefix, &key, None, &vec![], &None) {
+                Ok(_) => {}
+                Err(StorageError::NotFound) => {
+                    tx.put(self.prefix, &key, None, &vec![], &None)?;
+                }
+                Err(e) => return Err(e),
+            };
+            Ok(())
+        })
+    }
+
     pub fn remove(&self, model: &mut Model, column: &Column) -> Result<(), StorageError> {
         model.check_exists()?;
         let key = Self::compute_key(model, column)?;
@@ -281,7 +297,7 @@ impl<
 pub struct MultiMapColumn<
     Model: IModel,
     Column: Eq + PartialEq + Hash + Serialize + Default + for<'a> Deserialize<'a>,
-    Value: Serialize + for<'a> Deserialize<'a>,
+    Value: Serialize + for<'a> Deserialize<'a> + Clone + PartialEq,
 > {
     prefix: u8,
     phantom_column: PhantomData<Column>,
@@ -293,7 +309,7 @@ pub struct MultiMapColumn<
 impl<
         Model: IModel,
         Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
-        Value: Serialize + for<'a> Deserialize<'a>,
+        Value: Serialize + for<'a> Deserialize<'a> + Clone + PartialEq,
     > MultiMapColumn<Model, Column, Value>
 {
     pub const fn new(prefix: u8) -> Self {
@@ -351,14 +367,60 @@ impl<
             .has_property_value(self.prefix, &key, None, &to_vec(value)?, &None)
     }
 
-    pub fn has_regardless_value(
+    pub fn get(&self, model: &mut Model, column: &Column) -> Result<Value, StorageError> {
+        model.check_exists()?;
+        let key = MultiValueColumn::compute_key(model, column)?;
+        let val_ser = model.storage().get(self.prefix, &key, None, &None)?;
+        Ok(from_slice(&val_ser)?)
+    }
+
+    pub fn get_or_add(
         &self,
         model: &mut Model,
         column: &Column,
+        value: &Value,
+    ) -> Result<Value, StorageError> {
+        model.check_exists()?;
+        let key = MultiValueColumn::compute_key(model, column)?;
+        let mut found: Option<Value> = None;
+        model.storage().write_transaction(&mut |tx| {
+            found = match tx.get(self.prefix, &key, None, &None) {
+                Ok(val_ser) => Some(from_slice(&val_ser)?),
+                Err(StorageError::NotFound) => {
+                    tx.put(self.prefix, &key, None, &to_vec(value)?, &None)?;
+                    None
+                }
+                Err(e) => return Err(e),
+            };
+            Ok(())
+        })?;
+        Ok(found.unwrap_or(value.clone()))
+    }
+
+    pub fn add_or_change(
+        &self,
+        model: &mut Model,
+        column: &Column,
+        value: &Value,
     ) -> Result<(), StorageError> {
         model.check_exists()?;
         let key = MultiValueColumn::compute_key(model, column)?;
-        model.storage().get(self.prefix, &key, None, &None)?;
+        let mut found: Option<Value> = None;
+        model.storage().write_transaction(&mut |tx| {
+            found = match tx.get(self.prefix, &key, None, &None) {
+                Ok(val_ser) => Some(from_slice(&val_ser)?),
+                Err(StorageError::NotFound) => {
+                    tx.put(self.prefix, &key, None, &to_vec(value)?, &None)?;
+                    None
+                }
+                Err(e) => return Err(e),
+            };
+            if found.is_some() && found.as_ref().unwrap() != value {
+                // we change it
+                tx.put(self.prefix, &key, None, &to_vec(value)?, &None)?;
+            }
+            Ok(())
+        })?;
         Ok(())
     }
 
@@ -387,7 +449,7 @@ impl<
 impl<
         Model: IModel,
         Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
-        Value: Serialize + for<'a> Deserialize<'a>,
+        Value: Serialize + for<'a> Deserialize<'a> + Clone + PartialEq,
     > IMultiValueColumn for MultiMapColumn<Model, Column, Value>
 {
     fn value_size(&self) -> Result<usize, StorageError> {
@@ -526,7 +588,7 @@ pub struct SingleValueColumn<Model: IModel, Value: Serialize + for<'a> Deseriali
     phantom_model: PhantomData<Model>,
 }
 
-impl<Model: IModel, Value: Serialize + for<'d> Deserialize<'d>> ISingleValueColumn
+impl<Model: IModel, Value: Clone + Serialize + for<'d> Deserialize<'d>> ISingleValueColumn
     for SingleValueColumn<Model, Value>
 {
     fn suffix(&self) -> u8 {
@@ -534,7 +596,9 @@ impl<Model: IModel, Value: Serialize + for<'d> Deserialize<'d>> ISingleValueColu
     }
 }
 
-impl<Model: IModel, Value: Serialize + for<'d> Deserialize<'d>> SingleValueColumn<Model, Value> {
+impl<Model: IModel, Value: Clone + Serialize + for<'d> Deserialize<'d>>
+    SingleValueColumn<Model, Value>
+{
     pub const fn new(suffix: u8) -> Self {
         SingleValueColumn {
             suffix,
@@ -553,6 +617,7 @@ impl<Model: IModel, Value: Serialize + for<'d> Deserialize<'d>> SingleValueColum
             &None,
         )
     }
+
     pub fn get(&self, model: &mut Model) -> Result<Value, StorageError> {
         model.check_exists()?;
         match model
@@ -562,6 +627,29 @@ impl<Model: IModel, Value: Serialize + for<'d> Deserialize<'d>> SingleValueColum
             Ok(res) => Ok(from_slice::<Value>(&res)?),
             Err(e) => Err(e),
         }
+    }
+
+    pub fn get_or_set(&self, model: &mut Model, value: &Value) -> Result<Value, StorageError> {
+        model.check_exists()?;
+        let mut found: Option<Value> = None;
+        model.storage().write_transaction(&mut |tx| {
+            found = match tx.get(model.prefix(), model.key(), Some(self.suffix), &None) {
+                Ok(val_ser) => Some(from_slice(&val_ser)?),
+                Err(StorageError::NotFound) => {
+                    tx.put(
+                        model.prefix(),
+                        model.key(),
+                        Some(self.suffix),
+                        &to_vec(value)?,
+                        &None,
+                    )?;
+                    None
+                }
+                Err(e) => return Err(e),
+            };
+            Ok(())
+        })?;
+        Ok(found.unwrap_or(value.clone()))
     }
 
     pub fn has(&self, model: &mut Model, value: &Value) -> Result<(), StorageError> {
@@ -575,14 +663,12 @@ impl<Model: IModel, Value: Serialize + for<'d> Deserialize<'d>> SingleValueColum
         )
     }
 
-    // should call the Model::del() instead
-    // pub fn del(
-    //     &self,
-    //     model: &mut Model,
-    //     tx: &mut dyn WriteTransaction,
-    // ) -> Result<(), StorageError> {
-    //     tx.del(model.prefix(), model.key(), Some(self.suffix), &None)
-    // }
+    pub fn del(&self, model: &mut Model) -> Result<(), StorageError> {
+        model.check_exists()?;
+        model
+            .storage()
+            .del(model.prefix(), model.key(), Some(self.suffix), &None)
+    }
 }
 
 pub struct ExistentialValue<Column: Serialize + for<'d> Deserialize<'d>> {

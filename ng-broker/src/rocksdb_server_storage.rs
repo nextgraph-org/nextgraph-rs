@@ -15,15 +15,15 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use crate::server_broker::*;
 use crate::server_storage::admin::account::Account;
 use crate::server_storage::admin::invitation::Invitation;
 use crate::server_storage::admin::wallet::Wallet;
 use crate::server_storage::core::*;
 use crate::types::*;
-use ng_net::server_broker::*;
 use ng_net::types::*;
 use ng_repo::errors::{ProtocolError, ServerError, StorageError};
-use ng_repo::kcv_storage::KCVStorage;
+
 use ng_repo::log::*;
 use ng_repo::types::*;
 use ng_storage_rocksdb::block_storage::RocksDbBlockStorage;
@@ -239,36 +239,163 @@ impl RocksDbServerStorage {
         &self,
         overlay: &OverlayId,
         repo: &RepoHash,
+        user: &UserId,
     ) -> Result<RepoPinStatus, ServerError> {
-        Err(ServerError::False)
-        //TODO: implement correctly !
-        // Ok(RepoPinStatus::V0(RepoPinStatusV0 {
-        //     hash: repo.clone(),
+        let repo_info = RepoHashStorage::load_for_user(user, repo, overlay, &self.core_storage)?;
+        let mut topics = vec![];
+        for topic in repo_info.topics {
+            if let Ok(mut model) = TopicStorage::open(&topic, overlay, &self.core_storage) {
+                match TopicStorage::USERS.get(&mut model, user) {
+                    Err(_) => {}
+                    Ok(publisher) => topics.push(TopicSubRes::new_from_heads(
+                        TopicStorage::get_all_heads(&mut model)?,
+                        publisher,
+                        topic,
+                    )),
+                }
+            }
+        }
+        if topics.len() == 0 {
+            return Err(ServerError::False);
+        }
 
-        //     // only possible for RW overlays
-        //     expose_outer: false,
-
-        //     // list of topics that are subscribed to
-        //     topics: vec![],
-        // }))
+        Ok(RepoPinStatus::V0(RepoPinStatusV0 {
+            hash: repo.clone(),
+            expose_outer: repo_info.expose_outer.len() > 0,
+            topics,
+        }))
     }
 
-    pub(crate) fn pin_repo(
+    pub(crate) fn pin_repo_write(
+        &self,
+        overlay_access: &OverlayAccess,
+        repo: &RepoHash,
+        user_id: &UserId,
+        ro_topics: &Vec<TopicId>,
+        rw_topics: &Vec<PublisherAdvert>,
+        overlay_root_topic: &Option<TopicId>,
+        expose_outer: bool,
+    ) -> Result<RepoOpened, ServerError> {
+        assert!(!overlay_access.is_read_only());
+
+        let inner_overlay = overlay_access.overlay_id_for_client_protocol_purpose();
+        let mut inner_overlay_storage =
+            match OverlayStorage::open(inner_overlay, &self.core_storage) {
+                Err(StorageError::NotFound) => {
+                    // inner overlay doesn't exist, we need to create it
+                    OverlayStorage::create(
+                        inner_overlay,
+                        &(*overlay_access).into(),
+                        &self.core_storage,
+                    )?
+                }
+                Err(e) => return Err(e.into()),
+                Ok(os) => os,
+            };
+        // the overlay we use to store all the info is: the outer for a RW access, and the inner for a WO access.
+        let overlay = match inner_overlay_storage.overlay_type() {
+            OverlayType::Outer(_) => {
+                panic!("shouldnt happen: we are pinning to an inner overlay. why is it outer type?")
+            }
+            OverlayType::Inner(outer) => outer,
+            OverlayType::InnerOnly => inner_overlay,
+        }
+        .clone();
+
+        // if an overlay_root_topic was provided, we update it in the DB:
+        // this information is stored on the inner overlay record, contrary to the rest of the info below, that is stored on the outer (except for WO)
+        if overlay_root_topic.is_some() {
+            OverlayStorage::TOPIC.set(
+                &mut inner_overlay_storage,
+                overlay_root_topic.as_ref().unwrap(),
+            )?;
+        }
+
+        // we now do the pinning :
+
+        let mut result: RepoOpened = vec![];
+        let mut repo_info = RepoHashStorage::open(repo, &overlay, &self.core_storage)?;
+
+        if expose_outer {
+            RepoHashStorage::EXPOSE_OUTER.add(&mut repo_info, user_id)?;
+        }
+
+        let mut rw_topics_added: HashMap<TopicId, TopicSubRes> =
+            HashMap::with_capacity(rw_topics.len());
+        for topic in rw_topics {
+            let topic_id = topic.topic_id();
+            let mut topic_storage =
+                TopicStorage::create(topic_id, &overlay, repo, &self.core_storage, true)?;
+
+            RepoHashStorage::TOPICS.add_lazy(&mut repo_info, topic_id)?;
+
+            let _ = TopicStorage::ADVERT.get_or_set(&mut topic_storage, topic)?;
+
+            TopicStorage::USERS.add_or_change(&mut topic_storage, user_id, &true)?;
+
+            rw_topics_added.insert(
+                *topic_id,
+                TopicSubRes::new_from_heads(
+                    TopicStorage::get_all_heads(&mut topic_storage)?,
+                    true,
+                    *topic_id,
+                ),
+            );
+        }
+
+        for topic in ro_topics {
+            if rw_topics_added.contains_key(topic) {
+                continue;
+                //we do not want to add again as read_only, a topic that was just opened as RW (publisher)
+            }
+
+            let mut topic_storage =
+                TopicStorage::create(topic, &overlay, repo, &self.core_storage, true)?;
+
+            RepoHashStorage::TOPICS.add_lazy(&mut repo_info, topic)?;
+
+            let _ = TopicStorage::USERS.get_or_add(&mut topic_storage, user_id, &false)?;
+
+            result.push(TopicSubRes::new_from_heads(
+                TopicStorage::get_all_heads(&mut topic_storage)?,
+                false,
+                *topic,
+            ));
+        }
+        result.extend(rw_topics_added.into_values());
+        Ok(result)
+    }
+
+    pub(crate) fn pin_repo_read(
         &self,
         overlay: &OverlayId,
         repo: &RepoHash,
+        user_id: &UserId,
         ro_topics: &Vec<TopicId>,
-        rw_topics: &Vec<PublisherAdvert>,
     ) -> Result<RepoOpened, ServerError> {
-        //TODO: implement correctly !
-        let mut opened = Vec::with_capacity(ro_topics.len() + rw_topics.len());
-        for topic in ro_topics {
-            opened.push((*topic).into());
+        let mut overlay_storage = OverlayStorage::open(overlay, &self.core_storage)?;
+        match overlay_storage.overlay_type() {
+            OverlayType::Outer(_) => {
+                let mut result: RepoOpened = vec![];
+                let repo_info = RepoHashStorage::load_topics(repo, overlay, &self.core_storage)?;
+                for topic in ro_topics {
+                    if repo_info.topics.contains(topic) {
+                        let mut topic_storage =
+                            TopicStorage::open(topic, overlay, &self.core_storage)?;
+                        let _ =
+                            TopicStorage::USERS.get_or_add(&mut topic_storage, user_id, &false)?;
+
+                        result.push(TopicSubRes::new_from_heads(
+                            TopicStorage::get_all_heads(&mut topic_storage)?,
+                            false,
+                            *topic,
+                        ));
+                    }
+                }
+                Ok(result)
+            }
+            _ => return Err(ServerError::NotFound),
         }
-        for topic in rw_topics {
-            opened.push((*topic).into());
-        }
-        Ok(opened)
     }
 
     pub(crate) fn topic_sub(
@@ -278,7 +405,6 @@ impl RocksDbServerStorage {
         topic: &TopicId,
         publisher: Option<&PublisherAdvert>,
     ) -> Result<TopicSubRes, ServerError> {
-        //TODO: implement correctly !
         Ok(TopicSubRes::V0(TopicSubResV0 {
             topic: topic.clone(),
             known_heads: vec![],
