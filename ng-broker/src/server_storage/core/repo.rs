@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Repo OKM (Object Key/Col/Value Mapping)
+//! Repo Storage (Object Key/Col/Value Mapping)
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -21,12 +21,12 @@ use serde_bare::to_vec;
 
 use crate::server_broker::RepoInfo;
 
-pub struct RepoOKM<'a> {
+pub struct RepoHashStorage<'a> {
     key: Vec<u8>,
     storage: &'a dyn KCVStorage,
 }
 
-impl<'a> IModel for RepoOKM<'a> {
+impl<'a> IModel for RepoHashStorage<'a> {
     fn key(&self) -> &Vec<u8> {
         &self.key
     }
@@ -41,7 +41,7 @@ impl<'a> IModel for RepoOKM<'a> {
     }
 }
 
-impl<'a> RepoOKM<'a> {
+impl<'a> RepoHashStorage<'a> {
     // RepoHash <-> Topic : list of topics of a repo that was pinned on the broker
     pub const TOPICS: MultiValueColumn<Self, TopicId> = MultiValueColumn::new(b'r');
     // RepoHash <-> User : list of users who asked to expose the repo to the outer overlay
@@ -80,7 +80,7 @@ impl<'a> RepoOKM<'a> {
         repo: &RepoHash,
         overlay: &OverlayId,
         storage: &'a dyn KCVStorage,
-    ) -> Result<RepoOKM<'a>, StorageError> {
+    ) -> Result<RepoHashStorage<'a>, StorageError> {
         let mut opening = Self::new(repo, overlay, storage);
         Ok(opening)
     }
@@ -88,7 +88,7 @@ impl<'a> RepoOKM<'a> {
         repo: &RepoHash,
         overlay: &OverlayId,
         storage: &'a mut dyn KCVStorage,
-    ) -> Result<RepoOKM<'a>, StorageError> {
+    ) -> Result<RepoHashStorage<'a>, StorageError> {
         let mut creating = Self::new(repo, overlay, storage);
         Ok(creating)
     }

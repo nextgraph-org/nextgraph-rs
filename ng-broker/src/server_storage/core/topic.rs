@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Topic OKM (Object Key/Col/Value Mapping)
+//! Topic Storage (Object Key/Col/Value Mapping)
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -21,13 +21,13 @@ use serde_bare::to_vec;
 
 use crate::server_broker::TopicInfo;
 
-pub struct Topic<'a> {
+pub struct TopicStorage<'a> {
     key: Vec<u8>,
     repo: ExistentialValue<RepoHash>,
     storage: &'a dyn KCVStorage,
 }
 
-impl<'a> IModel for Topic<'a> {
+impl<'a> IModel for TopicStorage<'a> {
     fn key(&self) -> &Vec<u8> {
         &self.key
     }
@@ -45,7 +45,7 @@ impl<'a> IModel for Topic<'a> {
     // }
 }
 
-impl<'a> Topic<'a> {
+impl<'a> TopicStorage<'a> {
     const PREFIX: u8 = b't';
 
     // Topic properties
@@ -66,16 +66,26 @@ impl<'a> Topic<'a> {
         &[&Self::USERS as &dyn IMultiValueColumn, &Self::HEADS],
     );
 
+    pub fn new(id: &TopicId, overlay: &OverlayId, storage: &'a dyn KCVStorage) -> Self {
+        let mut key: Vec<u8> = Vec::with_capacity(33 + 33);
+        key.append(&mut to_vec(overlay).unwrap());
+        key.append(&mut to_vec(id).unwrap());
+        TopicStorage {
+            key,
+            repo: ExistentialValue::<RepoHash>::new(),
+            storage,
+        }
+    }
+
     pub fn load(
         id: &TopicId,
         overlay: &OverlayId,
         storage: &'a dyn KCVStorage,
     ) -> Result<TopicInfo, StorageError> {
-        let mut opening = Topic::new(id, overlay, storage);
+        let mut opening = TopicStorage::new(id, overlay, storage);
         let props = opening.load_props()?;
         let existential = col(&Self::REPO, &props)?;
         opening.repo.set(&existential)?;
-        //ExistentialValue::save(&opening, &existential)?;
         let ti = TopicInfo {
             repo: existential,
             publisher_advert: col(&Self::ADVERT, &props).ok(),
@@ -86,23 +96,12 @@ impl<'a> Topic<'a> {
         Ok(ti)
     }
 
-    pub fn new(id: &TopicId, overlay: &OverlayId, storage: &'a dyn KCVStorage) -> Self {
-        let mut key: Vec<u8> = Vec::with_capacity(33 + 33);
-        key.append(&mut to_vec(overlay).unwrap());
-        key.append(&mut to_vec(id).unwrap());
-        Topic {
-            key,
-            repo: ExistentialValue::<RepoHash>::new(),
-            storage,
-        }
-    }
-
     pub fn open(
         id: &TopicId,
         overlay: &OverlayId,
         storage: &'a dyn KCVStorage,
-    ) -> Result<Topic<'a>, StorageError> {
-        let mut opening = Topic::new(id, overlay, storage);
+    ) -> Result<TopicStorage<'a>, StorageError> {
+        let mut opening = TopicStorage::new(id, overlay, storage);
         opening.check_exists()?;
         Ok(opening)
     }
@@ -111,8 +110,8 @@ impl<'a> Topic<'a> {
         overlay: &OverlayId,
         repo: &RepoHash,
         storage: &'a mut dyn KCVStorage,
-    ) -> Result<Topic<'a>, StorageError> {
-        let mut topic = Topic::new(id, overlay, storage);
+    ) -> Result<TopicStorage<'a>, StorageError> {
+        let mut topic = TopicStorage::new(id, overlay, storage);
         if topic.exists() {
             return Err(StorageError::AlreadyExists);
         }

@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! User account OKM (Object Key/Col/Value Mapping)
+//! User account Storage (Object Key/Col/Value Mapping)
 
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;

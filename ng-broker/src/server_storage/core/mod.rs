@@ -9,3 +9,6 @@ pub use topic::*;
 
 pub mod repo;
 pub use repo::*;
+
+pub mod commit;
+pub use commit::*;

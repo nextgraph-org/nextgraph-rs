@@ -126,14 +126,17 @@ impl RocksDbServerStorage {
         // check unicity of class prefixes, by storage
         #[cfg(debug_assertions)]
         {
+            // TODO: refactor the wallet and accounts with Class and the new OKM mechanism, then include them uncomment the following lines
             //log_debug!("CHECKING...");
             // wallet_storage.add_class(&Wallet::CLASS);
             // wallet_storage.check_prefixes();
             // accounts_storage.add_class(&Account::CLASS);
             // accounts_storage.add_class(&Invitation::CLASS);
             // accounts_storage.check_prefixes();
-            core_storage.add_class(&Topic::CLASS);
-            core_storage.add_class(&RepoOKM::CLASS);
+            core_storage.add_class(&TopicStorage::CLASS);
+            core_storage.add_class(&RepoHashStorage::CLASS);
+            core_storage.add_class(&OverlayStorage::CLASS);
+            core_storage.add_class(&CommitStorage::CLASS);
             core_storage.check_prefixes();
         }
 

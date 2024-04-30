@@ -18,6 +18,7 @@ use ng_repo::{
     errors::{NgError, ProtocolError, ServerError},
     types::*,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::rocksdb_server_storage::RocksDbServerStorage;
 
@@ -43,21 +44,38 @@ pub struct RepoInfo {
     pub topics: HashSet<TopicId>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EventInfo {
+    pub event: Event,
+    pub blocks: Vec<BlockId>,
+}
+
+pub struct CommitInfo {
+    pub event: Option<EventInfo>,
+    pub home_pinned: bool,
+    pub acks: HashSet<ObjectId>,
+    pub deps: HashSet<ObjectId>,
+    pub futures: HashSet<ObjectId>,
+    pub files: HashSet<ObjectId>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum OverlayType {
+    Outer(OverlayId), // the ID of the inner overlay corresponding to this outer.
+    Inner(OverlayId), // the ID of the outer overlay corresponding to the inner
+    InnerOnly,
+}
+
 pub struct OverlayInfo {
-    inner: Option<OverlayId>,
-
-    overlay_topic: Option<TopicId>,
-
-    topics: HashMap<TopicId, TopicInfo>,
-
-    repos: HashMap<RepoHash, RepoInfo>,
+    pub overlay_type: OverlayType,
+    pub overlay_topic: Option<TopicId>,
+    pub topics: HashMap<TopicId, TopicInfo>,
+    pub repos: HashMap<RepoHash, RepoInfo>,
 }
 
 pub struct ServerBroker {
     storage: RocksDbServerStorage,
-
     overlays: HashMap<OverlayId, OverlayInfo>,
-
     inner_overlays: HashMap<OverlayId, Option<OverlayId>>,
 }
 

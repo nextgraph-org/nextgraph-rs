@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Broker Wallet OKM (Object Key/Col/Value Mapping), persists to storage all the SymKeys needed to open other storages
+//! Broker Wallet Storage (Object Key/Col/Value Mapping), persists to storage all the SymKeys needed to open other storages
 
 use ng_net::types::*;
 use ng_repo::errors::StorageError;

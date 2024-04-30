@@ -264,6 +264,7 @@ impl<
         Ok(res)
     }
 }
+
 impl<
         Model: IModel,
         Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
@@ -391,6 +392,103 @@ impl<
 {
     fn value_size(&self) -> Result<usize, StorageError> {
         Ok(to_vec(&Column::default())?.len())
+    }
+    fn prefix(&self) -> u8 {
+        self.prefix
+    }
+}
+
+pub struct MultiCounterColumn<
+    Model: IModel,
+    Column: Eq + PartialEq + Hash + Serialize + Default + for<'a> Deserialize<'a>,
+> {
+    prefix: u8,
+    phantom_column: PhantomData<Column>,
+    phantom_model: PhantomData<Model>,
+}
+
+impl<
+        Model: IModel,
+        Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
+    > MultiCounterColumn<Model, Column>
+{
+    pub const fn new(prefix: u8) -> Self {
+        MultiCounterColumn {
+            prefix,
+            phantom_column: PhantomData,
+            phantom_model: PhantomData,
+        }
+    }
+    pub fn increment(&self, model: &mut Model, column: &Column) -> Result<(), StorageError> {
+        let key = MultiValueColumn::compute_key(model, column)?;
+        model.storage().write_transaction(&mut |tx| {
+            let mut val: u64 = match tx.get(self.prefix, &key, None, &None) {
+                Ok(val_ser) => from_slice(&val_ser)?,
+                Err(StorageError::NotFound) => 0,
+                Err(e) => return Err(e),
+            };
+            val += 1;
+            let val_ser = to_vec(&val)?;
+            tx.put(self.prefix, &key, None, &val_ser, &None)?;
+            Ok(())
+        })
+    }
+    /// returns true if the counter reached zero (and the key was removed from KVC store)
+    pub fn decrement(&self, model: &mut Model, column: &Column) -> Result<bool, StorageError> {
+        let key = MultiValueColumn::compute_key(model, column)?;
+        let mut ret: bool = false;
+        model.storage().write_transaction(&mut |tx| {
+            let val_ser = tx.get(self.prefix, &key, None, &None)?;
+            let mut val: u64 = from_slice(&val_ser)?;
+            val -= 1;
+            ret = val == 0;
+            if ret {
+                tx.del(self.prefix, &key, None, &None)?;
+            } else {
+                let val_ser = to_vec(&val)?;
+                tx.put(self.prefix, &key, None, &val_ser, &None)?;
+            }
+            Ok(())
+        })?;
+        Ok(ret)
+    }
+
+    pub fn get(&self, model: &mut Model, column: &Column) -> Result<u64, StorageError> {
+        let key = MultiValueColumn::compute_key(model, column)?;
+        let val_ser = model.storage().get(self.prefix, &key, None, &None)?;
+        let val: u64 = from_slice(&val_ser)?;
+        Ok(val)
+    }
+
+    pub fn get_all(&self, model: &mut Model) -> Result<HashMap<Column, u64>, StorageError> {
+        model.check_exists()?;
+        let key_prefix = model.key();
+        let key_prefix_len = key_prefix.len();
+        let mut res: HashMap<Column, u64> = HashMap::new();
+        let total_size = key_prefix_len + self.value_size()?;
+        for val in model.storage().get_all_keys_and_values(
+            self.prefix,
+            total_size,
+            key_prefix.to_vec(),
+            None,
+            &None,
+        )? {
+            if val.0.len() == total_size + 1 {
+                let col: Column = from_slice(&val.0[1 + key_prefix_len..total_size + 1])?;
+                let val = from_slice(&val.1)?;
+                res.insert(col, val);
+            }
+        }
+        Ok(res)
+    }
+}
+impl<
+        Model: IModel,
+        Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
+    > IMultiValueColumn for MultiCounterColumn<Model, Column>
+{
+    fn value_size(&self) -> Result<usize, StorageError> {
+        Ok(to_vec(&(0 as u64))?.len())
     }
     fn prefix(&self) -> u8 {
         self.prefix

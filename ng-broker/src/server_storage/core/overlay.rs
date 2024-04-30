@@ -7,229 +7,112 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-//! Overlay OKM (Object Key/Col/Value Mapping)
+//! Overlay Storage (Object Key/Col/Value Mapping)
+
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 use ng_net::types::*;
 use ng_repo::errors::StorageError;
-use ng_repo::kcv_storage::KCVStorage;
+use ng_repo::kcv_storage::*;
 use ng_repo::types::*;
-use ng_repo::utils::now_timestamp;
-use serde::{Deserialize, Serialize};
-use serde_bare::{from_slice, to_vec};
 
-// TODO: versioning V0
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct OverlayMeta {
-    pub users: u32,
-    pub last_used: Timestamp,
-}
+use serde_bare::to_vec;
 
-pub struct Overlay<'a> {
-    /// Overlay ID
-    id: OverlayId,
+use crate::server_broker::OverlayInfo;
+use crate::server_broker::OverlayType;
+
+pub struct OverlayStorage<'a> {
+    key: Vec<u8>,
+    overlay_type: ExistentialValue<OverlayType>,
     storage: &'a dyn KCVStorage,
 }
 
-impl<'a> Overlay<'a> {
-    const PREFIX: u8 = b"o"[0];
+impl<'a> IModel for OverlayStorage<'a> {
+    fn key(&self) -> &Vec<u8> {
+        &self.key
+    }
+    fn storage(&self) -> &dyn KCVStorage {
+        self.storage
+    }
+    fn class(&self) -> &Class {
+        &Self::CLASS
+    }
+    fn existential(&mut self) -> Option<&mut dyn IExistentialValue> {
+        Some(&mut self.overlay_type)
+    }
+    // fn name(&self) -> String {
+    //     format_type_of(self)
+    // }
+}
 
-    // propertie's suffixes
-    const SECRET: u8 = b"s"[0];
-    const PEER: u8 = b"p"[0];
-    const TOPIC: u8 = b"t"[0];
-    const META: u8 = b"m"[0];
-    const REPO: u8 = b"r"[0];
+impl<'a> OverlayStorage<'a> {
+    const PREFIX: u8 = b'o';
 
-    const ALL_PROPERTIES: [u8; 5] = [
-        Self::SECRET,
-        Self::PEER,
-        Self::TOPIC,
-        Self::META,
-        Self::REPO,
-    ];
+    // Overlay properties
+    pub const TYPE: ExistentialValueColumn = ExistentialValueColumn::new(b'y');
+    pub const TOPIC: SingleValueColumn<Self, TopicId> = SingleValueColumn::new(b't');
 
-    const SUFFIX_FOR_EXIST_CHECK: u8 = Self::SECRET;
+    // Overlay <-> Block refcount
+    pub const BLOCKS: MultiCounterColumn<Self, BlockId> = MultiCounterColumn::new(b'b');
+    // Overlay <-> Object refcount
+    pub const OBJECTS: MultiCounterColumn<Self, ObjectId> = MultiCounterColumn::new(b'j');
 
-    pub fn open(id: &OverlayId, storage: &'a dyn KCVStorage) -> Result<Overlay<'a>, StorageError> {
-        let opening = Overlay {
-            id: id.clone(),
+    pub const CLASS: Class<'a> = Class::new(
+        "Overlay",
+        Some(Self::PREFIX),
+        Some(&Self::TYPE),
+        &[&Self::TOPIC as &dyn ISingleValueColumn],
+        &[&Self::BLOCKS as &dyn IMultiValueColumn, &Self::OBJECTS],
+    );
+
+    pub fn new(id: &OverlayId, storage: &'a dyn KCVStorage) -> Self {
+        OverlayStorage {
+            key: to_vec(id).unwrap(),
+            overlay_type: ExistentialValue::<OverlayType>::new(),
             storage,
-        };
-        if !opening.exists() {
-            return Err(StorageError::NotFound);
         }
+    }
+
+    pub fn load(id: &OverlayId, storage: &'a dyn KCVStorage) -> Result<OverlayInfo, StorageError> {
+        let mut opening = OverlayStorage::new(id, storage);
+        let props = opening.load_props()?;
+        let existential = col(&Self::TYPE, &props)?;
+        opening.overlay_type.set(&existential)?;
+        let loading = OverlayInfo {
+            overlay_type: existential,
+            overlay_topic: col(&Self::TOPIC, &props).ok(),
+            topics: HashMap::new(),
+            repos: HashMap::new(),
+        };
+        Ok(loading)
+    }
+
+    pub fn open(
+        id: &OverlayId,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<OverlayStorage<'a>, StorageError> {
+        let mut opening = OverlayStorage::new(id, storage);
+        opening.check_exists()?;
         Ok(opening)
     }
+
     pub fn create(
         id: &OverlayId,
-        secret: &SymKey,
-        repo: Option<PubKey>,
-        storage: &'a dyn KCVStorage,
-    ) -> Result<Overlay<'a>, StorageError> {
-        let acc = Overlay {
-            id: id.clone(),
-            storage,
-        };
-        if acc.exists() {
-            return Err(StorageError::BackendError);
+        overlay_type: &OverlayType,
+        storage: &'a mut dyn KCVStorage,
+    ) -> Result<OverlayStorage<'a>, StorageError> {
+        let mut overlay = OverlayStorage::new(id, storage);
+        if overlay.exists() {
+            return Err(StorageError::AlreadyExists);
         }
-        storage.write_transaction(&mut |tx| {
-            tx.put(
-                Self::PREFIX,
-                &to_vec(&id)?,
-                Some(Self::SECRET),
-                &to_vec(&secret)?,
-                &None,
-            )?;
-            if repo.is_some() {
-                tx.put(
-                    Self::PREFIX,
-                    &to_vec(&id)?,
-                    Some(Self::REPO),
-                    &to_vec(&repo.unwrap())?,
-                    &None,
-                )?;
-            }
-            let meta = OverlayMeta {
-                users: 1,
-                last_used: now_timestamp(),
-            };
-            tx.put(
-                Self::PREFIX,
-                &to_vec(&id)?,
-                Some(Self::META),
-                &to_vec(&meta)?,
-                &None,
-            )?;
-            Ok(())
-        })?;
-        Ok(acc)
-    }
-    pub fn exists(&self) -> bool {
-        self.storage
-            .get(
-                Self::PREFIX,
-                &to_vec(&self.id).unwrap(),
-                Some(Self::SUFFIX_FOR_EXIST_CHECK),
-                &None,
-            )
-            .is_ok()
-    }
-    pub fn id(&self) -> OverlayId {
-        self.id
-    }
-    pub fn add_peer(&self, peer: &PeerId) -> Result<(), StorageError> {
-        if !self.exists() {
-            return Err(StorageError::BackendError);
-        }
-        self.storage.put(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::PEER),
-            &to_vec(peer)?,
-            &None,
-        )
-    }
-    pub fn remove_peer(&self, peer: &PeerId) -> Result<(), StorageError> {
-        self.storage.del_property_value(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::PEER),
-            &to_vec(peer)?,
-            &None,
-        )
+        overlay.overlay_type.set(overlay_type)?;
+        ExistentialValue::save(&overlay, overlay_type)?;
+
+        Ok(overlay)
     }
 
-    pub fn has_peer(&self, peer: &PeerId) -> Result<(), StorageError> {
-        self.storage.has_property_value(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::PEER),
-            &to_vec(peer)?,
-            &None,
-        )
-    }
-
-    pub fn add_topic(&self, topic: &TopicId) -> Result<(), StorageError> {
-        if !self.exists() {
-            return Err(StorageError::BackendError);
-        }
-        self.storage.put(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::TOPIC),
-            &to_vec(topic)?,
-            &None,
-        )
-    }
-    pub fn remove_topic(&self, topic: &TopicId) -> Result<(), StorageError> {
-        self.storage.del_property_value(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::TOPIC),
-            &to_vec(topic)?,
-            &None,
-        )
-    }
-
-    pub fn has_topic(&self, topic: &TopicId) -> Result<(), StorageError> {
-        self.storage.has_property_value(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::TOPIC),
-            &to_vec(topic)?,
-            &None,
-        )
-    }
-
-    pub fn secret(&self) -> Result<SymKey, StorageError> {
-        match self
-            .storage
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::SECRET), &None)
-        {
-            Ok(secret) => Ok(from_slice::<SymKey>(&secret)?),
-            Err(e) => Err(e),
-        }
-    }
-
-    pub fn metadata(&self) -> Result<OverlayMeta, StorageError> {
-        match self
-            .storage
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::META), &None)
-        {
-            Ok(meta) => Ok(from_slice::<OverlayMeta>(&meta)?),
-            Err(e) => Err(e),
-        }
-    }
-    pub fn set_metadata(&self, meta: &OverlayMeta) -> Result<(), StorageError> {
-        if !self.exists() {
-            return Err(StorageError::BackendError);
-        }
-        self.storage.replace(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            Some(Self::META),
-            &to_vec(meta)?,
-            &None,
-        )
-    }
-
-    pub fn repo(&self) -> Result<PubKey, StorageError> {
-        match self
-            .storage
-            .get(Self::PREFIX, &to_vec(&self.id)?, Some(Self::REPO), &None)
-        {
-            Ok(repo) => Ok(from_slice::<PubKey>(&repo)?),
-            Err(e) => Err(e),
-        }
-    }
-
-    pub fn del(&self) -> Result<(), StorageError> {
-        self.storage.del_all(
-            Self::PREFIX,
-            &to_vec(&self.id)?,
-            &Self::ALL_PROPERTIES,
-            &None,
-        )
+    pub fn overlay_type(&mut self) -> &OverlayType {
+        self.overlay_type.get().unwrap()
     }
 }
