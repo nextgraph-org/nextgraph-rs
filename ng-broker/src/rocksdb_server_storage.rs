@@ -291,6 +291,7 @@ impl RocksDbServerStorage {
                     OverlayStorage::create(
                         inner_overlay,
                         &(*overlay_access).into(),
+                        expose_outer,
                         &self.core_storage,
                     )?
                 }
@@ -299,7 +300,7 @@ impl RocksDbServerStorage {
             };
         // the overlay we use to store all the info is: the outer for a RW access, and the inner for a WO access.
         let overlay = match inner_overlay_storage.overlay_type() {
-            OverlayType::Outer(_) => {
+            OverlayType::Outer(_) | OverlayType::OuterOnly => {
                 panic!("shouldnt happen: we are pinning to an inner overlay. why is it outer type?")
             }
             OverlayType::Inner(outer) => outer,
@@ -410,6 +411,13 @@ impl RocksDbServerStorage {
                 _ => e.into(),
             })?;
         Ok(match overlay_storage.overlay_type() {
+            OverlayType::OuterOnly => {
+                if overlay.is_outer() {
+                    *overlay
+                } else {
+                    return Err(ServerError::OverlayMismatch);
+                }
+            }
             OverlayType::Outer(_) => {
                 if overlay.is_outer() {
                     *overlay
@@ -472,8 +480,35 @@ impl RocksDbServerStorage {
         overlay: &OverlayId,
         id: &ObjectId,
     ) -> Result<Vec<Block>, ServerError> {
-        //TODO: implement correctly !
-        Ok(vec![Block::dummy()])
+        let overlay = self.check_overlay(overlay)?;
+
+        let mut commit_storage = CommitStorage::open(id, &overlay, &self.core_storage)?;
+
+        let event_info = commit_storage
+            .event()
+            .as_ref()
+            .ok_or(ServerError::NotFound)?;
+
+        // // rehydrate the event :
+        // let mut blocks = Vec::with_capacity(event_info.blocks.len());
+        // for block_id in event_info.blocks {
+        //     let block = self.block_storage.get(&overlay, &block_id)?;
+        //     blocks.push(block);
+        // }
+
+        // match event_info.event {
+        //     Event::V0(mut v0) => {
+        //         v0.content.blocks = blocks;
+        //     }
+        // }
+
+        let mut blocks = Vec::with_capacity(event_info.blocks.len());
+        for block_id in event_info.blocks.iter() {
+            let block = self.block_storage.get(&overlay, block_id)?;
+            blocks.push(block);
+        }
+
+        Ok(blocks)
     }
 
     fn add_block(
@@ -500,7 +535,7 @@ impl RocksDbServerStorage {
         let overlay = self.check_overlay(overlay)?;
         let overlay = &overlay;
 
-        // check that the sequence number is correct
+        // TODO: check that the sequence number is correct
 
         // check that the topic exists and that this user has pinned it as publisher
         let mut topic_storage = TopicStorage::open(event.topic_id(), overlay, &self.core_storage)
@@ -518,7 +553,7 @@ impl RocksDbServerStorage {
             return Err(ServerError::AccessDenied);
         }
 
-        // remove the blocks from inside the event, and save the empty event and each block separately.
+        // remove the blocks from inside the event, and save the "dehydrated" event and each block separately.
         match event {
             Event::V0(mut v0) => {
                 let mut overlay_storage = OverlayStorage::new(overlay, &self.core_storage);

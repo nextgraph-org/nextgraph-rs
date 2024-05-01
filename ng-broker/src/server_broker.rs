@@ -61,6 +61,7 @@ pub struct CommitInfo {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum OverlayType {
+    OuterOnly,
     Outer(OverlayId), // the ID of the inner overlay corresponding to this outer.
     Inner(OverlayId), // the ID of the outer overlay corresponding to the inner
     InnerOnly,
@@ -71,6 +72,18 @@ impl OverlayType {
         match self {
             Self::Inner(outer) => Some(outer),
             _ => None,
+        }
+    }
+    pub fn is_outer_to_inner(&self) -> bool {
+        match self {
+            Self::Outer(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_outer_only(&self) -> bool {
+        match self {
+            Self::OuterOnly => true,
+            _ => false,
         }
     }
 }

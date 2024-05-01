@@ -101,10 +101,19 @@ impl<'a> OverlayStorage<'a> {
     pub fn create(
         id: &OverlayId,
         overlay_type: &OverlayType,
+        expose_outer: bool,
         storage: &'a dyn KCVStorage,
     ) -> Result<OverlayStorage<'a>, StorageError> {
         let mut overlay = OverlayStorage::new(id, storage);
         if overlay.exists() {
+            if !expose_outer
+                && overlay_type.is_outer_to_inner()
+                && overlay.overlay_type().is_outer_only()
+            {
+                // we are asked to upgrade an OuterOnly to an Outer().
+                // let's do it
+                ExistentialValue::save(&overlay, overlay_type)?;
+            }
             return Err(StorageError::AlreadyExists);
         }
         overlay.overlay_type.set(overlay_type)?;
@@ -112,12 +121,15 @@ impl<'a> OverlayStorage<'a> {
 
         if id.is_inner() {
             if let Some(outer) = overlay_type.is_inner_get_outer() {
-                match OverlayStorage::create(outer, &OverlayType::Outer(*id), storage) {
-                    Err(StorageError::AlreadyExists) => {
-                        //it is ok if the Outer overlay already exists. someone else had pinned it before, in read_only, and the broker ahd subscribed to it from another broker
+                if expose_outer {
+                    match OverlayStorage::create(outer, &OverlayType::Outer(*id), false, storage) {
+                        Err(StorageError::AlreadyExists) => {
+                            //it is ok if the Outer overlay already exists. someone else had pinned it before, in read_only, and the broker had subscribed to it from another broker
+                            // or some other user pinned it before as expose_outer.
+                        }
+                        Err(e) => return Err(e), //TODO: in case of error, remove the existentialvalue that was previously saved (or use a transaction)
+                        Ok(_) => {}
                     }
-                    Err(e) => return Err(e), //TODO: remove the existentialvalue that was previously saved (or use a transaction)
-                    Ok(_) => {}
                 }
             }
         }

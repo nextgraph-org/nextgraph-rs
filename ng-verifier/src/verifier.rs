@@ -768,13 +768,14 @@ impl Verifier {
             let user = self.config.user_priv_key.to_pub();
             let remote = self.connected_server_id.to_owned().unwrap();
             let read_cap = self.config.private_store_read_cap.as_ref().unwrap();
+            let private_store_id = self.config.private_store_id.as_ref().unwrap();
+            let private_inner_overlay_id = OverlayId::inner(private_store_id, &read_cap.key);
+
             // first we fetch the read_cap commit of private store repo.
             let msg = CommitGet::V0(CommitGetV0 {
                 id: read_cap.id,
                 topic: None, // we dont have the topic (only available from RepoLink/BranchLink) but we are pretty sure the Broker has the commit anyway.
-                overlay: Some(OverlayId::outer(
-                    self.config.private_store_id.as_ref().unwrap(),
-                )),
+                overlay: Some(private_inner_overlay_id),
             });
             match broker
                 .request::<CommitGet, Block>(&user, &remote, msg)
