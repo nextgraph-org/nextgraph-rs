@@ -51,6 +51,7 @@ impl<'a> OverlayStorage<'a> {
 
     // Overlay properties
     pub const TYPE: ExistentialValueColumn = ExistentialValueColumn::new(b'y');
+    /// BE CAREFUL: this property is exceptionally stored on the InnerOverlay
     pub const TOPIC: SingleValueColumn<Self, TopicId> = SingleValueColumn::new(b't');
 
     // Overlay <-> Block refcount

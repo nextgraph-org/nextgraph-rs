@@ -114,15 +114,33 @@ impl<'a> CommitStorage<'a> {
     pub fn create(
         id: &ObjectId,
         overlay: &OverlayId,
-        event: &Option<EventInfo>,
+        event: EventInfo,
+        header: &CommitHeader,
+        home_pinned: bool,
         storage: &'a dyn KCVStorage,
     ) -> Result<CommitStorage<'a>, StorageError> {
         let mut creating = CommitStorage::new(id, overlay, storage);
         if creating.exists() {
             return Err(StorageError::AlreadyExists);
         }
-        creating.event.set(event)?;
-        ExistentialValue::save(&creating, event)?;
+        let event_opt = Some(event);
+        creating.event.set(&event_opt)?;
+        ExistentialValue::save(&creating, &event_opt)?;
+
+        if home_pinned {
+            Self::HOME_PINNED.set(&mut creating, &true)?;
+        }
+
+        // adding all the references
+        for ack in header.acks() {
+            Self::ACKS.add(&mut creating, &ack)?;
+        }
+        for dep in header.deps() {
+            Self::DEPS.add(&mut creating, &dep)?;
+        }
+        for file in header.files() {
+            Self::FILES.add(&mut creating, file)?;
+        }
 
         Ok(creating)
     }

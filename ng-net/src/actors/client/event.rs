@@ -33,9 +33,15 @@ impl PublishEvent {
         self.1 = Some(overlay);
     }
 
-    // pub fn overlay(&self) -> &OverlayId {
-    //     self.1.as_ref().unwrap()
-    // }
+    pub fn overlay(&self) -> &OverlayId {
+        self.1.as_ref().unwrap()
+    }
+    pub fn event(&self) -> &Event {
+        &self.0
+    }
+    pub fn take_event(self) -> Event {
+        self.0
+    }
 }
 
 impl TryFrom<ProtocolMessage> for PublishEvent {
@@ -69,9 +75,16 @@ impl EActor for Actor<'_, PublishEvent, ()> {
     ) -> Result<(), ProtocolError> {
         let req = PublishEvent::try_from(msg)?;
 
-        //TODO implement all the server side logic
+        // send a ProtocolError if invalid signatures (will disconnect the client)
+        req.event().verify()?;
 
-        let res: Result<(), ServerError> = Ok(());
+        let broker = BROKER.read().await;
+        let overlay = req.overlay().clone();
+        let res = broker.get_server_broker()?.dispatch_event(
+            &overlay,
+            req.take_event(),
+            &fsm.lock().await.user_id_or_err()?,
+        );
 
         fsm.lock()
             .await

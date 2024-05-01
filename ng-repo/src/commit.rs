@@ -428,7 +428,7 @@ impl Commit {
         self.content().branch()
     }
 
-    /// Get commit signature
+    /// Get commit header
     pub fn header(&self) -> &Option<CommitHeader> {
         match self {
             Commit::V0(c) => &c.header,

@@ -91,6 +91,18 @@ impl Event {
         }
     }
 
+    pub fn publisher(&self) -> &PeerId {
+        match self {
+            Event::V0(v0) => &v0.content.publisher,
+        }
+    }
+
+    pub fn verify(&self) -> Result<(), NgError> {
+        match self {
+            Event::V0(v0) => v0.verify(),
+        }
+    }
+
     /// opens an event with the key derived from information kept in Repo.
     ///
     /// returns the Commit object and optional list of additional block IDs.
@@ -125,6 +137,23 @@ impl Event {
 }
 
 impl EventV0 {
+    pub fn verify(&self) -> Result<(), NgError> {
+        let content_ser = serde_bare::to_vec(&self.content)?;
+        verify(&content_ser, self.topic_sig, self.content.topic)?;
+        match self.content.publisher {
+            PeerId::Forwarded(peer_id) => verify(&content_ser, self.peer_sig, peer_id)?,
+            PeerId::ForwardedObfuscated(_) => {
+                panic!("cannot verify an Event with obfuscated publisher")
+            }
+            PeerId::Direct(_) => panic!("direct events are not supported"),
+        }
+        if self.content.blocks.len() < 2 {
+            // an event is always containing a commit, which always has at least 2 blocks (one for the commit content, and one for the commit body)
+            return Err(NgError::MalformedEvent);
+        }
+        Ok(())
+    }
+
     pub fn derive_key(
         repo_id: &RepoId,
         branch_id: &BranchId,
@@ -231,7 +260,8 @@ impl EventV0 {
         branch_id: &BranchId,
         branch_secret: &ReadCapSecret,
     ) -> Result<Commit, NgError> {
-        // TODO: verifier event signature
+        // verifying event signatures
+        self.verify()?;
 
         let publisher_pubkey = self.content.publisher.get_pub_key();
         let key = Self::derive_key(repo_id, branch_id, branch_secret, &publisher_pubkey);

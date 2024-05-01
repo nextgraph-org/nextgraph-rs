@@ -213,4 +213,13 @@ impl IServerBroker for ServerBroker {
     fn get_commit(&self, overlay: &OverlayId, id: &ObjectId) -> Result<Vec<Block>, ServerError> {
         self.storage.get_commit(overlay, id)
     }
+
+    fn dispatch_event(
+        &self,
+        overlay: &OverlayId,
+        event: Event,
+        user_id: &UserId,
+    ) -> Result<(), ServerError> {
+        self.storage.save_event(overlay, event, user_id)
+    }
 }

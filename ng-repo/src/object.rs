@@ -427,6 +427,53 @@ impl Object {
         Self::load(reference.id.clone(), Some(reference.key.clone()), store)
     }
 
+    pub fn load_header(
+        root_block: &Block,
+        store: &Store,
+    ) -> Result<CommitHeader, ObjectParseError> {
+        Self::load_header_(root_block, store)?
+            .0
+            .ok_or(ObjectParseError::InvalidHeader)
+    }
+
+    fn load_header_(
+        root: &Block,
+        store: &Store,
+    ) -> Result<(Option<CommitHeader>, Vec<Block>), ObjectParseError> {
+        match root.header_ref() {
+            Some(header_ref) => match header_ref.obj {
+                CommitHeaderObject::None | CommitHeaderObject::RandomAccess => {
+                    panic!("shouldn't happen")
+                }
+                CommitHeaderObject::Id(id) => {
+                    let obj_res = Object::load(id, Some(header_ref.key.clone()), store);
+                    match obj_res {
+                        Err(e) => return Err(e),
+                        Ok(obj) => match obj.content()? {
+                            ObjectContent::V0(ObjectContentV0::CommitHeader(mut commit_header)) => {
+                                commit_header.set_id(id);
+                                Ok((Some(commit_header), obj.blocks().cloned().collect()))
+                            }
+                            _ => return Err(ObjectParseError::InvalidHeader),
+                        },
+                    }
+                }
+                CommitHeaderObject::EncryptedContent(content) => {
+                    let (_, decrypted_content) =
+                        Block::new_with_encrypted_content(content, None).read(&header_ref.key)?;
+                    match serde_bare::from_slice(&decrypted_content) {
+                        Ok(ObjectContent::V0(ObjectContentV0::CommitHeader(commit_header))) => {
+                            Ok((Some(commit_header), vec![]))
+                        }
+                        Err(_e) => return Err(ObjectParseError::InvalidHeader),
+                        _ => return Err(ObjectParseError::InvalidHeader),
+                    }
+                }
+            },
+            None => Ok((None, vec![])),
+        }
+    }
+
     /// Load an Object from BlockStorage
     ///
     /// Returns Ok(Object) or an Err(ObjectParseError::MissingBlocks(Vec<ObjectId>)) of missing BlockIds
@@ -485,57 +532,29 @@ impl Object {
             root.set_key(key);
         }
 
-        let header = match root.header_ref() {
-            Some(header_ref) => match header_ref.obj {
-                CommitHeaderObject::None | CommitHeaderObject::RandomAccess => {
-                    panic!("shouldn't happen")
-                }
-                CommitHeaderObject::Id(id) => {
-                    let obj_res = Object::load(id, Some(header_ref.key.clone()), store);
-                    match obj_res {
-                        Err(ObjectParseError::MissingBlocks(m)) => {
-                            return Err(ObjectParseError::MissingHeaderBlocks((
-                                Object {
-                                    blocks,
-                                    block_contents,
-                                    header: None,
-                                    header_blocks: vec![],
-                                    #[cfg(test)]
-                                    already_saved: false,
-                                },
-                                m,
-                            )));
-                        }
-                        Err(e) => return Err(e),
-                        Ok(obj) => match obj.content()? {
-                            ObjectContent::V0(ObjectContentV0::CommitHeader(mut commit_header)) => {
-                                commit_header.set_id(id);
-                                (Some(commit_header), Some(obj.blocks().cloned().collect()))
-                            }
-                            _ => return Err(ObjectParseError::InvalidHeader),
-                        },
-                    }
-                }
-                CommitHeaderObject::EncryptedContent(content) => {
-                    let (_, decrypted_content) =
-                        Block::new_with_encrypted_content(content, None).read(&header_ref.key)?;
-                    match serde_bare::from_slice(&decrypted_content) {
-                        Ok(ObjectContent::V0(ObjectContentV0::CommitHeader(commit_header))) => {
-                            (Some(commit_header), None)
-                        }
-                        Err(_e) => return Err(ObjectParseError::InvalidHeader),
-                        _ => return Err(ObjectParseError::InvalidHeader),
-                    }
-                }
-            },
-            None => (None, None),
+        let header = match Self::load_header_(root, store) {
+            Err(ObjectParseError::MissingBlocks(m)) => {
+                return Err(ObjectParseError::MissingHeaderBlocks((
+                    Object {
+                        blocks,
+                        block_contents,
+                        header: None,
+                        header_blocks: vec![],
+                        #[cfg(test)]
+                        already_saved: false,
+                    },
+                    m,
+                )));
+            }
+            Err(e) => return Err(e),
+            Ok(h) => h,
         };
 
         Ok(Object {
             blocks,
             block_contents,
             header: header.0,
-            header_blocks: header.1.unwrap_or(vec![]),
+            header_blocks: header.1,
             #[cfg(test)]
             already_saved: true,
         })

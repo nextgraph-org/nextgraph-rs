@@ -68,6 +68,7 @@ pub enum NgError {
     SiteNotFoundOnBroker,
     BrokerConfigErrorStr(&'static str),
     BrokerConfigError(String),
+    MalformedEvent,
 }
 
 impl Error for NgError {}
@@ -222,6 +223,8 @@ pub enum ServerError {
     OverlayMismatch,
     OverlayNotFound,
     TopicNotFound,
+    AccessDenied,
+    InvalidHeader,
 }
 
 impl From<StorageError> for ServerError {

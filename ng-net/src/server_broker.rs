@@ -73,4 +73,11 @@ pub trait IServerBroker: Send + Sync {
     ) -> Result<TopicSubRes, ServerError>;
 
     fn get_commit(&self, overlay: &OverlayId, id: &ObjectId) -> Result<Vec<Block>, ServerError>;
+
+    fn dispatch_event(
+        &self,
+        overlay: &OverlayId,
+        event: Event,
+        user_id: &UserId,
+    ) -> Result<(), ServerError>;
 }

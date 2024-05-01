@@ -728,6 +728,11 @@ impl StoreRepo {
         StoreRepo::V0(StoreRepoV0::PublicStore(repo_pubkey))
     }
 
+    pub fn nil() -> Self {
+        let store_pubkey = PubKey::nil();
+        StoreRepo::V0(StoreRepoV0::PublicStore(store_pubkey))
+    }
+
     pub fn new_private(repo_pubkey: PubKey) -> Self {
         StoreRepo::V0(StoreRepoV0::PrivateStore(repo_pubkey))
     }

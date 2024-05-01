@@ -31,7 +31,7 @@ pub trait BlockStorage: Send + Sync {
     // }
 
     /// Save a block to the storage.
-    fn put(&self, overlay: &OverlayId, block: &Block) -> Result<BlockId, StorageError>;
+    fn put(&self, overlay: &OverlayId, block: &Block, lazy: bool) -> Result<BlockId, StorageError>;
 
     /// Delete a block from the storage.
     fn del(&self, overlay: &OverlayId, id: &BlockId) -> Result<usize, StorageError>;
@@ -99,7 +99,7 @@ impl HashMapBlockStorage {
     pub async fn from_block_stream(overlay: &OverlayId, mut blockstream: Receiver<Block>) -> Self {
         let this = Self::new();
         while let Some(block) = blockstream.next().await {
-            this.put(overlay, &block).unwrap();
+            this.put(overlay, &block, false).unwrap();
         }
         this
     }
@@ -116,10 +116,14 @@ impl HashMapBlockStorage {
             .map(|x| x.clone())
             .collect()
     }
+    pub fn put_local(&self, block: &Block) -> Result<BlockId, StorageError> {
+        let overlay = OverlayId::nil();
+        self.put(&overlay, block, false)
+    }
 }
 
 impl BlockStorage for HashMapBlockStorage {
-    fn get(&self, overlay: &OverlayId, id: &BlockId) -> Result<Block, StorageError> {
+    fn get(&self, _overlay: &OverlayId, id: &BlockId) -> Result<Block, StorageError> {
         match self.blocks.read().unwrap().get(id) {
             Some(block) => {
                 let mut b = block.clone();
@@ -138,7 +142,12 @@ impl BlockStorage for HashMapBlockStorage {
         Ok(self.get_len())
     }
 
-    fn put(&self, overlay: &OverlayId, block: &Block) -> Result<BlockId, StorageError> {
+    fn put(
+        &self,
+        _overlay: &OverlayId,
+        block: &Block,
+        _lazy: bool,
+    ) -> Result<BlockId, StorageError> {
         let id = block.id();
         //log_debug!("PUTTING {}", id);
         let mut b = block.clone();

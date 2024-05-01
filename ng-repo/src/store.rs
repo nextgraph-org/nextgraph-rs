@@ -15,7 +15,7 @@ use core::fmt;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
 
-use crate::block_storage::BlockStorage;
+use crate::block_storage::{BlockStorage, HashMapBlockStorage};
 use crate::errors::{NgError, StorageError};
 use crate::object::Object;
 use crate::repo::{BranchInfo, Repo};
@@ -60,6 +60,29 @@ impl fmt::Debug for Store {
 }
 
 impl Store {
+    pub fn new_temp_in_mem() -> Self {
+        Store {
+            store_repo: StoreRepo::nil(),
+            store_readcap: ReadCap::nil(),
+            store_overlay_branch_readcap: ReadCap::nil(),
+            overlay_id: OverlayId::nil(),
+            storage: Arc::new(RwLock::new(HashMapBlockStorage::new())),
+        }
+    }
+
+    pub fn new_from_overlay_id(
+        overlay: &OverlayId,
+        storage: Arc<RwLock<dyn BlockStorage + Send + Sync>>,
+    ) -> Store {
+        Store {
+            store_repo: StoreRepo::nil(),
+            store_readcap: ReadCap::nil(),
+            store_overlay_branch_readcap: ReadCap::nil(),
+            overlay_id: overlay.clone(),
+            storage,
+        }
+    }
+
     pub fn new_from(
         update: &StoreUpdate,
         storage: Arc<RwLock<dyn BlockStorage + Send + Sync>>,
@@ -125,7 +148,7 @@ impl Store {
         self.storage
             .write()
             .map_err(|_| StorageError::BackendError)?
-            .put(&self.overlay_id, block)
+            .put(&self.overlay_id, block, true)
     }
 
     /// Delete a block from the storage.

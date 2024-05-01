@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::fs::{read, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::server_broker::*;
 use crate::server_storage::admin::account::Account;
@@ -22,9 +22,12 @@ use crate::server_storage::admin::wallet::Wallet;
 use crate::server_storage::core::*;
 use crate::types::*;
 use ng_net::types::*;
+use ng_repo::block_storage::{BlockStorage, HashMapBlockStorage};
 use ng_repo::errors::{ProtocolError, ServerError, StorageError};
 
 use ng_repo::log::*;
+use ng_repo::object::Object;
+use ng_repo::store::Store;
 use ng_repo::types::*;
 use ng_storage_rocksdb::block_storage::RocksDbBlockStorage;
 use ng_storage_rocksdb::kcv_storage::RocksDbKCVStorage;
@@ -400,6 +403,37 @@ impl RocksDbServerStorage {
         }
     }
 
+    fn check_overlay(&self, overlay: &OverlayId) -> Result<OverlayId, ServerError> {
+        let mut overlay_storage =
+            OverlayStorage::open(overlay, &self.core_storage).map_err(|e| match e {
+                StorageError::NotFound => ServerError::OverlayNotFound,
+                _ => e.into(),
+            })?;
+        Ok(match overlay_storage.overlay_type() {
+            OverlayType::Outer(_) => {
+                if overlay.is_outer() {
+                    *overlay
+                } else {
+                    return Err(ServerError::OverlayMismatch);
+                }
+            }
+            OverlayType::Inner(outer) => {
+                if outer.is_outer() {
+                    *outer
+                } else {
+                    return Err(ServerError::OverlayMismatch);
+                }
+            }
+            OverlayType::InnerOnly => {
+                if overlay.is_inner() {
+                    *overlay
+                } else {
+                    return Err(ServerError::OverlayMismatch);
+                }
+            }
+        })
+    }
+
     pub(crate) fn topic_sub(
         &self,
         overlay: &OverlayId,
@@ -408,34 +442,7 @@ impl RocksDbServerStorage {
         user_id: &UserId,
         publisher: Option<&PublisherAdvert>,
     ) -> Result<TopicSubRes, ServerError> {
-        let mut overlay_storage =
-            OverlayStorage::open(overlay, &self.core_storage).map_err(|e| match e {
-                StorageError::NotFound => ServerError::OverlayNotFound,
-                _ => e.into(),
-            })?;
-        let overlay = match overlay_storage.overlay_type() {
-            OverlayType::Outer(_) => {
-                if overlay.is_outer() {
-                    overlay
-                } else {
-                    return Err(ServerError::OverlayMismatch);
-                }
-            }
-            OverlayType::Inner(outer) => {
-                if outer.is_outer() {
-                    outer
-                } else {
-                    return Err(ServerError::OverlayMismatch);
-                }
-            }
-            OverlayType::InnerOnly => {
-                if overlay.is_inner() {
-                    overlay
-                } else {
-                    return Err(ServerError::OverlayMismatch);
-                }
-            }
-        };
+        let overlay = self.check_overlay(overlay)?;
         // now we check that the repo was previously pinned.
         // if it was opened but not pinned, then this should be deal with in the ServerBroker, in memory, not here)
 
@@ -443,14 +450,14 @@ impl RocksDbServerStorage {
         // (we already checked that the advert is valid)
 
         let mut topic_storage =
-            TopicStorage::create(topic, overlay, repo, &self.core_storage, true)?;
+            TopicStorage::create(topic, &overlay, repo, &self.core_storage, true)?;
         let _ = TopicStorage::USERS.get_or_add(&mut topic_storage, user_id, &is_publisher)?;
 
         if is_publisher {
             let _ = TopicStorage::ADVERT.get_or_set(&mut topic_storage, publisher.unwrap())?;
         }
 
-        let mut repo_info = RepoHashStorage::open(repo, overlay, &self.core_storage)?;
+        let mut repo_info = RepoHashStorage::open(repo, &overlay, &self.core_storage)?;
         RepoHashStorage::TOPICS.add_lazy(&mut repo_info, topic)?;
 
         Ok(TopicSubRes::new_from_heads(
@@ -467,5 +474,92 @@ impl RocksDbServerStorage {
     ) -> Result<Vec<Block>, ServerError> {
         //TODO: implement correctly !
         Ok(vec![Block::dummy()])
+    }
+
+    fn add_block(
+        &self,
+        overlay_id: &OverlayId,
+        overlay_storage: &mut OverlayStorage,
+        block: Block,
+    ) -> Result<BlockId, StorageError> {
+        let block_id = self.block_storage.put(overlay_id, &block, true)?;
+        OverlayStorage::BLOCKS.increment(overlay_storage, &block_id)?;
+        Ok(block_id)
+    }
+
+    pub(crate) fn save_event(
+        &self,
+        overlay: &OverlayId,
+        mut event: Event,
+        user_id: &UserId,
+    ) -> Result<(), ServerError> {
+        if overlay.is_outer() {
+            // we don't publish events on the outer overlay!
+            return Err(ServerError::OverlayMismatch);
+        }
+        let overlay = self.check_overlay(overlay)?;
+        let overlay = &overlay;
+
+        // check that the sequence number is correct
+
+        // check that the topic exists and that this user has pinned it as publisher
+        let mut topic_storage = TopicStorage::open(event.topic_id(), overlay, &self.core_storage)
+            .map_err(|e| match e {
+            StorageError::NotFound => ServerError::TopicNotFound,
+            _ => e.into(),
+        })?;
+        let is_publisher = TopicStorage::USERS
+            .get(&mut topic_storage, user_id)
+            .map_err(|e| match e {
+                StorageError::NotFound => ServerError::AccessDenied,
+                _ => e.into(),
+            })?;
+        if !is_publisher {
+            return Err(ServerError::AccessDenied);
+        }
+
+        // remove the blocks from inside the event, and save the empty event and each block separately.
+        match event {
+            Event::V0(mut v0) => {
+                let mut overlay_storage = OverlayStorage::new(overlay, &self.core_storage);
+                let mut extracted_blocks_ids = Vec::with_capacity(v0.content.blocks.len());
+                let first_block_copy = v0.content.blocks[0].clone();
+                let temp_mini_block_storage = HashMapBlockStorage::new();
+                for block in v0.content.blocks {
+                    let _ = temp_mini_block_storage.put(overlay, &block, false)?;
+                    extracted_blocks_ids.push(self.add_block(
+                        overlay,
+                        &mut overlay_storage,
+                        block,
+                    )?);
+                }
+
+                // creating a temporary store to access the blocks
+                let temp_store = Store::new_from_overlay_id(
+                    overlay,
+                    Arc::new(std::sync::RwLock::new(temp_mini_block_storage)),
+                );
+                let commit_id = extracted_blocks_ids[0];
+                let header = Object::load_header(&first_block_copy, &temp_store)
+                    .map_err(|_| ServerError::InvalidHeader)?;
+
+                v0.content.blocks = vec![];
+                let event_info = EventInfo {
+                    event: Event::V0(v0),
+                    blocks: extracted_blocks_ids,
+                };
+
+                CommitStorage::create(
+                    &commit_id,
+                    overlay,
+                    event_info,
+                    &header,
+                    true,
+                    &self.core_storage,
+                )?;
+            }
+        }
+
+        Ok(())
     }
 }

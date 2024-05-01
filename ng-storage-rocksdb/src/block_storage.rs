@@ -118,13 +118,22 @@ impl BlockStorage for RocksDbBlockStorage {
     }
 
     /// Save a block to the storage.
-    fn put(&self, overlay: &OverlayId, block: &Block) -> Result<BlockId, StorageError> {
-        // TODO? return an error if already present in blockstorage?
+    fn put(&self, overlay: &OverlayId, block: &Block, lazy: bool) -> Result<BlockId, StorageError> {
+        // TODO? return an error if already present in blockstorage and !lazy ?
         let block_id = block.id();
         let ser = serde_bare::to_vec(block)?;
         let tx = self.db.transaction();
-        tx.put(Self::compute_key(overlay, &block_id), &ser)
-            .map_err(|_e| StorageError::BackendError)?;
+        let key = Self::compute_key(overlay, &block_id);
+        if (lazy) {
+            if let Some(block_ser) = tx
+                .get(key.clone())
+                .map_err(|_e| StorageError::BackendError)?
+            {
+                let block: Block = serde_bare::from_slice(&block_ser)?;
+                return Ok(block.id());
+            }
+        }
+        tx.put(key, &ser).map_err(|_e| StorageError::BackendError)?;
         tx.commit().map_err(|_| StorageError::BackendError)?;
         Ok(block_id)
     }
