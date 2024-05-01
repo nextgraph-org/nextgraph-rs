@@ -278,6 +278,8 @@ impl RocksDbServerStorage {
     ) -> Result<RepoOpened, ServerError> {
         assert!(!overlay_access.is_read_only());
 
+        // TODO: all the below DB operations should be done inside a single transaction. need refactor of Object-KCV-Mapping to take an optional transaction.
+
         let inner_overlay = overlay_access.overlay_id_for_client_protocol_purpose();
         let mut inner_overlay_storage =
             match OverlayStorage::open(inner_overlay, &self.core_storage) {
@@ -403,13 +405,59 @@ impl RocksDbServerStorage {
         overlay: &OverlayId,
         repo: &RepoHash,
         topic: &TopicId,
+        user_id: &UserId,
         publisher: Option<&PublisherAdvert>,
     ) -> Result<TopicSubRes, ServerError> {
-        Ok(TopicSubRes::V0(TopicSubResV0 {
-            topic: topic.clone(),
-            known_heads: vec![],
-            publisher: publisher.is_some(),
-        }))
+        let mut overlay_storage =
+            OverlayStorage::open(overlay, &self.core_storage).map_err(|e| match e {
+                StorageError::NotFound => ServerError::OverlayNotFound,
+                _ => e.into(),
+            })?;
+        let overlay = match overlay_storage.overlay_type() {
+            OverlayType::Outer(_) => {
+                if overlay.is_outer() {
+                    overlay
+                } else {
+                    return Err(ServerError::OverlayMismatch);
+                }
+            }
+            OverlayType::Inner(outer) => {
+                if outer.is_outer() {
+                    outer
+                } else {
+                    return Err(ServerError::OverlayMismatch);
+                }
+            }
+            OverlayType::InnerOnly => {
+                if overlay.is_inner() {
+                    overlay
+                } else {
+                    return Err(ServerError::OverlayMismatch);
+                }
+            }
+        };
+        // now we check that the repo was previously pinned.
+        // if it was opened but not pinned, then this should be deal with in the ServerBroker, in memory, not here)
+
+        let is_publisher = publisher.is_some();
+        // (we already checked that the advert is valid)
+
+        let mut topic_storage =
+            TopicStorage::create(topic, overlay, repo, &self.core_storage, true)?;
+        let _ = TopicStorage::USERS.get_or_add(&mut topic_storage, user_id, &is_publisher)?;
+
+        if is_publisher {
+            let _ = TopicStorage::ADVERT.get_or_set(&mut topic_storage, publisher.unwrap())?;
+        }
+
+        let mut repo_info = RepoHashStorage::open(repo, overlay, &self.core_storage)?;
+        RepoHashStorage::TOPICS.add_lazy(&mut repo_info, topic)?;
+
+        Ok(TopicSubRes::new_from_heads(
+            TopicStorage::get_all_heads(&mut topic_storage)?,
+            is_publisher,
+            *topic,
+        ))
     }
 
     pub(crate) fn get_commit(

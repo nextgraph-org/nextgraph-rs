@@ -98,8 +98,14 @@ impl EActor for Actor<'_, TopicSub, TopicSubRes> {
     ) -> Result<(), ProtocolError> {
         let req = TopicSub::try_from(msg)?;
 
-        //TODO implement all the server side logic
         let broker = BROKER.read().await;
+
+        // check the validity of the PublisherAdvert. this will return a ProtocolError (will close the connection)
+        if let Some(advert) = req.publisher() {
+            let server_peer_id = broker.get_config().unwrap().peer_id;
+            advert.verify_for_broker(&server_peer_id)?;
+        }
+
         let res = broker.get_server_broker()?.topic_sub(
             req.overlay(),
             req.hash(),

@@ -575,6 +575,13 @@ impl OverlayId {
             _ => false,
         }
     }
+
+    pub fn is_outer(&self) -> bool {
+        match self {
+            Self::Outer(_) => true,
+            _ => false,
+        }
+    }
 }
 
 /// List of Store Overlay types

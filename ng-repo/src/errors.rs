@@ -219,6 +219,9 @@ pub enum ServerError {
     InvalidRequest,
     InvalidSignature,
     OtherError,
+    OverlayMismatch,
+    OverlayNotFound,
+    TopicNotFound,
 }
 
 impl From<StorageError> for ServerError {

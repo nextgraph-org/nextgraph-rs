@@ -206,7 +206,8 @@ impl IServerBroker for ServerBroker {
         user: &UserId,
         publisher: Option<&PublisherAdvert>,
     ) -> Result<TopicSubRes, ServerError> {
-        self.storage.topic_sub(overlay, repo, topic, publisher)
+        self.storage
+            .topic_sub(overlay, repo, topic, user, publisher)
     }
 
     fn get_commit(&self, overlay: &OverlayId, id: &ObjectId) -> Result<Vec<Block>, ServerError> {

@@ -108,7 +108,7 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
 
         let broker = BROKER.read().await;
 
-        // check the validity of the PublisherAdvert(s)
+        // check the validity of the PublisherAdvert(s). this will return a ProtocolError (will close the connection)
         let server_peer_id = broker.get_config().unwrap().peer_id;
         for pub_ad in req.rw_topics() {
             pub_ad.verify_for_broker(&server_peer_id)?;
