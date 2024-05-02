@@ -163,6 +163,13 @@ impl Repo {
         Self::new_with_member(&pub_key, &pub_key, perms, OverlayId::dummy(), store)
     }
 
+    pub fn update_branch_current_head(&mut self, branch: &BranchId, commit_ref: ObjectRef) {
+        //log_info!("from branch {} HEAD UPDATED TO {}", branch, commit_ref.id);
+        if let Some(branch) = self.branches.get_mut(branch) {
+            branch.current_heads = vec![commit_ref];
+        }
+    }
+
     pub fn new_with_member(
         id: &PubKey,
         member: &UserId,

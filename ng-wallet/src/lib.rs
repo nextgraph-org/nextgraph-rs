@@ -586,7 +586,7 @@ pub async fn create_wallet_second_step_v0(
     let mut site = SiteV0::create_personal(params.user_privkey.clone(), verifier)
         .await
         .map_err(|e| {
-            log_err!("{e}");
+            log_err!("create_personal failed with {e}");
             NgWalletError::InternalError
         })?;
 

@@ -208,7 +208,7 @@ impl SiteV0 {
         // update the current_heads
         verifier.update_current_heads(&private_repo_id, &user_branch_id, vec![current_head])?;
 
-        // sending the events
+        // sending the additional events
         verifier
             .new_events(commits, private_repo_id, &private_store_repo)
             .await?;

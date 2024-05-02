@@ -80,4 +80,12 @@ pub trait IServerBroker: Send + Sync {
         event: Event,
         user_id: &UserId,
     ) -> Result<(), ServerError>;
+
+    fn topic_sync_req(
+        &self,
+        overlay: &OverlayId,
+        topic: &TopicId,
+        known_heads: &Vec<ObjectId>,
+        target_heads: &Vec<ObjectId>,
+    ) -> Result<Vec<TopicSyncRes>, ServerError>;
 }

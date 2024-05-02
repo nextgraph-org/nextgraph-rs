@@ -9,7 +9,7 @@
  * according to those terms.
  */
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{read, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -38,7 +38,7 @@ pub(crate) struct RocksDbServerStorage {
     //peers_storage: RocksDbKCVStorage,
     peers_last_seq_path: PathBuf,
     peers_last_seq: Mutex<HashMap<PeerId, u64>>,
-    block_storage: RocksDbBlockStorage,
+    block_storage: Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>,
     core_storage: RocksDbKCVStorage,
 }
 
@@ -115,7 +115,10 @@ impl RocksDbServerStorage {
         blocks_path.push("blocks");
         std::fs::create_dir_all(blocks_path.clone()).unwrap();
         let blocks_key = wallet.get_or_create_blocks_key()?;
-        let block_storage = RocksDbBlockStorage::open(&blocks_path, *blocks_key.slice())?;
+        let block_storage = Arc::new(std::sync::RwLock::new(RocksDbBlockStorage::open(
+            &blocks_path,
+            *blocks_key.slice(),
+        )?));
 
         // create/open the PEERS storage
         log_debug!("opening core DB");
@@ -487,24 +490,12 @@ impl RocksDbServerStorage {
         let event_info = commit_storage
             .event()
             .as_ref()
-            .ok_or(ServerError::NotFound)?;
-
-        // // rehydrate the event :
-        // let mut blocks = Vec::with_capacity(event_info.blocks.len());
-        // for block_id in event_info.blocks {
-        //     let block = self.block_storage.get(&overlay, &block_id)?;
-        //     blocks.push(block);
-        // }
-
-        // match event_info.event {
-        //     Event::V0(mut v0) => {
-        //         v0.content.blocks = blocks;
-        //     }
-        // }
+            .left()
+            .ok_or(ServerError::NotFound)?; // TODO: for now we do not deal with events that have been removed from storage
 
         let mut blocks = Vec::with_capacity(event_info.blocks.len());
         for block_id in event_info.blocks.iter() {
-            let block = self.block_storage.get(&overlay, block_id)?;
+            let block = self.block_storage.read().unwrap().get(&overlay, block_id)?;
             blocks.push(block);
         }
 
@@ -517,7 +508,11 @@ impl RocksDbServerStorage {
         overlay_storage: &mut OverlayStorage,
         block: Block,
     ) -> Result<BlockId, StorageError> {
-        let block_id = self.block_storage.put(overlay_id, &block, true)?;
+        let block_id = self
+            .block_storage
+            .write()
+            .unwrap()
+            .put(overlay_id, &block, true)?;
         OverlayStorage::BLOCKS.increment(overlay_storage, &block_id)?;
         Ok(block_id)
     }
@@ -552,7 +547,7 @@ impl RocksDbServerStorage {
         if !is_publisher {
             return Err(ServerError::AccessDenied);
         }
-
+        //log_info!("SAVED EVENT in overlay {:?} : {}", overlay, event);
         // remove the blocks from inside the event, and save the "dehydrated" event and each block separately.
         match event {
             Event::V0(mut v0) => {
@@ -575,8 +570,10 @@ impl RocksDbServerStorage {
                     Arc::new(std::sync::RwLock::new(temp_mini_block_storage)),
                 );
                 let commit_id = extracted_blocks_ids[0];
-                let header = Object::load_header(&first_block_copy, &temp_store)
-                    .map_err(|_| ServerError::InvalidHeader)?;
+                let header = Object::load_header(&first_block_copy, &temp_store).map_err(|e| {
+                    //log_err!("err : {:?}", e);
+                    ServerError::InvalidHeader
+                })?;
 
                 v0.content.blocks = vec![];
                 let event_info = EventInfo {
@@ -592,9 +589,75 @@ impl RocksDbServerStorage {
                     true,
                     &self.core_storage,
                 )?;
+
+                let acks = if header.is_some() {
+                    HashSet::from_iter(header.unwrap().acks())
+                } else {
+                    HashSet::new()
+                };
+                let head = HashSet::from([commit_id]);
+                TopicStorage::HEADS.replace_with_new_set_if_old_set_exists(
+                    &mut topic_storage,
+                    acks,
+                    head,
+                )?;
             }
         }
 
         Ok(())
+    }
+
+    pub(crate) fn topic_sync_req(
+        &self,
+        overlay: &OverlayId,
+        topic: &TopicId,
+        known_heads: &Vec<ObjectId>,
+        target_heads: &Vec<ObjectId>,
+    ) -> Result<Vec<TopicSyncRes>, ServerError> {
+        let overlay = self.check_overlay(overlay)?;
+        // quick solution for now using the Branch::sync_req. TODO: use the saved references (ACKS,DEPS) in the server_storage, to have much quicker responses
+
+        let target_heads = if target_heads.len() == 0 {
+            // get the current_heads
+            let mut topic_storage = TopicStorage::new(topic, &overlay, &self.core_storage);
+            let heads = TopicStorage::get_all_heads(&mut topic_storage)?;
+            if heads.len() == 0 {
+                return Err(ServerError::TopicNotFound);
+            }
+            Box::new(heads.into_iter()) as Box<dyn Iterator<Item = ObjectId>>
+        } else {
+            Box::new(target_heads.iter().cloned()) as Box<dyn Iterator<Item = ObjectId>>
+        };
+
+        let store = Store::new_from_overlay_id(&overlay, Arc::clone(&self.block_storage));
+
+        let commits = Branch::sync_req(target_heads, known_heads, &store)
+            .map_err(|_| ServerError::MalformedBranch)?;
+
+        let mut result = Vec::with_capacity(commits.len());
+
+        for commit_id in commits {
+            let mut commit_storage = CommitStorage::open(&commit_id, &overlay, &self.core_storage)?;
+            let mut event_info = commit_storage
+                .take_event()
+                .left()
+                .ok_or(ServerError::NotFound)?; // TODO: for now we do not deal with events that have been removed from storage
+
+            // rehydrate the event :
+            let mut blocks = Vec::with_capacity(event_info.blocks.len());
+            for block_id in event_info.blocks {
+                let block = store.get(&block_id)?;
+                blocks.push(block);
+            }
+
+            match event_info.event {
+                Event::V0(ref mut v0) => {
+                    v0.content.blocks = blocks;
+                }
+            }
+            result.push(TopicSyncRes::V0(TopicSyncResV0::Event(event_info.event)));
+        }
+
+        Ok(result)
     }
 }

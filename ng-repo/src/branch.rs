@@ -9,13 +9,16 @@
 
 //! Branch of a Repository
 
+use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 // use fastbloom_rs::{BloomFilter as Filter, Membership};
 
 use crate::block_storage::*;
 use crate::errors::*;
+use crate::log::*;
 use crate::object::*;
 use crate::store::Store;
 use crate::types::*;
@@ -42,6 +45,47 @@ impl BranchV0 {
             pulled_from: vec![],
             metadata,
         }
+    }
+}
+
+#[derive(Debug)]
+struct DagNode {
+    pub future: HashSet<ObjectId>,
+}
+
+//struct Dag<'a>(&'a HashMap<Digest, DagNode>);
+
+impl fmt::Display for DagNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for fu in self.future.iter() {
+            write!(f, "{}", fu)?;
+        }
+        Ok(())
+    }
+}
+
+// impl<'a> fmt::Display for Dag<'a> {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         for node in self.0.iter() {
+//             writeln!(f, "ID: {} FUTURES: {}", node.0, node.1)?;
+//         }
+//         Ok(())
+//     }
+// }
+
+impl DagNode {
+    fn new() -> Self {
+        Self {
+            future: HashSet::new(),
+        }
+    }
+    fn collapse(id: &ObjectId, dag: &HashMap<ObjectId, DagNode>) -> Vec<ObjectId> {
+        let mut res = vec![*id];
+        let this = dag.get(id).unwrap();
+        for child in this.future.iter() {
+            res.append(&mut Self::collapse(child, dag));
+        }
+        res
     }
 }
 
@@ -115,9 +159,9 @@ impl Branch {
     /// `known_heads` represents the list of current heads at the requester replica at the moment of request.
     ///  an empty list means the requester has an empty branch locally
     ///
-    /// Return ObjectIds to send
+    /// Return ObjectIds to send, ordered in respect of causal partial order
     pub fn sync_req(
-        target_heads: &[ObjectId],
+        target_heads: impl Iterator<Item = ObjectId>,
         known_heads: &[ObjectId],
         //their_filter: &BloomFilter,
         store: &Store,
@@ -132,25 +176,37 @@ impl Branch {
         fn load_causal_past(
             cobj: &Object,
             store: &Store,
-            theirs: &HashSet<ObjectId>,
-            visited: &mut HashSet<ObjectId>,
+            theirs: &HashMap<ObjectId, DagNode>,
+            visited: &mut HashMap<ObjectId, DagNode>,
             missing: &mut Option<&mut HashSet<ObjectId>>,
+            future: Option<ObjectId>,
         ) -> Result<(), ObjectParseError> {
             let id = cobj.id();
 
             // check if this commit object is present in theirs or has already been visited in the current walk
             // load deps, stop at the root(including it in visited) or if this is a commit object from known_heads
-            if !theirs.contains(&id) && !visited.contains(&id) {
-                visited.insert(id);
-                for id in cobj.acks_and_nacks() {
-                    match Object::load(id, None, store) {
-                        Ok(o) => {
-                            load_causal_past(&o, store, theirs, visited, missing)?;
+            if !theirs.contains_key(&id) {
+                if let Some(past) = visited.get_mut(&id) {
+                    // we update the future
+                    if let Some(f) = future {
+                        past.future.insert(f);
+                    }
+                } else {
+                    let mut insert = DagNode::new();
+                    if let Some(f) = future {
+                        insert.future.insert(f);
+                    }
+                    visited.insert(id, insert);
+                    for past_id in cobj.acks_and_nacks() {
+                        match Object::load(past_id, None, store) {
+                            Ok(o) => {
+                                load_causal_past(&o, store, theirs, visited, missing, Some(id))?;
+                            }
+                            Err(ObjectParseError::MissingBlocks(blocks)) => {
+                                missing.as_mut().map(|m| m.extend(blocks));
+                            }
+                            Err(e) => return Err(e),
                         }
-                        Err(ObjectParseError::MissingBlocks(blocks)) => {
-                            missing.as_mut().map(|m| m.extend(blocks));
-                        }
-                        Err(e) => return Err(e),
                     }
                 }
             }
@@ -158,22 +214,22 @@ impl Branch {
         }
 
         // their commits
-        let mut theirs = HashSet::new();
+        let mut theirs: HashMap<ObjectId, DagNode> = HashMap::new();
 
         // collect causal past of known_heads
         for id in known_heads {
             if let Ok(cobj) = Object::load(*id, None, store) {
-                load_causal_past(&cobj, store, &HashSet::new(), &mut theirs, &mut None)?;
+                load_causal_past(&cobj, store, &HashMap::new(), &mut theirs, &mut None, None)?;
             }
             // we silently discard any load error on the known_heads as the responder might not know them (yet).
         }
 
-        let mut visited = HashSet::new();
+        let mut visited = HashMap::new();
         // collect all commits reachable from target_heads
         // up to the root or until encountering a commit from theirs
         for id in target_heads {
-            if let Ok(cobj) = Object::load(*id, None, store) {
-                load_causal_past(&cobj, store, &theirs, &mut visited, &mut None)?;
+            if let Ok(cobj) = Object::load(id, None, store) {
+                load_causal_past(&cobj, store, &theirs, &mut visited, &mut None, None)?;
             }
             // we silently discard any load error on the target_heads as they can be wrong if the requester is confused about what the responder has locally.
         }
@@ -193,7 +249,23 @@ impl Branch {
         //     }
         // }
         //log_debug!("!! result filtered: {:?}", result);
-        Ok(Vec::from_iter(visited))
+
+        // now ordering to respect causal partial order.
+        let mut next_generations = HashSet::new();
+        for (_, node) in visited.iter() {
+            for future in node.future.iter() {
+                next_generations.insert(future);
+            }
+        }
+        let all = HashSet::from_iter(visited.keys());
+        let first_generation = all.difference(&next_generations);
+
+        let mut result = Vec::with_capacity(visited.len());
+        for first in first_generation {
+            result.append(&mut DagNode::collapse(first, &visited));
+        }
+
+        Ok(result)
     }
 }
 
@@ -219,9 +291,6 @@ mod test {
         ) -> ObjectRef {
             let max_object_size = 4000;
             let mut obj = Object::new(ObjectContent::V0(content), header, max_object_size, store);
-            log_debug!(">>> add_obj");
-            log_debug!("     id: {:?}", obj.id());
-            log_debug!("     header: {:?}", obj.header());
             obj.save_in_test(store).unwrap();
             obj.reference().unwrap()
         }
@@ -471,7 +540,7 @@ mod test {
         log_debug!("   their_commits: [br, t1, t2, a3, t5, a6]");
 
         let ids = Branch::sync_req(
-            &[t5.id, a6.id, a7.id],
+            [t5.id, a6.id, a7.id].into_iter(),
             &[t5.id],
             //&their_commits,
             &repo.store,

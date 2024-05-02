@@ -13,6 +13,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use either::Either;
 use ng_net::{server_broker::IServerBroker, types::*};
 use ng_repo::{
     errors::{NgError, ProtocolError, ServerError},
@@ -51,7 +52,7 @@ pub struct EventInfo {
 }
 
 pub struct CommitInfo {
-    pub event: Option<EventInfo>,
+    pub event: Either<EventInfo, TopicId>,
     pub home_pinned: bool,
     pub acks: HashSet<ObjectId>,
     pub deps: HashSet<ObjectId>,
@@ -234,5 +235,16 @@ impl IServerBroker for ServerBroker {
         user_id: &UserId,
     ) -> Result<(), ServerError> {
         self.storage.save_event(overlay, event, user_id)
+    }
+
+    fn topic_sync_req(
+        &self,
+        overlay: &OverlayId,
+        topic: &TopicId,
+        known_heads: &Vec<ObjectId>,
+        target_heads: &Vec<ObjectId>,
+    ) -> Result<Vec<TopicSyncRes>, ServerError> {
+        self.storage
+            .topic_sync_req(overlay, topic, known_heads, target_heads)
     }
 }

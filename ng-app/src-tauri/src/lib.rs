@@ -200,7 +200,7 @@ async fn session_start_remote(
 
 #[tauri::command(rename_all = "snake_case")]
 async fn encode_create_account(payload: CreateAccountBSP) -> Result<String, ()> {
-    log_debug!("{:?}", payload);
+    //log_debug!("{:?}", payload);
     payload.encode().ok_or(())
 }
 

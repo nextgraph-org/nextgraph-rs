@@ -81,7 +81,7 @@ impl EActor for Actor<'_, RepoPinStatusReq, RepoPinStatus> {
         let res = broker.get_server_broker()?.get_repo_pin_status(
             req.overlay(),
             req.hash(),
-            &fsm.lock().await.user_id_or_err()?,
+            &fsm.lock().await.user_id()?,
         );
         fsm.lock()
             .await

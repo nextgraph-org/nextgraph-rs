@@ -127,7 +127,7 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
                         broker.get_server_broker()?.pin_repo_read(
                             req.overlay(),
                             req.hash(),
-                            &fsm.lock().await.user_id_or_err()?,
+                            &fsm.lock().await.user_id()?,
                             req.ro_topics(),
                         )
                     }
@@ -145,7 +145,7 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
                         broker.get_server_broker()?.pin_repo_write(
                             req.overlay_access(),
                             req.hash(),
-                            &fsm.lock().await.user_id_or_err()?,
+                            &fsm.lock().await.user_id()?,
                             req.ro_topics(),
                             req.rw_topics(),
                             req.overlay_root_topic(),
@@ -160,7 +160,7 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
                         broker.get_server_broker()?.pin_repo_write(
                             req.overlay_access(),
                             req.hash(),
-                            &fsm.lock().await.user_id_or_err()?,
+                            &fsm.lock().await.user_id()?,
                             req.ro_topics(),
                             req.rw_topics(),
                             req.overlay_root_topic(),

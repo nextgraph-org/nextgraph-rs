@@ -1709,6 +1709,9 @@ pub struct TopicSyncReqV0 {
     /// Stop synchronizing when these commits are met.
     /// if empty, the local HEAD at the responder is used instead
     pub target_heads: Vec<ObjectId>,
+
+    #[serde(skip)]
+    pub overlay: Option<OverlayId>,
 }
 
 /// Topic synchronization request
@@ -1718,6 +1721,16 @@ pub enum TopicSyncReq {
 }
 
 impl TopicSyncReq {
+    pub fn overlay(&self) -> &OverlayId {
+        match self {
+            Self::V0(v0) => v0.overlay.as_ref().unwrap(),
+        }
+    }
+    pub fn set_overlay(&mut self, overlay: OverlayId) {
+        match self {
+            Self::V0(v0) => v0.overlay = Some(overlay),
+        }
+    }
     pub fn topic(&self) -> &TopicId {
         match self {
             TopicSyncReq::V0(o) => &o.topic,
@@ -1726,6 +1739,11 @@ impl TopicSyncReq {
     pub fn known_heads(&self) -> &Vec<ObjectId> {
         match self {
             TopicSyncReq::V0(o) => &o.known_heads,
+        }
+    }
+    pub fn target_heads(&self) -> &Vec<ObjectId> {
+        match self {
+            TopicSyncReq::V0(o) => &o.target_heads,
         }
     }
 }
@@ -2246,6 +2264,26 @@ pub enum TopicSyncResV0 {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TopicSyncRes {
     V0(TopicSyncResV0),
+}
+
+impl TopicSyncRes {
+    pub fn event(&self) -> &Event {
+        match self {
+            Self::V0(TopicSyncResV0::Event(e)) => e,
+            _ => panic!("this TopicSyncResV0 is not an event"),
+        }
+    }
+}
+
+impl fmt::Display for TopicSyncRes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => match v0 {
+                TopicSyncResV0::Event(e) => writeln!(f, "====== Event ====== {e}"),
+                TopicSyncResV0::Block(b) => writeln!(f, "====== Block ID ====== {}", b.id()),
+            },
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -3183,6 +3221,7 @@ impl ClientRequestContentV0 {
             ClientRequestContentV0::PinRepo(a) => {}
             ClientRequestContentV0::PublishEvent(a) => a.set_overlay(overlay),
             ClientRequestContentV0::CommitGet(a) => a.set_overlay(overlay),
+            ClientRequestContentV0::TopicSyncReq(a) => a.set_overlay(overlay),
             _ => unimplemented!(),
         }
     }
@@ -3230,6 +3269,7 @@ impl ClientRequest {
                 ClientRequestContentV0::TopicSub(r) => r.get_actor(self.id()),
                 ClientRequestContentV0::PublishEvent(r) => r.get_actor(self.id()),
                 ClientRequestContentV0::CommitGet(r) => r.get_actor(self.id()),
+                ClientRequestContentV0::TopicSyncReq(r) => r.get_actor(self.id()),
                 _ => unimplemented!(),
             },
         }

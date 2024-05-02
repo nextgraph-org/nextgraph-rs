@@ -113,6 +113,12 @@ impl Event {
         }
     }
 
+    pub fn commit_id(&self) -> ObjectId {
+        match self {
+            Self::V0(v0) => v0.content.blocks[0].id(),
+        }
+    }
+
     pub fn open(
         &self,
         store: &Store,

@@ -400,12 +400,10 @@ impl EActor for LocalBroker {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         // search opened_sessions by user_id of fsm
-        let session = match fsm.lock().await.user_id() {
-            Some(user) => self
-                .get_mut_session_for_user(&user)
-                .ok_or(ProtocolError::ActorError)?,
-            None => return Err(ProtocolError::ActorError),
-        };
+        let user = fsm.lock().await.user_id()?;
+        let session = self
+            .get_mut_session_for_user(&user)
+            .ok_or(ProtocolError::ActorError)?;
         session.verifier.respond(msg, fsm).await
     }
 }
@@ -796,7 +794,7 @@ impl LocalBroker {
                 let lws_ser = LocalWalletStorage::v0_to_vec(&wallets_to_be_saved);
                 let r = write(path.clone(), &lws_ser);
                 if r.is_err() {
-                    log_debug!("write {:?} {}", path, r.unwrap_err());
+                    log_debug!("write error {:?} {}", path, r.unwrap_err());
                     return Err(NgError::IoError);
                 }
             }
@@ -942,9 +940,11 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
     let (mut res, site, brokers) =
         create_wallet_second_step_v0(intermediate, &mut session.verifier).await?;
 
+    //log_info!("VERIFIER DUMP {:?}", session.verifier);
+
     broker.wallets.get_mut(&res.wallet_name).unwrap().wallet = res.wallet.clone();
     LocalBroker::wallet_save(&mut broker)?;
-    //TODO: change read_cap in verifier
+
     broker
         .opened_wallets
         .get_mut(&res.wallet_name)
@@ -1306,15 +1306,17 @@ pub async fn user_connect_with_device_info(
                                     session.verifier.connected_server_id = Some(server_key);
                                     // successful. we can stop here
 
-                                    // we immediately send the events present in the outbox
-                                    let res = session.verifier.send_outbox().await;
-                                    log_info!("SENDING EVENTS FROM OUTBOX: {:?}", res);
-
-                                    // TODO: load verifier from remote connection (if not RocksDb type)
+                                    // load verifier from remote connection (if not RocksDb type)
                                     if let Err(e) = session.verifier.bootstrap().await {
                                         session.verifier.connected_server_id = None;
                                         Broker::close_all_connections().await;
                                         tried.as_mut().unwrap().3 = Some(e.to_string());
+                                    } else {
+                                        // we can send outbox now that the verifier is loaded
+                                        let res = session.verifier.send_outbox().await;
+                                        log_info!("SENDING EVENTS FROM OUTBOX RETURNED: {:?}", res);
+
+                                        //log_info!("VERIFIER DUMP {:?}", session.verifier);
                                     }
 
                                     break;

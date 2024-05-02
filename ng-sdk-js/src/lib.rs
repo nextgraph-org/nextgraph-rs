@@ -403,11 +403,11 @@ pub fn client_info() -> JsValue {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn encode_create_account(payload: JsValue) -> JsValue {
-    log_debug!("{:?}", payload);
+    //log_debug!("{:?}", payload);
     let create_account = serde_wasm_bindgen::from_value::<CreateAccountBSP>(payload).unwrap();
-    log_debug!("create_account {:?}", create_account);
+    //log_debug!("create_account {:?}", create_account);
     let res = create_account.encode();
-    log_debug!("res {:?}", res);
+    //log_debug!("res {:?}", res);
     serde_wasm_bindgen::to_value(&res).unwrap()
 }
 

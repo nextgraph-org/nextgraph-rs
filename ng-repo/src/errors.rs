@@ -63,6 +63,7 @@ pub enum NgError {
     ProtocolError(ProtocolError),
     ServerError(ServerError),
     InvalidResponse,
+    BootstrapError(String),
     NotAServerError,
     VerifierError(VerifierError),
     SiteNotFoundOnBroker,
@@ -86,6 +87,9 @@ impl fmt::Display for NgError {
             Self::VerifierError(error) => write!(f, "VerifierError: {:?}", error),
             Self::CommitLoadError(commit_load_error) => {
                 write!(f, "CommitLoadError: {:?}", commit_load_error)
+            }
+            Self::BootstrapError(error) => {
+                write!(f, "BootstrapError: {:?}", error)
             }
             Self::ObjectParseError(error) => write!(f, "ObjectParseError: {:?}", error),
             Self::StorageError(storage_error) => write!(f, "StorageError: {:?}", storage_error),
@@ -190,6 +194,8 @@ pub enum StorageError {
     PropertyNotFound,
     NotAStoreRepo,
     OverlayBranchNotFound,
+    Abort,
+    NotEmpty,
 }
 
 impl core::fmt::Display for StorageError {
@@ -225,6 +231,7 @@ pub enum ServerError {
     TopicNotFound,
     AccessDenied,
     InvalidHeader,
+    MalformedBranch,
 }
 
 impl From<StorageError> for ServerError {

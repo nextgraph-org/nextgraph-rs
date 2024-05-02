@@ -15,13 +15,13 @@ use crate::NG_BOOTSTRAP_LOCAL_PATH;
 use async_std::task;
 use ed25519_dalek::*;
 use futures::{channel::mpsc, Future};
-use noise_protocol::U8Array;
-use noise_protocol::DH;
-use noise_rust_crypto::sensitive::Sensitive;
 #[cfg(target_arch = "wasm32")]
 use ng_repo::errors::*;
 use ng_repo::types::PubKey;
 use ng_repo::{log::*, types::PrivKey};
+use noise_protocol::U8Array;
+use noise_protocol::DH;
+use noise_rust_crypto::sensitive::Sensitive;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use url::Host;
 use url::Url;
@@ -170,7 +170,7 @@ pub async fn retrieve_local_bootstrap(
         None
     };
     log_debug!("{}", location_string);
-    log_debug!("invite_String {:?} invite1{:?}", invite_string, invite1);
+    log_debug!("invite_string {:?} invite1{:?}", invite_string, invite1);
 
     let invite2: Option<Invitation> = {
         let info = retrieve_ng_bootstrap(&location_string).await;

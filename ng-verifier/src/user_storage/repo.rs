@@ -95,14 +95,18 @@ impl<'a> RepoStorage<'a> {
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::READ_CAP;
 
     pub fn open(id: &RepoId, storage: &'a dyn KCVStorage) -> Result<RepoStorage<'a>, StorageError> {
-        let opening = RepoStorage {
-            id: id.clone(),
-            storage,
-        };
+        let opening = RepoStorage::new(id, storage);
         if !opening.exists() {
             return Err(StorageError::NotFound);
         }
         Ok(opening)
+    }
+
+    pub fn new(id: &RepoId, storage: &'a dyn KCVStorage) -> RepoStorage<'a> {
+        RepoStorage {
+            id: id.clone(),
+            storage,
+        }
     }
 
     pub fn create_from_repo(
@@ -154,7 +158,7 @@ impl<'a> RepoStorage<'a> {
         storage: &'a dyn KCVStorage,
     ) -> Result<(), StorageError> {
         let repo_id = signer_cap.repo;
-        let _ = Self::open(&repo_id, storage)?;
+        let _ = Self::new(&repo_id, storage);
         storage.write_transaction(&mut |tx| {
             let id_ser = to_vec(&repo_id)?;
             let value = to_vec(signer_cap)?;

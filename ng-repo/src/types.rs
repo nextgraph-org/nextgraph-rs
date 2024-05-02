@@ -1158,6 +1158,11 @@ pub enum RootBranch {
 }
 
 impl RootBranch {
+    pub fn topic(&self) -> &TopicId {
+        match self {
+            Self::V0(v0) => &v0.topic,
+        }
+    }
     pub fn owners(&self) -> &Vec<UserId> {
         match self {
             Self::V0(v0) => &v0.owners,

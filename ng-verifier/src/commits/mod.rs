@@ -22,6 +22,8 @@ pub trait CommitVerifier {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError>;
 }
@@ -56,6 +58,8 @@ impl CommitVerifier for RootBranch {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         match self {
@@ -126,6 +130,8 @@ impl CommitVerifier for Branch {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         match self {
@@ -179,6 +185,8 @@ impl CommitVerifier for SyncSignature {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         match self {
@@ -202,7 +210,7 @@ impl CommitVerifier for SyncSignature {
                 }
                 let commits = list_dep_chain_until(deps[0].clone(), &ack.id, &store)?;
                 for commit in commits {
-                    verifier.verify_commit(commit, Arc::clone(&store))?;
+                    verifier.verify_commit(commit, branch_id, repo_id, Arc::clone(&store))?;
                 }
             }
         }
@@ -215,6 +223,8 @@ impl CommitVerifier for AddBranch {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         match self {
@@ -252,6 +262,8 @@ impl CommitVerifier for Repository {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         // left empty intentionally
@@ -264,6 +276,8 @@ impl CommitVerifier for StoreUpdate {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         verifier.new_store_from_update(self)
@@ -275,6 +289,8 @@ impl CommitVerifier for AddSignerCap {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         match self {
@@ -288,6 +304,8 @@ impl CommitVerifier for AddMember {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -299,6 +317,8 @@ impl CommitVerifier for RemoveMember {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -310,6 +330,8 @@ impl CommitVerifier for AddPermission {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -321,6 +343,8 @@ impl CommitVerifier for RemovePermission {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -332,6 +356,8 @@ impl CommitVerifier for RemoveBranch {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -343,6 +369,8 @@ impl CommitVerifier for AddName {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -354,6 +382,8 @@ impl CommitVerifier for RemoveName {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -365,6 +395,8 @@ impl CommitVerifier for () {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -376,6 +408,8 @@ impl CommitVerifier for Snapshot {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -387,6 +421,8 @@ impl CommitVerifier for AddFile {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -398,6 +434,8 @@ impl CommitVerifier for RemoveFile {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -409,6 +447,8 @@ impl CommitVerifier for Compact {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -420,6 +460,8 @@ impl CommitVerifier for AsyncSignature {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -431,6 +473,8 @@ impl CommitVerifier for RootCapRefresh {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -442,6 +486,8 @@ impl CommitVerifier for BranchCapRefresh {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -453,6 +499,8 @@ impl CommitVerifier for AddRepo {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -464,6 +512,8 @@ impl CommitVerifier for RemoveRepo {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -475,6 +525,8 @@ impl CommitVerifier for AddLink {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -486,6 +538,8 @@ impl CommitVerifier for RemoveLink {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -497,6 +551,8 @@ impl CommitVerifier for RemoveSignerCap {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())
@@ -508,6 +564,8 @@ impl CommitVerifier for WalletUpdate {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         Ok(())

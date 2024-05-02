@@ -17,7 +17,7 @@ use ng_repo::log::*;
 use ng_repo::object::Object;
 use ng_repo::repo::BranchInfo;
 use ng_repo::{
-    block_storage::BlockStorage,
+    block_storage::{BlockStorage, HashMapBlockStorage},
     errors::{NgError, ProtocolError, ServerError, StorageError, VerifierError},
     file::RandomAccessFile,
     repo::Repo,
@@ -87,7 +87,9 @@ pub struct Verifier {
 impl fmt::Debug for Verifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Verifier\nconfig: {:?}", self.config)?;
-        writeln!(f, "connected_server_id: {:?}", self.connected_server_id)
+        writeln!(f, "connected_server_id: {:?}", self.connected_server_id)?;
+        writeln!(f, "stores: {:?}", self.stores)?;
+        writeln!(f, "repos: {:?}", self.repos)
     }
 }
 
@@ -570,7 +572,6 @@ impl Verifier {
         overlay: OverlayId,
     ) -> Result<(), NgError> {
         assert!(overlay.is_inner());
-        //log_info!("searching for topic {} {}", overlay, event.topic_id());
         let (repo_id, branch_id) = self
             .topics
             .get(&(overlay, *event.topic_id()))
@@ -603,7 +604,6 @@ impl Verifier {
                         .await
                     {
                         Ok(SoS::Single(opened)) => {
-                            //log_info!("OPENED {:?}", opened);
                             self.repo_was_opened(&repo_id, &opened)?;
                             //TODO: check that in the returned opened_repo, the branch we are interested in has effectively been subscribed as publisher by the broker.
                         }
@@ -646,8 +646,9 @@ impl Verifier {
                 _ => return Err(NgError::InvalidResponse),
             }
             // TODO: deal with received known_heads.
-            // DO a TopicSync
+            // TODO a TopicSync
         }
+
         let _ = broker
             .request::<PublishEvent, ()>(user, remote, PublishEvent::new(event, overlay))
             .await?;
@@ -660,6 +661,8 @@ impl Verifier {
     pub fn verify_commit(
         &mut self,
         commit: Commit,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         //let quorum_type = commit.quorum_type();
@@ -669,17 +672,31 @@ impl Verifier {
         //     commit,
         //     store
         // );
-        match commit.body().ok_or(VerifierError::CommitBodyNotFound)? {
+        let res = match commit.body().ok_or(VerifierError::CommitBodyNotFound)? {
             CommitBody::V0(v0) => match v0 {
-                CommitBodyV0::Repository(a) => a.verify(&commit, self, store),
-                CommitBodyV0::RootBranch(a) => a.verify(&commit, self, store),
-                CommitBodyV0::Branch(a) => a.verify(&commit, self, store),
-                CommitBodyV0::SyncSignature(a) => a.verify(&commit, self, store),
-                CommitBodyV0::AddBranch(a) => a.verify(&commit, self, store),
-                CommitBodyV0::StoreUpdate(a) => a.verify(&commit, self, store),
-                CommitBodyV0::AddSignerCap(a) => a.verify(&commit, self, store),
-                _ => unimplemented!(),
+                CommitBodyV0::Repository(a) => a.verify(&commit, self, branch_id, repo_id, store),
+                CommitBodyV0::RootBranch(a) => a.verify(&commit, self, branch_id, repo_id, store),
+                CommitBodyV0::Branch(a) => a.verify(&commit, self, branch_id, repo_id, store),
+                CommitBodyV0::SyncSignature(a) => {
+                    a.verify(&commit, self, branch_id, repo_id, store)
+                }
+                CommitBodyV0::AddBranch(a) => a.verify(&commit, self, branch_id, repo_id, store),
+                CommitBodyV0::StoreUpdate(a) => a.verify(&commit, self, branch_id, repo_id, store),
+                CommitBodyV0::AddSignerCap(a) => a.verify(&commit, self, branch_id, repo_id, store),
+                _ => {
+                    log_err!("unimplemented verifier {}", commit);
+                    Err(VerifierError::NotImplemented)
+                }
             },
+        };
+        if res.is_ok() {
+            let commit_ref = commit.reference().unwrap();
+            if let Some(repo) = self.repos.get_mut(repo_id) {
+                repo.update_branch_current_head(&branch_id, commit_ref);
+            }
+            Ok(())
+        } else {
+            res
         }
     }
 
@@ -761,58 +778,203 @@ impl Verifier {
     }
 
     pub async fn bootstrap(&mut self) -> Result<(), NgError> {
-        if self.is_in_memory() {
-            // TODO only bootstrap if 3P stores of personal site not already loaded (by replay)
+        if let Err(e) = self.bootstrap_from_remote().await {
+            log_warn!("bootstrap_from_remote failed with {}", e);
+            // maybe it failed because the 3P stores are still in the outbox and haven't been sent yet.
+            // we immediately try to send the events present in the outbox
+            let res = self.send_outbox().await;
+            log_info!("SENDING 3P EVENTS FROM OUTBOX RETURNED: {:?}", res);
 
-            let broker = BROKER.read().await;
-            let user = self.config.user_priv_key.to_pub();
-            let remote = self.connected_server_id.to_owned().unwrap();
-            let read_cap = self.config.private_store_read_cap.as_ref().unwrap();
-            let private_store_id = self.config.private_store_id.as_ref().unwrap();
-            let private_inner_overlay_id = OverlayId::inner(private_store_id, &read_cap.key);
+            return res;
+        }
+        Ok(())
+    }
 
-            // first we fetch the read_cap commit of private store repo.
-            let msg = CommitGet::V0(CommitGetV0 {
-                id: read_cap.id,
-                topic: None, // we dont have the topic (only available from RepoLink/BranchLink) but we are pretty sure the Broker has the commit anyway.
-                overlay: Some(private_inner_overlay_id),
-            });
-            match broker
-                .request::<CommitGet, Block>(&user, &remote, msg)
-                .await
-            {
-                Err(NgError::ServerError(ServerError::NotFound)) => {
-                    // TODO: fallback to BlockGet, then Commit::load(with_body:true), which will return an Err(CommitLoadError::MissingBlocks), then do another BlockGet with those, and then again Commit::load...
-                    return Err(NgError::SiteNotFoundOnBroker);
+    async fn do_sync_req<'a>(
+        &mut self,
+        broker: &RwLockReadGuard<'a, Broker<'a>>,
+        user: &UserId,
+        remote: &DirectPeerId,
+        topic: &TopicId,
+        branch_id: &BranchId,
+        branch_secret: &ReadCapSecret,
+        repo_id: &RepoId,
+        store: Arc<Store>,
+    ) -> Result<(), NgError> {
+        let msg = TopicSyncReq::new_empty(*topic, &store.overlay_for_read_on_client_protocol());
+        match broker
+            .request::<TopicSyncReq, TopicSyncRes>(user, remote, msg)
+            .await
+        {
+            Err(e) => return Err(e),
+            Ok(SoS::Stream(mut events)) => {
+                while let Some(event) = events.next().await {
+                    let commit = event
+                        .event()
+                        .open(&store, repo_id, branch_id, branch_secret)?;
+
+                    self.verify_commit(commit, branch_id, repo_id, Arc::clone(&store))?;
                 }
-                Ok(SoS::Stream(mut blockstream)) => {
-                    while let Some(block) = blockstream.next().await {
-                        log_info!("GOT BLOCK {:?}", block);
-                    }
-                    Ok(())
-                }
-                Ok(_) => return Err(NgError::InvalidResponse),
-                Err(e) => return Err(e),
             }
-        } else {
-            Ok(())
+            Ok(_) => return Err(NgError::InvalidResponse),
+        }
+        Ok(())
+    }
+
+    async fn load_store_from_read_cap<'a>(
+        &mut self,
+        broker: &RwLockReadGuard<'a, Broker<'a>>,
+        user: &UserId,
+        remote: &DirectPeerId,
+        store: Arc<Store>,
+    ) -> Result<(), NgError> {
+        // first we fetch the read_cap commit of private store repo.
+        let root_branch_commit = Self::get_commit(
+            store.get_store_readcap().clone(),
+            None,
+            &store.overlay_for_read_on_client_protocol(),
+            &broker,
+            &user,
+            &remote,
+        )
+        .await?;
+
+        match root_branch_commit
+            .body()
+            .ok_or(VerifierError::CommitBodyNotFound)?
+        {
+            CommitBody::V0(v0) => match v0 {
+                CommitBodyV0::RootBranch(root_branch) => {
+                    // doing a SyncReq on the topic of root branch
+
+                    let topic = root_branch.topic();
+
+                    let repo_id = store.id();
+                    self.do_sync_req(
+                        &broker,
+                        &user,
+                        &remote,
+                        topic,
+                        repo_id,
+                        store.get_store_readcap_secret(),
+                        repo_id,
+                        Arc::clone(&store),
+                    )
+                    .await
+                    .map_err(|e| NgError::BootstrapError(e.to_string()))?;
+
+                    let other_branches: Vec<(PubKey, PubKey, SymKey)> = self
+                        .get_repo(repo_id, store.get_store_repo())?
+                        .branches
+                        .iter()
+                        .map(|(branch_id, branch)| {
+                            (
+                                branch_id.clone(),
+                                branch.topic.clone(),
+                                branch.read_cap.key.clone(),
+                            )
+                        })
+                        .collect();
+
+                    // loading the other Branches of store
+                    for (branch_id, topic, secret) in other_branches {
+                        if branch_id == *repo_id {
+                            // root branch of store is already synced
+                            continue;
+                        }
+                        self.do_sync_req(
+                            &broker,
+                            &user,
+                            &remote,
+                            &topic,
+                            &branch_id,
+                            &secret,
+                            repo_id,
+                            Arc::clone(&store),
+                        )
+                        .await
+                        .map_err(|e| NgError::BootstrapError(e.to_string()))?;
+                    }
+
+                    log_info!("STORE loaded from read_cap {}", repo_id);
+                    // TODO: deal with AddSignerCap that are saved on rocksdb for now, but do not make it to the Verifier.repos
+                }
+                _ => return Err(VerifierError::RootBranchNotFound.into()),
+            },
+        }
+
+        Ok(())
+    }
+
+    async fn get_commit<'a>(
+        commit_ref: ObjectRef,
+        topic_id: Option<TopicId>,
+        overlay: &OverlayId,
+        broker: &RwLockReadGuard<'a, Broker<'a>>,
+        user: &UserId,
+        remote: &DirectPeerId,
+    ) -> Result<Commit, NgError> {
+        let msg = CommitGet::V0(CommitGetV0 {
+            id: commit_ref.id,
+            topic: topic_id, // we dont have the topic (only available from RepoLink/BranchLink) but we are pretty sure the Broker has the commit anyway.
+            overlay: Some(*overlay),
+        });
+        match broker.request::<CommitGet, Block>(user, remote, msg).await {
+            Err(NgError::ServerError(ServerError::NotFound)) => {
+                // TODO: fallback to BlockGet, then Commit::load(with_body:true), which will return an Err(CommitLoadError::MissingBlocks), then do another BlockGet with those, and then again Commit::load...
+                return Err(NgError::SiteNotFoundOnBroker);
+            }
+            Ok(SoS::Stream(blockstream)) => {
+                // we could use the in_memory block_storage of the verifier, but then we would have to remove the blocks from there.
+                // instead we just create a new temporary in memory block storage
+                let temp_mem_block_storage =
+                    HashMapBlockStorage::from_block_stream(overlay, blockstream).await;
+                // creating a temporary store to access the blocks
+                let temp_store = Store::new_from_overlay_id(
+                    overlay,
+                    Arc::new(std::sync::RwLock::new(temp_mem_block_storage)),
+                );
+                Ok(Commit::load(commit_ref, &temp_store, true)?)
+            }
+            Ok(_) => return Err(NgError::InvalidResponse),
+            Err(e) => return Err(e),
         }
     }
 
-    fn load_from_credentials_and_events(
-        &mut self,
-        events: &Vec<EventOutboxStorage>,
-    ) -> Result<(), VerifierError> {
-        let private_store_id = self.config.private_store_id.as_ref().unwrap();
-        let private_outer_overlay_id = OverlayId::outer(private_store_id);
-        let private_inner_overlay_id = OverlayId::inner(
-            private_store_id,
-            &self.config.private_store_read_cap.as_ref().unwrap().key,
-        );
+    async fn bootstrap_from_remote(&mut self) -> Result<(), NgError> {
+        if self.is_in_memory() {
+            let broker = BROKER.read().await;
+            let user = self.config.user_priv_key.to_pub();
+            let remote = self.connected_server_id.to_owned().unwrap();
 
-        // let storage = self.block_storage.as_ref().unwrap().write().unwrap();
+            let private_store_id = self.config.private_store_id.to_owned().unwrap();
+            let private_store = self.create_private_store_from_credentials()?;
 
-        let store_repo = StoreRepo::new_private(*private_store_id);
+            self.load_store_from_read_cap(&broker, &user, &remote, private_store)
+                .await?;
+
+            let other_stores: Vec<Arc<Store>> = self
+                .stores
+                .iter()
+                .map(|(_, store)| Arc::clone(store))
+                .collect();
+
+            // load the other stores (protected and public)
+            for store in other_stores {
+                if *store.id() == private_store_id {
+                    continue;
+                    // we already loaded the private store
+                }
+                self.load_store_from_read_cap(&broker, &user, &remote, store)
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
+    fn create_private_store_from_credentials(&mut self) -> Result<Arc<Store>, VerifierError> {
+        let private_store_id = self.config.private_store_id.to_owned().unwrap();
+        let store_repo = StoreRepo::new_private(private_store_id);
 
         let store = Arc::new(Store::new(
             store_repo,
@@ -823,9 +985,23 @@ impl Verifier {
 
         let store = self
             .stores
-            .entry(private_outer_overlay_id)
+            .entry(store_repo.overlay_id_for_storage_purpose())
             .or_insert_with(|| store);
-        let private_store = Arc::clone(store);
+        Ok(Arc::clone(store))
+    }
+
+    fn load_from_credentials_and_outbox(
+        &mut self,
+        events: &Vec<EventOutboxStorage>,
+    ) -> Result<(), VerifierError> {
+        let private_store_id = self.config.private_store_id.as_ref().unwrap();
+        let private_inner_overlay_id = OverlayId::inner(
+            private_store_id,
+            &self.config.private_store_read_cap.as_ref().unwrap().key,
+        );
+
+        let private_store = self.create_private_store_from_credentials()?;
+        // let storage = self.block_storage.as_ref().unwrap().write().unwrap();
 
         // for e in events {
         //     if e.overlay == private_inner_overlay_id {
@@ -865,6 +1041,7 @@ impl Verifier {
 
         // 1st pass: load all events about private store
         let mut postponed_signer_caps = Vec::with_capacity(3);
+        let mut private_user_branch = None;
 
         for e in events {
             if e.overlay == private_inner_overlay_id {
@@ -892,9 +1069,15 @@ impl Verifier {
                     .ok_or(VerifierError::CommitBodyNotFound)?
                     .is_add_signer_cap()
                 {
+                    private_user_branch = Some(branch_id.clone());
                     postponed_signer_caps.push(commit);
                 } else {
-                    self.verify_commit(commit, Arc::clone(&private_store))?;
+                    self.verify_commit(
+                        commit,
+                        &branch_id.clone(),
+                        private_store.id(),
+                        Arc::clone(&private_store),
+                    )?;
                 }
             }
         }
@@ -928,16 +1111,21 @@ impl Verifier {
         // }
 
         //log_info!("{:?}\n{:?}\n{:?}", self.repos, self.stores, self.topics);
-
+        //log_info!("SECOND PASS");
         // 2nd pass : load the other events (that are not from private store)
-        for (overlay, store) in self.stores.clone().iter() {
-            //log_info!("TRYING OVERLAY {} {}", overlay, private_outer_overlay_id);
-            if *overlay == private_outer_overlay_id {
-                //log_info!("SKIPPED");
+        for (_, store) in self.stores.clone().iter() {
+            let store_inner_overlay_id = store.inner_overlay();
+
+            // log_info!(
+            //     "TRYING OVERLAY {} {}",
+            //     store_inner_overlay_id,
+            //     private_inner_overlay_id
+            // );
+            if store_inner_overlay_id == private_inner_overlay_id {
+                //log_info!("SKIPPED PRIVATE");
                 continue;
                 // we skip the private store, as we already loaded it
             }
-            let store_inner_overlay_id = store.inner_overlay();
 
             for e in events {
                 if e.overlay == store_inner_overlay_id {
@@ -958,7 +1146,7 @@ impl Verifier {
 
                     let commit = e.event.open(store, store.id(), branch_id, branch_secret)?;
 
-                    self.verify_commit(commit, Arc::clone(store))?;
+                    self.verify_commit(commit, &branch_id.clone(), store.id(), Arc::clone(store))?;
                 } else {
                     // log_info!(
                     //     "SKIPPED wrong overlay {} {}",
@@ -974,7 +1162,7 @@ impl Verifier {
         //     .map(|(o, s)| (o.clone(), s.get_store_repo().clone()))
         //     .collect();
         // for (overlay, store_repo) in list {
-        //     if overlay == private_outer_overlay_id {
+        //     if overlay == private_inner_overlay_id {
         //         continue;
         //         // we skip the private store, as we already loaded it
         //     }
@@ -983,14 +1171,33 @@ impl Verifier {
 
         // finally, ingest the signer_caps.
         for signer_cap in postponed_signer_caps {
-            self.verify_commit(signer_cap, Arc::clone(&private_store))?;
+            self.verify_commit(
+                signer_cap,
+                private_user_branch.as_ref().unwrap(),
+                private_store.id(),
+                Arc::clone(&private_store),
+            )?;
         }
 
         Ok(())
     }
 
+    fn display(heads: &Vec<ObjectRef>) -> String {
+        let mut ret = String::new();
+        if heads.len() == 0 {
+            ret = "0".to_string();
+        }
+        for head in heads {
+            ret.push_str(&format!("{} ", head.id));
+        }
+        ret
+    }
+
     pub async fn send_outbox(&mut self) -> Result<(), NgError> {
-        let events: Vec<EventOutboxStorage> = self.take_events_from_outbox()?;
+        let events: Vec<EventOutboxStorage> = self.take_events_from_outbox().unwrap_or(vec![]);
+        if events.len() == 0 {
+            return Ok(());
+        }
         let broker = BROKER.read().await;
         let user = self.config.user_priv_key.to_pub();
         let remote = self
@@ -1001,52 +1208,64 @@ impl Verifier {
 
         // for all the events, check that they are valid (topic exists, current_heads match with event)
         let mut need_replay = false;
+        let mut events_to_replay = Vec::with_capacity(events.len());
         let mut branch_heads: HashMap<BranchId, Vec<ObjectRef>> = HashMap::new();
-        for e in events.iter() {
+        for e in events {
             match self.topics.get(&(e.overlay, *e.event.topic_id())) {
                 Some((repo_id, branch_id)) => match self.repos.get(repo_id) {
                     Some(repo) => match repo.branches.get(branch_id) {
                         Some(branch) => {
                             let commit = e.event.open_with_info(repo, branch)?;
                             let acks = commit.acks();
-                            match branch_heads.insert(*branch_id, vec![commit.reference().unwrap()])
-                            {
+                            match branch_heads.get(branch_id) {
                                 Some(previous_heads) => {
-                                    if previous_heads != acks {
-                                        need_replay = true;
-                                        break;
+                                    if *previous_heads != acks {
+                                        // skip event, as it is outdated.
+                                        continue;
+                                    } else {
+                                        branch_heads
+                                            .insert(*branch_id, vec![commit.reference().unwrap()]);
                                     }
                                 }
                                 None => {
                                     if acks != branch.current_heads {
-                                        need_replay = true;
-                                        break;
+                                        // skip event, as it is outdated.
+                                        continue;
+                                    } else {
+                                        branch_heads
+                                            .insert(*branch_id, vec![commit.reference().unwrap()]);
                                     }
                                 }
                             }
                         }
                         None => {
+                            log_info!("REPLAY BRANCH NOT FOUND {}", branch_id);
                             need_replay = true;
-                            break;
                         }
                     },
                     None => {
+                        log_info!("REPLAY REPO NOT FOUND {}", repo_id);
                         need_replay = true;
-                        break;
                     }
                 },
                 None => {
+                    log_info!(
+                        "REPLAY TOPIC NOT FOUND {} IN OVERLAY {}",
+                        e.event.topic_id(),
+                        e.overlay
+                    );
                     need_replay = true;
-                    break;
                 }
             }
+            events_to_replay.push(e);
         }
         log_info!("NEED REPLAY {need_replay}");
         if need_replay {
-            self.load_from_credentials_and_events(&events)?;
+            self.load_from_credentials_and_outbox(&events_to_replay)?;
+            log_info!("REPLAY DONE");
         }
-
-        for e in events {
+        log_info!("SENDING {} EVENTS FOR OUTBOX", events_to_replay.len());
+        for e in events_to_replay {
             self.send_event(e.event, &broker, &user, &remote, e.overlay)
                 .await?;
         }
@@ -1063,7 +1282,7 @@ impl Verifier {
                 let mut path = path.clone();
                 std::fs::create_dir_all(path.clone()).unwrap();
                 path.push(format!("lastseq{}", self.peer_id.to_hash_string()));
-                log_debug!("last_seq path {}", path.display());
+                //log_debug!("last_seq path {}", path.display());
 
                 let file = read(path.clone());
                 let (mut file_save, val) = match file {
@@ -1191,10 +1410,8 @@ impl Verifier {
 
     fn add_repo_(&mut self, repo: Repo) -> &Repo {
         for (branch_id, info) in repo.branches.iter() {
-            //log_info!("LOADING BRANCH: {}", branch_id);
             let overlay_id: OverlayId = repo.store.inner_overlay();
             let topic_id = info.topic.clone();
-            //log_info!("LOADING TOPIC: {} {}", overlay_id, topic_id);
             let repo_id = repo.id.clone();
             let branch_id = branch_id.clone();
             let res = self

@@ -156,8 +156,15 @@ pub trait IModel {
         let prefix = self.prefix();
         let key = self.key();
         let suffix = self.class().existential_column.unwrap().suffix();
+        // log_info!(
+        //     "EXISTENTIAL CHECK {} {} {:?}",
+        //     prefix as char,
+        //     suffix as char,
+        //     key
+        // );
         match self.storage().get(prefix, key, Some(suffix), &None) {
             Ok(res) => {
+                //log_info!("EXISTENTIAL CHECK GOT {:?}", res);
                 self.existential().as_mut().unwrap().process_exists(res);
                 true
             }
@@ -194,7 +201,7 @@ pub trait IModel {
 use std::hash::Hash;
 pub struct MultiValueColumn<
     Model: IModel,
-    Column: Eq + PartialEq + Hash + Serialize + Default + for<'a> Deserialize<'a>,
+    Column: std::fmt::Debug + Eq + PartialEq + Hash + Serialize + Default + for<'a> Deserialize<'a>,
 > {
     prefix: u8,
     phantom: PhantomData<Column>,
@@ -204,7 +211,7 @@ pub struct MultiValueColumn<
 
 impl<
         Model: IModel,
-        Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
+        Column: std::fmt::Debug + Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
     > MultiValueColumn<Model, Column>
 {
     pub const fn new(prefix: u8) -> Self {
@@ -259,6 +266,58 @@ impl<
             .has_property_value(self.prefix, &key, None, &vec![], &None)
     }
 
+    pub fn replace_with_new_set_if_old_set_exists(
+        &self,
+        model: &mut Model,
+        mut existing_set: HashSet<Column>,
+        replace_with: HashSet<Column>,
+    ) -> Result<(), StorageError> {
+        // if existing_set.len() == 0 {
+        //     return Err(StorageError::InvalidValue);
+        // }
+        model.check_exists()?;
+
+        let key_prefix = model.key();
+        let key_prefix_len = key_prefix.len();
+        let total_size = key_prefix_len + self.value_size()?;
+
+        let empty_existing = existing_set.len() == 0;
+
+        //log_debug!("REPLACE HEAD {:?} with {:?}", existing_set, replace_with);
+
+        model.storage().write_transaction(&mut |tx| {
+            for found in tx.get_all_keys_and_values(
+                self.prefix,
+                total_size,
+                key_prefix.to_vec(),
+                None,
+                &None,
+            )? {
+                if found.0.len() == total_size + 1 {
+                    let val: Column = from_slice(&found.0[1 + key_prefix_len..total_size + 1])?;
+                    if (empty_existing) {
+                        return Err(StorageError::NotEmpty);
+                    }
+                    if existing_set.remove(&val) {
+                        tx.del(self.prefix, &found.0[1..].to_vec(), None, &None)?;
+                    }
+                }
+            }
+            if existing_set.len() == 0 {
+                for add in replace_with.iter() {
+                    let mut new = Vec::with_capacity(total_size);
+                    new.extend(key_prefix);
+                    let mut val = to_vec(add)?;
+                    new.append(&mut val);
+                    //log_debug!("PUTTING HEAD {} {:?}", self.prefix as char, new);
+                    tx.put(self.prefix, &new, None, &vec![], &None)?;
+                }
+                return Ok(());
+            }
+            Err(StorageError::Abort)
+        })
+    }
+
     pub fn get_all(&self, model: &mut Model) -> Result<HashSet<Column>, StorageError> {
         model.check_exists()?;
         let key_prefix = model.key();
@@ -283,7 +342,7 @@ impl<
 
 impl<
         Model: IModel,
-        Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
+        Column: std::fmt::Debug + Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
     > IMultiValueColumn for MultiValueColumn<Model, Column>
 {
     fn value_size(&self) -> Result<usize, StorageError> {
@@ -296,7 +355,7 @@ impl<
 
 pub struct MultiMapColumn<
     Model: IModel,
-    Column: Eq + PartialEq + Hash + Serialize + Default + for<'a> Deserialize<'a>,
+    Column: std::fmt::Debug + Eq + PartialEq + Hash + Serialize + Default + for<'a> Deserialize<'a>,
     Value: Serialize + for<'a> Deserialize<'a> + Clone + PartialEq,
 > {
     prefix: u8,
@@ -308,7 +367,7 @@ pub struct MultiMapColumn<
 
 impl<
         Model: IModel,
-        Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
+        Column: std::fmt::Debug + Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
         Value: Serialize + for<'a> Deserialize<'a> + Clone + PartialEq,
     > MultiMapColumn<Model, Column, Value>
 {
@@ -448,7 +507,7 @@ impl<
 }
 impl<
         Model: IModel,
-        Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
+        Column: std::fmt::Debug + Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
         Value: Serialize + for<'a> Deserialize<'a> + Clone + PartialEq,
     > IMultiValueColumn for MultiMapColumn<Model, Column, Value>
 {
@@ -462,7 +521,7 @@ impl<
 
 pub struct MultiCounterColumn<
     Model: IModel,
-    Column: Eq + PartialEq + Hash + Serialize + Default + for<'a> Deserialize<'a>,
+    Column: std::fmt::Debug + Eq + PartialEq + Hash + Serialize + Default + for<'a> Deserialize<'a>,
 > {
     prefix: u8,
     phantom_column: PhantomData<Column>,
@@ -471,7 +530,7 @@ pub struct MultiCounterColumn<
 
 impl<
         Model: IModel,
-        Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
+        Column: std::fmt::Debug + Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
     > MultiCounterColumn<Model, Column>
 {
     pub const fn new(prefix: u8) -> Self {
@@ -546,7 +605,7 @@ impl<
 }
 impl<
         Model: IModel,
-        Column: Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
+        Column: std::fmt::Debug + Eq + PartialEq + Hash + Serialize + Default + for<'d> Deserialize<'d>,
     > IMultiValueColumn for MultiCounterColumn<Model, Column>
 {
     fn value_size(&self) -> Result<usize, StorageError> {
@@ -733,6 +792,11 @@ impl<Column: Clone + Serialize + for<'d> Deserialize<'d>> ExistentialValue<Colum
                 return Ok(self.value.as_ref().unwrap());
             }
         }
+    }
+
+    pub fn take(mut self) -> Result<Column, StorageError> {
+        self.get()?;
+        Ok(self.value.take().unwrap())
     }
 }
 

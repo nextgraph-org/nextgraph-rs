@@ -657,6 +657,7 @@ impl<'a> Broker<'a> {
         remote_peer_id: X25519PrivKey,
         // if client is None it means we are Core mode
         client: Option<ClientAuthContentV0>,
+        fsm: &mut NoiseFSM,
     ) -> Result<(), ProtocolError> {
         log_debug!("ATTACH PEER_ID {:?}", remote_peer_id);
 
@@ -691,10 +692,10 @@ impl<'a> Broker<'a> {
             if !listener.config.accepts_client() {
                 return Err(ProtocolError::AccessDenied);
             }
-            let client = client.unwrap();
+            let client = client.as_ref().unwrap();
             self.authorize(
                 &(local_bind_address, remote_bind_address),
-                Authorization::Client((client.user, client.registration)),
+                Authorization::Client((client.user.clone(), client.registration.clone())),
             )?;
 
             // TODO add client to storage
@@ -708,6 +709,7 @@ impl<'a> Broker<'a> {
 
         connection.reset_shutdown(remote_peer_id).await;
         let connected = if !is_core {
+            fsm.set_user_id(client.unwrap().user);
             PeerConnection::Client(connection)
         } else {
             let dc = DirectConnection {

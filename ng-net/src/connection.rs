@@ -136,6 +136,8 @@ pub struct NoiseFSM {
 
     nonce_for_hello: Vec<u8>,
     config: Option<StartConfig>,
+
+    user: Option<UserId>,
 }
 
 impl fmt::Debug for NoiseFSM {
@@ -251,20 +253,20 @@ impl NoiseFSM {
             remote,
             nonce_for_hello: vec![],
             config: None,
+            user: None,
         }
     }
 
-    pub fn user_id(&self) -> Option<UserId> {
-        match &self.config {
-            Some(start_config) => start_config.get_user(),
-            _ => None,
-        }
-    }
-
-    pub fn user_id_or_err(&self) -> Result<UserId, ProtocolError> {
+    pub fn user_id(&self) -> Result<UserId, ProtocolError> {
         match &self.config {
             Some(start_config) => start_config.get_user().ok_or(ProtocolError::ActorError),
-            _ => Err(ProtocolError::ActorError),
+            _ => self.user.ok_or(ProtocolError::ActorError),
+        }
+    }
+
+    pub(crate) fn set_user_id(&mut self, user: UserId) {
+        if self.user.is_none() {
+            self.user = Some(user);
         }
     }
 
@@ -307,7 +309,7 @@ impl NoiseFSM {
         if in_reply_to != 0 {
             msg.set_id(in_reply_to);
         }
-        log_info!("SENDING: {:?}", msg);
+        log_debug!("SENDING: {:?}", msg);
         if self.noise_cipher_state_enc.is_some() {
             let cipher = self.encrypt(msg)?;
             self.sender
@@ -785,6 +787,7 @@ impl NoiseFSM {
                                         local_bind_address,
                                         *self.remote.unwrap().slice(),
                                         Some(client_auth.content_v0()),
+                                        self,
                                     )
                                     .await
                                     .err()
@@ -857,7 +860,7 @@ impl NoiseFSM {
 
 #[derive(Debug)]
 pub struct ConnectionBase {
-    fsm: Option<Arc<Mutex<NoiseFSM>>>,
+    pub(crate) fsm: Option<Arc<Mutex<NoiseFSM>>>,
 
     sender: Option<Receiver<ConnectionCommand>>,
     receiver: Option<Sender<ConnectionCommand>>,

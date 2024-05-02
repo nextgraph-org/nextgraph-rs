@@ -430,10 +430,8 @@ impl Object {
     pub fn load_header(
         root_block: &Block,
         store: &Store,
-    ) -> Result<CommitHeader, ObjectParseError> {
-        Self::load_header_(root_block, store)?
-            .0
-            .ok_or(ObjectParseError::InvalidHeader)
+    ) -> Result<Option<CommitHeader>, ObjectParseError> {
+        Ok(Self::load_header_(root_block, store)?.0)
     }
 
     fn load_header_(
@@ -454,7 +452,9 @@ impl Object {
                                 commit_header.set_id(id);
                                 Ok((Some(commit_header), obj.blocks().cloned().collect()))
                             }
-                            _ => return Err(ObjectParseError::InvalidHeader),
+                            _ => {
+                                return Err(ObjectParseError::InvalidHeader);
+                            }
                         },
                     }
                 }
@@ -465,8 +465,12 @@ impl Object {
                         Ok(ObjectContent::V0(ObjectContentV0::CommitHeader(commit_header))) => {
                             Ok((Some(commit_header), vec![]))
                         }
-                        Err(_e) => return Err(ObjectParseError::InvalidHeader),
-                        _ => return Err(ObjectParseError::InvalidHeader),
+                        Err(e) => {
+                            return Err(ObjectParseError::InvalidHeader);
+                        }
+                        _ => {
+                            return Err(ObjectParseError::InvalidHeader);
+                        }
                     }
                 }
             },

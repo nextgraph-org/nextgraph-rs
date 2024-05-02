@@ -212,7 +212,7 @@ impl Store {
         )?;
         let branch_read_cap = branch_commit.reference().unwrap();
 
-        log_debug!("{:?} BRANCH COMMIT {}", branch_type, branch_commit);
+        //log_debug!("{:?} BRANCH COMMIT {}", branch_type, branch_commit);
 
         // creating the AddBranch commit (on root_branch), deps to the RootBranch commit
         // author is the owner
@@ -236,11 +236,11 @@ impl Store {
             self,
         )?;
 
-        log_debug!(
-            "ADD_BRANCH {:?} BRANCH COMMIT {}",
-            &branch_type,
-            add_branch_commit
-        );
+        // log_debug!(
+        //     "ADD_BRANCH {:?} BRANCH COMMIT {}",
+        //     &branch_type,
+        //     add_branch_commit
+        // );
 
         let branch_info = BranchInfo {
             id: branch_pub_key,
@@ -305,7 +305,7 @@ impl Store {
             &self,
         )?;
 
-        log_debug!("REPOSITORY COMMIT {}", repository_commit);
+        //log_debug!("REPOSITORY COMMIT {}", repository_commit);
 
         let repository_commit_ref = repository_commit.reference().unwrap();
 
@@ -348,7 +348,7 @@ impl Store {
             &self,
         )?;
 
-        log_debug!("ROOT_BRANCH COMMIT {}", root_branch_commit);
+        //log_debug!("ROOT_BRANCH COMMIT {}", root_branch_commit);
         let root_branch_readcap = root_branch_commit.reference().unwrap();
         let root_branch_readcap_id = root_branch_readcap.id;
         // adding the 2 events for the Repository and Rootbranch commits
@@ -639,6 +639,14 @@ impl Store {
     pub fn inner_overlay(&self) -> OverlayId {
         self.store_repo
             .overlay_id_for_write_purpose(&self.store_overlay_branch_readcap.key)
+    }
+
+    pub fn overlay_for_read_on_client_protocol(&self) -> OverlayId {
+        match self.store_repo {
+            _ => self.inner_overlay(),
+            //StoreRepo::V0(StoreRepoV0::PrivateStore(_)) => self.inner_overlay(),
+            //_ => self.overlay_id,
+        }
     }
 
     pub fn outer_overlay(&self) -> OverlayId {

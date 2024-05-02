@@ -17,14 +17,17 @@ use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::*;
 use ng_repo::types::*;
 
+use either::Either;
 use serde_bare::to_vec;
 
 use crate::server_broker::CommitInfo;
 use crate::server_broker::EventInfo;
 
+use super::OverlayStorage;
+
 pub struct CommitStorage<'a> {
     key: Vec<u8>,
-    event: ExistentialValue<Option<EventInfo>>,
+    event: ExistentialValue<Either<EventInfo, TopicId>>,
     storage: &'a dyn KCVStorage,
 }
 
@@ -78,7 +81,7 @@ impl<'a> CommitStorage<'a> {
         key.append(&mut to_vec(id).unwrap());
         CommitStorage {
             key,
-            event: ExistentialValue::<Option<EventInfo>>::new(),
+            event: ExistentialValue::<Either<EventInfo, TopicId>>::new(),
             storage,
         }
     }
@@ -115,7 +118,7 @@ impl<'a> CommitStorage<'a> {
         id: &ObjectId,
         overlay: &OverlayId,
         event: EventInfo,
-        header: &CommitHeader,
+        header: &Option<CommitHeader>,
         home_pinned: bool,
         storage: &'a dyn KCVStorage,
     ) -> Result<CommitStorage<'a>, StorageError> {
@@ -123,29 +126,37 @@ impl<'a> CommitStorage<'a> {
         if creating.exists() {
             return Err(StorageError::AlreadyExists);
         }
-        let event_opt = Some(event);
-        creating.event.set(&event_opt)?;
-        ExistentialValue::save(&creating, &event_opt)?;
+        let event_either = Either::Left(event);
+        creating.event.set(&event_either)?;
+        ExistentialValue::save(&creating, &event_either)?;
 
         if home_pinned {
             Self::HOME_PINNED.set(&mut creating, &true)?;
         }
-
-        // adding all the references
-        for ack in header.acks() {
-            Self::ACKS.add(&mut creating, &ack)?;
-        }
-        for dep in header.deps() {
-            Self::DEPS.add(&mut creating, &dep)?;
-        }
-        for file in header.files() {
-            Self::FILES.add(&mut creating, file)?;
+        if let Some(header) = header {
+            let mut overlay_storage = OverlayStorage::new(overlay, storage);
+            // adding all the references
+            for ack in header.acks() {
+                Self::ACKS.add(&mut creating, &ack)?;
+                OverlayStorage::OBJECTS.increment(&mut overlay_storage, &ack)?;
+            }
+            for dep in header.deps() {
+                Self::DEPS.add(&mut creating, &dep)?;
+                OverlayStorage::OBJECTS.increment(&mut overlay_storage, &dep)?;
+            }
+            for file in header.files() {
+                Self::FILES.add(&mut creating, file)?;
+                OverlayStorage::OBJECTS.increment(&mut overlay_storage, &file)?;
+            }
         }
 
         Ok(creating)
     }
 
-    pub fn event(&mut self) -> &Option<EventInfo> {
+    pub fn event(&mut self) -> &Either<EventInfo, TopicId> {
         self.event.get().unwrap()
+    }
+    pub fn take_event(mut self) -> Either<EventInfo, TopicId> {
+        self.event.take().unwrap()
     }
 }

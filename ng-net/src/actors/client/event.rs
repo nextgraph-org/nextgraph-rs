@@ -83,7 +83,7 @@ impl EActor for Actor<'_, PublishEvent, ()> {
         let res = broker.get_server_broker()?.dispatch_event(
             &overlay,
             req.take_event(),
-            &fsm.lock().await.user_id_or_err()?,
+            &fsm.lock().await.user_id()?,
         );
 
         fsm.lock()

@@ -7,3 +7,5 @@ pub mod topic_sub;
 pub mod event;
 
 pub mod commit_get;
+
+pub mod topic_sync_req;

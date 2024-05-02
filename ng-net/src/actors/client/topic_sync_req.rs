@@ -15,32 +15,45 @@ use crate::{actor::*, types::ProtocolMessage};
 use async_std::sync::Mutex;
 use ng_repo::errors::*;
 use ng_repo::log::*;
-use ng_repo::types::{Block, OverlayId, PubKey};
+use ng_repo::repo::{BranchInfo, Repo};
+use ng_repo::types::*;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-impl CommitGet {
+impl TopicSyncReq {
     pub fn get_actor(&self, id: i64) -> Box<dyn EActor> {
-        Actor::<CommitGet, Block>::new_responder(id)
+        Actor::<TopicSyncReq, TopicSyncRes>::new_responder(id)
     }
 
-    pub fn overlay(&self) -> &OverlayId {
-        match self {
-            Self::V0(v0) => v0.overlay.as_ref().unwrap(),
-        }
+    pub fn new_empty(topic: TopicId, overlay: &OverlayId) -> Self {
+        TopicSyncReq::V0(TopicSyncReqV0 {
+            topic,
+            known_heads: vec![],
+            target_heads: vec![],
+            overlay: Some(*overlay),
+        })
     }
-    pub fn set_overlay(&mut self, overlay: OverlayId) {
-        match self {
-            Self::V0(v0) => v0.overlay = Some(overlay),
-        }
+
+    pub fn new(
+        repo: &Repo,
+        topic_id: &TopicId,
+        known_heads: Vec<ObjectId>,
+        target_heads: Vec<ObjectId>,
+    ) -> TopicSyncReq {
+        TopicSyncReq::V0(TopicSyncReqV0 {
+            topic: *topic_id,
+            known_heads,
+            target_heads,
+            overlay: Some(repo.store.get_store_repo().overlay_id_for_read_purpose()),
+        })
     }
 }
 
-impl TryFrom<ProtocolMessage> for CommitGet {
+impl TryFrom<ProtocolMessage> for TopicSyncReq {
     type Error = ProtocolError;
     fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
         let req: ClientRequestContentV0 = msg.try_into()?;
-        if let ClientRequestContentV0::CommitGet(a) = req {
+        if let ClientRequestContentV0::TopicSyncReq(a) = req {
             Ok(a)
         } else {
             log_debug!("INVALID {:?}", req);
@@ -49,18 +62,18 @@ impl TryFrom<ProtocolMessage> for CommitGet {
     }
 }
 
-impl From<CommitGet> for ProtocolMessage {
-    fn from(msg: CommitGet) -> ProtocolMessage {
+impl From<TopicSyncReq> for ProtocolMessage {
+    fn from(msg: TopicSyncReq) -> ProtocolMessage {
         let overlay = *msg.overlay();
-        ProtocolMessage::from_client_request_v0(ClientRequestContentV0::CommitGet(msg), overlay)
+        ProtocolMessage::from_client_request_v0(ClientRequestContentV0::TopicSyncReq(msg), overlay)
     }
 }
 
-impl TryFrom<ProtocolMessage> for Block {
+impl TryFrom<ProtocolMessage> for TopicSyncRes {
     type Error = ProtocolError;
     fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
         let res: ClientResponseContentV0 = msg.try_into()?;
-        if let ClientResponseContentV0::Block(a) = res {
+        if let ClientResponseContentV0::TopicSyncRes(a) = res {
             Ok(a)
         } else {
             log_debug!("INVALID {:?}", res);
@@ -69,30 +82,36 @@ impl TryFrom<ProtocolMessage> for Block {
     }
 }
 
-impl From<Block> for ProtocolMessage {
-    fn from(b: Block) -> ProtocolMessage {
-        let mut cr: ClientResponse = ClientResponseContentV0::Block(b).into();
+impl From<TopicSyncRes> for ProtocolMessage {
+    fn from(b: TopicSyncRes) -> ProtocolMessage {
+        let mut cr: ClientResponse = ClientResponseContentV0::TopicSyncRes(b).into();
         cr.set_result(ServerError::PartialContent.into());
         cr.into()
     }
 }
 
-impl Actor<'_, CommitGet, Block> {}
+impl Actor<'_, TopicSyncReq, TopicSyncRes> {}
 
 #[async_trait::async_trait]
-impl EActor for Actor<'_, CommitGet, Block> {
+impl EActor for Actor<'_, TopicSyncReq, TopicSyncRes> {
     async fn respond(
         &mut self,
         msg: ProtocolMessage,
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
-        let req = CommitGet::try_from(msg)?;
+        let req = TopicSyncReq::try_from(msg)?;
+
         let broker = BROKER.read().await;
-        let blocks_res = broker
-            .get_server_broker()?
-            .get_commit(req.overlay(), req.id());
-        // IF NEEDED, the get_commit could be changed to return a stream, and then the send_in_reply_to would be also totally async
-        match blocks_res {
+
+        let res = broker.get_server_broker()?.topic_sync_req(
+            req.overlay(),
+            req.topic(),
+            req.known_heads(),
+            req.target_heads(),
+        );
+
+        // IF NEEDED, the topic_sync_req could be changed to return a stream, and then the send_in_reply_to would be also totally async
+        match res {
             Ok(blocks) => {
                 if blocks.len() == 0 {
                     let re: Result<(), ServerError> = Err(ServerError::EmptyStream);
@@ -118,7 +137,6 @@ impl EActor for Actor<'_, CommitGet, Block> {
                     .await?;
             }
         }
-
         Ok(())
     }
 }
