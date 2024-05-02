@@ -1306,7 +1306,7 @@ pub async fn user_connect_with_device_info(
                                     session.verifier.connected_server_id = Some(server_key);
                                     // successful. we can stop here
 
-                                    // load verifier from remote connection (if not RocksDb type)
+                                    // load verifier from remote connection (if not RocksDb type, or after import on tauri)
                                     if let Err(e) = session.verifier.bootstrap().await {
                                         session.verifier.connected_server_id = None;
                                         Broker::close_all_connections().await;

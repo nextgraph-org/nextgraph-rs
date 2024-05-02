@@ -176,6 +176,10 @@ impl Verifier {
         self.config.config_type.is_in_memory()
     }
 
+    fn need_bootstrap(&self) -> bool {
+        self.stores.len() == 0
+    }
+
     fn get_arc_block_storage(
         &self,
     ) -> Result<Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>, VerifierError> {
@@ -942,7 +946,7 @@ impl Verifier {
     }
 
     async fn bootstrap_from_remote(&mut self) -> Result<(), NgError> {
-        if self.is_in_memory() {
+        if self.is_in_memory() || self.need_bootstrap() {
             let broker = BROKER.read().await;
             let user = self.config.user_priv_key.to_pub();
             let remote = self.connected_server_id.to_owned().unwrap();
