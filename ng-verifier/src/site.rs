@@ -9,7 +9,7 @@
  * according to those terms.
 */
 
-//! Site (Public, Protected, Private) of Individual and Org
+//! A Site of an Individual or Org (with 3P stores: Public, Protected, Private)
 
 use crate::types::*;
 use crate::verifier::Verifier;

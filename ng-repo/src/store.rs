@@ -29,6 +29,7 @@ use threshold_crypto::{SecretKeySet, SecretKeyShare};
 
 pub struct Store {
     store_repo: StoreRepo,
+    //TODO: store_readcap and store_overlay_branch_readcap could be empty, if we have only an outer access to the store. should be Options
     store_readcap: ReadCap,
     store_overlay_branch_readcap: ReadCap,
     pub overlay_id: OverlayId,

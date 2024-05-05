@@ -1303,9 +1303,11 @@ pub struct InnerOverlayLink {
 /// Details of the overlay of an NgLink
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum OverlayLink {
-    Outer(StoreOverlay),
-    Inner(InnerOverlayLink),
+    Outer(Digest),
+    InnerLink(InnerOverlayLink),
+    Inner(Digest),
     Inherit,
+    Public(PubKey),
 }
 
 /// Overlay session ID

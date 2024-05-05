@@ -7,6 +7,8 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+//! Verifiers for each Commit type
+
 use crate::verifier::Verifier;
 use ng_repo::errors::VerifierError;
 use ng_repo::log::*;

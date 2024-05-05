@@ -1579,7 +1579,6 @@ impl RemovePermission {
 pub enum RepoNamedItemV0 {
     Branch(BranchId),
     Commit(ObjectId),
-    File(ObjectId),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1587,7 +1586,7 @@ pub enum RepoNamedItem {
     V0(RepoNamedItemV0),
 }
 
-/// Add a new name in the repo that can point to a branch, a commit or a file
+/// Add a new name in the repo that can point to a branch or a commit
 ///
 /// Or change the value of a name
 /// DEPS: if it is a change of value: all the previous AddName commits seen for this name

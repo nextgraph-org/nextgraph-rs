@@ -160,9 +160,12 @@ pub type CancelFn = Box<dyn FnOnce()>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppFetchContentV0 {
-    Get,        // more to be detailed
-    ReadQuery,  // more to be detailed
+    Get, // more to be detailed
+    Subscribe,
+    Update,
+    ReadQuery, // more to be detailed
     WriteQuery, // more to be detailed
+               //Invoke,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -203,13 +206,14 @@ pub enum AppRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AppQuery {
+pub enum DocQuery {
     V0(String), // Sparql
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GraphUpdate {
-    sparql_update: String,
+    add: Vec<String>,
+    remove: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -227,30 +231,31 @@ pub enum DiscreteUpdate {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AppUpdate {
+pub struct DocUpdate {
     heads: Vec<ObjectId>,
     graph: Option<GraphUpdate>,
     discrete: Option<DiscreteUpdate>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AppCreate {
+pub struct DocCreate {
     store: StoreRepo,
     content_type: BranchContentType,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AppDelete {
+pub struct DocDelete {
     /// Nuri of doc to delete
     nuri: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppRequestPayloadV0 {
-    Create(AppCreate),
-    Query(AppQuery),
-    Update(AppUpdate),
-    Delete(AppDelete),
+    Create(DocCreate),
+    Query(DocQuery),
+    Update(DocUpdate),
+    Delete(DocDelete),
+    //Invoke(InvokeArguments),
     SmallFilePut(SmallFile),
     RandomAccessFilePut(String), // content_type
     RandomAccessFilePutChunk((ObjectId, serde_bytes::ByteBuf)), // end the upload with an empty vec
@@ -277,7 +282,7 @@ pub enum DiscretePatch {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GraphPatch {
-    /// oxigraph::model::GroundQuad serialized in turtle with oxrdfio
+    /// oxigraph::model::GroundQuad serialized to n-quads with oxrdfio
     pub adds: Vec<String>,
     pub removes: Vec<String>,
 }

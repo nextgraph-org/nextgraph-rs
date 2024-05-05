@@ -7,6 +7,8 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+//! Storage of user application data (RDF, rich-text, JSON, etc) and helper objects for mapping to KCV
+
 pub mod storage;
 
 pub use storage::*;
