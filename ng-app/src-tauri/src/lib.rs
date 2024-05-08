@@ -335,14 +335,12 @@ async fn cancel_stream(stream_id: &str) -> Result<(), String> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn disconnections_subscribe(app: tauri::AppHandle) -> Result<(), ()> {
+async fn disconnections_subscribe(app: tauri::AppHandle) -> Result<(), String> {
     let main_window = app.get_window("main").unwrap();
 
-    let reader = BROKER
-        .write()
+    let reader = nextgraph::local_broker::take_disconnections_receiver()
         .await
-        .take_disconnections_receiver()
-        .ok_or(())?;
+        .map_err(|e: NgError| e.to_string())?;
 
     async fn inner_task(
         mut reader: Receiver<String>,

@@ -3228,6 +3228,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "base64-url",
+ "futures",
  "ng-client-ws",
  "ng-net",
  "ng-repo",

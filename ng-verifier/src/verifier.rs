@@ -154,19 +154,25 @@ impl Verifier {
     }
 
     pub(crate) async fn push_app_response(&mut self, branch: &BranchId, response: AppResponse) {
-        // log_info!(
-        //     "push_app_response {} {:?}",
-        //     branch,
-        //     self.branch_subscriptions
-        // );
+        log_info!(
+            "push_app_response {} {:?}",
+            branch,
+            self.branch_subscriptions
+        );
         if let Some(sender) = self.branch_subscriptions.get_mut(branch) {
-            let _ = sender.send(response).await;
+            if sender.is_closed() {
+                log_info!("closed so removed");
+                self.branch_subscriptions.remove(branch);
+            } else {
+                let _ = sender.send(response).await;
+            }
         }
     }
 
     pub(crate) async fn create_branch_subscription(
         &mut self,
         branch: BranchId,
+        resub: bool,
     ) -> Result<(Receiver<AppResponse>, CancelFn), VerifierError> {
         // async fn send(mut tx: Sender<AppResponse>, msg: AppResponse) -> ResultSend<()> {
         //     while let Ok(_) = tx.send(msg.clone()).await {
@@ -179,24 +185,33 @@ impl Verifier {
         // spawn_and_log_error(send(tx.clone(), commit));
         //log_info!("#### create_branch_subscription {}", branch);
         let (tx, rx) = mpsc::unbounded::<AppResponse>();
+        log_info!("SUBSCRIBE");
         if let Some(returned) = self.branch_subscriptions.insert(branch, tx.clone()) {
+            log_info!("RESUBSCRIBE");
             if !returned.is_closed() {
-                return Err(VerifierError::DoubleBranchSubscription);
+                log_info!("FORCE CLOSE");
+                returned.close_channel();
+                //return Err(VerifierError::DoubleBranchSubscription);
             }
         }
-        //let tx = self.branch_subscriptions.entry(branch).or_insert_with(|| {});
-        for file in self
-            .user_storage
-            .as_ref()
-            .unwrap()
-            .branch_get_all_files(&branch)?
-        {
-            self.push_app_response(&branch, AppResponse::V0(AppResponseV0::File(file)))
-                .await;
+        if !resub {
+            //let tx = self.branch_subscriptions.entry(branch).or_insert_with(|| {});
+            for file in self
+                .user_storage
+                .as_ref()
+                .unwrap()
+                .branch_get_all_files(&branch)?
+            {
+                self.push_app_response(&branch, AppResponse::V0(AppResponseV0::File(file)))
+                    .await;
+            }
         }
 
         let fnonce = Box::new(move || {
-            tx.close_channel();
+            log_info!("CLOSE_CHANNEL");
+            if !tx.is_closed() {
+                tx.close_channel();
+            }
         });
         Ok((rx, fnonce))
     }
@@ -729,18 +744,59 @@ impl Verifier {
         Ok(())
     }
 
-    pub(crate) async fn open_branch<'a>(
+    pub fn connection_lost(&mut self) {
+        self.connected_server_id = None;
+        // for (_, repo) in self.repos.iter_mut() {
+        //     repo.opened_branches = HashMap::new();
+        // }
+    }
+
+    pub async fn connection_opened(&mut self, peer: DirectPeerId) -> Result<(), NgError> {
+        self.connected_server_id = Some(peer);
+        if let Err(e) = self.bootstrap().await {
+            self.connected_server_id = None;
+            return Err(e);
+        }
+
+        let res = self.send_outbox().await;
+        log_info!("SENDING EVENTS FROM OUTBOX RETURNED: {:?}", res);
+
+        let mut branches = vec![];
+        {
+            for (id, repo) in self.repos.iter() {
+                for (branch, publisher) in repo.opened_branches.iter() {
+                    branches.push((*id, *branch, *publisher));
+                }
+            }
+        }
+        let user = self.config.user_priv_key.to_pub();
+        let broker = BROKER.read().await;
+        for (repo, branch, publisher) in branches {
+            let _ = self
+                .open_branch_(&repo, &branch, publisher, &broker, &user, &peer, true)
+                .await;
+            // discarding error.
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn open_branch(
         &mut self,
         repo_id: &RepoId,
         branch: &BranchId,
         as_publisher: bool,
     ) -> Result<(), NgError> {
+        let remote = match self.connected_server_id.as_ref() {
+            Some(r) => r.clone(),
+            None => {
+                let repo = self.repos.get_mut(repo_id).ok_or(NgError::RepoNotFound)?;
+                repo.opened_branches.insert(*branch, as_publisher);
+                return Ok(());
+            }
+        };
+
         let user = self.config.user_priv_key.to_pub();
-        let remote = self
-            .connected_server_id
-            .as_ref()
-            .ok_or(NgError::NotConnected)?
-            .clone();
+
         self.open_branch_(
             repo_id,
             branch,
@@ -748,6 +804,7 @@ impl Verifier {
             &BROKER.read().await,
             &user,
             &remote,
+            false,
         )
         .await
     }
@@ -757,7 +814,10 @@ impl Verifier {
 
         let broker = BROKER.read().await;
         let user = self.config.user_priv_key.to_pub();
-        let remote = self.connected_server_id.to_owned().unwrap();
+        let remote = self
+            .connected_server_id
+            .to_owned()
+            .ok_or(NgError::NotConnected)?;
 
         let msg = BlocksPut::V0(BlocksPutV0 {
             blocks,
@@ -776,7 +836,10 @@ impl Verifier {
 
         let broker = BROKER.read().await;
         let user = self.config.user_priv_key.to_pub();
-        let remote = self.connected_server_id.to_owned().unwrap();
+        let remote = self
+            .connected_server_id
+            .to_owned()
+            .ok_or(NgError::NotConnected)?;
 
         let msg = BlocksExist::V0(BlocksExistV0 {
             blocks,
@@ -797,16 +860,21 @@ impl Verifier {
         repo_id: &RepoId,
         branch: &BranchId,
         as_publisher: bool,
-        broker: &RwLockReadGuard<'a, Broker<'a>>,
+        broker: &RwLockReadGuard<'static, Broker>,
         user: &UserId,
         remote: &DirectPeerId,
+        force: bool,
     ) -> Result<(), NgError> {
         let (need_open, mut need_sub, overlay) = {
             let repo = self.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
             let overlay = repo.store.overlay_for_read_on_client_protocol();
-            match repo.opened_branches.get(branch) {
-                Some(val) => (false, as_publisher && !val, overlay),
-                None => (repo.opened_branches.len() == 0, true, overlay),
+            if force {
+                (true, true, overlay)
+            } else {
+                match repo.opened_branches.get(branch) {
+                    Some(val) => (false, as_publisher && !val, overlay),
+                    None => (repo.opened_branches.len() == 0, true, overlay),
+                }
             }
         };
         //log_info!("need_open {} need_sub {}", need_open, need_sub);
@@ -922,10 +990,10 @@ impl Verifier {
         Ok(())
     }
 
-    async fn send_event<'a>(
+    async fn send_event(
         &mut self,
         event: Event,
-        broker: &RwLockReadGuard<'a, Broker<'a>>,
+        broker: &RwLockReadGuard<'static, Broker>,
         user: &UserId,
         remote: &DirectPeerId,
         overlay: OverlayId,
@@ -937,7 +1005,7 @@ impl Verifier {
             .ok_or(NgError::TopicNotFound)?
             .to_owned();
 
-        self.open_branch_(&repo_id, &branch_id, true, broker, user, remote)
+        self.open_branch_(&repo_id, &branch_id, true, broker, user, remote, false)
             .await?;
 
         let _ = broker
@@ -1122,9 +1190,9 @@ impl Verifier {
         Ok(())
     }
 
-    async fn do_sync_req_if_needed<'a>(
+    async fn do_sync_req_if_needed(
         &mut self,
-        broker: &RwLockReadGuard<'a, Broker<'a>>,
+        broker: &RwLockReadGuard<'static, Broker>,
         user: &UserId,
         remote: &DirectPeerId,
         branch_id: &BranchId,
@@ -1183,9 +1251,9 @@ impl Verifier {
         Ok(())
     }
 
-    async fn do_sync_req<'a>(
+    async fn do_sync_req(
         &mut self,
-        broker: &RwLockReadGuard<'a, Broker<'a>>,
+        broker: &RwLockReadGuard<'static, Broker>,
         user: &UserId,
         remote: &DirectPeerId,
         topic: &TopicId,
@@ -1217,7 +1285,7 @@ impl Verifier {
 
     async fn load_store_from_read_cap<'a>(
         &mut self,
-        broker: &RwLockReadGuard<'a, Broker<'a>>,
+        broker: &RwLockReadGuard<'static, Broker>,
         user: &UserId,
         remote: &DirectPeerId,
         store: Arc<Store>,
@@ -1300,11 +1368,11 @@ impl Verifier {
         Ok(())
     }
 
-    async fn get_commit<'a>(
+    async fn get_commit(
         commit_ref: ObjectRef,
         topic_id: Option<TopicId>,
         overlay: &OverlayId,
-        broker: &RwLockReadGuard<'a, Broker<'a>>,
+        broker: &RwLockReadGuard<'static, Broker>,
         user: &UserId,
         remote: &DirectPeerId,
     ) -> Result<Commit, NgError> {
@@ -1347,10 +1415,13 @@ impl Verifier {
 
         let broker = BROKER.read().await;
         let user = self.config.user_priv_key.to_pub();
-        let remote = self.connected_server_id.to_owned().unwrap();
+        let remote = self.connected_server_id.to_owned();
 
         match repo.store.has(id) {
             Err(StorageError::NotFound) => {
+                if remote.is_none() {
+                    return Err(NgError::NotFound);
+                }
                 let msg = BlocksGet::V0(BlocksGetV0 {
                     ids: vec![*id],
                     topic: None,
@@ -1358,7 +1429,7 @@ impl Verifier {
                     overlay: Some(overlay),
                 });
                 match broker
-                    .request::<BlocksGet, Block>(&user, &remote, msg)
+                    .request::<BlocksGet, Block>(&user, remote.as_ref().unwrap(), msg)
                     .await
                 {
                     Ok(SoS::Stream(blockstream)) => Ok(Some(blockstream)),
@@ -1375,7 +1446,10 @@ impl Verifier {
         if self.need_bootstrap() {
             let broker = BROKER.read().await;
             let user = self.config.user_priv_key.to_pub();
-            let remote = self.connected_server_id.to_owned().unwrap();
+            let remote = self
+                .connected_server_id
+                .to_owned()
+                .ok_or(NgError::NotConnected)?;
 
             let private_store_id = self.config.private_store_id.to_owned().unwrap();
             let private_store = self.create_private_store_from_credentials()?;

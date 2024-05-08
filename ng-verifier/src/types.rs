@@ -172,10 +172,10 @@ pub enum AppFetchContentV0 {
 
 impl AppFetchContentV0 {
     pub fn get_or_subscribe(subscribe: bool) -> Self {
-        if subscribe {
-            AppFetchContentV0::Subscribe
-        } else {
+        if !subscribe {
             AppFetchContentV0::Get
+        } else {
+            AppFetchContentV0::Subscribe
         }
     }
 }

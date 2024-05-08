@@ -340,7 +340,6 @@ pub async fn wallet_read_file(js_file: JsValue) -> Result<JsValue, String> {
 #[wasm_bindgen]
 pub async fn wallet_was_opened(
     js_opened_wallet: JsValue, //SensitiveWallet
-    in_memory: bool,
 ) -> Result<JsValue, String> {
     let mut opened_wallet = serde_wasm_bindgen::from_value::<SensitiveWallet>(js_opened_wallet)
         .map_err(|_| "Deserialization error of SensitiveWallet".to_string())?;
@@ -523,16 +522,22 @@ pub async fn app_request_stream(
             //let xx = JsValue::from(json!(commit).to_string());
             //let _ = callback.call1(&this, &xx);
             let this = JsValue::null();
-            let jsval: JsValue = callback.call1(&this, &xx).unwrap();
-            let promise_res: Result<js_sys::Promise, JsValue> = jsval.dyn_into();
-            match promise_res {
-                Ok(promise) => {
-                    JsFuture::from(promise).await;
+            match callback.call1(&this, &xx) {
+                Ok(jsval) => {
+                    let promise_res: Result<js_sys::Promise, JsValue> = jsval.dyn_into();
+                    match promise_res {
+                        Ok(promise) => {
+                            JsFuture::from(promise).await;
+                        }
+                        Err(_) => {}
+                    }
                 }
-                Err(_) => {}
+                Err(e) => {
+                    log_err!("JS callback for app_request_stream failed with {:?}", e);
+                }
             }
         }
-        log_debug!("END OF LOOP");
+        log_info!("END OF LOOP");
         Ok(())
     }
 
@@ -619,19 +624,16 @@ pub async fn doc_fetch_private_subscribe() -> Result<JsValue, String> {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn disconnections_subscribe(callback: &js_sys::Function) -> Result<JsValue, JsValue> {
+    init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
     let vec: Vec<u8> = vec![2; 10];
     let view = unsafe { Uint8Array::view(&vec) };
     let x = JsValue::from(Uint8Array::new(view.as_ref()));
-
     let mut reader;
     {
-        reader = BROKER
-            .write()
+        reader = nextgraph::local_broker::take_disconnections_receiver()
             .await
-            .take_disconnections_receiver()
-            .ok_or(false)?;
+            .map_err(|e: NgError| false)?;
     }
-
     async fn inner_task(
         mut reader: Receiver<String>,
         callback: js_sys::Function,
@@ -639,13 +641,22 @@ pub async fn disconnections_subscribe(callback: &js_sys::Function) -> Result<JsV
         while let Some(user_id) = reader.next().await {
             let this = JsValue::null();
             let xx = serde_wasm_bindgen::to_value(&user_id).unwrap();
-            let jsval: JsValue = callback.call1(&this, &xx).unwrap();
-            let promise_res: Result<js_sys::Promise, JsValue> = jsval.dyn_into();
-            match promise_res {
-                Ok(promise) => {
-                    JsFuture::from(promise).await;
+            match callback.call1(&this, &xx) {
+                Ok(jsval) => {
+                    let promise_res: Result<js_sys::Promise, JsValue> = jsval.dyn_into();
+                    match promise_res {
+                        Ok(promise) => {
+                            JsFuture::from(promise).await;
+                        }
+                        Err(_) => {}
+                    }
                 }
-                Err(_) => {}
+                Err(e) => {
+                    log_err!(
+                        "JS callback for disconnections_subscribe failed with {:?}",
+                        e
+                    );
+                }
             }
         }
         log_debug!("END OF disconnections reader");

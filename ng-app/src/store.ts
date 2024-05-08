@@ -35,14 +35,27 @@ export const online = derived(connections,($connections) => {
             });
             return true; }
         else if ($connections[cnx].error=="ConnectionError" && !$connections[cnx].connecting && next_reconnect==null) {
-            console.log("will try reconnect in 1 min");
+            console.log("will try reconnect in 20 sec");
             next_reconnect = setTimeout(async ()=> {
                 await reconnect();
-            },60000);
+            },20000);
         }
     }
     return false;
 });
+
+export const cannot_load_offline = writable(false);
+
+if (!get(online) && !import.meta.env.TAURI_PLATFORM) {
+    cannot_load_offline.set(true);
+
+    let unsubscribe = online.subscribe(async (value) => {
+      if (value) {
+        cannot_load_offline.set(false);
+        unsubscribe();
+      }
+    });
+  }
 
 export const has_wallets = derived(wallets,($wallets) => Object.keys($wallets).length);
 
@@ -105,6 +118,8 @@ export const reconnect = async function() {
             get(active_session).user,
             location.href
         ));
+        
+        
     }catch (e) {
         console.error(e)
     }
@@ -159,13 +174,15 @@ export const branch_subs = function(nura) {
     
     return {
         load: async ()  => {
+            console.log("load upper");
             let already_subscribed = all_branches[nura];
             if (!already_subscribed) return;
             if (already_subscribed.load) {
+                console.log("doing the load");
                 let loader = already_subscribed.load;
                 already_subscribed.load = undefined;
+                // already_subscribed.load2 = loader;
                 await loader();
-                
             }
         },
         subscribe: (run, invalid) => {
@@ -178,15 +195,18 @@ export const branch_subs = function(nura) {
                 already_subscribed = {
                     load: async () => {
                         try {
+                            console.log("load down");
                             let session = get(active_session);
                             if (!session) {
                                 console.error("no session");
                                 return;
                             }
-                            await unsub();
+                            unsub();
+                            unsub = () => {};
+                            set([]);
                             unsub = await ng.app_request_stream(session.session_id, await ng.doc_fetch_private_subscribe(), 
                             async (commit) => {
-                                //console.log("GOT APP RESPONSE", commit);
+                                console.log("GOT APP RESPONSE", commit);
                                 update( (old) => {old.unshift(commit); return old;} )
                             });
                         }
@@ -198,14 +218,17 @@ export const branch_subs = function(nura) {
                     },
                     increase: () => {
                         count += 1;
+                        console.log("increase sub to",count);
                         return readonly({subscribe});
                     },
-                    decrease: async () => {
+                    decrease: () => {
                         count -= 1;
-                        if (count == 0) {
-                            await unsub();
-                            delete all_branches[nura];
-                        }
+                        console.log("decrease sub to",count);
+                        // if (count == 0) {
+                        //     unsub();
+                        //     console.log("removed sub");
+                        //     delete all_branches[nura];
+                        // }
                     },
                 }
                 all_branches[nura] = already_subscribed;
@@ -213,9 +236,10 @@ export const branch_subs = function(nura) {
             
             let new_store = already_subscribed.increase();
             let read_unsub = new_store.subscribe(run, invalid);
-            return async () => {
+            return () => {
                 read_unsub();
-                await already_subscribed.decrease();
+                console.log("callback unsub");
+                already_subscribed.decrease();
             }
             
         }

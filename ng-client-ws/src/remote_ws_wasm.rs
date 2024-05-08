@@ -107,7 +107,7 @@ async fn ws_loop(
             select! {
                 r = stream.next().fuse() => match r {
                     Some(msg) => {
-                        log_debug!("GOT MESSAGE {:?}", msg);
+                        //log_debug!("GOT MESSAGE {:?}", msg);
                         if let WsMessage::Binary(b) = msg {
                             receiver.send(ConnectionCommand::Msg(serde_bare::from_slice::<ProtocolMessage>(&b)?)).await
                                     .map_err(|_e| NetError::IoError)?;
@@ -120,7 +120,7 @@ async fn ws_loop(
                 },
                 s = sender.next().fuse() => match s {
                     Some(msg) => {
-                        log_debug!("SENDING MESSAGE {:?}", msg);
+                        //log_debug!("SENDING MESSAGE {:?}", msg);
                         match msg {
                             ConnectionCommand::Msg(m) => {
 

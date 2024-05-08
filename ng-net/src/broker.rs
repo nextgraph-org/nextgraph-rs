@@ -68,11 +68,13 @@ pub struct ServerConfig {
 #[async_trait::async_trait]
 pub trait ILocalBroker: Send + Sync + EActor {
     async fn deliver(&mut self, event: Event, overlay: OverlayId, user: UserId);
+
+    async fn user_disconnected(&mut self, user_id: UserId);
 }
 
 pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new(Broker::new())));
 
-pub struct Broker<'a> {
+pub struct Broker {
     direct_connections: HashMap<BindAddress, DirectConnection>,
     /// tuple of optional userId and peer key in montgomery form. userId is always None on the server side.
     peers: HashMap<(Option<PubKey>, X25519PubKey), BrokerPeerInfo>,
@@ -85,17 +87,15 @@ pub struct Broker<'a> {
     shutdown: Option<Receiver<ProtocolError>>,
     shutdown_sender: Sender<ProtocolError>,
     closing: bool,
-    server_broker: Option<Box<dyn IServerBroker + Send + Sync + 'a>>,
+    server_broker: Option<Box<dyn IServerBroker + Send + Sync>>,
 
-    disconnections_sender: Sender<String>,
-    disconnections_receiver: Option<Receiver<String>>,
     //local_broker: Option<Box<dyn ILocalBroker + Send + Sync + 'a>>,
-    local_broker: Option<Arc<RwLock<dyn ILocalBroker + 'a>>>,
+    local_broker: Option<Arc<RwLock<dyn ILocalBroker>>>,
 
     users_peers: HashMap<UserId, HashSet<X25519PubKey>>,
 }
 
-impl<'a> Broker<'a> {
+impl Broker {
     // pub fn init_local_broker(
     //     &mut self,
     //     base_path: Option<PathBuf>,
@@ -132,12 +132,12 @@ impl<'a> Broker<'a> {
             .ok_or(ProtocolError::BrokerError)
     }
 
-    pub fn set_server_broker(&mut self, broker: impl IServerBroker + 'a) {
+    pub fn set_server_broker(&mut self, broker: impl IServerBroker + 'static) {
         //log_debug!("set_server_broker");
         self.server_broker = Some(Box::new(broker));
     }
 
-    pub fn set_local_broker(&mut self, broker: Arc<RwLock<dyn ILocalBroker + 'a>>) {
+    pub fn set_local_broker(&mut self, broker: Arc<RwLock<dyn ILocalBroker>>) {
         //log_debug!("set_local_broker");
         self.local_broker = Some(broker);
     }
@@ -166,7 +166,7 @@ impl<'a> Broker<'a> {
 
     pub fn get_server_broker(
         &self,
-    ) -> Result<&Box<dyn IServerBroker + Send + Sync + 'a>, ProtocolError> {
+    ) -> Result<&Box<dyn IServerBroker + Send + Sync>, ProtocolError> {
         //log_debug!("GET STORAGE {:?}", self.server_storage);
         self.server_broker
             .as_ref()
@@ -175,7 +175,7 @@ impl<'a> Broker<'a> {
 
     pub fn get_server_broker_mut(
         &mut self,
-    ) -> Result<&mut Box<dyn IServerBroker + Send + Sync + 'a>, ProtocolError> {
+    ) -> Result<&mut Box<dyn IServerBroker + Send + Sync>, ProtocolError> {
         //log_debug!("GET STORAGE {:?}", self.server_storage);
         self.server_broker
             .as_mut()
@@ -183,9 +183,11 @@ impl<'a> Broker<'a> {
     }
 
     //Option<Arc<RwLock<dyn ILocalBroker>>>,
-    pub fn get_local_broker(&self) -> Result<Arc<RwLock<dyn ILocalBroker + 'a>>, NgError> {
+    pub(crate) fn get_local_broker(&self) -> Result<Arc<RwLock<dyn ILocalBroker>>, ProtocolError> {
         Ok(Arc::clone(
-            self.local_broker.as_ref().ok_or(NgError::BrokerError)?,
+            self.local_broker
+                .as_ref()
+                .ok_or(ProtocolError::BrokerError)?,
         ))
     }
 
@@ -297,102 +299,6 @@ impl<'a> Broker<'a> {
         }
     }
 
-    pub async fn get_block_from_store_with_block_id(
-        &mut self,
-        nuri: String,
-        id: BlockId,
-        include_children: bool,
-    ) -> Result<Receiver<Block>, ProtocolError> {
-        // TODO
-        let (mut tx, rx) = mpsc::unbounded::<Block>();
-
-        //log_debug!("cur {}", std::env::current_dir().unwrap().display());
-
-        //Err(ProtocolError::AccessDenied)
-        // let f = std::fs::File::open(
-        //     "../ng-repo/tests/e4e4b57524ce29df826055c368894e912ab03af46f61f6270b4c8796bc6f4221.ng",
-        // )
-        // .expect("open of block.ng");
-        // let mut reader = BufReader::new(f);
-        // let mut block_buffer: Vec<u8> = Vec::new();
-        // reader
-        //     .read_to_end(&mut block_buffer)
-        //     .expect("read of test.ng");
-
-        let block = serde_bare::from_slice::<Block>(&crate::tests::file::TEST).unwrap();
-
-        tx.send(block).await;
-        Ok(rx)
-    }
-
-    pub async fn get_object_from_store_with_object_ref(
-        &mut self,
-        nuri: String,
-        obj_ref: ObjectRef,
-    ) -> Result<ObjectContent, ProtocolError> {
-        unimplemented!();
-        // let blockstream = self
-        //     .get_block_from_store_with_block_id(nuri, obj_ref.id, true)
-        //     .await?;
-        // let store = Box::new(HashMapBlockStorage::from_block_stream(blockstream).await);
-
-        // Object::load(obj_ref.id, Some(obj_ref.key), &store)
-        //     .map_err(|e| match e {
-        //         ObjectParseError::MissingBlocks(_missing) => ProtocolError::MissingBlocks,
-        //         _ => ProtocolError::ObjectParseError,
-        //     })?
-        //     .content()
-        //     .map_err(|_| ProtocolError::ObjectParseError)
-    }
-
-    // pub async fn doc_sync_branch(&mut self, anuri: String) -> (Receiver<Commit>, Sender<Commit>) {
-    //     let obj_ref = ObjectRef {
-    //         id: ObjectId::Blake3Digest32([
-    //             228, 228, 181, 117, 36, 206, 41, 223, 130, 96, 85, 195, 104, 137, 78, 145, 42, 176,
-    //             58, 244, 111, 97, 246, 39, 11, 76, 135, 150, 188, 111, 66, 33,
-    //         ]),
-    //         key: SymKey::ChaCha20Key([
-    //             100, 243, 39, 242, 203, 131, 102, 50, 9, 54, 248, 113, 4, 160, 28, 45, 73, 56, 217,
-    //             112, 95, 150, 144, 137, 9, 57, 106, 5, 39, 202, 146, 94,
-    //         ]),
-    //     };
-    //     let refs = vec![obj_ref.clone()];
-    //     let metadata = vec![5u8; 55];
-
-    //     let (member_privkey, member_pubkey) = generate_keypair();
-
-    //     let overlay = OverlayId::nil();
-
-    //     let commit = Commit::new(
-    //         &member_privkey,
-    //         &member_pubkey,
-    //         overlay,
-    //         PubKey::nil(),
-    //         QuorumType::NoSigning,
-    //         vec![],
-    //         vec![],
-    //         vec![],
-    //         vec![],
-    //         refs,
-    //         vec![],
-    //         metadata,
-    //         obj_ref.clone(),
-    //     )
-    //     .unwrap();
-    //     let (tx, rx) = mpsc::unbounded::<Commit>();
-    //     async fn send(mut tx: Sender<Commit>, commit: Commit) -> ResultSend<()> {
-    //         while let Ok(_) = tx.send(commit.clone()).await {
-    //             log_debug!("sending");
-    //             sleep!(std::time::Duration::from_secs(3));
-    //         }
-    //         log_debug!("end of sending");
-    //         Ok(())
-    //     }
-    //     spawn_and_log_error(send(tx.clone(), commit));
-
-    //     (rx, tx.clone())
-    // }
-
     pub fn reconnecting(&mut self, peer_id: X25519PrivKey, user: Option<PubKey>) {
         let peerinfo = self.peers.get_mut(&(user, peer_id));
         match peerinfo {
@@ -466,7 +372,7 @@ impl<'a> Broker<'a> {
         let (shutdown_sender, shutdown_receiver) = mpsc::unbounded::<ProtocolError>();
         let mut random_buf = [0u8; 4];
         getrandom::getrandom(&mut random_buf).unwrap();
-        let (disconnections_sender, disconnections_receiver) = mpsc::unbounded::<String>();
+
         Broker {
             anonymous_connections: HashMap::new(),
             #[cfg(not(target_arch = "wasm32"))]
@@ -479,8 +385,6 @@ impl<'a> Broker<'a> {
             peers: HashMap::new(),
             closing: false,
             server_broker: None,
-            disconnections_sender,
-            disconnections_receiver: Some(disconnections_receiver),
             local_broker: None,
             users_peers: HashMap::new(),
         }
@@ -892,7 +796,7 @@ impl<'a> Broker<'a> {
             peer_pubkey: PubKey,
             remote_peer_id: [u8; 32],
             config: StartConfig,
-            mut disconnections_sender: Sender<String>,
+            local_broker: Arc<async_std::sync::RwLock<dyn ILocalBroker>>,
         ) -> ResultSend<()> {
             async move {
                 let res = join.next().await;
@@ -917,7 +821,7 @@ impl<'a> Broker<'a> {
 
                     // if all attempts fail :
                     if let Some(user) = config.get_user() {
-                        disconnections_sender.send(user.to_string()).await;
+                        local_broker.write().await.user_disconnected(user).await;
                     }
                 } else {
                     log_info!("REMOVED");
@@ -938,7 +842,7 @@ impl<'a> Broker<'a> {
             peer_pubk,
             *remote_peer_id_dh.slice(),
             config,
-            self.disconnections_sender.clone(),
+            self.get_local_broker()?,
         ));
         Ok(())
     }
@@ -1005,10 +909,6 @@ impl<'a> Broker<'a> {
         }
 
         Ok(())
-    }
-
-    pub fn take_disconnections_receiver(&mut self) -> Option<Receiver<String>> {
-        self.disconnections_receiver.take()
     }
 
     async fn close_peer_connection_x(&mut self, peer_id: X25519PubKey, user: Option<PubKey>) {

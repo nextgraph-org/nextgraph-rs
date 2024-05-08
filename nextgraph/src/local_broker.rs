@@ -10,6 +10,8 @@
 use async_once_cell::OnceCell;
 use async_std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use core::fmt;
+use futures::channel::mpsc;
+use futures::SinkExt;
 use ng_net::actor::EActor;
 use ng_net::connection::{ClientConfig, IConnect, NoiseFSM, StartConfig};
 use ng_net::types::{ClientInfo, ClientType, ProtocolMessage};
@@ -386,6 +388,9 @@ struct LocalBroker {
     pub opened_sessions_list: Vec<Option<Session>>,
 
     tauri_streams: HashMap<String, CancelFn>,
+
+    disconnections_sender: Sender<String>,
+    disconnections_receiver: Option<Receiver<String>>,
 }
 
 impl fmt::Debug for LocalBroker {
@@ -405,6 +410,12 @@ impl ILocalBroker for LocalBroker {
     async fn deliver(&mut self, event: Event, overlay: OverlayId, user_id: UserId) {
         if let Some(session) = self.get_mut_session_for_user(&user_id) {
             session.verifier.deliver(event, overlay).await;
+        }
+    }
+    async fn user_disconnected(&mut self, user_id: UserId) {
+        if let Some(session) = self.get_mut_session_for_user(&user_id) {
+            session.verifier.connection_lost();
+            let _ = self.disconnections_sender.send(user_id.to_string()).await;
         }
     }
 }
@@ -512,7 +523,7 @@ impl LocalBroker {
                 let session = self.opened_sessions_list[*session as usize]
                     .as_mut()
                     .ok_or(NgError::SessionNotFound)?;
-                session.verifier.connected_server_id = None;
+                session.verifier.connection_lost();
             }
             None => {}
         }
@@ -895,7 +906,7 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
             }
         }
     };
-
+    let (disconnections_sender, disconnections_receiver) = mpsc::unbounded::<String>();
     let local_broker = LocalBroker {
         config,
         wallets,
@@ -904,6 +915,8 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
         opened_sessions: HashMap::new(),
         opened_sessions_list: vec![],
         tauri_streams: HashMap::new(),
+        disconnections_sender,
+        disconnections_receiver: Some(disconnections_receiver),
     };
     //log_debug!("{:?}", &local_broker);
 
@@ -948,6 +961,7 @@ pub async fn tauri_stream_cancel(stream_id: String) -> Result<(), NgError> {
     broker.tauri_stream_cancel(stream_id);
     Ok(())
 }
+
 /// Initialize the configuration of your local broker
 ///
 /// , by passing in a function (or closure) that returns a `LocalBrokerConfig`.
@@ -1383,20 +1397,11 @@ pub async fn user_connect_with_device_info(
                                     ));
                                 }
                                 if tried.is_some() && tried.as_ref().unwrap().3.is_none() {
-                                    session.verifier.connected_server_id = Some(server_key);
-                                    // successful. we can stop here
-
-                                    // load verifier from remote connection (if not RocksDb type, or after import on tauri)
-                                    if let Err(e) = session.verifier.bootstrap().await {
-                                        session.verifier.connected_server_id = None;
+                                    if let Err(e) =
+                                        session.verifier.connection_opened(server_key).await
+                                    {
                                         Broker::close_all_connections().await;
                                         tried.as_mut().unwrap().3 = Some(e.to_string());
-                                    } else {
-                                        // we can send outbox now that the verifier is loaded
-                                        let res = session.verifier.send_outbox().await;
-                                        log_info!("SENDING EVENTS FROM OUTBOX RETURNED: {:?}", res);
-
-                                        //log_info!("VERIFIER DUMP {:?}", session.verifier);
                                     }
 
                                     break;
@@ -1589,6 +1594,19 @@ pub async fn personal_site_store(session_id: u64, store: SiteStoreType) -> Resul
         }
         None => Err(NgError::WalletNotFound),
     }
+}
+
+#[doc(hidden)]
+pub async fn take_disconnections_receiver() -> Result<Receiver<String>, NgError> {
+    let mut broker = match LOCAL_BROKER.get() {
+        None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+        Some(Ok(broker)) => broker.write().await,
+    };
+
+    broker
+        .disconnections_receiver
+        .take()
+        .ok_or(NgError::BrokerError)
 }
 
 #[cfg(test)]
