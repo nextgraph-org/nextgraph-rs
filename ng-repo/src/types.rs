@@ -14,8 +14,9 @@
 use crate::errors::NgError;
 use crate::store::Store;
 use crate::utils::{
-    decode_key, dh_pubkey_array_from_ed_pubkey_slice, dh_pubkey_from_ed_pubkey_slice,
-    ed_privkey_to_ed_pubkey, from_ed_privkey_to_dh_privkey, random_key,
+    decode_key, decode_priv_key, dh_pubkey_array_from_ed_pubkey_slice,
+    dh_pubkey_from_ed_pubkey_slice, ed_privkey_to_ed_pubkey, from_ed_privkey_to_dh_privkey,
+    random_key,
 };
 use core::fmt;
 use once_cell::sync::OnceCell;
@@ -45,9 +46,8 @@ impl Digest {
 
 impl fmt::Display for Digest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Digest::Blake3Digest32(d) => write!(f, "{}", base64_url::encode(d)),
-        }
+        let ser = serde_bare::to_vec(&self).unwrap();
+        write!(f, "{}", base64_url::encode(&ser))
     }
 }
 
@@ -103,9 +103,8 @@ impl SymKey {
 
 impl fmt::Display for SymKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ChaCha20Key(k) => write!(f, "{}", base64_url::encode(k)),
-        }
+        let ser = serde_bare::to_vec(&self).unwrap();
+        write!(f, "{}", base64_url::encode(&ser))
     }
 }
 
@@ -144,6 +143,12 @@ impl Default for PubKey {
 }
 
 impl PubKey {
+    pub fn to_dh(self) -> X25519PubKey {
+        match self {
+            Self::X25519PubKey(x) => x,
+            _ => panic!("cannot call to_dh on an Edward key"),
+        }
+    }
     pub fn slice(&self) -> &[u8; 32] {
         match self {
             PubKey::Ed25519PubKey(o) | PubKey::X25519PubKey(o) => o,
@@ -172,26 +177,23 @@ impl PubKey {
     }
 
     pub fn to_hash_string(&self) -> String {
-        let hash = blake3::hash(self.slice());
+        let ser = serde_bare::to_vec(&self).unwrap();
+        let hash = blake3::hash(&ser);
         base64_url::encode(&hash.as_bytes())
     }
 }
 
 impl fmt::Display for PubKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            PubKey::Ed25519PubKey(d) | PubKey::X25519PubKey(d) => {
-                write!(f, "{}", base64_url::encode(d))
-            }
-        }
+        let ser = serde_bare::to_vec(&self).unwrap();
+        write!(f, "{}", base64_url::encode(&ser))
     }
 }
 
 impl TryFrom<&str> for PubKey {
     type Error = NgError;
     fn try_from(str: &str) -> Result<Self, NgError> {
-        let key = decode_key(str)?;
-        Ok(PubKey::Ed25519PubKey(key))
+        decode_key(str)
     }
 }
 
@@ -260,23 +262,14 @@ impl TryFrom<&[u8]> for PrivKey {
 impl TryFrom<&str> for PrivKey {
     type Error = NgError;
     fn try_from(str: &str) -> Result<Self, NgError> {
-        let key = decode_key(str)?;
-        Ok(PrivKey::Ed25519PrivKey(key))
+        decode_priv_key(str)
     }
 }
 
 impl fmt::Display for PrivKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Ed25519PrivKey(ed) => {
-                //let priv_key_ser = serde_bare::to_vec(ed).unwrap();
-                let priv_key_encoded = base64_url::encode(ed);
-                write!(f, "{}", priv_key_encoded)
-            }
-            _ => {
-                unimplemented!();
-            }
-        }
+        let ser = serde_bare::to_vec(&self).unwrap();
+        write!(f, "{}", base64_url::encode(&ser))
     }
 }
 
@@ -439,6 +432,10 @@ impl BlockRef {
 
     pub fn from_id_key(id: BlockId, key: BlockKey) -> Self {
         BlockRef { id, key }
+    }
+
+    pub fn nuri(&self) -> String {
+        format!(":j:{}:k:{}", self.id, self.key)
     }
 }
 
@@ -1847,6 +1844,25 @@ pub struct AddFileV0 {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AddFile {
     V0(AddFileV0),
+}
+
+impl fmt::Display for AddFile {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "V0")?;
+                writeln!(f, "name: {:?}", v0.name)
+            }
+        }
+    }
+}
+
+impl AddFile {
+    pub fn name(&self) -> &Option<String> {
+        match self {
+            Self::V0(v0) => &v0.name,
+        }
+    }
 }
 
 /// Remove a file from the branch, using ORset CRDT logic

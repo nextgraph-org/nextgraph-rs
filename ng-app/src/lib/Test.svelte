@@ -11,75 +11,188 @@
 
 <script lang="ts">
   import ng from "../api";
-  import branch_commits from "../store";
-  let name = "";
-  let greetMsg = "";
-  let commits = branch_commits("ok", false);
+  import { branch_subs, active_session } from "../store";
+  import { link } from "svelte-spa-router";
+
+  let files = branch_subs("ok");
 
   let img_map = {};
 
   async function get_img(ref) {
     if (!ref) return false;
-    let cache = img_map[ref];
+    let cache = img_map[ref.nuri];
     if (cache) {
       return cache;
     }
-    try {
-      //console.log(JSON.stringify(ref));
-      let file = await ng.doc_get_file_from_store_with_object_ref("ng:", ref);
-      //console.log(file);
-      var blob = new Blob([file["File"].V0.content], {
-        type: file["File"].V0.content_type,
-      });
-      var imageUrl = URL.createObjectURL(blob);
-      img_map[ref] = imageUrl;
-      return imageUrl;
-    } catch (e) {
-      console.error(e);
-      return false;
-    }
-  }
+    let prom = new Promise(async (resolve) => {
+      try {
+        let nuri = {
+          target: "PrivateStore",
+          entire_store: false,
+          access: [{ Key: ref.reference.key }],
+          locator: [],
+          object: ref.reference.id,
+        };
 
-  async function greet() {
-    //greetMsg = await ng.create_wallet(name);
-    // cancel = await ng.doc_sync_branch("ok", async (commit) => {
-    //   console.log(commit);
-    //   try {
-    //     let file = await ng.doc_get_file_from_store_with_object_ref(
-    //       "ng:",
-    //       commit.V0.content.refs[0]
-    //     );
-    //     console.log(file);
-    //     var blob = new Blob([file["File"].V0.content], {
-    //       type: file["File"].V0.content_type,
-    //     });
-    //     var imageUrl = URL.createObjectURL(blob);
-    //     url = imageUrl;
-    //   } catch (e) {
-    //     console.error(e);
-    //   }
-    // });
-    //cancel();
+        let file_request = {
+          V0: {
+            command: "FileGet",
+            nuri,
+          },
+        };
+
+        let final_blob;
+        let content_type;
+        let unsub = await ng.app_request_stream(
+          $active_session.session_id,
+          file_request,
+          async (blob) => {
+            //console.log("GOT APP RESPONSE", blob);
+            if (blob.V0.FileMeta) {
+              content_type = blob.V0.FileMeta.content_type;
+              final_blob = new Blob([], { type: content_type });
+            } else if (blob.V0.FileBinary) {
+              if (blob.V0.FileBinary.byteLength > 0) {
+                final_blob = new Blob([final_blob, blob.V0.FileBinary], {
+                  type: content_type,
+                });
+              } else {
+                var imageUrl = URL.createObjectURL(final_blob);
+
+                resolve(imageUrl);
+              }
+            }
+          }
+        );
+      } catch (e) {
+        console.error(e);
+        resolve(false);
+      }
+    });
+    img_map[ref.nuri] = prom;
+    return prom;
   }
 
   let fileinput;
 
-  const onFileSelected = (e) => {
-    let image = e.target.files[0];
-    let reader = new FileReader();
-    reader.readAsArrayBuffer(image);
-    reader.onload = (e) => {
-      console.log(e.target.result);
+  function uploadFile(upload_id, nuri, file, success) {
+    let chunkSize = 1024 * 1024;
+    let fileSize = file.size;
+    let offset = 0;
+    let readBlock = null;
+
+    let onLoadHandler = async function (event) {
+      let result = event.target.result;
+
+      if (event.target.error == null) {
+        offset += event.target.result.byteLength;
+        //console.log("chunk", event.target.result);
+
+        let res = await ng.upload_chunk(
+          $active_session.session_id,
+          upload_id,
+          event.target.result,
+          nuri
+        );
+        //console.log("chunk upload res", res);
+        // if (onChunkRead) {
+        //   onChunkRead(result);
+        // }
+      } else {
+        // if (onChunkError) {
+        //   onChunkError(event.target.error);
+        // }
+        return;
+      }
+
+      if (offset >= fileSize) {
+        //console.log("file uploaded");
+        let res = await ng.upload_chunk(
+          $active_session.session_id,
+          upload_id,
+          [],
+          nuri
+        );
+        //console.log("end upload res", res);
+        if (success) {
+          success(res);
+        }
+        return;
+      }
+
+      readBlock(offset, chunkSize, file);
     };
+
+    readBlock = function (offset, length, file) {
+      let fileReader = new FileReader();
+      let blob = file.slice(offset, length + offset);
+      fileReader.onload = onLoadHandler;
+      fileReader.readAsArrayBuffer(blob);
+    };
+
+    readBlock(offset, chunkSize, file);
+    return;
+  }
+
+  const onFileSelected = async (e) => {
+    let image = e.target.files[0];
+    if (!image) return;
+    //console.log(image);
+
+    let nuri = {
+      target: "PrivateStore",
+      entire_store: false,
+      access: [],
+      locator: [],
+    };
+
+    let start_request = {
+      V0: {
+        command: "FilePut",
+        nuri,
+        payload: {
+          V0: {
+            RandomAccessFilePut: image.type,
+          },
+        },
+      },
+    };
+
+    let start_res = await ng.app_request(
+      $active_session.session_id,
+      start_request
+    );
+    let upload_id = start_res.V0.FileUploading;
+
+    uploadFile(upload_id, nuri, image, async (reference) => {
+      if (reference) {
+        let request = {
+          V0: {
+            command: "FilePut",
+            nuri,
+            payload: {
+              V0: {
+                AddFile: {
+                  filename: image.name,
+                  object: reference.V0.FileUploaded,
+                },
+              },
+            },
+          },
+        };
+
+        await ng.app_request($active_session.session_id, request);
+      }
+    });
+    fileinput.value = "";
   };
 </script>
 
 <div>
-  <!-- <div class="row">
-    <input id="greet-input" placeholder="Enter a name..." bind:value={name} />
-    <button on:click={greet}> Greet </button>
-  </div> -->
   <div class="row mt-2">
+    <!-- <a use:link href="/">
+      <button tabindex="-1" class=" mr-5 select-none"> Back home </button>
+    </a> -->
     <button
       type="button"
       on:click={() => {
@@ -112,13 +225,15 @@
       bind:this={fileinput}
     />
   </div>
-  <!-- <p>{greetMsg}</p> -->
-  {#await commits.load()}
+
+  {#await files.load()}
     <p>Currently loading...</p>
   {:then}
-    {#each $commits as commit}
+    {#each $files as file}
       <p>
-        {#await get_img(commit.V0.header.V0.files[0]) then url}
+        {file.V0.File.name}<br />
+        did:ng{file.V0.File.nuri}
+        {#await get_img(file.V0.File) then url}
           {#if url}
             <img src={url} />
           {/if}

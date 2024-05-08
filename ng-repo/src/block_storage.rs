@@ -38,6 +38,8 @@ pub trait BlockStorage: Send + Sync {
 
     /// number of Blocks in the storage
     fn len(&self) -> Result<usize, StorageError>;
+
+    fn has(&self, overlay: &OverlayId, id: &BlockId) -> Result<(), StorageError>;
 }
 
 /* LMDB values:
@@ -136,6 +138,13 @@ impl BlockStorage for HashMapBlockStorage {
             }
             None => Err(StorageError::NotFound),
         }
+    }
+
+    fn has(&self, _overlay: &OverlayId, id: &BlockId) -> Result<(), StorageError> {
+        if !self.blocks.read().unwrap().contains_key(id) {
+            return Err(StorageError::NotFound);
+        }
+        Ok(())
     }
 
     fn len(&self) -> Result<usize, StorageError> {

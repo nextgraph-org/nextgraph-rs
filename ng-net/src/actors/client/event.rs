@@ -73,23 +73,31 @@ impl EActor for Actor<'_, PublishEvent, ()> {
         msg: ProtocolMessage,
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
-        let req = PublishEvent::try_from(msg)?;
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let req = PublishEvent::try_from(msg)?;
 
-        // send a ProtocolError if invalid signatures (will disconnect the client)
-        req.event().verify()?;
+            // send a ProtocolError if invalid signatures (will disconnect the client)
+            req.event().verify()?;
 
-        let broker = BROKER.read().await;
-        let overlay = req.overlay().clone();
-        let res = broker.get_server_broker()?.dispatch_event(
-            &overlay,
-            req.take_event(),
-            &fsm.lock().await.user_id()?,
-        );
+            let broker = BROKER.read().await;
+            let overlay = req.overlay().clone();
+            let (user_id, remote_peer) = {
+                let fsm = fsm.lock().await;
+                (
+                    fsm.user_id()?,
+                    fsm.remote_peer().ok_or(ProtocolError::ActorError)?,
+                )
+            };
+            let res = broker
+                .dispatch_event(&overlay, req.take_event(), &user_id, &remote_peer)
+                .await;
 
-        fsm.lock()
-            .await
-            .send_in_reply_to(res.into(), self.id())
-            .await?;
+            fsm.lock()
+                .await
+                .send_in_reply_to(res.into(), self.id())
+                .await?;
+        }
         Ok(())
     }
 }

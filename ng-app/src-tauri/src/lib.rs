@@ -8,6 +8,7 @@
 // according to those terms.
 use async_std::stream::StreamExt;
 use nextgraph::local_broker::*;
+use nextgraph::verifier::types::*;
 use ng_net::broker::*;
 use ng_net::types::{ClientInfo, CreateAccountBSP, Invitation};
 use ng_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend};
@@ -234,29 +235,39 @@ async fn decode_invitation(invite: String) -> Option<Invitation> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn doc_sync_branch(nuri: &str, stream_id: &str, app: tauri::AppHandle) -> Result<(), ()> {
-    log_debug!("doc_sync_branch {} {}", nuri, stream_id);
+async fn app_request_stream(
+    session_id: u64,
+    request: AppRequest,
+    stream_id: &str,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    log_debug!("app request stream {} {:?}", stream_id, request);
     let main_window = app.get_window("main").unwrap();
 
-    let mut reader;
+    let reader;
     {
-        let mut sender;
-        let mut broker = BROKER.write().await;
-        (reader, sender) = broker.doc_sync_branch(nuri.to_string().clone()).await;
+        let cancel;
+        (reader, cancel) = nextgraph::local_broker::app_request_stream(session_id, request)
+            .await
+            .map_err(|e| e.to_string())?;
 
-        broker.tauri_stream_add(stream_id.to_string(), sender);
+        nextgraph::local_broker::tauri_stream_add(stream_id.to_string(), cancel)
+            .await
+            .map_err(|e| e.to_string())?;
     }
 
     async fn inner_task(
-        mut reader: Receiver<Commit>,
+        mut reader: Receiver<AppResponse>,
         stream_id: String,
         main_window: tauri::Window,
     ) -> ResultSend<()> {
-        while let Some(commit) = reader.next().await {
-            main_window.emit(&stream_id, commit).unwrap();
+        while let Some(app_response) = reader.next().await {
+            main_window.emit(&stream_id, app_response).unwrap();
         }
 
-        BROKER.write().await.tauri_stream_cancel(stream_id);
+        nextgraph::local_broker::tauri_stream_cancel(stream_id)
+            .await
+            .map_err(|e| e.to_string())?;
 
         log_debug!("END OF LOOP");
         Ok(())
@@ -268,13 +279,59 @@ async fn doc_sync_branch(nuri: &str, stream_id: &str, app: tauri::AppHandle) -> 
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn cancel_doc_sync_branch(stream_id: &str) -> Result<(), ()> {
-    log_debug!("cancel stream {}", stream_id);
-    BROKER
-        .write()
+async fn doc_fetch_private_subscribe() -> Result<AppRequest, String> {
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
+        nuri: NuriV0::new_private_store_target(),
+        payload: None,
+    });
+    Ok(request)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn app_request(
+    session_id: u64,
+    request: AppRequest,
+    app: tauri::AppHandle,
+) -> Result<AppResponse, String> {
+    log_debug!("app request {:?}", request);
+
+    nextgraph::local_broker::app_request(session_id, request)
         .await
-        .tauri_stream_cancel(stream_id.to_string());
-    Ok(())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn upload_chunk(
+    session_id: u64,
+    upload_id: u32,
+    chunk: serde_bytes::ByteBuf,
+    nuri: NuriV0,
+    app: tauri::AppHandle,
+) -> Result<AppResponse, String> {
+    log_debug!("upload_chunk {:?}", chunk);
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::FilePut,
+        nuri,
+        payload: Some(AppRequestPayload::V0(
+            AppRequestPayloadV0::RandomAccessFilePutChunk((upload_id, chunk)),
+        )),
+    });
+
+    nextgraph::local_broker::app_request(session_id, request)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn cancel_stream(stream_id: &str) -> Result<(), String> {
+    log_debug!("cancel stream {}", stream_id);
+    Ok(
+        nextgraph::local_broker::tauri_stream_cancel(stream_id.to_string())
+            .await
+            .map_err(|e: NgError| e.to_string())?,
+    )
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -302,32 +359,6 @@ async fn disconnections_subscribe(app: tauri::AppHandle) -> Result<(), ()> {
     spawn_and_log_error(inner_task(reader, main_window));
 
     Ok(())
-}
-
-#[tauri::command(rename_all = "snake_case")]
-async fn doc_get_file_from_store_with_object_ref(
-    nuri: &str,
-    obj_ref: ObjectRef,
-) -> Result<ObjectContent, String> {
-    log_debug!(
-        "doc_get_file_from_store_with_object_ref {} {:?}",
-        nuri,
-        obj_ref
-    );
-    // let ret = ObjectContent::File(File::V0(FileV0 {
-    //     content_type: "text/plain".to_string(),
-    //     metadata: vec![],
-    //     content: vec![45; 20],
-    // }));
-    // Ok(ret)
-    let obj_content = BROKER
-        .write()
-        .await
-        .get_object_from_store_with_object_ref(nuri.to_string(), obj_ref)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(obj_content)
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -438,9 +469,6 @@ impl AppBuilder {
             .plugin(tauri_plugin_window::init())
             .invoke_handler(tauri::generate_handler![
                 test,
-                doc_sync_branch,
-                cancel_doc_sync_branch,
-                doc_get_file_from_store_with_object_ref,
                 wallet_gen_shuffle_for_pazzle_opening,
                 wallet_gen_shuffle_for_pin,
                 wallet_open_with_pazzle,
@@ -461,6 +489,11 @@ impl AppBuilder {
                 user_connect,
                 user_disconnect,
                 client_info_rust,
+                doc_fetch_private_subscribe,
+                cancel_stream,
+                app_request_stream,
+                app_request,
+                upload_chunk,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

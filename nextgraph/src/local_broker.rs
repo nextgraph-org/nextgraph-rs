@@ -23,7 +23,7 @@ use once_cell::sync::Lazy;
 use serde_bare::to_vec;
 use serde_json::json;
 use std::collections::HashMap;
-use std::fs::{read, write, File, OpenOptions};
+use std::fs::{read, remove_file, write, File, OpenOptions};
 use std::path::PathBuf;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -54,6 +54,7 @@ pub struct JsStorageConfig {
     pub session_read: Arc<Box<JsStorageReadFn>>,
     pub session_write: Arc<Box<JsStorageWriteFn>>,
     pub session_del: Arc<Box<JsStorageDelFn>>,
+    pub clear: Arc<Box<JsCallback>>,
     pub is_browser: bool,
 }
 
@@ -111,6 +112,7 @@ impl JsStorageConfig {
             outbox_read_function: Box::new(
                 move |peer_id: PubKey| -> Result<Vec<Vec<u8>>, NgError> {
                     let start_key = format!("ng_outboxes@{}@start", peer_id);
+                    //log_info!("search start key {}", start_key);
                     let res = (session_read4)(start_key.clone());
                     let _start = match res {
                         Err(_) => return Err(NgError::JsStorageKeyNotFound),
@@ -123,6 +125,7 @@ impl JsStorageConfig {
                     loop {
                         let idx_str = format!("{:05}", idx);
                         let str = format!("ng_outboxes@{}@{idx_str}", peer_id);
+                        //log_info!("search key {}", str);
                         let res = (session_read4)(str.clone());
                         let res = match res {
                             Err(_) => break,
@@ -369,7 +372,6 @@ impl fmt::Debug for OpenedWallet {
     }
 }
 
-#[derive(Debug)]
 struct LocalBroker {
     pub config: LocalBrokerConfig,
 
@@ -382,12 +384,29 @@ struct LocalBroker {
     pub opened_sessions: HashMap<UserId, u64>,
 
     pub opened_sessions_list: Vec<Option<Session>>,
+
+    tauri_streams: HashMap<String, CancelFn>,
+}
+
+impl fmt::Debug for LocalBroker {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "LocalBroker.\nconfig {:?}", self.config)?;
+        writeln!(f, "wallets {:?}", self.wallets)?;
+        writeln!(f, "opened_wallets {:?}", self.opened_wallets)?;
+        writeln!(f, "sessions {:?}", self.sessions)?;
+        writeln!(f, "opened_sessions {:?}", self.opened_sessions)?;
+        writeln!(f, "opened_sessions_list {:?}", self.opened_sessions_list)
+    }
 }
 
 // used to deliver events to the verifier on Clients, or Core that have Verifiers attached.
 #[async_trait::async_trait]
 impl ILocalBroker for LocalBroker {
-    async fn deliver(&mut self, event: Event) {}
+    async fn deliver(&mut self, event: Event, overlay: OverlayId, user_id: UserId) {
+        if let Some(session) = self.get_mut_session_for_user(&user_id) {
+            session.verifier.deliver(event, overlay).await;
+        }
+    }
 }
 
 // this is used if an Actor does a BROKER.local_broker.respond
@@ -419,6 +438,21 @@ impl LocalBroker {
     //         }
     //     }
     // }
+
+    /// helper function to store the sender of a tauri stream in order to be able to cancel it later on
+    /// only used in Tauri, not used in the JS SDK
+    fn tauri_stream_add(&mut self, stream_id: String, cancel: CancelFn) {
+        self.tauri_streams.insert(stream_id, cancel);
+    }
+
+    /// helper function to cancel a tauri stream
+    /// only used in Tauri, not used in the JS SDK
+    fn tauri_stream_cancel(&mut self, stream_id: String) {
+        let s = self.tauri_streams.remove(&stream_id);
+        if let Some(cancel) = s {
+            cancel();
+        }
+    }
 
     fn get_mut_session_for_user(&mut self, user: &UserId) -> Option<&mut Session> {
         match self.opened_sessions.get(user) {
@@ -604,7 +638,7 @@ impl LocalBroker {
                 let credentials = match opened_wallet.wallet.individual_site(&user_id) {
                     Some(creds) => creds,
                     None => match user_priv_key {
-                        Some(user_pk) => (user_pk, None, None),
+                        Some(user_pk) => (user_pk, None, None, None, None),
                         None => return Err(NgError::NotFound),
                     },
                 };
@@ -745,6 +779,8 @@ impl LocalBroker {
                         user_priv_key: credentials.0,
                         private_store_read_cap: credentials.1,
                         private_store_id: credentials.2,
+                        protected_store_id: credentials.3,
+                        public_store_id: credentials.4,
                     },
                     block_storage,
                 )?;
@@ -794,7 +830,7 @@ impl LocalBroker {
                 let lws_ser = LocalWalletStorage::v0_to_vec(&wallets_to_be_saved);
                 let r = write(path.clone(), &lws_ser);
                 if r.is_err() {
-                    log_debug!("write error {:?} {}", path, r.unwrap_err());
+                    log_err!("write error {:?} {}", path, r.unwrap_err());
                     return Err(NgError::IoError);
                 }
             }
@@ -815,11 +851,17 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
             // load the wallets and sessions from disk
             let mut path = base_path.clone();
             path.push("wallets");
-            let map_ser = read(path);
+            let map_ser = read(path.clone());
             if map_ser.is_ok() {
-                let wallets = LocalWalletStorage::v0_from_vec(&map_ser.unwrap())?;
-                let LocalWalletStorage::V0(wallets) = wallets;
-                wallets
+                let wallets = LocalWalletStorage::v0_from_vec(&map_ser.unwrap());
+                if wallets.is_err() {
+                    log_err!("Load LocalWalletStorage error: {:?}", wallets.unwrap_err());
+                    let _ = remove_file(path);
+                    HashMap::new()
+                } else {
+                    let LocalWalletStorage::V0(wallets) = wallets.unwrap();
+                    wallets
+                }
             } else {
                 HashMap::new()
             }
@@ -829,11 +871,26 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
             match (js_storage_config.local_read)("ng_wallets".to_string()) {
                 Err(_) => HashMap::new(),
                 Ok(wallets_string) => {
-                    let map_ser = base64_url::decode(&wallets_string)
-                        .map_err(|_| NgError::SerializationError)?;
-                    let wallets: LocalWalletStorage = serde_bare::from_slice(&map_ser)?;
-                    let LocalWalletStorage::V0(v0) = wallets;
-                    v0
+                    match base64_url::decode(&wallets_string)
+                        .map_err(|_| NgError::SerializationError)
+                    {
+                        Err(e) => {
+                            log_err!("Load wallets error: {:?}", e);
+                            (js_storage_config.clear)();
+                            HashMap::new()
+                        }
+                        Ok(map_ser) => match serde_bare::from_slice(&map_ser) {
+                            Err(e) => {
+                                log_err!("Load LocalWalletStorage error: {:?}", e);
+                                (js_storage_config.clear)();
+                                HashMap::new()
+                            }
+                            Ok(wallets) => {
+                                let LocalWalletStorage::V0(v0) = wallets;
+                                v0
+                            }
+                        },
+                    }
                 }
             }
         }
@@ -846,14 +903,16 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
         sessions: HashMap::new(),
         opened_sessions: HashMap::new(),
         opened_sessions_list: vec![],
+        tauri_streams: HashMap::new(),
     };
     //log_debug!("{:?}", &local_broker);
 
     let broker = Arc::new(RwLock::new(local_broker));
 
-    BROKER.write().await.set_local_broker(Arc::clone(
-        &(Arc::clone(&broker) as Arc<RwLock<dyn ILocalBroker>>),
-    ));
+    BROKER
+        .write()
+        .await
+        .set_local_broker(Arc::clone(&broker) as Arc<RwLock<dyn ILocalBroker>>);
 
     Ok(broker)
 }
@@ -868,6 +927,27 @@ pub async fn init_local_broker_with_lazy(config_fn: &Lazy<Box<ConfigInitFn>>) {
         .await;
 }
 
+#[doc(hidden)]
+pub async fn tauri_stream_add(stream_id: String, cancel: CancelFn) -> Result<(), NgError> {
+    let mut broker = match LOCAL_BROKER.get() {
+        None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+        Some(Ok(broker)) => broker.write().await,
+    };
+
+    broker.tauri_stream_add(stream_id, cancel);
+    Ok(())
+}
+
+#[doc(hidden)]
+pub async fn tauri_stream_cancel(stream_id: String) -> Result<(), NgError> {
+    let mut broker = match LOCAL_BROKER.get() {
+        None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+        Some(Ok(broker)) => broker.write().await,
+    };
+
+    broker.tauri_stream_cancel(stream_id);
+    Ok(())
+}
 /// Initialize the configuration of your local broker
 ///
 /// , by passing in a function (or closure) that returns a `LocalBrokerConfig`.
@@ -1415,11 +1495,64 @@ pub async fn wallet_remove(wallet_name: String) -> Result<(), NgError> {
     Ok(())
 }
 
-/// fetches a document's content, or performs a mutation on the document.
-pub async fn doc_fetch(
+// /// fetches a document's content.
+// pub async fn doc_fetch_nuri(
+//     session_id: u64,
+//     nuri: String,
+//     payload: Option<AppRequestPayload>,
+// ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
+//     let mut broker = match LOCAL_BROKER.get() {
+//         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+//         Some(Ok(broker)) => broker.write().await,
+//     };
+//     if session_id as usize >= broker.opened_sessions_list.len() {
+//         return Err(NgError::InvalidArgument);
+//     }
+//     let session = broker.opened_sessions_list[session_id as usize]
+//         .as_mut()
+//         .ok_or(NgError::SessionNotFound)?;
+
+//     session.verifier.doc_fetch_nuri(nuri, payload, true).await
+// }
+
+// /// fetches the private store home page and subscribes to its updates.
+// pub async fn doc_fetch_private(
+//     session_id: u64,
+// ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
+//     let mut broker = match LOCAL_BROKER.get() {
+//         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+//         Some(Ok(broker)) => broker.write().await,
+//     };
+//     if session_id as usize >= broker.opened_sessions_list.len() {
+//         return Err(NgError::InvalidArgument);
+//     }
+//     let session = broker.opened_sessions_list[session_id as usize]
+//         .as_mut()
+//         .ok_or(NgError::SessionNotFound)?;
+
+//     session.verifier.doc_fetch_private(true).await
+// }
+
+/// process any type of app request that returns a single value
+pub async fn app_request(session_id: u64, request: AppRequest) -> Result<AppResponse, NgError> {
+    let mut broker = match LOCAL_BROKER.get() {
+        None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+        Some(Ok(broker)) => broker.write().await,
+    };
+    if session_id as usize >= broker.opened_sessions_list.len() {
+        return Err(NgError::InvalidArgument);
+    }
+    let session = broker.opened_sessions_list[session_id as usize]
+        .as_mut()
+        .ok_or(NgError::SessionNotFound)?;
+
+    session.verifier.app_request(request).await
+}
+
+/// process any type of app request that returns a stream of values
+pub async fn app_request_stream(
     session_id: u64,
-    nuri: String,
-    payload: Option<AppRequestPayload>,
+    request: AppRequest,
 ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
@@ -1432,7 +1565,7 @@ pub async fn doc_fetch(
         .as_mut()
         .ok_or(NgError::SessionNotFound)?;
 
-    session.verifier.doc_fetch(nuri, payload)
+    session.verifier.app_request_stream(request).await
 }
 
 /// retrieves the ID of one of the 3 stores of a the personal Site (3P: public, protected, or private)

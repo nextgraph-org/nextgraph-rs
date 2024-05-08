@@ -498,13 +498,23 @@ impl SensitiveWallet {
     pub fn individual_site(
         &self,
         user_id: &UserId,
-    ) -> Option<(PrivKey, Option<ReadCap>, Option<RepoId>)> {
+    ) -> Option<(
+        PrivKey,
+        Option<ReadCap>,
+        Option<RepoId>,
+        Option<RepoId>,
+        Option<RepoId>,
+    )> {
         match self {
             Self::V0(v0) => match v0.sites.get(&user_id.to_string()) {
                 Some(site) => match &site.site_type {
-                    SiteType::Individual((user, readcap)) => {
-                        Some((user.clone(), Some(readcap.clone()), Some(site.private.id)))
-                    }
+                    SiteType::Individual((user, readcap)) => Some((
+                        user.clone(),
+                        Some(readcap.clone()),
+                        Some(site.private.id),
+                        Some(site.protected.id),
+                        Some(site.public.id),
+                    )),
                     _ => None,
                 },
                 None => None,
@@ -639,6 +649,8 @@ pub struct WalletContentV0 {
     // WalletLog content encrypted with XChaCha20Poly1305, AD = timestamp and walletID
     #[serde(with = "serde_bytes")]
     pub encrypted: Vec<u8>,
+
+    pub test: Option<String>,
 }
 
 /// Wallet Log V0

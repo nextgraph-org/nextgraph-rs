@@ -28,8 +28,8 @@ use rand::prelude::*;
 use threshold_crypto::{SecretKeySet, SecretKeyShare};
 
 pub struct Store {
+    //TODO: store_repo, store_readcap and store_overlay_branch_readcap could be empty, if we have only an outer access to the store. should be Options
     store_repo: StoreRepo,
-    //TODO: store_readcap and store_overlay_branch_readcap could be empty, if we have only an outer access to the store. should be Options
     store_readcap: ReadCap,
     store_overlay_branch_readcap: ReadCap,
     pub overlay_id: OverlayId,
@@ -166,6 +166,13 @@ impl Store {
             .read()
             .map_err(|_| StorageError::BackendError)?
             .len()
+    }
+
+    pub fn has(&self, id: &BlockId) -> Result<(), StorageError> {
+        self.storage
+            .read()
+            .map_err(|_| StorageError::BackendError)?
+            .has(&self.overlay_id, id)
     }
 
     /// returns the (branch_commit, add_branch_commit, branch_info)

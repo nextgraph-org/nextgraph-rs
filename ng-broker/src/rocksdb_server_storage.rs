@@ -455,7 +455,7 @@ impl RocksDbServerStorage {
     ) -> Result<TopicSubRes, ServerError> {
         let overlay = self.check_overlay(overlay)?;
         // now we check that the repo was previously pinned.
-        // if it was opened but not pinned, then this should be deal with in the ServerBroker, in memory, not here)
+        // if it was opened but not pinned, then this should be dealt with in the ServerBroker, in memory, not here)
 
         let is_publisher = publisher.is_some();
         // (we already checked that the advert is valid)
@@ -502,7 +502,45 @@ impl RocksDbServerStorage {
         Ok(blocks)
     }
 
-    fn add_block(
+    pub(crate) fn has_block(
+        &self,
+        overlay: &OverlayId,
+        block_id: &BlockId,
+    ) -> Result<(), ServerError> {
+        let overlay = self.check_overlay(overlay)?;
+        let overlay = &overlay;
+
+        Ok(self.block_storage.read().unwrap().has(overlay, block_id)?)
+    }
+
+    pub(crate) fn get_block(
+        &self,
+        overlay: &OverlayId,
+        block_id: &BlockId,
+    ) -> Result<Block, ServerError> {
+        let overlay = self.check_overlay(overlay)?;
+        let overlay = &overlay;
+
+        Ok(self.block_storage.read().unwrap().get(overlay, block_id)?)
+    }
+
+    pub(crate) fn add_block(
+        &self,
+        overlay: &OverlayId,
+        block: Block,
+    ) -> Result<BlockId, ServerError> {
+        if overlay.is_outer() {
+            // we don't publish events on the outer overlay!
+            return Err(ServerError::OverlayMismatch);
+        }
+        let overlay = self.check_overlay(overlay)?;
+        let overlay = &overlay;
+
+        let mut overlay_storage = OverlayStorage::new(overlay, &self.core_storage);
+        Ok(self.add_block_(overlay, &mut overlay_storage, block)?)
+    }
+
+    fn add_block_(
         &self,
         overlay_id: &OverlayId,
         overlay_storage: &mut OverlayStorage,
@@ -522,7 +560,7 @@ impl RocksDbServerStorage {
         overlay: &OverlayId,
         mut event: Event,
         user_id: &UserId,
-    ) -> Result<(), ServerError> {
+    ) -> Result<TopicId, ServerError> {
         if overlay.is_outer() {
             // we don't publish events on the outer overlay!
             return Err(ServerError::OverlayMismatch);
@@ -532,12 +570,13 @@ impl RocksDbServerStorage {
 
         // TODO: check that the sequence number is correct
 
+        let topic = *event.topic_id();
         // check that the topic exists and that this user has pinned it as publisher
-        let mut topic_storage = TopicStorage::open(event.topic_id(), overlay, &self.core_storage)
-            .map_err(|e| match e {
-            StorageError::NotFound => ServerError::TopicNotFound,
-            _ => e.into(),
-        })?;
+        let mut topic_storage =
+            TopicStorage::open(&topic, overlay, &self.core_storage).map_err(|e| match e {
+                StorageError::NotFound => ServerError::TopicNotFound,
+                _ => e.into(),
+            })?;
         let is_publisher = TopicStorage::USERS
             .get(&mut topic_storage, user_id)
             .map_err(|e| match e {
@@ -557,7 +596,7 @@ impl RocksDbServerStorage {
                 let temp_mini_block_storage = HashMapBlockStorage::new();
                 for block in v0.content.blocks {
                     let _ = temp_mini_block_storage.put(overlay, &block, false)?;
-                    extracted_blocks_ids.push(self.add_block(
+                    extracted_blocks_ids.push(self.add_block_(
                         overlay,
                         &mut overlay_storage,
                         block,
@@ -604,7 +643,7 @@ impl RocksDbServerStorage {
             }
         }
 
-        Ok(())
+        Ok(topic)
     }
 
     pub(crate) fn topic_sync_req(

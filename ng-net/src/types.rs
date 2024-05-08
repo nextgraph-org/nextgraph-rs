@@ -1435,8 +1435,9 @@ pub enum ClientType {
     NativeService,
     NodeService,
     Verifier,
-    Box,
-    Stick,
+    VerifierLocal,
+    Box,   // VerifierBox
+    Stick, // VerifierStick
     WalletMaster,
     ClientBroker,
     Cli,
@@ -2047,7 +2048,7 @@ pub struct OverlayAdvertMarkerV0 {
 
 /// Core Block Get V0
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CoreBlockGetV0 {
+pub struct CoreBlocksGetV0 {
     /// Block ID to request
     pub ids: Vec<BlockId>,
 
@@ -2093,8 +2094,8 @@ pub enum ReturnPathTimingAdvert {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum CoreBlockGet {
-    V0(CoreBlockGetV0),
+pub enum CoreBlocksGet {
+    V0(CoreBlocksGetV0),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2107,7 +2108,7 @@ pub enum CoreBlockResult {
 pub enum CoreDirectMessageContentV0 {
     OverlayAdvertMarker(OverlayAdvertMarker),
     ReturnPathTimingAdvert(ReturnPathTimingAdvert),
-    BlockGet(CoreBlockGet),
+    BlocksGet(CoreBlocksGet),
     BlockResult(CoreBlockResult),
     //PostInbox,
     //PartialSignature,
@@ -2199,7 +2200,7 @@ pub enum OuterOverlayRequestContentV0 {
     OverlayLeave(OverlayLeave),
     TopicSub(PubKey),
     TopicUnsub(PubKey),
-    BlockGet(BlockGet),
+    BlocksGet(BlocksGet),
     //PostInboxRequest(PostInboxRequest),
 }
 
@@ -2958,11 +2959,6 @@ pub enum TopicSub {
 }
 
 impl TopicSub {
-    pub fn overlay(&self) -> &OverlayId {
-        match self {
-            Self::V0(v0) => v0.overlay.as_ref().unwrap(),
-        }
-    }
     pub fn hash(&self) -> &RepoHash {
         match self {
             Self::V0(o) => &o.repo_hash,
@@ -2981,6 +2977,11 @@ impl TopicSub {
     pub fn set_overlay(&mut self, overlay: OverlayId) {
         match self {
             Self::V0(v0) => v0.overlay = Some(overlay),
+        }
+    }
+    pub fn overlay(&self) -> &OverlayId {
+        match self {
+            Self::V0(v0) => v0.overlay.as_ref().unwrap(),
         }
     }
 }
@@ -3005,7 +3006,7 @@ pub enum TopicUnsub {
 ///
 /// commit_header_key is always set to None in the reply when request is made on OuterOverlay of protected or Group overlays
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BlockGetV0 {
+pub struct BlocksGetV0 {
     /// Block IDs to request
     pub ids: Vec<BlockId>,
 
@@ -3015,28 +3016,31 @@ pub struct BlockGetV0 {
     /// Topic the object is referenced from, if it is known by the requester.
     /// can be used to do a BlockSearchTopic in the core overlay.
     pub topic: Option<TopicId>,
+
+    #[serde(skip)]
+    pub overlay: Option<OverlayId>,
 }
 
 /// Request an object by ID
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum BlockGet {
-    V0(BlockGetV0),
+pub enum BlocksGet {
+    V0(BlocksGetV0),
 }
 
-impl BlockGet {
+impl BlocksGet {
     pub fn ids(&self) -> &Vec<BlockId> {
         match self {
-            BlockGet::V0(o) => &o.ids,
+            BlocksGet::V0(o) => &o.ids,
         }
     }
     pub fn include_children(&self) -> bool {
         match self {
-            BlockGet::V0(o) => o.include_children,
+            BlocksGet::V0(o) => o.include_children,
         }
     }
     pub fn topic(&self) -> Option<PubKey> {
         match self {
-            BlockGet::V0(o) => o.topic,
+            BlocksGet::V0(o) => o.topic,
         }
     }
 }
@@ -3044,10 +3048,10 @@ impl BlockGet {
 /// Request a Commit by ID
 ///
 /// commit_header_key is always set to None in the reply when request is made on OuterOverlay of protected or Group overlays
-/// The difference with BlockGet is that the Broker will try to return all the commit blocks as they were sent in the Pub/Sub Event, if it has it.
-/// This will help in having all the blocks (including the header and body blocks), while a BlockGet would inevitably return only the blocks of the ObjectContent,
+/// The difference with BlocksGet is that the Broker will try to return all the commit blocks as they were sent in the Pub/Sub Event, if it has it.
+/// This will help in having all the blocks (including the header and body blocks), while a BlocksGet would inevitably return only the blocks of the ObjectContent,
 /// and not the header nor the body. And the load() would fail with CommitLoadError::MissingBlocks. That's what happens when the Commit is not present in the pubsub,
-/// and we need to default to using BlockGet instead.
+/// and we need to default to using BlocksGet instead.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CommitGetV0 {
     /// Block IDs to request
@@ -3079,6 +3083,9 @@ impl CommitGet {
 pub struct BlocksPutV0 {
     /// Blocks to store
     pub blocks: Vec<Block>,
+
+    #[serde(skip)]
+    pub overlay: Option<OverlayId>,
 }
 
 /// Request to store one or more blocks
@@ -3093,15 +3100,28 @@ impl BlocksPut {
             BlocksPut::V0(o) => &o.blocks,
         }
     }
+    pub fn overlay(&self) -> &OverlayId {
+        match self {
+            Self::V0(v0) => v0.overlay.as_ref().unwrap(),
+        }
+    }
+    pub fn set_overlay(&mut self, overlay: OverlayId) {
+        match self {
+            Self::V0(v0) => v0.overlay = Some(overlay),
+        }
+    }
 }
 
 /// Request to know if some blocks are present locally
 ///
-/// used by client before publishing an event, to know what to push
+/// used by client before publishing an event with files, to know what to push
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlocksExistV0 {
     /// Ids of Blocks to check
     pub blocks: Vec<BlockId>,
+
+    #[serde(skip)]
+    pub overlay: Option<OverlayId>,
 }
 
 /// Request to store one or more blocks
@@ -3114,6 +3134,16 @@ impl BlocksExist {
     pub fn blocks(&self) -> &Vec<BlockId> {
         match self {
             BlocksExist::V0(o) => &o.blocks,
+        }
+    }
+    pub fn overlay(&self) -> &OverlayId {
+        match self {
+            Self::V0(v0) => v0.overlay.as_ref().unwrap(),
+        }
+    }
+    pub fn set_overlay(&mut self, overlay: OverlayId) {
+        match self {
+            Self::V0(v0) => v0.overlay = Some(overlay),
         }
     }
 }
@@ -3201,7 +3231,7 @@ pub enum ClientRequestContentV0 {
     TopicUnsub(TopicUnsub),
 
     BlocksExist(BlocksExist),
-    BlockGet(BlockGet),
+    BlocksGet(BlocksGet),
     CommitGet(CommitGet),
     TopicSyncReq(TopicSyncReq),
 
@@ -3224,6 +3254,9 @@ impl ClientRequestContentV0 {
             ClientRequestContentV0::PublishEvent(a) => a.set_overlay(overlay),
             ClientRequestContentV0::CommitGet(a) => a.set_overlay(overlay),
             ClientRequestContentV0::TopicSyncReq(a) => a.set_overlay(overlay),
+            ClientRequestContentV0::BlocksPut(a) => a.set_overlay(overlay),
+            ClientRequestContentV0::BlocksExist(a) => a.set_overlay(overlay),
+            ClientRequestContentV0::BlocksGet(a) => a.set_overlay(overlay),
             _ => unimplemented!(),
         }
     }
@@ -3272,6 +3305,9 @@ impl ClientRequest {
                 ClientRequestContentV0::PublishEvent(r) => r.get_actor(self.id()),
                 ClientRequestContentV0::CommitGet(r) => r.get_actor(self.id()),
                 ClientRequestContentV0::TopicSyncReq(r) => r.get_actor(self.id()),
+                ClientRequestContentV0::BlocksPut(r) => r.get_actor(self.id()),
+                ClientRequestContentV0::BlocksExist(r) => r.get_actor(self.id()),
+                ClientRequestContentV0::BlocksGet(r) => r.get_actor(self.id()),
                 _ => unimplemented!(),
             },
         }
@@ -3363,6 +3399,11 @@ impl TopicSubRes {
             known_heads: topics.into_iter().collect(),
             publisher,
         })
+    }
+    pub fn known_heads(&self) -> &Vec<ObjectId> {
+        match self {
+            Self::V0(v0) => &v0.known_heads,
+        }
     }
 }
 
@@ -3518,6 +3559,22 @@ pub enum ClientMessageContentV0 {
     ForwardedEvent(Event),
     ForwardedBlock(Block),
 }
+impl ClientMessageContentV0 {
+    pub fn is_block(&self) -> bool {
+        match self {
+            Self::ClientRequest(ClientRequest::V0(ClientRequestV0 {
+                content: ClientRequestContentV0::BlocksPut(_),
+                ..
+            })) => true,
+            Self::ClientResponse(ClientResponse::V0(ClientResponseV0 {
+                content: ClientResponseContentV0::Block(_),
+                ..
+            })) => true,
+            _ => false,
+        }
+    }
+}
+
 /// Broker message for an overlay
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClientMessageV0 {
@@ -3548,6 +3605,16 @@ impl ClientMessage {
             },
         }
     }
+
+    pub fn forwarded_event(self) -> Option<(Event, OverlayId)> {
+        let overlay = self.overlay_id();
+        match self {
+            ClientMessage::V0(o) => match o.content {
+                ClientMessageContentV0::ForwardedEvent(e) => Some((e, overlay)),
+                _ => None,
+            },
+        }
+    }
     pub fn overlay_id(&self) -> OverlayId {
         match self {
             ClientMessage::V0(o) => o.overlay,
@@ -3567,15 +3634,13 @@ impl ClientMessage {
             }
         }
     }
-    pub fn id(&self) -> i64 {
+    pub fn id(&self) -> Option<i64> {
         match self {
             ClientMessage::V0(o) => match &o.content {
-                ClientMessageContentV0::ClientResponse(r) => r.id(),
-                ClientMessageContentV0::ClientRequest(r) => r.id(),
+                ClientMessageContentV0::ClientResponse(r) => Some(r.id()),
+                ClientMessageContentV0::ClientRequest(r) => Some(r.id()),
                 ClientMessageContentV0::ForwardedEvent(_)
-                | ClientMessageContentV0::ForwardedBlock(_) => {
-                    panic!("it is an event")
-                }
+                | ClientMessageContentV0::ForwardedBlock(_) => None,
             },
         }
     }
@@ -3869,12 +3934,12 @@ impl TryFrom<&ProtocolMessage> for ServerError {
 }
 
 impl ProtocolMessage {
-    pub fn id(&self) -> i64 {
+    pub fn id(&self) -> Option<i64> {
         match self {
-            ProtocolMessage::ExtRequest(ext_req) => ext_req.id(),
-            ProtocolMessage::ExtResponse(ext_res) => ext_res.id(),
+            ProtocolMessage::ExtRequest(ext_req) => Some(ext_req.id()),
+            ProtocolMessage::ExtResponse(ext_res) => Some(ext_res.id()),
             ProtocolMessage::ClientMessage(client_msg) => client_msg.id(),
-            _ => 0,
+            _ => None,
         }
     }
     pub fn set_id(&mut self, id: i64) {
@@ -3939,6 +4004,16 @@ impl ProtocolMessage {
             })),
             padding: vec![],
         }))
+    }
+
+    pub fn is_block(&self) -> bool {
+        match self {
+            ProtocolMessage::ClientMessage(ClientMessage::V0(ClientMessageV0 {
+                content: c,
+                ..
+            })) => c.is_block(),
+            _ => false,
+        }
     }
 }
 

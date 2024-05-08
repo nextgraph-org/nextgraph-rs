@@ -12,11 +12,27 @@
 <script lang="ts">
   import Test from "../lib/Test.svelte";
   export let params = {};
+  import { active_session } from "../store";
+  import { onMount, tick } from "svelte";
+  import { link, push } from "svelte-spa-router";
+
+  let top;
+  async function scrollToTop() {
+    await tick();
+    top.scrollIntoView();
+  }
+
+  onMount(async () => {
+    if (!$active_session) {
+      push("#/");
+    } else {
+      await scrollToTop();
+    }
+  });
 </script>
 
 <main class="container3">
-  <h1>Welcome to test</h1>
-  <div class="row">
+  <div class="row" bind:this={top}>
     <Test />
   </div>
 </main>

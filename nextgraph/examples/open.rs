@@ -8,8 +8,8 @@
 // according to those terms.
 
 use nextgraph::local_broker::{
-    doc_fetch, init_local_broker, session_start, session_stop, user_connect, user_disconnect,
-    wallet_close, wallet_create_v0, wallet_get, wallet_get_file, wallet_import,
+    app_request, app_request_stream, init_local_broker, session_start, session_stop, user_connect,
+    user_disconnect, wallet_close, wallet_create_v0, wallet_get, wallet_get_file, wallet_import,
     wallet_open_with_pazzle, wallet_open_with_pazzle_words, wallet_read_file, wallet_was_opened,
     LocalBrokerConfig, SessionConfig,
 };

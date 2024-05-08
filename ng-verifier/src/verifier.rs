@@ -10,9 +10,13 @@
 //! Repo object (on heap) to handle a Repository
 use crate::commits::*;
 use crate::types::*;
+use crate::user_storage::InMemoryUserStorage;
 use async_std::stream::StreamExt;
+use futures::channel::mpsc;
+use futures::SinkExt;
 use ng_net::actor::SoS;
 use ng_net::broker::{Broker, BROKER};
+use ng_repo::block_storage::store_max_value_size;
 use ng_repo::log::*;
 use ng_repo::object::Object;
 use ng_repo::repo::BranchInfo;
@@ -26,6 +30,8 @@ use ng_repo::{
     utils::{generate_keypair, sign},
 };
 use std::cmp::max;
+use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::fs::{create_dir_all, read, write, File, OpenOptions};
 use std::io::Write;
 
@@ -66,14 +72,15 @@ pub struct Verifier {
     pub config: VerifierConfig,
     pub connected_server_id: Option<PubKey>,
     graph_dataset: Option<oxigraph::store::Store>,
-    user_storage: Option<Arc<Box<dyn UserStorage>>>,
+    pub(crate) user_storage: Option<Arc<Box<dyn UserStorage>>>,
     block_storage: Option<Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>>,
     last_seq_num: u64,
     peer_id: PubKey,
     max_reserved_seq_num: u64,
     last_reservation: SystemTime,
     stores: HashMap<OverlayId, Arc<Store>>,
-    repos: HashMap<RepoId, Repo>,
+    inner_to_outer: HashMap<OverlayId, OverlayId>,
+    pub(crate) repos: HashMap<RepoId, Repo>,
     // TODO: deal with collided repo_ids. self.repos should be a HashMap<RepoId,Collision> enum Collision {Yes, No(Repo)}
     // add a collided_repos: HashMap<(OverlayId, RepoId), Repo>
     // only use get_repo() everywhere in the code (always passing the overlay) so that collisions can be handled.
@@ -82,6 +89,8 @@ pub struct Verifier {
     pub(crate) topics: HashMap<(OverlayId, TopicId), (RepoId, BranchId)>,
     /// only used for InMemory type, to store the outbox
     in_memory_outbox: Vec<EventOutboxStorage>,
+    uploads: BTreeMap<u32, RandomAccessFile>,
+    branch_subscriptions: HashMap<BranchId, Sender<AppResponse>>,
 }
 
 impl fmt::Debug for Verifier {
@@ -104,10 +113,97 @@ impl Verifier {
         &self.config.user_priv_key
     }
 
+    pub(crate) fn start_upload(&mut self, content_type: String, store: Arc<Store>) -> u32 {
+        let mut first_available: u32 = 0;
+        for upload in self.uploads.keys() {
+            if *upload != first_available + 1 {
+                break;
+            } else {
+                first_available += 1;
+            }
+        }
+        first_available += 1;
+
+        let ret = self.uploads.insert(
+            first_available,
+            RandomAccessFile::new_empty(store_max_value_size(), content_type, vec![], store),
+        );
+        assert!(ret.is_none());
+        first_available
+    }
+
+    pub(crate) fn continue_upload(
+        &mut self,
+        upload_id: u32,
+        data: &Vec<u8>,
+    ) -> Result<(), NgError> {
+        let file = self
+            .uploads
+            .get_mut(&upload_id)
+            .ok_or(NgError::WrongUploadId)?;
+        Ok(file.write(data)?)
+    }
+
+    pub(crate) fn finish_upload(&mut self, upload_id: u32) -> Result<ObjectRef, NgError> {
+        let mut file = self
+            .uploads
+            .remove(&upload_id)
+            .ok_or(NgError::WrongUploadId)?;
+        let id = file.save()?;
+        Ok(file.reference().unwrap())
+    }
+
+    pub(crate) async fn push_app_response(&mut self, branch: &BranchId, response: AppResponse) {
+        // log_info!(
+        //     "push_app_response {} {:?}",
+        //     branch,
+        //     self.branch_subscriptions
+        // );
+        if let Some(sender) = self.branch_subscriptions.get_mut(branch) {
+            let _ = sender.send(response).await;
+        }
+    }
+
+    pub(crate) async fn create_branch_subscription(
+        &mut self,
+        branch: BranchId,
+    ) -> Result<(Receiver<AppResponse>, CancelFn), VerifierError> {
+        // async fn send(mut tx: Sender<AppResponse>, msg: AppResponse) -> ResultSend<()> {
+        //     while let Ok(_) = tx.send(msg.clone()).await {
+        //         log_debug!("sending AppResponse");
+        //         sleep!(std::time::Duration::from_secs(3));
+        //     }
+        //     log_debug!("end of sending");
+        //     Ok(())
+        // }
+        // spawn_and_log_error(send(tx.clone(), commit));
+        //log_info!("#### create_branch_subscription {}", branch);
+        let (tx, rx) = mpsc::unbounded::<AppResponse>();
+        if let Some(returned) = self.branch_subscriptions.insert(branch, tx.clone()) {
+            if !returned.is_closed() {
+                return Err(VerifierError::DoubleBranchSubscription);
+            }
+        }
+        //let tx = self.branch_subscriptions.entry(branch).or_insert_with(|| {});
+        for file in self
+            .user_storage
+            .as_ref()
+            .unwrap()
+            .branch_get_all_files(&branch)?
+        {
+            self.push_app_response(&branch, AppResponse::V0(AppResponseV0::File(file)))
+                .await;
+        }
+
+        let fnonce = Box::new(move || {
+            tx.close_channel();
+        });
+        Ok((rx, fnonce))
+    }
+
     #[allow(deprecated)]
     #[cfg(any(test, feature = "testing"))]
     pub fn new_dummy() -> Self {
-        use ng_repo::block_storage::HashMapBlockStorage;
         let (peer_priv_key, peer_id) = generate_keypair();
         let block_storage = Arc::new(std::sync::RwLock::new(HashMapBlockStorage::new()))
             as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>;
@@ -119,6 +215,8 @@ impl Verifier {
                 user_priv_key: PrivKey::random_ed(),
                 private_store_read_cap: None,
                 private_store_id: None,
+                protected_store_id: None,
+                public_store_id: None,
             },
             connected_server_id: None,
             graph_dataset: None,
@@ -132,6 +230,9 @@ impl Verifier {
             repos: HashMap::new(),
             topics: HashMap::new(),
             in_memory_outbox: vec![],
+            inner_to_outer: HashMap::new(),
+            uploads: BTreeMap::new(),
+            branch_subscriptions: HashMap::new(),
         }
     }
 
@@ -406,6 +507,65 @@ impl Verifier {
         Ok(self.last_seq_num)
     }
 
+    pub(crate) async fn new_commit(
+        &mut self,
+        commit_body: CommitBodyV0,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        store_repo: &StoreRepo,
+        additional_blocks: &Vec<BlockId>,
+        deps: Vec<ObjectRef>,
+        files: Vec<ObjectRef>,
+    ) -> Result<(), NgError> {
+        let commit = {
+            let repo = self.get_repo(repo_id, &store_repo)?;
+            let branch = repo.branch(branch_id)?;
+            let commit = Commit::new_with_body_and_save(
+                self.user_privkey(),
+                &self.user_privkey().to_pub(),
+                *branch_id,
+                QuorumType::NoSigning,
+                deps,
+                vec![],
+                branch.current_heads.clone(),
+                vec![],
+                files,
+                vec![],
+                vec![],
+                CommitBody::V0(commit_body),
+                0,
+                &repo.store,
+            )?;
+            self.verify_commit(&commit, branch_id, repo_id, Arc::clone(&repo.store))
+                .await?;
+            commit
+        };
+        //log_info!("{}", commit);
+
+        self.new_event(&commit, additional_blocks, *repo_id, store_repo)
+            .await
+    }
+
+    pub(crate) async fn new_commit_simple(
+        &mut self,
+        commit_body: CommitBodyV0,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        store_repo: &StoreRepo,
+        additional_blocks: &Vec<BlockId>,
+    ) -> Result<(), NgError> {
+        self.new_commit(
+            commit_body,
+            repo_id,
+            branch_id,
+            store_repo,
+            additional_blocks,
+            vec![],
+            vec![],
+        )
+        .await
+    }
+
     pub(crate) async fn new_events_with_repo(
         &mut self,
         events: Vec<(Commit, Vec<Digest>)>,
@@ -530,7 +690,9 @@ impl Verifier {
         } else {
             match &self.config.config_type {
                 VerifierConfigType::JsSaveSession(js) => {
+                    //log_info!("========== SAVING EVENT {:03}", event.seq_num());
                     let e = EventOutboxStorage { event, overlay };
+
                     (js.outbox_write_function)(
                         self.peer_id,
                         e.event.seq_num(),
@@ -567,6 +729,199 @@ impl Verifier {
         Ok(())
     }
 
+    pub(crate) async fn open_branch<'a>(
+        &mut self,
+        repo_id: &RepoId,
+        branch: &BranchId,
+        as_publisher: bool,
+    ) -> Result<(), NgError> {
+        let user = self.config.user_priv_key.to_pub();
+        let remote = self
+            .connected_server_id
+            .as_ref()
+            .ok_or(NgError::NotConnected)?
+            .clone();
+        self.open_branch_(
+            repo_id,
+            branch,
+            as_publisher,
+            &BROKER.read().await,
+            &user,
+            &remote,
+        )
+        .await
+    }
+
+    pub(crate) async fn put_blocks(&self, blocks: Vec<Block>, repo: &Repo) -> Result<(), NgError> {
+        let overlay = repo.store.overlay_for_read_on_client_protocol();
+
+        let broker = BROKER.read().await;
+        let user = self.config.user_priv_key.to_pub();
+        let remote = self.connected_server_id.to_owned().unwrap();
+
+        let msg = BlocksPut::V0(BlocksPutV0 {
+            blocks,
+            overlay: Some(overlay),
+        });
+        broker.request::<BlocksPut, ()>(&user, &remote, msg).await?;
+        Ok(())
+    }
+
+    pub(crate) async fn has_blocks(
+        &self,
+        blocks: Vec<BlockId>,
+        repo: &Repo,
+    ) -> Result<BlocksFound, NgError> {
+        let overlay = repo.store.overlay_for_read_on_client_protocol();
+
+        let broker = BROKER.read().await;
+        let user = self.config.user_priv_key.to_pub();
+        let remote = self.connected_server_id.to_owned().unwrap();
+
+        let msg = BlocksExist::V0(BlocksExistV0 {
+            blocks,
+            overlay: Some(overlay),
+        });
+        if let SoS::Single(found) = broker
+            .request::<BlocksExist, BlocksFound>(&user, &remote, msg)
+            .await?
+        {
+            Ok(found)
+        } else {
+            Err(NgError::InvalidResponse)
+        }
+    }
+
+    async fn open_branch_<'a>(
+        &mut self,
+        repo_id: &RepoId,
+        branch: &BranchId,
+        as_publisher: bool,
+        broker: &RwLockReadGuard<'a, Broker<'a>>,
+        user: &UserId,
+        remote: &DirectPeerId,
+    ) -> Result<(), NgError> {
+        let (need_open, mut need_sub, overlay) = {
+            let repo = self.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
+            let overlay = repo.store.overlay_for_read_on_client_protocol();
+            match repo.opened_branches.get(branch) {
+                Some(val) => (false, as_publisher && !val, overlay),
+                None => (repo.opened_branches.len() == 0, true, overlay),
+            }
+        };
+        //log_info!("need_open {} need_sub {}", need_open, need_sub);
+
+        if need_open {
+            // TODO: implement OpenRepo. for now we always do a Pinning because OpenRepo is not implemented on the broker.
+            let msg = RepoPinStatusReq::V0(RepoPinStatusReqV0 {
+                hash: repo_id.into(),
+                overlay: Some(overlay),
+            });
+            match broker
+                .request::<RepoPinStatusReq, RepoPinStatus>(user, remote, msg)
+                .await
+            {
+                Err(NgError::ServerError(ServerError::False))
+                | Err(NgError::ServerError(ServerError::RepoAlreadyOpened)) => {
+                    // pinning the repo on the server broker
+                    let (pin_req, topic_id) = {
+                        let repo = self.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
+                        let topic_id = repo.branch(branch).unwrap().topic;
+                        //TODO: only pin the requested branch.
+                        let pin_req = PinRepo::from_repo(repo, remote);
+                        (pin_req, topic_id)
+                    };
+
+                    match broker
+                        .request::<PinRepo, RepoOpened>(user, remote, pin_req)
+                        .await
+                    {
+                        Ok(SoS::Single(opened)) => {
+                            self.repo_was_opened(repo_id, &opened)?;
+                            //TODO: check that in the returned opened_repo, the branch we are interested in has effectively been subscribed as publisher by the broker.
+
+                            for topic in opened {
+                                if topic.topic_id() == &topic_id {
+                                    self.do_sync_req_if_needed(
+                                        broker,
+                                        user,
+                                        remote,
+                                        branch,
+                                        repo_id,
+                                        topic.known_heads(),
+                                    )
+                                    .await?;
+                                }
+                            }
+                        }
+                        Ok(_) => return Err(NgError::InvalidResponse),
+                        Err(e) => return Err(e),
+                    }
+                }
+                Err(e) => return Err(e),
+                Ok(SoS::Single(pin_status)) => {
+                    // checking that the branch is subscribed as publisher
+
+                    let repo = self.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
+                    let branch_info = repo.branch(branch)?;
+                    let topic_id = &branch_info.topic;
+                    // log_info!(
+                    //     "as_publisher {} {}",
+                    //     as_publisher,
+                    //     pin_status.is_topic_subscribed_as_publisher(topic_id)
+                    // );
+                    if as_publisher && !pin_status.is_topic_subscribed_as_publisher(topic_id) {
+                        need_sub = true;
+                    }
+                }
+                _ => return Err(NgError::InvalidResponse),
+            }
+        }
+        if need_sub {
+            // we subscribe
+
+            let repo = self.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
+            let branch_info = repo.branch(branch)?;
+
+            let broker_id = if as_publisher {
+                if branch_info.topic_priv_key.is_none() {
+                    // we need to subscribe as publisher, but we cant
+                    return Err(NgError::PermissionDenied);
+                }
+                Some(remote)
+            } else {
+                None
+            };
+
+            let topic_sub = TopicSub::new(repo, branch_info, broker_id);
+
+            match broker
+                .request::<TopicSub, TopicSubRes>(user, remote, topic_sub)
+                .await
+            {
+                Ok(SoS::Single(sub)) => {
+                    let repo = self.repos.get_mut(&repo_id).ok_or(NgError::RepoNotFound)?;
+                    Self::branch_was_opened(&self.topics, repo, &sub)?;
+
+                    self.do_sync_req_if_needed(
+                        broker,
+                        user,
+                        remote,
+                        branch,
+                        repo_id,
+                        sub.known_heads(),
+                    )
+                    .await?;
+                }
+                Ok(_) => return Err(NgError::InvalidResponse),
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+        Ok(())
+    }
+
     async fn send_event<'a>(
         &mut self,
         event: Event,
@@ -581,77 +936,9 @@ impl Verifier {
             .get(&(overlay, *event.topic_id()))
             .ok_or(NgError::TopicNotFound)?
             .to_owned();
-        let opened_as_publisher;
-        {
-            let repo = self.repos.get(&repo_id).ok_or(NgError::RepoNotFound)?;
-            opened_as_publisher = repo.branch_is_opened_as_publisher(&branch_id);
-        }
-        if !opened_as_publisher {
-            let msg = RepoPinStatusReq::V0(RepoPinStatusReqV0 {
-                hash: repo_id.into(),
-                overlay: Some(overlay),
-            });
-            match broker
-                .request::<RepoPinStatusReq, RepoPinStatus>(user, remote, msg)
-                .await
-            {
-                Err(NgError::ServerError(ServerError::False))
-                | Err(NgError::ServerError(ServerError::RepoAlreadyOpened)) => {
-                    // pinning the repo on the server broker
-                    let pin_req;
-                    {
-                        let repo = self.repos.get(&repo_id).ok_or(NgError::RepoNotFound)?;
-                        pin_req = PinRepo::from_repo(repo, remote);
-                    }
-                    match broker
-                        .request::<PinRepo, RepoOpened>(user, remote, pin_req)
-                        .await
-                    {
-                        Ok(SoS::Single(opened)) => {
-                            self.repo_was_opened(&repo_id, &opened)?;
-                            //TODO: check that in the returned opened_repo, the branch we are interested in has effectively been subscribed as publisher by the broker.
-                        }
-                        Ok(_) => return Err(NgError::InvalidResponse),
-                        Err(e) => return Err(e),
-                    }
-                }
-                Err(e) => return Err(e),
-                Ok(SoS::Single(pin_status)) => {
-                    // checking that the branch is subscribed as publisher
 
-                    if !pin_status.is_topic_subscribed_as_publisher(event.topic_id()) {
-                        // we need to subscribe as publisher
-                        let topic_sub;
-                        {
-                            let repo = self.repos.get(&repo_id).ok_or(NgError::RepoNotFound)?;
-                            let branch_info = repo.branch(&branch_id)?;
-                            if branch_info.topic_priv_key.is_none() {
-                                return Err(NgError::PermissionDenied);
-                            }
-                            topic_sub = TopicSub::new(repo, branch_info, Some(remote));
-                        }
-                        match broker
-                            .request::<TopicSub, TopicSubRes>(user, remote, topic_sub)
-                            .await
-                        {
-                            Ok(SoS::Single(sub)) => {
-                                // TODO, deal with heads
-                                let repo =
-                                    self.repos.get_mut(&repo_id).ok_or(NgError::RepoNotFound)?;
-                                Self::branch_was_opened(&self.topics, repo, &sub)?;
-                            }
-                            Ok(_) => return Err(NgError::InvalidResponse),
-                            Err(e) => {
-                                return Err(e);
-                            }
-                        }
-                    }
-                }
-                _ => return Err(NgError::InvalidResponse),
-            }
-            // TODO: deal with received known_heads.
-            // TODO a TopicSync
-        }
+        self.open_branch_(&repo_id, &branch_id, true, broker, user, remote)
+            .await?;
 
         let _ = broker
             .request::<PublishEvent, ()>(user, remote, PublishEvent::new(event, overlay))
@@ -660,11 +947,48 @@ impl Verifier {
         Ok(())
     }
 
-    pub fn deliver(&mut self, event: Event) {}
+    pub async fn deliver(&mut self, event: Event, overlay: OverlayId) {
+        let event_str = event.to_string();
+        if let Err(e) = self.deliver_(event, overlay).await {
+            log_err!("DELIVERY ERROR {} {}", e, event_str);
+        }
+    }
 
-    pub fn verify_commit(
+    async fn deliver_(&mut self, event: Event, overlay: OverlayId) -> Result<(), NgError> {
+        let (repo_id, branch_id) = self
+            .topics
+            .get(&(overlay, *event.topic_id()))
+            .ok_or(NgError::TopicNotFound)?
+            .to_owned();
+
+        // let outer = self
+        //     .inner_to_outer
+        //     .get(&overlay)
+        //     .ok_or(VerifierError::OverlayNotFound)?;
+        // let store = self
+        //     .stores
+        //     .get(outer)
+        //     .ok_or(VerifierError::OverlayNotFound)?;
+        let repo = self
+            .repos
+            .get(&repo_id)
+            .ok_or(VerifierError::RepoNotFound)?;
+        repo.branch_is_opened(&branch_id)
+            .then_some(true)
+            .ok_or(VerifierError::BranchNotOpened)?;
+        let branch = repo.branch(&branch_id)?;
+
+        let commit = event.open(&repo.store, &repo_id, &branch_id, &branch.read_cap.key)?;
+
+        self.verify_commit(&commit, &branch_id, &repo_id, Arc::clone(&repo.store))
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn verify_commit(
         &mut self,
-        commit: Commit,
+        commit: &Commit,
         branch_id: &BranchId,
         repo_id: &RepoId,
         store: Arc<Store>,
@@ -676,23 +1000,26 @@ impl Verifier {
         //     commit,
         //     store
         // );
+        //log_info!("{}", commit);
+        // TODO: check that DAG is well formed. check the heads
+
         let res = match commit.body().ok_or(VerifierError::CommitBodyNotFound)? {
             CommitBody::V0(v0) => match v0 {
-                CommitBodyV0::Repository(a) => a.verify(&commit, self, branch_id, repo_id, store),
-                CommitBodyV0::RootBranch(a) => a.verify(&commit, self, branch_id, repo_id, store),
-                CommitBodyV0::Branch(a) => a.verify(&commit, self, branch_id, repo_id, store),
-                CommitBodyV0::SyncSignature(a) => {
-                    a.verify(&commit, self, branch_id, repo_id, store)
-                }
-                CommitBodyV0::AddBranch(a) => a.verify(&commit, self, branch_id, repo_id, store),
-                CommitBodyV0::StoreUpdate(a) => a.verify(&commit, self, branch_id, repo_id, store),
-                CommitBodyV0::AddSignerCap(a) => a.verify(&commit, self, branch_id, repo_id, store),
+                CommitBodyV0::Repository(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::RootBranch(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::Branch(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::SyncSignature(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::AddBranch(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::StoreUpdate(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::AddSignerCap(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::AddFile(a) => a.verify(commit, self, branch_id, repo_id, store),
                 _ => {
                     log_err!("unimplemented verifier {}", commit);
-                    Err(VerifierError::NotImplemented)
+                    return Err(VerifierError::NotImplemented);
                 }
             },
         };
+        let res = res.await;
         if res.is_ok() {
             let commit_ref = commit.reference().unwrap();
             if let Some(repo) = self.repos.get_mut(repo_id) {
@@ -777,7 +1104,8 @@ impl Verifier {
         store_repo: &StoreRepo,
     ) -> Result<&Repo, VerifierError> {
         //let store = self.get_store(store_repo);
-        let repo_ref = self.repos.get(id).ok_or(VerifierError::RepoNotFound);
+        let repo_ref: Result<&Repo, VerifierError> =
+            self.repos.get(id).ok_or(VerifierError::RepoNotFound);
         repo_ref
     }
 
@@ -791,6 +1119,67 @@ impl Verifier {
 
             return res;
         }
+        Ok(())
+    }
+
+    async fn do_sync_req_if_needed<'a>(
+        &mut self,
+        broker: &RwLockReadGuard<'a, Broker<'a>>,
+        user: &UserId,
+        remote: &DirectPeerId,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
+        remote_heads: &Vec<ObjectId>,
+    ) -> Result<(), NgError> {
+        let (store, msg, branch_secret) = {
+            let repo = self.repos.get(repo_id).unwrap();
+            let branch_info = repo.branch(branch_id)?;
+
+            let store = Arc::clone(&repo.store);
+
+            let ours = branch_info.current_heads.iter().map(|refe| refe.id);
+            let ours_set: HashSet<Digest> = HashSet::from_iter(ours.clone());
+
+            let theirs = HashSet::from_iter(remote_heads.clone().into_iter());
+            if theirs.len() == 0 {
+                log_info!("branch is new on the broker. doing nothing");
+                return Ok(());
+            }
+            if ours_set.difference(&theirs).count() == 0
+                && theirs.difference(&ours_set).count() == 0
+            {
+                // no need to sync
+                log_info!("branch is up to date");
+                return Ok(());
+            }
+
+            let msg = TopicSyncReq::V0(TopicSyncReqV0 {
+                topic: branch_info.topic,
+                known_heads: ours.collect(),
+                target_heads: remote_heads.clone(),
+                overlay: Some(store.overlay_for_read_on_client_protocol()),
+            });
+            (store, msg, branch_info.read_cap.key.clone())
+        };
+
+        match broker
+            .request::<TopicSyncReq, TopicSyncRes>(user, remote, msg)
+            .await
+        {
+            Err(e) => return Err(e),
+            Ok(SoS::Stream(mut events)) => {
+                while let Some(event) = events.next().await {
+                    let commit = event
+                        .event()
+                        .open(&store, repo_id, branch_id, &branch_secret)?;
+
+                    self.verify_commit(&commit, branch_id, repo_id, Arc::clone(&store))
+                        .await?;
+                }
+            }
+            Ok(_) => return Err(NgError::InvalidResponse),
+        }
+
         Ok(())
     }
 
@@ -817,7 +1206,8 @@ impl Verifier {
                         .event()
                         .open(&store, repo_id, branch_id, branch_secret)?;
 
-                    self.verify_commit(commit, branch_id, repo_id, Arc::clone(&store))?;
+                    self.verify_commit(&commit, branch_id, repo_id, Arc::clone(&store))
+                        .await?;
                 }
             }
             Ok(_) => return Err(NgError::InvalidResponse),
@@ -925,7 +1315,7 @@ impl Verifier {
         });
         match broker.request::<CommitGet, Block>(user, remote, msg).await {
             Err(NgError::ServerError(ServerError::NotFound)) => {
-                // TODO: fallback to BlockGet, then Commit::load(with_body:true), which will return an Err(CommitLoadError::MissingBlocks), then do another BlockGet with those, and then again Commit::load...
+                // TODO: fallback to BlocksGet, then Commit::load(with_body:true), which will return an Err(CommitLoadError::MissingBlocks), then do another BlocksGet with those, and then again Commit::load...
                 return Err(NgError::SiteNotFoundOnBroker);
             }
             Ok(SoS::Stream(blockstream)) => {
@@ -945,8 +1335,44 @@ impl Verifier {
         }
     }
 
+    pub(crate) async fn fetch_blocks_if_needed(
+        &self,
+        id: &BlockId,
+        repo_id: &RepoId,
+        store_repo: &StoreRepo,
+    ) -> Result<Option<Receiver<Block>>, NgError> {
+        let repo = self.get_repo(repo_id, store_repo)?;
+
+        let overlay = repo.store.overlay_for_read_on_client_protocol();
+
+        let broker = BROKER.read().await;
+        let user = self.config.user_priv_key.to_pub();
+        let remote = self.connected_server_id.to_owned().unwrap();
+
+        match repo.store.has(id) {
+            Err(StorageError::NotFound) => {
+                let msg = BlocksGet::V0(BlocksGetV0 {
+                    ids: vec![*id],
+                    topic: None,
+                    include_children: true,
+                    overlay: Some(overlay),
+                });
+                match broker
+                    .request::<BlocksGet, Block>(&user, &remote, msg)
+                    .await
+                {
+                    Ok(SoS::Stream(blockstream)) => Ok(Some(blockstream)),
+                    Ok(_) => return Err(NgError::InvalidResponse),
+                    Err(e) => return Err(e),
+                }
+            }
+            Err(e) => Err(e.into()),
+            Ok(()) => Ok(None),
+        }
+    }
+
     async fn bootstrap_from_remote(&mut self) -> Result<(), NgError> {
-        if self.is_in_memory() || self.need_bootstrap() {
+        if self.need_bootstrap() {
             let broker = BROKER.read().await;
             let user = self.config.user_priv_key.to_pub();
             let remote = self.connected_server_id.to_owned().unwrap();
@@ -994,7 +1420,7 @@ impl Verifier {
         Ok(Arc::clone(store))
     }
 
-    fn load_from_credentials_and_outbox(
+    async fn load_from_credentials_and_outbox(
         &mut self,
         events: &Vec<EventOutboxStorage>,
     ) -> Result<(), VerifierError> {
@@ -1077,11 +1503,12 @@ impl Verifier {
                     postponed_signer_caps.push(commit);
                 } else {
                     self.verify_commit(
-                        commit,
+                        &commit,
                         &branch_id.clone(),
                         private_store.id(),
                         Arc::clone(&private_store),
-                    )?;
+                    )
+                    .await?;
                 }
             }
         }
@@ -1150,7 +1577,8 @@ impl Verifier {
 
                     let commit = e.event.open(store, store.id(), branch_id, branch_secret)?;
 
-                    self.verify_commit(commit, &branch_id.clone(), store.id(), Arc::clone(store))?;
+                    self.verify_commit(&commit, &branch_id.clone(), store.id(), Arc::clone(store))
+                        .await?;
                 } else {
                     // log_info!(
                     //     "SKIPPED wrong overlay {} {}",
@@ -1176,11 +1604,12 @@ impl Verifier {
         // finally, ingest the signer_caps.
         for signer_cap in postponed_signer_caps {
             self.verify_commit(
-                signer_cap,
+                &signer_cap,
                 private_user_branch.as_ref().unwrap(),
                 private_store.id(),
                 Arc::clone(&private_store),
-            )?;
+            )
+            .await?;
         }
 
         Ok(())
@@ -1198,7 +1627,11 @@ impl Verifier {
     }
 
     pub async fn send_outbox(&mut self) -> Result<(), NgError> {
-        let events: Vec<EventOutboxStorage> = self.take_events_from_outbox().unwrap_or(vec![]);
+        let ret = self.take_events_from_outbox();
+        // if ret.is_err() {
+        //     log_err!("send_outbox {:}", ret.as_ref().unwrap_err());
+        // }
+        let events: Vec<EventOutboxStorage> = ret.unwrap_or(vec![]);
         if events.len() == 0 {
             return Ok(());
         }
@@ -1213,34 +1646,34 @@ impl Verifier {
         // for all the events, check that they are valid (topic exists, current_heads match with event)
         let mut need_replay = false;
         let mut events_to_replay = Vec::with_capacity(events.len());
-        let mut branch_heads: HashMap<BranchId, Vec<ObjectRef>> = HashMap::new();
+        //let mut branch_heads: HashMap<BranchId, Vec<ObjectRef>> = HashMap::new();
         for e in events {
             match self.topics.get(&(e.overlay, *e.event.topic_id())) {
                 Some((repo_id, branch_id)) => match self.repos.get(repo_id) {
                     Some(repo) => match repo.branches.get(branch_id) {
                         Some(branch) => {
-                            let commit = e.event.open_with_info(repo, branch)?;
-                            let acks = commit.acks();
-                            match branch_heads.get(branch_id) {
-                                Some(previous_heads) => {
-                                    if *previous_heads != acks {
-                                        // skip event, as it is outdated.
-                                        continue;
-                                    } else {
-                                        branch_heads
-                                            .insert(*branch_id, vec![commit.reference().unwrap()]);
-                                    }
-                                }
-                                None => {
-                                    if acks != branch.current_heads {
-                                        // skip event, as it is outdated.
-                                        continue;
-                                    } else {
-                                        branch_heads
-                                            .insert(*branch_id, vec![commit.reference().unwrap()]);
-                                    }
-                                }
-                            }
+                            // let commit = e.event.open_with_info(repo, branch)?;
+                            // let acks = commit.acks();
+                            // match branch_heads.get(branch_id) {
+                            //     Some(previous_heads) => {
+                            //         if *previous_heads != acks {
+                            //             // skip event, as it is outdated.
+                            //             continue;
+                            //         } else {
+                            //             branch_heads
+                            //                 .insert(*branch_id, vec![commit.reference().unwrap()]);
+                            //         }
+                            //     }
+                            //     None => {
+                            //         if acks != branch.current_heads {
+                            //             // skip event, as it is outdated.
+                            //             continue;
+                            //         } else {
+                            //             branch_heads
+                            //                 .insert(*branch_id, vec![commit.reference().unwrap()]);
+                            //         }
+                            //     }
+                            // }
                         }
                         None => {
                             log_info!("REPLAY BRANCH NOT FOUND {}", branch_id);
@@ -1265,7 +1698,8 @@ impl Verifier {
         }
         log_info!("NEED REPLAY {need_replay}");
         if need_replay {
-            self.load_from_credentials_and_outbox(&events_to_replay)?;
+            self.load_from_credentials_and_outbox(&events_to_replay)
+                .await?;
             log_info!("REPLAY DONE");
         }
         log_info!("SENDING {} EVENTS FOR OUTBOX", events_to_replay.len());
@@ -1338,7 +1772,7 @@ impl Verifier {
         let (graph, user, block) = match &config.config_type {
             VerifierConfigType::Memory | VerifierConfigType::JsSaveSession(_) => (
                 Some(oxigraph::store::Store::new().unwrap()),
-                None, //Some(Box::new(InMemoryUserStorage::new()) as Box<dyn UserStorage>),
+                Some(Box::new(InMemoryUserStorage::new()) as Box<dyn UserStorage>),
                 Some(block_storage),
             ),
             #[cfg(not(target_family = "wasm"))]
@@ -1382,6 +1816,9 @@ impl Verifier {
             repos: HashMap::new(),
             topics: HashMap::new(),
             in_memory_outbox: vec![],
+            inner_to_outer: HashMap::new(),
+            uploads: BTreeMap::new(),
+            branch_subscriptions: HashMap::new(),
         };
         // this is important as it will load the last seq from storage
         if verif.config.config_type.should_load_last_seq_num() {
@@ -1392,12 +1829,19 @@ impl Verifier {
         Ok(verif)
     }
 
-    pub fn doc_fetch(
+    pub async fn app_request_stream(
         &mut self,
-        nuri: String,
-        payload: Option<AppRequestPayload>,
+        req: AppRequest,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-        unimplemented!();
+        match req {
+            AppRequest::V0(v0) => v0.command.process_stream(self, &v0.nuri, &v0.payload).await,
+        }
+    }
+
+    pub async fn app_request(&mut self, req: AppRequest) -> Result<AppResponse, NgError> {
+        match req {
+            AppRequest::V0(v0) => v0.command.process(self, v0.nuri, v0.payload).await,
+        }
     }
 
     pub async fn respond(
@@ -1433,10 +1877,19 @@ impl Verifier {
         sub: &TopicSubRes,
     ) -> Result<(), NgError> {
         let overlay = repo.store.inner_overlay();
-        //log_info!("branch_was_opened searching for topic {}", sub.topic_id());
+        // log_info!(
+        //     "branch_was_opened topic {} overlay {}",
+        //     sub.topic_id(),
+        //     overlay
+        // );
         let (_, branch_id) = topics
             .get(&(overlay, *sub.topic_id()))
             .ok_or(NgError::TopicNotFound)?;
+        // log_info!(
+        //     "branch_was_opened insert branch_id {} is_publisher {}",
+        //     branch_id,
+        //     sub.is_publisher()
+        // );
         repo.opened_branches.insert(*branch_id, sub.is_publisher());
         Ok(())
     }
@@ -1447,6 +1900,11 @@ impl Verifier {
         opened_repo: &RepoOpened,
     ) -> Result<(), NgError> {
         let repo = self.repos.get_mut(repo_id).ok_or(NgError::RepoNotFound)?;
+        //TODO: improve the inner_to_outer insert. (should be done when store is created, not here. should work also for dialogs.)
+        self.inner_to_outer.insert(
+            repo.store.overlay_for_read_on_client_protocol(),
+            repo.store.outer_overlay(),
+        );
         for sub in opened_repo {
             Self::branch_was_opened(&self.topics, repo, sub)?;
         }

@@ -150,6 +150,10 @@ module.exports.session_save = function(key,value) {
     
 }
 
+module.exports.storage_clear = function() {
+    
+}
+
 module.exports.session_get = function(key) {
     
 }

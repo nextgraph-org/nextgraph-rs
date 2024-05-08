@@ -50,6 +50,13 @@ impl SiteV0 {
         }
     }
 
+    pub fn get_individual_site_private_store_read_cap(&self) -> Option<ReadCap> {
+        match &self.site_type {
+            SiteType::Individual((_, read_cap)) => Some(read_cap.clone()),
+            _ => None,
+        }
+    }
+
     fn site_store_to_store_repo(site_store: &SiteStore) -> StoreRepo {
         StoreRepo::V0(match site_store.store_type {
             SiteStoreType::Public => StoreRepoV0::PublicStore(site_store.id),
@@ -237,7 +244,12 @@ impl SiteV0 {
         user_priv_key: PrivKey,
         verifier: &mut Verifier,
     ) -> Result<Self, NgError> {
-        Self::create_individual_(user_priv_key, verifier, SiteName::Personal).await
+        let site = Self::create_individual_(user_priv_key, verifier, SiteName::Personal).await?;
+        verifier.config.private_store_read_cap = site.get_individual_site_private_store_read_cap();
+        verifier.config.private_store_id = Some(site.private.id);
+        verifier.config.protected_store_id = Some(site.protected.id);
+        verifier.config.public_store_id = Some(site.public.id);
+        Ok(site)
     }
 
     pub async fn create_org(name: String) -> Result<Self, NgError> {

@@ -13,7 +13,6 @@ import {version} from '../package.json';
 
 const mapping = {
 
-    "doc_get_file_from_store_with_object_ref": [ "nuri","obj_ref" ],
     "wallet_gen_shuffle_for_pazzle_opening": ["pazzle_length"],
     "wallet_gen_shuffle_for_pin": [],
     "wallet_open_with_pazzle": ["wallet","pazzle","pin"],
@@ -32,7 +31,9 @@ const mapping = {
     "decode_invitation": ["invite"],
     "user_connect": ["info","user_id","location"],
     "user_disconnect": ["user_id"],
-    "test": [ ]
+    "app_request": ["session_id","request"],
+    "test": [ ],
+    "doc_fetch_private_subscribe": []
 }
 
 
@@ -113,29 +114,25 @@ const handler = {
                     e[1].since = new Date(e[1].since);
                 }
                 return ret;
-            }else if (path[0] === "doc_sync_branch") {
+            }
+            else if (path[0] === "app_request_stream") {
                 let stream_id = (lastStreamId += 1).toString();
                 console.log("stream_id",stream_id);
                 let { getCurrent } = await import("@tauri-apps/plugin-window");
-                let nuri = args[0];
-                let callback = args[1];
+                let session_id = args[0];
+                let request = args[1];
+                let callback = args[2];
 
                 let unlisten = await getCurrent().listen(stream_id, (event) => {
                     callback(event.payload).then(()=> {})
                 })
-                await tauri.invoke("doc_sync_branch",{nuri, stream_id});
+                await tauri.invoke("app_request_stream",{session_id, stream_id, request});
                 
                 return () => {
                     unlisten();
-                    tauri.invoke("cancel_doc_sync_branch", {stream_id});
+                    tauri.invoke("cancel_stream", {stream_id});
                 }
-            } else if (path[0] === "doc_get_file_from_store_with_object_ref") {
-                let arg = {};
-                args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
-                let res = await tauri.invoke(path[0],arg);
-                res['File'].V0.content = Uint8Array.from(res['File'].V0.content);
-                res['File'].V0.metadata = Uint8Array.from(res['File'].V0.metadata);
-                return res;
+                
             } else if (path[0] === "get_wallets") {
                 let res = await tauri.invoke(path[0],{});
                 if (res) for (let e of Object.entries(res)) {
@@ -143,6 +140,13 @@ const handler = {
                 }
                 return res || {};
 
+            } else if (path[0] === "upload_chunk") {
+                let session_id = args[0];
+                let upload_id = args[1];
+                let chunk = args[2];
+                let nuri = args[3];
+                chunk = Array.from(new Uint8Array(chunk));
+                return await tauri.invoke(path[0],{session_id, upload_id, chunk, nuri})
             } else if (path[0] === "wallet_create") {
                 let params = args[0];
                 params.result_with_wallet_file = false;

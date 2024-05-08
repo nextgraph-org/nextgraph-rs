@@ -35,7 +35,7 @@ use ng_repo::types::SymKey;
 use ng_repo::utils::ed_keypair_from_priv_bytes;
 use ng_repo::{
     types::{PrivKey, PubKey},
-    utils::{decode_key, generate_keypair, sign, verify},
+    utils::{decode_key, decode_priv_key, generate_keypair, sign, verify},
 };
 use serde_json::{from_str, to_string_pretty};
 use std::error::Error;
@@ -286,12 +286,12 @@ fn prepare_accept_forward_for_domain(
     args: &mut Cli,
 ) -> Result<AcceptForwardForV0, NgError> {
     if args.domain_peer.is_some() {
-        let key = decode_key(args.domain_peer.as_ref().unwrap().as_str())?;
+        let key = decode_priv_key(args.domain_peer.as_ref().unwrap().as_str())?;
         args.domain_peer.as_mut().unwrap().zeroize();
 
         Ok(AcceptForwardForV0::PublicDomainPeer((
             domain,
-            PrivKey::Ed25519PrivKey(key),
+            key,
             "".to_string(),
         )))
     } else {
@@ -425,10 +425,10 @@ async fn main_inner() -> Result<(), NgdError> {
                 .lines()
                 .nth(0)
                 .ok_or(NgdError::InvalidKeyFile("empty file".to_string()))?;
-            let res = decode_key(first_line.trim())
+            let res = decode_priv_key(first_line.trim())
                 .map_err(|_| NgdError::InvalidKeyFile("deserialization error".to_string()))?;
             file.zeroize();
-            Some(res)
+            Some(*res.slice())
         }
     };
 
@@ -439,20 +439,19 @@ async fn main_inner() -> Result<(), NgdError> {
                 args.key.as_mut().unwrap().zeroize();
                 gen_broker_keys(key_from_file)
             } else {
-                let res = decode_key(key_string.as_str()).map_err(|_| {
+                let res = decode_priv_key(key_string.as_str()).map_err(|_| {
                     NgdError::InvalidKeyFile(
                         "check the argument provided in command line".to_string(),
                     )
                 })?;
                 if args.save_key {
-                    let mut master_key = base64_url::encode(&res);
-                    write(key_path.clone(), &master_key)
+                    write(key_path.clone(), res.to_string())
                         .map_err(|e| NgdError::CannotSaveKey(e.to_string()))?;
-                    master_key.zeroize();
+                    //master_key.zeroize();
                     log_info!("The key has been saved to {}", key_path.to_str().unwrap());
                 }
                 args.key.as_mut().unwrap().zeroize();
-                gen_broker_keys(Some(res))
+                gen_broker_keys(Some(*res.slice()))
             }
         }
         None => {
@@ -460,7 +459,8 @@ async fn main_inner() -> Result<(), NgdError> {
                 gen_broker_keys(key_from_file)
             } else {
                 let res = gen_broker_keys(None);
-                let mut master_key = base64_url::encode(&res[0]);
+                let key = PrivKey::Ed25519PrivKey((res[0]));
+                let mut master_key = key.to_string();
                 if args.save_key {
                     write(key_path.clone(), &master_key)
                         .map_err(|e| NgdError::CannotSaveKey(e.to_string()))?;
@@ -912,7 +912,7 @@ async fn main_inner() -> Result<(), NgdError> {
                     "The PEER_ID provided in the --forward option is invalid",
                 )
             })?;
-            let peer_id = PubKey::Ed25519PubKey(pub_key_array);
+            let peer_id = pub_key_array;
 
             let server_type = if parts[0].len() > 0 {
                 let first_char = parts[0].chars().next().unwrap();

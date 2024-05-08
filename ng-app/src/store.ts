@@ -127,7 +127,7 @@ can_connect.subscribe(async (value) => {
     }
   });
 
-const branch_commits = (nura, sub) => {
+export const branch_subs = function(nura) {
     // console.log("branch_commits")
     // const { subscribe, set, update } = writable([]); // create the underlying writable store
 
@@ -162,8 +162,10 @@ const branch_commits = (nura, sub) => {
             let already_subscribed = all_branches[nura];
             if (!already_subscribed) return;
             if (already_subscribed.load) {
-                await already_subscribed.load();
+                let loader = already_subscribed.load;
                 already_subscribed.load = undefined;
+                await loader();
+                
             }
         },
         subscribe: (run, invalid) => {
@@ -175,10 +177,22 @@ const branch_commits = (nura, sub) => {
                 let unsub = () => {};
                 already_subscribed = {
                     load: async () => {
-                        unsub = await ng.doc_sync_branch(nura, async (commit) => {
-                            console.log("GOT COMMIT", commit);
-                            update( (old) => {old.unshift(commit); return old;} )
-                        });
+                        try {
+                            let session = get(active_session);
+                            if (!session) {
+                                console.error("no session");
+                                return;
+                            }
+                            await unsub();
+                            unsub = await ng.app_request_stream(session.session_id, await ng.doc_fetch_private_subscribe(), 
+                            async (commit) => {
+                                //console.log("GOT APP RESPONSE", commit);
+                                update( (old) => {old.unshift(commit); return old;} )
+                            });
+                        }
+                        catch (e) {
+                            console.error(e);
+                        }
                         // this is in case decrease has been called before the load function returned.
                         if (count == 0) {unsub();}
                     },
@@ -186,10 +200,10 @@ const branch_commits = (nura, sub) => {
                         count += 1;
                         return readonly({subscribe});
                     },
-                    decrease: () => {
+                    decrease: async () => {
                         count -= 1;
                         if (count == 0) {
-                            unsub();
+                            await unsub();
                             delete all_branches[nura];
                         }
                     },
@@ -199,13 +213,13 @@ const branch_commits = (nura, sub) => {
             
             let new_store = already_subscribed.increase();
             let read_unsub = new_store.subscribe(run, invalid);
-            return () => {
+            return async () => {
                 read_unsub();
-                already_subscribed.decrease();
+                await already_subscribed.decrease();
             }
             
         }
     }
 };
 
-export default branch_commits;
+//export default branch_commits;

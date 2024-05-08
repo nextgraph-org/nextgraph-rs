@@ -49,11 +49,11 @@ impl UserStorage for RocksDbUserStorage {
 
     fn load_store(
         &self,
-        repo_store: &StoreRepo,
+        store_repo: &StoreRepo,
         block_storage: Arc<RwLock<dyn BlockStorage + Send + Sync>>,
     ) -> Result<Repo, StorageError> {
         RepoStorage::load(
-            repo_store.repo_id(),
+            store_repo.repo_id(),
             Right(block_storage),
             &self.user_storage,
         )
@@ -74,5 +74,12 @@ impl UserStorage for RocksDbUserStorage {
 
     fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError> {
         RepoStorage::update_signer_cap(signer_cap, &self.user_storage)
+    }
+
+    fn branch_add_file(&self, branch: BranchId, file: FileName) -> Result<(), StorageError> {
+        todo!();
+    }
+    fn branch_get_all_files(&self, branch: &BranchId) -> Result<Vec<FileName>, StorageError> {
+        todo!();
     }
 }

@@ -106,13 +106,21 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
     ) -> Result<(), ProtocolError> {
         let req = PinRepo::try_from(msg)?;
 
-        let broker = BROKER.read().await;
+        let mut broker = BROKER.write().await;
 
         // check the validity of the PublisherAdvert(s). this will return a ProtocolError (will close the connection)
         let server_peer_id = broker.get_config().unwrap().peer_id;
         for pub_ad in req.rw_topics() {
             pub_ad.verify_for_broker(&server_peer_id)?;
         }
+
+        let (user_id, remote_peer) = {
+            let fsm = fsm.lock().await;
+            (
+                fsm.user_id()?,
+                fsm.remote_peer().ok_or(ProtocolError::ActorError)?,
+            )
+        };
 
         let result = {
             match req.overlay_access() {
@@ -124,11 +132,12 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
                     {
                         Err(ServerError::InvalidRequest)
                     } else {
-                        broker.get_server_broker()?.pin_repo_read(
+                        broker.get_server_broker_mut()?.pin_repo_read(
                             req.overlay(),
                             req.hash(),
-                            &fsm.lock().await.user_id()?,
+                            &user_id,
                             req.ro_topics(),
+                            &remote_peer,
                         )
                     }
                 }
@@ -142,14 +151,15 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
                         // TODO add a check on "|| overlay_root_topic.is_none()"  because it should be mandatory to have one (not sent by client at the moment)
                         Err(ServerError::InvalidRequest)
                     } else {
-                        broker.get_server_broker()?.pin_repo_write(
+                        broker.get_server_broker_mut()?.pin_repo_write(
                             req.overlay_access(),
                             req.hash(),
-                            &fsm.lock().await.user_id()?,
+                            &user_id,
                             req.ro_topics(),
                             req.rw_topics(),
                             req.overlay_root_topic(),
                             req.expose_outer(),
+                            &remote_peer,
                         )
                     }
                 }
@@ -157,14 +167,15 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
                     if !w.is_inner() || req.overlay() != w || req.expose_outer() {
                         Err(ServerError::InvalidRequest)
                     } else {
-                        broker.get_server_broker()?.pin_repo_write(
+                        broker.get_server_broker_mut()?.pin_repo_write(
                             req.overlay_access(),
                             req.hash(),
-                            &fsm.lock().await.user_id()?,
+                            &user_id,
                             req.ro_topics(),
                             req.rw_topics(),
                             req.overlay_root_topic(),
                             false,
+                            &remote_peer,
                         )
                     }
                 }

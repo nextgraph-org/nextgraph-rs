@@ -31,6 +31,7 @@ use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
+use nextgraph::verifier::types::*;
 use ng_net::WS_PORT;
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
@@ -228,6 +229,7 @@ extern "C" {
     fn local_save(key: String, value: String) -> Option<String>;
     fn local_get(key: String) -> Option<String>;
     fn is_browser() -> bool;
+    fn storage_clear();
 }
 
 #[cfg(wasmpack_target = "nodejs")]
@@ -239,6 +241,7 @@ extern "C" {
     fn local_save(key: String, value: String) -> Option<String>;
     fn local_get(key: String) -> Option<String>;
     fn is_browser() -> bool;
+    fn storage_clear();
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -274,6 +277,11 @@ fn session_del(key: String) -> Result<(), NgError> {
 }
 
 #[cfg(target_arch = "wasm32")]
+fn clear() {
+    storage_clear();
+}
+
+#[cfg(target_arch = "wasm32")]
 static INIT_LOCAL_BROKER: Lazy<Box<ConfigInitFn>> = Lazy::new(|| {
     Box::new(|| {
         LocalBrokerConfig::JsStorage(JsStorageConfig {
@@ -282,6 +290,7 @@ static INIT_LOCAL_BROKER: Lazy<Box<ConfigInitFn>> = Lazy::new(|| {
             session_read: Arc::new(Box::new(session_read)),
             session_write: Arc::new(Box::new(session_write)),
             session_del: Arc::new(Box::new(session_del)),
+            clear: Arc::new(Box::new(clear)),
             is_browser: is_browser(),
         })
     })
@@ -482,53 +491,35 @@ pub async fn test() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub async fn doc_get_file_from_store_with_object_ref(
-    nuri: String,
-    obj_ref_js: JsValue,
-) -> Result<JsValue, JsValue> {
-    let obj_ref = serde_wasm_bindgen::from_value::<ObjectRef>(obj_ref_js).unwrap();
+pub async fn app_request_stream(
+    js_session_id: JsValue,
+    js_request: JsValue,
+    callback: &js_sys::Function,
+) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
 
-    log_debug!("doc_get_file {} {:?}", nuri, obj_ref.id,);
+    let mut request = serde_wasm_bindgen::from_value::<AppRequest>(js_request)
+        .map_err(|_| "Deserialization error of AppRequest".to_string())?;
 
-    // let vec: Vec<u8> = vec![2; 10];
-    // let view = unsafe { Uint8Array::view(&vec) };
-    // let x = JsValue::from(Uint8Array::new(view.as_ref()));
-
-    // let ret = ObjectContent::File(File::V0(FileV0 {
-    //     content_type: "text/plain".to_string(),
-    //     metadata: vec![],
-    //     content: vec![45; 20],
-    // }));
-    let obj_content = BROKER
-        .write()
-        .await
-        .get_object_from_store_with_object_ref(nuri, obj_ref)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(serde_wasm_bindgen::to_value(&obj_content).unwrap())
-}
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub async fn doc_sync_branch(anuri: String, callback: &js_sys::Function) -> JsValue {
     let vec: Vec<u8> = vec![2; 10];
     let view = unsafe { Uint8Array::view(&vec) };
     let x = JsValue::from(Uint8Array::new(view.as_ref()));
 
     let mut reader;
-    let mut sender;
+    let mut cancel;
     {
-        (reader, sender) = BROKER.write().await.doc_sync_branch(anuri.clone()).await;
+        (reader, cancel) = nextgraph::local_broker::app_request_stream(session_id, request)
+            .await
+            .map_err(|e: NgError| e.to_string())?;
     }
 
     async fn inner_task(
-        mut reader: Receiver<Commit>,
-        anuri: String,
+        mut reader: Receiver<AppResponse>,
         callback: js_sys::Function,
     ) -> ResultSend<()> {
-        while let Some(commit) = reader.next().await {
-            let xx = serde_wasm_bindgen::to_value(&commit).unwrap();
+        while let Some(app_response) = reader.next().await {
+            let xx = serde_wasm_bindgen::to_value(&app_response).unwrap();
             //let xx = JsValue::from(json!(commit).to_string());
             //let _ = callback.call1(&this, &xx);
             let this = JsValue::null();
@@ -545,17 +536,85 @@ pub async fn doc_sync_branch(anuri: String, callback: &js_sys::Function) -> JsVa
         Ok(())
     }
 
-    spawn_and_log_error(inner_task(reader, anuri, callback.clone()));
+    spawn_and_log_error(inner_task(reader, callback.clone()));
 
     let cb = Closure::once(move || {
-        log_debug!("close channel");
-        sender.close_channel()
+        log_info!("cancelling");
+        //sender.close_channel()
+        cancel();
     });
     //Closure::wrap(Box::new(move |sender| sender.close_channel()) as Box<FnMut(Sender<Commit>)>);
     let ret = cb.as_ref().clone();
     cb.forget();
-    return ret;
+    Ok(ret)
 }
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn app_request(js_session_id: JsValue, js_request: JsValue) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let mut request = serde_wasm_bindgen::from_value::<AppRequest>(js_request)
+        .map_err(|_| "Deserialization error of AppRequest".to_string())?;
+
+    let response = nextgraph::local_broker::app_request(session_id, request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(serde_wasm_bindgen::to_value(&response).unwrap())
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn upload_chunk(
+    js_session_id: JsValue,
+    js_upload_id: JsValue,
+    js_chunk: JsValue,
+    js_nuri: JsValue,
+) -> Result<JsValue, String> {
+    log_debug!("upload_chunk {:?}", js_nuri);
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let upload_id: u32 = serde_wasm_bindgen::from_value::<u32>(js_upload_id)
+        .map_err(|_| "Deserialization error of upload_id".to_string())?;
+    let chunk: serde_bytes::ByteBuf =
+        serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(js_chunk)
+            .map_err(|_| "Deserialization error of chunk".to_string())?;
+    let nuri: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(js_nuri)
+        .map_err(|_| "Deserialization error of nuri".to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::FilePut,
+        nuri,
+        payload: Some(AppRequestPayload::V0(
+            AppRequestPayloadV0::RandomAccessFilePutChunk((upload_id, chunk)),
+        )),
+    });
+
+    let response = nextgraph::local_broker::app_request(session_id, request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(serde_wasm_bindgen::to_value(&response).unwrap())
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn doc_fetch_private_subscribe() -> Result<JsValue, String> {
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
+        nuri: NuriV0::new_private_store_target(),
+        payload: None,
+    });
+    Ok(serde_wasm_bindgen::to_value(&request).unwrap())
+}
+
+// #[cfg(target_arch = "wasm32")]
+// #[wasm_bindgen]
+// pub async fn get_readcap() -> Result<JsValue, String> {
+//     let request = ObjectRef::nil();
+//     Ok(serde_wasm_bindgen::to_value(&request).unwrap())
+// }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]

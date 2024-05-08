@@ -10,6 +10,7 @@
 //! Errors
 
 pub use crate::commit::{CommitLoadError, CommitVerifyError};
+use crate::file::FileError;
 use crate::object::Object;
 use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
@@ -70,6 +71,10 @@ pub enum NgError {
     BrokerConfigErrorStr(&'static str),
     BrokerConfigError(String),
     MalformedEvent,
+    InvalidPayload,
+    WrongUploadId,
+    FileError(FileError),
+    InternalError,
 }
 
 impl Error for NgError {}
@@ -126,6 +131,12 @@ impl From<ed25519_dalek::ed25519::Error> for NgError {
 impl From<CommitLoadError> for NgError {
     fn from(e: CommitLoadError) -> Self {
         NgError::CommitLoadError(e)
+    }
+}
+
+impl From<FileError> for NgError {
+    fn from(e: FileError) -> Self {
+        NgError::FileError(e)
     }
 }
 
@@ -232,6 +243,10 @@ pub enum ServerError {
     AccessDenied,
     InvalidHeader,
     MalformedBranch,
+    BrokerError,
+    ProtocolError,
+    PeerAlreadySubscribed,
+    SubscriptionNotFound,
 }
 
 impl From<StorageError> for ServerError {
@@ -239,6 +254,16 @@ impl From<StorageError> for ServerError {
         match e {
             StorageError::NotFound => ServerError::NotFound,
             _ => ServerError::StorageError,
+        }
+    }
+}
+
+impl From<ProtocolError> for ServerError {
+    fn from(e: ProtocolError) -> Self {
+        match e {
+            ProtocolError::NotFound => ServerError::NotFound,
+            ProtocolError::BrokerError => ServerError::BrokerError,
+            _ => ServerError::ProtocolError,
         }
     }
 }
@@ -281,10 +306,14 @@ pub enum VerifierError {
     TopicNotFound,
     RepoNotFound,
     StoreNotFound,
+    OverlayNotFound,
     BranchNotFound,
     InvalidBranch,
     NoBlockStorageAvailable,
     RootBranchNotFound,
+    BranchNotOpened,
+    DoubleBranchSubscription,
+    InvalidCommit,
 }
 
 impl From<NgError> for VerifierError {
@@ -371,6 +400,8 @@ pub enum ProtocolError {
     Expired,
 
     PeerAlreadyConnected,
+    UserNotConnected,
+    PeerNotConnected,
     OtherError,
     NetError,
     StorageError,

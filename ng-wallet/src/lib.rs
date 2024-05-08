@@ -70,7 +70,7 @@ impl Wallet {
     }
     pub fn name(&self) -> String {
         match self {
-            Wallet::V0(v0) => base64_url::encode(&v0.id.slice()),
+            Wallet::V0(v0) => v0.id.to_string(),
             _ => unimplemented!(),
         }
     }
@@ -109,11 +109,11 @@ impl Wallet {
         let sig = sign(&wallet_privkey, &wallet_id, &ser_wallet).unwrap();
 
         let wallet_v0 = WalletV0 {
-            /// ID
+            // ID
             id: wallet_id,
-            /// Content
+            // Content
             content: wallet_content,
-            /// Signature over content by wallet's private key
+            // Signature over content by wallet's private key
             sig,
         };
 
@@ -552,7 +552,7 @@ pub fn create_wallet_first_step_v0(
 
     let intermediary = CreateWalletIntermediaryV0 {
         wallet_privkey,
-        wallet_name: base64_url::encode(&wallet_id.slice()),
+        wallet_name: wallet_id.to_string(),
         client,
         user_privkey,
         in_memory: !params.local_save,
@@ -742,6 +742,7 @@ pub async fn create_wallet_second_step_v0(
         peer_id: PubKey::nil(),
         nonce: 0,
         encrypted,
+        test: None,
     };
 
     let ser_wallet = serde_bare::to_vec(&wallet_content).unwrap();
@@ -749,11 +750,11 @@ pub async fn create_wallet_second_step_v0(
     let sig = sign(&params.wallet_privkey, &wallet_id, &ser_wallet).unwrap();
 
     let wallet_v0 = WalletV0 {
-        /// ID
+        // ID
         id: wallet_id,
-        /// Content
+        // Content
         content: wallet_content,
-        /// Signature over content by wallet's private key
+        // Signature over content by wallet's private key
         sig,
     };
 
@@ -865,10 +866,7 @@ mod test {
         let ser_wallet = to_vec(&NgFile::V0(NgFileV0::Wallet(res.wallet.clone()))).unwrap();
         file.write_all(&ser_wallet);
 
-        log_debug!(
-            "wallet id: {:?}",
-            base64_url::encode(&res.wallet.id().slice())
-        );
+        log_debug!("wallet id: {}", res.wallet.id());
         log_debug!("pazzle {:?}", display_pazzle(&res.pazzle));
         log_debug!("mnemonic {:?}", display_mnemonic(&res.mnemonic));
         log_debug!("pin {:?}", pin);

@@ -117,6 +117,15 @@ impl BlockStorage for RocksDbBlockStorage {
         Ok(block)
     }
 
+    fn has(&self, overlay: &OverlayId, id: &BlockId) -> Result<(), StorageError> {
+        let _block_ser = self
+            .db
+            .get(Self::compute_key(overlay, id))
+            .map_err(|_e| StorageError::BackendError)?
+            .ok_or(StorageError::NotFound)?;
+        Ok(())
+    }
+
     /// Save a block to the storage.
     fn put(&self, overlay: &OverlayId, block: &Block, lazy: bool) -> Result<BlockId, StorageError> {
         // TODO? return an error if already present in blockstorage and !lazy ?

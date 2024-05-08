@@ -264,6 +264,10 @@ impl NoiseFSM {
         }
     }
 
+    pub fn remote_peer(&self) -> &Option<PubKey> {
+        &self.remote
+    }
+
     pub(crate) fn set_user_id(&mut self, user: UserId) {
         if self.user.is_none() {
             self.user = Some(user);
@@ -309,7 +313,12 @@ impl NoiseFSM {
         if in_reply_to != 0 {
             msg.set_id(in_reply_to);
         }
-        log_debug!("SENDING: {:?}", msg);
+        #[cfg(debug_assertions)]
+        if msg.is_block() {
+            log_debug!("SENDING BLOCK");
+        } else {
+            log_debug!("SENDING: {:?}", msg);
+        }
         if self.noise_cipher_state_enc.is_some() {
             let cipher = self.encrypt(msg)?;
             self.sender
@@ -408,11 +417,16 @@ impl NoiseFSM {
             }
         }
         if msg_opt.is_some() {
-            log_debug!(
-                "RECEIVED: {:?} in state {:?}",
-                msg_opt.as_ref().unwrap(),
-                self.state
-            );
+            #[cfg(debug_assertions)]
+            if msg_opt.as_ref().unwrap().is_block() {
+                log_debug!("RECEIVED BLOCK");
+            } else {
+                log_debug!(
+                    "RECEIVED: {:?} in state {:?}",
+                    msg_opt.as_ref().unwrap(),
+                    self.state
+                );
+            }
         }
         match self.state {
             FSMstate::Closing => {}
@@ -538,7 +552,7 @@ impl NoiseFSM {
                 // CLIENT side receiving probe response
                 if let Some(msg) = msg_opt {
                     let id = msg.id();
-                    if id != 0 {
+                    if id != Some(0) {
                         return Err(ProtocolError::InvalidState);
                     }
                     if let ProtocolMessage::ProbeResponse(_probe_res) = &msg {
@@ -736,7 +750,7 @@ impl NoiseFSM {
                                 let content = ClientAuthContentV0 {
                                     user: user_pub,
                                     client: client_pub,
-                                    /// Nonce from ServerHello
+                                    // Nonce from ServerHello
                                     nonce: hello.nonce().clone(),
                                     info: info.clone(),
                                     registration: client_config.registration,
@@ -747,7 +761,7 @@ impl NoiseFSM {
                                     sign(&client_config.client_priv, &client_pub, &ser)?;
                                 let client_auth = ClientAuth::V0(ClientAuthV0 {
                                     content,
-                                    /// Signature by user key
+                                    // Signature by user key
                                     sig,
                                     client_sig,
                                 });
@@ -845,11 +859,29 @@ impl NoiseFSM {
                     if msg.type_id() != TypeId::of::<ClientMessage>() {
                         return Err(ProtocolError::AccessDenied);
                     }
-                    let id: i64 = msg.id();
-                    if self.dir.is_server() && id > 0 || !self.dir.is_server() && id < 0 {
-                        return Ok(StepReply::Responder(msg));
-                    } else if id != 0 {
-                        return Ok(StepReply::Response(msg));
+                    match msg.id() {
+                        Some(id) => {
+                            if self.dir.is_server() && id > 0 || !self.dir.is_server() && id < 0 {
+                                return Ok(StepReply::Responder(msg));
+                            } else if id != 0 {
+                                return Ok(StepReply::Response(msg));
+                            }
+                        }
+                        None => {
+                            if let ProtocolMessage::ClientMessage(cm) = msg {
+                                if let Some((event, overlay)) = cm.forwarded_event() {
+                                    BROKER
+                                        .read()
+                                        .await
+                                        .get_local_broker()?
+                                        .write()
+                                        .await
+                                        .deliver(event, overlay, self.user_id()?)
+                                        .await;
+                                    return Ok(StepReply::NONE);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1016,7 +1048,7 @@ impl ConnectionBase {
                         }
                         Ok(StepReply::Response(response)) => {
                             let mut lock = actors.lock().await;
-                            let exists = lock.get_mut(&response.id());
+                            let exists = lock.get_mut(&response.id().unwrap_or(0));
                             match exists {
                                 Some(actor_sender) => {
                                     if actor_sender
@@ -1077,6 +1109,8 @@ impl ConnectionBase {
         res
     }
 
+    // FIXME: why not use the FSm instead? looks like this is sending messages to the wire, unencrypted.
+    // Only final errors are sent this way. but it looks like even those error should be encrypted
     pub async fn send(&mut self, cmd: ConnectionCommand) {
         let _ = self.sender_tx.as_mut().unwrap().send(cmd).await;
     }

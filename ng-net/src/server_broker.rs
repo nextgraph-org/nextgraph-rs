@@ -11,11 +11,16 @@
 
 //! Trait for ServerBroker
 
+use std::collections::HashSet;
+
 use crate::types::*;
 use ng_repo::errors::*;
 use ng_repo::types::*;
 
 pub trait IServerBroker: Send + Sync {
+    fn put_block(&self, overlay_id: &OverlayId, block: Block) -> Result<(), ServerError>;
+    fn has_block(&self, overlay_id: &OverlayId, block_id: &BlockId) -> Result<(), ServerError>;
+    fn get_block(&self, overlay_id: &OverlayId, block_id: &BlockId) -> Result<Block, ServerError>;
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError>;
     fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError>;
     fn del_user(&self, user_id: PubKey) -> Result<(), ProtocolError>;
@@ -45,7 +50,7 @@ pub trait IServerBroker: Send + Sync {
     ) -> Result<RepoPinStatus, ServerError>;
 
     fn pin_repo_write(
-        &self,
+        &mut self,
         overlay: &OverlayAccess,
         repo: &RepoHash,
         user_id: &UserId,
@@ -53,23 +58,26 @@ pub trait IServerBroker: Send + Sync {
         rw_topics: &Vec<PublisherAdvert>,
         overlay_root_topic: &Option<TopicId>,
         expose_outer: bool,
+        peer: &PubKey,
     ) -> Result<RepoOpened, ServerError>;
 
     fn pin_repo_read(
-        &self,
+        &mut self,
         overlay: &OverlayId,
         repo: &RepoHash,
         user_id: &UserId,
         ro_topics: &Vec<TopicId>,
+        peer: &PubKey,
     ) -> Result<RepoOpened, ServerError>;
 
     fn topic_sub(
-        &self,
+        &mut self,
         overlay: &OverlayId,
         repo: &RepoHash,
         topic: &TopicId,
         user_id: &UserId,
         publisher: Option<&PublisherAdvert>,
+        peer: &PubKey,
     ) -> Result<TopicSubRes, ServerError>;
 
     fn get_commit(&self, overlay: &OverlayId, id: &ObjectId) -> Result<Vec<Block>, ServerError>;
@@ -79,7 +87,8 @@ pub trait IServerBroker: Send + Sync {
         overlay: &OverlayId,
         event: Event,
         user_id: &UserId,
-    ) -> Result<(), ServerError>;
+        remote_peer: &PubKey,
+    ) -> Result<HashSet<&PubKey>, ServerError>;
 
     fn topic_sync_req(
         &self,

@@ -150,9 +150,11 @@ pub struct VerifierConfig {
     pub user_priv_key: PrivKey,
     pub private_store_read_cap: Option<ObjectRef>,
     pub private_store_id: Option<RepoId>,
+    pub public_store_id: Option<RepoId>,
+    pub protected_store_id: Option<RepoId>,
 }
 
-pub type CancelFn = Box<dyn FnOnce()>;
+pub type CancelFn = Box<dyn FnOnce() + Sync + Send>;
 
 //
 // APP PROTOCOL (between APP and VERIFIER)
@@ -160,29 +162,97 @@ pub type CancelFn = Box<dyn FnOnce()>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppFetchContentV0 {
-    Get, // more to be detailed
-    Subscribe,
+    Get,       // does not subscribe. more to be detailed
+    Subscribe, // more to be detailed
     Update,
-    ReadQuery, // more to be detailed
+    //Invoke,
+    ReadQuery,  // more to be detailed
     WriteQuery, // more to be detailed
-               //Invoke,
+}
+
+impl AppFetchContentV0 {
+    pub fn get_or_subscribe(subscribe: bool) -> Self {
+        if subscribe {
+            AppFetchContentV0::Subscribe
+        } else {
+            AppFetchContentV0::Get
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AppFetchV0 {
-    pub doc_id: RepoId,
-
-    pub branch_id: Option<BranchId>,
-
-    pub store: StoreRepo,
-
-    pub content: AppFetchContentV0,
+pub enum NgAccessV0 {
+    ReadCap(ReadCap),
+    Token(Digest),
+    #[serde(with = "serde_bytes")]
+    ExtRequest(Vec<u8>),
+    Key(BlockKey),
+    Inbox(Digest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AppRequestContentV0 {
-    FetchNuri,
-    Fetch(AppFetchV0),
+pub enum TargetBranchV0 {
+    Chat,
+    Stream,
+    Context,
+    Ontology,
+    BranchId(BranchId),
+    Named(String),          // branch or commit
+    Commits(Vec<ObjectId>), // only possible if access to their branch is given. must belong to the same branch.
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum NuriTargetV0 {
+    UserSite, // targets the whole data set of the user
+
+    PublicStore,
+    ProtectedStore,
+    PrivateStore,
+    AllDialogs,
+    Dialog(String), // shortname of a Dialog
+    AllGroups,
+    Group(String), // shortname of a Group
+
+    Repo(RepoId),
+
+    Identity(UserId),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NuriV0 {
+    pub target: NuriTargetV0,
+    pub entire_store: bool, // If it is a store, will (try to) include all the docs belonging to the store
+
+    pub object: Option<ObjectId>, // used only for FileGet. // cannot be used for queries. only to download an object (file,commit..)
+    pub branch: Option<TargetBranchV0>, // if None, the main branch is chosen
+    pub overlay: Option<OverlayLink>,
+
+    pub access: Vec<NgAccessV0>,
+    pub topic: Option<TopicId>,
+    pub locator: Vec<PeerAdvert>,
+}
+
+impl NuriV0 {
+    pub fn new_private_store_target() -> Self {
+        Self {
+            target: NuriTargetV0::PrivateStore,
+            entire_store: false,
+            object: None,
+            branch: None,
+            overlay: None,
+            access: vec![],
+            topic: None,
+            locator: vec![],
+        }
+    }
+    pub fn new(from: String) -> Self {
+        unimplemented!();
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AppRequestCommandV0 {
+    Fetch(AppFetchContentV0),
     Pin,
     UnPin,
     Delete,
@@ -193,9 +263,9 @@ pub enum AppRequestContentV0 {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppRequestV0 {
-    pub nuri: Option<String>,
+    pub command: AppRequestCommandV0,
 
-    pub content: AppRequestContentV0,
+    pub nuri: NuriV0,
 
     pub payload: Option<AppRequestPayload>,
 }
@@ -238,6 +308,12 @@ pub struct DocUpdate {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DocAddFile {
+    pub filename: Option<String>,
+    pub object: ObjectRef,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DocCreate {
     store: StoreRepo,
     content_type: BranchContentType,
@@ -254,11 +330,13 @@ pub enum AppRequestPayloadV0 {
     Create(DocCreate),
     Query(DocQuery),
     Update(DocUpdate),
+    AddFile(DocAddFile),
+    //RemoveFile
     Delete(DocDelete),
     //Invoke(InvokeArguments),
     SmallFilePut(SmallFile),
-    RandomAccessFilePut(String), // content_type
-    RandomAccessFilePutChunk((ObjectId, serde_bytes::ByteBuf)), // end the upload with an empty vec
+    RandomAccessFilePut(String),                           // content_type
+    RandomAccessFilePutChunk((u32, serde_bytes::ByteBuf)), // end the upload with an empty vec
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -321,8 +399,16 @@ pub struct AppPatch {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FileName {
-    name: Option<String>,
-    reference: ObjectRef,
+    pub heads: Vec<ObjectId>,
+    pub name: Option<String>,
+    pub reference: ObjectRef,
+    pub nuri: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FileMetaV0 {
+    pub content_type: String,
+    pub size: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -331,9 +417,13 @@ pub enum AppResponseV0 {
     Patch(AppPatch),
     Text(String),
     File(FileName),
+    FileUploading(u32),
+    FileUploaded(ObjectRef),
     #[serde(with = "serde_bytes")]
     FileBinary(Vec<u8>),
+    FileMeta(FileMetaV0),
     QueryResult, // see sparesults
+    Ok,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

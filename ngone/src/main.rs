@@ -88,8 +88,7 @@ impl Server {
     fn get_wallet(&self, encoded_id: String) -> Result<Response, NgHttpError> {
         log_debug!("DOWNLOAD wallet {}", encoded_id);
         let id = base64_url::decode(&encoded_id).map_err(|e| NgHttpError::InvalidParams)?;
-        let array = slice_as_array!(&id, [u8; 32]).ok_or(NgHttpError::InvalidParams)?;
-        let wallet_id = PubKey::Ed25519PubKey(*array);
+        let wallet_id: PubKey = from_slice(&id).map_err(|e| NgHttpError::InvalidParams)?;
         let wallet_record =
             WalletRecord::open(&wallet_id, &self.store).map_err(|e| NgHttpError::NotFound)?;
         let wallet = wallet_record.wallet().map_err(|e| NgHttpError::NotFound)?;
@@ -108,8 +107,7 @@ impl Server {
         log_debug!("DOWNLOAD bootstrap {}", encoded_id);
 
         let id = base64_url::decode(&encoded_id).map_err(|e| NgHttpError::InvalidParams)?;
-        let array = slice_as_array!(&id, [u8; 32]).ok_or(NgHttpError::InvalidParams)?;
-        let wallet_id = PubKey::Ed25519PubKey(*array);
+        let wallet_id: PubKey = from_slice(&id).map_err(|e| NgHttpError::InvalidParams)?;
         let wallet_record =
             WalletRecord::open(&wallet_id, &self.store).map_err(|e| NgHttpError::NotFound)?;
         let bootstrap = wallet_record

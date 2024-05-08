@@ -12,6 +12,7 @@
 <script lang="ts">
   import { online } from "../store";
   import FullLayout from "./FullLayout.svelte";
+  import Test from "./Test.svelte";
   import { PaperAirplane, Bell, ArrowRightOnRectangle } from "svelte-heros-v2";
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
@@ -76,5 +77,7 @@
     </nav>
   {/if}
   <div />
+
+  <Test />
 </FullLayout>
 <svelte:window bind:innerWidth={width} />

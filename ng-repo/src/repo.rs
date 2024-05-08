@@ -166,7 +166,10 @@ impl Repo {
     pub fn update_branch_current_head(&mut self, branch: &BranchId, commit_ref: ObjectRef) {
         //log_info!("from branch {} HEAD UPDATED TO {}", branch, commit_ref.id);
         if let Some(branch) = self.branches.get_mut(branch) {
+            // FIXME: this is very wrong. the DAG is not always linear
             branch.current_heads = vec![commit_ref];
+
+            //TODO: if userstorage: save current_heads to user storage
         }
     }
 
@@ -203,6 +206,7 @@ impl Repo {
             write_cap: None,
             branches: HashMap::new(),
             opened_branches: HashMap::new(),
+            //main_branch_rc: None,
         }
     }
 
@@ -245,6 +249,15 @@ impl Repo {
     pub fn user_branch(&self) -> Option<&BranchInfo> {
         for (_, branch) in self.branches.iter() {
             if branch.branch_type == BranchType::User {
+                return Some(branch);
+            }
+        }
+        None
+    }
+
+    pub fn main_branch(&self) -> Option<&BranchInfo> {
+        for (_, branch) in self.branches.iter() {
+            if branch.branch_type == BranchType::Main {
                 return Some(branch);
             }
         }

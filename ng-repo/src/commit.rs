@@ -532,6 +532,22 @@ impl Commit {
         res
     }
 
+    /// Get files
+    pub fn files(&self) -> Vec<ObjectRef> {
+        let mut res: Vec<ObjectRef> = vec![];
+        match self {
+            Commit::V0(c) => match &c.content.header_keys() {
+                Some(CommitHeaderKeys::V0(hk_v0)) => {
+                    for file in hk_v0.files.iter() {
+                        res.push(file.clone());
+                    }
+                }
+                None => {}
+            },
+        };
+        res
+    }
+
     /// Get deps (that have both an ID in the header and a key in the header_keys)
     pub fn deps(&self) -> Vec<ObjectRef> {
         let mut res: Vec<ObjectRef> = vec![];
@@ -1394,7 +1410,7 @@ impl fmt::Display for CommitBody {
                     // CommitBodyV0::Snapshot(b) => write!(f, "Snapshot {}", b), // a soft snapshot
                     // CommitBodyV0::AsyncTransaction(b) => write!(f, "AsyncTransaction {}", b), // partial_order
                     // CommitBodyV0::SyncTransaction(b) => write!(f, "SyncTransaction {}", b), // total_order
-                    // CommitBodyV0::AddFile(b) => write!(f, "AddFile {}", b),
+                    CommitBodyV0::AddFile(b) => write!(f, "AddFile {}", b),
                     // CommitBodyV0::RemoveFile(b) => write!(f, "RemoveFile {}", b),
                     // CommitBodyV0::Compact(b) => write!(f, "Compact {}", b), // a hard snapshot. total order enforced with total_order_quorum
                     //Merge(Merge) => write!(f, "RootBranch {}", b),

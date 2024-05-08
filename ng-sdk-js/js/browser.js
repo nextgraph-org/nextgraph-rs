@@ -23,6 +23,7 @@ export function client_details2(obj,version) {
 
 export function session_save(key,value) {
     try {
+        
         sessionStorage.setItem(key, value);
 
     } catch(e) {
@@ -78,6 +79,16 @@ export function local_save(key,value) {
     } catch(e) {
         console.error(e);
         return convert_error(e.message);
+    }
+}
+
+export function storage_clear() {
+    try {
+        localStorage.clear();
+        sessionStorage.clear();
+
+    } catch(e) {
+        console.error(e);
     }
 }
 

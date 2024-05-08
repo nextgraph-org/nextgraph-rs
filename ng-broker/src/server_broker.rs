@@ -21,6 +21,8 @@ use ng_repo::{
 };
 use serde::{Deserialize, Serialize};
 
+use ng_repo::log::*;
+
 use crate::rocksdb_server_storage::RocksDbServerStorage;
 
 pub struct TopicInfo {
@@ -113,6 +115,8 @@ pub struct ServerBroker {
 
     overlays: HashMap<OverlayId, OverlayInfo>,
     inner_overlays: HashMap<OverlayId, Option<OverlayId>>,
+
+    local_subscriptions: HashMap<(OverlayId, TopicId), HashSet<PubKey>>,
 }
 
 impl ServerBroker {
@@ -121,10 +125,52 @@ impl ServerBroker {
             storage: storage,
             overlays: HashMap::new(),
             inner_overlays: HashMap::new(),
+            local_subscriptions: HashMap::new(),
         }
     }
 
     pub fn load(&mut self) -> Result<(), NgError> {
+        Ok(())
+    }
+
+    fn add_subscription(
+        &mut self,
+        overlay: OverlayId,
+        topic: TopicId,
+        peer: PubKey,
+    ) -> Result<(), ServerError> {
+        let peers_set = self
+            .local_subscriptions
+            .entry((overlay, topic))
+            .or_insert(HashSet::with_capacity(1));
+
+        log_debug!(
+            "SUBSCRIBING PEER {} TOPIC {} OVERLAY {}",
+            peer,
+            topic,
+            overlay
+        );
+
+        if !peers_set.insert(peer) {
+            //return Err(ServerError::PeerAlreadySubscribed);
+        }
+        Ok(())
+    }
+
+    fn remove_subscription(
+        &mut self,
+        overlay: &OverlayId,
+        topic: &TopicId,
+        peer: &PubKey,
+    ) -> Result<(), ServerError> {
+        let peers_set = self
+            .local_subscriptions
+            .get_mut(&(*overlay, *topic))
+            .ok_or(ServerError::SubscriptionNotFound)?;
+
+        if !peers_set.remove(peer) {
+            return Err(ServerError::SubscriptionNotFound);
+        }
         Ok(())
     }
 }
@@ -133,8 +179,21 @@ impl ServerBroker {
 //for now this cache is not implemented, but the structs are ready (see above), and it would just require to change slightly the implementation of the trait functions here below.
 
 impl IServerBroker for ServerBroker {
+    fn has_block(&self, overlay_id: &OverlayId, block_id: &BlockId) -> Result<(), ServerError> {
+        self.storage.has_block(overlay_id, block_id)
+    }
+
+    fn get_block(&self, overlay_id: &OverlayId, block_id: &BlockId) -> Result<Block, ServerError> {
+        self.storage.get_block(overlay_id, block_id)
+    }
+
     fn next_seq_for_peer(&self, peer: &PeerId, seq: u64) -> Result<(), ServerError> {
         self.storage.next_seq_for_peer(peer, seq)
+    }
+
+    fn put_block(&self, overlay_id: &OverlayId, block: Block) -> Result<(), ServerError> {
+        self.storage.add_block(overlay_id, block)?;
+        Ok(())
     }
 
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError> {
@@ -181,7 +240,7 @@ impl IServerBroker for ServerBroker {
     }
 
     fn pin_repo_write(
-        &self,
+        &mut self,
         overlay: &OverlayAccess,
         repo: &RepoHash,
         user_id: &UserId,
@@ -189,8 +248,9 @@ impl IServerBroker for ServerBroker {
         rw_topics: &Vec<PublisherAdvert>,
         overlay_root_topic: &Option<TopicId>,
         expose_outer: bool,
+        peer: &PubKey,
     ) -> Result<RepoOpened, ServerError> {
-        self.storage.pin_repo_write(
+        let res = self.storage.pin_repo_write(
             overlay,
             repo,
             user_id,
@@ -198,30 +258,50 @@ impl IServerBroker for ServerBroker {
             rw_topics,
             overlay_root_topic,
             expose_outer,
-        )
+        )?;
+        for topic in res.iter() {
+            self.add_subscription(
+                *overlay.overlay_id_for_client_protocol_purpose(),
+                *topic.topic_id(),
+                *peer,
+            )?;
+        }
+        Ok(res)
     }
 
     fn pin_repo_read(
-        &self,
+        &mut self,
         overlay: &OverlayId,
         repo: &RepoHash,
         user_id: &UserId,
         ro_topics: &Vec<TopicId>,
+        peer: &PubKey,
     ) -> Result<RepoOpened, ServerError> {
-        self.storage
-            .pin_repo_read(overlay, repo, user_id, ro_topics)
+        let res = self
+            .storage
+            .pin_repo_read(overlay, repo, user_id, ro_topics)?;
+
+        for topic in res.iter() {
+            // TODO: those outer subscriptions are not handled yet. they will not emit events.
+            self.add_subscription(*overlay, *topic.topic_id(), *peer)?;
+        }
+        Ok(res)
     }
 
     fn topic_sub(
-        &self,
+        &mut self,
         overlay: &OverlayId,
         repo: &RepoHash,
         topic: &TopicId,
         user: &UserId,
         publisher: Option<&PublisherAdvert>,
+        peer: &PubKey,
     ) -> Result<TopicSubRes, ServerError> {
-        self.storage
-            .topic_sub(overlay, repo, topic, user, publisher)
+        let res = self
+            .storage
+            .topic_sub(overlay, repo, topic, user, publisher)?;
+        self.add_subscription(*overlay, *topic, *peer)?;
+        Ok(res)
     }
 
     fn get_commit(&self, overlay: &OverlayId, id: &ObjectId) -> Result<Vec<Block>, ServerError> {
@@ -233,8 +313,25 @@ impl IServerBroker for ServerBroker {
         overlay: &OverlayId,
         event: Event,
         user_id: &UserId,
-    ) -> Result<(), ServerError> {
-        self.storage.save_event(overlay, event, user_id)
+        remote_peer: &PubKey,
+    ) -> Result<HashSet<&PubKey>, ServerError> {
+        let topic = self.storage.save_event(overlay, event, user_id)?;
+
+        log_debug!(
+            "DISPATCH EVENt {} {} {:?}",
+            overlay,
+            topic,
+            self.local_subscriptions
+        );
+
+        let mut set = self
+            .local_subscriptions
+            .get(&(*overlay, topic))
+            .map(|set| set.iter().collect())
+            .unwrap_or(HashSet::new());
+
+        set.remove(remote_peer);
+        Ok(set)
     }
 
     fn topic_sync_req(

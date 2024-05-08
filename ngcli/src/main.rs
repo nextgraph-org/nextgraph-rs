@@ -36,7 +36,7 @@ use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::types::*;
 use ng_repo::utils::{
-    decode_key, display_timestamp, generate_keypair, now_timestamp, timestamp_after,
+    decode_priv_key, display_timestamp, generate_keypair, now_timestamp, timestamp_after,
 };
 
 use clap::{arg, command, value_parser, ArgAction, Command};
@@ -279,10 +279,10 @@ async fn main_inner() -> Result<(), NgcliError> {
                 .lines()
                 .nth(0)
                 .ok_or(NgcliError::InvalidKeyFile("empty file".to_string()))?;
-            let res = decode_key(first_line.trim())
+            let res = decode_priv_key(first_line.trim())
                 .map_err(|_| NgcliError::InvalidKeyFile("deserialization error".to_string()))?;
             file.zeroize();
-            Some(res)
+            Some(*res.slice())
         }
     };
 
@@ -293,20 +293,20 @@ async fn main_inner() -> Result<(), NgcliError> {
                 //key_string.as_mut().zeroize();
                 gen_client_keys(key_from_file)
             } else {
-                let res = decode_key(key_string.as_str()).map_err(|_| {
+                let res = decode_priv_key(key_string.as_str()).map_err(|_| {
                     NgcliError::InvalidKeyFile(
                         "check the argument provided in command line".to_string(),
                     )
                 })?;
                 if matches.get_flag("save_key") {
-                    let mut master_key = base64_url::encode(&res);
+                    let mut master_key = res.to_string();
                     write(key_path.clone(), &master_key)
                         .map_err(|e| NgcliError::CannotSaveKey(e.to_string()))?;
                     master_key.zeroize();
                     log_info!("The key has been saved to {}", key_path.to_str().unwrap());
                 }
                 //key_string.as_mut().zeroize();
-                gen_client_keys(Some(res))
+                gen_client_keys(Some(*res.slice()))
             }
         }
         None => {
@@ -314,7 +314,8 @@ async fn main_inner() -> Result<(), NgcliError> {
                 gen_client_keys(key_from_file)
             } else {
                 let res = gen_client_keys(None);
-                let mut master_key = base64_url::encode(&res[0]);
+                let key = PrivKey::Ed25519PrivKey(res[0]);
+                let mut master_key = key.to_string();
                 if matches.get_flag("save_key") {
                     write(key_path.clone(), &master_key)
                         .map_err(|e| NgcliError::CannotSaveKey(e.to_string()))?;
