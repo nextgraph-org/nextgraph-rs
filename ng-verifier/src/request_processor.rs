@@ -41,9 +41,7 @@ impl AppRequestCommandV0 {
                 AppFetchContentV0::Subscribe => {
                     let (_, branch_id, _) =
                         Self::open_for_target(verifier, &nuri.target, false).await?;
-                    Ok(verifier
-                        .create_branch_subscription(branch_id, false)
-                        .await?)
+                    Ok(verifier.create_branch_subscription(branch_id).await?)
                 }
                 _ => unimplemented!(),
             },

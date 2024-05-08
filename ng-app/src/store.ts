@@ -174,11 +174,11 @@ export const branch_subs = function(nura) {
     
     return {
         load: async ()  => {
-            console.log("load upper");
+            //console.log("load upper");
             let already_subscribed = all_branches[nura];
             if (!already_subscribed) return;
             if (already_subscribed.load) {
-                console.log("doing the load");
+                //console.log("doing the load");
                 let loader = already_subscribed.load;
                 already_subscribed.load = undefined;
                 // already_subscribed.load2 = loader;
@@ -195,7 +195,7 @@ export const branch_subs = function(nura) {
                 already_subscribed = {
                     load: async () => {
                         try {
-                            console.log("load down");
+                            //console.log("load down");
                             let session = get(active_session);
                             if (!session) {
                                 console.error("no session");
@@ -206,7 +206,7 @@ export const branch_subs = function(nura) {
                             set([]);
                             unsub = await ng.app_request_stream(session.session_id, await ng.doc_fetch_private_subscribe(), 
                             async (commit) => {
-                                console.log("GOT APP RESPONSE", commit);
+                                //console.log("GOT APP RESPONSE", commit);
                                 update( (old) => {old.unshift(commit); return old;} )
                             });
                         }
@@ -218,12 +218,12 @@ export const branch_subs = function(nura) {
                     },
                     increase: () => {
                         count += 1;
-                        console.log("increase sub to",count);
+                        //console.log("increase sub to",count);
                         return readonly({subscribe});
                     },
                     decrease: () => {
                         count -= 1;
-                        console.log("decrease sub to",count);
+                        //console.log("decrease sub to",count);
                         // if (count == 0) {
                         //     unsub();
                         //     console.log("removed sub");
@@ -238,7 +238,7 @@ export const branch_subs = function(nura) {
             let read_unsub = new_store.subscribe(run, invalid);
             return () => {
                 read_unsub();
-                console.log("callback unsub");
+                //console.log("callback unsub");
                 already_subscribed.decrease();
             }
             

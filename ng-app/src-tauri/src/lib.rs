@@ -269,7 +269,7 @@ async fn app_request_stream(
             .await
             .map_err(|e| e.to_string())?;
 
-        log_debug!("END OF LOOP");
+        //log_debug!("END OF LOOP");
         Ok(())
     }
 

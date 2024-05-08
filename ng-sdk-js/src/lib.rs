@@ -537,7 +537,7 @@ pub async fn app_request_stream(
                 }
             }
         }
-        log_info!("END OF LOOP");
+        //log_info!("END OF LOOP");
         Ok(())
     }
 

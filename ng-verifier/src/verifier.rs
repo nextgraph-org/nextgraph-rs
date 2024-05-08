@@ -154,11 +154,11 @@ impl Verifier {
     }
 
     pub(crate) async fn push_app_response(&mut self, branch: &BranchId, response: AppResponse) {
-        log_info!(
-            "push_app_response {} {:?}",
-            branch,
-            self.branch_subscriptions
-        );
+        // log_info!(
+        //     "push_app_response {} {:?}",
+        //     branch,
+        //     self.branch_subscriptions
+        // );
         if let Some(sender) = self.branch_subscriptions.get_mut(branch) {
             if sender.is_closed() {
                 log_info!("closed so removed");
@@ -172,7 +172,6 @@ impl Verifier {
     pub(crate) async fn create_branch_subscription(
         &mut self,
         branch: BranchId,
-        resub: bool,
     ) -> Result<(Receiver<AppResponse>, CancelFn), VerifierError> {
         // async fn send(mut tx: Sender<AppResponse>, msg: AppResponse) -> ResultSend<()> {
         //     while let Ok(_) = tx.send(msg.clone()).await {
@@ -185,26 +184,25 @@ impl Verifier {
         // spawn_and_log_error(send(tx.clone(), commit));
         //log_info!("#### create_branch_subscription {}", branch);
         let (tx, rx) = mpsc::unbounded::<AppResponse>();
-        log_info!("SUBSCRIBE");
+        //log_info!("SUBSCRIBE");
         if let Some(returned) = self.branch_subscriptions.insert(branch, tx.clone()) {
-            log_info!("RESUBSCRIBE");
+            //log_info!("RESUBSCRIBE");
             if !returned.is_closed() {
-                log_info!("FORCE CLOSE");
+                //log_info!("FORCE CLOSE");
                 returned.close_channel();
                 //return Err(VerifierError::DoubleBranchSubscription);
             }
         }
-        if !resub {
-            //let tx = self.branch_subscriptions.entry(branch).or_insert_with(|| {});
-            for file in self
-                .user_storage
-                .as_ref()
-                .unwrap()
-                .branch_get_all_files(&branch)?
-            {
-                self.push_app_response(&branch, AppResponse::V0(AppResponseV0::File(file)))
-                    .await;
-            }
+
+        //let tx = self.branch_subscriptions.entry(branch).or_insert_with(|| {});
+        for file in self
+            .user_storage
+            .as_ref()
+            .unwrap()
+            .branch_get_all_files(&branch)?
+        {
+            self.push_app_response(&branch, AppResponse::V0(AppResponseV0::File(file)))
+                .await;
         }
 
         let fnonce = Box::new(move || {

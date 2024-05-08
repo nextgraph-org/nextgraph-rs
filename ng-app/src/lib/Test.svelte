@@ -259,11 +259,11 @@
     {:then}
       {#each $files as file}
         <p>
-          {file.V0.File.name}<br />
-          did:ng{file.V0.File.nuri}
+          {file.V0.File.name}
+
           {#await get_img(file.V0.File) then url}
             {#if url}
-              <img src={url} />
+              <img src={url} title={"did:ng" + file.V0.File.nuri} />
             {/if}
           {/await}
         </p>
