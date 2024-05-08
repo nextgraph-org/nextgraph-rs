@@ -87,7 +87,7 @@
   let fileinput;
 
   function uploadFile(upload_id, nuri, file, success) {
-    let chunkSize = 1024 * 1024;
+    let chunkSize = 1048564;
     let fileSize = file.size;
     let offset = 0;
     let readBlock = null;
