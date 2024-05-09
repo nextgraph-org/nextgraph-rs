@@ -167,7 +167,7 @@ async fn main_inner() -> Result<(), NgcliError> {
             .default_value(".ng"))
             .arg(
                 arg!(
-                    -k --key <KEY> "Master key of the client. Should be a base64-url encoded serde serialization of a [u8; 32]. 
+                    -k --key <KEY> "Master key of the client. Should be a base64-url encoded serde serialization of PrivKey. 
                     If not provided, a new key will be generated for you"
                 )
                 .required(false)
@@ -175,8 +175,8 @@ async fn main_inner() -> Result<(), NgcliError> {
             )
             .arg(
                 arg!(
-                    -u --user <USER_PRIVKEY> "Client ID to use to connect to the server. Should be a base64-url encoded serde 
-                    serialization of a [u8; 32] representing the user private key"
+                    -u --user <USER_PRIVKEY> "User ID to use to connect to the server. Should be a base64-url encoded serde 
+                    serialization of a PrivKey representing the user private key"
                 )
                 .required(false)
                 .env("NG_CLIENT_USER"),
@@ -185,7 +185,7 @@ async fn main_inner() -> Result<(), NgcliError> {
                 arg!(
                     -s --server <IP_PORT_PEER_ID> "Server to connect to. IP can be IpV4 or IPv6, followed by a 
                     comma and port as u16 and another comma and PEER_ID 
-                    should be a base64-url encoded serde serialization of a [u8; 32]"
+                    should be a base64-url encoded serde serialization of a PubKey"
                 )
                 .required(false)
                 .env("NG_CLIENT_SERVER"),
@@ -363,7 +363,7 @@ async fn main_inner() -> Result<(), NgcliError> {
         })?;
         let peer_id: PubKey = addr[2].try_into().map_err(|_| {
             NgcliError::OtherConfigErrorStr(
-                "NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID. The PEER_ID is invalid. It should be a base64-url encoded serde serialization of a [u8; 32]."
+                "NG_CLIENT_SERVER or the --server option is invalid. format is IP,PORT,PEER_ID. The PEER_ID is invalid. It should be a base64-url encoded serde serialization of a PubKey."
             )
         })?;
         if config.is_some() {
@@ -386,7 +386,7 @@ async fn main_inner() -> Result<(), NgcliError> {
     if let Some(user) = matches.get_one::<String>("user") {
         let privkey: PrivKey = user.as_str().try_into().map_err(|_| {
             NgcliError::OtherConfigErrorStr(
-                "NG_CLIENT_USER or the --user option is invalid. It should be a base64-url encoded serde serialization of a [u8; 32] of a private key for a user.",
+                "NG_CLIENT_USER or the --user option is invalid. It should be a base64-url encoded serde serialization of a PrivKey for a user.",
             )
         })?;
         if config.is_some() {

@@ -106,13 +106,13 @@
     } else {
       // ON WEB CLIENTS
       window.addEventListener("storage", async (event) => {
-        console.log("localStorage event", event);
+        //console.log("localStorage event", event);
         if (event.storageArea != localStorage) return;
         if (event.key === "ng_wallets") {
-          console.log("localStorage", JSON.stringify($wallets));
+          //console.log("localStorage", JSON.stringify($wallets));
           await ng.wallets_reload();
           wallets.set(await ng.get_wallets());
-          console.log("localStorage after", JSON.stringify($wallets));
+          //console.log("localStorage after", JSON.stringify($wallets));
         }
       });
       wallets.set(await ng.get_wallets());

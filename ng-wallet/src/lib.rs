@@ -285,7 +285,7 @@ pub fn dec_encrypted_block(
 }
 
 // FIXME: An important note on the cost parameters !!!
-// here are set to quite high values because the code gets optimized (unfortunately) so the cost params take that into account.
+// here they are set to quite high values because the code gets optimized (unfortunately) so the cost params take that into account.
 // on native apps in debug mode (dev mode), the rust code is not optimized and we get a timing above 1 min, which is way too much
 // once compiled for release (prod), the timing goes down to 8 sec on native apps because of the Rust optimization.
 // on the WASM32 target, the wasm-pack has optimization disabled (wasm-opt = false) but we suspect the optimization happens on the V8 runtime, in the browser or node.
@@ -296,8 +296,8 @@ pub fn dec_encrypted_block(
 // we haven't test it yet. https://community.bitwarden.com/t/recommended-settings-for-argon2/50901/16?page=4
 pub fn derive_key_from_pass(mut pass: Vec<u8>, salt: [u8; 16], wallet_id: WalletId) -> [u8; 32] {
     let params = ParamsBuilder::new()
-        .m_cost(100 * 1024)
-        .t_cost(24)
+        .m_cost(20 * 1024)
+        .t_cost(30)
         .p_cost(1)
         .data(AssociatedData::new(wallet_id.slice()).unwrap())
         .output_len(32)
@@ -742,7 +742,6 @@ pub async fn create_wallet_second_step_v0(
         peer_id: PubKey::nil(),
         nonce: 0,
         encrypted,
-        test: None,
     };
 
     let ser_wallet = serde_bare::to_vec(&wallet_content).unwrap();

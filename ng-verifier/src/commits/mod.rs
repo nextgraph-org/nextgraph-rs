@@ -122,6 +122,7 @@ impl CommitVerifier for RootBranch {
                     branches: branches.into_iter().collect(),
                     opened_branches: HashMap::new(),
                 };
+                verifier.populate_topics(&repo);
                 let _repo_ref = verifier.add_repo_and_save(repo);
             }
         }

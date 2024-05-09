@@ -649,8 +649,6 @@ pub struct WalletContentV0 {
     // WalletLog content encrypted with XChaCha20Poly1305, AD = timestamp and walletID
     #[serde(with = "serde_bytes")]
     pub encrypted: Vec<u8>,
-
-    pub test: Option<String>,
 }
 
 /// Wallet Log V0

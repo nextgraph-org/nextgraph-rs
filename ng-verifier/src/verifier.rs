@@ -295,11 +295,13 @@ impl Verifier {
                     Arc::clone(&repo.store),
                 );
                 let store = Arc::clone(&repo.store);
+                self.populate_topics(&repo);
                 self.add_repo_without_saving(repo);
 
                 for repo_id in repos {
                     //log_info!("LOADING REPO: {}", repo_id);
                     let repo = user_storage.load_repo(repo_id, Arc::clone(&store))?;
+                    self.populate_topics(&repo);
                     self.add_repo_without_saving(repo);
                 }
             }
@@ -1165,7 +1167,7 @@ impl Verifier {
                 return;
             }
             let new_heads = new_heads.unwrap();
-            log_info!("NEW HEADS {} {:?}", branch, new_heads);
+            //log_info!("NEW HEADS {} {:?}", branch, new_heads);
             if let Some(user_storage) = self.user_storage_if_persistent() {
                 let _ = user_storage.update_branch_current_head(repo_id, branch, new_heads);
             }
@@ -1852,7 +1854,6 @@ impl Verifier {
         log_info!("SENDING {} EVENTS FOR OUTBOX", events_to_replay.len());
         for e in events_to_replay {
             let files = e.event.file_ids();
-            log_info!("HAS FILE {:?}", files);
             if !files.is_empty() {
                 let (repo_id, branch_id) = self
                     .topics
@@ -2038,7 +2039,7 @@ impl Verifier {
         self.add_repo_(repo);
     }
 
-    fn add_repo_(&mut self, repo: Repo) -> &Repo {
+    pub(crate) fn populate_topics(&mut self, repo: &Repo) {
         for (branch_id, info) in repo.branches.iter() {
             let overlay_id: OverlayId = repo.store.inner_overlay();
             let topic_id = info.topic.clone();
@@ -2047,8 +2048,11 @@ impl Verifier {
             let res = self
                 .topics
                 .insert((overlay_id, topic_id), (repo_id, branch_id));
-            assert_eq!(res, None);
         }
+    }
+
+    fn add_repo_(&mut self, repo: Repo) -> &Repo {
+        //self.populate_topics(&repo);
         let repo_ref = self.repos.entry(repo.id).or_insert(repo);
         repo_ref
     }
@@ -2143,6 +2147,7 @@ impl Verifier {
             private,
         )?;
         let repo = self.complete_site_store(store_repo, repo)?;
+        self.populate_topics(&repo);
         self.new_events_with_repo(proto_events, &repo).await?;
         let repo_ref = self.add_repo_and_save(repo);
         Ok(repo_ref)
@@ -2164,6 +2169,7 @@ impl Verifier {
             false,
             false,
         )?;
+        self.populate_topics(&repo);
         self.new_events_with_repo(proto_events, &repo).await?;
         let repo_ref = self.add_repo_and_save(repo);
         Ok(repo_ref)

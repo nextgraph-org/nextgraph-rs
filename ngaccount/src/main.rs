@@ -195,7 +195,7 @@ async fn main() -> anyhow::Result<()> {
 
     let admin_key: PrivKey = admin_user.as_str().try_into().map_err(|_| {
         anyhow!(
-            "NG_ACCOUNT_ADMIN is invalid. It should be a base64-url encoded serde serialization of a [u8; 32] of the private key for an admin user. cannot start"
+            "NG_ACCOUNT_ADMIN is invalid. It should be a base64-url encoded serde serialization of PrivKey for an admin user. cannot start"
         )
     })?;
 
@@ -204,7 +204,7 @@ async fn main() -> anyhow::Result<()> {
 
     let local_peer_key: PrivKey = local_peer_privkey.as_str().try_into().map_err(|_| {
         anyhow!(
-            "NG_ACCOUNT_LOCAL_PEER_KEY is invalid. It should be a base64-url encoded serde serialization of a [u8; 32] of the private key for the peerId. cannot start"
+            "NG_ACCOUNT_LOCAL_PEER_KEY is invalid. It should be a base64-url encoded serde serialization of PrivKey for the peerId. cannot start"
         )
     })?;
 
@@ -231,7 +231,7 @@ async fn main() -> anyhow::Result<()> {
     let peer_id: PubKey = addr[2].try_into().map_err(|_| {
         anyhow!(
             "NG_ACCOUNT_SERVER is invalid. format is IP,PORT,PEER_ID.
-            The PEER_ID is invalid. It should be a base64-url encoded serde serialization of a [u8; 32]. cannot start"
+            The PEER_ID is invalid. It should be a base64-url encoded serde serialization of a PubKey. cannot start"
         )
     })?;
 

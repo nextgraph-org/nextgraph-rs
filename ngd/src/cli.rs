@@ -27,7 +27,7 @@ pub(crate) struct Cli {
     #[arg(short, long, default_value = ".ng", value_name("PATH"))]
     pub base: String,
 
-    /// Master key of the server. Should be a base64-url encoded serde serialization of a [u8; 32]. if not provided, a new key will be generated for you
+    /// Master key of the server. Should be a base64-url encoded serde serialization of a PrivKey. if not provided, a new key will be generated for you
     #[arg(short, long, env = "NG_SERVER_KEY")]
     pub key: Option<String>,
 
