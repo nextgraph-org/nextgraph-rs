@@ -505,7 +505,7 @@ let face = [
     },
   ];
 
-  let big_animal = [
+  let bigger_animal = [
     {
       hexcode: "1f981",
       shortcode: "lion",
@@ -563,9 +563,9 @@ let face = [
       code: "rhinoceros",
     },
     {
-      hexcode: "1f407",
-      shortcode: "rabbit",
-      code: "rabbit",
+      hexcode: "1f9a9",
+      shortcode: "flamingo",
+      code: "flamingo",
     },
     {
       hexcode: "1f433",
@@ -584,11 +584,11 @@ let face = [
     },
   ];
 
-  let animal = [
+  let smaller_animal = [
     {
       hexcode: "1f413",
       shortcode: "rooster",
-      code: "chicken",
+      code: "rooster",
       svg: "",
     },
     {
@@ -612,9 +612,9 @@ let face = [
       code: "owl",
     },
     {
-      hexcode: "1f9a9",
-      shortcode: "flamingo",
-      code: "flamingo",
+      hexcode: "1f407",
+      shortcode: "rabbit",
+      code: "rabbit",
     },
     {
       hexcode: "1f427",
@@ -964,7 +964,7 @@ let face = [
     {
       hexcode: "1f695",
       shortcode: "taxi",
-      code: "car",
+      code: "taxi",
     },
     {
       hexcode: "1f3cd",
@@ -1461,58 +1461,59 @@ export async function load_svg() {
     sport[13].svg = await import("./assets/pazzle/emoji_u1f3d3.svg?component");
     sport[14].svg = await import("./assets/pazzle/emoji_u1f94b.svg?component");
 
-    /************** BIG ANIMAL *********************/
+    /************** BIGGER ANIMAL *********************/
 
-    big_animal[0].svg = await import("./assets/pazzle/emoji_u1f981.svg?component");
-    big_animal[1].svg = await import("./assets/pazzle/emoji_u1f406.svg?component");
-    big_animal[2].svg = await import("./assets/pazzle/emoji_u1f434.svg?component");
+    bigger_animal[0].svg = await import("./assets/pazzle/emoji_u1f981.svg?component");
+    bigger_animal[1].svg = await import("./assets/pazzle/emoji_u1f406.svg?component");
+    bigger_animal[2].svg = await import("./assets/pazzle/emoji_u1f434.svg?component");
 
-    big_animal[3].svg = await import("./assets/pazzle/emoji_u1f993.svg?component");
-    big_animal[4].svg = await import("./assets/pazzle/emoji_u1f416.svg?component");
-    big_animal[5].svg = await import("./assets/pazzle/emoji_u1f410.svg?component");
+    bigger_animal[3].svg = await import("./assets/pazzle/emoji_u1f993.svg?component");
+    bigger_animal[4].svg = await import("./assets/pazzle/emoji_u1f416.svg?component");
+    bigger_animal[5].svg = await import("./assets/pazzle/emoji_u1f410.svg?component");
 
-    big_animal[6].svg = await import("./assets/pazzle/emoji_u1f411.svg?component");
-    big_animal[7].svg = await import("./assets/pazzle/emoji_u1f42a.svg?component");
-    big_animal[8].svg = await import("./assets/pazzle/emoji_u1f992.svg?component");
+    bigger_animal[6].svg = await import("./assets/pazzle/emoji_u1f411.svg?component");
+    bigger_animal[7].svg = await import("./assets/pazzle/emoji_u1f42a.svg?component");
+    bigger_animal[8].svg = await import("./assets/pazzle/emoji_u1f992.svg?component");
 
-    big_animal[9].svg = await import("./assets/pazzle/emoji_u1f418.svg?component");
-    big_animal[10].svg = await import(
+    bigger_animal[9].svg = await import("./assets/pazzle/emoji_u1f418.svg?component");
+    bigger_animal[10].svg = await import(
       "./assets/pazzle/emoji_u1f98f.svg?component"
     );
-    big_animal[11].svg = await import(
-      "./assets/pazzle/emoji_u1f407.svg?component"
-    );
-    big_animal[12].svg = await import("./assets/pazzle/emoji_u1f433.svg?component");
-    big_animal[13].svg = await import("./assets/pazzle/emoji_u1f42c.svg?component");
-    big_animal[14].svg = await import(
+    bigger_animal[11].svg = await import("./assets/pazzle/emoji_u1f9a9.svg?component");
+
+    bigger_animal[12].svg = await import("./assets/pazzle/emoji_u1f433.svg?component");
+    bigger_animal[13].svg = await import("./assets/pazzle/emoji_u1f42c.svg?component");
+    bigger_animal[14].svg = await import(
       "./assets/pazzle/emoji_u1f43b_200d_2744.svg?component"
     );
 
-    /************** ANIMAL *********************/
+    /************** SMALLER ANIMAL *********************/
 
-    animal[0].svg = await import("./assets/pazzle/emoji_u1f413.svg?component");
-    animal[1].svg = await import("./assets/pazzle/emoji_u1f423.svg?component");
-    animal[2].svg = await import("./assets/pazzle/emoji_u1f985.svg?component");
+    smaller_animal[0].svg = await import("./assets/pazzle/emoji_u1f413.svg?component");
+    smaller_animal[1].svg = await import("./assets/pazzle/emoji_u1f423.svg?component");
+    smaller_animal[2].svg = await import("./assets/pazzle/emoji_u1f985.svg?component");
 
-    animal[3].svg = await import("./assets/pazzle/emoji_u1f986.svg?component");
-    animal[4].svg = await import("./assets/pazzle/emoji_u1f989.svg?component");
-    animal[5].svg = await import("./assets/pazzle/emoji_u1f9a9.svg?component");
+    smaller_animal[3].svg = await import("./assets/pazzle/emoji_u1f986.svg?component");
+    smaller_animal[4].svg = await import("./assets/pazzle/emoji_u1f989.svg?component");
+    smaller_animal[5].svg = await import(
+      "./assets/pazzle/emoji_u1f407.svg?component"
+    );
 
-    animal[6].svg = await import("./assets/pazzle/emoji_u1f427.svg?component");
-    animal[7].svg = await import("./assets/pazzle/emoji_u1f98e.svg?component");
-    animal[8].svg = await import("./assets/pazzle/emoji_u1f422.svg?component");
+    smaller_animal[6].svg = await import("./assets/pazzle/emoji_u1f427.svg?component");
+    smaller_animal[7].svg = await import("./assets/pazzle/emoji_u1f98e.svg?component");
+    smaller_animal[8].svg = await import("./assets/pazzle/emoji_u1f422.svg?component");
 
-    animal[9].svg = await import("./assets/pazzle/emoji_u1f40d.svg?component");
-    animal[10].svg = await import(
+    smaller_animal[9].svg = await import("./assets/pazzle/emoji_u1f40d.svg?component");
+    smaller_animal[10].svg = await import(
       "./assets/pazzle/emoji_u1f994.svg?component"
     );
-    animal[11].svg = await import(
+    smaller_animal[11].svg = await import(
       "./assets/pazzle/emoji_u1f987.svg?component"
     );
 
-    animal[12].svg = await import("./assets/pazzle/emoji_u1f41f.svg?component");
-    animal[13].svg = await import("./assets/pazzle/emoji_u1f41a.svg?component");
-    animal[14].svg = await import("./assets/pazzle/emoji_u1f419.svg?component");
+    smaller_animal[12].svg = await import("./assets/pazzle/emoji_u1f41f.svg?component");
+    smaller_animal[13].svg = await import("./assets/pazzle/emoji_u1f41a.svg?component");
+    smaller_animal[14].svg = await import("./assets/pazzle/emoji_u1f419.svg?component");
 
     /************** PLANTS *********************/
 
@@ -1693,8 +1694,8 @@ export const emojis = {
     emotion,
     body,
     sport,
-    big_animal,
-    animal,
+    bigger_animal,
+    smaller_animal,
     plants,
     fruits,
     food,
@@ -1707,8 +1708,8 @@ export const emojis = {
 export const emoji_cat = [
     "face",
     "sport",
-    "big_animal",
-    "animal",
+    "bigger_animal",
+    "smaller_animal",
     "plants",
     "fruits",
     "food",

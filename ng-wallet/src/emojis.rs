@@ -14,7 +14,7 @@ pub struct EmojiDef<'a> {
     pub shortcode: &'a str,
     pub code: &'a str,
 }
-
+#[allow(non_upper_case_globals)]
 const face: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f600",
@@ -92,7 +92,7 @@ const face: [EmojiDef<'static>; 15] = [
         code: "sleeping",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const face_unwell: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f637",
@@ -171,7 +171,7 @@ const face_unwell: [EmojiDef<'static>; 15] = [
         code: "annoyed",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const face_costume: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f921",
@@ -249,7 +249,7 @@ const face_costume: [EmojiDef<'static>; 15] = [
         code: "fairy",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const emotion: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f48c",
@@ -327,7 +327,7 @@ const emotion: [EmojiDef<'static>; 15] = [
         code: "praying",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const body: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f4aa",
@@ -405,7 +405,7 @@ const body: [EmojiDef<'static>; 15] = [
         code: "shoe",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const sport: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f93a",
@@ -483,8 +483,8 @@ const sport: [EmojiDef<'static>; 15] = [
         code: "martial",
     },
 ];
-
-const big_animal: [EmojiDef<'static>; 15] = [
+#[allow(non_upper_case_globals)]
+const bigger_animal: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f981",
         shortcode: "lion",
@@ -541,9 +541,9 @@ const big_animal: [EmojiDef<'static>; 15] = [
         code: "rhinoceros",
     },
     EmojiDef {
-        hexcode: "1f407",
-        shortcode: "rabbit",
-        code: "rabbit",
+        hexcode: "1f9a9",
+        shortcode: "flamingo",
+        code: "flamingo",
     },
     EmojiDef {
         hexcode: "1f433",
@@ -562,11 +562,12 @@ const big_animal: [EmojiDef<'static>; 15] = [
     },
 ];
 
-const animal: [EmojiDef<'static>; 15] = [
+#[allow(non_upper_case_globals)]
+const smaller_animal: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f413",
         shortcode: "rooster",
-        code: "chicken",
+        code: "rooster",
     },
     EmojiDef {
         hexcode: "1f423",
@@ -589,9 +590,9 @@ const animal: [EmojiDef<'static>; 15] = [
         code: "owl",
     },
     EmojiDef {
-        hexcode: "1f9a9",
-        shortcode: "flamingo",
-        code: "flamingo",
+        hexcode: "1f407",
+        shortcode: "rabbit",
+        code: "rabbit",
     },
     EmojiDef {
         hexcode: "1f427",
@@ -639,7 +640,7 @@ const animal: [EmojiDef<'static>; 15] = [
         code: "octopus",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const plants: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f40c",
@@ -717,7 +718,7 @@ const plants: [EmojiDef<'static>; 15] = [
         code: "mushroom",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const fruits: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f347",
@@ -795,7 +796,7 @@ const fruits: [EmojiDef<'static>; 15] = [
         code: "pepper",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const food: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f950",
@@ -873,7 +874,7 @@ const food: [EmojiDef<'static>; 15] = [
         code: "two_glasses",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const travel: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f3d4",
@@ -923,7 +924,7 @@ const travel: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f695",
         shortcode: "taxi",
-        code: "car",
+        code: "taxi",
     },
     EmojiDef {
         hexcode: "1f3cd",
@@ -951,7 +952,7 @@ const travel: [EmojiDef<'static>; 15] = [
         code: "rocket",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const sky: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "2600",
@@ -1029,7 +1030,7 @@ const sky: [EmojiDef<'static>; 15] = [
         code: "rainbow",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const play: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f3b8",
@@ -1107,7 +1108,7 @@ const play: [EmojiDef<'static>; 15] = [
         code: "scuba_diving",
     },
 ];
-
+#[allow(non_upper_case_globals)]
 const house: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f9f9",
@@ -1194,8 +1195,8 @@ lazy_static! {
         ("emotion", emotion),
         ("body", body),
         ("sport", sport),
-        ("big_animal", big_animal),
-        ("animal", animal),
+        ("bigger_animal", bigger_animal),
+        ("smaller_animal", smaller_animal),
         ("plants", plants),
         ("fruits", fruits),
         ("food", food),
@@ -1211,8 +1212,8 @@ lazy_static! {
 pub const EMOJI_CAT: [&'static str; 15] = [
     "face",
     "sport",
-    "big_animal",
-    "animal",
+    "bigger_animal",
+    "smaller_animal",
     "plants",
     "fruits",
     "food",

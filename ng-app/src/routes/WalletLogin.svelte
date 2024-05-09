@@ -108,7 +108,7 @@
           event.detail.id,
           event.detail.wallet.V0.personal_site
         );
-        console.log(session);
+        //console.log(session);
         if (session) {
           set_active_session(session);
         }

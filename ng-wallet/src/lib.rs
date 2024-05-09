@@ -320,7 +320,7 @@ pub fn open_wallet_with_pazzle(
         return Err(NgWalletError::InvalidPin);
     }
 
-    log_info!("pazzle={:?}", pazzle);
+    //log_info!("pazzle={:?}", pazzle);
 
     let opening_pazzle = Instant::now();
 

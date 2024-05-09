@@ -13,7 +13,12 @@
   import { online } from "../store";
   import FullLayout from "./FullLayout.svelte";
   import Test from "./Test.svelte";
-  import { PaperAirplane, Bell, ArrowRightOnRectangle } from "svelte-heros-v2";
+  import {
+    PaperAirplane,
+    Bell,
+    ArrowRightOnRectangle,
+    Share,
+  } from "svelte-heros-v2";
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
   // @ts-ignore
@@ -49,7 +54,13 @@
           >
         </a>
         <div class="w-auto flex row">
-          <a href="#/messages" class="row items-center" on:click>
+          <a href="#/shared" class="row items-center" on:click>
+            <Share
+              tabindex="-1"
+              class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white focus:outline-none"
+            />
+          </a>
+          <a href="#/messages" class="ml-6 row items-center" on:click>
             <PaperAirplane
               tabindex="-1"
               class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white focus:outline-none"

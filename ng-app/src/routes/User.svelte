@@ -191,7 +191,7 @@
               />
               <span class="ml-3">Logout</span>
             </li>
-            <li
+            <!-- <li
               tabindex="0"
               class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               on:keypress={close_session}
@@ -202,7 +202,7 @@
                 class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
               <span class="ml-3">Switch wallet</span>
-            </li>
+            </li> -->
             {#if !downloading}
               <li
                 tabindex="0"

@@ -94,7 +94,7 @@ const handler = {
                     // TODO: install timestamp 
                     V0 : { client_type, details: JSON.stringify(info), version, timestamp_install:0, timestamp_updated:0 }
                 };
-                console.log(info,res);
+                //console.log(info,res);
                 return res;
             } else if (path[0] === "disconnections_subscribe") {
                 let { getCurrent } = await import("@tauri-apps/plugin-window");
@@ -117,7 +117,7 @@ const handler = {
             }
             else if (path[0] === "app_request_stream") {
                 let stream_id = (lastStreamId += 1).toString();
-                console.log("stream_id",stream_id);
+                //console.log("stream_id",stream_id);
                 let { getCurrent } = await import("@tauri-apps/plugin-window");
                 let session_id = args[0];
                 let request = args[1];

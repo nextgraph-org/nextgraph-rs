@@ -186,7 +186,7 @@ impl Verifier {
         // );
         if let Some(sender) = self.branch_subscriptions.get_mut(branch) {
             if sender.is_closed() {
-                log_info!("closed so removed");
+                //log_info!("closed so removed");
                 self.branch_subscriptions.remove(branch);
             } else {
                 let _ = sender.send(response).await;
@@ -231,7 +231,7 @@ impl Verifier {
         }
 
         let fnonce = Box::new(move || {
-            log_info!("CLOSE_CHANNEL");
+            //log_info!("CLOSE_CHANNEL");
             if !tx.is_closed() {
                 tx.close_channel();
             }
@@ -1292,7 +1292,7 @@ impl Verifier {
                 && theirs.difference(&ours_set).count() == 0
             {
                 // no need to sync
-                log_info!("branch is up to date");
+                // log_info!("branch is up to date");
                 return Ok(());
             }
 
@@ -1851,7 +1851,7 @@ impl Verifier {
                 .await?;
             log_info!("REPLAY DONE");
         }
-        log_info!("SENDING {} EVENTS FOR OUTBOX", events_to_replay.len());
+        log_info!("SENDING {} EVENTS FROM OUTBOX", events_to_replay.len());
         for e in events_to_replay {
             let files = e.event.file_ids();
             if !files.is_empty() {

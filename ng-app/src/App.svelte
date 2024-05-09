@@ -61,7 +61,7 @@
     try {
       await disconnections_subscribe();
     } catch (e) {
-      console.log("called disconnections_subscribe twice");
+      //console.log("called disconnections_subscribe twice");
     }
     let tauri_platform = import.meta.env.TAURI_PLATFORM;
     //console.log(await ng.test());
@@ -92,7 +92,7 @@
       let event_api = await import("@tauri-apps/api/event");
       let main = window_api.Window.getByLabel("main");
       unsub_main_close = await main.onCloseRequested(async (event) => {
-        console.log("onCloseRequested main");
+        //console.log("onCloseRequested main");
         await event_api.emit("close_all", {});
         let registration = window_api.Window.getByLabel("registration");
         if (registration) {
@@ -126,7 +126,7 @@
       window.wallet_channel = wallet_channel;
       wallet_channel.postMessage({ cmd: "startup" }, location.href);
       wallet_channel.onmessage = async (event) => {
-        console.log(event.data.cmd, event.data);
+        //console.log(event.data.cmd, event.data);
         if (!location.href.startsWith(event.origin)) return;
         switch (event.data.cmd) {
           case "startup":

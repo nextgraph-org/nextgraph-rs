@@ -212,7 +212,7 @@
         /><br />
         All those limitations will be lifted once the "UserStorage for Web" feature
         will be released. Stay tuned! <br /><br />
-        Check your connection status in the <a href="#/user">user panel</a>.
+        Check your connection status in the <a href="#/user">User panel</a>.
       </p>
     </div>
   {:else}

@@ -35,6 +35,7 @@
     PaperAirplane,
     Bell,
     User,
+    Share,
   } from "svelte-heros-v2";
 
   let width: number;
@@ -134,6 +135,14 @@
           <SidebarItem label="Create" href="#/create" class="py-1 tall:p-2">
             <svelte:fragment slot="icon">
               <PlusCircle
+                tabindex="-1"
+                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+              />
+            </svelte:fragment>
+          </SidebarItem>
+          <SidebarItem label="Shared" href="#/shared" class="py-1 tall:p-2">
+            <svelte:fragment slot="icon">
+              <Share
                 tabindex="-1"
                 class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />

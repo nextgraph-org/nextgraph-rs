@@ -229,7 +229,7 @@
       core_registration,
       additional_bootstrap,
     };
-    console.log("do wallet with params", params);
+    //console.log("do wallet with params", params);
     try {
       ready = await ng.wallet_create(params);
       wallets.set(await ng.get_wallets());
