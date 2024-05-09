@@ -442,11 +442,11 @@ impl CommitVerifier for AddFile {
                 nuri: refe.nuri(),
                 reference: refe,
             };
-            verifier
-                .user_storage
-                .as_ref()
-                .unwrap()
-                .branch_add_file(*branch_id, filename.clone())?;
+            verifier.user_storage.as_ref().unwrap().branch_add_file(
+                commit.id().unwrap(),
+                *branch_id,
+                filename.clone(),
+            )?;
             verifier
                 .push_app_response(branch_id, AppResponse::V0(AppResponseV0::File(filename)))
                 .await;

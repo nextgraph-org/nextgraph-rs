@@ -10,10 +10,12 @@
 //! RocksDb Backend for UserStorage trait
 
 use crate::types::*;
-use crate::user_storage::repo::RepoStorage;
+use crate::user_storage::branch::*;
+use crate::user_storage::repo::*;
 use crate::user_storage::*;
 use either::Either::{Left, Right};
 use ng_repo::block_storage::BlockStorage;
+use ng_repo::log::*;
 use ng_repo::repo::{BranchInfo, Repo};
 use ng_repo::store::Store;
 use ng_repo::{errors::StorageError, types::*};
@@ -76,10 +78,31 @@ impl UserStorage for RocksDbUserStorage {
         RepoStorage::update_signer_cap(signer_cap, &self.user_storage)
     }
 
-    fn branch_add_file(&self, branch: BranchId, file: FileName) -> Result<(), StorageError> {
-        todo!();
+    fn update_branch_current_head(
+        &self,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        new_heads: Vec<ObjectRef>,
+    ) -> Result<(), StorageError> {
+        let branch = BranchStorage::new(branch_id, &self.user_storage)?;
+        if let Err(e) = branch.replace_current_heads(new_heads) {
+            log_err!("error while updating branch current head {:?}", e);
+            Err(e)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn branch_add_file(
+        &self,
+        commit_id: ObjectId,
+        branch: BranchId,
+        file: FileName,
+    ) -> Result<(), StorageError> {
+        let branch = BranchStorage::new(&branch, &self.user_storage)?;
+        branch.add_file(&commit_id, &file)
     }
     fn branch_get_all_files(&self, branch: &BranchId) -> Result<Vec<FileName>, StorageError> {
-        todo!();
+        BranchStorage::get_all_files(&branch, &self.user_storage)
     }
 }

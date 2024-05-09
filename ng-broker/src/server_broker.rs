@@ -318,7 +318,7 @@ impl IServerBroker for ServerBroker {
         let topic = self.storage.save_event(overlay, event, user_id)?;
 
         log_debug!(
-            "DISPATCH EVENt {} {} {:?}",
+            "DISPATCH EVENT {} {} {:?}",
             overlay,
             topic,
             self.local_subscriptions

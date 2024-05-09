@@ -163,13 +163,19 @@ impl Repo {
         Self::new_with_member(&pub_key, &pub_key, perms, OverlayId::dummy(), store)
     }
 
-    pub fn update_branch_current_head(&mut self, branch: &BranchId, commit_ref: ObjectRef) {
+    pub fn update_branch_current_head(
+        &mut self,
+        branch: &BranchId,
+        commit_ref: ObjectRef,
+    ) -> Option<Vec<ObjectRef>> {
         //log_info!("from branch {} HEAD UPDATED TO {}", branch, commit_ref.id);
         if let Some(branch) = self.branches.get_mut(branch) {
             // FIXME: this is very wrong. the DAG is not always linear
             branch.current_heads = vec![commit_ref];
-
-            //TODO: if userstorage: save current_heads to user storage
+            // we return the new current heads
+            Some(branch.current_heads.to_vec())
+        } else {
+            None
         }
     }
 

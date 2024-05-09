@@ -37,6 +37,8 @@ use ng_repo::types::TopicId;
 use serde_bare::from_slice;
 use serde_bare::to_vec;
 
+use crate::types::FileName;
+
 pub struct BranchStorage<'a> {
     storage: &'a dyn KCVStorage,
     id: BranchId,
@@ -55,16 +57,25 @@ impl<'a> BranchStorage<'a> {
 
     const PREFIX_HEADS: u8 = b'h';
 
+    const PREFIX_FILES: u8 = b'f';
+
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::TYPE;
+
+    pub fn new(
+        id: &BranchId,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<BranchStorage<'a>, StorageError> {
+        Ok(BranchStorage {
+            id: id.clone(),
+            storage,
+        })
+    }
 
     pub fn open(
         id: &BranchId,
         storage: &'a dyn KCVStorage,
     ) -> Result<BranchStorage<'a>, StorageError> {
-        let opening = BranchStorage {
-            id: id.clone(),
-            storage,
-        };
+        let opening = Self::new(id, storage)?;
         if !opening.exists() {
             return Err(StorageError::NotFound);
         }
@@ -172,6 +183,43 @@ impl<'a> BranchStorage<'a> {
         Ok(res)
     }
 
+    pub fn add_file(&self, commit_id: &ObjectId, file: &FileName) -> Result<(), StorageError> {
+        self.storage.write_transaction(&mut |tx| {
+            let branch_id_ser = to_vec(&self.id)?;
+            let commit_id_ser = to_vec(commit_id)?;
+            let val = to_vec(file)?;
+            let mut key = Vec::with_capacity(branch_id_ser.len() + commit_id_ser.len());
+            key.append(&mut branch_id_ser.clone());
+            key.append(&mut commit_id_ser.clone());
+            tx.put(Self::PREFIX_FILES, &key, None, &val, &None)?;
+            Ok(())
+        })
+    }
+
+    pub fn get_all_files(
+        id: &BranchId,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<Vec<FileName>, StorageError> {
+        let size = to_vec(&ObjectId::nil())?.len();
+        let key_prefix = to_vec(id).unwrap();
+        let key_prefix_len = key_prefix.len();
+        let mut res: Vec<FileName> = vec![];
+        let total_size = key_prefix_len + size;
+        for file in storage.get_all_keys_and_values(
+            Self::PREFIX_FILES,
+            total_size,
+            key_prefix,
+            None,
+            &None,
+        )? {
+            if file.0.len() == total_size + 1 {
+                let file: FileName = from_slice(&file.1)?;
+                res.push(file);
+            }
+        }
+        Ok(res)
+    }
+
     pub fn exists(&self) -> bool {
         self.storage
             .get(
@@ -184,6 +232,22 @@ impl<'a> BranchStorage<'a> {
     }
     pub fn id(&self) -> &RepoId {
         &self.id
+    }
+
+    pub fn replace_current_heads(&self, new_heads: Vec<ObjectRef>) -> Result<(), StorageError> {
+        self.storage.write_transaction(&mut |tx| {
+            let id_ser = &to_vec(&self.id)?;
+            let size = to_vec(&ObjectRef::nil())?.len();
+            tx.del_all_values(Self::PREFIX_HEADS, id_ser, size, None, &None)?;
+            for head in new_heads.iter() {
+                let mut head_ser = to_vec(head)?;
+                let mut key = Vec::with_capacity(id_ser.len() + head_ser.len());
+                key.append(&mut id_ser.clone());
+                key.append(&mut head_ser);
+                tx.put(Self::PREFIX_HEADS, &key, None, &vec![], &None)?;
+            }
+            Ok(())
+        })
     }
 
     pub fn del(&self) -> Result<(), StorageError> {

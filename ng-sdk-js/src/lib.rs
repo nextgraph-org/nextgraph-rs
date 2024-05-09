@@ -577,7 +577,7 @@ pub async fn upload_chunk(
     js_chunk: JsValue,
     js_nuri: JsValue,
 ) -> Result<JsValue, String> {
-    log_debug!("upload_chunk {:?}", js_nuri);
+    //log_debug!("upload_chunk {:?}", js_nuri);
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
     let upload_id: u32 = serde_wasm_bindgen::from_value::<u32>(js_upload_id)

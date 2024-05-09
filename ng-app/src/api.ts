@@ -124,6 +124,10 @@ const handler = {
                 let callback = args[2];
 
                 let unlisten = await getCurrent().listen(stream_id, (event) => {
+                    //console.log(event.payload);
+                    if (event.payload.V0.FileBinary) {
+                        event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
+                    }
                     callback(event.payload).then(()=> {})
                 })
                 await tauri.invoke("app_request_stream",{session_id, stream_id, request});

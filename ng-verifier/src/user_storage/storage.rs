@@ -44,9 +44,21 @@ pub trait UserStorage: Send + Sync {
 
     fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError>;
 
-    fn branch_add_file(&self, branch: BranchId, file: FileName) -> Result<(), StorageError>;
+    fn branch_add_file(
+        &self,
+        commit_id: ObjectId,
+        branch: BranchId,
+        file: FileName,
+    ) -> Result<(), StorageError>;
 
     fn branch_get_all_files(&self, branch: &BranchId) -> Result<Vec<FileName>, StorageError>;
+
+    fn update_branch_current_head(
+        &self,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        new_heads: Vec<ObjectRef>,
+    ) -> Result<(), StorageError>;
 }
 
 pub(crate) struct InMemoryUserStorage {
@@ -62,7 +74,12 @@ impl InMemoryUserStorage {
 }
 
 impl UserStorage for InMemoryUserStorage {
-    fn branch_add_file(&self, branch: BranchId, file: FileName) -> Result<(), StorageError> {
+    fn branch_add_file(
+        &self,
+        commit_id: ObjectId,
+        branch: BranchId,
+        file: FileName,
+    ) -> Result<(), StorageError> {
         let mut lock = self.branch_files.write().unwrap();
         let file_list = lock.entry(branch).or_insert_with(|| Vec::with_capacity(1));
         file_list.push(file);
@@ -102,6 +119,15 @@ impl UserStorage for InMemoryUserStorage {
     }
 
     fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError> {
+        unimplemented!();
+    }
+
+    fn update_branch_current_head(
+        &self,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        new_heads: Vec<ObjectRef>,
+    ) -> Result<(), StorageError> {
         unimplemented!();
     }
 }

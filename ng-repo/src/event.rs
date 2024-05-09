@@ -91,6 +91,12 @@ impl Event {
         }
     }
 
+    pub fn file_ids(&self) -> &Vec<ObjectId> {
+        match self {
+            Event::V0(v0) => &v0.content.file_ids,
+        }
+    }
+
     pub fn publisher(&self) -> &PeerId {
         match self {
             Event::V0(v0) => &v0.content.publisher,
@@ -127,7 +133,19 @@ impl Event {
         branch_secret: &ReadCapSecret,
     ) -> Result<Commit, NgError> {
         match self {
-            Self::V0(v0) => v0.open(store, repo_id, branch_id, branch_secret),
+            Self::V0(v0) => v0.open(store, repo_id, branch_id, branch_secret, true),
+        }
+    }
+
+    pub fn open_without_body(
+        &self,
+        store: &Store,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        branch_secret: &ReadCapSecret,
+    ) -> Result<Commit, NgError> {
+        match self {
+            Self::V0(v0) => v0.open(store, repo_id, branch_id, branch_secret, false),
         }
     }
 
@@ -256,7 +274,13 @@ impl EventV0 {
     /// returns the Commit object and optional list of additional block IDs.
     /// Those blocks have been added to the storage of store of repo so they can be retrieved.
     pub fn open_with_info(&self, repo: &Repo, branch: &BranchInfo) -> Result<Commit, NgError> {
-        self.open(&repo.store, &repo.id, &branch.id, &branch.read_cap.key)
+        self.open(
+            &repo.store,
+            &repo.id,
+            &branch.id,
+            &branch.read_cap.key,
+            true,
+        )
     }
 
     pub fn open(
@@ -265,6 +289,7 @@ impl EventV0 {
         repo_id: &RepoId,
         branch_id: &BranchId,
         branch_secret: &ReadCapSecret,
+        with_body: bool,
     ) -> Result<Commit, NgError> {
         // verifying event signatures
         self.verify()?;
@@ -287,6 +312,6 @@ impl EventV0 {
             }
         }
         let commit_ref = ObjectRef::from_id_key(first_id.unwrap(), commit_key);
-        Ok(Commit::load(commit_ref, &store, true)?)
+        Ok(Commit::load(commit_ref, &store, with_body)?)
     }
 }

@@ -216,7 +216,7 @@
       </p>
     </div>
   {:else}
-    <div class="row mt-2">
+    <div class="row pt-2">
       <!-- <a use:link href="/">
       <button tabindex="-1" class=" mr-5 select-none"> Back home </button>
     </a> -->

@@ -213,7 +213,8 @@ impl SiteV0 {
         }
 
         // update the current_heads
-        verifier.update_current_heads(&private_repo_id, &user_branch_id, vec![current_head])?;
+        //verifier.update_current_heads(&private_repo_id, &user_branch_id, vec![current_head])?;
+        // this is now done in send_or_save_event_to_outbox
 
         // sending the additional events
         verifier

@@ -2932,6 +2932,11 @@ impl RepoPinStatus {
             }
         }
     }
+    pub fn topics(&self) -> &Vec<TopicSubRes> {
+        match self {
+            Self::V0(v0) => &v0.topics,
+        }
+    }
 }
 
 /// Request subscription to a `Topic` of an already opened or pinned Repo

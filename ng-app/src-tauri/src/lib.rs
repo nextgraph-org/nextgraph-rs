@@ -309,7 +309,7 @@ async fn upload_chunk(
     nuri: NuriV0,
     app: tauri::AppHandle,
 ) -> Result<AppResponse, String> {
-    log_debug!("upload_chunk {:?}", chunk);
+    //log_debug!("upload_chunk {:?}", chunk);
 
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::FilePut,
@@ -336,6 +336,13 @@ async fn cancel_stream(stream_id: &str) -> Result<(), String> {
 
 #[tauri::command(rename_all = "snake_case")]
 async fn disconnections_subscribe(app: tauri::AppHandle) -> Result<(), String> {
+    let path = app
+        .path()
+        .resolve("", BaseDirectory::AppLocalData)
+        .map_err(|_| NgError::SerializationError)
+        .unwrap();
+    init_local_broker(Box::new(move || LocalBrokerConfig::BasePath(path.clone()))).await;
+
     let main_window = app.get_window("main").unwrap();
 
     let reader = nextgraph::local_broker::take_disconnections_receiver()

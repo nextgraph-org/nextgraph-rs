@@ -321,7 +321,7 @@
       <span class="text-xl">Do you trust this device? </span> <br />
       <div class="flex justify-center items-center my-4">
         <Toggle class="" bind:checked={trusted}
-          >Save my wallet on this device</Toggle
+          >Yes, save my wallet on this device</Toggle
         >
       </div>
       <p class="text-sm">

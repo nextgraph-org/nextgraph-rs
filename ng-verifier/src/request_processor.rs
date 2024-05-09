@@ -160,20 +160,11 @@ impl AppRequestCommandV0 {
                         let (repo_id, branch, store_repo) =
                             Self::open_for_target(verifier, &nuri.target, true).await?;
                         //log_info!("GOT ADD FILE {:?}", add);
-                        let repo = verifier.get_repo(&repo_id, &store_repo)?;
-                        // check that the referenced object exists locally.
-                        repo.store.has(&add.object.id)?;
-                        // we send all the blocks to the broker.
-                        let file = RandomAccessFile::open(
-                            add.object.id.clone(),
-                            add.object.key.clone(),
-                            Arc::clone(&repo.store),
-                        )?;
-                        let blocks = file.get_all_blocks_ids()?;
-                        let found = verifier.has_blocks(blocks, repo).await?;
-                        for block_id in found.missing() {
-                            let block = repo.store.get(block_id)?;
-                            verifier.put_blocks(vec![block], repo).await?;
+
+                        if verifier.connected_server_id.is_some() {
+                            verifier
+                                .put_all_blocks_of_file(&add.object, &repo_id, &store_repo)
+                                .await?;
                         }
 
                         let add_file_commit_body = CommitBodyV0::AddFile(AddFile::V0(AddFileV0 {

@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-import { writable, readonly, derived, get } from "svelte/store";
+import { writable, readable, readonly, derived, get } from "svelte/store";
 import ng from "./api";
 
 let all_branches = {};
@@ -124,16 +124,42 @@ export const reconnect = async function() {
         console.error(e)
     }
 }
+// export const disconnections_subscribe = async function() {
+//     let disconnections_unsub = await ng.disconnections_subscribe(async (user_id) => {
+//         console.log("DISCONNECTION FOR USER", user_id);
+//         connections.update((c) => {
+//             c[user_id].error = "ConnectionError";
+//             c[user_id].since = new Date();
+//             return c;
+//         });
+//     });
+// }
+let disconnections_unsub;
+
 export const disconnections_subscribe = async function() {
-    let disconnections_unsub = await ng.disconnections_subscribe(async (user_id) => {
-        console.log("DISCONNECTION FOR USER", user_id);
-        connections.update((c) => {
-            c[user_id].error = "ConnectionError";
-            c[user_id].since = new Date();
-            return c;
+    if (!disconnections_unsub) {
+        await ng.disconnections_subscribe(async (user_id) => {
+            console.log("DISCONNECTION FOR USER", user_id);
+            connections.update((c) => {
+                c[user_id].error = "ConnectionError";
+                c[user_id].since = new Date();
+                return c;
+            });
         });
-    });
+        disconnections_unsub = true;
+    }
 }
+
+
+
+
+readable(false, function start(set) {
+	
+
+	return function stop() {
+		disconnections_unsub();
+	};
+});
 
 can_connect.subscribe(async (value) => {
     if (value[0] && value[0].wallet && value[1]) {
