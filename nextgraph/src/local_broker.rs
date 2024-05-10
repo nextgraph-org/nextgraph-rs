@@ -478,6 +478,21 @@ impl LocalBroker {
         }
     }
 
+    pub fn get_site_store_of_session(
+        &self,
+        session: &Session,
+        store_type: SiteStoreType,
+    ) -> Result<PubKey, NgError> {
+        match self.opened_wallets.get(&session.config.wallet_name()) {
+            Some(opened_wallet) => {
+                let user_id = session.config.user_id();
+                let site = opened_wallet.wallet.site(&user_id)?;
+                Ok(site.get_site_store_id(store_type))
+            }
+            None => Err(NgError::WalletNotFound),
+        }
+    }
+
     fn verifier_config_type_from_session_config(
         &self,
         config: &SessionConfig,
@@ -609,6 +624,8 @@ impl LocalBroker {
         mut config: SessionConfig,
         user_priv_key: Option<PrivKey>,
     ) -> Result<SessionInfo, NgError> {
+        let intermediary_step = user_priv_key.is_some();
+
         let broker = self;
 
         let wallet_name: String = config.wallet_name();
@@ -640,6 +657,9 @@ impl LocalBroker {
                             return Ok(SessionInfo {
                                 session_id: *idx,
                                 user: user_id,
+                                private_store_id: broker
+                                    .get_site_store_of_session(sess, SiteStoreType::Private)?
+                                    .to_string(),
                             });
                         }
                     }
@@ -807,19 +827,28 @@ impl LocalBroker {
 
                 //load verifier from local_storage (if rocks_db)
                 let _ = verifier.load();
-
-                broker.opened_sessions_list.push(Some(Session {
+                let session = Session {
                     config,
                     peer_key: session.peer_key.clone(),
                     last_wallet_nonce: session.last_wallet_nonce,
                     verifier,
-                }));
+                };
+                let private_store_id = if intermediary_step {
+                    "".to_string()
+                } else {
+                    broker
+                        .get_site_store_of_session(&session, SiteStoreType::Private)?
+                        .to_string()
+                };
+
+                broker.opened_sessions_list.push(Some(session));
                 let idx = broker.opened_sessions_list.len() - 1;
                 broker.opened_sessions.insert(user_id, idx as u64);
 
                 Ok(SessionInfo {
                     session_id: idx as u64,
                     user: user_id,
+                    private_store_id,
                 })
             }
         }
@@ -1031,7 +1060,7 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
         intermediate.in_memory,
     )?;
 
-    let session_info = broker
+    let mut session_info = broker
         .session_start(session_config, Some(intermediate.user_privkey.clone()))
         .await?;
 
@@ -1053,6 +1082,16 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
         .unwrap()
         .wallet
         .complete_with_site_and_brokers(site, brokers);
+
+    session_info.private_store_id = broker
+        .get_site_store_of_session(
+            broker.opened_sessions_list[session_info.session_id as usize]
+                .as_ref()
+                .unwrap(),
+            SiteStoreType::Private,
+        )?
+        .to_string();
+
     res.session_id = session_info.session_id;
     Ok(res)
 }
@@ -1585,7 +1624,10 @@ pub async fn app_request_stream(
 }
 
 /// retrieves the ID of one of the 3 stores of a the personal Site (3P: public, protected, or private)
-pub async fn personal_site_store(session_id: u64, store: SiteStoreType) -> Result<PubKey, NgError> {
+pub async fn personal_site_store(
+    session_id: u64,
+    store_type: SiteStoreType,
+) -> Result<PubKey, NgError> {
     let broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.read().await,
@@ -1597,14 +1639,7 @@ pub async fn personal_site_store(session_id: u64, store: SiteStoreType) -> Resul
         .as_ref()
         .ok_or(NgError::SessionNotFound)?;
 
-    match broker.opened_wallets.get(&session.config.wallet_name()) {
-        Some(opened_wallet) => {
-            let user_id = session.config.user_id();
-            let site = opened_wallet.wallet.site(&user_id)?;
-            Ok(site.get_site_store_id(store))
-        }
-        None => Err(NgError::WalletNotFound),
-    }
+    broker.get_site_store_of_session(session, store_type)
 }
 
 #[doc(hidden)]

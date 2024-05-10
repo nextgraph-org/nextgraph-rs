@@ -221,6 +221,20 @@ pub struct NuriV0 {
 }
 
 impl NuriV0 {
+    pub fn new_repo_target_from_string(repo_id_string: String) -> Result<Self, NgError> {
+        let repo_id: RepoId = repo_id_string.as_str().try_into()?;
+        Ok(Self {
+            target: NuriTargetV0::Repo(repo_id),
+            entire_store: false,
+            object: None,
+            branch: None,
+            overlay: None,
+            access: vec![],
+            topic: None,
+            locator: vec![],
+        })
+    }
+
     pub fn new_private_store_target() -> Self {
         Self {
             target: NuriTargetV0::PrivateStore,

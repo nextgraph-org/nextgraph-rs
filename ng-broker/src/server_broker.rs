@@ -312,6 +312,19 @@ impl IServerBroker for ServerBroker {
         self.storage.get_commit(overlay, id)
     }
 
+    fn remove_all_subscriptions_of_peer(&mut self, remote_peer: &PubKey) {
+        for ((overlay, topic), peers) in self.local_subscriptions.iter_mut() {
+            if peers.remove(remote_peer) {
+                log_debug!(
+                    "subscription of peer {} to topic {} in overlay {} removed",
+                    remote_peer,
+                    topic,
+                    overlay
+                );
+            }
+        }
+    }
+
     fn dispatch_event(
         &self,
         overlay: &OverlayId,
@@ -344,8 +357,9 @@ impl IServerBroker for ServerBroker {
         topic: &TopicId,
         known_heads: &Vec<ObjectId>,
         target_heads: &Vec<ObjectId>,
+        known_commits: &Option<BloomFilter>,
     ) -> Result<Vec<TopicSyncRes>, ServerError> {
         self.storage
-            .topic_sync_req(overlay, topic, known_heads, target_heads)
+            .topic_sync_req(overlay, topic, known_heads, target_heads, known_commits)
     }
 }

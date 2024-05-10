@@ -23,7 +23,7 @@
 
   let is_tauri = import.meta.env.TAURI_PLATFORM;
 
-  let files = branch_subs("ok");
+  let files = $active_session && branch_subs($active_session.private_store_id);
 
   let img_map = {};
 
@@ -253,25 +253,26 @@
         bind:this={fileinput}
       />
     </div>
+    {#if files}
+      {#await files.load()}
+        <p>Currently loading...</p>
+      {:then}
+        {#each $files as file}
+          <p>
+            {file.V0.File.name}
 
-    {#await files.load()}
-      <p>Currently loading...</p>
-    {:then}
-      {#each $files as file}
-        <p>
-          {file.V0.File.name}
-
-          {#await get_img(file.V0.File) then url}
-            {#if url}
-              <img
-                src={url}
-                title={"did:ng" + file.V0.File.nuri}
-                alt={file.V0.File.name}
-              />
-            {/if}
-          {/await}
-        </p>
-      {/each}
-    {/await}
+            {#await get_img(file.V0.File) then url}
+              {#if url}
+                <img
+                  src={url}
+                  title={"did:ng" + file.V0.File.nuri}
+                  alt={file.V0.File.name}
+                />
+              {/if}
+            {/await}
+          </p>
+        {/each}
+      {/await}
+    {/if}
   {/if}
 </div>

@@ -336,6 +336,11 @@ impl Broker {
                                 let _ = self.remove_user_peer(&user, &peer_id);
                             }
                         }
+                        let peer = PubKey::X25519PubKey(peer_id);
+                        log_debug!("unsubscribing peer {}", peer);
+                        self.get_server_broker_mut()
+                            .unwrap()
+                            .remove_all_subscriptions_of_peer(&peer);
                     }
                 }
                 PeerConnection::Core(ip) => {
@@ -834,7 +839,7 @@ impl Broker {
                         local_broker.write().await.user_disconnected(user).await;
                     }
                 } else {
-                    log_info!("REMOVED");
+                    log_debug!("REMOVED");
                     BROKER
                         .write()
                         .await
@@ -879,7 +884,7 @@ impl Broker {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub async fn dispatch_event(
-        &self,
+        &mut self,
         overlay: &OverlayId,
         event: Event,
         user_id: &UserId,
@@ -887,12 +892,12 @@ impl Broker {
     ) -> Result<(), ServerError> {
         // TODO: deal with subscriptions on the outer overlay. for now we assume everything is on the inner overlay
 
-        let peers_for_local_dispatch = self.get_server_broker()?.dispatch_event(
-            overlay,
-            event.clone(),
-            user_id,
-            remote_peer,
-        )?;
+        let peers_for_local_dispatch: Vec<PubKey> = self
+            .get_server_broker()?
+            .dispatch_event(overlay, event.clone(), user_id, remote_peer)?
+            .into_iter()
+            .cloned()
+            .collect();
 
         //log_debug!("dispatch_event {:?}", peers_for_local_dispatch);
 
@@ -901,7 +906,7 @@ impl Broker {
             if let Some(BrokerPeerInfo {
                 connected: PeerConnection::Client(ConnectionBase { fsm: Some(fsm), .. }),
                 ..
-            }) = self.peers.get(&(None, peer.to_owned().to_dh()))
+            }) = self.peers.get(&(None, peer.to_dh()))
             {
                 //log_debug!("ForwardedEvent peer {:?}", peer);
                 let _ = fsm
@@ -915,6 +920,10 @@ impl Broker {
                         },
                     )))
                     .await;
+            } else {
+                // we remove the peer from all local_subscriptions
+                self.get_server_broker_mut()?
+                    .remove_all_subscriptions_of_peer(&peer);
             }
         }
 

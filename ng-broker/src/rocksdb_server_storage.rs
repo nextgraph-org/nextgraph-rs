@@ -260,6 +260,7 @@ impl RocksDbServerStorage {
                         TopicStorage::get_all_heads(&mut model)?,
                         publisher,
                         topic,
+                        TopicStorage::COMMITS_NBR.get(&mut model)?,
                     )),
                 }
             }
@@ -351,6 +352,7 @@ impl RocksDbServerStorage {
                     TopicStorage::get_all_heads(&mut topic_storage)?,
                     true,
                     *topic_id,
+                    TopicStorage::COMMITS_NBR.get(&mut topic_storage)?,
                 ),
             );
         }
@@ -372,6 +374,7 @@ impl RocksDbServerStorage {
                 TopicStorage::get_all_heads(&mut topic_storage)?,
                 false,
                 *topic,
+                TopicStorage::COMMITS_NBR.get(&mut topic_storage)?,
             ));
         }
         result.extend(rw_topics_added.into_values());
@@ -401,6 +404,7 @@ impl RocksDbServerStorage {
                             TopicStorage::get_all_heads(&mut topic_storage)?,
                             false,
                             *topic,
+                            TopicStorage::COMMITS_NBR.get(&mut topic_storage)?,
                         ));
                     }
                 }
@@ -478,6 +482,7 @@ impl RocksDbServerStorage {
             TopicStorage::get_all_heads(&mut topic_storage)?,
             is_publisher,
             *topic,
+            TopicStorage::COMMITS_NBR.get(&mut topic_storage)?,
         ))
     }
 
@@ -640,6 +645,8 @@ impl RocksDbServerStorage {
                 let head = HashSet::from([commit_id]);
                 //TODO: current_heads in TopicInfo in ServerBroker is not updated (but it isn't used so far)
                 TopicStorage::HEADS.remove_from_set_and_add(&mut topic_storage, past, head)?;
+
+                TopicStorage::COMMITS_NBR.increment(&mut topic_storage)?;
             }
         }
 
@@ -652,6 +659,7 @@ impl RocksDbServerStorage {
         topic: &TopicId,
         known_heads: &Vec<ObjectId>,
         target_heads: &Vec<ObjectId>,
+        known_commits: &Option<BloomFilter>,
     ) -> Result<Vec<TopicSyncRes>, ServerError> {
         let overlay = self.check_overlay(overlay)?;
         // quick solution for now using the Branch::sync_req. TODO: use the saved references (ACKS,DEPS) in the server_storage, to have much quicker responses
@@ -670,7 +678,7 @@ impl RocksDbServerStorage {
 
         let store = Store::new_from_overlay_id(&overlay, Arc::clone(&self.block_storage));
 
-        let commits = Branch::sync_req(target_heads, known_heads, &store)
+        let commits = Branch::sync_req(target_heads, known_heads, known_commits, &store)
             .map_err(|_| ServerError::MalformedBranch)?;
 
         let mut result = Vec::with_capacity(commits.len());

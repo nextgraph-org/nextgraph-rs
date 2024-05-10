@@ -1716,6 +1716,9 @@ pub struct TopicSyncReqV0 {
     /// if empty, the local HEAD at the responder is used instead
     pub target_heads: Vec<ObjectId>,
 
+    /// optional Bloom filter of all the commit IDs present locally (used in case of detected fork)
+    pub known_commits: Option<BloomFilter>,
+
     #[serde(skip)]
     pub overlay: Option<OverlayId>,
 }
@@ -1750,6 +1753,11 @@ impl TopicSyncReq {
     pub fn target_heads(&self) -> &Vec<ObjectId> {
         match self {
             TopicSyncReq::V0(o) => &o.target_heads,
+        }
+    }
+    pub fn known_commits(&self) -> &Option<BloomFilter> {
+        match self {
+            TopicSyncReq::V0(o) => &o.known_commits,
         }
     }
 }
@@ -3380,6 +3388,7 @@ pub struct TopicSubResV0 {
     pub topic: TopicId,
     pub known_heads: Vec<ObjectId>,
     pub publisher: bool,
+    pub commits_nbr: u64,
 }
 
 /// Topic subscription response
@@ -3401,16 +3410,27 @@ impl TopicSubRes {
             Self::V0(v0) => v0.publisher,
         }
     }
-    pub fn new_from_heads(topics: HashSet<ObjectId>, publisher: bool, topic: TopicId) -> Self {
+    pub fn new_from_heads(
+        topics: HashSet<ObjectId>,
+        publisher: bool,
+        topic: TopicId,
+        commits_nbr: u64,
+    ) -> Self {
         TopicSubRes::V0(TopicSubResV0 {
             topic,
             known_heads: topics.into_iter().collect(),
             publisher,
+            commits_nbr,
         })
     }
     pub fn known_heads(&self) -> &Vec<ObjectId> {
         match self {
             Self::V0(v0) => &v0.known_heads,
+        }
+    }
+    pub fn commits_nbr(&self) -> u64 {
+        match self {
+            Self::V0(v0) => v0.commits_nbr,
         }
     }
 }
@@ -3421,6 +3441,7 @@ impl From<TopicId> for TopicSubRes {
             topic,
             known_heads: vec![],
             publisher: false,
+            commits_nbr: 0,
         })
     }
 }
@@ -3431,6 +3452,7 @@ impl From<PublisherAdvert> for TopicSubRes {
             topic: topic.topic_id().clone(),
             known_heads: vec![],
             publisher: true,
+            commits_nbr: 0,
         })
     }
 }

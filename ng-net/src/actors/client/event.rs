@@ -82,7 +82,6 @@ impl EActor for Actor<'_, PublishEvent, ()> {
             // send a ProtocolError if invalid signatures (will disconnect the client)
             req.event().verify()?;
 
-            let broker = BROKER.read().await;
             let overlay = req.overlay().clone();
             let (user_id, remote_peer) = {
                 let fsm = _fsm.lock().await;
@@ -91,10 +90,12 @@ impl EActor for Actor<'_, PublishEvent, ()> {
                     fsm.remote_peer().ok_or(ProtocolError::ActorError)?,
                 )
             };
-            let res = broker
-                .dispatch_event(&overlay, req.take_event(), &user_id, &remote_peer)
-                .await;
-
+            let res = {
+                let mut broker = BROKER.write().await;
+                broker
+                    .dispatch_event(&overlay, req.take_event(), &user_id, &remote_peer)
+                    .await
+            };
             _fsm.lock()
                 .await
                 .send_in_reply_to(res.into(), self.id())

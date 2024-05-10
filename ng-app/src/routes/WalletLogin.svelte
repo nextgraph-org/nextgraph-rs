@@ -56,21 +56,29 @@
     });
     opened_wallets_unsub = opened_wallets.subscribe(async (value) => {
       if (!$active_wallet && selected && value[selected]) {
-        await tick();
+        //await tick();
         active_wallet.set({ wallet: value[selected], id: selected });
       }
     });
     active_wallet_unsub = active_wallet.subscribe(async (value) => {
       if (value && value.wallet) {
         if (!$active_session) {
-          let session = await ng.session_start(
-            value.id,
-            value.wallet.V0.personal_site
-          );
-          //console.log(session);
-          if (session) {
-            set_active_session(session);
-            loggedin();
+          try {
+            let session = await ng.session_start(
+              value.id,
+              value.wallet.V0.personal_site
+            );
+            //console.log(session);
+            if (session) {
+              set_active_session(session);
+              loggedin();
+            }
+          } catch (e) {
+            error = e;
+            importing = false;
+            wallet = undefined;
+            selected = undefined;
+            active_wallet.set(undefined);
           }
         } else {
           loggedin();
@@ -137,7 +145,7 @@
       let client = await ng.wallet_was_opened(event.detail.wallet);
       event.detail.wallet.V0.client = client;
     }
-    await tick();
+    //await tick();
     active_wallet.set(event.detail);
     // { wallet,
     // id }
@@ -381,7 +389,7 @@
     position: absolute;
     left: 0;
     padding: 5px;
-    background-color: #ffffff70;
+    background-color: #ffffffd0;
     overflow-wrap: break-word;
   }
   .wallet-box:focus .securitytxt {

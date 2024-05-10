@@ -130,6 +130,14 @@ impl AppRequestCommandV0 {
                 };
                 Ok((repo_id, branch, store_repo))
             }
+            NuriTargetV0::Repo(repo_id) => {
+                let (branch, store_repo) = {
+                    let repo = verifier.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
+                    let branch = repo.main_branch().ok_or(NgError::BranchNotFound)?;
+                    (branch.id, repo.store.get_store_repo().clone())
+                };
+                Ok((*repo_id, branch, store_repo))
+            }
             _ => unimplemented!(),
         }
     }

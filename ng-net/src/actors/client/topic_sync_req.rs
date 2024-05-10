@@ -34,6 +34,7 @@ impl TopicSyncReq {
             known_heads: vec![],
             target_heads: vec![],
             overlay: Some(*overlay),
+            known_commits: None,
         })
     }
 
@@ -42,12 +43,14 @@ impl TopicSyncReq {
         topic_id: &TopicId,
         known_heads: Vec<ObjectId>,
         target_heads: Vec<ObjectId>,
+        known_commits: Option<BloomFilter>,
     ) -> TopicSyncReq {
         TopicSyncReq::V0(TopicSyncReqV0 {
             topic: *topic_id,
             known_heads,
             target_heads,
             overlay: Some(repo.store.get_store_repo().overlay_id_for_read_purpose()),
+            known_commits,
         })
     }
 }
@@ -111,6 +114,7 @@ impl EActor for Actor<'_, TopicSyncReq, TopicSyncRes> {
             req.topic(),
             req.known_heads(),
             req.target_heads(),
+            req.known_commits(),
         );
 
         // IF NEEDED, the topic_sync_req could be changed to return a stream, and then the send_in_reply_to would be also totally async

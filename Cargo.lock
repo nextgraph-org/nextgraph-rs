@@ -3429,6 +3429,7 @@ dependencies = [
  "blake3",
  "chacha20",
  "either",
+ "fastbloom-rs",
  "futures",
  "getrandom 0.2.10",
  "ng-net",

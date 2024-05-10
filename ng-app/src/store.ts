@@ -93,6 +93,11 @@ export const close_active_session = async function() {
     active_session.set(undefined);
     //console.log("setting active_session to undefined",get(active_session));
 
+    for (const branch of Object.keys(all_branches)) {
+        let sub = all_branches[branch];
+        sub.unsubscribe();
+    }
+
 }
 
 const can_connect = derived([active_wallet, active_session], ([$s1, $s2]) => [
@@ -168,7 +173,7 @@ can_connect.subscribe(async (value) => {
     }
   });
 
-export const branch_subs = function(nura) {
+export const branch_subs = function(nuri) {
     // console.log("branch_commits")
     // const { subscribe, set, update } = writable([]); // create the underlying writable store
 
@@ -176,7 +181,7 @@ export const branch_subs = function(nura) {
     // return {
     //     load: async ()  => {
     //         console.log("load")
-    //         unsub = await ng.doc_sync_branch(nura, async (commit) => {
+    //         unsub = await ng.doc_sync_branch(nuri, async (commit) => {
     //             console.log(commit);
     //             update( (old) => {old.unshift(commit); return old;} )
     //         });
@@ -201,7 +206,7 @@ export const branch_subs = function(nura) {
     return {
         load: async ()  => {
             //console.log("load upper");
-            let already_subscribed = all_branches[nura];
+            let already_subscribed = all_branches[nuri];
             if (!already_subscribed) return;
             if (already_subscribed.load) {
                 //console.log("doing the load");
@@ -213,7 +218,7 @@ export const branch_subs = function(nura) {
         },
         subscribe: (run, invalid) => {
             
-            let already_subscribed = all_branches[nura];
+            let already_subscribed = all_branches[nuri];
             if (!already_subscribed) {
                 const { subscribe, set, update } = writable([]); // create the underlying writable store
                 let count = 0;
@@ -230,7 +235,7 @@ export const branch_subs = function(nura) {
                             unsub();
                             unsub = () => {};
                             set([]);
-                            unsub = await ng.app_request_stream(session.session_id, await ng.doc_fetch_private_subscribe(), 
+                            unsub = await ng.app_request_stream(session.session_id, await ng.doc_fetch_repo_subscribe(nuri), 
                             async (commit) => {
                                 //console.log("GOT APP RESPONSE", commit);
                                 update( (old) => {old.unshift(commit); return old;} )
@@ -253,11 +258,16 @@ export const branch_subs = function(nura) {
                         // if (count == 0) {
                         //     unsub();
                         //     console.log("removed sub");
-                        //     delete all_branches[nura];
+                        //     delete all_branches[nuri];
                         // }
                     },
+                    unsubscribe: () => {
+                        unsub();
+                        console.log("unsubscribed ",nuri);
+                        delete all_branches[nuri];
+                    }
                 }
-                all_branches[nura] = already_subscribed;
+                all_branches[nuri] = already_subscribed;
             }
             
             let new_store = already_subscribed.increase();

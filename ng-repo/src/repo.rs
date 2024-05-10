@@ -98,6 +98,8 @@ pub struct BranchInfo {
     pub read_cap: ReadCap,
 
     pub current_heads: Vec<ObjectRef>,
+
+    pub commits_nbr: u64,
 }
 
 /// In memory Repository representation. With helper functions that access the underlying UserStore and keeps proxy of the values
@@ -173,6 +175,7 @@ impl Repo {
             }
             branch.current_heads = set.into_iter().cloned().collect();
             branch.current_heads.push(commit_ref);
+            branch.commits_nbr += 1;
             // we return the new current heads
             Ok(branch.current_heads.to_vec())
         } else {

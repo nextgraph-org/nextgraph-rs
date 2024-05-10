@@ -111,6 +111,7 @@ impl CommitVerifier for RootBranch {
                     topic_priv_key,
                     read_cap: reference.clone(),
                     current_heads: vec![reference.clone()],
+                    commits_nbr: 1,
                 };
                 let id = root_branch.id;
                 let branches = vec![(root_branch.id, root_branch)];
@@ -251,6 +252,7 @@ impl CommitVerifier for AddBranch {
                     topic_priv_key: None,
                     read_cap: v0.branch_read_cap.clone(),
                     current_heads: vec![],
+                    commits_nbr: 0,
                 };
 
                 verifier.add_branch_and_save(

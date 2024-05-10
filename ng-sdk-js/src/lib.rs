@@ -585,6 +585,17 @@ pub async fn doc_fetch_private_subscribe() -> Result<JsValue, String> {
     Ok(serde_wasm_bindgen::to_value(&request).unwrap())
 }
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn doc_fetch_repo_subscribe(repo_id: String) -> Result<JsValue, String> {
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
+        nuri: NuriV0::new_repo_target_from_string(repo_id).map_err(|e| e.to_string())?,
+        payload: None,
+    });
+    Ok(serde_wasm_bindgen::to_value(&request).unwrap())
+}
+
 // #[cfg(target_arch = "wasm32")]
 // #[wasm_bindgen]
 // pub async fn get_readcap() -> Result<JsValue, String> {

@@ -293,6 +293,16 @@ async fn doc_fetch_private_subscribe() -> Result<AppRequest, String> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn doc_fetch_repo_subscribe(repo_id: String) -> Result<AppRequest, String> {
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
+        nuri: NuriV0::new_repo_target_from_string(repo_id).map_err(|e| e.to_string())?,
+        payload: None,
+    });
+    Ok(request)
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn app_request(
     session_id: u64,
     request: AppRequest,
@@ -499,6 +509,7 @@ impl AppBuilder {
                 user_disconnect,
                 client_info_rust,
                 doc_fetch_private_subscribe,
+                doc_fetch_repo_subscribe,
                 cancel_stream,
                 app_request_stream,
                 app_request,

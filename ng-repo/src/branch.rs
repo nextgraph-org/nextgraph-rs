@@ -13,8 +13,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 
+use fastbloom_rs::{BloomFilter as Filter, Membership};
 use zeroize::Zeroize;
-// use fastbloom_rs::{BloomFilter as Filter, Membership};
 
 use crate::errors::*;
 #[allow(unused_imports)]
@@ -165,12 +165,20 @@ impl Branch {
         missing: &mut Option<&mut HashSet<ObjectId>>,
         future: Option<ObjectId>,
         theirs_found: &mut Option<&mut HashSet<ObjectId>>,
+        theirs_filter: &Option<Filter>,
     ) -> Result<(), ObjectParseError> {
         let id = cobj.id();
 
         // check if this commit object is present in theirs or has already been visited in the current walk
         // load deps, stop at the root(including it in visited) or if this is a commit object from known_heads
-        if !theirs.contains(&id) {
+
+        let found_in_filter = if let Some(filter) = theirs_filter {
+            filter.contains(id.slice())
+        } else {
+            false
+        };
+
+        if !found_in_filter && !theirs.contains(&id) {
             if let Some(past) = visited.get_mut(&id) {
                 // we update the future
                 if let Some(f) = future {
@@ -193,6 +201,7 @@ impl Branch {
                                 missing,
                                 Some(id),
                                 theirs_found,
+                                theirs_filter,
                             )?;
                         }
                         Err(ObjectParseError::MissingBlocks(blocks)) => {
@@ -219,13 +228,9 @@ impl Branch {
     pub fn sync_req(
         target_heads: impl Iterator<Item = ObjectId>,
         known_heads: &[ObjectId],
-        //their_filter: &BloomFilter,
+        known_commits: &Option<BloomFilter>,
         store: &Store,
     ) -> Result<Vec<ObjectId>, ObjectParseError> {
-        //log_debug!(">> sync_req");
-        //log_debug!("   target_heads: {:?}", target_heads);
-        //log_debug!("   known_heads: {:?}", known_heads);
-
         // their commits
         let mut theirs: HashMap<ObjectId, DagNode> = HashMap::new();
 
@@ -240,6 +245,7 @@ impl Branch {
                     &mut None,
                     None,
                     &mut None,
+                    &None,
                 )?;
             }
             // we silently discard any load error on the known_heads as the responder might not know them (yet).
@@ -248,6 +254,10 @@ impl Branch {
         let mut visited = HashMap::new();
 
         let theirs: HashSet<ObjectId> = theirs.keys().into_iter().cloned().collect();
+
+        let filter = known_commits
+            .as_ref()
+            .map(|their_filter| Filter::from_u8_array(their_filter.f.as_slice(), their_filter.k));
 
         // collect all commits reachable from target_heads
         // up to the root or until encountering a commit from theirs
@@ -261,26 +271,11 @@ impl Branch {
                     &mut None,
                     None,
                     &mut None,
+                    &filter,
                 )?;
             }
             // we silently discard any load error on the target_heads as they can be wrong if the requester is confused about what the responder has locally.
         }
-
-        //log_debug!("!! ours: {:?}", ours);
-        //log_debug!("!! theirs: {:?}", theirs);
-
-        // remove their_commits from result
-        // let filter = Filter::from_u8_array(their_filter.f.as_slice(), their_filter.k.into());
-        // for id in result.clone() {
-        //     match id {
-        //         Digest::Blake3Digest32(d) => {
-        //             if filter.contains(&d) {
-        //                 result.remove(&id);
-        //             }
-        //         }
-        //     }
-        // }
-        //log_debug!("!! result filtered: {:?}", result);
 
         // now ordering to respect causal partial order.
         let mut next_generations = HashSet::new();
@@ -296,6 +291,11 @@ impl Branch {
         for first in first_generation {
             result.append(&mut DagNode::collapse(first, &visited));
         }
+
+        // #[cfg(debug_assertions)]
+        // for _res in result.iter() {
+        //     log_debug!("sending missing commit {}", _res);
+        // }
 
         Ok(result)
     }
@@ -574,7 +574,7 @@ mod test {
         let ids = Branch::sync_req(
             [t5.id, a6.id, a7.id].into_iter(),
             &[t5.id],
-            //&their_commits,
+            &None,
             &repo.store,
         )
         .unwrap();

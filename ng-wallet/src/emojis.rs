@@ -427,7 +427,7 @@ const sport: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f6a3",
         shortcode: "person_rowing_boat",
-        code: "boat",
+        code: "rowing_boat",
     },
     EmojiDef {
         hexcode: "1f3ca",

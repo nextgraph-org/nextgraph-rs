@@ -76,6 +76,7 @@ pub enum NgError {
     WrongUploadId,
     FileError(FileError),
     InternalError,
+    OxiGraphError(String),
 }
 
 impl Error for NgError {}

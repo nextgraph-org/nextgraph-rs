@@ -33,7 +33,8 @@ const mapping = {
     "user_disconnect": ["user_id"],
     "app_request": ["session_id","request"],
     "test": [ ],
-    "doc_fetch_private_subscribe": []
+    "doc_fetch_private_subscribe": [],
+    "doc_fetch_repo_subscribe": ["repo_id"],
 }
 
 

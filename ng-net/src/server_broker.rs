@@ -91,11 +91,14 @@ pub trait IServerBroker: Send + Sync {
         remote_peer: &PubKey,
     ) -> Result<HashSet<&PubKey>, ServerError>;
 
+    fn remove_all_subscriptions_of_peer(&mut self, remote_peer: &PubKey);
+
     fn topic_sync_req(
         &self,
         overlay: &OverlayId,
         topic: &TopicId,
         known_heads: &Vec<ObjectId>,
         target_heads: &Vec<ObjectId>,
+        known_commits: &Option<BloomFilter>,
     ) -> Result<Vec<TopicSyncRes>, ServerError>;
 }

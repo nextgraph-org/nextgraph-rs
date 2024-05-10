@@ -43,6 +43,11 @@ impl Digest {
     pub fn from_slice(slice: [u8; 32]) -> Digest {
         Digest::Blake3Digest32(slice)
     }
+    pub fn slice(&self) -> &[u8; 32] {
+        match self {
+            Self::Blake3Digest32(o) => o,
+        }
+    }
 }
 
 impl fmt::Display for Digest {

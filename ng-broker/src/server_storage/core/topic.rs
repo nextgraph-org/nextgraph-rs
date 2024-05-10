@@ -53,6 +53,7 @@ impl<'a> TopicStorage<'a> {
     pub const ADVERT: SingleValueColumn<Self, PublisherAdvert> = SingleValueColumn::new(b'a');
     pub const REPO: ExistentialValueColumn = ExistentialValueColumn::new(b'r');
     pub const ROOT_COMMIT: SingleValueColumn<Self, ObjectId> = SingleValueColumn::new(b'o');
+    pub const COMMITS_NBR: CounterValue<Self> = CounterValue::new(b'n');
 
     // Topic <-> Users who pinned it (with boolean: R or W)
     pub const USERS: MultiMapColumn<Self, UserId, bool> = MultiMapColumn::new(b'u');
@@ -63,7 +64,11 @@ impl<'a> TopicStorage<'a> {
         "Topic",
         Some(Self::PREFIX),
         Some(&Self::REPO),
-        &[&Self::ADVERT as &dyn ISingleValueColumn, &Self::ROOT_COMMIT],
+        &[
+            &Self::ADVERT as &dyn ISingleValueColumn,
+            &Self::ROOT_COMMIT,
+            &Self::COMMITS_NBR,
+        ],
         &[&Self::USERS as &dyn IMultiValueColumn, &Self::HEADS],
     );
 

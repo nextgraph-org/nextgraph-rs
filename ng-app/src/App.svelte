@@ -161,7 +161,7 @@
             break;
           case "opened":
             if (!$opened_wallets[event.data.wallet.id]) {
-              await tick();
+              //await tick();
               // console.log(
               //   "ADDING TO OPENED",
               //   event.data.wallet.id,
@@ -226,7 +226,7 @@
               w[value.id] = value.wallet;
               return w;
             });
-            await tick();
+            //await tick();
             //console.log("posting opened");
             wallet_channel.postMessage(
               {

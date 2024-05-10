@@ -674,22 +674,6 @@ pub trait IMultiValueColumn {
     fn value_size(&self) -> Result<usize, StorageError>;
 }
 
-pub struct ExistentialValueColumn {
-    suffix: u8,
-}
-
-impl ISingleValueColumn for ExistentialValueColumn {
-    fn suffix(&self) -> u8 {
-        self.suffix
-    }
-}
-
-impl ExistentialValueColumn {
-    pub const fn new(suffix: u8) -> Self {
-        ExistentialValueColumn { suffix }
-    }
-}
-
 pub struct SingleValueColumn<Model: IModel, Value: Serialize + for<'a> Deserialize<'a>> {
     suffix: u8,
     phantom_value: PhantomData<Value>,
@@ -776,6 +760,108 @@ impl<Model: IModel, Value: Clone + Serialize + for<'d> Deserialize<'d>>
         model
             .storage()
             .del(model.prefix(), model.key(), Some(self.suffix), &None)
+    }
+}
+
+/////////////  Counter Value
+
+pub struct CounterValue<Model: IModel> {
+    suffix: u8,
+    phantom_model: PhantomData<Model>,
+}
+
+impl<Model: IModel> ISingleValueColumn for CounterValue<Model> {
+    fn suffix(&self) -> u8 {
+        self.suffix
+    }
+}
+
+impl<Model: IModel> CounterValue<Model> {
+    pub const fn new(suffix: u8) -> Self {
+        CounterValue {
+            suffix,
+            phantom_model: PhantomData,
+        }
+    }
+
+    pub fn increment(&self, model: &mut Model) -> Result<(), StorageError> {
+        model.storage().write_transaction(&mut |tx| {
+            let mut val: u64 = match tx.get(model.prefix(), model.key(), Some(self.suffix), &None) {
+                Ok(val_ser) => from_slice(&val_ser)?,
+                Err(StorageError::NotFound) => 0,
+                Err(e) => return Err(e),
+            };
+            val += 1;
+            let val_ser = to_vec(&val)?;
+            tx.put(
+                model.prefix(),
+                model.key(),
+                Some(self.suffix),
+                &val_ser,
+                &None,
+            )?;
+            Ok(())
+        })
+    }
+    /// returns true if the counter reached zero, and the property was removed
+    pub fn decrement(&self, model: &mut Model) -> Result<bool, StorageError> {
+        let mut ret: bool = false;
+        model.storage().write_transaction(&mut |tx| {
+            let val_ser = tx.get(model.prefix(), model.key(), Some(self.suffix), &None)?;
+            let mut val: u64 = from_slice(&val_ser)?;
+            val -= 1;
+            ret = val == 0;
+            if ret {
+                tx.del(model.prefix(), model.key(), Some(self.suffix), &None)?;
+            } else {
+                let val_ser = to_vec(&val)?;
+                tx.put(
+                    model.prefix(),
+                    model.key(),
+                    Some(self.suffix),
+                    &val_ser,
+                    &None,
+                )?;
+            }
+            Ok(())
+        })?;
+        Ok(ret)
+    }
+
+    pub fn get(&self, model: &mut Model) -> Result<u64, StorageError> {
+        let val_res = model
+            .storage()
+            .get(model.prefix(), model.key(), Some(self.suffix), &None);
+        match val_res {
+            Ok(val_ser) => Ok(from_slice(&val_ser)?),
+            Err(StorageError::NotFound) => Ok(0),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn del(&self, model: &mut Model) -> Result<(), StorageError> {
+        model.check_exists()?;
+        model
+            .storage()
+            .del(model.prefix(), model.key(), Some(self.suffix), &None)
+    }
+}
+
+////////////////
+
+pub struct ExistentialValueColumn {
+    suffix: u8,
+}
+
+impl ISingleValueColumn for ExistentialValueColumn {
+    fn suffix(&self) -> u8 {
+        self.suffix
+    }
+}
+
+impl ExistentialValueColumn {
+    pub const fn new(suffix: u8) -> Self {
+        ExistentialValueColumn { suffix }
     }
 }
 

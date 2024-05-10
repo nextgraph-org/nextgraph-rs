@@ -15,6 +15,8 @@ use serde_bare::to_vec;
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::prop;
 use ng_repo::kcv_storage::KCVStorage;
+#[allow(unused_imports)]
+use ng_repo::log::*;
 use ng_repo::repo::BranchInfo;
 use ng_repo::types::*;
 
@@ -33,8 +35,15 @@ impl<'a> BranchStorage<'a> {
     const PUBLISHER: u8 = b'p';
     const READ_CAP: u8 = b'r';
     const TOPIC: u8 = b't';
+    const COMMITS_NBR: u8 = b'n';
 
-    const ALL_PROPERTIES: [u8; 4] = [Self::TYPE, Self::PUBLISHER, Self::READ_CAP, Self::TOPIC];
+    const ALL_PROPERTIES: [u8; 5] = [
+        Self::TYPE,
+        Self::PUBLISHER,
+        Self::READ_CAP,
+        Self::TOPIC,
+        Self::COMMITS_NBR,
+    ];
 
     const PREFIX_HEADS: u8 = b'h';
 
@@ -136,6 +145,7 @@ impl<'a> BranchStorage<'a> {
             topic: prop(Self::TOPIC, &props)?,
             topic_priv_key: prop(Self::PUBLISHER, &props).ok(),
             current_heads: Self::get_all_heads(id, storage)?,
+            commits_nbr: prop(Self::COMMITS_NBR, &props).unwrap_or(0),
         };
         Ok(bs)
     }
@@ -227,6 +237,28 @@ impl<'a> BranchStorage<'a> {
                 key.append(&mut head_ser);
                 tx.put(Self::PREFIX_HEADS, &key, None, &vec![], &None)?;
             }
+
+            let mut val: u64 = match tx.get(Self::PREFIX, id_ser, Some(Self::COMMITS_NBR), &None) {
+                Ok(val_ser) => from_slice(&val_ser)?,
+                Err(StorageError::NotFound) => 0,
+                Err(e) => return Err(e),
+            };
+            val += 1;
+            let val_ser = to_vec(&val)?;
+            tx.put(
+                Self::PREFIX,
+                id_ser,
+                Some(Self::COMMITS_NBR),
+                &val_ser,
+                &None,
+            )?;
+            // log_info!(
+            //     "putting commit_nbr {} {:?} {} {:?}",
+            //     Self::PREFIX as char,
+            //     id_ser,
+            //     Self::COMMITS_NBR as char,
+            //     val_ser
+            // );
             Ok(())
         })
     }

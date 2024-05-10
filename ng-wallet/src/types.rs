@@ -133,6 +133,7 @@ impl SessionWalletStorageV0 {
 pub struct SessionInfo {
     pub session_id: u64,
     pub user: UserId,
+    pub private_store_id: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

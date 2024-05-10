@@ -36,6 +36,7 @@ web-time = "0.2.0"
 either = "1.8.1"
 futures = "0.3.24"
 async-trait = "0.1.64"
+fastbloom-rs = "0.5.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0" }

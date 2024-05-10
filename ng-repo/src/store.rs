@@ -256,6 +256,7 @@ impl Store {
             topic_priv_key: Some(branch_topic_priv_key),
             read_cap: branch_read_cap,
             current_heads: vec![],
+            commits_nbr: 0,
         };
 
         Ok((branch_commit, add_branch_commit, branch_info))
@@ -609,6 +610,7 @@ impl Store {
             topic_priv_key: Some(topic_priv_key),
             read_cap: root_branch_readcap.clone(),
             current_heads: vec![sync_sig_on_root_branch_commit_ref],
+            commits_nbr: 0,
         };
 
         branches.push((root_branch.id, root_branch));

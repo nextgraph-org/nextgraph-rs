@@ -159,9 +159,9 @@
         const myWorker = new worker_import.default();
         myWorker.onerror = (e) => {
           console.error(e);
-          error = e;
+          error = "WebWorker error";
           step = "end";
-          dispatch("error", { error: e });
+          dispatch("error", { error });
         };
         myWorker.onmessageerror = (e) => {
           console.error(e);

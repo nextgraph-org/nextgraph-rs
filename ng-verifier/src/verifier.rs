@@ -21,6 +21,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_std::stream::StreamExt;
 use async_std::sync::{Mutex, RwLockReadGuard};
+use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Hashes, Membership};
 use futures::channel::mpsc;
 use futures::SinkExt;
 use ng_repo::object::Object;
@@ -191,7 +192,7 @@ impl Verifier {
         // );
         if let Some(sender) = self.branch_subscriptions.get_mut(branch) {
             if sender.is_closed() {
-                //log_info!("closed so removed");
+                log_info!("closed so removed {}", branch);
                 self.branch_subscriptions.remove(branch);
             } else {
                 let _ = sender.send(response).await;
@@ -227,7 +228,7 @@ impl Verifier {
         }
 
         let fnonce = Box::new(move || {
-            //log_info!("CLOSE_CHANNEL");
+            log_info!("CLOSE_CHANNEL of subscription for branch {}", branch);
             if !tx.is_closed() {
                 tx.close_channel();
             }
@@ -739,7 +740,7 @@ impl Verifier {
             .ok_or(NgError::TopicNotFound)?
             .to_owned();
 
-        self.update_branch_current_heads(&repo_id, &branch_id, past, commit_ref);
+        self.update_branch_current_heads(&repo_id, &branch_id, past, commit_ref)?;
 
         if self.connected_server_id.is_some() {
             // send the event to the server already
@@ -965,6 +966,7 @@ impl Verifier {
                                         branch,
                                         repo_id,
                                         topic.known_heads(),
+                                        topic.commits_nbr(),
                                     )
                                     .await?;
                                     break;
@@ -999,6 +1001,7 @@ impl Verifier {
                                     branch,
                                     repo_id,
                                     topic.known_heads(),
+                                    topic.commits_nbr(),
                                 )
                                 .await?;
                                 break;
@@ -1042,6 +1045,7 @@ impl Verifier {
                         branch,
                         repo_id,
                         sub.known_heads(),
+                        sub.commits_nbr(),
                     )
                     .await?;
                 }
@@ -1167,7 +1171,7 @@ impl Verifier {
         if res.is_ok() && !skip_heads_update {
             let commit_ref = commit.reference().unwrap();
             let past = commit.direct_causal_past();
-            self.update_branch_current_heads(repo_id, branch_id, past, commit_ref);
+            self.update_branch_current_heads(repo_id, branch_id, past, commit_ref)?;
             Ok(())
         } else {
             res
@@ -1291,8 +1295,14 @@ impl Verifier {
         branch_id: &BranchId,
         repo_id: &RepoId,
         remote_heads: &Vec<ObjectId>,
+        remote_commits_nbr: u64,
     ) -> Result<(), NgError> {
         let (store, msg, branch_secret) = {
+            if remote_commits_nbr == 0 || remote_heads.is_empty() {
+                log_info!("branch is new on the broker. doing nothing");
+                return Ok(());
+            }
+
             let repo = self.repos.get(repo_id).unwrap();
             let branch_info = repo.branch(branch_id)?;
 
@@ -1302,10 +1312,7 @@ impl Verifier {
             let ours_set: HashSet<Digest> = HashSet::from_iter(ours.clone());
 
             let theirs = HashSet::from_iter(remote_heads.clone().into_iter());
-            if theirs.is_empty() {
-                log_info!("branch is new on the broker. doing nothing");
-                return Ok(());
-            }
+
             if ours_set.difference(&theirs).count() == 0
                 && theirs.difference(&ours_set).count() == 0
             {
@@ -1326,6 +1333,7 @@ impl Verifier {
                         &mut None,
                         None,
                         &mut Some(&mut theirs_found),
+                        &None,
                     );
                 }
             }
@@ -1333,16 +1341,33 @@ impl Verifier {
             let theirs_not_found: Vec<ObjectId> =
                 theirs.difference(&theirs_found).cloned().collect();
 
-            if theirs_not_found.is_empty() {
+            let known_commits = if theirs_not_found.is_empty() {
                 return Ok(());
             } else {
-                // prepare bloom filter
-            }
+                if visited.is_empty() {
+                    None
+                } else {
+                    // prepare bloom filter
+                    let expected_elements =
+                        remote_commits_nbr + max(visited.len() as u64, branch_info.commits_nbr);
+                    let mut config = FilterBuilder::new(expected_elements, 0.01);
+                    config.enable_repeat_insert(false);
+                    let mut filter = Filter::new(config);
+                    for commit_id in visited.keys() {
+                        filter.add(commit_id.slice());
+                    }
+                    Some(BloomFilter {
+                        k: filter.hashes(),
+                        f: filter.get_u8_array().to_vec(),
+                    })
+                }
+            };
 
             let msg = TopicSyncReq::V0(TopicSyncReqV0 {
                 topic: branch_info.topic,
                 known_heads: ours_set.union(&theirs_found).into_iter().cloned().collect(),
                 target_heads: theirs_not_found,
+                known_commits,
                 overlay: Some(store.overlay_for_read_on_client_protocol()),
             });
             (store, msg, branch_info.read_cap.key.clone())
@@ -1358,6 +1383,8 @@ impl Verifier {
                     let commit = event
                         .event()
                         .open(&store, repo_id, branch_id, &branch_secret)?;
+
+                    // TODO: deal with missing commits in the DAG (fetch them individually with CommitGet). This can happen because of false positive on BloomFilter
 
                     self.verify_commit(&commit, branch_id, repo_id, Arc::clone(&store))
                         .await?;
@@ -1940,7 +1967,7 @@ impl Verifier {
                     // and have oxigraph use directly the UserStorage
                     Some(
                         oxigraph::store::Store::open_with_key(path_oxi, config.user_master_key)
-                            .unwrap(),
+                            .map_err(|e| NgError::OxiGraphError(e.to_string()))?,
                     ),
                     Some(Box::new(RocksDbUserStorage::open(
                         &path_user,

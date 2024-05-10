@@ -200,4 +200,8 @@
   .full-layout {
     height: 100vh;
   }
+  main {
+    overflow: hidden;
+    overflow-wrap: break-word;
+  }
 </style>
