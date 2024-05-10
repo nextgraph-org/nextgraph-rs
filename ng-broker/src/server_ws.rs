@@ -11,55 +11,43 @@
 
 //! WebSocket implementation of the Broker
 
-use crate::interfaces::*;
-use crate::rocksdb_server_storage::RocksDbServerStorage;
-use crate::server_broker::ServerBroker;
-use crate::types::*;
-use async_std::io::ReadExt;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::net::IpAddr;
+use std::net::SocketAddr;
+use std::path::PathBuf;
+
+use futures::StreamExt;
+use once_cell::sync::OnceCell;
+use rust_embed::RustEmbed;
+use serde_json::json;
+
 use async_std::net::{TcpListener, TcpStream};
-use async_std::sync::Mutex;
-use async_std::task;
 use async_tungstenite::accept_hdr_async;
 use async_tungstenite::tungstenite::handshake::server::{
     Callback, ErrorResponse, Request, Response,
 };
-
 use async_tungstenite::tungstenite::http::{
-    header::{CONNECTION, HOST, ORIGIN, UPGRADE},
+    header::{CONNECTION, HOST, ORIGIN},
     HeaderValue, Method, StatusCode, Uri, Version,
 };
 
-use async_tungstenite::tungstenite::protocol::Message;
-use futures::{SinkExt, StreamExt};
-use ng_client_ws::remote_ws::ConnectionWebSocket;
+use ng_repo::errors::NgError;
+use ng_repo::log::*;
+use ng_repo::types::{PrivKey, PubKey, SymKey};
+
 use ng_net::broker::*;
 use ng_net::connection::IAccept;
 use ng_net::types::*;
-use ng_net::utils::get_domain_without_port;
-use ng_net::utils::is_private_ip;
-use ng_net::utils::is_public_ip;
+use ng_net::utils::{is_private_ip, is_public_ip};
 use ng_net::NG_BOOTSTRAP_LOCAL_PATH;
-use ng_repo::errors::NgError;
-use ng_repo::log::*;
-use ng_repo::types::SymKey;
-use ng_repo::types::{PrivKey, PubKey};
-use ng_repo::utils::generate_keypair;
-use once_cell::sync::Lazy;
-use once_cell::sync::OnceCell;
-use rust_embed::RustEmbed;
-use serde_json::json;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::fs;
-use std::net::SocketAddr;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::num::NonZeroU8;
-use std::ops::Deref;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::{thread, time};
 
-use tempfile::Builder;
+use ng_client_ws::remote_ws::ConnectionWebSocket;
+
+use crate::interfaces::*;
+use crate::rocksdb_server_storage::RocksDbServerStorage;
+use crate::server_broker::ServerBroker;
+use crate::types::*;
 
 static LISTENERS_INFO: OnceCell<(HashMap<String, ListenerInfo>, HashMap<BindAddress, String>)> =
     OnceCell::new();
@@ -575,16 +563,19 @@ pub async fn accept(tcp: TcpStream, peer_priv_key: PrivKey) {
         .await
         .accept(base, remote_bind_address, local_bind_address)
         .await;
+    if res.is_err() {
+        log_warn!("Accept error: {:?}", res.unwrap_err());
+    }
 }
 
 pub async fn run_server_accept_one(
     addr: &str,
     port: u16,
     peer_priv_key: PrivKey,
-    peer_pub_key: PubKey,
+    _peer_pub_key: PubKey,
 ) -> std::io::Result<()> {
     let addrs = format!("{}:{}", addr, port);
-    let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
+    let _root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
     // let master_key: [u8; 32] = [0; 32];
     // std::fs::create_dir_all(root.path()).unwrap();
     // log_debug!("data directory: {}", root.path().to_str().unwrap());
@@ -689,7 +680,7 @@ pub async fn run_server_v0(
                         }
                     })
                     .collect();
-                if addrs.len() == 0 {
+                if addrs.is_empty() {
                     return Err(NgError::BrokerConfigError(format!(
                         "The interface {} does not have any IPv4 address.",
                         listener.interface_name
@@ -752,7 +743,7 @@ pub async fn run_server_v0(
         }
     }
 
-    if listeners_addrs.len() == 0 {
+    if listeners_addrs.is_empty() {
         return Err(NgError::BrokerConfigErrorStr("No listener configured."));
     }
 

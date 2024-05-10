@@ -161,12 +161,18 @@
             break;
           case "opened":
             if (!$opened_wallets[event.data.wallet.id]) {
+              await tick();
               // console.log(
               //   "ADDING TO OPENED",
               //   event.data.wallet.id,
               //   JSON.stringify($opened_wallets),
               //   event.data.wallet.wallet
               // );
+              if (event.data.ng_wallets) {
+                localStorage.setItem("ng_wallets", event.data.ng_wallets);
+                await ng.wallets_reload();
+                wallets.set(await ng.get_wallets());
+              }
               try {
                 await ng.wallet_was_opened(event.data.wallet.wallet);
               } catch (e) {
@@ -220,8 +226,14 @@
               w[value.id] = value.wallet;
               return w;
             });
+            await tick();
+            //console.log("posting opened");
             wallet_channel.postMessage(
-              { cmd: "opened", wallet: value },
+              {
+                cmd: "opened",
+                wallet: value,
+                ng_wallets: localStorage.getItem("ng_wallets"),
+              },
               location.href
             );
           } else {

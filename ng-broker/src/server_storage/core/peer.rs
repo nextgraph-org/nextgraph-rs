@@ -9,12 +9,13 @@
 
 //! Peer
 
-use ng_net::types::*;
+use serde_bare::{from_slice, to_vec};
+
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::types::*;
-use serde::{Deserialize, Serialize};
-use serde_bare::{from_slice, to_vec};
+
+use ng_net::types::*;
 
 pub struct Peer<'a> {
     /// Topic ID
@@ -131,7 +132,7 @@ impl<'a> Peer<'a> {
         if advert.peer() != &self.id {
             return Err(StorageError::InvalidValue);
         }
-        let current_advert = self.advert().map_err(|e| StorageError::BackendError)?;
+        let current_advert = self.advert().map_err(|_| StorageError::BackendError)?;
         if current_advert.version() >= advert.version() {
             return Ok(());
         }

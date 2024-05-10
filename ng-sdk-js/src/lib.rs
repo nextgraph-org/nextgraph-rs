@@ -9,43 +9,41 @@
  * according to those terms.
 */
 
-use async_std::task;
+use std::collections::HashMap;
+use std::net::IpAddr;
+use std::str::FromStr;
+use std::sync::Arc;
+
 use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
+#[allow(unused_imports)]
+use serde_json::json;
 // #[cfg(target_arch = "wasm32")]
 // use js_sys::Reflect;
 use async_std::stream::StreamExt;
+use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
-use js_sys::Uint8Array;
-#[cfg(target_arch = "wasm32")]
-use ng_client_ws::remote_ws_wasm::ConnectionWebSocket;
+use wasm_bindgen_futures::JsFuture;
+
+use ng_repo::errors::NgError;
+use ng_repo::log::*;
+use ng_repo::types::*;
+
 use ng_net::broker::*;
-use ng_net::connection::{ClientConfig, StartConfig};
-use ng_net::types::{
-    BootstrapContent, BootstrapContentV0, ClientId, ClientInfo, ClientInfoV0, ClientType,
-    CreateAccountBSP, IP,
-};
-use ng_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend, Sender};
+use ng_net::types::{ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, IP};
+use ng_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend};
 #[cfg(target_arch = "wasm32")]
 use ng_net::utils::{retrieve_local_bootstrap, retrieve_local_url};
+use ng_net::WS_PORT;
+
+#[cfg(target_arch = "wasm32")]
+use ng_client_ws::remote_ws_wasm::ConnectionWebSocket;
+
 use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
 use nextgraph::verifier::types::*;
-use ng_net::WS_PORT;
-use ng_repo::errors::NgError;
-use ng_repo::log::*;
-use ng_repo::types::*;
-use ng_repo::utils::generate_keypair;
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-use std::collections::HashMap;
-use std::net::IpAddr;
-use std::str::FromStr;
-use std::sync::Arc;
-use wasm_bindgen::prelude::*;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen_futures::{future_to_promise, JsFuture};
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
@@ -124,7 +122,7 @@ pub fn wallet_open_with_pazzle(
 ) -> Result<JsValue, JsValue> {
     let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(js_wallet)
         .map_err(|_| "Deserialization error of wallet")?;
-    let mut pin = serde_wasm_bindgen::from_value::<[u8; 4]>(js_pin)
+    let pin = serde_wasm_bindgen::from_value::<[u8; 4]>(js_pin)
         .map_err(|_| "Deserialization error of pin")?;
     let res = nextgraph::local_broker::wallet_open_with_pazzle(&encrypted_wallet, pazzle, pin);
     match res {
@@ -138,9 +136,9 @@ pub fn wallet_open_with_pazzle(
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn wallet_update(js_wallet_id: JsValue, js_operations: JsValue) -> Result<JsValue, JsValue> {
-    let wallet = serde_wasm_bindgen::from_value::<WalletId>(js_wallet_id)
+    let _wallet = serde_wasm_bindgen::from_value::<WalletId>(js_wallet_id)
         .map_err(|_| "Deserialization error of WalletId")?;
-    let operations = serde_wasm_bindgen::from_value::<Vec<WalletOperation>>(js_operations)
+    let _operations = serde_wasm_bindgen::from_value::<Vec<WalletOperation>>(js_operations)
         .map_err(|_| "Deserialization error of operations")?;
     unimplemented!();
     // match res {
@@ -326,7 +324,7 @@ pub async fn wallet_get_file(wallet_name: String) -> Result<JsValue, JsValue> {
 #[wasm_bindgen]
 pub async fn wallet_read_file(js_file: JsValue) -> Result<JsValue, String> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
-    let mut file = serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(js_file)
+    let file = serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(js_file)
         .map_err(|_| "Deserialization error of file".to_string())?;
 
     let wallet = nextgraph::local_broker::wallet_read_file(file.into_vec())
@@ -341,7 +339,7 @@ pub async fn wallet_read_file(js_file: JsValue) -> Result<JsValue, String> {
 pub async fn wallet_was_opened(
     js_opened_wallet: JsValue, //SensitiveWallet
 ) -> Result<JsValue, String> {
-    let mut opened_wallet = serde_wasm_bindgen::from_value::<SensitiveWallet>(js_opened_wallet)
+    let opened_wallet = serde_wasm_bindgen::from_value::<SensitiveWallet>(js_opened_wallet)
         .map_err(|_| "Deserialization error of SensitiveWallet".to_string())?;
 
     let client = nextgraph::local_broker::wallet_was_opened(opened_wallet)
@@ -360,7 +358,7 @@ pub async fn wallet_import(
 ) -> Result<JsValue, String> {
     let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(js_encrypted_wallet)
         .map_err(|_| "Deserialization error of Wallet".to_string())?;
-    let mut opened_wallet = serde_wasm_bindgen::from_value::<SensitiveWallet>(js_opened_wallet)
+    let opened_wallet = serde_wasm_bindgen::from_value::<SensitiveWallet>(js_opened_wallet)
         .map_err(|_| "Deserialization error of SensitiveWallet".to_string())?;
 
     let client = nextgraph::local_broker::wallet_import(encrypted_wallet, opened_wallet, in_memory)
@@ -368,24 +366,6 @@ pub async fn wallet_import(
         .map_err(|e: NgError| e.to_string())?;
 
     Ok(serde_wasm_bindgen::to_value(&client).unwrap())
-}
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub fn test_create_wallet() -> JsValue {
-    let pin = [5, 2, 9, 1];
-    let r = CreateWalletV0::new(
-        vec![50u8; 20],
-        "   know     yourself  ".to_string(),
-        pin,
-        9,
-        false,
-        false,
-        BootstrapContentV0::new_empty(),
-        None,
-        None,
-    );
-    serde_wasm_bindgen::to_value(&r).unwrap()
 }
 
 #[cfg(wasmpack_target = "nodejs")]
@@ -484,6 +464,7 @@ pub fn client_info() -> JsValue {
 pub async fn test() {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
     //log_debug!("test is {}", BROKER.read().await.test());
+    #[cfg(debug_assertions)]
     let client_info = client_info();
     log_debug!("{:?}", client_info);
 }
@@ -498,36 +479,26 @@ pub async fn app_request_stream(
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
 
-    let mut request = serde_wasm_bindgen::from_value::<AppRequest>(js_request)
+    let request = serde_wasm_bindgen::from_value::<AppRequest>(js_request)
         .map_err(|_| "Deserialization error of AppRequest".to_string())?;
 
-    let vec: Vec<u8> = vec![2; 10];
-    let view = unsafe { Uint8Array::view(&vec) };
-    let x = JsValue::from(Uint8Array::new(view.as_ref()));
-
-    let mut reader;
-    let mut cancel;
-    {
-        (reader, cancel) = nextgraph::local_broker::app_request_stream(session_id, request)
-            .await
-            .map_err(|e: NgError| e.to_string())?;
-    }
+    let (reader, cancel) = nextgraph::local_broker::app_request_stream(session_id, request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
 
     async fn inner_task(
         mut reader: Receiver<AppResponse>,
         callback: js_sys::Function,
     ) -> ResultSend<()> {
         while let Some(app_response) = reader.next().await {
-            let xx = serde_wasm_bindgen::to_value(&app_response).unwrap();
-            //let xx = JsValue::from(json!(commit).to_string());
-            //let _ = callback.call1(&this, &xx);
+            let response_js = serde_wasm_bindgen::to_value(&app_response).unwrap();
             let this = JsValue::null();
-            match callback.call1(&this, &xx) {
+            match callback.call1(&this, &response_js) {
                 Ok(jsval) => {
                     let promise_res: Result<js_sys::Promise, JsValue> = jsval.dyn_into();
                     match promise_res {
                         Ok(promise) => {
-                            JsFuture::from(promise).await;
+                            let _ = JsFuture::from(promise).await;
                         }
                         Err(_) => {}
                     }
@@ -559,7 +530,7 @@ pub async fn app_request_stream(
 pub async fn app_request(js_session_id: JsValue, js_request: JsValue) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
-    let mut request = serde_wasm_bindgen::from_value::<AppRequest>(js_request)
+    let request = serde_wasm_bindgen::from_value::<AppRequest>(js_request)
         .map_err(|_| "Deserialization error of AppRequest".to_string())?;
 
     let response = nextgraph::local_broker::app_request(session_id, request)
@@ -625,28 +596,24 @@ pub async fn doc_fetch_private_subscribe() -> Result<JsValue, String> {
 #[wasm_bindgen]
 pub async fn disconnections_subscribe(callback: &js_sys::Function) -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
-    let vec: Vec<u8> = vec![2; 10];
-    let view = unsafe { Uint8Array::view(&vec) };
-    let x = JsValue::from(Uint8Array::new(view.as_ref()));
-    let mut reader;
-    {
-        reader = nextgraph::local_broker::take_disconnections_receiver()
-            .await
-            .map_err(|e: NgError| false)?;
-    }
+
+    let reader = nextgraph::local_broker::take_disconnections_receiver()
+        .await
+        .map_err(|_e: NgError| false)?;
+
     async fn inner_task(
         mut reader: Receiver<String>,
         callback: js_sys::Function,
     ) -> ResultSend<()> {
         while let Some(user_id) = reader.next().await {
             let this = JsValue::null();
-            let xx = serde_wasm_bindgen::to_value(&user_id).unwrap();
-            match callback.call1(&this, &xx) {
+            let user_id_js = serde_wasm_bindgen::to_value(&user_id).unwrap();
+            match callback.call1(&this, &user_id_js) {
                 Ok(jsval) => {
                     let promise_res: Result<js_sys::Promise, JsValue> = jsval.dyn_into();
                     match promise_res {
                         Ok(promise) => {
-                            JsFuture::from(promise).await;
+                            let _ = JsFuture::from(promise).await;
                         }
                         Err(_) => {}
                     }
@@ -670,7 +637,7 @@ pub async fn disconnections_subscribe(callback: &js_sys::Function) -> Result<JsV
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn probe() {
-    let res = BROKER
+    let _res = BROKER
         .write()
         .await
         .probe(
@@ -679,75 +646,15 @@ pub async fn probe() {
             WS_PORT,
         )
         .await;
-    log_debug!("broker.probe : {:?}", res);
+    log_debug!("broker.probe : {:?}", _res);
 
-    Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
+    let _ = Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn start() {
     async fn inner_task() -> ResultSend<()> {
-        let server_key: PubKey = "X0nh-gOTGKSx0yL0LYJviOWRNacyqIzjQW_LKdK6opU".try_into()?;
-        log_debug!("server_key:{}", server_key);
-
-        //let keys = ng_net::utils::gen_dh_keys();
-        //let pub_key = PubKey::Ed25519PubKey(keys.1);
-        let keys = generate_keypair();
-        let x_from_ed = keys.1.to_dh_from_ed();
-        log_debug!("Pub from X {}", x_from_ed);
-
-        let (client_priv, client) = generate_keypair();
-        let (user_priv, user) = generate_keypair();
-
-        log_debug!("start connecting");
-
-        let res = BROKER
-            .write()
-            .await
-            .connect(
-                Arc::new(Box::new(ConnectionWebSocket {})),
-                keys.0,
-                keys.1,
-                server_key,
-                StartConfig::Client(ClientConfig {
-                    url: format!("ws://127.0.0.1:{}", WS_PORT),
-                    name: None,
-                    user_priv,
-                    client_priv,
-                    info: ClientInfo::V0(client_info_()),
-                    registration: None,
-                }),
-            )
-            .await;
-        log_debug!("broker.connect : {:?}", res);
-        if res.is_err() {
-            return Ok(());
-            //panic!("Cannot connect");
-        }
-        BROKER.read().await.print_status();
-
-        //res.expect_throw("assume the connection succeeds");
-
-        async fn timer_close(remote_peer_id: DirectPeerId, user: Option<PubKey>) -> ResultSend<()> {
-            async move {
-                sleep!(std::time::Duration::from_secs(3));
-                log_debug!("timeout");
-                BROKER
-                    .write()
-                    .await
-                    .close_peer_connection(&remote_peer_id, user)
-                    .await;
-            }
-            .await;
-            Ok(())
-        }
-        spawn_and_log_error(timer_close(server_key, Some(user)));
-
-        //Broker::graceful_shutdown().await;
-
-        Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
-
         Ok(())
     }
     spawn_and_log_error(inner_task()).await;
@@ -813,7 +720,7 @@ pub async fn user_connect(
     log_debug!("{:?}", results);
 
     for result in results {
-        let mut date = js_sys::Date::new_0();
+        let date = js_sys::Date::new_0();
         date.set_time(result.4);
         opened_connections.insert(
             result.0,

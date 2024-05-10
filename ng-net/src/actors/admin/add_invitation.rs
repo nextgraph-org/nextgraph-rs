@@ -8,18 +8,21 @@
  * notice may not be copied, modified, or distributed except
  * according to those terms.
 */
-use crate::broker::{ServerConfig, BROKER};
+
+use std::sync::Arc;
+
+use async_std::sync::Mutex;
+use serde::{Deserialize, Serialize};
+
+use ng_repo::errors::*;
+use ng_repo::log::*;
+
+use super::super::StartProtocol;
+
+use crate::broker::BROKER;
 use crate::connection::NoiseFSM;
 use crate::types::*;
 use crate::{actor::*, types::ProtocolMessage};
-use async_std::sync::Mutex;
-use ng_repo::errors::*;
-use ng_repo::log::*;
-use ng_repo::types::PubKey;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-
-use super::super::StartProtocol;
 
 /// Add invitation
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -79,7 +82,7 @@ impl TryFrom<ProtocolMessage> for AddInvitation {
 }
 
 impl From<AddInvitation> for ProtocolMessage {
-    fn from(msg: AddInvitation) -> ProtocolMessage {
+    fn from(_msg: AddInvitation) -> ProtocolMessage {
         unimplemented!();
     }
 }

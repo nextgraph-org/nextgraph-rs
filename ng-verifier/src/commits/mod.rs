@@ -9,16 +9,19 @@
 
 //! Verifiers for each Commit type
 
-use crate::types::*;
-use crate::verifier::Verifier;
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use ng_repo::errors::VerifierError;
+#[allow(unused_imports)]
 use ng_repo::log::*;
 use ng_repo::object::Object;
 use ng_repo::repo::{BranchInfo, Repo};
 use ng_repo::store::Store;
 use ng_repo::types::*;
-use std::collections::HashMap;
-use std::sync::Arc;
+
+use crate::types::*;
+use crate::verifier::Verifier;
 
 #[async_trait::async_trait]
 pub trait CommitVerifier {
@@ -63,8 +66,8 @@ impl CommitVerifier for RootBranch {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
-        branch_id: &BranchId,
-        repo_id: &RepoId,
+        _branch_id: &BranchId,
+        _repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         match self {
@@ -136,8 +139,8 @@ impl CommitVerifier for Branch {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
-        branch_id: &BranchId,
-        repo_id: &RepoId,
+        _branch_id: &BranchId,
+        _repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         match self {
@@ -199,7 +202,7 @@ impl CommitVerifier for SyncSignature {
             SyncSignature::V0(signature_ref) => {
                 let sign = Object::load_ref(signature_ref, &store)?;
                 match sign.content_v0()? {
-                    ObjectContentV0::Signature(sig) => {
+                    ObjectContentV0::Signature(_sig) => {
                         //TODO: verify signature
                     }
                     _ => return Err(VerifierError::InvalidSignatureObject),
@@ -231,8 +234,8 @@ impl CommitVerifier for AddBranch {
         &self,
         commit: &Commit,
         verifier: &mut Verifier,
-        branch_id: &BranchId,
-        repo_id: &RepoId,
+        _branch_id: &BranchId,
+        _repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         match self {
@@ -240,10 +243,6 @@ impl CommitVerifier for AddBranch {
                 if v0.branch_type == BranchType::Root {
                     return Err(VerifierError::InvalidBranch);
                 }
-                // let _ = verifier.topics.insert(
-                //     (store.inner_overlay(), v0.topic_id),
-                //     (*commit.branch(), v0.branch_id),
-                // );
 
                 let branch_info = BranchInfo {
                     id: v0.branch_id,
@@ -268,11 +267,11 @@ impl CommitVerifier for AddBranch {
 impl CommitVerifier for Repository {
     async fn verify(
         &self,
-        commit: &Commit,
-        verifier: &mut Verifier,
-        branch_id: &BranchId,
-        repo_id: &RepoId,
-        store: Arc<Store>,
+        _commit: &Commit,
+        _verifier: &mut Verifier,
+        _branch_id: &BranchId,
+        _repo_id: &RepoId,
+        _store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         // left empty intentionally
         Ok(())
@@ -282,11 +281,11 @@ impl CommitVerifier for Repository {
 impl CommitVerifier for StoreUpdate {
     async fn verify(
         &self,
-        commit: &Commit,
+        _commit: &Commit,
         verifier: &mut Verifier,
-        branch_id: &BranchId,
-        repo_id: &RepoId,
-        store: Arc<Store>,
+        _branch_id: &BranchId,
+        _repo_id: &RepoId,
+        _store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         verifier.new_store_from_update(self)
     }
@@ -295,11 +294,11 @@ impl CommitVerifier for StoreUpdate {
 impl CommitVerifier for AddSignerCap {
     async fn verify(
         &self,
-        commit: &Commit,
+        _commit: &Commit,
         verifier: &mut Verifier,
-        branch_id: &BranchId,
-        repo_id: &RepoId,
-        store: Arc<Store>,
+        _branch_id: &BranchId,
+        _repo_id: &RepoId,
+        _store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         match self {
             AddSignerCap::V0(v0) => verifier.update_signer_cap(&v0.cap),
@@ -308,6 +307,7 @@ impl CommitVerifier for AddSignerCap {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for AddMember {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -321,6 +321,7 @@ impl CommitVerifier for AddMember {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for RemoveMember {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -334,6 +335,7 @@ impl CommitVerifier for RemoveMember {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for AddPermission {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -347,6 +349,7 @@ impl CommitVerifier for AddPermission {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for RemovePermission {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -360,6 +363,7 @@ impl CommitVerifier for RemovePermission {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for RemoveBranch {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -373,6 +377,7 @@ impl CommitVerifier for RemoveBranch {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for AddName {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -386,6 +391,7 @@ impl CommitVerifier for AddName {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for RemoveName {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -399,6 +405,7 @@ impl CommitVerifier for RemoveName {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for () {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -412,6 +419,7 @@ impl CommitVerifier for () {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for Snapshot {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -425,6 +433,7 @@ impl CommitVerifier for Snapshot {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for AddFile {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -459,6 +468,7 @@ impl CommitVerifier for AddFile {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for RemoveFile {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -472,6 +482,7 @@ impl CommitVerifier for RemoveFile {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for Compact {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -485,6 +496,7 @@ impl CommitVerifier for Compact {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for AsyncSignature {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -498,6 +510,7 @@ impl CommitVerifier for AsyncSignature {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for RootCapRefresh {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -511,6 +524,7 @@ impl CommitVerifier for RootCapRefresh {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for BranchCapRefresh {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -524,6 +538,7 @@ impl CommitVerifier for BranchCapRefresh {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for AddRepo {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -537,6 +552,7 @@ impl CommitVerifier for AddRepo {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for RemoveRepo {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -550,6 +566,7 @@ impl CommitVerifier for RemoveRepo {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for AddLink {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -563,6 +580,7 @@ impl CommitVerifier for AddLink {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for RemoveLink {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -576,6 +594,7 @@ impl CommitVerifier for RemoveLink {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for RemoveSignerCap {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,
@@ -589,6 +608,7 @@ impl CommitVerifier for RemoveSignerCap {
 }
 #[async_trait::async_trait]
 impl CommitVerifier for WalletUpdate {
+    #[allow(unused_variables)]
     async fn verify(
         &self,
         commit: &Commit,

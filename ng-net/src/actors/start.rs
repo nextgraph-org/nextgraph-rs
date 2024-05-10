@@ -9,19 +9,22 @@
  * according to those terms.
 */
 
+use std::any::{Any, TypeId};
+use std::sync::Arc;
+
+use async_std::sync::Mutex;
+use serde::{Deserialize, Serialize};
+
+use ng_repo::errors::*;
+use ng_repo::log::*;
+
 use crate::actors::noise::Noise;
 use crate::connection::NoiseFSM;
 use crate::types::{
-    AdminRequest, CoreBrokerConnect, CoreBrokerConnectResponse, CoreBrokerConnectResponseV0,
-    CoreMessage, CoreMessageV0, CoreResponse, CoreResponseContentV0, CoreResponseV0, ExtResponse,
+    AdminRequest, CoreBrokerConnect, CoreBrokerConnectResponse, CoreMessage, CoreMessageV0,
+    CoreResponse, CoreResponseContentV0, CoreResponseV0, ExtResponse,
 };
 use crate::{actor::*, types::ProtocolMessage};
-use async_std::sync::Mutex;
-use ng_repo::errors::*;
-use ng_repo::log::*;
-use serde::{Deserialize, Serialize};
-use std::any::{Any, TypeId};
-use std::sync::Arc;
 
 // pub struct Noise3(Noise);
 
@@ -102,7 +105,7 @@ impl From<CoreHello> for ProtocolMessage {
 }
 
 impl From<CoreBrokerConnect> for ProtocolMessage {
-    fn from(msg: CoreBrokerConnect) -> ProtocolMessage {
+    fn from(_msg: CoreBrokerConnect) -> ProtocolMessage {
         unimplemented!();
     }
 }
@@ -113,8 +116,8 @@ impl Actor<'_, CoreBrokerConnect, CoreBrokerConnectResponse> {}
 impl EActor for Actor<'_, CoreBrokerConnect, CoreBrokerConnectResponse> {
     async fn respond(
         &mut self,
-        msg: ProtocolMessage,
-        fsm: Arc<Mutex<NoiseFSM>>,
+        _msg: ProtocolMessage,
+        _fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         //let req = CoreBrokerConnect::try_from(msg)?;
         // let res = CoreBrokerConnectResponse::V0(CoreBrokerConnectResponseV0 {
@@ -234,7 +237,7 @@ impl EActor for Actor<'_, ClientHello, ServerHello> {
         msg: ProtocolMessage,
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
-        let req = ClientHello::try_from(msg)?;
+        let _req = ClientHello::try_from(msg)?;
         let res = ServerHello::V0(ServerHelloV0 { nonce: vec![] });
         fsm.lock().await.send(res.into()).await?;
         Ok(())
@@ -247,8 +250,8 @@ impl Actor<'_, ExtHello, ExtResponse> {}
 impl EActor for Actor<'_, ExtHello, ExtResponse> {
     async fn respond(
         &mut self,
-        msg: ProtocolMessage,
-        fsm: Arc<Mutex<NoiseFSM>>,
+        _msg: ProtocolMessage,
+        _fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         Ok(())
     }

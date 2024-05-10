@@ -9,24 +9,24 @@
 
 //! RocksDb Backend for UserStorage trait
 
-use crate::types::*;
-use crate::user_storage::branch::*;
-use crate::user_storage::repo::*;
-use crate::user_storage::*;
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
+
 use either::Either::{Left, Right};
+
 use ng_repo::block_storage::BlockStorage;
 use ng_repo::log::*;
 use ng_repo::repo::{BranchInfo, Repo};
 use ng_repo::store::Store;
 use ng_repo::{errors::StorageError, types::*};
+
 use ng_storage_rocksdb::kcv_storage::RocksDbKCVStorage;
-use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
-use std::{
-    cmp::{max, min},
-    collections::HashMap,
-    mem::size_of_val,
-};
+
+use crate::types::*;
+use crate::user_storage::branch::*;
+use crate::user_storage::repo::*;
+use crate::user_storage::*;
 
 pub(crate) struct RocksDbUserStorage {
     user_storage: RocksDbKCVStorage,
@@ -78,9 +78,9 @@ impl UserStorage for RocksDbUserStorage {
         RepoStorage::update_signer_cap(signer_cap, &self.user_storage)
     }
 
-    fn update_branch_current_head(
+    fn update_branch_current_heads(
         &self,
-        repo_id: &RepoId,
+        _repo_id: &RepoId,
         branch_id: &BranchId,
         new_heads: Vec<ObjectRef>,
     ) -> Result<(), StorageError> {

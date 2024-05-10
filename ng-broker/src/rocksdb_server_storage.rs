@@ -12,27 +12,27 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::{read, File, OpenOptions};
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use crate::server_broker::*;
-use crate::server_storage::admin::account::Account;
-use crate::server_storage::admin::invitation::Invitation;
-use crate::server_storage::admin::wallet::Wallet;
-use crate::server_storage::core::*;
-use crate::types::*;
-use ng_net::types::*;
 use ng_repo::block_storage::{BlockStorage, HashMapBlockStorage};
 use ng_repo::errors::{ProtocolError, ServerError, StorageError};
-
 use ng_repo::log::*;
 use ng_repo::object::Object;
 use ng_repo::store::Store;
 use ng_repo::types::*;
+
+use ng_net::types::*;
+
 use ng_storage_rocksdb::block_storage::RocksDbBlockStorage;
 use ng_storage_rocksdb::kcv_storage::RocksDbKCVStorage;
 
+use crate::server_broker::*;
+use crate::server_storage::admin::{account::Account, invitation::Invitation, wallet::Wallet};
+use crate::server_storage::core::*;
+
 pub(crate) struct RocksDbServerStorage {
+    #[allow(dead_code)]
     wallet_storage: RocksDbKCVStorage,
     accounts_storage: RocksDbKCVStorage,
     //peers_storage: RocksDbKCVStorage,
@@ -54,7 +54,7 @@ impl RocksDbServerStorage {
         std::fs::create_dir_all(wallet_path.clone()).unwrap();
         log_debug!("opening wallet DB");
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let mut wallet_storage = RocksDbKCVStorage::open(&wallet_path, master_key.slice().clone())?;
+        let wallet_storage = RocksDbKCVStorage::open(&wallet_path, master_key.slice().clone())?;
         let wallet = Wallet::open(&wallet_storage);
 
         // create/open the ACCOUNTS storage
@@ -93,7 +93,7 @@ impl RocksDbServerStorage {
         log_debug!("opening accounts DB");
         std::fs::create_dir_all(accounts_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
-        let mut accounts_storage =
+        let accounts_storage =
             RocksDbKCVStorage::open(&accounts_path, accounts_key.slice().clone())?;
 
         // create/open the PEERS storage
@@ -127,7 +127,10 @@ impl RocksDbServerStorage {
         core_path.push("core");
         std::fs::create_dir_all(core_path.clone()).unwrap();
         //TODO redo the whole key passing mechanism in RKV so it uses zeroize all the way
+        #[cfg(debug_assertions)]
         let mut core_storage = RocksDbKCVStorage::open(&core_path, core_key.slice().clone())?;
+        #[cfg(not(debug_assertions))]
+        let core_storage = RocksDbKCVStorage::open(&core_path, core_key.slice().clone())?;
 
         // check unicity of class prefixes, by storage
         #[cfg(debug_assertions)]
@@ -167,23 +170,23 @@ impl RocksDbServerStorage {
         let file = read(filename.clone());
         let mut file_save = match file {
             Ok(ser) => {
-                let last: u64 = serde_bare::from_slice(&ser).map_err(|e| ServerError::FileError)?;
+                let last: u64 = serde_bare::from_slice(&ser).map_err(|_| ServerError::FileError)?;
                 if last >= seq {
                     return Err(ServerError::SequenceMismatch);
                 }
                 OpenOptions::new()
                     .write(true)
                     .open(filename)
-                    .map_err(|e| ServerError::FileError)?
+                    .map_err(|_| ServerError::FileError)?
             }
-            Err(_) => File::create(filename).map_err(|e| ServerError::FileError)?,
+            Err(_) => File::create(filename).map_err(|_| ServerError::FileError)?,
         };
         let ser = serde_bare::to_vec(&seq).unwrap();
         file_save
             .write_all(&ser)
-            .map_err(|e| ServerError::FileError)?;
+            .map_err(|_| ServerError::FileError)?;
 
-        file_save.sync_data().map_err(|e| ServerError::FileError)?;
+        file_save.sync_data().map_err(|_| ServerError::FileError)?;
         Ok(())
     }
 
@@ -261,7 +264,7 @@ impl RocksDbServerStorage {
                 }
             }
         }
-        if topics.len() == 0 {
+        if topics.is_empty() {
             return Err(ServerError::False);
         }
 
@@ -558,7 +561,7 @@ impl RocksDbServerStorage {
     pub(crate) fn save_event(
         &self,
         overlay: &OverlayId,
-        mut event: Event,
+        event: Event,
         user_id: &UserId,
     ) -> Result<TopicId, ServerError> {
         if overlay.is_outer() {
@@ -609,7 +612,7 @@ impl RocksDbServerStorage {
                     Arc::new(std::sync::RwLock::new(temp_mini_block_storage)),
                 );
                 let commit_id = extracted_blocks_ids[0];
-                let header = Object::load_header(&first_block_copy, &temp_store).map_err(|e| {
+                let header = Object::load_header(&first_block_copy, &temp_store).map_err(|_e| {
                     //log_err!("err : {:?}", e);
                     ServerError::InvalidHeader
                 })?;
@@ -629,17 +632,14 @@ impl RocksDbServerStorage {
                     &self.core_storage,
                 )?;
 
-                let acks = if header.is_some() {
-                    HashSet::from_iter(header.unwrap().acks())
+                let past = if header.is_some() {
+                    HashSet::from_iter(header.unwrap().acks_and_nacks())
                 } else {
                     HashSet::new()
                 };
                 let head = HashSet::from([commit_id]);
-                TopicStorage::HEADS.replace_with_new_set_if_old_set_exists(
-                    &mut topic_storage,
-                    acks,
-                    head,
-                )?;
+                //TODO: current_heads in TopicInfo in ServerBroker is not updated (but it isn't used so far)
+                TopicStorage::HEADS.remove_from_set_and_add(&mut topic_storage, past, head)?;
             }
         }
 
@@ -656,11 +656,11 @@ impl RocksDbServerStorage {
         let overlay = self.check_overlay(overlay)?;
         // quick solution for now using the Branch::sync_req. TODO: use the saved references (ACKS,DEPS) in the server_storage, to have much quicker responses
 
-        let target_heads = if target_heads.len() == 0 {
+        let target_heads = if target_heads.is_empty() {
             // get the current_heads
             let mut topic_storage = TopicStorage::new(topic, &overlay, &self.core_storage);
             let heads = TopicStorage::get_all_heads(&mut topic_storage)?;
-            if heads.len() == 0 {
+            if heads.is_empty() {
                 return Err(ServerError::TopicNotFound);
             }
             Box::new(heads.into_iter()) as Box<dyn Iterator<Item = ObjectId>>
@@ -676,7 +676,7 @@ impl RocksDbServerStorage {
         let mut result = Vec::with_capacity(commits.len());
 
         for commit_id in commits {
-            let mut commit_storage = CommitStorage::open(&commit_id, &overlay, &self.core_storage)?;
+            let commit_storage = CommitStorage::open(&commit_id, &overlay, &self.core_storage)?;
             let mut event_info = commit_storage
                 .take_event()
                 .left()

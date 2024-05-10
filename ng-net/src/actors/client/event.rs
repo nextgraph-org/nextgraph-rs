@@ -8,18 +8,20 @@
  * notice may not be copied, modified, or distributed except
  * according to those terms.
 */
-use crate::broker::{ServerConfig, BROKER};
+
+use std::sync::Arc;
+
+use async_std::sync::Mutex;
+
+use ng_repo::errors::*;
+use ng_repo::log::*;
+use ng_repo::types::*;
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::broker::BROKER;
 use crate::connection::NoiseFSM;
 use crate::types::*;
 use crate::{actor::*, types::ProtocolMessage};
-use async_std::sync::Mutex;
-use ng_repo::errors::*;
-use ng_repo::log::*;
-use ng_repo::repo::{BranchInfo, Repo};
-use ng_repo::store::Store;
-use ng_repo::types::*;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 impl PublishEvent {
     pub fn get_actor(&self, id: i64) -> Box<dyn EActor> {
@@ -70,12 +72,12 @@ impl Actor<'_, PublishEvent, ()> {}
 impl EActor for Actor<'_, PublishEvent, ()> {
     async fn respond(
         &mut self,
-        msg: ProtocolMessage,
-        fsm: Arc<Mutex<NoiseFSM>>,
+        _msg: ProtocolMessage,
+        _fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let req = PublishEvent::try_from(msg)?;
+            let req = PublishEvent::try_from(_msg)?;
 
             // send a ProtocolError if invalid signatures (will disconnect the client)
             req.event().verify()?;
@@ -83,7 +85,7 @@ impl EActor for Actor<'_, PublishEvent, ()> {
             let broker = BROKER.read().await;
             let overlay = req.overlay().clone();
             let (user_id, remote_peer) = {
-                let fsm = fsm.lock().await;
+                let fsm = _fsm.lock().await;
                 (
                     fsm.user_id()?,
                     fsm.remote_peer().ok_or(ProtocolError::ActorError)?,
@@ -93,7 +95,7 @@ impl EActor for Actor<'_, PublishEvent, ()> {
                 .dispatch_event(&overlay, req.take_event(), &user_id, &remote_peer)
                 .await;
 
-            fsm.lock()
+            _fsm.lock()
                 .await
                 .send_in_reply_to(res.into(), self.id())
                 .await?;

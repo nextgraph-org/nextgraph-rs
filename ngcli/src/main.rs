@@ -7,39 +7,29 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use ed25519_dalek::*;
-
 use core::fmt;
-use duration_str::parse;
-use futures::{future, pin_mut, stream, SinkExt, StreamExt};
-use ng_net::actors::admin::*;
-use ng_repo::block_storage::{
-    store_max_value_size, store_valid_value_size, BlockStorage, HashMapBlockStorage,
-};
-use rand::rngs::OsRng;
-use serde::{Deserialize, Serialize};
-use serde_json::{from_str, to_string_pretty};
-use std::collections::HashMap;
 use std::error::Error;
 use std::fs::{read_to_string, write};
-use std::io::ErrorKind;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
+
+use clap::{arg, command, value_parser, Command};
+use duration_str::parse;
+use serde::{Deserialize, Serialize};
+use serde_json::{from_str, to_string_pretty};
 use zeroize::Zeroize;
 
-use ng_client_ws::remote_ws::ConnectionWebSocket;
-use ng_net::broker::BROKER;
-use ng_net::types::*;
 use ng_repo::errors::*;
-
 use ng_repo::log::*;
 use ng_repo::types::*;
-use ng_repo::utils::{
-    decode_priv_key, display_timestamp, generate_keypair, now_timestamp, timestamp_after,
-};
+use ng_repo::utils::{decode_priv_key, display_timestamp, generate_keypair, timestamp_after};
 
-use clap::{arg, command, value_parser, ArgAction, Command};
+use ng_net::actors::admin::*;
+use ng_net::broker::BROKER;
+use ng_net::types::*;
+
+use ng_client_ws::remote_ws::ConnectionWebSocket;
 
 /// CliConfig Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -249,7 +239,7 @@ async fn main_inner() -> Result<(), NgcliError> {
     }
     env_logger::init();
 
-    if let Some(matches) = matches.subcommand_matches("gen-key") {
+    if let Some(_matches) = matches.subcommand_matches("gen-key") {
         let (privkey, pubkey) = generate_keypair();
         println!("Your UserId is: {pubkey}");
         println!("Your Private key is: {privkey}");
@@ -286,7 +276,7 @@ async fn main_inner() -> Result<(), NgcliError> {
         }
     };
 
-    let mut keys: [[u8; 32]; 4] = match matches.get_one::<String>("key") {
+    let keys: [[u8; 32]; 4] = match matches.get_one::<String>("key") {
         Some(key_string) => {
             if key_from_file.is_some() {
                 log_err!("provided --key option or NG_CLIENT_KEY var env will not be used as a key file is already present");
@@ -458,7 +448,7 @@ async fn main_inner() -> Result<(), NgcliError> {
         Some(("admin", sub_matches)) => match sub_matches.subcommand() {
             Some(("add-user", sub2_matches)) => {
                 log_debug!("add-user");
-                let res = do_admin_call(
+                let _res = do_admin_call(
                     keys[1],
                     config_v0,
                     AddUser::V0(AddUserV0 {
@@ -480,7 +470,7 @@ async fn main_inner() -> Result<(), NgcliError> {
             }
             Some(("del-user", sub2_matches)) => {
                 log_debug!("add-user");
-                let res = do_admin_call(
+                let _res = do_admin_call(
                     keys[1],
                     config_v0,
                     DelUser::V0(DelUserV0 {

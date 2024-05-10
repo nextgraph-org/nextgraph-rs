@@ -8,22 +8,18 @@
 
 //! Event, a message sent in the PUB/SUB
 
-use zeroize::Zeroize;
-
-use crate::block_storage::*;
-use crate::errors::*;
-use crate::object::*;
-use crate::repo::BranchInfo;
-use crate::repo::Repo;
-use crate::store::Store;
-use crate::types::*;
-use crate::utils::*;
 use core::fmt;
 use std::sync::Arc;
-use std::sync::RwLockWriteGuard;
 
 use chacha20::cipher::{KeyIvInit, StreamCipher};
 use chacha20::ChaCha20;
+use zeroize::Zeroize;
+
+use crate::errors::*;
+use crate::repo::{BranchInfo, Repo};
+use crate::store::Store;
+use crate::types::*;
+use crate::utils::*;
 
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

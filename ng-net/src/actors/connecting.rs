@@ -8,22 +8,22 @@
  * notice may not be copied, modified, or distributed except
  * according to those terms.
 */
-use crate::broker::{ServerConfig, BROKER};
-use crate::connection::NoiseFSM;
-use crate::types::*;
-use crate::{actor::*, types::ProtocolMessage};
-use async_std::sync::Mutex;
-use ng_repo::errors::*;
-use ng_repo::log::*;
-use ng_repo::types::PubKey;
-use serde::{Deserialize, Serialize};
+
 use std::sync::Arc;
+
+use async_std::sync::Mutex;
+use serde::{Deserialize, Serialize};
+
+use ng_repo::errors::*;
+
+use crate::connection::NoiseFSM;
+use crate::{actor::*, types::ProtocolMessage};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Connecting();
 
 impl From<Connecting> for ProtocolMessage {
-    fn from(msg: Connecting) -> ProtocolMessage {
+    fn from(_msg: Connecting) -> ProtocolMessage {
         unimplemented!();
     }
 }
@@ -34,7 +34,7 @@ impl Actor<'_, Connecting, ()> {}
 impl EActor for Actor<'_, Connecting, ()> {
     async fn respond(
         &mut self,
-        msg: ProtocolMessage,
+        _msg: ProtocolMessage,
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         fsm.lock().await.remove_actor(0).await;

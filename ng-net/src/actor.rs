@@ -11,17 +11,19 @@
 
 //! Actor handles messages in the Protocol. common types are here
 
+use std::any::TypeId;
+use std::marker::PhantomData;
+use std::sync::Arc;
+
 use async_std::stream::StreamExt;
 use async_std::sync::Mutex;
 use futures::{channel::mpsc, SinkExt};
+
+use ng_repo::errors::{NgError, ProtocolError, ServerError};
 use ng_repo::log::*;
-use std::any::TypeId;
-use std::sync::Arc;
 
 use crate::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
 use crate::{connection::*, types::ProtocolMessage};
-use ng_repo::errors::{NgError, ProtocolError, ServerError};
-use std::marker::PhantomData;
 
 impl TryFrom<ProtocolMessage> for () {
     type Error = ProtocolError;
@@ -38,7 +40,7 @@ pub trait EActor: Send + Sync + std::fmt::Debug {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError>;
 
-    fn set_id(&mut self, id: i64) {}
+    fn set_id(&mut self, _id: i64) {}
 }
 
 #[derive(Debug)]
@@ -52,7 +54,7 @@ pub struct Actor<
     phantom_b: PhantomData<&'a B>,
     receiver: Option<Receiver<ConnectionCommand>>,
     receiver_tx: Sender<ConnectionCommand>,
-    initiator: bool,
+    //initiator: bool,
 }
 
 pub enum SoS<B> {
@@ -94,7 +96,7 @@ impl<
         B: TryFrom<ProtocolMessage, Error = ProtocolError> + Sync + Send + std::fmt::Debug + 'static,
     > Actor<'_, A, B>
 {
-    pub fn new(id: i64, initiator: bool) -> Self {
+    pub fn new(id: i64, _initiator: bool) -> Self {
         let (receiver_tx, receiver) = mpsc::unbounded::<ConnectionCommand>();
         Self {
             id,
@@ -102,7 +104,7 @@ impl<
             receiver_tx,
             phantom_a: PhantomData,
             phantom_b: PhantomData,
-            initiator,
+            //initiator,
         }
     }
 

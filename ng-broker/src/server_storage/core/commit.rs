@@ -9,21 +9,17 @@
 
 //! Commit Storage (Object Key/Col/Value Mapping)
 
-use std::collections::HashMap;
-use std::collections::HashSet;
+use either::Either;
+use serde_bare::to_vec;
 
-use ng_net::types::*;
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::*;
 use ng_repo::types::*;
 
-use either::Either;
-use serde_bare::to_vec;
+use super::OverlayStorage;
 
 use crate::server_broker::CommitInfo;
 use crate::server_broker::EventInfo;
-
-use super::OverlayStorage;
 
 pub struct CommitStorage<'a> {
     key: Vec<u8>,
@@ -156,7 +152,7 @@ impl<'a> CommitStorage<'a> {
     pub fn event(&mut self) -> &Either<EventInfo, TopicId> {
         self.event.get().unwrap()
     }
-    pub fn take_event(mut self) -> Either<EventInfo, TopicId> {
+    pub fn take_event(self) -> Either<EventInfo, TopicId> {
         self.event.take().unwrap()
     }
 }

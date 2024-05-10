@@ -6,25 +6,29 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
+
+use std::collections::HashMap;
+use std::fs::write;
+
 use async_std::stream::StreamExt;
-use nextgraph::local_broker::*;
-use nextgraph::verifier::types::*;
-use ng_net::broker::*;
-use ng_net::types::{ClientInfo, CreateAccountBSP, Invitation};
-use ng_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use tauri::scope::ipc::RemoteDomainAccessScope;
+use tauri::utils::config::WindowConfig;
+use tauri::{path::BaseDirectory, App, Manager};
+
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
 use ng_repo::types::*;
+
+use ng_net::types::{ClientInfo, CreateAccountBSP, Invitation};
+use ng_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend};
+
 use ng_wallet::types::*;
 use ng_wallet::*;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::collections::HashMap;
-use std::fs::{read, write, File, OpenOptions};
-use std::io::Write;
-use tauri::scope::ipc::RemoteDomainAccessScope;
-use tauri::utils::config::WindowConfig;
-use tauri::{path::BaseDirectory, App, Manager, Window};
+
+use nextgraph::local_broker::*;
+use nextgraph::verifier::types::*;
 
 #[cfg(mobile)]
 mod mobile;
@@ -43,10 +47,10 @@ async fn test(app: tauri::AppHandle) -> Result<(), ()> {
     init_local_broker(Box::new(move || LocalBrokerConfig::BasePath(path.clone()))).await;
 
     //log_debug!("test is {}", BROKER.read().await.test());
-    let path = app
-        .path()
-        .resolve("storage", BaseDirectory::AppLocalData)
-        .map_err(|_| ())?;
+    // let path = app
+    //     .path()
+    //     .resolve("storage", BaseDirectory::AppLocalData)
+    //     .map_err(|_| ())?;
 
     //BROKER.read().await.test_storage(path);
 
@@ -73,7 +77,7 @@ async fn wallet_open_with_pazzle(
     wallet: Wallet,
     pazzle: Vec<u8>,
     pin: [u8; 4],
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
 ) -> Result<SensitiveWallet, String> {
     //log_debug!("wallet_open_with_pazzle from rust {:?}", pazzle);
     let wallet = nextgraph::local_broker::wallet_open_with_pazzle(&wallet, pazzle, pin)
@@ -126,7 +130,7 @@ async fn wallet_create(
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn wallet_read_file(file: Vec<u8>, app: tauri::AppHandle) -> Result<Wallet, String> {
+async fn wallet_read_file(file: Vec<u8>, _app: tauri::AppHandle) -> Result<Wallet, String> {
     nextgraph::local_broker::wallet_read_file(file)
         .await
         .map_err(|e: NgError| e.to_string())
@@ -135,7 +139,7 @@ async fn wallet_read_file(file: Vec<u8>, app: tauri::AppHandle) -> Result<Wallet
 #[tauri::command(rename_all = "snake_case")]
 async fn wallet_was_opened(
     opened_wallet: SensitiveWallet,
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
 ) -> Result<ClientV0, String> {
     nextgraph::local_broker::wallet_was_opened(opened_wallet)
         .await
@@ -147,7 +151,7 @@ async fn wallet_import(
     encrypted_wallet: Wallet,
     opened_wallet: SensitiveWallet,
     in_memory: bool,
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
 ) -> Result<ClientV0, String> {
     nextgraph::local_broker::wallet_import(encrypted_wallet, opened_wallet, in_memory)
         .await
@@ -178,7 +182,7 @@ async fn get_wallets(
 async fn session_start(
     wallet_name: String,
     user: PubKey,
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
 ) -> Result<SessionInfo, String> {
     let config = SessionConfig::new_save(&user, &wallet_name);
     nextgraph::local_broker::session_start(config)
@@ -191,7 +195,7 @@ async fn session_start_remote(
     wallet_name: String,
     user: PubKey,
     peer_id: Option<PubKey>,
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
 ) -> Result<SessionInfo, String> {
     let config = SessionConfig::new_remote(&user, &wallet_name, peer_id);
     nextgraph::local_broker::session_start(config)
@@ -292,7 +296,7 @@ async fn doc_fetch_private_subscribe() -> Result<AppRequest, String> {
 async fn app_request(
     session_id: u64,
     request: AppRequest,
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
 ) -> Result<AppResponse, String> {
     log_debug!("app request {:?}", request);
 
@@ -307,7 +311,7 @@ async fn upload_chunk(
     upload_id: u32,
     chunk: serde_bytes::ByteBuf,
     nuri: NuriV0,
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
 ) -> Result<AppResponse, String> {
     //log_debug!("upload_chunk {:?}", chunk);
 
@@ -399,7 +403,7 @@ struct ConnectionInfo {
 async fn user_connect(
     info: ClientInfo,
     user_id: UserId,
-    location: Option<String>,
+    _location: Option<String>,
 ) -> Result<HashMap<String, ConnectionInfo>, String> {
     let mut opened_connections: HashMap<String, ConnectionInfo> = HashMap::new();
 

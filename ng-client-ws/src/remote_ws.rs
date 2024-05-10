@@ -11,29 +11,23 @@
 
 //! WebSocket Remote Connection to a Broker
 
-use std::sync::Arc;
-
-use async_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
-use async_tungstenite::tungstenite::protocol::CloseFrame;
-use async_tungstenite::WebSocketStream;
-
-use async_std::sync::Mutex;
+use async_std::task;
+use async_tungstenite::{
+    async_std::{connect_async, ConnectStream},
+    tungstenite::{protocol::frame::coding::CloseCode, protocol::CloseFrame, Message},
+    WebSocketStream,
+};
 use either::Either;
-use futures::io::Close;
-use futures::{future, pin_mut, select, stream, StreamExt};
+use futures::{pin_mut, select, StreamExt};
 use futures::{FutureExt, SinkExt};
 
-use async_std::task;
-use ng_net::types::*;
-use ng_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
-use ng_net::{connection::*, WS_PORT};
 use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::types::*;
-use ng_repo::utils::{generate_keypair, now_timestamp};
 
-use async_tungstenite::async_std::{connect_async, ConnectStream};
-use async_tungstenite::tungstenite::{Error, Message};
+use ng_net::connection::*;
+use ng_net::types::*;
+use ng_net::utils::{Receiver, Sender};
 
 pub struct ConnectionWebSocket {}
 
@@ -44,7 +38,7 @@ impl IConnect for ConnectionWebSocket {
         &self,
         url: String,
         peer_privk: PrivKey,
-        peer_pubk: PubKey,
+        _peer_pubk: PubKey,
         remote_peer: DirectPeerId,
         config: StartConfig,
     ) -> Result<ConnectionBase, ProtocolError> {
@@ -53,8 +47,8 @@ impl IConnect for ConnectionWebSocket {
         let res = connect_async(url).await;
 
         match res {
-            Err(e) => {
-                log_debug!("Cannot connect: {:?}", e);
+            Err(_e) => {
+                log_debug!("Cannot connect: {:?}", _e);
                 Err(ProtocolError::ConnectionError)
             }
             Ok((websocket, _)) => {
@@ -64,7 +58,7 @@ impl IConnect for ConnectionWebSocket {
                 let mut shutdown = cnx.set_shutdown();
                 cnx.release_shutdown();
 
-                let join = task::spawn(async move {
+                let _join = task::spawn(async move {
                     log_debug!("START of WS loop");
 
                     let res = ws_loop(websocket, s, r).await;
@@ -91,8 +85,8 @@ impl IConnect for ConnectionWebSocket {
         let res = connect_async(url).await;
 
         match res {
-            Err(e) => {
-                log_debug!("Cannot connect: {:?}", e);
+            Err(_e) => {
+                log_debug!("Cannot connect: {:?}", _e);
                 Err(ProtocolError::ConnectionError)
             }
             Ok((websocket, _)) => {
@@ -102,7 +96,7 @@ impl IConnect for ConnectionWebSocket {
                 let mut shutdown = cnx.set_shutdown();
                 cnx.release_shutdown();
 
-                let join = task::spawn(async move {
+                let _join = task::spawn(async move {
                     log_debug!("START of WS loop");
 
                     let res = ws_loop(websocket, s, r).await;
@@ -143,7 +137,7 @@ impl IAccept for ConnectionWebSocket {
         let r = cnx.take_receiver();
         let mut shutdown = cnx.set_shutdown();
 
-        let join = task::spawn(async move {
+        let _join = task::spawn(async move {
             log_debug!("START of WS loop");
 
             let res = ws_loop(socket, s, r).await;
@@ -236,7 +230,7 @@ async fn ws_loop(
                                 .map_err(|_e| NetError::IoError)?;
                         }
                     },
-                    Some(Err(e)) => {log_debug!("GOT ERROR {:?}",e);return Err(NetError::WsError);},
+                    Some(Err(_e)) => {log_debug!("GOT ERROR {:?}",_e);return Err(NetError::WsError);},
                     None => break
                 },
                 s = sender.next().fuse() => match s {
@@ -301,14 +295,15 @@ mod test {
 
     use crate::remote_ws::*;
     use async_std::task;
-    use ng_net::broker::*;
     use ng_net::types::IP;
     use ng_net::utils::{spawn_and_log_error, ResultSend};
+    use ng_net::{broker::*, WS_PORT};
     use ng_repo::errors::{NetError, NgError};
     use ng_repo::log::*;
     use ng_repo::utils::generate_keypair;
     use std::net::IpAddr;
     use std::str::FromStr;
+    use std::sync::Arc;
 
     #[async_std::test]
     pub async fn test_ws() -> Result<(), NgError> {

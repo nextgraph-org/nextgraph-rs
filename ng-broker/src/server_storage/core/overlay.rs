@@ -10,14 +10,12 @@
 //! Overlay Storage (Object Key/Col/Value Mapping)
 
 use std::collections::HashMap;
-use std::collections::HashSet;
 
-use ng_net::types::*;
+use serde_bare::to_vec;
+
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::*;
 use ng_repo::types::*;
-
-use serde_bare::to_vec;
 
 use crate::server_broker::OverlayInfo;
 use crate::server_broker::OverlayType;
@@ -41,9 +39,6 @@ impl<'a> IModel for OverlayStorage<'a> {
     fn existential(&mut self) -> Option<&mut dyn IExistentialValue> {
         Some(&mut self.overlay_type)
     }
-    // fn name(&self) -> String {
-    //     format_type_of(self)
-    // }
 }
 
 impl<'a> OverlayStorage<'a> {

@@ -11,10 +11,6 @@
 
 pub mod types;
 
-pub mod errors;
-
-//pub mod broker_connection;
-
 pub mod broker;
 
 pub mod server_broker;

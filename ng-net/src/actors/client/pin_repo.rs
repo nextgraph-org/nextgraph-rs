@@ -8,17 +8,20 @@
  * notice may not be copied, modified, or distributed except
  * according to those terms.
 */
-use crate::broker::{ServerConfig, BROKER};
-use crate::connection::NoiseFSM;
-use crate::types::*;
-use crate::{actor::*, types::ProtocolMessage};
+
+use std::sync::Arc;
+
 use async_std::sync::Mutex;
+
 use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::repo::Repo;
 use ng_repo::types::*;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+
+use crate::broker::BROKER;
+use crate::connection::NoiseFSM;
+use crate::types::*;
+use crate::{actor::*, types::ProtocolMessage};
 
 impl PinRepo {
     pub fn get_actor(&self, id: i64) -> Box<dyn EActor> {
@@ -145,7 +148,7 @@ impl EActor for Actor<'_, PinRepo, RepoOpened> {
                     if req.overlay() != w
                         || !w.is_inner()
                         || r.is_inner()
-                        || req.expose_outer() && req.rw_topics().len() == 0
+                        || req.expose_outer() && req.rw_topics().is_empty()
                     {
                         // we do not allow to expose_outer if not a publisher for at least one topic
                         // TODO add a check on "|| overlay_root_topic.is_none()"  because it should be mandatory to have one (not sent by client at the moment)

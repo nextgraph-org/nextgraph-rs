@@ -1,6 +1,6 @@
 # ng-sdk-js
 
-JS/WASM crate containing the SDK of NextGraph
+JS/WASM package containing the SDK of NextGraph
 
 ## NextGraph
 

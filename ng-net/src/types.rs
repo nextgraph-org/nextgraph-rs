@@ -11,25 +11,28 @@
 //!
 //! Corresponds to the BARE schema
 
+use core::fmt;
+use std::collections::HashSet;
+use std::{
+    any::{Any, TypeId},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+};
+
+use serde::{Deserialize, Serialize};
+use web_time::SystemTime;
+
+use ng_repo::errors::*;
+use ng_repo::log::*;
+use ng_repo::store::Store;
+use ng_repo::types::*;
+use ng_repo::utils::{sign, verify};
+
 use crate::utils::{
     get_domain_without_port_443, is_ipv4_private, is_ipv6_private, is_private_ip, is_public_ip,
     is_public_ipv4, is_public_ipv6,
 };
 use crate::WS_PORT_ALTERNATE;
 use crate::{actor::EActor, actors::admin::*, actors::*};
-use core::fmt;
-use ng_repo::errors::*;
-use ng_repo::log::*;
-use ng_repo::store::Store;
-use ng_repo::types::*;
-use ng_repo::utils::{sign, verify};
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::{
-    any::{Any, TypeId},
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
-};
-use web_time::SystemTime;
 
 //
 //  Network common types
@@ -1276,7 +1279,7 @@ impl OverlayAccess {
     pub fn overlay_id_for_client_protocol_purpose(&self) -> &OverlayId {
         match self {
             Self::ReadOnly(ro) => ro,
-            Self::ReadWrite((inner, outer)) => inner,
+            Self::ReadWrite((inner, _outer)) => inner,
             Self::WriteOnly(wo) => wo,
         }
     }
@@ -3255,7 +3258,7 @@ impl ClientRequestContentV0 {
         match self {
             ClientRequestContentV0::RepoPinStatusReq(a) => a.set_overlay(overlay),
             ClientRequestContentV0::TopicSub(a) => a.set_overlay(overlay),
-            ClientRequestContentV0::PinRepo(a) => {}
+            ClientRequestContentV0::PinRepo(_a) => {}
             ClientRequestContentV0::PublishEvent(a) => a.set_overlay(overlay),
             ClientRequestContentV0::CommitGet(a) => a.set_overlay(overlay),
             ClientRequestContentV0::TopicSyncReq(a) => a.set_overlay(overlay),
@@ -3536,7 +3539,7 @@ impl TryFrom<ProtocolMessage> for ClientResponseContentV0 {
         if let ProtocolMessage::ClientMessage(ClientMessage::V0(ClientMessageV0 {
             content:
                 ClientMessageContentV0::ClientResponse(ClientResponse::V0(ClientResponseV0 {
-                    content: content,
+                    content,
                     result: res,
                     ..
                 })),

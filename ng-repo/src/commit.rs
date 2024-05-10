@@ -10,21 +10,18 @@
 //! Commit that composes the DAG of a Branch
 
 use core::fmt;
+use std::collections::HashSet;
+use std::iter::FromIterator;
+
 use ed25519_dalek::{PublicKey, Signature};
 use once_cell::sync::OnceCell;
 
-use crate::errors::NgError;
-
-use crate::block_storage::*;
 use crate::errors::*;
-use crate::log::*;
 use crate::object::*;
 use crate::repo::Repo;
 use crate::store::Store;
 use crate::types::*;
 use crate::utils::*;
-use std::collections::HashSet;
-use std::iter::FromIterator;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum CommitLoadError {
@@ -486,7 +483,7 @@ impl Commit {
             CommitBody::V0(CommitBodyV0::RootBranch(_)) => {
                 let deps = self.deps();
                 let acks = self.acks();
-                if deps.len() == 0 && acks.len() == 1 {
+                if deps.is_empty() && acks.len() == 1 {
                     // we check that the ACK is the repository singleton commit. in this case, it means we are dealing with the first RootBranch commit, which is fine to have no deps.
                     let causal_past = Commit::load(acks[0].clone(), store, true)?;
                     if causal_past.body().unwrap().is_repository_singleton_commit() {
@@ -567,7 +564,7 @@ impl Commit {
         res
     }
 
-    /// Get all commits that are in the direct causal past of the commit (`deps`, `acks`, `nacks`)
+    /// Get all commits that are in the direct causal past of the commit (`acks` and `nacks`)
     /// only returns objectRefs that have both an ID from header and a KEY from header_keys (they all have a key)
     pub fn direct_causal_past(&self) -> Vec<ObjectRef> {
         let mut res: Vec<ObjectRef> = vec![];
@@ -579,12 +576,6 @@ impl Commit {
                     }
                     for nack in header_v0.nacks.iter().zip(hk_v0.nacks.iter()) {
                         res.push(nack.into());
-                    }
-                    for dep in header_v0.deps.iter().zip(hk_v0.deps.iter()) {
-                        let obj_ref: ObjectRef = dep.into();
-                        if !res.contains(&obj_ref) {
-                            res.push(obj_ref);
-                        }
                     }
                 }
                 _ => {}
@@ -1178,6 +1169,7 @@ impl CommitHeader {
 }
 
 impl CommitHeaderV0 {
+    #[allow(dead_code)]
     fn new_empty() -> Self {
         Self {
             id: None,

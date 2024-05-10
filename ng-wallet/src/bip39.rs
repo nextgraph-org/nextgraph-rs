@@ -1,3 +1,4 @@
+#[allow(non_upper_case_globals)]
 pub const bip39_wordlist: [&str; 2048] = [
     "abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract", "absurd",
     "abuse", "access", "accident", "account", "accuse", "achieve", "acid", "acoustic", "acquire",

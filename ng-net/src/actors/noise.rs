@@ -11,11 +11,12 @@
 
 use std::sync::Arc;
 
-use crate::{actor::*, connection::NoiseFSM, types::ProtocolMessage};
 use async_std::sync::Mutex;
-use ng_repo::errors::*;
 use serde::{Deserialize, Serialize};
-use std::any::{Any, TypeId};
+
+use ng_repo::errors::*;
+
+use crate::{actor::*, connection::NoiseFSM, types::ProtocolMessage};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NoiseV0 {
@@ -60,8 +61,8 @@ impl Actor<'_, Noise, Noise> {}
 impl EActor for Actor<'_, Noise, Noise> {
     async fn respond(
         &mut self,
-        msg: ProtocolMessage,
-        fsm: Arc<Mutex<NoiseFSM>>,
+        _msg: ProtocolMessage,
+        _fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         Ok(())
     }

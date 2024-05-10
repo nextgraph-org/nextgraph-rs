@@ -9,15 +9,16 @@
 
 //! Errors
 
-pub use crate::commit::{CommitLoadError, CommitVerifyError};
-use crate::file::FileError;
-use crate::object::Object;
+use core::fmt;
+use std::error::Error;
+
 use num_enum::IntoPrimitive;
 use num_enum::TryFromPrimitive;
 
+pub use crate::commit::{CommitLoadError, CommitVerifyError};
+use crate::file::FileError;
+use crate::object::Object;
 use crate::types::BlockId;
-use core::fmt;
-use std::error::Error;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 #[repr(u16)]

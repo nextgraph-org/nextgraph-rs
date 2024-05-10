@@ -7,6 +7,11 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+use std::env::current_dir;
+use std::fs::create_dir_all;
+use std::fs::read;
+
+#[allow(unused_imports)]
 use nextgraph::local_broker::{
     app_request, app_request_stream, init_local_broker, session_start, session_stop, user_connect,
     user_disconnect, wallet_close, wallet_create_v0, wallet_get, wallet_get_file, wallet_import,
@@ -14,14 +19,9 @@ use nextgraph::local_broker::{
     SessionConfig,
 };
 use nextgraph::net::types::BootstrapContentV0;
-use nextgraph::repo::errors::NgError;
 use nextgraph::repo::types::PubKey;
 use nextgraph::wallet::types::CreateWalletV0;
 use nextgraph::wallet::{display_mnemonic, emojis::display_pazzle};
-
-use std::env::current_dir;
-use std::fs::create_dir_all;
-use std::fs::read;
 
 #[async_std::main]
 async fn main() -> std::io::Result<()> {
@@ -72,7 +72,12 @@ async fn main() -> std::io::Result<()> {
     let mut pazzle_words = vec![];
     println!("Your pazzle is: {:?}", wallet_result.pazzle);
     for emoji in pazzle {
-        println!("    {}:\t{}", emoji.0, emoji.1);
+        println!(
+            "\t{}:\t{}{}",
+            emoji.0,
+            if emoji.0.len() > 12 { "" } else { "\t" },
+            emoji.1
+        );
         pazzle_words.push(emoji.1.to_string());
     }
     println!("Your mnemonic is:");
@@ -111,7 +116,7 @@ async fn main() -> std::io::Result<()> {
 
     // as we have saved the wallet, the next time we want to connect,
     // we can retrieve the wallet, display the security phrase and image to the user, ask for the pazzle or mnemonic, and then open the wallet
-    let wallet = wallet_get(&wallet_result.wallet_name).await?;
+    let _wallet = wallet_get(&wallet_result.wallet_name).await?;
 
     // at this point, the wallet is kept in the internal memory of the LocalBroker
     // and it hasn't been opened yet, so it is not usable right away.

@@ -7,8 +7,10 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use ng_repo::errors::NgError;
 use std::collections::HashMap;
+
+use ng_repo::errors::NgError;
+
 pub struct EmojiDef<'a> {
     pub hexcode: &'a str,
     pub shortcode: &'a str,

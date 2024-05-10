@@ -9,12 +9,12 @@
 
 //! Immutable Block, used to store and exchange File and Commit
 
+use chacha20::cipher::{KeyIvInit, StreamCipher};
+use chacha20::ChaCha20;
+
 use crate::errors::*;
 use crate::log::*;
 use crate::types::*;
-
-use chacha20::cipher::{KeyIvInit, StreamCipher};
-use chacha20::ChaCha20;
 
 impl BlockV0 {
     pub fn new(
@@ -245,8 +245,8 @@ impl Block {
                 let content: ChunkContentV0;
                 match serde_bare::from_slice(content_dec.as_slice()) {
                     Ok(c) => content = c,
-                    Err(e) => {
-                        log_debug!("Block deserialize error: {}", e);
+                    Err(_e) => {
+                        //log_debug!("Block deserialize error: {}", e);
                         return Err(ObjectParseError::BlockDeserializeError);
                     }
                 }

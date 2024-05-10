@@ -8,17 +8,20 @@
  * notice may not be copied, modified, or distributed except
  * according to those terms.
 */
-use crate::broker::{ServerConfig, BROKER};
-use crate::connection::NoiseFSM;
-use crate::types::*;
-use crate::{actor::*, types::ProtocolMessage};
+
+use std::sync::Arc;
+
 use async_std::sync::Mutex;
+
 use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::repo::{BranchInfo, Repo};
 use ng_repo::types::*;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+
+use crate::broker::BROKER;
+use crate::connection::NoiseFSM;
+use crate::types::*;
+use crate::{actor::*, types::ProtocolMessage};
 
 impl TopicSub {
     pub fn get_actor(&self, id: i64) -> Box<dyn EActor> {

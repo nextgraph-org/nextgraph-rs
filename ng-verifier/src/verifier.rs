@@ -8,53 +8,57 @@
 // according to those terms.
 
 //! Repo object (on heap) to handle a Repository
-use crate::commits::*;
-use crate::types::*;
-use crate::user_storage::InMemoryUserStorage;
-use async_std::stream::StreamExt;
-use futures::channel::mpsc;
-use futures::SinkExt;
-use ng_net::actor::SoS;
-use ng_net::broker::{Broker, BROKER};
-use ng_repo::block_storage::store_max_value_size;
-use ng_repo::file::ReadFile;
-use ng_repo::log::*;
-use ng_repo::object::Object;
-use ng_repo::repo::BranchInfo;
-use ng_repo::{
-    block_storage::{BlockStorage, HashMapBlockStorage},
-    errors::{NgError, ProtocolError, ServerError, StorageError, VerifierError},
-    file::RandomAccessFile,
-    repo::Repo,
-    store::Store,
-    types::*,
-    utils::{generate_keypair, sign},
-};
+
+use core::fmt;
 use std::cmp::max;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-use std::fs::{create_dir_all, read, write, File, OpenOptions};
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs::create_dir_all;
+use std::fs::{read, File, OpenOptions};
 use std::io::Write;
+use std::{collections::HashMap, sync::Arc};
 
-use core::fmt;
+use async_std::stream::StreamExt;
+use async_std::sync::{Mutex, RwLockReadGuard};
+use futures::channel::mpsc;
+use futures::SinkExt;
+use ng_repo::object::Object;
+use serde::{Deserialize, Serialize};
+use web_time::SystemTime;
+
 //use oxigraph::io::{RdfFormat, RdfParser, RdfSerializer};
 //use oxigraph::store::Store;
 //use oxigraph::model::GroundQuad;
-#[cfg(not(target_family = "wasm"))]
-use crate::rocksdb_user_storage::RocksDbUserStorage;
-use crate::user_storage::UserStorage;
-use async_std::sync::{Mutex, RwLockReadGuard, RwLockWriteGuard};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+//use yrs::{StateVector, Update};
 
+use ng_repo::file::ReadFile;
+use ng_repo::log::*;
+#[cfg(any(test, feature = "testing"))]
+use ng_repo::utils::generate_keypair;
+use ng_repo::{
+    block_storage::{store_max_value_size, BlockStorage, HashMapBlockStorage},
+    errors::{NgError, ProtocolError, ServerError, StorageError, VerifierError},
+    file::RandomAccessFile,
+    repo::{BranchInfo, Repo},
+    store::Store,
+    types::*,
+};
+
+use ng_net::actor::SoS;
+use ng_net::broker::{Broker, BROKER};
 use ng_net::{
     connection::NoiseFSM,
     types::*,
     utils::{Receiver, Sender},
 };
 
-use serde::{Deserialize, Serialize};
-use web_time::SystemTime;
-//use yrs::{StateVector, Update};
+use crate::commits::*;
+#[cfg(not(target_family = "wasm"))]
+use crate::rocksdb_user_storage::RocksDbUserStorage;
+use crate::types::*;
+use crate::user_storage::InMemoryUserStorage;
+use crate::user_storage::UserStorage;
 
 // pub trait IVerifier {
 //     fn add_branch_and_save(
@@ -72,6 +76,7 @@ use web_time::SystemTime;
 pub struct Verifier {
     pub config: VerifierConfig,
     pub connected_server_id: Option<PubKey>,
+    #[allow(dead_code)]
     graph_dataset: Option<oxigraph::store::Store>,
     pub(crate) user_storage: Option<Arc<Box<dyn UserStorage>>>,
     block_storage: Option<Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>>,
@@ -150,7 +155,7 @@ impl Verifier {
             .uploads
             .remove(&upload_id)
             .ok_or(NgError::WrongUploadId)?;
-        let id = file.save()?;
+        let _id = file.save()?;
         Ok(file.reference().unwrap())
     }
 
@@ -198,15 +203,6 @@ impl Verifier {
         &mut self,
         branch: BranchId,
     ) -> Result<(Receiver<AppResponse>, CancelFn), VerifierError> {
-        // async fn send(mut tx: Sender<AppResponse>, msg: AppResponse) -> ResultSend<()> {
-        //     while let Ok(_) = tx.send(msg.clone()).await {
-        //         log_debug!("sending AppResponse");
-        //         sleep!(std::time::Duration::from_secs(3));
-        //     }
-        //     log_debug!("end of sending");
-        //     Ok(())
-        // }
-        // spawn_and_log_error(send(tx.clone(), commit));
         //log_info!("#### create_branch_subscription {}", branch);
         let (tx, rx) = mpsc::unbounded::<AppResponse>();
         //log_info!("SUBSCRIBE");
@@ -313,12 +309,13 @@ impl Verifier {
         self.config.config_type.is_persistent()
     }
 
+    #[allow(dead_code)]
     fn is_in_memory(&self) -> bool {
         self.config.config_type.is_in_memory()
     }
 
     fn need_bootstrap(&self) -> bool {
-        self.stores.len() == 0
+        self.stores.is_empty()
     }
 
     fn get_arc_block_storage(
@@ -431,9 +428,9 @@ impl Verifier {
     pub fn get_repo_mut(
         &mut self,
         id: &RepoId,
-        store_repo: &StoreRepo,
+        _store_repo: &StoreRepo,
     ) -> Result<&mut Repo, VerifierError> {
-        let store = self.get_store(store_repo);
+        //let store = self.get_store(store_repo);
         let repo_ref = self.repos.get_mut(id).ok_or(VerifierError::RepoNotFound);
         // .or_insert_with(|| {
         //     // load from storage
@@ -518,8 +515,10 @@ impl Verifier {
         let repo = self.get_repo(&repo_id, store_repo)?;
 
         let event = Event::new(&publisher, seq_num, commit, additional_blocks, repo)?;
+        let past = commit.direct_causal_past();
         self.send_or_save_event_to_outbox(
             commit.reference().unwrap(),
+            past,
             event,
             repo.store.inner_overlay(),
         )
@@ -540,6 +539,7 @@ impl Verifier {
         let event = Event::new(&publisher, seq_num, commit, additional_blocks, repo)?;
         self.send_or_save_event_to_outbox(
             commit.reference().unwrap(),
+            commit.direct_causal_past(),
             event,
             repo.store.inner_overlay(),
         )
@@ -547,6 +547,7 @@ impl Verifier {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn last_seq_number(&mut self) -> Result<u64, NgError> {
         if self.available_seq_nums() <= 1 {
             self.reserve_more(1)?;
@@ -584,7 +585,7 @@ impl Verifier {
                 0,
                 &repo.store,
             )?;
-            self.verify_commit(&commit, branch_id, repo_id, Arc::clone(&repo.store))
+            self.verify_commit_(&commit, branch_id, repo_id, Arc::clone(&repo.store), true)
                 .await?;
             commit
         };
@@ -594,6 +595,7 @@ impl Verifier {
             .await
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn new_commit_simple(
         &mut self,
         commit_body: CommitBodyV0,
@@ -614,6 +616,7 @@ impl Verifier {
         .await
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn new_events_with_repo(
         &mut self,
         events: Vec<(Commit, Vec<Digest>)>,
@@ -724,6 +727,7 @@ impl Verifier {
     async fn send_or_save_event_to_outbox<'a>(
         &'a mut self,
         commit_ref: ObjectRef,
+        past: Vec<ObjectRef>,
         event: Event,
         overlay: OverlayId,
     ) -> Result<(), NgError> {
@@ -735,7 +739,7 @@ impl Verifier {
             .ok_or(NgError::TopicNotFound)?
             .to_owned();
 
-        self.update_branch_current_head(&repo_id, &branch_id, commit_ref);
+        self.update_branch_current_heads(&repo_id, &branch_id, past, commit_ref);
 
         if self.connected_server_id.is_some() {
             // send the event to the server already
@@ -800,22 +804,24 @@ impl Verifier {
             return Err(e);
         }
 
-        let res = self.send_outbox().await;
-        log_info!("SENDING EVENTS FROM OUTBOX RETURNED: {:?}", res);
-
         let mut branches = vec![];
         {
-            for (id, repo) in self.repos.iter() {
+            for (id, repo) in self.repos.iter_mut() {
                 for (branch, publisher) in repo.opened_branches.iter() {
                     branches.push((*id, *branch, *publisher));
                 }
+                repo.opened_branches = HashMap::new();
             }
         }
+
+        let res = self.send_outbox().await;
+        log_info!("SENDING EVENTS FROM OUTBOX RETURNED: {:?}", res);
+
         let user = self.config.user_priv_key.to_pub();
         let broker = BROKER.read().await;
         for (repo, branch, publisher) in branches {
             let _ = self
-                .open_branch_(&repo, &branch, publisher, &broker, &user, &peer, true)
+                .open_branch_(&repo, &branch, publisher, &broker, &user, &peer, false)
                 .await;
             // discarding error.
         }
@@ -915,7 +921,7 @@ impl Verifier {
             } else {
                 match repo.opened_branches.get(branch) {
                     Some(val) => (false, as_publisher && !val, overlay),
-                    None => (repo.opened_branches.len() == 0, true, overlay),
+                    None => (repo.opened_branches.is_empty(), true, overlay),
                 }
             }
         };
@@ -1119,6 +1125,18 @@ impl Verifier {
         repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
+        self.verify_commit_(commit, branch_id, repo_id, store, false)
+            .await
+    }
+
+    async fn verify_commit_(
+        &mut self,
+        commit: &Commit,
+        branch_id: &BranchId,
+        repo_id: &RepoId,
+        store: Arc<Store>,
+        skip_heads_update: bool,
+    ) -> Result<(), VerifierError> {
         //let quorum_type = commit.quorum_type();
         // log_info!(
         //     "VERIFYING {} {} {:?}",
@@ -1146,32 +1164,32 @@ impl Verifier {
             },
         };
         let res = res.await;
-        if res.is_ok() {
+        if res.is_ok() && !skip_heads_update {
             let commit_ref = commit.reference().unwrap();
-            self.update_branch_current_head(repo_id, branch_id, commit_ref);
+            let past = commit.direct_causal_past();
+            self.update_branch_current_heads(repo_id, branch_id, past, commit_ref);
             Ok(())
         } else {
             res
         }
     }
 
-    fn update_branch_current_head(
+    fn update_branch_current_heads(
         &mut self,
         repo_id: &RepoId,
         branch: &BranchId,
+        direct_past: Vec<ObjectRef>,
         commit_ref: ObjectRef,
-    ) {
+    ) -> Result<(), VerifierError> {
         if let Some(repo) = self.repos.get_mut(repo_id) {
-            let new_heads = repo.update_branch_current_head(branch, commit_ref);
-            if new_heads.is_none() {
-                return;
-            }
-            let new_heads = new_heads.unwrap();
+            let new_heads = repo.update_branch_current_heads(branch, commit_ref, direct_past)?;
+
             //log_info!("NEW HEADS {} {:?}", branch, new_heads);
             if let Some(user_storage) = self.user_storage_if_persistent() {
-                let _ = user_storage.update_branch_current_head(repo_id, branch, new_heads);
+                let _ = user_storage.update_branch_current_heads(repo_id, branch, new_heads);
             }
         }
+        Ok(())
     }
 
     fn user_storage_if_persistent(&self) -> Option<Arc<Box<dyn UserStorage>>> {
@@ -1244,7 +1262,7 @@ impl Verifier {
     pub(crate) fn get_repo(
         &self,
         id: &RepoId,
-        store_repo: &StoreRepo,
+        _store_repo: &StoreRepo,
     ) -> Result<&Repo, VerifierError> {
         //let store = self.get_store(store_repo);
         let repo_ref: Result<&Repo, VerifierError> =
@@ -1284,7 +1302,7 @@ impl Verifier {
             let ours_set: HashSet<Digest> = HashSet::from_iter(ours.clone());
 
             let theirs = HashSet::from_iter(remote_heads.clone().into_iter());
-            if theirs.len() == 0 {
+            if theirs.is_empty() {
                 log_info!("branch is new on the broker. doing nothing");
                 return Ok(());
             }
@@ -1292,14 +1310,39 @@ impl Verifier {
                 && theirs.difference(&ours_set).count() == 0
             {
                 // no need to sync
-                // log_info!("branch is up to date");
+                log_info!("branch {} is up to date", branch_id);
                 return Ok(());
+            }
+
+            let mut theirs_found = HashSet::new();
+            let mut visited = HashMap::new();
+            for our in ours_set.iter() {
+                if let Ok(cobj) = Object::load(*our, None, &repo.store) {
+                    let _ = Branch::load_causal_past(
+                        &cobj,
+                        &repo.store,
+                        &theirs,
+                        &mut visited,
+                        &mut None,
+                        None,
+                        &mut Some(&mut theirs_found),
+                    );
+                }
+            }
+
+            let theirs_not_found: Vec<ObjectId> =
+                theirs.difference(&theirs_found).cloned().collect();
+
+            if theirs_not_found.is_empty() {
+                return Ok(());
+            } else {
+                // prepare bloom filter
             }
 
             let msg = TopicSyncReq::V0(TopicSyncReqV0 {
                 topic: branch_info.topic,
-                known_heads: ours.collect(),
-                target_heads: remote_heads.clone(),
+                known_heads: ours_set.union(&theirs_found).into_iter().cloned().collect(),
+                target_heads: theirs_not_found,
                 overlay: Some(store.overlay_for_read_on_client_protocol()),
             });
             (store, msg, branch_info.read_cap.key.clone())
@@ -1580,41 +1623,6 @@ impl Verifier {
         );
 
         let private_store = self.create_private_store_from_credentials()?;
-        // let storage = self.block_storage.as_ref().unwrap().write().unwrap();
-
-        // for e in events {
-        //     if e.overlay == private_inner_overlay_id {
-        //         // it is an event about the private store
-        //         // we will load only the commits on the root branch.
-        //         let load = if let Ok(repo) =
-        //             self.get_repo(private_store.id(), private_store.get_store_repo())
-        //         {
-        //             if let Some(root) = repo.root_branch() {
-        //                 root.topic == *e.event.topic_id()
-        //             } else {
-        //                 true
-        //             }
-        //         } else {
-        //             true
-        //         };
-        //         if !load {
-        //             continue;
-        //         }
-        //         let commit = e.event.open(
-        //             &private_store,
-        //             private_store.id(),
-        //             private_store.id(),
-        //             private_store.get_store_readcap_secret(),
-        //         )?;
-        //         self.verify_commit(commit, Arc::clone(&private_store))?;
-        //     }
-        // }
-
-        // let repo = self.get_repo(private_store.id(), private_store.get_store_repo())?;
-        // let root_topic = repo
-        //     .root_branch()
-        //     .ok_or(VerifierError::RootBranchNotFound)?
-        //     .topic;
 
         // 2nd pass: load all the other branches of the private store repo.
 
@@ -1661,34 +1669,6 @@ impl Verifier {
                 }
             }
         }
-
-        // for e in events {
-        //     if e.overlay == private_inner_overlay_id {
-        //         // it is an event about the private store
-        //         // we will load only the commits that are not on the root branch.
-        //         if root_topic == *e.event.topic_id() {
-        //             continue;
-        //         }
-        //         let repo = self.get_repo(private_store.id(), private_store.get_store_repo())?;
-        //         let (_, branch_id) = self
-        //             .topics
-        //             .get(&(e.overlay, *e.event.topic_id()))
-        //             .ok_or(VerifierError::TopicNotFound)?;
-        //         let branch = repo.branch(branch_id)?;
-
-        //         let commit = e.event.open_with_info(repo, branch)?;
-
-        //         if commit
-        //             .body()
-        //             .ok_or(VerifierError::CommitBodyNotFound)?
-        //             .is_add_signer_cap()
-        //         {
-        //             postponed_signer_caps.push(commit);
-        //         } else {
-        //             self.verify_commit(commit, Arc::clone(&private_store))?;
-        //         }
-        //     }
-        // }
 
         //log_info!("{:?}\n{:?}\n{:?}", self.repos, self.stores, self.topics);
         //log_info!("SECOND PASS");
@@ -1737,18 +1717,6 @@ impl Verifier {
                 }
             }
         }
-        // let list: Vec<(OverlayId, StoreRepo)> = self
-        //     .stores
-        //     .iter()
-        //     .map(|(o, s)| (o.clone(), s.get_store_repo().clone()))
-        //     .collect();
-        // for (overlay, store_repo) in list {
-        //     if overlay == private_inner_overlay_id {
-        //         continue;
-        //         // we skip the private store, as we already loaded it
-        //     }
-        //     self.complete_site_store_already_inserted(store_repo)?;
-        // }
 
         // finally, ingest the signer_caps.
         for signer_cap in postponed_signer_caps {
@@ -1764,16 +1732,16 @@ impl Verifier {
         Ok(())
     }
 
-    fn display(heads: &Vec<ObjectRef>) -> String {
-        let mut ret = String::new();
-        if heads.len() == 0 {
-            ret = "0".to_string();
-        }
-        for head in heads {
-            ret.push_str(&format!("{} ", head.id));
-        }
-        ret
-    }
+    // fn display(heads: &Vec<ObjectRef>) -> String {
+    //     let mut ret = String::new();
+    //     if heads.len() == 0 {
+    //         ret = "0".to_string();
+    //     }
+    //     for head in heads {
+    //         ret.push_str(&format!("{} ", head.id));
+    //     }
+    //     ret
+    // }
 
     pub async fn send_outbox(&mut self) -> Result<(), NgError> {
         let ret = self.take_events_from_outbox();
@@ -1781,7 +1749,7 @@ impl Verifier {
         //     log_err!("send_outbox {:}", ret.as_ref().unwrap_err());
         // }
         let events: Vec<EventOutboxStorage> = ret.unwrap_or(vec![]);
-        if events.len() == 0 {
+        if events.is_empty() {
             return Ok(());
         }
         let broker = BROKER.read().await;
@@ -1800,7 +1768,7 @@ impl Verifier {
             match self.topics.get(&(e.overlay, *e.event.topic_id())) {
                 Some((repo_id, branch_id)) => match self.repos.get(repo_id) {
                     Some(repo) => match repo.branches.get(branch_id) {
-                        Some(branch) => {
+                        Some(_branch) => {
                             // let commit = e.event.open_with_info(repo, branch)?;
                             // let acks = commit.acks();
                             // match branch_heads.get(branch_id) {
@@ -1877,7 +1845,7 @@ impl Verifier {
 
                 let store_repo = repo.store.get_store_repo().clone();
 
-                self.open_branch_(&repo_id, &branch_id, true, &broker, &user, &remote, true)
+                self.open_branch_(&repo_id, &branch_id, true, &broker, &user, &remote, false)
                     .await?;
 
                 for file in commit.files() {
@@ -2029,8 +1997,8 @@ impl Verifier {
 
     pub async fn respond(
         &mut self,
-        msg: ProtocolMessage,
-        fsm: Arc<Mutex<NoiseFSM>>,
+        _msg: ProtocolMessage,
+        _fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         unimplemented!();
     }
@@ -2045,7 +2013,7 @@ impl Verifier {
             let topic_id = info.topic.clone();
             let repo_id = repo.id.clone();
             let branch_id = branch_id.clone();
-            let res = self
+            let _res = self
                 .topics
                 .insert((overlay_id, topic_id), (repo_id, branch_id));
         }
@@ -2103,7 +2071,7 @@ impl Verifier {
     ) -> Result<(), VerifierError> {
         let store = Store::new_from(update, self.get_arc_block_storage()?);
         let overlay_id = store.get_store_repo().overlay_id_for_storage_purpose();
-        let store = self
+        let _store = self
             .stores
             .entry(overlay_id)
             .or_insert_with(|| Arc::new(store));

@@ -99,7 +99,8 @@
   let phrase;
   let validate_button;
   let animate_bounce;
-  let image_url;
+  let image_url =
+    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
   let info_options;
   let options;
   let creating = false;
@@ -707,7 +708,6 @@
         <div class="row mb-20">
           <button
             on:click|once={create_wallet}
-            role="button"
             class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
           >
             <svg
@@ -1323,6 +1323,7 @@
               bind:this={img_preview}
               class="max-w-[250px] h-[250px] mx-auto mb-10"
               src={image_url}
+              alt="your security"
             />
           {:else}
             <Alert color="red" class="mt-5">
@@ -1375,6 +1376,7 @@
             <span
               style="font-weight: 500;cursor: pointer; color: #646cff;"
               tabindex="0"
+              role="link"
               on:keypress={tos}
               on:click={tos}>Terms of Service of our cloud</span
             >.
@@ -1410,6 +1412,7 @@
               <span
                 style="font-weight: 500;cursor: pointer; color: #646cff;"
                 tabindex="0"
+                role="link"
                 on:keypress={tos}
                 on:click={tos}>Terms of Service of our cloud</span
               >.

@@ -9,32 +9,32 @@
 
 //! Processor for each type of AppRequest
 
+use std::sync::Arc;
+
 use futures::channel::mpsc;
 use futures::SinkExt;
 use futures::StreamExt;
-use ng_net::utils::ResultSend;
-use std::sync::Arc;
-
-use crate::types::*;
-
-use crate::verifier::*;
-
-use ng_net::utils::{spawn_and_log_error, Receiver, Sender};
 
 use ng_repo::errors::*;
 use ng_repo::file::{RandomAccessFile, ReadFile};
+#[allow(unused_imports)]
+use ng_repo::log::*;
 use ng_repo::types::BranchId;
+use ng_repo::types::StoreRepo;
 use ng_repo::types::*;
 
-use ng_repo::log::*;
-use ng_repo::types::StoreRepo;
+use ng_net::utils::ResultSend;
+use ng_net::utils::{spawn_and_log_error, Receiver, Sender};
+
+use crate::types::*;
+use crate::verifier::*;
 
 impl AppRequestCommandV0 {
     pub(crate) async fn process_stream(
         &self,
         verifier: &mut Verifier,
         nuri: &NuriV0,
-        payload: &Option<AppRequestPayload>,
+        _payload: &Option<AppRequestPayload>,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         match self {
             Self::Fetch(fetch) => match fetch {
@@ -184,7 +184,9 @@ impl AppRequestCommandV0 {
                             )
                             .await?;
                     }
-                    AppRequestPayloadV0::SmallFilePut(small) => {}
+                    AppRequestPayloadV0::SmallFilePut(_small) => {
+                        unimplemented!();
+                    }
                     AppRequestPayloadV0::RandomAccessFilePut(content_type) => {
                         let (repo_id, _, store_repo) =
                             Self::resolve_target(verifier, &nuri.target)?;

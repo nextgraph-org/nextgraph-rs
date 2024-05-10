@@ -206,6 +206,7 @@
             {#if !downloading}
               <li
                 tabindex="0"
+                role="menuitem"
                 class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
                 on:keypress={download_wallet}
                 on:click={download_wallet}
@@ -355,6 +356,7 @@
           <SidebarGroup border>
             <li
               tabindex="0"
+              role="menuitem"
               class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               on:keypress={donate}
               on:click={donate}
@@ -368,6 +370,7 @@
 
             <li
               tabindex="0"
+              role="menuitem"
               class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               on:keypress={about}
               on:click={about}

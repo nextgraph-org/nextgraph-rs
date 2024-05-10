@@ -7,22 +7,23 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use ng_repo::kcv_storage::*;
-
-use ng_repo::errors::*;
-use ng_repo::log::*;
-use rocksdb::BlockBasedOptions;
-use rocksdb::Cache;
-use rocksdb::DBIteratorWithThreadMode;
-
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::thread::available_parallelism;
 
+use rocksdb::BlockBasedOptions;
+use rocksdb::Cache;
+use rocksdb::DBIteratorWithThreadMode;
+
+use ng_repo::errors::*;
+use ng_repo::kcv_storage::*;
+use ng_repo::log::*;
+
+#[allow(unused_imports)]
 use rocksdb::{
     ColumnFamily, ColumnFamilyDescriptor, Direction, Env, ErrorKind, IteratorMode, Options,
-    SingleThreaded, TransactionDB, TransactionDBOptions, DB,
+    TransactionDB, TransactionDBOptions,
 };
 
 pub struct RocksdbTransaction<'a> {
@@ -119,10 +120,10 @@ impl<'a> ReadTransaction for RocksdbTransaction<'a> {
     /// Load all the values of a property from the store.
     fn get_all(
         &self,
-        prefix: u8,
-        key: &Vec<u8>,
-        suffix: Option<u8>,
-        family: &Option<String>,
+        _prefix: u8,
+        _key: &Vec<u8>,
+        _suffix: Option<u8>,
+        _family: &Option<String>,
     ) -> Result<Vec<Vec<u8>>, StorageError> {
         unimplemented!();
     }
@@ -387,10 +388,10 @@ impl ReadTransaction for RocksDbKCVStorage {
     /// Load all the values of a property from the store.
     fn get_all(
         &self,
-        prefix: u8,
-        key: &Vec<u8>,
-        suffix: Option<u8>,
-        family: &Option<String>,
+        _prefix: u8,
+        _key: &Vec<u8>,
+        _suffix: Option<u8>,
+        _family: &Option<String>,
     ) -> Result<Vec<Vec<u8>>, StorageError> {
         unimplemented!();
     }

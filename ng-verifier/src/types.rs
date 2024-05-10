@@ -10,30 +10,17 @@
 //! Types for Verifier
 
 use core::fmt;
+use std::path::PathBuf;
+
+use serde::{Deserialize, Serialize};
 //use oxigraph::io::{RdfFormat, RdfParser, RdfSerializer};
 //use oxigraph::store::Store;
 //use oxigraph::model::GroundQuad;
-#[cfg(not(target_family = "wasm"))]
-use crate::rocksdb_user_storage::RocksDbUserStorage;
-use crate::user_storage::UserStorage;
-use async_std::sync::Mutex;
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
-
-use ng_net::{
-    connection::NoiseFSM,
-    types::*,
-    utils::{Receiver, Sender},
-};
-use ng_repo::{
-    block_storage::BlockStorage,
-    errors::{NgError, ProtocolError, StorageError},
-    file::RandomAccessFile,
-    store::Store,
-    types::*,
-};
-use serde::{Deserialize, Serialize};
-use web_time::SystemTime;
 //use yrs::{StateVector, Update};
+
+use ng_repo::{errors::NgError, types::*};
+
+use ng_net::types::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum SessionPeerLastSeq {
@@ -132,6 +119,7 @@ impl VerifierConfigType {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn is_in_memory(&self) -> bool {
         match self {
             Self::Memory | Self::JsSaveSession(_) => true,
@@ -245,8 +233,8 @@ impl NuriV0 {
             locator: vec![],
         }
     }
-    pub fn new(from: String) -> Self {
-        unimplemented!();
+    pub fn new(_from: String) -> Self {
+        todo!();
     }
 }
 

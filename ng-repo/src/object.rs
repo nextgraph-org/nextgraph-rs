@@ -10,8 +10,6 @@
 //! Object: Merkle hash tree of Blocks
 
 use core::fmt;
-use std::borrow::BorrowMut;
-use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 
 use chacha20::cipher::{KeyIvInit, StreamCipher};
@@ -37,7 +35,6 @@ pub const BLOCK_KEY_SIZE: usize = 33;
 pub const BIG_VARINT_EXTRA: usize = 2;
 /// Varint extra bytes when reaching the maximum size of data byte arrays.
 pub const DATA_VARINT_EXTRA: usize = 4;
-
 pub const BLOCK_MAX_DATA_EXTRA: usize = 4;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -367,7 +364,8 @@ impl Object {
         } else {
             // chunk content and create leaf nodes
             let mut i = 0;
-            let total = max(1, content_len / (valid_block_size - BLOCK_EXTRA));
+            #[cfg(not(target_arch = "wasm32"))]
+            let _total = std::cmp::max(1, content_len / (valid_block_size - BLOCK_EXTRA));
             for chunk in content_ser.chunks(valid_block_size - BLOCK_EXTRA) {
                 let data_chunk = ChunkContentV0::DataChunk(chunk.to_vec());
                 let chunk_ser = serde_bare::to_vec(&data_chunk).unwrap();
@@ -377,7 +375,8 @@ impl Object {
                     &mut block_contents,
                     &mut already_existing,
                 );
-                log_debug!("make_block {} of {} - {}%", i, total + 1, i * 100 / total);
+                #[cfg(not(target_arch = "wasm32"))]
+                log_debug!("make_block {} of {} - {}%", i, _total + 1, i * 100 / _total);
                 i = i + 1;
             }
 
@@ -465,7 +464,7 @@ impl Object {
                         Ok(ObjectContent::V0(ObjectContentV0::CommitHeader(commit_header))) => {
                             Ok((Some(commit_header), vec![]))
                         }
-                        Err(e) => {
+                        Err(_e) => {
                             return Err(ObjectParseError::InvalidHeader);
                         }
                         _ => {
@@ -582,7 +581,7 @@ impl Object {
         let root_id = self.id();
         let mut blocks = vec![root_id];
         deduplicated.remove(&root_id);
-        let mut list = deduplicated.drain();
+        let list = deduplicated.drain();
         blocks.append(&mut list.collect());
         deduplicated.shrink_to(0);
         Ok(blocks)
@@ -758,8 +757,8 @@ impl Object {
                     let content: ChunkContentV0;
                     match serde_bare::from_slice(content_dec.as_slice()) {
                         Ok(c) => content = c,
-                        Err(e) => {
-                            log_debug!("Block deserialize error: {}", e);
+                        Err(_e) => {
+                            //log_debug!("Block deserialize error: {}", e);
                             return Err(ObjectParseError::BlockDeserializeError);
                         }
                     }
@@ -850,8 +849,8 @@ impl Object {
         ) {
             Ok(_) => match serde_bare::from_slice(obj_content.as_slice()) {
                 Ok(c) => Ok(c),
-                Err(e) => {
-                    log_debug!("Object deserialize error: {}", e);
+                Err(_e) => {
+                    //log_debug!("Object deserialize error: {}", e);
                     Err(ObjectParseError::ObjectDeserializeError)
                 }
             },
@@ -899,7 +898,7 @@ impl IObject for Object {
         let root_id = self.id();
         let mut blocks = vec![root_id];
         deduplicated.remove(&root_id);
-        let mut list = deduplicated.drain();
+        let list = deduplicated.drain();
         blocks.append(&mut list.collect());
         deduplicated.shrink_to(0);
         blocks
@@ -984,14 +983,14 @@ impl fmt::Display for ObjectContent {
                     ObjectContentV0::Commit(c) => ("Commit", format!("{}", c)),
                     ObjectContentV0::CommitBody(c) => ("CommitBody", format!("{}", c)),
                     ObjectContentV0::CommitHeader(c) => ("CommitHeader", format!("{}", c)),
-                    ObjectContentV0::Quorum(c) => ("Quorum", format!("{}", "")),
-                    ObjectContentV0::Signature(c) => ("Signature", format!("{}", "")),
-                    ObjectContentV0::Certificate(c) => ("Certificate", format!("{}", "")),
-                    ObjectContentV0::SmallFile(c) => ("SmallFile", format!("{}", "")),
-                    ObjectContentV0::RandomAccessFileMeta(c) => {
+                    ObjectContentV0::Quorum(_c) => ("Quorum", format!("{}", "")),
+                    ObjectContentV0::Signature(_c) => ("Signature", format!("{}", "")),
+                    ObjectContentV0::Certificate(_c) => ("Certificate", format!("{}", "")),
+                    ObjectContentV0::SmallFile(_c) => ("SmallFile", format!("{}", "")),
+                    ObjectContentV0::RandomAccessFileMeta(_c) => {
                         ("RandomAccessFileMeta", format!("{}", ""))
                     }
-                    ObjectContentV0::RefreshCap(c) => ("RefreshCap", format!("{}", "")),
+                    ObjectContentV0::RefreshCap(_c) => ("RefreshCap", format!("{}", "")),
                 },
             ),
         };

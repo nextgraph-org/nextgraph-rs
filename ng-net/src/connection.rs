@@ -18,26 +18,29 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::actor::{Actor, SoS};
-use crate::actors::*;
-use crate::broker::BROKER;
-use crate::types::*;
-use crate::utils::*;
-
 use async_std::stream::StreamExt;
 use async_std::sync::Mutex;
 use either::Either;
 use futures::{channel::mpsc, select, FutureExt, SinkExt};
-use ng_repo::errors::*;
-use ng_repo::log::*;
-use ng_repo::types::{DirectPeerId, PrivKey, PubKey, UserId, X25519PrivKey};
-use ng_repo::utils::{sign, verify};
 use noise_protocol::{patterns::noise_xk, CipherState, HandshakeState};
 use noise_rust_crypto::*;
 use serde_bare::from_slice;
 use unique_id::sequence::SequenceGenerator;
 use unique_id::Generator;
 use unique_id::GeneratorFromSeed;
+
+use ng_repo::errors::*;
+use ng_repo::log::*;
+use ng_repo::types::{DirectPeerId, PrivKey, PubKey, UserId, X25519PrivKey};
+use ng_repo::utils::sign;
+#[cfg(not(target_arch = "wasm32"))]
+use ng_repo::utils::verify;
+
+use crate::actor::{Actor, SoS};
+use crate::actors::*;
+use crate::broker::BROKER;
+use crate::types::*;
+use crate::utils::*;
 
 #[derive(Debug, Clone)]
 pub enum ConnectionCommand {
@@ -123,6 +126,7 @@ pub struct NoiseFSM {
     sender: Sender<ConnectionCommand>,
 
     /// first is local, second is remote
+    #[allow(dead_code)]
     bind_addresses: Option<(BindAddress, BindAddress)>,
 
     actors: Arc<Mutex<HashMap<i64, Sender<ConnectionCommand>>>>,
@@ -268,6 +272,7 @@ impl NoiseFSM {
         &self.remote
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn set_user_id(&mut self, user: UserId) {
         if self.user.is_none() {
             self.user = Some(user);
@@ -362,13 +367,13 @@ impl NoiseFSM {
             None,
         );
 
-        let mut payload = handshake.read_message_vec(noise.data()).map_err(|e| {
-            log_debug!("{:?}", e);
+        let mut payload = handshake.read_message_vec(noise.data()).map_err(|_e| {
+            log_debug!("{:?}", _e);
             ProtocolError::NoiseHandshakeFailed
         })?;
 
-        payload = handshake.write_message_vec(&payload).map_err(|e| {
-            log_debug!("{:?}", e);
+        payload = handshake.write_message_vec(&payload).map_err(|_e| {
+            log_debug!("{:?}", _e);
             ProtocolError::NoiseHandshakeFailed
         })?;
 
@@ -580,8 +585,8 @@ impl NoiseFSM {
                                 .read_message_vec(noise.data())
                                 .map_err(|_e| ProtocolError::NoiseHandshakeFailed)?;
 
-                            payload = handshake.write_message_vec(&payload).map_err(|e| {
-                                log_debug!("{:?}", e);
+                            payload = handshake.write_message_vec(&payload).map_err(|_e| {
+                                log_debug!("{:?}", _e);
                                 ProtocolError::NoiseHandshakeFailed
                             })?;
 

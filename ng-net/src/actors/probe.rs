@@ -9,14 +9,16 @@
  * according to those terms.
 */
 
+use std::sync::Arc;
+
+use async_std::sync::Mutex;
+use serde::{Deserialize, Serialize};
+
+use ng_repo::errors::*;
+
 use crate::connection::NoiseFSM;
 use crate::types::{ProbeResponse, MAGIC_NG_REQUEST};
 use crate::{actor::*, types::ProtocolMessage};
-use async_std::sync::Mutex;
-use ng_repo::errors::*;
-use serde::{Deserialize, Serialize};
-use std::any::{Any, TypeId};
-use std::sync::Arc;
 
 /// Send to probe if the server is a NextGraph broker.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -49,7 +51,7 @@ impl TryFrom<ProtocolMessage> for Probe {
 }
 
 impl From<Probe> for ProtocolMessage {
-    fn from(msg: Probe) -> ProtocolMessage {
+    fn from(_msg: Probe) -> ProtocolMessage {
         ProtocolMessage::Probe(MAGIC_NG_REQUEST)
     }
 }
@@ -61,9 +63,9 @@ impl EActor for Actor<'_, Probe, ProbeResponse> {
     async fn respond(
         &mut self,
         msg: ProtocolMessage,
-        fsm: Arc<Mutex<NoiseFSM>>,
+        _fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
-        let req = Probe::try_from(msg)?;
+        let _req = Probe::try_from(msg)?;
         //let res = ProbeResponse()
         //fsm.lock().await.send(res.into()).await?;
         Ok(())

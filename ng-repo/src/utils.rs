@@ -7,10 +7,6 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use crate::errors::*;
-use crate::log::*;
-use crate::types::*;
-
 use chacha20::cipher::{KeyIvInit, StreamCipher};
 use chacha20::ChaCha20;
 use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
@@ -18,9 +14,15 @@ use ed25519_dalek::*;
 use futures::channel::mpsc;
 use rand::rngs::OsRng;
 use rand::RngCore;
+#[cfg(not(target_arch = "wasm32"))]
 use time::OffsetDateTime;
 use web_time::{Duration, SystemTime, UNIX_EPOCH};
 use zeroize::Zeroize;
+
+use crate::errors::*;
+#[allow(unused_imports)]
+use crate::log::*;
+use crate::types::*;
 
 pub fn derive_key(context: &str, key_material: &[u8]) -> [u8; 32] {
     blake3::derive_key(context, key_material)

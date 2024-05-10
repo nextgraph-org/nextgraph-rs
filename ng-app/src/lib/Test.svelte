@@ -263,7 +263,11 @@
 
           {#await get_img(file.V0.File) then url}
             {#if url}
-              <img src={url} title={"did:ng" + file.V0.File.nuri} />
+              <img
+                src={url}
+                title={"did:ng" + file.V0.File.nuri}
+                alt={file.V0.File.name}
+              />
             {/if}
           {/await}
         </p>

@@ -6,9 +6,12 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
-use ng_net::types::{BrokerOverlayConfigV0, ListenerV0, RegistrationConfig};
-use ng_repo::types::{PrivKey, PubKey};
+
 use serde::{Deserialize, Serialize};
+
+use ng_repo::types::PubKey;
+
+use ng_net::types::{BrokerOverlayConfigV0, ListenerV0, RegistrationConfig};
 
 /// DaemonConfig Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]

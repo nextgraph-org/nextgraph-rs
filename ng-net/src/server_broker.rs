@@ -13,9 +13,10 @@
 
 use std::collections::HashSet;
 
-use crate::types::*;
 use ng_repo::errors::*;
 use ng_repo::types::*;
+
+use crate::types::*;
 
 pub trait IServerBroker: Send + Sync {
     fn put_block(&self, overlay_id: &OverlayId, block: Block) -> Result<(), ServerError>;

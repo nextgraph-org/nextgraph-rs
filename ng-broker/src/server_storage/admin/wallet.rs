@@ -9,14 +9,13 @@
 
 //! Broker Wallet Storage (Object Key/Col/Value Mapping), persists to storage all the SymKeys needed to open other storages
 
-use ng_net::types::*;
+use serde_bare::to_vec;
+
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::kcv_storage::WriteTransaction;
 use ng_repo::log::*;
 use ng_repo::types::*;
-use serde::{Deserialize, Serialize};
-use serde_bare::{from_slice, to_vec};
 
 pub struct Wallet<'a> {
     storage: &'a dyn KCVStorage,
@@ -28,14 +27,14 @@ impl<'a> Wallet<'a> {
     const PREFIX_USER: u8 = b'u';
 
     const KEY_ACCOUNTS: [u8; 8] = *b"accounts";
-    const KEY_PEERS: [u8; 5] = *b"peers";
+    //const KEY_PEERS: [u8; 5] = *b"peers";
     const KEY_CORE: [u8; 4] = *b"core";
     const KEY_BLOCKS: [u8; 6] = *b"blocks";
 
     // propertie's suffixes
     const SYM_KEY: u8 = b"s"[0];
 
-    const ALL_PROPERTIES: [u8; 1] = [Self::SYM_KEY];
+    //const ALL_PROPERTIES: [u8; 1] = [Self::SYM_KEY];
 
     const SUFFIX_FOR_EXIST_CHECK: u8 = Self::SYM_KEY;
 

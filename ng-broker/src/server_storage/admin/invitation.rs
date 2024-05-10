@@ -9,20 +9,16 @@
 
 //! User account Storage (Object Key/Col/Value Mapping)
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::time::SystemTime;
+use serde_bare::from_slice;
+use serde_bare::to_vec;
 
-use ng_net::types::*;
 use ng_repo::errors::ProtocolError;
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::types::SymKey;
-use ng_repo::types::Timestamp;
 use ng_repo::utils::now_timestamp;
-use serde_bare::from_slice;
-use serde_bare::to_vec;
+
+use ng_net::types::*;
 
 pub struct Invitation<'a> {
     /// code
@@ -36,10 +32,6 @@ impl<'a> Invitation<'a> {
     // propertie's invitation suffixes
     const TYPE: u8 = b't';
     //const EXPIRE: u8 = b'e';
-
-    const PREFIX_EXPIRE: u8 = b'e';
-    // propertie's expiry suffixes
-    const INVITATION: u8 = b'i';
 
     const ALL_PROPERTIES: [u8; 1] = [Self::TYPE];
 
@@ -76,7 +68,7 @@ impl<'a> Invitation<'a> {
         if acc.exists() {
             return Err(StorageError::BackendError);
         }
-        let mut value = to_vec(&(code_type, expiry, memo.clone()))?;
+        let value = to_vec(&(code_type, expiry, memo.clone()))?;
         storage.write_transaction(&mut |tx| {
             tx.put(
                 Self::PREFIX,

@@ -8,15 +8,19 @@
  * notice may not be copied, modified, or distributed except
  * according to those terms.
 */
+
+use std::sync::Arc;
+
+use async_std::sync::Mutex;
+use serde::{Deserialize, Serialize};
+
+use ng_repo::errors::*;
+use ng_repo::types::PubKey;
+
 use crate::broker::BROKER;
 use crate::connection::NoiseFSM;
 use crate::types::*;
 use crate::{actor::*, types::ProtocolMessage};
-use async_std::sync::Mutex;
-use ng_repo::errors::*;
-use ng_repo::types::PubKey;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 use super::super::StartProtocol;
 
@@ -60,7 +64,7 @@ impl TryFrom<ProtocolMessage> for DelUser {
 }
 
 impl From<DelUser> for ProtocolMessage {
-    fn from(msg: DelUser) -> ProtocolMessage {
+    fn from(_msg: DelUser) -> ProtocolMessage {
         unimplemented!();
     }
 }

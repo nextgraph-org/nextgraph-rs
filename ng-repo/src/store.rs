@@ -12,20 +12,19 @@
 //! Store of a Site, or of a Group or Dialog
 
 use core::fmt;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+
+use threshold_crypto::SecretKeySet;
 
 use crate::block_storage::{BlockStorage, HashMapBlockStorage};
 use crate::errors::{NgError, StorageError};
+#[allow(unused_imports)]
+use crate::log::*;
 use crate::object::Object;
 use crate::repo::{BranchInfo, Repo};
 use crate::types::*;
-use crate::utils::{generate_keypair, sign, verify};
-
-use crate::log::*;
-
-use rand::prelude::*;
-use threshold_crypto::{SecretKeySet, SecretKeyShare};
+use crate::utils::{generate_keypair, sign};
 
 pub struct Store {
     //TODO: store_repo, store_readcap and store_overlay_branch_readcap could be empty, if we have only an outer access to the store. should be Options
@@ -140,7 +139,7 @@ impl Store {
     }
 
     /// fetch a block from broker or core overlay
-    pub async fn fetch(&self, id: &BlockId) -> Result<Block, StorageError> {
+    pub async fn fetch(&self, _id: &BlockId) -> Result<Block, StorageError> {
         todo!();
     }
 
@@ -367,7 +366,7 @@ impl Store {
 
         // creating the main branch
 
-        let (main_branch_commit, main_add_branch_commit, mut main_branch_info) =
+        let (main_branch_commit, main_add_branch_commit, main_branch_info) =
             self.as_ref().create_branch(
                 BranchType::Main,
                 creator,

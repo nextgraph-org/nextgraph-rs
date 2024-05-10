@@ -503,11 +503,6 @@
     margin-left: auto;
   }
 
-  .pin {
-    cursor: pointer;
-    text-align: center;
-  }
-
   .sel {
     position: absolute;
     width: 100%;

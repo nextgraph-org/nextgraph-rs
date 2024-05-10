@@ -7,7 +7,6 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use clap::builder::OsStr;
 use clap::Parser;
 
 use crate::DEFAULT_PORT;

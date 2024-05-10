@@ -20,6 +20,7 @@ use zeroize::Zeroize;
 
 use crate::block_storage::*;
 use crate::errors::*;
+#[allow(unused_imports)]
 use crate::log::*;
 use crate::object::*;
 use crate::store::Store;
@@ -203,7 +204,7 @@ impl ReadFile for RandomAccessFile {
             if level > 0 {
                 let tree_block = store.get(&current_block_id_key.0)?;
                 let (children, content) = tree_block.read(&current_block_id_key.1)?;
-                if children.len() == 0 || content.len() > 0 {
+                if children.is_empty() || content.len() > 0 {
                     return Err(FileError::BlockDeserializeError);
                 }
 
@@ -238,7 +239,7 @@ impl ReadFile for RandomAccessFile {
             for level in 0..depth {
                 let tree_block = self.store.get(&current_block_id_key.0)?;
                 let (children, content) = tree_block.read(&current_block_id_key.1)?;
-                if children.len() == 0 || content.len() > 0 {
+                if children.is_empty() || content.len() > 0 {
                     return Err(FileError::BlockDeserializeError);
                 }
                 let factor = (arity as usize).pow(depth as u32 - level as u32 - 1)
@@ -256,7 +257,7 @@ impl ReadFile for RandomAccessFile {
 
             let (children, content) = content_block.read(&current_block_id_key.1)?;
 
-            if children.len() == 0 && content.len() > 0 {
+            if children.is_empty() && content.len() > 0 {
                 //log_debug!("CONTENT SIZE {}", content.len());
 
                 if level_pos >= content.len() {
@@ -289,7 +290,7 @@ impl ReadFile for RandomAccessFile {
             let block = &self.blocks[index];
             let content_block = self.store.get(&block.0)?;
             let (children, content) = content_block.read(&block.1)?;
-            if children.len() == 0 && content.len() > 0 {
+            if children.is_empty() && content.len() > 0 {
                 //log_debug!("CONTENT SIZE {}", content.len());
 
                 if level_pos >= content.len() {

@@ -7,9 +7,6 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-// #[macro_use]
-// extern crate slice_as_array;
-
 #[macro_use]
 extern crate lazy_static;
 
@@ -19,29 +16,31 @@ pub mod bip39;
 
 pub mod emojis;
 
-use ng_verifier::{site::SiteV0, verifier::Verifier};
-use rand::distributions::{Distribution, Uniform};
-use std::{collections::HashMap, io::Cursor, sync::Arc};
+use std::{collections::HashMap, io::Cursor};
 
-use crate::bip39::bip39_wordlist;
-use crate::types::*;
 use aes_gcm_siv::{
     aead::{heapless::Vec as HeaplessVec, AeadInPlace, KeyInit},
     Aes256GcmSiv, Nonce,
 };
 use argon2::{Algorithm, Argon2, AssociatedData, ParamsBuilder, Version};
 use chacha20poly1305::XChaCha20Poly1305;
-use zeroize::{Zeroize, ZeroizeOnDrop};
-
 use image::{imageops::FilterType, io::Reader as ImageReader, ImageOutputFormat};
+use rand::distributions::{Distribution, Uniform};
+use rand::prelude::*;
 use safe_transmute::transmute_to_bytes;
+use serde_bare::{from_slice, to_vec};
+#[cfg(debug_assertions)]
+use web_time::Instant;
+use zeroize::Zeroize;
 
 use ng_repo::types::*;
 use ng_repo::utils::{generate_keypair, now_timestamp, sign, verify};
 use ng_repo::{log::*, types::PrivKey};
-use rand::prelude::*;
-use serde_bare::{from_slice, to_vec};
-use web_time::Instant;
+
+use ng_verifier::{site::SiteV0, verifier::Verifier};
+
+use crate::bip39::bip39_wordlist;
+use crate::types::*;
 
 impl Wallet {
     pub fn id(&self) -> WalletId {
@@ -150,7 +149,7 @@ pub fn enc_master_key(
     // Encrypt `buffer` in-place, replacing the plaintext contents with ciphertext
     cipher
         .encrypt_in_place(nonce, &to_vec(&wallet_id).unwrap(), &mut buffer)
-        .map_err(|e| NgWalletError::EncryptionError)?;
+        .map_err(|_e| NgWalletError::EncryptionError)?;
 
     // `buffer` now contains the encrypted master key
     // log_debug!("cipher {:?}", buffer);
@@ -173,7 +172,7 @@ pub fn dec_master_key(
     // Decrypt `buffer` in-place, replacing its ciphertext context with the original plaintext
     cipher
         .decrypt_in_place(nonce, &to_vec(&wallet_id).unwrap(), &mut buffer)
-        .map_err(|e| NgWalletError::DecryptionError)?;
+        .map_err(|_e| NgWalletError::DecryptionError)?;
     Ok(buffer.into_array::<32>().unwrap())
 }
 
@@ -197,7 +196,7 @@ pub fn enc_wallet_log(
     timestamp: Timestamp,
     wallet_id: WalletId,
 ) -> Result<Vec<u8>, NgWalletError> {
-    let ser_log = to_vec(log).map_err(|e| NgWalletError::InternalError)?;
+    let ser_log = to_vec(log).map_err(|_e| NgWalletError::InternalError)?;
 
     let nonce_buffer: [u8; 24] = gen_nonce(peer_id, nonce);
 
@@ -213,7 +212,7 @@ pub fn enc_wallet_log(
             &gen_associated_data(timestamp, wallet_id),
             &mut buffer,
         )
-        .map_err(|e| NgWalletError::EncryptionError)?;
+        .map_err(|_e| NgWalletError::EncryptionError)?;
 
     // `buffer` now contains the message ciphertext
     // log_debug!("encrypted_block ciphertext {:?}", buffer);
@@ -268,10 +267,10 @@ pub fn dec_encrypted_block(
             &gen_associated_data(timestamp, wallet_id),
             &mut ciphertext,
         )
-        .map_err(|e| NgWalletError::DecryptionError)?;
+        .map_err(|_e| NgWalletError::DecryptionError)?;
 
     let decrypted_log =
-        from_slice::<WalletLog>(&ciphertext).map_err(|e| NgWalletError::DecryptionError)?;
+        from_slice::<WalletLog>(&ciphertext).map_err(|_e| NgWalletError::DecryptionError)?;
 
     //master_key.zeroize(); // this is now done in the SensitiveWalletV0
 
@@ -296,8 +295,8 @@ pub fn dec_encrypted_block(
 // we haven't test it yet. https://community.bitwarden.com/t/recommended-settings-for-argon2/50901/16?page=4
 pub fn derive_key_from_pass(mut pass: Vec<u8>, salt: [u8; 16], wallet_id: WalletId) -> [u8; 32] {
     let params = ParamsBuilder::new()
-        .m_cost(20 * 1024)
-        .t_cost(30)
+        .m_cost(30 * 1024)
+        .t_cost(40)
         .p_cost(1)
         .data(AssociatedData::new(wallet_id.slice()).unwrap())
         .output_len(32)
@@ -322,10 +321,11 @@ pub fn open_wallet_with_pazzle(
 
     //log_info!("pazzle={:?}", pazzle);
 
+    #[cfg(debug_assertions)]
     let opening_pazzle = Instant::now();
 
     verify(&wallet.content_as_bytes(), wallet.sig(), wallet.id())
-        .map_err(|e| NgWalletError::InvalidSignature)?;
+        .map_err(|_e| NgWalletError::InvalidSignature)?;
 
     match wallet {
         Wallet::V0(v0) => {
@@ -366,7 +366,7 @@ pub fn open_wallet_with_mnemonic(
     mut pin: [u8; 4],
 ) -> Result<SensitiveWallet, NgWalletError> {
     verify(&wallet.content_as_bytes(), wallet.sig(), wallet.id())
-        .map_err(|e| NgWalletError::InvalidSignature)?;
+        .map_err(|_e| NgWalletError::InvalidSignature)?;
 
     match wallet {
         Wallet::V0(v0) => {
@@ -519,9 +519,9 @@ pub fn create_wallet_first_step_v0(
     // check validity of image
     let decoded_img = ImageReader::new(Cursor::new(&params.security_img))
         .with_guessed_format()
-        .map_err(|e| NgWalletError::InvalidSecurityImage)?
+        .map_err(|_e| NgWalletError::InvalidSecurityImage)?
         .decode()
-        .map_err(|e| NgWalletError::InvalidSecurityImage)?;
+        .map_err(|_e| NgWalletError::InvalidSecurityImage)?;
 
     if decoded_img.height() < 150 || decoded_img.width() < 150 {
         return Err(NgWalletError::InvalidSecurityImage);
@@ -537,7 +537,7 @@ pub fn create_wallet_first_step_v0(
     let mut cursor = Cursor::new(buffer);
     resized_img
         .write_to(&mut cursor, ImageOutputFormat::Jpeg(72))
-        .map_err(|e| NgWalletError::InvalidSecurityImage)?;
+        .map_err(|_e| NgWalletError::InvalidSecurityImage)?;
 
     // creating the wallet keys
 
@@ -581,6 +581,7 @@ pub async fn create_wallet_second_step_v0(
     ),
     NgWalletError,
 > {
+    #[cfg(debug_assertions)]
     let creating_pazzle = Instant::now();
 
     let mut site = SiteV0::create_personal(params.user_privkey.clone(), verifier)
@@ -684,12 +685,12 @@ pub async fn create_wallet_second_step_v0(
     }
 
     let mut master_key = [0u8; 32];
-    getrandom::getrandom(&mut master_key).map_err(|e| NgWalletError::InternalError)?;
+    getrandom::getrandom(&mut master_key).map_err(|_e| NgWalletError::InternalError)?;
 
     let mut salt_pazzle = [0u8; 16];
     let mut enc_master_key_pazzle = [0u8; 48];
     if params.pazzle_length > 0 {
-        getrandom::getrandom(&mut salt_pazzle).map_err(|e| NgWalletError::InternalError)?;
+        getrandom::getrandom(&mut salt_pazzle).map_err(|_e| NgWalletError::InternalError)?;
 
         let mut pazzle_key = derive_key_from_pass(
             [pazzle.clone(), params.pin.to_vec()].concat(),
@@ -702,7 +703,7 @@ pub async fn create_wallet_second_step_v0(
     }
 
     let mut salt_mnemonic = [0u8; 16];
-    getrandom::getrandom(&mut salt_mnemonic).map_err(|e| NgWalletError::InternalError)?;
+    getrandom::getrandom(&mut salt_mnemonic).map_err(|_e| NgWalletError::InternalError)?;
 
     //log_debug!("salt_pazzle {:?}", salt_pazzle);
     //log_debug!("salt_mnemonic {:?}", salt_mnemonic);
@@ -888,6 +889,7 @@ mod test {
 
             assert_eq!(v0.content.security_img, generated_security_image_compare);
 
+            #[cfg(debug_assertions)]
             let opening_mnemonic = Instant::now();
 
             let w = open_wallet_with_mnemonic(Wallet::V0(v0.clone()), res.mnemonic, pin.clone())
@@ -900,6 +902,7 @@ mod test {
             );
 
             if v0.content.pazzle_length > 0 {
+                #[cfg(debug_assertions)]
                 let opening_pazzle = Instant::now();
                 let w = open_wallet_with_pazzle(&Wallet::V0(v0.clone()), res.pazzle.clone(), pin)
                     .expect("open with pazzle");

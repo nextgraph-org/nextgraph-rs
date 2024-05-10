@@ -12,12 +12,12 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
-use zeroize::{Zeroize, ZeroizeOnDrop};
 
+use zeroize::Zeroize;
 // use fastbloom_rs::{BloomFilter as Filter, Membership};
 
-use crate::block_storage::*;
 use crate::errors::*;
+#[allow(unused_imports)]
 use crate::log::*;
 use crate::object::*;
 use crate::store::Store;
@@ -49,7 +49,7 @@ impl BranchV0 {
 }
 
 #[derive(Debug)]
-struct DagNode {
+pub struct DagNode {
     pub future: HashSet<ObjectId>,
 }
 
@@ -152,6 +152,62 @@ impl Branch {
         ))
     }
 
+    /// Load causal past of a Commit `cobj` in a `Branch` from the `Store`,
+    ///
+    /// and collect in `visited` the ObjectIds encountered on the way, stopping at any commit already belonging to `theirs` or the root of DAG.
+    /// optionally collecting the missing objects/blocks that couldn't be found locally on the way,
+    /// and also optionally, collecting the commits of theirs found on the way
+    pub fn load_causal_past(
+        cobj: &Object,
+        store: &Store,
+        theirs: &HashSet<ObjectId>,
+        visited: &mut HashMap<ObjectId, DagNode>,
+        missing: &mut Option<&mut HashSet<ObjectId>>,
+        future: Option<ObjectId>,
+        theirs_found: &mut Option<&mut HashSet<ObjectId>>,
+    ) -> Result<(), ObjectParseError> {
+        let id = cobj.id();
+
+        // check if this commit object is present in theirs or has already been visited in the current walk
+        // load deps, stop at the root(including it in visited) or if this is a commit object from known_heads
+        if !theirs.contains(&id) {
+            if let Some(past) = visited.get_mut(&id) {
+                // we update the future
+                if let Some(f) = future {
+                    past.future.insert(f);
+                }
+            } else {
+                let mut insert = DagNode::new();
+                if let Some(f) = future {
+                    insert.future.insert(f);
+                }
+                visited.insert(id, insert);
+                for past_id in cobj.acks_and_nacks() {
+                    match Object::load(past_id, None, store) {
+                        Ok(o) => {
+                            Self::load_causal_past(
+                                &o,
+                                store,
+                                theirs,
+                                visited,
+                                missing,
+                                Some(id),
+                                theirs_found,
+                            )?;
+                        }
+                        Err(ObjectParseError::MissingBlocks(blocks)) => {
+                            missing.as_mut().map(|m| m.extend(blocks));
+                        }
+                        Err(e) => return Err(e),
+                    }
+                }
+            }
+        } else if theirs_found.is_some() {
+            theirs_found.as_mut().unwrap().insert(id);
+        }
+        Ok(())
+    }
+
     /// Branch sync request from another peer
     ///
     /// `target_heads` represents the list of heads the requester would like to reach. this list should not be empty.
@@ -170,66 +226,42 @@ impl Branch {
         //log_debug!("   target_heads: {:?}", target_heads);
         //log_debug!("   known_heads: {:?}", known_heads);
 
-        /// Load causal past of a Commit `cobj` in a `Branch` from the `Store`,
-        /// and collect in `visited` the ObjectIds encountered on the way, stopping at any commit already belonging to `theirs` or the root of DAG.
-        /// optionally collecting the missing objects/blocks that couldn't be found locally on the way
-        fn load_causal_past(
-            cobj: &Object,
-            store: &Store,
-            theirs: &HashMap<ObjectId, DagNode>,
-            visited: &mut HashMap<ObjectId, DagNode>,
-            missing: &mut Option<&mut HashSet<ObjectId>>,
-            future: Option<ObjectId>,
-        ) -> Result<(), ObjectParseError> {
-            let id = cobj.id();
-
-            // check if this commit object is present in theirs or has already been visited in the current walk
-            // load deps, stop at the root(including it in visited) or if this is a commit object from known_heads
-            if !theirs.contains_key(&id) {
-                if let Some(past) = visited.get_mut(&id) {
-                    // we update the future
-                    if let Some(f) = future {
-                        past.future.insert(f);
-                    }
-                } else {
-                    let mut insert = DagNode::new();
-                    if let Some(f) = future {
-                        insert.future.insert(f);
-                    }
-                    visited.insert(id, insert);
-                    for past_id in cobj.acks_and_nacks() {
-                        match Object::load(past_id, None, store) {
-                            Ok(o) => {
-                                load_causal_past(&o, store, theirs, visited, missing, Some(id))?;
-                            }
-                            Err(ObjectParseError::MissingBlocks(blocks)) => {
-                                missing.as_mut().map(|m| m.extend(blocks));
-                            }
-                            Err(e) => return Err(e),
-                        }
-                    }
-                }
-            }
-            Ok(())
-        }
-
         // their commits
         let mut theirs: HashMap<ObjectId, DagNode> = HashMap::new();
 
         // collect causal past of known_heads
         for id in known_heads {
             if let Ok(cobj) = Object::load(*id, None, store) {
-                load_causal_past(&cobj, store, &HashMap::new(), &mut theirs, &mut None, None)?;
+                Self::load_causal_past(
+                    &cobj,
+                    store,
+                    &HashSet::new(),
+                    &mut theirs,
+                    &mut None,
+                    None,
+                    &mut None,
+                )?;
             }
             // we silently discard any load error on the known_heads as the responder might not know them (yet).
         }
 
         let mut visited = HashMap::new();
+
+        let theirs: HashSet<ObjectId> = theirs.keys().into_iter().cloned().collect();
+
         // collect all commits reachable from target_heads
         // up to the root or until encountering a commit from theirs
         for id in target_heads {
             if let Ok(cobj) = Object::load(id, None, store) {
-                load_causal_past(&cobj, store, &theirs, &mut visited, &mut None, None)?;
+                Self::load_causal_past(
+                    &cobj,
+                    store,
+                    &theirs,
+                    &mut visited,
+                    &mut None,
+                    None,
+                    &mut None,
+                )?;
             }
             // we silently discard any load error on the target_heads as they can be wrong if the requester is confused about what the responder has locally.
         }

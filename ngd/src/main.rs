@@ -11,44 +11,42 @@ pub mod types;
 
 mod cli;
 
-use crate::cli::*;
-use crate::types::*;
-use clap::Parser;
 use core::fmt;
-use ng_broker::interfaces::*;
-use ng_broker::server_ws::run_server_v0;
-use ng_broker::types::*;
-use ng_broker::utils::*;
+use std::error::Error;
+use std::fs::{read_to_string, write};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::path::PathBuf;
+
+use addr::parser::DnsName;
+use addr::psl::List;
+use clap::Parser;
+use lazy_static::lazy_static;
+use regex::Regex;
+use serde_json::{from_str, to_string_pretty};
+use zeroize::Zeroize;
+
+use ng_repo::errors::NgError;
+use ng_repo::log::*;
+use ng_repo::types::{Sig, SymKey};
+use ng_repo::utils::ed_keypair_from_priv_bytes;
+use ng_repo::{
+    types::PrivKey,
+    utils::{decode_key, decode_priv_key, sign, verify},
+};
+
 use ng_net::types::*;
 use ng_net::utils::is_private_ip;
 use ng_net::utils::is_public_ip;
 use ng_net::utils::is_public_ipv4;
 use ng_net::utils::is_public_ipv6;
-use ng_net::utils::{
-    gen_dh_keys, is_ipv4_global, is_ipv4_private, is_ipv6_global, is_ipv6_private,
-};
 use ng_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
-use ng_repo::errors::NgError;
-use ng_repo::log::*;
-use ng_repo::types::Sig;
-use ng_repo::types::SymKey;
-use ng_repo::utils::ed_keypair_from_priv_bytes;
-use ng_repo::{
-    types::{PrivKey, PubKey},
-    utils::{decode_key, decode_priv_key, generate_keypair, sign, verify},
-};
-use serde_json::{from_str, to_string_pretty};
-use std::error::Error;
-use std::fs::{read_to_string, write};
-use std::io::ErrorKind;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::path::PathBuf;
-use zeroize::Zeroize;
 
-use addr::parser::DnsName;
-use addr::psl::List;
-use lazy_static::lazy_static;
-use regex::Regex;
+use ng_broker::interfaces::*;
+use ng_broker::server_ws::run_server_v0;
+use ng_broker::types::*;
+use ng_broker::utils::*;
+
+use crate::cli::*;
 
 //For windows: {846EE342-7039-11DE-9D20-806E6F6E6963}
 //For the other OSes: en0 lo ...
@@ -223,6 +221,7 @@ fn parse_triple_interface_and_port_for(
             parts[1].to_string(),
             &format!("public IPv6 (middle) part of the {}", for_option),
         )?;
+        middle_part = Some(middle_part_res);
     }
 
     let last_part = parse_ipv4_and_port_for(
@@ -274,7 +273,7 @@ fn parse_domain_and_port(
     } else {
         default_port
     };
-    let mut domain_with_port = parts[0].clone().to_string();
+    let mut domain_with_port = parts[0].to_string();
     if port != default_port {
         domain_with_port.push_str(&format!(":{}", port));
     }
@@ -459,7 +458,7 @@ async fn main_inner() -> Result<(), NgdError> {
                 gen_broker_keys(key_from_file)
             } else {
                 let res = gen_broker_keys(None);
-                let key = PrivKey::Ed25519PrivKey((res[0]));
+                let key = PrivKey::Ed25519PrivKey(res[0]);
                 let mut master_key = key.to_string();
                 if args.save_key {
                     write(key_path.clone(), &master_key)
@@ -484,7 +483,7 @@ async fn main_inner() -> Result<(), NgdError> {
 
     let mut sign_path = path.clone();
     sign_path.push("sign");
-    let sign_from_file: Option<[u8; 32]>;
+    //let sign_from_file: Option<[u8; 32]>;
     let privkey: PrivKey = keys[3].into();
     let pubkey = privkey.to_pub();
 
@@ -502,7 +501,7 @@ async fn main_inner() -> Result<(), NgdError> {
             .map_err(|e| NgdError::CannotSaveSignature(e.to_string()))?;
 
         let sig_ser = serde_bare::to_vec(&sig).unwrap();
-        let res = std::fs::write(sign_path, sig_ser)
+        std::fs::write(sign_path, sig_ser)
             .map_err(|e| NgdError::CannotSaveSignature(e.to_string()))?;
     }
 
@@ -966,8 +965,8 @@ async fn main_inner() -> Result<(), NgdError> {
                 .unwrap()
                 .as_str()
                 .try_into()
-                .map_err(|e| {
-                    log_warn!("The admin UserId supplied is invalid. no admin user configured.");
+                .map_err(|_e| {
+                    log_warn!("The supplied admin UserId is invalid. no admin user configured.");
                 })
                 .ok()
         } else {

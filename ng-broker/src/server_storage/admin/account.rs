@@ -14,12 +14,15 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::time::SystemTime;
 
-use ng_net::types::*;
+use serde_bare::{from_slice, to_vec};
+
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::KCVStorage;
+#[allow(unused_imports)]
 use ng_repo::log::*;
 use ng_repo::types::UserId;
-use serde_bare::{from_slice, to_vec};
+
+use ng_net::types::*;
 
 pub struct Account<'a> {
     /// User ID
@@ -220,7 +223,7 @@ impl<'a> Account<'a> {
             // let mut client_key_ser = to_vec(&client_key)?;
             #[allow(deprecated)]
             let client_key = (ClientId::nil(), 0u64);
-            let mut client_key_ser = to_vec(&client_key)?;
+            let client_key_ser = to_vec(&client_key)?;
             let size = client_key_ser.len() + id.len();
 
             if let Ok(clients) =

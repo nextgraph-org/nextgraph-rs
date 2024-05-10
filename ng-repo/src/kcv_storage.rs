@@ -8,13 +8,17 @@
 
 //! KeyColumnValue Storage abstraction
 
-use std::collections::HashMap;
-use std::{collections::HashSet, marker::PhantomData};
+use std::{
+    collections::{HashMap, HashSet},
+    marker::PhantomData,
+};
 
-use crate::errors::StorageError;
-use crate::log::*;
 use serde::{Deserialize, Serialize};
 use serde_bare::{from_slice, to_vec};
+
+use crate::errors::StorageError;
+#[allow(unused_imports)]
+use crate::log::*;
 
 pub fn prop<A>(prop: u8, props: &HashMap<u8, Vec<u8>>) -> Result<A, StorageError>
 where
@@ -168,7 +172,7 @@ pub trait IModel {
                 self.existential().as_mut().unwrap().process_exists(res);
                 true
             }
-            Err(e) => false,
+            Err(_e) => false,
         }
     }
     fn storage(&self) -> &dyn KCVStorage;
@@ -266,6 +270,51 @@ impl<
             .has_property_value(self.prefix, &key, None, &vec![], &None)
     }
 
+    pub fn remove_from_set_and_add(
+        &self,
+        model: &mut Model,
+        mut remove_set: HashSet<Column>,
+        add_set: HashSet<Column>,
+    ) -> Result<(), StorageError> {
+        // if existing_set.len() == 0 {
+        //     return Err(StorageError::InvalidValue);
+        // }
+        model.check_exists()?;
+
+        let key_prefix = model.key();
+        let key_prefix_len = key_prefix.len();
+        let total_size = key_prefix_len + self.value_size()?;
+
+        //log_debug!("REPLACE HEAD {:?} with {:?}", existing_set, replace_with);
+
+        model.storage().write_transaction(&mut |tx| {
+            for found in tx.get_all_keys_and_values(
+                self.prefix,
+                total_size,
+                key_prefix.to_vec(),
+                None,
+                &None,
+            )? {
+                if found.0.len() == total_size + 1 {
+                    let val: Column = from_slice(&found.0[1 + key_prefix_len..total_size + 1])?;
+                    if remove_set.remove(&val) {
+                        tx.del(self.prefix, &found.0[1..].to_vec(), None, &None)?;
+                    }
+                }
+            }
+
+            for add in add_set.iter() {
+                let mut new = Vec::with_capacity(total_size);
+                new.extend(key_prefix);
+                let mut val = to_vec(add)?;
+                new.append(&mut val);
+                //log_debug!("PUTTING HEAD {} {:?}", self.prefix as char, new);
+                tx.put(self.prefix, &new, None, &vec![], &None)?;
+            }
+            return Ok(());
+        })
+    }
+
     pub fn replace_with_new_set_if_old_set_exists(
         &self,
         model: &mut Model,
@@ -281,7 +330,7 @@ impl<
         let key_prefix_len = key_prefix.len();
         let total_size = key_prefix_len + self.value_size()?;
 
-        let empty_existing = existing_set.len() == 0;
+        let empty_existing = existing_set.is_empty();
 
         //log_debug!("REPLACE HEAD {:?} with {:?}", existing_set, replace_with);
 
@@ -295,7 +344,7 @@ impl<
             )? {
                 if found.0.len() == total_size + 1 {
                     let val: Column = from_slice(&found.0[1 + key_prefix_len..total_size + 1])?;
-                    if (empty_existing) {
+                    if empty_existing {
                         return Err(StorageError::NotEmpty);
                     }
                     if existing_set.remove(&val) {
@@ -303,7 +352,7 @@ impl<
                     }
                 }
             }
-            if existing_set.len() == 0 {
+            if existing_set.is_empty() {
                 for add in replace_with.iter() {
                     let mut new = Vec::with_capacity(total_size);
                     new.extend(key_prefix);
@@ -781,7 +830,7 @@ impl<Column: Clone + Serialize + for<'d> Deserialize<'d>> ExistentialValue<Colum
         if self.value.is_some() {
             return Ok(self.value.as_ref().unwrap());
         }
-        if self.value_ser.len() == 0 {
+        if self.value_ser.is_empty() {
             return Err(StorageError::BackendError);
         }
         let value = from_slice::<Column>(&self.value_ser);

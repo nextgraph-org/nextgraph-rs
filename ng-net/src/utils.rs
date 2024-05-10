@@ -9,22 +9,25 @@
  * according to those terms.
 */
 
-use crate::types::*;
-#[cfg(target_arch = "wasm32")]
-use crate::NG_BOOTSTRAP_LOCAL_PATH;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
 use async_std::task;
 use ed25519_dalek::*;
 use futures::{channel::mpsc, Future};
+use noise_protocol::U8Array;
+use noise_protocol::DH;
+use noise_rust_crypto::sensitive::Sensitive;
+use url::Host;
+use url::Url;
+
 #[cfg(target_arch = "wasm32")]
 use ng_repo::errors::*;
 use ng_repo::types::PubKey;
 use ng_repo::{log::*, types::PrivKey};
-use noise_protocol::U8Array;
-use noise_protocol::DH;
-use noise_rust_crypto::sensitive::Sensitive;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use url::Host;
-use url::Url;
+
+use crate::types::*;
+#[cfg(target_arch = "wasm32")]
+use crate::NG_BOOTSTRAP_LOCAL_PATH;
 
 #[cfg(target_arch = "wasm32")]
 pub fn spawn_and_log_error<F>(fut: F) -> task::JoinHandle<()>
@@ -119,7 +122,7 @@ pub fn check_is_local_url(bootstrap: &BrokerServerV0, location: &String) -> Opti
 
 #[cfg(target_arch = "wasm32")]
 async fn retrieve_ng_bootstrap(location: &String) -> Option<LocalBootstrapInfo> {
-    let prefix = if (APP_PREFIX == "") {
+    let prefix = if APP_PREFIX == "" {
         let url = Url::parse(location).unwrap();
         url.origin().unicode_serialization()
     } else {
@@ -177,7 +180,7 @@ pub async fn retrieve_local_bootstrap(
         if info.is_none() {
             None
         } else {
-            let mut inv: Invitation = info.unwrap().into();
+            let inv: Invitation = info.unwrap().into();
             Some(inv)
         }
     };

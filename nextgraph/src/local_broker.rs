@@ -7,34 +7,38 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use async_once_cell::OnceCell;
-use async_std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
 use core::fmt;
+use std::collections::HashMap;
+use std::fs::{read, remove_file, write};
+use std::path::PathBuf;
+
+use async_once_cell::OnceCell;
+use async_std::sync::{Arc, Mutex, RwLock};
 use futures::channel::mpsc;
 use futures::SinkExt;
-use ng_net::actor::EActor;
-use ng_net::connection::{ClientConfig, IConnect, NoiseFSM, StartConfig};
-use ng_net::types::{ClientInfo, ClientType, ProtocolMessage};
-use ng_net::utils::{Receiver, Sender};
-use ng_repo::block_storage::HashMapBlockStorage;
-use ng_repo::os_info::get_os_info;
-use ng_verifier::types::*;
-use ng_verifier::verifier::Verifier;
-use ng_wallet::emojis::encode_pazzle;
 use once_cell::sync::Lazy;
 use serde_bare::to_vec;
 use serde_json::json;
-use std::collections::HashMap;
-use std::fs::{read, remove_file, write, File, OpenOptions};
-use std::path::PathBuf;
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::Zeroize;
 
-use ng_net::broker::*;
 use ng_repo::block_storage::BlockStorage;
+use ng_repo::block_storage::HashMapBlockStorage;
 use ng_repo::errors::{NgError, ProtocolError};
 use ng_repo::log::*;
+use ng_repo::os_info::get_os_info;
 use ng_repo::types::*;
 use ng_repo::utils::derive_key;
+
+use ng_net::actor::EActor;
+use ng_net::broker::*;
+use ng_net::connection::{ClientConfig, IConnect, NoiseFSM, StartConfig};
+use ng_net::types::{ClientInfo, ClientType, ProtocolMessage};
+use ng_net::utils::{Receiver, Sender};
+
+use ng_verifier::types::*;
+use ng_verifier::verifier::Verifier;
+
+use ng_wallet::emojis::encode_pazzle;
 use ng_wallet::{create_wallet_first_step_v0, create_wallet_second_step_v0, types::*};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -192,6 +196,7 @@ impl LocalBrokerConfig {
             _ => None,
         }
     }
+    #[cfg(not(target_family = "wasm"))]
     fn compute_path(&self, dir: &String) -> Result<PathBuf, NgError> {
         match self {
             Self::BasePath(path) => {
@@ -221,6 +226,7 @@ pub enum SessionConfig {
 struct Session {
     config: SessionConfig,
     peer_key: PrivKey,
+    #[allow(dead_code)]
     last_wallet_nonce: u64,
     verifier: Verifier,
 }
@@ -536,6 +542,8 @@ impl LocalBroker {
     ) -> Result<ClientV0, NgError> {
         let broker = self;
 
+        //log_info!("wallet_was_opened {}", wallet.id());
+
         match broker.opened_wallets.get(&wallet.id()) {
             Some(opened_wallet) => {
                 return Ok(opened_wallet.wallet.client().to_owned().unwrap());
@@ -591,7 +599,7 @@ impl LocalBroker {
             wallet,
             block_storage,
         };
-
+        //log_info!("inserted wallet_was_opened {}", wallet_id);
         broker.opened_wallets.insert(wallet_id, opened_wallet);
         Ok(client)
     }
@@ -845,7 +853,7 @@ impl LocalBroker {
                     return Err(NgError::IoError);
                 }
             }
-            _ => panic!("wrong LocalBrokerConfig"),
+            _ => return Err(NgError::CannotSaveWhenInMemoryConfig),
         }
         Ok(())
     }
@@ -1064,6 +1072,7 @@ pub async fn wallets_reload() -> Result<(), NgError> {
                 base64_url::decode(&wallets_string).map_err(|_| NgError::SerializationError)?;
             let wallets: LocalWalletStorage = serde_bare::from_slice(&map_ser)?;
             let LocalWalletStorage::V0(v0) = wallets;
+            //log_info!("adding wallet {:?}", v0);
             broker.wallets.extend(v0);
         }
         _ => {}
@@ -1074,7 +1083,7 @@ pub async fn wallets_reload() -> Result<(), NgError> {
 #[doc(hidden)]
 /// This should not be used by programmers. Only here because the JS SDK needs it.
 ///
-/// It will throw and error if you use it.
+/// It will throw an error if you use it.
 pub async fn wallet_add(lws: LocalWalletStorageV0) -> Result<(), NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
@@ -1210,7 +1219,7 @@ pub async fn wallet_import(
 /// this is a separate step because in JS webapp, the opening of a wallet takes time and freezes the GUI.
 /// We need to run it in the background in a WebWorker. but there, the LocalBroker cannot access localStorage...
 /// So a separate function must be called, once the WebWorker is done.
-pub async fn wallet_was_opened(mut wallet: SensitiveWallet) -> Result<ClientV0, NgError> {
+pub async fn wallet_was_opened(wallet: SensitiveWallet) -> Result<ClientV0, NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
@@ -1224,7 +1233,7 @@ pub async fn wallet_was_opened(mut wallet: SensitiveWallet) -> Result<ClientV0, 
 /// The session is valid even if there is no internet. The local data will be used in this case.
 /// wallet_creation_events should be the list of events that was returned by wallet_create_v0
 /// Return value is the index of the session, will be used in all the doc_* API calls.
-pub async fn session_start(mut config: SessionConfig) -> Result<SessionInfo, NgError> {
+pub async fn session_start(config: SessionConfig) -> Result<SessionInfo, NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
@@ -1324,7 +1333,11 @@ pub async fn user_connect_with_device_info(
                 let user_id = user.to_string();
                 let peer_key = &session.peer_key;
                 let peer_id = peer_key.to_pub();
-                log_info!("local peer_id {}", peer_id);
+                log_info!(
+                    "connecting with local peer_id {} for user {}",
+                    peer_id,
+                    user_id
+                );
                 let site = wallet.sites.get(&user_id);
                 if site.is_none() {
                     result.push((
@@ -1363,7 +1376,7 @@ pub async fn user_connect_with_device_info(
                             //Option<(String, Vec<BindAddress>)>
                             if url.is_some() {
                                 let url = url.unwrap();
-                                if url.1.len() == 0 {
+                                if url.1.is_empty() {
                                     // TODO deal with Box(Dyn)Public -> tunnel, and on tauri/forward/CLIs, deal with all Box -> direct connections (when url.1.len is > 0)
                                     let res = BROKER
                                         .write()
@@ -1488,16 +1501,14 @@ pub async fn wallet_close(wallet_name: &String) -> Result<(), NgError> {
 }
 
 /// (not implemented yet)
-pub async fn wallet_remove(wallet_name: String) -> Result<(), NgError> {
-    let mut broker = match LOCAL_BROKER.get() {
+pub async fn wallet_remove(_wallet_name: String) -> Result<(), NgError> {
+    let _broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
     };
 
     todo!();
     // should close the wallet, then remove all the saved sessions and remove the wallet
-
-    Ok(())
 }
 
 // /// fetches a document's content.

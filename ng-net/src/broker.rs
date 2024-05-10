@@ -11,6 +11,21 @@
 
 //! Broker singleton present in every instance of NextGraph (Client, Server, Core node)
 
+use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
+use std::collections::HashSet;
+
+use async_std::stream::StreamExt;
+use async_std::sync::{Arc, RwLock};
+use either::Either;
+use futures::channel::mpsc;
+use futures::SinkExt;
+use once_cell::sync::Lazy;
+
+use ng_repo::errors::*;
+use ng_repo::log::*;
+use ng_repo::types::*;
+
 use crate::actor::EActor;
 use crate::actor::SoS;
 use crate::connection::*;
@@ -18,19 +33,6 @@ use crate::server_broker::IServerBroker;
 use crate::types::*;
 use crate::utils::spawn_and_log_error;
 use crate::utils::{Receiver, ResultSend, Sender};
-use async_std::stream::StreamExt;
-use async_std::sync::{Arc, RwLock};
-use either::Either;
-use futures::channel::mpsc;
-use futures::SinkExt;
-use ng_repo::errors::*;
-use ng_repo::log::*;
-use ng_repo::object::Object;
-use ng_repo::types::*;
-use ng_repo::utils::generate_keypair;
-use once_cell::sync::Lazy;
-use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 
 #[derive(Debug)]
 pub enum PeerConnection {
@@ -41,11 +43,13 @@ pub enum PeerConnection {
 
 #[derive(Debug)]
 pub struct BrokerPeerInfo {
-    lastPeerAdvert: Option<PeerAdvert>, //FIXME: remove Option
+    #[allow(dead_code)]
+    last_peer_advert: Option<PeerAdvert>, //FIXME: remove Option
     connected: PeerConnection,
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct DirectConnection {
     addr: BindAddress,
     remote_peer_id: X25519PrivKey,
@@ -80,9 +84,7 @@ pub struct Broker {
     peers: HashMap<(Option<PubKey>, X25519PubKey), BrokerPeerInfo>,
     /// (local,remote) -> ConnectionBase
     anonymous_connections: HashMap<(BindAddress, BindAddress), ConnectionBase>,
-    #[cfg(not(target_arch = "wasm32"))]
-    listeners: HashMap<String, ListenerInfo>,
-    bind_addresses: HashMap<BindAddress, String>,
+
     config: Option<ServerConfig>,
     shutdown: Option<Receiver<ProtocolError>>,
     shutdown_sender: Sender<ProtocolError>,
@@ -92,6 +94,11 @@ pub struct Broker {
     //local_broker: Option<Box<dyn ILocalBroker + Send + Sync + 'a>>,
     local_broker: Option<Arc<RwLock<dyn ILocalBroker>>>,
 
+    #[cfg(not(target_arch = "wasm32"))]
+    listeners: HashMap<String, ListenerInfo>,
+    #[cfg(not(target_arch = "wasm32"))]
+    bind_addresses: HashMap<BindAddress, String>,
+    #[cfg(not(target_arch = "wasm32"))]
     users_peers: HashMap<UserId, HashSet<X25519PubKey>>,
 }
 
@@ -304,7 +311,7 @@ impl Broker {
         match peerinfo {
             Some(info) => match &info.connected {
                 PeerConnection::NONE => {}
-                PeerConnection::Client(cb) => {
+                PeerConnection::Client(_cb) => {
                     info.connected = PeerConnection::NONE;
                 }
                 PeerConnection::Core(ip) => {
@@ -320,11 +327,11 @@ impl Broker {
         match removed {
             Some(info) => match info.connected {
                 PeerConnection::NONE => {}
-                PeerConnection::Client(cb) => {
+                PeerConnection::Client(_cb) => {
                     #[cfg(not(target_arch = "wasm32"))]
                     if user.is_none() {
                         // server side
-                        if let Some(fsm) = cb.fsm {
+                        if let Some(fsm) = _cb.fsm {
                             if let Ok(user) = fsm.lock().await.user_id() {
                                 let _ = self.remove_user_peer(&user, &peer_id);
                             }
@@ -375,9 +382,6 @@ impl Broker {
 
         Broker {
             anonymous_connections: HashMap::new(),
-            #[cfg(not(target_arch = "wasm32"))]
-            listeners: HashMap::new(),
-            bind_addresses: HashMap::new(),
             config: None,
             shutdown: Some(shutdown_receiver),
             shutdown_sender,
@@ -386,6 +390,12 @@ impl Broker {
             closing: false,
             server_broker: None,
             local_broker: None,
+
+            #[cfg(not(target_arch = "wasm32"))]
+            listeners: HashMap::new(),
+            #[cfg(not(target_arch = "wasm32"))]
+            bind_addresses: HashMap::new(),
+            #[cfg(not(target_arch = "wasm32"))]
             users_peers: HashMap::new(),
         }
     }
@@ -524,8 +534,8 @@ impl Broker {
                 let res = join.next().await;
                 match res {
                     Some(Either::Right(remote_peer_id)) => {
-                        let res = join.next().await;
-                        log_debug!("SOCKET IS CLOSED {:?} peer_id: {:?}", res, remote_peer_id);
+                        let _res = join.next().await;
+                        log_debug!("SOCKET IS CLOSED {:?} peer_id: {:?}", _res, remote_peer_id);
                         BROKER
                             .write()
                             .await
@@ -660,7 +670,7 @@ impl Broker {
             PeerConnection::Core(remote_bind_address)
         };
         let bpi = BrokerPeerInfo {
-            lastPeerAdvert: None,
+            last_peer_advert: None,
             connected,
         };
         self.peers.insert((None, remote_peer_id), bpi);
@@ -782,7 +792,7 @@ impl Broker {
         };
 
         let bpi = BrokerPeerInfo {
-            lastPeerAdvert: None,
+            last_peer_advert: None,
             connected,
         };
 
@@ -791,9 +801,9 @@ impl Broker {
 
         async fn watch_close(
             mut join: Receiver<Either<NetError, X25519PrivKey>>,
-            cnx: Arc<Box<dyn IConnect>>,
-            peer_privk: PrivKey,
-            peer_pubkey: PubKey,
+            _cnx: Arc<Box<dyn IConnect>>,
+            _peer_privk: PrivKey,
+            _peer_pubkey: PubKey,
             remote_peer_id: [u8; 32],
             config: StartConfig,
             local_broker: Arc<async_std::sync::RwLock<dyn ILocalBroker>>,
@@ -884,16 +894,16 @@ impl Broker {
             remote_peer,
         )?;
 
-        log_debug!("dispatch_event {:?}", peers_for_local_dispatch);
+        //log_debug!("dispatch_event {:?}", peers_for_local_dispatch);
 
         for peer in peers_for_local_dispatch {
-            log_debug!("dispatch_event peer {:?}", peer);
+            //log_debug!("dispatch_event peer {:?}", peer);
             if let Some(BrokerPeerInfo {
                 connected: PeerConnection::Client(ConnectionBase { fsm: Some(fsm), .. }),
                 ..
             }) = self.peers.get(&(None, peer.to_owned().to_dh()))
             {
-                log_debug!("ForwardedEvent peer {:?}", peer);
+                //log_debug!("ForwardedEvent peer {:?}", peer);
                 let _ = fsm
                     .lock()
                     .await

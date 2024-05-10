@@ -11,13 +11,13 @@
 
 //! A Site of an Individual or Org (with 3P stores: Public, Protected, Private)
 
-use crate::types::*;
-use crate::verifier::Verifier;
-use ng_repo::errors::NgError;
-use ng_repo::store::*;
-use ng_repo::types::*;
-use ng_repo::utils::{generate_keypair, sign, verify};
 use serde::{Deserialize, Serialize};
+
+use ng_repo::errors::NgError;
+use ng_repo::types::*;
+use ng_repo::utils::generate_keypair;
+
+use crate::verifier::Verifier;
 
 /// Site V0
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -183,7 +183,6 @@ impl SiteV0 {
         let private_repo_id = private_repo.id;
         let private_store_repo = private_repo.store.get_store_repo().clone();
         let private_repo_read_cap = private_repo.read_cap.to_owned().unwrap();
-        let user_branch_id = user_branch.id;
 
         // Creating the AddSignerCap for each store
         let mut commits = Vec::with_capacity(5);
@@ -254,13 +253,15 @@ impl SiteV0 {
     }
 
     pub async fn create_org(name: String) -> Result<Self, NgError> {
-        let (site_privkey, site_pubkey) = generate_keypair();
+        // TODO: implement correctly. see create_personal/create_individual
 
-        let (public_store_privkey, public_store_pubkey) = generate_keypair();
+        let (_site_privkey, site_pubkey) = generate_keypair();
 
-        let (protected_store_privkey, protected_store_pubkey) = generate_keypair();
+        let (_public_store_privkey, public_store_pubkey) = generate_keypair();
 
-        let (private_store_privkey, private_store_pubkey) = generate_keypair();
+        let (_protected_store_privkey, protected_store_pubkey) = generate_keypair();
+
+        let (_private_store_privkey, private_store_pubkey) = generate_keypair();
 
         let public = SiteStore {
             id: public_store_pubkey,

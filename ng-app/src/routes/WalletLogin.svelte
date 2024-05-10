@@ -10,7 +10,7 @@
 -->
 
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
   import { link, push } from "svelte-spa-router";
   import Login from "../lib/Login.svelte";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
@@ -56,6 +56,7 @@
     });
     opened_wallets_unsub = opened_wallets.subscribe(async (value) => {
       if (!$active_wallet && selected && value[selected]) {
+        await tick();
         active_wallet.set({ wallet: value[selected], id: selected });
       }
     });
@@ -136,6 +137,7 @@
       let client = await ng.wallet_was_opened(event.detail.wallet);
       event.detail.wallet.V0.client = client;
     }
+    await tick();
     active_wallet.set(event.detail);
     // { wallet,
     // id }
@@ -356,8 +358,7 @@
           </a>
         </div>
       </div>
-    {:else if step == "security"}{:else if step == "qrcode"}{:else if step == "cloud"}
-
+      <!-- {:else if step == "security"}{:else if step == "qrcode"}{:else if step == "cloud"} -->
     {:else if step == "loggedin"}
       You are logged in.<br /> please wait while the app is loading...{/if}
   </CenteredLayout>

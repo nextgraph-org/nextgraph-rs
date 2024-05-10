@@ -9,15 +9,13 @@
 
 //! Repo Storage (Object Key/Col/Value Mapping)
 
-use std::collections::HashMap;
 use std::collections::HashSet;
 
-use ng_net::types::*;
+use serde_bare::to_vec;
+
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::*;
 use ng_repo::types::*;
-
-use serde_bare::to_vec;
 
 use crate::server_broker::RepoInfo;
 
@@ -111,7 +109,7 @@ impl<'a> RepoHashStorage<'a> {
         overlay: &OverlayId,
         storage: &'a dyn KCVStorage,
     ) -> Result<RepoHashStorage<'a>, StorageError> {
-        let mut opening = Self::new(repo, overlay, storage);
+        let opening = Self::new(repo, overlay, storage);
         Ok(opening)
     }
     pub fn create(
@@ -119,7 +117,7 @@ impl<'a> RepoHashStorage<'a> {
         overlay: &OverlayId,
         storage: &'a dyn KCVStorage,
     ) -> Result<RepoHashStorage<'a>, StorageError> {
-        let mut creating = Self::new(repo, overlay, storage);
+        let creating = Self::new(repo, overlay, storage);
         Ok(creating)
     }
 }

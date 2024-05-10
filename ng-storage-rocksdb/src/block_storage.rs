@@ -7,26 +7,21 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use ng_repo::block_storage::BlockStorage;
-use ng_repo::errors::StorageError;
-use ng_repo::types::*;
-use ng_repo::utils::*;
-
-use ng_repo::log::*;
-use rocksdb::BlockBasedOptions;
-use rocksdb::DBCompressionType;
 use std::path::Path;
-use std::sync::{Arc, RwLock};
 use std::thread::available_parallelism;
 
-use serde::{Deserialize, Serialize};
-use serde_bare::error::Error;
-
+#[allow(unused_imports)]
 use rocksdb::{
-    ColumnFamily, ColumnFamilyDescriptor, Direction, Env, ErrorKind, IteratorMode, Options,
-    SingleThreaded, TransactionDB, TransactionDBOptions, DB,
+    BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType, Direction, Env,
+    ErrorKind, IteratorMode, Options, TransactionDB, TransactionDBOptions,
 };
 
+use ng_repo::block_storage::BlockStorage;
+use ng_repo::errors::StorageError;
+use ng_repo::log::*;
+use ng_repo::types::*;
+
+#[allow(dead_code)]
 pub struct RocksDbBlockStorage {
     /// the main store where all the properties of keys are stored
     db: TransactionDB,
@@ -133,7 +128,7 @@ impl BlockStorage for RocksDbBlockStorage {
         let ser = serde_bare::to_vec(block)?;
         let tx = self.db.transaction();
         let key = Self::compute_key(overlay, &block_id);
-        if (lazy) {
+        if lazy {
             if let Some(block_ser) = tx
                 .get(key.clone())
                 .map_err(|_e| StorageError::BackendError)?

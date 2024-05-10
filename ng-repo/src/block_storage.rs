@@ -9,17 +9,18 @@
 
 //! Storage of Blocks
 
-use futures::StreamExt;
-
-use crate::errors::*;
-use crate::types::*;
-use crate::utils::Receiver;
 use std::sync::RwLock;
 use std::{
     cmp::{max, min},
     collections::HashMap,
     mem::size_of_val,
 };
+
+use futures::StreamExt;
+
+use crate::errors::*;
+use crate::types::*;
+use crate::utils::Receiver;
 
 pub trait BlockStorage: Send + Sync {
     /// Load a block from the storage.
@@ -165,7 +166,7 @@ impl BlockStorage for HashMapBlockStorage {
         Ok(id)
     }
 
-    fn del(&self, overlay: &OverlayId, id: &BlockId) -> Result<usize, StorageError> {
+    fn del(&self, _overlay: &OverlayId, id: &BlockId) -> Result<usize, StorageError> {
         let block = self
             .blocks
             .write()

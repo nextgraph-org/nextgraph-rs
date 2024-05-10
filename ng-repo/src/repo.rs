@@ -9,20 +9,16 @@
 
 //! Repository
 
-use crate::block_storage::*;
-use crate::errors::*;
-use crate::event::*;
-use crate::log::*;
-use crate::object::Object;
-use crate::store::Store;
-use crate::types::*;
-use crate::utils::generate_keypair;
-use crate::utils::sign;
 use core::fmt;
-
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
+
+use crate::errors::*;
+#[allow(unused_imports)]
+use crate::log::*;
+use crate::store::Store;
+use crate::types::*;
 
 impl RepositoryV0 {
     pub fn new_with_meta(id: &PubKey, metadata: &Vec<u8>) -> RepositoryV0 {
@@ -163,19 +159,24 @@ impl Repo {
         Self::new_with_member(&pub_key, &pub_key, perms, OverlayId::dummy(), store)
     }
 
-    pub fn update_branch_current_head(
+    pub fn update_branch_current_heads(
         &mut self,
         branch: &BranchId,
         commit_ref: ObjectRef,
-    ) -> Option<Vec<ObjectRef>> {
+        past: Vec<ObjectRef>,
+    ) -> Result<Vec<ObjectRef>, VerifierError> {
         //log_info!("from branch {} HEAD UPDATED TO {}", branch, commit_ref.id);
         if let Some(branch) = self.branches.get_mut(branch) {
-            // FIXME: this is very wrong. the DAG is not always linear
-            branch.current_heads = vec![commit_ref];
+            let mut set: HashSet<&ObjectRef> = HashSet::from_iter(branch.current_heads.iter());
+            for p in past {
+                set.remove(&p);
+            }
+            branch.current_heads = set.into_iter().cloned().collect();
+            branch.current_heads.push(commit_ref);
             // we return the new current heads
-            Some(branch.current_heads.to_vec())
+            Ok(branch.current_heads.to_vec())
         } else {
-            None
+            Err(VerifierError::BranchNotFound)
         }
     }
 

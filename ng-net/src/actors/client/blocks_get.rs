@@ -8,18 +8,21 @@
  * notice may not be copied, modified, or distributed except
  * according to those terms.
 */
-use crate::broker::{ServerConfig, BROKER};
+
+use std::sync::Arc;
+
+use async_recursion::async_recursion;
+use async_std::sync::{Mutex, MutexGuard};
+
+use ng_repo::errors::*;
+use ng_repo::log::*;
+use ng_repo::types::{Block, BlockId, OverlayId};
+
+use crate::broker::BROKER;
 use crate::connection::NoiseFSM;
 use crate::server_broker::IServerBroker;
 use crate::types::*;
 use crate::{actor::*, types::ProtocolMessage};
-use async_recursion::async_recursion;
-use async_std::sync::{Mutex, MutexGuard};
-use ng_repo::errors::*;
-use ng_repo::log::*;
-use ng_repo::types::{Block, BlockId, OverlayId, PubKey};
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 impl BlocksGet {
     pub fn get_actor(&self, id: i64) -> Box<dyn EActor> {

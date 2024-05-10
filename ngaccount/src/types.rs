@@ -9,6 +9,7 @@
 
 use warp::{reply::Response, Reply};
 
+#[allow(dead_code)]
 pub enum NgHttpError {
     InvalidParams,
     NotFound,
@@ -18,7 +19,7 @@ pub enum NgHttpError {
 
 impl Reply for NgHttpError {
     fn into_response(self) -> Response {
-        match (self) {
+        match self {
             NgHttpError::NotFound => warp::http::StatusCode::NOT_FOUND.into_response(),
             NgHttpError::InvalidParams => {
                 let response = Response::new("Invalid params".into());

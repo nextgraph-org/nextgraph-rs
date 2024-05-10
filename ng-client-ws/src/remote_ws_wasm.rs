@@ -13,22 +13,20 @@
 
 use either::Either;
 use futures::FutureExt;
-use futures::{future, pin_mut, select, stream, SinkExt, StreamExt};
-use ng_net::connection::*;
-use ng_net::types::*;
-use ng_net::utils::*;
-use ng_net::WS_PORT;
-use ng_repo::errors::*;
-use ng_repo::log::*;
-use ng_repo::types::*;
-use ng_repo::utils::{generate_keypair, now_timestamp};
-use std::sync::Arc;
-
+use futures::{select, SinkExt, StreamExt};
 use {
-    pharos::{Filter, Observable, ObserveConfig},
+    pharos::{Observable, ObserveConfig},
     wasm_bindgen::UnwrapThrowExt,
     ws_stream_wasm::*,
 };
+
+use ng_repo::errors::*;
+use ng_repo::log::*;
+use ng_repo::types::*;
+
+use ng_net::connection::*;
+use ng_net::types::*;
+use ng_net::utils::*;
 
 pub struct ConnectionWebSocket {}
 
@@ -39,20 +37,20 @@ impl IConnect for ConnectionWebSocket {
         &self,
         url: String,
         peer_privk: PrivKey,
-        peer_pubk: PubKey,
+        _peer_pubk: PubKey,
         remote_peer: DirectPeerId,
         config: StartConfig,
     ) -> Result<ConnectionBase, ProtocolError> {
         log_debug!("url {}", url);
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
 
-        let (mut ws, wsio) = WsMeta::connect(url, None).await.map_err(|e| {
-            //log_debug!("{:?}", e);
+        let (ws, wsio) = WsMeta::connect(url, None).await.map_err(|_e| {
+            //log_debug!("{:?}", _e);
             ProtocolError::ConnectionError
         })?;
 
         cnx.start_read_loop(None, Some(peer_privk), Some(remote_peer));
-        let mut shutdown = cnx.set_shutdown();
+        let shutdown = cnx.set_shutdown();
 
         spawn_and_log_error(ws_loop(
             ws,
@@ -70,13 +68,13 @@ impl IConnect for ConnectionWebSocket {
         let mut cnx = ConnectionBase::new(ConnectionDir::Client, TransportProtocol::WS);
         let url = format!("ws://{}:{}", ip, port);
 
-        let (mut ws, wsio) = WsMeta::connect(url, None).await.map_err(|e| {
-            //log_debug!("{:?}", e);
+        let (ws, wsio) = WsMeta::connect(url, None).await.map_err(|_e| {
+            //log_debug!("{:?}", _e);
             ProtocolError::ConnectionError
         })?;
 
         cnx.start_read_loop(None, None, None);
-        let mut shutdown = cnx.set_shutdown();
+        let shutdown = cnx.set_shutdown();
 
         spawn_and_log_error(ws_loop(
             ws,
@@ -124,7 +122,7 @@ async fn ws_loop(
                         match msg {
                             ConnectionCommand::Msg(m) => {
 
-                                stream.send(WsMessage::Binary(serde_bare::to_vec(&m)?)).await.map_err(|e| { log_debug!("{:?}",e); return NetError::IoError;})?;
+                                stream.send(WsMessage::Binary(serde_bare::to_vec(&m)?)).await.map_err(|_e| { log_debug!("{:?}",_e); return NetError::IoError;})?;
 
                             },
                             ConnectionCommand::Error(e) => {

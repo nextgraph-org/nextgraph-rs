@@ -8,16 +8,19 @@
  * notice may not be copied, modified, or distributed except
  * according to those terms.
 */
-use crate::broker::{ServerConfig, BROKER};
+
+use std::sync::Arc;
+
+use async_std::sync::Mutex;
+
+use ng_repo::errors::*;
+use ng_repo::log::*;
+use ng_repo::types::{Block, OverlayId};
+
+use crate::broker::BROKER;
 use crate::connection::NoiseFSM;
 use crate::types::*;
 use crate::{actor::*, types::ProtocolMessage};
-use async_std::sync::Mutex;
-use ng_repo::errors::*;
-use ng_repo::log::*;
-use ng_repo::types::{Block, OverlayId, PubKey};
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 impl CommitGet {
     pub fn get_actor(&self, id: i64) -> Box<dyn EActor> {
@@ -94,7 +97,7 @@ impl EActor for Actor<'_, CommitGet, Block> {
         // IF NEEDED, the get_commit could be changed to return a stream, and then the send_in_reply_to would be also totally async
         match blocks_res {
             Ok(blocks) => {
-                if blocks.len() == 0 {
+                if blocks.is_empty() {
                     let re: Result<(), ServerError> = Err(ServerError::EmptyStream);
                     fsm.lock()
                         .await

@@ -11,19 +11,20 @@
 //!
 //! Corresponds to the BARE schema
 
+use core::fmt;
+use std::hash::Hash;
+
+use once_cell::sync::OnceCell;
+use serde::{Deserialize, Serialize};
+use threshold_crypto::serde_impl::SerdeSecret;
+use zeroize::{Zeroize, ZeroizeOnDrop};
+
 use crate::errors::NgError;
-use crate::store::Store;
 use crate::utils::{
     decode_key, decode_priv_key, dh_pubkey_array_from_ed_pubkey_slice,
     dh_pubkey_from_ed_pubkey_slice, ed_privkey_to_ed_pubkey, from_ed_privkey_to_dh_privkey,
     random_key,
 };
-use core::fmt;
-use once_cell::sync::OnceCell;
-use serde::{Deserialize, Serialize};
-use std::hash::Hash;
-use threshold_crypto::serde_impl::SerdeSecret;
-use zeroize::{Zeroize, ZeroizeOnDrop};
 
 //
 // COMMON TYPES
@@ -770,10 +771,10 @@ impl StoreRepo {
 
     pub fn overlay_id_for_storage_purpose(&self) -> OverlayId {
         match self {
-            Self::V0(StoreRepoV0::PublicStore(id))
-            | Self::V0(StoreRepoV0::ProtectedStore(id))
-            | Self::V0(StoreRepoV0::Group(id))
-            | Self::V0(StoreRepoV0::PrivateStore(id)) => self.overlay_id_for_read_purpose(),
+            Self::V0(StoreRepoV0::PublicStore(_id))
+            | Self::V0(StoreRepoV0::ProtectedStore(_id))
+            | Self::V0(StoreRepoV0::Group(_id))
+            | Self::V0(StoreRepoV0::PrivateStore(_id)) => self.overlay_id_for_read_purpose(),
             Self::V0(StoreRepoV0::Dialog(d)) => OverlayId::Inner(d.1.clone()),
         }
     }

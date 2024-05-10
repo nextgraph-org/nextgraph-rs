@@ -11,7 +11,7 @@
 
 <script lang="ts">
   import Test from "../lib/Test.svelte";
-  export let params = {};
+
   import { active_session } from "../store";
   import { onMount, tick } from "svelte";
   import { link, push } from "svelte-spa-router";

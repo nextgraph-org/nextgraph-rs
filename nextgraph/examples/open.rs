@@ -7,21 +7,16 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+use std::env::current_dir;
+use std::fs::create_dir_all;
+
+#[allow(unused_imports)]
 use nextgraph::local_broker::{
     app_request, app_request_stream, init_local_broker, session_start, session_stop, user_connect,
     user_disconnect, wallet_close, wallet_create_v0, wallet_get, wallet_get_file, wallet_import,
     wallet_open_with_pazzle, wallet_open_with_pazzle_words, wallet_read_file, wallet_was_opened,
     LocalBrokerConfig, SessionConfig,
 };
-use nextgraph::net::types::BootstrapContentV0;
-use nextgraph::repo::errors::NgError;
-use nextgraph::repo::types::PubKey;
-use nextgraph::wallet::types::CreateWalletV0;
-use nextgraph::wallet::{display_mnemonic, emojis::display_pazzle};
-
-use std::env::current_dir;
-use std::fs::create_dir_all;
-use std::fs::read;
 
 #[async_std::main]
 async fn main() -> std::io::Result<()> {

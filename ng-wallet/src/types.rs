@@ -7,19 +7,22 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use ng_repo::log::*;
+use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
+use std::collections::hash_map::{DefaultHasher, Keys};
 use std::hash::{Hash, Hasher};
 use std::{collections::HashMap, fmt};
 use web_time::SystemTime;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use serde::{Deserialize, Serialize};
-use serde_big_array::BigArray;
+use ng_repo::errors::NgError;
+#[allow(unused_imports)]
+use ng_repo::log::*;
+use ng_repo::types::*;
+use ng_repo::utils::{encrypt_in_place, generate_keypair};
 
 use ng_net::types::*;
-use ng_repo::errors::NgError;
-use ng_repo::types::*;
-use ng_repo::utils::{encrypt_in_place, generate_keypair, now_timestamp, sign};
+
 use ng_verifier::site::SiteV0;
 
 /// WalletId is a PubKey
@@ -910,13 +913,12 @@ pub enum WalletOperation {
     //SetSiteRBDRefV0((PubKey, SiteStoreType, ObjectRef)),
     //SetSiteRepoSecretV0((PubKey, SiteStoreType, RepoWriteCapSecret)),
 }
-use std::collections::hash_map::{DefaultHasher, Iter, Keys};
 
 impl WalletOperation {
     pub fn hash(&self) -> (u64, &str) {
         let mut s = DefaultHasher::new();
         match self {
-            Self::CreateWalletV0(t) => (0, "CreateWalletV0"),
+            Self::CreateWalletV0(_t) => (0, "CreateWalletV0"),
             Self::AddSiteV0(t) => {
                 t.id.hash(&mut s);
                 (s.finish(), "AddSiteV0")
@@ -933,7 +935,7 @@ impl WalletOperation {
                 t.hash(&mut s);
                 (s.finish(), "RemoveBrokerServerV0")
             }
-            Self::SetSaveToNGOneV0(t) => (0, "SetSaveToNGOneV0"),
+            Self::SetSaveToNGOneV0(_t) => (0, "SetSaveToNGOneV0"),
             Self::SetBrokerCoreV0(t) => {
                 t.peer_id.hash(&mut s);
                 (s.finish(), "SetBrokerCoreV0")

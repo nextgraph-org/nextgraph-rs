@@ -14,14 +14,15 @@
 use std::collections::{HashMap, HashSet};
 
 use either::Either;
-use ng_net::{server_broker::IServerBroker, types::*};
-use ng_repo::{
-    errors::{NgError, ProtocolError, ServerError},
-    types::*,
-};
 use serde::{Deserialize, Serialize};
 
-use ng_repo::log::*;
+use ng_repo::{
+    errors::{NgError, ProtocolError, ServerError},
+    log::*,
+    types::*,
+};
+
+use ng_net::{server_broker::IServerBroker, types::*};
 
 use crate::rocksdb_server_storage::RocksDbServerStorage;
 
@@ -97,8 +98,8 @@ impl From<OverlayAccess> for OverlayType {
             OverlayAccess::ReadOnly(_) => {
                 panic!("cannot create an OverlayType from a ReadOnly OverlayAccess")
             }
-            OverlayAccess::ReadWrite((inner, outer)) => OverlayType::Inner(outer),
-            OverlayAccess::WriteOnly(inner) => OverlayType::InnerOnly,
+            OverlayAccess::ReadWrite((_inner, outer)) => OverlayType::Inner(outer),
+            OverlayAccess::WriteOnly(_inner) => OverlayType::InnerOnly,
         }
     }
 }
@@ -113,14 +114,16 @@ pub struct OverlayInfo {
 pub struct ServerBroker {
     storage: RocksDbServerStorage,
 
+    #[allow(dead_code)]
     overlays: HashMap<OverlayId, OverlayInfo>,
+    #[allow(dead_code)]
     inner_overlays: HashMap<OverlayId, Option<OverlayId>>,
 
     local_subscriptions: HashMap<(OverlayId, TopicId), HashSet<PubKey>>,
 }
 
 impl ServerBroker {
-    pub fn new(storage: RocksDbServerStorage) -> Self {
+    pub(crate) fn new(storage: RocksDbServerStorage) -> Self {
         ServerBroker {
             storage: storage,
             overlays: HashMap::new(),
@@ -157,6 +160,7 @@ impl ServerBroker {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn remove_subscription(
         &mut self,
         overlay: &OverlayId,
@@ -317,12 +321,12 @@ impl IServerBroker for ServerBroker {
     ) -> Result<HashSet<&PubKey>, ServerError> {
         let topic = self.storage.save_event(overlay, event, user_id)?;
 
-        log_debug!(
-            "DISPATCH EVENT {} {} {:?}",
-            overlay,
-            topic,
-            self.local_subscriptions
-        );
+        // log_debug!(
+        //     "DISPATCH EVENT {} {} {:?}",
+        //     overlay,
+        //     topic,
+        //     self.local_subscriptions
+        // );
 
         let mut set = self
             .local_subscriptions
