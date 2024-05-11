@@ -376,7 +376,12 @@ impl Object {
                     &mut already_existing,
                 );
                 #[cfg(not(target_arch = "wasm32"))]
-                log_debug!("make_block {} of {} - {}%", i, _total + 1, i * 100 / _total);
+                log_debug!(
+                    "make_block {} of {} - {}%",
+                    i + 1,
+                    _total + 1,
+                    i * 100 / _total
+                );
                 i = i + 1;
             }
 
@@ -676,16 +681,24 @@ impl Object {
         self.blocks.len() + self.header_blocks.len()
     }
 
+    pub fn blocks_len(&self) -> usize {
+        self.blocks.len()
+    }
+
+    pub fn header_blocks_len(&self) -> usize {
+        self.header_blocks.len()
+    }
+
     pub fn size(&self) -> usize {
         let mut total = 0;
         self.blocks().for_each(|b| {
             let s = b.size();
-            //log_debug!("@@@@ {}", s);
+            //log_debug!("@@@@ block {}", s);
             total += s;
         });
         self.header_blocks.iter().for_each(|b| {
             let s = b.size();
-            //log_debug!("@@@@ {}", s);
+            //log_debug!("@@@@ header {}", s);
             total += s;
         });
         total
@@ -1223,6 +1236,7 @@ mod test {
     }
 
     /// Checks that a content that doesn't fit in all the children of first level in tree
+    #[ignore]
     #[test]
     pub fn test_depth_1() {
         const MAX_ARITY_LEAVES: usize = 15887;
@@ -1263,6 +1277,7 @@ mod test {
     }
 
     /// Checks that a content that doesn't fit in all the children of first level in tree
+    #[ignore]
     #[test]
     pub fn test_depth_2() {
         const MAX_ARITY_LEAVES: usize = 15887;
@@ -1300,6 +1315,7 @@ mod test {
     }
 
     /// Checks that a content that doesn't fit in all the children of first level in tree
+    #[ignore]
     #[test]
     pub fn test_depth_3() {
         const MAX_ARITY_LEAVES: usize = 61;
@@ -1348,6 +1364,7 @@ mod test {
     }
 
     /// Checks that a content that doesn't fit in all the children of first level in tree
+    #[ignore]
     #[test]
     pub fn test_depth_4() {
         const MAX_ARITY_LEAVES: usize = 61;

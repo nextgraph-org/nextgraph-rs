@@ -31,9 +31,6 @@ ng-net = { path = "../ng-net", version = "0.1.0" }
 ng-client-ws = { path = "../ng-client-ws", version = "0.1.0" }
 ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0" }
 
-[dev-dependencies]
-tempfile = "3"
-
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
 version = "0.2.7"
 features = ["js"]
@@ -41,3 +38,6 @@ features = ["js"]
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getrandom = "0.2.7"
 default-net = {  git = "https://git.nextgraph.org/NextGraph/default-net.git" }
+
+[dev-dependencies]
+tempfile = "3"

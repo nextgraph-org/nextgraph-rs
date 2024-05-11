@@ -295,7 +295,7 @@ pub fn dec_encrypted_block(
 // we haven't test it yet. https://community.bitwarden.com/t/recommended-settings-for-argon2/50901/16?page=4
 pub fn derive_key_from_pass(mut pass: Vec<u8>, salt: [u8; 16], wallet_id: WalletId) -> [u8; 32] {
     let params = ParamsBuilder::new()
-        .m_cost(30 * 1024)
+        .m_cost(40 * 1024)
         .t_cost(40)
         .p_cost(1)
         .data(AssociatedData::new(wallet_id.slice()).unwrap())
@@ -814,14 +814,14 @@ mod test {
 
     #[test]
     fn test_gen_shuffle() {
-        let shuffle = gen_shuffle_for_pazzle_opening(9);
-        log_debug!("{:?}", shuffle);
-        let shuffle = gen_shuffle_for_pazzle_opening(12);
-        log_debug!("{:?}", shuffle);
-        let shuffle = gen_shuffle_for_pazzle_opening(15);
-        log_debug!("{:?}", shuffle);
-        let digits = gen_shuffle_for_pin();
-        let digits = gen_shuffle_for_pin();
+        let _shuffle = gen_shuffle_for_pazzle_opening(9);
+        log_debug!("{:?}", _shuffle);
+        let _shuffle = gen_shuffle_for_pazzle_opening(12);
+        log_debug!("{:?}", _shuffle);
+        let _shuffle = gen_shuffle_for_pazzle_opening(15);
+        log_debug!("{:?}", _shuffle);
+        let _digits = gen_shuffle_for_pin();
+        log_debug!("{:?}", _digits);
     }
 
     #[async_std::test]
@@ -838,7 +838,7 @@ mod test {
 
         let pin = [5, 2, 9, 1];
 
-        let creation = Instant::now();
+        let _creation = Instant::now();
 
         let res = create_wallet_first_step_v0(CreateWalletV0::new(
             img_buffer,
@@ -847,7 +847,7 @@ mod test {
             9,
             false,
             false,
-            BootstrapContentV0::new_empty(),
+            BootstrapContentV0::new_localhost(PubKey::nil()),
             None,
             None,
         ))
@@ -858,15 +858,15 @@ mod test {
             .await
             .expect("create_wallet_second_step_v0");
 
-        log_debug!(
+        log_info!(
             "creation of wallet took: {} ms",
-            creation.elapsed().as_millis()
+            _creation.elapsed().as_millis()
         );
         log_debug!("-----------------------------");
 
         let mut file = File::create("tests/wallet.ngw").expect("open wallet write file");
         let ser_wallet = to_vec(&NgFile::V0(NgFileV0::Wallet(res.wallet.clone()))).unwrap();
-        file.write_all(&ser_wallet);
+        let _ = file.write_all(&ser_wallet);
 
         log_debug!("wallet id: {}", res.wallet.id());
         log_debug!("pazzle {:?}", display_pazzle(&res.pazzle));
@@ -878,7 +878,7 @@ mod test {
 
             let mut file =
                 File::create("tests/generated_security_image.jpg").expect("open write file");
-            file.write_all(&v0.content.security_img);
+            let _ = file.write_all(&v0.content.security_img);
 
             let f = File::open("tests/generated_security_image.jpg.compare")
                 .expect("open of generated_security_image.jpg.compare");
@@ -891,29 +891,27 @@ mod test {
 
             assert_eq!(v0.content.security_img, generated_security_image_compare);
 
-            #[cfg(debug_assertions)]
-            let opening_mnemonic = Instant::now();
+            let _opening_mnemonic = Instant::now();
 
-            let w = open_wallet_with_mnemonic(Wallet::V0(v0.clone()), res.mnemonic, pin.clone())
+            let _w = open_wallet_with_mnemonic(Wallet::V0(v0.clone()), res.mnemonic, pin.clone())
                 .expect("open with mnemonic");
             //log_debug!("encrypted part {:?}", w);
 
-            log_debug!(
+            log_info!(
                 "opening of wallet with mnemonic took: {} ms",
-                opening_mnemonic.elapsed().as_millis()
+                _opening_mnemonic.elapsed().as_millis()
             );
 
             if v0.content.pazzle_length > 0 {
-                #[cfg(debug_assertions)]
-                let opening_pazzle = Instant::now();
-                let w = open_wallet_with_pazzle(&Wallet::V0(v0.clone()), res.pazzle.clone(), pin)
+                let _opening_pazzle = Instant::now();
+                let _w = open_wallet_with_pazzle(&Wallet::V0(v0.clone()), res.pazzle.clone(), pin)
                     .expect("open with pazzle");
-                log_debug!(
+                log_info!(
                     "opening of wallet with pazzle took: {} ms",
-                    opening_pazzle.elapsed().as_millis()
+                    _opening_pazzle.elapsed().as_millis()
                 );
             }
-            log_debug!("encrypted part {:?}", w);
+            log_debug!("encrypted part {:?}", _w);
         }
     }
 }

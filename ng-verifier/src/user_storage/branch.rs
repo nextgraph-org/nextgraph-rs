@@ -278,5 +278,5 @@ impl<'a> BranchStorage<'a> {
 mod test {
 
     #[test]
-    pub fn test_repo() {}
+    pub fn test_branch() {}
 }

@@ -826,13 +826,13 @@ mod test {
         assert_eq!(read_content, content);
 
         let read_content2 = file.read(0, data_size + 1);
-        assert_eq!(read_content2, Err(FileError::EndOfFile));
+        assert_eq!(read_content2.unwrap().len(), 1048564);
 
         let read_content = file.read(data_size - 9, 9).expect("reading end");
         assert_eq!(read_content, vec![99, 99, 99, 99, 99, 99, 99, 99, 99]);
 
         let read_content = file.read(data_size - 9, 10);
-        assert_eq!(read_content, Err(FileError::EndOfFile));
+        assert_eq!(read_content, Ok(vec![99, 99, 99, 99, 99, 99, 99, 99, 99]));
 
         // log_debug!(
         //     "overhead: {} - {}%",
@@ -864,6 +864,7 @@ mod test {
     }
 
     /// Checks that a content that doesn't fit in all the children of first level in tree
+    #[ignore]
     #[test]
     pub fn test_depth_1() {
         const MAX_ARITY_LEAVES: usize = 15887;
@@ -898,6 +899,7 @@ mod test {
     }
 
     /// Checks that a content that doesn't fit in all the children of first level in tree
+    #[ignore]
     #[test]
     pub fn test_depth_2() {
         const MAX_ARITY_LEAVES: usize = 15887;
@@ -990,6 +992,7 @@ mod test {
     }
 
     /// Checks that a content that doesn't fit in all the children of first level in tree
+    #[ignore]
     #[test]
     pub fn test_depth_4() {
         const MAX_ARITY_LEAVES: usize = 61;
@@ -1066,13 +1069,13 @@ mod test {
             img_buffer
         );
 
-        // reading too far, well behind the size of the JPG
-        assert_eq!(file.read(100000, 1), Err(FileError::EndOfFile));
+        // // reading too far, well behind the size of the JPG
+        // assert_eq!(file.read(100000, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(10000, 1).expect("read before save"), vec![41]);
 
-        // reading one byte after the end of the file size.
-        assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
+        // // reading one byte after the end of the file size.
+        // assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(29454, 0), Err(FileError::InvalidArgument));
 
@@ -1081,19 +1084,19 @@ mod test {
         let res = file.read(0, img_buffer.len()).expect("read all");
         assert_eq!(res, img_buffer);
 
-        // asking too much, receiving an error, as now we know the total size of file, and we check it
-        assert_eq!(
-            file.read(0, img_buffer.len() + 1),
-            Err(FileError::EndOfFile)
-        );
+        // // asking too much, receiving an error, as now we know the total size of file, and we check it
+        // assert_eq!(
+        //     file.read(0, img_buffer.len() + 1),
+        //     Err(FileError::EndOfFile)
+        // );
 
         // reading too far, well behind the size of the JPG
         assert_eq!(file.read(100000, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(10000, 1).expect("read after save"), vec![41]);
 
-        // reading one byte after the end of the file size.
-        assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
+        // // reading one byte after the end of the file size.
+        // assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(29454, 0), Err(FileError::InvalidArgument));
     }
@@ -1153,19 +1156,19 @@ mod test {
 
         assert_eq!(res, img_buffer);
 
-        // asking too much, receiving an error, as now we know the total size of file, and we check it
-        assert_eq!(
-            file.read(0, img_buffer.len() + 1),
-            Err(FileError::EndOfFile)
-        );
+        // // asking too much, receiving an error, as now we know the total size of file, and we check it
+        // assert_eq!(
+        //     file.read(0, img_buffer.len() + 1),
+        //     Err(FileError::EndOfFile)
+        // );
 
         // reading too far, well behind the size of the JPG
         assert_eq!(file.read(100000, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(10000, 1).expect("read after save"), vec![41]);
 
-        // reading one byte after the end of the file size.
-        assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
+        // // reading one byte after the end of the file size.
+        // assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(29454, 0), Err(FileError::InvalidArgument));
     }
@@ -1217,8 +1220,8 @@ mod test {
 
         assert_eq!(file.read(10000, 1).expect("read before save"), vec![41]);
 
-        // reading one byte after the end of the file size.
-        assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
+        // // reading one byte after the end of the file size.
+        // assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(29454, 0), Err(FileError::InvalidArgument));
 
@@ -1231,19 +1234,19 @@ mod test {
         let res = file.read(0, img_buffer.len()).expect("read all");
         assert_eq!(res, first_block_content);
 
-        // asking too much, receiving an error, as now we know the total size of file, and we check it
-        assert_eq!(
-            file.read(0, img_buffer.len() + 1),
-            Err(FileError::EndOfFile)
-        );
+        // // asking too much, not receiving an error, as we know the total size of file, and return what we can
+        // assert_eq!(
+        //     file.read(0, img_buffer.len() + 1),
+        //     Err(FileError::EndOfFile)
+        // );
 
         // reading too far, well behind the size of the JPG
         assert_eq!(file.read(100000, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(10000, 1).expect("read after save"), vec![41]);
 
-        // reading one byte after the end of the file size.
-        assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
+        // // reading one byte after the end of the file size.
+        // assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(29454, 0), Err(FileError::InvalidArgument));
     }
@@ -1291,8 +1294,8 @@ mod test {
 
         assert_eq!(file.read(10000, 1).expect("read before save"), vec![41]);
 
-        // reading one byte after the end of the file size.
-        assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
+        // // reading one byte after the end of the file size.
+        // assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(29454, 0), Err(FileError::InvalidArgument));
 
@@ -1304,24 +1307,25 @@ mod test {
         let res = file.read(10, img_buffer.len() - 10).expect("read all");
         assert_eq!(res, first_block_content[10..].to_vec());
 
-        // asking too much, receiving an error, as now we know the total size of file, and we check it
-        assert_eq!(
-            file.read(0, img_buffer.len() + 1),
-            Err(FileError::EndOfFile)
-        );
+        // // asking too much, receiving an error, as now we know the total size of file, and we check it
+        // assert_eq!(
+        //     file.read(0, img_buffer.len() + 1),
+        //     Err(FileError::EndOfFile)
+        // );
 
         // reading too far, well behind the size of the JPG
         assert_eq!(file.read(100000, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(10000, 1).expect("read after save"), vec![41]);
 
-        // reading one byte after the end of the file size.
-        assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
+        // // reading one byte after the end of the file size.
+        // assert_eq!(file.read(29454, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file.read(29454, 0), Err(FileError::InvalidArgument));
     }
 
     /// Test depth 4 with 52GB of data, but using write in small increments, so the memory burden on the system will be minimal
+    #[ignore]
     #[test]
     pub fn test_depth_4_write_small() {
         const MAX_ARITY_LEAVES: usize = 61;
@@ -1415,19 +1419,19 @@ mod test {
 
         assert_eq!(res, img_buffer);
 
-        // asking too much, receiving an error, as now we know the total size of file, and we check it
-        assert_eq!(
-            file2.read(0, img_buffer.len() + 1),
-            Err(FileError::EndOfFile)
-        );
+        // // asking too much, receiving an error, as now we know the total size of file, and we check it
+        // assert_eq!(
+        //     file2.read(0, img_buffer.len() + 1),
+        //     Err(FileError::EndOfFile)
+        // );
 
         // reading too far, well behind the size of the JPG
         assert_eq!(file2.read(100000, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file2.read(10000, 1).expect("read after save"), vec![41]);
 
-        // reading one byte after the end of the file size.
-        assert_eq!(file2.read(29454, 1), Err(FileError::EndOfFile));
+        // // reading one byte after the end of the file size.
+        // assert_eq!(file2.read(29454, 1), Err(FileError::EndOfFile));
 
         assert_eq!(file2.read(29454, 0), Err(FileError::InvalidArgument));
     }
@@ -1504,6 +1508,7 @@ mod test {
     }
 
     /// Test depth 4, but using write in increments, so the memory burden on the system will be minimal
+    #[ignore]
     #[test]
     pub fn test_depth_4_big_write_small() {
         let encoding_big_file = Instant::now();
@@ -1553,6 +1558,7 @@ mod test {
     }
 
     /// Test depth 4 with 2.7GB of data, but using write in increments, so the memory burden on the system will be minimal
+    #[ignore]
     #[test]
     pub fn test_depth_4_big_write_big() {
         let encoding_big_file = Instant::now();

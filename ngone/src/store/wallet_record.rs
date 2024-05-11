@@ -9,12 +9,12 @@
 
 //! ng-wallet
 
+use serde_bare::{from_slice, to_vec};
+
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::KCVStorage;
-use ng_repo::types::*;
+
 use ng_wallet::types::*;
-use serde::{Deserialize, Serialize};
-use serde_bare::{from_slice, to_vec};
 
 pub struct WalletRecord<'a> {
     /// Wallet ID
@@ -22,6 +22,7 @@ pub struct WalletRecord<'a> {
     store: &'a dyn KCVStorage,
 }
 
+#[allow(dead_code)]
 impl<'a> WalletRecord<'a> {
     const PREFIX: u8 = b"w"[0];
 

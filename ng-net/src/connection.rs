@@ -557,7 +557,7 @@ impl NoiseFSM {
                 // CLIENT side receiving probe response
                 if let Some(msg) = msg_opt {
                     let id = msg.id();
-                    if id != Some(0) {
+                    if id.is_some() {
                         return Err(ProtocolError::InvalidState);
                     }
                     if let ProtocolMessage::ProbeResponse(_probe_res) = &msg {

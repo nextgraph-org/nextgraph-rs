@@ -106,25 +106,24 @@ cargo test
 cargo test --package nextgraph -r --lib -- local_broker::test::import_session_for_test_to_disk --show-output --nocapture --ignored
 ```
 
-Test all:
-
-```
-cargo test --all --verbose -- --show-output --nocapture
-```
-
-Test a single module:
+Test a single crate:
 
 ```
 cargo test --package ng-repo --lib -- branch::test --show-output --nocapture
-```
-
-Test end-to-end client and server:
-
-```
-cargo test --package ngcli -- --show-output --nocapture
+cargo test --package ng-wallet --lib -- branch::test --show-output --nocapture
+cargo test --package ng-verifier --lib -- branch::test --show-output --nocapture
+cargo test --package ng-sdk-js --lib -- branch::test --show-output --nocapture
+cargo test --package ng-broker --lib -- branch::test --show-output --nocapture
+cargo test --package ng-client-ws --lib -- branch::test --show-output --nocapture
 ```
 
 Test WASM websocket
+
+First you need to install the `chromedriver` that matches your version of Chrome
+
+https://googlechromelabs.github.io/chrome-for-testing/
+
+then:
 
 ```
 cd ng-sdk-js
@@ -140,7 +139,7 @@ cargo test --package ng-client-ws --lib -- remote_ws::test::test_ws --show-outpu
 ### Build release binaries
 
 First you will need to have the production build of the frontend.
-If you do not want to setup a whole development environment for the frontend, you can use the precompiled release of the frontend available in `dist-file.tar.gz`
+If you do not want to setup a whole development environment for the frontend, you can use the precompiled release of the frontend available in `dist-file.tar.gz` that you can download from the release page.
 
 ```
 cd ng-app
@@ -183,7 +182,7 @@ For building the apps, see this [documentation](ng-app/README.md).
 #### OpenBSD
 
 On OpenBSD, a conflict between the installed LibreSSL library and the reqwest crate, needs a bit of attention.
-Before compiling the daemon for OpenBSD, please comment out lines 41-42 of `ng-net/Cargo.toml`. This will be solved soon by using `resolver = "2"`.
+Before compiling the daemon for OpenBSD, please comment out lines 38-39 of `ng-net/Cargo.toml`. This will be solved soon by using `resolver = "2"`.
 
 ```
 #[target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -210,7 +209,7 @@ Generate documentation for all packages without their dependencies:
 cargo doc --no-deps
 ```
 
-The generated documentation can be found in `target/doc/<crate-name>`.
+The generated documentation can be found in `target/doc/nextgraph`.
 
 ### Contributions license
 

@@ -53,7 +53,7 @@ pub struct DagNode {
     pub future: HashSet<ObjectId>,
 }
 
-//struct Dag<'a>(&'a HashMap<Digest, DagNode>);
+struct Dag<'a>(&'a HashMap<Digest, DagNode>);
 
 impl fmt::Display for DagNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -64,14 +64,14 @@ impl fmt::Display for DagNode {
     }
 }
 
-// impl<'a> fmt::Display for Dag<'a> {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         for node in self.0.iter() {
-//             writeln!(f, "ID: {} FUTURES: {}", node.0, node.1)?;
-//         }
-//         Ok(())
-//     }
-// }
+impl<'a> fmt::Display for Dag<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for node in self.0.iter() {
+            writeln!(f, "ID: {} FUTURES: {}", node.0, node.1)?;
+        }
+        Ok(())
+    }
+}
 
 impl DagNode {
     fn new() -> Self {
@@ -219,8 +219,9 @@ impl Branch {
 
     /// Branch sync request from another peer
     ///
-    /// `target_heads` represents the list of heads the requester would like to reach. this list should not be empty.
+    /// `target_heads` represents the list of heads the requester would like to reach. this list cannot be empty.
     ///  if the requester doesn't know what to reach, the responder should fill this list with their own current local head.
+    ///  this is not done here. it should be done before, in the handling of incoming requests.
     /// `known_heads` represents the list of current heads at the requester replica at the moment of request.
     ///  an empty list means the requester has an empty branch locally
     ///
@@ -251,6 +252,8 @@ impl Branch {
             // we silently discard any load error on the known_heads as the responder might not know them (yet).
         }
 
+        //log_debug!("their causal past \n{}", Dag(&theirs));
+
         let mut visited = HashMap::new();
 
         let theirs: HashSet<ObjectId> = theirs.keys().into_iter().cloned().collect();
@@ -277,6 +280,8 @@ impl Branch {
             // we silently discard any load error on the target_heads as they can be wrong if the requester is confused about what the responder has locally.
         }
 
+        //log_debug!("what we have here \n{}", Dag(&visited));
+
         // now ordering to respect causal partial order.
         let mut next_generations = HashSet::new();
         for (_, node) in visited.iter() {
@@ -301,6 +306,7 @@ impl Branch {
     }
 }
 
+#[allow(unused_imports)]
 #[cfg(test)]
 mod test {
 
@@ -331,7 +337,6 @@ mod test {
             branch: BranchId,
             author_privkey: PrivKey,
             author_pubkey: PubKey,
-            seq: u64,
             deps: Vec<ObjectRef>,
             acks: Vec<ObjectRef>,
             body_ref: ObjectRef,
@@ -381,8 +386,8 @@ mod test {
             )
         }
 
-        fn add_body_trans(header: Option<CommitHeader>, store: &Store) -> ObjectRef {
-            let content = [7u8; 777].to_vec();
+        fn add_body_trans(header: Option<CommitHeader>, content: u8, store: &Store) -> ObjectRef {
+            let content = [content; 777].to_vec();
             let body = CommitBodyV0::AsyncTransaction(Transaction::V0(content));
             //log_debug!("body: {:?}", body);
             add_obj(
@@ -399,7 +404,7 @@ mod test {
 
         // branch
 
-        let (branch_privkey, branch_pubkey) = generate_keypair();
+        let (_, branch_pubkey) = generate_keypair();
 
         let (member_privkey, member_pubkey) = generate_keypair();
 
@@ -409,7 +414,6 @@ mod test {
             &repo_pubkey,
             &member_pubkey,
             &[PermissionV0::WriteAsync],
-            store.get_store_repo().overlay_id_for_read_purpose(),
             store,
         );
 
@@ -435,10 +439,10 @@ mod test {
             log_debug!("     br");
             log_debug!("    /  \\");
             log_debug!("  t1   t2");
-            log_debug!("  / \\  / \\");
-            log_debug!(" a3  t4<--t5-->(t1)");
-            log_debug!("     / \\");
-            log_debug!("   a6   a7");
+            log_debug!("    \\  /");
+            log_debug!("     t4");
+            log_debug!("      |");
+            log_debug!("     t5");
             log_debug!("");
         }
 
@@ -448,110 +452,68 @@ mod test {
 
         let branch_body = add_body_branch(branch.clone(), &repo.store);
 
-        let trans_body = add_body_trans(None, &repo.store);
+        let trans_body = add_body_trans(None, 8, &repo.store);
+        let trans_body2 = add_body_trans(None, 9, &repo.store);
 
         // create & add commits to store
 
-        log_debug!(">> br");
         let br = add_commit(
             branch_pubkey,
             member_privkey.clone(),
             member_pubkey,
-            0,
             vec![],
             vec![],
             branch_body.clone(),
             &repo.store,
         );
+        log_debug!(">> br {}", br.id);
 
-        log_debug!(">> t1");
         let t1 = add_commit(
             branch_pubkey,
             member_privkey.clone(),
             member_pubkey,
-            1,
-            vec![br.clone()],
             vec![],
+            vec![br.clone()],
             trans_body.clone(),
             &repo.store,
         );
+        log_debug!(">> t1 {}", t1.id);
 
-        log_debug!(">> t2");
         let t2 = add_commit(
             branch_pubkey,
             member_privkey.clone(),
             member_pubkey,
-            2,
-            vec![br.clone()],
             vec![],
-            trans_body.clone(),
+            vec![br.clone()],
+            trans_body2.clone(),
             &repo.store,
         );
+        log_debug!(">> t2 {}", t2.id);
 
-        // log_debug!(">> a3");
-        // let a3 = add_commit(
-        //     branch_pubkey,
-        //     member_privkey.clone(),
-        //     member_pubkey,
-        //     3,
-        //     vec![t1.clone()],
-        //     vec![],
-        //     ack_body.clone(),
-        //     repo_pubkey,
-        //     repo_secret.clone(),
-        //     &mut store,
-        // );
-
-        log_debug!(">> t4");
         let t4 = add_commit(
             branch_pubkey,
             member_privkey.clone(),
             member_pubkey,
-            4,
-            vec![t2.clone()],
-            vec![t1.clone()],
+            vec![],
+            vec![t1.clone(), t2.clone()],
             trans_body.clone(),
             &repo.store,
         );
+        log_debug!(">> t4 {}", t4.id);
 
-        log_debug!(">> t5");
         let t5 = add_commit(
             branch_pubkey,
             member_privkey.clone(),
             member_pubkey,
-            5,
-            vec![t1.clone(), t2.clone()],
-            vec![t4.clone()],
-            trans_body.clone(),
-            &repo.store,
-        );
-
-        log_debug!(">> a6");
-        let a6 = add_commit(
-            branch_pubkey,
-            member_privkey.clone(),
-            member_pubkey,
-            6,
-            vec![t4.clone()],
             vec![],
-            trans_body.clone(),
-            &repo.store,
-        );
-
-        log_debug!(">> a7");
-        let a7 = add_commit(
-            branch_pubkey,
-            member_privkey.clone(),
-            member_pubkey,
-            7,
             vec![t4.clone()],
-            vec![],
             trans_body.clone(),
             &repo.store,
         );
+        log_debug!(">> t5 {}", t5.id);
 
-        let c7 = Commit::load(a7.clone(), &repo.store, true).unwrap();
-        c7.verify(&repo).unwrap();
+        let c5 = Commit::load(t5.clone(), &repo.store, true).unwrap();
+        c5.verify(&repo).unwrap();
 
         // let mut filter = Filter::new(FilterBuilder::new(10, 0.01));
         // for commit_ref in [br, t1, t2, t5.clone(), a6.clone()] {
@@ -565,21 +527,9 @@ mod test {
         //     f: filter.get_u8_array().to_vec(),
         // };
 
-        print_branch();
-        log_debug!(">> sync_req");
-        log_debug!("   our_heads: [a3, t5, a6, a7]");
-        log_debug!("   known_heads: [a3, t5]");
-        log_debug!("   their_commits: [br, t1, t2, a3, t5, a6]");
+        let ids = Branch::sync_req([t5.id].into_iter(), &[t1.id], &None, &repo.store).unwrap();
 
-        let ids = Branch::sync_req(
-            [t5.id, a6.id, a7.id].into_iter(),
-            &[t5.id],
-            &None,
-            &repo.store,
-        )
-        .unwrap();
-
-        assert_eq!(ids.len(), 1);
-        assert!(ids.contains(&a7.id));
+        assert_eq!(ids.len(), 3);
+        assert_eq!(ids, [t2.id, t4.id, t5.id]);
     }
 }

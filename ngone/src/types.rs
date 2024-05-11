@@ -18,7 +18,7 @@ pub enum NgHttpError {
 
 impl Reply for NgHttpError {
     fn into_response(self) -> Response {
-        match (self) {
+        match self {
             NgHttpError::NotFound => warp::http::StatusCode::NOT_FOUND.into_response(),
             NgHttpError::InvalidParams => warp::http::StatusCode::BAD_REQUEST.into_response(),
             NgHttpError::AlreadyExists => warp::http::StatusCode::CONFLICT.into_response(),

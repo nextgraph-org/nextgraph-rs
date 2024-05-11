@@ -389,6 +389,7 @@ pub enum ProtocolError {
     AccessDenied,
     InvitationRequired,
     BrokerError,
+    NoLocalBrokerFound,
     NotFound,
     MissingBlocks,
     ObjectParseError,

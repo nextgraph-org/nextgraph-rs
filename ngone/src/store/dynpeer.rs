@@ -9,20 +9,22 @@
 
 //! ng-one bootstrap
 
-use ng_net::types::*;
+use serde_bare::to_vec;
+
 use ng_repo::errors::StorageError;
 use ng_repo::kcv_storage::KCVStorage;
 use ng_repo::types::PubKey;
 
-use serde::{Deserialize, Serialize};
-use serde_bare::{from_slice, to_vec};
+use ng_net::types::*;
 
+#[allow(dead_code)]
 pub struct DynPeer<'a> {
     /// peer ID
     id: PubKey,
     store: &'a dyn KCVStorage,
 }
 
+#[allow(dead_code)]
 impl<'a> DynPeer<'a> {
     const PREFIX: u8 = b"d"[0];
 

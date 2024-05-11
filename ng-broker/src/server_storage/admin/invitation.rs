@@ -181,10 +181,3 @@ impl<'a> Invitation<'a> {
         })
     }
 }
-
-#[cfg(test)]
-mod test {
-
-    #[test]
-    pub fn test_invitation() {}
-}

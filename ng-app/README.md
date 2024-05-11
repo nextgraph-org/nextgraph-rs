@@ -147,5 +147,4 @@ to build the production app :
 
 ```
 cargo tauri ios build
-
 ```

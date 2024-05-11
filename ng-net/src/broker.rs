@@ -194,7 +194,7 @@ impl Broker {
         Ok(Arc::clone(
             self.local_broker
                 .as_ref()
-                .ok_or(ProtocolError::BrokerError)?,
+                .ok_or(ProtocolError::NoLocalBrokerFound)?,
         ))
     }
 
@@ -405,14 +405,14 @@ impl Broker {
         }
     }
 
-    fn take_shutdown(&mut self) -> Receiver<ProtocolError> {
-        self.shutdown.take().unwrap()
+    fn take_shutdown(&mut self) -> Result<Receiver<ProtocolError>, ProtocolError> {
+        self.shutdown.take().ok_or(ProtocolError::BrokerError)
     }
 
     pub async fn join_shutdown() -> Result<(), ProtocolError> {
         let mut shutdown_join: Receiver<ProtocolError>;
         {
-            shutdown_join = BROKER.write().await.take_shutdown();
+            shutdown_join = BROKER.write().await.take_shutdown()?;
         }
         match shutdown_join.next().await {
             Some(ProtocolError::Closing) => Ok(()),

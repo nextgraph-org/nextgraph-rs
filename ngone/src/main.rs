@@ -6,30 +6,32 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
-#[macro_use]
-extern crate slice_as_array;
 
 mod store;
 mod types;
 
-use ng_repo::errors::StorageError;
-use warp::reply::Response;
-use warp::{Filter, Reply};
+use std::sync::Arc;
+use std::{env, fs};
 
 use rust_embed::RustEmbed;
 use serde_bare::{from_slice, to_vec};
 use serde_json::json;
-use std::sync::Arc;
-use std::{env, fs};
+use warp::reply::Response;
+use warp::{Filter, Reply};
+
+use ng_repo::errors::StorageError;
+use ng_repo::log::*;
+use ng_repo::types::*;
+use ng_repo::utils::verify;
+
+use ng_net::types::{APP_NG_ONE_URL, NG_ONE_URL};
+
+use ng_wallet::types::*;
+
+use ng_storage_rocksdb::kcv_storage::RocksDbKCVStorage;
 
 use crate::store::wallet_record::*;
 use crate::types::*;
-use ng_net::types::{APP_NG_ONE_URL, NG_ONE_URL};
-use ng_repo::log::*;
-use ng_repo::types::*;
-use ng_repo::utils::{generate_keypair, sign, verify};
-use ng_storage_rocksdb::kcv_storage::RocksDbKCVStorage;
-use ng_wallet::types::*;
 
 #[derive(RustEmbed)]
 #[folder = "web/dist"]
@@ -41,7 +43,8 @@ struct Server {
 
 impl Server {
     fn add_wallet(&self, bytes: Vec<u8>) -> Result<Response, NgHttpError> {
-        let add_wallet = from_slice::<AddWallet>(&bytes).map_err(|e| NgHttpError::InvalidParams)?;
+        let add_wallet =
+            from_slice::<AddWallet>(&bytes).map_err(|_e| NgHttpError::InvalidParams)?;
 
         let bootstrap = add_wallet.bootstrap();
 
@@ -52,12 +55,12 @@ impl Server {
             bootstrap.sig(),
             bootstrap.id(),
         )
-        .map_err(|e| NgHttpError::InvalidParams)?;
+        .map_err(|_e| NgHttpError::InvalidParams)?;
 
         match add_wallet.wallet() {
             Some(wallet) => {
                 verify(&wallet.content_as_bytes(), wallet.sig(), wallet.id())
-                    .map_err(|e| NgHttpError::InvalidParams)?;
+                    .map_err(|_e| NgHttpError::InvalidParams)?;
             }
             None => {}
         }
@@ -87,12 +90,12 @@ impl Server {
 
     fn get_wallet(&self, encoded_id: String) -> Result<Response, NgHttpError> {
         log_debug!("DOWNLOAD wallet {}", encoded_id);
-        let id = base64_url::decode(&encoded_id).map_err(|e| NgHttpError::InvalidParams)?;
-        let wallet_id: PubKey = from_slice(&id).map_err(|e| NgHttpError::InvalidParams)?;
+        let id = base64_url::decode(&encoded_id).map_err(|_e| NgHttpError::InvalidParams)?;
+        let wallet_id: PubKey = from_slice(&id).map_err(|_e| NgHttpError::InvalidParams)?;
         let wallet_record =
-            WalletRecord::open(&wallet_id, &self.store).map_err(|e| NgHttpError::NotFound)?;
-        let wallet = wallet_record.wallet().map_err(|e| NgHttpError::NotFound)?;
-        let data = to_vec(&wallet).map_err(|e| NgHttpError::NotFound)?;
+            WalletRecord::open(&wallet_id, &self.store).map_err(|_e| NgHttpError::NotFound)?;
+        let wallet = wallet_record.wallet().map_err(|_e| NgHttpError::NotFound)?;
+        let data = to_vec(&wallet).map_err(|_e| NgHttpError::NotFound)?;
         Ok(Response::new(data.into()))
     }
 
@@ -106,13 +109,13 @@ impl Server {
     fn get_bootstrap(&self, encoded_id: String) -> Result<Response, NgHttpError> {
         log_debug!("DOWNLOAD bootstrap {}", encoded_id);
 
-        let id = base64_url::decode(&encoded_id).map_err(|e| NgHttpError::InvalidParams)?;
-        let wallet_id: PubKey = from_slice(&id).map_err(|e| NgHttpError::InvalidParams)?;
+        let id = base64_url::decode(&encoded_id).map_err(|_e| NgHttpError::InvalidParams)?;
+        let wallet_id: PubKey = from_slice(&id).map_err(|_e| NgHttpError::InvalidParams)?;
         let wallet_record =
-            WalletRecord::open(&wallet_id, &self.store).map_err(|e| NgHttpError::NotFound)?;
+            WalletRecord::open(&wallet_id, &self.store).map_err(|_e| NgHttpError::NotFound)?;
         let bootstrap = wallet_record
             .bootstrap()
-            .map_err(|e| NgHttpError::NotFound)?;
+            .map_err(|_e| NgHttpError::NotFound)?;
         let data = json!(bootstrap).to_string();
         Ok(Response::new(data.into()))
     }

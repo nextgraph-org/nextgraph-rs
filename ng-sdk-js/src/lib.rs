@@ -9,6 +9,8 @@
  * according to those terms.
 */
 
+#![cfg(target_arch = "wasm32")]
+
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -18,11 +20,9 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 #[allow(unused_imports)]
 use serde_json::json;
-// #[cfg(target_arch = "wasm32")]
 // use js_sys::Reflect;
 use async_std::stream::StreamExt;
 use wasm_bindgen::prelude::*;
-#[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::JsFuture;
 
 use ng_repo::errors::NgError;
@@ -32,11 +32,9 @@ use ng_repo::types::*;
 use ng_net::broker::*;
 use ng_net::types::{ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, IP};
 use ng_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend};
-#[cfg(target_arch = "wasm32")]
 use ng_net::utils::{retrieve_local_bootstrap, retrieve_local_url};
 use ng_net::WS_PORT;
 
-#[cfg(target_arch = "wasm32")]
 use ng_client_ws::remote_ws_wasm::ConnectionWebSocket;
 
 use ng_wallet::types::*;
@@ -45,7 +43,6 @@ use ng_wallet::*;
 use nextgraph::local_broker::*;
 use nextgraph::verifier::types::*;
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {
     let res = retrieve_local_bootstrap(location, invite.as_string(), false).await;
@@ -56,7 +53,6 @@ pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn get_local_bootstrap_with_public(location: String, invite: JsValue) -> JsValue {
     let res = retrieve_local_bootstrap(location, invite.as_string(), true).await;
@@ -67,7 +63,6 @@ pub async fn get_local_bootstrap_with_public(location: String, invite: JsValue) 
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn decode_invitation(invite: String) -> JsValue {
     let res = decode_invitation_string(invite);
@@ -78,7 +73,6 @@ pub async fn decode_invitation(invite: String) -> JsValue {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn get_local_url(location: String) -> JsValue {
     let res = retrieve_local_url(location).await;
@@ -89,7 +83,6 @@ pub async fn get_local_url(location: String) -> JsValue {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn get_ngone_url_of_invitation(invitation_string: String) -> JsValue {
     let res = decode_invitation_string(invitation_string);
@@ -100,20 +93,17 @@ pub async fn get_ngone_url_of_invitation(invitation_string: String) -> JsValue {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn wallet_gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> JsValue {
     let res = gen_shuffle_for_pazzle_opening(pazzle_length);
     serde_wasm_bindgen::to_value(&res).unwrap()
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn wallet_gen_shuffle_for_pin() -> Vec<u8> {
     gen_shuffle_for_pin()
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn wallet_open_with_pazzle(
     js_wallet: JsValue,
@@ -133,7 +123,6 @@ pub fn wallet_open_with_pazzle(
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn wallet_update(js_wallet_id: JsValue, js_operations: JsValue) -> Result<JsValue, JsValue> {
     let _wallet = serde_wasm_bindgen::from_value::<WalletId>(js_wallet_id)
@@ -147,7 +136,6 @@ pub fn wallet_update(js_wallet_id: JsValue, js_operations: JsValue) -> Result<Js
     // }
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn get_wallets() -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
@@ -161,7 +149,6 @@ pub async fn get_wallets() -> Result<JsValue, JsValue> {
     Ok(JsValue::UNDEFINED)
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn session_start(wallet_name: String, user_js: JsValue) -> Result<JsValue, String> {
     let user_id = serde_wasm_bindgen::from_value::<PubKey>(user_js)
@@ -175,7 +162,6 @@ pub async fn session_start(wallet_name: String, user_js: JsValue) -> Result<JsVa
     Ok(serde_wasm_bindgen::to_value(&res).unwrap())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn session_start_remote(
     wallet_name: String,
@@ -196,7 +182,6 @@ pub async fn session_start_remote(
     Ok(serde_wasm_bindgen::to_value(&res).unwrap())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn wallets_reload() -> Result<(), String> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
@@ -205,7 +190,6 @@ pub async fn wallets_reload() -> Result<(), String> {
         .map_err(|e: NgError| e.to_string())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn add_in_memory_wallet(lws_js: JsValue) -> Result<(), String> {
     let lws = serde_wasm_bindgen::from_value::<LocalWalletStorageV0>(lws_js)
@@ -242,12 +226,10 @@ extern "C" {
     fn storage_clear();
 }
 
-#[cfg(target_arch = "wasm32")]
 fn local_read(key: String) -> Result<String, NgError> {
     local_get(key).ok_or(NgError::JsStorageReadError)
 }
 
-#[cfg(target_arch = "wasm32")]
 fn local_write(key: String, value: String) -> Result<(), NgError> {
     match local_save(key, value) {
         Some(err) => Err(NgError::JsStorageWriteError(err)),
@@ -255,12 +237,10 @@ fn local_write(key: String, value: String) -> Result<(), NgError> {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 fn session_read(key: String) -> Result<String, NgError> {
     session_get(key).ok_or(NgError::JsStorageReadError)
 }
 
-#[cfg(target_arch = "wasm32")]
 fn session_write(key: String, value: String) -> Result<(), NgError> {
     match session_save(key, value) {
         Some(err) => Err(NgError::JsStorageWriteError(err)),
@@ -268,18 +248,15 @@ fn session_write(key: String, value: String) -> Result<(), NgError> {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 fn session_del(key: String) -> Result<(), NgError> {
     session_remove(key);
     Ok(())
 }
 
-#[cfg(target_arch = "wasm32")]
 fn clear() {
     storage_clear();
 }
 
-#[cfg(target_arch = "wasm32")]
 static INIT_LOCAL_BROKER: Lazy<Box<ConfigInitFn>> = Lazy::new(|| {
     Box::new(|| {
         LocalBrokerConfig::JsStorage(JsStorageConfig {
@@ -294,7 +271,6 @@ static INIT_LOCAL_BROKER: Lazy<Box<ConfigInitFn>> = Lazy::new(|| {
     })
 });
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn wallet_create(js_params: JsValue) -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
@@ -308,7 +284,6 @@ pub async fn wallet_create(js_params: JsValue) -> Result<JsValue, JsValue> {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn wallet_get_file(wallet_name: String) -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
@@ -320,7 +295,6 @@ pub async fn wallet_get_file(wallet_name: String) -> Result<JsValue, JsValue> {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn wallet_read_file(js_file: JsValue) -> Result<JsValue, String> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
@@ -334,7 +308,6 @@ pub async fn wallet_read_file(js_file: JsValue) -> Result<JsValue, String> {
     Ok(serde_wasm_bindgen::to_value(&wallet).unwrap())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn wallet_was_opened(
     js_opened_wallet: JsValue, //SensitiveWallet
@@ -349,7 +322,6 @@ pub async fn wallet_was_opened(
     Ok(serde_wasm_bindgen::to_value(&client).unwrap())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn wallet_import(
     js_encrypted_wallet: JsValue, //Wallet,
@@ -388,7 +360,6 @@ pub fn client_info() -> JsValue {
     serde_wasm_bindgen::to_value(&res).unwrap()
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn encode_create_account(payload: JsValue) -> JsValue {
     //log_debug!("{:?}", payload);
@@ -459,7 +430,6 @@ pub fn client_info() -> JsValue {
     serde_wasm_bindgen::to_value(&res).unwrap()
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn test() {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
@@ -469,7 +439,6 @@ pub async fn test() {
     log_debug!("{:?}", client_info);
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn app_request_stream(
     js_session_id: JsValue,
@@ -525,7 +494,6 @@ pub async fn app_request_stream(
     Ok(ret)
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn app_request(js_session_id: JsValue, js_request: JsValue) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
@@ -540,7 +508,6 @@ pub async fn app_request(js_session_id: JsValue, js_request: JsValue) -> Result<
     Ok(serde_wasm_bindgen::to_value(&response).unwrap())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn upload_chunk(
     js_session_id: JsValue,
@@ -574,7 +541,6 @@ pub async fn upload_chunk(
     Ok(serde_wasm_bindgen::to_value(&response).unwrap())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn doc_fetch_private_subscribe() -> Result<JsValue, String> {
     let request = AppRequest::V0(AppRequestV0 {
@@ -585,7 +551,6 @@ pub async fn doc_fetch_private_subscribe() -> Result<JsValue, String> {
     Ok(serde_wasm_bindgen::to_value(&request).unwrap())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn doc_fetch_repo_subscribe(repo_id: String) -> Result<JsValue, String> {
     let request = AppRequest::V0(AppRequestV0 {
@@ -596,14 +561,12 @@ pub async fn doc_fetch_repo_subscribe(repo_id: String) -> Result<JsValue, String
     Ok(serde_wasm_bindgen::to_value(&request).unwrap())
 }
 
-// #[cfg(target_arch = "wasm32")]
-// #[wasm_bindgen]
+// // #[wasm_bindgen]
 // pub async fn get_readcap() -> Result<JsValue, String> {
 //     let request = ObjectRef::nil();
 //     Ok(serde_wasm_bindgen::to_value(&request).unwrap())
 // }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn disconnections_subscribe(callback: &js_sys::Function) -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
@@ -645,7 +608,6 @@ pub async fn disconnections_subscribe(callback: &js_sys::Function) -> Result<JsV
     Ok(true.into())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn probe() {
     let _res = BROKER
@@ -662,7 +624,6 @@ pub async fn probe() {
     let _ = Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn start() {
     async fn inner_task() -> ResultSend<()> {
@@ -671,7 +632,6 @@ pub async fn start() {
     spawn_and_log_error(inner_task()).await;
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn session_stop(user_id_js: JsValue) -> Result<(), String> {
     let user_id = serde_wasm_bindgen::from_value::<UserId>(user_id_js)
@@ -682,7 +642,6 @@ pub async fn session_stop(user_id_js: JsValue) -> Result<(), String> {
         .map_err(|e: NgError| e.to_string())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn user_disconnect(user_id_js: JsValue) -> Result<(), String> {
     let user_id = serde_wasm_bindgen::from_value::<UserId>(user_id_js)
@@ -693,7 +652,6 @@ pub async fn user_disconnect(user_id_js: JsValue) -> Result<(), String> {
         .map_err(|e: NgError| e.to_string())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn wallet_close(wallet_name: String) -> Result<(), String> {
     nextgraph::local_broker::wallet_close(&wallet_name)
@@ -701,7 +659,6 @@ pub async fn wallet_close(wallet_name: String) -> Result<(), String> {
         .map_err(|e: NgError| e.to_string())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub async fn user_connect(
     client_info_js: JsValue,
@@ -751,12 +708,11 @@ pub async fn user_connect(
         .unwrap())
 }
 
-#[cfg(target_arch = "wasm32")]
 #[cfg(test)]
 mod test {
     use wasm_bindgen_test::*;
     wasm_bindgen_test_configure!(run_in_browser);
-    use crate::probe;
+    //use crate::probe;
     use crate::start;
 
     #[wasm_bindgen_test]

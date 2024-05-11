@@ -203,7 +203,7 @@ async fn ws_loop(
 
                         if msg.is_close() {
                             if let Message::Close(Some(cf)) = msg {
-                                log_debug!("CLOSE from remote with closeframe: {}",cf.reason);
+                                log_debug!("CLOSE from remote with closeframe: {} {}",cf.code, cf.reason);
                                 let last_command = match cf.code {
                                     CloseCode::Normal =>
                                         ConnectionCommand::Close,
@@ -294,11 +294,11 @@ async fn ws_loop(
 mod test {
 
     use crate::remote_ws::*;
-    use async_std::task;
     use ng_net::types::IP;
     use ng_net::utils::{spawn_and_log_error, ResultSend};
     use ng_net::{broker::*, WS_PORT};
-    use ng_repo::errors::{NetError, NgError};
+    use ng_repo::errors::NgError;
+    #[allow(unused_imports)]
     use ng_repo::log::*;
     use ng_repo::utils::generate_keypair;
     use std::net::IpAddr;
@@ -307,14 +307,14 @@ mod test {
 
     #[async_std::test]
     pub async fn test_ws() -> Result<(), NgError> {
-        let server_key: PubKey = "X0nh-gOTGKSx0yL0LYJviOWRNacyqIzjQW_LKdK6opU".try_into()?;
+        let server_key: PubKey = "ALyGZgFaDDALXLppJZLS2TrMScG0TQIS68RzRcPv99aN".try_into()?;
         log_debug!("server_key:{}", server_key);
 
         let keys = generate_keypair();
         let x_from_ed = keys.1.to_dh_from_ed();
         log_debug!("Pub from X {}", x_from_ed);
 
-        let (client_priv, client) = generate_keypair();
+        let (client_priv, _client) = generate_keypair();
         let (user_priv, user) = generate_keypair();
 
         log_debug!("start connecting");
@@ -338,7 +338,12 @@ mod test {
                 )
                 .await;
             log_debug!("broker.connect : {:?}", res);
-            res.expect("assume the connection succeeds");
+            assert!(res.is_err());
+            let err = res.unwrap_err();
+            assert!(
+                ProtocolError::NoLocalBrokerFound == err
+                    || ProtocolError::NoiseHandshakeFailed == err
+            );
         }
 
         BROKER.read().await.print_status();
@@ -360,7 +365,7 @@ mod test {
 
         //Broker::graceful_shutdown().await;
 
-        Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
+        let _ = Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
         Ok(())
     }
 
@@ -383,7 +388,7 @@ mod test {
 
         //Broker::graceful_shutdown().await;
 
-        Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(10)).await;
+        let _ = Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(10)).await;
         Ok(())
     }
 }

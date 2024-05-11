@@ -22,7 +22,7 @@ cargo watch -c -w src -x run
 // then open http://localhost:5173/
 ```
 
-## Build
+## Prod
 
 ```
 cd web

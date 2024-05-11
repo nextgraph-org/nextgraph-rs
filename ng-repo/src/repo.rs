@@ -158,7 +158,7 @@ impl Repo {
     #[allow(deprecated)]
     pub fn new_with_perms(perms: &[PermissionV0], store: Arc<Store>) -> Self {
         let pub_key = PubKey::nil();
-        Self::new_with_member(&pub_key, &pub_key, perms, OverlayId::dummy(), store)
+        Self::new_with_member(&pub_key, &pub_key, perms, store)
     }
 
     pub fn update_branch_current_heads(
@@ -184,10 +184,9 @@ impl Repo {
     }
 
     pub fn new_with_member(
-        id: &PubKey,
+        repo_id: &PubKey,
         member: &UserId,
         perms: &[PermissionV0],
-        overlay: OverlayId,
         store: Arc<Store>,
     ) -> Self {
         let mut members = HashMap::new();
@@ -199,16 +198,19 @@ impl Repo {
                 .iter()
                 .cloned(),
         );
+        let overlay = store.get_store_repo().overlay_id_for_read_purpose();
+        let member_hash = CommitContent::author_digest(member, overlay);
+        //log_debug!("added member {:?} {:?}", member, member_hash);
         members.insert(
-            CommitContent::author_digest(member, overlay),
+            member_hash,
             UserInfo {
                 id: *member,
                 permissions,
             },
         );
         Self {
-            id: id.clone(),
-            repo_def: Repository::new(&id),
+            id: repo_id.clone(),
+            repo_def: Repository::new(&repo_id),
             members,
             store,
             signer: None,

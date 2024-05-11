@@ -17,6 +17,8 @@ use ed25519_dalek::{PublicKey, Signature};
 use once_cell::sync::OnceCell;
 
 use crate::errors::*;
+#[allow(unused_imports)]
+use crate::log::*;
 use crate::object::*;
 use crate::repo::Repo;
 use crate::store::Store;
@@ -292,6 +294,13 @@ impl Commit {
     pub fn blocks(&self) -> &Vec<BlockId> {
         match self {
             Commit::V0(v0) => &v0.blocks,
+        }
+    }
+
+    #[cfg(test)]
+    fn empty_blocks(&mut self) {
+        match self {
+            Commit::V0(v0) => v0.blocks = vec![],
         }
     }
 
@@ -1321,7 +1330,10 @@ impl CommitHeaderV0 {
 
     #[cfg(test)]
     pub fn new_with_deps_and_acks(deps: Vec<ObjectId>, acks: Vec<ObjectId>) -> Option<Self> {
-        assert!(!deps.is_empty() || !acks.is_empty());
+        if deps.is_empty() && acks.is_empty() {
+            return None;
+        }
+        //assert!(!deps.is_empty() || !acks.is_empty());
         let mut n = Self::new_empty();
         n.deps = deps;
         n.acks = acks;
@@ -1491,6 +1503,7 @@ impl fmt::Display for CommitHeaderKeys {
 #[cfg(test)]
 mod test {
     use crate::commit::*;
+    #[allow(unused_imports)]
     use crate::log::*;
 
     fn test_commit_header_ref_content_fits(
@@ -1546,7 +1559,9 @@ mod test {
 
         log_debug!("{}", commit_object);
 
-        log_debug!("object size:     {}", commit_object.size());
+        // log_debug!("blocks:     {}", commit_object.blocks_len());
+        // log_debug!("header blocks:     {}", commit_object.header_blocks_len());
+        // log_debug!("object size:     {}", commit_object.size());
 
         assert_eq!(commit_object.all_blocks_len(), expect_blocks_len);
 
@@ -1561,15 +1576,16 @@ mod test {
         let obj_refs2 = vec![obj_ref.clone(), obj_ref.clone()];
         let obj_refs = vec![obj_ref.clone()];
         // with 1 refs in header
-        test_commit_header_ref_content_fits(obj_refs.clone(), 3733, 2);
-        test_commit_header_ref_content_fits(obj_refs.clone(), 3734, 3);
-        test_commit_header_ref_content_fits(obj_refs.clone(), 3584, 1);
-        test_commit_header_ref_content_fits(obj_refs.clone(), 3585, 2);
+        test_commit_header_ref_content_fits(obj_refs.clone(), 3592, 1); // block 4090
+        test_commit_header_ref_content_fits(obj_refs.clone(), 3593, 2); //block 4012 header 117 total: 4129
+        test_commit_header_ref_content_fits(obj_refs.clone(), 3741, 2); //block 4094 block 219 total: 4313
+        test_commit_header_ref_content_fits(obj_refs.clone(), 3742, 3); // block 4094 block 9 block 285
+
         // with 2 refs in header
-        test_commit_header_ref_content_fits(obj_refs2.clone(), 3352, 1);
-        test_commit_header_ref_content_fits(obj_refs2.clone(), 3353, 2);
-        test_commit_header_ref_content_fits(obj_refs2.clone(), 3601, 2);
-        test_commit_header_ref_content_fits(obj_refs2.clone(), 3602, 3);
+        test_commit_header_ref_content_fits(obj_refs2.clone(), 3360, 1);
+        test_commit_header_ref_content_fits(obj_refs2.clone(), 3361, 2);
+        test_commit_header_ref_content_fits(obj_refs2.clone(), 3609, 2);
+        test_commit_header_ref_content_fits(obj_refs2.clone(), 3610, 3);
     }
 
     #[test]
@@ -1613,7 +1629,7 @@ mod test {
 
         let store = Store::dummy_public_v0();
 
-        let commit = Commit::new_with_body_and_save(
+        let mut commit = Commit::new_with_body_and_save(
             &priv_key,
             &pub_key,
             branch,
@@ -1632,6 +1648,8 @@ mod test {
         .expect("commit::new_with_body_and_save");
 
         log_debug!("{}", commit);
+
+        commit.empty_blocks();
 
         let commit2 = Commit::load(commit.reference().unwrap(), &store, true)
             .expect("load commit with body after save");
@@ -1652,12 +1670,12 @@ mod test {
         let files = obj_refs.clone();
         let metadata = vec![1, 2, 3];
         let body_ref = obj_ref.clone();
-        let overlay = OverlayId::dummy();
+        let store = Store::dummy_public_v0();
 
         let commit = Commit::new(
             &priv_key,
             &pub_key,
-            overlay,
+            store.overlay_id,
             branch,
             QuorumType::NoSigning,
             deps,
@@ -1672,8 +1690,7 @@ mod test {
         .unwrap();
         log_debug!("{}", commit);
 
-        let store = Store::dummy_public_v0();
-        let repo = Repo::new_with_perms(&[PermissionV0::Create], store);
+        let repo = Repo::new_with_member(&pub_key, &pub_key, &[PermissionV0::Create], store);
 
         // match commit.load_body(repo.store.unwrap()) {
         //     Ok(_b) => panic!("Body should not exist"),
@@ -1712,7 +1729,6 @@ mod test {
     #[test]
     pub fn test_load_commit_with_body_verify_perms() {
         let (priv_key, pub_key) = generate_keypair();
-        let obj_ref = ObjectRef::dummy();
 
         let branch = pub_key;
 
@@ -1744,7 +1760,7 @@ mod test {
 
         log_debug!("{}", commit);
 
-        let repo = Repo::new_with_perms(&[PermissionV0::Create], store);
+        let repo = Repo::new_with_member(&pub_key, &pub_key, &[PermissionV0::Create], store);
 
         commit.load_body(&repo.store).expect("load body");
 
