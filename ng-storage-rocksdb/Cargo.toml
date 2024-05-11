@@ -13,11 +13,8 @@ documentation.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-ng-repo = { path = "../ng-repo", version = "0.1.0" }
-serde = { version = "1.0.142", features = ["derive"] }
 serde_bare = "0.5.0"
-tempfile = "3"
-hex = "0.4.3"
+ng-repo = { path = "../ng-repo", version = "0.1.0" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.rocksdb]
 git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git"

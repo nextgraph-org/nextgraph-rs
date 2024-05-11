@@ -568,6 +568,7 @@ pub async fn accept(tcp: TcpStream, peer_priv_key: PrivKey) {
     }
 }
 
+#[cfg(test)]
 pub async fn run_server_accept_one(
     addr: &str,
     port: u16,

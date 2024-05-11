@@ -50,6 +50,11 @@ until this [PR](https://github.com/rustwasm/wasm-pack/pull/1271) is accepted, wi
 
 ```
 cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2b663f25abe50631a236d57a8c6d7fd806413b2
+```
+
+then :
+
+```
 cargo install cargo-watch
 // optionally, if you want a Rust REPL: cargo install evcxr_repl
 git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
@@ -65,6 +70,8 @@ The crates are organized as follow :
 - [nextgraph](nextgraph/README.md) : Client library. Use this crate to embed NextGraph client in your Rust application
 - [ngcli](ngcli/README.md) : CLI tool to manipulate the local documents and repos and administrate the server
 - [ngd](ngd/README.md) : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
+- [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the official web app.
+- [ng-sdk-js](ng-sdk-js/README.md) : contains the JS SDK, with example for: web app, react app, or node service.
 - ng-repo : Repositories common library
 - ng-net : Network common library
 - ng-verifier : Verifier library, that exposes the document API to the app
@@ -72,8 +79,6 @@ The crates are organized as follow :
 - ng-broker : Core and Server Broker library
 - ng-client-ws : Websocket client library
 - ng-storage-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
-- [ng-sdk-js](ng-sdk-js/README.md) : contains the JS SDK, with example apps: web app, react app, or node service.
-- [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the web app.
 - ngone : server for nextgraph.one. helps user bootstrap into the right app. Not useful to you. Published here for transparency
 - ngaccount : server for nextgraph's Broker Service Provider account manager. Not useful to you. Published here for transparency
 
@@ -89,9 +94,17 @@ cargo run --bin ngd
 cargo run --bin ngcli
 ```
 
-For the web apps, see the [README](ng-app/README.md)
+For the apps, see the [README](ng-app/README.md)
 
 ### Test
+
+Please test by following this order (as we need to generate some files locally)
+
+```
+cargo test --package nextgraph -r --lib -- local_broker::test::gen_wallet_for_test --show-output --nocapture
+cargo test
+cargo test --package nextgraph -r --lib -- local_broker::test::import_session_for_test_to_disk --show-output --nocapture --ignored
+```
 
 Test all:
 

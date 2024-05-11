@@ -277,11 +277,6 @@ impl<'a> BranchStorage<'a> {
 #[cfg(test)]
 mod test {
 
-    use ng_repo::errors::StorageError;
-    use ng_repo::types::*;
-    use ng_repo::utils::*;
-    use std::fs;
-
     #[test]
     pub fn test_repo() {}
 }

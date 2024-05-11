@@ -2173,17 +2173,15 @@ impl Verifier {
 #[cfg(test)]
 mod test {
 
-    use crate::types::*;
     use crate::verifier::*;
-    use ng_repo::log::*;
     use ng_repo::store::Store;
 
     #[async_std::test]
     pub async fn test_new_repo_default() {
         let (creator_priv_key, creator_pub_key) = generate_keypair();
 
-        let (publisher_privkey, publisher_pubkey) = generate_keypair();
-        let publisher_peer = PeerId::Forwarded(publisher_pubkey);
+        let (_publisher_privkey, publisher_pubkey) = generate_keypair();
+        let _publisher_peer = PeerId::Forwarded(publisher_pubkey);
 
         let store = Store::dummy_public_v0();
         let store_repo = store.get_store_repo().clone();

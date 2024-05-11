@@ -211,21 +211,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
 
 [[package]]
-name = "assert_cmd"
-version = "2.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86d6b683edf8d1119fe420a94f8a7e389239666aa72e65495d91c00462510151"
-dependencies = [
- "anstyle",
- "bstr",
- "doc-comment",
- "predicates",
- "predicates-core",
- "predicates-tree",
- "wait-timeout",
-]
-
-[[package]]
 name = "async-attributes"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -233,17 +218,6 @@ checksum = "a3203e79f4dd9bdda415ed03cf14dae5a2bf775c683a00f94e9cd1faf0f596e5"
 dependencies = [
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "async-broadcast"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d26004fe83b2d1cd3a97609b21e39f9a31535822210fe83205d2ce48866ea61"
-dependencies = [
- "event-listener",
- "futures-core",
- "parking_lot",
 ]
 
 [[package]]
@@ -354,15 +328,6 @@ name = "async-once-cell"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9338790e78aa95a416786ec8389546c4b6a1dfc3dc36071ed9518a9413a542eb"
-
-[[package]]
-name = "async-oneshot"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ec7c75bcbcb0139e9177f30692fd617405ca4e0c27802e128d53171f7042e2c"
-dependencies = [
- "futures-micro",
-]
 
 [[package]]
 name = "async-process"
@@ -524,7 +489,7 @@ dependencies = [
  "fxhash",
  "hex",
  "im",
- "itertools 0.12.1",
+ "itertools",
  "leb128",
  "serde",
  "sha2 0.10.7",
@@ -720,8 +685,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a246e68bb43f6cd9db24bea052a53e40405417c5fb372e3d1a8a7f770a564ef5"
 dependencies = [
  "memchr",
- "once_cell",
- "regex-automata",
  "serde",
 ]
 
@@ -1384,12 +1347,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "difflib"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6184e33543162437515c2e2b48714794e37845ec9851711914eec9d308f6ebe8"
-
-[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1446,12 +1403,6 @@ dependencies = [
  "once_cell",
  "winapi",
 ]
-
-[[package]]
-name = "doc-comment"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "dtoa"
@@ -1895,15 +1846,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.58",
-]
-
-[[package]]
-name = "futures-micro"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b460264b3593d68b16a7bc35f7bc226ddfebdf9a1c8db1ed95d5cc6b7168c826"
-dependencies = [
- "pin-project-lite",
 ]
 
 [[package]]
@@ -2650,15 +2592,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
@@ -3236,9 +3169,7 @@ dependencies = [
  "ng-verifier",
  "ng-wallet",
  "once_cell",
- "serde",
  "serde_bare",
- "serde_bytes",
  "serde_json",
  "web-time",
  "zeroize",
@@ -3251,7 +3182,6 @@ dependencies = [
  "async-std",
  "async-tungstenite",
  "nextgraph",
- "ng-client-ws",
  "ng-net",
  "ng-repo",
  "ng-wallet",
@@ -3267,17 +3197,13 @@ dependencies = [
 name = "ng-broker"
 version = "0.1.0"
 dependencies = [
- "async-channel",
  "async-std",
- "async-trait",
  "async-tungstenite",
  "blake3",
- "chacha20",
  "default-net",
  "either",
  "futures",
  "getrandom 0.2.10",
- "hex",
  "ng-client-ws",
  "ng-net",
  "ng-repo",
@@ -3286,7 +3212,6 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_bare",
- "serde_bytes",
  "serde_json",
  "tempfile",
 ]
@@ -3295,21 +3220,16 @@ dependencies = [
 name = "ng-client-ws"
 version = "0.1.0"
 dependencies = [
- "async-channel",
- "async-oneshot",
  "async-std",
  "async-trait",
  "async-tungstenite",
- "chacha20",
  "either",
  "futures",
  "getrandom 0.2.10",
  "ng-net",
  "ng-repo",
  "pharos",
- "serde",
  "serde_bare",
- "serde_bytes",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "ws_stream_wasm",
@@ -3319,12 +3239,10 @@ dependencies = [
 name = "ng-net"
 version = "0.1.0"
 dependencies = [
- "async-broadcast 0.4.1",
  "async-recursion",
  "async-std",
  "async-trait",
  "base64-url",
- "blake3",
  "default-net",
  "ed25519-dalek",
  "either",
@@ -3340,7 +3258,6 @@ dependencies = [
  "serde_bytes",
  "unique_id",
  "url",
- "wasm-bindgen",
  "web-time",
 ]
 
@@ -3360,7 +3277,6 @@ dependencies = [
  "futures",
  "getrandom 0.2.10",
  "gloo-timers",
- "hex",
  "log",
  "num_enum",
  "once_cell",
@@ -3383,8 +3299,6 @@ name = "ng-sdk-js"
 version = "0.1.0"
 dependencies = [
  "async-std",
- "base64-url",
- "futures",
  "getrandom 0.1.16",
  "gloo-timers",
  "js-sys",
@@ -3394,29 +3308,23 @@ dependencies = [
  "ng-repo",
  "ng-wallet",
  "once_cell",
- "pharos",
  "rand 0.7.3",
  "serde",
  "serde-wasm-bindgen",
- "serde_bare",
  "serde_bytes",
  "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
- "ws_stream_wasm",
 ]
 
 [[package]]
 name = "ng-storage-rocksdb"
 version = "0.1.0"
 dependencies = [
- "hex",
  "ng-repo",
  "rocksdb",
- "serde",
  "serde_bare",
- "tempfile",
 ]
 
 [[package]]
@@ -3426,8 +3334,6 @@ dependencies = [
  "async-std",
  "async-trait",
  "automerge",
- "blake3",
- "chacha20",
  "either",
  "fastbloom-rs",
  "futures",
@@ -3440,7 +3346,6 @@ dependencies = [
  "serde",
  "serde_bare",
  "serde_bytes",
- "threshold_crypto",
  "web-time",
  "yrs",
 ]
@@ -3452,7 +3357,6 @@ dependencies = [
  "aes-gcm-siv",
  "argon2",
  "async-std",
- "base64-url",
  "blake3",
  "chacha20poly1305",
  "crypto_box",
@@ -3477,21 +3381,14 @@ name = "ngaccount"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64-url",
- "bytes",
  "duration-str",
  "env_logger",
  "log",
  "ng-client-ws",
  "ng-net",
  "ng-repo",
- "ng-wallet",
  "rust-embed",
  "serde",
- "serde-big-array",
- "serde_bare",
- "serde_bytes",
- "serde_json",
  "tokio",
  "warp",
  "warp-embed",
@@ -3501,27 +3398,18 @@ dependencies = [
 name = "ngcli"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "assert_cmd",
  "async-std",
- "base64-url",
  "blake3",
  "clap",
  "duration-str",
- "ed25519-dalek",
  "env_logger",
- "futures",
  "getrandom 0.2.10",
  "log",
  "ng-client-ws",
  "ng-net",
  "ng-repo",
- "rand 0.7.3",
  "serde",
- "serde_bare",
- "serde_bytes",
  "serde_json",
- "tempfile",
  "zeroize",
 ]
 
@@ -3531,7 +3419,6 @@ version = "0.1.0"
 dependencies = [
  "addr",
  "async-std",
- "base64-url",
  "clap",
  "env_logger",
  "lazy_static",
@@ -3540,9 +3427,7 @@ dependencies = [
  "ng-net",
  "ng-repo",
  "regex",
- "serde",
  "serde_bare",
- "serde_bytes",
  "serde_json",
  "zeroize",
 ]
@@ -3561,9 +3446,7 @@ dependencies = [
  "ng-wallet",
  "rust-embed",
  "serde",
- "serde-big-array",
  "serde_bare",
- "serde_bytes",
  "serde_json",
  "slice_as_array",
  "tokio",
@@ -4306,34 +4189,6 @@ name = "precomputed-hash"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
-
-[[package]]
-name = "predicates"
-version = "3.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09963355b9f467184c04017ced4a2ba2d75cbcb4e7462690d388233253d4b1a9"
-dependencies = [
- "anstyle",
- "difflib",
- "itertools 0.10.5",
- "predicates-core",
-]
-
-[[package]]
-name = "predicates-core"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b794032607612e7abeb4db69adb4e33590fa6cf1149e95fd7cb00e634b92f174"
-
-[[package]]
-name = "predicates-tree"
-version = "1.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "368ba315fb8c5052ab692e68a0eefec6ec57b23a36959c14496f0b0df2c0cecf"
-dependencies = [
- "predicates-core",
- "termtree",
-]
 
 [[package]]
 name = "prettyplease"
@@ -5707,12 +5562,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "termtree"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3369f5ac52d5eb6ab48c6b4ffdc8efbcad6b89c765749064ba298f2c68a16a76"
-
-[[package]]
 name = "thin-slice"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6253,15 +6102,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3b17ae1f6c8a2b28506cd96d412eebf83b4a0ff2cbefeeb952f2f9dfa44ba18"
 dependencies = [
  "cc",
- "libc",
-]
-
-[[package]]
-name = "wait-timeout"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f200f5b12eb75f8c1ed65abd4b2db8a6e1b138a20de009dacee265a2498f3f6"
-dependencies = [
  "libc",
 ]
 
@@ -7034,7 +6874,7 @@ version = "3.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31de390a2d872e4cd04edd71b425e29853f786dc99317ed72d73d6fcf5ebb948"
 dependencies = [
- "async-broadcast 0.5.1",
+ "async-broadcast",
  "async-executor",
  "async-fs",
  "async-io",

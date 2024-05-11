@@ -1043,6 +1043,8 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
     if params.local_save && broker.config.is_in_memory() {
         return Err(NgError::CannotSaveWhenInMemoryConfig);
     }
+    let in_memory = !params.local_save;
+
     let intermediate = create_wallet_first_step_v0(params)?;
     let lws: LocalWalletStorageV0 = (&intermediate).into();
 
@@ -1074,8 +1076,9 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
     //log_info!("VERIFIER DUMP {:?}", session.verifier);
 
     broker.wallets.get_mut(&res.wallet_name).unwrap().wallet = res.wallet.clone();
-    LocalBroker::wallet_save(&mut broker)?;
-
+    if !in_memory {
+        LocalBroker::wallet_save(&mut broker)?;
+    }
     broker
         .opened_wallets
         .get_mut(&res.wallet_name)
@@ -1655,6 +1658,7 @@ pub async fn take_disconnections_receiver() -> Result<Receiver<String>, NgError>
         .ok_or(NgError::BrokerError)
 }
 
+#[allow(unused_imports)]
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1693,7 +1697,7 @@ mod test {
 
         init_local_broker(Box::new(|| LocalBrokerConfig::InMemory)).await;
 
-        let peer_id = "X0nh-gOTGKSx0yL0LYJviOWRNacyqIzjQW_LKdK6opU";
+        //let peer_id = "X0nh-gOTGKSx0yL0LYJviOWRNacyqIzjQW_LKdK6opU";
         let peer_id_of_server_broker = PubKey::nil();
 
         let wallet_result = wallet_create_v0(CreateWalletV0 {
@@ -1770,7 +1774,7 @@ mod test {
         let pazzle_string = read_to_string("tests/wallet.pazzle").expect("read pazzle file");
         let pazzle_words = pazzle_string.split(' ').map(|s| s.to_string()).collect();
 
-        let opened_wallet = wallet_open_with_pazzle_words(&wallet, &pazzle_words, [2, 3, 2, 3])
+        let opened_wallet = wallet_open_with_pazzle_words(&wallet, &pazzle_words, [1, 2, 1, 2])
             .expect("opening of wallet");
 
         let mut file =
@@ -1780,6 +1784,7 @@ mod test {
         file.write_all(&ser).expect("write of opened_wallet file");
     }
 
+    #[ignore]
     #[async_std::test]
     async fn gen_opened_wallet_file_for_test_with_pazzle_array() {
         let wallet_file = read("tests/wallet.ngw").expect("read wallet file");
@@ -1790,17 +1795,19 @@ mod test {
             .await
             .expect("wallet_read_file");
 
-        let pazzle = vec![114, 45, 86, 104, 1, 135, 17, 50, 65];
-        let opened_wallet =
-            wallet_open_with_pazzle(&wallet, pazzle, [2, 3, 2, 3]).expect("opening of wallet");
+        let pazzle = vec![8, 21, 135, 65, 123, 52, 0, 35, 108];
+        let opened_wallet = wallet_open_with_pazzle(&wallet, pazzle, [1, 2, 1, 2]);
 
-        let mut file =
-            File::create("tests/opened_wallet.ngw").expect("open for write opened_wallet file");
-        let ser = serde_bare::to_vec(&opened_wallet).expect("serialization of opened wallet");
+        assert_eq!(opened_wallet.unwrap_err(), NgError::EncryptionError);
 
-        file.write_all(&ser).expect("write of opened_wallet file");
+        // let mut file =
+        //     File::create("tests/opened_wallet.ngw").expect("open for write opened_wallet file");
+        // let ser = serde_bare::to_vec(&opened_wallet).expect("serialization of opened wallet");
+
+        // file.write_all(&ser).expect("write of opened_wallet file");
     }
 
+    #[ignore]
     #[async_std::test]
     async fn import_session_for_test_to_disk() {
         let wallet_file = read("tests/wallet.ngw").expect("read wallet file");

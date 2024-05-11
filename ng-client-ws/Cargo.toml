@@ -13,21 +13,18 @@ documentation.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-ng-repo = { path = "../ng-repo", version = "0.1.0" }
-ng-net = { path = "../ng-net", version = "0.1.0" }
-chacha20 = "0.9.0"
-serde = { version = "1.0", features = ["derive"] }
 serde_bare = "0.5.0"
-serde_bytes = "0.11.7"
+either = "1.8.1"
+futures = "0.3.24"
 async-trait = "0.1.64"
 async-std = {  version = "1.12.0", features = ["attributes","unstable"] }
-futures = "0.3.24"
-async-channel = "1.7.1"
-async-oneshot = "0.5.0"
-ws_stream_wasm = "0.7" 
-pharos = "0.5"
+ng-repo = { path = "../ng-repo", version = "0.1.0" }
+ng-net = { path = "../ng-net", version = "0.1.0" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
-either = "1.8.1"
+ws_stream_wasm = "0.7"
+pharos = "0.5"
 
 [dev-dependencies]
 wasm-bindgen-test = "^0.3"

@@ -17,19 +17,22 @@ rust-version.workspace = true
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
 serde_bare = "0.5.0"
-serde_bytes = "0.11.7"
-ng-broker = { path = "../ng-broker", version = "0.1.0" }
-ng-net = { path = "../ng-net", version = "0.1.0" }
-ng-repo = { path = "../ng-repo", version = "0.1.0", features = ["server_log_output"] }
+serde_json = "1.0"
 async-std = {  version = "1.12.0", features = ["attributes"] }
+zeroize = { version = "1.6.0" }
+addr = "0.15.6"
+regex = "1.8.4"
+lazy_static = "1.4.0"
 log = "0.4"
 env_logger = "0.10"
 clap = { version = "4.3.21", features = ["derive","env","string"] }
-base64-url = "2.0.0"
-serde_json = "1.0"
-regex = "1.8.4"
-lazy_static = "1.4.0"
-addr = "0.15.6"
-zeroize = { version = "1.6.0" }
+ng-repo = { path = "../ng-repo", version = "0.1.0", features = ["server_log_output"] }
+ng-net = { path = "../ng-net", version = "0.1.0" }
+ng-broker = { path = "../ng-broker", version = "0.1.0" }
+
+
+
+
+
+

@@ -342,6 +342,7 @@ pub fn open_wallet_with_pazzle(
             )?;
             pazzle_key.zeroize();
 
+            #[cfg(debug_assertions)]
             log_debug!(
                 "opening of wallet with pazzle took: {} ms",
                 opening_pazzle.elapsed().as_millis()
@@ -768,6 +769,7 @@ pub async fn create_wallet_second_step_v0(
     //     sig,
     // });
 
+    #[cfg(debug_assertions)]
     log_debug!(
         "creating of wallet took: {} ms",
         creating_pazzle.elapsed().as_millis()

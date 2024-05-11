@@ -665,7 +665,6 @@ impl Store {
     #[allow(deprecated)]
     #[cfg(any(test, feature = "testing"))]
     pub fn dummy_public_v0() -> Arc<Self> {
-        use crate::block_storage::HashMapBlockStorage;
         let store_repo = StoreRepo::dummy_public_v0();
         let store_readcap = ReadCap::dummy();
         let store_overlay_branch_readcap = ReadCap::dummy();
@@ -680,7 +679,6 @@ impl Store {
 
     #[cfg(any(test, feature = "testing"))]
     pub fn dummy_with_key(repo_pubkey: PubKey) -> Arc<Self> {
-        use crate::block_storage::HashMapBlockStorage;
         let store_repo = StoreRepo::dummy_with_key(repo_pubkey);
         let store_readcap = ReadCap::dummy();
         let store_overlay_branch_readcap = ReadCap::dummy();
