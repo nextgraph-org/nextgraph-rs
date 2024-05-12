@@ -192,6 +192,9 @@ pub enum ObjectParseError {
     ObjectDeserializeError,
 
     MissingHeaderBlocks((Object, Vec<BlockId>)),
+
+    MalformedDag,
+    FilterDeserializationError,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

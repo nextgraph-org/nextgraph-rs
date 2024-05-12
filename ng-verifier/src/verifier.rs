@@ -21,7 +21,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_std::stream::StreamExt;
 use async_std::sync::{Mutex, RwLockReadGuard};
-use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Hashes, Membership};
+use bloomfilter::Bloom;
 use futures::channel::mpsc;
 use futures::SinkExt;
 use ng_repo::object::Object;
@@ -800,6 +800,7 @@ impl Verifier {
 
     pub async fn connection_opened(&mut self, peer: DirectPeerId) -> Result<(), NgError> {
         self.connected_server_id = Some(peer);
+        log_info!("CONNECTION ESTABLISHED WITH peer {}", peer);
         if let Err(e) = self.bootstrap().await {
             self.connected_server_id = None;
             return Err(e);
@@ -820,10 +821,18 @@ impl Verifier {
 
         let user = self.config.user_priv_key.to_pub();
         let broker = BROKER.read().await;
+        //log_info!("looping on branches {:?}", branches);
         for (repo, branch, publisher) in branches {
-            let _ = self
+            //log_info!("open_branch_ repo {} branch {}", repo, branch);
+            let _e = self
                 .open_branch_(&repo, &branch, publisher, &broker, &user, &peer, false)
                 .await;
+            // log_info!(
+            //     "END OF open_branch_ repo {} branch {} with {:?}",
+            //     repo,
+            //     branch,
+            //     _e
+            // );
             // discarding error.
         }
         Ok(())
@@ -991,6 +1000,7 @@ impl Verifier {
                     // );
                     if as_publisher && !pin_status.is_topic_subscribed_as_publisher(topic_id) {
                         need_sub = true;
+                        //log_info!("need_sub forced to true");
                     } else {
                         for topic in pin_status.topics() {
                             if topic.topic_id() == topic_id {
@@ -1298,6 +1308,7 @@ impl Verifier {
         remote_commits_nbr: u64,
     ) -> Result<(), NgError> {
         let (store, msg, branch_secret) = {
+            //log_info!("do_sync_req_if_needed for branch {}", branch_id);
             if remote_commits_nbr == 0 || remote_heads.is_empty() {
                 log_info!("branch is new on the broker. doing nothing");
                 return Ok(());
@@ -1350,16 +1361,14 @@ impl Verifier {
                     // prepare bloom filter
                     let expected_elements =
                         remote_commits_nbr + max(visited.len() as u64, branch_info.commits_nbr);
-                    let mut config = FilterBuilder::new(expected_elements, 0.01);
-                    config.enable_repeat_insert(false);
-                    let mut filter = Filter::new(config);
+                    let mut filter =
+                        Bloom::<ObjectId>::new_for_fp_rate(expected_elements as usize, 0.01);
                     for commit_id in visited.keys() {
-                        filter.add(commit_id.slice());
+                        filter.set(commit_id);
                     }
-                    Some(BloomFilter {
-                        k: filter.hashes(),
-                        f: filter.get_u8_array().to_vec(),
-                    })
+                    Some(BloomFilter::V0(BloomFilterV0 {
+                        f: serde_bare::to_vec(&filter)?,
+                    }))
                 }
             };
 

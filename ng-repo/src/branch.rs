@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 
-use fastbloom_rs::{BloomFilter as Filter, Membership};
+use bloomfilter::Bloom;
 use zeroize::Zeroize;
 
 use crate::errors::*;
@@ -51,6 +51,7 @@ impl BranchV0 {
 #[derive(Debug)]
 pub struct DagNode {
     pub future: HashSet<ObjectId>,
+    pub past: HashSet<ObjectId>,
 }
 
 struct Dag<'a>(&'a HashMap<Digest, DagNode>);
@@ -58,7 +59,7 @@ struct Dag<'a>(&'a HashMap<Digest, DagNode>);
 impl fmt::Display for DagNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for fu in self.future.iter() {
-            write!(f, "{}", fu)?;
+            write!(f, "{} ", fu)?;
         }
         Ok(())
     }
@@ -77,15 +78,28 @@ impl DagNode {
     fn new() -> Self {
         Self {
             future: HashSet::new(),
+            past: HashSet::new(),
         }
     }
-    fn collapse(id: &ObjectId, dag: &HashMap<ObjectId, DagNode>) -> Vec<ObjectId> {
-        let mut res = vec![*id];
+    fn collapse(
+        id: &ObjectId,
+        dag: &HashMap<ObjectId, DagNode>,
+        already_in: &mut HashSet<ObjectId>,
+    ) -> Vec<ObjectId> {
         let this = dag.get(id).unwrap();
-        for child in this.future.iter() {
-            res.append(&mut Self::collapse(child, dag));
+
+        if this.past.len() > 1 && !this.past.is_subset(already_in) {
+            // we postpone it
+            // log_debug!("postponed {}", id);
+            vec![]
+        } else {
+            let mut res = vec![*id];
+            already_in.insert(*id);
+            for child in this.future.iter() {
+                res.append(&mut Self::collapse(child, dag, already_in));
+            }
+            res
         }
-        res
     }
 }
 
@@ -165,7 +179,7 @@ impl Branch {
         missing: &mut Option<&mut HashSet<ObjectId>>,
         future: Option<ObjectId>,
         theirs_found: &mut Option<&mut HashSet<ObjectId>>,
-        theirs_filter: &Option<Filter>,
+        theirs_filter: &Option<Bloom<ObjectId>>,
     ) -> Result<(), ObjectParseError> {
         let id = cobj.id();
 
@@ -173,7 +187,7 @@ impl Branch {
         // load deps, stop at the root(including it in visited) or if this is a commit object from known_heads
 
         let found_in_filter = if let Some(filter) = theirs_filter {
-            filter.contains(id.slice())
+            filter.check(&id)
         } else {
             false
         };
@@ -185,12 +199,14 @@ impl Branch {
                     past.future.insert(f);
                 }
             } else {
-                let mut insert = DagNode::new();
+                let mut new_node_to_insert = DagNode::new();
                 if let Some(f) = future {
-                    insert.future.insert(f);
+                    new_node_to_insert.future.insert(f);
                 }
-                visited.insert(id, insert);
-                for past_id in cobj.acks_and_nacks() {
+                let pasts = cobj.acks_and_nacks();
+                new_node_to_insert.past.extend(pasts.iter().cloned());
+                visited.insert(id, new_node_to_insert);
+                for past_id in pasts {
                     match Object::load(past_id, None, store) {
                         Ok(o) => {
                             Self::load_causal_past(
@@ -258,9 +274,14 @@ impl Branch {
 
         let theirs: HashSet<ObjectId> = theirs.keys().into_iter().cloned().collect();
 
-        let filter = known_commits
-            .as_ref()
-            .map(|their_filter| Filter::from_u8_array(their_filter.f.as_slice(), their_filter.k));
+        let filter = if let Some(filter) = known_commits.as_ref() {
+            Some(
+                serde_bare::from_slice(filter.filter())
+                    .map_err(|_| ObjectParseError::FilterDeserializationError)?,
+            )
+        } else {
+            None
+        };
 
         // collect all commits reachable from target_heads
         // up to the root or until encountering a commit from theirs
@@ -292,15 +313,22 @@ impl Branch {
         let all = HashSet::from_iter(visited.keys());
         let first_generation = all.difference(&next_generations);
 
-        let mut result = Vec::with_capacity(visited.len());
+        let mut already_in: HashSet<ObjectId> = HashSet::new();
+
+        let sub_dag_to_send_size = visited.len();
+        let mut result = Vec::with_capacity(sub_dag_to_send_size);
         for first in first_generation {
-            result.append(&mut DagNode::collapse(first, &visited));
+            result.append(&mut DagNode::collapse(first, &visited, &mut already_in));
         }
 
-        // #[cfg(debug_assertions)]
-        // for _res in result.iter() {
-        //     log_debug!("sending missing commit {}", _res);
-        // }
+        if result.len() != sub_dag_to_send_size || already_in.len() != sub_dag_to_send_size {
+            return Err(ObjectParseError::MalformedDag);
+        }
+
+        #[cfg(debug_assertions)]
+        for _res in result.iter() {
+            log_debug!("sending missing commit {}", _res);
+        }
 
         Ok(result)
     }
@@ -310,7 +338,7 @@ impl Branch {
 #[cfg(test)]
 mod test {
 
-    //use fastbloom_rs::{BloomFilter as Filter, FilterBuilder, Membership};
+    //use use bloomfilter::Bloom;
 
     use crate::branch::*;
 

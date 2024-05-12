@@ -1455,6 +1455,10 @@ pub async fn user_connect_with_device_info(
                                     if let Err(e) =
                                         session.verifier.connection_opened(server_key).await
                                     {
+                                        log_err!(
+                                            "got error while processing opened connection {:?}",
+                                            e
+                                        );
                                         Broker::close_all_connections().await;
                                         tried.as_mut().unwrap().3 = Some(e.to_string());
                                     }

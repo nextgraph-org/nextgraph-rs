@@ -338,24 +338,24 @@ impl fmt::Display for RelTime {
 
 /// Bloom filter (variable size)
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct BloomFilter {
-    /// Number of hash functions
-    pub k: u32,
-
+pub struct BloomFilterV0 {
     /// Filter
     #[serde(with = "serde_bytes")]
     pub f: Vec<u8>,
 }
 
-/// Bloom filter (128 B)
-///
-/// (m=1024; k=7; p=0.01; n=107)
-pub type BloomFilter128 = [[u8; 32]; 4];
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum BloomFilter {
+    V0(BloomFilterV0),
+}
 
-/// Bloom filter (1 KiB)
-///
-/// (m=8192; k=7; p=0.01; n=855)
-pub type BloomFilter1K = [[u8; 32]; 32];
+impl BloomFilter {
+    pub fn filter(&self) -> &Vec<u8> {
+        match self {
+            Self::V0(v0) => &v0.f,
+        }
+    }
+}
 
 //
 // REPOSITORY TYPES
