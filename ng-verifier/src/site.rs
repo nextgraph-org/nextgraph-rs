@@ -19,7 +19,6 @@ use ng_repo::utils::generate_keypair;
 
 use crate::verifier::Verifier;
 
-/// Site V0
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SiteV0 {
     pub site_type: SiteType,
@@ -37,8 +36,10 @@ pub struct SiteV0 {
     // Identity::OrgPrivateStore or Identity::IndividualPrivateStore
     pub private: SiteStore,
 
-    /// Only for IndividualSite: TODO reorganize those 2 fields
+    // Only for IndividualSite: TODO reorganize those 2 fields
+    #[doc(hidden)]
     pub cores: Vec<(PubKey, Option<[u8; 32]>)>,
+    #[doc(hidden)]
     pub bootstraps: Vec<PubKey>,
 }
 

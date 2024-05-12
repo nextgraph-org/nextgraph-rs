@@ -32,6 +32,7 @@ impl TryFrom<ProtocolMessage> for () {
     }
 }
 
+#[doc(hidden)]
 #[async_trait::async_trait]
 pub trait EActor: Send + Sync + std::fmt::Debug {
     async fn respond(
@@ -44,7 +45,7 @@ pub trait EActor: Send + Sync + std::fmt::Debug {
 }
 
 #[derive(Debug)]
-pub struct Actor<
+pub(crate) struct Actor<
     'a,
     A: Into<ProtocolMessage> + std::fmt::Debug,
     B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync,

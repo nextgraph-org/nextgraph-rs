@@ -29,6 +29,7 @@ use crate::types::*;
 #[cfg(target_arch = "wasm32")]
 use crate::NG_BOOTSTRAP_LOCAL_PATH;
 
+#[doc(hidden)]
 #[cfg(target_arch = "wasm32")]
 pub fn spawn_and_log_error<F>(fut: F) -> task::JoinHandle<()>
 where
@@ -46,6 +47,7 @@ pub type ResultSend<T> = std::result::Result<T, Box<dyn std::error::Error + Send
 #[cfg(not(target_arch = "wasm32"))]
 pub type ResultSend<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
+#[doc(hidden)]
 #[cfg(not(target_arch = "wasm32"))]
 pub fn spawn_and_log_error<F>(fut: F) -> task::JoinHandle<()>
 where

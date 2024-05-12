@@ -56,7 +56,8 @@ pub mod net {
 }
 
 pub mod verifier {
-    pub use ng_verifier::*;
+    pub use ng_verifier::site::*;
+    pub use ng_verifier::types::*;
 }
 
 pub mod wallet {

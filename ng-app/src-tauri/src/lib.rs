@@ -28,7 +28,7 @@ use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
-use nextgraph::verifier::types::*;
+use nextgraph::verifier::*;
 
 #[cfg(mobile)]
 mod mobile;

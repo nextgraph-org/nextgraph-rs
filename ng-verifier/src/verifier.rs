@@ -75,8 +75,8 @@ use crate::user_storage::UserStorage;
 // }
 
 pub struct Verifier {
-    pub config: VerifierConfig,
-    pub connected_server_id: Option<PubKey>,
+    pub(crate) config: VerifierConfig,
+    pub(crate) connected_server_id: Option<PubKey>,
     #[allow(dead_code)]
     graph_dataset: Option<oxigraph::store::Store>,
     pub(crate) user_storage: Option<Arc<Box<dyn UserStorage>>>,
@@ -116,7 +116,7 @@ struct EventOutboxStorage {
 }
 
 impl Verifier {
-    pub fn user_privkey(&self) -> &PrivKey {
+    pub(crate) fn user_privkey(&self) -> &PrivKey {
         &self.config.user_priv_key
     }
 
@@ -329,7 +329,7 @@ impl Verifier {
         ))
     }
 
-    pub fn get_store_or_load(&mut self, store_repo: &StoreRepo) -> Arc<Store> {
+    fn get_store_or_load(&mut self, store_repo: &StoreRepo) -> Arc<Store> {
         let overlay_id = store_repo.overlay_id_for_storage_purpose();
         let block_storage = self
             .get_arc_block_storage()
@@ -349,7 +349,7 @@ impl Verifier {
         Arc::clone(store)
     }
 
-    pub fn complete_site_store(
+    fn complete_site_store(
         &mut self,
         store_repo: &StoreRepo,
         mut repo: Repo,
@@ -386,7 +386,7 @@ impl Verifier {
         Ok(repo)
     }
 
-    pub fn complete_site_store_already_inserted(
+    fn complete_site_store_already_inserted(
         &mut self,
         store_repo: StoreRepo,
     ) -> Result<(), NgError> {
@@ -417,7 +417,7 @@ impl Verifier {
         Ok(())
     }
 
-    pub fn get_store(&self, store_repo: &StoreRepo) -> Result<Arc<Store>, VerifierError> {
+    fn get_store(&self, store_repo: &StoreRepo) -> Result<Arc<Store>, VerifierError> {
         let overlay_id = store_repo.overlay_id_for_storage_purpose();
         let store = self
             .stores
@@ -426,7 +426,7 @@ impl Verifier {
         Ok(Arc::clone(store))
     }
 
-    pub fn get_repo_mut(
+    pub(crate) fn get_repo_mut(
         &mut self,
         id: &RepoId,
         _store_repo: &StoreRepo,
@@ -449,7 +449,7 @@ impl Verifier {
         repo_ref
     }
 
-    pub fn add_store(&mut self, store: Arc<Store>) {
+    fn add_store(&mut self, store: Arc<Store>) {
         let overlay_id = store.get_store_repo().overlay_id_for_storage_purpose();
         if self.stores.contains_key(&overlay_id) {
             return;
@@ -1132,7 +1132,7 @@ impl Verifier {
         Ok(())
     }
 
-    pub async fn verify_commit(
+    pub(crate) async fn verify_commit(
         &mut self,
         commit: &Commit,
         branch_id: &BranchId,
@@ -1284,7 +1284,7 @@ impl Verifier {
         repo_ref
     }
 
-    pub async fn bootstrap(&mut self) -> Result<(), NgError> {
+    async fn bootstrap(&mut self) -> Result<(), NgError> {
         if let Err(e) = self.bootstrap_from_remote().await {
             log_warn!("bootstrap_from_remote failed with {}", e);
             // maybe it failed because the 3P stores are still in the outbox and haven't been sent yet.
@@ -1779,7 +1779,7 @@ impl Verifier {
     //     ret
     // }
 
-    pub async fn send_outbox(&mut self) -> Result<(), NgError> {
+    async fn send_outbox(&mut self) -> Result<(), NgError> {
         let ret = self.take_events_from_outbox();
         // if ret.is_err() {
         //     log_err!("send_outbox {:}", ret.as_ref().unwrap_err());
@@ -2114,7 +2114,7 @@ impl Verifier {
         Ok(())
     }
 
-    pub async fn new_store_default<'a>(
+    pub(crate) async fn new_store_default<'a>(
         &'a mut self,
         creator: &UserId,
         creator_priv_key: &PrivKey,
@@ -2158,7 +2158,7 @@ impl Verifier {
     }
 
     /// returns the Repo and the last seq_num of the peer
-    pub async fn new_repo_default<'a>(
+    async fn new_repo_default<'a>(
         &'a mut self,
         creator: &UserId,
         creator_priv_key: &PrivKey,

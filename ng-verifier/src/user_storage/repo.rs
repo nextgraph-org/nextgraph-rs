@@ -9,6 +9,8 @@
 
 //! Repo Storage (Object Key/Col/Value Mapping)
 
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::{Arc, RwLock};

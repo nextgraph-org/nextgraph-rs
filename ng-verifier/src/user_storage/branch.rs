@@ -9,6 +9,8 @@
 
 //! Branch Storage (Object Key/Col/Value Mapping)
 
+#![allow(dead_code)]
+
 use serde_bare::from_slice;
 use serde_bare::to_vec;
 

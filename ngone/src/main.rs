@@ -24,6 +24,7 @@ use ng_repo::log::*;
 use ng_repo::types::*;
 use ng_repo::utils::verify;
 
+#[cfg(not(debug_assertions))]
 use ng_net::types::{APP_NG_ONE_URL, NG_ONE_URL};
 
 use ng_wallet::types::*;

@@ -35,14 +35,14 @@ use crate::utils::spawn_and_log_error;
 use crate::utils::{Receiver, ResultSend, Sender};
 
 #[derive(Debug)]
-pub enum PeerConnection {
+enum PeerConnection {
     Core(BindAddress),
     Client(ConnectionBase),
     NONE,
 }
 
 #[derive(Debug)]
-pub struct BrokerPeerInfo {
+struct BrokerPeerInfo {
     #[allow(dead_code)]
     last_peer_advert: Option<PeerAdvert>, //FIXME: remove Option
     connected: PeerConnection,
@@ -50,7 +50,7 @@ pub struct BrokerPeerInfo {
 
 #[derive(Debug)]
 #[allow(dead_code)]
-pub struct DirectConnection {
+struct DirectConnection {
     addr: BindAddress,
     remote_peer_id: X25519PrivKey,
     tp: TransportProtocol,
@@ -69,6 +69,7 @@ pub struct ServerConfig {
     pub bootstrap: BootstrapContent,
 }
 
+#[doc(hidden)]
 #[async_trait::async_trait]
 pub trait ILocalBroker: Send + Sync + EActor {
     async fn deliver(&mut self, event: Event, overlay: OverlayId, user: UserId);
@@ -122,28 +123,30 @@ impl Broker {
     //     }
     // }
 
-    pub fn get_config(&self) -> Option<&ServerConfig> {
+    pub(crate) fn get_config(&self) -> Option<&ServerConfig> {
         self.config.as_ref()
     }
 
-    pub fn get_registration_url(&self) -> Option<&String> {
+    pub(crate) fn get_registration_url(&self) -> Option<&String> {
         self.config
             .as_ref()
             .and_then(|c| c.registration_url.as_ref())
     }
 
-    pub fn get_bootstrap(&self) -> Result<&BootstrapContent, ProtocolError> {
+    pub(crate) fn get_bootstrap(&self) -> Result<&BootstrapContent, ProtocolError> {
         self.config
             .as_ref()
             .map(|c| &c.bootstrap)
             .ok_or(ProtocolError::BrokerError)
     }
 
+    #[doc(hidden)]
     pub fn set_server_broker(&mut self, broker: impl IServerBroker + 'static) {
         //log_debug!("set_server_broker");
         self.server_broker = Some(Box::new(broker));
     }
 
+    #[doc(hidden)]
     pub fn set_local_broker(&mut self, broker: Arc<RwLock<dyn ILocalBroker>>) {
         //log_debug!("set_local_broker");
         self.local_broker = Some(broker);
@@ -171,7 +174,7 @@ impl Broker {
         (copy_listeners, copy_bind_addresses)
     }
 
-    pub fn get_server_broker(
+    pub(crate) fn get_server_broker(
         &self,
     ) -> Result<&Box<dyn IServerBroker + Send + Sync>, ProtocolError> {
         //log_debug!("GET STORAGE {:?}", self.server_storage);
@@ -180,7 +183,7 @@ impl Broker {
             .ok_or(ProtocolError::BrokerError)
     }
 
-    pub fn get_server_broker_mut(
+    pub(crate) fn get_server_broker_mut(
         &mut self,
     ) -> Result<&mut Box<dyn IServerBroker + Send + Sync>, ProtocolError> {
         //log_debug!("GET STORAGE {:?}", self.server_storage);
@@ -199,7 +202,7 @@ impl Broker {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn authorize(
+    pub(crate) fn authorize(
         &self,
         bind_addresses: &(BindAddress, BindAddress),
         auth: Authorization,
@@ -306,7 +309,7 @@ impl Broker {
         }
     }
 
-    pub fn reconnecting(&mut self, peer_id: X25519PrivKey, user: Option<PubKey>) {
+    fn reconnecting(&mut self, peer_id: X25519PrivKey, user: Option<PubKey>) {
         let peerinfo = self.peers.get_mut(&(user, peer_id));
         match peerinfo {
             Some(info) => match &info.connected {
@@ -351,7 +354,8 @@ impl Broker {
         }
     }
 
-    pub fn remove_anonymous(
+    #[cfg(not(target_arch = "wasm32"))]
+    fn remove_anonymous(
         &mut self,
         remote_bind_address: BindAddress,
         local_bind_address: BindAddress,
@@ -380,7 +384,7 @@ impl Broker {
     //     }
     // }
 
-    pub fn new() -> Self {
+    fn new() -> Self {
         let (shutdown_sender, shutdown_receiver) = mpsc::unbounded::<ProtocolError>();
         let mut random_buf = [0u8; 4];
         getrandom::getrandom(&mut random_buf).unwrap();
@@ -496,7 +500,9 @@ impl Broker {
         }
     }
 
-    pub async fn shutdown(&mut self) {
+    #[allow(dead_code)]
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn shutdown(&mut self) {
         if self.closing {
             return;
         }
@@ -505,6 +511,7 @@ impl Broker {
         let _ = self.shutdown_sender.send(ProtocolError::Closing).await;
     }
 
+    #[doc(hidden)]
     #[cfg(not(target_arch = "wasm32"))]
     pub async fn accept(
         &mut self,
@@ -600,7 +607,7 @@ impl Broker {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub async fn attach_and_authorize_peer_id(
+    pub(crate) async fn attach_and_authorize_peer_id(
         &mut self,
         remote_bind_address: BindAddress,
         local_bind_address: BindAddress,
@@ -883,7 +890,7 @@ impl Broker {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub async fn dispatch_event(
+    pub(crate) async fn dispatch_event(
         &mut self,
         overlay: &OverlayId,
         event: Event,
@@ -951,7 +958,7 @@ impl Broker {
             .await
     }
 
-    pub async fn close_anonymous(
+    async fn close_anonymous(
         &mut self,
         remote_bind_address: BindAddress,
         local_bind_address: BindAddress,
@@ -964,6 +971,7 @@ impl Broker {
         }
     }
 
+    #[doc(hidden)]
     pub fn print_status(&self) {
         self.peers.iter().for_each(|(peer_id, peer_info)| {
             log_info!("PEER in BROKER {:?} {:?}", peer_id, peer_info);

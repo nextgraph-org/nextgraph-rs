@@ -41,7 +41,7 @@ use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
-use nextgraph::verifier::types::*;
+use nextgraph::verifier::*;
 
 #[wasm_bindgen]
 pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {

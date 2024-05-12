@@ -15,6 +15,7 @@ pub mod broker;
 
 pub mod server_broker;
 
+#[doc(hidden)]
 pub mod connection;
 
 pub mod actor;

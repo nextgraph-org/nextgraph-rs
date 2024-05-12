@@ -22,6 +22,7 @@ use ng_repo::{errors::NgError, types::*};
 
 use ng_net::types::*;
 
+#[doc(hidden)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum SessionPeerLastSeq {
     V0(u64),
@@ -65,17 +66,18 @@ impl VerifierType {
         }
     }
 }
-
+#[doc(hidden)]
 //type LastSeqFn = fn(peer_id: PubKey, qty: u16) -> Result<u64, NgError>;
 pub type LastSeqFn = dyn Fn(PubKey, u16) -> Result<u64, NgError> + 'static + Sync + Send;
-
+#[doc(hidden)]
 // peer_id: PubKey, seq_num:u64, event_ser: vec<u8>,
 pub type OutboxWriteFn =
     dyn Fn(PubKey, u64, Vec<u8>) -> Result<(), NgError> + 'static + Sync + Send;
-
+#[doc(hidden)]
 // peer_id: PubKey,
 pub type OutboxReadFn = dyn Fn(PubKey) -> Result<Vec<Vec<u8>>, NgError> + 'static + Sync + Send;
 
+#[doc(hidden)]
 pub struct JsSaveSessionConfig {
     pub last_seq_function: Box<LastSeqFn>,
     pub outbox_write_function: Box<OutboxWriteFn>,
@@ -142,6 +144,7 @@ pub struct VerifierConfig {
     pub protected_store_id: Option<RepoId>,
 }
 
+#[doc(hidden)]
 pub type CancelFn = Box<dyn FnOnce() + Sync + Send>;
 
 //

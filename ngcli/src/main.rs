@@ -7,6 +7,8 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+#![doc(hidden)]
+
 use core::fmt;
 use std::error::Error;
 use std::fs::{read_to_string, write};

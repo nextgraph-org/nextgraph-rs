@@ -7,6 +7,8 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+#![doc(hidden)]
+
 pub mod types;
 
 mod cli;
