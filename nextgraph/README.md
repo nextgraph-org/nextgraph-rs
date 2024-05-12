@@ -7,10 +7,12 @@
 ![MSRV][rustc-image]
 [![Apache 2.0 Licensed][license-image]][license-link]
 [![MIT Licensed][license-image2]][license-link2]
+[![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
 ![Crates.io Version](https://img.shields.io/crates/v/nextgraph)
 ![docs.rs](https://img.shields.io/docsrs/nextgraph)
+![NPM Version](https://img.shields.io/npm/v/ng-sdk-node)
 
-Rust client library of NextGraph framework
+Rust client library for NextGraph framework
 
 This library is in active development at [https://git.nextgraph.org/NextGraph/nextgraph-rs](https://git.nextgraph.org/NextGraph/nextgraph-rs), a Gitea instance. For bug reports, issues, merge requests, and in order to join the dev team, please visit the link above and create an account (you can do so with a github account). The [github repo](https://github.com/nextgraph-org/nextgraph-rs) is just a read-only mirror that does not accept issues.
 

@@ -10,6 +10,7 @@
 [![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
 ![Crates.io Version](https://img.shields.io/crates/v/nextgraph)
 ![docs.rs](https://img.shields.io/docsrs/nextgraph)
+![NPM Version](https://img.shields.io/npm/v/ng-sdk-node)
 
 Rust implementation of NextGraph
 
@@ -71,7 +72,7 @@ The crates are organized as follow :
 - [ngcli](ngcli/README.md) : CLI tool to manipulate the local documents and repos and administrate the server
 - [ngd](ngd/README.md) : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
 - [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the official web app.
-- [ng-sdk-js](ng-sdk-js/README.md) : contains the JS SDK, with example for: web app, react app, or node service.
+- [ng-sdk-js](ng-sdk-js/DEV.md) : contains the JS SDK, with example for: web app, react app, or node service.
 - ng-repo : Repositories common library
 - ng-net : Network common library
 - ng-verifier : Verifier library, that exposes the document API to the app
