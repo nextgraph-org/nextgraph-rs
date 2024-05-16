@@ -3717,7 +3717,7 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 [[package]]
 name = "oxigraph"
 version = "0.4.0-alpha.7-dev"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#b3ae51da8274693b75622349b4bba46efcaa8c3f"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
 dependencies = [
  "digest 0.10.7",
  "getrandom 0.2.10",
@@ -3760,7 +3760,7 @@ checksum = "d05417ee46e2eb40dd9d590b4d67fc2408208b3a48a6b7f71d2bc1d7ce12a3e0"
 [[package]]
 name = "oxrdf"
 version = "0.2.0-alpha.4"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#b3ae51da8274693b75622349b4bba46efcaa8c3f"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
 dependencies = [
  "oxilangtag",
  "oxiri",
@@ -3772,7 +3772,7 @@ dependencies = [
 [[package]]
 name = "oxrdfio"
 version = "0.1.0-alpha.5"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#b3ae51da8274693b75622349b4bba46efcaa8c3f"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
 dependencies = [
  "oxrdf",
  "oxrdfxml",
@@ -3783,7 +3783,7 @@ dependencies = [
 [[package]]
 name = "oxrdfxml"
 version = "0.1.0-alpha.5"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#b3ae51da8274693b75622349b4bba46efcaa8c3f"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
 dependencies = [
  "oxilangtag",
  "oxiri",
@@ -3795,7 +3795,7 @@ dependencies = [
 [[package]]
 name = "oxsdatatypes"
 version = "0.2.0-alpha.1"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#b3ae51da8274693b75622349b4bba46efcaa8c3f"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
 dependencies = [
  "thiserror",
 ]
@@ -3803,7 +3803,7 @@ dependencies = [
 [[package]]
 name = "oxttl"
 version = "0.1.0-alpha.5"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#b3ae51da8274693b75622349b4bba46efcaa8c3f"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
 dependencies = [
  "memchr",
  "oxilangtag",
@@ -5085,7 +5085,7 @@ dependencies = [
 [[package]]
 name = "sparesults"
 version = "0.2.0-alpha.4"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#b3ae51da8274693b75622349b4bba46efcaa8c3f"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
 dependencies = [
  "json-event-parser",
  "memchr",
@@ -5097,7 +5097,7 @@ dependencies = [
 [[package]]
 name = "spargebra"
 version = "0.3.0-alpha.4"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#b3ae51da8274693b75622349b4bba46efcaa8c3f"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
 dependencies = [
  "oxilangtag",
  "oxiri",
@@ -5110,7 +5110,7 @@ dependencies = [
 [[package]]
 name = "sparopt"
 version = "0.1.0-alpha.5-dev"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#b3ae51da8274693b75622349b4bba46efcaa8c3f"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
 dependencies = [
  "oxrdf",
  "rand 0.8.5",
