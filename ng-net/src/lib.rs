@@ -11,6 +11,9 @@
 
 pub mod types;
 
+#[doc(hidden)]
+pub mod app_protocol;
+
 pub mod broker;
 
 pub mod server_broker;

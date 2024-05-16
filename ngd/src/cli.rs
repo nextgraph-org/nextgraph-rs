@@ -74,7 +74,7 @@ pub(crate) struct Cli {
     #[arg(long, conflicts_with("private"))]
     pub public_without_clients: bool,
 
-    /// When --public is used with a public IPV6, this option will bind the IPV6 to the private interface. This is how DMZ work for IpV6
+    /// When --public is used with a public IPV6, this option will bind the IPV6 to the private interface. This is how DMZ works for IpV6
     #[arg(long, requires("public"), conflicts_with("no_ipv6"))]
     pub bind_public_ipv6: bool,
 

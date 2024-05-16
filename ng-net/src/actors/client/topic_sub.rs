@@ -101,30 +101,34 @@ impl EActor for Actor<'_, TopicSub, TopicSubRes> {
     ) -> Result<(), ProtocolError> {
         let req = TopicSub::try_from(msg)?;
 
-        let mut broker = BROKER.write().await;
+        let (sb, server_peer_id) = {
+            let b = BROKER.read().await;
+            (b.get_server_broker()?, b.get_server_peer_id())
+        };
 
         // check the validity of the PublisherAdvert. this will return a ProtocolError (will close the connection)
         if let Some(advert) = req.publisher() {
-            let server_peer_id = broker.get_config().unwrap().peer_id;
             advert.verify_for_broker(&server_peer_id)?;
         }
 
         let (user_id, remote_peer) = {
             let fsm = fsm.lock().await;
-            (
-                fsm.user_id()?,
-                fsm.remote_peer().ok_or(ProtocolError::ActorError)?,
-            )
+            (fsm.user_id()?, fsm.get_client_peer_id()?)
         };
 
-        let res = broker.get_server_broker_mut()?.topic_sub(
-            req.overlay(),
-            req.hash(),
-            req.topic(),
-            &user_id,
-            req.publisher(),
-            &remote_peer,
-        );
+        let res = {
+            sb.read()
+                .await
+                .topic_sub(
+                    req.overlay(),
+                    req.hash(),
+                    req.topic(),
+                    &user_id,
+                    req.publisher(),
+                    &remote_peer,
+                )
+                .await
+        };
 
         fsm.lock()
             .await

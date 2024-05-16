@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 //use oxigraph::model::GroundQuad;
 //use yrs::{StateVector, Update};
 
-use ng_repo::{errors::NgError, types::*};
+use ng_repo::{errors::*, types::*};
 
 use ng_net::types::*;
 
@@ -65,6 +65,13 @@ impl VerifierType {
             _ => false,
         }
     }
+
+    pub fn is_remote(&self) -> bool {
+        match self {
+            Self::Remote(_) => true,
+            _ => false,
+        }
+    }
 }
 #[doc(hidden)]
 //type LastSeqFn = fn(peer_id: PubKey, qty: u16) -> Result<u64, NgError>;
@@ -90,6 +97,7 @@ impl fmt::Debug for JsSaveSessionConfig {
     }
 }
 
+#[doc(hidden)]
 #[derive(Debug)]
 pub enum VerifierConfigType {
     /// nothing will be saved on disk during the session
@@ -104,6 +112,8 @@ pub enum VerifierConfigType {
     Remote(Option<PubKey>),
     /// IndexedDb based rocksdb compiled to WASM... not ready yet. obviously. only works in the browser
     WebRocksDb,
+    /// headless
+    Headless(Credentials),
 }
 
 impl VerifierConfigType {
@@ -147,291 +157,78 @@ pub struct VerifierConfig {
 #[doc(hidden)]
 pub type CancelFn = Box<dyn FnOnce() + Sync + Send>;
 
-//
-// APP PROTOCOL (between APP and VERIFIER)
-//
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AppFetchContentV0 {
-    Get,       // does not subscribe. more to be detailed
-    Subscribe, // more to be detailed
-    Update,
-    //Invoke,
-    ReadQuery,  // more to be detailed
-    WriteQuery, // more to be detailed
+#[doc(hidden)]
+#[derive(Debug, Clone)]
+pub enum BrokerPeerId {
+    Local(DirectPeerId),
+    Direct(DirectPeerId),
+    None,
 }
 
-impl AppFetchContentV0 {
-    pub fn get_or_subscribe(subscribe: bool) -> Self {
-        if !subscribe {
-            AppFetchContentV0::Get
-        } else {
-            AppFetchContentV0::Subscribe
+impl From<&BrokerPeerId> for Option<PubKey> {
+    fn from(bpi: &BrokerPeerId) -> Option<PubKey> {
+        match bpi {
+            BrokerPeerId::Local(_) => None,
+            BrokerPeerId::Direct(d) => Some(*d),
+            BrokerPeerId::None => panic!("cannot connect to a broker without a peerid"),
         }
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum NgAccessV0 {
-    ReadCap(ReadCap),
-    Token(Digest),
-    #[serde(with = "serde_bytes")]
-    ExtRequest(Vec<u8>),
-    Key(BlockKey),
-    Inbox(Digest),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum TargetBranchV0 {
-    Chat,
-    Stream,
-    Context,
-    Ontology,
-    BranchId(BranchId),
-    Named(String),          // branch or commit
-    Commits(Vec<ObjectId>), // only possible if access to their branch is given. must belong to the same branch.
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum NuriTargetV0 {
-    UserSite, // targets the whole data set of the user
-
-    PublicStore,
-    ProtectedStore,
-    PrivateStore,
-    AllDialogs,
-    Dialog(String), // shortname of a Dialog
-    AllGroups,
-    Group(String), // shortname of a Group
-
-    Repo(RepoId),
-
-    Identity(UserId),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NuriV0 {
-    pub target: NuriTargetV0,
-    pub entire_store: bool, // If it is a store, will (try to) include all the docs belonging to the store
-
-    pub object: Option<ObjectId>, // used only for FileGet. // cannot be used for queries. only to download an object (file,commit..)
-    pub branch: Option<TargetBranchV0>, // if None, the main branch is chosen
-    pub overlay: Option<OverlayLink>,
-
-    pub access: Vec<NgAccessV0>,
-    pub topic: Option<TopicId>,
-    pub locator: Vec<PeerAdvert>,
-}
-
-impl NuriV0 {
-    pub fn new_repo_target_from_string(repo_id_string: String) -> Result<Self, NgError> {
-        let repo_id: RepoId = repo_id_string.as_str().try_into()?;
-        Ok(Self {
-            target: NuriTargetV0::Repo(repo_id),
-            entire_store: false,
-            object: None,
-            branch: None,
-            overlay: None,
-            access: vec![],
-            topic: None,
-            locator: vec![],
-        })
+impl From<BrokerPeerId> for Option<PubKey> {
+    fn from(bpi: BrokerPeerId) -> Option<PubKey> {
+        (&bpi).into()
     }
+}
 
-    pub fn new_private_store_target() -> Self {
-        Self {
-            target: NuriTargetV0::PrivateStore,
-            entire_store: false,
-            object: None,
-            branch: None,
-            overlay: None,
-            access: vec![],
-            topic: None,
-            locator: vec![],
+impl BrokerPeerId {
+    pub fn new_direct(peer: DirectPeerId) -> Self {
+        Self::Direct(peer)
+    }
+    pub fn is_some(&self) -> bool {
+        match self {
+            BrokerPeerId::Local(_) | BrokerPeerId::Direct(_) => true,
+            _ => false,
         }
     }
-    pub fn new(_from: String) -> Self {
-        todo!();
+    pub fn is_none(&self) -> bool {
+        !self.is_some()
     }
-}
+    pub fn connected_or_err(&self) -> Result<Option<PubKey>, NgError> {
+        match self {
+            BrokerPeerId::None => Err(NgError::NotConnected),
+            _ => Ok(self.into()),
+        }
+    }
+    pub fn broker_peer_id(&self) -> &DirectPeerId {
+        match self {
+            BrokerPeerId::Local(p) | BrokerPeerId::Direct(p) => p,
+            _ => panic!("dont call broker_peer_id on a BrokerPeerId::None"),
+        }
+    }
+    pub fn is_local(&self) -> bool {
+        match self {
+            BrokerPeerId::Local(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_direct(&self) -> bool {
+        match self {
+            BrokerPeerId::Direct(_) => true,
+            _ => false,
+        }
+    }
+    pub fn is_direct_or_err(&self) -> Result<(), NgError> {
+        match self {
+            BrokerPeerId::Direct(_) => Ok(()),
+            _ => Err(NgError::NotConnected),
+        }
+    }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AppRequestCommandV0 {
-    Fetch(AppFetchContentV0),
-    Pin,
-    UnPin,
-    Delete,
-    Create,
-    FileGet, // needs the Nuri of branch/doc/store AND ObjectId
-    FilePut, // needs the Nuri of branch/doc/store
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AppRequestV0 {
-    pub command: AppRequestCommandV0,
-
-    pub nuri: NuriV0,
-
-    pub payload: Option<AppRequestPayload>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AppRequest {
-    V0(AppRequestV0),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DocQuery {
-    V0(String), // Sparql
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GraphUpdate {
-    add: Vec<String>,
-    remove: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DiscreteUpdate {
-    /// A yrs::Update
-    #[serde(with = "serde_bytes")]
-    YMap(Vec<u8>),
-    #[serde(with = "serde_bytes")]
-    YXml(Vec<u8>),
-    #[serde(with = "serde_bytes")]
-    YText(Vec<u8>),
-    /// An automerge::Patch
-    #[serde(with = "serde_bytes")]
-    Automerge(Vec<u8>),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DocUpdate {
-    heads: Vec<ObjectId>,
-    graph: Option<GraphUpdate>,
-    discrete: Option<DiscreteUpdate>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DocAddFile {
-    pub filename: Option<String>,
-    pub object: ObjectRef,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DocCreate {
-    store: StoreRepo,
-    content_type: BranchContentType,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DocDelete {
-    /// Nuri of doc to delete
-    nuri: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AppRequestPayloadV0 {
-    Create(DocCreate),
-    Query(DocQuery),
-    Update(DocUpdate),
-    AddFile(DocAddFile),
-    //RemoveFile
-    Delete(DocDelete),
-    //Invoke(InvokeArguments),
-    SmallFilePut(SmallFile),
-    RandomAccessFilePut(String),                           // content_type
-    RandomAccessFilePutChunk((u32, serde_bytes::ByteBuf)), // end the upload with an empty vec
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AppRequestPayload {
-    V0(AppRequestPayloadV0),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DiscretePatch {
-    /// A yrs::Update
-    #[serde(with = "serde_bytes")]
-    YMap(Vec<u8>),
-    #[serde(with = "serde_bytes")]
-    YXml(Vec<u8>),
-    #[serde(with = "serde_bytes")]
-    YText(Vec<u8>),
-    /// An automerge::Patch
-    #[serde(with = "serde_bytes")]
-    Automerge(Vec<u8>),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GraphPatch {
-    /// oxigraph::model::GroundQuad serialized to n-quads with oxrdfio
-    pub adds: Vec<String>,
-    pub removes: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DiscreteState {
-    /// A yrs::StateVector
-    #[serde(with = "serde_bytes")]
-    YMap(Vec<u8>),
-    #[serde(with = "serde_bytes")]
-    YXml(Vec<u8>),
-    #[serde(with = "serde_bytes")]
-    YText(Vec<u8>),
-    // the output of Automerge::save()
-    #[serde(with = "serde_bytes")]
-    Automerge(Vec<u8>),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GraphState {
-    pub tuples: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AppState {
-    heads: Vec<ObjectId>,
-    graph: Option<GraphState>, // there is always a graph present in the branch. but it might not have been asked in the request
-    discrete: Option<DiscreteState>,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AppPatch {
-    heads: Vec<ObjectId>,
-    graph: Option<GraphPatch>,
-    discrete: Option<DiscretePatch>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FileName {
-    pub heads: Vec<ObjectId>,
-    pub name: Option<String>,
-    pub reference: ObjectRef,
-    pub nuri: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FileMetaV0 {
-    pub content_type: String,
-    pub size: u64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AppResponseV0 {
-    State(AppState),
-    Patch(AppPatch),
-    Text(String),
-    File(FileName),
-    FileUploading(u32),
-    FileUploaded(ObjectRef),
-    #[serde(with = "serde_bytes")]
-    FileBinary(Vec<u8>),
-    FileMeta(FileMetaV0),
-    QueryResult, // see sparesults
-    Ok,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum AppResponse {
-    V0(AppResponseV0),
+    pub fn to_direct_if_not_local(&self, peer: DirectPeerId) -> Result<Self, VerifierError> {
+        match self {
+            BrokerPeerId::Local(_) => Err(VerifierError::LocallyConnected),
+            _ => Ok(BrokerPeerId::Direct(peer)),
+        }
+    }
 }

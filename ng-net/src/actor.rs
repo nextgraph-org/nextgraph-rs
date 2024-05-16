@@ -127,7 +127,7 @@ impl<
         let mut receiver = self.receiver.take().unwrap();
         match receiver.next().await {
             Some(ConnectionCommand::Msg(msg)) => {
-                if let ProtocolMessage::ClientMessage(ref bm) = msg {
+                if let Some(bm) = msg.is_streamable() {
                     if bm.result() == Into::<u16>::into(ServerError::PartialContent)
                         && TypeId::of::<B>() != TypeId::of::<()>()
                     {
@@ -150,7 +150,7 @@ impl<
                                 while let Some(ConnectionCommand::Msg(msg)) =
                                     actor_receiver.next().await
                                 {
-                                    if let ProtocolMessage::ClientMessage(ref bm) = msg {
+                                    if let Some(bm) = msg.is_streamable() {
                                         if bm.result()
                                             == Into::<u16>::into(ServerError::EndOfStream)
                                         {

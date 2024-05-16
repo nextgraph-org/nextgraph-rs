@@ -49,32 +49,29 @@
           V0: {
             command: "FileGet",
             nuri,
+            session_id: $active_session.session_id,
           },
         };
 
         let final_blob;
         let content_type;
-        let unsub = await ng.app_request_stream(
-          $active_session.session_id,
-          file_request,
-          async (blob) => {
-            //console.log("GOT APP RESPONSE", blob);
-            if (blob.V0.FileMeta) {
-              content_type = blob.V0.FileMeta.content_type;
-              final_blob = new Blob([], { type: content_type });
-            } else if (blob.V0.FileBinary) {
-              if (blob.V0.FileBinary.byteLength > 0) {
-                final_blob = new Blob([final_blob, blob.V0.FileBinary], {
-                  type: content_type,
-                });
-              } else {
-                var imageUrl = URL.createObjectURL(final_blob);
+        let unsub = await ng.app_request_stream(file_request, async (blob) => {
+          //console.log("GOT APP RESPONSE", blob);
+          if (blob.V0.FileMeta) {
+            content_type = blob.V0.FileMeta.content_type;
+            final_blob = new Blob([], { type: content_type });
+          } else if (blob.V0.FileBinary) {
+            if (blob.V0.FileBinary.byteLength > 0) {
+              final_blob = new Blob([final_blob, blob.V0.FileBinary], {
+                type: content_type,
+              });
+            } else {
+              var imageUrl = URL.createObjectURL(final_blob);
 
-                resolve(imageUrl);
-              }
+              resolve(imageUrl);
             }
           }
-        );
+        });
       } catch (e) {
         console.error(e);
         resolve(false);
@@ -166,13 +163,11 @@
             RandomAccessFilePut: image.type,
           },
         },
+        session_id: $active_session.session_id,
       },
     };
 
-    let start_res = await ng.app_request(
-      $active_session.session_id,
-      start_request
-    );
+    let start_res = await ng.app_request(start_request);
     let upload_id = start_res.V0.FileUploading;
 
     uploadFile(upload_id, nuri, image, async (reference) => {
@@ -189,10 +184,11 @@
                 },
               },
             },
+            session_id: $active_session.session_id,
           },
         };
 
-        await ng.app_request($active_session.session_id, request);
+        await ng.app_request(request);
       }
     });
     fileinput.value = "";

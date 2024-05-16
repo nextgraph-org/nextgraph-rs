@@ -25,15 +25,26 @@ use async_std::stream::StreamExt;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
-use ng_repo::errors::NgError;
+#[allow(unused_imports)]
+use ng_repo::errors::{NgError, ProtocolError};
 use ng_repo::log::*;
 use ng_repo::types::*;
+#[allow(unused_imports)]
+use ng_repo::utils::{decode_key, decode_priv_key};
 
+use ng_net::app_protocol::*;
 use ng_net::broker::*;
-use ng_net::types::{ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, IP};
-use ng_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend};
-use ng_net::utils::{retrieve_local_bootstrap, retrieve_local_url};
-use ng_net::WS_PORT;
+#[allow(unused_imports)]
+use ng_net::types::{BindAddress, ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, IP};
+#[allow(unused_imports)]
+use ng_net::utils::{
+    decode_invitation_string, parse_ip_and_port_for, retrieve_local_bootstrap, retrieve_local_url,
+    spawn_and_log_error, Receiver, ResultSend,
+};
+#[allow(unused_imports)]
+use ng_net::{actor::*, actors::admin::*};
+#[allow(unused_imports)]
+use ng_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
 
 use ng_client_ws::remote_ws_wasm::ConnectionWebSocket;
 
@@ -41,7 +52,6 @@ use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
-use nextgraph::verifier::*;
 
 #[wasm_bindgen]
 pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {
@@ -141,7 +151,7 @@ pub async fn get_wallets() -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
 
     let res = wallets_get_all().await.map_err(|e| {
-        log_err!("{}", e.to_string());
+        log_err!("wallets_get_all error {}", e.to_string());
     });
     if res.is_ok() {
         return Ok(serde_wasm_bindgen::to_value(&res.unwrap()).unwrap());
@@ -155,11 +165,45 @@ pub async fn session_start(wallet_name: String, user_js: JsValue) -> Result<JsVa
         .map_err(|_| "Deserialization error of user_id")?;
 
     let config = SessionConfig::new_save(&user_id, &wallet_name);
-    let res = nextgraph::local_broker::session_start(config)
+    let res: SessionInfoString = nextgraph::local_broker::session_start(config)
         .await
-        .map_err(|e: NgError| e.to_string())?;
+        .map_err(|e: NgError| e.to_string())?
+        .into();
 
     Ok(serde_wasm_bindgen::to_value(&res).unwrap())
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen]
+pub async fn session_headless_start(user_js: String) -> Result<JsValue, String> {
+    let user_id = decode_key(&user_js).map_err(|_| "Invalid user_id")?;
+
+    let config = SessionConfig::new_headless(user_id);
+    let res: SessionInfoString = nextgraph::local_broker::session_start(config)
+        .await
+        .map_err(|e: NgError| e.to_string())?
+        .into();
+
+    Ok(serde_wasm_bindgen::to_value(&res).unwrap())
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen]
+pub async fn admin_create_user(js_config: JsValue) -> Result<JsValue, String> {
+    let config = HeadLessConfigStrings::load(js_config)?;
+    let admin_user_key = config
+        .admin_user_key
+        .ok_or("No admin_user_key found in config nor env var.".to_string())?;
+
+    let res = nextgraph::local_broker::admin_create_user(
+        config.server_peer_id,
+        admin_user_key,
+        config.server_addr,
+    )
+    .await
+    .map_err(|e: ProtocolError| e.to_string())?;
+
+    Ok(serde_wasm_bindgen::to_value(&res.to_string()).unwrap())
 }
 
 #[wasm_bindgen]
@@ -175,9 +219,10 @@ pub async fn session_start_remote(
         .map_err(|_| "Deserialization error of peer_id")?;
 
     let config = SessionConfig::new_remote(&user_id, &wallet_name, peer_id);
-    let res = nextgraph::local_broker::session_start(config)
+    let res: SessionInfoString = nextgraph::local_broker::session_start(config)
         .await
-        .map_err(|e: NgError| e.to_string())?;
+        .map_err(|e: NgError| e.to_string())?
+        .into();
 
     Ok(serde_wasm_bindgen::to_value(&res).unwrap())
 }
@@ -344,12 +389,8 @@ pub async fn wallet_import(
 #[wasm_bindgen(module = "/js/node.js")]
 extern "C" {
     fn client_details() -> String;
-}
-
-#[cfg(wasmpack_target = "nodejs")]
-#[wasm_bindgen(module = "/js/node.js")]
-extern "C" {
     fn version() -> String;
+    fn get_env_vars() -> JsValue;
 }
 
 #[cfg(wasmpack_target = "nodejs")]
@@ -441,17 +482,17 @@ pub async fn test() {
 
 #[wasm_bindgen]
 pub async fn app_request_stream(
-    js_session_id: JsValue,
+    // js_session_id: JsValue,
     js_request: JsValue,
     callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
-    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
-        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    // let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
+    //     .map_err(|_| "Deserialization error of session_id".to_string())?;
 
     let request = serde_wasm_bindgen::from_value::<AppRequest>(js_request)
         .map_err(|_| "Deserialization error of AppRequest".to_string())?;
 
-    let (reader, cancel) = nextgraph::local_broker::app_request_stream(session_id, request)
+    let (reader, cancel) = nextgraph::local_broker::app_request_stream(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
 
@@ -495,13 +536,13 @@ pub async fn app_request_stream(
 }
 
 #[wasm_bindgen]
-pub async fn app_request(js_session_id: JsValue, js_request: JsValue) -> Result<JsValue, String> {
-    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
-        .map_err(|_| "Deserialization error of session_id".to_string())?;
+pub async fn app_request(js_request: JsValue) -> Result<JsValue, String> {
+    // let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
+    //     .map_err(|_| "Deserialization error of session_id".to_string())?;
     let request = serde_wasm_bindgen::from_value::<AppRequest>(js_request)
         .map_err(|_| "Deserialization error of AppRequest".to_string())?;
 
-    let response = nextgraph::local_broker::app_request(session_id, request)
+    let response = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
 
@@ -526,15 +567,16 @@ pub async fn upload_chunk(
     let nuri: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(js_nuri)
         .map_err(|_| "Deserialization error of nuri".to_string())?;
 
-    let request = AppRequest::V0(AppRequestV0 {
-        command: AppRequestCommandV0::FilePut,
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::FilePut,
         nuri,
-        payload: Some(AppRequestPayload::V0(
+        Some(AppRequestPayload::V0(
             AppRequestPayloadV0::RandomAccessFilePutChunk((upload_id, chunk)),
         )),
-    });
+    );
+    request.set_session_id(session_id);
 
-    let response = nextgraph::local_broker::app_request(session_id, request)
+    let response = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
 
@@ -543,21 +585,21 @@ pub async fn upload_chunk(
 
 #[wasm_bindgen]
 pub async fn doc_fetch_private_subscribe() -> Result<JsValue, String> {
-    let request = AppRequest::V0(AppRequestV0 {
-        command: AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
-        nuri: NuriV0::new_private_store_target(),
-        payload: None,
-    });
+    let request = AppRequest::new(
+        AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
+        NuriV0::new_private_store_target(),
+        None,
+    );
     Ok(serde_wasm_bindgen::to_value(&request).unwrap())
 }
 
 #[wasm_bindgen]
 pub async fn doc_fetch_repo_subscribe(repo_id: String) -> Result<JsValue, String> {
-    let request = AppRequest::V0(AppRequestV0 {
-        command: AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
-        nuri: NuriV0::new_repo_target_from_string(repo_id).map_err(|e| e.to_string())?,
-        payload: None,
-    });
+    let request = AppRequest::new(
+        AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
+        NuriV0::new_repo_target_from_string(repo_id).map_err(|e| e.to_string())?,
+        None,
+    );
     Ok(serde_wasm_bindgen::to_value(&request).unwrap())
 }
 
@@ -624,6 +666,114 @@ pub async fn probe() {
     let _ = Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
 }
 
+#[cfg(wasmpack_target = "nodejs")]
+#[derive(Serialize, Deserialize)]
+struct HeadLessConfigStrings {
+    server_addr: Option<String>,
+    server_peer_id: Option<String>,
+    client_peer_key: Option<String>,
+    admin_user_key: Option<String>,
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+impl HeadLessConfigStrings {
+    fn load(js_config: JsValue) -> Result<HeadlessConfig, String> {
+        let string_config = if js_config.is_object() {
+            serde_wasm_bindgen::from_value::<HeadLessConfigStrings>(js_config)
+                .map_err(|_| "Deserialization error of config object".to_string())?
+        } else {
+            HeadLessConfigStrings {
+                server_addr: None,
+                server_peer_id: None,
+                client_peer_key: None,
+                admin_user_key: None,
+            }
+        };
+        let var_env_config =
+            serde_wasm_bindgen::from_value::<HeadLessConfigStrings>(get_env_vars())
+                .map_err(|_| "Deserialization error of env vars".to_string())?;
+
+        let server_addr = if let Some(s) = string_config.server_addr {
+            parse_ip_and_port_for(s, "server_addr").map_err(|e: NgError| e.to_string())?
+        } else {
+            if let Some(s) = var_env_config.server_addr {
+                parse_ip_and_port_for(s, "server_addr from var env")
+                    .map_err(|e: NgError| e.to_string())?
+            } else {
+                BindAddress::new_localhost_with_port(WS_PORT_REVERSE_PROXY)
+            }
+        };
+
+        let server_peer_id = if let Some(s) = string_config.server_peer_id {
+            Some(decode_key(&s).map_err(|e: NgError| e.to_string())?)
+        } else {
+            if let Some(s) = var_env_config.server_peer_id {
+                Some(decode_key(&s).map_err(|e: NgError| e.to_string())?)
+            } else {
+                None
+            }
+        }
+        .ok_or("No server_peer_id found in config nor env var.".to_string())?;
+
+        let client_peer_key = if let Some(s) = string_config.client_peer_key {
+            Some(decode_priv_key(&s).map_err(|e: NgError| e.to_string())?)
+        } else {
+            if let Some(s) = var_env_config.client_peer_key {
+                Some(decode_priv_key(&s).map_err(|e: NgError| e.to_string())?)
+            } else {
+                None
+            }
+        };
+
+        let admin_user_key = if let Some(s) = string_config.admin_user_key {
+            Some(decode_priv_key(&s).map_err(|e: NgError| e.to_string())?)
+        } else {
+            if let Some(s) = var_env_config.admin_user_key {
+                Some(decode_priv_key(&s).map_err(|e: NgError| e.to_string())?)
+            } else {
+                None
+            }
+        };
+
+        Ok(HeadlessConfig {
+            server_addr,
+            server_peer_id,
+            client_peer_key,
+            admin_user_key,
+        })
+    }
+}
+/*
+#[doc(hidden)]
+#[derive(Debug)]
+pub struct HeadlessConfig {
+    // parse_ip_and_port_for(string, "verifier_server")
+    pub server_addr: Option<BindAddress>,
+    // decode_key(string)
+    pub server_peer_id: PubKey,
+    // decode_priv_key(string)
+    pub client_peer_key: PrivKey,
+}*/
+
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen]
+pub async fn init_headless(js_config: JsValue) -> Result<(), String> {
+    //log_info!("{:?}", js_config);
+
+    let config = HeadLessConfigStrings::load(js_config)?;
+    let _ = config
+        .client_peer_key
+        .as_ref()
+        .ok_or("No client_peer_key found in config nor env var.".to_string())?;
+
+    init_local_broker(Box::new(move || {
+        LocalBrokerConfig::Headless(config.clone())
+    }))
+    .await;
+
+    Ok(())
+}
+
 #[wasm_bindgen]
 pub async fn start() {
     async fn inner_task() -> ResultSend<()> {
@@ -633,9 +783,8 @@ pub async fn start() {
 }
 
 #[wasm_bindgen]
-pub async fn session_stop(user_id_js: JsValue) -> Result<(), String> {
-    let user_id = serde_wasm_bindgen::from_value::<UserId>(user_id_js)
-        .map_err(|_| "serde error on user_id")?;
+pub async fn session_stop(user_id_js: String) -> Result<(), String> {
+    let user_id = decode_key(&user_id_js).map_err(|_| "Invalid user_id")?;
 
     nextgraph::local_broker::session_stop(&user_id)
         .await
@@ -643,9 +792,8 @@ pub async fn session_stop(user_id_js: JsValue) -> Result<(), String> {
 }
 
 #[wasm_bindgen]
-pub async fn user_disconnect(user_id_js: JsValue) -> Result<(), String> {
-    let user_id = serde_wasm_bindgen::from_value::<UserId>(user_id_js)
-        .map_err(|_| "serde error on user_id")?;
+pub async fn user_disconnect(user_id_js: String) -> Result<(), String> {
+    let user_id = decode_key(&user_id_js).map_err(|_| "Invalid user_id")?;
 
     nextgraph::local_broker::user_disconnect(&user_id)
         .await
@@ -662,13 +810,12 @@ pub async fn wallet_close(wallet_name: String) -> Result<(), String> {
 #[wasm_bindgen]
 pub async fn user_connect(
     client_info_js: JsValue,
-    user_id_js: JsValue,
+    user_id_js: String,
     location: Option<String>,
 ) -> Result<JsValue, String> {
     let info = serde_wasm_bindgen::from_value::<ClientInfo>(client_info_js)
         .map_err(|_| "serde error on info")?;
-    let user_id = serde_wasm_bindgen::from_value::<UserId>(user_id_js)
-        .map_err(|_| "serde error on user_id")?;
+    let user_id = decode_key(&user_id_js).map_err(|_| "Invalid user_id")?;
 
     #[derive(Serialize, Deserialize)]
     struct ConnectionInfo {

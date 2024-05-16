@@ -77,6 +77,8 @@ pub enum NgError {
     FileError(FileError),
     InternalError,
     OxiGraphError(String),
+    ConfigError(String),
+    LocalBrokerIsHeadless,
 }
 
 impl Error for NgError {}
@@ -252,6 +254,9 @@ pub enum ServerError {
     ProtocolError,
     PeerAlreadySubscribed,
     SubscriptionNotFound,
+    SessionNotFound,
+    SessionDetached,
+    OxiGraphError,
 }
 
 impl From<StorageError> for ServerError {
@@ -277,6 +282,7 @@ impl From<NgError> for ServerError {
     fn from(e: NgError) -> Self {
         match e {
             NgError::InvalidSignature => ServerError::InvalidSignature,
+            NgError::OxiGraphError(_) => ServerError::OxiGraphError,
             _ => ServerError::OtherError,
         }
     }
@@ -319,6 +325,7 @@ pub enum VerifierError {
     BranchNotOpened,
     DoubleBranchSubscription,
     InvalidCommit,
+    LocallyConnected,
 }
 
 impl From<NgError> for VerifierError {
@@ -421,6 +428,7 @@ pub enum ProtocolError {
     WhereIsTheMagic,
 
     InvalidNonce,
+    InvalidMessage,
 } //MAX 949 ProtocolErrors
 
 impl From<NetError> for ProtocolError {

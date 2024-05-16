@@ -8,7 +8,7 @@
 // according to those terms.
 
 use core::fmt;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::{read, remove_file, write};
 use std::path::PathBuf;
 
@@ -27,12 +27,13 @@ use ng_repo::errors::{NgError, ProtocolError};
 use ng_repo::log::*;
 use ng_repo::os_info::get_os_info;
 use ng_repo::types::*;
-use ng_repo::utils::derive_key;
+use ng_repo::utils::{derive_key, generate_keypair};
 
-use ng_net::actor::EActor;
+use ng_net::{actor::*,actors::admin::*};
 use ng_net::broker::*;
-use ng_net::connection::{ClientConfig, IConnect, NoiseFSM, StartConfig};
-use ng_net::types::{ClientInfo, ClientType, ProtocolMessage};
+use ng_net::connection::{ClientConfig, IConnect, NoiseFSM, StartConfig, AppConfig};
+use ng_net::types::*;
+use ng_net::app_protocol::*;
 use ng_net::utils::{Receiver, Sender};
 
 use ng_verifier::types::*;
@@ -47,6 +48,18 @@ use ng_client_ws::remote_ws::ConnectionWebSocket;
 use ng_client_ws::remote_ws_wasm::ConnectionWebSocket;
 #[cfg(not(target_arch = "wasm32"))]
 use ng_storage_rocksdb::block_storage::RocksDbBlockStorage;
+
+#[doc(hidden)]
+#[derive(Debug,Clone)]
+pub struct HeadlessConfig {
+    // parse_ip_and_port_for(string, "verifier_server")
+    pub server_addr: BindAddress,
+    // decode_key(string)
+    pub server_peer_id: PubKey,
+    // decode_priv_key(string)
+    pub client_peer_key: Option<PrivKey>,
+    pub admin_user_key: Option<PrivKey>,
+}
 
 type JsStorageReadFn = dyn Fn(String) -> Result<String, NgError> + 'static + Sync + Send;
 type JsStorageWriteFn = dyn Fn(String, String) -> Result<(), NgError> + 'static + Sync + Send;
@@ -167,6 +180,10 @@ pub enum LocalBrokerConfig {
     #[doc(hidden)]
     /// used internally for the JS SDK
     JsStorage(JsStorageConfig),
+    /// Does not handle wallet and will only create remote sessions from credentials.
+    /// Only one websocket connection will be established to a predefined verifier (given in config)
+    #[doc(hidden)]
+    Headless(HeadlessConfig),
 }
 
 impl LocalBrokerConfig {
@@ -187,6 +204,13 @@ impl LocalBrokerConfig {
         match self {
             Self::JsStorage(_) => true,
             _ => false,
+        }
+    }
+    #[doc(hidden)]
+    pub fn headless_config(&self) -> &HeadlessConfig {
+        match self {
+            Self::Headless(c) => &c,
+            _ => panic!("dont call headless_config if not in HeadlessConfig"),
         }
     }
     #[doc(hidden)]
@@ -216,10 +240,63 @@ pub struct SessionConfigV0 {
     pub wallet_name: String,
     pub verifier_type: VerifierType,
 }
+
 #[derive(Debug)]
 /// used to initiate a session at a local broker
 pub enum SessionConfig {
     V0(SessionConfigV0),
+    WithCredentialsV0(WithCredentialsV0),
+    HeadlessV0(UserId),
+}
+
+#[derive(Debug)]
+/// used to initiate a session at a local broker with credentials
+pub struct WithCredentialsV0 {
+    pub credentials: Credentials,
+    pub verifier_type: VerifierType,
+    pub detach: bool, // only used if remote verifier
+}
+
+trait ISession {}
+
+#[derive(Debug)]
+struct RemoteSession {
+    #[allow(dead_code)]
+    config: SessionConfig,
+    remote_peer_id: DirectPeerId,
+    user_id: UserId,
+}
+
+impl RemoteSession {
+    pub(crate) async fn send_request(&self, req: AppRequest) -> Result<AppResponse, NgError> {
+        match BROKER.read().await.request::<AppRequest, AppResponse>(&Some(self.user_id), &Some(self.remote_peer_id), req).await {
+            Err(e) => Err(e),
+            Ok(SoS::Stream(_)) => Err(NgError::InvalidResponse),
+            Ok(SoS::Single(res)) => Ok(res),           
+        }
+    }
+    
+    pub(crate) async fn send_request_stream(&self, req: AppRequest) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
+        match BROKER.read().await.request::<AppRequest, AppResponse>(&Some(self.user_id), &Some(self.remote_peer_id), req).await {
+            Err(e) => Err(e),
+            Ok(SoS::Single(_)) => Err(NgError::InvalidResponse),
+            Ok(SoS::Stream(stream)) => {
+                let fnonce = Box::new(move || {
+                    // stream.close();
+                    //TODO: implement CancelStream in AppRequest 
+                });
+                Ok((stream, fnonce))
+            },           
+        }
+    }
+}
+
+#[derive(Debug)]
+struct HeadlessSession {
+    user_id: UserId,
+}
+
+impl HeadlessSession {
 }
 
 #[derive(Debug)]
@@ -235,22 +312,51 @@ impl SessionConfig {
     pub fn user_id(&self) -> UserId {
         match self {
             Self::V0(v0) => v0.user_id,
+            Self::WithCredentialsV0(creds) => creds.credentials.user_key.to_pub(),
+            Self::HeadlessV0(hl) => hl.clone(),
         }
     }
     pub fn wallet_name(&self) -> String {
         match self {
             Self::V0(v0) => v0.wallet_name.clone(),
+            Self::WithCredentialsV0(_) => panic!("dont call wallet_name on a WithCredentialsV0"),
+            Self::HeadlessV0(_) => panic!("dont call wallet_name on a HeadlessV0"),
         }
     }
     pub fn verifier_type(&self) -> &VerifierType {
         match self {
             Self::V0(v0) => &v0.verifier_type,
+            Self::WithCredentialsV0(creds) => &creds.verifier_type,
+            Self::HeadlessV0(_) => panic!("dont call verifier_type on a HeadlessV0"),
+        }
+    }
+    pub fn is_remote(&self) -> bool {
+        match self {
+            Self::V0(v0) => v0.verifier_type.is_remote(),
+            Self::WithCredentialsV0(creds) => creds.verifier_type.is_remote(),
+            Self::HeadlessV0(_) => true,
+        }
+    }
+    pub fn set_verifier_type(&mut self, vt:VerifierType) {
+        match self {
+            Self::V0(v0) => v0.verifier_type = vt,
+            Self::WithCredentialsV0(creds) => creds.verifier_type = vt,
+            Self::HeadlessV0(_) => panic!("dont call verifier_type on a HeadlessV0"),
+        }
+    }
+
+    pub fn is_with_credentials(&self) -> bool {
+        match self {
+            Self::WithCredentialsV0(_) => true,
+            Self::HeadlessV0(_) | Self::V0(_) => false,
         }
     }
 
     pub fn is_memory(&self) -> bool {
         match self {
             Self::V0(v0) => v0.verifier_type.is_memory(),
+            Self::WithCredentialsV0(creds) => creds.verifier_type.is_memory(),
+            Self::HeadlessV0(_) => true,
         }
     }
     /// Creates a new in_memory SessionConfig with a UserId and a wallet name
@@ -291,9 +397,19 @@ impl SessionConfig {
         })
     }
 
+    #[doc(hidden)]
+    pub fn new_headless(
+        user_id: UserId,
+    ) -> Self {
+        SessionConfig::HeadlessV0(user_id)
+    }
+
     fn force_in_memory(&mut self) {
         match self {
             Self::V0(v0) => v0.verifier_type = VerifierType::Memory,
+            Self::WithCredentialsV0(_) | Self::HeadlessV0(_) => {
+                panic!("dont call force_in_memory on a WithCredentialsV0 or HeadlessV0")
+            }
         }
     }
 
@@ -318,6 +434,9 @@ impl SessionConfig {
                     true => VerifierType::Memory,
                     false => VerifierType::Save,
                 },
+                LocalBrokerConfig::Headless(_) => {
+                    panic!("don't call wallet_create on a Headless LocalBroker")
+                }
             },
         }))
     }
@@ -327,22 +446,29 @@ impl SessionConfig {
         local_broker_config: &LocalBrokerConfig,
     ) -> Result<(), NgError> {
         if match self {
-            Self::V0(v0) => match local_broker_config {
+            Self::HeadlessV0(_) => {
+                panic!("don't call session_start on a Headless LocalBroker")
+            },
+            _  => match local_broker_config {
                 LocalBrokerConfig::InMemory => {
-                    v0.verifier_type = VerifierType::Memory;
+                    self.set_verifier_type(VerifierType::Memory);
                     true
                 }
-                LocalBrokerConfig::JsStorage(js_config) => match v0.verifier_type {
+                LocalBrokerConfig::JsStorage(js_config) => match self.verifier_type() {
                     VerifierType::Memory | VerifierType::Remote(_) => true,
                     VerifierType::Save => true,
                     VerifierType::WebRocksDb => js_config.is_browser,
                 },
-                LocalBrokerConfig::BasePath(_) => match v0.verifier_type {
+                LocalBrokerConfig::BasePath(_) => match self.verifier_type() {
                     VerifierType::Save | VerifierType::Remote(_) => true,
                     VerifierType::Memory => true,
                     _ => false,
                 },
+                LocalBrokerConfig::Headless(_) => {
+                    panic!("don't call session_start on a Headless LocalBroker")
+                }
             },
+            
         } {
             Ok(())
         } else {
@@ -389,9 +515,14 @@ struct LocalBroker {
 
     pub sessions: HashMap<UserId, SessionPeerStorageV0>,
 
+    // use even session_ids for remote_session, odd session_ids for opened_sessions
     pub opened_sessions: HashMap<UserId, u64>,
 
     pub opened_sessions_list: Vec<Option<Session>>,
+    pub remote_sessions_list: Vec<Option<RemoteSession>>,
+
+    pub headless_sessions: BTreeMap<u64, HeadlessSession>,
+    pub headless_connected_to_remote_broker: bool,
 
     tauri_streams: HashMap<String, CancelFn>,
 
@@ -471,11 +602,194 @@ impl LocalBroker {
         }
     }
 
+    async fn connect_remote_broker(&mut self) -> Result<(), NgError> {
+
+        self.err_if_not_headless()?;
+
+        if self.headless_connected_to_remote_broker {return Ok(())}
+
+        let info = get_client_info(ClientType::NodeService);
+
+        let config = self.config.headless_config();
+
+        BROKER.write().await.connect(
+            Arc::new(Box::new(ConnectionWebSocket {})),
+            config.client_peer_key.as_ref().unwrap().clone(),
+            config.client_peer_key.as_ref().unwrap().to_pub(), 
+            config.server_peer_id, 
+            StartConfig::App(AppConfig{user_priv:None, info, addr:config.server_addr})
+        ).await?;
+           
+        self.headless_connected_to_remote_broker = true;
+
+        Ok(())
+    }
+
+    pub(crate) async fn send_request_headless(&self, req: ProtocolMessage) -> Result<AppResponse, NgError> {
+        self.err_if_not_headless()?;
+
+        match BROKER.read().await.request::<ProtocolMessage, AppResponse>(&None, &Some(self.config.headless_config().server_peer_id), req).await {
+            Err(e) => Err(e),
+            Ok(SoS::Stream(_)) => Err(NgError::InvalidResponse),
+            Ok(SoS::Single(res)) => Ok(res),           
+        }
+    }
+    
+    #[allow(dead_code)]
+    pub(crate) async fn send_request_stream_headless(&self, req: AppRequest) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
+        self.err_if_not_headless()?;
+
+        match BROKER.read().await.request::<AppRequest, AppResponse>(&None, &Some(self.config.headless_config().server_peer_id), req).await {
+            Err(e) => Err(e),
+            Ok(SoS::Single(_)) => Err(NgError::InvalidResponse),
+            Ok(SoS::Stream(stream)) => {
+                let fnonce = Box::new(move || {
+                    // stream.close();
+                    //TODO: implement CancelStream in AppRequest 
+                });
+                Ok((stream, fnonce))
+            },           
+        }
+    }
+
+    fn err_if_headless(&self) -> Result<(), NgError> {
+        match self.config {
+            LocalBrokerConfig::Headless(_) => Err(NgError::LocalBrokerIsHeadless),
+            _ => Ok(()),
+        }
+    }
+
+    fn err_if_not_headless(&self) -> Result<(), NgError> {
+        match self.config {
+             LocalBrokerConfig::Headless(_) => Ok(()),
+             _ => Err(NgError::LocalBrokerIsHeadless),
+        }
+    }
+
     fn get_mut_session_for_user(&mut self, user: &UserId) -> Option<&mut Session> {
         match self.opened_sessions.get(user) {
-            Some(idx) => self.opened_sessions_list[*idx as usize].as_mut(),
+            Some(idx) => {
+                let idx = Self::to_real_session_id(*idx);
+                if self.opened_sessions_list.len() > idx as usize {
+                    self.opened_sessions_list[idx as usize].as_mut()
+                } else {
+                    None
+                }
+            }
             None => None,
         }
+    }
+
+    fn is_remote_session(session_id: u64) -> bool {
+        (session_id & 1) == 0
+    }
+
+    fn is_local_session(session_id: u64) -> bool {
+        !Self::is_remote_session(session_id)
+    }
+
+    fn to_real_session_id(session_id: u64) -> u64 {
+        (session_id) >> 1
+    }
+
+    #[allow(dead_code)]
+    fn to_external_session_id(session_id: u64, is_remote: bool) -> u64 {
+        let mut ext = (session_id) << 1;
+        if !is_remote {ext += 1;}
+        ext
+    }
+
+    fn user_to_local_session_id_for_mut(&self, user_id: &UserId) -> Result<usize,NgError> {
+        
+        let session_id = self
+            .opened_sessions
+            .get(user_id)
+            .ok_or(NgError::SessionNotFound)?;
+        self.get_local_session_id_for_mut(*session_id)
+    }
+
+    fn get_local_session_id_for_mut(&self, session_id: u64) -> Result<usize,NgError> {
+        let _ = Self::is_local_session(session_id).then_some(true).ok_or(NgError::SessionNotFound)?;
+        let session_id = Self::to_real_session_id(session_id) as usize ;
+        if session_id >= self.opened_sessions_list.len() {
+            return Err(NgError::InvalidArgument);
+        }
+        Ok(session_id )
+    }
+
+    fn get_real_session_id_for_mut(&self, session_id: u64) -> Result<(usize,bool),NgError> {
+        
+        let is_remote = Self::is_remote_session(session_id);
+        let session_id = Self::to_real_session_id(session_id) as usize;
+        if is_remote {
+            if session_id >= self.remote_sessions_list.len() {
+                return Err(NgError::InvalidArgument);
+            }
+        } else {
+            if session_id >= self.opened_sessions_list.len() {
+                return Err(NgError::InvalidArgument);
+            }
+        }
+        Ok((session_id, is_remote))
+    }
+
+    fn get_session(&self, session_id: u64) -> Result<&Session, NgError> {
+        let _ = Self::is_local_session(session_id).then_some(true).ok_or(NgError::SessionNotFound)?;
+        let session_id = Self::to_real_session_id(session_id);
+        if session_id as usize >= self.opened_sessions_list.len() {
+            return Err(NgError::InvalidArgument);
+        }
+        self.opened_sessions_list[session_id as usize]
+            .as_ref()
+            .ok_or(NgError::SessionNotFound)
+    }
+
+    #[allow(dead_code)]
+    fn get_headless_session(&self, session_id: u64) -> Result<&HeadlessSession, NgError> {
+
+        self.err_if_not_headless()?;
+
+        self
+            .headless_sessions
+            .get(&session_id)
+            .ok_or(NgError::SessionNotFound)
+        
+    }
+
+    #[allow(dead_code)]
+    fn get_headless_session_by_user(&self, user_id: &UserId) -> Result<&HeadlessSession, NgError> {
+
+        self.err_if_not_headless()?;
+
+        let session_id = self.opened_sessions.get(user_id).ok_or(NgError::SessionNotFound)?;
+
+        self.get_headless_session(*session_id)
+        
+    }
+
+    fn remove_headless_session(&mut self, user_id: &UserId) -> Result<(u64,HeadlessSession), NgError> {
+
+        self.err_if_not_headless()?;
+
+        let session_id = self.opened_sessions.remove(user_id).ok_or(NgError::SessionNotFound)?;
+
+        let session = self
+            .headless_sessions
+            .remove(&session_id)
+            .ok_or(NgError::SessionNotFound)?;
+        Ok((session_id, session))
+    }
+
+    #[allow(dead_code)]
+    fn get_remote_session(&self, session_id: u64) -> Result<&RemoteSession, NgError> {
+        let _ = Self::is_remote_session(session_id).then_some(true).ok_or(NgError::SessionNotFound)?;
+        let session_id = Self::to_real_session_id(session_id);
+        if session_id as usize >= self.remote_sessions_list.len() {
+            return Err(NgError::InvalidArgument);
+        }
+        self.remote_sessions_list[session_id as usize]
+            .as_ref()
+            .ok_or(NgError::SessionNotFound)
     }
 
     pub fn get_site_store_of_session(
@@ -483,6 +797,8 @@ impl LocalBroker {
         session: &Session,
         store_type: SiteStoreType,
     ) -> Result<PubKey, NgError> {
+        self.err_if_headless()?;
+
         match self.opened_wallets.get(&session.config.wallet_name()) {
             Some(opened_wallet) => {
                 let user_id = session.config.user_id();
@@ -493,40 +809,49 @@ impl LocalBroker {
         }
     }
 
-    fn verifier_config_type_from_session_config(
+    async fn verifier_config_type_from_session_config(
         &self,
         config: &SessionConfig,
-    ) -> VerifierConfigType {
-        match (config.verifier_type(), &self.config) {
-            (VerifierType::Memory, LocalBrokerConfig::InMemory) => VerifierConfigType::Memory,
-            (VerifierType::Memory, LocalBrokerConfig::BasePath(_)) => VerifierConfigType::Memory,
-            (VerifierType::Save, LocalBrokerConfig::BasePath(base)) => {
-                let mut path = base.clone();
-                path.push(format!("user{}", config.user_id().to_hash_string()));
-                VerifierConfigType::RocksDb(path)
+    ) -> Result<VerifierConfigType, NgError> {
+        Ok(match config {
+            SessionConfig::HeadlessV0(_) => {
+                panic!("don't call verifier_config_type_from_session_config with a SessionConfig::HeadlessV0");
             }
-            (VerifierType::Remote(to), _) => VerifierConfigType::Remote(*to),
-            (VerifierType::WebRocksDb, _) => VerifierConfigType::WebRocksDb,
-            (VerifierType::Memory, LocalBrokerConfig::JsStorage(_)) => VerifierConfigType::Memory,
-            (VerifierType::Save, LocalBrokerConfig::JsStorage(js)) => {
-                VerifierConfigType::JsSaveSession(js.get_js_storage_config())
-            }
-            (_, _) => panic!("invalid combination in verifier_config_type_from_session_config"),
-        }
+            _ => match (config.verifier_type(), &self.config) {
+                (VerifierType::Memory, LocalBrokerConfig::InMemory) => VerifierConfigType::Memory,
+                (VerifierType::Memory, LocalBrokerConfig::BasePath(_)) => {
+                    VerifierConfigType::Memory
+                }
+                (VerifierType::Save, LocalBrokerConfig::BasePath(base)) => {
+                    let mut path = base.clone();
+                    path.push(format!("user{}", config.user_id().to_hash_string()));
+                    VerifierConfigType::RocksDb(path)
+                }
+                (VerifierType::Remote(to), _) => VerifierConfigType::Remote(*to),
+                (VerifierType::WebRocksDb, _) => VerifierConfigType::WebRocksDb,
+                (VerifierType::Memory, LocalBrokerConfig::JsStorage(_)) => {
+                    VerifierConfigType::Memory
+                }
+                (VerifierType::Save, LocalBrokerConfig::JsStorage(js)) => {
+                    VerifierConfigType::JsSaveSession(js.get_js_storage_config())
+                }
+                (_, _) => panic!("invalid combination in verifier_config_type_from_session_config"),
+            },
+        })
     }
 
     fn get_wallet_and_session(
         &mut self,
         user_id: &UserId,
     ) -> Result<(&SensitiveWallet, &mut Session), NgError> {
-        let session_idx = self
-            .opened_sessions
-            .get(user_id)
-            .ok_or(NgError::SessionNotFound)?;
-        let session = self.opened_sessions_list[*session_idx as usize]
+        let session_idx = self.user_to_local_session_id_for_mut(user_id)?;
+        let session = self.opened_sessions_list[session_idx]
             .as_mut()
             .ok_or(NgError::SessionNotFound)?;
         let wallet = &match &session.config {
+            SessionConfig::WithCredentialsV0(_) | SessionConfig::HeadlessV0(_) => {
+                panic!("don't call get_wallet_and_session on a Headless or WithCredentials config")
+            }
             SessionConfig::V0(v0) => self
                 .opened_wallets
                 .get(&v0.wallet_name)
@@ -539,9 +864,10 @@ impl LocalBroker {
     async fn disconnect_session(&mut self, user_id: &PubKey) -> Result<(), NgError> {
         match self.opened_sessions.get(user_id) {
             Some(session) => {
+                let session = self.get_local_session_id_for_mut(*session)?;
                 // TODO: change the logic here once it will be possible to have several users connected at the same time
                 Broker::close_all_connections().await;
-                let session = self.opened_sessions_list[*session as usize]
+                let session = self.opened_sessions_list[session]
                     .as_mut()
                     .ok_or(NgError::SessionNotFound)?;
                 session.verifier.connection_lost();
@@ -619,13 +945,57 @@ impl LocalBroker {
         Ok(client)
     }
 
+    fn add_session(&mut self, session: Session) -> Result<SessionInfo, NgError> {
+        let private_store_id = self
+            .get_site_store_of_session(&session, SiteStoreType::Private)?
+            .to_string();
+
+        let user_id = session.config.user_id();
+
+        self.opened_sessions_list.push(Some(session));
+        let mut idx = self.opened_sessions_list.len() - 1;
+        idx = idx << 1;
+        idx += 1;
+        self.opened_sessions.insert(user_id, idx as u64);
+
+        Ok(SessionInfo {
+            session_id: idx as u64,
+            user: user_id,
+            private_store_id,
+        })
+    }
+
+    fn add_headless_session(&mut self, session: HeadlessSession) -> Result<SessionInfo, NgError> {
+
+        let user_id = session.user_id;
+
+        let mut first_available: u64 = 0;
+        for sess in self.headless_sessions.keys() {
+            if *sess != first_available + 1 {
+                break;
+            } else {
+                first_available += 1;
+            }
+        }
+        first_available += 1;
+
+        let ret = self.headless_sessions.insert(first_available, session);
+        assert!(ret.is_none());
+
+        self.opened_sessions.insert(user_id, first_available);
+
+        Ok(SessionInfo {
+            session_id: first_available,
+            user: user_id,
+            private_store_id: String::new(), // will be updated when the AppSessionStart replies arrive from broker
+        })
+    }
+
     async fn session_start(
         &mut self,
         mut config: SessionConfig,
         user_priv_key: Option<PrivKey>,
-    ) -> Result<SessionInfo, NgError> {
-        let intermediary_step = user_priv_key.is_some();
-
+    ) -> Result<Session, NgError> {
         let broker = self;
 
         let wallet_name: String = config.wallet_name();
@@ -645,29 +1015,6 @@ impl LocalBroker {
 
         let wallet_id: PubKey = (*wallet_name).try_into()?;
         let user_id = config.user_id();
-
-        match broker.opened_sessions.get(&user_id) {
-            Some(idx) => {
-                let ses = &(broker.opened_sessions_list)[*idx as usize];
-                match ses.as_ref() {
-                    Some(sess) => {
-                        if !sess.config.is_memory() && config.is_memory() {
-                            return Err(NgError::SessionAlreadyStarted);
-                        } else {
-                            return Ok(SessionInfo {
-                                session_id: *idx,
-                                user: user_id,
-                                private_store_id: broker
-                                    .get_site_store_of_session(sess, SiteStoreType::Private)?
-                                    .to_string(),
-                            });
-                        }
-                    }
-                    None => {}
-                }
-            }
-            None => {}
-        };
 
         // log_info!("wallet_name {} {:?}", wallet_name, broker.opened_wallets);
         match broker.opened_wallets.get(&wallet_name) {
@@ -704,7 +1051,9 @@ impl LocalBroker {
                         } else {
                             // first check if there is a saved SessionWalletStorage
                             let mut sws = match &broker.config {
-                                LocalBrokerConfig::InMemory => panic!("cannot open saved session"),
+                                LocalBrokerConfig::InMemory => {
+                                    panic!("cannot open saved session")
+                                }
                                 LocalBrokerConfig::JsStorage(js_config) => {
                                     // read session wallet storage from JsStorage
                                     let res = (js_config.session_read)(format!(
@@ -737,6 +1086,9 @@ impl LocalBroker {
                                     } else {
                                         None
                                     }
+                                }
+                                LocalBrokerConfig::Headless(_) => {
+                                    panic!("don't call session_start on a Headless LocalBroker")
                                 }
                             };
                             let (session, new_sws) = match &mut sws {
@@ -789,6 +1141,9 @@ impl LocalBroker {
                                         write(path.clone(), &new_sws)
                                             .map_err(|_| NgError::IoError)?;
                                     }
+                                    LocalBrokerConfig::Headless(_) => {
+                                        panic!("don't call session_start on a Headless LocalBroker")
+                                    }
                                 }
                             }
                             session
@@ -812,7 +1167,9 @@ impl LocalBroker {
                 key_material.zeroize();
                 let mut verifier = Verifier::new(
                     VerifierConfig {
-                        config_type: broker.verifier_config_type_from_session_config(&config),
+                        config_type: broker
+                            .verifier_config_type_from_session_config(&config)
+                            .await?,
                         user_master_key: key,
                         peer_priv_key: session.peer_key.clone(),
                         user_priv_key: credentials.0,
@@ -833,23 +1190,7 @@ impl LocalBroker {
                     last_wallet_nonce: session.last_wallet_nonce,
                     verifier,
                 };
-                let private_store_id = if intermediary_step {
-                    "".to_string()
-                } else {
-                    broker
-                        .get_site_store_of_session(&session, SiteStoreType::Private)?
-                        .to_string()
-                };
-
-                broker.opened_sessions_list.push(Some(session));
-                let idx = broker.opened_sessions_list.len() - 1;
-                broker.opened_sessions.insert(user_id, idx as u64);
-
-                Ok(SessionInfo {
-                    session_id: idx as u64,
-                    user: user_id,
-                    private_store_id,
-                })
+                Ok(session)
             }
         }
     }
@@ -894,7 +1235,7 @@ pub type ConfigInitFn = dyn Fn() -> LocalBrokerConfig + 'static + Sync + Send;
 
 async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, NgError> {
     let wallets = match &config {
-        LocalBrokerConfig::InMemory => HashMap::new(),
+        LocalBrokerConfig::InMemory | LocalBrokerConfig::Headless(_) => HashMap::new(),
         LocalBrokerConfig::BasePath(base_path) => {
             // load the wallets and sessions from disk
             let mut path = base_path.clone();
@@ -903,7 +1244,10 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
             if map_ser.is_ok() {
                 let wallets = LocalWalletStorage::v0_from_vec(&map_ser.unwrap());
                 if wallets.is_err() {
-                    log_err!("Load LocalWalletStorage error: {:?}", wallets.unwrap_err());
+                    log_err!(
+                        "Load BasePath LocalWalletStorage error: {:?}",
+                        wallets.unwrap_err()
+                    );
                     let _ = remove_file(path);
                     HashMap::new()
                 } else {
@@ -929,7 +1273,7 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
                         }
                         Ok(map_ser) => match serde_bare::from_slice(&map_ser) {
                             Err(e) => {
-                                log_err!("Load LocalWalletStorage error: {:?}", e);
+                                log_err!("Load JS LocalWalletStorage error: {:?}", e);
                                 (js_storage_config.clear)();
                                 HashMap::new()
                             }
@@ -951,9 +1295,12 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
         sessions: HashMap::new(),
         opened_sessions: HashMap::new(),
         opened_sessions_list: vec![],
+        remote_sessions_list: vec![],
+        headless_sessions: BTreeMap::new(),
         tauri_streams: HashMap::new(),
         disconnections_sender,
         disconnections_receiver: Some(disconnections_receiver),
+        headless_connected_to_remote_broker: false,
     };
     //log_debug!("{:?}", &local_broker);
 
@@ -1062,13 +1409,13 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
         intermediate.in_memory,
     )?;
 
-    let mut session_info = broker
+    let mut session = broker
         .session_start(session_config, Some(intermediate.user_privkey.clone()))
         .await?;
 
-    let session = broker.opened_sessions_list[session_info.session_id as usize]
-        .as_mut()
-        .unwrap();
+    // let session = broker.opened_sessions_list[session_info.session_id as usize]
+    //     .as_mut()
+    //     .unwrap();
 
     let (mut res, site, brokers) =
         create_wallet_second_step_v0(intermediate, &mut session.verifier).await?;
@@ -1086,14 +1433,7 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
         .wallet
         .complete_with_site_and_brokers(site, brokers);
 
-    session_info.private_store_id = broker
-        .get_site_store_of_session(
-            broker.opened_sessions_list[session_info.session_id as usize]
-                .as_ref()
-                .unwrap(),
-            SiteStoreType::Private,
-        )?
-        .to_string();
+    let session_info = broker.add_session(session)?;
 
     res.session_id = session_info.session_id;
     Ok(res)
@@ -1281,7 +1621,78 @@ pub async fn session_start(config: SessionConfig) -> Result<SessionInfo, NgError
         Some(Ok(broker)) => broker.write().await,
     };
 
-    broker.session_start(config, None).await
+    match &broker.config {
+        LocalBrokerConfig::Headless(_) => {
+            match config {
+                SessionConfig::HeadlessV0(user_id) => {
+
+                    broker.err_if_not_headless()?;
+                    // establish the connection if not already there?
+
+                    broker.connect_remote_broker().await?;
+                    
+                    let session = HeadlessSession { user_id: user_id.clone() };
+                    let mut session_info = broker.add_headless_session(session)?;
+
+                    let request = AppSessionStart::V0(AppSessionStartV0{
+                        session_id: session_info.session_id,
+                        credentials: None,
+                        user_id,
+                        detach: true
+                    });
+
+                    let res = broker.send_request_headless(request.into()).await;
+
+                    if res.is_err() {
+                        let _ = broker.remove_headless_session(&session_info.user);
+                        return Err(res.unwrap_err())
+                    }
+
+                    if let Ok(AppResponse::V0(AppResponseV0::SessionStart(AppSessionStartResponse::V0(response)))) = res {
+                        session_info.private_store_id = response.private_store.to_string();
+                    }
+
+                    Ok(session_info)
+                },
+                _ => panic!("don't call session_start with a SessionConfig different from HeadlessV0 and a LocalBroker configured for Headless")
+            }
+        }
+        // TODO: implement SessionConfig::WithCredentials . VerifierType::Remote => it needs to establish a connection to remote here, then send the AppSessionStart in it.
+        // also, it is using broker.remote_sessions.get
+        _ => {
+
+            if config.is_remote() || config.is_with_credentials() {
+                unimplemented!();
+            }
+
+            let user_id = config.user_id();
+            match broker.opened_sessions.get(&user_id) {
+                Some(idx) => {
+                    let ses = broker.get_session(*idx);
+                    match ses {
+                        Ok(sess) => {
+                            if !sess.config.is_memory() && config.is_memory() {
+                                return Err(NgError::SessionAlreadyStarted); // already started with a different config.
+                            } else {
+                                return Ok(SessionInfo {
+                                    session_id: *idx,
+                                    user: user_id,
+                                    private_store_id: broker
+                                        .get_site_store_of_session(sess, SiteStoreType::Private)?
+                                        .to_string(),
+                                });
+                            }
+                        }
+                        Err(_) => {}
+                    }
+                }
+                None => {}
+            };
+
+            let session = broker.session_start(config, None).await?;
+            broker.add_session(session)
+        }
+    }
 }
 
 use web_time::SystemTime;
@@ -1310,6 +1721,11 @@ fn get_unix_time() -> f64 {
 pub async fn user_connect(
     user_id: &UserId,
 ) -> Result<Vec<(String, String, String, Option<String>, f64)>, NgError> {
+    let client_info = get_client_info(ClientType::NativeService);
+    user_connect_with_device_info(client_info, &user_id, None).await
+}
+
+fn get_client_info(client_type: ClientType) -> ClientInfo {
     let os_info = get_os_info();
     let info = json!({
         "platform": {
@@ -1330,13 +1746,11 @@ pub async fn user_connect(
         }
     });
 
-    let client_info = ClientInfo::new(
-        ClientType::NativeService,
+    ClientInfo::new(
+        client_type,
         info.to_string(),
         env!("CARGO_PKG_VERSION").to_string(),
-    );
-
-    user_connect_with_device_info(client_info, &user_id, None).await
+    )
 }
 
 /// Used internally by JS SDK and Tauri Apps. Do not use "as is". See [user_connect] instead.
@@ -1352,6 +1766,8 @@ pub async fn user_connect_with_device_info(
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
     };
+
+    local_broker.err_if_headless()?;
 
     let (wallet, session) = local_broker.get_wallet_and_session(user_id)?;
 
@@ -1496,13 +1912,29 @@ pub async fn session_stop(user_id: &UserId) -> Result<(), NgError> {
         Some(Ok(broker)) => broker.write().await,
     };
 
-    match broker.opened_sessions.remove(user_id) {
-        Some(id) => {
-            broker.opened_sessions_list[id as usize].take();
-            // TODO: change the logic here once it will be possible to have several users connected at the same time
-            Broker::close_all_connections().await;
+    match broker.config {
+        LocalBrokerConfig::Headless(_) => {
+            
+            let (session_id,_) = broker.remove_headless_session(user_id)?;
+
+            let request = AppSessionStop::V0(AppSessionStopV0{
+                session_id,
+            });
+
+            let _res = broker.send_request_headless(request.into()).await;
         }
-        None => {}
+        _ => {
+            // TODO implement for Remote
+            match broker.opened_sessions.remove(user_id) {
+                Some(id) => {
+                    let _ = broker.get_session(id)?;
+                    broker.opened_sessions_list[id as usize].take();
+                    // TODO: change the logic here once it will be possible to have several users connected at the same time
+                    Broker::close_all_connections().await;
+                }
+                None => {}
+            }
+        }
     }
 
     Ok(())
@@ -1514,6 +1946,7 @@ pub async fn user_disconnect(user_id: &UserId) -> Result<(), NgError> {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
     };
+    broker.err_if_headless()?;
 
     broker.disconnect_session(user_id).await
 }
@@ -1525,13 +1958,16 @@ pub async fn wallet_close(wallet_name: &String) -> Result<(), NgError> {
         Some(Ok(broker)) => broker.write().await,
     };
 
+    broker.err_if_headless()?;
+
     match broker.opened_wallets.remove(wallet_name) {
         Some(mut opened_wallet) => {
             for user in opened_wallet.wallet.site_names() {
                 let key: PubKey = (user.as_str()).try_into().unwrap();
                 match broker.opened_sessions.remove(&key) {
-                    Some(id) => {
-                        broker.opened_sessions_list[id as usize].take();
+                    Some(id) => { 
+                        let session = broker.get_local_session_id_for_mut(id)?;
+                        broker.opened_sessions_list[session].take();
                     }
                     None => {}
                 }
@@ -1553,6 +1989,8 @@ pub async fn wallet_remove(_wallet_name: String) -> Result<(), NgError> {
         Some(Ok(broker)) => broker.write().await,
     };
 
+    _broker.err_if_headless()?;
+
     todo!();
     // should close the wallet, then remove all the saved sessions and remove the wallet
 }
@@ -1567,10 +2005,8 @@ pub async fn wallet_remove(_wallet_name: String) -> Result<(), NgError> {
 //         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
 //         Some(Ok(broker)) => broker.write().await,
 //     };
-//     if session_id as usize >= broker.opened_sessions_list.len() {
-//         return Err(NgError::InvalidArgument);
-//     }
-//     let session = broker.opened_sessions_list[session_id as usize]
+//     let session_id = self.get_local_session_id_for_mut(session_id)?;
+//     let session = broker.opened_sessions_list[session_id]
 //         .as_mut()
 //         .ok_or(NgError::SessionNotFound)?;
 
@@ -1585,10 +2021,8 @@ pub async fn wallet_remove(_wallet_name: String) -> Result<(), NgError> {
 //         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
 //         Some(Ok(broker)) => broker.write().await,
 //     };
-//     if session_id as usize >= broker.opened_sessions_list.len() {
-//         return Err(NgError::InvalidArgument);
-//     }
-//     let session = broker.opened_sessions_list[session_id as usize]
+//     let session_id = self.get_local_session_id_for_mut(session_id)?;
+//     let session = broker.opened_sessions_list[session_id]
 //         .as_mut()
 //         .ok_or(NgError::SessionNotFound)?;
 
@@ -1596,38 +2030,49 @@ pub async fn wallet_remove(_wallet_name: String) -> Result<(), NgError> {
 // }
 
 /// process any type of app request that returns a single value
-pub async fn app_request(session_id: u64, request: AppRequest) -> Result<AppResponse, NgError> {
+pub async fn app_request(request: AppRequest) -> Result<AppResponse, NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
     };
-    if session_id as usize >= broker.opened_sessions_list.len() {
-        return Err(NgError::InvalidArgument);
-    }
-    let session = broker.opened_sessions_list[session_id as usize]
-        .as_mut()
-        .ok_or(NgError::SessionNotFound)?;
+    let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(request.session_id())?;
 
-    session.verifier.app_request(request).await
+    if is_remote {
+        let session = broker.remote_sessions_list[real_session_id]
+        .as_ref()
+        .ok_or(NgError::SessionNotFound)?;
+        session.send_request(request).await
+    } else {
+        let session = broker.opened_sessions_list[real_session_id]
+            .as_mut()
+            .ok_or(NgError::SessionNotFound)?;
+            session.verifier.app_request(request).await
+    }
+
+    
 }
 
 /// process any type of app request that returns a stream of values
 pub async fn app_request_stream(
-    session_id: u64,
     request: AppRequest,
 ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
     let mut broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
     };
-    if session_id as usize >= broker.opened_sessions_list.len() {
-        return Err(NgError::InvalidArgument);
-    }
-    let session = broker.opened_sessions_list[session_id as usize]
-        .as_mut()
-        .ok_or(NgError::SessionNotFound)?;
+    let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(request.session_id())?;
 
-    session.verifier.app_request_stream(request).await
+    if is_remote {
+        let session = broker.remote_sessions_list[real_session_id]
+        .as_ref()
+        .ok_or(NgError::SessionNotFound)?;
+        session.send_request_stream(request).await
+    } else {
+        let session = broker.opened_sessions_list[real_session_id]
+            .as_mut()
+            .ok_or(NgError::SessionNotFound)?;
+            session.verifier.app_request_stream(request).await
+    }
 }
 
 /// retrieves the ID of one of the 3 stores of a the personal Site (3P: public, protected, or private)
@@ -1639,12 +2084,7 @@ pub async fn personal_site_store(
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.read().await,
     };
-    if session_id as usize >= broker.opened_sessions_list.len() {
-        return Err(NgError::InvalidArgument);
-    }
-    let session = broker.opened_sessions_list[session_id as usize]
-        .as_ref()
-        .ok_or(NgError::SessionNotFound)?;
+    let session = broker.get_session(session_id)?;
 
     broker.get_site_store_of_session(session, store_type)
 }
@@ -1660,6 +2100,51 @@ pub async fn take_disconnections_receiver() -> Result<Receiver<String>, NgError>
         .disconnections_receiver
         .take()
         .ok_or(NgError::BrokerError)
+}
+
+async fn do_admin_call<
+    A: Into<ProtocolMessage> + Into<AdminRequestContentV0> + std::fmt::Debug + Sync + Send + 'static,
+>(
+    server_peer_id: DirectPeerId,
+    admin_user_key: PrivKey,
+    bind_address: BindAddress,
+    cmd: A,
+) -> Result<AdminResponseContentV0, ProtocolError> {
+    let (peer_privk, peer_pubk) = generate_keypair();
+    BROKER
+        .write()
+        .await
+        .admin(
+            Box::new(ConnectionWebSocket {}),
+            peer_privk,
+            peer_pubk,
+            server_peer_id,
+            admin_user_key.to_pub(),
+            admin_user_key.clone(),
+            bind_address,
+            cmd,
+        )
+        .await
+}
+
+#[doc(hidden)]
+pub async fn admin_create_user(server_peer_id: DirectPeerId, admin_user_key: PrivKey, server_addr: BindAddress) -> Result<UserId, ProtocolError>  {
+
+    let res = do_admin_call(
+        server_peer_id,
+        admin_user_key,
+        server_addr,
+        CreateUser::V0(CreateUserV0 {
+            
+        }),
+    )
+    .await?;
+
+    match res {
+        AdminResponseContentV0::UserId(id) => Ok(id),
+        _ => Err(ProtocolError::InvalidValue)
+    }
+    
 }
 
 #[allow(unused_imports)]

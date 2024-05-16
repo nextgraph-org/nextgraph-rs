@@ -23,38 +23,38 @@ use ng_repo::types::BranchId;
 use ng_repo::types::StoreRepo;
 use ng_repo::types::*;
 
+use ng_net::app_protocol::*;
 use ng_net::utils::ResultSend;
 use ng_net::utils::{spawn_and_log_error, Receiver, Sender};
 
 use crate::types::*;
 use crate::verifier::*;
 
-impl AppRequestCommandV0 {
+impl Verifier {
     pub(crate) async fn process_stream(
-        &self,
-        verifier: &mut Verifier,
+        &mut self,
+        command: &AppRequestCommandV0,
         nuri: &NuriV0,
         _payload: &Option<AppRequestPayload>,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-        match self {
-            Self::Fetch(fetch) => match fetch {
+        match command {
+            AppRequestCommandV0::Fetch(fetch) => match fetch {
                 AppFetchContentV0::Subscribe => {
-                    let (_, branch_id, _) =
-                        Self::open_for_target(verifier, &nuri.target, false).await?;
-                    Ok(verifier.create_branch_subscription(branch_id).await?)
+                    let (_, branch_id, _) = self.open_for_target(&nuri.target, false).await?;
+                    Ok(self.create_branch_subscription(branch_id).await?)
                 }
                 _ => unimplemented!(),
             },
-            Self::FileGet => {
+            AppRequestCommandV0::FileGet => {
                 if nuri.access.len() < 1 || nuri.object.is_none() {
                     return Err(NgError::InvalidArgument);
                 }
-                let (repo_id, _, store_repo) = Self::resolve_target(verifier, &nuri.target)?;
+                let (repo_id, _, store_repo) = self.resolve_target(&nuri.target)?;
                 let access = nuri.access.get(0).unwrap();
                 if let NgAccessV0::Key(key) = access {
-                    let repo = verifier.get_repo(&repo_id, &store_repo)?;
+                    let repo = self.get_repo(&repo_id, &store_repo)?;
                     let obj_id = nuri.object.unwrap();
-                    if let Some(mut stream) = verifier
+                    if let Some(mut stream) = self
                         .fetch_blocks_if_needed(&obj_id, &repo_id, &store_repo)
                         .await?
                     {
@@ -117,14 +117,14 @@ impl AppRequestCommandV0 {
     }
 
     fn resolve_target(
-        verifier: &mut Verifier,
+        &mut self,
         target: &NuriTargetV0,
     ) -> Result<(RepoId, BranchId, StoreRepo), NgError> {
         match target {
             NuriTargetV0::PrivateStore => {
-                let repo_id = verifier.config.private_store_id.unwrap();
+                let repo_id = self.config.private_store_id.unwrap();
                 let (branch, store_repo) = {
-                    let repo = verifier.repos.get(&repo_id).ok_or(NgError::RepoNotFound)?;
+                    let repo = self.repos.get(&repo_id).ok_or(NgError::RepoNotFound)?;
                     let branch = repo.main_branch().ok_or(NgError::BranchNotFound)?;
                     (branch.id, repo.store.get_store_repo().clone())
                 };
@@ -132,7 +132,7 @@ impl AppRequestCommandV0 {
             }
             NuriTargetV0::Repo(repo_id) => {
                 let (branch, store_repo) = {
-                    let repo = verifier.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
+                    let repo = self.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
                     let branch = repo.main_branch().ok_or(NgError::BranchNotFound)?;
                     (branch.id, repo.store.get_store_repo().clone())
                 };
@@ -143,35 +143,32 @@ impl AppRequestCommandV0 {
     }
 
     async fn open_for_target(
-        verifier: &mut Verifier,
+        &mut self,
         target: &NuriTargetV0,
         as_publisher: bool,
     ) -> Result<(RepoId, BranchId, StoreRepo), NgError> {
-        let (repo_id, branch, store_repo) = Self::resolve_target(verifier, target)?;
-        verifier
-            .open_branch(&repo_id, &branch, as_publisher)
-            .await?;
+        let (repo_id, branch, store_repo) = self.resolve_target(target)?;
+        self.open_branch(&repo_id, &branch, as_publisher).await?;
         Ok((repo_id, branch, store_repo))
     }
 
     pub(crate) async fn process(
-        &self,
-        verifier: &mut Verifier,
+        &mut self,
+        command: &AppRequestCommandV0,
         nuri: NuriV0,
         payload: Option<AppRequestPayload>,
     ) -> Result<AppResponse, NgError> {
-        match self {
-            Self::FilePut => match payload {
+        match command {
+            AppRequestCommandV0::FilePut => match payload {
                 None => return Err(NgError::InvalidPayload),
                 Some(AppRequestPayload::V0(v0)) => match v0 {
                     AppRequestPayloadV0::AddFile(add) => {
                         let (repo_id, branch, store_repo) =
-                            Self::open_for_target(verifier, &nuri.target, true).await?;
+                            self.open_for_target(&nuri.target, true).await?;
                         //log_info!("GOT ADD FILE {:?}", add);
 
-                        if verifier.connected_server_id.is_some() {
-                            verifier
-                                .put_all_blocks_of_file(&add.object, &repo_id, &store_repo)
+                        if self.connected_broker.is_some() {
+                            self.put_all_blocks_of_file(&add.object, &repo_id, &store_repo)
                                 .await?;
                         }
 
@@ -180,33 +177,31 @@ impl AppRequestCommandV0 {
                             metadata: vec![],
                         }));
 
-                        verifier
-                            .new_commit(
-                                add_file_commit_body,
-                                &repo_id,
-                                &branch,
-                                &store_repo,
-                                &vec![],
-                                vec![],
-                                vec![add.object],
-                            )
-                            .await?;
+                        self.new_commit(
+                            add_file_commit_body,
+                            &repo_id,
+                            &branch,
+                            &store_repo,
+                            &vec![],
+                            vec![],
+                            vec![add.object],
+                        )
+                        .await?;
                     }
                     AppRequestPayloadV0::SmallFilePut(_small) => {
                         unimplemented!();
                     }
                     AppRequestPayloadV0::RandomAccessFilePut(content_type) => {
-                        let (repo_id, _, store_repo) =
-                            Self::resolve_target(verifier, &nuri.target)?;
-                        let repo = verifier.get_repo(&repo_id, &store_repo)?;
-                        let id = verifier.start_upload(content_type, Arc::clone(&repo.store));
+                        let (repo_id, _, store_repo) = self.resolve_target(&nuri.target)?;
+                        let repo = self.get_repo(&repo_id, &store_repo)?;
+                        let id = self.start_upload(content_type, Arc::clone(&repo.store));
                         return Ok(AppResponse::V0(AppResponseV0::FileUploading(id)));
                     }
                     AppRequestPayloadV0::RandomAccessFilePutChunk((id, chunk)) => {
                         if chunk.len() > 0 {
-                            verifier.continue_upload(id, &chunk)?;
+                            self.continue_upload(id, &chunk)?;
                         } else {
-                            let reference = verifier.finish_upload(id)?;
+                            let reference = self.finish_upload(id)?;
                             return Ok(AppResponse::V0(AppResponseV0::FileUploaded(reference)));
                         }
                     }

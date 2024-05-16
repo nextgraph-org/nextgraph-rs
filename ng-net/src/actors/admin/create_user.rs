@@ -12,9 +12,11 @@
 use std::sync::Arc;
 
 use async_std::sync::Mutex;
+use ng_repo::types::UserId;
 use serde::{Deserialize, Serialize};
 
 use ng_repo::errors::*;
+use ng_repo::log::*;
 
 use super::super::StartProtocol;
 
@@ -23,70 +25,84 @@ use crate::connection::NoiseFSM;
 use crate::types::*;
 use crate::{actor::*, types::ProtocolMessage};
 
-/// List users registered on this broker
+/// Create user and keeps credentials in the server (for use with headless API)
+#[doc(hidden)]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct ListUsersV0 {
-    /// should list only the admins. if false, admin users will be excluded
-    pub admins: bool,
-}
+pub struct CreateUserV0 {}
 
-/// List users registered on this broker
+/// Create user
+#[doc(hidden)]
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum ListUsers {
-    V0(ListUsersV0),
+pub enum CreateUser {
+    V0(CreateUserV0),
 }
 
-impl ListUsers {
-    pub fn admins(&self) -> bool {
-        match self {
-            Self::V0(o) => o.admins,
-        }
-    }
-    pub fn get_actor(&self) -> Box<dyn EActor> {
-        Actor::<ListUsers, AdminResponse>::new_responder(0)
-    }
-}
-
-impl TryFrom<ProtocolMessage> for ListUsers {
+impl TryFrom<ProtocolMessage> for CreateUser {
     type Error = ProtocolError;
     fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
         if let ProtocolMessage::Start(StartProtocol::Admin(AdminRequest::V0(AdminRequestV0 {
-            content: AdminRequestContentV0::ListUsers(a),
+            content: AdminRequestContentV0::CreateUser(a),
             ..
         }))) = msg
         {
             Ok(a)
         } else {
-            //log_debug!("INVALID {:?}", msg);
+            log_debug!("INVALID {:?}", msg);
             Err(ProtocolError::InvalidValue)
         }
     }
 }
 
-impl From<ListUsers> for ProtocolMessage {
-    fn from(_msg: ListUsers) -> ProtocolMessage {
+impl From<CreateUser> for ProtocolMessage {
+    fn from(_msg: CreateUser) -> ProtocolMessage {
         unimplemented!();
     }
 }
 
-impl From<ListUsers> for AdminRequestContentV0 {
-    fn from(msg: ListUsers) -> AdminRequestContentV0 {
-        AdminRequestContentV0::ListUsers(msg)
+impl From<UserId> for ProtocolMessage {
+    fn from(_msg: UserId) -> ProtocolMessage {
+        unimplemented!();
     }
 }
 
-impl Actor<'_, ListUsers, AdminResponse> {}
+impl TryFrom<ProtocolMessage> for UserId {
+    type Error = ProtocolError;
+    fn try_from(_msg: ProtocolMessage) -> Result<Self, Self::Error> {
+        unimplemented!();
+    }
+}
+
+impl From<CreateUser> for AdminRequestContentV0 {
+    fn from(msg: CreateUser) -> AdminRequestContentV0 {
+        AdminRequestContentV0::CreateUser(msg)
+    }
+}
+
+impl CreateUser {
+    pub fn get_actor(&self) -> Box<dyn EActor> {
+        Actor::<CreateUser, UserId>::new_responder(0)
+    }
+}
+
+impl Actor<'_, CreateUser, UserId> {}
 
 #[async_trait::async_trait]
-impl EActor for Actor<'_, ListUsers, AdminResponse> {
+impl EActor for Actor<'_, CreateUser, UserId> {
     async fn respond(
         &mut self,
         msg: ProtocolMessage,
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
-        let req = ListUsers::try_from(msg)?;
-        let sb = { BROKER.read().await.get_server_broker()? };
-        let res = { sb.read().await.list_users(req.admins()) };
+        let _req = CreateUser::try_from(msg)?;
+
+        let res = {
+            let (broker_id, sb) = {
+                let b = BROKER.read().await;
+                (b.get_server_peer_id(), b.get_server_broker()?)
+            };
+            let lock = sb.read().await;
+            lock.create_user(&broker_id).await
+        };
 
         let response: AdminResponseV0 = res.into();
         fsm.lock().await.send(response.into()).await?;

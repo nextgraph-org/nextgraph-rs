@@ -12,3 +12,6 @@ pub use add_invitation::*;
 
 pub mod list_invitations;
 pub use list_invitations::*;
+
+pub mod create_user;
+pub use create_user::*;

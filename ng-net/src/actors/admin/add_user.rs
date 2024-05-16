@@ -94,18 +94,26 @@ impl EActor for Actor<'_, AddUser, AdminResponse> {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         let req = AddUser::try_from(msg)?;
-        let broker = BROKER.read().await;
-        let mut is_admin = req.is_admin();
-        if let Some(ServerConfig {
-            admin_user: Some(admin_user),
-            ..
-        }) = broker.get_config()
-        {
-            if *admin_user == req.user() {
-                is_admin = true;
-            }
-        }
-        let res = broker.get_server_broker()?.add_user(req.user(), is_admin);
+
+        let res = {
+            let mut is_admin = req.is_admin();
+            let sb = {
+                let broker = BROKER.read().await;
+                if let Some(ServerConfig {
+                    admin_user: Some(admin_user),
+                    ..
+                }) = broker.get_config()
+                {
+                    if *admin_user == req.user() {
+                        is_admin = true;
+                    }
+                }
+                broker.get_server_broker()?
+            };
+
+            let lock = sb.read().await;
+            lock.add_user(req.user(), is_admin)
+        };
         let response: AdminResponseV0 = res.into();
         fsm.lock().await.send(response.into()).await?;
         Ok(())

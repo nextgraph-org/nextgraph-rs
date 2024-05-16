@@ -230,7 +230,6 @@ impl PrivKey {
         }
     }
 
-    #[deprecated(note = "**Don't use nil method**")]
     pub fn nil() -> PrivKey {
         PrivKey::Ed25519PrivKey([0u8; 32])
     }
@@ -691,7 +690,7 @@ pub enum StoreRepo {
 
 impl fmt::Display for StoreRepo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(
+        write!(
             f,
             "StoreRepo V0 {} {}",
             match self {

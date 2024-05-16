@@ -11,18 +11,35 @@
 
 //! Trait for ServerBroker
 
-use std::collections::HashSet;
+use std::path::PathBuf;
+use std::sync::Arc;
 
+use async_std::sync::Mutex;
+
+use ng_repo::block_storage::BlockStorage;
 use ng_repo::errors::*;
 use ng_repo::types::*;
 
+use crate::app_protocol::{AppRequest, AppSessionStart, AppSessionStartResponse, AppSessionStop};
+use crate::broker::ClientPeerId;
+use crate::connection::NoiseFSM;
 use crate::types::*;
 
+#[async_trait::async_trait]
 pub trait IServerBroker: Send + Sync {
+    fn get_path_users(&self) -> PathBuf;
+    fn get_block_storage(&self) -> Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>;
     fn put_block(&self, overlay_id: &OverlayId, block: Block) -> Result<(), ServerError>;
     fn has_block(&self, overlay_id: &OverlayId, block_id: &BlockId) -> Result<(), ServerError>;
     fn get_block(&self, overlay_id: &OverlayId, block_id: &BlockId) -> Result<Block, ServerError>;
+    async fn create_user(&self, broker_id: &DirectPeerId) -> Result<UserId, ProtocolError>;
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError>;
+    fn get_user_credentials(&self, user_id: &PubKey) -> Result<Credentials, ProtocolError>;
+    fn add_user_credentials(
+        &self,
+        user_id: &PubKey,
+        credentials: &Credentials,
+    ) -> Result<(), ProtocolError>;
     fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError>;
     fn del_user(&self, user_id: PubKey) -> Result<(), ProtocolError>;
     fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError>;
@@ -41,6 +58,20 @@ pub trait IServerBroker: Send + Sync {
     fn get_invitation_type(&self, invite: [u8; 32]) -> Result<u8, ProtocolError>;
     fn remove_invitation(&self, invite: [u8; 32]) -> Result<(), ProtocolError>;
 
+    async fn app_process_request(
+        &self,
+        req: AppRequest,
+        request_id: i64,
+        fsm: &Mutex<NoiseFSM>,
+    ) -> Result<(), ServerError>;
+    async fn app_session_start(
+        &self,
+        req: AppSessionStart,
+        remote_peer_id: DirectPeerId,
+        local_peer_id: DirectPeerId,
+    ) -> Result<AppSessionStartResponse, ServerError>;
+    fn app_session_stop(&self, req: AppSessionStop) -> Result<EmptyAppResponse, ServerError>;
+
     fn next_seq_for_peer(&self, peer: &PeerId, seq: u64) -> Result<(), ServerError>;
 
     fn get_repo_pin_status(
@@ -50,8 +81,8 @@ pub trait IServerBroker: Send + Sync {
         user_id: &UserId,
     ) -> Result<RepoPinStatus, ServerError>;
 
-    fn pin_repo_write(
-        &mut self,
+    async fn pin_repo_write(
+        &self,
         overlay: &OverlayAccess,
         repo: &RepoHash,
         user_id: &UserId,
@@ -59,39 +90,39 @@ pub trait IServerBroker: Send + Sync {
         rw_topics: &Vec<PublisherAdvert>,
         overlay_root_topic: &Option<TopicId>,
         expose_outer: bool,
-        peer: &PubKey,
+        peer: &ClientPeerId,
     ) -> Result<RepoOpened, ServerError>;
 
-    fn pin_repo_read(
-        &mut self,
+    async fn pin_repo_read(
+        &self,
         overlay: &OverlayId,
         repo: &RepoHash,
         user_id: &UserId,
         ro_topics: &Vec<TopicId>,
-        peer: &PubKey,
+        peer: &ClientPeerId,
     ) -> Result<RepoOpened, ServerError>;
 
-    fn topic_sub(
-        &mut self,
+    async fn topic_sub(
+        &self,
         overlay: &OverlayId,
         repo: &RepoHash,
         topic: &TopicId,
         user_id: &UserId,
         publisher: Option<&PublisherAdvert>,
-        peer: &PubKey,
+        peer: &ClientPeerId,
     ) -> Result<TopicSubRes, ServerError>;
 
     fn get_commit(&self, overlay: &OverlayId, id: &ObjectId) -> Result<Vec<Block>, ServerError>;
 
-    fn dispatch_event(
+    async fn dispatch_event(
         &self,
         overlay: &OverlayId,
         event: Event,
         user_id: &UserId,
         remote_peer: &PubKey,
-    ) -> Result<HashSet<&PubKey>, ServerError>;
+    ) -> Result<Vec<ClientPeerId>, ServerError>;
 
-    fn remove_all_subscriptions_of_peer(&mut self, remote_peer: &PubKey);
+    async fn remove_all_subscriptions_of_client(&self, client: &ClientPeerId);
 
     fn topic_sync_req(
         &self,

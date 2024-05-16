@@ -129,6 +129,23 @@ impl SessionWalletStorageV0 {
     // }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct SessionInfoString {
+    pub session_id: u64,
+    pub user: String,
+    pub private_store_id: String,
+}
+
+impl From<SessionInfo> for SessionInfoString {
+    fn from(f: SessionInfo) -> Self {
+        SessionInfoString {
+            session_id: f.session_id,
+            private_store_id: f.private_store_id,
+            user: f.user.to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionInfo {
     pub session_id: u64,

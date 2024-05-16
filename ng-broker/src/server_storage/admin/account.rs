@@ -10,6 +10,7 @@
 //! User account Storage (Object Key/Col/Value Mapping)
 
 use std::collections::hash_map::DefaultHasher;
+use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::time::SystemTime;
@@ -30,6 +31,12 @@ pub struct Account<'a> {
     storage: &'a dyn KCVStorage,
 }
 
+impl<'a> fmt::Debug for Account<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Account {}", self.id)
+    }
+}
+
 impl<'a> Account<'a> {
     const PREFIX_ACCOUNT: u8 = b'a';
     const PREFIX_CLIENT: u8 = b'c';
@@ -38,8 +45,15 @@ impl<'a> Account<'a> {
     // propertie's client suffixes
     const INFO: u8 = b'i';
     const LAST_SEEN: u8 = b'l';
+    const CREDENTIALS: u8 = b'c';
+    //const USER_KEYS: u8 = b'k';
 
-    const ALL_CLIENT_PROPERTIES: [u8; 2] = [Self::INFO, Self::LAST_SEEN];
+    const ALL_CLIENT_PROPERTIES: [u8; 3] = [
+        Self::INFO,
+        Self::LAST_SEEN,
+        Self::CREDENTIALS,
+        //Self::USER_KEYS,
+    ];
 
     pub fn open(id: &UserId, storage: &'a dyn KCVStorage) -> Result<Account<'a>, StorageError> {
         let opening = Account {
@@ -160,26 +174,72 @@ impl<'a> Account<'a> {
         })
     }
 
-    // pub fn has_client(&self, client: &ClientId) -> Result<(), StorageError> {
-    //     self.storage.has_property_value(
-    //         Self::PREFIX,
-    //         &to_vec(&self.id)?,
-    //         Some(Self::CLIENT),
-    //         to_vec(client)?,
-    //     )
-    // }
+    pub fn add_credentials(&self, credentials: &Credentials) -> Result<(), StorageError> {
+        if !self.exists() {
+            return Err(StorageError::BackendError);
+        }
+        self.storage.put(
+            Self::PREFIX_ACCOUNT,
+            &to_vec(&self.id)?,
+            Some(Self::CREDENTIALS),
+            &to_vec(credentials)?,
+            &None,
+        )
+    }
 
-    // pub fn add_overlay(&self, overlay: &OverlayId) -> Result<(), StorageError> {
+    pub fn remove_credentials(&self) -> Result<(), StorageError> {
+        self.storage.del(
+            Self::PREFIX_ACCOUNT,
+            &to_vec(&self.id)?,
+            Some(Self::CREDENTIALS),
+            &None,
+        )
+    }
+
+    pub fn get_credentials(&self) -> Result<Credentials, StorageError> {
+        Ok(from_slice(&self.storage.get(
+            Self::PREFIX_ACCOUNT,
+            &to_vec(&self.id)?,
+            Some(Self::CREDENTIALS),
+            &None,
+        )?)?)
+    }
+
+    // pub fn add_user_keys(
+    //     &self,
+    //     storage_key: &SymKey,
+    //     peer_priv_key: &PrivKey,
+    // ) -> Result<(), StorageError> {
     //     if !self.exists() {
     //         return Err(StorageError::BackendError);
     //     }
     //     self.storage.put(
-    //         Self::PREFIX,
+    //         Self::PREFIX_ACCOUNT,
     //         &to_vec(&self.id)?,
-    //         Some(Self::OVERLAY),
-    //         to_vec(overlay)?,
+    //         Some(Self::USER_KEYS),
+    //         &to_vec(&(storage_key.clone(), peer_priv_key.clone()))?,
+    //         &None,
     //     )
     // }
+
+    // pub fn remove_user_keys(&self) -> Result<(), StorageError> {
+    //     self.storage.del(
+    //         Self::PREFIX_ACCOUNT,
+    //         &to_vec(&self.id)?,
+    //         Some(Self::USER_KEYS),
+    //         &None,
+    //     )
+    // }
+
+    // pub fn get_user_keys(&self) -> Result<(SymKey, PrivKey), StorageError> {
+    //     Ok(from_slice(&self.storage.get(
+    //         Self::PREFIX_ACCOUNT,
+    //         &to_vec(&self.id)?,
+    //         Some(Self::USER_KEYS),
+    //         &None,
+    //     )?)?)
+    // }
+
     // pub fn remove_overlay(&self, overlay: &OverlayId) -> Result<(), StorageError> {
     //     self.storage.del_property_value(
     //         Self::PREFIX,

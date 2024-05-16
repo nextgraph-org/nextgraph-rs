@@ -764,8 +764,11 @@ pub async fn run_server_v0(
     // and we need those infos for permission checking.
     {
         //let root = tempfile::Builder::new().prefix("ngd").tempdir().unwrap();
+        let mut path_users = path.clone();
+        path_users.push("users");
         path.push("storage");
         std::fs::create_dir_all(path.clone()).unwrap();
+        std::fs::create_dir_all(path_users.clone()).unwrap();
 
         // opening the server storage (that contains the encryption keys for each store/overlay )
         let server_storage = RocksDbServerStorage::open(
@@ -781,7 +784,7 @@ pub async fn run_server_v0(
             NgError::BrokerConfigError(format!("Error while opening server storage: {}", e))
         })?;
 
-        let server_broker = ServerBroker::new(server_storage);
+        let server_broker = ServerBroker::new(server_storage, path_users);
 
         let mut broker = BROKER.write().await;
         broker.set_server_broker(server_broker);

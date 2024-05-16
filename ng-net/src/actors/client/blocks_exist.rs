@@ -76,7 +76,7 @@ impl EActor for Actor<'_, BlocksExist, BlocksFound> {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         let req = BlocksExist::try_from(msg)?;
-        let broker = BROKER.read().await;
+        let sb = { BROKER.read().await.get_server_broker()? };
 
         let overlay = req.overlay().clone();
         let mut found = vec![];
@@ -84,7 +84,7 @@ impl EActor for Actor<'_, BlocksExist, BlocksFound> {
         match req {
             BlocksExist::V0(v0) => {
                 for block_id in v0.blocks {
-                    let r = broker.get_server_broker()?.has_block(&overlay, &block_id);
+                    let r = sb.read().await.has_block(&overlay, &block_id);
                     if r.is_err() {
                         missing.push(block_id);
                     } else {

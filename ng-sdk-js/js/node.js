@@ -113,6 +113,16 @@ module.exports.version = function () {
   return require('../../../package.json').version;
 }
 
+module.exports.get_env_vars = function () {
+
+  return {
+    server_addr: process.env.NG_HEADLESS_SERVER_ADDR,
+    server_peer_id: process.env.NG_HEADLESS_SERVER_PEER_ID,
+    client_peer_key: process.env.NG_HEADLESS_CLIENT_PEER_KEY,
+    admin_user_key: process.env.NG_HEADLESS_ADMIN_USER_KEY
+  };
+}
+
 module.exports.client_details = function () {
   const process = require('process');
   let arch = osnode.machine? osnode.machine() : process.arch;

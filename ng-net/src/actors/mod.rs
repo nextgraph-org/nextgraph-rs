@@ -19,3 +19,5 @@ pub use connecting::*;
 pub mod client;
 
 pub mod admin;
+
+pub mod app;

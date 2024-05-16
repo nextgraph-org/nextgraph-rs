@@ -221,7 +221,7 @@ impl SiteV0 {
             .new_events(commits, private_repo_id, &private_store_repo)
             .await?;
 
-        Ok(Self {
+        let site = Self {
             site_type: SiteType::Individual((user_priv_key, private_repo_read_cap)),
             id: site_pubkey,
             name: site_name,
@@ -230,7 +230,14 @@ impl SiteV0 {
             private,
             cores: vec![],
             bootstraps: vec![],
-        })
+        };
+
+        verifier.config.private_store_read_cap = site.get_individual_site_private_store_read_cap();
+        verifier.config.private_store_id = Some(site.private.id);
+        verifier.config.protected_store_id = Some(site.protected.id);
+        verifier.config.public_store_id = Some(site.public.id);
+
+        Ok(site)
     }
 
     pub async fn create_individual(
@@ -246,10 +253,7 @@ impl SiteV0 {
         verifier: &mut Verifier,
     ) -> Result<Self, NgError> {
         let site = Self::create_individual_(user_priv_key, verifier, SiteName::Personal).await?;
-        verifier.config.private_store_read_cap = site.get_individual_site_private_store_read_cap();
-        verifier.config.private_store_id = Some(site.private.id);
-        verifier.config.protected_store_id = Some(site.protected.id);
-        verifier.config.public_store_id = Some(site.public.id);
+
         Ok(site)
     }
 

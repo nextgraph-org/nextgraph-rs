@@ -20,7 +20,8 @@ use ng_repo::repo::{BranchInfo, Repo};
 use ng_repo::store::Store;
 use ng_repo::types::*;
 
-use crate::types::*;
+use ng_net::app_protocol::*;
+
 use crate::verifier::Verifier;
 
 #[async_trait::async_trait]

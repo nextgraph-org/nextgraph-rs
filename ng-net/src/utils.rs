@@ -14,13 +14,15 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use async_std::task;
 use ed25519_dalek::*;
 use futures::{channel::mpsc, Future};
+use lazy_static::lazy_static;
 use noise_protocol::U8Array;
 use noise_protocol::DH;
 use noise_rust_crypto::sensitive::Sensitive;
+use regex::Regex;
 use url::Host;
 use url::Url;
 
-#[cfg(target_arch = "wasm32")]
+#[allow(unused_imports)]
 use ng_repo::errors::*;
 use ng_repo::types::PubKey;
 use ng_repo::{log::*, types::PrivKey};
@@ -28,6 +30,7 @@ use ng_repo::{log::*, types::PrivKey};
 use crate::types::*;
 #[cfg(target_arch = "wasm32")]
 use crate::NG_BOOTSTRAP_LOCAL_PATH;
+use crate::WS_PORT;
 
 #[doc(hidden)]
 #[cfg(target_arch = "wasm32")]
@@ -70,6 +73,99 @@ const APP_PREFIX: &str = "";
 
 pub fn decode_invitation_string(string: String) -> Option<Invitation> {
     Invitation::try_from(string).ok()
+}
+
+lazy_static! {
+    #[doc(hidden)]
+    static ref RE_IPV6_WITH_PORT: Regex =
+        Regex::new(r"^\[([0-9a-fA-F:]{3,39})\](\:\d{1,5})?$").unwrap();
+}
+
+#[doc(hidden)]
+pub fn parse_ipv4_and_port_for(
+    string: String,
+    for_option: &str,
+    default_port: u16,
+) -> Result<(Ipv4Addr, u16), NgError> {
+    let parts: Vec<&str> = string.split(":").collect();
+    let ipv4 = parts[0].parse::<Ipv4Addr>().map_err(|_| {
+        NgError::ConfigError(format!(
+            "The <IPv4:PORT> value submitted for the {} option is invalid.",
+            for_option
+        ))
+    })?;
+
+    let port = if parts.len() > 1 {
+        match serde_json::from_str::<u16>(parts[1]) {
+            Err(_) => default_port,
+            Ok(p) => {
+                if p == 0 {
+                    default_port
+                } else {
+                    p
+                }
+            }
+        }
+    } else {
+        default_port
+    };
+    Ok((ipv4, port))
+}
+
+#[doc(hidden)]
+pub fn parse_ip_and_port_for(string: String, for_option: &str) -> Result<BindAddress, NgError> {
+    let bind = parse_ip_and_port_for_(string, for_option)?;
+    Ok(BindAddress {
+        ip: (&bind.0).into(),
+        port: bind.1,
+    })
+}
+
+fn parse_ip_and_port_for_(string: String, for_option: &str) -> Result<(IpAddr, u16), NgError> {
+    let c = RE_IPV6_WITH_PORT.captures(&string);
+    let ipv6;
+    let port;
+    if c.is_some() && c.as_ref().unwrap().get(1).is_some() {
+        let cap = c.unwrap();
+        let ipv6_str = cap.get(1).unwrap().as_str();
+        port = match cap.get(2) {
+            None => WS_PORT,
+            Some(p) => {
+                let mut chars = p.as_str().chars();
+                chars.next();
+                match serde_json::from_str::<u16>(chars.as_str()) {
+                    Err(_) => WS_PORT,
+                    Ok(p) => {
+                        if p == 0 {
+                            WS_PORT
+                        } else {
+                            p
+                        }
+                    }
+                }
+            }
+        };
+        let ipv6 = ipv6_str.parse::<Ipv6Addr>().map_err(|_| {
+            NgError::ConfigError(format!(
+                "The <[IPv6]:PORT> value submitted for the {} option is invalid.",
+                for_option
+            ))
+        })?;
+        Ok((IpAddr::V6(ipv6), port))
+    } else {
+        // we try just an IPV6 without port
+        let ipv6_res = string.parse::<Ipv6Addr>();
+        if ipv6_res.is_err() {
+            // let's try IPv4
+
+            parse_ipv4_and_port_for(string, for_option, WS_PORT)
+                .map(|ipv4| (IpAddr::V4(ipv4.0), ipv4.1))
+        } else {
+            ipv6 = ipv6_res.unwrap();
+            port = WS_PORT;
+            Ok((IpAddr::V6(ipv6), port))
+        }
+    }
 }
 
 pub fn check_is_local_url(bootstrap: &BrokerServerV0, location: &String) -> Option<String> {

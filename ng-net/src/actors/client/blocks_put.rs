@@ -57,13 +57,13 @@ impl EActor for Actor<'_, BlocksPut, ()> {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         let req = BlocksPut::try_from(msg)?;
-        let broker = BROKER.read().await;
+        let sb = { BROKER.read().await.get_server_broker()? };
         let mut res: Result<(), ServerError> = Ok(());
         let overlay = req.overlay().clone();
         match req {
             BlocksPut::V0(v0) => {
                 for block in v0.blocks {
-                    let r = broker.get_server_broker()?.put_block(&overlay, block);
+                    let r = sb.read().await.put_block(&overlay, block);
                     if r.is_err() {
                         res = r;
                         break;

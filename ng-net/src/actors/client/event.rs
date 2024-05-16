@@ -78,10 +78,8 @@ impl EActor for Actor<'_, PublishEvent, ()> {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let req = PublishEvent::try_from(_msg)?;
-
             // send a ProtocolError if invalid signatures (will disconnect the client)
             req.event().verify()?;
-
             let overlay = req.overlay().clone();
             let (user_id, remote_peer) = {
                 let fsm = _fsm.lock().await;
@@ -91,15 +89,32 @@ impl EActor for Actor<'_, PublishEvent, ()> {
                 )
             };
             let res = {
-                let mut broker = BROKER.write().await;
+                let broker = BROKER.read().await;
                 broker
                     .dispatch_event(&overlay, req.take_event(), &user_id, &remote_peer)
                     .await
             };
-            _fsm.lock()
-                .await
-                .send_in_reply_to(res.into(), self.id())
-                .await?;
+            if res.is_err() {
+                let res: Result<(), ServerError> = Err(res.unwrap_err());
+                _fsm.lock()
+                    .await
+                    .send_in_reply_to(res.into(), self.id())
+                    .await?;
+            } else {
+                let broker = { BROKER.read().await.get_server_broker()? };
+                for client in res.unwrap() {
+                    broker
+                        .read()
+                        .await
+                        .remove_all_subscriptions_of_client(&client)
+                        .await;
+                }
+                let finalres: Result<(), ServerError> = Ok(());
+                _fsm.lock()
+                    .await
+                    .send_in_reply_to(finalres.into(), self.id())
+                    .await?;
+            }
         }
         Ok(())
     }

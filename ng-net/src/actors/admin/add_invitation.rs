@@ -103,20 +103,29 @@ impl EActor for Actor<'_, AddInvitation, AdminResponse> {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         let req = AddInvitation::try_from(msg)?;
-        let broker = BROKER.read().await;
-        broker
-            .get_server_broker()?
-            .add_invitation(req.code(), req.expiry(), req.memo())?;
-
-        let invitation = crate::types::Invitation::V0(InvitationV0::new(
-            broker.get_bootstrap()?.clone(),
-            Some(req.code().get_symkey()),
-            None,
-            if req.tos_url() {
+        let (url, bootstrap, sb) = {
+            let broker = BROKER.read().await;
+            let url = if req.tos_url() {
                 broker.get_registration_url().map(|s| s.clone())
             } else {
                 None
-            },
+            };
+            (
+                url,
+                broker.get_bootstrap()?.clone(),
+                broker.get_server_broker()?,
+            )
+        };
+        {
+            sb.read()
+                .await
+                .add_invitation(req.code(), req.expiry(), req.memo())?;
+        }
+        let invitation = crate::types::Invitation::V0(InvitationV0::new(
+            bootstrap,
+            Some(req.code().get_symkey()),
+            None,
+            url,
         ));
         let response: AdminResponseV0 = invitation.into();
         fsm.lock().await.send(response.into()).await?;

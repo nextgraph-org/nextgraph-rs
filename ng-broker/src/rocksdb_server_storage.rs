@@ -160,6 +160,12 @@ impl RocksDbServerStorage {
         })
     }
 
+    pub(crate) fn get_block_storage(
+        &self,
+    ) -> Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>> {
+        Arc::clone(&self.block_storage)
+    }
+
     pub(crate) fn next_seq_for_peer(&self, peer: &PeerId, seq: u64) -> Result<(), ServerError> {
         // for now we don't use the hashmap.
         // TODO: let's see if the lock is even needed
@@ -194,15 +200,38 @@ impl RocksDbServerStorage {
         log_debug!("get_user {user_id}");
         Ok(Account::open(&user_id, &self.accounts_storage)?.is_admin()?)
     }
+    /// returns the crednetials, storage_master_key, and peer_priv_key
+    pub(crate) fn get_user_credentials(
+        &self,
+        user_id: &PubKey,
+    ) -> Result<Credentials, ProtocolError> {
+        log_debug!("get_user_credentials {user_id}");
+        let acc = Account::open(user_id, &self.accounts_storage)?;
+        Ok(acc.get_credentials()?)
+    }
     pub(crate) fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError> {
         log_debug!("add_user {user_id} is admin {is_admin}");
         Account::create(&user_id, is_admin, &self.accounts_storage)?;
+        Ok(())
+    }
+    pub(crate) fn add_user_credentials(
+        &self,
+        user_id: &PubKey,
+        credentials: &Credentials,
+    ) -> Result<(), ProtocolError> {
+        log_debug!("add_user_credentials {user_id}");
+        let acc = Account::create(&user_id, false, &self.accounts_storage)?;
+        acc.add_credentials(credentials)?;
+        //let storage_key = SymKey::random();
+        //let peer_priv_key = PrivKey::random_ed();
+        //acc.add_user_keys(&storage_key, &peer_priv_key)?;
         Ok(())
     }
     pub(crate) fn del_user(&self, user_id: PubKey) -> Result<(), ProtocolError> {
         log_debug!("del_user {user_id}");
         let acc = Account::open(&user_id, &self.accounts_storage)?;
         acc.del()?;
+        // TODO: stop the verifier, if any
         Ok(())
     }
     pub(crate) fn list_users(&self, admins: bool) -> Result<Vec<PubKey>, ProtocolError> {

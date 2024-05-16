@@ -17,12 +17,13 @@ use serde::{Deserialize, Serialize};
 
 use ng_repo::errors::*;
 use ng_repo::log::*;
+use ng_repo::types::UserId;
 
 use crate::actors::noise::Noise;
 use crate::connection::NoiseFSM;
 use crate::types::{
-    AdminRequest, CoreBrokerConnect, CoreBrokerConnectResponse, CoreMessage, CoreMessageV0,
-    CoreResponse, CoreResponseContentV0, CoreResponseV0, ExtResponse,
+    AdminRequest, ClientInfo, CoreBrokerConnect, CoreBrokerConnectResponse, CoreMessage,
+    CoreMessageV0, CoreResponse, CoreResponseContentV0, CoreResponseV0, ExtResponse,
 };
 use crate::{actor::*, types::ProtocolMessage};
 
@@ -36,6 +37,8 @@ pub enum StartProtocol {
     Ext(ExtHello),
     Core(CoreHello),
     Admin(AdminRequest),
+    App(AppHello),
+    AppResponse(AppHelloResponse),
 }
 
 impl StartProtocol {
@@ -45,6 +48,8 @@ impl StartProtocol {
             StartProtocol::Core(a) => a.type_id(),
             StartProtocol::Ext(a) => a.type_id(),
             StartProtocol::Admin(a) => a.type_id(),
+            StartProtocol::App(a) => a.type_id(),
+            StartProtocol::AppResponse(a) => a.type_id(),
         }
     }
     pub fn get_actor(&self) -> Box<dyn EActor> {
@@ -53,6 +58,8 @@ impl StartProtocol {
             StartProtocol::Core(a) => a.get_actor(),
             StartProtocol::Ext(a) => a.get_actor(),
             StartProtocol::Admin(a) => a.get_actor(),
+            StartProtocol::App(a) => a.get_actor(),
+            StartProtocol::AppResponse(_) => panic!("AppResponse is not a request"),
         }
     }
 }
@@ -248,6 +255,67 @@ impl Actor<'_, ExtHello, ExtResponse> {}
 
 #[async_trait::async_trait]
 impl EActor for Actor<'_, ExtHello, ExtResponse> {
+    async fn respond(
+        &mut self,
+        _msg: ProtocolMessage,
+        _fsm: Arc<Mutex<NoiseFSM>>,
+    ) -> Result<(), ProtocolError> {
+        Ok(())
+    }
+}
+
+// ///////////// APP HELLO ///////////////
+
+/// App Hello (finalizes the Noise handshake and sends info about device, and the user_id.
+/// not signing any nonce because anyway, in the next message "AppSessionRequest", the user_priv_key will be sent and checked again)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppHello {
+    // contains the 3rd Noise handshake message "s,se"
+    pub noise: Noise,
+
+    pub user: Option<UserId>, // None for Headless
+
+    pub info: ClientInfo,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppHelloResponse {
+    pub result: u16,
+}
+
+impl AppHello {
+    pub fn get_actor(&self) -> Box<dyn EActor> {
+        Actor::<AppHello, AppHelloResponse>::new_responder(0)
+    }
+}
+
+impl From<AppHello> for ProtocolMessage {
+    fn from(msg: AppHello) -> ProtocolMessage {
+        ProtocolMessage::Start(StartProtocol::App(msg))
+    }
+}
+
+impl From<AppHelloResponse> for ProtocolMessage {
+    fn from(msg: AppHelloResponse) -> ProtocolMessage {
+        ProtocolMessage::Start(StartProtocol::AppResponse(msg))
+    }
+}
+
+impl TryFrom<ProtocolMessage> for AppHelloResponse {
+    type Error = ProtocolError;
+    fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
+        if let ProtocolMessage::Start(StartProtocol::AppResponse(res)) = msg {
+            Ok(res)
+        } else {
+            Err(ProtocolError::InvalidValue)
+        }
+    }
+}
+
+impl Actor<'_, AppHello, AppHelloResponse> {}
+
+#[async_trait::async_trait]
+impl EActor for Actor<'_, AppHello, AppHelloResponse> {
     async fn respond(
         &mut self,
         _msg: ProtocolMessage,

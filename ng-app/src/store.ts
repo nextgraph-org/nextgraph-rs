@@ -117,7 +117,7 @@ export const reconnect = async function() {
     console.log("attempting to connect...");
     try {
         let info = await ng.client_info()
-        //console.log("Connecting with",client,info);
+        //console.log("Connecting with",get(active_session).user);
         connections.set(await ng.user_connect( 
             info,
             get(active_session).user,
@@ -235,7 +235,9 @@ export const branch_subs = function(nuri) {
                             unsub();
                             unsub = () => {};
                             set([]);
-                            unsub = await ng.app_request_stream(session.session_id, await ng.doc_fetch_repo_subscribe(nuri), 
+                            let req= await ng.doc_fetch_repo_subscribe(nuri);
+                            req.V0.session_id = session.session_id;
+                            unsub = await ng.app_request_stream(req, 
                             async (commit) => {
                                 //console.log("GOT APP RESPONSE", commit);
                                 update( (old) => {old.unshift(commit); return old;} )

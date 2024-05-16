@@ -90,10 +90,8 @@ impl EActor for Actor<'_, CommitGet, Block> {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         let req = CommitGet::try_from(msg)?;
-        let broker = BROKER.read().await;
-        let blocks_res = broker
-            .get_server_broker()?
-            .get_commit(req.overlay(), req.id());
+        let broker = { BROKER.read().await.get_server_broker()? };
+        let blocks_res = { broker.read().await.get_commit(req.overlay(), req.id()) };
         // IF NEEDED, the get_commit could be changed to return a stream, and then the send_in_reply_to would be also totally async
         match blocks_res {
             Ok(blocks) => {

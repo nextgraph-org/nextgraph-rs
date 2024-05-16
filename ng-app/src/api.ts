@@ -31,7 +31,7 @@ const mapping = {
     "decode_invitation": ["invite"],
     "user_connect": ["info","user_id","location"],
     "user_disconnect": ["user_id"],
-    "app_request": ["session_id","request"],
+    "app_request": ["request"],
     "test": [ ],
     "doc_fetch_private_subscribe": [],
     "doc_fetch_repo_subscribe": ["repo_id"],
@@ -120,9 +120,9 @@ const handler = {
                 let stream_id = (lastStreamId += 1).toString();
                 //console.log("stream_id",stream_id);
                 let { getCurrent } = await import("@tauri-apps/plugin-window");
-                let session_id = args[0];
-                let request = args[1];
-                let callback = args[2];
+                //let session_id = args[0];
+                let request = args[0];
+                let callback = args[1];
 
                 let unlisten = await getCurrent().listen(stream_id, (event) => {
                     //console.log(event.payload);
@@ -131,7 +131,7 @@ const handler = {
                     }
                     callback(event.payload).then(()=> {})
                 })
-                await tauri.invoke("app_request_stream",{session_id, stream_id, request});
+                await tauri.invoke("app_request_stream",{stream_id, request});
                 
                 return () => {
                     unlisten();

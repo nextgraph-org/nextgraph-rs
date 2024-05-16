@@ -243,7 +243,7 @@ async fn main_inner() -> Result<(), NgcliError> {
 
     if let Some(_matches) = matches.subcommand_matches("gen-key") {
         let (privkey, pubkey) = generate_keypair();
-        println!("Your UserId is: {pubkey}");
+        println!("Your Public key is:  {pubkey}");
         println!("Your Private key is: {privkey}");
         return Ok(());
     }

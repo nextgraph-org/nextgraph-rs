@@ -14,6 +14,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use ng_net::app_protocol::FileName;
 use ng_repo::{
     block_storage::BlockStorage,
     errors::StorageError,
@@ -21,8 +22,6 @@ use ng_repo::{
     store::Store,
     types::*,
 };
-
-use crate::types::*;
 
 pub trait UserStorage: Send + Sync {
     //fn repo_id_to_store_overlay(&self, id: &RepoId) -> Result<StoreOverlay, StorageError>;

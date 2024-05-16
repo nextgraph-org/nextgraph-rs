@@ -37,10 +37,7 @@ use ng_repo::{
 };
 
 use ng_net::types::*;
-use ng_net::utils::is_private_ip;
-use ng_net::utils::is_public_ip;
-use ng_net::utils::is_public_ipv4;
-use ng_net::utils::is_public_ipv6;
+use ng_net::utils::*;
 use ng_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
 
 use ng_broker::interfaces::*;
@@ -66,12 +63,6 @@ lazy_static! {
         r"^(\{[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}\})(\:\d{1,5})?$"
     )
     .unwrap();
-}
-
-lazy_static! {
-    #[doc(hidden)]
-    static ref RE_IPV6_WITH_PORT: Regex =
-        Regex::new(r"^\[([0-9a-fA-F:]{3,39})\](\:\d{1,5})?$").unwrap();
 }
 
 pub static DEFAULT_PORT: u16 = WS_PORT;
@@ -121,83 +112,6 @@ fn parse_ipv6_for(string: String, for_option: &str) -> Result<Ipv6Addr, NgdError
             for_option
         ))
     })
-}
-
-fn parse_ipv4_and_port_for(
-    string: String,
-    for_option: &str,
-    default_port: u16,
-) -> Result<(Ipv4Addr, u16), NgdError> {
-    let parts: Vec<&str> = string.split(":").collect();
-    let ipv4 = parts[0].parse::<Ipv4Addr>().map_err(|_| {
-        NgdError::OtherConfigError(format!(
-            "The <IPv4:PORT> value submitted for the {} option is invalid.",
-            for_option
-        ))
-    })?;
-
-    let port = if parts.len() > 1 {
-        match from_str::<u16>(parts[1]) {
-            Err(_) => default_port,
-            Ok(p) => {
-                if p == 0 {
-                    default_port
-                } else {
-                    p
-                }
-            }
-        }
-    } else {
-        default_port
-    };
-    Ok((ipv4, port))
-}
-
-fn parse_ip_and_port_for(string: String, for_option: &str) -> Result<(IpAddr, u16), NgdError> {
-    let c = RE_IPV6_WITH_PORT.captures(&string);
-    let ipv6;
-    let port;
-    if c.is_some() && c.as_ref().unwrap().get(1).is_some() {
-        let cap = c.unwrap();
-        let ipv6_str = cap.get(1).unwrap().as_str();
-        port = match cap.get(2) {
-            None => DEFAULT_PORT,
-            Some(p) => {
-                let mut chars = p.as_str().chars();
-                chars.next();
-                match from_str::<u16>(chars.as_str()) {
-                    Err(_) => DEFAULT_PORT,
-                    Ok(p) => {
-                        if p == 0 {
-                            DEFAULT_PORT
-                        } else {
-                            p
-                        }
-                    }
-                }
-            }
-        };
-        let ipv6 = ipv6_str.parse::<Ipv6Addr>().map_err(|_| {
-            NgdError::OtherConfigError(format!(
-                "The <[IPv6]:PORT> value submitted for the {} option is invalid.",
-                for_option
-            ))
-        })?;
-        Ok((IpAddr::V6(ipv6), port))
-    } else {
-        // we try just an IPV6 without port
-        let ipv6_res = string.parse::<Ipv6Addr>();
-        if ipv6_res.is_err() {
-            // let's try IPv4
-
-            parse_ipv4_and_port_for(string, for_option, DEFAULT_PORT)
-                .map(|ipv4| (IpAddr::V4(ipv4.0), ipv4.1))
-        } else {
-            ipv6 = ipv6_res.unwrap();
-            port = DEFAULT_PORT;
-            Ok((IpAddr::V6(ipv6), port))
-        }
-    }
 }
 
 fn parse_triple_interface_and_port_for(
@@ -331,7 +245,10 @@ impl From<NgdError> for std::io::Error {
 
 impl From<NgError> for NgdError {
     fn from(err: NgError) -> NgdError {
-        Self::NgError(err)
+        match err {
+            NgError::ConfigError(c) => Self::OtherConfigError(c),
+            _ => Self::NgError(err),
+        }
     }
 }
 
@@ -920,14 +837,10 @@ async fn main_inner() -> Result<(), NgdError> {
 
                 if first_char == '[' || first_char.is_numeric() {
                     // an IPv6 or IPv4
-                    let bind = parse_ip_and_port_for(parts[0].to_string(), "--forward")?;
-                    let bind_addr = BindAddress {
-                        ip: (&bind.0).into(),
-                        port: bind.1,
-                    };
-                    if is_private_ip(&bind.0) {
+                    let bind_addr = parse_ip_and_port_for(parts[0].to_string(), "--forward")?;
+                    if bind_addr.ip.is_private() {
                         BrokerServerTypeV0::BoxPrivate(vec![bind_addr])
-                    } else if is_public_ip(&bind.0) {
+                    } else if bind_addr.ip.is_public() {
                         BrokerServerTypeV0::Public(vec![bind_addr])
                     } else {
                         return Err(NgdError::OtherConfigErrorStr(

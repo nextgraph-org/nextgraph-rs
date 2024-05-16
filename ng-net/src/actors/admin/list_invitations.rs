@@ -101,11 +101,12 @@ impl EActor for Actor<'_, ListInvitations, AdminResponse> {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         let req = ListInvitations::try_from(msg)?;
-        let res = BROKER.read().await.get_server_broker()?.list_invitations(
-            req.admin(),
-            req.unique(),
-            req.multi(),
-        );
+        let sb = { BROKER.read().await.get_server_broker()? };
+        let res = {
+            sb.read()
+                .await
+                .list_invitations(req.admin(), req.unique(), req.multi())
+        };
         let response: AdminResponseV0 = res.into();
         fsm.lock().await.send(response.into()).await?;
         Ok(())

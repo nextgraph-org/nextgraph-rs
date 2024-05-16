@@ -85,8 +85,8 @@ impl EActor for Actor<'_, DelUser, AdminResponse> {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         let req = DelUser::try_from(msg)?;
-        let broker = BROKER.read().await;
-        let res = broker.get_server_broker()?.del_user(req.user());
+        let sb = { BROKER.read().await.get_server_broker()? };
+        let res = { sb.read().await.del_user(req.user()) };
         let response: AdminResponseV0 = res.into();
         fsm.lock().await.send(response.into()).await?;
         Ok(())

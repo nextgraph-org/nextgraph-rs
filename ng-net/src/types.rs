@@ -27,12 +27,39 @@ use ng_repo::store::Store;
 use ng_repo::types::*;
 use ng_repo::utils::{sign, verify};
 
+use crate::app_protocol::*;
 use crate::utils::{
     get_domain_without_port_443, is_ipv4_private, is_ipv6_private, is_private_ip, is_public_ip,
     is_public_ipv4, is_public_ipv6,
 };
 use crate::WS_PORT_ALTERNATE;
 use crate::{actor::EActor, actors::admin::*, actors::*};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+/// used to initiate a session at a local broker V0
+pub struct Credentials {
+    pub user_key: PrivKey,
+    pub read_cap: ReadCap,
+    pub private_store: RepoId,
+    pub protected_store: RepoId,
+    pub public_store: RepoId,
+    pub user_master_key: SymKey,
+    pub peer_priv_key: PrivKey,
+}
+
+impl Credentials {
+    pub fn new_partial(user_priv_key: &PrivKey) -> Self {
+        Credentials {
+            user_key: user_priv_key.clone(),
+            read_cap: ReadCap::nil(),
+            private_store: RepoId::nil(),
+            protected_store: RepoId::nil(),
+            public_store: RepoId::nil(),
+            user_master_key: SymKey::random(),
+            peer_priv_key: PrivKey::random_ed(),
+        }
+    }
+}
 
 //
 //  Network common types
@@ -103,6 +130,12 @@ impl BindAddress {
             self.ip,
             if self.port == 0 { 80 } else { self.port }
         )
+    }
+    pub fn new_localhost_with_port(port: u16) -> Self {
+        BindAddress {
+            ip: LOOPBACK_IPV4.clone(),
+            port,
+        }
     }
 }
 
@@ -1325,6 +1358,8 @@ pub type ClientId = PubKey;
 /// IPv4 address
 pub type IPv4 = [u8; 4];
 
+const LOOPBACK_IPV4: IP = IP::IPv4([127, 0, 0, 1]);
+
 /// IPv6 address
 pub type IPv6 = [u8; 16];
 
@@ -2443,6 +2478,76 @@ pub enum CoreMessage {
     V0(CoreMessageV0),
 }
 
+/// AppMessageContentV0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AppMessageContentV0 {
+    Request(AppRequest),
+    Response(AppResponse),
+    SessionStop(AppSessionStop),
+    SessionStart(AppSessionStart),
+    EmptyResponse,
+}
+
+/// AppMessageV0
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppMessageV0 {
+    pub content: AppMessageContentV0,
+
+    pub id: i64,
+
+    pub result: u16,
+}
+
+/// App message
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AppMessage {
+    V0(AppMessageV0),
+}
+
+impl IStreamable for AppMessage {
+    fn result(&self) -> u16 {
+        match self {
+            AppMessage::V0(v0) => v0.result,
+        }
+    }
+    fn set_result(&mut self, result: u16) {
+        match self {
+            AppMessage::V0(v0) => v0.result = result,
+        }
+    }
+}
+
+impl AppMessage {
+    pub fn get_actor(&self) -> Box<dyn EActor> {
+        match self {
+            AppMessage::V0(AppMessageV0 { content: o, id, .. }) => match o {
+                AppMessageContentV0::Request(req) => req.get_actor(*id),
+                AppMessageContentV0::SessionStop(req) => req.get_actor(*id),
+                AppMessageContentV0::SessionStart(req) => req.get_actor(*id),
+                AppMessageContentV0::Response(_) | AppMessageContentV0::EmptyResponse => {
+                    panic!("it is not a request");
+                }
+            },
+        }
+    }
+    pub fn id(&self) -> Option<i64> {
+        match self {
+            AppMessage::V0(v0) => Some(v0.id),
+        }
+    }
+    pub fn set_id(&mut self, id: i64) {
+        match self {
+            AppMessage::V0(r) => r.id = id,
+        }
+    }
+}
+
+impl From<AppMessage> for ProtocolMessage {
+    fn from(msg: AppMessage) -> ProtocolMessage {
+        ProtocolMessage::AppMessage(msg)
+    }
+}
+
 //
 // ADMIN PROTOCOL
 //
@@ -2455,6 +2560,8 @@ pub enum AdminRequestContentV0 {
     ListUsers(ListUsers),
     ListInvitations(ListInvitations),
     AddInvitation(AddInvitation),
+    #[doc(hidden)]
+    CreateUser(CreateUser),
 }
 impl AdminRequestContentV0 {
     pub fn type_id(&self) -> TypeId {
@@ -2464,6 +2571,7 @@ impl AdminRequestContentV0 {
             Self::ListUsers(a) => a.type_id(),
             Self::ListInvitations(a) => a.type_id(),
             Self::AddInvitation(a) => a.type_id(),
+            Self::CreateUser(a) => a.type_id(),
         }
     }
     pub fn get_actor(&self) -> Box<dyn EActor> {
@@ -2473,6 +2581,7 @@ impl AdminRequestContentV0 {
             Self::ListUsers(a) => a.get_actor(),
             Self::ListInvitations(a) => a.get_actor(),
             Self::AddInvitation(a) => a.get_actor(),
+            Self::CreateUser(a) => a.get_actor(),
         }
     }
 }
@@ -2557,6 +2666,7 @@ pub enum AdminResponseContentV0 {
     Users(Vec<PubKey>),
     Invitations(Vec<(InvitationCode, u32, Option<String>)>),
     Invitation(Invitation),
+    UserId(UserId),
 }
 
 /// Response to an `AdminRequest` V0
@@ -2588,6 +2698,25 @@ impl From<Result<(), ProtocolError>> for AdminResponseV0 {
             result: res.map(|_| 0).unwrap_or_else(|e| e.into()),
             content: AdminResponseContentV0::EmptyResponse,
             padding: vec![],
+        }
+    }
+}
+
+impl From<Result<PubKey, ProtocolError>> for AdminResponseV0 {
+    fn from(res: Result<PubKey, ProtocolError>) -> AdminResponseV0 {
+        match res {
+            Err(e) => AdminResponseV0 {
+                id: 0,
+                result: e.into(),
+                content: AdminResponseContentV0::EmptyResponse,
+                padding: vec![],
+            },
+            Ok(id) => AdminResponseV0 {
+                id: 0,
+                result: 0,
+                content: AdminResponseContentV0::UserId(id),
+                padding: vec![],
+            },
         }
     }
 }
@@ -3508,6 +3637,19 @@ impl From<ServerError> for ClientResponse {
     }
 }
 
+#[derive(Debug)]
+pub struct EmptyAppResponse(pub ());
+
+impl From<ServerError> for AppMessage {
+    fn from(err: ServerError) -> AppMessage {
+        AppMessage::V0(AppMessageV0 {
+            id: 0,
+            result: err.into(),
+            content: AppMessageContentV0::EmptyResponse,
+        })
+    }
+}
+
 impl<A> From<Result<A, ServerError>> for ProtocolMessage
 where
     A: Into<ProtocolMessage> + std::fmt::Debug,
@@ -3615,10 +3757,42 @@ pub struct ClientMessageV0 {
     pub padding: Vec<u8>,
 }
 
+pub trait IStreamable {
+    fn result(&self) -> u16;
+    fn set_result(&mut self, result: u16);
+}
+
 /// Broker message for an overlay
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientMessage {
     V0(ClientMessageV0),
+}
+
+impl IStreamable for ClientMessage {
+    fn result(&self) -> u16 {
+        match self {
+            ClientMessage::V0(o) => match &o.content {
+                ClientMessageContentV0::ClientResponse(r) => r.result(),
+                ClientMessageContentV0::ClientRequest(_)
+                | ClientMessageContentV0::ForwardedEvent(_)
+                | ClientMessageContentV0::ForwardedBlock(_) => {
+                    panic!("it is not a response");
+                }
+            },
+        }
+    }
+    fn set_result(&mut self, result: u16) {
+        match self {
+            ClientMessage::V0(o) => match &mut o.content {
+                ClientMessageContentV0::ClientResponse(r) => r.set_result(result),
+                ClientMessageContentV0::ClientRequest(_)
+                | ClientMessageContentV0::ForwardedEvent(_)
+                | ClientMessageContentV0::ForwardedBlock(_) => {
+                    panic!("it is not a response");
+                }
+            },
+        }
+    }
 }
 
 impl ClientMessage {
@@ -3686,18 +3860,7 @@ impl ClientMessage {
             },
         }
     }
-    pub fn result(&self) -> u16 {
-        match self {
-            ClientMessage::V0(o) => match &o.content {
-                ClientMessageContentV0::ClientResponse(r) => r.result(),
-                ClientMessageContentV0::ClientRequest(_)
-                | ClientMessageContentV0::ForwardedEvent(_)
-                | ClientMessageContentV0::ForwardedBlock(_) => {
-                    panic!("it is not a response");
-                }
-            },
-        }
-    }
+
     pub fn block<'a>(&self) -> Option<&Block> {
         match self {
             ClientMessage::V0(o) => match &o.content {
@@ -3947,6 +4110,7 @@ pub enum ProtocolMessage {
     //AdminRequest(AdminRequest),
     AdminResponse(AdminResponse),
     ClientMessage(ClientMessage),
+    AppMessage(AppMessage),
     CoreMessage(CoreMessage),
 }
 
@@ -3954,6 +4118,12 @@ impl TryFrom<&ProtocolMessage> for ServerError {
     type Error = NgError;
     fn try_from(msg: &ProtocolMessage) -> Result<Self, NgError> {
         if let ProtocolMessage::ClientMessage(ref bm) = msg {
+            let res = bm.result();
+            if res != 0 {
+                return Ok(ServerError::try_from(res).unwrap());
+            }
+        }
+        if let ProtocolMessage::AppMessage(ref bm) = msg {
             let res = bm.result();
             if res != 0 {
                 return Ok(ServerError::try_from(res).unwrap());
@@ -3969,6 +4139,7 @@ impl ProtocolMessage {
             ProtocolMessage::ExtRequest(ext_req) => Some(ext_req.id()),
             ProtocolMessage::ExtResponse(ext_res) => Some(ext_res.id()),
             ProtocolMessage::ClientMessage(client_msg) => client_msg.id(),
+            ProtocolMessage::AppMessage(app_msg) => app_msg.id(),
             _ => None,
         }
     }
@@ -3977,6 +4148,7 @@ impl ProtocolMessage {
             ProtocolMessage::ExtRequest(ext_req) => ext_req.set_id(id),
             ProtocolMessage::ExtResponse(ext_res) => ext_res.set_id(id),
             ProtocolMessage::ClientMessage(client_msg) => client_msg.set_id(id),
+            ProtocolMessage::AppMessage(app_msg) => app_msg.set_id(id),
             _ => panic!("cannot set ID"),
         }
     }
@@ -3991,6 +4163,7 @@ impl ProtocolMessage {
             ProtocolMessage::ExtResponse(a) => a.type_id(),
             ProtocolMessage::ClientMessage(a) => a.type_id(),
             ProtocolMessage::CoreMessage(a) => a.type_id(),
+            ProtocolMessage::AppMessage(a) => a.type_id(),
             //ProtocolMessage::AdminRequest(a) => a.type_id(),
             ProtocolMessage::AdminResponse(a) => a.type_id(),
             ProtocolMessage::Probe(a) => a.type_id(),
@@ -4002,11 +4175,26 @@ impl ProtocolMessage {
         }
     }
 
+    pub(crate) fn is_streamable(&self) -> Option<&dyn IStreamable> {
+        match self {
+            ProtocolMessage::ClientMessage(s) => Some(s as &dyn IStreamable),
+            ProtocolMessage::AppMessage(s) => Some(s as &dyn IStreamable),
+            // ProtocolMessage::ServerHello(a) => a.get_actor(),
+            // ProtocolMessage::ClientAuth(a) => a.get_actor(),
+            // ProtocolMessage::AuthResult(a) => a.get_actor(),
+            // ProtocolMessage::ExtRequest(a) => a.get_actor(),
+            // ProtocolMessage::ExtResponse(a) => a.get_actor(),
+            // ProtocolMessage::BrokerMessage(a) => a.get_actor(),
+            _ => None,
+        }
+    }
+
     pub fn get_actor(&self) -> Box<dyn EActor> {
         match self {
             //ProtocolMessage::Noise(a) => a.get_actor(),
             ProtocolMessage::Start(a) => a.get_actor(),
             ProtocolMessage::ClientMessage(a) => a.get_actor(),
+            ProtocolMessage::AppMessage(a) => a.get_actor(),
             // ProtocolMessage::ServerHello(a) => a.get_actor(),
             // ProtocolMessage::ClientAuth(a) => a.get_actor(),
             // ProtocolMessage::AuthResult(a) => a.get_actor(),

@@ -107,15 +107,17 @@ impl EActor for Actor<'_, TopicSyncReq, TopicSyncRes> {
     ) -> Result<(), ProtocolError> {
         let req = TopicSyncReq::try_from(msg)?;
 
-        let broker = BROKER.read().await;
+        let sb = { BROKER.read().await.get_server_broker()? };
 
-        let res = broker.get_server_broker()?.topic_sync_req(
-            req.overlay(),
-            req.topic(),
-            req.known_heads(),
-            req.target_heads(),
-            req.known_commits(),
-        );
+        let res = {
+            sb.read().await.topic_sync_req(
+                req.overlay(),
+                req.topic(),
+                req.known_heads(),
+                req.target_heads(),
+                req.known_commits(),
+            )
+        };
 
         // IF NEEDED, the topic_sync_req could be changed to return a stream, and then the send_in_reply_to would be also totally async
         match res {

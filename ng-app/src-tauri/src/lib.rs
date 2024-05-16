@@ -20,7 +20,9 @@ use tauri::{path::BaseDirectory, App, Manager};
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
 use ng_repo::types::*;
+use ng_repo::utils::decode_key;
 
+use ng_net::app_protocol::*;
 use ng_net::types::{ClientInfo, CreateAccountBSP, Invitation};
 use ng_net::utils::{decode_invitation_string, spawn_and_log_error, Receiver, ResultSend};
 
@@ -28,7 +30,6 @@ use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
-use nextgraph::verifier::*;
 
 #[cfg(mobile)]
 mod mobile;
@@ -183,11 +184,12 @@ async fn session_start(
     wallet_name: String,
     user: PubKey,
     _app: tauri::AppHandle,
-) -> Result<SessionInfo, String> {
+) -> Result<SessionInfoString, String> {
     let config = SessionConfig::new_save(&user, &wallet_name);
     nextgraph::local_broker::session_start(config)
         .await
         .map_err(|e: NgError| e.to_string())
+        .map(|s| s.into())
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -196,11 +198,12 @@ async fn session_start_remote(
     user: PubKey,
     peer_id: Option<PubKey>,
     _app: tauri::AppHandle,
-) -> Result<SessionInfo, String> {
+) -> Result<SessionInfoString, String> {
     let config = SessionConfig::new_remote(&user, &wallet_name, peer_id);
     nextgraph::local_broker::session_start(config)
         .await
         .map_err(|e: NgError| e.to_string())
+        .map(|s| s.into())
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -240,18 +243,17 @@ async fn decode_invitation(invite: String) -> Option<Invitation> {
 
 #[tauri::command(rename_all = "snake_case")]
 async fn app_request_stream(
-    session_id: u64,
     request: AppRequest,
     stream_id: &str,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    log_debug!("app request stream {} {:?}", stream_id, request);
+    //log_debug!("app request stream {} {:?}", stream_id, request);
     let main_window = app.get_window("main").unwrap();
 
     let reader;
     {
         let cancel;
-        (reader, cancel) = nextgraph::local_broker::app_request_stream(session_id, request)
+        (reader, cancel) = nextgraph::local_broker::app_request_stream(request)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -284,33 +286,29 @@ async fn app_request_stream(
 
 #[tauri::command(rename_all = "snake_case")]
 async fn doc_fetch_private_subscribe() -> Result<AppRequest, String> {
-    let request = AppRequest::V0(AppRequestV0 {
-        command: AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
-        nuri: NuriV0::new_private_store_target(),
-        payload: None,
-    });
+    let request = AppRequest::new(
+        AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
+        NuriV0::new_private_store_target(),
+        None,
+    );
     Ok(request)
 }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn doc_fetch_repo_subscribe(repo_id: String) -> Result<AppRequest, String> {
-    let request = AppRequest::V0(AppRequestV0 {
-        command: AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
-        nuri: NuriV0::new_repo_target_from_string(repo_id).map_err(|e| e.to_string())?,
-        payload: None,
-    });
+    let request = AppRequest::new(
+        AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
+        NuriV0::new_repo_target_from_string(repo_id).map_err(|e| e.to_string())?,
+        None,
+    );
     Ok(request)
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn app_request(
-    session_id: u64,
-    request: AppRequest,
-    _app: tauri::AppHandle,
-) -> Result<AppResponse, String> {
-    log_debug!("app request {:?}", request);
+async fn app_request(request: AppRequest, _app: tauri::AppHandle) -> Result<AppResponse, String> {
+    //log_debug!("app request {:?}", request);
 
-    nextgraph::local_broker::app_request(session_id, request)
+    nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e| e.to_string())
 }
@@ -325,22 +323,23 @@ async fn upload_chunk(
 ) -> Result<AppResponse, String> {
     //log_debug!("upload_chunk {:?}", chunk);
 
-    let request = AppRequest::V0(AppRequestV0 {
-        command: AppRequestCommandV0::FilePut,
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::FilePut,
         nuri,
-        payload: Some(AppRequestPayload::V0(
+        Some(AppRequestPayload::V0(
             AppRequestPayloadV0::RandomAccessFilePutChunk((upload_id, chunk)),
         )),
-    });
+    );
+    request.set_session_id(session_id);
 
-    nextgraph::local_broker::app_request(session_id, request)
+    nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn cancel_stream(stream_id: &str) -> Result<(), String> {
-    log_debug!("cancel stream {}", stream_id);
+    //log_debug!("cancel stream {}", stream_id);
     Ok(
         nextgraph::local_broker::tauri_stream_cancel(stream_id.to_string())
             .await
@@ -381,14 +380,16 @@ async fn disconnections_subscribe(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn session_stop(user_id: UserId) -> Result<(), String> {
+async fn session_stop(user_id: String) -> Result<(), String> {
+    let user_id = decode_key(&user_id).map_err(|_| "Invalid user_id")?;
     nextgraph::local_broker::session_stop(&user_id)
         .await
         .map_err(|e: NgError| e.to_string())
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn user_disconnect(user_id: UserId) -> Result<(), String> {
+async fn user_disconnect(user_id: String) -> Result<(), String> {
+    let user_id = decode_key(&user_id).map_err(|_| "Invalid user_id")?;
     nextgraph::local_broker::user_disconnect(&user_id)
         .await
         .map_err(|e: NgError| e.to_string())
@@ -412,9 +413,10 @@ struct ConnectionInfo {
 #[tauri::command(rename_all = "snake_case")]
 async fn user_connect(
     info: ClientInfo,
-    user_id: UserId,
+    user_id: String,
     _location: Option<String>,
 ) -> Result<HashMap<String, ConnectionInfo>, String> {
+    let user_id = decode_key(&user_id).map_err(|_| "Invalid user_id")?;
     let mut opened_connections: HashMap<String, ConnectionInfo> = HashMap::new();
 
     let results = nextgraph::local_broker::user_connect_with_device_info(info, &user_id, None)

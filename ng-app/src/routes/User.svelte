@@ -322,7 +322,7 @@
                   } else {
                     $connections[personal_site].error = "Stopped";
                     personal_site_status.since = new Date();
-                    await ng.user_disconnect(personal_site_id);
+                    await ng.user_disconnect(personal_site);
                   }
                 }}
                 checked={personal_site_status &&

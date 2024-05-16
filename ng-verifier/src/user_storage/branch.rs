@@ -22,7 +22,7 @@ use ng_repo::log::*;
 use ng_repo::repo::BranchInfo;
 use ng_repo::types::*;
 
-use crate::types::FileName;
+use ng_net::app_protocol::FileName;
 
 pub struct BranchStorage<'a> {
     storage: &'a dyn KCVStorage,

@@ -79,12 +79,14 @@ impl EActor for Actor<'_, RepoPinStatusReq, RepoPinStatus> {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         let req = RepoPinStatusReq::try_from(msg)?;
-        let broker = BROKER.read().await;
-        let res = broker.get_server_broker()?.get_repo_pin_status(
-            req.overlay(),
-            req.hash(),
-            &fsm.lock().await.user_id()?,
-        );
+        let sb = { BROKER.read().await.get_server_broker()? };
+        let res = {
+            sb.read().await.get_repo_pin_status(
+                req.overlay(),
+                req.hash(),
+                &fsm.lock().await.user_id()?,
+            )
+        };
         fsm.lock()
             .await
             .send_in_reply_to(res.into(), self.id())

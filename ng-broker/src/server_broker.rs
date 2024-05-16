@@ -11,18 +11,37 @@
 
 //! Implementation of the Server Broker
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::Arc,
+};
 
+use async_std::sync::{Mutex, RwLock};
 use either::Either;
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 
 use ng_repo::{
+    block_storage::BlockStorage,
     errors::{NgError, ProtocolError, ServerError},
     log::*,
     types::*,
 };
 
-use ng_net::{server_broker::IServerBroker, types::*};
+use ng_net::{
+    app_protocol::*,
+    broker::{ClientPeerId, BROKER},
+    connection::NoiseFSM,
+    server_broker::IServerBroker,
+    types::*,
+};
+
+use ng_verifier::{
+    site::SiteV0,
+    types::{BrokerPeerId, VerifierConfig, VerifierConfigType},
+    verifier::Verifier,
+};
 
 use crate::rocksdb_server_storage::RocksDbServerStorage;
 
@@ -104,31 +123,53 @@ impl From<OverlayAccess> for OverlayType {
     }
 }
 
-pub struct OverlayInfo {
+#[allow(dead_code)]
+pub(crate) struct OverlayInfo {
     pub overlay_type: OverlayType,
     pub overlay_topic: Option<TopicId>,
     pub topics: HashMap<TopicId, TopicInfo>,
     pub repos: HashMap<RepoHash, RepoInfo>,
 }
 
-pub struct ServerBroker {
-    storage: RocksDbServerStorage,
+struct DetachableVerifier {
+    detach: bool,
+    attached: Option<(DirectPeerId, u64)>,
+    verifier: Verifier,
+}
 
+pub struct ServerBrokerState {
     #[allow(dead_code)]
     overlays: HashMap<OverlayId, OverlayInfo>,
     #[allow(dead_code)]
     inner_overlays: HashMap<OverlayId, Option<OverlayId>>,
 
-    local_subscriptions: HashMap<(OverlayId, TopicId), HashSet<PubKey>>,
+    local_subscriptions: HashMap<(OverlayId, TopicId), HashMap<PubKey, Option<UserId>>>,
+
+    verifiers: HashMap<UserId, Arc<RwLock<DetachableVerifier>>>,
+    remote_apps: HashMap<(DirectPeerId, u64), UserId>,
+}
+
+pub struct ServerBroker {
+    storage: RocksDbServerStorage,
+
+    state: RwLock<ServerBrokerState>,
+
+    path_users: PathBuf,
 }
 
 impl ServerBroker {
-    pub(crate) fn new(storage: RocksDbServerStorage) -> Self {
+    pub(crate) fn new(storage: RocksDbServerStorage, path_users: PathBuf) -> Self {
         ServerBroker {
             storage: storage,
-            overlays: HashMap::new(),
-            inner_overlays: HashMap::new(),
-            local_subscriptions: HashMap::new(),
+            state: RwLock::new(ServerBrokerState {
+                overlays: HashMap::new(),
+                inner_overlays: HashMap::new(),
+                local_subscriptions: HashMap::new(),
+                verifiers: HashMap::new(),
+                remote_apps: HashMap::new(),
+            }),
+
+            path_users,
         }
     }
 
@@ -136,53 +177,116 @@ impl ServerBroker {
         Ok(())
     }
 
-    fn add_subscription(
-        &mut self,
+    async fn add_subscription(
+        &self,
         overlay: OverlayId,
         topic: TopicId,
-        peer: PubKey,
+        peer: ClientPeerId,
     ) -> Result<(), ServerError> {
-        let peers_set = self
+        let mut lock = self.state.write().await;
+        let peers_map = lock
             .local_subscriptions
             .entry((overlay, topic))
-            .or_insert(HashSet::with_capacity(1));
+            .or_insert(HashMap::with_capacity(1));
 
         log_debug!(
-            "SUBSCRIBING PEER {} TOPIC {} OVERLAY {}",
+            "SUBSCRIBING PEER {:?} TOPIC {} OVERLAY {}",
             peer,
             topic,
             overlay
         );
 
-        if !peers_set.insert(peer) {
+        if peers_map.insert(*peer.key(), peer.value()).is_some() {
             //return Err(ServerError::PeerAlreadySubscribed);
         }
         Ok(())
     }
 
     #[allow(dead_code)]
-    fn remove_subscription(
-        &mut self,
+    async fn remove_subscription(
+        &self,
         overlay: &OverlayId,
         topic: &TopicId,
         peer: &PubKey,
     ) -> Result<(), ServerError> {
-        let peers_set = self
+        let mut lock = self.state.write().await;
+        let peers_set = lock
             .local_subscriptions
             .get_mut(&(*overlay, *topic))
             .ok_or(ServerError::SubscriptionNotFound)?;
 
-        if !peers_set.remove(peer) {
+        if peers_set.remove(peer).is_none() {
             return Err(ServerError::SubscriptionNotFound);
         }
         Ok(())
+    }
+
+    async fn new_verifier_from_credentials(
+        &self,
+        user_id: &UserId,
+        credentials: Credentials,
+        local_peer_id: DirectPeerId,
+        partial_credentials: bool,
+    ) -> Result<Verifier, NgError> {
+        let block_storage = self.get_block_storage();
+        let mut path = self.get_path_users();
+        let user_hash: Digest = user_id.into();
+        path.push(user_hash.to_string());
+        std::fs::create_dir_all(path.clone()).unwrap();
+        let peer_id_dh = credentials.peer_priv_key.to_pub().to_dh_from_ed();
+        let mut verifier = Verifier::new(
+            VerifierConfig {
+                config_type: VerifierConfigType::RocksDb(path),
+                user_master_key: *credentials.user_master_key.slice(),
+                peer_priv_key: credentials.peer_priv_key,
+                user_priv_key: credentials.user_key,
+                private_store_read_cap: if partial_credentials {
+                    None
+                } else {
+                    Some(credentials.read_cap)
+                },
+                private_store_id: if partial_credentials {
+                    None
+                } else {
+                    Some(credentials.private_store)
+                },
+                protected_store_id: if partial_credentials {
+                    None
+                } else {
+                    Some(credentials.protected_store)
+                },
+                public_store_id: if partial_credentials {
+                    None
+                } else {
+                    Some(credentials.public_store)
+                },
+            },
+            block_storage,
+        )?;
+        if !partial_credentials {
+            verifier.connected_broker = BrokerPeerId::Local(local_peer_id);
+            // start the local transport connection
+            let mut lock = BROKER.write().await;
+            lock.connect_local(peer_id_dh, *user_id)?;
+        }
+        Ok(verifier)
     }
 }
 
 //TODO: the purpose of this trait is to have a level of indirection so we can keep some data in memory (cache) and avoid hitting the storage backend (rocksdb) at every call.
 //for now this cache is not implemented, but the structs are ready (see above), and it would just require to change slightly the implementation of the trait functions here below.
-
+#[async_trait::async_trait]
 impl IServerBroker for ServerBroker {
+    fn get_block_storage(
+        &self,
+    ) -> std::sync::Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>> {
+        self.storage.get_block_storage()
+    }
+
+    fn get_path_users(&self) -> PathBuf {
+        self.path_users.clone()
+    }
+
     fn has_block(&self, overlay_id: &OverlayId, block_id: &BlockId) -> Result<(), ServerError> {
         self.storage.has_block(overlay_id, block_id)
     }
@@ -199,13 +303,59 @@ impl IServerBroker for ServerBroker {
         self.storage.add_block(overlay_id, block)?;
         Ok(())
     }
+    async fn create_user(&self, broker_id: &DirectPeerId) -> Result<UserId, ProtocolError> {
+        let user_privkey = PrivKey::random_ed();
+        let user_id = user_privkey.to_pub();
+        let mut creds = Credentials::new_partial(&user_privkey);
+        let mut verifier = self
+            .new_verifier_from_credentials(&user_id, creds.clone(), *broker_id, true)
+            .await?;
+        let _site = SiteV0::create_personal(user_privkey.clone(), &mut verifier)
+            .await
+            .map_err(|e| {
+                log_err!("create_personal failed with {e}");
+                ProtocolError::BrokerError
+            })?;
+
+        // update credentials from config of verifier.
+        verifier.complement_credentials(&mut creds);
+        //verifier.close().await;
+        // save credentials and user
+        self.add_user_credentials(&user_id, &creds)?;
+
+        verifier.connected_broker = BrokerPeerId::Local(*broker_id);
+
+        // start the local transport connection
+        {
+            let mut lock = BROKER.write().await;
+            let peer_id_dh = creds.peer_priv_key.to_pub().to_dh_from_ed();
+            lock.connect_local(peer_id_dh, user_id)?;
+        }
+        let _res = verifier.send_outbox().await;
+        if _res.is_err() {
+            log_err!("{:?}", _res);
+        }
+
+        Ok(user_id)
+    }
 
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError> {
         self.storage.get_user(user_id)
     }
+    fn add_user_credentials(
+        &self,
+        user_id: &PubKey,
+        credentials: &Credentials,
+    ) -> Result<(), ProtocolError> {
+        self.storage.add_user_credentials(user_id, credentials)
+    }
+    fn get_user_credentials(&self, user_id: &PubKey) -> Result<Credentials, ProtocolError> {
+        self.storage.get_user_credentials(user_id)
+    }
     fn add_user(&self, user_id: PubKey, is_admin: bool) -> Result<(), ProtocolError> {
         self.storage.add_user(user_id, is_admin)
     }
+
     fn del_user(&self, user_id: PubKey) -> Result<(), ProtocolError> {
         self.storage.del_user(user_id)
     }
@@ -234,6 +384,201 @@ impl IServerBroker for ServerBroker {
     fn remove_invitation(&self, invite_code: [u8; 32]) -> Result<(), ProtocolError> {
         self.storage.remove_invitation(invite_code)
     }
+
+    async fn app_process_request(
+        &self,
+        req: AppRequest,
+        request_id: i64,
+        fsm: &Mutex<NoiseFSM>,
+    ) -> Result<(), ServerError> {
+        // get the session
+        let remote = {
+            fsm.lock()
+                .await
+                .remote_peer()
+                .ok_or(ServerError::SessionNotFound)?
+        };
+
+        let session_id = (remote, req.session_id());
+        let session_lock = {
+            let lock = self.state.read().await;
+            let user_id = lock
+                .remote_apps
+                .get(&session_id)
+                .ok_or(ServerError::SessionNotFound)?
+                .to_owned();
+
+            Arc::clone(
+                lock.verifiers
+                    .get(&user_id)
+                    .ok_or(ServerError::SessionNotFound)?,
+            )
+        };
+
+        let mut session = session_lock.write().await;
+
+        if session.attached.is_none() || session.attached.unwrap() != session_id {
+            return Err(ServerError::SessionDetached);
+        }
+
+        if req.command().is_stream() {
+            let res = session.verifier.app_request_stream(req).await;
+
+            match res {
+                Err(e) => {
+                    let error: ServerError = e.into();
+                    let error_res: AppMessage = error.into();
+                    fsm.lock()
+                        .await
+                        .send_in_reply_to(error_res.into(), request_id)
+                        .await?;
+                }
+                Ok((mut receiver, _cancel)) => {
+                    //TODO: implement cancel
+                    let mut some_sent = false;
+                    while let Some(response) = receiver.next().await {
+                        some_sent = true;
+                        let mut msg: AppMessage = response.into();
+                        msg.set_result(ServerError::PartialContent.into());
+                        fsm.lock()
+                            .await
+                            .send_in_reply_to(msg.into(), request_id)
+                            .await?;
+                    }
+                    let end: Result<EmptyAppResponse, ServerError> = if some_sent {
+                        Err(ServerError::EndOfStream)
+                    } else {
+                        Err(ServerError::EmptyStream)
+                    };
+                    fsm.lock()
+                        .await
+                        .send_in_reply_to(end.into(), request_id)
+                        .await?;
+                }
+            }
+        } else {
+            let res = session
+                .verifier
+                .app_request(req)
+                .await
+                .map_err(|e| e.into());
+
+            fsm.lock()
+                .await
+                .send_in_reply_to(res.into(), request_id)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn app_session_start(
+        &self,
+        req: AppSessionStart,
+        remote: DirectPeerId,
+        local_peer_id: DirectPeerId,
+    ) -> Result<AppSessionStartResponse, ServerError> {
+        let user_id = req.user_id();
+        let id = (remote, req.session_id());
+        let verifier_lock_res = {
+            let lock = self.state.read().await;
+            lock.verifiers.get(user_id).map(|l| Arc::clone(l))
+        };
+        let verifier_lock = match verifier_lock_res {
+            Some(session_lock) => {
+                let mut session = session_lock.write().await;
+                if let Some((peer_id, session_id)) = session.attached {
+                    if peer_id != remote || session_id == req.session_id() {
+                        // remove the previous session
+                        let mut write_lock = self.state.write().await;
+                        let _ = write_lock.remote_apps.remove(&(peer_id, session_id));
+                    }
+                }
+                session.attached = Some(id);
+                Arc::clone(&session_lock)
+            }
+            None => {
+                // we create and load a new verifier
+
+                let credentials = if req.credentials().is_none() {
+                    // headless do not have credentials. we fetch them from server_storage
+                    self.storage.get_user_credentials(user_id)?
+                } else {
+                    req.credentials().clone().unwrap()
+                };
+
+                if *user_id != credentials.user_key.to_pub() {
+                    log_debug!("InvalidRequest");
+                    return Err(ServerError::InvalidRequest);
+                }
+
+                let verifier = self
+                    .new_verifier_from_credentials(user_id, credentials, local_peer_id, false)
+                    .await;
+                if verifier.is_err() {
+                    log_err!(
+                        "new_verifier failed with: {:?}",
+                        verifier.as_ref().unwrap_err()
+                    );
+                }
+                let mut verifier = verifier?;
+
+                // TODO : key.zeroize();
+
+                //load verifier from local_storage
+                let _ = verifier.load();
+                //TODO: save opened_branches in user_storage, so that when we open again the verifier, the syncing can work
+                verifier.sync().await;
+
+                let session = DetachableVerifier {
+                    detach: true,
+                    attached: Some(id),
+                    verifier,
+                };
+                let mut write_lock = self.state.write().await;
+                Arc::clone(
+                    write_lock
+                        .verifiers
+                        .entry(*user_id)
+                        .or_insert(Arc::new(RwLock::new(session))),
+                )
+            }
+        };
+        let verifier = &verifier_lock.read().await.verifier;
+        let res = AppSessionStartResponse::V0(AppSessionStartResponseV0 {
+            private_store: *verifier.private_store_id(),
+            protected_store: *verifier.protected_store_id(),
+            public_store: *verifier.public_store_id(),
+        });
+        let mut write_lock = self.state.write().await;
+        if let Some(previous_user) = write_lock.remote_apps.insert(id, *user_id) {
+            // weird. another session was opened for this id.
+            // we have to stop it otherwise it would be dangling.
+            if previous_user != *user_id {
+                if let Some(previous_session_lock) = write_lock
+                    .verifiers
+                    .get(&previous_user)
+                    .map(|v| Arc::clone(v))
+                {
+                    let mut previous_session = previous_session_lock.write().await;
+                    if previous_session.detach {
+                        previous_session.attached = None;
+                    } else {
+                        // we stop it and drop it
+                        let verifier = write_lock.verifiers.remove(&previous_user);
+                        verifier.unwrap().read().await.verifier.close().await;
+                    }
+                }
+            }
+        }
+        Ok(res)
+    }
+
+    fn app_session_stop(&self, _req: AppSessionStop) -> Result<EmptyAppResponse, ServerError> {
+        //TODO
+        Ok(EmptyAppResponse(()))
+    }
+
     fn get_repo_pin_status(
         &self,
         overlay: &OverlayId,
@@ -243,8 +588,8 @@ impl IServerBroker for ServerBroker {
         self.storage.get_repo_pin_status(overlay, repo, user)
     }
 
-    fn pin_repo_write(
-        &mut self,
+    async fn pin_repo_write(
+        &self,
         overlay: &OverlayAccess,
         repo: &RepoHash,
         user_id: &UserId,
@@ -252,7 +597,7 @@ impl IServerBroker for ServerBroker {
         rw_topics: &Vec<PublisherAdvert>,
         overlay_root_topic: &Option<TopicId>,
         expose_outer: bool,
-        peer: &PubKey,
+        peer: &ClientPeerId,
     ) -> Result<RepoOpened, ServerError> {
         let res = self.storage.pin_repo_write(
             overlay,
@@ -263,23 +608,25 @@ impl IServerBroker for ServerBroker {
             overlay_root_topic,
             expose_outer,
         )?;
+
         for topic in res.iter() {
             self.add_subscription(
                 *overlay.overlay_id_for_client_protocol_purpose(),
                 *topic.topic_id(),
-                *peer,
-            )?;
+                peer.clone(),
+            )
+            .await?;
         }
         Ok(res)
     }
 
-    fn pin_repo_read(
-        &mut self,
+    async fn pin_repo_read(
+        &self,
         overlay: &OverlayId,
         repo: &RepoHash,
         user_id: &UserId,
         ro_topics: &Vec<TopicId>,
-        peer: &PubKey,
+        peer: &ClientPeerId,
     ) -> Result<RepoOpened, ServerError> {
         let res = self
             .storage
@@ -287,24 +634,26 @@ impl IServerBroker for ServerBroker {
 
         for topic in res.iter() {
             // TODO: those outer subscriptions are not handled yet. they will not emit events.
-            self.add_subscription(*overlay, *topic.topic_id(), *peer)?;
+            self.add_subscription(*overlay, *topic.topic_id(), peer.clone())
+                .await?;
         }
         Ok(res)
     }
 
-    fn topic_sub(
-        &mut self,
+    async fn topic_sub(
+        &self,
         overlay: &OverlayId,
         repo: &RepoHash,
         topic: &TopicId,
         user: &UserId,
         publisher: Option<&PublisherAdvert>,
-        peer: &PubKey,
+        peer: &ClientPeerId,
     ) -> Result<TopicSubRes, ServerError> {
         let res = self
             .storage
             .topic_sub(overlay, repo, topic, user, publisher)?;
-        self.add_subscription(*overlay, *topic, *peer)?;
+        self.add_subscription(*overlay, *topic, peer.clone())
+            .await?;
         Ok(res)
     }
 
@@ -312,9 +661,11 @@ impl IServerBroker for ServerBroker {
         self.storage.get_commit(overlay, id)
     }
 
-    fn remove_all_subscriptions_of_peer(&mut self, remote_peer: &PubKey) {
-        for ((overlay, topic), peers) in self.local_subscriptions.iter_mut() {
-            if peers.remove(remote_peer) {
+    async fn remove_all_subscriptions_of_client(&self, client: &ClientPeerId) {
+        let remote_peer = client.key();
+        let mut lock = self.state.write().await;
+        for ((overlay, topic), peers) in lock.local_subscriptions.iter_mut() {
+            if peers.remove(remote_peer).is_some() {
                 log_debug!(
                     "subscription of peer {} to topic {} in overlay {} removed",
                     remote_peer,
@@ -325,13 +676,13 @@ impl IServerBroker for ServerBroker {
         }
     }
 
-    fn dispatch_event(
+    async fn dispatch_event(
         &self,
         overlay: &OverlayId,
         event: Event,
         user_id: &UserId,
         remote_peer: &PubKey,
-    ) -> Result<HashSet<&PubKey>, ServerError> {
+    ) -> Result<Vec<ClientPeerId>, ServerError> {
         let topic = self.storage.save_event(overlay, event, user_id)?;
 
         // log_debug!(
@@ -340,15 +691,18 @@ impl IServerBroker for ServerBroker {
         //     topic,
         //     self.local_subscriptions
         // );
-
-        let mut set = self
+        let lock = self.state.read().await;
+        let mut map = lock
             .local_subscriptions
             .get(&(*overlay, topic))
-            .map(|set| set.iter().collect())
-            .unwrap_or(HashSet::new());
+            .map(|map| map.iter().collect())
+            .unwrap_or(HashMap::new());
 
-        set.remove(remote_peer);
-        Ok(set)
+        map.remove(remote_peer);
+        Ok(map
+            .iter()
+            .map(|(k, v)| ClientPeerId::new_from(k, v))
+            .collect())
     }
 
     fn topic_sync_req(

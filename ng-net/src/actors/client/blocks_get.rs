@@ -12,6 +12,7 @@
 use std::sync::Arc;
 
 use async_recursion::async_recursion;
+use async_std::sync::RwLock;
 use async_std::sync::{Mutex, MutexGuard};
 
 use ng_repo::errors::*;
@@ -71,15 +72,14 @@ impl EActor for Actor<'_, BlocksGet, Block> {
         fsm: Arc<Mutex<NoiseFSM>>,
     ) -> Result<(), ProtocolError> {
         let req = BlocksGet::try_from(msg)?;
-        let broker = BROKER.read().await;
-        let server = broker.get_server_broker()?;
+        let server = { BROKER.read().await.get_server_broker()? };
         let mut lock = fsm.lock().await;
         let mut something_was_sent = false;
 
         #[async_recursion]
         async fn process_children(
             children: &Vec<BlockId>,
-            server: &Box<dyn IServerBroker + Send + Sync>,
+            server: &RwLock<dyn IServerBroker + Send + Sync>,
             overlay: &OverlayId,
             lock: &mut MutexGuard<'_, NoiseFSM>,
             req_id: i64,
@@ -87,7 +87,7 @@ impl EActor for Actor<'_, BlocksGet, Block> {
             something_was_sent: &mut bool,
         ) {
             for block_id in children {
-                if let Ok(block) = server.get_block(overlay, block_id) {
+                if let Ok(block) = { server.read().await.get_block(overlay, block_id) } {
                     let grand_children = block.children().to_vec();
                     if let Err(_) = lock.send_in_reply_to(block.into(), req_id).await {
                         break;
@@ -110,7 +110,7 @@ impl EActor for Actor<'_, BlocksGet, Block> {
         }
         process_children(
             req.ids(),
-            server,
+            &server,
             req.overlay(),
             &mut lock,
             self.id(),

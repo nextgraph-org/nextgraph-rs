@@ -70,7 +70,11 @@ impl<'a> OverlayStorage<'a> {
         }
     }
 
-    pub fn load(id: &OverlayId, storage: &'a dyn KCVStorage) -> Result<OverlayInfo, StorageError> {
+    #[allow(dead_code)]
+    pub(crate) fn load(
+        id: &OverlayId,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<OverlayInfo, StorageError> {
         let mut opening = OverlayStorage::new(id, storage);
         let props = opening.load_props()?;
         let existential = col(&Self::TYPE, &props)?;
