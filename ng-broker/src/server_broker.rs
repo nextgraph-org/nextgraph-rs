@@ -462,7 +462,6 @@ impl IServerBroker for ServerBroker {
                 .app_request(req)
                 .await
                 .map_err(|e| e.into());
-
             fsm.lock()
                 .await
                 .send_in_reply_to(res.into(), request_id)

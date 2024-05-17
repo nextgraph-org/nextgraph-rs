@@ -19,22 +19,38 @@ let config = {
 };
 
 ng.init_headless(config).then( async() => {
-    
+    let session_id;
     try {
-        //let user_id = "ABIojb8XGAGCL4R_-81Kix8vJnSsfpvu8jwi6T-wTQWt";
-        //let user_id = "ABA1FBm8ofqCXutaf96pRTWvgXDaCG2JLuRlthzoV4a2";
-        let user_id = "AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE";
-        //let user_id = await ng.admin_create_user(config);
+        let user_id = await ng.admin_create_user(config);
         console.log("user created: ",user_id);
         
-        let session = await ng.session_headless_start(user_id);
-        console.log(session);
+        let other_user_id = "AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE";
 
-        let res = await ng.session_headless_stop(session.session_id, true);
+        let session = await ng.session_headless_start(other_user_id);
+        session_id = session.session_id;
+        console.log(session);
+        
+        let sparql_result = await ng.sparql_query(session.session_id, "SELECT * WHERE { ?s ?p ?o }");
+        console.log(sparql_result);
+
+        let quads = await ng.sparql_query(session.session_id, "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }");
+        for (const q of quads) {
+            console.log(q.subject.toString(), q.predicate.toString(), q.object.toString(), q.graph.toString())
+        }
+
+        let result = await ng.sparql_update(session.session_id, "INSERT DATA { <http://example.com> <http://example.com> <http://example.com> }");
+        console.log(result);
+
+        // the 2nd argument `false` means do not `force_close` the dataset. 
+        // it stays in memory even when the session is stopped. (not all the dataset is in memory. just some metadata)
+        // if you set this to true, the dataset is closed and removed from memory on the server.
+        // next time you will open a session for this user, the dataset will be loaded again.
+        let res = await ng.session_headless_stop(session.session_id, false);
         console.log(res);
 
     } catch (e) {
         console.error(e);
+        if (session_id) await ng.session_headless_stop(session_id, true);
     }
 })
 .catch(err => {

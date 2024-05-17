@@ -115,6 +115,18 @@ impl NuriV0 {
             locator: vec![],
         }
     }
+    pub fn new_entire_user_site() -> Self {
+        Self {
+            target: NuriTargetV0::UserSite,
+            entire_store: false,
+            object: None,
+            branch: None,
+            overlay: None,
+            access: vec![],
+            topic: None,
+            locator: vec![],
+        }
+    }
     pub fn new(_from: String) -> Self {
         todo!();
     }
@@ -134,9 +146,20 @@ pub enum AppRequestCommandV0 {
 impl AppRequestCommandV0 {
     pub fn is_stream(&self) -> bool {
         match self {
-            Self::FilePut | Self::Create | Self::Delete | Self::UnPin | Self::Pin => false,
-            Self::Fetch(_) | Self::FileGet => true,
+            Self::Fetch(AppFetchContentV0::Subscribe) | Self::FileGet => true,
+            Self::FilePut
+            | Self::Create
+            | Self::Delete
+            | Self::UnPin
+            | Self::Pin
+            | Self::Fetch(_) => false,
         }
+    }
+    pub fn new_read_query() -> Self {
+        AppRequestCommandV0::Fetch(AppFetchContentV0::ReadQuery)
+    }
+    pub fn new_write_query() -> Self {
+        AppRequestCommandV0::Fetch(AppFetchContentV0::WriteQuery)
     }
 }
 
@@ -323,6 +346,12 @@ pub enum AppRequestPayload {
     V0(AppRequestPayloadV0),
 }
 
+impl AppRequestPayload {
+    pub fn new_sparql_query(query: String) -> Self {
+        AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0(query)))
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DiscretePatch {
     /// A yrs::Update
@@ -402,11 +431,26 @@ pub enum AppResponseV0 {
     #[serde(with = "serde_bytes")]
     FileBinary(Vec<u8>),
     FileMeta(FileMetaV0),
-    QueryResult, // see sparesults
+    #[serde(with = "serde_bytes")]
+    QueryResult(Vec<u8>), // a serialized [SPARQL Query Results JSON Format](https://www.w3.org/TR/sparql11-results-json/)
+    #[serde(with = "serde_bytes")]
+    Graph(Vec<u8>), // a serde serialization of a list of triples. can be transformed on the client side to RDF-JS data model, or JSON-LD, or else (Turtle,...) http://rdf.js.org/data-model-spec/
     Ok,
+    True,
+    False,
+    Error(String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppResponse {
     V0(AppResponseV0),
+}
+
+impl AppResponse {
+    pub fn error(err: String) -> Self {
+        AppResponse::V0(AppResponseV0::Error(err))
+    }
+    pub fn ok() -> Self {
+        AppResponse::V0(AppResponseV0::Ok)
+    }
 }

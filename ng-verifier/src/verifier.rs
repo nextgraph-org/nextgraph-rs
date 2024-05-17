@@ -78,8 +78,7 @@ use crate::user_storage::UserStorage;
 pub struct Verifier {
     pub(crate) config: VerifierConfig,
     pub connected_broker: BrokerPeerId,
-    #[allow(dead_code)]
-    graph_dataset: Option<ng_oxigraph::store::Store>,
+    pub(crate) graph_dataset: Option<ng_oxigraph::store::Store>,
     pub(crate) user_storage: Option<Arc<Box<dyn UserStorage>>>,
     block_storage: Option<Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>>,
     last_seq_num: u64,

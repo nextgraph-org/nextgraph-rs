@@ -2071,21 +2071,26 @@ pub async fn app_request(request: AppRequest) -> Result<AppResponse, NgError> {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
     };
-    let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(request.session_id())?;
+    match &broker.config {
+        LocalBrokerConfig::Headless(_) => {
+            broker.send_request_headless(request).await
+        },
+        _ => {
+            let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(request.session_id())?;
 
-    if is_remote {
-        let session = broker.remote_sessions_list[real_session_id]
-        .as_ref()
-        .ok_or(NgError::SessionNotFound)?;
-        session.send_request(request).await
-    } else {
-        let session = broker.opened_sessions_list[real_session_id]
-            .as_mut()
-            .ok_or(NgError::SessionNotFound)?;
-            session.verifier.app_request(request).await
+            if is_remote {
+                let session = broker.remote_sessions_list[real_session_id]
+                .as_ref()
+                .ok_or(NgError::SessionNotFound)?;
+                session.send_request(request).await
+            } else {
+                let session = broker.opened_sessions_list[real_session_id]
+                    .as_mut()
+                    .ok_or(NgError::SessionNotFound)?;
+                    session.verifier.app_request(request).await
+            }   
+        }
     }
-
-    
 }
 
 /// process any type of app request that returns a stream of values
@@ -2096,18 +2101,25 @@ pub async fn app_request_stream(
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
     };
-    let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(request.session_id())?;
+    match &broker.config {
+        LocalBrokerConfig::Headless(_) => {
+            broker.send_request_stream_headless(request).await
+        },
+        _ => {
+            let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(request.session_id())?;
 
-    if is_remote {
-        let session = broker.remote_sessions_list[real_session_id]
-        .as_ref()
-        .ok_or(NgError::SessionNotFound)?;
-        session.send_request_stream(request).await
-    } else {
-        let session = broker.opened_sessions_list[real_session_id]
-            .as_mut()
-            .ok_or(NgError::SessionNotFound)?;
-            session.verifier.app_request_stream(request).await
+            if is_remote {
+                let session = broker.remote_sessions_list[real_session_id]
+                .as_ref()
+                .ok_or(NgError::SessionNotFound)?;
+                session.send_request_stream(request).await
+            } else {
+                let session = broker.opened_sessions_list[real_session_id]
+                    .as_mut()
+                    .ok_or(NgError::SessionNotFound)?;
+                    session.verifier.app_request_stream(request).await
+            }
+        }
     }
 }
 

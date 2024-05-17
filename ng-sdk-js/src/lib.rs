@@ -11,6 +11,8 @@
 
 #![cfg(target_arch = "wasm32")]
 
+mod model;
+
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -22,6 +24,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 // use js_sys::Reflect;
 use async_std::stream::StreamExt;
+use js_sys::Array;
+use oxrdf::Triple;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
@@ -52,6 +56,8 @@ use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
+
+use crate::model::*;
 
 #[wasm_bindgen]
 pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {
@@ -194,6 +200,68 @@ pub async fn session_headless_stop(session_id: JsValue, force_close: bool) -> Re
         .map_err(|_| "Invalid session_id".to_string())?;
 
     let _ = nextgraph::local_broker::session_headless_stop(session_id, force_close)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(())
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen]
+pub async fn sparql_query(session_id: JsValue, sparql: String) -> Result<JsValue, JsValue> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_read_query(),
+        nuri: NuriV0::new_entire_user_site(),
+        payload: Some(AppRequestPayload::new_sparql_query(sparql)),
+        session_id,
+    });
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = response;
+    match res {
+        AppResponseV0::False => return Ok(JsValue::FALSE),
+        AppResponseV0::True => return Ok(JsValue::TRUE),
+        AppResponseV0::Graph(graph) => {
+            let triples: Vec<Triple> = serde_bare::from_slice(&graph)
+                .map_err(|_| "Deserialization error of graph".to_string())?;
+
+            let results = Array::new();
+            for triple in triples {
+                results.push(&JsQuad::from(triple).into());
+            }
+            Ok(results.into())
+        }
+        AppResponseV0::QueryResult(buf) => {
+            let string = String::from_utf8(buf)
+                .map_err(|_| "Deserialization error of JSON QueryResult String".to_string())?;
+
+            js_sys::JSON::parse(&string)
+        }
+        AppResponseV0::Error(e) => Err(e.to_string().into()),
+        _ => Err("invalid AppResponse".to_string().into()),
+    }
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen]
+pub async fn sparql_update(session_id: JsValue, sparql: String) -> Result<(), String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_write_query(),
+        nuri: NuriV0::new_entire_user_site(),
+        payload: Some(AppRequestPayload::new_sparql_query(sparql)),
+        session_id,
+    });
+
+    let _ = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
 
@@ -531,7 +599,6 @@ pub async fn app_request_stream(
                 }
             }
         }
-        //log_info!("END OF LOOP");
         Ok(())
     }
 

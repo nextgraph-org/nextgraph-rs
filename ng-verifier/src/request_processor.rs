@@ -14,6 +14,7 @@ use std::sync::Arc;
 use futures::channel::mpsc;
 use futures::SinkExt;
 use futures::StreamExt;
+use ng_oxigraph::sparql::{results::*, Query, QueryResults};
 
 use ng_repo::errors::*;
 use ng_repo::file::{RandomAccessFile, ReadFile};
@@ -152,6 +153,45 @@ impl Verifier {
         Ok((repo_id, branch, store_repo))
     }
 
+    pub fn handle_query_results(results: QueryResults) -> Result<AppResponse, String> {
+        Ok(match results {
+            QueryResults::Solutions(solutions) => {
+                let serializer = QueryResultsSerializer::from_format(QueryResultsFormat::Json);
+
+                let mut solutions_writer = serializer
+                    .serialize_solutions_to_write(Vec::new(), solutions.variables().to_vec())
+                    .map_err(|_| "QueryResult serializer error")?;
+                for solution in solutions {
+                    solutions_writer
+                        .write(&solution.map_err(|e| e.to_string())?)
+                        .map_err(|_| "QueryResult serializer error")?;
+                }
+                AppResponse::V0(AppResponseV0::QueryResult(
+                    solutions_writer
+                        .finish()
+                        .map_err(|_| "QueryResult serializer error")?,
+                ))
+            }
+            QueryResults::Boolean(b) => {
+                if b {
+                    AppResponse::V0(AppResponseV0::True)
+                } else {
+                    AppResponse::V0(AppResponseV0::False)
+                }
+            }
+            QueryResults::Graph(quads) => {
+                let mut results = vec![];
+                for quad in quads {
+                    match quad {
+                        Err(e) => return Ok(AppResponse::error(e.to_string())),
+                        Ok(triple) => results.push(triple),
+                    }
+                }
+                AppResponse::V0(AppResponseV0::Graph(serde_bare::to_vec(&results).unwrap()))
+            }
+        })
+    }
+
     pub(crate) async fn process(
         &mut self,
         command: &AppRequestCommandV0,
@@ -159,6 +199,53 @@ impl Verifier {
         payload: Option<AppRequestPayload>,
     ) -> Result<AppResponse, NgError> {
         match command {
+            AppRequestCommandV0::Fetch(fetch) => match fetch {
+                AppFetchContentV0::ReadQuery => {
+                    if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0(
+                        query,
+                    )))) = payload
+                    {
+                        log_debug!("query={}", query);
+                        let store = self.graph_dataset.as_ref().unwrap();
+                        let parsed = Query::parse(&query, None);
+                        if parsed.is_err() {
+                            return Ok(AppResponse::error(parsed.unwrap_err().to_string()));
+                        }
+                        let mut parsed = parsed.unwrap();
+                        parsed.dataset_mut().set_default_graph_as_union();
+
+                        let results = store.query(parsed);
+                        return Ok(match results {
+                            Err(e) => AppResponse::error(e.to_string()),
+                            Ok(qr) => {
+                                let res = Self::handle_query_results(qr);
+                                match res {
+                                    Ok(ok) => ok,
+                                    Err(s) => AppResponse::error(s),
+                                }
+                            }
+                        });
+                    } else {
+                        return Err(NgError::InvalidPayload);
+                    }
+                }
+                AppFetchContentV0::WriteQuery => {
+                    if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0(
+                        query,
+                    )))) = payload
+                    {
+                        let store = self.graph_dataset.as_ref().unwrap();
+                        let res = store.update(&query);
+                        return Ok(match res {
+                            Err(e) => AppResponse::error(e.to_string()),
+                            Ok(_) => AppResponse::ok(),
+                        });
+                    } else {
+                        return Err(NgError::InvalidPayload);
+                    }
+                }
+                _ => unimplemented!(),
+            },
             AppRequestCommandV0::FilePut => match payload {
                 None => return Err(NgError::InvalidPayload),
                 Some(AppRequestPayload::V0(v0)) => match v0 {

@@ -3451,9 +3451,11 @@ dependencies = [
  "ng-repo",
  "ng-wallet",
  "once_cell",
+ "oxrdf",
  "rand 0.7.3",
  "serde",
  "serde-wasm-bindgen",
+ "serde_bare",
  "serde_bytes",
  "serde_json",
  "wasm-bindgen",
@@ -3884,19 +3886,20 @@ checksum = "d05417ee46e2eb40dd9d590b4d67fc2408208b3a48a6b7f71d2bc1d7ce12a3e0"
 [[package]]
 name = "oxrdf"
 version = "0.2.0-alpha.4"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
 dependencies = [
  "oxilangtag",
  "oxiri",
  "oxsdatatypes",
  "rand 0.8.5",
+ "serde",
  "thiserror",
 ]
 
 [[package]]
 name = "oxrdfio"
 version = "0.1.0-alpha.5"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
 dependencies = [
  "oxrdf",
  "oxrdfxml",
@@ -3907,7 +3910,7 @@ dependencies = [
 [[package]]
 name = "oxrdfxml"
 version = "0.1.0-alpha.5"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
 dependencies = [
  "oxilangtag",
  "oxiri",
@@ -3919,16 +3922,17 @@ dependencies = [
 [[package]]
 name = "oxsdatatypes"
 version = "0.2.0-alpha.1"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
 dependencies = [
  "js-sys",
+ "serde",
  "thiserror",
 ]
 
 [[package]]
 name = "oxttl"
 version = "0.1.0-alpha.5"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
 dependencies = [
  "memchr",
  "oxilangtag",
@@ -5238,7 +5242,7 @@ dependencies = [
 [[package]]
 name = "sparesults"
 version = "0.2.0-alpha.4"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
 dependencies = [
  "json-event-parser",
  "memchr",
@@ -5250,7 +5254,7 @@ dependencies = [
 [[package]]
 name = "spargebra"
 version = "0.3.0-alpha.4"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
 dependencies = [
  "oxilangtag",
  "oxiri",
@@ -5263,7 +5267,7 @@ dependencies = [
 [[package]]
 name = "sparopt"
 version = "0.1.0-alpha.5-dev"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#a4e2847810c384811c3efc0b844c1cbdb997cb71"
+source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
 dependencies = [
  "oxrdf",
  "rand 0.8.5",
@@ -6364,6 +6368,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7706a72ab36d8cb1f80ffbf0e071533974a60d0a308d01a5d0375bf60499a342"
 dependencies = [
  "cfg-if",
+ "serde",
+ "serde_json",
  "wasm-bindgen-macro",
 ]
 

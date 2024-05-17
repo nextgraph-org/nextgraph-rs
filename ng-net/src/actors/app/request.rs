@@ -101,7 +101,8 @@ impl From<AppResponse> for AppMessage {
 
 impl From<AppResponse> for ProtocolMessage {
     fn from(response: AppResponse) -> ProtocolMessage {
-        response.into()
+        let app_msg: AppMessage = response.into();
+        app_msg.into()
     }
 }
 
