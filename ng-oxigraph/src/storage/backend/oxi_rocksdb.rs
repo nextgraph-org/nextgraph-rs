@@ -24,7 +24,7 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 use std::thread::{available_parallelism, yield_now};
 use std::{fmt, io, ptr, slice};
 
@@ -72,6 +72,7 @@ enum DbKind {
 
 struct RwDbHandler {
     db: *mut rocksdb_transactiondb_t,
+    env: UnsafeEnv,
     options: *mut rocksdb_options_t,
     transaction_options: *mut rocksdb_transaction_options_t,
     transactiondb_options: *mut rocksdb_transactiondb_options_t,
@@ -113,6 +114,7 @@ impl Drop for RwDbHandler {
             rocksdb_transactiondb_options_destroy(self.transactiondb_options);
             rocksdb_options_destroy(self.options);
             rocksdb_block_based_options_destroy(self.block_based_table_options);
+            rocksdb_env_destroy(self.env.0);
         }
         if self.in_memory {
             drop(remove_dir_all(&self.path));
@@ -122,6 +124,7 @@ impl Drop for RwDbHandler {
 
 struct RoDbHandler {
     db: *mut rocksdb_t,
+    env: UnsafeEnv,
     options: *mut rocksdb_options_t,
     read_options: *mut rocksdb_readoptions_t,
     column_family_names: Vec<&'static str>,
@@ -147,6 +150,7 @@ impl Drop for RoDbHandler {
             }
             rocksdb_readoptions_destroy(self.read_options);
             rocksdb_options_destroy(self.options);
+            rocksdb_env_destroy(self.env.0);
         }
         if let Some(path) = &self.path_to_remove {
             drop(remove_dir_all(path));
@@ -171,7 +175,8 @@ impl Db {
         };
         let c_path = path_to_cstring(&path)?;
         unsafe {
-            let options = Self::db_options(true, in_memory, key)?;
+            let unsafe_env = Self::create_env(in_memory, key);
+            let options = Self::db_options(true, &unsafe_env)?;
             rocksdb_options_set_create_if_missing(options, 1);
             rocksdb_options_set_create_missing_column_families(options, 1);
             rocksdb_options_set_compression(
@@ -294,6 +299,7 @@ impl Db {
             Ok(Self {
                 inner: DbKind::ReadWrite(Arc::new(RwDbHandler {
                     db,
+                    env: unsafe_env,
                     options,
                     transaction_options,
                     transactiondb_options,
@@ -390,7 +396,8 @@ impl Db {
     ) -> Result<Self, StorageError> {
         unsafe {
             let c_path = path_to_cstring(path)?;
-            let options = Self::db_options(true, false, key)?;
+            let unsafe_env = Self::create_env(false, key);
+            let options = Self::db_options(true, &unsafe_env)?;
             let (column_family_names, c_column_family_names, cf_options) =
                 Self::column_families_names_and_options(column_families, options);
             let mut cf_handles: Vec<*mut rocksdb_column_family_handle_t> =
@@ -435,6 +442,7 @@ impl Db {
             Ok(Self {
                 inner: DbKind::ReadOnly(Arc::new(RoDbHandler {
                     db,
+                    env: unsafe_env,
                     options,
                     read_options,
                     column_family_names,
@@ -447,14 +455,27 @@ impl Db {
         }
     }
 
+    fn create_env(in_memory: bool, key: Option<[u8; 32]>) -> UnsafeEnv {
+        unsafe {
+            if in_memory {
+                let env = rocksdb_create_mem_env();
+                assert!(!env.is_null(), "rocksdb_create_mem_env returned null");
+                UnsafeEnv(env)
+            } else {
+                let env = match key {
+                    Some(_) => rocksdb_create_encrypted_env(opt_bytes_to_ptr(key.as_ref())),
+                    None => rocksdb_create_default_env(),
+                };
+                assert!(!env.is_null(), "rocksdb_create_encrypted_env returned null");
+                UnsafeEnv(env)
+            }
+        }
+    }
+
     fn db_options(
         limit_max_open_files: bool,
-        in_memory: bool,
-        key: Option<[u8; 32]>,
+        unsafe_env: &UnsafeEnv,
     ) -> Result<*mut rocksdb_options_t, StorageError> {
-        static ROCKSDB_ENV: OnceLock<UnsafeEnv> = OnceLock::new();
-        static ROCKSDB_MEM_ENV: OnceLock<UnsafeEnv> = OnceLock::new();
-
         unsafe {
             let options = rocksdb_options_create();
             assert!(!options.is_null(), "rocksdb_options_create returned null");
@@ -488,26 +509,7 @@ impl Db {
             rocksdb_options_set_info_log_level(options, 2); // We only log warnings
             rocksdb_options_set_max_log_file_size(options, 1024 * 1024); // Only 1MB log size
             rocksdb_options_set_recycle_log_file_num(options, 10); // We do not keep more than 10 log files
-            rocksdb_options_set_env(
-                options,
-                if in_memory {
-                    ROCKSDB_MEM_ENV.get_or_init(|| {
-                        let env = rocksdb_create_mem_env();
-                        assert!(!env.is_null(), "rocksdb_create_mem_env returned null");
-                        UnsafeEnv(env)
-                    })
-                } else {
-                    ROCKSDB_ENV.get_or_init(|| {
-                        let env = match key {
-                            Some(_) => rocksdb_create_encrypted_env(opt_bytes_to_ptr(key.as_ref())),
-                            None => rocksdb_create_default_env(),
-                        };
-                        assert!(!env.is_null(), "rocksdb_create_encrypted_env returned null");
-                        UnsafeEnv(env)
-                    })
-                }
-                .0,
-            );
+            rocksdb_options_set_env(options, unsafe_env.0);
             Ok(options)
         }
     }

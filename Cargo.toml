@@ -14,6 +14,7 @@ members = [
   "ngaccount",
   "ng-sdk-js",
   "ng-app/src-tauri",
+  "ng-oxigraph",
 ]
 default-members = [ "nextgraph", "ngcli",  "ngd" ]
 

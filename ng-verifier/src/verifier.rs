@@ -28,9 +28,9 @@ use ng_repo::object::Object;
 use serde::{Deserialize, Serialize};
 use web_time::SystemTime;
 
-//use oxigraph::io::{RdfFormat, RdfParser, RdfSerializer};
-//use oxigraph::store::Store;
-//use oxigraph::model::GroundQuad;
+//use ng_oxigraph::io::{RdfFormat, RdfParser, RdfSerializer};
+//use ng_oxigraph::store::Store;
+//use ng_oxigraph::model::GroundQuad;
 //use yrs::{StateVector, Update};
 
 use ng_repo::file::ReadFile;
@@ -79,7 +79,7 @@ pub struct Verifier {
     pub(crate) config: VerifierConfig,
     pub connected_broker: BrokerPeerId,
     #[allow(dead_code)]
-    graph_dataset: Option<oxigraph::store::Store>,
+    graph_dataset: Option<ng_oxigraph::store::Store>,
     pub(crate) user_storage: Option<Arc<Box<dyn UserStorage>>>,
     block_storage: Option<Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>>,
     last_seq_num: u64,
@@ -2014,7 +2014,7 @@ impl Verifier {
     ) -> Result<Self, NgError> {
         let (graph, user, block) = match &config.config_type {
             VerifierConfigType::Memory | VerifierConfigType::JsSaveSession(_) => (
-                Some(oxigraph::store::Store::new().unwrap()),
+                Some(ng_oxigraph::store::Store::new().unwrap()),
                 Some(Box::new(InMemoryUserStorage::new()) as Box<dyn UserStorage>),
                 Some(block_storage),
             ),
@@ -2031,7 +2031,7 @@ impl Verifier {
                     // this is very temporary, until we remove the code in oxi_rocksdb of oxigraph,
                     // and have oxigraph use directly the UserStorage
                     Some(
-                        oxigraph::store::Store::open_with_key(path_oxi, config.user_master_key)
+                        ng_oxigraph::store::Store::open_with_key(path_oxi, config.user_master_key)
                             .map_err(|e| NgError::OxiGraphError(e.to_string()))?,
                     ),
                     Some(Box::new(RocksDbUserStorage::open(

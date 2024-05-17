@@ -1,10 +1,10 @@
 #![cfg(test)]
 #![allow(clippy::panic_in_result_fn)]
 
-use oxigraph::io::RdfFormat;
-use oxigraph::model::vocab::{rdf, xsd};
-use oxigraph::model::*;
-use oxigraph::store::Store;
+use ng_oxigraph::io::RdfFormat;
+use ng_oxigraph::model::vocab::{rdf, xsd};
+use ng_oxigraph::model::*;
+use ng_oxigraph::store::Store;
 #[cfg(all(not(target_family = "wasm")))]
 use rand::random;
 #[cfg(all(not(target_family = "wasm")))]

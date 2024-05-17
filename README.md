@@ -8,9 +8,9 @@
 [![Apache 2.0 Licensed][license-image]][license-link]
 [![MIT Licensed][license-image2]][license-link2]
 [![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
-![Crates.io Version](https://img.shields.io/crates/v/nextgraph)
-![docs.rs](https://img.shields.io/docsrs/nextgraph)
-![NPM Version](https://img.shields.io/npm/v/ng-sdk-node)
+[![Crates.io Version](https://img.shields.io/crates/v/nextgraph)](https://crates.io/crates/nextgraph)
+[![docs.rs](https://img.shields.io/docsrs/nextgraph)](https://docs.rs/nextgraph)
+[![NPM Version](https://img.shields.io/npm/v/ng-sdk-node)](https://www.npmjs.com/package/ng-sdk-node)
 
 Rust implementation of NextGraph
 

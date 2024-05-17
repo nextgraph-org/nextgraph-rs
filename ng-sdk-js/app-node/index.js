@@ -21,9 +21,10 @@ let config = {
 ng.init_headless(config).then( async() => {
     
     try {
-        //let user_id = "AC6ukMzC_ig85A0y-ivFOI_VXBB_EQJjTz2XnMn9d0nT";
-        
-        let user_id = await ng.admin_create_user(config);
+        //let user_id = "ABIojb8XGAGCL4R_-81Kix8vJnSsfpvu8jwi6T-wTQWt";
+        //let user_id = "ABA1FBm8ofqCXutaf96pRTWvgXDaCG2JLuRlthzoV4a2";
+        let user_id = "AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE";
+        //let user_id = await ng.admin_create_user(config);
         console.log("user created: ",user_id);
         
         let session = await ng.session_headless_start(user_id);
