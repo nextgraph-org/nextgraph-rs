@@ -189,6 +189,19 @@ pub async fn session_headless_start(user_js: String) -> Result<JsValue, String> 
 
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
+pub async fn session_headless_stop(session_id: JsValue, force_close: bool) -> Result<(), String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+
+    let _ = nextgraph::local_broker::session_headless_stop(session_id, force_close)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(())
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen]
 pub async fn admin_create_user(js_config: JsValue) -> Result<JsValue, String> {
     let config = HeadLessConfigStrings::load(js_config)?;
     let admin_user_key = config

@@ -116,7 +116,7 @@ impl EActor for Actor<'_, AppSessionStart, AppSessionStartResponse> {
 
 impl AppSessionStop {
     pub fn get_actor(&self, id: i64) -> Box<dyn EActor> {
-        Actor::<AppSessionStop, ()>::new_responder(id)
+        Actor::<AppSessionStop, EmptyAppResponse>::new_responder(id)
     }
 }
 
@@ -127,6 +127,19 @@ impl TryFrom<ProtocolMessage> for AppSessionStop {
             Ok(req)
         } else {
             log_debug!("INVALID AppMessageContentV0::SessionStop");
+            Err(ProtocolError::InvalidValue)
+        }
+    }
+}
+
+impl TryFrom<ProtocolMessage> for EmptyAppResponse {
+    type Error = ProtocolError;
+    fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
+        let res: Result<AppMessageContentV0, ProtocolError> = msg.try_into();
+        if let AppMessageContentV0::EmptyResponse = res? {
+            Ok(EmptyAppResponse(()))
+        } else {
+            log_debug!("INVALID AppMessageContentV0::EmptyResponse");
             Err(ProtocolError::InvalidValue)
         }
     }
@@ -152,10 +165,10 @@ impl From<Result<EmptyAppResponse, ServerError>> for ProtocolMessage {
     }
 }
 
-impl Actor<'_, AppSessionStop, ()> {}
+impl Actor<'_, AppSessionStop, EmptyAppResponse> {}
 
 #[async_trait::async_trait]
-impl EActor for Actor<'_, AppSessionStop, ()> {
+impl EActor for Actor<'_, AppSessionStop, EmptyAppResponse> {
     async fn respond(
         &mut self,
         msg: ProtocolMessage,
@@ -163,10 +176,18 @@ impl EActor for Actor<'_, AppSessionStop, ()> {
     ) -> Result<(), ProtocolError> {
         let req = AppSessionStop::try_from(msg)?;
         let res = {
-            let sb = { BROKER.read().await.get_server_broker()? };
-            let lock = sb.read().await;
-            lock.app_session_stop(req)
+            let lock = fsm.lock().await;
+            let remote = lock.remote_peer();
+
+            if remote.is_none() {
+                Err(ServerError::BrokerError)
+            } else {
+                let sb = { BROKER.read().await.get_server_broker()? };
+                let lock = sb.read().await;
+                lock.app_session_stop(req, remote.as_ref().unwrap()).await
+            }
         };
+
         fsm.lock()
             .await
             .send_in_reply_to(res.into(), self.id())

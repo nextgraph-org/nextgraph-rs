@@ -189,13 +189,25 @@ impl AppRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppSessionStopV0 {
     pub session_id: u64,
+    pub force_close: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppSessionStop {
     V0(AppSessionStopV0),
 }
-
+impl AppSessionStop {
+    pub fn session_id(&self) -> u64 {
+        match self {
+            Self::V0(v0) => v0.session_id,
+        }
+    }
+    pub fn is_force_close(&self) -> bool {
+        match self {
+            Self::V0(v0) => v0.force_close,
+        }
+    }
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppSessionStartV0 {
     pub session_id: u64,

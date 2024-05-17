@@ -625,10 +625,11 @@ impl LocalBroker {
         Ok(())
     }
 
-    pub(crate) async fn send_request_headless(&self, req: ProtocolMessage) -> Result<AppResponse, NgError> {
+    pub(crate) async fn send_request_headless<A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
+    B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,>(&self, req: A) -> Result<B, NgError> {
         self.err_if_not_headless()?;
 
-        match BROKER.read().await.request::<ProtocolMessage, AppResponse>(&None, &Some(self.config.headless_config().server_peer_id), req).await {
+        match BROKER.read().await.request::<A, B>(&None, &Some(self.config.headless_config().server_peer_id), req).await {
             Err(e) => Err(e),
             Ok(SoS::Stream(_)) => Err(NgError::InvalidResponse),
             Ok(SoS::Single(res)) => Ok(res),           
@@ -636,10 +637,11 @@ impl LocalBroker {
     }
     
     #[allow(dead_code)]
-    pub(crate) async fn send_request_stream_headless(&self, req: AppRequest) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
+    pub(crate) async fn send_request_stream_headless<A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
+    B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,>(&self, req: A) -> Result<(Receiver<B>, CancelFn), NgError> {
         self.err_if_not_headless()?;
 
-        match BROKER.read().await.request::<AppRequest, AppResponse>(&None, &Some(self.config.headless_config().server_peer_id), req).await {
+        match BROKER.read().await.request::<A, B>(&None, &Some(self.config.headless_config().server_peer_id), req).await {
             Err(e) => Err(e),
             Ok(SoS::Single(_)) => Err(NgError::InvalidResponse),
             Ok(SoS::Stream(stream)) => {
@@ -1641,7 +1643,7 @@ pub async fn session_start(config: SessionConfig) -> Result<SessionInfo, NgError
                         detach: true
                     });
 
-                    let res = broker.send_request_headless(request.into()).await;
+                    let res = broker.send_request_headless(request).await;
 
                     if res.is_err() {
                         let _ = broker.remove_headless_session(&session_info.user);
@@ -1919,9 +1921,10 @@ pub async fn session_stop(user_id: &UserId) -> Result<(), NgError> {
 
             let request = AppSessionStop::V0(AppSessionStopV0{
                 session_id,
+                force_close: false,
             });
 
-            let _res = broker.send_request_headless(request.into()).await;
+            let _res = broker.send_request_headless(request).await?;
         }
         _ => {
             // TODO implement for Remote
@@ -1934,6 +1937,39 @@ pub async fn session_stop(user_id: &UserId) -> Result<(), NgError> {
                 }
                 None => {}
             }
+        }
+    }
+
+    Ok(())
+}
+
+/// Stops the session, that can be resumed later on. All the local data is flushed from RAM.
+#[doc(hidden)]
+pub async fn session_headless_stop(session_id: u64, force_close: bool) -> Result<(), NgError> {
+    let mut broker = match LOCAL_BROKER.get() {
+        None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+        Some(Ok(broker)) => broker.write().await,
+    };
+
+    match broker.config {
+        LocalBrokerConfig::Headless(_) => {
+            
+            let session = broker
+                .headless_sessions
+                .remove(&session_id)
+                .ok_or(NgError::SessionNotFound)?;
+
+            let _ = broker.opened_sessions.remove(&session.user_id).ok_or(NgError::SessionNotFound)?;
+
+            let request = AppSessionStop::V0(AppSessionStopV0{
+                session_id,
+                force_close,
+            });
+
+            let _res = broker.send_request_headless(request).await?;
+        }
+        _ => {
+            return Err(NgError::LocalBrokerIsNotHeadless);
         }
     }
 

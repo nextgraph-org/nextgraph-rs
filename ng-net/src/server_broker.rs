@@ -64,13 +64,18 @@ pub trait IServerBroker: Send + Sync {
         request_id: i64,
         fsm: &Mutex<NoiseFSM>,
     ) -> Result<(), ServerError>;
+
     async fn app_session_start(
         &self,
         req: AppSessionStart,
         remote_peer_id: DirectPeerId,
         local_peer_id: DirectPeerId,
     ) -> Result<AppSessionStartResponse, ServerError>;
-    fn app_session_stop(&self, req: AppSessionStop) -> Result<EmptyAppResponse, ServerError>;
+    async fn app_session_stop(
+        &self,
+        req: AppSessionStop,
+        remote_peer_id: &DirectPeerId,
+    ) -> Result<EmptyAppResponse, ServerError>;
 
     fn next_seq_for_peer(&self, peer: &PeerId, seq: u64) -> Result<(), ServerError>;
 

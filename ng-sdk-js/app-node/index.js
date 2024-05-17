@@ -30,6 +30,9 @@ ng.init_headless(config).then( async() => {
         let session = await ng.session_headless_start(user_id);
         console.log(session);
 
+        let res = await ng.session_headless_stop(session.session_id, true);
+        console.log(res);
+
     } catch (e) {
         console.error(e);
     }

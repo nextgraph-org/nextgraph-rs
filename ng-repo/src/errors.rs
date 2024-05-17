@@ -79,6 +79,7 @@ pub enum NgError {
     OxiGraphError(String),
     ConfigError(String),
     LocalBrokerIsHeadless,
+    LocalBrokerIsNotHeadless,
 }
 
 impl Error for NgError {}

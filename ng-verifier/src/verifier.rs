@@ -139,6 +139,7 @@ impl Verifier {
     }
 
     pub async fn close(&self) {
+        log_debug!("VERIFIER CLOSED {}", self.user_privkey().to_pub());
         BROKER
             .write()
             .await

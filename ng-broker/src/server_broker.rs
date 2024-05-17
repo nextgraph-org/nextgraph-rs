@@ -574,8 +574,37 @@ impl IServerBroker for ServerBroker {
         Ok(res)
     }
 
-    fn app_session_stop(&self, _req: AppSessionStop) -> Result<EmptyAppResponse, ServerError> {
-        //TODO
+    async fn app_session_stop(
+        &self,
+        req: AppSessionStop,
+        remote_peer_id: &DirectPeerId,
+    ) -> Result<EmptyAppResponse, ServerError> {
+        let id = (*remote_peer_id, req.session_id());
+
+        let mut write_lock = self.state.write().await;
+        let must_be_destroyed = {
+            let session_user = write_lock
+                .remote_apps
+                .remove(&id)
+                .ok_or(ServerError::SessionNotFound)?;
+            let session = Arc::clone(
+                write_lock
+                    .verifiers
+                    .get(&session_user)
+                    .ok_or(ServerError::SessionNotFound)?,
+            );
+            let mut verifier_lock = session.write().await;
+            if !req.is_force_close() && verifier_lock.detach {
+                verifier_lock.attached = None;
+                None
+            } else {
+                Some(session_user)
+            }
+        };
+        if let Some(user) = must_be_destroyed {
+            let verifier = write_lock.verifiers.remove(&user);
+            verifier.unwrap().read().await.verifier.close().await;
+        }
         Ok(EmptyAppResponse(()))
     }
 
