@@ -9,12 +9,21 @@
 
 //! App Protocol (between LocalBroker and Verifier)
 
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use ng_repo::errors::NgError;
 use ng_repo::types::*;
+use ng_repo::utils::{decode_id, decode_sym_key};
 
 use crate::types::*;
+
+lazy_static! {
+    #[doc(hidden)]
+    static ref RE_FILE_READ_CAP: Regex =
+        Regex::new(r"^did:ng:j:([A-Za-z0-9-_%.]*):k:([A-Za-z0-9-_%.]*)$").unwrap();
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppFetchContentV0 {
@@ -127,8 +136,31 @@ impl NuriV0 {
             locator: vec![],
         }
     }
-    pub fn new(_from: String) -> Self {
-        todo!();
+    pub fn new_from(from: String) -> Result<Self, NgError> {
+        let c = RE_FILE_READ_CAP.captures(&from);
+
+        if c.is_some()
+            && c.as_ref().unwrap().get(1).is_some()
+            && c.as_ref().unwrap().get(2).is_some()
+        {
+            let cap = c.unwrap();
+            let j = cap.get(1).unwrap().as_str();
+            let k = cap.get(2).unwrap().as_str();
+            let id = decode_id(j)?;
+            let key = decode_sym_key(k)?;
+            Ok(Self {
+                target: NuriTargetV0::PrivateStore,
+                entire_store: false,
+                object: Some(id),
+                branch: None,
+                overlay: None,
+                access: vec![NgAccessV0::Key(key)],
+                topic: None,
+                locator: vec![],
+            })
+        } else {
+            Err(NgError::InvalidNuri)
+        }
     }
 }
 
@@ -439,6 +471,7 @@ pub enum AppResponseV0 {
     True,
     False,
     Error(String),
+    EndOfStream,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

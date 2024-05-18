@@ -65,11 +65,10 @@
               final_blob = new Blob([final_blob, blob.V0.FileBinary], {
                 type: content_type,
               });
-            } else {
-              var imageUrl = URL.createObjectURL(final_blob);
-
-              resolve(imageUrl);
             }
+          } else if (blob.V0 == "EndOfStream") {
+            var imageUrl = URL.createObjectURL(final_blob);
+            resolve(imageUrl);
           }
         });
       } catch (e) {

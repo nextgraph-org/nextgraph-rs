@@ -123,6 +123,32 @@ module.exports.get_env_vars = function () {
   };
 }
 
+const path = require('path'); 
+const fs = require('fs');
+
+module.exports.upload_file = async ( filename, callback, end) => {
+  let readStream = fs.createReadStream(filename,{ highWaterMark: 1048564 });
+
+  return new Promise(async (resolve, reject) => {
+    readStream.on('data', async function(chunk) {
+      try {
+        let ret = await callback(chunk);
+      }
+      catch (e) {
+        readStream.destroy();
+        reject(e);
+      }
+    }).on('end', async function() {
+        let reference = await end(path.basename(filename));  
+        resolve(reference);
+    }).on('error', async function(e) {
+      reject(e.message);
+
+  });
+  })
+}
+
+
 module.exports.client_details = function () {
   const process = require('process');
   let arch = osnode.machine? osnode.machine() : process.arch;

@@ -80,6 +80,7 @@ pub enum NgError {
     ConfigError(String),
     LocalBrokerIsHeadless,
     LocalBrokerIsNotHeadless,
+    InvalidNuri,
 }
 
 impl Error for NgError {}

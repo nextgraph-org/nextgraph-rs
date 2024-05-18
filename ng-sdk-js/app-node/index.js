@@ -41,8 +41,29 @@ ng.init_headless(config).then( async() => {
         let result = await ng.sparql_update(session.session_id, "INSERT DATA { <http://example.com> <http://example.com> <http://example.com> }");
         console.log(result);
 
-        // the 2nd argument `false` means do not `force_close` the dataset. 
-        // it stays in memory even when the session is stopped. (not all the dataset is in memory. just some metadata)
+        let file_nuri = await ng.file_put_to_private_store(session.session_id,"LICENSE-MIT","text/plain");
+        console.log(file_nuri);
+
+        //let file_nuri = "did:ng:j:AD_d4njVMAtIDEU1G-RDxfOLIOZyOrB_1Rb7B6XykIEJ:k:APV-_Xtk03PW_Mbl4OaYpLrmEkBDVtn81lpto8sxc_tb";
+        var bufs = [];
+        let cancel = await ng.file_get_from_private_store(session.session_id, file_nuri, async (file) => {
+            if (file.V0.FileMeta) {
+              //skip
+            } else if (file.V0.FileBinary) {
+              if (file.V0.FileBinary.byteLength > 0) {
+                bufs.push(file.V0.FileBinary);
+              } 
+            } else if (file.V0 == 'EndOfStream') {
+                //console.log("end of file");
+                var buf = Buffer.concat(bufs);
+                // if the file contains some UTF8 text
+                console.log(buf.toString('utf8'));
+            }
+        });
+
+        // the 2nd argument `false` means: do not `force_close` the dataset. 
+        // it will be detached, which means it stays in memory even when the session is stopped. 
+        // (not all the dataset is in memory anyway! just some metadata)
         // if you set this to true, the dataset is closed and removed from memory on the server.
         // next time you will open a session for this user, the dataset will be loaded again.
         let res = await ng.session_headless_stop(session.session_id, false);

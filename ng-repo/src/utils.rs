@@ -65,6 +65,16 @@ pub fn decode_priv_key(key_string: &str) -> Result<PrivKey, NgError> {
     Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
 }
 
+pub fn decode_sym_key(key_string: &str) -> Result<SymKey, NgError> {
+    let vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
+}
+
+pub fn decode_id(key_string: &str) -> Result<ObjectId, NgError> {
+    let vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
+}
+
 pub fn ed_privkey_to_ed_pubkey(privkey: &PrivKey) -> PubKey {
     // SecretKey is zeroized on drop (3 lines below) se we are safe
     let sk = SecretKey::from_bytes(privkey.slice()).unwrap();

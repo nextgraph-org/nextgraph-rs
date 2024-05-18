@@ -27,6 +27,7 @@ use async_std::stream::StreamExt;
 use js_sys::Array;
 use oxrdf::Triple;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::future_to_promise;
 use wasm_bindgen_futures::JsFuture;
 
 #[allow(unused_imports)]
@@ -122,13 +123,13 @@ pub fn wallet_gen_shuffle_for_pin() -> Vec<u8> {
 
 #[wasm_bindgen]
 pub fn wallet_open_with_pazzle(
-    js_wallet: JsValue,
+    wallet: JsValue,
     pazzle: Vec<u8>,
-    js_pin: JsValue,
+    pin: JsValue,
 ) -> Result<JsValue, JsValue> {
-    let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(js_wallet)
+    let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(wallet)
         .map_err(|_| "Deserialization error of wallet")?;
-    let pin = serde_wasm_bindgen::from_value::<[u8; 4]>(js_pin)
+    let pin = serde_wasm_bindgen::from_value::<[u8; 4]>(pin)
         .map_err(|_| "Deserialization error of pin")?;
     let res = nextgraph::local_broker::wallet_open_with_pazzle(&encrypted_wallet, pazzle, pin);
     match res {
@@ -140,10 +141,10 @@ pub fn wallet_open_with_pazzle(
 }
 
 #[wasm_bindgen]
-pub fn wallet_update(js_wallet_id: JsValue, js_operations: JsValue) -> Result<JsValue, JsValue> {
-    let _wallet = serde_wasm_bindgen::from_value::<WalletId>(js_wallet_id)
+pub fn wallet_update(wallet_id: JsValue, operations: JsValue) -> Result<JsValue, JsValue> {
+    let _wallet = serde_wasm_bindgen::from_value::<WalletId>(wallet_id)
         .map_err(|_| "Deserialization error of WalletId")?;
-    let _operations = serde_wasm_bindgen::from_value::<Vec<WalletOperation>>(js_operations)
+    let _operations = serde_wasm_bindgen::from_value::<Vec<WalletOperation>>(operations)
         .map_err(|_| "Deserialization error of operations")?;
     unimplemented!();
     // match res {
@@ -270,8 +271,8 @@ pub async fn sparql_update(session_id: JsValue, sparql: String) -> Result<(), St
 
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
-pub async fn admin_create_user(js_config: JsValue) -> Result<JsValue, String> {
-    let config = HeadLessConfigStrings::load(js_config)?;
+pub async fn admin_create_user(config: JsValue) -> Result<JsValue, String> {
+    let config = HeadLessConfigStrings::load(config)?;
     let admin_user_key = config
         .admin_user_key
         .ok_or("No admin_user_key found in config nor env var.".to_string())?;
@@ -350,6 +351,12 @@ extern "C" {
     fn local_get(key: String) -> Option<String>;
     fn is_browser() -> bool;
     fn storage_clear();
+    #[wasm_bindgen(catch)]
+    async fn upload_file(
+        filename: String,
+        cb_chunk: &Closure<dyn Fn(JsValue) -> js_sys::Promise>,
+        cb_end: &Closure<dyn Fn(String) -> js_sys::Promise>,
+    ) -> Result<JsValue, JsValue>;
 }
 
 fn local_read(key: String) -> Result<String, NgError> {
@@ -398,9 +405,9 @@ static INIT_LOCAL_BROKER: Lazy<Box<ConfigInitFn>> = Lazy::new(|| {
 });
 
 #[wasm_bindgen]
-pub async fn wallet_create(js_params: JsValue) -> Result<JsValue, JsValue> {
+pub async fn wallet_create(params: JsValue) -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
-    let mut params = serde_wasm_bindgen::from_value::<CreateWalletV0>(js_params)
+    let mut params = serde_wasm_bindgen::from_value::<CreateWalletV0>(params)
         .map_err(|_| "Deserialization error of args")?;
     params.result_with_wallet_file = true;
     let res = nextgraph::local_broker::wallet_create_v0(params).await;
@@ -422,9 +429,9 @@ pub async fn wallet_get_file(wallet_name: String) -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
-pub async fn wallet_read_file(js_file: JsValue) -> Result<JsValue, String> {
+pub async fn wallet_read_file(file: JsValue) -> Result<JsValue, String> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
-    let file = serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(js_file)
+    let file = serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(file)
         .map_err(|_| "Deserialization error of file".to_string())?;
 
     let wallet = nextgraph::local_broker::wallet_read_file(file.into_vec())
@@ -436,9 +443,9 @@ pub async fn wallet_read_file(js_file: JsValue) -> Result<JsValue, String> {
 
 #[wasm_bindgen]
 pub async fn wallet_was_opened(
-    js_opened_wallet: JsValue, //SensitiveWallet
+    opened_wallet: JsValue, //SensitiveWallet
 ) -> Result<JsValue, String> {
-    let opened_wallet = serde_wasm_bindgen::from_value::<SensitiveWallet>(js_opened_wallet)
+    let opened_wallet = serde_wasm_bindgen::from_value::<SensitiveWallet>(opened_wallet)
         .map_err(|_| "Deserialization error of SensitiveWallet".to_string())?;
 
     let client = nextgraph::local_broker::wallet_was_opened(opened_wallet)
@@ -450,13 +457,13 @@ pub async fn wallet_was_opened(
 
 #[wasm_bindgen]
 pub async fn wallet_import(
-    js_encrypted_wallet: JsValue, //Wallet,
-    js_opened_wallet: JsValue,    //SensitiveWallet
+    encrypted_wallet: JsValue, //Wallet,
+    opened_wallet: JsValue,    //SensitiveWallet
     in_memory: bool,
 ) -> Result<JsValue, String> {
-    let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(js_encrypted_wallet)
+    let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(encrypted_wallet)
         .map_err(|_| "Deserialization error of Wallet".to_string())?;
-    let opened_wallet = serde_wasm_bindgen::from_value::<SensitiveWallet>(js_opened_wallet)
+    let opened_wallet = serde_wasm_bindgen::from_value::<SensitiveWallet>(opened_wallet)
         .map_err(|_| "Deserialization error of SensitiveWallet".to_string())?;
 
     let client = nextgraph::local_broker::wallet_import(encrypted_wallet, opened_wallet, in_memory)
@@ -564,13 +571,13 @@ pub async fn test() {
 #[wasm_bindgen]
 pub async fn app_request_stream(
     // js_session_id: JsValue,
-    js_request: JsValue,
+    request: JsValue,
     callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
     // let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
     //     .map_err(|_| "Deserialization error of session_id".to_string())?;
 
-    let request = serde_wasm_bindgen::from_value::<AppRequest>(js_request)
+    let request = serde_wasm_bindgen::from_value::<AppRequest>(request)
         .map_err(|_| "Deserialization error of AppRequest".to_string())?;
 
     let (reader, cancel) = nextgraph::local_broker::app_request_stream(request)
@@ -616,10 +623,10 @@ pub async fn app_request_stream(
 }
 
 #[wasm_bindgen]
-pub async fn app_request(js_request: JsValue) -> Result<JsValue, String> {
+pub async fn app_request(request: JsValue) -> Result<JsValue, String> {
     // let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
     //     .map_err(|_| "Deserialization error of session_id".to_string())?;
-    let request = serde_wasm_bindgen::from_value::<AppRequest>(js_request)
+    let request = serde_wasm_bindgen::from_value::<AppRequest>(request)
         .map_err(|_| "Deserialization error of AppRequest".to_string())?;
 
     let response = nextgraph::local_broker::app_request(request)
@@ -630,23 +637,226 @@ pub async fn app_request(js_request: JsValue) -> Result<JsValue, String> {
 }
 
 #[wasm_bindgen]
-pub async fn upload_chunk(
-    js_session_id: JsValue,
-    js_upload_id: JsValue,
-    js_chunk: JsValue,
-    js_nuri: JsValue,
+pub async fn file_get_from_private_store(
+    session_id: JsValue,
+    nuri: String,
+    callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
-    //log_debug!("upload_chunk {:?}", js_nuri);
-    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
-    let upload_id: u32 = serde_wasm_bindgen::from_value::<u32>(js_upload_id)
+
+    let nuri = NuriV0::new_from(nuri).map_err(|_| "Deserialization error of Nuri".to_string())?;
+
+    let mut request = AppRequest::new(AppRequestCommandV0::FileGet, nuri.clone(), None);
+    request.set_session_id(session_id);
+
+    let (reader, cancel) = nextgraph::local_broker::app_request_stream(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    async fn inner_task(
+        mut reader: Receiver<AppResponse>,
+        callback: js_sys::Function,
+    ) -> ResultSend<()> {
+        while let Some(app_response) = reader.next().await {
+            let response_js = serde_wasm_bindgen::to_value(&app_response).unwrap();
+            let this = JsValue::null();
+            match callback.call1(&this, &response_js) {
+                Ok(jsval) => {
+                    let promise_res: Result<js_sys::Promise, JsValue> = jsval.dyn_into();
+                    match promise_res {
+                        Ok(promise) => {
+                            let _ = JsFuture::from(promise).await;
+                        }
+                        Err(_) => {}
+                    }
+                }
+                Err(e) => {
+                    log_err!(
+                        "JS callback for fetch_file_from_private_store failed with {:?}",
+                        e
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
+    spawn_and_log_error(inner_task(reader, callback.clone()));
+
+    let cb = Closure::once(move || {
+        log_info!("cancelling");
+        //sender.close_channel()
+        cancel();
+    });
+    //Closure::wrap(Box::new(move |sender| sender.close_channel()) as Box<FnMut(Sender<Commit>)>);
+    let ret = cb.as_ref().clone();
+    cb.forget();
+    Ok(ret)
+}
+
+async fn do_upload_done(
+    upload_id: u32,
+    session_id: u64,
+    nuri: NuriV0,
+    filename: String,
+) -> Result<ObjectRef, String> {
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::FilePut,
+        nuri.clone(),
+        Some(AppRequestPayload::V0(
+            AppRequestPayloadV0::RandomAccessFilePutChunk((upload_id, serde_bytes::ByteBuf::new())),
+        )),
+    );
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let reference = match response {
+        AppResponse::V0(AppResponseV0::FileUploaded(refe)) => refe,
+        _ => return Err("invalid response".to_string()),
+    };
+
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::FilePut,
+        nuri,
+        Some(AppRequestPayload::V0(AppRequestPayloadV0::AddFile(
+            DocAddFile {
+                filename: Some(filename),
+                object: reference.clone(),
+            },
+        ))),
+    );
+    request.set_session_id(session_id);
+
+    nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(reference)
+}
+
+async fn do_upload_done_(
+    upload_id: u32,
+    session_id: u64,
+    nuri: NuriV0,
+    filename: String,
+) -> Result<JsValue, JsValue> {
+    let response = do_upload_done(upload_id, session_id, nuri, filename)
+        .await
+        .map_err(|e| {
+            let ee: JsValue = e.into();
+            ee
+        })?;
+
+    Ok(serde_wasm_bindgen::to_value(&response).unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn upload_done(
+    upload_id: JsValue,
+    session_id: JsValue,
+    nuri: JsValue,
+    filename: String,
+) -> Result<JsValue, String> {
+    let upload_id: u32 = serde_wasm_bindgen::from_value::<u32>(upload_id)
         .map_err(|_| "Deserialization error of upload_id".to_string())?;
-    let chunk: serde_bytes::ByteBuf =
-        serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(js_chunk)
-            .map_err(|_| "Deserialization error of chunk".to_string())?;
-    let nuri: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(js_nuri)
+    let nuri: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(nuri)
+        .map_err(|_| "Deserialization error of nuri".to_string())?;
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+
+    let reference = do_upload_done(upload_id, session_id, nuri, filename).await?;
+
+    Ok(serde_wasm_bindgen::to_value(&reference).unwrap())
+}
+
+async fn do_upload_start(session_id: u64, nuri: NuriV0, mimetype: String) -> Result<u32, String> {
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::FilePut,
+        nuri,
+        Some(AppRequestPayload::V0(
+            AppRequestPayloadV0::RandomAccessFilePut(mimetype),
+        )),
+    );
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    match response {
+        AppResponse::V0(AppResponseV0::FileUploading(upload_id)) => Ok(upload_id),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[wasm_bindgen]
+pub async fn upload_start(
+    session_id: JsValue,
+    nuri: JsValue,
+    mimetype: String,
+) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let nuri: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(nuri)
         .map_err(|_| "Deserialization error of nuri".to_string())?;
 
+    let upload_id = do_upload_start(session_id, nuri, mimetype).await?;
+
+    Ok(serde_wasm_bindgen::to_value(&upload_id).unwrap())
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen]
+pub async fn file_put_to_private_store(
+    session_id: JsValue,
+    filename: String,
+    mimetype: String,
+) -> Result<String, String> {
+    let target = NuriV0::new_private_store_target();
+
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+
+    let upload_id = do_upload_start(session_id, target.clone(), mimetype).await?;
+    let target_for_chunk = target.clone();
+    let cb_chunk = Closure::new(move |chunk| {
+        let chunk_res = serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(chunk);
+        match chunk_res {
+            Err(_e) => {
+                js_sys::Promise::reject(&JsValue::from_str("Deserialization error of chunk"))
+            }
+            Ok(chunk) => future_to_promise(do_upload_chunk_(
+                session_id,
+                upload_id,
+                chunk,
+                target_for_chunk.clone(),
+            )),
+        }
+    });
+
+    let cb_end = Closure::new(move |file| {
+        future_to_promise(do_upload_done_(upload_id, session_id, target.clone(), file))
+    });
+
+    let reference = upload_file(filename, &cb_chunk, &cb_end)
+        .await
+        .map_err(|e| e.as_string().unwrap())?;
+    let reference = serde_wasm_bindgen::from_value::<ObjectRef>(reference)
+        .map_err(|_| "Deserialization error of reference".to_string())?;
+    let nuri = format!("did:ng{}", reference.nuri());
+    Ok(nuri)
+}
+
+async fn do_upload_chunk(
+    session_id: u64,
+    upload_id: u32,
+    chunk: serde_bytes::ByteBuf,
+    nuri: NuriV0,
+) -> Result<AppResponse, String> {
     let mut request = AppRequest::new(
         AppRequestCommandV0::FilePut,
         nuri,
@@ -656,9 +866,45 @@ pub async fn upload_chunk(
     );
     request.set_session_id(session_id);
 
-    let response = nextgraph::local_broker::app_request(request)
+    nextgraph::local_broker::app_request(request)
         .await
-        .map_err(|e: NgError| e.to_string())?;
+        .map_err(|e: NgError| e.to_string())
+}
+
+async fn do_upload_chunk_(
+    session_id: u64,
+    upload_id: u32,
+    chunk: serde_bytes::ByteBuf,
+    nuri: NuriV0,
+) -> Result<JsValue, JsValue> {
+    let response = do_upload_chunk(session_id, upload_id, chunk, nuri)
+        .await
+        .map_err(|e| {
+            let ee: JsValue = e.into();
+            ee
+        })?;
+
+    Ok(serde_wasm_bindgen::to_value(&response).unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn upload_chunk(
+    session_id: JsValue,
+    upload_id: JsValue,
+    chunk: JsValue,
+    nuri: JsValue,
+) -> Result<JsValue, String> {
+    //log_debug!("upload_chunk {:?}", js_nuri);
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let upload_id: u32 = serde_wasm_bindgen::from_value::<u32>(upload_id)
+        .map_err(|_| "Deserialization error of upload_id".to_string())?;
+    let chunk: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(chunk)
+        .map_err(|_| "Deserialization error of chunk".to_string())?;
+    let nuri: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(nuri)
+        .map_err(|_| "Deserialization error of nuri".to_string())?;
+
+    let response = do_upload_chunk(session_id, upload_id, chunk, nuri).await?;
 
     Ok(serde_wasm_bindgen::to_value(&response).unwrap())
 }
@@ -757,9 +1003,9 @@ struct HeadLessConfigStrings {
 
 #[cfg(wasmpack_target = "nodejs")]
 impl HeadLessConfigStrings {
-    fn load(js_config: JsValue) -> Result<HeadlessConfig, String> {
-        let string_config = if js_config.is_object() {
-            serde_wasm_bindgen::from_value::<HeadLessConfigStrings>(js_config)
+    fn load(config: JsValue) -> Result<HeadlessConfig, String> {
+        let string_config = if config.is_object() {
+            serde_wasm_bindgen::from_value::<HeadLessConfigStrings>(config)
                 .map_err(|_| "Deserialization error of config object".to_string())?
         } else {
             HeadLessConfigStrings {
@@ -837,10 +1083,10 @@ pub struct HeadlessConfig {
 
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
-pub async fn init_headless(js_config: JsValue) -> Result<(), String> {
+pub async fn init_headless(config: JsValue) -> Result<(), String> {
     //log_info!("{:?}", js_config);
 
-    let config = HeadLessConfigStrings::load(js_config)?;
+    let config = HeadLessConfigStrings::load(config)?;
     let _ = config
         .client_peer_key
         .as_ref()

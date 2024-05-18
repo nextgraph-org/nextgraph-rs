@@ -102,7 +102,7 @@ pub struct BranchInfo {
     pub commits_nbr: u64,
 }
 
-/// In memory Repository representation. With helper functions that access the underlying UserStore and keeps proxy of the values
+/// In memory Repository representation. With helper functions that access the underlying UserStorage and keeps proxy of the values
 #[derive(Debug)]
 pub struct Repo {
     pub id: RepoId,

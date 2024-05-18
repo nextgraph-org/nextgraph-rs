@@ -86,9 +86,8 @@ impl Verifier {
 
                             if res.is_err() {
                                 //log_info!("ERR={:?}", res.unwrap_err());
-                                let _ = tx
-                                    .send(AppResponse::V0(AppResponseV0::FileBinary(vec![])))
-                                    .await;
+                                let _ = tx.send(AppResponse::V0(AppResponseV0::EndOfStream)).await;
+                                tx.close_channel();
                                 break;
                             }
                             let res = res.unwrap();
