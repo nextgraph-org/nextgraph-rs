@@ -41,6 +41,38 @@
 //!     // initialize the local_broker with in-memory config.
 //!     // all sessions will be lost when the program exits
 //!     init_local_broker(Box::new(|| LocalBrokerConfig::InMemory)).await;
+//!
+//!     // see https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples/in_memory.md
+//!     // for a full example of what the Rust API gives you
+//!
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Persistent
+//!
+//! With this config, the encrypted wallet, session information, outbox, and all user data will be saved locally, with encryption at rest.
+//!
+//! ```
+//! use nextgraph::local_broker::{init_local_broker, LocalBrokerConfig};
+//!
+//! #[async_std::main]
+//! async fn main() -> std::io::Result<()> {
+//!     // initialize the local_broker with in-memory config.
+//!     // all sessions will be lost when the program exits
+//!     let mut current_path = current_dir()?;
+//!     current_path.push(".ng");
+//!     current_path.push("example");
+//!     create_dir_all(current_path.clone())?;
+//!
+//!     // initialize the local_broker with config to save to disk in a folder called `.ng/example` in the current directory
+//!     init_local_broker(Box::new(move || {
+//!         LocalBrokerConfig::BasePath(current_path.clone())
+//!     })).await;
+//!
+//!     // see https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples/persistent.md
+//!     // for a full example of what the Rust API gives you
+//!
 //!     Ok(())
 //! }
 //! ```

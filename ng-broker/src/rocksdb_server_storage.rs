@@ -169,7 +169,7 @@ impl RocksDbServerStorage {
     pub(crate) fn next_seq_for_peer(&self, peer: &PeerId, seq: u64) -> Result<(), ServerError> {
         // for now we don't use the hashmap.
         // TODO: let's see if the lock is even needed
-        let _ = self.peers_last_seq.lock();
+        let _peers_last_seq = self.peers_last_seq.lock();
 
         let mut filename = self.peers_last_seq_path.clone();
         filename.push(format!("{}", peer));

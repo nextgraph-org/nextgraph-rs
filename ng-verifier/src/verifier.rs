@@ -354,6 +354,7 @@ impl Verifier {
         ))
     }
 
+    #[allow(dead_code)]
     fn get_store_or_load(&mut self, store_repo: &StoreRepo) -> Arc<Store> {
         let overlay_id = store_repo.overlay_id_for_storage_purpose();
         let block_storage = self
@@ -411,6 +412,7 @@ impl Verifier {
         Ok(repo)
     }
 
+    #[allow(dead_code)]
     fn complete_site_store_already_inserted(
         &mut self,
         store_repo: StoreRepo,
@@ -442,6 +444,7 @@ impl Verifier {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn get_store(&self, store_repo: &StoreRepo) -> Result<Arc<Store>, VerifierError> {
         let overlay_id = store_repo.overlay_id_for_storage_purpose();
         let store = self
@@ -474,6 +477,7 @@ impl Verifier {
         repo_ref
     }
 
+    #[allow(dead_code)]
     fn add_store(&mut self, store: Arc<Store>) {
         let overlay_id = store.get_store_repo().overlay_id_for_storage_purpose();
         if self.stores.contains_key(&overlay_id) {
@@ -515,6 +519,7 @@ impl Verifier {
             .await
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn new_event_with_repo(
         &mut self,
         commit: &Commit,
@@ -2217,6 +2222,7 @@ impl Verifier {
     }
 
     /// returns the Repo and the last seq_num of the peer
+    #[allow(dead_code)]
     async fn new_repo_default<'a>(
         &'a mut self,
         creator: &UserId,

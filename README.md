@@ -183,7 +183,7 @@ For building the apps, see this [documentation](ng-app/README.md).
 #### OpenBSD
 
 On OpenBSD, a conflict between the installed LibreSSL library and the reqwest crate, needs a bit of attention.
-Before compiling the daemon for OpenBSD, please comment out lines 38-39 of `ng-net/Cargo.toml`. This will be solved soon by using `resolver = "2"`.
+Before compiling the daemon for OpenBSD, please comment out lines 41-42 of `ng-net/Cargo.toml`. This will be solved soon by using `resolver = "2"`.
 
 ```
 #[target.'cfg(target_arch = "wasm32")'.dependencies]

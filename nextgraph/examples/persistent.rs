@@ -142,6 +142,10 @@ async fn main() -> std::io::Result<()> {
     let error_reason = status[0].3.as_ref().unwrap();
     assert!(error_reason == "NoiseHandshakeFailed" || error_reason == "ConnectionError");
 
+    // then you can make some calls to the APP protocol
+    // with app_request or app_request_stream
+    // more to be detailed soon.
+
     // Then we should disconnect
     user_disconnect(&user_id).await?;
 

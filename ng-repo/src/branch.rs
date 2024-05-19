@@ -48,12 +48,14 @@ impl BranchV0 {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct DagNode {
     pub future: HashSet<ObjectId>,
     pub past: HashSet<ObjectId>,
 }
 
+#[allow(dead_code)]
 struct Dag<'a>(&'a HashMap<Digest, DagNode>);
 
 impl fmt::Display for DagNode {

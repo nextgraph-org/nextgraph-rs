@@ -6,7 +6,7 @@ const PATH_README = './pkg-node/README.md';
 const pkg_json = fs.readFileSync(PATH);
 let pkg = JSON.parse(pkg_json)
 pkg.name = "nextgraph";
-pkg.description = "nodejs SDK of NextGraph";
+pkg.description = "nodeJS SDK of NextGraph";
 fs.writeFileSync(PATH, JSON.stringify(pkg, null, 2), 'utf8');
 
 fs.readFile(PATH_README, 'utf8', function (err,data) {
