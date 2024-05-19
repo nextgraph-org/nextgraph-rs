@@ -1,8 +1,7 @@
 [package]
 name = "ng-verifier"
-# version = "0.1.0"
+version = "0.1.0-alpha"
 description = "Verifier library of NextGraph"
-version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
@@ -33,7 +32,7 @@ yrs = "0.18.2"
 bloomfilter = { version = "1.0.13", features = ["random","serde"] }
 ng-repo = { path = "../ng-repo", version = "0.1.0" }
 ng-net = { path = "../ng-net", version = "0.1.0" }
-ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.7-ng" }
+ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.8-ng" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0" }

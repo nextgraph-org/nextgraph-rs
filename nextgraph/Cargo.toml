@@ -28,9 +28,9 @@ async-once-cell = "0.5.3"
 web-time = "0.2.0"
 ng-repo = { path = "../ng-repo", version = "0.1.0" }
 ng-net = { path = "../ng-net", version = "0.1.0" }
-ng-wallet = { path = "../ng-wallet", version = "0.1.0" }
+ng-wallet = { path = "../ng-wallet", version = "0.1.0-alpha" }
 ng-client-ws = { path = "../ng-client-ws", version = "0.1.0" }
-ng-verifier = { path = "../ng-verifier", version = "0.1.0" }
+ng-verifier = { path = "../ng-verifier", version = "0.1.0-alpha" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0" }

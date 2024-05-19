@@ -1,9 +1,8 @@
 [package]
 name = "ng-wallet"
-# version = "0.1.0"
+version = "0.1.0-alpha"
 description = "Wallet library of NextGraph. keeps the secret keys of all identities of the user in a safe wallet. NextGraph is a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
 categories = ["authentication "]
-version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
@@ -34,8 +33,8 @@ image = "0.24.6"
 web-time = "0.2.0"
 ng-repo = { path = "../ng-repo", version = "0.1.0" }
 ng-net = { path = "../ng-net", version = "0.1.0" }
-ng-verifier = { path = "../ng-verifier", version = "0.1.0" }
+ng-verifier = { path = "../ng-verifier", version = "0.1.0-alpha" }
 
 [dev-dependencies]
 ng-repo = { path = "../ng-repo", version = "0.1.0", features = ["testing"] }
-ng-verifier = { path = "../ng-verifier", version = "0.1.0", features = ["testing"] }
+ng-verifier = { path = "../ng-verifier", version = "0.1.0-alpha", features = ["testing"] }

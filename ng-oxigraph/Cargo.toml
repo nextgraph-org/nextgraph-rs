@@ -1,6 +1,6 @@
 [package]
 name = "ng-oxigraph"
-version = "0.4.0-alpha.7-ng"
+version = "0.4.0-alpha.8-ng"
 authors = ["Tpt <thomas@pellissier-tanon.fr>", "Niko PLP <niko@nextgraph.org>"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -36,7 +36,7 @@ sha2 = "0.10"
 siphasher = ">=0.3, <2.0"
 sparesults = { version = "0.2.0-alpha.4", git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star"] }
 spargebra = { version = "0.3.0-alpha.4", git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star", "sep-0002", "sep-0006"] }
-sparopt = { version = "0.1.0-alpha.5-dev", git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star", "sep-0002", "sep-0006"] }
+sparopt = { version = "0.1.0-alpha.4", git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star", "sep-0002", "sep-0006"] }
 thiserror = "1.0.50"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
