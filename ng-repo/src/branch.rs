@@ -84,11 +84,16 @@ impl DagNode {
     fn collapse(
         id: &ObjectId,
         dag: &HashMap<ObjectId, DagNode>,
+        dag_ids: &HashSet<ObjectId>,
         already_in: &mut HashSet<ObjectId>,
     ) -> Vec<ObjectId> {
         let this = dag.get(id).unwrap();
-
-        if this.past.len() > 1 && !this.past.is_subset(already_in) {
+        let intersec = this
+            .past
+            .intersection(dag_ids)
+            .cloned()
+            .collect::<HashSet<ObjectId>>();
+        if intersec.len() > 1 && !intersec.is_subset(already_in) {
             // we postpone it
             // log_debug!("postponed {}", id);
             vec![]
@@ -96,7 +101,8 @@ impl DagNode {
             let mut res = vec![*id];
             already_in.insert(*id);
             for child in this.future.iter() {
-                res.append(&mut Self::collapse(child, dag, already_in));
+                log_debug!("child of {} : {}", id, child);
+                res.append(&mut Self::collapse(child, dag, dag_ids, already_in));
             }
             res
         }
@@ -317,10 +323,21 @@ impl Branch {
 
         let sub_dag_to_send_size = visited.len();
         let mut result = Vec::with_capacity(sub_dag_to_send_size);
+        let dag_ids: HashSet<ObjectId> = visited.keys().cloned().collect();
         for first in first_generation {
-            result.append(&mut DagNode::collapse(first, &visited, &mut already_in));
+            result.append(&mut DagNode::collapse(
+                first,
+                &visited,
+                &dag_ids,
+                &mut already_in,
+            ));
         }
-
+        // log_debug!(
+        //     "DAG {} {} {}",
+        //     result.len(),
+        //     sub_dag_to_send_size,
+        //     already_in.len()
+        // );
         if result.len() != sub_dag_to_send_size || already_in.len() != sub_dag_to_send_size {
             return Err(ObjectParseError::MalformedDag);
         }

@@ -1931,7 +1931,8 @@ pub async fn session_stop(user_id: &UserId) -> Result<(), NgError> {
             match broker.opened_sessions.remove(user_id) {
                 Some(id) => {
                     let _ = broker.get_session(id)?;
-                    broker.opened_sessions_list[id as usize].take();
+                    let real_id = LocalBroker::to_real_session_id(id);
+                    broker.opened_sessions_list[real_id as usize].take();
                     // TODO: change the logic here once it will be possible to have several users connected at the same time
                     Broker::close_all_connections().await;
                 }

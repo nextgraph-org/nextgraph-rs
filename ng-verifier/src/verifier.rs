@@ -878,9 +878,9 @@ impl Verifier {
 
         let user = self.config.user_priv_key.to_pub();
         let broker = BROKER.read().await;
-        //log_info!("looping on branches {:?}", branches);
+        log_info!("looping on branches {:?}", branches);
         for (repo, branch, publisher) in branches {
-            //log_info!("open_branch_ repo {} branch {}", repo, branch);
+            log_info!("open_branch_ repo {} branch {}", repo, branch);
             let _e = self
                 .open_branch_(
                     &repo,
@@ -892,12 +892,12 @@ impl Verifier {
                     false,
                 )
                 .await;
-            // log_info!(
-            //     "END OF open_branch_ repo {} branch {} with {:?}",
-            //     repo,
-            //     branch,
-            //     _e
-            // );
+            log_info!(
+                "END OF open_branch_ repo {} branch {} with {:?}",
+                repo,
+                branch,
+                _e
+            );
             // discarding error.
         }
         Ok(())

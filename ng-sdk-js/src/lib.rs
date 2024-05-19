@@ -10,6 +10,7 @@
 */
 
 #![cfg(target_arch = "wasm32")]
+#![allow(unused_imports)]
 
 mod model;
 
@@ -20,7 +21,6 @@ use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-#[allow(unused_imports)]
 use serde_json::json;
 // use js_sys::Reflect;
 use async_std::stream::StreamExt;
@@ -30,25 +30,19 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::future_to_promise;
 use wasm_bindgen_futures::JsFuture;
 
-#[allow(unused_imports)]
 use ng_repo::errors::{NgError, ProtocolError};
 use ng_repo::log::*;
 use ng_repo::types::*;
-#[allow(unused_imports)]
 use ng_repo::utils::{decode_key, decode_priv_key};
 
 use ng_net::app_protocol::*;
 use ng_net::broker::*;
-#[allow(unused_imports)]
 use ng_net::types::{BindAddress, ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, IP};
-#[allow(unused_imports)]
 use ng_net::utils::{
     decode_invitation_string, parse_ip_and_port_for, retrieve_local_bootstrap, retrieve_local_url,
     spawn_and_log_error, Receiver, ResultSend,
 };
-#[allow(unused_imports)]
 use ng_net::{actor::*, actors::admin::*};
-#[allow(unused_imports)]
 use ng_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
 
 use ng_client_ws::remote_ws_wasm::ConnectionWebSocket;
@@ -738,6 +732,7 @@ async fn do_upload_done(
     Ok(reference)
 }
 
+#[cfg(wasmpack_target = "nodejs")]
 async fn do_upload_done_(
     upload_id: u32,
     session_id: u64,
@@ -871,6 +866,7 @@ async fn do_upload_chunk(
         .map_err(|e: NgError| e.to_string())
 }
 
+#[cfg(wasmpack_target = "nodejs")]
 async fn do_upload_chunk_(
     session_id: u64,
     upload_id: u32,

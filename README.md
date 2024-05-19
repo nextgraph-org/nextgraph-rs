@@ -10,7 +10,7 @@
 [![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
 [![Crates.io Version](https://img.shields.io/crates/v/nextgraph)](https://crates.io/crates/nextgraph)
 [![docs.rs](https://img.shields.io/docsrs/nextgraph)](https://docs.rs/nextgraph)
-[![NPM Version](https://img.shields.io/npm/v/ng-sdk-node)](https://www.npmjs.com/package/ng-sdk-node)
+[![NPM Version](https://img.shields.io/npm/v/nextgraph)](https://www.npmjs.com/package/nextgraph)
 
 Rust implementation of NextGraph
 
@@ -103,19 +103,19 @@ Please test by following this order (as we need to generate some files locally)
 
 ```
 cargo test --package nextgraph -r --lib -- local_broker::test::gen_wallet_for_test --show-output --nocapture
-cargo test
+cargo test -r
 cargo test --package nextgraph -r --lib -- local_broker::test::import_session_for_test_to_disk --show-output --nocapture --ignored
 ```
 
 Test a single crate:
 
 ```
-cargo test --package ng-repo --lib -- branch::test --show-output --nocapture
-cargo test --package ng-wallet --lib -- branch::test --show-output --nocapture
-cargo test --package ng-verifier --lib -- branch::test --show-output --nocapture
-cargo test --package ng-sdk-js --lib -- branch::test --show-output --nocapture
-cargo test --package ng-broker --lib -- branch::test --show-output --nocapture
-cargo test --package ng-client-ws --lib -- branch::test --show-output --nocapture
+cargo test --package ng-repo --lib --  --show-output --nocapture
+cargo test --package ng-wallet --lib --  --show-output --nocapture
+cargo test --package ng-verifier --lib --  --show-output --nocapture
+cargo test --package ng-sdk-js --lib --  --show-output --nocapture
+cargo test --package ng-broker --lib --  --show-output --nocapture
+cargo test --package ng-client-ws --lib --  --show-output --nocapture
 ```
 
 Test WASM websocket

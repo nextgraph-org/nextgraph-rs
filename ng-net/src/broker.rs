@@ -1109,9 +1109,9 @@ impl Broker {
         };
 
         for client in peers_for_local_dispatch {
-            //log_debug!("dispatch_event peer {:?}", client);
+            log_debug!("dispatch_event peer {:?}", client);
             if let Some(fsm) = self.get_fsm_for_client(&client) {
-                //log_debug!("ForwardedEvent peer {:?}", client);
+                log_debug!("ForwardedEvent peer {:?}", client);
                 let _ = fsm
                     .lock()
                     .await

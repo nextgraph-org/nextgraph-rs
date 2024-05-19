@@ -10,7 +10,7 @@
 [![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
 [![Crates.io Version](https://img.shields.io/crates/v/nextgraph)](https://crates.io/crates/nextgraph)
 [![docs.rs](https://img.shields.io/docsrs/nextgraph)](https://docs.rs/nextgraph)
-[![NPM Version](https://img.shields.io/npm/v/ng-sdk-node)](https://www.npmjs.com/package/ng-sdk-node)
+[![NPM Version](https://img.shields.io/npm/v/nextgraph)](https://www.npmjs.com/package/nextgraph)
 
 Rust client library for NextGraph framework
 

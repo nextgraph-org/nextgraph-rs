@@ -9,7 +9,7 @@
 
 const WebSocket = require("ws");
 // shim to insert WebSocket in global
-const ng = require("ng-sdk-node");
+const ng = require("nextgraph");
 global.WebSocket = WebSocket;
 
 let config = {

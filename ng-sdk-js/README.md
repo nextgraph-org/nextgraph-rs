@@ -30,7 +30,7 @@ npm i ng-sdk-js
 
 The API is divided in 4 parts:
 
-- the wallet API that gives access to the local data, once the user has opened their wallet
+- the wallet API that lets user open and change their wallet and use its credentials
 - the LocalVerifier API to open the documents locally
 - the RemoteVerifier API that is connecting to the ngd server and runs the verifier on the server.
 - a special mode of operation for ngd called `Headless` where all the users of that server have given full control of their data, to the server.
@@ -46,22 +46,6 @@ NextGraph daemon (ngd) is normally used only as a Broker of encrypted messages, 
 The verifier is the service that opens the encrypted data and "materialize" it. In local-first/CRDT terminology, this means that the many commits that form the DAG of operations, are reduced in order to obtain the current state of a document, that can then be read or edited locally by the user. Usually, the verifier runs locally in the native NextGraph app, and the materialized state is persisted locally (with encryption at rest). The web version of the app (available at https://app.nextgraph.one) is not persisting the materialized state yet, because the "UserStorage for Web" feature is not ready yet. Programmers can also run a local verifier with the wallet API in Rust or nodeJS (not documented), or use the CLI to create a local materialized state.
 
 It is also possible to run a remote verifier on ngd, and the user has to give their credentials to the server (partially or fully) so the server can decrypt the data and process it. Obviously this breaks the end-to-end-encryption. But depending on the use-cases, it can be useful to have the verifier run on some server.
-Here are 3 main use-cases for the remote verifier :
-
-- A specific user wants to run a remote verifier on the server instead of running their verifier locally. This is the case for end-users on platforms that are not supported by Tauri which powers all the native apps.
-  The end-user on those platforms has to run a local ngd daemon instead, and access the app in their browser of choice, at the url http://localhost:1440 . Here the breaking of E2EE is acceptable, as the decrypted data will reside locally, on the machine of the user.
-  As the web app cannot save decrypted user data yet, it has to reprocess all the encrypted commits at every load.
-  In order to avoid this, running a remote verifier on the local ngd is a solution, as the ngd can save the decrypted user's data locally, if the user gave permission for it.
-  The API for that use case is `session_start_remote` and the credentials (usually stored in the user's wallet) are extracted from the wallet and passed to ngd.
-  The rest of the "session APIs" can be used in the same manner as with a local Verifier. This present JS library connects to the server transparently and opens a RemoteVerifier there.
-  The remote session can be detached, which means that even after the session is closed, or when the client disconnects from ngd, the Verifier still runs in the daemon.
-  This "detached" feature is useful if we want some automatic actions that only the Verifier can do, be performed in the background (signing by example, is a background task).
-- The second use case is what we call a Headless server (because it doesn't have any wallets connecting to it). It departs a bit from the general architecture of NextGraph, as it is meant for backward compatibility with the web 2.0 federation, based on domain names and without E2EE.
-  This mode of operation allows users to delegate all their trust to the server. In the future, we will provide the possibility to delegate access only to some parts of the User's data.
-  In Headless mode, the server can be used in a traditional federated way, where the server can see the user's data in clear, and act accordingly. We have in mind here to offer bridges to existing federated protocols like ActivityPub and Solid (via the project ActivityPods) at first, and later add other protocols like ATproto, Nostr, XMPP, and even SMTP ! Any web 2.0 federated protocol could be bridged. At the same time, the bridging ngd server would still be a fully-fledged ngd daemon, thus offering all the advantages of NextGraph to its users, who could decide to port their data somewhere else, restrict the access of the server to their own data, interact and collaborate with other users (of the federation or of the whole NextGraph network) in a secure and private way, and use the local-first NG app and access their own data offline.
-- A third use case will be to be able to run some services (in nodeJS or Rust) that have received partial access to the user's data, and can process it accordingly. By example, an AI service like jan.ai, or a SPARQL REST endpoint, an LDP endpoint, an endpoint to fetch data that will be displayed by a headless framework like Astro or any other REST/HTTP endpoint to access some of the user's data.
-
-All of those use cases are handled with the present nodeJS library, using the API described below.
 
 ## APIs
 
@@ -102,7 +86,7 @@ entrust the credentials of user to an ngd server. coming soon
   - once at first with some metadata information in `file.V0.FileMeta`
   - one or more times with all the blobs of data, in `file.V0.FileBinary`
   - finally, one more time with `file.V0 == 'EndOfStream'`. See the example on how to reconstruct a buffer out of this.
-- `ng.session_headless_stop(session_id, force_close)` stops the session, but doesn't close the remote verifier, except if force_close is true. if false, the verifier is detached from the session and continues to run on the server. a a new session can then be reattached to it, by calling session_headless_start with the same user_id.
+- `ng.session_headless_stop(session_id, force_close)` stops the session, but doesn't close the remote verifier, except if force_close is true. if false, the verifier is detached from the session and continues to run on the server. A new session can then be reattached to it, by calling session_headless_start with the same user_id.
 
 Here is the format of the config object to be supplied in the calls to `init_headless` and `admin_create_user`:
 
@@ -148,7 +132,7 @@ ngd -v --save-key -l 1440 -d <SERVER_DOMAIN> --admin <THE_PUBLIC_KEY_YOU_JUST_CR
 ```
 
 `SERVER_DOMAIN` can be anything you want. If you run a web server with some content at `server.com`, then the NextGraph web app could be served at the subdomain `app.server.com` or `ng.server.com`.
-This is what you should enter in `SERVER_DOMAIN`. You also have to setup your reverse proxy (haproxy, nginx, etc...) to forward incoming TLS connections to ngd. ngd listens for TCP connections on localhost port 1440 by default. The header `X-Forwarded-For` must be set by your reverse proxy. ngd does not handle TLS. Your reverse proxy has to handle the TLS terminated connections, and forward a TCP connection to ngd.
+This is what you should enter in `SERVER_DOMAIN`. You also have to setup your reverse proxy (haproxy, nginx, etc...) to forward incoming TLS connections to ngd. ngd listens for TCP connections on localhost port 1440 as configured above. The header `X-Forwarded-For` must be set by your reverse proxy. ngd does not handle TLS. Your reverse proxy has to handle the TLS terminated connections, and forward a TCP connection to ngd.
 You can use ngd in your internal network (Docker, etc...) without exposing it to the internet. In this case, remove the `-d <SERVER_DOMAIN>` option. But the goal of ngd is to be a broker that connects to other brokers on the internet, so it should have a public interface configured at some point.
 
 In another terminal, same current working directory:
@@ -173,7 +157,7 @@ you can now save the configs on both the server and client
 # stop the running server by entering ctrl+C on its terminal.
 ngd -l 1440 -d <SERVER_DOMAIN> --save-config
 # in the other terminal
-ngcli -s 127.0.0.1,1440,<PEER_ID_OF_NODE> -d <SERVER_DOMAIN> -u <THE_PRIVATE_KEY_YOU_JUST_CREATED> --save-config
+ngcli -s 127.0.0.1,1440,<PEER_ID_OF_NODE> -u <THE_PRIVATE_KEY_YOU_JUST_CREATED> --save-config
 ```
 
 From now on, you can just use `ngd` and `ngcli` commands without the need to specify the above options, as the config has been saved to disk. Except if you changed the base directory, in which case you have to supply the `--base` option at every call.
@@ -190,7 +174,7 @@ ngcli gen-key
 
 That's it. The broker is configured. You can create an entry in systemd/init.d for your system to start the daemon at every boot. Don't forget to change the working directory to where your data is, or use `--base` option.
 
-If you have configured a domain, then the web app can be accessed at https://app.your-domain.com by example.
+If you have configured a domain, then the web app can be accessed at https://app.server.com by example.
 
 ---
 
