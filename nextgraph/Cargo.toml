@@ -8,7 +8,7 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
-keywords.workspace = true
+keywords = [ "crdt","e2ee","local-first","p2p","semantic-web" ]
 documentation.workspace = true
 rust-version.workspace = true
 
