@@ -26,22 +26,22 @@ json-event-parser = "0.2.0-alpha.2"
 md-5 = "0.10"
 oxilangtag = "0.1"
 oxiri = "0.2.3"
-oxrdf = { git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star", "oxsdatatypes"] }
-oxrdfio = { git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star"] }
-oxsdatatypes = { git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main" }
+oxrdf = { version = "0.2.0-alpha.4", git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star", "oxsdatatypes"] }
+oxrdfio = { version = "0.1.0-alpha.5", git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star"] }
+oxsdatatypes = { version = "0.2.0-alpha.1", git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main" }
 rand = "0.8"
 regex = "1.7"
 sha1 = "0.10"
 sha2 = "0.10"
 siphasher = ">=0.3, <2.0"
-sparesults = { git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star"] }
-spargebra = { git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star", "sep-0002", "sep-0006"] }
-sparopt = { git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star", "sep-0002", "sep-0006"] }
+sparesults = { version = "0.2.0-alpha.4", git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star"] }
+spargebra = { version = "0.3.0-alpha.4", git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star", "sep-0002", "sep-0006"] }
+sparopt = { version = "0.1.0-alpha.5-dev", git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star", "sep-0002", "sep-0006"] }
 thiserror = "1.0.50"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 libc = "0.2"
-rocksdb = { git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git", branch = "master", features = [  ] }
+rocksdb = { version = "0.21.0", git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git", branch = "master", features = [  ] }
 
 [target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
 getrandom = "0.2.8"
