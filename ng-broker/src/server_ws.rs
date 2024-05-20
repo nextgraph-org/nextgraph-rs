@@ -23,11 +23,11 @@ use rust_embed::RustEmbed;
 use serde_json::json;
 
 use async_std::net::{TcpListener, TcpStream};
-use async_tungstenite::accept_hdr_async;
-use async_tungstenite::tungstenite::handshake::server::{
+use ng_async_tungstenite::accept_hdr_async;
+use ng_async_tungstenite::tungstenite::handshake::server::{
     Callback, ErrorResponse, Request, Response,
 };
-use async_tungstenite::tungstenite::http::{
+use ng_async_tungstenite::tungstenite::http::{
     header::{CONNECTION, HOST, ORIGIN},
     HeaderValue, Method, StatusCode, Uri, Version,
 };

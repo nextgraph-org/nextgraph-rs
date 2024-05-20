@@ -34,6 +34,9 @@ ng-repo = { path = "../ng-repo", version = "0.1.0" }
 ng-net = { path = "../ng-net", version = "0.1.0" }
 ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.9-ng" }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.9-ng", features = ["js"] }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0" }
 getrandom = "0.2.7"

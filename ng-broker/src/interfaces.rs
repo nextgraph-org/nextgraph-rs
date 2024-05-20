@@ -12,11 +12,11 @@ use ng_net::types::{Interface, InterfaceType};
 use ng_net::utils::{is_ipv4_private, is_public_ipv4};
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn print_ipv4(ip: &default_net::ip::Ipv4Net) -> String {
+pub fn print_ipv4(ip: &netdev::ip::Ipv4Net) -> String {
     format!("{}/{}", ip.addr, ip.prefix_len)
 }
 #[cfg(not(target_arch = "wasm32"))]
-pub fn print_ipv6(ip: &default_net::ip::Ipv6Net) -> String {
+pub fn print_ipv6(ip: &netdev::ip::Ipv6Net) -> String {
     format!("{}/{}", ip.addr, ip.prefix_len)
 }
 
@@ -54,7 +54,7 @@ pub fn find_name(list: &Vec<Interface>, name: &String) -> Option<Interface> {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn get_interface() -> Vec<Interface> {
     let mut res: Vec<Interface> = vec![];
-    let interfaces = default_net::get_interfaces();
+    let interfaces = netdev::get_interfaces();
     for interface in interfaces {
         if interface.ipv4.len() > 0 {
             let first_v4 = interface.ipv4[0].addr;

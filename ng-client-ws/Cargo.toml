@@ -35,4 +35,4 @@ features = ["js"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getrandom = "0.2.7"
-async-tungstenite = { version = "0.22.2", git = "https://git.nextgraph.org/NextGraph/async-tungstenite.git", branch = "nextgraph",  features = ["async-std-runtime"] }
+ng-async-tungstenite = { version = "0.22.2", git = "https://git.nextgraph.org/NextGraph/async-tungstenite.git", branch = "nextgraph",  features = ["async-std-runtime"] }

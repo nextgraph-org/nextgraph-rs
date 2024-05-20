@@ -109,11 +109,11 @@ impl InterfaceType {
 pub struct Interface {
     pub if_type: InterfaceType,
     pub name: String,
-    pub mac_addr: Option<default_net::interface::MacAddr>,
+    pub mac_addr: Option<netdev::mac::MacAddr>,
     /// List of Ipv4Net for the network interface
-    pub ipv4: Vec<default_net::ip::Ipv4Net>,
+    pub ipv4: Vec<netdev::ip::Ipv4Net>,
     /// List of Ipv6Net for the network interface
-    pub ipv6: Vec<default_net::ip::Ipv6Net>,
+    pub ipv6: Vec<netdev::ip::Ipv6Net>,
 }
 
 /// Bind address
