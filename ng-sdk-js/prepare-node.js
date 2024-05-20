@@ -13,7 +13,7 @@ fs.readFile(PATH_README, 'utf8', function (err,data) {
     if (err) {
       return console.log(err);
     }
-    var result = data.replace(/ng-sdk-js/g, 'nextgraph');
+    var result = data.replace(/ ng-sdk-js/g, ' nextgraph');
   
     fs.writeFile(PATH_README, result, 'utf8', function (err) {
        if (err) return console.log(err);
