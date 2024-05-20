@@ -210,7 +210,7 @@
                   />
                 </svg>
                 <span
-                  >Our servers are located in Germany, and we comply with the
+                  >Our servers are located in France, and we comply with the
                   GDPR regulation.</span
                 >
               </li>

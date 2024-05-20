@@ -2912,21 +2912,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
 
 [[package]]
-name = "librocksdb-sys"
-version = "0.11.0+8.3.2"
-source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#13b3c2022202abff8cfe921ee926d6ca567e66e8"
-dependencies = [
- "bindgen",
- "bzip2-sys",
- "cc",
- "glob",
- "libc",
- "libz-sys",
- "openssl",
- "pkg-config",
-]
-
-[[package]]
 name = "libz-sys"
 version = "1.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3376,7 +3361,7 @@ dependencies = [
 
 [[package]]
 name = "ng-oxigraph"
-version = "0.4.0-alpha.8-ng"
+version = "0.4.0-alpha.9-ng"
 dependencies = [
  "codspeed-criterion-compat",
  "digest 0.10.7",
@@ -3386,20 +3371,18 @@ dependencies = [
  "json-event-parser",
  "libc",
  "md-5",
+ "memchr",
+ "ng-rocksdb",
  "oxilangtag",
  "oxiri",
- "oxrdf",
- "oxrdfio",
- "oxsdatatypes",
+ "peg",
+ "quick-xml 0.31.0",
  "rand 0.8.5",
  "regex",
- "rocksdb",
+ "serde",
  "sha1",
  "sha2 0.10.7",
  "siphasher 0.3.10",
- "sparesults",
- "spargebra",
- "sparopt",
  "thiserror",
  "zstd",
 ]
@@ -3438,6 +3421,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ng-rocksdb"
+version = "0.21.0"
+source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#95ec9536b1a4088cfa75aae2851df468e64aa451"
+dependencies = [
+ "bindgen",
+ "bzip2-sys",
+ "cc",
+ "glob",
+ "libc",
+ "libz-sys",
+ "openssl",
+ "pkg-config",
+]
+
+[[package]]
 name = "ng-sdk-js"
 version = "0.1.0"
 dependencies = [
@@ -3468,7 +3466,7 @@ name = "ng-storage-rocksdb"
 version = "0.1.0"
 dependencies = [
  "ng-repo",
- "rocksdb",
+ "ng-rocksdb",
  "serde_bare",
 ]
 
@@ -3897,47 +3895,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "oxrdfio"
-version = "0.1.0-alpha.5"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
-dependencies = [
- "oxrdf",
- "oxrdfxml",
- "oxttl",
- "thiserror",
-]
-
-[[package]]
-name = "oxrdfxml"
-version = "0.1.0-alpha.5"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
-dependencies = [
- "oxilangtag",
- "oxiri",
- "oxrdf",
- "quick-xml 0.31.0",
- "thiserror",
-]
-
-[[package]]
 name = "oxsdatatypes"
 version = "0.2.0-alpha.1"
 source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
 dependencies = [
- "js-sys",
  "serde",
- "thiserror",
-]
-
-[[package]]
-name = "oxttl"
-version = "0.1.0-alpha.5"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
-dependencies = [
- "memchr",
- "oxilangtag",
- "oxiri",
- "oxrdf",
  "thiserror",
 ]
 
@@ -4680,15 +4642,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rocksdb"
-version = "0.21.0"
-source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#13b3c2022202abff8cfe921ee926d6ca567e66e8"
-dependencies = [
- "libc",
- "librocksdb-sys",
-]
-
-[[package]]
 name = "rust-embed"
 version = "6.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5237,41 +5190,6 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
-]
-
-[[package]]
-name = "sparesults"
-version = "0.2.0-alpha.4"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
-dependencies = [
- "json-event-parser",
- "memchr",
- "oxrdf",
- "quick-xml 0.31.0",
- "thiserror",
-]
-
-[[package]]
-name = "spargebra"
-version = "0.3.0-alpha.4"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
-dependencies = [
- "oxilangtag",
- "oxiri",
- "oxrdf",
- "peg",
- "rand 0.8.5",
- "thiserror",
-]
-
-[[package]]
-name = "sparopt"
-version = "0.1.0-alpha.5-dev"
-source = "git+https://git.nextgraph.org/NextGraph/oxigraph.git?branch=main#c7f873f904617c201e359196717eb2133d91cef5"
-dependencies = [
- "oxrdf",
- "rand 0.8.5",
- "spargebra",
 ]
 
 [[package]]

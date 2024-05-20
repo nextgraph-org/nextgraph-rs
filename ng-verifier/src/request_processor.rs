@@ -14,7 +14,7 @@ use std::sync::Arc;
 use futures::channel::mpsc;
 use futures::SinkExt;
 use futures::StreamExt;
-use ng_oxigraph::sparql::{results::*, Query, QueryResults};
+use ng_oxigraph::oxigraph::sparql::{results::*, Query, QueryResults};
 
 use ng_repo::errors::*;
 use ng_repo::file::{RandomAccessFile, ReadFile};

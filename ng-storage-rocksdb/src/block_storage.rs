@@ -11,7 +11,7 @@ use std::path::Path;
 use std::thread::available_parallelism;
 
 #[allow(unused_imports)]
-use rocksdb::{
+use ng_rocksdb::{
     BlockBasedOptions, ColumnFamily, ColumnFamilyDescriptor, DBCompressionType, Direction, Env,
     ErrorKind, IteratorMode, Options, TransactionDB, TransactionDBOptions,
 };

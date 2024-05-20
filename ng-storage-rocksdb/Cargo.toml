@@ -16,7 +16,7 @@ rust-version.workspace = true
 serde_bare = "0.5.0"
 ng-repo = { path = "../ng-repo", version = "0.1.0" }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies.rocksdb]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies.ng-rocksdb]
 git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git"
 branch = "master"
 features = [  ]

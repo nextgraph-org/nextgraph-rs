@@ -12,37 +12,37 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::thread::available_parallelism;
 
-use rocksdb::BlockBasedOptions;
-use rocksdb::Cache;
-use rocksdb::DBIteratorWithThreadMode;
+use ng_rocksdb::BlockBasedOptions;
+use ng_rocksdb::Cache;
+use ng_rocksdb::DBIteratorWithThreadMode;
 
 use ng_repo::errors::*;
 use ng_repo::kcv_storage::*;
 use ng_repo::log::*;
 
 #[allow(unused_imports)]
-use rocksdb::{
+use ng_rocksdb::{
     ColumnFamily, ColumnFamilyDescriptor, Direction, Env, ErrorKind, IteratorMode, Options,
     TransactionDB, TransactionDBOptions,
 };
 
 pub struct RocksdbTransaction<'a> {
     store: &'a RocksDbKCVStorage,
-    tx: Option<rocksdb::Transaction<'a, TransactionDB>>,
+    tx: Option<ng_rocksdb::Transaction<'a, TransactionDB>>,
 }
 
 impl<'a> RocksdbTransaction<'a> {
     fn commit(&mut self) {
         self.tx.take().unwrap().commit().unwrap();
     }
-    fn tx(&self) -> &rocksdb::Transaction<'a, TransactionDB> {
+    fn tx(&self) -> &ng_rocksdb::Transaction<'a, TransactionDB> {
         self.tx.as_ref().unwrap()
     }
     fn get_iterator(
         &self,
         property_start: &[u8],
         family: &Option<String>,
-    ) -> Result<DBIteratorWithThreadMode<impl rocksdb::DBAccess + 'a>, StorageError> {
+    ) -> Result<DBIteratorWithThreadMode<impl ng_rocksdb::DBAccess + 'a>, StorageError> {
         Ok(match family {
             Some(cf) => self.tx().iterator_cf(
                 self.store
@@ -542,7 +542,7 @@ impl RocksDbKCVStorage {
         key_size: usize,
         key_prefix: Vec<u8>,
         suffix: Option<u8>,
-        mut iter: DBIteratorWithThreadMode<'_, impl rocksdb::DBAccess>,
+        mut iter: DBIteratorWithThreadMode<'_, impl ng_rocksdb::DBAccess>,
     ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, StorageError> {
         if key_prefix.len() > key_size {
             return Err(StorageError::InvalidValue);
@@ -633,7 +633,7 @@ impl RocksDbKCVStorage {
         &self,
         property_start: &[u8],
         family: &Option<String>,
-    ) -> Result<DBIteratorWithThreadMode<'_, impl rocksdb::DBAccess>, StorageError> {
+    ) -> Result<DBIteratorWithThreadMode<'_, impl ng_rocksdb::DBAccess>, StorageError> {
         Ok(match family {
             Some(cf) => self.db.iterator_cf(
                 self.db
