@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="../.github/header.png" alt="nextgraph-header" />
+    <img src=".static/header.png" alt="nextgraph-header" />
 </p>
 
 # nextgraph
