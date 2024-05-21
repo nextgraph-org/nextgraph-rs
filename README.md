@@ -47,6 +47,8 @@ Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/)
 - [Install Nodejs](https://nodejs.org/en/download/)
 - [Install LLVM](https://rust-lang.github.io/rust-bindgen/requirements.html)
 
+On openbsd, for LLVM you need to choose llvm-17.
+
 until this [PR](https://github.com/rustwasm/wasm-pack/pull/1271) is accepted, will have to install wasm-pack this way:
 
 ```
