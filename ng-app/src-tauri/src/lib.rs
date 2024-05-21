@@ -220,10 +220,10 @@ async fn open_window(
     app: tauri::AppHandle,
 ) -> Result<(), ()> {
     log_debug!("open window url {:?}", url);
-    let already_exists = app.get_window(&label);
+    let _already_exists = app.get_window(&label);
     #[cfg(desktop)]
-    if already_exists.is_some() {
-        let _ = already_exists.unwrap().close();
+    if _already_exists.is_some() {
+        let _ = _already_exists.unwrap().close();
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
     let mut config = WindowConfig::default();
