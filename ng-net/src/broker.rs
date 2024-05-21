@@ -680,7 +680,7 @@ impl Broker {
             .or_insert(HashSet::with_capacity(1));
 
         if !peers_set.insert(peer) {
-            return Err(ProtocolError::PeerAlreadyConnected);
+            //return Err(ProtocolError::PeerAlreadyConnected);
         }
         Ok(())
     }
@@ -762,13 +762,14 @@ impl Broker {
     ) -> Result<(), ProtocolError> {
         log_debug!("ATTACH PEER_ID {:?}", remote_peer_id);
 
-        let already = self.peers.get(&(None, Some(remote_peer_id)));
+        let already = self.peers.remove(&(None, Some(remote_peer_id)));
         if already.is_some() {
             match already.unwrap().connected {
                 PeerConnection::NONE => {}
-                _ => {
-                    return Err(ProtocolError::PeerAlreadyConnected);
+                PeerConnection::Client(mut cnx) => {
+                    cnx.close().await;
                 }
+                _ => {}
             };
         }
 

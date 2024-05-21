@@ -103,7 +103,7 @@ impl DagNode {
             let mut res = vec![*id];
             already_in.insert(*id);
             for child in this.future.iter() {
-                log_debug!("child of {} : {}", id, child);
+                // log_debug!("child of {} : {}", id, child);
                 res.append(&mut Self::collapse(child, dag, dag_ids, already_in));
             }
             res
