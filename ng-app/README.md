@@ -22,6 +22,7 @@ prerequisites: compile the local SDK
 ```
 cd ../ng-sdk-js
 wasm-pack build --target bundler
+npm install --no-save pkg
 cd ../ng-app
 ```
 

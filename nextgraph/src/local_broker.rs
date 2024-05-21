@@ -257,7 +257,7 @@ pub struct WithCredentialsV0 {
     pub detach: bool, // only used if remote verifier
 }
 
-trait ISession {}
+//trait ISession {}
 
 #[derive(Debug)]
 struct RemoteSession {
