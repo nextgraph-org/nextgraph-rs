@@ -767,7 +767,7 @@ impl Broker {
             match already.unwrap().connected {
                 PeerConnection::NONE => {}
                 PeerConnection::Client(mut cnx) => {
-                    cnx.close().await;
+                    cnx.close_silently().await;
                 }
                 _ => {}
             };

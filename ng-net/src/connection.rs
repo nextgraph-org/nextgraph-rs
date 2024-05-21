@@ -1319,6 +1319,17 @@ impl ConnectionBase {
         self.send(ConnectionCommand::Close).await;
     }
 
+    pub async fn close_silently(&mut self) {
+        log_debug!("closing silently...");
+        let _ = self
+            .shutdown_sender
+            .take()
+            .unwrap()
+            .send(Either::Left(NetError::Closing))
+            .await;
+        self.send(ConnectionCommand::Close).await;
+    }
+
     pub async fn admin<
         A: Into<ProtocolMessage>
             + Into<AdminRequestContentV0>
