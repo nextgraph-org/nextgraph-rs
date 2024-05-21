@@ -396,9 +396,10 @@ impl Broker {
         match removed {
             Some(info) => match info.connected {
                 PeerConnection::NONE => {}
-                PeerConnection::Client(_cb) => {
+                PeerConnection::Client(mut _cb) => {
                     #[cfg(not(target_arch = "wasm32"))]
                     if user.is_none() {
+                        _cb.release_shutdown();
                         // server side
                         if let Some(fsm) = _cb.fsm {
                             if let Ok(user) = fsm.lock().await.user_id() {
@@ -638,8 +639,14 @@ impl Broker {
                 let res = join.next().await;
                 match res {
                     Some(Either::Right(remote_peer_id)) => {
-                        let _res = join.next().await;
-                        log_debug!("SOCKET IS CLOSED {:?} peer_id: {:?}", _res, remote_peer_id);
+                        let res = join.next().await;
+
+                        if res.is_some()
+                            && res.as_ref().unwrap().as_ref().unwrap_left() == &NetError::Closing
+                        {
+                            return;
+                        }
+                        log_debug!("SOCKET IS CLOSED {:?} peer_id: {:?}", res, remote_peer_id);
                         BROKER
                             .write()
                             .await

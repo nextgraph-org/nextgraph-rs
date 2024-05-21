@@ -1138,7 +1138,7 @@ impl ConnectionBase {
     pub async fn reset_shutdown(&mut self, remote_peer_id: X25519PrivKey) {
         let _ = self
             .shutdown_sender
-            .take()
+            .as_ref()
             .unwrap()
             .send(Either::Right(remote_peer_id))
             .await;
