@@ -84,8 +84,8 @@ should return your userId
 you can now save the configs of both the server and client
 
 ```
-ngd -l 1440 --save-config
-ngcli -s 127.0.0.1,1440,<PEER_ID_OF_SERVER> -d <SERVER_DOMAIN> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED> --save-config
+ngd -l 1440 -d <SERVER_DOMAIN> --save-config
+ngcli -s 127.0.0.1,1440,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED> --save-config
 ```
 
 ## License

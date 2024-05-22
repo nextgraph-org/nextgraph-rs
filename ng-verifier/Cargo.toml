@@ -1,6 +1,6 @@
 [package]
 name = "ng-verifier"
-version = "0.1.0-alpha"
+version = "0.1.0-preview.1"
 description = "Verifier library of NextGraph"
 edition.workspace = true
 license.workspace = true
@@ -30,16 +30,16 @@ async-std = { version = "1.12.0", features = [ "attributes", "unstable" ] }
 automerge = "0.5.9"
 yrs = "0.18.2"
 bloomfilter = { version = "1.0.13", features = ["random","serde"] }
-ng-repo = { path = "../ng-repo", version = "0.1.0" }
-ng-net = { path = "../ng-net", version = "0.1.0" }
-ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.9-ng" }
+ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1" }
+ng-net = { path = "../ng-net", version = "0.1.0-preview.1" }
+ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.7-ngpreview" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.9-ng", features = ["js"] }
+ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.7-ngpreview", features = ["js"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0" }
+ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0-preview.1" }
 getrandom = "0.2.7"
 
 [dev-dependencies]
-ng-repo = { path = "../ng-repo", version = "0.1.0", features = ["testing"] }
+ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1", features = ["testing"] }

@@ -27,9 +27,9 @@ lazy_static = "1.4.0"
 log = "0.4"
 env_logger = "0.10"
 clap = { version = "4.3.21", features = ["derive","env","string"] }
-ng-repo = { path = "../ng-repo", version = "0.1.0", features = ["server_log_output"] }
-ng-net = { path = "../ng-net", version = "0.1.0" }
-ng-broker = { path = "../ng-broker", version = "0.1.0" }
+ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1", features = ["server_log_output"] }
+ng-net = { path = "../ng-net", version = "0.1.0-preview.1" }
+ng-broker = { path = "../ng-broker", version = "0.1.0-preview.1" }
 
 
 

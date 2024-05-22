@@ -1,6 +1,6 @@
 [package]
 name = "ng-repo"
-# version = "0.1.0"
+# version = "0.1.0-preview.1"
 description = "Repository library of NextGraph, a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
 categories = ["asynchronous","database-implementations"]
 version.workspace = true

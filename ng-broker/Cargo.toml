@@ -27,11 +27,11 @@ async-trait = "0.1.64"
 rust-embed= { version = "6.7.0", features=["include-exclude"] }
 ng-async-tungstenite = { version = "0.22.2", git = "https://git.nextgraph.org/NextGraph/async-tungstenite.git", branch = "nextgraph", features = ["async-std-runtime"] }
 blake3 = "1.3.1"
-ng-repo = { path = "../ng-repo", version = "0.1.0" }
-ng-net = { path = "../ng-net", version = "0.1.0" }
-ng-client-ws = { path = "../ng-client-ws", version = "0.1.0" }
-ng-verifier = { path = "../ng-verifier", version = "0.1.0-alpha" }
-ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0" }
+ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1" }
+ng-net = { path = "../ng-net", version = "0.1.0-preview.1" }
+ng-client-ws = { path = "../ng-client-ws", version = "0.1.0-preview.1" }
+ng-verifier = { path = "../ng-verifier", version = "0.1.0-preview.1" }
+ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0-preview.1" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
 version = "0.2.7"
