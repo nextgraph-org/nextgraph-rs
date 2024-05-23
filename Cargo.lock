@@ -3257,7 +3257,7 @@ checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
 name = "nextgraph"
-version = "0.1.0-preview.3"
+version = "0.1.0-preview.5"
 dependencies = [
  "async-once-cell",
  "async-std",
@@ -3385,7 +3385,7 @@ dependencies = [
 
 [[package]]
 name = "ng-oxigraph"
-version = "0.4.0-alpha.7-ngpreview3"
+version = "0.4.0-alpha.7-ngpreview5"
 dependencies = [
  "codspeed-criterion-compat",
  "digest 0.10.7",
@@ -3446,8 +3446,8 @@ dependencies = [
 
 [[package]]
 name = "ng-rocksdb"
-version = "0.21.0-ngpreview.1"
-source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#cfe343ff99552a1ec3f9719926055d5a6879caaf"
+version = "0.21.0-ngpreview.2"
+source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#8965930ecd738d70a6cd1d3c9e406d2d9b8e902f"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -3487,7 +3487,7 @@ dependencies = [
 
 [[package]]
 name = "ng-storage-rocksdb"
-version = "0.1.0-preview.3"
+version = "0.1.0-preview.5"
 dependencies = [
  "ng-repo",
  "ng-rocksdb",
@@ -3515,7 +3515,7 @@ dependencies = [
 
 [[package]]
 name = "ng-verifier"
-version = "0.1.0-preview.3"
+version = "0.1.0-preview.5"
 dependencies = [
  "async-std",
  "async-trait",
@@ -3538,7 +3538,7 @@ dependencies = [
 
 [[package]]
 name = "ng-wallet"
-version = "0.1.0-preview.3"
+version = "0.1.0-preview.5"
 dependencies = [
  "aes-gcm-siv",
  "argon2",
