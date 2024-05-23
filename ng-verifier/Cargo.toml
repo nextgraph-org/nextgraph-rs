@@ -37,9 +37,12 @@ ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.7-ngpreview" }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.7-ngpreview", features = ["js"] }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(all(not(target_arch = "wasm32"),not(doc)))'.dependencies]
 ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0-preview.1" }
 getrandom = "0.2.7"
 
 [dev-dependencies]
 ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1", features = ["testing"] }
+
+[package.metadata.docs.rs]
+rustc-args = [ "--cfg" , "doc"]

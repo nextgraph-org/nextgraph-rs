@@ -13,9 +13,11 @@ use core::fmt;
 use std::cmp::max;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_family = "wasm"), not(doc)))]
 use std::fs::create_dir_all;
+#[cfg(all(not(target_family = "wasm"), not(doc)))]
 use std::fs::{read, File, OpenOptions};
+#[cfg(all(not(target_family = "wasm"), not(doc)))]
 use std::io::Write;
 use std::{collections::HashMap, sync::Arc};
 
@@ -56,7 +58,7 @@ use ng_net::{
 };
 
 use crate::commits::*;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(doc)))]
 use crate::rocksdb_user_storage::RocksDbUserStorage;
 use crate::types::*;
 use crate::user_storage::InMemoryUserStorage;
@@ -712,6 +714,7 @@ impl Verifier {
                 }
                 Ok(res)
             }
+            #[cfg(all(not(target_family = "wasm"), not(doc)))]
             VerifierConfigType::RocksDb(path) => {
                 let mut path = path.clone();
                 path.push(format!("outbox{}", self.peer_id.to_hash_string()));
@@ -791,6 +794,7 @@ impl Verifier {
                         serde_bare::to_vec(&e)?,
                     )?;
                 }
+                #[cfg(all(not(target_family = "wasm"), not(doc)))]
                 VerifierConfigType::RocksDb(path) => {
                     let mut path = path.clone();
                     std::fs::create_dir_all(path.clone()).unwrap();
@@ -1964,6 +1968,7 @@ impl Verifier {
                 let res = (js.last_seq_function)(self.peer_id, qty)?;
                 self.max_reserved_seq_num = res + qty as u64;
             }
+            #[cfg(all(not(target_family = "wasm"), not(doc)))]
             VerifierConfigType::RocksDb(path) => {
                 let mut path = path.clone();
                 std::fs::create_dir_all(path.clone()).unwrap();
@@ -2023,7 +2028,7 @@ impl Verifier {
                 Some(Box::new(InMemoryUserStorage::new()) as Box<dyn UserStorage>),
                 Some(block_storage),
             ),
-            #[cfg(not(target_family = "wasm"))]
+            #[cfg(all(not(target_family = "wasm"), not(doc)))]
             VerifierConfigType::RocksDb(path) => {
                 let mut path_oxi = path.clone();
                 path_oxi.push("graph");

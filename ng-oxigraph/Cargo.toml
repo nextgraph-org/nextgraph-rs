@@ -44,7 +44,7 @@ quick-xml = ">=0.29, <0.32"
 memchr = "2.5"
 peg = "0.8"
 
-[target.'cfg(not(target_family = "wasm"))'.dependencies]
+[target.'cfg(all(not(target_family = "wasm"),not(doc)))'.dependencies]
 libc = "0.2"
 ng-rocksdb = { version = "0.21.0", git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git", branch = "master", features = [  ] }
 
@@ -55,6 +55,9 @@ js-sys = { version = "0.3.60", optional = true }
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 codspeed-criterion-compat = "2.3.3"
 zstd = ">=0.12, <0.14"
+
+[package.metadata.docs.rs]
+rustc-args = [ "--cfg" , "doc"]
 
 [lints.rust]
 absolute_paths_not_starting_with_crate = "warn"

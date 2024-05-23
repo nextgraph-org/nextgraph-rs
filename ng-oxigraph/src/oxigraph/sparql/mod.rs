@@ -1,6 +1,6 @@
 //! [SPARQL](https://www.w3.org/TR/sparql11-overview/) implementation.
 //!
-//! Stores execute SPARQL. See [`Store`](crate::store::Store::query()) for an example.
+//! Stores execute SPARQL. See [`Store`](crate::oxigraph::store::Store::query()) for an example.
 
 mod algebra;
 mod dataset;

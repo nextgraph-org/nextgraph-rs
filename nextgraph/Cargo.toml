@@ -32,8 +32,11 @@ ng-wallet = { path = "../ng-wallet", version = "0.1.0-preview.1" }
 ng-client-ws = { path = "../ng-client-ws", version = "0.1.0-preview.1" }
 ng-verifier = { path = "../ng-verifier", version = "0.1.0-preview.1" }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+[target.'cfg(all(not(target_arch = "wasm32"),not(doc)))'.dependencies]
 ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0-preview.1" }
+
+[package.metadata.docs.rs]
+rustc-args = [ "--cfg" , "doc"]
 
 [[example]]
 name = "in_memory"

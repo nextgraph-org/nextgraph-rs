@@ -99,7 +99,7 @@ impl Store {
     ///
     /// Only one read-write [`Store`] can exist at the same time.
     /// If you want to have extra [`Store`] instance opened on a same data
-    /// use [`Store::open_secondary`] or [`Store::open_read_only`].
+    /// use [`Store::open_read_only`].
     #[cfg(all(not(target_family = "wasm")))]
     pub fn open(path: impl AsRef<Path>) -> Result<Self, StorageError> {
         Ok(Self {
@@ -155,7 +155,6 @@ impl Store {
     /// Opens a read-only [`Store`] from disk.
     ///
     /// Opening as read-only while having an other process writing the database is undefined behavior.
-    /// [`Store::open_secondary`] should be used in this case.
     #[cfg(all(not(target_family = "wasm")))]
     pub fn open_read_only(
         path: impl AsRef<Path>,

@@ -1,4 +1,3 @@
-#![doc = include_str!("../README.md")]
 #![doc(test(attr(deny(warnings))))]
 #![doc(test(attr(allow(deprecated))))]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
