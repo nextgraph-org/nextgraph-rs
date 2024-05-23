@@ -12,5 +12,5 @@ mod commits;
 
 mod request_processor;
 
-#[cfg(all(not(target_family = "wasm")))]
+#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
 mod rocksdb_user_storage;

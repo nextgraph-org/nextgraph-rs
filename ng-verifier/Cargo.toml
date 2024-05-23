@@ -1,6 +1,6 @@
 [package]
 name = "ng-verifier"
-version = "0.1.0-preview.5"
+version = "0.1.0-preview.6"
 description = "Verifier library of NextGraph"
 edition.workspace = true
 license.workspace = true
@@ -10,6 +10,7 @@ homepage.workspace = true
 keywords = ["crdt","e2ee","local-first","p2p","eventual-consistency"]
 documentation.workspace = true
 rust-version.workspace = true
+build = "build.rs"
 
 [badges]
 maintenance = { status = "actively-developed" }
@@ -34,10 +35,10 @@ ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1" }
 ng-net = { path = "../ng-net", version = "0.1.0-preview.1" }
 ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.7-ngpreview6" }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
+[target.'cfg(target_family = "wasm")'.dependencies]
 ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.7-ngpreview6", features = ["js"] }
 
-[target.'cfg(all(not(target_arch = "wasm32")))'.dependencies]
+[target.'cfg(all(not(target_family = "wasm"),not(docsrs)))'.dependencies]
 ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0-preview.6" }
 getrandom = "0.2.7"
 

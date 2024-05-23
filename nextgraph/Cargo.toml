@@ -9,7 +9,7 @@ authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
 keywords = [ "crdt","e2ee","local-first","p2p","semantic-web" ]
-documentation.workspace = true
+documentation = "https://docs.rs/nextgraph"
 rust-version.workspace = true
 
 [badges]
