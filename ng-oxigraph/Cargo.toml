@@ -1,6 +1,6 @@
 [package]
 name = "ng-oxigraph"
-version = "0.4.0-alpha.7-ngpreview"
+version = "0.4.0-alpha.7-ngpreview2"
 authors = ["Tpt <thomas@pellissier-tanon.fr>", "Niko PLP <niko@nextgraph.org>"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -65,7 +65,7 @@ elided_lifetimes_in_paths = "warn"
 explicit_outlives_requirements = "warn"
 let_underscore_drop = "warn"
 macro_use_extern_crate = "warn"
-# TODO missing_docs = "warn"
+# TODO missidoc_auto_cfgs = "warn"
 trivial_casts = "warn"
 trivial_numeric_casts = "warn"
 unsafe_code = "warn"

@@ -2,7 +2,7 @@
 name = "nextgraph"
 description = "NextGraph client library. Nextgraph is a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
 categories = ["asynchronous","text-editors","web-programming","development-tools","database-implementations"]
-version.workspace = true
+version = "0.1.0-preview.2"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
@@ -30,7 +30,7 @@ ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1" }
 ng-net = { path = "../ng-net", version = "0.1.0-preview.1" }
 ng-wallet = { path = "../ng-wallet", version = "0.1.0-preview.1" }
 ng-client-ws = { path = "../ng-client-ws", version = "0.1.0-preview.1" }
-ng-verifier = { path = "../ng-verifier", version = "0.1.0-preview.1" }
+ng-verifier = { path = "../ng-verifier", version = "0.1.0-preview.2" }
 
 [target.'cfg(all(not(target_arch = "wasm32"),not(doc)))'.dependencies]
 ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0-preview.1" }
@@ -49,3 +49,4 @@ required-features = []
 [[example]]
 name = "open"
 required-features = []
+

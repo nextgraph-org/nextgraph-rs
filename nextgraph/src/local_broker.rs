@@ -46,7 +46,7 @@ use ng_wallet::{create_wallet_first_step_v0, create_wallet_second_step_v0, types
 use ng_client_ws::remote_ws::ConnectionWebSocket;
 #[cfg(target_arch = "wasm32")]
 use ng_client_ws::remote_ws_wasm::ConnectionWebSocket;
-#[cfg(all(not(target_family = "wasm"),not(doc)))]
+#[cfg(not(any(target_family = "wasm",doc)))]
 use ng_storage_rocksdb::block_storage::RocksDbBlockStorage;
 
 #[doc(hidden)]

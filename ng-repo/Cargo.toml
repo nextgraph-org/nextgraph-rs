@@ -41,7 +41,7 @@ crypto_box = { version = "0.8.2", features = ["seal"] }
 zeroize = { version = "1.6.0", features = ["zeroize_derive"] }
 base64-url = "2.0.0"
 web-time = "0.2.0"
-time = { version= "0.3.23", features = ["formatting"] }
+time = { version= "0.3.36", features = ["formatting"] }
 wasm-bindgen = "0.2"
 os_info = "3"
 current_platform = "0.2.0"

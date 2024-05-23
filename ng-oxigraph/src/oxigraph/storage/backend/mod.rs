@@ -3,10 +3,10 @@
 
 #[cfg(any(target_family = "wasm", doc))]
 pub use fallback::{ColumnFamily, ColumnFamilyDefinition, Db, Iter, Reader, Transaction};
-#[cfg(all(not(target_family = "wasm")))]
+#[cfg(all(not(target_family = "wasm"), not(doc)))]
 pub use oxi_rocksdb::{ColumnFamily, ColumnFamilyDefinition, Db, Iter, Reader, Transaction};
 
 #[cfg(any(target_family = "wasm", doc))]
 mod fallback;
-#[cfg(all(not(target_family = "wasm")))]
+#[cfg(all(not(target_family = "wasm"), not(doc)))]
 mod oxi_rocksdb;

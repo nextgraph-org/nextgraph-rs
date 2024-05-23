@@ -1,5 +1,5 @@
 <p align="center">
-    <img src=".static/header.png" alt="nextgraph-header" />
+    <img src="https://git.nextgraph.org/NextGraph/nextgraph-rs/raw/branch/master/nextgraph/.static/header.png" alt="nextgraph-header" />
 </p>
 
 # nextgraph
@@ -51,8 +51,8 @@ async-std = "1.12.0"
 
 You can find some examples on how to use the library:
 
-- [in_memory](examples/in_memory)
-- [persistent](examples/persistent)
+- [in_memory](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples)
+- [persistent](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples)
 
 ## License
 
