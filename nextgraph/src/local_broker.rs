@@ -46,7 +46,7 @@ use ng_wallet::{create_wallet_first_step_v0, create_wallet_second_step_v0, types
 use ng_client_ws::remote_ws::ConnectionWebSocket;
 #[cfg(target_arch = "wasm32")]
 use ng_client_ws::remote_ws_wasm::ConnectionWebSocket;
-#[cfg(not(any(target_family = "wasm",doc)))]
+#[cfg(not(any(target_family = "wasm")))]
 use ng_storage_rocksdb::block_storage::RocksDbBlockStorage;
 
 #[doc(hidden)]
@@ -824,7 +824,7 @@ impl LocalBroker {
                 (VerifierType::Memory, LocalBrokerConfig::BasePath(_)) => {
                     VerifierConfigType::Memory
                 }
-                #[cfg(all(not(target_family = "wasm"),not(doc)))]
+                #[cfg(all(not(target_family = "wasm")))]
                 (VerifierType::Save, LocalBrokerConfig::BasePath(base)) => {
                     let mut path = base.clone();
                     path.push(format!("user{}", config.user_id().to_hash_string()));
@@ -911,7 +911,7 @@ impl LocalBroker {
             Arc::new(std::sync::RwLock::new(HashMapBlockStorage::new()))
                 as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
         } else {
-            #[cfg(all(not(target_family = "wasm"),not(doc)))]
+            #[cfg(all(not(target_family = "wasm")))]
             {
                 let key_material = wallet
                     .client()

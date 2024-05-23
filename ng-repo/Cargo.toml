@@ -38,7 +38,7 @@ bloomfilter = { version = "1.0.13", features = ["random","serde"] }
 curve25519-dalek = "3.2.0"
 threshold_crypto = "0.4.0"
 crypto_box = { version = "0.8.2", features = ["seal"] }
-zeroize = { version = "1.6.0", features = ["zeroize_derive"] }
+zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
 base64-url = "2.0.0"
 web-time = "0.2.0"
 time = { version= "0.3.36", features = ["formatting"] }

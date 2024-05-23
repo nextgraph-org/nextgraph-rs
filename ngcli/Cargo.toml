@@ -19,7 +19,7 @@ maintenance = { status = "actively-developed" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 async-std = {  version = "1.12.0", features = ["attributes"] }
-zeroize = { version = "1.6.0" }
+zeroize = { version = "1.7.0" }
 getrandom = "0.2.7"
 blake3 = "1.3.1"
 duration-str = "0.7.1"

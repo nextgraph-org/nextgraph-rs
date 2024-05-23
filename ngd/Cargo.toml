@@ -20,7 +20,7 @@ maintenance = { status = "actively-developed" }
 serde_bare = "0.5.0"
 serde_json = "1.0"
 async-std = {  version = "1.12.0", features = ["attributes"] }
-zeroize = { version = "1.6.0" }
+zeroize = { version = "1.7.0" }
 addr = "0.15.6"
 regex = "1.8.4"
 lazy_static = "1.4.0"
@@ -29,7 +29,7 @@ env_logger = "0.10"
 clap = { version = "4.3.21", features = ["derive","env","string"] }
 ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1", features = ["server_log_output"] }
 ng-net = { path = "../ng-net", version = "0.1.0-preview.1" }
-ng-broker = { path = "../ng-broker", version = "0.1.0-preview.1" }
+ng-broker = { path = "../ng-broker", version = "0.1.0-preview.3" }
 
 
 

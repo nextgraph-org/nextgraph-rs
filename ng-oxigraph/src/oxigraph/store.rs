@@ -25,7 +25,7 @@
 //! };
 //! # Result::<_, Box<dyn std::error::Error>>::Ok(())
 //! ```
-#[cfg(all(not(target_family = "wasm"), not(doc)))]
+#[cfg(all(not(target_family = "wasm")))]
 use super::io::RdfParseError;
 use super::io::{RdfFormat, RdfParser, RdfSerializer};
 use super::model::*;
@@ -34,7 +34,7 @@ use super::sparql::{
     QueryResults, Update, UpdateOptions,
 };
 use super::storage::numeric_encoder::{Decoder, EncodedQuad, EncodedTerm};
-#[cfg(all(not(target_family = "wasm"), not(doc)))]
+#[cfg(all(not(target_family = "wasm")))]
 use super::storage::StorageBulkLoader;
 use super::storage::{
     ChainedDecodingQuadIterator, DecodingGraphIterator, Storage, StorageReader, StorageWriter,
@@ -42,7 +42,7 @@ use super::storage::{
 pub use super::storage::{CorruptionError, LoaderError, SerializerError, StorageError};
 use std::error::Error;
 use std::io::{Read, Write};
-#[cfg(all(not(target_family = "wasm"), not(doc)))]
+#[cfg(all(not(target_family = "wasm")))]
 use std::path::Path;
 use std::{fmt, str};
 
@@ -100,14 +100,14 @@ impl Store {
     /// Only one read-write [`Store`] can exist at the same time.
     /// If you want to have extra [`Store`] instance opened on a same data
     /// use [`Store::open_read_only`].
-    #[cfg(all(not(target_family = "wasm"), not(doc)))]
+    #[cfg(all(not(target_family = "wasm")))]
     pub fn open(path: impl AsRef<Path>) -> Result<Self, StorageError> {
         Ok(Self {
             storage: Storage::open(path.as_ref(), None)?,
         })
     }
 
-    #[cfg(all(not(target_family = "wasm"), not(doc)))]
+    #[cfg(all(not(target_family = "wasm")))]
     pub fn open_with_key(path: impl AsRef<Path>, key: [u8; 32]) -> Result<Self, StorageError> {
         Ok(Self {
             storage: Storage::open(path.as_ref(), Some(key))?,
@@ -124,7 +124,7 @@ impl Store {
     // /// If you prefer persistent storage use [`Store::open_persistent_secondary`].
     // ///
     // /// If you want to simple read-only [`Store`] use [`Store::open_read_only`].
-    // #[cfg(all(not(target_family = "wasm"), not(doc)))]
+    // #[cfg(all(not(target_family = "wasm")))]
     // pub fn open_secondary(primary_path: impl AsRef<Path>) -> Result<Self, StorageError> {
     //     Ok(Self {
     //         storage: Storage::open_secondary(primary_path.as_ref())?,
@@ -139,7 +139,7 @@ impl Store {
     /// `primary_path` must be the path of the primary instance and `secondary_path` an other directory for the secondary instance cache.
     ///
     /// If you want to simple read-only [`Store`] use [`Store::open_read_only`].
-    // #[cfg(all(not(target_family = "wasm"), not(doc)))]
+    // #[cfg(all(not(target_family = "wasm")))]
     // pub fn open_persistent_secondary(
     //     primary_path: impl AsRef<Path>,
     //     secondary_path: impl AsRef<Path>,
@@ -155,7 +155,7 @@ impl Store {
     /// Opens a read-only [`Store`] from disk.
     ///
     /// Opening as read-only while having an other process writing the database is undefined behavior.
-    #[cfg(all(not(target_family = "wasm"), not(doc)))]
+    #[cfg(all(not(target_family = "wasm")))]
     pub fn open_read_only(
         path: impl AsRef<Path>,
         key: Option<[u8; 32]>,
@@ -939,7 +939,7 @@ impl Store {
     /// Flushes all buffers and ensures that all writes are saved on disk.
     ///
     /// Flushes are automatically done using background threads but might lag a little bit.
-    #[cfg(all(not(target_family = "wasm"), not(doc)))]
+    #[cfg(all(not(target_family = "wasm")))]
     pub fn flush(&self) -> Result<(), StorageError> {
         self.storage.flush()
     }
@@ -949,7 +949,7 @@ impl Store {
     /// Useful to call after a batch upload or another similar operation.
     ///
     /// <div class="warning">Can take hours on huge databases.</div>
-    #[cfg(all(not(target_family = "wasm"), not(doc)))]
+    #[cfg(all(not(target_family = "wasm")))]
     pub fn optimize(&self) -> Result<(), StorageError> {
         self.storage.compact()
     }
@@ -972,7 +972,7 @@ impl Store {
     /// This allows cheap regular backups.
     ///
     /// If you want to move your data to another RDF storage system, you should have a look at the [`Store::dump_to_write`] function instead.
-    #[cfg(all(not(target_family = "wasm"), not(doc)))]
+    #[cfg(all(not(target_family = "wasm")))]
     pub fn backup(&self, target_directory: impl AsRef<Path>) -> Result<(), StorageError> {
         self.storage.backup(target_directory.as_ref())
     }
@@ -999,7 +999,7 @@ impl Store {
     /// assert!(store.contains(QuadRef::new(ex, ex, ex, ex))?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    #[cfg(all(not(target_family = "wasm"), not(doc)))]
+    #[cfg(all(not(target_family = "wasm")))]
     pub fn bulk_loader(&self) -> BulkLoader {
         BulkLoader {
             storage: StorageBulkLoader::new(self.storage.clone()),
@@ -1617,14 +1617,14 @@ impl Iterator for GraphNameIter {
 /// assert!(store.contains(QuadRef::new(ex, ex, ex, ex))?);
 /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
 /// ```
-#[cfg(all(not(target_family = "wasm"), not(doc)))]
+#[cfg(all(not(target_family = "wasm")))]
 #[must_use]
 pub struct BulkLoader {
     storage: StorageBulkLoader,
     on_parse_error: Option<Box<dyn Fn(RdfParseError) -> Result<(), RdfParseError>>>,
 }
 
-#[cfg(all(not(target_family = "wasm"), not(doc)))]
+#[cfg(all(not(target_family = "wasm")))]
 impl BulkLoader {
     /// Sets the maximal number of threads to be used by the bulk loader per operation.
     ///
