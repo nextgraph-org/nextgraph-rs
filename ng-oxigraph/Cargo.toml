@@ -1,6 +1,6 @@
 [package]
 name = "ng-oxigraph"
-version = "0.4.0-alpha.7-ngpreview5"
+version = "0.4.0-alpha.7-ngpreview6"
 authors = ["Tpt <thomas@pellissier-tanon.fr>", "Niko PLP <niko@nextgraph.org>"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -14,6 +14,7 @@ a SPARQL database and RDF toolkit. fork for NextGraph
 """
 edition = "2021"
 rust-version = "1.70"
+build = "build.rs"
 
 [features]
 default = ["rdf-star","sep-0002","sep-0006", "oxsdatatypes"]
@@ -44,9 +45,9 @@ quick-xml = ">=0.29, <0.32"
 memchr = "2.5"
 peg = "0.8"
 
-[target.'cfg(all(not(target_family = "wasm")))'.dependencies]
+[target.'cfg(all(not(target_family = "wasm"),not(docsrs)))'.dependencies]
 libc = "0.2"
-ng-rocksdb = { version = "0.21.0-ngpreview.2", git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git", branch = "master", features = [  ] }
+ng-rocksdb = { version = "0.21.0-ngpreview.3", git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git", branch = "master", features = [  ] }
 
 [target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
 getrandom = "0.2.8"
