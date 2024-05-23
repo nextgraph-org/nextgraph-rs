@@ -10,12 +10,13 @@ homepage.workspace = true
 keywords = ["crdt","e2ee","local-first","p2p","database"]
 documentation.workspace = true
 rust-version.workspace = true
+build = "build.rs"
 
 [dependencies]
 serde_bare = "0.5.0"
 ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1" }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies.ng-rocksdb]
+[target.'cfg(all(not(target_arch = "wasm32"),not(docsrs)))'.dependencies.ng-rocksdb]
 git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git"
 branch = "master"
 features = [  ]

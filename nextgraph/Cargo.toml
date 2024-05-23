@@ -33,7 +33,7 @@ ng-client-ws = { path = "../ng-client-ws", version = "0.1.0-preview.1" }
 ng-verifier = { path = "../ng-verifier", version = "0.1.0-preview.5" }
 
 [target.'cfg(all(not(target_arch = "wasm32")))'.dependencies]
-ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0-preview.5" }
+ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0-preview.6" }
 
 [[example]]
 name = "in_memory"
