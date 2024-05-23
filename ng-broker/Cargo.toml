@@ -2,7 +2,6 @@
 name = "ng-broker"
 version = "0.1.0-preview.3"
 description = "Broker library of NextGraph, a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
-version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
