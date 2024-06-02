@@ -1344,10 +1344,17 @@ pub enum Branch {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BranchType {
     Main, // Main is also transactional
-    Chat,
     Store,
     Overlay,
     User,
+    // special transactional branches
+    Chat,
+    Stream,
+    Comments,
+    BackLinks,
+    Context,
+    Ontology,
+
     Transactional, // this could have been called OtherTransactional, but for the sake of simplicity, we use Transactional for any branch that is not the Main one.
     Root,          // only used for BranchInfo
                    //Unknown, // only used temporarily when loading a branch info from commits (Branch commit, then AddBranch commit)
@@ -1360,12 +1367,17 @@ impl fmt::Display for BranchType {
             "{}",
             match self {
                 Self::Main => "Main",
-                Self::Chat => "Chat",
                 Self::Store => "Store",
                 Self::Overlay => "Overlay",
                 Self::User => "User",
                 Self::Transactional => "Transactional",
                 Self::Root => "Root",
+                Self::Chat => "Chat",
+                Self::Stream => "Stream",
+                Self::Comments => "Comments",
+                Self::BackLinks => "BackLinks",
+                Self::Context => "Context",
+                Self::Ontology => "Ontology",
                 //Self::Unknown => "==unknown==",
             }
         )
@@ -1580,7 +1592,7 @@ impl RemovePermission {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum RepoNamedItemV0 {
     Branch(BranchId),
-    Commit(ObjectId),
+    Commit(ObjectRef),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -1597,7 +1609,7 @@ pub struct AddNameV0 {
     /// the name. in case of conflict, the smallest Id is taken.
     pub name: String,
 
-    /// A branch, commit or file
+    /// A branch or commit
     pub item: RepoNamedItem,
 
     /// Metadata
@@ -1634,7 +1646,7 @@ pub enum RemoveName {
 
 /// Adds a repo into the store branch.
 ///
-/// The repo's `store` field should match the store
+/// The repo's `store` field should match the destination store
 /// DEPS to the previous AddRepo commit(s) if it is an update. in this case, repo_id of the referenced rootbranch definition(s) should match
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AddRepoV0 {

@@ -59,6 +59,8 @@ pub enum NgAccessV0 {
 pub enum TargetBranchV0 {
     Chat,
     Stream,
+    Comments,
+    BackLinks,
     Context,
     Ontology,
     BranchId(BranchId),
@@ -79,14 +81,13 @@ pub enum NuriTargetV0 {
     Group(String), // shortname of a Group
 
     Repo(RepoId),
-
-    Identity(UserId),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NuriV0 {
+    pub identity: Option<UserId>, // None for personal identity
     pub target: NuriTargetV0,
-    pub entire_store: bool, // If it is a store, will (try to) include all the docs belonging to the store
+    pub entire_store: bool, // If it is a store, will include all the docs belonging to the store
 
     pub object: Option<ObjectId>, // used only for FileGet. // cannot be used for queries. only to download an object (file,commit..)
     pub branch: Option<TargetBranchV0>, // if None, the main branch is chosen
@@ -101,6 +102,7 @@ impl NuriV0 {
     pub fn new_repo_target_from_string(repo_id_string: String) -> Result<Self, NgError> {
         let repo_id: RepoId = repo_id_string.as_str().try_into()?;
         Ok(Self {
+            identity: None,
             target: NuriTargetV0::Repo(repo_id),
             entire_store: false,
             object: None,
@@ -114,6 +116,7 @@ impl NuriV0 {
 
     pub fn new_private_store_target() -> Self {
         Self {
+            identity: None,
             target: NuriTargetV0::PrivateStore,
             entire_store: false,
             object: None,
@@ -126,6 +129,7 @@ impl NuriV0 {
     }
     pub fn new_entire_user_site() -> Self {
         Self {
+            identity: None,
             target: NuriTargetV0::UserSite,
             entire_store: false,
             object: None,
@@ -149,6 +153,7 @@ impl NuriV0 {
             let id = decode_id(j)?;
             let key = decode_sym_key(k)?;
             Ok(Self {
+                identity: None,
                 target: NuriTargetV0::PrivateStore,
                 entire_store: false,
                 object: Some(id),
