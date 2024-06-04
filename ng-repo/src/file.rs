@@ -785,8 +785,6 @@ impl fmt::Display for RandomAccessFile {
 #[cfg(test)]
 mod test {
 
-    use time::Instant;
-
     use crate::file::*;
     use std::io::BufReader;
     use std::io::Read;
@@ -1511,7 +1509,7 @@ mod test {
     #[ignore]
     #[test]
     pub fn test_depth_4_big_write_small() {
-        let encoding_big_file = Instant::now();
+        let encoding_big_file = std::time::Instant::now();
 
         let f = std::fs::File::open("[enter path of a big file here]").expect("open of a big file");
         let mut reader = BufReader::new(f);
@@ -1553,7 +1551,7 @@ mod test {
 
         log_debug!(
             "encoding_big_file took: {} s",
-            encoding_big_file.elapsed().as_seconds_f32()
+            encoding_big_file.elapsed().as_secs_f32()
         );
     }
 
@@ -1561,7 +1559,7 @@ mod test {
     #[ignore]
     #[test]
     pub fn test_depth_4_big_write_big() {
-        let encoding_big_file = Instant::now();
+        let encoding_big_file = std::time::Instant::now();
 
         let f = std::fs::File::open("[enter path of a big file here]").expect("open of a big file");
         let mut reader = BufReader::new(f);
@@ -1603,7 +1601,7 @@ mod test {
 
         log_debug!(
             "encoding_big_file took: {} s",
-            encoding_big_file.elapsed().as_seconds_f32()
+            encoding_big_file.elapsed().as_secs_f32()
         );
     }
 }
