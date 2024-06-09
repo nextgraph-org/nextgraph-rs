@@ -328,6 +328,24 @@ pub enum VerifierError {
     DoubleBranchSubscription,
     InvalidCommit,
     LocallyConnected,
+    InvalidTriple,
+    InvalidNamedGraph,
+    OxigraphError(String),
+    CannotRemoveTriplesWhenNewBranch,
+}
+
+impl Error for VerifierError {}
+
+impl core::fmt::Display for VerifierError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl From<serde_bare::error::Error> for VerifierError {
+    fn from(_e: serde_bare::error::Error) -> Self {
+        VerifierError::SerializationError
+    }
 }
 
 impl From<NgError> for VerifierError {

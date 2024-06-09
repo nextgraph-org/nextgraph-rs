@@ -21,8 +21,8 @@ let config = {
 ng.init_headless(config).then( async() => {
     let session_id;
     try {
-        let user_id = await ng.admin_create_user(config);
-        console.log("user created: ",user_id);
+        //let user_id = await ng.admin_create_user(config);
+        //console.log("user created: ",user_id);
         
         let other_user_id = "AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE";
 
@@ -30,16 +30,27 @@ ng.init_headless(config).then( async() => {
         session_id = session.session_id;
         console.log(session);
         
-        let sparql_result = await ng.sparql_query(session.session_id, "SELECT * WHERE { ?s ?p ?o }");
+        //await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:i> <did:ng:j> }");
+        //await ng.sparql_update(session.session_id, "INSERT { ?s <did:ng:i> <did:ng:k> } WHERE { ?s <did:ng:i> <did:ng:j> } ");
+
+        //await ng.sparql_update(session.session_id, "INSERT DATA {  <did:ng:z> <did:ng:j> <did:ng:t:BJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE>. <did:ng:t:BJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:m> <did:ng:n> }");
+        
+        let sparql_result = await ng.sparql_query(session.session_id, "SELECT ?a WHERE { ?a <did:ng:j> _:abc. _:abc <did:ng:m> <did:ng:n>  }");
         console.log(sparql_result);
+        for (const q of sparql_result.results.bindings) {
+            console.log(q);
+        }
+
+        sparql_result = await ng.sparql_query(session.session_id, "SELECT ?s ?a WHERE { ?s <did:ng:i> ?a  }");
+        console.log(sparql_result);
+        for (const q of sparql_result.results.bindings) {
+            console.log(q);
+        }
 
         let quads = await ng.sparql_query(session.session_id, "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }");
         for (const q of quads) {
             console.log(q.subject.toString(), q.predicate.toString(), q.object.toString(), q.graph.toString())
         }
-
-        let result = await ng.sparql_update(session.session_id, "INSERT DATA { <http://example.com> <http://example.com> <http://example.com> }");
-        console.log(result);
 
         let file_nuri = await ng.file_put_to_private_store(session.session_id,"LICENSE-MIT","text/plain");
         console.log(file_nuri);

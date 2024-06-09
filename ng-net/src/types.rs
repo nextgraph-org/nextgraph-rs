@@ -1346,6 +1346,21 @@ pub enum OverlayLink {
     Public(PubKey),
 }
 
+impl OverlayLink {
+    pub fn is_outer(&self) -> bool {
+        match self {
+            Self::Outer(_) => true,
+            _ => false,
+        }
+    }
+    pub fn outer(&self) -> &Digest {
+        match self {
+            Self::Outer(o) => o,
+            _ => panic!("not an outer overlay ID"),
+        }
+    }
+}
+
 /// Overlay session ID
 ///
 /// It is a pubkey used for signing all OverlayMessage sent by the peer.

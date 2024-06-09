@@ -13,11 +13,11 @@ use core::fmt;
 use std::cmp::max;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
-#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+#[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use std::fs::create_dir_all;
-#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+#[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use std::fs::{read, File, OpenOptions};
-#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+#[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use std::io::Write;
 use std::{collections::HashMap, sync::Arc};
 
@@ -58,7 +58,7 @@ use ng_net::{
 };
 
 use crate::commits::*;
-#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+#[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use crate::rocksdb_user_storage::RocksDbUserStorage;
 use crate::types::*;
 use crate::user_storage::InMemoryUserStorage;
@@ -79,6 +79,7 @@ use crate::user_storage::UserStorage;
 
 pub struct Verifier {
     pub(crate) config: VerifierConfig,
+    user_id: UserId,
     pub connected_broker: BrokerPeerId,
     pub(crate) graph_dataset: Option<ng_oxigraph::oxigraph::store::Store>,
     pub(crate) user_storage: Option<Arc<Box<dyn UserStorage>>>,
@@ -129,6 +130,10 @@ impl Verifier {
         &self.config.user_priv_key
     }
 
+    pub(crate) fn user_id(&self) -> &UserId {
+        &self.user_id
+    }
+
     pub fn private_store_id(&self) -> &RepoId {
         self.config.private_store_id.as_ref().unwrap()
     }
@@ -140,11 +145,11 @@ impl Verifier {
     }
 
     pub async fn close(&self) {
-        log_debug!("VERIFIER CLOSED {}", self.user_privkey().to_pub());
+        log_debug!("VERIFIER CLOSED {}", self.user_id());
         BROKER
             .write()
             .await
-            .close_peer_connection_x(None, Some(self.config.user_priv_key.to_pub()))
+            .close_peer_connection_x(None, Some(self.user_id().clone()))
             .await;
     }
 
@@ -270,17 +275,20 @@ impl Verifier {
         let (peer_priv_key, peer_id) = generate_keypair();
         let block_storage = Arc::new(std::sync::RwLock::new(HashMapBlockStorage::new()))
             as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>;
+        let user_priv_key = PrivKey::random_ed();
+        let user_id = user_priv_key.to_pub();
         Verifier {
             config: VerifierConfig {
                 config_type: VerifierConfigType::Memory,
                 user_master_key: [0; 32],
                 peer_priv_key,
-                user_priv_key: PrivKey::random_ed(),
+                user_priv_key,
                 private_store_read_cap: None,
                 private_store_id: None,
                 protected_store_id: None,
                 public_store_id: None,
             },
+            user_id,
             connected_broker: BrokerPeerId::None,
             graph_dataset: None,
             user_storage: None,
@@ -447,7 +455,7 @@ impl Verifier {
     }
 
     #[allow(dead_code)]
-    fn get_store(&self, store_repo: &StoreRepo) -> Result<Arc<Store>, VerifierError> {
+    pub(crate) fn get_store(&self, store_repo: &StoreRepo) -> Result<Arc<Store>, VerifierError> {
         let overlay_id = store_repo.overlay_id_for_storage_purpose();
         let store = self
             .stores
@@ -604,7 +612,7 @@ impl Verifier {
             let branch = repo.branch(branch_id)?;
             let commit = Commit::new_with_body_and_save(
                 self.user_privkey(),
-                &self.user_privkey().to_pub(),
+                self.user_id(),
                 *branch_id,
                 QuorumType::NoSigning,
                 deps,
@@ -626,6 +634,44 @@ impl Verifier {
 
         self.new_event(&commit, additional_blocks, *repo_id, store_repo)
             .await
+    }
+
+    pub(crate) async fn new_transaction_commit(
+        &mut self,
+        commit_body: CommitBodyV0,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        store_repo: &StoreRepo,
+        deps: Vec<ObjectRef>,
+        files: Vec<ObjectRef>,
+    ) -> Result<Commit, NgError> {
+        let commit = {
+            let repo = self.get_repo(repo_id, &store_repo)?;
+            let branch = repo.branch(branch_id)?;
+            let commit = Commit::new_with_body_and_save(
+                self.user_privkey(),
+                self.user_id(),
+                *branch_id,
+                QuorumType::NoSigning,
+                deps,
+                vec![],
+                branch.current_heads.clone(),
+                vec![],
+                files,
+                vec![],
+                vec![],
+                CommitBody::V0(commit_body),
+                0,
+                &repo.store,
+            )?;
+            commit
+        };
+        //log_info!("{}", commit);
+
+        self.new_event(&commit, &vec![], *repo_id, store_repo)
+            .await?;
+
+        Ok(commit)
     }
 
     #[allow(dead_code)]
@@ -714,7 +760,7 @@ impl Verifier {
                 }
                 Ok(res)
             }
-            #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+            #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
             VerifierConfigType::RocksDb(path) => {
                 let mut path = path.clone();
                 path.push(format!("outbox{}", self.peer_id.to_hash_string()));
@@ -779,7 +825,7 @@ impl Verifier {
             // send the event to the server already
             let connected_broker = self.connected_broker.clone();
             let broker = BROKER.read().await;
-            let user = self.config.user_priv_key.to_pub();
+            let user = self.user_id().clone();
             self.send_event(event, &broker, &Some(user), &connected_broker, overlay)
                 .await?;
         } else {
@@ -794,7 +840,7 @@ impl Verifier {
                         serde_bare::to_vec(&e)?,
                     )?;
                 }
-                #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+                #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
                 VerifierConfigType::RocksDb(path) => {
                     let mut path = path.clone();
                     std::fs::create_dir_all(path.clone()).unwrap();
@@ -843,7 +889,7 @@ impl Verifier {
             }
         }
         let connected_broker = self.connected_broker.clone();
-        let user = self.config.user_priv_key.to_pub();
+        let user = self.user_id().clone();
         let broker = BROKER.read().await;
         //log_info!("looping on branches {:?}", branches);
         for (repo, branch, publisher) in branches {
@@ -885,7 +931,7 @@ impl Verifier {
         let res = self.send_outbox().await;
         log_info!("SENDING EVENTS FROM OUTBOX RETURNED: {:?}", res);
 
-        let user = self.config.user_priv_key.to_pub();
+        let user = self.user_id().clone();
         let broker = BROKER.read().await;
         log_info!("looping on branches {:?}", branches);
         for (repo, branch, publisher) in branches {
@@ -924,7 +970,7 @@ impl Verifier {
             return Ok(());
         }
 
-        let user = self.config.user_priv_key.to_pub();
+        let user = self.user_id().clone();
         let connected_broker = self.connected_broker.clone();
         self.open_branch_(
             repo_id,
@@ -942,7 +988,7 @@ impl Verifier {
         let overlay = repo.store.overlay_for_read_on_client_protocol();
 
         let broker = BROKER.read().await;
-        let user = self.config.user_priv_key.to_pub();
+        let user = self.user_id().clone();
         let remote = self.connected_broker.connected_or_err()?;
 
         let msg = BlocksPut::V0(BlocksPutV0 {
@@ -963,7 +1009,7 @@ impl Verifier {
         let overlay = repo.store.overlay_for_read_on_client_protocol();
 
         let broker = BROKER.read().await;
-        let user = self.config.user_priv_key.to_pub();
+        let user = self.user_id().clone();
         let remote = self.connected_broker.connected_or_err()?;
 
         let msg = BlocksExist::V0(BlocksExistV0 {
@@ -1238,6 +1284,9 @@ impl Verifier {
                 CommitBodyV0::StoreUpdate(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::AddSignerCap(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::AddFile(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::AsyncTransaction(a) => {
+                    Box::pin(self.verify_async_transaction(a, commit, branch_id, repo_id, store))
+                }
                 _ => {
                     log_err!("unimplemented verifier {}", commit);
                     return Err(VerifierError::NotImplemented);
@@ -1349,6 +1398,15 @@ impl Verifier {
         let repo_ref: Result<&Repo, VerifierError> =
             self.repos.get(id).ok_or(VerifierError::RepoNotFound);
         repo_ref
+    }
+
+    pub(crate) fn get_store_by_overlay_id(
+        &self,
+        id: &OverlayId,
+    ) -> Result<Arc<Store>, VerifierError> {
+        Ok(Arc::clone(
+            self.stores.get(id).ok_or(VerifierError::StoreNotFound)?,
+        ))
     }
 
     async fn bootstrap(&mut self) -> Result<(), NgError> {
@@ -1635,7 +1693,7 @@ impl Verifier {
         let overlay = repo.store.overlay_for_read_on_client_protocol();
 
         let broker = BROKER.read().await;
-        let user = Some(self.config.user_priv_key.to_pub());
+        let user = Some(self.user_id().clone());
         let remote = &self.connected_broker;
 
         match repo.store.has(id) {
@@ -1666,7 +1724,7 @@ impl Verifier {
     async fn bootstrap_from_remote(&mut self) -> Result<(), NgError> {
         if self.need_bootstrap() {
             let broker = BROKER.read().await;
-            let user = Some(self.config.user_priv_key.to_pub());
+            let user = Some(self.user_id().clone());
             self.connected_broker.is_direct_or_err()?;
 
             let private_store_id = self.config.private_store_id.to_owned().unwrap();
@@ -1857,7 +1915,7 @@ impl Verifier {
             return Ok(());
         }
         let broker = BROKER.read().await;
-        let user = Some(self.config.user_priv_key.to_pub());
+        let user = Some(self.user_id().clone());
         self.connected_broker.connected_or_err()?;
         let remote = self.connected_broker.clone();
 
@@ -1968,7 +2026,7 @@ impl Verifier {
                 let res = (js.last_seq_function)(self.peer_id, qty)?;
                 self.max_reserved_seq_num = res + qty as u64;
             }
-            #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+            #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
             VerifierConfigType::RocksDb(path) => {
                 let mut path = path.clone();
                 std::fs::create_dir_all(path.clone()).unwrap();
@@ -2028,7 +2086,7 @@ impl Verifier {
                 Some(Box::new(InMemoryUserStorage::new()) as Box<dyn UserStorage>),
                 Some(block_storage),
             ),
-            #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+            #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
             VerifierConfigType::RocksDb(path) => {
                 let mut path_oxi = path.clone();
                 path_oxi.push("graph");
@@ -2059,6 +2117,7 @@ impl Verifier {
         };
         let peer_id = config.peer_priv_key.to_pub();
         let mut verif = Verifier {
+            user_id: config.user_priv_key.to_pub(),
             config,
             connected_broker: BrokerPeerId::None,
             graph_dataset: graph,

@@ -25,7 +25,7 @@
 //! };
 //! # Result::<_, Box<dyn std::error::Error>>::Ok(())
 //! ```
-#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+#[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use super::io::RdfParseError;
 use super::io::{RdfFormat, RdfParser, RdfSerializer};
 use super::model::*;
@@ -33,16 +33,17 @@ use super::sparql::{
     evaluate_query, evaluate_update, EvaluationError, Query, QueryExplanation, QueryOptions,
     QueryResults, Update, UpdateOptions,
 };
-use super::storage::numeric_encoder::{Decoder, EncodedQuad, EncodedTerm};
-#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+use super::storage::numeric_encoder::{Decoder, EncodedQuad, EncodedTerm, StrHash};
+#[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use super::storage::StorageBulkLoader;
 use super::storage::{
     ChainedDecodingQuadIterator, DecodingGraphIterator, Storage, StorageReader, StorageWriter,
 };
 pub use super::storage::{CorruptionError, LoaderError, SerializerError, StorageError};
+use std::collections::HashSet;
 use std::error::Error;
 use std::io::{Read, Write};
-#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+#[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use std::path::Path;
 use std::{fmt, str};
 
@@ -100,14 +101,14 @@ impl Store {
     /// Only one read-write [`Store`] can exist at the same time.
     /// If you want to have extra [`Store`] instance opened on a same data
     /// use [`Store::open_read_only`].
-    #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+    #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
     pub fn open(path: impl AsRef<Path>) -> Result<Self, StorageError> {
         Ok(Self {
             storage: Storage::open(path.as_ref(), None)?,
         })
     }
 
-    #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+    #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
     pub fn open_with_key(path: impl AsRef<Path>, key: [u8; 32]) -> Result<Self, StorageError> {
         Ok(Self {
             storage: Storage::open(path.as_ref(), Some(key))?,
@@ -155,7 +156,7 @@ impl Store {
     /// Opens a read-only [`Store`] from disk.
     ///
     /// Opening as read-only while having an other process writing the database is undefined behavior.
-    #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+    #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
     pub fn open_read_only(
         path: impl AsRef<Path>,
         key: Option<[u8; 32]>,
@@ -408,11 +409,12 @@ impl Store {
     /// })?;
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn transaction<'a, 'b: 'a, T, E: Error + 'static + From<StorageError>>(
+    fn transaction<'a, 'b: 'a, T, E: Error + 'static + From<StorageError>>(
         &'b self,
         f: impl Fn(Transaction<'a>) -> Result<T, E>,
     ) -> Result<T, E> {
-        self.storage.transaction(|writer| f(Transaction { writer }))
+        self.storage
+            .ng_transaction(|writer| f(Transaction { writer }))
     }
 
     /// Executes a [SPARQL 1.1 update](https://www.w3.org/TR/sparql11-update/).
@@ -433,11 +435,11 @@ impl Store {
     /// assert!(store.contains(QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph))?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn update(
+    pub fn ng_update(
         &self,
         update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
-    ) -> Result<(), EvaluationError> {
-        self.update_opt(update, UpdateOptions::default())
+    ) -> Result<(HashSet<Quad>, HashSet<Quad>), EvaluationError> {
+        self.ng_update_opt(update, UpdateOptions::default())
     }
 
     /// Executes a [SPARQL 1.1 update](https://www.w3.org/TR/sparql11-update/) with some options.
@@ -457,15 +459,44 @@ impl Store {
     /// )?;
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn update_opt(
+    pub fn ng_update_opt(
         &self,
         update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
         options: impl Into<UpdateOptions>,
-    ) -> Result<(), EvaluationError> {
+    ) -> Result<(HashSet<Quad>, HashSet<Quad>), EvaluationError> {
         let update = update.try_into().map_err(Into::into)?;
         let options = options.into();
+        self.storage.transaction(|mut t| {
+            evaluate_update(&mut t, &update, &options)?;
+            Ok(t.get_update())
+        })
+    }
+
+    /// INTERNAL FOR NG
+    // pub fn ng_update_opt(
+    //     &self,
+    //     update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
+    //     options: impl Into<UpdateOptions>,
+    // ) -> Result<(), EvaluationError> {
+    //     let update = update.try_into().map_err(Into::into)?;
+    //     let options = options.into();
+    //     self.storage
+    //         .ng_transaction(|mut t| evaluate_update(&mut t, &update, &options))
+    // }
+
+    // pub fn ng_update(
+    //     &self,
+    //     update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
+    // ) -> Result<(), EvaluationError> {
+    //     self.ng_update_opt(update, UpdateOptions::default())
+    // }
+    #[doc(hidden)]
+    pub fn ng_transaction<'a, 'b: 'a, T, E: Error + 'static + From<StorageError>>(
+        &'b self,
+        f: impl Fn(Transaction<'a>) -> Result<T, E>,
+    ) -> Result<T, E> {
         self.storage
-            .transaction(|mut t| evaluate_update(&mut t, &update, &options))
+            .ng_transaction(|writer| f(Transaction { writer }))
     }
 
     /// Loads a RDF file under into the store.
@@ -506,6 +537,7 @@ impl Store {
         parser: impl Into<RdfParser>,
         read: impl Read,
     ) -> Result<(), LoaderError> {
+        unimplemented!();
         let quads = parser
             .into()
             .rename_blank_nodes()
@@ -627,23 +659,23 @@ impl Store {
     /// assert!(store.contains(quad)?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn insert<'a>(&self, quad: impl Into<QuadRef<'a>>) -> Result<bool, StorageError> {
-        let quad = quad.into();
-        self.transaction(|mut t| t.insert(quad))
-    }
+    // pub fn insert<'a>(&self, quad: impl Into<QuadRef<'a>>) -> Result<bool, StorageError> {
+    //     let quad = quad.into();
+    //     self.transaction(|mut t| t.insert(quad))
+    // }
 
-    /// Adds atomically a set of quads to this store.
-    ///
-    /// <div class="warning">
-    ///
-    /// This operation uses a memory heavy transaction internally, use the [`bulk_loader`](Store::bulk_loader) if you plan to add ten of millions of triples.</div>
-    pub fn extend(
-        &self,
-        quads: impl IntoIterator<Item = impl Into<Quad>>,
-    ) -> Result<(), StorageError> {
-        let quads = quads.into_iter().map(Into::into).collect::<Vec<_>>();
-        self.transaction(move |mut t| t.extend(&quads))
-    }
+    // /// Adds atomically a set of quads to this store.
+    // ///
+    // /// <div class="warning">
+    // ///
+    // /// This operation uses a memory heavy transaction internally, use the [`bulk_loader`](Store::bulk_loader) if you plan to add ten of millions of triples.</div>
+    // pub fn extend(
+    //     &self,
+    //     quads: impl IntoIterator<Item = impl Into<Quad>>,
+    // ) -> Result<(), StorageError> {
+    //     let quads = quads.into_iter().map(Into::into).collect::<Vec<_>>();
+    //     self.transaction(move |mut t| t.extend(&quads))
+    // }
 
     /// Removes a quad from this store.
     ///
@@ -666,6 +698,7 @@ impl Store {
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn remove<'a>(&self, quad: impl Into<QuadRef<'a>>) -> Result<bool, StorageError> {
+        unimplemented!();
         let quad = quad.into();
         self.transaction(move |mut t| t.remove(quad))
     }
@@ -805,13 +838,13 @@ impl Store {
     /// );
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn named_graphs(&self) -> GraphNameIter {
-        let reader = self.storage.snapshot();
-        GraphNameIter {
-            iter: reader.named_graphs(),
-            reader,
-        }
-    }
+    // pub fn named_graphs(&self) -> GraphNameIter {
+    //     let reader = self.storage.snapshot();
+    //     GraphNameIter {
+    //         iter: reader.named_graphs(),
+    //         reader,
+    //     }
+    // }
 
     /// Checks if the store contains a given graph
     ///
@@ -826,13 +859,13 @@ impl Store {
     /// assert!(store.contains_named_graph(&ex)?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn contains_named_graph<'a>(
-        &self,
-        graph_name: impl Into<NamedOrBlankNodeRef<'a>>,
-    ) -> Result<bool, StorageError> {
-        let graph_name = EncodedTerm::from(graph_name.into());
-        self.storage.snapshot().contains_named_graph(&graph_name)
-    }
+    // pub fn contains_named_graph<'a>(
+    //     &self,
+    //     graph_name: impl Into<NamedOrBlankNodeRef<'a>>,
+    // ) -> Result<bool, StorageError> {
+    //     let graph_name = EncodedTerm::from(graph_name.into());
+    //     self.storage.snapshot().contains_named_graph(&graph_name)
+    // }
 
     /// Inserts a graph into this store.
     ///
@@ -853,13 +886,13 @@ impl Store {
     /// );
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn insert_named_graph<'a>(
-        &self,
-        graph_name: impl Into<NamedOrBlankNodeRef<'a>>,
-    ) -> Result<bool, StorageError> {
-        let graph_name = graph_name.into();
-        self.transaction(|mut t| t.insert_named_graph(graph_name))
-    }
+    // pub fn insert_named_graph<'a>(
+    //     &self,
+    //     graph_name: impl Into<NamedOrBlankNodeRef<'a>>,
+    // ) -> Result<bool, StorageError> {
+    //     let graph_name = graph_name.into();
+    //     self.transaction(|mut t| t.insert_named_graph(graph_name))
+    // }
 
     /// Clears a graph from this store.
     ///
@@ -939,7 +972,7 @@ impl Store {
     /// Flushes all buffers and ensures that all writes are saved on disk.
     ///
     /// Flushes are automatically done using background threads but might lag a little bit.
-    #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+    #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
     pub fn flush(&self) -> Result<(), StorageError> {
         self.storage.flush()
     }
@@ -949,7 +982,7 @@ impl Store {
     /// Useful to call after a batch upload or another similar operation.
     ///
     /// <div class="warning">Can take hours on huge databases.</div>
-    #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+    #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
     pub fn optimize(&self) -> Result<(), StorageError> {
         self.storage.compact()
     }
@@ -972,7 +1005,7 @@ impl Store {
     /// This allows cheap regular backups.
     ///
     /// If you want to move your data to another RDF storage system, you should have a look at the [`Store::dump_to_write`] function instead.
-    #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+    #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
     pub fn backup(&self, target_directory: impl AsRef<Path>) -> Result<(), StorageError> {
         self.storage.backup(target_directory.as_ref())
     }
@@ -999,7 +1032,7 @@ impl Store {
     /// assert!(store.contains(QuadRef::new(ex, ex, ex, ex))?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+    #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
     pub fn bulk_loader(&self) -> BulkLoader {
         BulkLoader {
             storage: StorageBulkLoader::new(self.storage.clone()),
@@ -1205,25 +1238,25 @@ impl<'a> Transaction<'a> {
     /// })?;
     /// # Result::<_, EvaluationError>::Ok(())
     /// ```
-    pub fn update(
-        &mut self,
-        update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
-    ) -> Result<(), EvaluationError> {
-        self.update_opt(update, UpdateOptions::default())
-    }
+    // pub fn update(
+    //     &mut self,
+    //     update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
+    // ) -> Result<(), EvaluationError> {
+    //     self.update_opt(update, UpdateOptions::default())
+    // }
 
-    /// Executes a [SPARQL 1.1 update](https://www.w3.org/TR/sparql11-update/) with some options.
-    pub fn update_opt(
-        &mut self,
-        update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
-        options: impl Into<UpdateOptions>,
-    ) -> Result<(), EvaluationError> {
-        evaluate_update(
-            &mut self.writer,
-            &update.try_into().map_err(Into::into)?,
-            &options.into(),
-        )
-    }
+    // /// Executes a [SPARQL 1.1 update](https://www.w3.org/TR/sparql11-update/) with some options.
+    // pub fn update_opt(
+    //     &mut self,
+    //     update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
+    //     options: impl Into<UpdateOptions>,
+    // ) -> Result<(), EvaluationError> {
+    //     evaluate_update(
+    //         &mut self.writer,
+    //         &update.try_into().map_err(Into::into)?,
+    //         &options.into(),
+    //     )
+    // }
 
     /// Loads a RDF file into the store.
     ///
@@ -1261,16 +1294,16 @@ impl<'a> Transaction<'a> {
     /// assert!(store.contains(QuadRef::new(ex, ex, ex, NamedNodeRef::new("http://example.com/g2")?))?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn load_from_read(
-        &mut self,
-        parser: impl Into<RdfParser>,
-        read: impl Read,
-    ) -> Result<(), LoaderError> {
-        for quad in parser.into().rename_blank_nodes().parse_read(read) {
-            self.insert(quad?.as_ref())?;
-        }
-        Ok(())
-    }
+    // pub fn load_from_read(
+    //     &mut self,
+    //     parser: impl Into<RdfParser>,
+    //     read: impl Read,
+    // ) -> Result<(), LoaderError> {
+    //     for quad in parser.into().rename_blank_nodes().parse_read(read) {
+    //         self.insert(quad?.as_ref())?;
+    //     }
+    //     Ok(())
+    // }
 
     /// Loads a graph file (i.e. triples) into the store.
     ///
@@ -1298,27 +1331,27 @@ impl<'a> Transaction<'a> {
     /// assert!(store.contains(QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph))?);
     /// # Result::<_,oxigraph::store::LoaderError>::Ok(())
     /// ```
-    #[deprecated(note = "use Transaction.load_from_read instead", since = "0.4.0")]
-    pub fn load_graph(
-        &mut self,
-        read: impl Read,
-        format: impl Into<RdfFormat>,
-        to_graph_name: impl Into<GraphName>,
-        base_iri: Option<&str>,
-    ) -> Result<(), LoaderError> {
-        let mut parser = RdfParser::from_format(format.into())
-            .without_named_graphs()
-            .with_default_graph(to_graph_name);
-        if let Some(base_iri) = base_iri {
-            parser = parser
-                .with_base_iri(base_iri)
-                .map_err(|e| LoaderError::InvalidBaseIri {
-                    iri: base_iri.into(),
-                    error: e,
-                })?;
-        }
-        self.load_from_read(parser, read)
-    }
+    // #[deprecated(note = "use Transaction.load_from_read instead", since = "0.4.0")]
+    // pub fn load_graph(
+    //     &mut self,
+    //     read: impl Read,
+    //     format: impl Into<RdfFormat>,
+    //     to_graph_name: impl Into<GraphName>,
+    //     base_iri: Option<&str>,
+    // ) -> Result<(), LoaderError> {
+    //     let mut parser = RdfParser::from_format(format.into())
+    //         .without_named_graphs()
+    //         .with_default_graph(to_graph_name);
+    //     if let Some(base_iri) = base_iri {
+    //         parser = parser
+    //             .with_base_iri(base_iri)
+    //             .map_err(|e| LoaderError::InvalidBaseIri {
+    //                 iri: base_iri.into(),
+    //                 error: e,
+    //             })?;
+    //     }
+    //     self.load_from_read(parser, read)
+    // }
 
     /// Loads a dataset file (i.e. quads) into the store.
     ///
@@ -1342,23 +1375,91 @@ impl<'a> Transaction<'a> {
     /// assert!(store.contains(QuadRef::new(ex, ex, ex, ex))?);
     /// # Result::<_,oxigraph::store::LoaderError>::Ok(())
     /// ```
-    #[deprecated(note = "use Transaction.load_from_read instead", since = "0.4.0")]
-    pub fn load_dataset(
+    // #[deprecated(note = "use Transaction.load_from_read instead", since = "0.4.0")]
+    // pub fn load_dataset(
+    //     &mut self,
+    //     read: impl Read,
+    //     format: impl Into<RdfFormat>,
+    //     base_iri: Option<&str>,
+    // ) -> Result<(), LoaderError> {
+    //     let mut parser = RdfParser::from_format(format.into());
+    //     if let Some(base_iri) = base_iri {
+    //         parser = parser
+    //             .with_base_iri(base_iri)
+    //             .map_err(|e| LoaderError::InvalidBaseIri {
+    //                 iri: base_iri.into(),
+    //                 error: e,
+    //             })?;
+    //     }
+    //     self.load_from_read(parser, read)
+    // }
+
+    pub fn ng_get_heads(
+        &self,
+        topic: &StrHash,
+        overlay: &StrHash,
+    ) -> Result<HashSet<StrHash>, StorageError> {
+        self.writer.reader().ng_get_heads(topic, overlay)
+    }
+
+    pub fn ng_get_reader(&self) -> StorageReader {
+        self.writer.reader()
+    }
+
+    pub fn update_heads(
         &mut self,
-        read: impl Read,
-        format: impl Into<RdfFormat>,
-        base_iri: Option<&str>,
-    ) -> Result<(), LoaderError> {
-        let mut parser = RdfParser::from_format(format.into());
-        if let Some(base_iri) = base_iri {
-            parser = parser
-                .with_base_iri(base_iri)
-                .map_err(|e| LoaderError::InvalidBaseIri {
-                    iri: base_iri.into(),
-                    error: e,
-                })?;
-        }
-        self.load_from_read(parser, read)
+        topic: &StrHash,
+        overlay: &StrHash,
+        commit: &StrHash,
+        direct_causal_past: &HashSet<StrHash>,
+    ) -> Result<(), StorageError> {
+        self.writer
+            .ng_update_heads(topic, overlay, commit, direct_causal_past)
+    }
+
+    pub fn update_past(
+        &mut self,
+        commit: &StrHash,
+        direct_causal_past: &HashSet<StrHash>,
+        skip_has_no_graph: bool,
+    ) -> Result<(), StorageError> {
+        self.writer
+            .ng_update_past(commit, direct_causal_past, skip_has_no_graph)
+    }
+
+    pub fn update_branch_and_token(
+        &mut self,
+        overlay_encoded: &StrHash,
+        branch_encoded: &StrHash,
+        topic_encoded: &StrHash,
+        token_encoded: &StrHash,
+    ) -> Result<(), StorageError> {
+        self.writer.update_branch_and_token(
+            overlay_encoded,
+            branch_encoded,
+            topic_encoded,
+            token_encoded,
+        )
+    }
+
+    pub fn doc_in_store(
+        &mut self,
+        graph_name: NamedNodeRef<'_>,
+        overlay: &StrHash,
+        remove: bool,
+    ) -> Result<(), StorageError> {
+        self.writer.doc_in_store(graph_name, overlay, remove)
+    }
+
+    pub fn named_commit_or_branch(
+        &mut self,
+        ov_graph_name: NamedNodeRef<'_>,
+        name: &String,
+        // if None: remove
+        value: &Option<Vec<u8>>,
+    ) -> Result<(), StorageError> {
+        self.writer
+            .named_commit_or_branch(ov_graph_name, name, value)
     }
 
     /// Adds a quad to this store.
@@ -1378,20 +1479,36 @@ impl<'a> Transaction<'a> {
     /// assert!(store.contains(quad)?);
     /// # Result::<_,oxigraph::store::StorageError>::Ok(())
     /// ```
-    pub fn insert<'b>(&mut self, quad: impl Into<QuadRef<'b>>) -> Result<bool, StorageError> {
-        self.writer.insert(quad.into())
+    pub fn insert<'b>(
+        &mut self,
+        quad: impl Into<QuadRef<'b>>,
+        value: u8,
+    ) -> Result<(), StorageError> {
+        self.writer.ng_insert(quad.into(), value)
     }
 
-    /// Adds a set of quads to this store.
-    pub fn extend<'b>(
+    pub fn insert_encoded(
         &mut self,
-        quads: impl IntoIterator<Item = impl Into<QuadRef<'b>>>,
-    ) -> Result<(), StorageError> {
-        for quad in quads {
-            self.writer.insert(quad.into())?;
-        }
-        Ok(())
+        encoded: &EncodedQuad,
+        value: u8,
+    ) -> Result<bool, StorageError> {
+        self.writer.ng_insert_encoded(encoded, value)
     }
+
+    pub fn ng_remove(&mut self, quad: &EncodedQuad, commit: &StrHash) -> Result<(), StorageError> {
+        self.writer.ng_remove(quad, commit)
+    }
+
+    // /// Adds a set of quads to this store.
+    // pub fn extend<'b>(
+    //     &mut self,
+    //     quads: impl IntoIterator<Item = impl Into<QuadRef<'b>>>,
+    // ) -> Result<(), StorageError> {
+    //     for quad in quads {
+    //         self.writer.insert(quad.into())?;
+    //     }
+    //     Ok(())
+    // }
 
     /// Removes a quad from this store.
     ///
@@ -1417,23 +1534,23 @@ impl<'a> Transaction<'a> {
     }
 
     /// Returns all the store named graphs.
-    pub fn named_graphs(&self) -> GraphNameIter {
-        let reader = self.writer.reader();
-        GraphNameIter {
-            iter: reader.named_graphs(),
-            reader,
-        }
-    }
+    // pub fn named_graphs(&self) -> GraphNameIter {
+    //     let reader = self.writer.reader();
+    //     GraphNameIter {
+    //         iter: reader.named_graphs(),
+    //         reader,
+    //     }
+    // }
 
     /// Checks if the store contains a given graph.
-    pub fn contains_named_graph<'b>(
-        &self,
-        graph_name: impl Into<NamedOrBlankNodeRef<'b>>,
-    ) -> Result<bool, StorageError> {
-        self.writer
-            .reader()
-            .contains_named_graph(&EncodedTerm::from(graph_name.into()))
-    }
+    // pub fn contains_named_graph<'b>(
+    //     &self,
+    //     graph_name: impl Into<NamedOrBlankNodeRef<'b>>,
+    // ) -> Result<bool, StorageError> {
+    //     self.writer
+    //         .reader()
+    //         .contains_named_graph(&EncodedTerm::from(graph_name.into()))
+    // }
 
     /// Inserts a graph into this store.
     ///
@@ -1453,12 +1570,12 @@ impl<'a> Transaction<'a> {
     /// );
     /// # Result::<_,oxigraph::store::StorageError>::Ok(())
     /// ```
-    pub fn insert_named_graph<'b>(
-        &mut self,
-        graph_name: impl Into<NamedOrBlankNodeRef<'b>>,
-    ) -> Result<bool, StorageError> {
-        self.writer.insert_named_graph(graph_name.into())
-    }
+    // pub fn insert_named_graph<'b>(
+    //     &mut self,
+    //     graph_name: impl Into<NamedOrBlankNodeRef<'b>>,
+    // ) -> Result<bool, StorageError> {
+    //     self.writer.insert_named_graph(graph_name.into())
+    // }
 
     /// Clears a graph from this store.
     ///
@@ -1617,14 +1734,14 @@ impl Iterator for GraphNameIter {
 /// assert!(store.contains(QuadRef::new(ex, ex, ex, ex))?);
 /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
 /// ```
-#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+#[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 #[must_use]
 pub struct BulkLoader {
     storage: StorageBulkLoader,
     on_parse_error: Option<Box<dyn Fn(RdfParseError) -> Result<(), RdfParseError>>>,
 }
 
-#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+#[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 impl BulkLoader {
     /// Sets the maximal number of threads to be used by the bulk loader per operation.
     ///
@@ -1981,17 +2098,17 @@ mod tests {
         ];
 
         let store = Store::new()?;
-        for t in &default_quads {
-            assert!(store.insert(t)?);
-        }
-        assert!(!store.insert(&default_quad)?);
+        // for t in &default_quads {
+        //     assert!(store.insert(t)?);
+        // }
+        // assert!(!store.insert(&default_quad)?);
 
-        assert!(store.remove(&default_quad)?);
-        assert!(!store.remove(&default_quad)?);
-        assert!(store.insert(&named_quad)?);
-        assert!(!store.insert(&named_quad)?);
-        assert!(store.insert(&default_quad)?);
-        assert!(!store.insert(&default_quad)?);
+        // assert!(store.remove(&default_quad)?);
+        // assert!(!store.remove(&default_quad)?);
+        // assert!(store.insert(&named_quad)?);
+        // assert!(!store.insert(&named_quad)?);
+        // assert!(store.insert(&default_quad)?);
+        // assert!(!store.insert(&default_quad)?);
 
         assert_eq!(store.len()?, 4);
         assert_eq!(store.iter().collect::<Result<Vec<_>, _>>()?, all_quads);

@@ -639,7 +639,7 @@ pub async fn file_get_from_private_store(
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
 
-    let nuri = NuriV0::new_from(nuri).map_err(|_| "Deserialization error of Nuri".to_string())?;
+    let nuri = NuriV0::new_from(&nuri).map_err(|_| "Deserialization error of Nuri".to_string())?;
 
     let mut request = AppRequest::new(AppRequestCommandV0::FileGet, nuri.clone(), None);
     request.set_session_id(session_id);

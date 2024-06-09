@@ -6,7 +6,7 @@ use crate::oxigraph::sparql::eval::{EncodedTuple, SimpleEvaluator};
 use crate::oxigraph::sparql::http::Client;
 use crate::oxigraph::sparql::{EvaluationError, Update, UpdateOptions};
 use crate::oxigraph::storage::numeric_encoder::{Decoder, EncodedTerm};
-use crate::oxigraph::storage::StorageWriter;
+use crate::oxigraph::storage::CommitWriter;
 use crate::spargebra::algebra::{GraphPattern, GraphTarget};
 use crate::spargebra::term::{
     BlankNode, GraphName, GraphNamePattern, GroundQuad, GroundQuadPattern, GroundSubject,
@@ -23,7 +23,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub fn evaluate_update<'a, 'b: 'a>(
-    transaction: &'a mut StorageWriter<'b>,
+    transaction: &'a mut CommitWriter<'b>,
     update: &Update,
     options: &UpdateOptions,
 ) -> Result<(), EvaluationError> {
@@ -40,7 +40,7 @@ pub fn evaluate_update<'a, 'b: 'a>(
 }
 
 struct SimpleUpdateEvaluator<'a, 'b> {
-    transaction: &'a mut StorageWriter<'b>,
+    transaction: &'a mut CommitWriter<'b>,
     base_iri: Option<Rc<Iri<String>>>,
     options: UpdateOptions,
     client: Client,
@@ -200,27 +200,28 @@ impl<'a, 'b: 'a> SimpleUpdateEvaluator<'a, 'b> {
     }
 
     fn eval_clear(&mut self, graph: &GraphTarget, silent: bool) -> Result<(), EvaluationError> {
-        match graph {
-            GraphTarget::NamedNode(graph_name) => {
-                if self
-                    .transaction
-                    .reader()
-                    .contains_named_graph(&graph_name.as_ref().into())?
-                {
-                    Ok(self.transaction.clear_graph(graph_name.into())?)
-                } else if silent {
-                    Ok(())
-                } else {
-                    Err(EvaluationError::GraphDoesNotExist(graph_name.clone()))
-                }
-            }
-            GraphTarget::DefaultGraph => {
-                self.transaction.clear_graph(GraphNameRef::DefaultGraph)?;
-                Ok(())
-            }
-            GraphTarget::NamedGraphs => Ok(self.transaction.clear_all_named_graphs()?),
-            GraphTarget::AllGraphs => Ok(self.transaction.clear_all_graphs()?),
-        }
+        unimplemented!();
+        // match graph {
+        //     GraphTarget::NamedNode(graph_name) => {
+        //         if self
+        //             .transaction
+        //             .reader()
+        //             .contains_named_graph(&graph_name.as_ref().into())?
+        //         {
+        //             Ok(self.transaction.clear_graph(graph_name.into())?)
+        //         } else if silent {
+        //             Ok(())
+        //         } else {
+        //             Err(EvaluationError::GraphDoesNotExist(graph_name.clone()))
+        //         }
+        //     }
+        //     GraphTarget::DefaultGraph => {
+        //         self.transaction.clear_graph(GraphNameRef::DefaultGraph)?;
+        //         Ok(())
+        //     }
+        //     GraphTarget::NamedGraphs => Ok(self.transaction.clear_all_named_graphs()?),
+        //     GraphTarget::AllGraphs => Ok(self.transaction.clear_all_graphs()?),
+        // }
     }
 
     fn eval_drop(&mut self, graph: &GraphTarget, silent: bool) -> Result<(), EvaluationError> {

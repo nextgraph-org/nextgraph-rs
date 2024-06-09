@@ -51,6 +51,10 @@ impl NamedNode {
         self.iri
     }
 
+    pub fn as_string(&self) -> &String {
+        &self.iri
+    }
+
     #[inline]
     pub fn as_ref(&self) -> NamedNodeRef<'_> {
         NamedNodeRef::new_unchecked(&self.iri)

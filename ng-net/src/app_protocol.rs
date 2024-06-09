@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use ng_repo::errors::NgError;
 use ng_repo::types::*;
-use ng_repo::utils::{decode_id, decode_sym_key};
+use ng_repo::utils::{decode_id, decode_key, decode_sym_key};
 
 use crate::types::*;
 
@@ -23,6 +23,15 @@ lazy_static! {
     #[doc(hidden)]
     static ref RE_FILE_READ_CAP: Regex =
         Regex::new(r"^did:ng:j:([A-Za-z0-9-_%.]*):k:([A-Za-z0-9-_%.]*)$").unwrap();
+    #[doc(hidden)]
+    static ref RE_REPO: Regex =
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_%.]*):v:([A-Za-z0-9-_%.]*)$").unwrap();
+    #[doc(hidden)]
+    static ref RE_BRANCH: Regex =
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_%.]*):v:([A-Za-z0-9-_%.]*):b:([A-Za-z0-9-_%.]*)$").unwrap();
+    #[doc(hidden)]
+    static ref RE_NAMED_BRANCH_OR_COMMIT: Regex =
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_%.]*):v:([A-Za-z0-9-_%.]*):a:([A-Za-z0-9-_%.]*)$").unwrap(); //TODO: allow international chars. disallow digit as first char
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -68,6 +77,21 @@ pub enum TargetBranchV0 {
     Commits(Vec<ObjectId>), // only possible if access to their branch is given. must belong to the same branch.
 }
 
+impl TargetBranchV0 {
+    pub fn is_valid_for_sparql_update(&self) -> bool {
+        match self {
+            Self::Commits(_) => false,
+            _ => true,
+        }
+    }
+    pub fn branch_id(&self) -> &BranchId {
+        match self {
+            Self::BranchId(id) => id,
+            _ => panic!("not a TargetBranchV0::BranchId"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NuriTargetV0 {
     UserSite, // targets the whole data set of the user
@@ -81,7 +105,32 @@ pub enum NuriTargetV0 {
     Group(String), // shortname of a Group
 
     Repo(RepoId),
+
+    None,
 }
+
+impl NuriTargetV0 {
+    pub fn is_valid_for_sparql_update(&self) -> bool {
+        match self {
+            Self::UserSite | Self::AllDialogs | Self::AllGroups => false,
+            _ => true,
+        }
+    }
+    pub fn is_repo_id(&self) -> bool {
+        match self {
+            Self::Repo(_) => true,
+            _ => false,
+        }
+    }
+    pub fn repo_id(&self) -> &RepoId {
+        match self {
+            Self::Repo(id) => id,
+            _ => panic!("not a NuriTargetV0::Repo"),
+        }
+    }
+}
+
+const DID_PREFIX: &str = "did:ng";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NuriV0 {
@@ -99,6 +148,61 @@ pub struct NuriV0 {
 }
 
 impl NuriV0 {
+    pub fn commit_graph_name(commit_id: &ObjectId, overlay_id: &OverlayId) -> String {
+        format!("{DID_PREFIX}:c:{commit_id}:v:{overlay_id}")
+    }
+
+    pub fn commit_graph_name_from_base64(commit_base64: &String, overlay_id: &OverlayId) -> String {
+        format!("{DID_PREFIX}:c:{commit_base64}:v:{overlay_id}")
+    }
+
+    pub fn repo_graph_name(repo_id: &RepoId, overlay_id: &OverlayId) -> String {
+        format!("{DID_PREFIX}:o:{repo_id}:v:{overlay_id}")
+    }
+
+    pub fn overlay_id(overlay_id: &OverlayId) -> String {
+        format!("{DID_PREFIX}:v:{overlay_id}")
+    }
+
+    pub fn topic_id(topic_id: &TopicId) -> String {
+        format!("{DID_PREFIX}:h:{topic_id}")
+    }
+
+    pub fn branch_id(branch_id: &BranchId) -> String {
+        format!("{DID_PREFIX}:b:{branch_id}")
+    }
+
+    pub fn branch_id_from_base64(branch_base64: &String) -> String {
+        format!("{DID_PREFIX}:b:{branch_base64}")
+    }
+
+    pub fn token(token: &Digest) -> String {
+        format!("{DID_PREFIX}:n:{token}")
+    }
+
+    pub fn is_branch_identifier(&self) -> bool {
+        self.locator.is_empty()
+            && self.topic.is_none()
+            && self.access.is_empty()
+            && self.overlay.as_ref().map_or(false, |o| o.is_outer())
+            && self
+                .branch
+                .as_ref()
+                .map_or(true, |b| b.is_valid_for_sparql_update())
+            && self.object.is_none()
+            && !self.entire_store
+            && self.target.is_repo_id()
+    }
+
+    pub fn is_valid_for_sparql_update(&self) -> bool {
+        self.object.is_none()
+            && self.entire_store == false
+            && self.target.is_valid_for_sparql_update()
+            && self
+                .branch
+                .as_ref()
+                .map_or(true, |b| b.is_valid_for_sparql_update())
+    }
     pub fn new_repo_target_from_string(repo_id_string: String) -> Result<Self, NgError> {
         let repo_id: RepoId = repo_id_string.as_str().try_into()?;
         Ok(Self {
@@ -140,8 +244,8 @@ impl NuriV0 {
             locator: vec![],
         }
     }
-    pub fn new_from(from: String) -> Result<Self, NgError> {
-        let c = RE_FILE_READ_CAP.captures(&from);
+    pub fn new_from(from: &String) -> Result<Self, NgError> {
+        let c = RE_FILE_READ_CAP.captures(from);
 
         if c.is_some()
             && c.as_ref().unwrap().get(1).is_some()
@@ -164,7 +268,58 @@ impl NuriV0 {
                 locator: vec![],
             })
         } else {
-            Err(NgError::InvalidNuri)
+            let c = RE_REPO.captures(from);
+
+            if c.is_some()
+                && c.as_ref().unwrap().get(1).is_some()
+                && c.as_ref().unwrap().get(2).is_some()
+            {
+                let cap = c.unwrap();
+                let o = cap.get(1).unwrap().as_str();
+                let v = cap.get(2).unwrap().as_str();
+                let repo_id = decode_key(o)?;
+                let overlay_id = decode_id(v)?;
+                Ok(Self {
+                    identity: None,
+                    target: NuriTargetV0::Repo(repo_id),
+                    entire_store: false,
+                    object: None,
+                    branch: None,
+                    overlay: Some(OverlayLink::Outer(overlay_id)),
+                    access: vec![],
+                    topic: None,
+                    locator: vec![],
+                })
+            } else {
+                let c = RE_BRANCH.captures(from);
+
+                if c.is_some()
+                    && c.as_ref().unwrap().get(1).is_some()
+                    && c.as_ref().unwrap().get(2).is_some()
+                    && c.as_ref().unwrap().get(3).is_some()
+                {
+                    let cap = c.unwrap();
+                    let o = cap.get(1).unwrap().as_str();
+                    let v = cap.get(2).unwrap().as_str();
+                    let b = cap.get(3).unwrap().as_str();
+                    let repo_id = decode_key(o)?;
+                    let overlay_id = decode_id(v)?;
+                    let branch_id = decode_key(b)?;
+                    Ok(Self {
+                        identity: None,
+                        target: NuriTargetV0::Repo(repo_id),
+                        entire_store: false,
+                        object: None,
+                        branch: Some(TargetBranchV0::BranchId(branch_id)),
+                        overlay: Some(OverlayLink::Outer(overlay_id)),
+                        access: vec![],
+                        topic: None,
+                        locator: vec![],
+                    })
+                } else {
+                    Err(NgError::InvalidNuri)
+                }
+            }
         }
     }
 }
@@ -321,8 +476,12 @@ pub enum DocQuery {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GraphUpdate {
-    add: Vec<String>,
-    remove: Vec<String>,
+    // serialization of Vec<Quad>
+    #[serde(with = "serde_bytes")]
+    pub inserts: Vec<u8>,
+    // serialization of Vec<Quad>
+    #[serde(with = "serde_bytes")]
+    pub removes: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -405,9 +564,12 @@ pub enum DiscretePatch {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GraphPatch {
-    /// oxigraph::model::GroundQuad serialized to n-quads with oxrdfio
-    pub adds: Vec<String>,
-    pub removes: Vec<String>,
+    // serialization of Vec<Triple>
+    #[serde(with = "serde_bytes")]
+    pub inserts: Vec<u8>,
+    // serialization of Vec<Triple>
+    #[serde(with = "serde_bytes")]
+    pub removes: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -426,7 +588,9 @@ pub enum DiscreteState {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GraphState {
-    pub tuples: Vec<String>,
+    // serialization of Vec<Triple>
+    #[serde(with = "serde_bytes")]
+    pub triples: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

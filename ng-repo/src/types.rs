@@ -442,6 +442,11 @@ impl BlockRef {
     pub fn nuri(&self) -> String {
         format!(":j:{}:k:{}", self.id, self.key)
     }
+
+    pub fn tokenize(&self) -> Digest {
+        let ser = serde_bare::to_vec(self).unwrap();
+        Digest::Blake3Digest32(*blake3::hash(&ser).as_bytes())
+    }
 }
 
 impl From<BlockRef> for (BlockId, BlockKey) {
@@ -1358,6 +1363,15 @@ pub enum BranchType {
     Transactional, // this could have been called OtherTransactional, but for the sake of simplicity, we use Transactional for any branch that is not the Main one.
     Root,          // only used for BranchInfo
                    //Unknown, // only used temporarily when loading a branch info from commits (Branch commit, then AddBranch commit)
+}
+
+impl BranchType {
+    pub fn is_main(&self) -> bool {
+        match self {
+            Self::Main => true,
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for BranchType {

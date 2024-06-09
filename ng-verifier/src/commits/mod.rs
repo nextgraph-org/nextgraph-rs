@@ -9,6 +9,8 @@
 
 //! Verifiers for each Commit type
 
+pub mod transaction;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -84,10 +86,10 @@ impl CommitVerifier for RootBranch {
                 //TODO: deal with quorum_type (verify signature)
 
                 let user_priv = verifier.user_privkey();
-                let user_id = user_priv.to_pub();
+                let user_id = verifier.user_id();
                 let repo_write_cap_secret = if store.is_private() {
                     Some(SymKey::nil())
-                } else if let Some(pos) = root_branch.owners.iter().position(|&o| o == user_id) {
+                } else if let Some(pos) = root_branch.owners.iter().position(|o| o == user_id) {
                     let cryptobox = &root_branch.owners_write_cap[pos];
                     Some(RootBranch::decrypt_write_cap(user_priv, cryptobox)?)
                 } else {

@@ -229,19 +229,20 @@ impl Verifier {
                     }
                 }
                 AppFetchContentV0::WriteQuery => {
-                    if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0(
-                        query,
-                    )))) = payload
-                    {
-                        let store = self.graph_dataset.as_ref().unwrap();
-                        let res = store.update(&query);
-                        return Ok(match res {
-                            Err(e) => AppResponse::error(e.to_string()),
-                            Ok(_) => AppResponse::ok(),
-                        });
-                    } else {
-                        return Err(NgError::InvalidPayload);
+                    if !nuri.is_valid_for_sparql_update() {
+                        return Err(NgError::InvalidNuri);
                     }
+                    return if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Query(
+                        DocQuery::V0(query),
+                    ))) = payload
+                    {
+                        Ok(match self.process_sparql_update(&nuri, &query).await {
+                            Err(e) => AppResponse::error(e),
+                            Ok(_) => AppResponse::ok(),
+                        })
+                    } else {
+                        Err(NgError::InvalidPayload)
+                    };
                 }
                 _ => unimplemented!(),
             },

@@ -593,6 +593,20 @@ impl Commit {
         res
     }
 
+    pub fn direct_causal_past_ids(&self) -> HashSet<ObjectId> {
+        let mut res: HashSet<ObjectId> = HashSet::with_capacity(1);
+        match self {
+            Commit::V0(c) => match &c.header {
+                Some(CommitHeader::V0(header_v0)) => {
+                    res.extend(header_v0.acks.iter());
+                    res.extend(header_v0.nacks.iter());
+                }
+                _ => {}
+            },
+        };
+        res
+    }
+
     // /// Get seq
     // pub fn seq(&self) -> u64 {
     //     match self {

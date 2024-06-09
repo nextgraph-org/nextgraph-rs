@@ -8,6 +8,7 @@
     clippy::unwrap_in_result
 )]
 
+use super::super::numeric_encoder::StrHash;
 use crate::oxigraph::storage::error::{CorruptionError, StorageError};
 use libc::{c_char, c_void};
 use ng_rocksdb::ffi::*;
@@ -15,7 +16,7 @@ use rand::random;
 use std::borrow::Borrow;
 #[cfg(unix)]
 use std::cmp::min;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env::temp_dir;
 use std::error::Error;
 use std::ffi::{CStr, CString};
@@ -24,7 +25,7 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::thread::{available_parallelism, yield_now};
 use std::{fmt, io, ptr, slice};
 
@@ -70,6 +71,17 @@ enum DbKind {
     ReadWrite(Arc<RwDbHandler>),
 }
 
+impl Db {
+    pub(crate) fn past_commits_cache(
+        &self,
+    ) -> Arc<RwLock<HashMap<StrHash, Arc<HashSet<StrHash>>>>> {
+        match &self.inner {
+            DbKind::ReadWrite(rw) => Arc::clone(&rw.past_commits_cache),
+            _ => panic!("rw not implemented for read only DbKind"),
+        }
+    }
+}
+
 struct RwDbHandler {
     db: *mut rocksdb_transactiondb_t,
     env: UnsafeEnv,
@@ -88,6 +100,7 @@ struct RwDbHandler {
     cf_options: Vec<*mut rocksdb_options_t>,
     in_memory: bool,
     path: PathBuf,
+    past_commits_cache: Arc<RwLock<HashMap<StrHash, Arc<HashSet<StrHash>>>>>,
 }
 
 unsafe impl Send for RwDbHandler {}
@@ -317,6 +330,7 @@ impl Db {
                     cf_options,
                     in_memory,
                     path,
+                    past_commits_cache: Arc::new(RwLock::new(HashMap::new())),
                 })),
             })
         }
@@ -607,6 +621,88 @@ impl Db {
     }
 
     pub fn transaction<'a, 'b: 'a, T, E: Error + 'static + From<StorageError>>(
+        &'b self,
+        f: impl Fn(Transaction<'a>) -> Result<T, E>,
+    ) -> Result<T, E> {
+        if let DbKind::ReadWrite(db) = &self.inner {
+            loop {
+                let transaction = unsafe {
+                    let transaction = rocksdb_transaction_begin(
+                        db.db,
+                        db.write_options,
+                        db.transaction_options,
+                        ptr::null_mut(),
+                    );
+                    assert!(
+                        !transaction.is_null(),
+                        "rocksdb_transaction_begin returned null"
+                    );
+                    transaction
+                };
+                let (read_options, snapshot) = unsafe {
+                    let options = rocksdb_readoptions_create_copy(db.read_options);
+                    let snapshot = rocksdb_transaction_get_snapshot(transaction);
+                    rocksdb_readoptions_set_snapshot(options, snapshot);
+                    (options, snapshot)
+                };
+                let result = f(Transaction {
+                    inner: Rc::new(transaction),
+                    read_options,
+                    _lifetime: PhantomData,
+                });
+                match result {
+                    Ok(result) => {
+                        unsafe {
+                            let r =
+                                ffi_result!(rocksdb_transaction_rollback_with_status(transaction));
+                            rocksdb_transaction_destroy(transaction);
+                            rocksdb_readoptions_destroy(read_options);
+                            rocksdb_free(snapshot as *mut c_void);
+                            r.map_err(StorageError::from)?; // We make sure to also run destructors if the commit fails
+                        }
+                        return Ok(result);
+                    }
+                    Err(e) => {
+                        unsafe {
+                            let r =
+                                ffi_result!(rocksdb_transaction_rollback_with_status(transaction));
+                            rocksdb_transaction_destroy(transaction);
+                            rocksdb_readoptions_destroy(read_options);
+                            rocksdb_free(snapshot as *mut c_void);
+                            r.map_err(StorageError::from)?; // We make sure to also run destructors if the commit fails
+                        }
+                        // We look for the root error
+                        let mut error: &(dyn Error + 'static) = &e;
+                        while let Some(e) = error.source() {
+                            error = e;
+                        }
+                        let is_conflict_error =
+                            error.downcast_ref::<ErrorStatus>().map_or(false, |e| {
+                                e.0.code == rocksdb_status_code_t_rocksdb_status_code_busy
+                                    || e.0.code
+                                        == rocksdb_status_code_t_rocksdb_status_code_timed_out
+                                    || e.0.code
+                                        == rocksdb_status_code_t_rocksdb_status_code_try_again
+                            });
+                        if is_conflict_error {
+                            // We give a chance to the OS to do something else before retrying in order to help avoiding another conflict
+                            yield_now();
+                        } else {
+                            // We raise the error
+                            return Err(e);
+                        }
+                    }
+                }
+            }
+        } else {
+            Err(
+                StorageError::Other("Transaction are only possible on read-write instances".into())
+                    .into(),
+            )
+        }
+    }
+
+    pub fn ng_transaction<'a, 'b: 'a, T, E: Error + 'static + From<StorageError>>(
         &'b self,
         f: impl Fn(Transaction<'a>) -> Result<T, E>,
     ) -> Result<T, E> {
@@ -1286,6 +1382,18 @@ impl Iter {
             unsafe {
                 let mut len = 0;
                 let val = rocksdb_iter_key(self.inner, &mut len);
+                Some(slice::from_raw_parts(val.cast(), len))
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn value(&self) -> Option<&[u8]> {
+        if self.is_valid() {
+            unsafe {
+                let mut len = 0;
+                let val = rocksdb_iter_value(self.inner, &mut len);
                 Some(slice::from_raw_parts(val.cast(), len))
             }
         } else {
