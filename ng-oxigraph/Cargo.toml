@@ -28,6 +28,7 @@ sep-0006 = []
 oxsdatatypes = []
 
 [dependencies]
+lazy_static = "1.4.0"
 digest = "0.10"
 hex = "0.4"
 json-event-parser = "0.2.0-alpha.2"
@@ -35,7 +36,7 @@ md-5 = "0.10"
 oxilangtag = "0.1"
 oxiri = "0.2.3"
 rand = "0.8"
-regex = "1.7"
+regex = "1.8.4"
 serde = { version = "1.0.142", features = ["derive"] }
 sha1 = "0.10"
 sha2 = "0.10"
@@ -44,6 +45,7 @@ thiserror = "1.0.50"
 quick-xml = ">=0.29, <0.32"
 memchr = "2.5"
 peg = "0.8"
+base64-url = "2.0.0"
 
 [target.'cfg(all(not(target_family = "wasm"),not(docsrs)))'.dependencies]
 libc = "0.2"

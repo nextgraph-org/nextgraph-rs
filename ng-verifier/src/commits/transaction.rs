@@ -262,6 +262,7 @@ impl Verifier {
                             b.read_cap.tokenize(),
                         )
                     }
+                    // TODO: implement TargetBranchV0::Named
                     _ => unimplemented!(),
                 };
                 let _ = branches.entry(branch_id).or_insert((
@@ -404,12 +405,12 @@ impl Verifier {
                         for triple in update.transaction.inserts.iter() {
                             let triple_ref: TripleRef = triple.into();
                             let quad_ref = triple_ref.in_graph(cv_graphname_ref);
-                            transaction.insert(quad_ref, value)?;
+                            transaction.insert(quad_ref, value, true)?;
                             if let Some(ov_graphname) = ov_main.as_ref() {
                                 let ov_graphname_ref = GraphNameRef::NamedNode(ov_graphname.into());
                                 let triple_ref: TripleRef = triple.into();
                                 let quad_ref = triple_ref.in_graph(ov_graphname_ref);
-                                transaction.insert(quad_ref, REPO_IN_MAIN)?;
+                                transaction.insert(quad_ref, REPO_IN_MAIN, false)?;
                             }
                         }
 
@@ -493,7 +494,7 @@ impl Verifier {
                                         encoded_object.clone(),
                                         graph_encoded,
                                     );
-                                    transaction.insert_encoded(&quad_encoded, value)?;
+                                    transaction.insert_encoded(&quad_encoded, value, true)?;
                                     transaction.ng_remove(&quad_encoded, &commit_encoded)?;
                                 }
                                 if let Some(ov_graphname) = ov_main.as_ref() {

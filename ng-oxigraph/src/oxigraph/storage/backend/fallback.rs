@@ -85,8 +85,10 @@ impl Db {
 #[derive(Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct ColumnFamily(&'static str);
 
+#[derive(Clone)]
 pub struct Reader(InnerReader);
 
+#[derive(Clone)]
 enum InnerReader {
     Simple(Arc<RwLock<HashMap<ColumnFamily, BTreeMap<Vec<u8>, Vec<u8>>>>>),
     Transaction(

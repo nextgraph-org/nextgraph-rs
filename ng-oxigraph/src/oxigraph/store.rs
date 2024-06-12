@@ -294,7 +294,13 @@ impl Store {
                 subject.map(EncodedTerm::from).as_ref(),
                 predicate.map(EncodedTerm::from).as_ref(),
                 object.map(EncodedTerm::from).as_ref(),
-                graph_name.map(EncodedTerm::from).as_ref(),
+                graph_name.map(|graph_name_ref| {
+                    if let GraphName::NamedNode(nn) = graph_name_ref.into_owned() {
+                        reader.parse_graph_name(nn.as_string(), None).unwrap() //TODO improve error mng (remove unwrap)
+                    } else {
+                        panic!("invalid graph name");
+                    }
+                }),
             ),
             reader,
         }
@@ -1187,7 +1193,13 @@ impl<'a> Transaction<'a> {
                 subject.map(EncodedTerm::from).as_ref(),
                 predicate.map(EncodedTerm::from).as_ref(),
                 object.map(EncodedTerm::from).as_ref(),
-                graph_name.map(EncodedTerm::from).as_ref(),
+                graph_name.map(|graph_name_ref| {
+                    if let GraphName::NamedNode(nn) = graph_name_ref.into_owned() {
+                        reader.parse_graph_name(nn.as_string(), None).unwrap() //TODO improve error mng (remove unwrap)
+                    } else {
+                        panic!("invalid graph name");
+                    }
+                }),
             ),
             reader,
         }
@@ -1483,16 +1495,18 @@ impl<'a> Transaction<'a> {
         &mut self,
         quad: impl Into<QuadRef<'b>>,
         value: u8,
+        cv: bool,
     ) -> Result<(), StorageError> {
-        self.writer.ng_insert(quad.into(), value)
+        self.writer.ng_insert(quad.into(), value, cv)
     }
 
     pub fn insert_encoded(
         &mut self,
         encoded: &EncodedQuad,
         value: u8,
+        cv: bool,
     ) -> Result<bool, StorageError> {
-        self.writer.ng_insert_encoded(encoded, value)
+        self.writer.ng_insert_encoded(encoded, value, cv)
     }
 
     pub fn ng_remove(&mut self, quad: &EncodedQuad, commit: &StrHash) -> Result<(), StorageError> {
@@ -1662,7 +1676,7 @@ impl IntoIterator for &Transaction<'_> {
 
 /// An iterator returning the quads contained in a [`Store`].
 pub struct QuadIter {
-    iter: ChainedDecodingQuadIterator,
+    iter: Box<dyn Iterator<Item = Result<EncodedQuad, StorageError>>>,
     reader: StorageReader,
 }
 

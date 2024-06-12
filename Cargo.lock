@@ -3387,12 +3387,14 @@ dependencies = [
 name = "ng-oxigraph"
 version = "0.4.0-alpha.7-ngpreview6"
 dependencies = [
+ "base64-url",
  "codspeed-criterion-compat",
  "digest 0.10.7",
  "getrandom 0.2.10",
  "hex",
  "js-sys",
  "json-event-parser",
+ "lazy_static",
  "libc",
  "md-5",
  "memchr",

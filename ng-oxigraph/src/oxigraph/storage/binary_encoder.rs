@@ -5,7 +5,7 @@ use crate::oxsdatatypes::*;
 use std::io::Read;
 use std::mem::size_of;
 
-#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+#[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 pub const LATEST_STORAGE_VERSION: u64 = 1;
 pub const WRITTEN_TERM_MAX_SIZE: usize = size_of::<u8>() + 2 * size_of::<StrHash>();
 
@@ -465,10 +465,23 @@ pub fn encode_term(t: &EncodedTerm) -> Vec<u8> {
     vec
 }
 
+pub fn encode_graph(t1: StrHash) -> Vec<u8> {
+    let mut vec = Vec::with_capacity(17);
+    write_term(&mut vec, &EncodedTerm::NamedNode { iri_id: t1 });
+    vec
+}
+
 pub fn encode_term_pair(t1: &EncodedTerm, t2: &EncodedTerm) -> Vec<u8> {
     let mut vec = Vec::with_capacity(2 * WRITTEN_TERM_MAX_SIZE);
     write_term(&mut vec, t1);
     write_term(&mut vec, t2);
+    vec
+}
+
+pub fn encode_graph_term(t1: StrHash, t2: EncodedTerm) -> Vec<u8> {
+    let mut vec = Vec::with_capacity(WRITTEN_TERM_MAX_SIZE + 17);
+    write_term(&mut vec, &EncodedTerm::NamedNode { iri_id: t1 });
+    write_term(&mut vec, &t2);
     vec
 }
 
@@ -477,6 +490,14 @@ pub fn encode_term_triple(t1: &EncodedTerm, t2: &EncodedTerm, t3: &EncodedTerm) 
     write_term(&mut vec, t1);
     write_term(&mut vec, t2);
     write_term(&mut vec, t3);
+    vec
+}
+
+pub fn encode_term_graph_pair(t1: StrHash, t2: EncodedTerm, t3: EncodedTerm) -> Vec<u8> {
+    let mut vec = Vec::with_capacity(2 * WRITTEN_TERM_MAX_SIZE + 17);
+    write_term(&mut vec, &EncodedTerm::NamedNode { iri_id: t1 });
+    write_term(&mut vec, &t2);
+    write_term(&mut vec, &t3);
     vec
 }
 
@@ -491,6 +512,20 @@ pub fn encode_term_quad(
     write_term(&mut vec, t2);
     write_term(&mut vec, t3);
     write_term(&mut vec, t4);
+    vec
+}
+
+pub fn encode_term_graph_triple(
+    t1: StrHash,
+    t2: EncodedTerm,
+    t3: EncodedTerm,
+    t4: EncodedTerm,
+) -> Vec<u8> {
+    let mut vec = Vec::with_capacity(3 * WRITTEN_TERM_MAX_SIZE + 17);
+    write_term(&mut vec, &EncodedTerm::NamedNode { iri_id: t1 });
+    write_term(&mut vec, &t2);
+    write_term(&mut vec, &t3);
+    write_term(&mut vec, &t4);
     vec
 }
 
