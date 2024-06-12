@@ -10,12 +10,14 @@
 //! App Protocol (between LocalBroker and Verifier)
 
 use lazy_static::lazy_static;
+use ng_repo::utils::decode_overlayid;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use ng_repo::errors::NgError;
+use ng_repo::log::*;
 use ng_repo::types::*;
-use ng_repo::utils::{decode_id, decode_key, decode_sym_key};
+use ng_repo::utils::{decode_digest, decode_key, decode_sym_key};
 
 use crate::types::*;
 
@@ -42,6 +44,7 @@ pub enum AppFetchContentV0 {
     //Invoke,
     ReadQuery,  // more to be detailed
     WriteQuery, // more to be detailed
+    RdfDump,
 }
 
 impl AppFetchContentV0 {
@@ -254,7 +257,7 @@ impl NuriV0 {
             let cap = c.unwrap();
             let j = cap.get(1).unwrap().as_str();
             let k = cap.get(2).unwrap().as_str();
-            let id = decode_id(j)?;
+            let id = decode_digest(j)?;
             let key = decode_sym_key(k)?;
             Ok(Self {
                 identity: None,
@@ -276,16 +279,17 @@ impl NuriV0 {
             {
                 let cap = c.unwrap();
                 let o = cap.get(1).unwrap().as_str();
+
                 let v = cap.get(2).unwrap().as_str();
                 let repo_id = decode_key(o)?;
-                let overlay_id = decode_id(v)?;
+                let overlay_id = decode_overlayid(v)?;
                 Ok(Self {
                     identity: None,
                     target: NuriTargetV0::Repo(repo_id),
                     entire_store: false,
                     object: None,
                     branch: None,
-                    overlay: Some(OverlayLink::Outer(overlay_id)),
+                    overlay: Some(overlay_id.into()),
                     access: vec![],
                     topic: None,
                     locator: vec![],
@@ -303,7 +307,7 @@ impl NuriV0 {
                     let v = cap.get(2).unwrap().as_str();
                     let b = cap.get(3).unwrap().as_str();
                     let repo_id = decode_key(o)?;
-                    let overlay_id = decode_id(v)?;
+                    let overlay_id = decode_overlayid(v)?;
                     let branch_id = decode_key(b)?;
                     Ok(Self {
                         identity: None,
@@ -311,7 +315,7 @@ impl NuriV0 {
                         entire_store: false,
                         object: None,
                         branch: Some(TargetBranchV0::BranchId(branch_id)),
-                        overlay: Some(OverlayLink::Outer(overlay_id)),
+                        overlay: Some(overlay_id.into()),
                         access: vec![],
                         topic: None,
                         locator: vec![],
@@ -352,6 +356,9 @@ impl AppRequestCommandV0 {
     }
     pub fn new_write_query() -> Self {
         AppRequestCommandV0::Fetch(AppFetchContentV0::WriteQuery)
+    }
+    pub fn new_rdf_dump() -> Self {
+        AppRequestCommandV0::Fetch(AppFetchContentV0::RdfDump)
     }
 }
 

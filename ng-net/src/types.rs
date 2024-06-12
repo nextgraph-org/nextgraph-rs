@@ -1344,6 +1344,7 @@ pub enum OverlayLink {
     Inner(Digest),
     Inherit,
     Public(PubKey),
+    Global,
 }
 
 impl OverlayLink {
@@ -1357,6 +1358,16 @@ impl OverlayLink {
         match self {
             Self::Outer(o) => o,
             _ => panic!("not an outer overlay ID"),
+        }
+    }
+}
+
+impl From<OverlayId> for OverlayLink {
+    fn from(id: OverlayId) -> Self {
+        match id {
+            OverlayId::Inner(i) => OverlayLink::Inner(Digest::from_slice(i)),
+            OverlayId::Outer(o) => OverlayLink::Outer(Digest::from_slice(o)),
+            OverlayId::Global => OverlayLink::Global,
         }
     }
 }

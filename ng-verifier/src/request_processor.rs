@@ -117,7 +117,7 @@ impl Verifier {
     }
 
     fn resolve_target(
-        &mut self,
+        &self,
         target: &NuriTargetV0,
     ) -> Result<(RepoId, BranchId, StoreRepo), NgError> {
         match target {
@@ -137,6 +137,36 @@ impl Verifier {
                     (branch.id, repo.store.get_store_repo().clone())
                 };
                 Ok((*repo_id, branch, store_repo))
+            }
+            _ => unimplemented!(),
+        }
+    }
+
+    pub(crate) fn resolve_target_for_sparql(
+        &self,
+        target: &NuriTargetV0,
+        update: bool,
+    ) -> Result<Option<String>, NgError> {
+        match target {
+            NuriTargetV0::PrivateStore => {
+                let repo_id = self.config.private_store_id.unwrap();
+                let repo = self.repos.get(&repo_id).ok_or(NgError::RepoNotFound)?;
+                let overlay_id = repo.store.overlay_id;
+                Ok(Some(NuriV0::repo_graph_name(&repo_id, &overlay_id)))
+            }
+            NuriTargetV0::Repo(repo_id) => {
+                let repo = self.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
+                Ok(Some(NuriV0::repo_graph_name(
+                    &repo_id,
+                    &repo.store.overlay_id,
+                )))
+            }
+            NuriTargetV0::UserSite | NuriTargetV0::None => {
+                if update {
+                    return Err(NgError::InvalidTarget);
+                } else {
+                    return Ok(None);
+                }
             }
             _ => unimplemented!(),
         }
@@ -211,9 +241,12 @@ impl Verifier {
                             return Ok(AppResponse::error(parsed.unwrap_err().to_string()));
                         }
                         let mut parsed = parsed.unwrap();
-                        parsed.dataset_mut().set_default_graph_as_union();
-
-                        let results = store.query(parsed);
+                        let dataset = parsed.dataset_mut();
+                        if dataset.has_no_default_dataset() {
+                            dataset.set_default_graph_as_union();
+                        }
+                        let results = store
+                            .query(parsed, self.resolve_target_for_sparql(&nuri.target, false)?);
                         return Ok(match results {
                             Err(e) => AppResponse::error(e.to_string()),
                             Ok(qr) => {
@@ -243,6 +276,20 @@ impl Verifier {
                     } else {
                         Err(NgError::InvalidPayload)
                     };
+                }
+                AppFetchContentV0::RdfDump => {
+                    let store = self.graph_dataset.as_ref().unwrap();
+
+                    let results = store.iter();
+
+                    let vec: Vec<String> = results
+                        .map(|q| match q {
+                            Ok(o) => o.to_string(),
+                            Err(e) => e.to_string(),
+                        })
+                        .collect();
+
+                    return Ok(AppResponse::V0(AppResponseV0::Text(vec.join("\n"))));
                 }
                 _ => unimplemented!(),
             },

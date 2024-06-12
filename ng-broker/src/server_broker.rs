@@ -457,14 +457,19 @@ impl IServerBroker for ServerBroker {
                 }
             }
         } else {
-            let res = session
-                .verifier
-                .app_request(req)
-                .await
-                .map_err(|e| e.into());
+            let res = session.verifier.app_request(req).await;
+            //log_debug!("GOT RES {:?}", res);
+            let app_message: AppMessage = match res {
+                Err(e) => {
+                    log_debug!("AppRequest error NgError {e}");
+                    let server_err: ServerError = e.into();
+                    server_err.into()
+                }
+                Ok(app_res) => app_res.into(),
+            };
             fsm.lock()
                 .await
-                .send_in_reply_to(res.into(), request_id)
+                .send_in_reply_to(app_message.into(), request_id)
                 .await?;
         }
 

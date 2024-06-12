@@ -48,6 +48,11 @@ impl Digest {
             Self::Blake3Digest32(o) => o,
         }
     }
+    pub fn to_slice(self) -> [u8; 32] {
+        match self {
+            Self::Blake3Digest32(o) => o,
+        }
+    }
 }
 
 impl fmt::Display for Digest {
@@ -531,8 +536,8 @@ pub type InnerOverlayId = Digest;
 ///   except for Dialog Overlays where the Hash is computed from 2 secrets.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum OverlayId {
-    Outer(OuterOverlayId),
-    Inner(InnerOverlayId),
+    Outer(Blake3Digest32),
+    Inner(Blake3Digest32),
     Global,
 }
 
@@ -561,19 +566,20 @@ impl OverlayId {
         let key_hash = blake3::keyed_hash(&key, &store_id);
         store_overlay_branch_readcap_secret_ser.zeroize();
         key.zeroize();
-        OverlayId::Inner(Digest::from_slice(*key_hash.as_bytes()))
+        OverlayId::Inner(*key_hash.as_bytes())
     }
 
     pub fn outer(store_id: &PubKey) -> OverlayId {
         let store_id = serde_bare::to_vec(store_id).unwrap();
-        OverlayId::Outer((&store_id).into())
+        let d: Digest = (&store_id).into();
+        OverlayId::Outer(d.to_slice())
     }
     #[cfg(any(test, feature = "testing"))]
     pub fn dummy() -> OverlayId {
-        OverlayId::Outer(Digest::dummy())
+        OverlayId::Outer(Digest::dummy().to_slice())
     }
     pub fn nil() -> OverlayId {
-        OverlayId::Outer(Digest::nil())
+        OverlayId::Outer(Digest::nil().to_slice())
     }
 
     pub fn is_inner(&self) -> bool {
@@ -636,7 +642,7 @@ impl StoreOverlay {
             | StoreOverlay::V0(StoreOverlayV0::ProtectedStore(id))
             | StoreOverlay::V0(StoreOverlayV0::PrivateStore(id))
             | StoreOverlay::V0(StoreOverlayV0::Group(id)) => OverlayId::outer(id),
-            StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => OverlayId::Inner(d.clone()),
+            StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => OverlayId::Inner(d.clone().to_slice()),
             StoreOverlay::Own(_) => unimplemented!(),
         }
     }
@@ -652,7 +658,7 @@ impl StoreOverlay {
             | StoreOverlay::V0(StoreOverlayV0::Group(id)) => {
                 OverlayId::inner(id, &store_overlay_branch_readcap_secret)
             }
-            StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => OverlayId::Inner(d.clone()),
+            StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => OverlayId::Inner(d.clone().to_slice()),
             StoreOverlay::Own(_) => unimplemented!(),
         }
     }
@@ -784,7 +790,7 @@ impl StoreRepo {
             | Self::V0(StoreRepoV0::ProtectedStore(_id))
             | Self::V0(StoreRepoV0::Group(_id))
             | Self::V0(StoreRepoV0::PrivateStore(_id)) => self.overlay_id_for_read_purpose(),
-            Self::V0(StoreRepoV0::Dialog(d)) => OverlayId::Inner(d.1.clone()),
+            Self::V0(StoreRepoV0::Dialog(d)) => OverlayId::Inner(d.1.clone().to_slice()),
         }
     }
 
@@ -799,7 +805,7 @@ impl StoreRepo {
             | Self::V0(StoreRepoV0::PrivateStore(id)) => {
                 OverlayId::inner(id, store_overlay_branch_readcap_secret)
             }
-            Self::V0(StoreRepoV0::Dialog(d)) => OverlayId::Inner(d.1.clone()),
+            Self::V0(StoreRepoV0::Dialog(d)) => OverlayId::Inner(d.1.clone().to_slice()),
         }
     }
 }

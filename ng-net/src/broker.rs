@@ -641,11 +641,11 @@ impl Broker {
                     Some(Either::Right(remote_peer_id)) => {
                         let res = join.next().await;
 
-                        if res.is_some()
-                            && res.as_ref().unwrap().as_ref().unwrap_left() == &NetError::Closing
-                        {
-                            return;
-                        }
+                        // if res.is_some()
+                        //     && res.as_ref().unwrap().as_ref().unwrap_left() == &NetError::Closing
+                        // {
+                        //     return;
+                        // }
                         log_debug!("SOCKET IS CLOSED {:?} peer_id: {:?}", res, remote_peer_id);
                         BROKER
                             .write()

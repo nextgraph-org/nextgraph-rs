@@ -1,3 +1,13 @@
+// partial Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// partial Copyright (c) 2018 Oxigraph developers
+// All work licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice or not, may not be copied, modified, or distributed except
+// according to those terms.
+
 //! Code inspired by [Rust RocksDB](https://github.com/rust-rocksdb/rust-rocksdb) under Apache License 2.0.
 
 #![allow(

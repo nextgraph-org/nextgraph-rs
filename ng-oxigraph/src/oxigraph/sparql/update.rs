@@ -1,3 +1,13 @@
+// partial Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// partial Copyright (c) 2018 Oxigraph developers
+// All work licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice or not, may not be copied, modified, or distributed except
+// according to those terms.
+
 use crate::oxigraph::io::{RdfFormat, RdfParser};
 use crate::oxigraph::model::{GraphName as OxGraphName, GraphNameRef, Quad as OxQuad};
 use crate::oxigraph::sparql::algebra::QueryDataset;
@@ -7,6 +17,7 @@ use crate::oxigraph::sparql::http::Client;
 use crate::oxigraph::sparql::{EvaluationError, Update, UpdateOptions};
 use crate::oxigraph::storage::numeric_encoder::{Decoder, EncodedTerm};
 use crate::oxigraph::storage::CommitWriter;
+use crate::oxrdf::NamedNodeRef;
 use crate::spargebra::algebra::{GraphPattern, GraphTarget};
 use crate::spargebra::term::{
     BlankNode, GraphName, GraphNamePattern, GroundQuad, GroundQuadPattern, GroundSubject,
@@ -101,7 +112,8 @@ impl<'a, 'b: 'a> SimpleUpdateEvaluator<'a, 'b> {
     fn eval_insert_data(&mut self, data: &[Quad]) -> Result<(), EvaluationError> {
         let mut bnodes = HashMap::new();
         for quad in data {
-            let quad = Self::convert_quad(quad, &mut bnodes);
+            let mut quad = Self::convert_quad(quad, &mut bnodes);
+            self.set_default_graph_if_needed(&mut quad);
             self.transaction.insert(quad.as_ref())?;
         }
         Ok(())
@@ -109,10 +121,21 @@ impl<'a, 'b: 'a> SimpleUpdateEvaluator<'a, 'b> {
 
     fn eval_delete_data(&mut self, data: &[GroundQuad]) -> Result<(), EvaluationError> {
         for quad in data {
-            let quad = Self::convert_ground_quad(quad);
+            let mut quad = Self::convert_ground_quad(quad);
+            self.set_default_graph_if_needed(&mut quad);
             self.transaction.remove(quad.as_ref())?;
         }
         Ok(())
+    }
+
+    fn set_default_graph_if_needed(&self, quad: &mut crate::oxrdf::Quad) {
+        if quad.graph_name.is_default_graph() {
+            if let Some(default_graph) = &self.options.query_options.default_graph {
+                quad.graph_name = crate::oxrdf::GraphName::NamedNode(NamedNode::new_unchecked(
+                    default_graph.clone(),
+                ));
+            }
+        }
     }
 
     fn eval_delete_insert(
@@ -122,7 +145,11 @@ impl<'a, 'b: 'a> SimpleUpdateEvaluator<'a, 'b> {
         using: &QueryDataset,
         algebra: &GraphPattern,
     ) -> Result<(), EvaluationError> {
-        let dataset = Rc::new(DatasetView::new(self.transaction.reader(), using));
+        let dataset = Rc::new(DatasetView::new(
+            self.transaction.reader(),
+            using,
+            self.options.query_options.get_default_graph(),
+        ));
         let mut pattern = sparopt::algebra::GraphPattern::from(algebra);
         if !self.options.query_options.without_optimizations {
             pattern = Optimizer::optimize_graph_pattern(sparopt::algebra::GraphPattern::Reduced {
@@ -143,16 +170,18 @@ impl<'a, 'b: 'a> SimpleUpdateEvaluator<'a, 'b> {
             eval(EncodedTuple::with_capacity(variables.len())).collect::<Result<Vec<_>, _>>()?; // TODO: would be much better to stream
         for tuple in tuples {
             for quad in delete {
-                if let Some(quad) =
+                if let Some(mut quad) =
                     Self::convert_ground_quad_pattern(quad, &variables, &tuple, &dataset)?
                 {
+                    self.set_default_graph_if_needed(&mut quad);
                     self.transaction.remove(quad.as_ref())?;
                 }
             }
             for quad in insert {
-                if let Some(quad) =
+                if let Some(mut quad) =
                     Self::convert_quad_pattern(quad, &variables, &tuple, &dataset, &mut bnodes)?
                 {
+                    self.set_default_graph_if_needed(&mut quad);
                     self.transaction.insert(quad.as_ref())?;
                 }
             }
@@ -160,6 +189,16 @@ impl<'a, 'b: 'a> SimpleUpdateEvaluator<'a, 'b> {
         }
         Ok(())
     }
+
+    /*if quad.graph_name.is_default_graph() {
+        if let Some(default_graph) = &self.options.query_options.default_graph {
+            crate::oxrdf::GraphName::NamedNode(NamedNode::new_unchecked(
+                default_graph.clone(),
+            )).into()
+        } else {
+            return Err(EvaluationError);
+        }
+    } */
 
     fn eval_load(&mut self, from: &NamedNode, to: &GraphName) -> Result<(), EvaluationError> {
         let (content_type, body) = self
@@ -173,7 +212,15 @@ impl<'a, 'b: 'a> SimpleUpdateEvaluator<'a, 'b> {
             .ok_or_else(|| EvaluationError::UnsupportedContentType(content_type))?;
         let to_graph_name = match to {
             GraphName::NamedNode(graph_name) => graph_name.into(),
-            GraphName::DefaultGraph => GraphNameRef::DefaultGraph,
+            GraphName::DefaultGraph => {
+                if let Some(default_graph) = &self.options.query_options.default_graph {
+                    crate::oxrdf::GraphNameRef::NamedNode(NamedNodeRef::new_unchecked(
+                        &default_graph,
+                    ))
+                } else {
+                    return Err(EvaluationError::NoDefaultGraph);
+                }
+            }
         };
         let mut parser = RdfParser::from_format(format)
             .rename_blank_nodes()

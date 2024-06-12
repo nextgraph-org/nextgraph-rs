@@ -251,7 +251,7 @@ pub async fn sparql_update(session_id: JsValue, sparql: String) -> Result<(), St
 
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::new_write_query(),
-        nuri: NuriV0::new_entire_user_site(),
+        nuri: NuriV0::new_private_store_target(),
         payload: Some(AppRequestPayload::new_sparql_query(sparql)),
         session_id,
     });
@@ -261,6 +261,30 @@ pub async fn sparql_update(session_id: JsValue, sparql: String) -> Result<(), St
         .map_err(|e: NgError| e.to_string())?;
 
     Ok(())
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen]
+pub async fn rdf_dump(session_id: JsValue) -> Result<String, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_rdf_dump(),
+        nuri: NuriV0::new_entire_user_site(),
+        payload: None,
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = res;
+    match res {
+        AppResponseV0::Text(s) => Ok(s),
+        _ => Err("invalid response".to_string()),
+    }
 }
 
 #[cfg(wasmpack_target = "nodejs")]

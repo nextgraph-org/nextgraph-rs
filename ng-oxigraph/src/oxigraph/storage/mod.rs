@@ -1,3 +1,13 @@
+// partial Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// partial Copyright (c) 2018 Oxigraph developers
+// All work licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice or not, may not be copied, modified, or distributed except
+// according to those terms.
+
 #![allow(clippy::same_name_method)]
 use crate::oxigraph::model::Quad;
 use crate::oxigraph::model::{GraphNameRef, NamedOrBlankNodeRef, QuadRef, TermRef};
@@ -558,6 +568,7 @@ impl<'a> NgPastQuadIterator<'a> {
             },
             f: Box::new(f),
             //TODO: avoid the copy of past (store a Vec instead of HashSet in cache)
+            // https://smallcultfollowing.com/babysteps/blog/2018/09/02/rust-pattern-iterating-an-over-a-rc-vec-t/
             iter: past.as_ref().clone().into_iter(),
         }
     }
@@ -653,6 +664,9 @@ impl NgCommitQuadIterator {
                         }
                         let (q, value) = self.iter.next().unwrap().unwrap();
                         if is_added(value) {
+                            if self.current_is_added {
+                                return Err(false);
+                            }
                             self.current_is_added = true;
                             self.current_add_is_removed = None;
                             return Ok(Some(Ok(EncodedQuad::new(
@@ -787,7 +801,7 @@ impl StorageReader {
                         .into());
                     }
                     // TODO: check that all the commits are from the same branch
-                    // TODO: if commits are exactly like current heads of branch, set at_current_heads = true
+                    // TODO: if commits are exactly like current heads of branch, set at_current_heads = true (or if it is the main branch, use MatchBy::Repos)
                     MatchBy::Commits {
                         heads: HashSet::from_iter(
                             commits
@@ -1723,40 +1737,40 @@ impl StorageReader {
     }
 }
 
-pub struct ChainedDecodingQuadIterator {
-    first: DecodingQuadIterator,
-    second: Option<DecodingQuadIterator>,
-}
+// pub struct ChainedDecodingQuadIterator {
+//     first: DecodingQuadIterator,
+//     second: Option<DecodingQuadIterator>,
+// }
 
-impl ChainedDecodingQuadIterator {
-    fn new(first: DecodingQuadIterator) -> Self {
-        Self {
-            first,
-            second: None,
-        }
-    }
+// impl ChainedDecodingQuadIterator {
+//     fn new(first: DecodingQuadIterator) -> Self {
+//         Self {
+//             first,
+//             second: None,
+//         }
+//     }
 
-    fn pair(first: DecodingQuadIterator, second: DecodingQuadIterator) -> Self {
-        Self {
-            first,
-            second: Some(second),
-        }
-    }
-}
+//     fn pair(first: DecodingQuadIterator, second: DecodingQuadIterator) -> Self {
+//         Self {
+//             first,
+//             second: Some(second),
+//         }
+//     }
+// }
 
-impl Iterator for ChainedDecodingQuadIterator {
-    type Item = Result<EncodedQuad, StorageError>;
+// impl Iterator for ChainedDecodingQuadIterator {
+//     type Item = Result<EncodedQuad, StorageError>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(result) = self.first.next() {
-            Some(result)
-        } else if let Some(second) = self.second.as_mut() {
-            second.next()
-        } else {
-            None
-        }
-    }
-}
+//     fn next(&mut self) -> Option<Self::Item> {
+//         if let Some(result) = self.first.next() {
+//             Some(result)
+//         } else if let Some(second) = self.second.as_mut() {
+//             second.next()
+//         } else {
+//             None
+//         }
+//     }
+// }
 
 pub struct DecodingQuadIterator {
     iter: Iter,

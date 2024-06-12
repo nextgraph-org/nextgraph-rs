@@ -70,8 +70,13 @@ pub fn decode_sym_key(key_string: &str) -> Result<SymKey, NgError> {
     Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
 }
 
-pub fn decode_id(key_string: &str) -> Result<ObjectId, NgError> {
+pub fn decode_digest(key_string: &str) -> Result<crate::types::Digest, NgError> {
     let vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
+}
+
+pub fn decode_overlayid(id_string: &str) -> Result<OverlayId, NgError> {
+    let vec = base64_url::decode(id_string).map_err(|_| NgError::InvalidKey)?;
     Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
 }
 

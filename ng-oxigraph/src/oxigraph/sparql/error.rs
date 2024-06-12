@@ -50,6 +50,8 @@ pub enum EvaluationError {
     /// The results are not a RDF graph
     #[error("The query results are not a RDF graph")]
     NotAGraph,
+    #[error("NextGraph cannot add triples to the default graph")]
+    NoDefaultGraph,
 }
 
 impl From<Infallible> for EvaluationError {
@@ -78,7 +80,8 @@ impl From<EvaluationError> for io::Error {
             | EvaluationError::UnsupportedService(_)
             | EvaluationError::UnsupportedContentType(_)
             | EvaluationError::ServiceDoesNotReturnSolutions
-            | EvaluationError::NotAGraph => Self::new(io::ErrorKind::InvalidInput, error),
+            | EvaluationError::NotAGraph
+            | EvaluationError::NoDefaultGraph => Self::new(io::ErrorKind::InvalidInput, error),
         }
     }
 }

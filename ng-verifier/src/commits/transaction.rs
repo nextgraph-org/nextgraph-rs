@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use ng_net::app_protocol::{NuriV0, TargetBranchV0};
 use ng_oxigraph::oxrdf::{GraphName, GraphNameRef, NamedNode, Quad, Triple, TripleRef};
 use ng_repo::errors::VerifierError;
+use ng_repo::log::*;
 use ng_repo::store::Store;
 use ng_repo::types::*;
 
@@ -230,6 +231,7 @@ impl Verifier {
         match &quad.graph_name {
             GraphName::NamedNode(named_node) => {
                 let graph_name = named_node.as_string();
+                log_debug!("graph_name {graph_name}");
                 if let Some(branch_found) = nuri_branches.get(graph_name) {
                     return Ok(branch_found.clone());
                 }
@@ -237,8 +239,9 @@ impl Verifier {
                 if !nuri.is_branch_identifier() {
                     return Err(VerifierError::InvalidNamedGraph);
                 }
-                let store = self
-                    .get_store_by_overlay_id(&OverlayId::Outer(*nuri.overlay.unwrap().outer()))?;
+                let store = self.get_store_by_overlay_id(&OverlayId::Outer(
+                    nuri.overlay.unwrap().outer().to_slice(),
+                ))?;
                 let repo = self.get_repo(nuri.target.repo_id(), store.get_store_repo())?;
                 let (branch_id, is_publisher, is_main, topic_id, token) = match nuri.branch {
                     None => {
@@ -529,12 +532,16 @@ impl Verifier {
 
     pub(crate) async fn process_sparql_update(
         &mut self,
-        _nuri: &NuriV0,
+        nuri: &NuriV0,
         query: &String,
     ) -> Result<(), String> {
         let store = self.graph_dataset.as_ref().unwrap();
-        //TODO: use nuri to set some default dataset in oxigraph
-        let res = store.ng_update(query);
+
+        let res = store.ng_update(
+            query,
+            self.resolve_target_for_sparql(&nuri.target, true)
+                .map_err(|e| e.to_string())?,
+        );
         match res {
             Err(e) => Err(e.to_string()),
             Ok((inserts, removes)) => {

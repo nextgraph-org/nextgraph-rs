@@ -1,3 +1,13 @@
+// partial Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// partial Copyright (c) 2018 Oxigraph developers
+// All work licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice or not, may not be copied, modified, or distributed except
+// according to those terms.
+
 //! API to access an on-disk [RDF dataset](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-dataset).
 //!
 //! The entry point of the module is the [`Store`] struct.
@@ -36,10 +46,8 @@ use super::sparql::{
 use super::storage::numeric_encoder::{Decoder, EncodedQuad, EncodedTerm, StrHash};
 #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use super::storage::StorageBulkLoader;
-use super::storage::{
-    ChainedDecodingQuadIterator, DecodingGraphIterator, Storage, StorageReader, StorageWriter,
-};
 pub use super::storage::{CorruptionError, LoaderError, SerializerError, StorageError};
+use super::storage::{DecodingGraphIterator, Storage, StorageReader, StorageWriter};
 use std::collections::HashSet;
 use std::error::Error;
 use std::io::{Read, Write};
@@ -192,8 +200,11 @@ impl Store {
     pub fn query(
         &self,
         query: impl TryInto<Query, Error = impl Into<EvaluationError>>,
+        default_graph: Option<String>,
     ) -> Result<QueryResults, EvaluationError> {
-        self.query_opt(query, QueryOptions::default())
+        let mut opts = QueryOptions::default();
+        opts.set_default_graph(default_graph);
+        self.query_opt(query, opts)
     }
 
     /// Executes a [SPARQL 1.1 query](https://www.w3.org/TR/sparql11-query/) with some options.
@@ -444,8 +455,11 @@ impl Store {
     pub fn ng_update(
         &self,
         update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
+        default_graph: Option<String>,
     ) -> Result<(HashSet<Quad>, HashSet<Quad>), EvaluationError> {
-        self.ng_update_opt(update, UpdateOptions::default())
+        let mut opts = UpdateOptions::default();
+        opts.set_default_graph(default_graph);
+        self.ng_update_opt(update, opts)
     }
 
     /// Executes a [SPARQL 1.1 update](https://www.w3.org/TR/sparql11-update/) with some options.

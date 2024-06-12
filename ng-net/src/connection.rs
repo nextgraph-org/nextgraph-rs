@@ -974,7 +974,7 @@ impl NoiseFSM {
             FSMstate::AppHello2 => {
                 if let Some(msg) = msg_opt {
                     if msg.type_id() != TypeId::of::<AppMessage>() {
-                        return Err(ProtocolError::AccessDenied);
+                        return Err(ProtocolError::InvalidState);
                     }
                     match msg.id() {
                         Some(id) => {
@@ -991,7 +991,7 @@ impl NoiseFSM {
             FSMstate::AuthResult | FSMstate::Local0 => {
                 if let Some(msg) = msg_opt {
                     if msg.type_id() != TypeId::of::<ClientMessage>() {
-                        return Err(ProtocolError::AccessDenied);
+                        return Err(ProtocolError::InvalidState);
                     }
                     match msg.id() {
                         Some(id) => {

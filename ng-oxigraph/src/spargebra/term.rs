@@ -1,3 +1,13 @@
+// partial Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// partial Copyright (c) 2018 Oxigraph developers
+// All work licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice or not, may not be copied, modified, or distributed except
+// according to those terms.
+
 //! Data structures for [RDF 1.1 Concepts](https://www.w3.org/TR/rdf11-concepts/) like IRI, literal or triples.
 
 pub use crate::oxrdf::{BlankNode, Literal, NamedNode, Subject, Term, Triple, Variable};
@@ -192,6 +202,12 @@ pub enum GraphName {
 }
 
 impl GraphName {
+    // pub(crate) fn is_default_graph(&self) -> bool {
+    //     match self {
+    //         GraphName::DefaultGraph => true,
+    //         _ => false,
+    //     }
+    // }
     /// Formats using the [SPARQL S-Expression syntax](https://jena.apache.org/documentation/notes/sse.html).
     pub(crate) fn fmt_sse(&self, f: &mut impl Write) -> fmt::Result {
         match self {

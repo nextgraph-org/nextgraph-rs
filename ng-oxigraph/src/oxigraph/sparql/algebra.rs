@@ -1,3 +1,13 @@
+// partial Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// partial Copyright (c) 2018 Oxigraph developers
+// All work licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice or not, may not be copied, modified, or distributed except
+// according to those terms.
+
 //! [SPARQL 1.1 Query Algebra](https://www.w3.org/TR/sparql11-query/#sparqlQuery)
 //!
 //! The root type for SPARQL queries is [`Query`] and the root type for updates is [`Update`].
@@ -249,6 +259,12 @@ impl QueryDataset {
             .as_ref()
             .map_or(false, |t| t == &[GraphName::DefaultGraph])
             && self.named.is_none()
+    }
+
+    pub fn has_no_default_dataset(&self) -> bool {
+        self.default
+            .as_ref()
+            .map_or(true, |t| t == &[GraphName::DefaultGraph] || t.is_empty())
     }
 
     /// Returns the list of the store graphs that are available to the query as the default graph or `None` if the union of all graphs is used as the default graph

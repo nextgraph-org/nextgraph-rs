@@ -1,3 +1,13 @@
+// partial Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// partial Copyright (c) 2018 Oxigraph developers
+// All work licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice or not, may not be copied, modified, or distributed except
+// according to those terms.
+
 use crate::oxigraph::model::TermRef;
 use crate::oxigraph::sparql::algebra::QueryDataset;
 use crate::oxigraph::sparql::EvaluationError;
@@ -6,6 +16,8 @@ use crate::oxigraph::storage::numeric_encoder::{
 };
 use crate::oxigraph::storage::{MatchBy, StorageError, StorageReader};
 use crate::oxigraph::store::CorruptionError;
+use crate::oxrdf::GraphName;
+use crate::sparopt::algebra::NamedNode;
 
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
@@ -29,11 +41,23 @@ impl Iterator for ErrorIterator {
 }
 
 impl DatasetView {
-    pub fn new(reader: StorageReader, dataset: &QueryDataset) -> Self {
+    pub fn new(
+        reader: StorageReader,
+        dataset: &QueryDataset,
+        default_graph: &Option<String>,
+    ) -> Self {
         let dataset = EncodedDatasetSpec {
-            default: dataset
-                .default_graph_graphs()
-                .map(|graphs| graphs.iter().map(|g| g.as_ref().into()).collect::<Vec<_>>()),
+            default: if dataset.has_no_default_dataset() && default_graph.is_some() {
+                Some(vec![GraphName::NamedNode(NamedNode::new_unchecked(
+                    default_graph.to_owned().unwrap(),
+                ))
+                .as_ref()
+                .into()])
+            } else {
+                dataset
+                    .default_graph_graphs()
+                    .map(|graphs| graphs.iter().map(|g| g.as_ref().into()).collect::<Vec<_>>())
+            },
             named: dataset
                 .available_named_graphs()
                 .map(|graphs| graphs.iter().map(|g| g.as_ref().into()).collect::<Vec<_>>()),

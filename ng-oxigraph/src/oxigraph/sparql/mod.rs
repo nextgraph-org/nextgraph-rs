@@ -1,3 +1,13 @@
+// partial Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// partial Copyright (c) 2018 Oxigraph developers
+// All work licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice or not, may not be copied, modified, or distributed except
+// according to those terms.
+
 //! [SPARQL](https://www.w3.org/TR/sparql11-overview/) implementation.
 //!
 //! Stores execute SPARQL. See [`Store`](crate::oxigraph::store::Store::query()) for an example.
@@ -43,7 +53,7 @@ pub(crate) fn evaluate_query(
     run_stats: bool,
 ) -> Result<(Result<QueryResults, EvaluationError>, QueryExplanation), EvaluationError> {
     let query = query.try_into().map_err(Into::into)?;
-    let dataset = DatasetView::new(reader, &query.dataset);
+    let dataset = DatasetView::new(reader, &query.dataset, options.get_default_graph());
     let start_planning = Timer::now();
     let (results, plan_node_with_stats, planning_duration) = match query.inner {
         spargebra::Query::Select {
@@ -162,6 +172,7 @@ pub struct QueryOptions {
     http_timeout: Option<Duration>,
     http_redirection_limit: usize,
     without_optimizations: bool,
+    default_graph: Option<String>,
 }
 
 pub(crate) type CustomFunctionRegistry =
@@ -176,6 +187,14 @@ impl QueryOptions {
             service_handler,
         )));
         self
+    }
+
+    pub fn set_default_graph(&mut self, dg: Option<String>) {
+        self.default_graph = dg;
+    }
+
+    pub fn get_default_graph(&self) -> &Option<String> {
+        &self.default_graph
     }
 
     /// Disables the `SERVICE` calls
@@ -273,6 +292,12 @@ impl From<QueryOptions> for UpdateOptions {
     #[inline]
     fn from(query_options: QueryOptions) -> Self {
         Self { query_options }
+    }
+}
+
+impl UpdateOptions {
+    pub fn set_default_graph(&mut self, dg: Option<String>) {
+        self.query_options.set_default_graph(dg);
     }
 }
 

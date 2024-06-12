@@ -81,6 +81,7 @@ pub enum NgError {
     LocalBrokerIsHeadless,
     LocalBrokerIsNotHeadless,
     InvalidNuri,
+    InvalidTarget,
 }
 
 impl Error for NgError {}
@@ -259,6 +260,8 @@ pub enum ServerError {
     SessionNotFound,
     SessionDetached,
     OxiGraphError,
+    InvalidNuri,
+    InvalidTarget,
 }
 
 impl From<StorageError> for ServerError {
@@ -285,6 +288,9 @@ impl From<NgError> for ServerError {
         match e {
             NgError::InvalidSignature => ServerError::InvalidSignature,
             NgError::OxiGraphError(_) => ServerError::OxiGraphError,
+            NgError::InvalidNuri => ServerError::InvalidNuri,
+            NgError::InvalidTarget => ServerError::InvalidTarget,
+
             _ => ServerError::OtherError,
         }
     }
