@@ -79,10 +79,11 @@ impl BlockV0 {
     }
 }
 
-impl From<Digest> for String {
-    fn from(id: BlockId) -> Self {
-        base64_url::encode(&serde_bare::to_vec(&id).unwrap())
-        //hex::encode(to_vec(&id).unwrap())
+impl From<&Digest> for String {
+    fn from(id: &Digest) -> Self {
+        let mut ser = serde_bare::to_vec(id).unwrap();
+        ser.reverse();
+        base64_url::encode(&ser)
     }
 }
 

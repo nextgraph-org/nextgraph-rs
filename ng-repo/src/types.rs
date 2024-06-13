@@ -57,8 +57,7 @@ impl Digest {
 
 impl fmt::Display for Digest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let ser = serde_bare::to_vec(&self).unwrap();
-        write!(f, "{}", base64_url::encode(&ser))
+        write!(f, "{}", std::string::String::from(self))
     }
 }
 
@@ -114,7 +113,8 @@ impl SymKey {
 
 impl fmt::Display for SymKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let ser = serde_bare::to_vec(&self).unwrap();
+        let mut ser = serde_bare::to_vec(&self).unwrap();
+        ser.reverse();
         write!(f, "{}", base64_url::encode(&ser))
     }
 }
@@ -196,7 +196,8 @@ impl PubKey {
 
 impl fmt::Display for PubKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let ser = serde_bare::to_vec(&self).unwrap();
+        let mut ser = serde_bare::to_vec(&self).unwrap();
+        ser.reverse();
         write!(f, "{}", base64_url::encode(&ser))
     }
 }
@@ -278,7 +279,8 @@ impl TryFrom<&str> for PrivKey {
 
 impl fmt::Display for PrivKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let ser = serde_bare::to_vec(&self).unwrap();
+        let mut ser = serde_bare::to_vec(&self).unwrap();
+        ser.reverse();
         write!(f, "{}", base64_url::encode(&ser))
     }
 }
@@ -543,8 +545,9 @@ pub enum OverlayId {
 
 impl fmt::Display for OverlayId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let overlay_ser = serde_bare::to_vec(&self).unwrap();
-        write!(f, "{}", base64_url::encode(&overlay_ser))
+        let mut ser = serde_bare::to_vec(&self).unwrap();
+        ser.reverse();
+        write!(f, "{}", base64_url::encode(&ser))
     }
 }
 

@@ -56,27 +56,32 @@ pub fn from_ed_privkey_to_dh_privkey(private: &PrivKey) -> PrivKey {
 
 /// don't forget to zeroize the string later on
 pub fn decode_key(key_string: &str) -> Result<PubKey, NgError> {
-    let vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    let mut vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    vec.reverse();
     Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
 }
 
 pub fn decode_priv_key(key_string: &str) -> Result<PrivKey, NgError> {
-    let vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    let mut vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    vec.reverse();
     Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
 }
 
 pub fn decode_sym_key(key_string: &str) -> Result<SymKey, NgError> {
-    let vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    let mut vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    vec.reverse();
     Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
 }
 
 pub fn decode_digest(key_string: &str) -> Result<crate::types::Digest, NgError> {
-    let vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    let mut vec = base64_url::decode(key_string).map_err(|_| NgError::InvalidKey)?;
+    vec.reverse();
     Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
 }
 
 pub fn decode_overlayid(id_string: &str) -> Result<OverlayId, NgError> {
-    let vec = base64_url::decode(id_string).map_err(|_| NgError::InvalidKey)?;
+    let mut vec = base64_url::decode(id_string).map_err(|_| NgError::InvalidKey)?;
+    vec.reverse();
     Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
 }
 

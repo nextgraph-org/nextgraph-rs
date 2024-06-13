@@ -13,9 +13,9 @@ const ng = require("nextgraph");
 global.WebSocket = WebSocket;
 
 let config = {
-    server_peer_id: "ALyGZgFaDDALXLppJZLS2TrMScG0TQIS68RzRcPv99aN",
-    admin_user_key:"ABI7mSYq1jzulcatewG6ssaFuCjYVVxF_esEmV33oBW4",
-    client_peer_key:"APbhJBuWUUmwZbuYwVm88eJ0b_ZulpSMOlA-9Zwi-S0Q"
+    server_peer_id: "FtdzuDYGewfXWdoPuXIPb0wnd0SAg1WoA2B14S7jW3MA",
+    admin_user_key: "pye0YFzk1ix1amKEwd6AeqaUAN_PNpH5zGLomh0M1PAA",
+    client_peer_key: "GRP0QnlzaB8o2vdiBaNoOYDNOFX-uehLZMxeCaG3JA0A"
 };
 
 ng.init_headless(config).then( async() => {
@@ -24,9 +24,9 @@ ng.init_headless(config).then( async() => {
         //let user_id = await ng.admin_create_user(config);
         //console.log("user created: ",user_id);
         
-        let other_user_id = "ACO9_6356BOZdCAwUr9mzTod8Wv-BM7p48sQzGNa2PwI";
+        let user_id = "tJVG293o6xirl3Ys5rzxMgdnPE_1d3IPAdrlR5qGRAIA";
 
-        let session = await ng.session_headless_start(other_user_id);
+        let session = await ng.session_headless_start(user_id);
         session_id = session.session_id;
         console.log(session);
         
@@ -39,12 +39,12 @@ ng.init_headless(config).then( async() => {
             console.log(q);
         }
 
-        await ng.sparql_update(session.session_id, "DELETE DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:i> <did:ng:j> }");
+        // await ng.sparql_update(session.session_id, "DELETE DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:i> <did:ng:j> }");
 
-        //await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:i> <did:ng:j> }");
-        //await ng.sparql_update(session.session_id, "INSERT { ?s <did:ng:i> <did:ng:k> } WHERE { ?s <did:ng:i> <did:ng:j> } ");
+        // await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:i> <did:ng:j> }");
+        // await ng.sparql_update(session.session_id, "INSERT { ?s <did:ng:i> <did:ng:k> } WHERE { ?s <did:ng:i> <did:ng:j> } ");
 
-        //await ng.sparql_update(session.session_id, "INSERT DATA {  <did:ng:z> <did:ng:j> <did:ng:t:BJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE>. <did:ng:t:BJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:m> <did:ng:n> }");
+        // await ng.sparql_update(session.session_id, "INSERT DATA {  <did:ng:z> <did:ng:j> <did:ng:t:BJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE>. <did:ng:t:BJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:m> <did:ng:n> }");
         
         sparql_result = await ng.sparql_query(session.session_id, "SELECT ?a WHERE { ?a <did:ng:j> _:abc. _:abc <did:ng:m> <did:ng:n>  }");
         console.log(sparql_result);
@@ -89,7 +89,7 @@ ng.init_headless(config).then( async() => {
         // if you set this to true, the dataset is closed and removed from memory on the server.
         // next time you will open a session for this user, the dataset will be loaded again.
         let res = await ng.session_headless_stop(session.session_id, false);
-        console.log(res);
+        //console.log(res);
 
     } catch (e) {
         console.error(e);

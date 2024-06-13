@@ -15,6 +15,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use ng_repo::errors::NgError;
+#[allow(unused_imports)]
 use ng_repo::log::*;
 use ng_repo::types::*;
 use ng_repo::utils::{decode_digest, decode_key, decode_sym_key};
