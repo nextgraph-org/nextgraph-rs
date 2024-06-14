@@ -1004,6 +1004,7 @@ impl fmt::Display for ObjectContent {
                         ("RandomAccessFileMeta", format!("{}", ""))
                     }
                     ObjectContentV0::RefreshCap(_c) => ("RefreshCap", format!("{}", "")),
+                    ObjectContentV0::Snapshot(_c) => ("Snapshot", format!("size={}", _c.len())),
                 },
             ),
         };

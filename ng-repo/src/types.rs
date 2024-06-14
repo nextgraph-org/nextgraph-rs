@@ -1927,9 +1927,8 @@ pub struct SnapshotV0 {
     // Branch heads the snapshot was made from, can be useful when shared outside and the commit_header_key is set to None. otherwise it is redundant to ACKS
     pub heads: Vec<ObjectId>,
 
-    /// Snapshot data structure
-    #[serde(with = "serde_bytes")]
-    pub content: Vec<u8>,
+    /// Reference to Object containing Snapshot data structure
+    pub content: ObjectRef,
 }
 
 /// Snapshot of a Branch
@@ -1957,9 +1956,8 @@ pub struct CompactV0 {
     #[serde(with = "serde_bytes")]
     pub origin: Vec<u8>,
 
-    /// Snapshot data structure
-    #[serde(with = "serde_bytes")]
-    pub content: Vec<u8>,
+    /// Reference to Object containing Snapshot data structure
+    pub content: ObjectRef,
 }
 
 /// Snapshot of a Branch
@@ -1989,6 +1987,11 @@ impl AsyncSignature {
         // check that the signature object referenced here, is of type threshold_sig Partial
         unimplemented!();
     }
+    pub fn reference(&self) -> &ObjectRef {
+        match self {
+            Self::V0(v0) => v0,
+        }
+    }
 }
 
 /// Sync Threshold Signature of one or a chain of commits . V0
@@ -2012,6 +2015,11 @@ impl SyncSignature {
     pub fn verify_quorum(&self) -> bool {
         // check that the signature object referenced here, is of type threshold_sig Total or Owner
         unimplemented!();
+    }
+    pub fn reference(&self) -> &ObjectRef {
+        match self {
+            Self::V0(v0) => v0,
+        }
     }
 }
 
@@ -2347,6 +2355,72 @@ pub enum QuorumType {
     IamTheSignature,
 }
 
+impl QuorumType {
+    pub fn final_consistency(&self) -> bool {
+        match self {
+            Self::TotalOrder | Self::Owners | Self::IamTheSignature => true,
+            _ => false,
+        }
+    }
+}
+
+impl CommitBody {
+    pub fn get_type(&self) -> CommitType {
+        match self {
+            Self::V0(v0) => v0.get_type(),
+        }
+    }
+    pub fn get_signature_reference(&self) -> Option<ObjectRef> {
+        match self {
+            Self::V0(v0) => v0.get_signature_reference(),
+        }
+    }
+}
+
+impl CommitBodyV0 {
+    pub fn get_type(&self) -> CommitType {
+        match self {
+            Self::Branch(_) => CommitType::Branch,
+            Self::BranchCapRefresh(_) => CommitType::BranchCapRefresh,
+            Self::UpdateBranch(_) => CommitType::UpdateBranch,
+            Self::Snapshot(_) => CommitType::Snapshot,
+            Self::AsyncTransaction(_) => CommitType::Transaction,
+            Self::SyncTransaction(_) => CommitType::Transaction,
+            Self::AddFile(_) => CommitType::FileAdd,
+            Self::RemoveFile(_) => CommitType::FileRemove,
+            Self::Compact(_) => CommitType::Compact,
+            Self::AsyncSignature(_) => CommitType::AsyncSignature,
+            Self::CapRefreshed(_) => CommitType::CapRefreshed,
+            Self::SyncSignature(_) => CommitType::SyncSignature,
+            _ => CommitType::Other,
+        }
+    }
+
+    pub fn get_signature_reference(&self) -> Option<ObjectRef> {
+        match self {
+            Self::AsyncSignature(s) => Some(s.reference().clone()),
+            Self::SyncSignature(s) => Some(s.reference().clone()),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CommitType {
+    Transaction,
+    FileAdd,
+    FileRemove,
+    Snapshot,
+    Compact,
+    AsyncSignature,
+    SyncSignature,
+    Branch,
+    UpdateBranch,
+    BranchCapRefresh,
+    CapRefreshed,
+    Other,
+}
+
 /// Content of a Commit
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CommitContentV0 {
@@ -2404,6 +2478,12 @@ impl CommitContent {
         }
     }
 
+    pub fn final_consistency(&self) -> bool {
+        match self {
+            CommitContent::V0(v0) => v0.quorum.final_consistency(),
+        }
+    }
+
     pub fn author_digest(author: &UserId, overlay: OverlayId) -> Digest {
         let author_id = serde_bare::to_vec(author).unwrap();
         let overlay_id = serde_bare::to_vec(&overlay).unwrap();
@@ -2445,7 +2525,7 @@ pub struct CommitV0 {
     /// Commit content
     pub content: CommitContent,
 
-    /// Signature over the content (a CommitContent) by the author. an editor (userId)
+    /// Signature over the content (a CommitContent) by the author. an editor (UserId)
     pub sig: Sig,
 }
 
@@ -2562,6 +2642,8 @@ pub enum ObjectContentV0 {
     SmallFile(SmallFile),
     RandomAccessFileMeta(RandomAccessFileMeta),
     RefreshCap(RefreshCap),
+    #[serde(with = "serde_bytes")]
+    Snapshot(Vec<u8>), // serialization of an AppState
 }
 
 /// Immutable data stored encrypted in a Merkle tree

@@ -18,7 +18,7 @@ use ng_repo::errors::VerifierError;
 #[allow(unused_imports)]
 use ng_repo::log::*;
 use ng_repo::object::Object;
-use ng_repo::repo::{BranchInfo, Repo};
+use ng_repo::repo::{BranchInfo, CommitInfo, Repo};
 use ng_repo::store::Store;
 use ng_repo::types::*;
 
@@ -452,18 +452,28 @@ impl CommitVerifier for AddFile {
         if files.len() == 1 {
             let refe = commit.files().remove(0);
             let filename = FileName {
-                heads: vec![], //TODO: put the current heads
                 name: self.name().clone(),
                 nuri: refe.nuri(),
                 reference: refe,
             };
+            let commit_id = commit.id().unwrap();
             verifier.user_storage.as_ref().unwrap().branch_add_file(
                 commit.id().unwrap(),
                 *branch_id,
                 filename.clone(),
             )?;
+            let repo = verifier.get_repo(repo_id, store.get_store_repo())?;
             verifier
-                .push_app_response(branch_id, AppResponse::V0(AppResponseV0::File(filename)))
+                .push_app_response(
+                    branch_id,
+                    AppResponse::V0(AppResponseV0::Patch(AppPatch {
+                        commit_id,
+                        commit_info: commit.as_info(repo),
+                        graph: None,
+                        discrete: None,
+                        other: Some(OtherPatch::FileAdd(filename)),
+                    })),
+                )
                 .await;
             Ok(())
         } else {

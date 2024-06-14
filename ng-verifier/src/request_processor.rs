@@ -9,6 +9,7 @@
 
 //! Processor for each type of AppRequest
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use futures::channel::mpsc;
@@ -20,6 +21,7 @@ use ng_repo::errors::*;
 use ng_repo::file::{RandomAccessFile, ReadFile};
 #[allow(unused_imports)]
 use ng_repo::log::*;
+use ng_repo::repo::CommitInfo;
 use ng_repo::types::BranchId;
 use ng_repo::types::StoreRepo;
 use ng_repo::types::*;
@@ -41,8 +43,11 @@ impl Verifier {
         match command {
             AppRequestCommandV0::Fetch(fetch) => match fetch {
                 AppFetchContentV0::Subscribe => {
-                    let (_, branch_id, _) = self.open_for_target(&nuri.target, false).await?;
-                    Ok(self.create_branch_subscription(branch_id).await?)
+                    let (repo_id, branch_id, store_repo) =
+                        self.open_for_target(&nuri.target, false).await?;
+                    Ok(self
+                        .create_branch_subscription(repo_id, branch_id, store_repo)
+                        .await?)
                 }
                 _ => unimplemented!(),
             },
@@ -221,6 +226,21 @@ impl Verifier {
         })
     }
 
+    fn history_for_nuri(
+        &self,
+        target: &NuriTargetV0,
+    ) -> Result<(Vec<ObjectId>, HashMap<ObjectId, CommitInfo>), VerifierError> {
+        let (repo_id, branch_id, store_repo) = self.resolve_target(target)?; // TODO deal with targets that are commit heads
+        let repo = self.get_repo(&repo_id, &store_repo)?;
+        let branch = repo.branch(&branch_id)?;
+        repo.history_at_heads(&branch.current_heads).map(|history| {
+            (
+                branch.current_heads.iter().map(|h| h.id.clone()).collect(),
+                history,
+            )
+        })
+    }
+
     pub(crate) async fn process(
         &mut self,
         command: &AppRequestCommandV0,
@@ -290,6 +310,18 @@ impl Verifier {
                         .collect();
 
                     return Ok(AppResponse::V0(AppResponseV0::Text(vec.join("\n"))));
+                }
+                AppFetchContentV0::History => {
+                    if !nuri.is_valid_for_sparql_update() {
+                        return Err(NgError::InvalidNuri);
+                    }
+
+                    return Ok(match self.history_for_nuri(&nuri.target) {
+                        Err(e) => AppResponse::error(e.to_string()),
+                        Ok((heads, history)) => {
+                            AppResponse::V0(AppResponseV0::History(AppHistory { heads, history }))
+                        }
+                    });
                 }
                 _ => unimplemented!(),
             },

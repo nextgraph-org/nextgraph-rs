@@ -20,6 +20,7 @@ use crate::errors::*;
 #[allow(unused_imports)]
 use crate::log::*;
 use crate::object::*;
+use crate::repo::CommitInfo;
 use crate::repo::Repo;
 use crate::store::Store;
 use crate::types::*;
@@ -322,7 +323,7 @@ impl Commit {
                         _ => return Err(CommitLoadError::NotACommit),
                     };
                     commit.set_id(id);
-                    commit.set_key(key.clone());
+                    commit.set_key(key);
                     match commit.load_body(store) {
                         Ok(_) => return Err(CommitLoadError::MissingBlocks(missing)),
                         Err(CommitLoadError::MissingBlocks(mut missing_body)) => {
@@ -344,7 +345,7 @@ impl Commit {
                     _ => return Err(CommitLoadError::NotACommit),
                 };
                 commit.set_id(id);
-                commit.set_key(key.clone());
+                commit.set_key(key);
                 commit.set_header(obj.header().clone());
 
                 if with_body {
@@ -426,6 +427,34 @@ impl Commit {
     pub fn sig(&self) -> &Sig {
         match self {
             Commit::V0(c) => &c.sig,
+        }
+    }
+
+    /// Get author (a UserId)
+    pub fn author(&self) -> &Digest {
+        self.content().author()
+    }
+
+    pub fn final_consistency(&self) -> bool {
+        self.content().final_consistency()
+    }
+
+    pub fn get_type(&self) -> Option<CommitType> {
+        self.body().map(|b| b.get_type())
+    }
+
+    pub fn get_signature_reference(&self) -> Option<ObjectRef> {
+        self.body().map_or(None, |b| b.get_signature_reference())
+    }
+
+    pub fn as_info(&self, repo: &Repo) -> CommitInfo {
+        CommitInfo {
+            past: self.acks_ids(),
+            key: self.key().unwrap(),
+            signature: None,
+            author: repo.get_user_string(self.author()),
+            final_consistency: self.final_consistency(),
+            commit_type: self.get_type().unwrap(),
         }
     }
 
@@ -536,6 +565,28 @@ impl Commit {
             },
         };
         res
+    }
+
+    /// Get acks (that have an ID in the header, without checking if there is a key for them in the header_keys)
+    /// if there is no header, returns an empty vec
+    pub fn acks_ids(&self) -> Vec<ObjectId> {
+        match self {
+            Commit::V0(c) => match &c.header {
+                Some(h) => h.acks(),
+                None => vec![],
+            },
+        }
+    }
+
+    /// Get deps (that have an ID in the header, without checking if there is a key for them in the header_keys)
+    /// if there is no header, returns an empty vec
+    pub fn deps_ids(&self) -> Vec<ObjectId> {
+        match self {
+            Commit::V0(c) => match &c.header {
+                Some(h) => h.deps(),
+                None => vec![],
+            },
+        }
     }
 
     /// Get files

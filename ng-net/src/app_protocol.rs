@@ -9,7 +9,10 @@
 
 //! App Protocol (between LocalBroker and Verifier)
 
+use std::collections::HashMap;
+
 use lazy_static::lazy_static;
+use ng_repo::repo::CommitInfo;
 use ng_repo::utils::decode_overlayid;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -46,6 +49,7 @@ pub enum AppFetchContentV0 {
     ReadQuery,  // more to be detailed
     WriteQuery, // more to be detailed
     RdfDump,
+    History,
 }
 
 impl AppFetchContentV0 {
@@ -134,6 +138,29 @@ impl NuriTargetV0 {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CommitInfoJs {
+    pub past: Vec<String>,
+    pub key: String,
+    pub signature: Option<String>,
+    pub author: String,
+    pub final_consistency: bool,
+    pub commit_type: CommitType,
+}
+
+impl From<&CommitInfo> for CommitInfoJs {
+    fn from(info: &CommitInfo) -> Self {
+        CommitInfoJs {
+            past: info.past.iter().map(|objid| objid.to_string()).collect(),
+            key: info.key.to_string(),
+            signature: info.signature.as_ref().map(|s| NuriV0::object_ref(&s)),
+            author: info.author.clone(),
+            final_consistency: info.final_consistency,
+            commit_type: info.commit_type.clone(),
+        }
+    }
+}
+
 const DID_PREFIX: &str = "did:ng";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -178,6 +205,10 @@ impl NuriV0 {
 
     pub fn branch_id_from_base64(branch_base64: &String) -> String {
         format!("{DID_PREFIX}:b:{branch_base64}")
+    }
+
+    pub fn object_ref(obj_ref: &ObjectRef) -> String {
+        format!("{DID_PREFIX}{}", obj_ref.nuri())
     }
 
     pub fn token(token: &Digest) -> String {
@@ -360,6 +391,9 @@ impl AppRequestCommandV0 {
     }
     pub fn new_rdf_dump() -> Self {
         AppRequestCommandV0::Fetch(AppFetchContentV0::RdfDump)
+    }
+    pub fn new_history() -> Self {
+        AppRequestCommandV0::Fetch(AppFetchContentV0::History)
     }
 }
 
@@ -603,20 +637,57 @@ pub struct GraphState {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppState {
-    heads: Vec<ObjectId>,
-    graph: Option<GraphState>, // there is always a graph present in the branch. but it might not have been asked in the request
-    discrete: Option<DiscreteState>,
+    pub heads: Vec<ObjectId>,
+    pub graph: Option<GraphState>, // there is always a graph present in the branch. but it might not have been asked in the request
+    pub discrete: Option<DiscreteState>,
+    pub files: Vec<FileName>,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppHistory {
+    pub heads: Vec<ObjectId>,
+    pub history: HashMap<ObjectId, CommitInfo>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppHistoryJs {
+    pub heads: Vec<String>,
+    pub history: HashMap<String, CommitInfoJs>,
+}
+
+impl AppHistory {
+    pub fn to_js(&self) -> AppHistoryJs {
+        AppHistoryJs {
+            heads: self.heads.iter().map(|h| h.to_string()).collect(),
+            history: HashMap::from_iter(
+                self.history
+                    .iter()
+                    .map(|(id, info)| (id.to_string(), info.into())),
+            ),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum OtherPatch {
+    FileAdd(FileName),
+    FileRemove(ObjectId),
+    AsyncSignature((ObjectRef, Vec<ObjectId>)),
+    Other,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppPatch {
-    heads: Vec<ObjectId>,
-    graph: Option<GraphPatch>,
-    discrete: Option<DiscretePatch>,
+    pub commit_id: ObjectId,
+    pub commit_info: CommitInfo,
+    // or graph, or discrete, or both, or other.
+    pub graph: Option<GraphPatch>,
+    pub discrete: Option<DiscretePatch>,
+    pub other: Option<OtherPatch>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FileName {
-    pub heads: Vec<ObjectId>,
     pub name: Option<String>,
     pub reference: ObjectRef,
     pub nuri: String,
@@ -633,8 +704,9 @@ pub enum AppResponseV0 {
     SessionStart(AppSessionStartResponse),
     State(AppState),
     Patch(AppPatch),
+    History(AppHistory),
     Text(String),
-    File(FileName),
+    //File(FileName),
     FileUploading(u32),
     FileUploaded(ObjectRef),
     #[serde(with = "serde_bytes")]

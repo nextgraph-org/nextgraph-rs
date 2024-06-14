@@ -178,7 +178,7 @@ impl Branch {
     ///
     /// and collect in `visited` the ObjectIds encountered on the way, stopping at any commit already belonging to `theirs` or the root of DAG.
     /// optionally collecting the missing objects/blocks that couldn't be found locally on the way,
-    /// and also optionally, collecting the commits of theirs found on the way
+    /// and also optionally, collecting the commits of `theirs` found on the way
     pub fn load_causal_past(
         cobj: &Object,
         store: &Store,

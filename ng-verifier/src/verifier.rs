@@ -235,12 +235,14 @@ impl Verifier {
 
     pub(crate) async fn create_branch_subscription(
         &mut self,
-        branch: BranchId,
+        repo_id: RepoId,
+        branch_id: BranchId,
+        store_repo: StoreRepo,
     ) -> Result<(Receiver<AppResponse>, CancelFn), VerifierError> {
         //log_info!("#### create_branch_subscription {}", branch);
         let (tx, rx) = mpsc::unbounded::<AppResponse>();
         //log_info!("SUBSCRIBE");
-        if let Some(returned) = self.branch_subscriptions.insert(branch, tx.clone()) {
+        if let Some(returned) = self.branch_subscriptions.insert(branch_id, tx.clone()) {
             //log_info!("RESUBSCRIBE");
             if !returned.is_closed() {
                 //log_info!("FORCE CLOSE");
@@ -249,19 +251,26 @@ impl Verifier {
             }
         }
 
+        let repo = self.get_repo(&repo_id, &store_repo)?;
+        let branch = repo.branch(&branch_id)?;
+
         //let tx = self.branch_subscriptions.entry(branch).or_insert_with(|| {});
-        for file in self
+        let files = self
             .user_storage
             .as_ref()
             .unwrap()
-            .branch_get_all_files(&branch)?
-        {
-            self.push_app_response(&branch, AppResponse::V0(AppResponseV0::File(file)))
-                .await;
-        }
+            .branch_get_all_files(&branch_id)?;
+        let state = AppState {
+            heads: branch.current_heads.iter().map(|h| h.id.clone()).collect(),
+            graph: None,
+            discrete: None,
+            files,
+        };
+        self.push_app_response(&branch_id, AppResponse::V0(AppResponseV0::State(state)))
+            .await;
 
         let fnonce = Box::new(move || {
-            log_info!("CLOSE_CHANNEL of subscription for branch {}", branch);
+            log_info!("CLOSE_CHANNEL of subscription for branch {}", branch_id);
             if !tx.is_closed() {
                 tx.close_channel();
             }

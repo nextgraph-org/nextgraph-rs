@@ -14,6 +14,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
+
 use crate::errors::*;
 #[allow(unused_imports)]
 use crate::log::*;
@@ -153,12 +155,108 @@ impl fmt::Display for Repo {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CommitInfo {
+    pub past: Vec<ObjectId>,
+    pub key: ObjectKey,
+    pub signature: Option<ObjectRef>,
+    pub author: String,
+    pub final_consistency: bool,
+    pub commit_type: CommitType,
+}
+
 impl Repo {
     #[cfg(any(test, feature = "testing"))]
     #[allow(deprecated)]
     pub fn new_with_perms(perms: &[PermissionV0], store: Arc<Store>) -> Self {
         let pub_key = PubKey::nil();
         Self::new_with_member(&pub_key, &pub_key, perms, store)
+    }
+
+    pub(crate) fn get_user_string(&self, user_hash: &Digest) -> String {
+        self.members
+            .get(user_hash)
+            .map_or_else(|| format!("t:{user_hash}"), |info| format!("i:{}", info.id))
+    }
+
+    fn load_causal_past(
+        &self,
+        cobj: &Commit,
+        visited: &mut HashMap<ObjectId, CommitInfo>,
+    ) -> Result<(), VerifierError> {
+        let id = cobj.id().unwrap();
+        if visited.get(&id).is_none() {
+            let commit_type = cobj.get_type().unwrap();
+            let acks = cobj.acks();
+            let (past, real_acks) = match commit_type {
+                CommitType::SyncSignature => {
+                    assert_eq!(acks.len(), 1);
+                    let dep = cobj.deps();
+                    assert_eq!(dep.len(), 1);
+                    let mut current_commit = dep[0].clone();
+                    let sign_ref = cobj.get_signature_reference().unwrap();
+                    let real_acks;
+                    loop {
+                        let o = Commit::load(current_commit.clone(), &self.store, true)?;
+                        let deps = o.deps();
+                        let commit_info = CommitInfo {
+                            past: deps.iter().map(|r| r.id.clone()).collect(),
+                            key: o.key().unwrap(),
+                            signature: Some(sign_ref.clone()),
+                            author: self.get_user_string(o.author()),
+                            final_consistency: o.final_consistency(),
+                            commit_type: o.get_type().unwrap(),
+                        };
+                        let id = o.id().unwrap();
+                        visited.insert(id, commit_info);
+                        if id == acks[0].id {
+                            real_acks = o.acks();
+                            break;
+                        }
+                        assert_eq!(deps.len(), 1);
+                        current_commit = deps[0].clone();
+                    }
+                    (vec![dep[0].id], real_acks)
+                }
+                CommitType::AsyncSignature => {
+                    let past: Vec<ObjectId> = acks.iter().map(|r| r.id.clone()).collect();
+                    for p in past.iter() {
+                        visited.get_mut(p).unwrap().signature =
+                            Some(cobj.get_signature_reference().unwrap());
+                    }
+                    (past, acks)
+                }
+                _ => (acks.iter().map(|r| r.id.clone()).collect(), acks),
+            };
+
+            let commit_info = CommitInfo {
+                past,
+                key: cobj.key().unwrap(),
+                signature: None,
+                author: self.get_user_string(cobj.author()),
+                final_consistency: cobj.final_consistency(),
+                commit_type,
+            };
+            visited.insert(id, commit_info);
+            for past_ref in real_acks {
+                let o = Commit::load(past_ref, &self.store, true)?;
+                self.load_causal_past(&o, visited)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn history_at_heads(
+        &self,
+        heads: &[ObjectRef],
+    ) -> Result<HashMap<ObjectId, CommitInfo>, VerifierError> {
+        let mut res = HashMap::new();
+        for id in heads {
+            if let Ok(cobj) = Commit::load(id.clone(), &self.store, true) {
+                self.load_causal_past(&cobj, &mut res)?;
+            }
+        }
+        Ok(res)
     }
 
     pub fn update_branch_current_heads(
