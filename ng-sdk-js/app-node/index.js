@@ -40,7 +40,10 @@ ng.init_headless(config).then( async() => {
         }
 
         let history = await ng.branch_history(session.session_id);
-        console.log(history);
+        for (const h of history.history) {
+            console.log(h[0], h[1]);
+        }
+        console.log(history.swimlane_state);
 
         // await ng.sparql_update(session.session_id, "DELETE DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:i> <did:ng:j> }");
 

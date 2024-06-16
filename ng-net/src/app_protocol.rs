@@ -9,18 +9,16 @@
 
 //! App Protocol (between LocalBroker and Verifier)
 
-use std::collections::HashMap;
-
 use lazy_static::lazy_static;
-use ng_repo::repo::CommitInfo;
-use ng_repo::utils::decode_overlayid;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use ng_repo::errors::NgError;
 #[allow(unused_imports)]
 use ng_repo::log::*;
+use ng_repo::repo::CommitInfo;
 use ng_repo::types::*;
+use ng_repo::utils::decode_overlayid;
 use ng_repo::utils::{decode_digest, decode_key, decode_sym_key};
 
 use crate::types::*;
@@ -146,6 +144,9 @@ pub struct CommitInfoJs {
     pub author: String,
     pub final_consistency: bool,
     pub commit_type: CommitType,
+    pub branch: String,
+    pub x: u32,
+    pub y: u32,
 }
 
 impl From<&CommitInfo> for CommitInfoJs {
@@ -157,6 +158,9 @@ impl From<&CommitInfo> for CommitInfoJs {
             author: info.author.clone(),
             final_consistency: info.final_consistency,
             commit_type: info.commit_type.clone(),
+            branch: info.branch.unwrap().to_string(),
+            x: info.x,
+            y: info.y,
         }
     }
 }
@@ -645,24 +649,28 @@ pub struct AppState {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppHistory {
-    pub heads: Vec<ObjectId>,
-    pub history: HashMap<ObjectId, CommitInfo>,
+    pub history: Vec<(ObjectId, CommitInfo)>,
+    pub swimlane_state: Vec<Option<ObjectId>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppHistoryJs {
-    pub heads: Vec<String>,
-    pub history: HashMap<String, CommitInfoJs>,
+    pub history: Vec<(String, CommitInfoJs)>,
+    pub swimlane_state: Vec<Option<String>>,
 }
 
 impl AppHistory {
     pub fn to_js(&self) -> AppHistoryJs {
         AppHistoryJs {
-            heads: self.heads.iter().map(|h| h.to_string()).collect(),
-            history: HashMap::from_iter(
+            history: Vec::from_iter(
                 self.history
                     .iter()
                     .map(|(id, info)| (id.to_string(), info.into())),
+            ),
+            swimlane_state: Vec::from_iter(
+                self.swimlane_state
+                    .iter()
+                    .map(|lane| lane.map_or(None, |b| Some(b.to_string()))),
             ),
         }
     }
@@ -673,6 +681,8 @@ pub enum OtherPatch {
     FileAdd(FileName),
     FileRemove(ObjectId),
     AsyncSignature((ObjectRef, Vec<ObjectId>)),
+    Snapshot(ObjectRef),
+    Compact(ObjectRef),
     Other,
 }
 

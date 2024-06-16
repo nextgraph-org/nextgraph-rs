@@ -163,6 +163,9 @@ pub struct CommitInfo {
     pub author: String,
     pub final_consistency: bool,
     pub commit_type: CommitType,
+    pub branch: Option<ObjectId>,
+    pub x: u32,
+    pub y: u32,
 }
 
 impl Repo {
@@ -182,13 +185,20 @@ impl Repo {
     fn load_causal_past(
         &self,
         cobj: &Commit,
-        visited: &mut HashMap<ObjectId, CommitInfo>,
-    ) -> Result<(), VerifierError> {
+        visited: &mut HashMap<ObjectId, (HashSet<ObjectId>, CommitInfo)>,
+        future: Option<ObjectId>,
+    ) -> Result<Option<ObjectId>, VerifierError> {
+        let mut root = None;
         let id = cobj.id().unwrap();
-        if visited.get(&id).is_none() {
+        if let Some((future_set, _)) = visited.get_mut(&id) {
+            // we update the future
+            if let Some(f) = future {
+                future_set.insert(f);
+            }
+        } else {
             let commit_type = cobj.get_type().unwrap();
             let acks = cobj.acks();
-            let (past, real_acks) = match commit_type {
+            let (past, real_acks, next_future) = match commit_type {
                 CommitType::SyncSignature => {
                     assert_eq!(acks.len(), 1);
                     let dep = cobj.deps();
@@ -196,6 +206,7 @@ impl Repo {
                     let mut current_commit = dep[0].clone();
                     let sign_ref = cobj.get_signature_reference().unwrap();
                     let real_acks;
+                    let mut future = id;
                     loop {
                         let o = Commit::load(current_commit.clone(), &self.store, true)?;
                         let deps = o.deps();
@@ -206,9 +217,14 @@ impl Repo {
                             author: self.get_user_string(o.author()),
                             final_consistency: o.final_consistency(),
                             commit_type: o.get_type().unwrap(),
+                            branch: None,
+                            x: 0,
+                            y: 0,
                         };
                         let id = o.id().unwrap();
-                        visited.insert(id, commit_info);
+
+                        visited.insert(id, ([future].into(), commit_info));
+                        future = id;
                         if id == acks[0].id {
                             real_acks = o.acks();
                             break;
@@ -216,17 +232,17 @@ impl Repo {
                         assert_eq!(deps.len(), 1);
                         current_commit = deps[0].clone();
                     }
-                    (vec![dep[0].id], real_acks)
+                    (vec![dep[0].id], real_acks, future)
                 }
                 CommitType::AsyncSignature => {
                     let past: Vec<ObjectId> = acks.iter().map(|r| r.id.clone()).collect();
                     for p in past.iter() {
-                        visited.get_mut(p).unwrap().signature =
+                        visited.get_mut(p).unwrap().1.signature =
                             Some(cobj.get_signature_reference().unwrap());
                     }
-                    (past, acks)
+                    (past, acks, id)
                 }
-                _ => (acks.iter().map(|r| r.id.clone()).collect(), acks),
+                _ => (acks.iter().map(|r| r.id.clone()).collect(), acks, id),
             };
 
             let commit_info = CommitInfo {
@@ -236,27 +252,175 @@ impl Repo {
                 author: self.get_user_string(cobj.author()),
                 final_consistency: cobj.final_consistency(),
                 commit_type,
+                branch: None,
+                x: 0,
+                y: 0,
             };
-            visited.insert(id, commit_info);
+            visited.insert(id, (future.map_or([].into(), |f| [f].into()), commit_info));
+            if real_acks.is_empty() {
+                root = Some(next_future);
+            }
             for past_ref in real_acks {
                 let o = Commit::load(past_ref, &self.store, true)?;
-                self.load_causal_past(&o, visited)?;
+                if let Some(r) = self.load_causal_past(&o, visited, Some(next_future))? {
+                    root = Some(r);
+                }
             }
         }
-        Ok(())
+        Ok(root)
+    }
+
+    fn past_is_all_in(past: &Vec<ObjectId>, already_in: &HashMap<ObjectId, ObjectId>) -> bool {
+        for p in past {
+            if !already_in.contains_key(p) {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn collapse(
+        id: &ObjectId,
+        dag: &mut HashMap<ObjectId, (HashSet<ObjectId>, CommitInfo)>,
+        already_in: &mut HashMap<ObjectId, ObjectId>,
+        branches_order: &mut Vec<Option<ObjectId>>,
+        branches: &mut HashMap<ObjectId, usize>,
+        //swimlanes: &mut Vec<Vec<ObjectId>>,
+    ) -> Vec<(ObjectId, CommitInfo)> {
+        let (_, c) = dag.get(id).unwrap();
+        log_debug!("{id}");
+        if c.past.len() > 1 && !Self::past_is_all_in(&c.past, already_in) {
+            // we postpone the merge until all the past commits have been added
+            // log_debug!("postponed {}", id);
+            vec![]
+        } else {
+            let (future, mut info) = dag.remove(id).unwrap();
+            let mut branch = match info.past.len() {
+                0 => *id,
+                _ => info.branch.unwrap(),
+                // _ => {
+                //     we merge on the smallest branch ordinal.
+                //     let smallest_branch = info
+                //         .past
+                //         .iter()
+                //         .map(|past_commit| {
+                //             branches.get(already_in.get(past_commit).unwrap()).unwrap()
+                //         })
+                //         .min()
+                //         .unwrap();
+                //     branches_order
+                //         .get(*smallest_branch)
+                //         .unwrap()
+                //         .unwrap()
+                //         .clone()
+                // }
+            };
+            info.branch = Some(branch.clone());
+            // let swimlane_idx = branches.get(&branch).unwrap();
+            // let swimlane = swimlanes.get_mut(*swimlane_idx).unwrap();
+            // if swimlane.last().map_or(true, |last| last != &branch) {
+            //     swimlane.push(branch.clone());
+            // }
+            let mut res = vec![(*id, info)];
+            let first_child_branch = branch.clone();
+            already_in.insert(*id, branch);
+            let mut future = Vec::from_iter(future);
+            future.sort();
+            // the first branch is the continuation as parent.
+            let mut iterator = future.iter().peekable();
+            while let Some(child) = iterator.next() {
+                //log_debug!("child of {} : {}", id, child);
+                {
+                    // we merge on the smallest branch ordinal.
+                    let (_, info) = dag.get_mut(child).unwrap();
+                    if let Some(b) = info.branch.to_owned() {
+                        let previous_ordinal = branches.get(&b).unwrap();
+                        let new_ordinal = branches.get(&branch).unwrap();
+                        let close = if previous_ordinal > new_ordinal {
+                            let _ = info.branch.insert(branch);
+                            // we close the previous branch
+                            &b
+                        } else {
+                            // otherwise we close the new branch
+                            &branch
+                        };
+                        let i = branches.get(close).unwrap();
+                        branches_order.get_mut(*i).unwrap().take();
+                    } else {
+                        let _ = info.branch.insert(branch);
+                    }
+                }
+                res.append(&mut Self::collapse(
+                    child,
+                    dag,
+                    already_in,
+                    branches_order,
+                    branches,
+                    //swimlanes,
+                ));
+                // each other child gets a new branch
+                if let Some(next) = iterator.peek() {
+                    branch = **next;
+                    let mut branch_inserted = false;
+                    let mut first_child_branch_passed = false;
+                    for (i, next_branch) in branches_order.iter_mut().enumerate() {
+                        if let Some(b) = next_branch {
+                            if b == &first_child_branch {
+                                first_child_branch_passed = true;
+                            }
+                        }
+                        if next_branch.is_none() && first_child_branch_passed {
+                            let _ = next_branch.insert(branch.clone());
+                            branches.insert(branch, i);
+                            branch_inserted = true;
+                            break;
+                        }
+                    }
+                    if !branch_inserted {
+                        //swimlanes.push(Vec::new());
+                        branches_order.push(Some(branch.clone()));
+                        branches.insert(branch, branches_order.len() - 1);
+                    }
+                }
+            }
+            res
+        }
     }
 
     pub fn history_at_heads(
         &self,
         heads: &[ObjectRef],
-    ) -> Result<HashMap<ObjectId, CommitInfo>, VerifierError> {
-        let mut res = HashMap::new();
+    ) -> Result<(Vec<(ObjectId, CommitInfo)>, Vec<Option<ObjectId>>), VerifierError> {
+        assert!(!heads.is_empty());
+        let mut visited = HashMap::new();
+        let mut root = None;
         for id in heads {
             if let Ok(cobj) = Commit::load(id.clone(), &self.store, true) {
-                self.load_causal_past(&cobj, &mut res)?;
+                root = self.load_causal_past(&cobj, &mut visited, None)?;
             }
         }
-        Ok(res)
+        if root.is_none() {
+            return Err(VerifierError::MalformedDag);
+        }
+        let root = root.unwrap();
+
+        let mut already_in: HashMap<ObjectId, ObjectId> = HashMap::new();
+        let mut branches_order: Vec<Option<ObjectId>> = vec![Some(root.clone())];
+        let mut branches: HashMap<ObjectId, usize> = HashMap::from([(root.clone(), 0)]);
+        //let mut swimlanes: Vec<Vec<ObjectId>> = vec![vec![root.clone()]];
+        let mut commits = Self::collapse(
+            &root,
+            &mut visited,
+            &mut already_in,
+            &mut branches_order,
+            &mut branches,
+            //&mut swimlanes,
+        );
+        for (i, (_, commit)) in commits.iter_mut().enumerate() {
+            commit.y = i as u32;
+            commit.x = *branches.get(commit.branch.as_ref().unwrap()).unwrap() as u32;
+        }
+        Ok((commits, branches_order))
     }
 
     pub fn update_branch_current_heads(

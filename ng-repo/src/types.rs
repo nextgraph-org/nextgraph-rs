@@ -12,6 +12,7 @@
 //! Corresponds to the BARE schema
 
 use core::fmt;
+use std::cmp::Ordering;
 use std::hash::Hash;
 
 use once_cell::sync::OnceCell;
@@ -37,6 +38,22 @@ pub type Blake3Digest32 = [u8; 32];
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Digest {
     Blake3Digest32(Blake3Digest32),
+}
+
+impl Ord for Digest {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self {
+            Self::Blake3Digest32(left) => match other {
+                Self::Blake3Digest32(right) => left.cmp(right),
+            },
+        }
+    }
+}
+
+impl PartialOrd for Digest {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl Digest {
@@ -1945,7 +1962,7 @@ pub enum Snapshot {
 ///
 /// hard snapshot will erase all the CommitBody of ancestors in the branch
 /// the compact boolean should be set in the Header too.
-/// after a hard snapshot, it is recommended to refresh the read capability (to empty the topics of they keys they still hold)
+/// after a hard snapshot, it is recommended to refresh the read capability (to empty the topics of the keys they still hold)
 /// If a branch is based on a hard snapshot, it cannot be merged back into the branch where the hard snapshot was made.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CompactV0 {

@@ -453,7 +453,7 @@ impl CommitVerifier for AddFile {
             let refe = commit.files().remove(0);
             let filename = FileName {
                 name: self.name().clone(),
-                nuri: refe.nuri(),
+                nuri: NuriV0::object_ref(&refe),
                 reference: refe,
             };
             let commit_id = commit.id().unwrap();

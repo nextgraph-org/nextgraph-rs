@@ -10,6 +10,11 @@
 -->
 
 <script lang="ts">
+  import {
+    createGitgraph,
+    templateExtend,
+    TemplateName,
+  } from "../history/gitgraph-js/gitgraph";
   import ng from "../api";
   import {
     branch_subs,
@@ -18,7 +23,7 @@
     online,
   } from "../store";
   import { link } from "svelte-spa-router";
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
   import { Button } from "flowbite-svelte";
 
   let is_tauri = import.meta.env.TAURI_PLATFORM;
@@ -27,7 +32,498 @@
 
   let img_map = {};
 
-  onMount(() => {});
+  let gitgraph;
+
+  let next = [
+    {
+      hash: "I",
+      subject: "niko2",
+      author: "",
+      parents: ["G"],
+    },
+    {
+      hash: "T",
+      subject: "niko2",
+      author: "",
+      parents: ["D", "H"],
+    },
+    {
+      hash: "Z",
+      subject: "niko2",
+      author: "",
+      parents: ["E"],
+    },
+    {
+      hash: "L",
+      subject: "niko2",
+      author: "",
+      parents: ["H"],
+    },
+    {
+      hash: "J",
+      subject: "niko2",
+      author: "",
+      parents: ["L", "Z", "I"],
+    },
+    {
+      hash: "K",
+      subject: "niko2",
+      author: "",
+      parents: ["G", "E"],
+    },
+    {
+      hash: "X",
+      subject: "niko2",
+      author: "",
+      parents: ["I"],
+    },
+    {
+      hash: "Q",
+      subject: "niko2",
+      author: "",
+      parents: ["L", "X"],
+    },
+  ];
+
+  function add() {
+    let n = next.shift();
+    if (n) gitgraph.commit(n);
+  }
+
+  onMount(async () => {
+    const graphContainer = document.getElementById("graph-container");
+    gitgraph = createGitgraph(graphContainer, {
+      template: templateExtend(TemplateName.Metro, {
+        branch: { label: { display: false } },
+        commit: { message: { displayAuthor: false } },
+      }),
+    });
+
+    gitgraph.swimlanes(["A", "F", "C"]);
+    gitgraph.import([
+      {
+        hash: "A",
+        subject: "niko2",
+        branch: "A",
+        parents: [],
+        author: "",
+        x: 0,
+        y: 0,
+      },
+      {
+        hash: "B",
+        subject: "niko2",
+        branch: "A",
+        author: "",
+        parents: ["A"],
+        x: 0,
+        y: 1,
+      },
+      {
+        hash: "D",
+        subject: "niko2",
+        branch: "A",
+        author: "",
+        parents: ["B"],
+        x: 0,
+        y: 2,
+      },
+      {
+        hash: "C",
+        subject: "niko2",
+        branch: "C",
+        author: "",
+        parents: ["A"],
+        x: 2,
+        y: 3,
+      },
+      {
+        hash: "F",
+        subject: "niko2",
+        branch: "F",
+        author: "",
+        parents: ["B", "C"],
+        x: 1,
+        y: 4,
+      },
+      {
+        hash: "G",
+        subject: "niko2",
+        branch: "F",
+        parents: ["F"],
+        author: "",
+        x: 1,
+        y: 5,
+      },
+      {
+        hash: "E",
+        subject: "niko2",
+        branch: "C",
+        author: "",
+        parents: ["C"],
+        x: 2,
+        y: 6,
+      },
+
+      // {
+      //   hash: "H",
+      //   subject: "niko2",
+      //   branch: "A",
+      //   author: "",
+      //   parents: ["D", "G"],
+      //   x: 0,
+      //   y: 7,
+      // },
+      // {
+      //   hash: "I",
+      //   subject: "niko2",
+      //   branch: "A",
+      //   author: "",
+      //   parents: ["D", "H"],
+      //   x: 0,
+      //   y: 8,
+      // },
+      // {
+      //   hash: "H",
+      //   subject: "niko2",
+      //   branch: "A",
+      //   author: "",
+      //   parents: ["D", "G", "E"],
+      //   x: 0,
+      //   y: 7,
+      // },
+    ]);
+
+    // window.setTimeout(() => {
+    //   gitgraph.commit({
+    //     hash: "H",
+    //     subject: "niko2",
+    //     author: "",
+    //     parents: ["D", "G", "E"],
+    //   });
+    // }, 0);
+
+    window.setTimeout(() => {
+      gitgraph.commit({
+        hash: "H",
+        subject: "niko2",
+        author: "",
+        parents: ["G", "E"],
+      });
+    }, 0);
+
+    // window.setTimeout(() => {
+    //   gitgraph.commit({
+    //     hash: "H",
+    //     subject: "niko2",
+    //     author: "",
+    //     parents: ["G"],
+    //   });
+    // }, 0);
+
+    // gitgraph.swimlanes(["A", "B", false, "D"]);
+    // gitgraph.import([
+    //   {
+    //     hash: "A",
+    //     subject: "niko2",
+    //     branch: "A",
+    //     parents: [],
+    //     author: "",
+    //     x: 0,
+    //     y: 0,
+    //   },
+    //   {
+    //     hash: "C",
+    //     subject: "niko2",
+    //     branch: "A",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 0,
+    //     y: 1,
+    //   },
+    //   {
+    //     hash: "D",
+    //     subject: "niko2",
+    //     branch: "A",
+    //     author: "",
+    //     parents: ["C"],
+    //     x: 0,
+    //     y: 2,
+    //   },
+    //   {
+    //     hash: "E",
+    //     subject: "niko2",
+    //     branch: "A",
+    //     author: "",
+    //     parents: ["D"],
+    //     x: 0,
+    //     y: 3,
+    //   },
+    //   {
+    //     hash: "B",
+    //     subject: "niko2",
+    //     branch: "C",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 2,
+    //     y: 4,
+    //   },
+    //   {
+    //     hash: "G",
+    //     subject: "niko2",
+    //     branch: "C",
+    //     parents: ["B"],
+    //     author: "",
+    //     x: 2,
+    //     y: 5,
+    //   },
+    //   {
+    //     hash: "F",
+    //     subject: "niko2",
+    //     branch: "B",
+    //     author: "",
+    //     parents: ["D", "G"],
+    //     x: 1,
+    //     y: 6,
+    //   },
+
+    //   {
+    //     hash: "H",
+    //     subject: "niko2",
+    //     branch: "D",
+    //     author: "",
+    //     parents: ["G"],
+    //     x: 3,
+    //     y: 7,
+    //   },
+    //   // {
+    //   //   hash: "I",
+    //   //   subject: "niko2",
+    //   //   branch: "A",
+    //   //   author: "",
+    //   //   parents: ["E", "F", "H"],
+    //   //   x: 0,
+    //   //   y: 8,
+    //   // },
+    // ]);
+
+    // gitgraph.swimlanes([
+    //   "A",
+    //   false,
+    //   false,
+    //   false,
+    //   false,
+    //   false,
+    //   false,
+    //   false,
+    //   false,
+    //   false,
+    //   false,
+    //   false,
+    //   false,
+    // ]);
+    // gitgraph.import([
+    //   {
+    //     hash: "A",
+    //     subject: "niko2",
+    //     branch: "A",
+    //     parents: [],
+    //     author: "",
+    //     x: 0,
+    //     y: 0,
+    //   },
+    //   {
+    //     hash: "B",
+    //     subject: "niko2",
+    //     branch: "A",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 0,
+    //     y: 1,
+    //   },
+    //   {
+    //     hash: "C",
+    //     subject: "niko2",
+    //     branch: "A",
+    //     author: "",
+    //     parents: ["B"],
+    //     x: 0,
+    //     y: 2,
+    //   },
+    //   {
+    //     hash: "D",
+    //     subject: "niko2",
+    //     branch: "A",
+    //     author: "",
+    //     parents: ["C"],
+    //     x: 0,
+    //     y: 3,
+    //   },
+    //   {
+    //     hash: "E",
+    //     subject: "niko2",
+    //     branch: "A",
+    //     author: "",
+    //     parents: ["D"],
+    //     x: 0,
+    //     y: 4,
+    //   },
+    //   {
+    //     hash: "J",
+    //     subject: "niko2",
+    //     branch: "J",
+    //     parents: ["A"],
+    //     author: "",
+    //     x: 2,
+    //     y: 5,
+    //   },
+    //   {
+    //     hash: "K",
+    //     subject: "niko2",
+    //     branch: "J",
+    //     author: "",
+    //     parents: ["J"],
+    //     x: 2,
+    //     y: 6,
+    //   },
+
+    //   {
+    //     hash: "L",
+    //     subject: "niko2",
+    //     branch: "L",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 3,
+    //     y: 7,
+    //   },
+    //   {
+    //     hash: "M",
+    //     subject: "niko2",
+    //     branch: "L",
+    //     author: "",
+    //     parents: ["L"],
+    //     x: 3,
+    //     y: 8,
+    //   },
+    //   {
+    //     hash: "G",
+    //     subject: "niko2",
+    //     branch: "G",
+    //     author: "",
+    //     parents: ["C", "K", "M"],
+    //     x: 1,
+    //     y: 9,
+    //   },
+    //   {
+    //     hash: "H",
+    //     subject: "niko2",
+    //     branch: "G",
+    //     author: "",
+    //     parents: ["G"],
+    //     x: 1,
+    //     y: 10,
+    //   },
+    //   {
+    //     hash: "I",
+    //     subject: "niko2",
+    //     branch: "G",
+    //     author: "",
+    //     parents: ["H"],
+    //     x: 1,
+    //     y: 11,
+    //   },
+    //   {
+    //     hash: "F",
+    //     subject: "niko2",
+    //     branch: "A",
+    //     author: "",
+    //     parents: ["E", "I"],
+    //     x: 0,
+    //     y: 12,
+    //   },
+    //   {
+    //     hash: "1",
+    //     subject: "niko2",
+    //     branch: "1",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 4,
+    //     y: 13,
+    //   },
+    //   {
+    //     hash: "2",
+    //     subject: "niko2",
+    //     branch: "2",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 5,
+    //     y: 14,
+    //   },
+    //   {
+    //     hash: "3",
+    //     subject: "niko2",
+    //     branch: "3",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 6,
+    //     y: 15,
+    //   },
+    //   {
+    //     hash: "4",
+    //     subject: "niko2",
+    //     branch: "4",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 7,
+    //     y: 16,
+    //   },
+    //   {
+    //     hash: "5",
+    //     subject: "niko2",
+    //     branch: "5",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 8,
+    //     y: 17,
+    //   },
+    //   {
+    //     hash: "6",
+    //     subject: "niko2",
+    //     branch: "6",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 9,
+    //     y: 18,
+    //   },
+    //   {
+    //     hash: "7",
+    //     subject: "niko2",
+    //     branch: "7",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 10,
+    //     y: 19,
+    //   },
+    //   {
+    //     hash: "8",
+    //     subject: "niko2",
+    //     branch: "8",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 11,
+    //     y: 20,
+    //   },
+    //   {
+    //     hash: "9",
+    //     subject: "niko2",
+    //     branch: "9",
+    //     author: "",
+    //     parents: ["A"],
+    //     x: 12,
+    //     y: 21,
+    //   },
+    // ]);
+  });
 
   async function get_img(ref) {
     if (!ref) return false;
@@ -195,6 +691,7 @@
 </script>
 
 <div>
+  <div id="graph-container"></div>
   {#if $cannot_load_offline}
     <div class="row p-4">
       <p>
@@ -215,6 +712,15 @@
       <!-- <a use:link href="/">
       <button tabindex="-1" class=" mr-5 select-none"> Back home </button>
     </a> -->
+      <Button
+        type="button"
+        on:click={() => {
+          add();
+        }}
+        class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mr-2 mb-2"
+      >
+        g
+      </Button>
       <Button
         disabled={!$online && !is_tauri}
         type="button"
@@ -254,15 +760,11 @@
       {:then}
         {#each $files as file}
           <p>
-            {file.V0.File.name}
+            {file.name}
 
-            {#await get_img(file.V0.File) then url}
+            {#await get_img(file) then url}
               {#if url}
-                <img
-                  src={url}
-                  title={"did:ng" + file.V0.File.nuri}
-                  alt={file.V0.File.name}
-                />
+                <img src={url} title={file.nuri} alt={file.name} />
               {/if}
             {/await}
           </p>

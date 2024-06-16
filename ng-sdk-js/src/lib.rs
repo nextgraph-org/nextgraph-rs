@@ -287,7 +287,6 @@ pub async fn rdf_dump(session_id: JsValue) -> Result<String, String> {
     }
 }
 
-#[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
 pub async fn branch_history(session_id: JsValue) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
@@ -306,10 +305,7 @@ pub async fn branch_history(session_id: JsValue) -> Result<JsValue, String> {
 
     let AppResponse::V0(res) = res;
     match res {
-        AppResponseV0::History(s) => Ok(s
-            .to_js()
-            .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
-            .unwrap()),
+        AppResponseV0::History(s) => Ok(serde_wasm_bindgen::to_value(&s.to_js()).unwrap()),
         _ => Err("invalid response".to_string()),
     }
 }

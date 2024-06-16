@@ -448,13 +448,22 @@ impl Commit {
     }
 
     pub fn as_info(&self, repo: &Repo) -> CommitInfo {
+        let past = self.acks_ids();
+        // past.sort();
+        // let branch = past
+        //     .is_empty()
+        //     .then_some(self.id().unwrap())
+        //     .or(Some(past[0]));
         CommitInfo {
-            past: self.acks_ids(),
+            past,
             key: self.key().unwrap(),
             signature: None,
             author: repo.get_user_string(self.author()),
             final_consistency: self.final_consistency(),
             commit_type: self.get_type().unwrap(),
+            branch: None,
+            x: 0,
+            y: 0,
         }
     }
 

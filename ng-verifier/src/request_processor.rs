@@ -229,16 +229,11 @@ impl Verifier {
     fn history_for_nuri(
         &self,
         target: &NuriTargetV0,
-    ) -> Result<(Vec<ObjectId>, HashMap<ObjectId, CommitInfo>), VerifierError> {
+    ) -> Result<(Vec<(ObjectId, CommitInfo)>, Vec<Option<ObjectId>>), VerifierError> {
         let (repo_id, branch_id, store_repo) = self.resolve_target(target)?; // TODO deal with targets that are commit heads
         let repo = self.get_repo(&repo_id, &store_repo)?;
         let branch = repo.branch(&branch_id)?;
-        repo.history_at_heads(&branch.current_heads).map(|history| {
-            (
-                branch.current_heads.iter().map(|h| h.id.clone()).collect(),
-                history,
-            )
-        })
+        repo.history_at_heads(&branch.current_heads)
     }
 
     pub(crate) async fn process(
@@ -318,9 +313,10 @@ impl Verifier {
 
                     return Ok(match self.history_for_nuri(&nuri.target) {
                         Err(e) => AppResponse::error(e.to_string()),
-                        Ok((heads, history)) => {
-                            AppResponse::V0(AppResponseV0::History(AppHistory { heads, history }))
-                        }
+                        Ok(history) => AppResponse::V0(AppResponseV0::History(AppHistory {
+                            history: history.0,
+                            swimlane_state: history.1,
+                        })),
                     });
                 }
                 _ => unimplemented!(),

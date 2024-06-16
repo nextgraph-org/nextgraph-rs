@@ -22,7 +22,7 @@ importers:
       flowbite: ^1.6.5
       flowbite-svelte: ^0.43.3
       internal-ip: ^7.0.0
-      ng-sdk-js: workspace:^0.1.0
+      ng-sdk-js: workspace:^0.1.0-preview.1
       node-gzip: ^1.1.2
       postcss: ^8.4.23
       postcss-load-config: ^4.0.1

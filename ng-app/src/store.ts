@@ -240,7 +240,14 @@ export const branch_subs = function(nuri) {
                             unsub = await ng.app_request_stream(req, 
                             async (commit) => {
                                 //console.log("GOT APP RESPONSE", commit);
-                                update( (old) => {old.unshift(commit); return old;} )
+                                if (commit.V0.State) {
+                                    for (const file of commit.V0.State.files) {
+                                        update( (old) => {old.unshift(file); return old;} )
+                                    }
+                                } else if (commit.V0.Patch.other?.FileAdd) {
+                                    update( (old) => {old.unshift(commit.V0.Patch.other.FileAdd); return old;} )
+                                }
+                                
                             });
                         }
                         catch (e) {
