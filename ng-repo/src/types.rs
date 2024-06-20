@@ -1885,6 +1885,14 @@ pub enum Transaction {
     V0(TransactionV0),
 }
 
+impl Transaction {
+    pub fn body_type(&self) -> u8 {
+        match self {
+            Self::V0(v0) => v0[0],
+        }
+    }
+}
+
 /// Add a new binary file in a branch
 ///
 /// FILES: the file ObjectRef
@@ -2401,8 +2409,12 @@ impl CommitBodyV0 {
             Self::BranchCapRefresh(_) => CommitType::BranchCapRefresh,
             Self::UpdateBranch(_) => CommitType::UpdateBranch,
             Self::Snapshot(_) => CommitType::Snapshot,
-            Self::AsyncTransaction(_) => CommitType::Transaction,
-            Self::SyncTransaction(_) => CommitType::Transaction,
+            Self::AsyncTransaction(t) | Self::SyncTransaction(t) => match t.body_type() {
+                0 => CommitType::TransactionGraph,
+                1 => CommitType::TransactionDiscrete,
+                2 => CommitType::TransactionBoth,
+                _ => panic!("invalid TransactionBody"),
+            },
             Self::AddFile(_) => CommitType::FileAdd,
             Self::RemoveFile(_) => CommitType::FileRemove,
             Self::Compact(_) => CommitType::Compact,
@@ -2424,7 +2436,9 @@ impl CommitBodyV0 {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CommitType {
-    Transaction,
+    TransactionGraph,
+    TransactionDiscrete,
+    TransactionBoth,
     FileAdd,
     FileRemove,
     Snapshot,

@@ -46,7 +46,15 @@ pub enum DiscreteTransaction {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TransactionBodyType {
+    Graph,
+    Discrete,
+    Both,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionBody {
+    body_type: TransactionBodyType,
     graph: Option<GraphTransaction>,
     discrete: Option<DiscreteTransaction>,
 }
@@ -340,6 +348,7 @@ impl Verifier {
             };
 
             let mut transac = TransactionBody {
+                body_type: TransactionBodyType::Graph,
                 graph: Some(graph_transac),
                 discrete: None,
             };
@@ -554,5 +563,43 @@ impl Verifier {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::{TransactionBody, TransactionBodyType};
+    use ng_repo::log::*;
+    use serde_bare::to_vec;
+
+    #[test]
+    pub fn test_transaction_body() {
+        let body = TransactionBody {
+            body_type: TransactionBodyType::Graph,
+            graph: None,
+            discrete: None,
+        };
+        let ser = to_vec(&body).unwrap();
+
+        log_debug!("graph {:?}", ser);
+
+        let body = TransactionBody {
+            body_type: TransactionBodyType::Discrete,
+            graph: None,
+            discrete: None,
+        };
+        let ser = to_vec(&body).unwrap();
+
+        log_debug!("discrete {:?}", ser);
+
+        let body = TransactionBody {
+            body_type: TransactionBodyType::Both,
+            graph: None,
+            discrete: None,
+        };
+        let ser = to_vec(&body).unwrap();
+
+        log_debug!("both {:?}", ser);
     }
 }

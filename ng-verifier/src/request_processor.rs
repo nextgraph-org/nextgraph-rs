@@ -9,7 +9,6 @@
 
 //! Processor for each type of AppRequest
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use futures::channel::mpsc;
