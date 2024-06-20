@@ -26,16 +26,16 @@ use crate::types::*;
 lazy_static! {
     #[doc(hidden)]
     static ref RE_FILE_READ_CAP: Regex =
-        Regex::new(r"^did:ng:j:([A-Za-z0-9-_%.]*):k:([A-Za-z0-9-_%.]*)$").unwrap();
+        Regex::new(r"^did:ng:j:([A-Za-z0-9-_]*):k:([A-Za-z0-9-_]*)$").unwrap();
     #[doc(hidden)]
     static ref RE_REPO: Regex =
-        Regex::new(r"^did:ng:o:([A-Za-z0-9-_%.]*):v:([A-Za-z0-9-_%.]*)$").unwrap();
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*):v:([A-Za-z0-9-_]*)$").unwrap();
     #[doc(hidden)]
     static ref RE_BRANCH: Regex =
-        Regex::new(r"^did:ng:o:([A-Za-z0-9-_%.]*):v:([A-Za-z0-9-_%.]*):b:([A-Za-z0-9-_%.]*)$").unwrap();
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*):v:([A-Za-z0-9-_]*):b:([A-Za-z0-9-_]*)$").unwrap();
     #[doc(hidden)]
     static ref RE_NAMED_BRANCH_OR_COMMIT: Regex =
-        Regex::new(r"^did:ng:o:([A-Za-z0-9-_%.]*):v:([A-Za-z0-9-_%.]*):a:([A-Za-z0-9-_%.]*)$").unwrap(); //TODO: allow international chars. disallow digit as first char
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*):v:([A-Za-z0-9-_]*):a:([A-Za-z0-9-_%]*)$").unwrap(); //TODO: allow international chars. disallow digit as first char
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

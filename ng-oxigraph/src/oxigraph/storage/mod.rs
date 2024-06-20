@@ -85,16 +85,16 @@ const DID_PREFIX: &str = "did:ng";
 lazy_static! {
     #[doc(hidden)]
     static ref RE_REPO: Regex =
-        Regex::new(r"^did:ng:o:([A-Za-z0-9-_%.]*):v:([A-Za-z0-9-_%.]*)$").unwrap();
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*):v:([A-Za-z0-9-_]*)$").unwrap();
     #[doc(hidden)]
     static ref RE_BRANCH: Regex =
-        Regex::new(r"^:b:([A-Za-z0-9-_%.]*)$").unwrap();
+        Regex::new(r"^:b:([A-Za-z0-9-_]*)$").unwrap();
     #[doc(hidden)]
     static ref RE_COMMITS: Regex =
-        Regex::new(r":c:([A-Za-z0-9-_%.]*)").unwrap();
+        Regex::new(r":c:([A-Za-z0-9-_]*)").unwrap();
     #[doc(hidden)]
     static ref RE_NAMED_BRANCH_OR_COMMIT: Regex =
-        Regex::new(r"^:a:([A-Za-z0-9-_%.]*)$").unwrap(); //TODO: allow international chars. disallow digit as first char
+        Regex::new(r"^:a:([A-Za-z0-9-_%]*)$").unwrap(); //TODO: allow international chars. disallow digit as first char
 }
 
 pub(crate) enum MatchBy {
