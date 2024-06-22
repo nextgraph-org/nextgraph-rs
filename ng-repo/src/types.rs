@@ -999,7 +999,7 @@ pub struct BlockContentV0 {
     /// is empty if ObjectContent fits in one block or this block is a leaf. in both cases, encrypted_content is then not empty
     pub children: Vec<BlockId>,
 
-    /// contains encrypted ChunkContentV0 (entirety, when fitting, or chunks of ObjectContentV0, in DataChunk) used for leaves of the Merkle tree,
+    /// contains encrypted ChunkContentV0 (entirely, when fitting, or chunks of ObjectContentV0, in DataChunk) used for leaves of the Merkle tree,
     /// or to store the keys of children (in InternalNode)
     ///
     /// Encrypted using convergent encryption with ChaCha20:

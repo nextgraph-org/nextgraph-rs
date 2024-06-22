@@ -17,7 +17,7 @@
     PaperAirplane,
     Bell,
     ArrowRightOnRectangle,
-    Share,
+    Users,
   } from "svelte-heros-v2";
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
@@ -55,7 +55,7 @@
         </a>
         <div class="w-auto flex row">
           <a href="#/shared" class="row items-center" on:click>
-            <Share
+            <Users
               tabindex="-1"
               class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white focus:outline-none"
             />
