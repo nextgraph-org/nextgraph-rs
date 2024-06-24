@@ -111,6 +111,10 @@ Until I find out how to do this properly, if you are compiling the android app f
 export RANLIB=/Users/[user]/Library/Android/sdk/ndk/[yourNDKversion]/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib
 ```
 
+On a linux setup, you will need to add the `glibc-devel.i386` package, see this [SO article](https://stackoverflow.com/questions/7412548/error-gnu-stubs-32-h-no-such-file-or-directory-while-compiling-nachos-source) for instructions for your distro.
+
+Before you can generate the APK, you will need to [configure Android Studio with your Signing keys.](https://web.archive.org/web/20240222072319/https://next--tauri.netlify.app/next/guides/distribution/sign-android/)
+
 to launch the dev app :
 
 ```
