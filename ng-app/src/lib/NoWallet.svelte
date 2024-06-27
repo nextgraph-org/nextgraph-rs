@@ -9,6 +9,11 @@
 // according to those terms.
 -->
 
+<!--
+  Component to inform the user, that no wallet is registered on this device.
+  Offers login or create wallet buttons.
+-->
+
 <script>
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
