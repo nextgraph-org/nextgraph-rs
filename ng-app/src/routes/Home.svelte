@@ -9,9 +9,12 @@
 // according to those terms.
 -->
 
+<!--
+  Home page to display for logged in users.
+  Redirects to no-wallet or login page, if not logged in.
+-->
+
 <script>
-  import { Button } from "flowbite-svelte";
-  import { link } from "svelte-spa-router";
   import Home from "../lib/Home.svelte";
   import NoWallet from "../lib/NoWallet.svelte";
   import { push } from "svelte-spa-router";

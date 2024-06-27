@@ -8,6 +8,12 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 -->
+
+<!--
+  "User Panel" page.
+  Provides wallet download, logout, offline/online switch, and other user actions.
+-->
+
 <script>
   // @ts-nocheck
 

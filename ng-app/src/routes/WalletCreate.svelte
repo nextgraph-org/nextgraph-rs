@@ -9,6 +9,13 @@
 // according to those terms.
 -->
 
+<!--
+  Wallet creation page.
+  This component manages the whole UX flow, gives infos about wallets,
+   offers available brokers, handles wallet creation,
+   and shows the wallet pazzle and pin.
+-->
+
 <script lang="ts">
   import { Button, Alert, Dropzone, Toggle } from "flowbite-svelte";
   import { link, querystring } from "svelte-spa-router";
