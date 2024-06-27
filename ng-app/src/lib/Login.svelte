@@ -24,6 +24,7 @@
     XCircle,
     ArrowLeftCircle,
     ArrowPath,
+    LockOpen,
   } from "svelte-heros-v2";
   //import Worker from "../worker.js?worker&inline";
   export let wallet;
@@ -234,11 +235,7 @@
   }
 
   async function on_pin_key(val) {
-    //console.log(val);
-    pin_code.push(val);
-    if (pin_code.length == 4) {
-      await finish();
-    }
+    pin_code = [...pin_code, val];
   }
 
   async function select_order(val, pos) {
@@ -510,8 +507,9 @@
             {#each shuffle_pin.slice(0 + row * 3, 3 + row * 3) as num}
               <button
                 tabindex="0"
-                class="m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+                class="m-1 disabled:opacity-15 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
                 on:click={async () => await on_pin_key(num)}
+                disabled={pin_code.length >= 4}
               >
                 <span>{num}</span>
               </button>
@@ -522,12 +520,23 @@
           <div class="m-1 w-full aspect-square" />
           <button
             tabindex="0"
-            class="m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+            class="disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
             on:click={async () => await on_pin_key(shuffle_pin[9])}
+            disabled={pin_code.length >= 4}
           >
             <span>{shuffle_pin[9]}</span>
           </button>
-          <div class="m-1 p- w-full aspect-square" />
+          <button
+            tabindex="0"
+            class="w-full bg-green-300 hover:bg-green-300/90 disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+            on:click={async () => await finish()}
+            disabled={pin_code.length < 4}
+          >
+            <LockOpen
+              tabindex="-1"
+              class="w-full h-[50%] transition duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
+            />
+          </button>
         </div>
       </div>
       <div class="flex justify-between mt-auto">
