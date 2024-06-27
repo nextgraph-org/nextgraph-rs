@@ -490,31 +490,33 @@
       class:max-w-[360px]={mobile}
       class:max-w-[600px]={!mobile}
     >
-      <div class="max-w-6xl lg:px-8 mt-auto px-3">
+      <div class="mt-auto max-w-6xl lg:px-8">
         <p class="max-w-xl md:mx-auto lg:max-w-2xl">
           <span class="text-xl">Enter your PIN code</span>
         </p>
-        <div class="w-[295px] mx-auto">
-          {#each [0, 1, 2] as row}
-            <div class="">
-              {#each shuffle_pin.slice(0 + row * 3, 3 + row * 3) as num}
-                <button
-                  tabindex="0"
-                  class="m-1 select-none align-bottom text-7xl w-[90px] h-[90px] p-0"
-                  on:click={async () => await on_pin_key(num)}
-                >
-                  <span>{num}</span>
-                </button>
-              {/each}
-            </div>
-          {/each}
+        {#each [0, 1, 2] as row}
+          <div class="columns-3 gap-2">
+            {#each shuffle_pin.slice(0 + row * 3, 3 + row * 3) as num}
+              <button
+                tabindex="0"
+                class="m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+                on:click={async () => await on_pin_key(num)}
+              >
+                <span>{num}</span>
+              </button>
+            {/each}
+          </div>
+        {/each}
+        <div class="columns-3 gap-2">
+          <div class="m-1 w-full aspect-square" />
           <button
             tabindex="0"
-            class="m-1 select-none mx-auto align-bottom text-7xl w-[90px] h-[90px] p-0"
+            class="m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
             on:click={async () => await on_pin_key(shuffle_pin[9])}
           >
             <span>{shuffle_pin[9]}</span>
           </button>
+          <div class="m-1 p- w-full aspect-square" />
         </div>
       </div>
       <div class="flex justify-between mt-auto">
