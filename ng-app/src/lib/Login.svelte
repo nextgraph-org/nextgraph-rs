@@ -262,7 +262,7 @@
 <div>
   {#if step == "load"}
     <div class=" max-w-xl lg:px-8 mx-auto px-4 mt-10">
-      <h2 class="pb-5 text-xl">How to open your wallet, step by step :</h2>
+      <h2 class="pb-5 text-xl">How to open your wallet, step by step:</h2>
       <ul class="mb-8 ml-3 space-y-4 text-left list-decimal">
         <li>
           For each one of the 9 categories of images, you will be presented with
@@ -374,6 +374,14 @@
       class:max-w-[600px]={!mobile}
     >
       <div class="mt-auto">
+        <p class="max-w-xl md:mx-auto lg:max-w-2xl">
+          <span class="text-xl">
+            <!-- TODO: Internationalization-->
+            Select your emoji of category: {emoji_cat[
+              shuffle.category_indices[pazzlePage]
+            ]}</span
+          >
+        </p>
         {#each [0, 1, 2, 3, 4] as row}
           <div class="columns-3 gap-0">
             {#each emojis2[pazzlePage]?.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i (pazzlePage + "-" + row + "-" + i)}
@@ -419,6 +427,9 @@
       class:max-w-[600px]={!mobile}
     >
       <div class="mt-auto">
+        <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-2">
+          <span class="text-xl">Click your emojis in the correct order</span>
+        </p>
         {#each [0, 1, 2] as row}
           <div class="columns-3 gap-0">
             {#each selection.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i}
@@ -575,39 +586,47 @@
   {:else if step == "end"}
     {#if error}
       <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
-        An error occurred !
-        <svg
-          fill="none"
-          class="animate-bounce mt-10 h-10 w-10 mx-auto"
-          stroke="currentColor"
-          stroke-width="1.5"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-          />
-        </svg>
-        <Alert color="red" class="mt-5">
-          {error}
-        </Alert>
-        <button
-          class="mt-10 select-none text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-          on:click={init}
-        >
-          Try again
-        </button>
-        <button
-          on:click={cancel}
-          class="mt-1 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-          ><XCircle
-            tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-          />Cancel</button
-        >
+        <div class="mt-auto max-w-6xl lg:px-8">
+          An error occurred !
+          <svg
+            fill="none"
+            class="animate-bounce mt-10 h-10 w-10 mx-auto"
+            stroke="currentColor"
+            stroke-width="1.5"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+            />
+          </svg>
+          <Alert color="red" class="mt-5">
+            {error}
+          </Alert>
+        </div>
+        <div class="flex justify-between mt-auto gap-4">
+          <button
+            class="mt-10 select-none text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            on:click={init}
+          >
+            <ArrowPath
+              tabindex="-1"
+              class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+            />
+            Try again
+          </button>
+          <button
+            on:click={cancel}
+            class="mt-10 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            ><XCircle
+              tabindex="-1"
+              class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+            />Cancel</button
+          >
+        </div>
       </div>
     {:else}
       <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-green-800">
@@ -658,29 +677,5 @@
   margin: 0;
   border: 0;
   box-shadow: none; */
-  }
-
-  .scale-to-fit {
-    /* Use the smaller of viewport width or height to maintain aspect ratio */
-    /* width: 100vw; */
-    /* height: 100vh; */
-    max-width: calc(100vh * (3 / 5)); /* Adjust the ratio to fit your needs */
-    max-height: calc(100vw * (5 / 3)); /* Inverse of the above ratio */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  /* Additional styles for responsiveness */
-  @media (orientation: landscape) {
-    .scale-to-fit {
-      max-width: calc(100vh * (3 / 5));
-    }
-  }
-
-  @media (orientation: portrait) {
-    .scale-to-fit {
-      max-height: calc(100vw * (5 / 3));
-    }
   }
 </style>
