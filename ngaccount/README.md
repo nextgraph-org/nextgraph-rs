@@ -12,15 +12,23 @@ pnpm --ignore-workspace install
 
 ## Dev
 
-```
+```bash
 cd web
 pnpm run dev --host
-// in another terminal
+
+# In another terminal...
 cd ../
-export NG_ACCOUNT_DOMAIN=[?]; export NG_ACCOUNT_ADMIN=[?]; export NG_ACCOUNT_LOCAL_PEER_KEY=[?]; export NG_ACCOUNT_SERVER=127.0.0.1,14400,[?]; export RUST_LOG=debug
+
+# Please set the required environment variables in the .env and then source it it with:
+source .env
+
 cargo watch -c -w src -x run
-// then open http://localhost:5173/
+# Then open http://localhost:5173/#/create
 ```
+
+> TODO: 
+> Currently, the ng-account server api is listening on http://127.0.0.1:3031 only which might cause you trouble.
+> See files: `main.rs`, `Create.svelte` and `Delete.svelte`.
 
 ## Prod
 
