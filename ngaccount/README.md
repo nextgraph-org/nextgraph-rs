@@ -26,9 +26,8 @@ cargo watch -c -w src -x run
 # Then open http://localhost:5173/#/create
 ```
 
-> TODO: 
-> Currently, the ng-account server api is listening on http://127.0.0.1:3031 only which might cause you trouble.
-> See files: `main.rs`, `Create.svelte` and `Delete.svelte`.
+> Currently, the ng-account server api is listening on http://127.0.0.1:3031 only which might cause you trouble (coded in `main.rs`, `Create.svelte` and `Delete.svelte`).
+> If you need to test from a (virtual) android device, you can use adb to tunnel the connection like: [`adb reverse tcp:3031 tcp:3031`](https://justinchips.medium.com/proxying-adb-client-connections-2ab495f774eb).
 
 ## Prod
 
