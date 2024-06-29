@@ -7,11 +7,20 @@ onmessage = (e) => {
   //console.log("Message received by worker", e.data);
   (async function() {
     try {
-      let secret_wallet = await ng.wallet_open_with_pazzle(
+      let secret_wallet;
+      if (e.data.pazzle) {
+         secret_wallet = await ng.wallet_open_with_pazzle(
+            e.data.wallet,
+            e.data.pazzle,
+            e.data.pin_code
+        );
+      } else if (e.data.mnemonic_words) {
+         secret_wallet = await ng.wallet_open_with_mnemonic_words(
           e.data.wallet,
-          e.data.pazzle,
+          e.data.mnemonic_words,
           e.data.pin_code
-      );
+        );
+      }
       postMessage({success:secret_wallet});
     } catch (e) {
       postMessage({error:e});
