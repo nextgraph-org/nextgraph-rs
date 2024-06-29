@@ -1529,18 +1529,38 @@
               with the name<br /><span class="text-black">
                 {download_name}</span
               ><br />
-              Please move it to a safe and durable place.<br /><br />
+              <span class="font-bold"
+                >Please move it to a safe and durable place.</span
+              ><br /><br />
             {/if}
-            Here is your Pazzle:<br /><br />
+            <!-- Pazzle -->
+            Here is your Pazzle (The <span class="font-bold">order</span> of
+            each image is
+            <span class="font-bold">important</span>):
+            <br />
+            <br />
             {#each display_pazzle(ready.pazzle) as emoji}
               <span>{emoji}</span><br />
             {/each}
+            <br />
+
             <br /><br />
-            Copy it on a piece of paper. Use that until you memorized it, then throw
-            it away.<br /> The order of each image is important!<br />
-            Now click on "Continue to Login" and select your wallet.<br /><br
-            />It is important that you login with this wallet at least once from
-            this {#if tauri_platform}device{:else}browser tab{/if},<br />
+            <!-- Mnemonic -->
+            And here is your mnemonic:<br />
+            <span class="select-none">"</span>{ready.mnemonic_str.join(
+              " "
+            )}<span class="select-none">"</span> <br /><br />
+
+            <br /><br />
+            You can use both the pazzle and the mnemonic to unlock your wallet. The
+            pazzle is easier to remember. The mnemonic is convenient, when you use
+            a secure password manager which can copy it to the corresponding wallet
+            unlock field. Copy both on a piece of paper. Use that until you memorized
+            it, then throw it away.
+            <br /><br />
+            Now click on "Continue to Login" and select your wallet.<br />It is
+            important that you login with this wallet at least once from this {#if tauri_platform}device{:else}browser
+              tab{/if},<br />
             while connected to the internet, so your personal site can be created
             on your broker.<br /><br />
             <a href="/wallet/login" use:link>

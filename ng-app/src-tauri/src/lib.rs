@@ -87,6 +87,30 @@ async fn wallet_open_with_pazzle(
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn wallet_open_with_mnemonic(
+    wallet: Wallet,
+    mnemonic: Vec<u16>,
+    pin: [u8; 4],
+    _app: tauri::AppHandle,
+) -> Result<SensitiveWallet, String> {
+    let wallet = nextgraph::local_broker::wallet_open_with_mnemonic(&wallet, mnemonic, pin)
+        .map_err(|e| e.to_string())?;
+    Ok(wallet)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_open_with_mnemonic_words(
+    wallet: Wallet,
+    mnemonic_words: Vec<String>,
+    pin: [u8; 4],
+    _app: tauri::AppHandle,
+) -> Result<SensitiveWallet, String> {
+    let wallet = nextgraph::local_broker::wallet_open_with_mnemonic_words(&wallet, &mnemonic_words, pin)
+        .map_err(|e| e.to_string())?;
+    Ok(wallet)
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn wallet_get_file(wallet_name: String, app: tauri::AppHandle) -> Result<(), String> {
     let ser = nextgraph::local_broker::wallet_get_file(&wallet_name)
         .await
@@ -493,6 +517,8 @@ impl AppBuilder {
                 wallet_gen_shuffle_for_pazzle_opening,
                 wallet_gen_shuffle_for_pin,
                 wallet_open_with_pazzle,
+                wallet_open_with_mnemonic,
+                wallet_open_with_mnemonic_words,
                 wallet_was_opened,
                 wallet_create,
                 wallet_read_file,

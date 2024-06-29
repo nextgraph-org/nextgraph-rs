@@ -25,6 +25,8 @@
     Backspace,
     ArrowPath,
     LockOpen,
+    Key,
+    CheckCircle,
   } from "svelte-heros-v2";
   //import Worker from "../worker.js?worker&inline";
   export let wallet;
@@ -63,9 +65,15 @@
     loaded = true;
   }
 
-  function letsgo() {
+  function start_with_pazzle() {
     loaded = false;
     step = "pazzle";
+    unlockWith = "pazzle";
+  }
+  function start_with_mnemonic() {
+    loaded = false;
+    step = "mnemonic";
+    unlockWith = "mnemonic";
   }
 
   let emojis2 = [];
@@ -92,6 +100,10 @@
 
   let trusted = false;
 
+  let mnemonic = "";
+
+  let unlockWith: "pazzle" | "mnemonic" | undefined;
+
   function order() {
     step = "order";
     ordered = [];
@@ -114,10 +126,8 @@
     let cat_idx = shuffle.category_indices[pazzlePage];
     let cat = emojis[emoji_cat[cat_idx]];
     let idx = shuffle.emoji_indices[pazzlePage][val];
-    //console.log(cat_idx, emoji_cat[cat_idx], idx, cat[idx].code);
 
     selection[pazzlePage] = { cat: cat_idx, index: idx };
-    console.debug(selection, cat, cat_idx, idx, val);
 
     if (pazzlePage == pazzle_length - 1) {
       order();
@@ -130,22 +140,23 @@
     step = "opening";
 
     let pazzle = [];
-
     for (const emoji of ordered) {
       pazzle.push((emoji.cat << 4) + emoji.index);
     }
 
-    //console.log(pazzle);
-    //console.log(wallet);
+    const mnemonic_words = mnemonic.split(" ");
 
     // open the wallet
     try {
       if (tauri_platform) {
-        let opened_wallet = await ng.wallet_open_with_pazzle(
-          wallet,
-          pazzle,
-          pin_code
-        );
+        let opened_wallet =
+          unlockWith === "pazzle"
+            ? await ng.wallet_open_with_pazzle(wallet, pazzle, pin_code)
+            : await ng.wallet_open_with_mnemonic_words(
+                wallet,
+                mnemonic_words,
+                pin_code
+              );
         // try {
         //   let client = await ng.wallet_was_opened(opened_wallet);
         //   opened_wallet.V0.client = client;
@@ -180,7 +191,11 @@
         myWorker.onmessage = async (msg) => {
           //console.log("Message received from worker", msg.data);
           if (msg.data.loaded) {
-            myWorker.postMessage({ wallet, pazzle, pin_code });
+            if (unlockWith === "pazzle") {
+              myWorker.postMessage({ wallet, pazzle, pin_code });
+            } else {
+              myWorker.postMessage({ wallet, mnemonic_words, pin_code });
+            }
             //console.log("postMessage");
           } else if (msg.data.success) {
             //console.log(msg.data);
@@ -229,6 +244,7 @@
   async function select_order(val) {
     ordered.push(val);
     val.sel = ordered.length;
+    console.debug("ordered", ordered);
     selection = selection;
     if (ordered.length == pazzle_length - 1) {
       let last = selection.find((emoji) => !emoji.sel);
@@ -294,8 +310,15 @@
   class:max-w-[600px]={!mobile}
 >
   {#if step == "load"}
-    <div class=" max-w-xl lg:px-8 mx-auto px-4 mt-10">
-      <h2 class="pb-5 text-xl">How to open your wallet, step by step:</h2>
+    <div
+      class="flex flex-col justify-center p-4"
+      class:min-w-[310px]={mobile}
+      class:min-w-[500px]={!mobile}
+      class:max-w-[360px]={mobile}
+      class:max-w-[600px]={!mobile}
+    >
+      <h2 class="pb-5 text-xl self-start">How to open your wallet:</h2>
+      <h3 class="pb-2 text-lg self-start">By your Pazzle</h3>
       <ul class="mb-8 ml-3 space-y-4 text-left list-decimal">
         <li>
           For each one of the 9 categories of images, you will be presented with
@@ -331,74 +354,86 @@
           on the digits.
         </li>
       </ul>
-    </div>
-    <div class=" max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
-      {#if !loaded}
-        Loading pazzle...
-        <svg
-          class="animate-spin my-4 h-14 w-14 mx-auto"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            class="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
+
+      <h3 class="pb-2 text-lg self-start">
+        By your 12 word Mnemonic (passphrase)
+      </h3>
+      <ul class="mb-8 ml-3 space-y-4 text-left list-decimal">
+        <li>
+          Enter your twelve word mnemonic in the input field. The words must be
+          separated by spaces.
+        </li>
+        <li>Enter the PIN code that you chose when you created your wallet.</li>
+      </ul>
+
+      <div class=" max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
+        {#if !loaded}
+          Loading wallet...
+          <svg
+            class="animate-spin my-4 h-14 w-14 mx-auto"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
             stroke="currentColor"
             stroke-width="4"
-          />
-          <path
-            class="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          />
-        </svg>
-      {:else}
-        <div class="flex justify-center space-x-12 mt-4 mb-4">
-          <button
-            on:click={cancel}
-            class="mt-1 mb-2 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            ><XCircle
-              tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-            />Cancel</button
           >
-          <button
-            on:click={letsgo}
-            class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-          >
-            <PuzzlePiece
-              tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             />
-            Open my wallet now!
-          </button>
-        </div>
-      {/if}
-    </div>
-    {#if for_import}
-      <div class=" max-w-xl lg:px-8 mx-auto px-4 mb-8">
-        <span class="text-xl">Do you trust this device? </span> <br />
-        <div class="flex justify-center items-center my-4">
-          <Toggle class="" bind:checked={trusted}
-            >Yes, save my wallet on this device</Toggle
-          >
-        </div>
-        <p class="text-sm">
-          If you do, if this device is yours or is used by few trusted persons
-          of your family or workplace, and you would like to login again from
-          this device in the future, then you can save your wallet on this
-          device. To the contrary, if this device is public and shared by
-          strangers, do not save your wallet here. {#if !tauri_platform}By
-            selecting this option, you agree to save some cookies on your
-            browser.{/if}<br />
-        </p>
+          </svg>
+        {:else}
+          <!-- Save wallet? -->
+          {#if for_import}
+            <div class="max-w-xl lg:px-8 mx-auto px-4 mb-8">
+              <span class="text-xl">Do you trust this device? </span> <br />
+              <div class="flex justify-center items-center my-4">
+                <Toggle class="" bind:checked={trusted}
+                  >Yes, save my wallet on this device</Toggle
+                >
+              </div>
+              <p class="text-sm">
+                If you do, if this device is yours or is used by few trusted
+                persons of your family or workplace, and you would like to login
+                again from this device in the future, then you can save your
+                wallet on this device. To the contrary, if this device is public
+                and shared by strangers, do not save your wallet here. {#if !tauri_platform}By
+                  selecting this option, you agree to save some cookies on your
+                  browser.{/if}<br />
+              </p>
+            </div>
+          {/if}
+
+          <div class="flex flex-col justify-centerspace-x-12 mt-4 mb-4">
+            <button
+              on:click={start_with_pazzle}
+              class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+            >
+              <PuzzlePiece
+                tabindex="-1"
+                class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+              />
+              Open with Pazzle!
+            </button>
+            <a
+              on:click={start_with_mnemonic}
+              class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center mb-2 underline cursor-pointer"
+            >
+              Open with Mnemonic instead
+            </a>
+            <button
+              on:click={cancel}
+              class="mt-1 mb-2 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+              ><XCircle
+                tabindex="-1"
+                class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+              />Cancel</button
+            >
+          </div>
+        {/if}
       </div>
-    {/if}
-    <!-- The following have navigation buttons and fixed layout -->
+    </div>
+    <!-- The following steps have navigation buttons and fixed layout -->
   {:else if step == "pazzle" || step == "order" || step == "pin" || step == "mnemonic"}
     <div
       class="flex flex-col justify-center h-screen p-4"
@@ -432,6 +467,33 @@
               {/each}
             </div>
           {/each}
+        {:else if step == "mnemonic"}
+          <form on:submit|preventDefault={start_pin}>
+            <label
+              for="mnemonic-input"
+              class="block mb-2 text-xl text-gray-900 dark:text-white"
+              >Your 12 word mnemonic</label
+            >
+            <input
+              type="password"
+              id="mnemonic-input"
+              placeholder="Enter your 12 word mnemonic here separated by spaces"
+              bind:value={mnemonic}
+              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            />
+            <div class="flex">
+              <button
+                type="submit"
+                class="mt-1 ml-auto text-white bg-primary-700 disabled:opacity-65 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+                on:click={start_pin}
+                disabled={mnemonic.split(" ").length !== 12}
+                ><CheckCircle
+                  tabindex="-1"
+                  class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+                />Confirm</button
+              >
+            </div>
+          </form>
         {:else if step == "order"}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-2">
             <span class="text-xl">Click your emojis in the correct order</span>
@@ -638,11 +700,16 @@
 
   .sel {
     position: absolute;
+    display: flex;
     width: 100%;
-    top: 45%;
+    height: 100%;
+    top: 0;
     left: 0;
     font-size: 100px;
     font-weight: 700;
+    justify-content: center;
+    align-items: center;
+    padding-top: 25%;
   }
 
   .sel-emoji {

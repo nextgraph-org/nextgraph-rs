@@ -37,6 +37,7 @@ pub enum NgError {
     InvalidArgument,
     PermissionDenied,
     InvalidPazzle,
+    InvalidMnemonic,
     CommitLoadError(CommitLoadError),
     ObjectParseError(ObjectParseError),
     StorageError(StorageError),
