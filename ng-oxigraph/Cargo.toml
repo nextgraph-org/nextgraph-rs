@@ -49,7 +49,7 @@ base64-url = "2.0.0"
 
 [target.'cfg(all(not(target_family = "wasm"),not(docsrs)))'.dependencies]
 libc = "0.2"
-ng-rocksdb = { version = "0.21.0-ngpreview.4", git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git", branch = "master", features = [  ] }
+ng-rocksdb = { version = "0.21.0-ngpreview.5", git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git", branch = "master", features = [  ] }
 
 [target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
 getrandom = "0.2.8"
