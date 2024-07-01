@@ -10,7 +10,6 @@
 -->
 
 <script lang="ts">
-  import { online } from "../store";
   import FullLayout from "./FullLayout.svelte";
   import Test from "./Test.svelte";
   import {
@@ -19,10 +18,7 @@
     ArrowRightOnRectangle,
     Users,
   } from "svelte-heros-v2";
-  // @ts-ignore
-  import Logo from "../assets/nextgraph.svg?component";
-  // @ts-ignore
-  import LogoGray from "../assets/nextgraph-gray.svg?component";
+  import Logo from "./components/Logo.svelte";
 
   let width: number;
   let breakPoint: number = 662;
@@ -43,11 +39,7 @@
         class="mx-auto flex flex-wrap justify-between items-center w-full px-2 xxs:px-8 xs:px-10"
       >
         <a href="#/user" class="flex items-center" on:click>
-          {#if $online}
-            <Logo class="w-7 h-7 tall:w-10 tall:h-10" />
-          {:else}
-            <LogoGray class="w-7 h-7 tall:w-10 tall:h-10" />
-          {/if}
+          <Logo className="w-7 h-7 tall:w-10 tall:h-10" />
           <span
             class="ml-4 self-center text-lg font-normal text-gray-900 rounded-lg dark:text-white whitespace-nowrap"
             >NextGraph</span

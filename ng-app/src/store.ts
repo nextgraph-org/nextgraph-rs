@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-import { writable, readable, readonly, derived, get } from "svelte/store";
+import { writable, readable, readonly, derived, get, type Writable } from "svelte/store";
 import ng from "./api";
 
 let all_branches = {};
@@ -19,30 +19,57 @@ export const active_wallet = writable(undefined);
 
 export const wallets = writable({});
 
-export const connections = writable({});
+export const connections: Writable<Record<string, any>> = writable({});
 
 export const active_session = writable(undefined);
 
-let next_reconnect = null;
+export const connection_status: Writable<"disconnected" | "connected" | "connecting"> = writable("disconnected");
 
-export const online = derived(connections,($connections) => { 
-    for (const cnx of Object.keys($connections)) {
-        if (!$connections[cnx].error) return true;
-        else if ($connections[cnx].error=="PeerAlreadyConnected") { 
-            connections.update((c) => {
+let next_reconnect: NodeJS.Timeout | null = null;
+
+const updateConnectionStatus = ($connections: Record<string, any> ) => {
+    // Reset error state for PeerAlreadyConnected errors.
+    Object.entries($connections).forEach(([cnx, connection]) => {
+        if (connection.error === "PeerAlreadyConnected") {
+            connections.update(c => {
                 c[cnx].error = undefined;
                 return c;
             });
-            return true; }
-        else if ($connections[cnx].error=="ConnectionError" && !$connections[cnx].connecting && next_reconnect==null) {
-            console.log("will try reconnect in 20 sec");
-            next_reconnect = setTimeout(async ()=> {
-                await reconnect();
-            },20000);
         }
+    });
+
+    // Check if any connection is active.
+    const is_connected = Object.values($connections).some(connection => !connection.error);
+
+    // Check if any connection is connecting.
+    const is_connecting = Object.values($connections).some(connection => connection.connecting);
+
+    // Check, if reconnect is needed.
+    const should_reconnect = !is_connecting && (next_reconnect === null) && Object.values($connections).some(
+        connection => connection.error === "ConnectionError"
+    );
+    if (should_reconnect) {
+        console.log("will try reconnect in 20 sec");
+        next_reconnect = setTimeout(async () => {
+            await reconnect();
+            connection_status.set("connecting");
+            next_reconnect = null;
+        }, 20000);
     }
-    return false;
+
+    if (is_connected) {
+        connection_status.set("connected");
+    } else if (!is_connected && is_connecting) {
+        connection_status.set("connecting");
+    } else {
+        connection_status.set("disconnected");
+    }
+};
+connections.subscribe(($connections) => {
+    updateConnectionStatus($connections);
 });
+
+export const online = derived(connection_status,($connectionStatus) => $connectionStatus == "connected");
 
 export const cannot_load_offline = writable(false);
 
@@ -123,8 +150,6 @@ export const reconnect = async function() {
             get(active_session).user,
             location.href
         ));
-        
-        
     }catch (e) {
         console.error(e)
     }

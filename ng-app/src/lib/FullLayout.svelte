@@ -19,11 +19,7 @@
   import { link, location } from "svelte-spa-router";
   import MobileBottomBarItem from "./MobileBottomBarItem.svelte";
   import MobileBottomBar from "./MobileBottomBar.svelte";
-  // @ts-ignore
-  import Logo from "../assets/nextgraph.svg?component";
-  // @ts-ignore
-  import LogoGray from "../assets/nextgraph-gray.svg?component";
-  import { online } from "../store";
+  import Logo from "./components/Logo.svelte";
 
   import { onMount, tick } from "svelte";
 
@@ -96,11 +92,7 @@
         <SidebarGroup ulClass="space-y-1 tall:space-y-2">
           <SidebarItem label="NextGraph" href="#/user" class="mt-1">
             <svelte:fragment slot="icon">
-              {#if $online}
-                <Logo class="w-7 h-7 tall:w-10 tall:h-10" />
-              {:else}
-                <LogoGray class="w-7 h-7 tall:w-10 tall:h-10" />
-              {/if}
+              <Logo className="w-7 h-7 tall:w-10 tall:h-10" />
             </svelte:fragment>
           </SidebarItem>
           <SidebarItem
