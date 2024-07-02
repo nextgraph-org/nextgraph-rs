@@ -275,9 +275,11 @@
   }
 
   let width: number;
-  let breakPoint: number = 361;
+  let height: number;
+  const breakPointWidth: number = 530;
+  const breakPointHeight: number = 900;
   let mobile = false;
-  $: if (width >= breakPoint) {
+  $: if (width >= breakPointWidth && height >= breakPointHeight) {
     mobile = false;
   } else {
     mobile = true;
@@ -626,7 +628,7 @@
   {/if}
 </div>
 
-<svelte:window bind:innerWidth={width} />
+<svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
 <style>
   .pazzleline {
