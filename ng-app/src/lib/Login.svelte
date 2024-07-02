@@ -28,6 +28,7 @@
     Key,
     CheckCircle,
   } from "svelte-heros-v2";
+  import PasswordInput from "./components/PasswordInput.svelte";
   //import Worker from "../worker.js?worker&inline";
   export let wallet;
   export let for_import = false;
@@ -88,10 +89,12 @@
 
   let pazzlePage = 0;
 
+  /** The selected emojis by category (one for each pazzle page). First will be the selected of first pazzle page. */
   let selection = [].fill(null, 0, pazzle_length);
 
   let pin_code = [];
 
+  /** The selected order from the order page. */
   let ordered = [];
 
   let shuffle_pin;
@@ -244,7 +247,7 @@
   async function select_order(val) {
     ordered.push(val);
     val.sel = ordered.length;
-    console.debug("ordered", ordered);
+
     selection = selection;
     if (ordered.length == pazzle_length - 1) {
       let last = selection.find((emoji) => !emoji.sel);
@@ -257,7 +260,9 @@
   }
 
   function go_back() {
-    if (step === "pazzle") {
+    if (step === "mnemonic") {
+      init();
+    } else if (step === "pazzle") {
       // Go to previous pazzle or init page, if on first pazzle.
       if (pazzlePage === 0) {
         init();
@@ -274,7 +279,9 @@
         selection = selection;
       }
     } else if (step === "pin") {
-      if (pin_code.length === 0) {
+      if (unlockWith === "mnemonic") {
+        start_with_mnemonic();
+      } else if (pin_code.length === 0) {
         // Unselect the last two elements.
         const to_unselect = ordered.slice(-2);
         to_unselect.forEach((val) => {
@@ -443,7 +450,36 @@
       class:max-w-[600px]={!mobile}
     >
       <div class="mt-auto flex flex-col justify-center">
-        {#if step == "pazzle"}
+        <!-- Unlock Screens -->
+
+        {#if step == "mnemonic"}
+          <form on:submit|preventDefault={start_pin}>
+            <label
+              for="mnemonic-input"
+              class="block mb-2 text-xl text-gray-900 dark:text-white"
+              >Your 12 word mnemonic</label
+            >
+            <PasswordInput
+              id="mnemonic-input"
+              placeholder="Enter your 12 word mnemonic here separated by spaces"
+              bind:value={mnemonic}
+              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+              auto_complete="mnemonic"
+            />
+            <div class="flex">
+              <button
+                type="submit"
+                class="mt-1 ml-auto text-white bg-primary-700 disabled:opacity-65 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+                on:click={start_pin}
+                disabled={mnemonic.split(" ").length !== 12}
+                ><CheckCircle
+                  tabindex="-1"
+                  class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+                />Confirm</button
+              >
+            </div>
+          </form>
+        {:else if step == "pazzle"}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl">
             <span class="text-xl">
               <!-- TODO: Internationalization-->
@@ -467,33 +503,6 @@
               {/each}
             </div>
           {/each}
-        {:else if step == "mnemonic"}
-          <form on:submit|preventDefault={start_pin}>
-            <label
-              for="mnemonic-input"
-              class="block mb-2 text-xl text-gray-900 dark:text-white"
-              >Your 12 word mnemonic</label
-            >
-            <input
-              type="password"
-              id="mnemonic-input"
-              placeholder="Enter your 12 word mnemonic here separated by spaces"
-              bind:value={mnemonic}
-              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            />
-            <div class="flex">
-              <button
-                type="submit"
-                class="mt-1 ml-auto text-white bg-primary-700 disabled:opacity-65 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-                on:click={start_pin}
-                disabled={mnemonic.split(" ").length !== 12}
-                ><CheckCircle
-                  tabindex="-1"
-                  class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-                />Confirm</button
-              >
-            </div>
-          </form>
         {:else if step == "order"}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-2">
             <span class="text-xl">Click your emojis in the correct order</span>
@@ -538,8 +547,9 @@
               >{#each pin_code as pin_key}*{/each}</span
             >
           </p>
+
           {#each [0, 1, 2] as row}
-            <div class="columns-3 gap-2">
+            <div class="columns-3 flex">
               {#each shuffle_pin.slice(0 + row * 3, 3 + row * 3) as num}
                 <button
                   tabindex="0"
@@ -552,7 +562,7 @@
               {/each}
             </div>
           {/each}
-          <div class="columns-3 gap-2">
+          <div class="columns-3 flex">
             <div class="m-1 w-full aspect-square" />
             <button
               tabindex="0"
