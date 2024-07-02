@@ -22,7 +22,7 @@
   import {
     PuzzlePiece,
     XCircle,
-    ArrowLeftCircle,
+    Backspace,
     ArrowPath,
     LockOpen,
   } from "svelte-heros-v2";
@@ -31,7 +31,6 @@
   export let for_import = false;
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
-  let mobile = tauri_platform == "android" || tauri_platform == "ios";
 
   const dispatch = createEventDispatcher();
 
@@ -87,8 +86,6 @@
 
   let ordered = [];
 
-  let last_one = {};
-
   let shuffle_pin;
 
   let error;
@@ -98,14 +95,9 @@
   function order() {
     step = "order";
     ordered = [];
-    last_one = {};
     // In case, this is called by the cancel button, we need to reset the selection.
     selection.forEach((emoji) => (emoji.sel = undefined));
     selection = selection;
-
-    for (let i = 0; i < pazzle_length; i++) {
-      last_one[i] = true;
-    }
   }
 
   async function start_pin() {
@@ -230,23 +222,16 @@
     dispatch("cancel");
   }
 
-  function to_previous_pazzle() {
-    pazzlePage = pazzlePage - 1;
-  }
-
   async function on_pin_key(val) {
     pin_code = [...pin_code, val];
   }
 
-  async function select_order(val, pos) {
-    delete last_one[pos];
-    console.debug(last_one, val);
-
+  async function select_order(val) {
     ordered.push(val);
     val.sel = ordered.length;
     selection = selection;
     if (ordered.length == pazzle_length - 1) {
-      let last = selection[Object.keys(last_one)[0]];
+      let last = selection.find((emoji) => !emoji.sel);
       ordered.push(last);
       last.sel = ordered.length;
       selection = selection;
@@ -254,9 +239,58 @@
       await start_pin();
     }
   }
+
+  function go_back() {
+    if (step === "pazzle") {
+      // Go to previous pazzle or init page, if on first pazzle.
+      if (pazzlePage === 0) {
+        init();
+      } else {
+        pazzlePage -= 1;
+      }
+    } else if (step === "order") {
+      if (ordered.length === 0) {
+        step = "pazzle";
+      } else {
+        const last_selected = ordered.pop();
+        last_selected.sel = null;
+        ordered = ordered;
+        selection = selection;
+      }
+    } else if (step === "pin") {
+      if (pin_code.length === 0) {
+        // Unselect the last two elements.
+        const to_unselect = ordered.slice(-2);
+        to_unselect.forEach((val) => {
+          val.sel = null;
+        });
+
+        ordered = ordered.slice(0, -2);
+        selection = selection;
+        step = "order";
+      } else {
+        pin_code = pin_code.slice(0, pin_code.length - 1);
+      }
+    }
+  }
+
+  let width: number;
+  let breakPoint: number = 361;
+  let mobile = false;
+  $: if (width >= breakPoint) {
+    mobile = false;
+  } else {
+    mobile = true;
+  }
 </script>
 
-<div>
+<div
+  class="flex flex-col justify-center h-screen p-4"
+  class:min-w-[310px]={mobile}
+  class:min-w-[500px]={!mobile}
+  class:max-w-[360px]={mobile}
+  class:max-w-[600px]={!mobile}
+>
   {#if step == "load"}
     <div class=" max-w-xl lg:px-8 mx-auto px-4 mt-10">
       <h2 class="pb-5 text-xl">How to open your wallet, step by step:</h2>
@@ -323,6 +357,14 @@
       {:else}
         <div class="flex justify-center space-x-12 mt-4 mb-4">
           <button
+            on:click={cancel}
+            class="mt-1 mb-2 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            ><XCircle
+              tabindex="-1"
+              class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+            />Cancel</button
+          >
+          <button
             on:click={letsgo}
             class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
           >
@@ -332,14 +374,6 @@
             />
             Open my wallet now!
           </button>
-          <button
-            on:click={cancel}
-            class="mt-1 mb-2 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            ><XCircle
-              tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-            />Cancel</button
-          >
         </div>
       {/if}
     </div>
@@ -362,60 +396,8 @@
         </p>
       </div>
     {/if}
-  {:else if step == "pazzle"}
-    <div
-      class="flex flex-col justify-center h-screen p-4 pazzleline"
-      class:min-w-[310px]={mobile}
-      class:min-w-[500px]={!mobile}
-      class:max-w-[360px]={mobile}
-      class:max-w-[600px]={!mobile}
-    >
-      <div class="mt-auto">
-        <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-          <span class="text-xl">
-            <!-- TODO: Internationalization-->
-            Select your emoji of category: {emoji_cat[
-              shuffle.category_indices[pazzlePage]
-            ]}</span
-          >
-        </p>
-        {#each [0, 1, 2, 3, 4] as row}
-          <div class="columns-3 gap-0">
-            {#each emojis2[pazzlePage]?.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i (pazzlePage + "-" + row + "-" + i)}
-              <div
-                role="button"
-                tabindex="0"
-                class="w-full aspect-square emoji focus:outline-none focus:bg-gray-300"
-                on:click={() => select(row * 3 + i)}
-                on:keypress={() => select(row * 3 + i)}
-              >
-                <svelte:component this={emoji.svg?.default} />
-              </div>
-            {/each}
-          </div>
-        {/each}
-      </div>
-      <div class="flex justify-between mt-auto">
-        <button
-          class="mt-1 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-          on:click={pazzlePage === 0 ? init : to_previous_pazzle}
-          ><ArrowLeftCircle
-            tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-          />Go Back</button
-        >
-        <button
-          on:click={cancel}
-          class="mt-1 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-          ><XCircle
-            tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-          />Cancel</button
-        >
-      </div>
-    </div>
-  {:else if step == "order"}
-    <!-- console.log(cat_idx, emoji_cat[cat_idx], idx, cat[idx].code); -->
+    <!-- The following have navigation buttons and fixed layout -->
+  {:else if step == "pazzle" || step == "order" || step == "pin" || step == "mnemonic"}
     <div
       class="flex flex-col justify-center h-screen p-4"
       class:min-w-[310px]={mobile}
@@ -423,63 +405,115 @@
       class:max-w-[360px]={mobile}
       class:max-w-[600px]={!mobile}
     >
-      <div class="mt-auto">
-        <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-2">
-          <span class="text-xl">Click your emojis in the correct order</span>
-        </p>
-        {#each [0, 1, 2] as row}
-          <div class="columns-3 gap-0">
-            {#each selection.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i}
-              {#if !emoji.sel}
+      <div class="mt-auto flex flex-col justify-center">
+        {#if step == "pazzle"}
+          <p class="max-w-xl md:mx-auto lg:max-w-2xl">
+            <span class="text-xl">
+              <!-- TODO: Internationalization-->
+              Select your emoji of category: {emoji_cat[
+                shuffle.category_indices[pazzlePage]
+              ]}</span
+            >
+          </p>
+          {#each [0, 1, 2, 3, 4] as row}
+            <div class="columns-3 gap-0">
+              {#each emojis2[pazzlePage]?.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i (pazzlePage + "-" + row + "-" + i)}
                 <div
                   role="button"
                   tabindex="0"
                   class="w-full aspect-square emoji focus:outline-none focus:bg-gray-300"
-                  on:click={() => select_order(emoji, row * 3 + i)}
-                  on:keypress={() => select_order(emoji, row * 3 + i)}
+                  on:click={() => select(row * 3 + i)}
+                  on:keypress={() => select(row * 3 + i)}
                 >
-                  <svelte:component
-                    this={emojis[emoji_cat[emoji.cat]][emoji.index].svg
-                      ?.default}
-                  />
+                  <svelte:component this={emoji.svg?.default} />
                 </div>
-              {:else}
-                <div
-                  class="w-full aspect-square opacity-25 select-none sel-emoji"
-                >
-                  <svelte:component
-                    this={emojis[emoji_cat[emoji.cat]][emoji.index].svg
-                      ?.default}
-                  />
-                  <span
-                    class="sel drop-shadow-[2px_2px_2px_rgba(255,255,255,1)]"
-                    >{emoji.sel}</span
+              {/each}
+            </div>
+          {/each}
+        {:else if step == "order"}
+          <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-2">
+            <span class="text-xl">Click your emojis in the correct order</span>
+          </p>
+          {#each [0, 1, 2] as row}
+            <div class="columns-3 gap-0">
+              {#each selection.slice(0 + row * 3, 3 + row * 3) || [] as emoji, i}
+                {#if !emoji.sel}
+                  <div
+                    role="button"
+                    tabindex="0"
+                    class="w-full aspect-square emoji focus:outline-none focus:bg-gray-300"
+                    on:click={() => select_order(emoji)}
+                    on:keypress={() => select_order(emoji)}
                   >
-                </div>
-              {/if}
-            {/each}
+                    <svelte:component
+                      this={emojis[emoji_cat[emoji.cat]][emoji.index].svg
+                        ?.default}
+                    />
+                  </div>
+                {:else}
+                  <div
+                    class="w-full aspect-square opacity-25 select-none sel-emoji"
+                  >
+                    <svelte:component
+                      this={emojis[emoji_cat[emoji.cat]][emoji.index].svg
+                        ?.default}
+                    />
+                    <span
+                      class="sel drop-shadow-[2px_2px_2px_rgba(255,255,255,1)]"
+                      >{emoji.sel}</span
+                    >
+                  </div>
+                {/if}
+              {/each}
+            </div>
+          {/each}
+        {:else if step == "pin"}
+          <p class="flex items-center md:mx-auto lg:max-w-2xl">
+            <span class="text-xl">Enter your PIN code:</span>
+            <span class="text-xl min-w-[2em] ml-1 text-left"
+              >{#each pin_code as pin_key}*{/each}</span
+            >
+          </p>
+          {#each [0, 1, 2] as row}
+            <div class="columns-3 gap-2">
+              {#each shuffle_pin.slice(0 + row * 3, 3 + row * 3) as num}
+                <button
+                  tabindex="0"
+                  class="m-1 disabled:opacity-15 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+                  on:click={async () => await on_pin_key(num)}
+                  disabled={pin_code.length >= 4}
+                >
+                  <span>{num}</span>
+                </button>
+              {/each}
+            </div>
+          {/each}
+          <div class="columns-3 gap-2">
+            <div class="m-1 w-full aspect-square" />
+            <button
+              tabindex="0"
+              class="disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+              on:click={async () => await on_pin_key(shuffle_pin[9])}
+              disabled={pin_code.length >= 4}
+            >
+              <span>{shuffle_pin[9]}</span>
+            </button>
+            <button
+              tabindex="0"
+              class="w-full bg-green-300 hover:bg-green-300/90 disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+              on:click={async () => await finish()}
+              disabled={pin_code.length < 4}
+            >
+              <LockOpen
+                tabindex="-1"
+                class="w-full h-[50%] transition duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
+              />
+            </button>
           </div>
-        {/each}
+        {/if}
       </div>
+      <!-- Navigation Buttons for pazzle, order pin, mnemonic -->
       <div class="flex justify-between mt-auto">
-        <button
-          class="mt-1 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-          on:click={() => (step = "pazzle")}
-        >
-          <ArrowLeftCircle
-            tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-          />
-          Go Back</button
-        >
-        <button
-          class="mt-1 bg-yellow-100 hover:bg-yellow-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-          on:click={order}
-          ><ArrowPath
-            tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-          />Clear</button
-        >
         <button
           on:click={cancel}
           class="mt-1 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
@@ -488,81 +522,13 @@
             class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
           />Cancel</button
         >
-      </div>
-    </div>
-  {:else if step == "pin"}
-    <div
-      class="flex flex-col justify-center h-screen p-4"
-      class:min-w-[310px]={mobile}
-      class:min-w-[500px]={!mobile}
-      class:max-w-[360px]={mobile}
-      class:max-w-[600px]={!mobile}
-    >
-      <div class="mt-auto max-w-6xl lg:px-8">
-        <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-          <span class="text-xl">Enter your PIN code</span>
-        </p>
-        {#each [0, 1, 2] as row}
-          <div class="columns-3 gap-2">
-            {#each shuffle_pin.slice(0 + row * 3, 3 + row * 3) as num}
-              <button
-                tabindex="0"
-                class="m-1 disabled:opacity-15 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
-                on:click={async () => await on_pin_key(num)}
-                disabled={pin_code.length >= 4}
-              >
-                <span>{num}</span>
-              </button>
-            {/each}
-          </div>
-        {/each}
-        <div class="columns-3 gap-2">
-          <div class="m-1 w-full aspect-square" />
-          <button
-            tabindex="0"
-            class="disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
-            on:click={async () => await on_pin_key(shuffle_pin[9])}
-            disabled={pin_code.length >= 4}
-          >
-            <span>{shuffle_pin[9]}</span>
-          </button>
-          <button
-            tabindex="0"
-            class="w-full bg-green-300 hover:bg-green-300/90 disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
-            on:click={async () => await finish()}
-            disabled={pin_code.length < 4}
-          >
-            <LockOpen
-              tabindex="-1"
-              class="w-full h-[50%] transition duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
-            />
-          </button>
-        </div>
-      </div>
-      <div class="flex justify-between mt-auto">
         <button
           class="mt-1 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-          on:click={order}
-          ><ArrowLeftCircle
+          on:click={go_back}
+          ><Backspace
             tabindex="-1"
             class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
           />Go Back</button
-        >
-        <button
-          class="mt-1 bg-yellow-100 hover:bg-yellow-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-          on:click={start_pin}
-          ><ArrowPath
-            tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-          />Clear</button
-        >
-        <button
-          on:click={cancel}
-          class="mt-1 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-          ><XCircle
-            tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-          />Cancel</button
         >
       </div>
     </div>
@@ -659,6 +625,8 @@
     {/if}
   {/if}
 </div>
+
+<svelte:window bind:innerWidth={width} />
 
 <style>
   .pazzleline {
