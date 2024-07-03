@@ -478,7 +478,7 @@
             </div>
           </form>
         {:else if step == "pazzle"}
-          <p class="max-w-xl md:mx-auto lg:max-w-2xl">
+          <p class="max-w-xl mx-auto lg:max-w-2xl">
             <span class="text-xl">
               <!-- TODO: Internationalization-->
               Select your emoji of category: {emoji_cat[
@@ -502,7 +502,7 @@
             </div>
           {/each}
         {:else if step == "order"}
-          <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-2">
+          <p class="max-w-xl mx-auto lg:max-w-2xl mb-2">
             <span class="text-xl">Click your emojis in the correct order</span>
           </p>
           {#each [0, 1, 2] as row}
@@ -531,7 +531,8 @@
                     />
                     <span
                       class="sel drop-shadow-[2px_2px_2px_rgba(255,255,255,1)]"
-                      >{emoji.sel}</span
+                      class:text-[9em]={!mobile}
+                      class:text-[6em]={mobile}>{emoji.sel}</span
                     >
                   </div>
                 {/if}
@@ -539,7 +540,7 @@
             </div>
           {/each}
         {:else if step == "pin"}
-          <p class="flex items-center md:mx-auto lg:max-w-2xl">
+          <p class="flex items-center">
             <span class="text-xl">Enter your PIN code:</span>
             <span class="text-xl min-w-[2em] ml-1 text-left"
               >{#each pin_code as pin_key}*{/each}</span
@@ -553,7 +554,7 @@
               {#each shuffle_pin.slice(0 + row * 3, 3 + row * 3) as num}
                 <button
                   tabindex="0"
-                  class="m-1 disabled:opacity-15 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+                  class="m-1 disabled:opacity-15 select-none align-bottom text-7xl p-0 w-full aspect-square border-0 pt-[5%]"
                   on:click={async () => await on_pin_key(num)}
                   disabled={pin_code.length >= 4}
                 >
@@ -566,7 +567,7 @@
             <div class="m-1 w-full aspect-square" />
             <button
               tabindex="0"
-              class="disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+              class="disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0 pt-[5%]"
               on:click={async () => await on_pin_key(shuffle_pin[9])}
               disabled={pin_code.length >= 4}
             >
@@ -715,7 +716,6 @@
     height: 100%;
     top: 0;
     left: 0;
-    font-size: 100px;
     font-weight: 700;
     justify-content: center;
     align-items: center;
