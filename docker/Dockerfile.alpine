@@ -1,0 +1,36 @@
+# Use rust's latest alpine image as base image.
+FROM rust:alpine
+
+ENV LD_LIBRARY_PATH=/lib:$LD_LIBRARY_PATH
+
+RUN apk add git nodejs npm llvm-static llvm-dev clang-static clang-dev openssl openssl-dev perl gtk+3.0-dev webkit2gtk-dev librsvg-dev curl wget pkgconf eudev-dev build-base zlib-static bzip2-static build-base ncursers-static && \
+    # Install Rust and Node.js tools
+    cargo install cargo-watch && \
+    cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2b663f25abe50631a236d57a8c6d7fd806413b2 && \
+    cargo install tauri-cli --version "2.0.0-alpha.11" --locked && \
+    npm install -g pnpm
+
+# Clone the nextgraph-rs repository
+RUN git clone https://git.nextgraph.org/NextGraph/nextgraph-rs.git && \
+    cd /nextgraph-rs/ng-sdk-js && \
+    wasm-pack build --target bundler && npm install --no-save pkg &&
+    # Build ng-app web version
+    cd /nextgraph-rs/ng-app && pnpm install && pnpm webfilebuild
+
+# From here the build fails due to llvm / clang linking issues...
+#
+# WORKDIR /nextgraph-rs
+## Build the nextgraph-rs project and its subprojects
+# RUN cd /nextgraph-rs && git pull && cargo update -p ng-rocksdb && \
+#     cargo build -r && \
+#     cargo build -r -p ngd && \
+#     cargo build -r -p ngcli
+
+# TODO: Build the platform-specific ng-app versions
+# cd /nextgraph-rs/ng-app && cargo tauri build --target x86_64-unknown-linux-gnu
+# ...
+
+# TODO: To remove the image size, remove ~/.cargo, ~/.rustup, and the build dependencies
+
+# To build the image, run:
+# docker build -t nextgraph-rs:alpine -f docker/Dockerfile.alpine .
