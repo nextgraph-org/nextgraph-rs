@@ -39,7 +39,7 @@
 
   onMount(async () => {
     loaded = false;
-    await load_svg();
+    load_svg();
     //console.log(wallet);
     await init();
   });
@@ -63,6 +63,8 @@
     selection = [];
     error = undefined;
 
+    // This is only for awaiting that SVGs are loaded.
+    await load_svg();
     loaded = true;
   }
 
@@ -313,17 +315,11 @@
   class="flex flex-col justify-center h-screen p-4"
   class:min-w-[310px]={mobile}
   class:min-w-[500px]={!mobile}
-  class:max-w-[360px]={mobile}
+  class:max-w-[370px]={mobile}
   class:max-w-[600px]={!mobile}
 >
   {#if step == "load"}
-    <div
-      class="flex flex-col justify-center p-4"
-      class:min-w-[310px]={mobile}
-      class:min-w-[500px]={!mobile}
-      class:max-w-[360px]={mobile}
-      class:max-w-[600px]={!mobile}
-    >
+    <div class="flex flex-col justify-center p-4">
       <h2 class="pb-5 text-xl self-start">How to open your wallet:</h2>
       <h3 class="pb-2 text-lg self-start">By your Pazzle</h3>
       <ul class="mb-8 ml-3 space-y-4 text-left list-decimal">
@@ -450,13 +446,7 @@
     </div>
     <!-- The following steps have navigation buttons and fixed layout -->
   {:else if step == "pazzle" || step == "order" || step == "pin" || step == "mnemonic"}
-    <div
-      class="flex flex-col justify-center h-screen p-4"
-      class:min-w-[310px]={mobile}
-      class:min-w-[500px]={!mobile}
-      class:max-w-[360px]={mobile}
-      class:max-w-[600px]={!mobile}
-    >
+    <div class="flex flex-col justify-center h-screen p-4">
       <div class="mt-auto flex flex-col justify-center">
         <!-- Unlock Screens -->
 
@@ -555,7 +545,9 @@
               >{#each pin_code as pin_key}*{/each}</span
             >
           </p>
-
+          <!-- Chrome requires the columns-3 __flex__ to be set, or else it wraps the lines incorrectly.
+               However, this leads to the width decreasing and the buttons come together in mobile view.
+               So we need a way to fix the width across all screens. -->
           {#each [0, 1, 2] as row}
             <div class="columns-3 flex">
               {#each shuffle_pin.slice(0 + row * 3, 3 + row * 3) as num}
