@@ -23,7 +23,7 @@
     {id}
     {type}
     on:input={handleInput}
-    class={`${className} text-md block`}
+    class={`${className} pr-12 text-md block`}
     autocomplete={auto_complete}
   />
 
