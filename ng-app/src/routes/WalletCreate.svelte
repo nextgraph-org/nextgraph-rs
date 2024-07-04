@@ -1677,11 +1677,11 @@
               >
                 {#each pazzle_emojis as emoji, index}
                   <div
-                    class="flex w-full p-1 tall-sm:p-2"
+                    class="flex w-full p-1 tall-sm:p-2 content-center"
                     class:border-b={index !== pazzle_emojis.length - 1}
                     class:justify-center={!small_screen}
                   >
-                    <div class="mr-4 content-center pt-1">
+                    <div class="mr-4 content-center pt-1 my-auto">
                       {index + 1}
                     </div>
                     <div
