@@ -44,9 +44,9 @@
       >
         <a href="#/user" class="flex items-center" on:click>
           {#if $online}
-            <Logo class="w-7 h-7 tall:w-10 tall:h-10" />
+            <Logo class="w-7 h-7 tall-xs:w-10 tall-xs:h-10" />
           {:else}
-            <LogoGray class="w-7 h-7 tall:w-10 tall:h-10" />
+            <LogoGray class="w-7 h-7 tall-xs:w-10 tall-xs:h-10" />
           {/if}
           <span
             class="ml-4 self-center text-lg font-normal text-gray-900 rounded-lg dark:text-white whitespace-nowrap"
