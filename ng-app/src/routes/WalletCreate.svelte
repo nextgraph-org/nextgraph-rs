@@ -10,6 +10,7 @@
 -->
 
 <!--
+  @component
   Wallet creation page.
   This component manages the whole UX flow, gives infos about wallets,
    offers available brokers, handles wallet creation,
@@ -1689,7 +1690,7 @@
                     >
                       <svelte:component
                         this={emoji.svg?.default}
-                        class="text-5xl"
+                        class="text-5xl w-full"
                       />
                     </div>
                     <div class="flex flex-col ml-4">
