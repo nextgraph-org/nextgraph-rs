@@ -9,7 +9,18 @@
 // according to those terms.
 -->
 
+<script lang="ts">
+  import ng from "../api";
+  import { onMount } from "svelte";
+
+  let locales = [];
+  onMount(async () => {
+    locales = await ng.locales();
+  });
+</script>
+
 <div class="centered">
+  {locales}
   <slot />
 </div>
 

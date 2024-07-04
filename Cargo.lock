@@ -3290,6 +3290,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "serde_json",
+ "sys-locale",
  "tauri",
  "tauri-build",
  "tauri-plugin-window",
@@ -3408,7 +3409,7 @@ dependencies = [
  "serde",
  "sha1",
  "sha2 0.10.8",
- "siphasher 0.3.10",
+ "siphasher 1.0.1",
  "thiserror",
  "zstd",
 ]
@@ -3449,7 +3450,7 @@ dependencies = [
 [[package]]
 name = "ng-rocksdb"
 version = "0.21.0-ngpreview.4"
-source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#e566341c319eead6637b1aecce5e92136e946ae5"
+source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#f1ce2e345f3d729350a02bcffb47c526674edd85"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -3482,6 +3483,7 @@ dependencies = [
  "serde_bare",
  "serde_bytes",
  "serde_json",
+ "sys-locale",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
@@ -5350,6 +5352,18 @@ dependencies = [
  "quote",
  "syn 1.0.109",
  "unicode-xid",
+]
+
+[[package]]
+name = "sys-locale"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e801cf239ecd6ccd71f03d270d67dd53d13e90aab208bf4b8fe4ad957ea949b0"
+dependencies = [
+ "js-sys",
+ "libc",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

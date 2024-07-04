@@ -9,8 +9,100 @@
 
 import { writable, readable, readonly, derived, get } from "svelte/store";
 import ng from "./api";
+import { official_classes } from "./classes";
+import { official_apps, official_services } from "./zeras";
 
 let all_branches = {};
+
+
+let loaded_external_apps = {};
+
+export const load_app = async (appName: string) => {
+
+    if (appName.startsWith("n:g:z")) {
+        let app = official_apps[appName];
+        if (!app) throw new Error("Unknown official app");
+        return await import(`./apps/${app["ng:b"]}.svelte`);
+    } else {
+        //TODO: load external app from its repo
+        // TODO: return IFrame component
+    }
+
+};
+
+export const invoke_service = async (serviceName: string, nuri:string, args: object) => {
+
+    if (serviceName.startsWith("n:g:z")) {
+        let service = official_services[serviceName];
+        if (!service) throw new Error("Unknown official service");
+        // TODO: do this in WebWorker
+        // TODO: if on native app or CLI: use deno
+        //return await ng.app_invoke(serviceName[6..], nuri, args);
+    } else {
+        // TODO: if on webapp: only allow those invocations from IFrame of external app or from n:g:z:external_service_invoke (which runs in an IFrame) and run it from webworker
+        // TODO: if on native app or CLI: use deno
+        // TODO: load external service from its repo
+    }
+
+};
+
+
+export const cur_tab = writable({
+    cur_store: {
+        has_outer : {
+            nuri_trail: ":v:l"
+        },
+        type: "public", // "protected", "private", "group", "dialog",
+        favicon: "",
+        title: "Group B",
+    },
+    cur_branch: {
+        b: "b:xxx", //branch id (can be null if not of type "branch")
+        c: "c:xxx", //commit(s) id
+        type: "main", // "stream", "detached", "branch", "in_memory" (does not save)
+        display: "c:X", // or main or stream or a:xx or branch:X (only 7 chars)
+        attachments: 1,
+        class: "data/graph",
+        title: false,
+        icon: false,
+        description: "",
+        app: "n:g:z:json_ld_editor", // current app being used
+    },
+    view_or_edit: false,
+    graph_viewer: "n:g:z:json_ld_editor", // selected viewer
+    graph_editor: "n:g:z:json_ld_editor", // selected editor
+    discrete_viewer: "n:g:z:json_ld_editor", // selected viewer
+    discrete_editor: "n:g:z:json_ld_editor", // selected editor
+    graph_viewers: ["n:g:z:json_ld_editor"], // list of available viewers
+    graph_editors: ["n:g:z:json_ld_editor"], // list of available editors
+    discrete_viewers: [], // list of available viewers
+    discrete_editors: [], // list of available editors
+    find: false,//or string to find
+    graph_or_discrete: true,
+    read_cap: 'r:',
+    doc: {
+        is_store: false,
+        is_member: false,
+        can_edit: false,
+        live_edit: true,
+        title: "Doc A",
+        authors: "",
+        icon: "",
+        description: "",
+        stream : {
+            notif: 1,
+            last: "",
+        },
+        live_editors: {
+
+        },
+    },
+    folders_pane: false,
+    toc_pane: false,
+    right_pane: false, // "folders", "toc", "branches", "files", "history", "comments", "info", "chat"
+    action: false, // "view_as", "edit_with", "share", "react", "repost", "copy", "dm_author", "new_block", "notifs", "schema", "signature", "permissions", "query",
+
+});
 
 export const opened_wallets = writable({});
 
