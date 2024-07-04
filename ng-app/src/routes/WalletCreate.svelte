@@ -1676,17 +1676,15 @@
               >
                 {#each pazzle_emojis as emoji, index}
                   <div
-                    class="flex items-center w-full py-1 px-2"
+                    class="flex w-full p-1 tall-sm:p-2"
                     class:border-b={index !== pazzle_emojis.length - 1}
                     class:justify-center={!small_screen}
                   >
-                    <div class="w-[10em] font-bold text-left">
-                      <span>{index + 1}</span>: <span>{emoji.cat}</span>
+                    <div class="mr-4 content-center pt-1">
+                      {index + 1}
                     </div>
                     <div
-                      class="flex justify-center items-center"
-                      class:w-[3em]={!small_screen}
-                      class:w-[1.8em]={small_screen}
+                      class="flex justify-center w-[2em] tall-sm:w-[2.5em] tall-md:w-[4em]"
                       title={emoji.code}
                     >
                       <svelte:component
@@ -1694,8 +1692,13 @@
                         class="text-5xl"
                       />
                     </div>
-                    <div class="ml-2 w-[6em] font-bold text-left">
-                      {emoji.code}
+                    <div class="flex flex-col ml-4">
+                      <div class="w-[10em] text-left">
+                        <span>{emoji.cat}</span>
+                      </div>
+                      <div class="font-bold text-lg h-full content-center">
+                        <span>{emoji.code}</span>
+                      </div>
                     </div>
                   </div>
                 {/each}
@@ -1717,16 +1720,18 @@
               The pazzle is easier to remember. The mnemonic is useful in some special
               cases. We recommend that you use the pazzle.
 
-              <em class="font-bold">Copy both on a piece of paper.</em> You
-              should try to memorize the pazzle. Once you did, you won't need
+              <span class="font-bold text-xl"
+                >Copy both on a piece of paper.</span
+              >
+              You should try to memorize the pazzle. Once you did, you won't need
               the paper anymore.
 
               <br /><br />
               Now click on "Continue to Login" and select your new wallet.
               <br />
-              It is important that you <em class="font-bold">login</em> with
+              It is important that you <span class="font-bold">login</span> with
               this wallet
-              <em class="font-bold">at least once</em>
+              <span class="font-bold">at least once</span>
               from this {#if tauri_platform}device{:else}browser tab{/if},<br />
               while connected to the internet, so your personal site can be created
               on your broker.<br /><br />
@@ -1760,8 +1765,11 @@
                 bind:open={confirm_modal_open}
                 title="Did you write down your login credentials?"
               >
-                The pazzle and the mnemonic will not be shown to you again.
-                Please make sure, you have written it down.
+                <span class="text-lg text-neutral-950">
+                  The pazzle and the mnemonic <span class="font-bold">
+                    will not be shown to you again</span
+                  >. Please make sure, you have written it down.
+                </span>
                 <div>
                   <button
                     class="m-2"

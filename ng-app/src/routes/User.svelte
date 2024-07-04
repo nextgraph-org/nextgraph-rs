@@ -10,6 +10,7 @@
 -->
 
 <!--
+  @component  
   "User Panel" page.
   Provides wallet download, logout, offline/online switch, and other user actions.
 -->

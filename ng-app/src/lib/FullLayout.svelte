@@ -91,15 +91,15 @@
   <div class="full-layout">
     <Sidebar {activeUrl} {asideClass} {nonActiveClass} class="fixed">
       <SidebarWrapper
-        divClass="bg-gray-60 overflow-y-auto tall:py-4 px-3 rounded dark:bg-gray-800"
+        divClass="bg-gray-60 overflow-y-auto tall-xs:py-4 px-3 rounded dark:bg-gray-800"
       >
-        <SidebarGroup ulClass="space-y-1 tall:space-y-2">
+        <SidebarGroup ulClass="space-y-1 tall-xs:space-y-2">
           <SidebarItem label="NextGraph" href="#/user" class="mt-1">
             <svelte:fragment slot="icon">
               {#if $online}
-                <Logo class="w-7 h-7 tall:w-10 tall:h-10" />
+                <Logo class="w-7 h-7 tall-xs:w-10 tall-xs:h-10" />
               {:else}
-                <LogoGray class="w-7 h-7 tall:w-10 tall:h-10" />
+                <LogoGray class="w-7 h-7 tall-xs:w-10 tall-xs:h-10" />
               {/if}
             </svelte:fragment>
           </SidebarItem>
@@ -107,7 +107,7 @@
             label="Home"
             href="#/"
             on:click={scrollToTop}
-            class="py-1 tall:p-2"
+            class="py-1 tall-xs:p-2"
           >
             <svelte:fragment slot="icon">
               <Home
@@ -116,7 +116,7 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Stream" href="#/stream" class="py-1 tall:p-2">
+          <SidebarItem label="Stream" href="#/stream" class="py-1 tall-xs:p-2">
             <svelte:fragment slot="icon">
               <Bolt
                 tabindex="-1"
@@ -124,7 +124,7 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Search" href="#/search" class="py-1 tall:p-2">
+          <SidebarItem label="Search" href="#/search" class="py-1 tall-xs:p-2">
             <svelte:fragment slot="icon">
               <MagnifyingGlass
                 tabindex="-1"
@@ -132,7 +132,7 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Create" href="#/create" class="py-1 tall:p-2">
+          <SidebarItem label="Create" href="#/create" class="py-1 tall-xs:p-2">
             <svelte:fragment slot="icon">
               <PlusCircle
                 tabindex="-1"
@@ -140,7 +140,7 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Shared" href="#/shared" class="py-1 tall:p-2">
+          <SidebarItem label="Shared" href="#/shared" class="py-1 tall-xs:p-2">
             <svelte:fragment slot="icon">
               <Users
                 tabindex="-1"
@@ -148,7 +148,7 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Site" href="#/site" class="py-1 tall:p-2">
+          <SidebarItem label="Site" href="#/site" class="py-1 tall-xs:p-2">
             <svelte:fragment slot="icon">
               <User
                 tabindex="-1"
@@ -156,7 +156,11 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Messages" href="#/messages" class="py-1 tall:p-2">
+          <SidebarItem
+            label="Messages"
+            href="#/messages"
+            class="py-1 tall-xs:p-2"
+          >
             <svelte:fragment slot="icon">
               <PaperAirplane
                 tabindex="-1"
@@ -172,7 +176,7 @@
           <SidebarItem
             label="Notifications"
             href="#/notifications"
-            class="mt-1 py-1 tall:p-2"
+            class="mt-1 py-1 tall-xs:p-2"
           >
             <svelte:fragment slot="icon">
               <Bell

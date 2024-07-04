@@ -312,14 +312,11 @@
 </script>
 
 <div
-  class="flex flex-col justify-center h-screen p-4"
-  class:min-w-[310px]={mobile}
-  class:min-w-[500px]={!mobile}
-  class:max-w-[370px]={mobile}
-  class:max-w-[600px]={!mobile}
+  class="flex flex-col justify-center md:max-w-2xl p-4 sm:px-8"
+  class:h-screen={step !== "load"}
 >
   {#if step == "load"}
-    <div class="flex flex-col justify-center p-4">
+    <div class="flex flex-col justify-center p-4 pt-6">
       <h2 class="pb-5 text-xl self-start">How to open your wallet:</h2>
       <h3 class="pb-2 text-lg self-start">By your Pazzle</h3>
       <ul class="mb-8 ml-3 space-y-4 text-left list-decimal">
@@ -446,7 +443,13 @@
     </div>
     <!-- The following steps have navigation buttons and fixed layout -->
   {:else if step == "pazzle" || step == "order" || step == "pin" || step == "mnemonic"}
-    <div class="flex flex-col justify-center h-screen p-4">
+    <div
+      class="flex flex-col justify-center h-screen p-4"
+      class:min-w-[310px]={mobile}
+      class:min-w-[500px]={!mobile}
+      class:max-w-[370px]={mobile}
+      class:max-w-[600px]={!mobile}
+    >
       <div class="mt-auto flex flex-col justify-center">
         <!-- Unlock Screens -->
 
@@ -591,18 +594,18 @@
       <div class="flex justify-between mt-auto">
         <button
           on:click={cancel}
-          class="mt-1 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+          class="mt-1 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg sm:text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
           ><XCircle
             tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+            class="w-8 h-8 mr-2 -ml-1 transition duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
           />Cancel</button
         >
         <button
-          class="mt-1 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+          class="mt-1 focus:ring-4 focus:ring-primary-100/50 rounded-lg sm:text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
           on:click={go_back}
           ><Backspace
             tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+            class="w-8 h-8 mr-2 -ml-1 transition duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
           />Go Back</button
         >
       </div>
