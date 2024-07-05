@@ -29,11 +29,13 @@
   import WalletCreate from "./routes/WalletCreate.svelte";
   import Invitation from "./routes/Invitation.svelte";
   import WalletLogin from "./routes/WalletLogin.svelte";
+  import WalletInfo from "./routes/WalletInfo.svelte";
   import User from "./routes/User.svelte";
   import UserRegistered from "./routes/UserRegistered.svelte";
   import Install from "./routes/Install.svelte";
 
   import ng from "./api";
+  import AccountInfo from "./routes/AccountInfo.svelte";
 
   const routes = new Map();
   routes.set("/", Home);
@@ -43,6 +45,8 @@
   routes.set("/i/:invitation", Invitation);
   routes.set("/user", User);
   routes.set("/user/registered", UserRegistered);
+  routes.set("/wallet", WalletInfo);
+  routes.set("/user/account", AccountInfo);
   if (import.meta.env.NG_APP_WEB) routes.set("/install", Install);
   routes.set(/^\/did:ng(.*)/i, NURI);
   routes.set("*", NotFound);

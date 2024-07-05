@@ -8,6 +8,13 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 -->
+
+<!--
+  @component  
+  "User Panel" page.
+  Provides wallet, logout, offline/online switch, and other user actions.
+-->
+
 <script>
   // @ts-nocheck
 
@@ -86,30 +93,6 @@
     await close_active_session();
     active_wallet.set(undefined);
     push("#/wallet/login");
-  }
-
-  let downloading = false;
-  let wallet_file_ready = false;
-  let download_link = false;
-  let download_error = false;
-  async function download_wallet() {
-    try {
-      downloading = true;
-      let file = await ng.wallet_get_file($active_wallet.id);
-      // @ts-ignore
-      wallet_file_ready = "wallet-" + $active_wallet.id + ".ngw";
-      if (!tauri_platform) {
-        const blob = new Blob([file], {
-          type: "application/octet-stream",
-        });
-        // @ts-ignore
-        download_link = URL.createObjectURL(blob);
-      } else {
-        download_link = true;
-      }
-    } catch (e) {
-      download_error = e;
-    }
   }
 
   $: personal_site = $active_wallet?.wallet?.V0.personal_site_id;
@@ -203,78 +186,13 @@
               />
               <span class="ml-3">Switch wallet</span>
             </li> -->
-            {#if !downloading}
-              <li
-                tabindex="0"
-                role="menuitem"
-                class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-                on:keypress={download_wallet}
-                on:click={download_wallet}
-              >
-                <DocumentArrowDown
-                  tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-                <span class="ml-3">Download wallet file</span>
-              </li>
-            {:else if download_error}
-              <li
-                tabindex="-1"
-                class="flex items-center p-2 text-base font-normal text-red-700 rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              >
-                <NoSymbol
-                  tabindex="-1"
-                  class="w-7 h-7 text-red-700 transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-                <span class="ml-3 text-left"
-                  >Download failed:<br /> {download_error}</span
-                >
-              </li>
-            {:else if !wallet_file_ready}
-              <li
-                tabindex="-1"
-                class="flex items-center p-2 text-base font-normal text-blue-700 rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              >
-                <DocumentArrowDown
-                  tabindex="-1"
-                  class="w-7 h-7 text-blue-700  transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-                <span class="ml-3 text-left">Download in progress...</span>
-              </li>
-            {:else if download_link === true}
-              <li
-                tabindex="-1"
-                class="flex p-2 text-sm text-left break-all font-normal text-blue-700 rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              >
-                <span
-                  >You will find the file named "{wallet_file_ready}" <br />in
-                  your Downloads folder</span
-                >
-              </li>
-            {:else}
-              <li
-                tabindex="-1"
-                class="flex items-center text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              >
-                <a
-                  href={download_link}
-                  target="_blank"
-                  download={wallet_file_ready}
-                >
-                  <button
-                    tabindex="-1"
-                    class=" text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-                  >
-                    <DocumentArrowDown
-                      tabindex="-1"
-                      class="w-14 h-14  transition duration-75 dark:text-white  dark:group-hover:text-white"
-                    />
-                    Click here to download the wallet file
-                  </button>
-                </a>
-              </li>
-            {/if}
-            <SidebarItem label="Settings" href="#/user/settings" class="p-2">
+
+            <SidebarItem
+              label="Settings"
+              href="#/user/settings"
+              class="p-2 opacity-50 pointer-events-none"
+              disabled
+            >
               <svelte:fragment slot="icon">
                 <Cog6Tooth
                   tabindex="-1"
@@ -290,7 +208,11 @@
                 />
               </svelte:fragment>
             </SidebarItem>
-            <SidebarItem label="Admin" href="#/user/admin" class="p-2">
+            <SidebarItem
+              label="Admin"
+              href="#/user/admin"
+              class="p-2 opacity-50 pointer-events-none"
+            >
               <svelte:fragment slot="icon">
                 <Key
                   tabindex="-1"
@@ -298,7 +220,7 @@
                 />
               </svelte:fragment>
             </SidebarItem>
-            <SidebarItem label="Accounts" href="#/user/accounts" class="p-2">
+            <SidebarItem label="Accounts" href="#/user/account" class="p-2">
               <svelte:fragment slot="icon">
                 <User
                   tabindex="-1"
