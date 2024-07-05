@@ -9,6 +9,13 @@
 // according to those terms.
 -->
 
+<!--
+  @component
+  "Select a wallet to login with" page.
+  This page is usually the first page the user sees when they visit the app.
+  It allows the user to select a wallet to login with, create, or import a wallet.
+-->
+
 <script lang="ts">
   import { onMount, onDestroy, tick } from "svelte";
   import { link, push } from "svelte-spa-router";
