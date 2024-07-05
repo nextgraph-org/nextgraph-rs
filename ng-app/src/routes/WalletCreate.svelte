@@ -396,7 +396,7 @@
   };
 </script>
 
-<CenteredLayout>
+<CenteredLayout displayFooter={true}>
   {#if wait}
     <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-primary-700">
       {#if wait === true}
@@ -705,7 +705,7 @@
             </ul>
           </div>
         </div>
-        <div class="row mb-20">
+        <div class="row mb-10">
           <button
             on:click|once={create_wallet}
             class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
@@ -1424,7 +1424,7 @@
           {/if}
           <button
             on:click|once={do_wallet}
-            class="mt-10 mb-20 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            class="mt-10 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
           >
             <svg
               class="w-8 h-8 mr-2 -ml-1"

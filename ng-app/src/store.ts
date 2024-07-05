@@ -14,6 +14,34 @@ import { official_apps, official_services } from "./zeras";
 
 let all_branches = {};
 
+export const available_languages = {
+    "en": "English",
+    "de": "Deutsch",
+    "fr": "Français",
+    "ru": "Русский",
+    "es": "Español",
+    "it": "Italiano",
+    "zh": "中文",
+    "pt": "Português",
+};
+
+export const current_lang = writable("en");
+
+export const select_default_lang = async() => {
+    let locales = await ng.locales();
+    for (let lo of locales) {
+        if (available_languages[lo]) {
+            // exact match (if locales is a 2 chars lang code, or if we support regionalized translations)
+            current_lang.set(lo);
+            return;
+        }
+        lo = lo.substr(0,2);
+        if (available_languages[lo]) {
+            current_lang.set(lo);
+            return;
+        }
+    }
+};
 
 let loaded_external_apps = {};
 

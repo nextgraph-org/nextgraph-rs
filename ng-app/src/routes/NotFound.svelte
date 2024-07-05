@@ -14,7 +14,7 @@
   import CenteredLayout from "../lib/CenteredLayout.svelte";
 </script>
 
-<CenteredLayout>
+<CenteredLayout displayFooter={true}>
   <div class="p-8">
     <Alert color="red">
       <span class="font-medium">404</span> Page not found.

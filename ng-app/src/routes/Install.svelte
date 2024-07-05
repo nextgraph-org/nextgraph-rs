@@ -25,6 +25,6 @@
   onDestroy(() => {});
 </script>
 
-<CenteredLayout>
+<CenteredLayout displayFooter={true}>
   <Install {display_has_wallets_warning} />
 </CenteredLayout>

@@ -19,6 +19,7 @@
     active_session,
     close_active_session,
     disconnections_subscribe,
+    select_default_lang,
   } from "./store";
 
   import Home from "./routes/Home.svelte";
@@ -59,6 +60,7 @@
 
   onMount(async () => {
     try {
+      await select_default_lang();
       await disconnections_subscribe();
     } catch (e) {
       //console.log("called disconnections_subscribe twice");
