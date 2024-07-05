@@ -41,7 +41,23 @@ pub type SetupHook = Box<dyn FnOnce(&mut App) -> Result<(), Box<dyn std::error::
 
 #[tauri::command(rename_all = "snake_case")]
 async fn locales() -> Result<Vec<String>, ()> {
-    Ok(get_locales().filter(|lang| lang != "C").collect())
+    Ok(get_locales()
+        .filter_map(|lang| {
+            if lang == "C" || lang == "c" {
+                None
+            } else {
+                let mut split = lang.split('.');
+                let code = split.next().unwrap();
+                let code = code.replace("_", "-");
+                let mut split = code.rsplitn(2, '-');
+                let country = split.next().unwrap();
+                Some(match split.next() {
+                    Some(next) => format!("{}-{}", next, country.to_uppercase()),
+                    None => country.to_string(),
+                })
+            }
+        })
+        .collect())
 }
 
 #[tauri::command(rename_all = "snake_case")]

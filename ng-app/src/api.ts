@@ -102,6 +102,10 @@ const handler = {
                 let from_js = window.navigator.languages;
                 console.log(from_rust,from_js);
                 for (let lang of from_js) {
+                    let split = lang.split("-");
+                    if (split[1]) {
+                        lang = split[0] + "-" + split[1].toUpperCase();
+                    }
                     if (!from_rust.includes(lang)) { from_rust.push(lang);}
                 }
                 return from_rust;

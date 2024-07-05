@@ -20,7 +20,9 @@
 </script>
 
 <div class="centered">
-  {locales}
+  {#each locales as loc}
+    {loc}&nbsp;
+  {/each}
   <slot />
 </div>
 
