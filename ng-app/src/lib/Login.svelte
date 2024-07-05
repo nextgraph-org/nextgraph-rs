@@ -367,52 +367,52 @@
       </ul>
 
       <div class=" max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
-        {#if !loaded}
-          Loading wallet...
-          <svg
-            class="animate-spin my-4 h-14 w-14 mx-auto"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              class="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              stroke-width="4"
-            />
-            <path
-              class="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
-        {:else}
-          <!-- Save wallet? -->
-          {#if for_import}
-            <div class="max-w-xl lg:px-8 mx-auto px-4 mb-8">
-              <span class="text-xl">Do you trust this device? </span> <br />
-              <div class="flex justify-center items-center my-4">
-                <Toggle class="" bind:checked={trusted}
-                  >Yes, save my wallet on this device</Toggle
-                >
-              </div>
-              <p class="text-sm">
-                If you do, if this device is yours or is used by few trusted
-                persons of your family or workplace, and you would like to login
-                again from this device in the future, then you can save your
-                wallet on this device. To the contrary, if this device is public
-                and shared by strangers, do not save your wallet here. {#if !tauri_platform}By
-                  selecting this option, you agree to save some cookies on your
-                  browser.{/if}<br />
-              </p>
+        <!-- Save wallet? -->
+        {#if for_import}
+          <div class="max-w-xl lg:px-8 mx-auto px-4 mb-8">
+            <span class="text-xl">Do you trust this device? </span> <br />
+            <div class="flex justify-center items-center my-4">
+              <Toggle class="" bind:checked={trusted}
+                >Yes, save my wallet on this device</Toggle
+              >
             </div>
-          {/if}
+            <p class="text-sm">
+              If you do, if this device is yours or is used by few trusted
+              persons of your family or workplace, and you would like to login
+              again from this device in the future, then you can save your
+              wallet on this device. To the contrary, if this device is public
+              and shared by strangers, do not save your wallet here. {#if !tauri_platform}By
+                selecting this option, you agree to save some cookies on your
+                browser.{/if}<br />
+            </p>
+          </div>
+        {/if}
 
-          <div class="flex flex-col justify-centerspace-x-12 mt-4 mb-4">
+        <div class="flex flex-col justify-centerspace-x-12 mt-4 mb-4">
+          {#if !loaded}
+            Loading pazzle...
+            <svg
+              class="animate-spin my-4 h-14 w-14 mx-auto"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              />
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+          {:else}
             <button
               on:click={start_with_pazzle}
               class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
@@ -423,22 +423,22 @@
               />
               Open with Pazzle!
             </button>
-            <a
-              on:click={start_with_mnemonic}
-              class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center mb-2 underline cursor-pointer"
-            >
-              Open with Mnemonic instead
-            </a>
-            <button
-              on:click={cancel}
-              class="mt-1 mb-2 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-              ><XCircle
-                tabindex="-1"
-                class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-              />Cancel</button
-            >
-          </div>
-        {/if}
+          {/if}
+          <a
+            on:click={start_with_mnemonic}
+            class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center mb-2 underline cursor-pointer"
+          >
+            Open with Mnemonic instead
+          </a>
+          <button
+            on:click={cancel}
+            class="mt-1 mb-2 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            ><XCircle
+              tabindex="-1"
+              class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+            />Cancel</button
+          >
+        </div>
       </div>
     </div>
     <!-- The following steps have navigation buttons and fixed layout -->
