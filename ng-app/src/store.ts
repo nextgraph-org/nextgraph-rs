@@ -9,8 +9,128 @@
 
 import { writable, readable, readonly, derived, get, type Writable } from "svelte/store";
 import ng from "./api";
+import { official_classes } from "./classes";
+import { official_apps, official_services } from "./zeras";
 
 let all_branches = {};
+
+export const available_languages = {
+    "en": "English",
+    "de": "Deutsch",
+    "fr": "Français",
+    "ru": "Русский",
+    "es": "Español",
+    "it": "Italiano",
+    "zh": "中文",
+    "pt": "Português",
+};
+
+export const current_lang = writable("en");
+
+export const select_default_lang = async() => {
+    let locales = await ng.locales();
+    for (let lo of locales) {
+        if (available_languages[lo]) {
+            // exact match (if locales is a 2 chars lang code, or if we support regionalized translations)
+            current_lang.set(lo);
+            return;
+        }
+        lo = lo.substr(0,2);
+        if (available_languages[lo]) {
+            current_lang.set(lo);
+            return;
+        }
+    }
+};
+
+let loaded_external_apps = {};
+
+export const load_app = async (appName: string) => {
+
+    if (appName.startsWith("n:g:z")) {
+        let app = official_apps[appName];
+        if (!app) throw new Error("Unknown official app");
+        return await import(`./apps/${app["ng:b"]}.svelte`);
+    } else {
+        //TODO: load external app from its repo
+        // TODO: return IFrame component
+    }
+
+};
+
+export const invoke_service = async (serviceName: string, nuri:string, args: object) => {
+
+    if (serviceName.startsWith("n:g:z")) {
+        let service = official_services[serviceName];
+        if (!service) throw new Error("Unknown official service");
+        // TODO: do this in WebWorker
+        // TODO: if on native app or CLI: use deno
+        //return await ng.app_invoke(serviceName[6..], nuri, args);
+    } else {
+        // TODO: if on webapp: only allow those invocations from IFrame of external app or from n:g:z:external_service_invoke (which runs in an IFrame) and run it from webworker
+        // TODO: if on native app or CLI: use deno
+        // TODO: load external service from its repo
+    }
+
+};
+
+
+export const cur_tab = writable({
+    cur_store: {
+        has_outer : {
+            nuri_trail: ":v:l"
+        },
+        type: "public", // "protected", "private", "group", "dialog",
+        favicon: "",
+        title: "Group B",
+    },
+    cur_branch: {
+        b: "b:xxx", //branch id (can be null if not of type "branch")
+        c: "c:xxx", //commit(s) id
+        type: "main", // "stream", "detached", "branch", "in_memory" (does not save)
+        display: "c:X", // or main or stream or a:xx or branch:X (only 7 chars)
+        attachments: 1,
+        class: "data/graph",
+        title: false,
+        icon: false,
+        description: "",
+        app: "n:g:z:json_ld_editor", // current app being used
+    },
+    view_or_edit: false,
+    graph_viewer: "n:g:z:json_ld_editor", // selected viewer
+    graph_editor: "n:g:z:json_ld_editor", // selected editor
+    discrete_viewer: "n:g:z:json_ld_editor", // selected viewer
+    discrete_editor: "n:g:z:json_ld_editor", // selected editor
+    graph_viewers: ["n:g:z:json_ld_editor"], // list of available viewers
+    graph_editors: ["n:g:z:json_ld_editor"], // list of available editors
+    discrete_viewers: [], // list of available viewers
+    discrete_editors: [], // list of available editors
+    find: false,//or string to find
+    graph_or_discrete: true,
+    read_cap: 'r:',
+    doc: {
+        is_store: false,
+        is_member: false,
+        can_edit: false,
+        live_edit: true,
+        title: "Doc A",
+        authors: "",
+        icon: "",
+        description: "",
+        stream : {
+            notif: 1,
+            last: "",
+        },
+        live_editors: {
+
+        },
+    },
+    folders_pane: false,
+    toc_pane: false,
+    right_pane: false, // "folders", "toc", "branches", "files", "history", "comments", "info", "chat"
+    action: false, // "view_as", "edit_with", "share", "react", "repost", "copy", "dm_author", "new_block", "notifs", "schema", "signature", "permissions", "query",
+
+});
 
 export const opened_wallets = writable({});
 
@@ -52,14 +172,14 @@ const updateConnectionStatus = ($connections: Record<string, any> ) => {
         console.log("will try reconnect in 20 sec");
         next_reconnect = setTimeout(async () => {
             await reconnect();
-            connection_status.set("connecting");
+            
             next_reconnect = null;
         }, 20000);
     }
 
     if (is_connected) {
         connection_status.set("connected");
-    } else if (!is_connected && is_connecting) {
+    } else if (is_connecting) {
         connection_status.set("connecting");
     } else {
         connection_status.set("disconnected");
@@ -73,16 +193,20 @@ export const online = derived(connection_status,($connectionStatus) => $connecti
 
 export const cannot_load_offline = writable(false);
 
-if (!get(online) && !import.meta.env.TAURI_PLATFORM) {
+if (get(connection_status) == "disconnected" && !import.meta.env.TAURI_PLATFORM) {
     cannot_load_offline.set(true);
 
-    let unsubscribe = online.subscribe(async (value) => {
-      if (value) {
-        cannot_load_offline.set(false);
-        unsubscribe();
-      }
+    let unsubscribe = connection_status.subscribe(async (value) => {
+        if (value != "disconnected") {
+            cannot_load_offline.set(false);
+            if (value == "connected") {
+                unsubscribe();
+            }
+        } else {
+            cannot_load_offline.set(true);
+        }
     });
-  }
+}
 
 export const has_wallets = derived(wallets,($wallets) => Object.keys($wallets).length);
 
@@ -142,6 +266,7 @@ export const reconnect = async function() {
         return;
     }
     console.log("attempting to connect...");
+    if (!get(online)) connection_status.set("connecting");
     try {
         let info = await ng.client_info()
         //console.log("Connecting with",get(active_session).user);

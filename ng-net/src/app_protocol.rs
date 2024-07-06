@@ -560,7 +560,7 @@ pub struct DocAddFile {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DocCreate {
     store: StoreRepo,
-    content_type: BranchContentType,
+    class: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -579,7 +579,7 @@ pub enum AppRequestPayloadV0 {
     Delete(DocDelete),
     //Invoke(InvokeArguments),
     SmallFilePut(SmallFile),
-    RandomAccessFilePut(String),                           // content_type
+    RandomAccessFilePut(String), // content_type (iana media type)
     RandomAccessFilePutChunk((u32, serde_bytes::ByteBuf)), // end the upload with an empty vec
 }
 

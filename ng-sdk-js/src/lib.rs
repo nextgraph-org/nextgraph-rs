@@ -26,6 +26,7 @@ use serde_json::json;
 use async_std::stream::StreamExt;
 use js_sys::Array;
 use oxrdf::Triple;
+use sys_locale::get_locales;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::future_to_promise;
 use wasm_bindgen_futures::JsFuture;
@@ -53,6 +54,11 @@ use ng_wallet::*;
 use nextgraph::local_broker::*;
 
 use crate::model::*;
+
+#[wasm_bindgen]
+pub async fn locales() -> Result<JsValue, JsValue> {
+    Ok(serde_wasm_bindgen::to_value(&get_locales().collect::<Vec<_>>()).unwrap())
+}
 
 #[wasm_bindgen]
 pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {
@@ -126,6 +132,53 @@ pub fn wallet_open_with_pazzle(
     let pin = serde_wasm_bindgen::from_value::<[u8; 4]>(pin)
         .map_err(|_| "Deserialization error of pin")?;
     let res = nextgraph::local_broker::wallet_open_with_pazzle(&encrypted_wallet, pazzle, pin);
+    match res {
+        Ok(r) => Ok(r
+            .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+            .unwrap()),
+        Err(e) => Err(e.to_string().into()),
+    }
+}
+
+#[wasm_bindgen]
+pub fn wallet_open_with_mnemonic(
+    wallet: JsValue,
+    mnemonic: Vec<u16>,
+    pin: JsValue,
+) -> Result<JsValue, JsValue> {
+    let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(wallet)
+        .map_err(|_| "Deserialization error of wallet")?;
+    let pin = serde_wasm_bindgen::from_value::<[u8; 4]>(pin)
+        .map_err(|_| "Deserialization error of pin")?;
+    let res = nextgraph::local_broker::wallet_open_with_mnemonic(&encrypted_wallet, mnemonic, pin);
+    match res {
+        Ok(r) => Ok(r
+            .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+            .unwrap()),
+        Err(e) => Err(e.to_string().into()),
+    }
+}
+
+#[wasm_bindgen]
+pub fn wallet_open_with_mnemonic_words(
+    wallet: JsValue,
+    mnemonic_words: Array,
+    pin: JsValue,
+) -> Result<JsValue, JsValue> {
+    let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(wallet)
+        .map_err(|_| "Deserialization error of wallet")?;
+    let pin = serde_wasm_bindgen::from_value::<[u8; 4]>(pin)
+        .map_err(|_| "Deserialization error of pin")?;
+    let mnemonic_vec: Vec<String> = mnemonic_words
+        .iter()
+        .map(|word| word.as_string().unwrap())
+        .collect();
+
+    let res = nextgraph::local_broker::wallet_open_with_mnemonic_words(
+        &encrypted_wallet,
+        &mnemonic_vec,
+        pin,
+    );
     match res {
         Ok(r) => Ok(r
             .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))

@@ -258,7 +258,7 @@ async fn main() -> anyhow::Result<()> {
         "Content-Security-Policy",
         HeaderValue::from_static(
             #[cfg(debug_assertions)]
-            "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self' http://192.168.192.2:3031",
+            "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self' http://localhost:3031",
             #[cfg(not(debug_assertions))]
             "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self'",
             
@@ -304,9 +304,10 @@ async fn main() -> anyhow::Result<()> {
     {
         log_debug!("CORS: any origin");
         cors = cors.allow_any_origin();
-        log::info!("Starting server on http://192.168.192.2:3031");
+        log::info!("Starting server on http://localhost:3031");
         warp::serve(api_v1.or(static_files).with(cors).with(incoming_log))
-            .run(([192, 168, 192, 2], 3031))
+            // TODO: Change this to local network ip?
+            .run(([127, 0, 0, 1], 3031))
             .await;
     }
 

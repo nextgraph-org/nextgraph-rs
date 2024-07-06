@@ -214,9 +214,7 @@ impl<'a, 'b: 'a> SimpleUpdateEvaluator<'a, 'b> {
             GraphName::NamedNode(graph_name) => graph_name.into(),
             GraphName::DefaultGraph => {
                 if let Some(default_graph) = &self.options.query_options.default_graph {
-                    crate::oxrdf::GraphNameRef::NamedNode(NamedNodeRef::new_unchecked(
-                        &default_graph,
-                    ))
+                    GraphNameRef::NamedNode(NamedNodeRef::new_unchecked(&default_graph))
                 } else {
                     return Err(EvaluationError::NoDefaultGraph);
                 }

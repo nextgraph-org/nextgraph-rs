@@ -1303,6 +1303,8 @@ pub struct CreateWalletResultV0 {
     /// randomly generated mnemonic. It is an alternate way to open the wallet.
     /// A BIP39 list of 12 words. We argue that the Pazzle is easier to remember than this.
     pub mnemonic: [u16; 12],
+    /// The words of the mnemonic, in a human readable form.
+    pub mnemonic_str: Vec<String>,
     #[zeroize(skip)]
     /// a string identifying uniquely the wallet
     pub wallet_name: String,
@@ -1368,6 +1370,7 @@ pub enum NgWalletError {
     InvalidPin,
     InvalidPazzle,
     InvalidPazzleLength,
+    InvalidMnemonic,
     InvalidSecurityImage,
     InvalidSecurityText,
     SubmissionError,

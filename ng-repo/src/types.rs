@@ -1293,7 +1293,7 @@ pub enum Quorum {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BranchContentType {
-    GraphOnly,
+    Graph,
     YMap,
     YXml,
     YText,
@@ -1302,8 +1302,7 @@ pub enum BranchContentType {
     //Owl,
     //Shacl,
     //Shex,
-    None, // this is used by Store, Overlay and User BranchTypes
-          //Chat,
+    None, // this is used by Overlay and User BranchTypes
 }
 
 /// Branch definition

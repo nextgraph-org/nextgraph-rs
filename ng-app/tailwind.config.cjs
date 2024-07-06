@@ -16,7 +16,15 @@ const config = {
       'xxs': '400px',
       'xs': '500px',
       ...defaultTheme.screens,
+      
       'tall': { 'raw': '(min-height: 450px)' },
+      'tall-xxs': { 'raw': '(min-height: 360px)' },
+      'tall-xs': { 'raw': '(min-height: 480px)' },
+      'tall-sm': { 'raw': '(min-height: 640px)' },
+      'tall-md': { 'raw': '(min-height: 800px)' },
+      'tall-l': { 'raw': '(min-height: 1000px)' },
+      'tall-xl': { 'raw': '(min-height: 1200px)' },
+      'tall-xxl': { 'raw': '(min-height: 1400px)' },
     },
   },
 

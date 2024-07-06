@@ -16,6 +16,34 @@
   padding-bottom: 1em;
 }
 
+@keyframes pulse-logo-color {
+  0%,
+  100% {
+    fill: rgb(73, 114, 165);
+    stroke: rgb(73, 114, 165);
+  }
+  50% {
+    /* Mid-transition color */
+    stroke: #bbb;
+    fill: #bbb;
+  }
+}
+
+.logo-pulse path {
+  animation: pulse-logo-color 2s infinite;
+  animation-timing-function: cubic-bezier(0.65, 0.01, 0.59, 0.83);
+}
+
+.logo-gray path {
+  fill: #bbb;
+  stroke: #bbb;
+}
+
+.logo-blue path {
+  fill: rgb(73, 114, 165);
+  stroke: rgb(73, 114, 165);
+}
+
 .container3 {
   margin: 0;
   min-width: 280px;

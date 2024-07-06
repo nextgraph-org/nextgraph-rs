@@ -1,3 +1,6 @@
+use ng_repo::errors::NgError;
+use std::collections::HashMap;
+
 #[allow(non_upper_case_globals)]
 pub const bip39_wordlist: [&str; 2048] = [
     "abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract", "absurd",
@@ -212,3 +215,26 @@ pub const bip39_wordlist: [&str; 2048] = [
     "write", "wrong", "yard", "year", "yellow", "you", "young", "youth", "zebra", "zero", "zone",
     "zoo",
 ];
+
+lazy_static! {
+    pub static ref BIP39_WORD_MAP: HashMap<String, u16> = {
+        let mut m = HashMap::new();
+        for (i, word) in bip39_wordlist.iter().enumerate() {
+            m.insert(word.to_string(), i as u16);
+        }
+        m
+    };
+}
+
+/// Taking a list of bip39 words, returns a list of u16 codes
+pub fn encode_mnemonic(words: &Vec<String>) -> Result<Vec<u16>, NgError> {
+    let mut res = vec![];
+    for word in words {
+        res.push(
+            *BIP39_WORD_MAP
+                .get(word.as_str())
+                .ok_or(NgError::InvalidMnemonic)?,
+        );
+    }
+    Ok(res)
+}

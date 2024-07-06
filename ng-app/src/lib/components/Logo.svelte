@@ -23,42 +23,18 @@ Provide classes using the `className` prop.
 <script lang="ts">
   import { connection_status } from "../../store";
   // @ts-ignore
-  import Logo from "../../assets/nextgraph.svg?component";
+  import Logo from "../../assets/nextgraph-nofill.svg?component";
 
   export let className: string = "";
-
+  let connection_status_class = "logo-blue";
   // Color is adjusted to connection status.
-  let connection_status_class = ""; // Default is blue.
-  if ($connection_status === "connecting") {
+  $: if ($connection_status === "connecting") {
     connection_status_class = "logo-pulse";
   } else if ($connection_status === "disconnected") {
     connection_status_class = "logo-gray";
+  } else {
+    connection_status_class = "logo-blue";
   }
 </script>
 
 <Logo class={`${className} ${connection_status_class}`} />
-
-<!-- Sorry for the global but this way we can change the Logo's css from this component. -->
-<style global>
-  @keyframes pulse-logo-color {
-    0%,
-    100% {
-      /* Default colors come from the svg. */
-    }
-    50% {
-      /* Mid-transition color */
-      stroke: #888;
-      fill: #888;
-    }
-  }
-
-  .logo-pulse path {
-    animation: pulse-logo-color 2s infinite;
-    animation-timing-function: cubic-bezier(0.65, 0.01, 0.59, 0.83);
-  }
-
-  .logo-gray path {
-    fill: #888;
-    stroke: #888;
-  }
-</style>

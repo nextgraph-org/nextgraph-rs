@@ -8,1243 +8,1249 @@
 // according to those terms.
 
 let face = [
-    {
-      hexcode: "1f600",
-      shortcode: "grinning_face",
-      code: "happy",
-      svg: "",
-    },
-    {
-      hexcode: "1f602",
-      shortcode: "face_with_tears_of_joy",
-      code: "happy_tears",
-    },
-    {
-      hexcode: "1f607",
-      shortcode: "smiling_face_with_halo",
-      code: "halo",
-    },
-
-    {
-      hexcode: "1f970",
-      shortcode: "smiling_face_with_hearts",
-      code: "three_hearts",
-    },
-    {
-      hexcode: "1f60d",
-      shortcode: "smiling_face_with_heart_eyes",
-      code: "with_two_hearts",
-    },
-    {
-      hexcode: "1f618",
-      shortcode: "face_blowing_a_kiss",
-      code: "one_heart",
-    },
-
-    {
-      hexcode: "1f61d",
-      shortcode: "squinting_face_with_tongue",
-      code: "with_tongue",
-    },
-    {
-      hexcode: "1f917",
-      shortcode: "hugging_face",
-      code: "with_two_hands",
-    },
-    {
-      hexcode: "1f92d",
-      shortcode: "face_with_hand_over_mouth",
-      code: "one_hand",
-    },
-
-    {
-      hexcode: "1f910",
-      shortcode: "zipper_mouth_face",
-      code: "silenced",
-    },
-    {
-      hexcode: "1f973",
-      shortcode: "partying_face",
-      code: "celebrating",
-    },
-    {
-      hexcode: "1f60e",
-      shortcode: "smiling_face_with_sunglasses",
-      code: "sunglasses",
-    },
-
-    {
-      hexcode: "1f644",
-      shortcode: "face_with_rolling_eyes",
-      code: "eyes_up",
-    },
-    {
-      hexcode: "1f9d0",
-      shortcode: "face_with_monocle",
-      code: "monocole",
-    },
-    {
-      hexcode: "1f634",
-      shortcode: "sleeping_face",
-      code: "sleeping",
-    },
-  ];
-
-  let face_unwell = [
-    {
-      hexcode: "1f637",
-      shortcode: "face_with_medical_mask",
-      svg: "",
-      code: "mask",
-    },
-    {
-      hexcode: "1f912",
-      shortcode: "face_with_thermometer",
-      code: "fever",
-    },
-    {
-      hexcode: "1f915",
-      shortcode: "face_with_head_bandage",
-      code: "bandage",
-    },
-
-    {
-      hexcode: "1f92e",
-      shortcode: "face_vomiting",
-      code: "vomit",
-    },
-    {
-      hexcode: "1f927",
-      shortcode: "sneezing_face",
-      code: "tissue",
-    },
-    {
-      hexcode: "1f915",
-      shortcode: "hot_face",
-      code: "hot",
-    },
-
-    {
-      hexcode: "1f976",
-      shortcode: "cold_face",
-      code: "cold",
-    },
-    {
-      hexcode: "1f635",
-      shortcode: "knocked_out_face",
-      code: "crossed_eyes",
-    },
-    {
-      hexcode: "1f92f",
-      shortcode: "exploding_head",
-      code: "exploding",
-    },
-
-    {
-      hexcode: "2639",
-      shortcode: "frowning_face",
-      code: "sad",
-    },
-    {
-      hexcode: "1f925",
-      shortcode: "lying_face",
-      code: "long_nose",
-    },
-    {
-      hexcode: "1f62d",
-      shortcode: "loudly_crying_face",
-      code: "many_tears",
-    },
-
-    {
-      hexcode: "1f631",
-      shortcode: "face_screaming_in_fear",
-      code: "fear",
-    },
-    {
-      hexcode: "1f971",
-      shortcode: "yawning_face",
-      code: "tired",
-    },
-    {
-      hexcode: "1f624",
-      shortcode: "face_with_steam_from_nose",
-      code: "annoyed",
-    },
-  ];
-
-  let face_costume = [
-    {
-      hexcode: "1f921",
-      shortcode: "clown_face",
-      code: "clown",
-      svg: "",
-    },
-    {
-      hexcode: "1f47b",
-      shortcode: "ghost",
-      code: "ghost",
-    },
-    {
-      hexcode: "1f436",
-      shortcode: "dog_face",
-      code: "dog",
-    },
-
-    {
-      hexcode: "1f638",
-      shortcode: "grinning_cat_with_smiling_eyes",
-      code: "happy_cat",
-    },
-    {
-      hexcode: "1f640",
-      shortcode: "weary_cat",
-      code: "scared_cat",
-    },
-    {
-      hexcode: "1f63f",
-      shortcode: "crying_cat",
-      code: "sad_cat",
-    },
-
-    {
-      hexcode: "1f648",
-      shortcode: "see_no_evil_monkey",
-      code: "monkey_no_see",
-    },
-    {
-      hexcode: "1f649",
-      shortcode: "hear_no_evil_monkey",
-      code: "monkey_no_hear",
-    },
-    {
-      hexcode: "1f64a",
-      shortcode: "speak_no_evil_monkey",
-      code: "monkey_no_talk",
-    },
-
-    {
-      hexcode: "1f477",
-      shortcode: "construction_worker",
-      code: "builder",
-    },
-    {
-      hexcode: "1f478",
-      shortcode: "princess",
-      code: "princess",
-    },
-    {
-      hexcode: "1f9d1_200d_1f692",
-      shortcode: "firefighter",
-      code: "firefighter",
-    },
-
-    {
-      hexcode: "1f9d9",
-      shortcode: "mage",
-      code: "mage",
-    },
-    {
-      hexcode: "1f9dc",
-      shortcode: "merperson",
-      code: "mermaid",
-    },
-    {
-      hexcode: "1f9da",
-      shortcode: "fairy",
-      code: "fairy",
-    },
-  ];
-
-  let emotion = [
-    {
-      hexcode: "1f48c",
-      shortcode: "love_letter",
-      code: "letter_heart",
-      svg: "",
-    },
-    {
-      hexcode: "2764",
-      shortcode: "red_heart",
-      code: "red_heart",
-    },
-    {
-      hexcode: "1f495",
-      shortcode: "two_hearts",
-      code: "two_hearts",
-    },
-
-    {
-      hexcode: "1f48b",
-      shortcode: "kiss_mark",
-      code: "kiss",
-    },
-    {
-      hexcode: "1f4af",
-      shortcode: "hundred_points",
-      code: "hundred",
-    },
-    {
-      hexcode: "1f4a5",
-      shortcode: "collision",
-      code: "explosion",
-    },
-
-    {
-      hexcode: "1f4a6",
-      shortcode: "sweat_droplets",
-      code: "drops",
-    },
-    {
-      hexcode: "1f91d",
-      shortcode: "handshake",
-      code: "handshake",
-    },
-    {
-      hexcode: "1f590",
-      shortcode: "hand_with_fingers_splayed",
-      code: "hand_five_fingers",
-    },
-
-    {
-      hexcode: "270c",
-      shortcode: "victory_hand",
-      code: "hand_two_fingers",
-    },
-    {
-      hexcode: "1f44d",
-      shortcode: "thumbs_up",
-      code: "thumbs_up",
-    },
-    {
-      hexcode: "270a",
-      shortcode: "raised_fist",
-      code: "fist",
-    },
-
-    {
-      hexcode: "1f450",
-      shortcode: "open_hands",
-      code: "two_hands",
-    },
-    {
-      hexcode: "270d",
-      shortcode: "writing_hand",
-      code: "writing",
-    },
-    {
-      hexcode: "1f64f",
-      shortcode: "folded_hands",
-      code: "praying",
-    },
-  ];
-
-  let body = [
-    {
-      hexcode: "1f4aa",
-      shortcode: "flexed_biceps",
-      code: "arm",
-      svg: "",
-    },
-    {
-      hexcode: "1f9b5",
-      shortcode: "leg",
-      code: "leg",
-    },
-    {
-      hexcode: "1f9b6",
-      shortcode: "foot",
-      code: "foot",
-    },
-
-    {
-      hexcode: "1f442",
-      shortcode: "ear",
-      code: "ear",
-    },
-    {
-      hexcode: "1f443",
-      shortcode: "nose",
-      code: "nose",
-    },
-    {
-      hexcode: "1f9e0",
-      shortcode: "brain",
-      code: "brain",
-    },
-
-    {
-      hexcode: "1f9b7",
-      shortcode: "tooth",
-      code: "tooth",
-    },
-    {
-      hexcode: "1f9b4",
-      shortcode: "bone",
-      code: "bone",
-    },
-    {
-      hexcode: "1f441",
-      shortcode: "eye",
-      code: "eye",
-    },
-
-    {
-      hexcode: "1f445",
-      shortcode: "tongue",
-      code: "tongue",
-    },
-    {
-      hexcode: "1f444",
-      shortcode: "mouth",
-      code: "mouth",
-    },
-    {
-      hexcode: "1f455",
-      shortcode: "t_shirt",
-      code: "shirt",
-    },
-
-    {
-      hexcode: "1f456",
-      shortcode: "jeans",
-      code: "pants",
-    },
-    {
-      hexcode: "1f457",
-      shortcode: "dress",
-      code: "dress",
-    },
-    {
-      hexcode: "1f45f",
-      shortcode: "running_shoe",
-      code: "shoe",
-    },
-  ];
-
-  let sport = [
-    {
-      hexcode: "1f93a",
-      shortcode: "person_fencing",
-      code: "fencing",
-      svg: "",
-    },
-    {
-      hexcode: "1f3c7",
-      shortcode: "horse_racing",
-      code: "horse_riding",
-    },
-    {
-      hexcode: "26f7",
-      shortcode: "skier",
-      code: "ski",
-    },
-
-    {
-      hexcode: "1f6a3",
-      shortcode: "person_rowing_boat",
-      code: "rowing_boat",
-    },
-    {
-      hexcode: "1f3ca",
-      shortcode: "person_swimming",
-      code: "swim",
-    },
-    {
-      hexcode: "1f3c4",
-      shortcode: "person_surfing",
-      code: "surf",
-    },
-
-    {
-      hexcode: "1f3cb",
-      shortcode: "person_lifting_weights",
-      code: "gym",
-    },
-    {
-      hexcode: "1f93c",
-      shortcode: "people_wrestling",
-      code: "wrestling",
-    },
-    {
-      hexcode: "1f6b4",
-      shortcode: "person_biking",
-      code: "bike",
-    },
-
-    {
-      hexcode: "1fa82",
-      shortcode: "parachute",
-      code: "parachute",
-    },
-    {
-      hexcode: "26bd",
-      shortcode: "soccer_ball",
-      code: "football",
-    },
-    {
-      hexcode: "1f3c0",
-      shortcode: "basketball",
-      code: "basketball",
-    },
-
-    {
-      hexcode: "1f3be",
-      shortcode: "tennis",
-      code: "tennis",
-    },
-    {
-      hexcode: "1f3d3",
-      shortcode: "ping_pong",
-      code: "ping_pong",
-    },
-    {
-      hexcode: "1f94b",
-      shortcode: "martial_arts_uniform",
-      code: "martial",
-    },
-  ];
-
-  let bigger_animal = [
-    {
-      hexcode: "1f981",
-      shortcode: "lion",
-      code: "lion",
-      svg: "",
-    },
-    {
-      hexcode: "1f406",
-      shortcode: "leopard",
-      code: "leopard",
-    },
-    {
-      hexcode: "1f434",
-      shortcode: "horse_face",
-      code: "horse",
-    },
-    {
-      hexcode: "1f993",
-      shortcode: "zebra",
-      code: "zebra",
-    },
-    {
-      hexcode: "1f416",
-      shortcode: "pig",
-      code: "pig",
-    },
-    {
-      hexcode: "1f410",
-      shortcode: "goat",
-      code: "goat",
-    },
-    {
-      hexcode: "1f411",
-      shortcode: "ewe",
-      code: "sheep",
-    },
-    {
-      hexcode: "1f42a",
-      shortcode: "camel",
-      code: "camel",
-    },
-    {
-      hexcode: "1f992",
-      shortcode: "giraffe",
-      code: "giraffe",
-    },
-    {
-      hexcode: "1f418",
-      shortcode: "elephant",
-      code: "elephant",
-    },
-    {
-      hexcode: "1f98f",
-      shortcode: "rhinoceros",
-      code: "rhinoceros",
-    },
-    {
-      hexcode: "1f9a9",
-      shortcode: "flamingo",
-      code: "flamingo",
-    },
-    {
-      hexcode: "1f433",
-      shortcode: "spouting_whale",
-      code: "whale",
-    },
-    {
-      hexcode: "1f42c",
-      shortcode: "dolphin",
-      code: "dolphin",
-    },
-    {
-      hexcode: "1f43b_200d_2744",
-      shortcode: "polar_bear",
-      code: "bear",
-    },
-  ];
-
-  let smaller_animal = [
-    {
-      hexcode: "1f413",
-      shortcode: "rooster",
-      code: "rooster",
-      svg: "",
-    },
-    {
-      hexcode: "1f423",
-      shortcode: "hatching_chick",
-      code: "chick",
-    },
-    {
-      hexcode: "1f985",
-      shortcode: "eagle",
-      code: "eagle",
-    },
-    {
-      hexcode: "1f986",
-      shortcode: "duck",
-      code: "duck",
-    },
-    {
-      hexcode: "1f989",
-      shortcode: "owl",
-      code: "owl",
-    },
-    {
-      hexcode: "1f407",
-      shortcode: "rabbit",
-      code: "rabbit",
-    },
-    {
-      hexcode: "1f427",
-      shortcode: "penguin",
-      code: "penguin",
-    },
-    {
-      hexcode: "1f98e",
-      shortcode: "lizard",
-      code: "lizard",
-    },
-    {
-      hexcode: "1f422",
-      shortcode: "turtle",
-      code: "turtle",
-    },
-    {
-      hexcode: "1f40d",
-      shortcode: "snake",
-      code: "snake",
-    },
-    {
-      hexcode: "1f994",
-      shortcode: "hedgehog",
-      code: "hedgehog",
-    },
-    {
-      hexcode: "1f987",
-      shortcode: "bat",
-      code: "bat",
-    },
-    {
-      hexcode: "1f41f",
-      shortcode: "fish",
-      code: "fish",
-    },
-    {
-      hexcode: "1f41a",
-      shortcode: "spiral_shell",
-      code: "shell",
-    },
-    {
-      hexcode: "1f419",
-      shortcode: "octopus",
-      code: "octopus",
-    },
-  ];
-
-  let plants = [
-    {
-      hexcode: "1f40c",
-      shortcode: "snail",
-      code: "snail",
-      svg: "",
-    },
-    {
-      hexcode: "1f98b",
-      shortcode: "butterfly",
-      code: "butterfly",
-    },
-    {
-      hexcode: "1f41c",
-      shortcode: "ant",
-      code: "ant",
-    },
-    {
-      hexcode: "1f41d",
-      shortcode: "honeybee",
-      code: "bee",
-    },
-    {
-      hexcode: "1f41e",
-      shortcode: "lady_beetle",
-      code: "beetle",
-    },
-    {
-      hexcode: "1f339",
-      shortcode: "rose",
-      code: "rose",
-    },
-
-    {
-      hexcode: "1f33b",
-      shortcode: "sunflower",
-      code: "sunflower",
-    },
-    {
-      hexcode: "1f332",
-      shortcode: "evergreen_tree",
-      code: "fir",
-    },
-    {
-      hexcode: "1f334",
-      shortcode: "palm_tree",
-      code: "palm_tree",
-    },
-
-    {
-      hexcode: "1f335",
-      shortcode: "cactus",
-      code: "cactus",
-    },
-    {
-      hexcode: "1f340",
-      shortcode: "four_leaf_clover",
-      code: "clover",
-    },
-    {
-      hexcode: "1fab4",
-      shortcode: "potted_plant",
-      code: "potted_plant",
-    },
-
-    {
-      hexcode: "1f490",
-      shortcode: "bouquet",
-      code: "bouquet",
-    },
-    {
-      hexcode: "1f342",
-      shortcode: "fallen_leaf",
-      code: "three_leaves",
-    },
-    {
-      hexcode: "1f344",
-      shortcode: "mushroom",
-      code: "mushroom",
-    },
-  ];
-
-  let fruits = [
-    {
-      hexcode: "1f347",
-      shortcode: "grapes",
-      code: "grapes",
-      svg: "",
-    },
-    {
-      hexcode: "1f349",
-      shortcode: "watermelon",
-      code: "watermelon",
-    },
-    {
-      hexcode: "1f34b",
-      shortcode: "lemon",
-      code: "lemon",
-    },
-
-    {
-      hexcode: "1f34c",
-      shortcode: "banana",
-      code: "banana",
-    },
-    {
-      hexcode: "1f34d",
-      shortcode: "pineapple",
-      code: "pineapple",
-    },
-    {
-      hexcode: "1f34e",
-      shortcode: "red_apple",
-      code: "apple",
-    },
-
-    {
-      hexcode: "1f352",
-      shortcode: "cherries",
-      code: "cherries",
-    },
-    {
-      hexcode: "1f353",
-      shortcode: "strawberry",
-      code: "strawberry",
-    },
-    {
-      hexcode: "1fad0",
-      shortcode: "blueberries",
-      code: "three_blueberries",
-    },
-
-    {
-      hexcode: "1f95d",
-      shortcode: "kiwi_fruit",
-      code: "kiwi",
-    },
-    {
-      hexcode: "1f951",
-      shortcode: "avocado",
-      code: "avocado",
-    },
-    {
-      hexcode: "1f346",
-      shortcode: "eggplant",
-      code: "eggplant",
-    },
-
-    {
-      hexcode: "1f955",
-      shortcode: "carrot",
-      code: "carrot",
-    },
-    {
-      hexcode: "1f33d",
-      shortcode: "ear_of_corn",
-      code: "corn",
-    },
-    {
-      hexcode: "1f336",
-      shortcode: "hot_pepper",
-      code: "pepper",
-    },
-  ];
-
-  let food = [
-    {
-      hexcode: "1f950",
-      shortcode: "croissant",
-      code: "croissant",
-      svg: "",
-    },
-    {
-      hexcode: "1f956",
-      shortcode: "baguette_bread",
-      code: "bread",
-    },
-    {
-      hexcode: "1f968",
-      shortcode: "pretzel",
-      code: "pretzel",
-    },
-
-    {
-      hexcode: "1f9c0",
-      shortcode: "cheese_wedge",
-      code: "cheese",
-    },
-    {
-      hexcode: "1f355",
-      shortcode: "pizza",
-      code: "pizza",
-    },
-    {
-      hexcode: "1f373",
-      shortcode: "cooking",
-      code: "egg",
-    },
-
-    {
-      hexcode: "1f366",
-      shortcode: "soft_ice_cream",
-      code: "ice_cream",
-    },
-    {
-      hexcode: "1f36a",
-      shortcode: "cookie",
-      code: "cookie",
-    },
-    {
-      hexcode: "1f370",
-      shortcode: "shortcake",
-      code: "cake",
-    },
-
-    {
-      hexcode: "1f36b",
-      shortcode: "chocolate_bar",
-      code: "chocolate",
-    },
-    {
-      hexcode: "1f36c",
-      shortcode: "candy",
-      code: "sweet",
-    },
-    {
-      hexcode: "2615",
-      shortcode: "hot_beverage",
-      code: "coffee",
-    },
-
-    {
-      hexcode: "1f37e",
-      shortcode: "bottle_with_popping_cork",
-      code: "champagne_bottle",
-    },
-    {
-      hexcode: "1f377",
-      shortcode: "wine_glass",
-      code: "glass_wine",
-    },
-    {
-      hexcode: "1f942",
-      shortcode: "clinking_glasses",
-      code: "two_glasses",
-    },
-  ];
-
-  let travel = [
-    {
-      hexcode: "1f3d4",
-      shortcode: "snow_capped_mountain",
-      code: "mountain",
-      svg: "",
-    },
-    {
-      hexcode: "1f3d5",
-      shortcode: "camping",
-      code: "camping",
-    },
-    {
-      hexcode: "1f3d6",
-      shortcode: "beach_with_umbrella",
-      code: "beach",
-    },
-
-    {
-      hexcode: "1f9ed",
-      shortcode: "compass",
-      code: "compass",
-    },
-    {
-      hexcode: "1f3db",
-      shortcode: "classical_building",
-      code: "museum",
-    },
-    {
-      hexcode: "1f3e1",
-      shortcode: "house_with_garden",
-      code: "house",
-    },
-
-    {
-      hexcode: "26f2",
-      shortcode: "fountain",
-      code: "fountain",
-    },
-    {
-      hexcode: "1f3aa",
-      shortcode: "circus_tent",
-      code: "circus",
-    },
-    {
-      hexcode: "1f682",
-      shortcode: "locomotive",
-      code: "train",
-    },
-
-    {
-      hexcode: "1f695",
-      shortcode: "taxi",
-      code: "taxi",
-    },
-    {
-      hexcode: "1f3cd",
-      shortcode: "motorcycle",
-      code: "motorcycle",
-    },
-    {
-      hexcode: "26f5",
-      shortcode: "sailboat",
-      code: "sailboat",
-    },
-
-    {
-      hexcode: "2708",
-      shortcode: "airplane",
-      code: "airplane",
-    },
-    {
-      hexcode: "1f681",
-      shortcode: "helicopter",
-      code: "helicopter",
-    },
-    {
-      hexcode: "1f680",
-      shortcode: "rocket",
-      code: "rocket",
-    },
-  ];
-
-  let sky = [
-    {
-      hexcode: "2600",
-      shortcode: "sun",
-      code: "sun",
-      svg: "",
-    },
-    {
-      hexcode: "1f319",
-      shortcode: "crescent_moon",
-      code: "moon",
-    },
-    {
-      hexcode: "1fa90",
-      shortcode: "ringed_planet",
-      code: "planet",
-    },
-
-    {
-      hexcode: "2b50",
-      shortcode: "star",
-      code: "star",
-    },
-    {
-      hexcode: "1f30c",
-      shortcode: "milky_way",
-      code: "night_sky",
-    },
-    {
-      hexcode: "1f327",
-      shortcode: "cloud_with_rain",
-      code: "cloud",
-    },
-
-    {
-      hexcode: "2614",
-      shortcode: "umbrella_with_rain_drops",
-      code: "umbrella",
-    },
-    {
-      hexcode: "26a1",
-      shortcode: "high_voltage",
-      code: "lightning",
-    },
-    {
-      hexcode: "2744",
-      shortcode: "snowflake",
-      code: "snowflake",
-    },
-
-    {
-      hexcode: "26c4",
-      shortcode: "snowman_without_snow",
-      code: "snowman",
-    },
-    {
-      hexcode: "1f321",
-      shortcode: "thermometer",
-      code: "thermometer",
-    },
-    {
-      hexcode: "1f525",
-      shortcode: "fire",
-      code: "fire",
-    },
-
-    {
-      hexcode: "1f388",
-      shortcode: "balloon",
-      code: "balloon",
-    },
-    {
-      hexcode: "1fa81",
-      shortcode: "kite",
-      code: "kite",
-    },
-    {
-      hexcode: "1f308",
-      shortcode: "rainbow",
-      code: "rainbow",
-    },
-  ];
-
-  let play = [
-    {
-      hexcode: "1f3b8",
-      shortcode: "guitar",
-      code: "guitar",
-      svg: "",
-    },
-    {
-      hexcode: "1f3b7",
-      shortcode: "saxophone",
-      code: "saxophone",
-    },
-    {
-      hexcode: "1f3b5",
-      shortcode: "musical_note",
-      code: "music",
-    },
-
-    {
-      hexcode: "1f3a8",
-      shortcode: "artist_palette",
-      code: "painting",
-    },
-    {
-      hexcode: "265f",
-      shortcode: "chess_pawn",
-      code: "chess",
-    },
-    {
-      hexcode: "1f381",
-      shortcode: "wrapped_gift",
-      code: "gift",
-    },
-
-    {
-      hexcode: "1f3b2",
-      shortcode: "game_die",
-      code: "die",
-    },
-    {
-      hexcode: "1f9e9",
-      shortcode: "puzzle_piece",
-      code: "puzzle",
-    },
-    {
-      hexcode: "1f9f8",
-      shortcode: "teddy_bear",
-      code: "teddy_bear",
-    },
-
-    {
-      hexcode: "1f9e8",
-      shortcode: "firecracker",
-      code: "firecracker",
-    },
-    {
-      hexcode: "1f3af",
-      shortcode: "bullseye",
-      code: "bullseye",
-    },
-    {
-      hexcode: "1f6fc",
-      shortcode: "roller_skate",
-      code: "roller_skate",
-    },
-
-    {
-      hexcode: "1f6f4",
-      shortcode: "kick_scooter",
-      code: "kick_scooter",
-    },
-    {
-      hexcode: "2693",
-      shortcode: "anchor",
-      code: "anchor",
-    },
-    {
-      hexcode: "1f93f",
-      shortcode: "diving_mask",
-      code: "scuba_diving",
-    },
-  ];
-
-  let house = [
-    {
-      hexcode: "1f9f9",
-      shortcode: "broom",
-      code: "broom",
-      svg: "",
-    },
-    {
-      hexcode: "1f50d",
-      shortcode: "magnifying_glass_tilted_left",
-      code: "magnifying_glass",
-    },
-    {
-      hexcode: "1f4a1",
-      shortcode: "light_bulb",
-      code: "bulb",
-    },
-
-    {
-      hexcode: "1f4da",
-      shortcode: "books",
-      code: "three_books",
-    },
-    {
-      hexcode: "1f4e6",
-      shortcode: "package",
-      code: "package",
-    },
-    {
-      hexcode: "270f",
-      shortcode: "pencil",
-      code: "pencil",
-    },
-
-    {
-      hexcode: "1f4cc",
-      shortcode: "pushpin",
-      code: "pin",
-    },
-    {
-      hexcode: "1f4ce",
-      shortcode: "paperclip",
-      code: "paperclip",
-    },
-    {
-      hexcode: "2702",
-      shortcode: "scissors",
-      code: "scissors",
-    },
-
-    {
-      hexcode: "1f511",
-      shortcode: "key",
-      code: "key",
-    },
-    {
-      hexcode: "1f513",
-      shortcode: "unlocked",
-      code: "lock",
-    },
-    {
-      hexcode: "1fa91",
-      shortcode: "chair",
-      code: "chair",
-    },
-
-    {
-      hexcode: "1f6c1",
-      shortcode: "bathtub",
-      code: "bathtub",
-    },
-    {
-      hexcode: "1f9fd",
-      shortcode: "sponge",
-      code: "sponge",
-    },
-    {
-      hexcode: "1f6d2",
-      shortcode: "shopping_cart",
-      code: "shopping_cart",
-    },
-  ];
-
+  {
+    hexcode: "1f600",
+    shortcode: "grinning_face",
+    code: "happy",
+    svg: "",
+  },
+  {
+    hexcode: "1f602",
+    shortcode: "face_with_tears_of_joy",
+    code: "happy_tears",
+  },
+  {
+    hexcode: "1f607",
+    shortcode: "smiling_face_with_halo",
+    code: "halo",
+  },
+
+  {
+    hexcode: "1f970",
+    shortcode: "smiling_face_with_hearts",
+    code: "three_hearts",
+  },
+  {
+    hexcode: "1f60d",
+    shortcode: "smiling_face_with_heart_eyes",
+    code: "with_two_hearts",
+  },
+  {
+    hexcode: "1f618",
+    shortcode: "face_blowing_a_kiss",
+    code: "one_heart",
+  },
+
+  {
+    hexcode: "1f61d",
+    shortcode: "squinting_face_with_tongue",
+    code: "with_tongue",
+  },
+  {
+    hexcode: "1f917",
+    shortcode: "hugging_face",
+    code: "with_two_hands",
+  },
+  {
+    hexcode: "1f92d",
+    shortcode: "face_with_hand_over_mouth",
+    code: "one_hand",
+  },
+
+  {
+    hexcode: "1f910",
+    shortcode: "zipper_mouth_face",
+    code: "silenced",
+  },
+  {
+    hexcode: "1f973",
+    shortcode: "partying_face",
+    code: "celebrating",
+  },
+  {
+    hexcode: "1f60e",
+    shortcode: "smiling_face_with_sunglasses",
+    code: "sunglasses",
+  },
+
+  {
+    hexcode: "1f644",
+    shortcode: "face_with_rolling_eyes",
+    code: "eyes_up",
+  },
+  {
+    hexcode: "1f9d0",
+    shortcode: "face_with_monocle",
+    code: "monocole",
+  },
+  {
+    hexcode: "1f634",
+    shortcode: "sleeping_face",
+    code: "sleeping",
+  },
+];
+
+let face_unwell = [
+  {
+    hexcode: "1f637",
+    shortcode: "face_with_medical_mask",
+    svg: "",
+    code: "mask",
+  },
+  {
+    hexcode: "1f912",
+    shortcode: "face_with_thermometer",
+    code: "fever",
+  },
+  {
+    hexcode: "1f915",
+    shortcode: "face_with_head_bandage",
+    code: "bandage",
+  },
+
+  {
+    hexcode: "1f92e",
+    shortcode: "face_vomiting",
+    code: "vomit",
+  },
+  {
+    hexcode: "1f927",
+    shortcode: "sneezing_face",
+    code: "tissue",
+  },
+  {
+    hexcode: "1f915",
+    shortcode: "hot_face",
+    code: "hot",
+  },
+
+  {
+    hexcode: "1f976",
+    shortcode: "cold_face",
+    code: "cold",
+  },
+  {
+    hexcode: "1f635",
+    shortcode: "knocked_out_face",
+    code: "crossed_eyes",
+  },
+  {
+    hexcode: "1f92f",
+    shortcode: "exploding_head",
+    code: "exploding",
+  },
+
+  {
+    hexcode: "2639",
+    shortcode: "frowning_face",
+    code: "sad",
+  },
+  {
+    hexcode: "1f925",
+    shortcode: "lying_face",
+    code: "long_nose",
+  },
+  {
+    hexcode: "1f62d",
+    shortcode: "loudly_crying_face",
+    code: "many_tears",
+  },
+
+  {
+    hexcode: "1f631",
+    shortcode: "face_screaming_in_fear",
+    code: "fear",
+  },
+  {
+    hexcode: "1f971",
+    shortcode: "yawning_face",
+    code: "tired",
+  },
+  {
+    hexcode: "1f624",
+    shortcode: "face_with_steam_from_nose",
+    code: "annoyed",
+  },
+];
+
+let face_costume = [
+  {
+    hexcode: "1f921",
+    shortcode: "clown_face",
+    code: "clown",
+    svg: "",
+  },
+  {
+    hexcode: "1f47b",
+    shortcode: "ghost",
+    code: "ghost",
+  },
+  {
+    hexcode: "1f436",
+    shortcode: "dog_face",
+    code: "dog",
+  },
+
+  {
+    hexcode: "1f638",
+    shortcode: "grinning_cat_with_smiling_eyes",
+    code: "happy_cat",
+  },
+  {
+    hexcode: "1f640",
+    shortcode: "weary_cat",
+    code: "scared_cat",
+  },
+  {
+    hexcode: "1f63f",
+    shortcode: "crying_cat",
+    code: "sad_cat",
+  },
+
+  {
+    hexcode: "1f648",
+    shortcode: "see_no_evil_monkey",
+    code: "monkey_no_see",
+  },
+  {
+    hexcode: "1f649",
+    shortcode: "hear_no_evil_monkey",
+    code: "monkey_no_hear",
+  },
+  {
+    hexcode: "1f64a",
+    shortcode: "speak_no_evil_monkey",
+    code: "monkey_no_talk",
+  },
+
+  {
+    hexcode: "1f477",
+    shortcode: "construction_worker",
+    code: "builder",
+  },
+  {
+    hexcode: "1f478",
+    shortcode: "princess",
+    code: "princess",
+  },
+  {
+    hexcode: "1f9d1_200d_1f692",
+    shortcode: "firefighter",
+    code: "firefighter",
+  },
+
+  {
+    hexcode: "1f9d9",
+    shortcode: "mage",
+    code: "mage",
+  },
+  {
+    hexcode: "1f9dc",
+    shortcode: "merperson",
+    code: "mermaid",
+  },
+  {
+    hexcode: "1f9da",
+    shortcode: "fairy",
+    code: "fairy",
+  },
+];
+
+let emotion = [
+  {
+    hexcode: "1f48c",
+    shortcode: "love_letter",
+    code: "letter_heart",
+    svg: "",
+  },
+  {
+    hexcode: "2764",
+    shortcode: "red_heart",
+    code: "red_heart",
+  },
+  {
+    hexcode: "1f495",
+    shortcode: "two_hearts",
+    code: "two_hearts",
+  },
+
+  {
+    hexcode: "1f48b",
+    shortcode: "kiss_mark",
+    code: "kiss",
+  },
+  {
+    hexcode: "1f4af",
+    shortcode: "hundred_points",
+    code: "hundred",
+  },
+  {
+    hexcode: "1f4a5",
+    shortcode: "collision",
+    code: "explosion",
+  },
+
+  {
+    hexcode: "1f4a6",
+    shortcode: "sweat_droplets",
+    code: "drops",
+  },
+  {
+    hexcode: "1f91d",
+    shortcode: "handshake",
+    code: "handshake",
+  },
+  {
+    hexcode: "1f590",
+    shortcode: "hand_with_fingers_splayed",
+    code: "hand_five_fingers",
+  },
+
+  {
+    hexcode: "270c",
+    shortcode: "victory_hand",
+    code: "hand_two_fingers",
+  },
+  {
+    hexcode: "1f44d",
+    shortcode: "thumbs_up",
+    code: "thumbs_up",
+  },
+  {
+    hexcode: "270a",
+    shortcode: "raised_fist",
+    code: "fist",
+  },
+
+  {
+    hexcode: "1f450",
+    shortcode: "open_hands",
+    code: "two_hands",
+  },
+  {
+    hexcode: "270d",
+    shortcode: "writing_hand",
+    code: "writing",
+  },
+  {
+    hexcode: "1f64f",
+    shortcode: "folded_hands",
+    code: "praying",
+  },
+];
+
+let body = [
+  {
+    hexcode: "1f4aa",
+    shortcode: "flexed_biceps",
+    code: "arm",
+    svg: "",
+  },
+  {
+    hexcode: "1f9b5",
+    shortcode: "leg",
+    code: "leg",
+  },
+  {
+    hexcode: "1f9b6",
+    shortcode: "foot",
+    code: "foot",
+  },
+
+  {
+    hexcode: "1f442",
+    shortcode: "ear",
+    code: "ear",
+  },
+  {
+    hexcode: "1f443",
+    shortcode: "nose",
+    code: "nose",
+  },
+  {
+    hexcode: "1f9e0",
+    shortcode: "brain",
+    code: "brain",
+  },
+
+  {
+    hexcode: "1f9b7",
+    shortcode: "tooth",
+    code: "tooth",
+  },
+  {
+    hexcode: "1f9b4",
+    shortcode: "bone",
+    code: "bone",
+  },
+  {
+    hexcode: "1f441",
+    shortcode: "eye",
+    code: "eye",
+  },
+
+  {
+    hexcode: "1f445",
+    shortcode: "tongue",
+    code: "tongue",
+  },
+  {
+    hexcode: "1f444",
+    shortcode: "mouth",
+    code: "mouth",
+  },
+  {
+    hexcode: "1f455",
+    shortcode: "t_shirt",
+    code: "shirt",
+  },
+
+  {
+    hexcode: "1f456",
+    shortcode: "jeans",
+    code: "pants",
+  },
+  {
+    hexcode: "1f457",
+    shortcode: "dress",
+    code: "dress",
+  },
+  {
+    hexcode: "1f45f",
+    shortcode: "running_shoe",
+    code: "shoe",
+  },
+];
+
+let sport = [
+  {
+    hexcode: "1f93a",
+    shortcode: "person_fencing",
+    code: "fencing",
+    svg: "",
+  },
+  {
+    hexcode: "1f3c7",
+    shortcode: "horse_racing",
+    code: "horse_riding",
+  },
+  {
+    hexcode: "26f7",
+    shortcode: "skier",
+    code: "ski",
+  },
+
+  {
+    hexcode: "1f6a3",
+    shortcode: "person_rowing_boat",
+    code: "rowing_boat",
+  },
+  {
+    hexcode: "1f3ca",
+    shortcode: "person_swimming",
+    code: "swim",
+  },
+  {
+    hexcode: "1f3c4",
+    shortcode: "person_surfing",
+    code: "surf",
+  },
+
+  {
+    hexcode: "1f3cb",
+    shortcode: "person_lifting_weights",
+    code: "gym",
+  },
+  {
+    hexcode: "1f93c",
+    shortcode: "people_wrestling",
+    code: "wrestling",
+  },
+  {
+    hexcode: "1f6b4",
+    shortcode: "person_biking",
+    code: "bike",
+  },
+
+  {
+    hexcode: "1fa82",
+    shortcode: "parachute",
+    code: "parachute",
+  },
+  {
+    hexcode: "26bd",
+    shortcode: "soccer_ball",
+    code: "football",
+  },
+  {
+    hexcode: "1f3c0",
+    shortcode: "basketball",
+    code: "basketball",
+  },
+
+  {
+    hexcode: "1f3be",
+    shortcode: "tennis",
+    code: "tennis",
+  },
+  {
+    hexcode: "1f3d3",
+    shortcode: "ping_pong",
+    code: "ping_pong",
+  },
+  {
+    hexcode: "1f94b",
+    shortcode: "martial_arts_uniform",
+    code: "martial",
+  },
+];
+
+let bigger_animal = [
+  {
+    hexcode: "1f981",
+    shortcode: "lion",
+    code: "lion",
+    svg: "",
+  },
+  {
+    hexcode: "1f406",
+    shortcode: "leopard",
+    code: "leopard",
+  },
+  {
+    hexcode: "1f434",
+    shortcode: "horse_face",
+    code: "horse",
+  },
+  {
+    hexcode: "1f993",
+    shortcode: "zebra",
+    code: "zebra",
+  },
+  {
+    hexcode: "1f416",
+    shortcode: "pig",
+    code: "pig",
+  },
+  {
+    hexcode: "1f410",
+    shortcode: "goat",
+    code: "goat",
+  },
+  {
+    hexcode: "1f411",
+    shortcode: "ewe",
+    code: "sheep",
+  },
+  {
+    hexcode: "1f42a",
+    shortcode: "camel",
+    code: "camel",
+  },
+  {
+    hexcode: "1f992",
+    shortcode: "giraffe",
+    code: "giraffe",
+  },
+  {
+    hexcode: "1f418",
+    shortcode: "elephant",
+    code: "elephant",
+  },
+  {
+    hexcode: "1f98f",
+    shortcode: "rhinoceros",
+    code: "rhinoceros",
+  },
+  {
+    hexcode: "1f9a9",
+    shortcode: "flamingo",
+    code: "flamingo",
+  },
+  {
+    hexcode: "1f433",
+    shortcode: "spouting_whale",
+    code: "whale",
+  },
+  {
+    hexcode: "1f42c",
+    shortcode: "dolphin",
+    code: "dolphin",
+  },
+  {
+    hexcode: "1f43b_200d_2744",
+    shortcode: "polar_bear",
+    code: "bear",
+  },
+];
+
+let smaller_animal = [
+  {
+    hexcode: "1f413",
+    shortcode: "rooster",
+    code: "rooster",
+    svg: "",
+  },
+  {
+    hexcode: "1f423",
+    shortcode: "hatching_chick",
+    code: "chick",
+  },
+  {
+    hexcode: "1f985",
+    shortcode: "eagle",
+    code: "eagle",
+  },
+  {
+    hexcode: "1f986",
+    shortcode: "duck",
+    code: "duck",
+  },
+  {
+    hexcode: "1f989",
+    shortcode: "owl",
+    code: "owl",
+  },
+  {
+    hexcode: "1f407",
+    shortcode: "rabbit",
+    code: "rabbit",
+  },
+  {
+    hexcode: "1f427",
+    shortcode: "penguin",
+    code: "penguin",
+  },
+  {
+    hexcode: "1f98e",
+    shortcode: "lizard",
+    code: "lizard",
+  },
+  {
+    hexcode: "1f422",
+    shortcode: "turtle",
+    code: "turtle",
+  },
+  {
+    hexcode: "1f40d",
+    shortcode: "snake",
+    code: "snake",
+  },
+  {
+    hexcode: "1f994",
+    shortcode: "hedgehog",
+    code: "hedgehog",
+  },
+  {
+    hexcode: "1f987",
+    shortcode: "bat",
+    code: "bat",
+  },
+  {
+    hexcode: "1f41f",
+    shortcode: "fish",
+    code: "fish",
+  },
+  {
+    hexcode: "1f41a",
+    shortcode: "spiral_shell",
+    code: "shell",
+  },
+  {
+    hexcode: "1f419",
+    shortcode: "octopus",
+    code: "octopus",
+  },
+];
+
+let plants = [
+  {
+    hexcode: "1f40c",
+    shortcode: "snail",
+    code: "snail",
+    svg: "",
+  },
+  {
+    hexcode: "1f98b",
+    shortcode: "butterfly",
+    code: "butterfly",
+  },
+  {
+    hexcode: "1f41c",
+    shortcode: "ant",
+    code: "ant",
+  },
+  {
+    hexcode: "1f41d",
+    shortcode: "honeybee",
+    code: "bee",
+  },
+  {
+    hexcode: "1f41e",
+    shortcode: "lady_beetle",
+    code: "beetle",
+  },
+  {
+    hexcode: "1f339",
+    shortcode: "rose",
+    code: "rose",
+  },
+
+  {
+    hexcode: "1f33b",
+    shortcode: "sunflower",
+    code: "sunflower",
+  },
+  {
+    hexcode: "1f332",
+    shortcode: "evergreen_tree",
+    code: "fir",
+  },
+  {
+    hexcode: "1f334",
+    shortcode: "palm_tree",
+    code: "palm_tree",
+  },
+
+  {
+    hexcode: "1f335",
+    shortcode: "cactus",
+    code: "cactus",
+  },
+  {
+    hexcode: "1f340",
+    shortcode: "four_leaf_clover",
+    code: "clover",
+  },
+  {
+    hexcode: "1fab4",
+    shortcode: "potted_plant",
+    code: "potted_plant",
+  },
+
+  {
+    hexcode: "1f490",
+    shortcode: "bouquet",
+    code: "bouquet",
+  },
+  {
+    hexcode: "1f342",
+    shortcode: "fallen_leaf",
+    code: "three_leaves",
+  },
+  {
+    hexcode: "1f344",
+    shortcode: "mushroom",
+    code: "mushroom",
+  },
+];
+
+let fruits = [
+  {
+    hexcode: "1f347",
+    shortcode: "grapes",
+    code: "grapes",
+    svg: "",
+  },
+  {
+    hexcode: "1f349",
+    shortcode: "watermelon",
+    code: "watermelon",
+  },
+  {
+    hexcode: "1f34b",
+    shortcode: "lemon",
+    code: "lemon",
+  },
+
+  {
+    hexcode: "1f34c",
+    shortcode: "banana",
+    code: "banana",
+  },
+  {
+    hexcode: "1f34d",
+    shortcode: "pineapple",
+    code: "pineapple",
+  },
+  {
+    hexcode: "1f34e",
+    shortcode: "red_apple",
+    code: "apple",
+  },
+
+  {
+    hexcode: "1f352",
+    shortcode: "cherries",
+    code: "cherries",
+  },
+  {
+    hexcode: "1f353",
+    shortcode: "strawberry",
+    code: "strawberry",
+  },
+  {
+    hexcode: "1fad0",
+    shortcode: "blueberries",
+    code: "three_blueberries",
+  },
+
+  {
+    hexcode: "1f95d",
+    shortcode: "kiwi_fruit",
+    code: "kiwi",
+  },
+  {
+    hexcode: "1f951",
+    shortcode: "avocado",
+    code: "avocado",
+  },
+  {
+    hexcode: "1f346",
+    shortcode: "eggplant",
+    code: "eggplant",
+  },
+
+  {
+    hexcode: "1f955",
+    shortcode: "carrot",
+    code: "carrot",
+  },
+  {
+    hexcode: "1f33d",
+    shortcode: "ear_of_corn",
+    code: "corn",
+  },
+  {
+    hexcode: "1f336",
+    shortcode: "hot_pepper",
+    code: "pepper",
+  },
+];
+
+let food = [
+  {
+    hexcode: "1f950",
+    shortcode: "croissant",
+    code: "croissant",
+    svg: "",
+  },
+  {
+    hexcode: "1f956",
+    shortcode: "baguette_bread",
+    code: "bread",
+  },
+  {
+    hexcode: "1f968",
+    shortcode: "pretzel",
+    code: "pretzel",
+  },
+
+  {
+    hexcode: "1f9c0",
+    shortcode: "cheese_wedge",
+    code: "cheese",
+  },
+  {
+    hexcode: "1f355",
+    shortcode: "pizza",
+    code: "pizza",
+  },
+  {
+    hexcode: "1f373",
+    shortcode: "cooking",
+    code: "egg",
+  },
+
+  {
+    hexcode: "1f366",
+    shortcode: "soft_ice_cream",
+    code: "ice_cream",
+  },
+  {
+    hexcode: "1f36a",
+    shortcode: "cookie",
+    code: "cookie",
+  },
+  {
+    hexcode: "1f370",
+    shortcode: "shortcake",
+    code: "cake",
+  },
+
+  {
+    hexcode: "1f36b",
+    shortcode: "chocolate_bar",
+    code: "chocolate",
+  },
+  {
+    hexcode: "1f36c",
+    shortcode: "candy",
+    code: "sweet",
+  },
+  {
+    hexcode: "2615",
+    shortcode: "hot_beverage",
+    code: "coffee",
+  },
+
+  {
+    hexcode: "1f37e",
+    shortcode: "bottle_with_popping_cork",
+    code: "champagne_bottle",
+  },
+  {
+    hexcode: "1f377",
+    shortcode: "wine_glass",
+    code: "glass_wine",
+  },
+  {
+    hexcode: "1f942",
+    shortcode: "clinking_glasses",
+    code: "two_glasses",
+  },
+];
+
+let travel = [
+  {
+    hexcode: "1f3d4",
+    shortcode: "snow_capped_mountain",
+    code: "mountain",
+    svg: "",
+  },
+  {
+    hexcode: "1f3d5",
+    shortcode: "camping",
+    code: "camping",
+  },
+  {
+    hexcode: "1f3d6",
+    shortcode: "beach_with_umbrella",
+    code: "beach",
+  },
+
+  {
+    hexcode: "1f9ed",
+    shortcode: "compass",
+    code: "compass",
+  },
+  {
+    hexcode: "1f3db",
+    shortcode: "classical_building",
+    code: "museum",
+  },
+  {
+    hexcode: "1f3e1",
+    shortcode: "house_with_garden",
+    code: "house",
+  },
+
+  {
+    hexcode: "26f2",
+    shortcode: "fountain",
+    code: "fountain",
+  },
+  {
+    hexcode: "1f3aa",
+    shortcode: "circus_tent",
+    code: "circus",
+  },
+  {
+    hexcode: "1f682",
+    shortcode: "locomotive",
+    code: "train",
+  },
+
+  {
+    hexcode: "1f695",
+    shortcode: "taxi",
+    code: "taxi",
+  },
+  {
+    hexcode: "1f3cd",
+    shortcode: "motorcycle",
+    code: "motorcycle",
+  },
+  {
+    hexcode: "26f5",
+    shortcode: "sailboat",
+    code: "sailboat",
+  },
+
+  {
+    hexcode: "2708",
+    shortcode: "airplane",
+    code: "airplane",
+  },
+  {
+    hexcode: "1f681",
+    shortcode: "helicopter",
+    code: "helicopter",
+  },
+  {
+    hexcode: "1f680",
+    shortcode: "rocket",
+    code: "rocket",
+  },
+];
+
+let sky = [
+  {
+    hexcode: "2600",
+    shortcode: "sun",
+    code: "sun",
+    svg: "",
+  },
+  {
+    hexcode: "1f319",
+    shortcode: "crescent_moon",
+    code: "moon",
+  },
+  {
+    hexcode: "1fa90",
+    shortcode: "ringed_planet",
+    code: "planet",
+  },
+
+  {
+    hexcode: "2b50",
+    shortcode: "star",
+    code: "star",
+  },
+  {
+    hexcode: "1f30c",
+    shortcode: "milky_way",
+    code: "night_sky",
+  },
+  {
+    hexcode: "1f327",
+    shortcode: "cloud_with_rain",
+    code: "cloud",
+  },
+
+  {
+    hexcode: "2614",
+    shortcode: "umbrella_with_rain_drops",
+    code: "umbrella",
+  },
+  {
+    hexcode: "26a1",
+    shortcode: "high_voltage",
+    code: "lightning",
+  },
+  {
+    hexcode: "2744",
+    shortcode: "snowflake",
+    code: "snowflake",
+  },
+
+  {
+    hexcode: "26c4",
+    shortcode: "snowman_without_snow",
+    code: "snowman",
+  },
+  {
+    hexcode: "1f321",
+    shortcode: "thermometer",
+    code: "thermometer",
+  },
+  {
+    hexcode: "1f525",
+    shortcode: "fire",
+    code: "fire",
+  },
+
+  {
+    hexcode: "1f388",
+    shortcode: "balloon",
+    code: "balloon",
+  },
+  {
+    hexcode: "1fa81",
+    shortcode: "kite",
+    code: "kite",
+  },
+  {
+    hexcode: "1f308",
+    shortcode: "rainbow",
+    code: "rainbow",
+  },
+];
+
+let play = [
+  {
+    hexcode: "1f3b8",
+    shortcode: "guitar",
+    code: "guitar",
+    svg: "",
+  },
+  {
+    hexcode: "1f3b7",
+    shortcode: "saxophone",
+    code: "saxophone",
+  },
+  {
+    hexcode: "1f3b5",
+    shortcode: "musical_note",
+    code: "music",
+  },
+
+  {
+    hexcode: "1f3a8",
+    shortcode: "artist_palette",
+    code: "painting",
+  },
+  {
+    hexcode: "265f",
+    shortcode: "chess_pawn",
+    code: "chess",
+  },
+  {
+    hexcode: "1f381",
+    shortcode: "wrapped_gift",
+    code: "gift",
+  },
+
+  {
+    hexcode: "1f3b2",
+    shortcode: "game_die",
+    code: "die",
+  },
+  {
+    hexcode: "1f9e9",
+    shortcode: "puzzle_piece",
+    code: "puzzle",
+  },
+  {
+    hexcode: "1f9f8",
+    shortcode: "teddy_bear",
+    code: "teddy_bear",
+  },
+
+  {
+    hexcode: "1f9e8",
+    shortcode: "firecracker",
+    code: "firecracker",
+  },
+  {
+    hexcode: "1f3af",
+    shortcode: "bullseye",
+    code: "bullseye",
+  },
+  {
+    hexcode: "1f6fc",
+    shortcode: "roller_skate",
+    code: "roller_skate",
+  },
+
+  {
+    hexcode: "1f6f4",
+    shortcode: "kick_scooter",
+    code: "kick_scooter",
+  },
+  {
+    hexcode: "2693",
+    shortcode: "anchor",
+    code: "anchor",
+  },
+  {
+    hexcode: "1f93f",
+    shortcode: "diving_mask",
+    code: "scuba_diving",
+  },
+];
+
+let house = [
+  {
+    hexcode: "1f9f9",
+    shortcode: "broom",
+    code: "broom",
+    svg: "",
+  },
+  {
+    hexcode: "1f50d",
+    shortcode: "magnifying_glass_tilted_left",
+    code: "magnifying_glass",
+  },
+  {
+    hexcode: "1f4a1",
+    shortcode: "light_bulb",
+    code: "bulb",
+  },
+
+  {
+    hexcode: "1f4da",
+    shortcode: "books",
+    code: "three_books",
+  },
+  {
+    hexcode: "1f4e6",
+    shortcode: "package",
+    code: "package",
+  },
+  {
+    hexcode: "270f",
+    shortcode: "pencil",
+    code: "pencil",
+  },
+
+  {
+    hexcode: "1f4cc",
+    shortcode: "pushpin",
+    code: "pin",
+  },
+  {
+    hexcode: "1f4ce",
+    shortcode: "paperclip",
+    code: "paperclip",
+  },
+  {
+    hexcode: "2702",
+    shortcode: "scissors",
+    code: "scissors",
+  },
+
+  {
+    hexcode: "1f511",
+    shortcode: "key",
+    code: "key",
+  },
+  {
+    hexcode: "1f513",
+    shortcode: "unlocked",
+    code: "lock",
+  },
+  {
+    hexcode: "1fa91",
+    shortcode: "chair",
+    code: "chair",
+  },
+
+  {
+    hexcode: "1f6c1",
+    shortcode: "bathtub",
+    code: "bathtub",
+  },
+  {
+    hexcode: "1f9fd",
+    shortcode: "sponge",
+    code: "sponge",
+  },
+  {
+    hexcode: "1f6d2",
+    shortcode: "shopping_cart",
+    code: "shopping_cart",
+  },
+];
+
+let svgs_loaded = Promise.resolve(false);
+/** Loads SVGs if they are not yet. TODO: This could probably be sped up by not awaiting sequentially. */
 export async function load_svg() {
+  if (await svgs_loaded) {
+    return;
+  }
 
+  svgs_loaded = new Promise(async (resolve) => {
     face[0].svg = await import("./assets/pazzle/emoji_u1f600.svg?component");
     face[1].svg = await import("./assets/pazzle/emoji_u1f602.svg?component");
     face[2].svg = await import("./assets/pazzle/emoji_u1f607.svg?component");
@@ -1371,48 +1377,28 @@ export async function load_svg() {
 
     /************** EMOTION *********************/
 
-    emotion[0].svg = await import(
-      "./assets/pazzle/emoji_u1f48c.svg?component"
-    );
+    emotion[0].svg = await import("./assets/pazzle/emoji_u1f48c.svg?component");
     emotion[1].svg = await import("./assets/pazzle/emoji_u2764.svg?component");
-    emotion[2].svg = await import(
-      "./assets/pazzle/emoji_u1f495.svg?component"
-    );
+    emotion[2].svg = await import("./assets/pazzle/emoji_u1f495.svg?component");
 
-    emotion[3].svg = await import(
-      "./assets/pazzle/emoji_u1f48b.svg?component"
-    );
-    emotion[4].svg = await import(
-      "./assets/pazzle/emoji_u1f4af.svg?component"
-    );
-    emotion[5].svg = await import(
-      "./assets/pazzle/emoji_u1f4a5.svg?component"
-    );
+    emotion[3].svg = await import("./assets/pazzle/emoji_u1f48b.svg?component");
+    emotion[4].svg = await import("./assets/pazzle/emoji_u1f4af.svg?component");
+    emotion[5].svg = await import("./assets/pazzle/emoji_u1f4a5.svg?component");
 
-    emotion[6].svg = await import(
-      "./assets/pazzle/emoji_u1f4a6.svg?component"
-    );
-    emotion[7].svg = await import(
-      "./assets/pazzle/emoji_u1f91d.svg?component"
-    );
-    emotion[8].svg = await import(
-      "./assets/pazzle/emoji_u1f590.svg?component"
-    );
+    emotion[6].svg = await import("./assets/pazzle/emoji_u1f4a6.svg?component");
+    emotion[7].svg = await import("./assets/pazzle/emoji_u1f91d.svg?component");
+    emotion[8].svg = await import("./assets/pazzle/emoji_u1f590.svg?component");
 
     emotion[9].svg = await import("./assets/pazzle/emoji_u270c.svg?component");
     emotion[10].svg = await import(
       "./assets/pazzle/emoji_u1f44d.svg?component"
     );
-    emotion[11].svg = await import(
-      "./assets/pazzle/emoji_u270a.svg?component"
-    );
+    emotion[11].svg = await import("./assets/pazzle/emoji_u270a.svg?component");
 
     emotion[12].svg = await import(
       "./assets/pazzle/emoji_u1f450.svg?component"
     );
-    emotion[13].svg = await import(
-      "./assets/pazzle/emoji_u270d.svg?component"
-    );
+    emotion[13].svg = await import("./assets/pazzle/emoji_u270d.svg?component");
     emotion[14].svg = await import(
       "./assets/pazzle/emoji_u1f64f.svg?component"
     );
@@ -1463,47 +1449,91 @@ export async function load_svg() {
 
     /************** BIGGER ANIMAL *********************/
 
-    bigger_animal[0].svg = await import("./assets/pazzle/emoji_u1f981.svg?component");
-    bigger_animal[1].svg = await import("./assets/pazzle/emoji_u1f406.svg?component");
-    bigger_animal[2].svg = await import("./assets/pazzle/emoji_u1f434.svg?component");
+    bigger_animal[0].svg = await import(
+      "./assets/pazzle/emoji_u1f981.svg?component"
+    );
+    bigger_animal[1].svg = await import(
+      "./assets/pazzle/emoji_u1f406.svg?component"
+    );
+    bigger_animal[2].svg = await import(
+      "./assets/pazzle/emoji_u1f434.svg?component"
+    );
 
-    bigger_animal[3].svg = await import("./assets/pazzle/emoji_u1f993.svg?component");
-    bigger_animal[4].svg = await import("./assets/pazzle/emoji_u1f416.svg?component");
-    bigger_animal[5].svg = await import("./assets/pazzle/emoji_u1f410.svg?component");
+    bigger_animal[3].svg = await import(
+      "./assets/pazzle/emoji_u1f993.svg?component"
+    );
+    bigger_animal[4].svg = await import(
+      "./assets/pazzle/emoji_u1f416.svg?component"
+    );
+    bigger_animal[5].svg = await import(
+      "./assets/pazzle/emoji_u1f410.svg?component"
+    );
 
-    bigger_animal[6].svg = await import("./assets/pazzle/emoji_u1f411.svg?component");
-    bigger_animal[7].svg = await import("./assets/pazzle/emoji_u1f42a.svg?component");
-    bigger_animal[8].svg = await import("./assets/pazzle/emoji_u1f992.svg?component");
+    bigger_animal[6].svg = await import(
+      "./assets/pazzle/emoji_u1f411.svg?component"
+    );
+    bigger_animal[7].svg = await import(
+      "./assets/pazzle/emoji_u1f42a.svg?component"
+    );
+    bigger_animal[8].svg = await import(
+      "./assets/pazzle/emoji_u1f992.svg?component"
+    );
 
-    bigger_animal[9].svg = await import("./assets/pazzle/emoji_u1f418.svg?component");
+    bigger_animal[9].svg = await import(
+      "./assets/pazzle/emoji_u1f418.svg?component"
+    );
     bigger_animal[10].svg = await import(
       "./assets/pazzle/emoji_u1f98f.svg?component"
     );
-    bigger_animal[11].svg = await import("./assets/pazzle/emoji_u1f9a9.svg?component");
+    bigger_animal[11].svg = await import(
+      "./assets/pazzle/emoji_u1f9a9.svg?component"
+    );
 
-    bigger_animal[12].svg = await import("./assets/pazzle/emoji_u1f433.svg?component");
-    bigger_animal[13].svg = await import("./assets/pazzle/emoji_u1f42c.svg?component");
+    bigger_animal[12].svg = await import(
+      "./assets/pazzle/emoji_u1f433.svg?component"
+    );
+    bigger_animal[13].svg = await import(
+      "./assets/pazzle/emoji_u1f42c.svg?component"
+    );
     bigger_animal[14].svg = await import(
       "./assets/pazzle/emoji_u1f43b_200d_2744.svg?component"
     );
 
     /************** SMALLER ANIMAL *********************/
 
-    smaller_animal[0].svg = await import("./assets/pazzle/emoji_u1f413.svg?component");
-    smaller_animal[1].svg = await import("./assets/pazzle/emoji_u1f423.svg?component");
-    smaller_animal[2].svg = await import("./assets/pazzle/emoji_u1f985.svg?component");
+    smaller_animal[0].svg = await import(
+      "./assets/pazzle/emoji_u1f413.svg?component"
+    );
+    smaller_animal[1].svg = await import(
+      "./assets/pazzle/emoji_u1f423.svg?component"
+    );
+    smaller_animal[2].svg = await import(
+      "./assets/pazzle/emoji_u1f985.svg?component"
+    );
 
-    smaller_animal[3].svg = await import("./assets/pazzle/emoji_u1f986.svg?component");
-    smaller_animal[4].svg = await import("./assets/pazzle/emoji_u1f989.svg?component");
+    smaller_animal[3].svg = await import(
+      "./assets/pazzle/emoji_u1f986.svg?component"
+    );
+    smaller_animal[4].svg = await import(
+      "./assets/pazzle/emoji_u1f989.svg?component"
+    );
     smaller_animal[5].svg = await import(
       "./assets/pazzle/emoji_u1f407.svg?component"
     );
 
-    smaller_animal[6].svg = await import("./assets/pazzle/emoji_u1f427.svg?component");
-    smaller_animal[7].svg = await import("./assets/pazzle/emoji_u1f98e.svg?component");
-    smaller_animal[8].svg = await import("./assets/pazzle/emoji_u1f422.svg?component");
+    smaller_animal[6].svg = await import(
+      "./assets/pazzle/emoji_u1f427.svg?component"
+    );
+    smaller_animal[7].svg = await import(
+      "./assets/pazzle/emoji_u1f98e.svg?component"
+    );
+    smaller_animal[8].svg = await import(
+      "./assets/pazzle/emoji_u1f422.svg?component"
+    );
 
-    smaller_animal[9].svg = await import("./assets/pazzle/emoji_u1f40d.svg?component");
+    smaller_animal[9].svg = await import(
+      "./assets/pazzle/emoji_u1f40d.svg?component"
+    );
     smaller_animal[10].svg = await import(
       "./assets/pazzle/emoji_u1f994.svg?component"
     );
@@ -1511,9 +1541,15 @@ export async function load_svg() {
       "./assets/pazzle/emoji_u1f987.svg?component"
     );
 
-    smaller_animal[12].svg = await import("./assets/pazzle/emoji_u1f41f.svg?component");
-    smaller_animal[13].svg = await import("./assets/pazzle/emoji_u1f41a.svg?component");
-    smaller_animal[14].svg = await import("./assets/pazzle/emoji_u1f419.svg?component");
+    smaller_animal[12].svg = await import(
+      "./assets/pazzle/emoji_u1f41f.svg?component"
+    );
+    smaller_animal[13].svg = await import(
+      "./assets/pazzle/emoji_u1f41a.svg?component"
+    );
+    smaller_animal[14].svg = await import(
+      "./assets/pazzle/emoji_u1f419.svg?component"
+    );
 
     /************** PLANTS *********************/
 
@@ -1552,22 +1588,12 @@ export async function load_svg() {
     fruits[8].svg = await import("./assets/pazzle/emoji_u1fad0.svg?component");
 
     fruits[9].svg = await import("./assets/pazzle/emoji_u1f95d.svg?component");
-    fruits[10].svg = await import(
-      "./assets/pazzle/emoji_u1f951.svg?component"
-    );
-    fruits[11].svg = await import(
-      "./assets/pazzle/emoji_u1f346.svg?component"
-    );
+    fruits[10].svg = await import("./assets/pazzle/emoji_u1f951.svg?component");
+    fruits[11].svg = await import("./assets/pazzle/emoji_u1f346.svg?component");
 
-    fruits[12].svg = await import(
-      "./assets/pazzle/emoji_u1f955.svg?component"
-    );
-    fruits[13].svg = await import(
-      "./assets/pazzle/emoji_u1f33d.svg?component"
-    );
-    fruits[14].svg = await import(
-      "./assets/pazzle/emoji_u1f336.svg?component"
-    );
+    fruits[12].svg = await import("./assets/pazzle/emoji_u1f955.svg?component");
+    fruits[13].svg = await import("./assets/pazzle/emoji_u1f33d.svg?component");
+    fruits[14].svg = await import("./assets/pazzle/emoji_u1f336.svg?component");
 
     /************** FOOD *********************/
 
@@ -1606,18 +1632,12 @@ export async function load_svg() {
     travel[8].svg = await import("./assets/pazzle/emoji_u1f682.svg?component");
 
     travel[9].svg = await import("./assets/pazzle/emoji_u1f695.svg?component");
-    travel[10].svg = await import(
-      "./assets/pazzle/emoji_u1f3cd.svg?component"
-    );
+    travel[10].svg = await import("./assets/pazzle/emoji_u1f3cd.svg?component");
     travel[11].svg = await import("./assets/pazzle/emoji_u26f5.svg?component");
 
     travel[12].svg = await import("./assets/pazzle/emoji_u2708.svg?component");
-    travel[13].svg = await import(
-      "./assets/pazzle/emoji_u1f681.svg?component"
-    );
-    travel[14].svg = await import(
-      "./assets/pazzle/emoji_u1f680.svg?component"
-    );
+    travel[13].svg = await import("./assets/pazzle/emoji_u1f681.svg?component");
+    travel[14].svg = await import("./assets/pazzle/emoji_u1f680.svg?component");
 
     /************** SKY *********************/
 
@@ -1685,52 +1705,63 @@ export async function load_svg() {
     house[13].svg = await import("./assets/pazzle/emoji_u1f9fd.svg?component");
     house[14].svg = await import("./assets/pazzle/emoji_u1f6d2.svg?component");
 
+    resolve(true);
+  });
 }
 
 export const emojis = {
-    face,
-    face_unwell,
-    face_costume,
-    emotion,
-    body,
-    sport,
-    bigger_animal,
-    smaller_animal,
-    plants,
-    fruits,
-    food,
-    travel,
-    sky,
-    play,
-    house,
-  };
+  face,
+  face_unwell,
+  face_costume,
+  emotion,
+  body,
+  sport,
+  bigger_animal,
+  smaller_animal,
+  plants,
+  fruits,
+  food,
+  travel,
+  sky,
+  play,
+  house,
+};
 
 export const emoji_cat = [
-    "face",
-    "sport",
-    "bigger_animal",
-    "smaller_animal",
-    "plants",
-    "fruits",
-    "food",
-    "travel",
-    "sky",
+  "face",
+  "sport",
+  "bigger_animal",
+  "smaller_animal",
+  "plants",
+  "fruits",
+  "food",
+  "travel",
+  "sky",
 
-    "body",
-    "face_unwell",
-    "house",
+  "body",
+  "face_unwell",
+  "house",
 
-    "play",
-    "face_costume",
-    "emotion",
+  "play",
+  "face_costume",
+  "emotion",
 ];
 
-export function display_pazzle(pazzle) {
+export function display_pazzle(pazzle: number[]) {
   let res = [];
   for (const emoji of pazzle) {
     let cat = (emoji & 240) >> 4;
     let idx = emoji & 15;
-    res.push(emoji_cat[cat] +": "+ emojis[emoji_cat[cat]][idx].code);
+    res.push(emoji_cat[cat] + ": " + emojis[emoji_cat[cat]][idx].code);
   }
   return res;
+}
+
+export function emojis_from_pazzle_ids(pazzle: number[]) {
+  return pazzle.map((emoji_id) => {
+    const cat_id = (emoji_id & 240) >> 4;
+    const cat_name = emoji_cat[cat_id];
+    let idx = emoji_id & 15;
+    return { cat: cat_name, ...emojis[cat_name][idx] };
+  });
 }
