@@ -18,15 +18,13 @@
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import { has_wallets } from "../store";
 
-  let display_has_wallets_warning: boolean = $has_wallets != 0;
+  let display_has_wallets_warning = $has_wallets != 0;
   let unsubscribe;
   onMount(() => {});
 
-  onDestroy(() => {
-    unsubscribe();
-  });
+  onDestroy(() => {});
 </script>
 
-<CenteredLayout>
+<CenteredLayout displayFooter={true}>
   <Install {display_has_wallets_warning} />
 </CenteredLayout>

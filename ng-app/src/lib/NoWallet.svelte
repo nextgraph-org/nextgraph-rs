@@ -21,7 +21,7 @@
   import CenteredLayout from "./CenteredLayout.svelte";
 </script>
 
-<CenteredLayout>
+<CenteredLayout displayFooter={true}>
   <div class="container3">
     <div class="row">
       <Logo class="logo block h-40" alt="NextGraph Logo" />

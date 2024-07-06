@@ -19,19 +19,20 @@
     active_session,
     close_active_session,
     disconnections_subscribe,
+    select_default_lang,
   } from "./store";
 
   import Home from "./routes/Home.svelte";
   import Test from "./routes/Test.svelte";
 
-  import URI from "./routes/URI.svelte";
+  import NURI from "./routes/NURI.svelte";
   import NotFound from "./routes/NotFound.svelte";
   import WalletCreate from "./routes/WalletCreate.svelte";
   import Invitation from "./routes/Invitation.svelte";
   import WalletLogin from "./routes/WalletLogin.svelte";
   import User from "./routes/User.svelte";
   import UserRegistered from "./routes/UserRegistered.svelte";
-  import Install from "./lib/Install.svelte";
+  import Install from "./routes/Install.svelte";
 
   import ng from "./api";
 
@@ -44,7 +45,7 @@
   routes.set("/user", User);
   routes.set("/user/registered", UserRegistered);
   if (import.meta.env.NG_APP_WEB) routes.set("/install", Install);
-  routes.set(/^\/ng(.*)/i, URI);
+  routes.set(/^\/did:ng(.*)/i, NURI);
   routes.set("*", NotFound);
 
   let unsubscribe = () => {};
@@ -59,6 +60,7 @@
 
   onMount(async () => {
     try {
+      await select_default_lang();
       await disconnections_subscribe();
     } catch (e) {
       //console.log("called disconnections_subscribe twice");

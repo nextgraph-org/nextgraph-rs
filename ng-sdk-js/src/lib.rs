@@ -26,6 +26,7 @@ use serde_json::json;
 use async_std::stream::StreamExt;
 use js_sys::Array;
 use oxrdf::Triple;
+use sys_locale::get_locales;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::future_to_promise;
 use wasm_bindgen_futures::JsFuture;
@@ -53,6 +54,11 @@ use ng_wallet::*;
 use nextgraph::local_broker::*;
 
 use crate::model::*;
+
+#[wasm_bindgen]
+pub async fn locales() -> Result<JsValue, JsValue> {
+    Ok(serde_wasm_bindgen::to_value(&get_locales().collect::<Vec<_>>()).unwrap())
+}
 
 #[wasm_bindgen]
 pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {

@@ -230,3 +230,31 @@ pub fn display_timestamp(ts: &Timestamp) -> String {
 }
 
 pub(crate) type Receiver<T> = mpsc::UnboundedReceiver<T>;
+
+#[cfg(test)]
+mod test {
+    use crate::log::*;
+    #[test]
+    pub fn test_locales() {
+        let list = vec!["C", "c", "aa-bb-cc-dd", "aa-ff_bb.456d"];
+        let res: Vec<String> = list
+            .iter()
+            .filter_map(|lang| {
+                if *lang == "C" || *lang == "c" {
+                    None
+                } else {
+                    let mut split = lang.split('.');
+                    let code = split.next().unwrap();
+                    let code = code.replace("_", "-");
+                    let mut split = code.rsplitn(2, '-');
+                    let country = split.next().unwrap();
+                    Some(match split.next() {
+                        Some(next) => format!("{}-{}", next, country.to_uppercase()),
+                        None => country.to_string(),
+                    })
+                }
+            })
+            .collect();
+        log_debug!("{:?}", res);
+    }
+}

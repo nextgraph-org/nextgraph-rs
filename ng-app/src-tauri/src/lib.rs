@@ -13,6 +13,7 @@ use std::fs::write;
 use async_std::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sys_locale::get_locales;
 use tauri::scope::ipc::RemoteDomainAccessScope;
 use tauri::utils::config::WindowConfig;
 use tauri::{path::BaseDirectory, App, Manager};
@@ -37,6 +38,27 @@ mod mobile;
 pub use mobile::*;
 
 pub type SetupHook = Box<dyn FnOnce(&mut App) -> Result<(), Box<dyn std::error::Error>> + Send>;
+
+#[tauri::command(rename_all = "snake_case")]
+async fn locales() -> Result<Vec<String>, ()> {
+    Ok(get_locales()
+        .filter_map(|lang| {
+            if lang == "C" || lang == "c" {
+                None
+            } else {
+                let mut split = lang.split('.');
+                let code = split.next().unwrap();
+                let code = code.replace("_", "-");
+                let mut split = code.rsplitn(2, '-');
+                let country = split.next().unwrap();
+                Some(match split.next() {
+                    Some(next) => format!("{}-{}", next, country.to_uppercase()),
+                    None => country.to_string(),
+                })
+            }
+        })
+        .collect())
+}
 
 #[tauri::command(rename_all = "snake_case")]
 async fn test(app: tauri::AppHandle) -> Result<(), ()> {
@@ -514,6 +536,7 @@ impl AppBuilder {
             .plugin(tauri_plugin_window::init())
             .invoke_handler(tauri::generate_handler![
                 test,
+                locales,
                 wallet_gen_shuffle_for_pazzle_opening,
                 wallet_gen_shuffle_for_pin,
                 wallet_open_with_pazzle,

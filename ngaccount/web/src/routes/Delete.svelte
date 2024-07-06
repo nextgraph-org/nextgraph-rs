@@ -154,7 +154,7 @@
         </ul>
       </div>
     </div>
-    <div class="row mb-20">
+    <div class="row mb-10">
       <button
         on:click|once={accept}
         class="mr-5 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"

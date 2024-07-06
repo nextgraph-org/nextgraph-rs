@@ -29,6 +29,7 @@ once_cell = "1.17.1"
 getrandom = { version = "0.1.1", features = ["wasm-bindgen"] }
 rand =  { version = "0.7", features = ["getrandom"] }
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+sys-locale = { version = "0.3.1", features = ["js"] }
 ng-repo = { path = "../ng-repo" }
 ng-net = { path = "../ng-net" }
 ng-client-ws = { path = "../ng-client-ws" }
