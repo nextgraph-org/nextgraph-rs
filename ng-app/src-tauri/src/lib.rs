@@ -13,6 +13,7 @@ use std::fs::write;
 use async_std::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sys_locale::get_locales;
 use tauri::scope::ipc::RemoteDomainAccessScope;
 use tauri::utils::config::WindowConfig;
 use tauri::{path::BaseDirectory, App, Manager};
@@ -37,6 +38,27 @@ mod mobile;
 pub use mobile::*;
 
 pub type SetupHook = Box<dyn FnOnce(&mut App) -> Result<(), Box<dyn std::error::Error>> + Send>;
+
+#[tauri::command(rename_all = "snake_case")]
+async fn locales() -> Result<Vec<String>, ()> {
+    Ok(get_locales()
+        .filter_map(|lang| {
+            if lang == "C" || lang == "c" {
+                None
+            } else {
+                let mut split = lang.split('.');
+                let code = split.next().unwrap();
+                let code = code.replace("_", "-");
+                let mut split = code.rsplitn(2, '-');
+                let country = split.next().unwrap();
+                Some(match split.next() {
+                    Some(next) => format!("{}-{}", next, country.to_uppercase()),
+                    None => country.to_string(),
+                })
+            }
+        })
+        .collect())
+}
 
 #[tauri::command(rename_all = "snake_case")]
 async fn test(app: tauri::AppHandle) -> Result<(), ()> {
@@ -82,6 +104,30 @@ async fn wallet_open_with_pazzle(
 ) -> Result<SensitiveWallet, String> {
     //log_debug!("wallet_open_with_pazzle from rust {:?}", pazzle);
     let wallet = nextgraph::local_broker::wallet_open_with_pazzle(&wallet, pazzle, pin)
+        .map_err(|e| e.to_string())?;
+    Ok(wallet)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_open_with_mnemonic(
+    wallet: Wallet,
+    mnemonic: Vec<u16>,
+    pin: [u8; 4],
+    _app: tauri::AppHandle,
+) -> Result<SensitiveWallet, String> {
+    let wallet = nextgraph::local_broker::wallet_open_with_mnemonic(&wallet, mnemonic, pin)
+        .map_err(|e| e.to_string())?;
+    Ok(wallet)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_open_with_mnemonic_words(
+    wallet: Wallet,
+    mnemonic_words: Vec<String>,
+    pin: [u8; 4],
+    _app: tauri::AppHandle,
+) -> Result<SensitiveWallet, String> {
+    let wallet = nextgraph::local_broker::wallet_open_with_mnemonic_words(&wallet, &mnemonic_words, pin)
         .map_err(|e| e.to_string())?;
     Ok(wallet)
 }
@@ -490,9 +536,12 @@ impl AppBuilder {
             .plugin(tauri_plugin_window::init())
             .invoke_handler(tauri::generate_handler![
                 test,
+                locales,
                 wallet_gen_shuffle_for_pazzle_opening,
                 wallet_gen_shuffle_for_pin,
                 wallet_open_with_pazzle,
+                wallet_open_with_mnemonic,
+                wallet_open_with_mnemonic_words,
                 wallet_was_opened,
                 wallet_create,
                 wallet_read_file,

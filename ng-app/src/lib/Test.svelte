@@ -25,6 +25,7 @@
   import { link } from "svelte-spa-router";
   import { onMount, onDestroy, tick } from "svelte";
   import { Button } from "flowbite-svelte";
+  import DataClassIcon from "./DataClassIcon.svelte";
 
   let is_tauri = import.meta.env.TAURI_PLATFORM;
 

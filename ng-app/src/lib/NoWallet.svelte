@@ -9,6 +9,11 @@
 // according to those terms.
 -->
 
+<!--
+  Component to inform the user, that no wallet is registered on this device.
+  Offers login or create wallet buttons.
+-->
+
 <script>
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
@@ -16,7 +21,7 @@
   import CenteredLayout from "./CenteredLayout.svelte";
 </script>
 
-<CenteredLayout>
+<CenteredLayout displayFooter={true}>
   <div class="container3">
     <div class="row">
       <Logo class="logo block h-40" alt="NextGraph Logo" />

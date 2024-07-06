@@ -9,6 +9,12 @@
 // according to those terms.
 -->
 
+<!--
+  "Select a wallet to login with" page.
+  This page is usually the first page the user sees when they visit the app.
+  It allows the user to select a wallet to login with, create, or import a wallet.
+-->
+
 <script lang="ts">
   import { onMount, onDestroy, tick } from "svelte";
   import { link, push } from "svelte-spa-router";
@@ -186,7 +192,7 @@
 </script>
 
 <div bind:this={top}>
-  <CenteredLayout>
+  <CenteredLayout displayFooter={!wallet}>
     {#if error}
       <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
         <svg
@@ -232,7 +238,7 @@
         <Logo class="logo block h-40" alt="NextGraph Logo" />
       </div>
       <h2 class="pb-5 text-xl">Select a wallet to login with</h2>
-      <div class="flex flex-wrap justify-center gap-5 mb-20">
+      <div class="flex flex-wrap justify-center gap-5 mb-10">
         {#each Object.entries($wallets) as wallet_entry}
           <div
             class="wallet-box"

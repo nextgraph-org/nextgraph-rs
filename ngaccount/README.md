@@ -12,15 +12,22 @@ pnpm --ignore-workspace install
 
 ## Dev
 
-```
+```bash
 cd web
 pnpm run dev --host
-// in another terminal
+
+# In another terminal...
 cd ../
-export NG_ACCOUNT_DOMAIN=[?]; export NG_ACCOUNT_ADMIN=[?]; export NG_ACCOUNT_LOCAL_PEER_KEY=[?]; export NG_ACCOUNT_SERVER=127.0.0.1,14400,[?]; export RUST_LOG=debug
+
+# Please set the required environment variables in the .env and then source it it with:
+source .env
+
 cargo watch -c -w src -x run
-// then open http://localhost:5173/
+# Then open http://localhost:5173/#/create
 ```
+
+> Currently, the ng-account server api is listening on http://127.0.0.1:3031 only which might cause you trouble (coded in `main.rs`, `Create.svelte` and `Delete.svelte`).
+> If you need to test from a (virtual) android device, you can use adb to tunnel the connection like: [`adb reverse tcp:3031 tcp:3031`](https://justinchips.medium.com/proxying-adb-client-connections-2ab495f774eb).
 
 ## Prod
 
