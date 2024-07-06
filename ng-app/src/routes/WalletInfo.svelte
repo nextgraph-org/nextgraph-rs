@@ -79,10 +79,10 @@
   }
 
   let wallet_remove_modal_open = false;
-  async function remove_wallet_clicked() {
+  function remove_wallet_clicked() {
     wallet_remove_modal_open = true;
   }
-  // TODO: WTF, this does not close the modal???
+
   const close_modal = () => {
     wallet_remove_modal_open = false;
   };
@@ -90,7 +90,7 @@
   async function remove_wallet_confirmed() {
     if (!active_wallet) return;
     // TODO: Wait for implementation
-    // ng.wallet_remove($active_wallet.id);
+    // await ng.wallet_remove($active_wallet.id);
     close_active_wallet();
   }
 </script>
@@ -102,16 +102,16 @@
         <SidebarWrapper
           divClass="bg-gray-60 overflow-y-auto py-4 px-3 rounded dark:bg-gray-800"
         >
-          <SidebarGroup ulClass="space-y-2">
+          <SidebarGroup ulClass="space-y-2" role="menu">
             <li>
               <h2 class="text-xl mb-6">Wallet Info</h2>
             </li>
 
             <!-- Go Back -->
-            <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
             <li
               tabindex="0"
-              class="text-left text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
+              role="menuitem"
+              class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               on:keypress={() => window.history.go(-1)}
               on:click={() => window.history.go(-1)}
             >
@@ -207,6 +207,7 @@
             <!-- Remove Wallet -->
             <li
               tabindex="0"
+              role="menuitem"
               class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               on:keypress={remove_wallet_clicked}
               on:click={remove_wallet_clicked}
@@ -218,32 +219,33 @@
                 />
               </div>
               <span class="ml-3">Remove Wallet from Device</span>
-              <Modal
-                autoclose
-                outsideclose
-                bind:open={wallet_remove_modal_open}
-                title="Remove Wallet"
-              >
-                <p class="mt-4">
-                  Are you sure you want to remove this wallet from your device?
-                </p>
-                <div class="mt-4 flex justify-end">
-                  <button on:click={close_modal}> Cancel </button>
-
-                  <button
-                    class="mr-2 bg-primary-700 text-white"
-                    on:click={remove_wallet_confirmed}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </Modal>
             </li>
+            <Modal
+              autoclose
+              outsideclose
+              bind:open={wallet_remove_modal_open}
+              title="Remove Wallet"
+            >
+              <p class="mt-4">
+                Are you sure you want to remove this wallet from your device?
+              </p>
+              <div class="mt-4 flex justify-end">
+                <button on:click={close_modal}> Cancel </button>
+
+                <button
+                  class="mr-2 bg-primary-700 text-white"
+                  on:click={remove_wallet_confirmed}
+                >
+                  Remove
+                </button>
+              </div>
+            </Modal>
 
             <!-- TODO: Show QR-Code -->
             {#if false}
               <li
                 tabindex="0"
+                role="menuitem"
                 class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               >
                 <div>
@@ -253,16 +255,17 @@
                   />
                 </div>
                 <span class="ml-3">Wallet QR-Code</span>
-                <Modal autoclose outsideclose title="My Wallet QR-Code"
-                  >Use this QR-Code to log in with your wallet on new devices.
-                </Modal>
               </li>
+              <Modal autoclose outsideclose title="My Wallet QR-Code"
+                >Use this QR-Code to log in with your wallet on new devices.
+              </Modal>
             {/if}
 
             <!-- TODO: Copy Wallet Link -->
             {#if false}
               <li
                 tabindex="0"
+                role="menuitem"
                 class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               >
                 <div>
@@ -279,6 +282,7 @@
             {#if false}
               <li
                 tabindex="0"
+                role="menuitem"
                 class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               >
                 <!-- TODO: Same as with the trash icon, this is not same-sized as the others. -->
@@ -344,8 +348,5 @@
 <style>
   li.clickable {
     cursor: pointer;
-  }
-  .site-cnx-details {
-    @apply mt-0 !important;
   }
 </style>

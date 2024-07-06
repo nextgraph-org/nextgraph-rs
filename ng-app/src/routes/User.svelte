@@ -123,13 +123,13 @@
         <SidebarWrapper
           divClass="bg-gray-60 overflow-y-auto py-4 px-3 rounded dark:bg-gray-800"
         >
-          <SidebarGroup ulClass="space-y-2">
+          <SidebarGroup ulClass="space-y-2" role="menu">
             <li>
               <h2 class="text-xl mb-6">User panel</h2>
             </li>
-            <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
             <li
               tabindex="0"
+              role="menuitem"
               class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               on:keypress={() => window.history.go(-1)}
               on:click={() => window.history.go(-1)}
@@ -161,9 +161,9 @@
               {/if}
             </li>
 
-            <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
             <li
               tabindex="0"
+              role="menuitem"
               class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               on:keypress={logout}
               on:click={logout}
