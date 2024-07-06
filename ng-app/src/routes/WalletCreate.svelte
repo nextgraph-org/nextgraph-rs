@@ -516,7 +516,7 @@
 <svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
 <CenteredLayout>
-  <div class="max-w-2xl lg:px-8 mx-auto" class:px-4={width > 328}>
+  <div class="max-w-2xl lg:px-8 mx-auto">
     {#if wait}
       <div class="lg:px-8 text-primary-700">
         {#if wait === true}
@@ -599,7 +599,7 @@
           </div>
         {:else if intro}
           <div class=" max-w-6xl lg:px-8 mx-auto px-4">
-            <p class="max-w-xl text-justify md:mx-auto lg:max-w-2xl">
+            <p class="max-w-xl text-left md:mx-auto lg:max-w-2xl">
               A <b>NextGraph Wallet</b> is unique to each person. It stores your
               credentials and authorizations to access documents. You need one
               in order to start using NextGraph.<br /><br />If you already have
@@ -853,7 +853,7 @@
           </div>
         {:else if !invitation}
           <div class=" max-w-6xl lg:px-8 mx-auto px-4">
-            <p class="max-w-xl md:mx-auto lg:max-w-2xl">
+            <p class="max-w-xl md:mx-auto text-left lg:max-w-2xl">
               NextGraph is based on an efficient decentralized P2P network, and
               in order to join this network and start using the app, you need to
               first select a <b>broker&nbsp;server</b>.
@@ -1255,7 +1255,7 @@
                   class="font-bold text-xl">{digit}</span
                 >{/each}
             </Alert>
-            <div class="w-[295px] mx-auto mb-4">
+            <div class="w-[295px] mx-auto mb-10">
               {#each [0, 1, 2] as row}
                 <div class="">
                   {#each [1, 2, 3] as num}
@@ -1610,7 +1610,7 @@
               <div class="text-green-800 mx-auto flex flex-col items-center">
                 <div>Your wallet is ready!</div>
                 <svg
-                  class="my-10 h-16 w-16"
+                  class="my-4 h-16 w-16"
                   fill="none"
                   stroke="currentColor"
                   stroke-width="1.5"
@@ -1625,8 +1625,8 @@
                   />
                 </svg>
               </div>
-              {#if download_link}
-                <div class="text-center">
+              <div class="text-center">
+                {#if download_link}
                   Please download your wallet and keep it in a safe location<br
                   />
                   <a
@@ -1659,23 +1659,23 @@
                       Download my wallet
                     </button>
                   </a>
-                </div>
-                <br />
-              {:else if !options.trusted}
-                Your wallet file has been downloaded into your "Downloads"
-                folder, with the name<br /><span class="text-black">
-                  {download_name}</span
-                ><br />
-                <span class="font-bold"
-                  >Please move it to a safe and durable place.</span
-                ><br /><br />
-              {/if}
-              <!-- Pazzle -->
-              Here is your Pazzle
-              <br />
-              The <span class="font-bold">order</span> of each image is
-              <span class="font-bold">important</span>:
 
+                  <br />
+                {:else if !options.trusted}
+                  Your wallet file has been downloaded into your "Downloads"
+                  folder, with the name<br /><span class="text-black">
+                    {download_name}</span
+                  ><br />
+                  <span class="font-bold"
+                    >Please move it to a safe and durable place.</span
+                  ><br />
+                {/if}
+                <!-- Pazzle -->
+                Here below is your Pazzle.
+                <br />
+                The <span class="font-bold">order</span> of each image is
+                <span class="font-bold">important</span> !
+              </div>
               <div
                 class="mt-2 bg-white shadow-md rounded-lg max-w-2xl w-full mx-auto"
               >
@@ -1689,12 +1689,12 @@
                       {index + 1}
                     </div>
                     <div
-                      class="flex justify-center w-[2em] tall-sm:w-[2.5em] tall-md:w-[4em]"
+                      class="flex justify-center w-[3em] h-[3em]"
                       title={emoji.code}
                     >
                       <svelte:component
                         this={emoji.svg?.default}
-                        class="text-5xl w-full"
+                        class="w-[3em]  h-[3em] "
                       />
                     </div>
                     <div class="flex flex-col ml-4">
@@ -1712,7 +1712,7 @@
               <br />
 
               <!-- Mnemonic (copy button). TODO: once the component is available-->
-              <label for="mnemonic mb-2"
+              <label for="mnemonic"
                 >And here is your mnemonic (your alternative passphrase):</label
               >
               <CopyToClipboard

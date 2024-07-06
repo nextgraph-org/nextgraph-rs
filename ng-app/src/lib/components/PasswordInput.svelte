@@ -7,6 +7,8 @@
 
   export let show: boolean = false;
 
+  let input;
+
   let type: "password" | "text" = "password";
   $: type = show ? "text" : "password";
 
@@ -14,10 +16,21 @@
     const target = event.target as HTMLInputElement;
     value = target.value;
   }
+
+  async function toggle() {
+    let { selectionStart, selectionEnd } = input;
+    show = !show;
+    input.focus();
+    setTimeout(function () {
+      input.selectionStart = selectionStart;
+      input.selectionEnd = selectionEnd;
+    }, 0);
+  }
 </script>
 
 <div class="relative">
   <input
+    bind:this={input}
     {value}
     {placeholder}
     {id}
@@ -32,7 +45,8 @@
   >
     <svg
       fill="none"
-      on:click={() => (show = !show)}
+      on:click={toggle}
+      on:keypress={toggle}
       class={`${show ? "block" : "hidden"} h-6 text-gray-700`}
       xmlns="http://www.w3.org/2000/svg"
       viewbox="0 0 576 512"
@@ -47,7 +61,8 @@
     <svg
       fill="none"
       class={`${!show ? "block" : "hidden"} h-6 text-gray-700`}
-      on:click={() => (show = !show)}
+      on:click={toggle}
+      on:keypress={toggle}
       xmlns="http://www.w3.org/2000/svg"
       viewbox="0 0 640 512"
     >
