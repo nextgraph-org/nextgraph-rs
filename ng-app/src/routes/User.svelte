@@ -23,6 +23,7 @@
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import { version } from "../../package.json";
   import Time from "svelte-time";
+  import { t } from "svelte-i18n";
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
   import {
@@ -109,10 +110,13 @@
     }
   };
   const donate = async () => {
-    await displayPopup("https://nextgraph.org/donate", "Support NextGraph");
+    await displayPopup(
+      "https://nextgraph.org/donate",
+      $t("common.support_nextgraph")
+    );
   };
   const about = async () => {
-    await displayPopup("https://nextgraph.org", "About NextGraph");
+    await displayPopup("https://nextgraph.org", $t("common.about_nextgraph"));
   };
 </script>
 
@@ -125,7 +129,7 @@
         >
           <SidebarGroup ulClass="space-y-2" role="menu">
             <li>
-              <h2 class="text-xl mb-6">User panel</h2>
+              <h2 class="text-xl mb-6">{$t("pages.user_panel.title")}</h2>
             </li>
             <li
               tabindex="0"
@@ -138,7 +142,7 @@
                 tabindex="-1"
                 class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
-              <span class="ml-3">Back</span>
+              <span class="ml-3">{$t("buttons.back")}</span>
             </li>
 
             <li
@@ -150,14 +154,16 @@
                   class="w-7 h-7 text-green-600 transition duration-75 focus:outline-none dark:text-green-400 "
                 />
                 <span class="ml-3 text-green-600 dark:text-green-400"
-                  >Online</span
+                  >{$t("pages.user_panel.online")}</span
                 >
               {:else}
                 <SignalSlash
                   tabindex="-1"
                   class="w-7 h-7 text-red-600 transition duration-75 focus:outline-none dark:text-red-400 "
                 />
-                <span class="ml-3 text-red-600 dark:text-red-400">Offline</span>
+                <span class="ml-3 text-red-600 dark:text-red-400"
+                  >{$t("pages.user_panel.offline")}</span
+                >
               {/if}
             </li>
 
@@ -172,7 +178,7 @@
                 tabindex="-1"
                 class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
-              <span class="ml-3">Logout</span>
+              <span class="ml-3">{$t("common.logout")}</span>
             </li>
             <!-- <li
               tabindex="0"
@@ -199,7 +205,11 @@
                 />
               </svelte:fragment>
             </SidebarItem>
-            <SidebarItem label="Wallet" href="#/wallet" class="p-2">
+            <SidebarItem
+              label={$t("pages.wallet.title")}
+              href="#/wallet"
+              class="p-2"
+            >
               <svelte:fragment slot="icon">
                 <PuzzlePiece
                   tabindex="-1"
@@ -208,7 +218,7 @@
               </svelte:fragment>
             </SidebarItem>
             <SidebarItem
-              label="Admin"
+              label={$t("pages.admin.title")}
               href="#/user/admin"
               class="p-2 opacity-50 pointer-events-none"
             >
@@ -219,7 +229,11 @@
                 />
               </svelte:fragment>
             </SidebarItem>
-            <SidebarItem label="Accounts" href="#/user/account" class="p-2">
+            <SidebarItem
+              label={$t("pages.accounts.title")}
+              href="#/user/accounts"
+              class="p-2"
+            >
               <svelte:fragment slot="icon">
                 <User
                   tabindex="-1"
@@ -233,7 +247,7 @@
                 personal_site_status.server_ip +
                   " " +
                   personal_site_status.server_id) ||
-                "offline"}
+                $t("pages.user_panel.offline")}
             >
               <Toggle
                 on:change={async () => {
@@ -241,14 +255,17 @@
                     $connections[personal_site].connecting = true;
                     await reconnect();
                   } else {
-                    $connections[personal_site].error = "Stopped";
+                    $connections[personal_site].error = $t(
+                      "connectivity.stopped"
+                    );
                     personal_site_status.since = new Date();
                     await ng.user_disconnect(personal_site);
                   }
                 }}
                 checked={personal_site_status &&
                   (personal_site_status.connecting ||
-                    !personal_site_status.error)}>Personal</Toggle
+                    !personal_site_status.error)}
+                >{$t("connectivity.personal")}</Toggle
               >
             </li>
             {#if personal_site_status}
@@ -256,12 +273,14 @@
                 class="site-cnx-details flex items-center px-2 text-sm text-left font-normal text-gray-600"
               >
                 {#if personal_site_status.connecting}
-                  Connecting...
+                  {$t("connectivity.connecting")}...
                 {:else}
                   {#if !personal_site_status.error}
-                    Connected
+                    {$t("connectivity.connected")}
                   {:else}
-                    {personal_site_status.error}
+                    {$t("connectivity.connection_error_short", {
+                      values: { error: personal_site_status.error },
+                    })}
                   {/if}
                   <Time
                     style="display:contents;"
@@ -286,7 +305,7 @@
                 tabindex="-1"
                 class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
-              <span class="ml-3">Donate to NextGraph</span>
+              <span class="ml-3">{$t("common.donate_nextgraph")}</span>
             </li>
 
             <li
@@ -300,13 +319,15 @@
                 tabindex="-1"
                 class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
-              <span class="ml-3">About NextGraph</span>
+              <span class="ml-3">
+                {$t("common.about_nextgraph")}
+              </span>
             </li>
 
             <li
               class="flex items-center p-2 text-base font-normal text-gray-900"
             >
-              Version: {version}
+              {$t("common.version", { values: { version } })}
             </li>
           </SidebarGroup>
         </SidebarWrapper>
@@ -331,27 +352,26 @@
         </svg>
         {#if error == "AlreadyExists"}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            The user is already registered with the selected broker.<br /> Try logging
-            in instead
+            {$t("pages.user_panel.already_registered")}
           </p>
           <a use:link href="/">
             <button
               tabindex="-1"
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
-              Login
+              {$t("common.login")}
             </button>
           </a>
         {:else}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            An error occurred:<br />{error}
+            {$t("pages.user_panel.error", { values: { error } })}
           </p>
           <a use:link href="/">
             <button
               tabindex="-1"
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
-              Go back to homepage
+              {$t("common.back_to_homepage")}
             </button>
           </a>
         {/if}

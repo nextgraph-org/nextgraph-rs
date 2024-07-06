@@ -12,12 +12,15 @@
 <script>
   import { Alert } from "flowbite-svelte";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
+  import { t } from "svelte-i18n";
 </script>
 
 <CenteredLayout displayFooter={true}>
   <div class="p-8">
     <Alert color="red">
-      <span class="font-medium">404</span> Page not found.
+      <span class="font-medium">404</span>{$t("pages.not_found.title")}
+      <br />
+      <span class="text-sm">{$t("pages.not_found.message")}</span>
     </Alert>
   </div>
 </CenteredLayout>

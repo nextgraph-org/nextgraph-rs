@@ -14,6 +14,7 @@
   import { onMount, tick } from "svelte";
   import { current_lang, available_languages } from "../store";
   import { Language } from "svelte-heros-v2";
+  import { t } from "svelte-i18n";
 
   export let displayFooter = false;
 
@@ -72,7 +73,8 @@
           <button
             on:click={displayNextgraphOrg}
             class="text-primary-700 bg-[#f6f6f6] bg-none ring-0 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-            >About NextGraph
+          >
+            {$t("common.about_nextgraph")}
           </button>
         </div>
       </div>

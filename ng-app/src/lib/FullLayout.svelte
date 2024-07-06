@@ -19,10 +19,10 @@
   import { link, location } from "svelte-spa-router";
   import MobileBottomBarItem from "./MobileBottomBarItem.svelte";
   import MobileBottomBar from "./MobileBottomBar.svelte";
-  import Logo from "./components/Logo.svelte";
-
-  import { connection_status } from "../store";
-
+  // @ts-ignore
+  import Logo from "../assets/nextgraph.svg?component";
+  // @ts-ignore
+  import { t } from "svelte-i18n";
   import { onMount, tick } from "svelte";
 
   import {
@@ -98,7 +98,7 @@
             </svelte:fragment>
           </SidebarItem>
           <SidebarItem
-            label="Home"
+            label={$t("pages.full_layout.home")}
             href="#/"
             on:click={scrollToTop}
             class="py-1 tall-xs:p-2"
@@ -110,7 +110,11 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Stream" href="#/stream" class="py-1 tall-xs:p-2">
+          <SidebarItem
+            label={$t("pages.full_layout.stream")}
+            href="#/stream"
+            class="py-1 tall-xs:p-2"
+          >
             <svelte:fragment slot="icon">
               <Bolt
                 tabindex="-1"
@@ -118,7 +122,11 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Search" href="#/search" class="py-1 tall-xs:p-2">
+          <SidebarItem
+            label={$t("pages.full_layout.search")}
+            href="#/search"
+            class="py-1 tall-xs:p-2"
+          >
             <svelte:fragment slot="icon">
               <MagnifyingGlass
                 tabindex="-1"
@@ -126,7 +134,11 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Create" href="#/create" class="py-1 tall-xs:p-2">
+          <SidebarItem
+            label={$t("pages.full_layout.create")}
+            href="#/create"
+            class="py-1 tall-xs:p-2"
+          >
             <svelte:fragment slot="icon">
               <PlusCircle
                 tabindex="-1"
@@ -134,7 +146,11 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Shared" href="#/shared" class="py-1 tall-xs:p-2">
+          <SidebarItem
+            label={$t("pages.full_layout.shared")}
+            href="#/shared"
+            class="py-1 tall-xs:p-2"
+          >
             <svelte:fragment slot="icon">
               <Users
                 tabindex="-1"
@@ -142,7 +158,11 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Site" href="#/site" class="py-1 tall-xs:p-2">
+          <SidebarItem
+            label={$t("pages.full_layout.site")}
+            href="#/site"
+            class="py-1 tall-xs:p-2"
+          >
             <svelte:fragment slot="icon">
               <User
                 tabindex="-1"
@@ -151,7 +171,7 @@
             </svelte:fragment>
           </SidebarItem>
           <SidebarItem
-            label="Messages"
+            label={$t("pages.full_layout.messages")}
             href="#/messages"
             class="py-1 tall-xs:p-2"
           >
@@ -168,7 +188,7 @@
             </svelte:fragment>
           </SidebarItem>
           <SidebarItem
-            label="Notifications"
+            label={$t("pages.full_layout.notifications")}
             href="#/notifications"
             class="mt-1 py-1 tall-xs:p-2"
           >
