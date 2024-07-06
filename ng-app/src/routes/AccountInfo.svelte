@@ -59,9 +59,9 @@
           server_type: Object {
             Domain
             Localhost: 1440 // if domain not exist
-            BoxPrivate  // What are they for? rs type Vec<BindAddress>
-            Public  // What are they for? rs type Vec<BindAddress>
-            BoxPublicDyn  // What are they for? rs type Vec<BindAddress>
+            BoxPrivate  // one IPv4 and optionally one IPv6 to connect to an NGbox on private LAN rs type Vec<BindAddress>
+            Public  // one IPv4 and optionally one IPv6 to connect to an NGbox on public (edge) internet. rs type Vec<BindAddress>
+            BoxPublicDyn  // same but with dynamic IPs that can be retrieved with a special API. rs type Vec<BindAddress>
             }
       ]
    */
@@ -128,6 +128,7 @@
   $: display_brokers = Object.entries(wallet_unlocked?.brokers || {}).map(
     // @ts-ignore
     ([broker_id, [broker]]) => {
+      //TODO: there can be several broker definitions for the same broker_id (if the broker can be reached by different means)
       return {
         id: broker_id,
         can_forward: broker.ServerV0.can_forward,
@@ -140,22 +141,22 @@
     }
   );
 
-  $: console.info(JSON.stringify(device_info));
+  // $: console.info(JSON.stringify(device_info));
 
-  $: console.debug(
-    "info",
-    device_info,
-    "walletSites",
-    walletSites,
-    "wallet",
-    $active_wallet,
-    "connections",
-    $connections,
-    "display_brokers",
-    display_brokers,
-    "display_sites",
-    display_sites
-  );
+  // $: console.debug(
+  //   "info",
+  //   device_info,
+  //   "walletSites",
+  //   walletSites,
+  //   "wallet",
+  //   $active_wallet,
+  //   "connections",
+  //   $connections,
+  //   "display_brokers",
+  //   display_brokers,
+  //   "display_sites",
+  //   display_sites
+  // );
 
   onMount(async () => {
     ng.client_info().then((res) => {
@@ -172,13 +173,13 @@
           divClass="bg-gray-60 overflow-y-auto py-4 px-3 rounded dark:bg-gray-800"
         >
           <!-- Go Back-->
-          <SidebarGroup ulClass="space-y-2">
+          <SidebarGroup ulClass="space-y-2" role="menu">
             <li>
               <h2 class="text-xl mb-6">Account Info</h2>
             </li>
-            <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
             <li
               tabindex="0"
+              role="menuitem"
               class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               on:keypress={() => window.history.go(-1)}
               on:click={() => window.history.go(-1)}
@@ -196,10 +197,8 @@
             <li
               class="flex items-center p-2 text-base font-normal text-gray-900"
             >
-              <h3
-                class="flex items-center mt-2 text-lg font-normal text-gray-600"
-              >
-                {site.name}
+              <h3 class="flex items-center mt-2 text-lg font-normal">
+                {site.name} account
               </h3>
             </li>
 
@@ -226,19 +225,19 @@
                     class="flex flex-col ml-3 items-start text-left overflow-auto"
                   >
                     <div>
-                      <label class="text-gray-500">Name</label>
-                      <span>{device.name}</span>
+                      <span class="text-gray-500">Name</span>
+                      <span class="break-all">{device.name}</span>
                     </div>
                     <div>
-                      <label class="text-gray-500">Id</label>
-                      <span>{device.peer_id}</span>
+                      <span class="text-gray-500">ID</span>
+                      <span class="break-all">{device.peer_id}</span>
                     </div>
                     <div>
-                      <label class="text-gray-500">Version</label>
+                      <span class="text-gray-500">Version</span>
                       <span>{device.version}</span>
                     </div>
                     <div>
-                      <label class="text-gray-500">Device Type</label>
+                      <span class="text-gray-500">System</span>
                       <span> {device.device_name}</span>
                     </div>
                   </div>
@@ -274,29 +273,27 @@
                       />
                     </div>
 
-                    <div
-                      class="flex flex-col ml-3 items-start text-left overflow-auto"
-                    >
+                    <div class="flex flex-col ml-3 items-start text-left">
                       <div>
-                        <label class="text-gray-500">Address</label>
-                        <span>{broker.address}</span>
+                        <span class="text-gray-500">Address</span><br />
+                        <span class="break-all">{broker.address}</span>
                       </div>
                       <div>
-                        <label class="text-gray-500">Last Connected</label>
-                        <span>{broker.last_connected}</span>
+                        <span class="text-gray-500">Last Connected</span><br />
+                        <span class="break-all">{broker.last_connected}</span>
                       </div>
                       <div>
-                        <label class="text-gray-500">ID</label>
-                        <span>{broker.id}</span>
+                        <span class="text-gray-500">ID</span>
+                        <span class="break-all">{broker.id}</span>
                       </div>
-                      <div>
-                        <label class="text-gray-500">Can Forward?</label>
+                      <!-- <div>
+                        <span class="text-gray-500">Can Forward?</span>
                         <span>{broker.can_forward}</span>
                       </div>
                       <div>
-                        <label class="text-gray-500">Can Verify?</label>
+                        <span class="text-gray-500">Can Verify?</span>
                         <span>{broker.can_verify}</span>
-                      </div>
+                      </div> -->
                     </div>
                   </li>
                 {/each}
@@ -363,8 +360,5 @@
 <style>
   li.clickable {
     cursor: pointer;
-  }
-  .site-cnx-details {
-    @apply mt-0 !important;
   }
 </style>
