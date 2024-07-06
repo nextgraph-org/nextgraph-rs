@@ -1,0 +1,46 @@
+# Use fedora:40 as base image
+FROM fedora:40
+
+# Set the environment variable to ensure cargo is available in the PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
+SHELL ["/bin/bash", "-c"]
+
+# Install the required packages and Rust
+
+RUN dnf install -y git clang-devel webkit2gtk4.1-devel openssl openssl-devel curl wget file libappindicator-gtk3-devel librsvg2-devel perl && \
+    dnf group install -y "C Development Tools and Libraries" && \
+    # Rust
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y && \
+    # Node.js
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash && \
+    export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" && \
+    nvm install 22 && \
+    npm install -g pnpm && \
+    # Clear Cache
+    rm -rf /var/cache/dnf && \
+    # Install Rust and Node.js tools
+    cargo install cargo-watch && \
+    cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2b663f25abe50631a236d57a8c6d7fd806413b2 && \
+    cargo install tauri-cli --version "2.0.0-alpha.11" --locked && \
+    # Clone the nextgraph-rs repository (TODO: It might be better to put this into a seperate RUN command to avoid rebuilding the image if the repository changes)
+    git clone https://git.nextgraph.org/NextGraph/nextgraph-rs.git && \
+    # Build sdk and ng-app web version
+    cd /nextgraph-rs/ng-sdk-js && wasm-pack build --target bundler && npm install --no-save pkg && \
+    cd /nextgraph-rs/ng-app    && pnpm install && pnpm webfilebuild
+
+# Build the nextgraph-rs project
+RUN export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" && \
+    cd /nextgraph-rs && git pull && cargo update -p ng-rocksdb && \
+    cargo build -r && \
+    cargo build -r -p ngd && \
+    cargo build -r -p ngcli
+
+    
+# TODO: Build the platform-specific ng-app versions
+# cd /nextgraph-rs/ng-app && cargo tauri build --target x86_64-unknown-linux-gnu
+# ...
+
+# TODO: To remove the image size, remove ~/.cargo, ~/.rustup, and the build dependencies
+
+# To build the image, run:
+# docker build -t nextgraph-rs:fedora -f docker/Dockerfile.fedora .
