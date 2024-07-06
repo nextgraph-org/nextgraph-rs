@@ -112,7 +112,7 @@
             <svelte:fragment slot="icon">
               <Home
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none  dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
@@ -120,7 +120,7 @@
             <svelte:fragment slot="icon">
               <Bolt
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
@@ -128,7 +128,7 @@
             <svelte:fragment slot="icon">
               <MagnifyingGlass
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
@@ -136,7 +136,7 @@
             <svelte:fragment slot="icon">
               <PlusCircle
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
@@ -144,7 +144,7 @@
             <svelte:fragment slot="icon">
               <Users
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
@@ -152,7 +152,7 @@
             <svelte:fragment slot="icon">
               <User
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
@@ -164,7 +164,7 @@
             <svelte:fragment slot="icon">
               <PaperAirplane
                 tabindex="-1"
-                class="-rotate-45 w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="-rotate-45 w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
               <span
                 class="inline-flex justify-center items-center p-3 mt-1 -ml-3 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"
@@ -181,7 +181,7 @@
             <svelte:fragment slot="icon">
               <Bell
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
               <span
                 class="inline-flex justify-center items-center p-3 mt-1 -ml-3 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"

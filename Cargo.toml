@@ -38,6 +38,9 @@ documentation = "https://docs.nextgraph.org/"
 lto = true
 opt-level = 's'
 
+[profile.dev]
+opt-level = 2
+
 [patch.crates-io]
 # tauri = { git = "https://github.com/simonhyll/tauri.git",  branch="fix/ipc-mixup"}
 # tauri = { git = "https://git.nextgraph.org/NextGraph/tauri.git", branch="alpha.11-nextgraph", features = ["no-ipc-custom-protocol"] }

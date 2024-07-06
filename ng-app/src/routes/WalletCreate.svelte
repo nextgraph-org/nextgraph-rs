@@ -430,76 +430,76 @@
   }
 
   // Loads an example wallet.
-  const loadWallet = async () => {
-    options = {
-      trusted: true,
-      cloud: false,
-      bootstrap: false,
-      pdf: false,
-    };
-    creating = true;
-    let local_invitation = await ng.get_local_bootstrap(location.href);
-    let additional_bootstrap;
-    if (local_invitation) {
-      additional_bootstrap = local_invitation.V0.bootstrap;
-    }
-    let core_registration;
-    if (invitation?.V0.code) {
-      core_registration = invitation.V0.code.ChaCha20Key;
-    }
-    let params = {
-      security_img: security_img,
-      security_txt,
-      pin,
-      pazzle_length: 9,
-      send_bootstrap: false, //options.cloud || options.bootstrap ?  : undefined,
-      send_wallet: options.cloud,
-      local_save: options.trusted,
-      result_with_wallet_file: false, // this will be automatically changed to true for browser app
-      core_bootstrap: invitation?.V0.bootstrap,
-      core_registration,
-      additional_bootstrap,
-    };
-    try {
-      ready = await import("./wallet.json");
-      wallets.set(await ng.get_wallets());
-      if (!options.trusted && !tauri_platform) {
-        let lws = $wallets[ready.wallet_name];
-        if (lws.in_memory) {
-          let new_in_mem = {
-            lws,
-            name: ready.wallet_name,
-            opened: false,
-            cmd: "new_in_mem",
-          };
-          window.wallet_channel.postMessage(new_in_mem, location.href);
-        }
-      }
-      console.log("pazzle ids", ready.pazzle);
-      console.log("pazzle emojis", emojis_from_pazzle_ids(ready.pazzle));
+  // const loadWallet = async () => {
+  //   options = {
+  //     trusted: true,
+  //     cloud: false,
+  //     bootstrap: false,
+  //     pdf: false,
+  //   };
+  //   creating = true;
+  //   let local_invitation = await ng.get_local_bootstrap(location.href);
+  //   let additional_bootstrap;
+  //   if (local_invitation) {
+  //     additional_bootstrap = local_invitation.V0.bootstrap;
+  //   }
+  //   let core_registration;
+  //   if (invitation?.V0.code) {
+  //     core_registration = invitation.V0.code.ChaCha20Key;
+  //   }
+  //   let params = {
+  //     security_img: security_img,
+  //     security_txt,
+  //     pin,
+  //     pazzle_length: 9,
+  //     send_bootstrap: false, //options.cloud || options.bootstrap ?  : undefined,
+  //     send_wallet: options.cloud,
+  //     local_save: options.trusted,
+  //     result_with_wallet_file: false, // this will be automatically changed to true for browser app
+  //     core_bootstrap: invitation?.V0.bootstrap,
+  //     core_registration,
+  //     additional_bootstrap,
+  //   };
+  //   try {
+  //     ready = await import("./wallet.json");
+  //     wallets.set(await ng.get_wallets());
+  //     if (!options.trusted && !tauri_platform) {
+  //       let lws = $wallets[ready.wallet_name];
+  //       if (lws.in_memory) {
+  //         let new_in_mem = {
+  //           lws,
+  //           name: ready.wallet_name,
+  //           opened: false,
+  //           cmd: "new_in_mem",
+  //         };
+  //         window.wallet_channel.postMessage(new_in_mem, location.href);
+  //       }
+  //     }
+  //     console.log("pazzle ids", ready.pazzle);
+  //     console.log("pazzle emojis", emojis_from_pazzle_ids(ready.pazzle));
 
-      download_name = "wallet-" + ready.wallet_name + ".ngw";
-      if (options.cloud) {
-        cloud_link = "https://nextgraph.one/#/w/" + ready.wallet_name;
-      }
-      if (ready.wallet_file.length) {
-        const blob = new Blob([ready.wallet_file], {
-          type: "application/octet-stream",
-        });
-        download_link = URL.createObjectURL(blob);
-      }
-    } catch (e) {
-      console.error(e);
-      error = e;
-    }
-    wait = false;
-    registration_error = false;
-    intro = false;
-    pin = [0, 8, 1, 5];
-    pin_confirm = [0, 8, 1, 5];
-    invitation = true;
-  };
-  loadWallet();
+  //     download_name = "wallet-" + ready.wallet_name + ".ngw";
+  //     if (options.cloud) {
+  //       cloud_link = "https://nextgraph.one/#/w/" + ready.wallet_name;
+  //     }
+  //     if (ready.wallet_file.length) {
+  //       const blob = new Blob([ready.wallet_file], {
+  //         type: "application/octet-stream",
+  //       });
+  //       download_link = URL.createObjectURL(blob);
+  //     }
+  //   } catch (e) {
+  //     console.error(e);
+  //     error = e;
+  //   }
+  //   wait = false;
+  //   registration_error = false;
+  //   intro = false;
+  //   pin = [0, 8, 1, 5];
+  //   pin_confirm = [0, 8, 1, 5];
+  //   invitation = true;
+  // };
+  // loadWallet();
 
   let width: number;
   let height: number;
@@ -516,7 +516,7 @@
 <svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
 <CenteredLayout>
-  <div class="max-w-2xl lg:px-8 mx-auto px-4">
+  <div class="max-w-2xl lg:px-8 mx-auto" class:px-4={width > 328}>
     {#if wait}
       <div class="lg:px-8 text-primary-700">
         {#if wait === true}
@@ -599,11 +599,11 @@
           </div>
         {:else if intro}
           <div class=" max-w-6xl lg:px-8 mx-auto px-4">
-            <p class="max-w-xl md:mx-auto lg:max-w-2xl">
+            <p class="max-w-xl text-justify md:mx-auto lg:max-w-2xl">
               A <b>NextGraph Wallet</b> is unique to each person. It stores your
               credentials and authorizations to access documents. You need one
               in order to start using NextGraph.<br /><br />If you already have
-              a wallet, you should not create a new one, instead,
+              a wallet, you should not create a new one. Instead,
               <a href="/wallet/login" use:link
                 >login here with your existing wallet.</a
               >
@@ -848,7 +848,7 @@
                   d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
                 />
               </svg>
-              Ok, I create my wallet now !
+              I create my wallet now !
             </button>
           </div>
         {:else if !invitation}
@@ -1217,7 +1217,7 @@
             </button>
           </div>
         {:else if pin.length < 4}
-          <div class=" max-w-6xl lg:px-8 mx-auto px-3">
+          <div class=" max-w-6xl lg:px-8 mx-auto">
             {#if registration_success}
               <Alert color="green" class="mb-5">
                 <span class="font-bold text-xl"
@@ -1237,8 +1237,8 @@
                 NextGraph will never see your PIN.
               </Alert>
             </p>
-            <p class="text-left mt-5">Here are the rules for the PIN :</p>
-            <ul class="text-left list-disc list-inside">
+            <p class="text-left mt-5 px-3">Here are the rules for the PIN :</p>
+            <ul class="text-left list-disc list-inside px-3">
               <li>It cannot be a series like 1234 or 8765</li>
               <li>
                 The same digit cannot repeat more than once. By example 4484 is
@@ -1606,7 +1606,7 @@
               </svg>
             </div>
           {:else}
-            <div class="text-left">
+            <div class="text-left mx-4">
               <div class="text-green-800 mx-auto flex flex-col items-center">
                 <div>Your wallet is ready!</div>
                 <svg
@@ -1626,37 +1626,41 @@
                 </svg>
               </div>
               {#if download_link}
-                Please download your wallet and keep it in a safe location<br />
-                <a
-                  href={download_link}
-                  target="_blank"
-                  download={download_name}
-                >
-                  <button
-                    tabindex="-1"
-                    class:animate-bounce={animateDownload}
-                    on:click={() => (animateDownload = false)}
-                    class="mt-10 mb-8 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+                <div class="text-center">
+                  Please download your wallet and keep it in a safe location<br
+                  />
+                  <a
+                    href={download_link}
+                    target="_blank"
+                    download={download_name}
                   >
-                    <svg
-                      class="w-8 h-8 mr-2 -ml-1"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                      aria-hidden="true"
+                    <button
+                      tabindex="-1"
+                      class:animate-bounce={animateDownload}
+                      on:click={() => (animateDownload = false)}
+                      class="mt-10 mb-8 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
                     >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-                      />
-                    </svg>
+                      <svg
+                        class="w-8 h-8 mr-2 -ml-1"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                        />
+                      </svg>
 
-                    Download my wallet
-                  </button>
-                </a><br />
+                      Download my wallet
+                    </button>
+                  </a>
+                </div>
+                <br />
               {:else if !options.trusted}
                 Your wallet file has been downloaded into your "Downloads"
                 folder, with the name<br /><span class="text-black">
@@ -1707,7 +1711,6 @@
 
               <br />
 
-              <br /><br />
               <!-- Mnemonic (copy button). TODO: once the component is available-->
               <label for="mnemonic mb-2"
                 >And here is your mnemonic (your alternative passphrase):</label
@@ -1769,7 +1772,7 @@
                 <span class="text-lg text-neutral-950">
                   The pazzle and the mnemonic <span class="font-bold">
                     will not be shown to you again</span
-                  >. Please make sure, you have written it down.
+                  >. Please make sure, you have written them down.
                 </span>
                 <div>
                   <button
