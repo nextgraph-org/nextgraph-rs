@@ -113,7 +113,7 @@
 
   let error;
 
-  let trusted = false;
+  let trusted = true;
 
   let mnemonic = "";
 
@@ -331,7 +331,7 @@
   bind:this={top}
 >
   {#if step == "load"}
-    <div class="flex-col justify-center p-4 pt-6" class:flex={height > 660}>
+    <div class="flex flex-col justify-center p-4 pt-6">
       <h2 class="pb-5 text-xl self-start">
         How to open your wallet? You have 2 options:
       </h2>
@@ -383,28 +383,28 @@
         <li>Enter the PIN code that you chose when you created your wallet.</li>
       </ul>
 
-      <div class=" max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
-        <!-- Save wallet? -->
-        {#if for_import}
-          <div class="max-w-xl lg:px-8 mx-auto px-4 mb-8">
-            <span class="text-xl">Do you trust this device? </span> <br />
-            <div class="flex justify-center items-center my-4">
-              <Toggle class="" bind:checked={trusted}
-                >Yes, save my wallet on this device</Toggle
-              >
-            </div>
-            <p class="text-sm">
-              If you do, if this device is yours or is used by few trusted
-              persons of your family or workplace, and you would like to login
-              again from this device in the future, then you can save your
-              wallet on this device. To the contrary, if this device is public
-              and shared by strangers, do not save your wallet here. {#if !tauri_platform}By
-                selecting this option, you agree to save some cookies on your
-                browser.{/if}<br />
-            </p>
+      <!-- Save wallet? -->
+      {#if for_import}
+        <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
+          <span class="text-xl">Do you trust this device? </span> <br />
+          <p class="text-sm">
+            If you do, if this device is yours or is used by few trusted persons
+            of your family or workplace, and you would like to login again from
+            this device in the future, then you can save your wallet on this
+            device. To the contrary, if this device is public and shared by
+            strangers, do not save your wallet here. {#if !tauri_platform}By
+              selecting this option, you agree to saving some cookies on your
+              browser.{/if}<br />
+          </p>
+          <div class="flex justify-center items-center my-4">
+            <Toggle class="" bind:checked={trusted}
+              >Yes, save my wallet on this device</Toggle
+            >
           </div>
-        {/if}
+        </div>
+      {/if}
 
+      <div class=" max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
         <div class="flex flex-col justify-centerspace-x-12 mt-4 mb-4">
           {#if !loaded}
             Loading pazzle...
@@ -449,13 +449,15 @@
               class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
             />Cancel login</button
           >
-          <a
+          <span
             on:click={start_with_mnemonic}
+            on:keypress={start_with_mnemonic}
+            role="link"
             tabindex="0"
             class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center mb-2 underline cursor-pointer"
           >
             Open with Mnemonic instead
-          </a>
+          </span>
         </div>
       </div>
     </div>
@@ -477,11 +479,11 @@
             <label
               for="mnemonic-input"
               class="block mb-2 text-xl text-gray-900 dark:text-white"
-              >Your 12 words mnemonic</label
+              >Enter your 12 words mnemonic</label
             >
             <PasswordInput
               id="mnemonic-input"
-              placeholder="Enter your 12 words mnemonic here separated by spaces"
+              placeholder="12 words separated by spaces"
               bind:value={mnemonic}
               className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
               auto_complete="mnemonic"
@@ -489,7 +491,7 @@
             <div class="flex">
               <Button
                 type="submit"
-                class="mt-3 ml-auto text-white bg-primary-700 disabled:opacity-65 focus:ring-4 focus:ring-blue-500 focus:border-blue-500 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                class="mt-3 mb-2 ml-auto text-white bg-primary-700 disabled:opacity-65 focus:ring-4 focus:ring-blue-500 focus:border-blue-500 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-blue-500 dark:focus:border-blue-500"
                 on:click={start_pin}
                 disabled={mnemonic.split(" ").length !== 12}
                 ><CheckCircle
@@ -553,7 +555,7 @@
                     />
                     <span
                       class="sel drop-shadow-[2px_2px_2px_rgba(255,255,255,1)]"
-                      class:text-[9em]={!mobile}
+                      class:text-[8em]={!mobile}
                       class:text-[6em]={mobile}>{emoji.sel}</span
                     >
                   </div>
@@ -574,6 +576,9 @@
                 <button
                   tabindex="0"
                   class="pindigit m-1 disabled:opacity-15 disabled:text-gray-200 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+                  class:h-[160px]={!mobile}
+                  class:h-[100px]={mobile}
+                  class:text-8xl={!mobile}
                   on:click={async () => await on_pin_key(num)}
                   disabled={pin_code.length >= 4}
                 >
@@ -587,6 +592,9 @@
             <button
               tabindex="0"
               class="pindigit disabled:opacity-15 m-1 disabled:text-gray-200 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+              class:h-[160px]={!mobile}
+              class:h-[100px]={mobile}
+              class:text-8xl={!mobile}
               on:click={async () => await on_pin_key(shuffle_pin[9])}
               disabled={pin_code.length >= 4}
             >
@@ -600,7 +608,7 @@
             >
               <LockOpen
                 tabindex="-1"
-                class="w-full h-[50%] transition duration-75 focus:outline-none select-none group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-[50%] h-[50%] transition duration-75 focus:outline-none select-none group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </Button>
           </div>
@@ -690,7 +698,7 @@
             />Cancel</button
           >
           <button
-            class="mt-10 select-none text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            class="mt-10 ml-2 select-none text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
             on:click={init}
           >
             <ArrowPath
@@ -731,10 +739,10 @@
     min-height: 99px;
   }
 
-  .pazzleline {
+  /* .pazzleline {
     margin-right: auto;
     margin-left: auto;
-  }
+  } */
 
   .sel {
     position: absolute;
