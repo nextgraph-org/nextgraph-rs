@@ -10,7 +10,7 @@
 -->
 
 <script>
-  import { Button, Alert, Dropzone, Toggle } from "flowbite-svelte";
+  import { t } from "svelte-i18n";
   import { link, querystring } from "svelte-spa-router";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   // @ts-ignore
@@ -18,12 +18,7 @@
 
   import { onMount, tick } from "svelte";
 
-  import {
-    NG_EU_BSP,
-    NG_NET_BSP,
-    APP_ACCOUNT_REGISTERED_SUFFIX,
-    default as ng,
-  } from "../api";
+  import { default as ng } from "../api";
 
   const param = new URLSearchParams($querystring);
 
@@ -49,7 +44,7 @@
   <div class="container3">
     <div class="row">
       <a href="#/">
-        <Logo class="logo block h-40" alt="NextGraph Logo" />
+        <Logo class="logo block h-40" alt={$t("common.logo")} />
       </a>
     </div>
     {#if error}
@@ -71,27 +66,26 @@
         </svg>
         {#if error == "AlreadyExists"}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            The user is already registered with the selected broker.<br /> Try logging
-            in instead
+            {$t("pages.user_registered.already_exists")}
           </p>
           <a use:link href="/">
             <button
               tabindex="-1"
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
-              Login
+              {$t("common.login")}
             </button>
           </a>
         {:else}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            An error occurred:<br />{error}
+            {$t("pages.user_registered.error", { values: { error } })}
           </p>
           <a use:link href="/">
             <button
               tabindex="-1"
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
-              Go back to homepage
+              {$t("common.back_to_homepage")}
             </button>
           </a>
         {/if}
@@ -114,8 +108,9 @@
           />
         </svg>
         <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-          You have been successfully <br />registered {#if invitation?.V0?.name}
-            to {invitation?.V0?.name}{/if}
+          {$t("pages.user_registered.success", {
+            values: { invitation_name: invitation?.V0?.name },
+          })}
         </p>
       </div>
     {/if}

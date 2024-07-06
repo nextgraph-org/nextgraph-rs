@@ -10,7 +10,7 @@
 -->
 
 <script lang="ts">
-  export let params = {};
+  export let params: { invitation: string } = { invitation: "" };
   import { onMount } from "svelte";
   onMount(
     () => (window.location.href = "/#/wallet/create?i=" + params.invitation)

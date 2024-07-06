@@ -10,16 +10,12 @@
 -->
 
 <script type="ts">
-  import { Button } from "flowbite-svelte";
-  import { link } from "svelte-spa-router";
   import Install from "../lib/Install.svelte";
-  import { push } from "svelte-spa-router";
   import { onMount, onDestroy } from "svelte";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import { has_wallets } from "../store";
 
   let display_has_wallets_warning = $has_wallets != 0;
-  let unsubscribe;
   onMount(() => {});
 
   onDestroy(() => {});

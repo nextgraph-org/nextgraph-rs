@@ -19,6 +19,7 @@
   import Logo from "../assets/nextgraph.svg?component";
   import { link } from "svelte-spa-router";
   import CenteredLayout from "./CenteredLayout.svelte";
+  import { t } from "svelte-i18n";
 </script>
 
 <CenteredLayout displayFooter={true}>
@@ -26,11 +27,10 @@
     <div class="row">
       <Logo class="logo block h-40" alt="NextGraph Logo" />
     </div>
-    <h1 class="text-2xl mb-10">Welcome to NextGraph</h1>
+    <h1 class="text-2xl mb-10">{$t("pages.no_wallet.welcome")}</h1>
 
     <p class="max-w-sm">
-      We could not find a wallet saved on this device.<br /> If you already have
-      a wallet, select "Log in", otherwise, select "Create Wallet" here below
+      {$t("pages.no_wallet.description")}
     </p>
     <div class="row mt-5">
       <a href="/wallet/create" use:link>
@@ -53,7 +53,7 @@
               d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
             />
           </svg>
-          Create wallet
+          {$t("pages.no_wallet.create_wallet")}
         </button>
       </a>
     </div>
@@ -78,7 +78,7 @@
               d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
             />
           </svg>
-          Log in
+          {$t("common.login")}
         </button>
       </a>
     </div>

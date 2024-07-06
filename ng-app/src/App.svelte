@@ -11,12 +11,14 @@
 
 <script lang="ts">
   import { push, default as Router } from "svelte-spa-router";
+  import "./locales/i18n-init";
+  import { isLoading } from "svelte-i18n";
+
   import { onMount, tick, onDestroy } from "svelte";
   import {
     wallets,
     active_wallet,
     opened_wallets,
-    active_session,
     close_active_session,
     disconnections_subscribe,
     select_default_lang,
@@ -276,4 +278,9 @@
   {JSON.stringify(Object.keys($opened_wallets))}
   {JSON.stringify($active_session)}
 </p> -->
-<Router {routes} />
+
+{#if $isLoading}
+  <p>Loading...</p>
+{:else}
+  <Router {routes} />
+{/if}
