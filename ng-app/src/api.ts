@@ -98,6 +98,19 @@ const handler = {
                 };
                 //console.log(info,res);
                 return res;
+            } else if (path[0] === "locales") {
+                let from_rust = await tauri.invoke("locales",{});
+                let from_js = window.navigator.languages;
+                console.log(from_rust,from_js);
+                for (let lang of from_js) {
+                    let split = lang.split("-");
+                    if (split[1]) {
+                        lang = split[0] + "-" + split[1].toUpperCase();
+                    }
+                    if (!from_rust.includes(lang)) { from_rust.push(lang);}
+                }
+                return from_rust;
+
             } else if (path[0] === "disconnections_subscribe") {
                 let { getCurrent } = await import("@tauri-apps/plugin-window");
                 let callback = args[0];
