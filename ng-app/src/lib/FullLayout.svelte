@@ -19,11 +19,9 @@
   import { link, location } from "svelte-spa-router";
   import MobileBottomBarItem from "./MobileBottomBarItem.svelte";
   import MobileBottomBar from "./MobileBottomBar.svelte";
-  // @ts-ignore
-  import Logo from "../assets/nextgraph.svg?component";
-  // @ts-ignore
-  import LogoGray from "../assets/nextgraph-gray.svg?component";
-  import { online } from "../store";
+  import Logo from "./components/Logo.svelte";
+
+  import { connection_status } from "../store";
 
   import { onMount, tick } from "svelte";
 
@@ -91,76 +89,76 @@
   <div class="full-layout">
     <Sidebar {activeUrl} {asideClass} {nonActiveClass} class="fixed">
       <SidebarWrapper
-        divClass="bg-gray-60 overflow-y-auto tall:py-4 px-3 rounded dark:bg-gray-800"
+        divClass="bg-gray-60 overflow-y-auto tall-xs:py-4 px-3 rounded dark:bg-gray-800"
       >
-        <SidebarGroup ulClass="space-y-1 tall:space-y-2">
+        <SidebarGroup ulClass="space-y-1 tall-xs:space-y-2">
           <SidebarItem label="NextGraph" href="#/user" class="mt-1">
             <svelte:fragment slot="icon">
-              {#if $online}
-                <Logo class="w-7 h-7 tall:w-10 tall:h-10" />
-              {:else}
-                <LogoGray class="w-7 h-7 tall:w-10 tall:h-10" />
-              {/if}
+              <Logo className="w-7 h-7 tall:w-10 tall:h-10" />
             </svelte:fragment>
           </SidebarItem>
           <SidebarItem
             label="Home"
             href="#/"
             on:click={scrollToTop}
-            class="py-1 tall:p-2"
+            class="py-1 tall-xs:p-2"
           >
             <svelte:fragment slot="icon">
               <Home
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none  dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Stream" href="#/stream" class="py-1 tall:p-2">
+          <SidebarItem label="Stream" href="#/stream" class="py-1 tall-xs:p-2">
             <svelte:fragment slot="icon">
               <Bolt
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Search" href="#/search" class="py-1 tall:p-2">
+          <SidebarItem label="Search" href="#/search" class="py-1 tall-xs:p-2">
             <svelte:fragment slot="icon">
               <MagnifyingGlass
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Create" href="#/create" class="py-1 tall:p-2">
+          <SidebarItem label="Create" href="#/create" class="py-1 tall-xs:p-2">
             <svelte:fragment slot="icon">
               <PlusCircle
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Shared" href="#/shared" class="py-1 tall:p-2">
+          <SidebarItem label="Shared" href="#/shared" class="py-1 tall-xs:p-2">
             <svelte:fragment slot="icon">
               <Users
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Site" href="#/site" class="py-1 tall:p-2">
+          <SidebarItem label="Site" href="#/site" class="py-1 tall-xs:p-2">
             <svelte:fragment slot="icon">
               <User
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem label="Messages" href="#/messages" class="py-1 tall:p-2">
+          <SidebarItem
+            label="Messages"
+            href="#/messages"
+            class="py-1 tall-xs:p-2"
+          >
             <svelte:fragment slot="icon">
               <PaperAirplane
                 tabindex="-1"
-                class="-rotate-45 w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="-rotate-45 w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
               <span
                 class="inline-flex justify-center items-center p-3 mt-1 -ml-3 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"
@@ -172,12 +170,12 @@
           <SidebarItem
             label="Notifications"
             href="#/notifications"
-            class="mt-1 py-1 tall:p-2"
+            class="mt-1 py-1 tall-xs:p-2"
           >
             <svelte:fragment slot="icon">
               <Bell
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
               <span
                 class="inline-flex justify-center items-center p-3 mt-1 -ml-3 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"

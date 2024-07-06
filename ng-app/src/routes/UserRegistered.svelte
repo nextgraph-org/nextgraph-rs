@@ -45,7 +45,7 @@
   });
 </script>
 
-<CenteredLayout>
+<CenteredLayout displayFooter={true}>
   <div class="container3">
     <div class="row">
       <a href="#/">

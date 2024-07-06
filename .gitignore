@@ -14,3 +14,4 @@ node_modules
 */tests/*.mnemonic
 */ng-example/*
 .vscode/settings.json
+.env.local

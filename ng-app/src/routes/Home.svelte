@@ -9,18 +9,28 @@
 // according to those terms.
 -->
 
+<!--
+  Home page to display for logged in users.
+  Redirects to no-wallet or login page, if not logged in.
+-->
+
 <script>
-  import { Button } from "flowbite-svelte";
-  import { link } from "svelte-spa-router";
   import Home from "../lib/Home.svelte";
   import NoWallet from "../lib/NoWallet.svelte";
   import { push } from "svelte-spa-router";
   import { onMount, onDestroy } from "svelte";
-  import { active_wallet, has_wallets, derived } from "../store";
+  import {
+    active_wallet,
+    has_wallets,
+    derived,
+    cannot_load_offline,
+  } from "../store";
 
   let display_login_create = !$has_wallets || !$active_wallet;
   let unsubscribe;
   onMount(() => {
+    cannot_load_offline.set(false);
+    //setTimeout(function () {}, 2);
     const combined = derived([active_wallet, has_wallets], ([$s1, $s2]) => [
       $s1,
       $s2,

@@ -7,13 +7,41 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-import { writable, readable, readonly, derived, get } from "svelte/store";
+import { writable, readable, readonly, derived, get, type Writable } from "svelte/store";
 import ng from "./api";
 import { official_classes } from "./classes";
 import { official_apps, official_services } from "./zeras";
 
 let all_branches = {};
 
+export const available_languages = {
+    "en": "English",
+    "de": "Deutsch",
+    "fr": "Français",
+    "ru": "Русский",
+    "es": "Español",
+    "it": "Italiano",
+    "zh": "中文",
+    "pt": "Português",
+};
+
+export const current_lang = writable("en");
+
+export const select_default_lang = async() => {
+    let locales = await ng.locales();
+    for (let lo of locales) {
+        if (available_languages[lo]) {
+            // exact match (if locales is a 2 chars lang code, or if we support regionalized translations)
+            current_lang.set(lo);
+            return;
+        }
+        lo = lo.substr(0,2);
+        if (available_languages[lo]) {
+            current_lang.set(lo);
+            return;
+        }
+    }
+};
 
 let loaded_external_apps = {};
 
@@ -111,43 +139,74 @@ export const active_wallet = writable(undefined);
 
 export const wallets = writable({});
 
-export const connections = writable({});
+export const connections: Writable<Record<string, any>> = writable({});
 
 export const active_session = writable(undefined);
 
-let next_reconnect = null;
+export const connection_status: Writable<"disconnected" | "connected" | "connecting"> = writable("disconnected");
 
-export const online = derived(connections,($connections) => { 
-    for (const cnx of Object.keys($connections)) {
-        if (!$connections[cnx].error) return true;
-        else if ($connections[cnx].error=="PeerAlreadyConnected") { 
-            connections.update((c) => {
+let next_reconnect: NodeJS.Timeout | null = null;
+
+const updateConnectionStatus = ($connections: Record<string, any> ) => {
+    // Reset error state for PeerAlreadyConnected errors.
+    Object.entries($connections).forEach(([cnx, connection]) => {
+        if (connection.error === "PeerAlreadyConnected") {
+            connections.update(c => {
                 c[cnx].error = undefined;
                 return c;
             });
-            return true; }
-        else if ($connections[cnx].error=="ConnectionError" && !$connections[cnx].connecting && next_reconnect==null) {
-            console.log("will try reconnect in 20 sec");
-            next_reconnect = setTimeout(async ()=> {
-                await reconnect();
-            },20000);
         }
+    });
+
+    // Check if any connection is active.
+    const is_connected = Object.values($connections).some(connection => !connection.error);
+
+    // Check if any connection is connecting.
+    const is_connecting = Object.values($connections).some(connection => connection.connecting);
+
+    // Check, if reconnect is needed.
+    const should_reconnect = !is_connecting && (next_reconnect === null) && Object.values($connections).some(
+        connection => connection.error === "ConnectionError"
+    );
+    if (should_reconnect) {
+        console.log("will try reconnect in 20 sec");
+        next_reconnect = setTimeout(async () => {
+            await reconnect();
+            
+            next_reconnect = null;
+        }, 20000);
     }
-    return false;
+
+    if (is_connected) {
+        connection_status.set("connected");
+    } else if (is_connecting) {
+        connection_status.set("connecting");
+    } else {
+        connection_status.set("disconnected");
+    }
+};
+connections.subscribe(($connections) => {
+    updateConnectionStatus($connections);
 });
+
+export const online = derived(connection_status,($connectionStatus) => $connectionStatus == "connected");
 
 export const cannot_load_offline = writable(false);
 
-if (!get(online) && !import.meta.env.TAURI_PLATFORM) {
+if (get(connection_status) == "disconnected" && !import.meta.env.TAURI_PLATFORM) {
     cannot_load_offline.set(true);
 
-    let unsubscribe = online.subscribe(async (value) => {
-      if (value) {
-        cannot_load_offline.set(false);
-        unsubscribe();
-      }
+    let unsubscribe = connection_status.subscribe(async (value) => {
+        if (value != "disconnected") {
+            cannot_load_offline.set(false);
+            if (value == "connected") {
+                unsubscribe();
+            }
+        } else {
+            cannot_load_offline.set(true);
+        }
     });
-  }
+}
 
 export const has_wallets = derived(wallets,($wallets) => Object.keys($wallets).length);
 
@@ -207,6 +266,7 @@ export const reconnect = async function() {
         return;
     }
     console.log("attempting to connect...");
+    if (!get(online)) connection_status.set("connecting");
     try {
         let info = await ng.client_info()
         //console.log("Connecting with",get(active_session).user);
@@ -215,8 +275,6 @@ export const reconnect = async function() {
             get(active_session).user,
             location.href
         ));
-        
-        
     }catch (e) {
         console.error(e)
     }

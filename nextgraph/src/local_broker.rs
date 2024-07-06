@@ -40,6 +40,7 @@ use ng_verifier::types::*;
 use ng_verifier::verifier::Verifier;
 
 use ng_wallet::emojis::encode_pazzle;
+use ng_wallet::bip39::encode_mnemonic;
 use ng_wallet::{create_wallet_first_step_v0, create_wallet_second_step_v0, types::*};
 
 #[cfg(not(target_family = "wasm"))]
@@ -1555,6 +1556,27 @@ pub fn wallet_open_with_pazzle(
     Ok(opened_wallet)
 }
 
+#[doc(hidden)]
+/// This is a bit hard to use as the mnemonic words are encoded in u16.
+/// prefer the function wallet_open_with_mnemonic_words
+pub fn wallet_open_with_mnemonic(
+    wallet: &Wallet,
+    mnemonic: Vec<u16>,
+    pin: [u8; 4],
+) -> Result<SensitiveWallet, NgError> {
+    if mnemonic.len() != 12 {
+        return Err(NgError::InvalidMnemonic);
+    }
+    // Convert from vec to array.
+    let mut mnemonic_arr = [0u16; 12];
+    for (place, element) in mnemonic_arr.iter_mut().zip(mnemonic.iter()) {
+        *place = *element;
+    }
+    let opened_wallet = ng_wallet::open_wallet_with_mnemonic(wallet, mnemonic_arr, pin)?;
+
+    Ok(opened_wallet)
+}
+
 /// Opens a wallet by providing an ordered list of words, and the pin.
 ///
 /// If you are opening a wallet that is already known to the LocalBroker, you must then call [wallet_was_opened].
@@ -1567,6 +1589,21 @@ pub fn wallet_open_with_pazzle_words(
     pin: [u8; 4],
 ) -> Result<SensitiveWallet, NgError> {
     wallet_open_with_pazzle(wallet, encode_pazzle(pazzle_words)?, pin)
+}
+
+
+/// Opens a wallet by providing an ordered list of mnemonic words, and the pin.
+///
+/// If you are opening a wallet that is already known to the LocalBroker, you must then call [wallet_was_opened].
+/// Otherwise, if you are importing, then you must call [wallet_import].
+pub fn wallet_open_with_mnemonic_words(
+    wallet: &Wallet,
+    mnemonic: &Vec<String>,
+    pin: [u8; 4],
+) -> Result<SensitiveWallet, NgError> {
+    let encoded: Vec<u16> = encode_mnemonic(mnemonic)?;
+
+    wallet_open_with_mnemonic(wallet, encoded, pin)
 }
 
 /// Imports a wallet into the LocalBroker so the user can then access its content.

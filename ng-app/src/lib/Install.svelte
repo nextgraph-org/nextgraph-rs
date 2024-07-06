@@ -9,8 +9,12 @@
 // according to those terms.
 -->
 
+<!--
+  Info Component about the NextGraph app and download links.
+-->
+
 <script lang="ts">
-  import { Button, Alert } from "flowbite-svelte";
+  import { Alert } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
 
   // @ts-ignore

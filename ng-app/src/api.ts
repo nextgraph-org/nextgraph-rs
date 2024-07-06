@@ -16,6 +16,7 @@ const mapping = {
     "wallet_gen_shuffle_for_pazzle_opening": ["pazzle_length"],
     "wallet_gen_shuffle_for_pin": [],
     "wallet_open_with_pazzle": ["wallet","pazzle","pin"],
+    "wallet_open_with_mnemonic_words": ["wallet","mnemonic_words","pin"],
     "wallet_was_opened": ["opened_wallet"],
     "wallet_create": ["params"],
     "wallet_read_file": ["file"],
@@ -182,7 +183,7 @@ const handler = {
                 return false;
             } else if (path[0] === "get_local_url") {
                 return false;
-            } else if (path[0] === "wallet_open_with_pazzle") {
+            } else if (path[0] === "wallet_open_with_pazzle" || path[0] === "wallet_open_with_mnemonic_words") {
                 let arg:any = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 let img = Array.from(new Uint8Array(arg.wallet.V0.content.security_img));
@@ -190,9 +191,8 @@ const handler = {
                 arg.wallet = {V0:{id:arg.wallet.V0.id, sig:arg.wallet.V0.sig, content:{}}};
                 Object.assign(arg.wallet.V0.content,old_content);
                 arg.wallet.V0.content.security_img = img;
-                return tauri.invoke(path[0],arg)
-            } 
-            else {
+                return tauri.invoke(path[0],arg);
+            } else {
                 let arg = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 return tauri.invoke(path[0],arg)
