@@ -15,7 +15,7 @@
   -->
 
 <script lang="ts">
-  import { Alert, Toggle } from "flowbite-svelte";
+  import { Alert, Toggle, Button } from "flowbite-svelte";
   import { onMount, createEventDispatcher, tick } from "svelte";
   import ng from "../api";
   import { emoji_cat, emojis, load_svg } from "../wallet_emojis";
@@ -27,11 +27,17 @@
     LockOpen,
     Key,
     CheckCircle,
+    ArrowLeft,
   } from "svelte-heros-v2";
   import PasswordInput from "./components/PasswordInput.svelte";
   //import Worker from "../worker.js?worker&inline";
   export let wallet;
   export let for_import = false;
+
+  let top;
+  function scrollToTop() {
+    top.scrollIntoView();
+  }
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
 
@@ -63,6 +69,8 @@
     selection = [];
     error = undefined;
 
+    scrollToTop();
+
     // This is only for awaiting that SVGs are loaded.
     await load_svg();
     loaded = true;
@@ -72,11 +80,13 @@
     loaded = false;
     step = "pazzle";
     unlockWith = "pazzle";
+    scrollToTop();
   }
   function start_with_mnemonic() {
     loaded = false;
     step = "mnemonic";
     unlockWith = "mnemonic";
+    scrollToTop();
   }
 
   let emojis2 = [];
@@ -115,6 +125,7 @@
     // In case, this is called by the cancel button, we need to reset the selection.
     selection.forEach((emoji) => (emoji.sel = undefined));
     selection = selection;
+    scrollToTop();
   }
 
   async function start_pin() {
@@ -281,18 +292,20 @@
         selection = selection;
       }
     } else if (step === "pin") {
-      if (unlockWith === "mnemonic") {
-        start_with_mnemonic();
-      } else if (pin_code.length === 0) {
-        // Unselect the last two elements.
-        const to_unselect = ordered.slice(-2);
-        to_unselect.forEach((val) => {
-          val.sel = null;
-        });
+      if (pin_code.length === 0) {
+        if (unlockWith === "mnemonic") {
+          start_with_mnemonic();
+        } else {
+          // Unselect the last two elements.
+          const to_unselect = ordered.slice(-2);
+          to_unselect.forEach((val) => {
+            val.sel = null;
+          });
 
-        ordered = ordered.slice(0, -2);
-        selection = selection;
-        step = "order";
+          ordered = ordered.slice(0, -2);
+          selection = selection;
+          step = "order";
+        }
       } else {
         pin_code = pin_code.slice(0, pin_code.length - 1);
       }
@@ -301,8 +314,8 @@
 
   let width: number;
   let height: number;
-  const breakPointWidth: number = 530;
-  const breakPointHeight: number = 900;
+  const breakPointWidth: number = 535;
+  const breakPointHeight: number = 1005;
   let mobile = false;
   $: if (width >= breakPointWidth && height >= breakPointHeight) {
     mobile = false;
@@ -312,14 +325,18 @@
 </script>
 
 <div
-  class="flex flex-col justify-center md:max-w-2xl p-4 sm:px-8"
-  class:h-screen={step !== "load"}
+  class="flex-col justify-center md:max-w-2xl py-4 sm:px-8"
+  class:h-screen={step !== "load" && height > 660}
+  class:flex={height > 660}
+  bind:this={top}
 >
   {#if step == "load"}
-    <div class="flex flex-col justify-center p-4 pt-6">
-      <h2 class="pb-5 text-xl self-start">How to open your wallet:</h2>
-      <h3 class="pb-2 text-lg self-start">By your Pazzle</h3>
-      <ul class="mb-8 ml-3 space-y-4 text-left list-decimal">
+    <div class="flex-col justify-center p-4 pt-6" class:flex={height > 660}>
+      <h2 class="pb-5 text-xl self-start">
+        How to open your wallet? You have 2 options:
+      </h2>
+      <h3 class="pb-2 text-lg self-start">With your Pazzle</h3>
+      <ul class="mb-8 ml-3 space-y-4 text-justify text-sm list-decimal">
         <li>
           For each one of the 9 categories of images, you will be presented with
           the 15 possible image choices. The categories are shuffled at every
@@ -356,11 +373,11 @@
       </ul>
 
       <h3 class="pb-2 text-lg self-start">
-        By your 12 word Mnemonic (passphrase)
+        With your 12 words Mnemonic (passphrase)
       </h3>
-      <ul class="mb-8 ml-3 space-y-4 text-left list-decimal">
+      <ul class="mb-8 ml-3 space-y-4 text-justify text-sm list-decimal">
         <li>
-          Enter your twelve word mnemonic in the input field. The words must be
+          Enter your twelve words mnemonic in the input field. The words must be
           separated by spaces.
         </li>
         <li>Enter the PIN code that you chose when you created your wallet.</li>
@@ -419,32 +436,34 @@
             >
               <PuzzlePiece
                 tabindex="-1"
-                class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
               />
               Open with Pazzle!
             </button>
           {/if}
+          <button
+            on:click={cancel}
+            class="mt-3 mb-2 text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            ><ArrowLeft
+              tabindex="-1"
+              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
+            />Cancel login</button
+          >
           <a
             on:click={start_with_mnemonic}
+            tabindex="0"
             class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center mb-2 underline cursor-pointer"
           >
             Open with Mnemonic instead
           </a>
-          <button
-            on:click={cancel}
-            class="mt-1 mb-2 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            ><XCircle
-              tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-            />Cancel</button
-          >
         </div>
       </div>
     </div>
     <!-- The following steps have navigation buttons and fixed layout -->
   {:else if step == "pazzle" || step == "order" || step == "pin" || step == "mnemonic"}
     <div
-      class="flex flex-col justify-center h-screen p-4"
+      class="flex-col justify-center h-screen"
+      class:flex={height > 660}
       class:min-w-[310px]={mobile}
       class:min-w-[500px]={!mobile}
       class:max-w-[370px]={mobile}
@@ -458,25 +477,25 @@
             <label
               for="mnemonic-input"
               class="block mb-2 text-xl text-gray-900 dark:text-white"
-              >Your 12 word mnemonic</label
+              >Your 12 words mnemonic</label
             >
             <PasswordInput
               id="mnemonic-input"
-              placeholder="Enter your 12 word mnemonic here separated by spaces"
+              placeholder="Enter your 12 words mnemonic here separated by spaces"
               bind:value={mnemonic}
               className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
               auto_complete="mnemonic"
             />
             <div class="flex">
-              <button
+              <Button
                 type="submit"
-                class="mt-1 ml-auto text-white bg-primary-700 disabled:opacity-65 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+                class="mt-3 ml-auto text-white bg-primary-700 disabled:opacity-65 focus:ring-4 focus:ring-blue-500 focus:border-blue-500 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-blue-500 dark:focus:border-blue-500"
                 on:click={start_pin}
                 disabled={mnemonic.split(" ").length !== 12}
                 ><CheckCircle
                   tabindex="-1"
                   class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-                />Confirm</button
+                />Confirm</Button
               >
             </div>
           </form>
@@ -484,7 +503,7 @@
           <p class="max-w-xl mx-auto lg:max-w-2xl">
             <span class="text-xl">
               <!-- TODO: Internationalization-->
-              Select your emoji of category: {emoji_cat[
+              Select your emoji of category:<br />{emoji_cat[
                 shuffle.category_indices[pazzlePage]
               ]}</span
             >
@@ -506,7 +525,7 @@
           {/each}
         {:else if step == "order"}
           <p class="max-w-xl mx-auto lg:max-w-2xl mb-2">
-            <span class="text-xl">Click your emojis in the correct order</span>
+            <span class="text-xl">Select each image in the correct order</span>
           </p>
           {#each [0, 1, 2] as row}
             <div class="columns-3 gap-0">
@@ -543,11 +562,8 @@
             </div>
           {/each}
         {:else if step == "pin"}
-          <p class="flex items-center">
-            <span class="text-xl">Enter your PIN code:</span>
-            <span class="text-xl min-w-[2em] ml-1 text-left"
-              >{#each pin_code as pin_key}*{/each}</span
-            >
+          <p class="items-center">
+            <span class="text-xl">Enter your PIN code</span>
           </p>
           <!-- Chrome requires the columns-3 __flex__ to be set, or else it wraps the lines incorrectly.
                However, this leads to the width decreasing and the buttons come together in mobile view.
@@ -557,7 +573,7 @@
               {#each shuffle_pin.slice(0 + row * 3, 3 + row * 3) as num}
                 <button
                   tabindex="0"
-                  class="m-1 disabled:opacity-15 select-none align-bottom text-7xl p-0 w-full aspect-square border-0 pt-[5%]"
+                  class="pindigit m-1 disabled:opacity-15 disabled:text-gray-200 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
                   on:click={async () => await on_pin_key(num)}
                   disabled={pin_code.length >= 4}
                 >
@@ -570,43 +586,47 @@
             <div class="m-1 w-full aspect-square" />
             <button
               tabindex="0"
-              class="disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0 pt-[5%]"
+              class="pindigit disabled:opacity-15 m-1 disabled:text-gray-200 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
               on:click={async () => await on_pin_key(shuffle_pin[9])}
               disabled={pin_code.length >= 4}
             >
               <span>{shuffle_pin[9]}</span>
             </button>
-            <button
+            <Button
               tabindex="0"
-              class="w-full bg-green-300 hover:bg-green-300/90 disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
+              class="w-full bg-green-300 hover:bg-green-300/90 enabled:animate-bounce disabled:bg-gray-200 disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 aspect-square border-0"
               on:click={async () => await finish()}
               disabled={pin_code.length < 4}
             >
               <LockOpen
                 tabindex="-1"
-                class="w-full h-[50%] transition duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-full h-[50%] transition duration-75 focus:outline-none select-none group-hover:text-gray-900 dark:group-hover:text-white"
               />
-            </button>
+            </Button>
           </div>
+          <span class="mt-3 text-9xl min-h-[8rem] text-center"
+            >{#each pin_code as pin_key}*{/each}</span
+          >
         {/if}
       </div>
       <!-- Navigation Buttons for pazzle, order pin, mnemonic -->
-      <div class="flex justify-between mt-auto">
+      <div class="flex justify-between mb-6 mt-auto">
         <button
           on:click={cancel}
-          class="mt-1 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg sm:text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+          class="mt-1 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg sm:text-lg px-5 py-2.5 text-center select-none inline-flex items-center dark:focus:ring-primary-700/55"
           ><XCircle
             tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
+            class="w-8 h-8 mr-2 -ml-1 transition focus:outline-none duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
           />Cancel</button
         >
         <button
-          class="mt-1 focus:ring-4 focus:ring-primary-100/50 rounded-lg sm:text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+          class="mt-1 ml-2 min-w-[141px] focus:ring-4 focus:ring-primary-100/50 rounded-lg sm:text-lg px-5 py-2.5 text-center select-none inline-flex items-center dark:focus:ring-primary-700/55"
           on:click={go_back}
           ><Backspace
             tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
-          />Go Back</button
+            class="w-8 h-8 mr-2 -ml-1 transition focus:outline-none duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
+          />{#if step === "mnemonic" || (step === "pazzle" && pazzlePage === 0)}Go
+            back{:else}Correct{/if}</button
         >
       </div>
     </div>
@@ -638,7 +658,7 @@
     </div>
   {:else if step == "end"}
     {#if error}
-      <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
+      <div class=" max-w-6xl lg:px-8 mx-auto text-red-800">
         <div class="mt-auto max-w-6xl lg:px-8">
           An error occurred !
           <svg
@@ -662,23 +682,23 @@
         </div>
         <div class="flex justify-between mt-auto gap-4">
           <button
+            on:click={cancel}
+            class="mt-10 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            ><XCircle
+              tabindex="-1"
+              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none group-hover:text-gray-900 dark:group-hover:text-white"
+            />Cancel</button
+          >
+          <button
             class="mt-10 select-none text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
             on:click={init}
           >
             <ArrowPath
               tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none group-hover:text-gray-900 dark:group-hover:text-white"
             />
             Try again
           </button>
-          <button
-            on:click={cancel}
-            class="mt-10 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            ><XCircle
-              tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-            />Cancel</button
-          >
         </div>
       </div>
     {:else}
@@ -707,6 +727,10 @@
 <svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
 <style>
+  .pindigit {
+    min-height: 99px;
+  }
+
   .pazzleline {
     margin-right: auto;
     margin-left: auto;
@@ -722,7 +746,6 @@
     font-weight: 700;
     justify-content: center;
     align-items: center;
-    padding-top: 25%;
   }
 
   .sel-emoji {

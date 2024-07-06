@@ -49,7 +49,7 @@
             <LogoGray class="w-7 h-7 tall-xs:w-10 tall-xs:h-10" />
           {/if}
           <span
-            class="ml-4 self-center text-lg font-normal text-gray-900 rounded-lg dark:text-white whitespace-nowrap"
+            class="ml-2 self-center text-lg font-normal text-gray-900 rounded-lg dark:text-white whitespace-nowrap"
             >NextGraph</span
           >
         </a>
@@ -60,7 +60,7 @@
               class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white focus:outline-none"
             />
           </a>
-          <a href="#/messages" class="ml-6 row items-center" on:click>
+          <a href="#/messages" class="ml-4 row items-center" on:click>
             <PaperAirplane
               tabindex="-1"
               class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white focus:outline-none"

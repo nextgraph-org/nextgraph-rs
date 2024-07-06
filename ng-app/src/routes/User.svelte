@@ -160,7 +160,7 @@
             >
               <ArrowLeft
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
               <span class="ml-3">Back</span>
             </li>
@@ -171,7 +171,7 @@
               {#if $online}
                 <Signal
                   tabindex="-1"
-                  class="w-7 h-7 text-green-600 transition duration-75 dark:text-green-400 "
+                  class="w-7 h-7 text-green-600 transition duration-75 focus:outline-none dark:text-green-400 "
                 />
                 <span class="ml-3 text-green-600 dark:text-green-400"
                   >Online</span
@@ -179,7 +179,7 @@
               {:else}
                 <SignalSlash
                   tabindex="-1"
-                  class="w-7 h-7 text-red-600 transition duration-75 dark:text-red-400 "
+                  class="w-7 h-7 text-red-600 transition duration-75 focus:outline-none dark:text-red-400 "
                 />
                 <span class="ml-3 text-red-600 dark:text-red-400">Offline</span>
               {/if}
@@ -194,7 +194,7 @@
             >
               <ArrowRightOnRectangle
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
               <span class="ml-3">Logout</span>
             </li>
@@ -220,7 +220,7 @@
               >
                 <DocumentArrowDown
                   tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                  class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                 />
                 <span class="ml-3">Download wallet file</span>
               </li>
@@ -231,7 +231,7 @@
               >
                 <NoSymbol
                   tabindex="-1"
-                  class="w-7 h-7 text-red-700 transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                  class="w-7 h-7 text-red-700 transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                 />
                 <span class="ml-3 text-left"
                   >Download failed:<br /> {download_error}</span
@@ -244,7 +244,7 @@
               >
                 <DocumentArrowDown
                   tabindex="-1"
-                  class="w-7 h-7 text-blue-700  transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                  class="w-7 h-7 text-blue-700  transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                 />
                 <span class="ml-3 text-left">Download in progress...</span>
               </li>
@@ -274,7 +274,7 @@
                   >
                     <DocumentArrowDown
                       tabindex="-1"
-                      class="w-14 h-14  transition duration-75 dark:text-white  dark:group-hover:text-white"
+                      class="w-14 h-14  transition duration-75 focus:outline-none dark:text-white  dark:group-hover:text-white"
                     />
                     Click here to download the wallet file
                   </button>
@@ -285,7 +285,7 @@
               <svelte:fragment slot="icon">
                 <Cog6Tooth
                   tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                  class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                 />
               </svelte:fragment>
             </SidebarItem>
@@ -293,7 +293,7 @@
               <svelte:fragment slot="icon">
                 <PuzzlePiece
                   tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                  class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                 />
               </svelte:fragment>
             </SidebarItem>
@@ -301,7 +301,7 @@
               <svelte:fragment slot="icon">
                 <Key
                   tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                  class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                 />
               </svelte:fragment>
             </SidebarItem>
@@ -309,7 +309,7 @@
               <svelte:fragment slot="icon">
                 <User
                   tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                  class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                 />
               </svelte:fragment>
             </SidebarItem>
@@ -370,7 +370,7 @@
             >
               <Gift
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
               <span class="ml-3">Donate to NextGraph</span>
             </li>
@@ -384,7 +384,7 @@
             >
               <InformationCircle
                 tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
               <span class="ml-3">About NextGraph</span>
             </li>
