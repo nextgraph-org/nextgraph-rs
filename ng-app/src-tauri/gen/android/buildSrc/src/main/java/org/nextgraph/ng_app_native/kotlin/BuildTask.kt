@@ -16,7 +16,8 @@ open class BuildTask : DefaultTask() {
 
     @TaskAction
     fun assemble() {
-        val executable = """/Users/nl/.cargo/bin/cargo-tauri""";
+        val homePath = System.getProperty("user.home");
+        val executable = "$homePath/.cargo/bin/cargo-tauri";
         try {
             runTauriCli(executable)
         } catch (e: Exception) {

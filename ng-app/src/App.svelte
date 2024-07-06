@@ -19,6 +19,7 @@
     active_session,
     close_active_session,
     disconnections_subscribe,
+    select_default_lang,
   } from "./store";
 
   import Home from "./routes/Home.svelte";
@@ -64,7 +65,9 @@
   onMount(async () => {
     try {
       await disconnections_subscribe();
+      await select_default_lang();
     } catch (e) {
+      console.error(e);
       //console.log("called disconnections_subscribe twice");
     }
     let tauri_platform = import.meta.env.TAURI_PLATFORM;

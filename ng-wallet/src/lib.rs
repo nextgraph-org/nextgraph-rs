@@ -362,7 +362,7 @@ pub fn open_wallet_with_pazzle(
 }
 
 pub fn open_wallet_with_mnemonic(
-    wallet: Wallet,
+    wallet: &Wallet,
     mut mnemonic: [u16; 12],
     mut pin: [u8; 4],
 ) -> Result<SensitiveWallet, NgWalletError> {
@@ -388,7 +388,7 @@ pub fn open_wallet_with_mnemonic(
             mnemonic_key.zeroize();
 
             Ok(SensitiveWallet::V0(dec_encrypted_block(
-                v0.content.encrypted,
+                v0.content.encrypted.clone(),
                 master_key,
                 v0.content.peer_id,
                 v0.content.nonce,
@@ -786,6 +786,7 @@ pub async fn create_wallet_second_step_v0(
             wallet_file,
             pazzle,
             mnemonic: mnemonic.clone(),
+            mnemonic_str: display_mnemonic(&mnemonic),
             wallet_name: params.wallet_name.clone(),
             client: params.client.clone(),
             user,
@@ -893,7 +894,7 @@ mod test {
 
             let _opening_mnemonic = Instant::now();
 
-            let _w = open_wallet_with_mnemonic(Wallet::V0(v0.clone()), res.mnemonic, pin.clone())
+            let _w = open_wallet_with_mnemonic(&Wallet::V0(v0.clone()), res.mnemonic, pin.clone())
                 .expect("open with mnemonic");
             //log_debug!("encrypted part {:?}", w);
 
