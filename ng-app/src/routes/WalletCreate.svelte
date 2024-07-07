@@ -20,6 +20,7 @@
 <script lang="ts">
   import { Button, Alert, Dropzone, Toggle, Modal } from "flowbite-svelte";
   import { link, querystring } from "svelte-spa-router";
+  import { t } from "svelte-i18n";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import CopyToClipboard from "../lib/components/CopyToClipboard.svelte";
   // @ts-ignore
@@ -339,7 +340,7 @@
         },
       };
       let ca = await ng.encode_create_account(create);
-      wait = "Redirecting to the Broker Service Provider registration page";
+      wait = $t("pages.wallet_create.redirecting_to_registration_page");
       window.location.href = bsp_url + "?ca=" + ca;
       //window.open(), "_self").focus();
     } else {
@@ -348,7 +349,7 @@
           redirect_url: undefined,
         },
       };
-      wait = "Complete the registration in the popup window";
+      wait = $t("pages.wallet_create.complete_in_popup");
       let ca = await ng.encode_create_account(create);
       await ng.open_window(
         bsp_url + "?ca=" + ca,
@@ -408,15 +409,18 @@
     }
   };
   const displayNGbox = async (event) => {
-    await displayPopup(LINK_NG_BOX, "Own your NG-Box");
+    await displayPopup(LINK_NG_BOX, $t("pages.wallet_create.own_your_ngbox"));
   };
   const displaySelfHost = async (event) => {
-    await displayPopup(LINK_SELF_HOST, "Self-host a broker");
+    await displayPopup(
+      LINK_SELF_HOST,
+      $t("pages.wallet_create.self_host_broker")
+    );
   };
   const tos = async () => {
     await displayPopup(
       "https://nextgraph.one/#/tos",
-      "Terms of Service NextGraph.one"
+      $t("pages.wallet_create.tos_ng_one")
     );
   };
 
@@ -520,7 +524,7 @@
     {#if wait}
       <div class="lg:px-8 text-primary-700">
         {#if wait === true}
-          Please wait...
+          {$t("pages.wallet_create.please_wait")}...
         {:else}
           {wait}
         {/if}
@@ -550,7 +554,7 @@
       <div class="container3" bind:this={top}>
         <div class="row">
           <a href="#/">
-            <Logo class="logo block h-[8em]" alt="NextGraph Logo" />
+            <Logo class="logo block h-[8em]" alt={$t("common.logo")} />
           </a>
         </div>
         {#if registration_error}
@@ -572,27 +576,28 @@
             </svg>
             {#if registration_error == "AlreadyExists"}
               <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-                The user is already registered with the selected broker.<br /> Try
-                logging in instead
+                {@html $t("pages.user_registered.already_exists")}
               </p>
               <a use:link href="/wallet/login">
                 <button
                   tabindex="-1"
                   class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
                 >
-                  Login
+                  {$t("buttons.login")}
                 </button>
               </a>
             {:else}
               <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-                An error occurred during registration:<br />{registration_error}
+                {@html $t("errors.error_occurred", {
+                  values: { message: $t("errors." + registration_error) },
+                })}
               </p>
               <a use:link href="/">
                 <button
                   tabindex="-1"
                   class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
                 >
-                  Go back to homepage
+                  {$t("bottons.back_to_homepage")}
                 </button>
               </a>
             {/if}
@@ -600,22 +605,12 @@
         {:else if intro}
           <div class=" max-w-6xl lg:px-8 mx-auto px-4">
             <p class="max-w-xl text-left md:mx-auto lg:max-w-2xl">
-              A <b>NextGraph Wallet</b> is unique to each person. It stores your
-              credentials and authorizations to access documents. You need one
-              in order to start using NextGraph.<br /><br />If you already have
-              a wallet, you should not create a new one. Instead,
-              <a href="/wallet/login" use:link
-                >login here with your existing wallet.</a
-              >
-              If you never created a NextGraph Wallet before, please follow the instructions
-              below in order to create your unique personal wallet.
+              {@html $t("pages.wallet_create.wallet_description")}
             </p>
           </div>
           {#if $has_wallets}
             <Alert color="yellow" class="mt-5">
-              Some wallets are saved on this device,<br /> to log in with one of
-              them,
-              <a href="/wallet/login" use:link>click here.</a>
+              {@html $t("pages.wallet_create.has_wallet")}
             </Alert>
           {/if}
           <div
@@ -623,7 +618,10 @@
           >
             <div class="max-w-xl md:mx-auto sm:text-center lg:max-w-2xl">
               <h2 class="pb-5 text-xl">
-                What is a wallet? <span class="text-sm">Please read</span>
+                {$t("pages.wallet_create.wallet_about.title")}<span
+                  class="text-sm"
+                  >{$t("pages.wallet_create.wallet_about.please_read")}</span
+                >
               </h2>
               <ul
                 class="mb-8 space-y-4 text-left text-gray-500 dark:text-gray-400"
@@ -645,10 +643,7 @@
                       d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
                     />
                   </svg>
-                  <span
-                    >It is a secure and encrypted small file that contains some
-                    important information that only you should have access to.</span
-                  >
+                  <span>{@html $t("pages.wallet_create.wallet_about.1")}</span>
                 </li>
                 <li class="flex space-x-3">
                   <!-- Icon -->
@@ -667,11 +662,7 @@
                       d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
                     />
                   </svg>
-                  <span
-                    >In your wallet, we store all the permissions to access
-                    documents you have been granted with, or that you have
-                    created yourself.</span
-                  >
+                  <span>{@html $t("pages.wallet_create.wallet_about.2")}</span>
                 </li>
                 <li class="flex space-x-3">
                   <!-- Icon -->
@@ -690,15 +681,7 @@
                       d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.39 48.39 0 01-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 01-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 00-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 01-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 00.657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 01-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 005.427-.63 48.05 48.05 0 00.582-4.717.532.532 0 00-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 00.658-.663 48.422 48.422 0 00-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 01-.61-.58v0z"
                     />
                   </svg>
-                  <span
-                    >In order to open it, you will need to enter your <b
-                      >pazzle</b
-                    >
-                    and a
-                    <b>PIN code</b> of 4 digits. Your personal pazzle (contraction
-                    of puzzle and password) is composed of 9 images you should remember.
-                    The order of the images is important too.</span
-                  >
+                  <span>{@html $t("pages.wallet_create.wallet_about.3")}</span>
                 </li>
                 <li class="flex space-x-3">
                   <!-- Icon -->
@@ -718,13 +701,7 @@
                       d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
                     />
                   </svg>
-                  <span
-                    >Don't worry, it is easier to remember 9 images than a
-                    password like "69$g&ms%C*%", and it has the same strength as
-                    a complex password. The entropy of your pazzle is <b
-                      >66bits</b
-                    >, which is considered very high by all standards.</span
-                  >
+                  <span>{@html $t("pages.wallet_create.wallet_about.4")}</span>
                 </li>
 
                 <li class="flex space-x-3">
@@ -743,14 +720,7 @@
                       d="M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 10-2.636 6.364M16.5 12V8.25"
                     />
                   </svg>
-                  <span
-                    >You should only create <b>one unique wallet for yourself</b
-                    >. All your accounts, identities and permissions will be
-                    added to this unique wallet later on. Do not create another
-                    wallet if you already have one. Instead, you will
-                    <b>import</b> your existing wallet in all the apps and websites
-                    where you need it</span
-                  >
+                  <span>{@html $t("pages.wallet_create.wallet_about.5")}</span>
                 </li>
                 <li class="flex space-x-3">
                   <!-- Icon -->
@@ -769,11 +739,7 @@
                       d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
                     />
                   </svg>
-                  <span
-                    >Your wallet can be imported with the help of a small file
-                    that you download, or with a QRcode. In any case, you should
-                    never share this file or QRcode with anybody else.</span
-                  >
+                  <span>{@html $t("pages.wallet_create.wallet_about.6")}</span>
                 </li>
                 <li class="flex space-x-3">
                   <!-- Icon -->
@@ -792,11 +758,7 @@
                       d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
                     />
                   </svg>
-                  <span
-                    >We at NextGraph will never see the content of your wallet.
-                    It is encrypted and we do not know your pazzle, so we cannot
-                    see what is inside.</span
-                  >
+                  <span>{@html $t("pages.wallet_create.wallet_about.7")}</span>
                 </li>
                 <li class="flex space-x-3 under">
                   <!-- Icon -->
@@ -815,15 +777,7 @@
                       d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"
                     />
                   </svg>
-                  <span
-                    >For the same reason, we won't be able to help you if you
-                    forget your pazzle or PIN code, or if you loose the wallet
-                    file. <span class="text-bold">
-                      There is no "password recovery" option</span
-                    > in this case. You can note your pazzle down on a piece of paper
-                    until you remember it, but don't forget to destroy this note
-                    after a while.</span
-                  >
+                  <span>{@html $t("pages.wallet_create.wallet_about.8")}</span>
                 </li>
               </ul>
             </div>
@@ -848,15 +802,13 @@
                   d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
                 />
               </svg>
-              I create my wallet now !
+              {@html $t("pages.wallet_create.create_wallet_now")}
             </button>
           </div>
         {:else if !invitation}
           <div class=" max-w-6xl lg:px-8 mx-auto px-4">
             <p class="max-w-xl md:mx-auto text-left lg:max-w-2xl">
-              NextGraph is based on an efficient decentralized P2P network, and
-              in order to join this network and start using the app, you need to
-              first select a <b>broker&nbsp;server</b>.
+              {@html $t("pages.wallet_create.select_server")}
             </p>
           </div>
           <div
@@ -864,7 +816,12 @@
           >
             <div class="max-w-xl md:mx-auto sm:text-center lg:max-w-2xl">
               <h2 class="pb-5 text-xl">
-                What is a broker? <span class="text-sm">Please read</span>
+                {$t("pages.wallet_create.broker_about.title")}<span
+                  class="text-sm"
+                  >{@html $t(
+                    "pages.wallet_create.broker_about.please_read"
+                  )}</span
+                >
               </h2>
               <ul
                 class="mb-8 space-y-4 text-left text-gray-500 dark:text-gray-400"
@@ -885,12 +842,7 @@
                       d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
                     />
                   </svg>
-                  <span>
-                    The broker helps you keep all your data in <b>sync</b>, as
-                    it is connected to the internet 24/7 and keeps a copy of the
-                    updates for you. This way, even if the devices of the other
-                    participants are offline, you can still see their changes</span
-                  >
+                  <span> {@html $t("pages.wallet_create.broker_about.1")}</span>
                 </li>
                 <li class="flex space-x-3">
                   <svg
@@ -908,11 +860,7 @@
                       d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
                     />
                   </svg>
-                  <span>
-                    All your data is secure and <b>end-to-end encrypted</b>, and
-                    the broker cannot see the content of the documents as it
-                    does not have the keys to decrypt them.</span
-                  >
+                  <span> {@html $t("pages.wallet_create.broker_about.2")}</span>
                 </li>
                 <li class="flex space-x-3">
                   <svg
@@ -930,11 +878,7 @@
                       d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
                     />
                   </svg>
-                  <span>
-                    The broker helps you enforce your <b>privacy</b> as it hides
-                    your internet address (IP) from other users you share documents
-                    with.</span
-                  >
+                  <span> {@html $t("pages.wallet_create.broker_about.3")}</span>
                 </li>
                 <li class="flex space-x-3">
                   <svg
@@ -953,11 +897,7 @@
                     />
                   </svg>
 
-                  <span>
-                    It will be possible in the future to use NextGraph without
-                    any broker and to have direct connections between peers, but
-                    this will imply a less smooth experience.</span
-                  >
+                  <span> {@html $t("pages.wallet_create.broker_about.4")}</span>
                 </li>
                 <li class="flex space-x-3">
                   <svg
@@ -975,13 +915,7 @@
                       d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
                     />
                   </svg>
-                  <span>
-                    At anytime you can decide to switch to another broker
-                    service provider or host it yourself. Your data is totally <b
-                      >portable</b
-                    >
-                    and can freely move to another broker.</span
-                  >
+                  <span> {@html $t("pages.wallet_create.broker_about.5")}</span>
                 </li>
                 <li class="flex space-x-3">
                   <svg
@@ -1000,14 +934,7 @@
                     />
                   </svg>
 
-                  <span>
-                    Soon we will offer you the opportunity to host your own
-                    broker at <b>home</b>
-                    or <b>office</b>. Instead of using a "broker service
-                    provider", you will own a small device that you connect
-                    behind your internet router. It is called <b>NG Box</b> and will
-                    be available soon.</span
-                  >
+                  <span> {@html $t("pages.wallet_create.broker_about.6")}</span>
                 </li>
                 <li class="flex space-x-3">
                   <svg
@@ -1026,18 +953,11 @@
                     />
                   </svg>
 
-                  <span>
-                    Organizations and companies have the opportunity to host a
-                    broker <b>on-premise</b>
-                    or in the <b>cloud</b>, as the software is open source.
-                    Individuals can also
-                    <b>self-host</b> a broker on any VPS server or at home, on their
-                    dedicated hardware.</span
-                  >
+                  <span> {@html $t("pages.wallet_create.broker_about.7")}</span>
                 </li>
               </ul>
               <h2 class="mt-3 text-xl">
-                Please choose one broker among the list
+                {$t("pages.wallet_create.choose_broker")}
               </h2>
             </div>
           </div>
@@ -1067,7 +987,9 @@
                     d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
                   />
                 </svg>
-                Register with {pre_invitation.V0.name || "this broker"}
+                {$t("pages.wallet_create.register_with", {
+                  values: { broker: pre_invitation.V0.name || "this broker" },
+                })}
               </button>
             </div>
           {:else}
@@ -1080,7 +1002,7 @@
                   class="mr-4 block h-10 w-10"
                   alt="European Union flag"
                 />
-                For European Union citizens
+                {$t("pages.wallet_create.for_eu_citizens")}
               </button>
             </div>
 
@@ -1104,7 +1026,7 @@
                     d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
                   />
                 </svg>
-                For the rest of the world
+                {$t("pages.wallet_create.for_rest")}
               </button>
             </div>
           {/if}
@@ -1132,7 +1054,7 @@
                 />
               </svg>
 
-              Enter an invitation link
+              {$t("pages.wallet_create.enter_invite_link")}
             </Button>
           </div>
           {#if false && mobile}
@@ -1161,7 +1083,7 @@
                   />
                 </svg>
 
-                Scan an invitation QRcode
+                {$t("pages.wallet_create.scan_invite_qr")}
               </button>
             </div>
           {/if}
@@ -1185,7 +1107,7 @@
                   d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z"
                 />
               </svg>
-              Self-hosted broker
+              {$t("pages.wallet_create.self_hosted_broker")}
             </button>
           </div>
           <div class="row mt-5 mb-12">
@@ -1213,7 +1135,7 @@
                   width="195.79167"
                 />
               </svg>
-              NG Box (owned or invited)
+              {$t("pages.wallet_create.ng_box")}
             </button>
           </div>
         {:else if pin.length < 4}
@@ -1221,38 +1143,36 @@
             {#if registration_success}
               <Alert color="green" class="mb-5">
                 <span class="font-bold text-xl"
-                  >You have been successfully registered to {registration_success}</span
+                  >{$t("pages.wallet_create.registration_success", {
+                    values: { broker: registration_success },
+                  })}</span
                 >
               </Alert>
             {/if}
             <p class="max-w-xl md:mx-auto lg:max-w-2xl">
               <span class="text-xl"
-                >Let's start creating your wallet by choosing a PIN code</span
+                >{$t("pages.wallet_create.choose_pin.title")}</span
               >
               <Alert color="yellow" class="mt-5">
-                We recommend you to choose a PIN code that you already know very
-                well.
-                <br />
-                Your credit card PIN, by example, is a good choice.<br />We at
-                NextGraph will never see your PIN.
+                {@html $t("pages.wallet_create.choose_pin.description")}
               </Alert>
             </p>
-            <p class="text-left mt-5 px-3">Here are the rules for the PIN :</p>
+            <p class="text-left mt-5 px-3">
+              {$t("pages.wallet_create.chose_pin.rules")}
+            </p>
             <ul class="text-left list-disc list-inside px-3">
-              <li>It cannot be a series like 1234 or 8765</li>
+              <li>{@html $t("pages.wallet_create.choose_pin.1")}</li>
               <li>
-                The same digit cannot repeat more than once. By example 4484 is
-                invalid
+                {@html $t("pages.wallet_create.choose_pin.2")}
               </li>
               <li>
-                Try to avoid birth date, last digits of phone number, or zip
-                code
+                {@html $t("pages.wallet_create.choose_pin.3")}
               </li>
             </ul>
 
             <Alert color="blue" class="mt-5">
-              You have chosen: {#each pin as digit}<span
-                  class="font-bold text-xl">{digit}</span
+              {$t("pages.wallet_create.chosen_pin")}
+              {#each pin as digit}<span class="font-bold text-xl">{digit}</span
                 >{/each}
             </Alert>
             <div class="w-[295px] mx-auto mb-10">
@@ -1282,12 +1202,12 @@
           <div class=" max-w-6xl lg:px-8 mx-auto px-3">
             <p class="max-w-xl md:mx-auto lg:max-w-2xl">
               <span class="text-red-800 text-xl"
-                >Please confirm your PIN code.</span
+                >{$t("pages.wallet_create.confirm_pin")}</span
               >
-              Enter the same PIN again
+              {$t("pages.wallet_create.confirm_pin_description")}
             </p>
             <Alert color="blue" class="mt-5">
-              You have chosen: {#each pin_confirm as digit}<span
+              {$t("pages.wallet_create.chosen_pin")}: {#each pin_confirm as digit}<span
                   class="font-bold text-xl">{digit}</span
                 >{/each}
             </Alert>
@@ -1318,67 +1238,85 @@
           <div class=" max-w-6xl lg:px-8 mx-auto px-4">
             {#if pin.toString() === pin_confirm.toString()}
               <Alert color="green" class="mt-5">
-                Your PIN is confirmed as : {#each pin_confirm as digit}<span
-                    class="font-bold text-xl">{digit}</span
+                {$t("pages.wallet_create.pin_confirmed_as")}
+                {#each pin_confirm as digit}<span class="font-bold text-xl"
+                    >{digit}</span
                   >{/each}
               </Alert>
               <h2 class="text-xl my-5">
-                Now let's enter a security phrase and a security image
+                {@html $t(
+                  "pages.wallet_create.choose_security_phrase_and_image.title"
+                )}
               </h2>
               <p class="max-w-xl md:mx-auto lg:max-w-2xl text-left">
-                As a verification step, this phrase and image will be presented
-                to you every time you are about to enter your pazzle and PIN in
-                order to unlock your wallet.<br />
-                This security measure will prevent you from entering your pazzle
-                and PIN on malicious sites and apps.
+                {@html $t(
+                  "pages.wallet_create.choose_security_phrase_and_image.description"
+                )}
                 <Alert color="red" class="mt-5">
-                  Every time you will use your wallet, if you do not see and
-                  recognize your own security phrase and image before entering
-                  your pazzle, please stop and DO NOT enter your pazzle, as you
-                  would be the victim of a phishing attempt.
+                  {@html $t(
+                    "pages.wallet_create.choose_security_phrase_and_image.warning"
+                  )}
                 </Alert>
               </p>
               <p
                 class="max-w-xl md:mx-auto lg:max-w-2xl text-left mt-5 text-sm"
               >
-                Here are the rules for the security phrase and image :
+                {$t(
+                  "pages.wallet_create.choose_security_phrase_and_image.rules_title"
+                )}
               </p>
               <ul
                 class="max-w-xl md:mx-auto lg:max-w-2xl text-left mt-5 text-sm list-disc list-inside"
               >
-                <li>The phrase should be at least 10 characters long</li>
                 <li>
-                  It should be something you will remember, but not something
-                  too personal.
+                  {@html $t(
+                    "pages.wallet_create.choose_security_phrase_and_image.1"
+                  )}
                 </li>
                 <li>
-                  Do not enter your full name, nor address, nor phone number.
+                  {@html $t(
+                    "pages.wallet_create.choose_security_phrase_and_image.2"
+                  )}
                 </li>
                 <li>
-                  Instead, you can enter a quote, a small sentence that you
-                  like, or something meaningless to others, but unique to you.
+                  {@html $t(
+                    "pages.wallet_create.choose_security_phrase_and_image.3"
+                  )}
                 </li>
                 <li>
-                  The image should be minimum 150x150px. There is no need to
-                  provide more than 400x400px as it will be scaled down anyway.
+                  {@html $t(
+                    "pages.wallet_create.choose_security_phrase_and_image.4"
+                  )}
                 </li>
                 <li>
-                  We accept several formats like JPEG, PNG, GIF, WEBP and more.
+                  {@html $t(
+                    "pages.wallet_create.choose_security_phrase_and_image.5"
+                  )}
                 </li>
                 <li>
-                  The image should be unique to you. But it should not be too
-                  personal neither.
+                  {@html $t(
+                    "pages.wallet_create.choose_security_phrase_and_image.6"
+                  )}
                 </li>
                 <li>
-                  Do not upload your face picture, this is not a profile pic.
+                  {@html $t(
+                    "pages.wallet_create.choose_security_phrase_and_image.7"
+                  )}
                 </li>
                 <li>
-                  The best would be a landscape you like or any other picture
-                  that you will recognize as unique.
+                  {@html $t(
+                    "pages.wallet_create.choose_security_phrase_and_image.8"
+                  )}
                 </li>
                 <li>
-                  Please be aware that other people who are sharing this device
-                  with you, will be able to see this image and phrase.
+                  {@html $t(
+                    "pages.wallet_create.choose_security_phrase_and_image.9"
+                  )}
+                </li>
+                <li>
+                  {@html $t(
+                    "pages.wallet_create.choose_security_phrase_and_image.10"
+                  )}
                 </li>
               </ul>
 
@@ -1390,7 +1328,7 @@
                 bind:value={security_txt}
                 on:keypress={security_phrase_ok}
               /><button on:click={async () => await security_phrase_ok()}>
-                Ok
+                {$t("buttons.ok")}
               </button><br />
               {#if security_txt && security_img}
                 <button
@@ -1414,7 +1352,7 @@
                     />
                   </svg>
 
-                  Save security phrase & image
+                  {$t("pages.wallet_create.save_security_phrase_and_image")}
                 </button>
               {/if}
               <Dropzone
@@ -1430,10 +1368,13 @@
               >
                 <p class="mt-2 mb-5 text-gray-500 dark:text-gray-400">
                   {#if is_touch_device}
-                    <span class="font-semibold">Tap to upload an image</span>
+                    <span class="font-semibold"
+                      >{$t("pages.wallet_create.tap_to_upload")}</span
+                    >
                   {:else}
-                    <span class="font-semibold">Click to select an image</span> or
-                    drag and drop
+                    <span class="font-semibold"
+                      >{$t("pages.wallet_create.click_to_upload")}</span
+                    >{$t("pages.wallet_create.or_drag_drop")}
                   {/if}
                 </p>
                 <svg
@@ -1460,7 +1401,7 @@
               />
             {:else}
               <Alert color="red" class="mt-5">
-                You didn't enter the same PIN twice
+                {$t("pages.wallet_create.pins_no_match")}
               </Alert>
               <button
                 class="select-none"
@@ -1469,90 +1410,100 @@
                   pin = [];
                 }}
               >
-                Start over
+                {$t("buttons.start_over")}
               </button>
             {/if}
           </div>
         {:else if !creating}
           <div class=" max-w-6xl lg:px-8 mx-auto px-4" bind:this={info_options}>
             <p class="max-w-xl mb-10 md:mx-auto lg:max-w-2xl">
-              <span class="text-xl">We are almost done !</span><br />
-              There are 4 options to choose before we can create your wallet. Those
-              options can help you to use and keep your wallet. But we also want
-              to be careful with your security and privacy.<br /><br />
-              Remember that in any case, once your wallet will be created, you will
-              download a file that you should keep privately somewhere on your device,
-              USB key or hard-disk. This is the default way you can use and keep
-              your wallet. Now let's look at some options that can make your life
-              a bit easier.
+              <span class="text-xl"
+                >{$t("pages.wallet_create.almost_done")}</span
+              ><br />
+              {@html $t("pages.wallet_create.save_wallet_options.description")}
             </p>
             <p class="max-w-xl md:mx-auto lg:max-w-2xl text-left">
-              <span class="text-xl">Do you trust this device? </span> <br />
-              If you do, if this device is yours or is used by few trusted persons
-              of your family or workplace, and you would like to login again from
-              this device in the future, then you can save your wallet on this device.
-              To the contrary, if this device is public and shared by strangers,
-              do not save your wallet here. {#if !tauri_platform}By selecting
-                this option, you agree to save some cookies on your browser.{/if}<br
-              />
+              <span class="text-xl"
+                >{@html $t(
+                  "pages.wallet_create.save_wallet_options.trust"
+                )}</span
+              > <br />
+              {@html $t(
+                "pages.wallet_create.save_wallet_options.trust_description"
+              )}
+              {#if !tauri_platform}{@html $t(
+                  "pages.wallet_create.save_wallet_options.trust_allow_cookies"
+                )}{/if}<br />
               <Toggle class="mt-3" bind:checked={options.trusted}
-                >Save my wallet on this device?</Toggle
+                >{@html $t(
+                  "pages.wallet_create.save_wallet_options.trust_toggle"
+                )}</Toggle
               >
             </p>
             <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
-              <span class="text-xl">Keep a copy in the cloud? </span> <br />
-              Are you afraid that you will loose the file containing your wallet?
-              If this would happen, your wallet would be lost forever, together with
-              all your documents. We can keep an encrypted copy of your wallet in
-              our cloud. Only you will be able to download it with a special link.
-              You would have to keep this link safely though. By selecting this option,
-              you agree to the
+              <span class="text-xl"
+                >{@html $t(
+                  "pages.wallet_create.save_wallet_options.cloud"
+                )}</span
+              > <br />
+              {@html $t(
+                "pages.wallet_create.save_wallet_options.cloud_description"
+              )}
               <span
                 style="font-weight: 500;cursor: pointer; color: #646cff;"
                 tabindex="0"
                 role="link"
                 on:keypress={tos}
-                on:click={tos}>Terms of Service of our cloud</span
+                on:click={tos}
+                >{@html $t(
+                  "pages.wallet_create.save_wallet_options.cloud_tos"
+                )}</span
               >.
               <br />
               <Toggle disabled class="mt-3" bind:checked={options.cloud}
-                >Save my wallet in the cloud?</Toggle
+                >{@html $t(
+                  "pages.wallet_create.save_wallet_options.cloud_toggle"
+                )}</Toggle
               >
             </p>
             <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
-              <span class="text-xl">Create a PDF file of your wallet? </span>
+              <span class="text-xl"
+                >{@html $t("pages.wallet_create.save_wallet_options.pdf")}</span
+              >
               <br />
-              We can prepare for you a PDF file containing all the information of
-              your wallet, unencrypted. You should print this file and then delete
-              the PDF (and empty the trash). Keep this printed document in a safe
-              place. It contains all the information to regenerate your wallet in
-              case you lost access to it.
+              {@html $t(
+                "pages.wallet_create.save_wallet_options.pdf_description"
+              )}
               <br />
               <Toggle disabled class="mt-3" bind:checked={options.pdf}
-                >Create a PDF of my wallet?</Toggle
+                >{@html $t(
+                  "pages.wallet_create.save_wallet_options.pdf_toggle"
+                )}</Toggle
               >
             </p>
             {#if !options.cloud}
               <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
                 <span class="text-xl"
-                  >Create a link to access your wallet easily?
+                  >{@html $t("pages.wallet_create.save_wallet_options.link")}
                 </span> <br />
-                When you want to use your wallet on the web or from other devices,
-                we can help you find your wallet by creating a simple link accessible
-                from anywhere. Only you will have access to this link. In order to
-                do so, we will keep your wallet ID and some information about your
-                broker on our cloud servers. If you prefer to opt out, just uncheck
-                this option. By selecting this option, you agree to the
+                {@html $t(
+                  "pages.wallet_create.save_wallet_options.link_description"
+                )}
                 <span
                   style="font-weight: 500;cursor: pointer; color: #646cff;"
                   tabindex="0"
                   role="link"
                   on:keypress={tos}
-                  on:click={tos}>Terms of Service of our cloud</span
+                  on:click={tos}
+                  >{@html $t(
+                    "pages.wallet_create.save_wallet_options.cloud_tos"
+                  )}</span
                 >.
                 <br />
                 <Toggle disabled class="mt-3" bind:checked={options.bootstrap}
-                  >Create a link to my wallet?</Toggle
+                  >{@html $t(
+                    "pages.wallet_create.save_wallet_options.link_toggle"
+                  )}</Toggle
                 >
               </p>
             {/if}
@@ -1576,13 +1527,13 @@
                 />
               </svg>
 
-              Let's create this wallet
+              {$t("pages.wallet_create.lets_create")}
             </button>
           </div>
         {:else if !error}
           {#if !ready}
             <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-primary-700">
-              Your wallet is being created...
+              {$t("pages.wallet_create.creating")}
               <svg
                 class="animate-spin mt-10 h-6 w-6 mx-auto"
                 xmlns="http://www.w3.org/2000/svg"
@@ -1608,7 +1559,7 @@
           {:else}
             <div class="text-left mx-4">
               <div class="text-green-800 mx-auto flex flex-col items-center">
-                <div>Your wallet is ready!</div>
+                <div>{$t("pages.wallet_create.ready")}</div>
                 <svg
                   class="my-4 h-16 w-16"
                   fill="none"
@@ -1627,8 +1578,9 @@
               </div>
               <div class="text-center">
                 {#if download_link}
-                  Please download your wallet and keep it in a safe location<br
-                  />
+                  {@html $t(
+                    "pages.wallet_create.download_wallet_description"
+                  )}<br />
                   <a
                     href={download_link}
                     target="_blank"
@@ -1656,25 +1608,18 @@
                         />
                       </svg>
 
-                      Download my wallet
+                      {@html $t("pages.wallet_create.download_wallet")}
                     </button>
                   </a>
 
                   <br />
                 {:else if !options.trusted}
-                  Your wallet file has been downloaded into your "Downloads"
-                  folder, with the name<br /><span class="text-black">
-                    {download_name}</span
-                  ><br />
-                  <span class="font-bold"
-                    >Please move it to a safe and durable place.</span
-                  ><br />
+                  {@html $t("pages.wallet_create.download_wallet_done", {
+                    values: { download_name },
+                  })}
                 {/if}
                 <!-- Pazzle -->
-                Here below is your Pazzle.
-                <br />
-                The <span class="font-bold">order</span> of each image is
-                <span class="font-bold">important</span> !
+                {@html $t("pages.wallet_create.your_pazzle")}
               </div>
               <div
                 class="mt-2 bg-white shadow-md rounded-lg max-w-2xl w-full mx-auto"
@@ -1690,7 +1635,7 @@
                     </div>
                     <div
                       class="flex justify-center w-[3em] h-[3em]"
-                      title={emoji.code}
+                      title={$t("emojis.codes." + emoji.code)}
                     >
                       <svelte:component
                         this={emoji.svg?.default}
@@ -1702,7 +1647,7 @@
                         <span>{emoji.cat}</span>
                       </div>
                       <div class="font-bold text-lg h-full content-center">
-                        <span>{emoji.code}</span>
+                        <span>{$t("emojis.codes." + emoji.code)}</span>
                       </div>
                     </div>
                   </div>
@@ -1713,32 +1658,21 @@
 
               <!-- Mnemonic (copy button). TODO: once the component is available-->
               <label for="mnemonic"
-                >And here is your mnemonic (your alternative passphrase):</label
+                >{@html $t("pages.wallet_create.your_mnemonic")}</label
               >
               <CopyToClipboard
                 id="mnemonic"
                 value={ready.mnemonic_str.join(" ")}
               />
               <br />
-              You can use both the pazzle or the mnemonic to unlock your wallet.
-              The pazzle is easier to remember. The mnemonic is useful in some special
-              cases. We recommend that you use the pazzle.
-
-              <span class="font-bold text-xl"
-                >Copy both on a piece of paper.</span
-              >
-              You should try to memorize the pazzle. Once you did, you won't need
-              the paper anymore.
-
+              {@html $t("pages.wallet_create.unlock_tips_1")}
               <br /><br />
-              Now click on "Continue to Login" and select your new wallet.
+              {@html $t("pages.wallet_create.unlock_tips_2")}
               <br />
-              It is important that you <span class="font-bold">login</span> with
-              this wallet
-              <span class="font-bold">at least once</span>
-              from this {#if tauri_platform}device{:else}browser tab{/if},<br />
-              while connected to the internet, so your personal site can be created
-              on your broker.<br /><br />
+              {@html $t("pages.wallet_create.unlock_tips_3", {
+                values: { platform: tauri_platform || "browser" },
+              })}
+              <br /><br />
               <div class="flex flex-col items-center">
                 <button
                   tabindex="-1"
@@ -1760,31 +1694,30 @@
                       d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
                     />
                   </svg>
-                  Continue to Login
+                  {$t("pages.wallet_create.continue_to_login")}
                 </button>
               </div>
               <Modal
                 autoclose
                 outsideclose
                 bind:open={confirm_modal_open}
-                title="Did you write down your login credentials?"
+                title={$t("pages.wallet_create.confirm")}
               >
                 <span class="text-lg text-neutral-950">
-                  The pazzle and the mnemonic <span class="font-bold">
-                    will not be shown to you again</span
-                  >. Please make sure, you have written them down.
+                  {@html $t("pages.wallet_create.continue_confirm_description")}
                 </span>
                 <div>
                   <button
                     class="m-2"
                     on:click={() => (confirm_modal_open = false)}
-                    >Take me back</button
+                    >{$t(
+                      "pages.wallet_create.continue_confirm_go_back"
+                    )}</button
                   >
                   <a href="/wallet/login" use:link>
                     <button class="m-2 bg-primary-700 text-white"
-                      >Yes, I did</button
+                      >{$t("pages.wallet_create.continue_confirm_yes")}</button
                     >
-                    <!-- todo: blue button-->
                   </a>
                 </div>
               </Modal>
@@ -1792,7 +1725,7 @@
           {/if}
         {:else}
           <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
-            An error occurred !
+            {$t("errors.an_error_occurred")}
             <svg
               fill="none"
               class="animate-bounce mt-10 h-10 w-10 mx-auto"
@@ -1809,7 +1742,7 @@
               />
             </svg>
             <Alert color="red" class="mt-5">
-              {error}
+              {$t("errors." + error)}
             </Alert>
             <button
               class="mt-10 select-none"
@@ -1822,7 +1755,7 @@
                 animateDownload = true;
               }}
             >
-              Start over
+              {$t("buttons.start_over")}
             </button>
           </div>
         {/if}
