@@ -43,11 +43,11 @@
   </div>
 
   <p class="max-w-sm">
-    {$t("pages.install.app_availability")}
+    {@html $t("pages.install.app_availability")}
   </p>
   {#if display_has_wallets_warning}
     <Alert color="yellow" class="mt-5 block">
-      {$t("pages.install.has_wallet_warning")}
+      {@html $t("pages.install.has_wallet_warning")}
     </Alert>
   {/if}
   <div class="row mt-5">
