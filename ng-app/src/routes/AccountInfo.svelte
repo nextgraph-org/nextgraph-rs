@@ -21,7 +21,7 @@
   import { ArrowLeft, ServerStack } from "svelte-heros-v2";
   import { onMount, tick } from "svelte";
   import { Sidebar, SidebarGroup, SidebarWrapper } from "flowbite-svelte";
-
+  import { t } from "svelte-i18n";
   import { active_session, active_wallet, connections } from "../store";
 
   import { default as ng } from "../api";
@@ -175,7 +175,7 @@
           <!-- Go Back-->
           <SidebarGroup ulClass="space-y-2" role="menu">
             <li>
-              <h2 class="text-xl mb-6">Account Info</h2>
+              <h2 class="text-xl mb-6">{$t("pages.account_info.title")}</h2>
             </li>
             <li
               tabindex="0"
@@ -188,7 +188,7 @@
                 tabindex="-1"
                 class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
-              <span class="ml-3">Back</span>
+              <span class="ml-3">{$t("buttons.back")}</span>
             </li>
           </SidebarGroup>
 
@@ -198,7 +198,7 @@
               class="flex items-center p-2 text-base font-normal text-gray-900"
             >
               <h3 class="flex items-center mt-2 text-lg font-normal">
-                {site.name} account
+                {$t("pages.account_info.site", { values: { name: site.name } })}
               </h3>
             </li>
 
@@ -210,7 +210,7 @@
                 <h4
                   class="flex items-center mt-2 text-base font-normal text-gray-600"
                 >
-                  Devices
+                  {$t("pages.account_info.devices")}
                 </h4>
               </li>
               {#each site.devices as device, index}
@@ -301,7 +301,9 @@
                 <li
                   class="flex items-center p-2 text-base font-normal text-gray-900"
                 >
-                  <span class="ml-3">No brokers connected</span>
+                  <span class="ml-3"
+                    >{$t("pages.account_info.no_brokers_connected")}</span
+                  >
                 </li>
               {/if}
             </SidebarGroup>
@@ -328,8 +330,7 @@
         </svg>
         {#if error == "AlreadyExists"}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            The user is already registered with the selected broker.<br /> Try logging
-            in instead
+            {@html $t("errors.AlreadyExists")}
           </p>
           <a use:link href="/">
             <button
@@ -341,14 +342,16 @@
           </a>
         {:else}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            An error occurred:<br />{error}
+            {@html $t("errors.error_occurred", {
+              values: { message: $t("errors." + error) },
+            })}
           </p>
           <a use:link href="/">
             <button
               tabindex="-1"
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
-              Go back to homepage
+              {$t("buttons.back_to_homepage")}
             </button>
           </a>
         {/if}

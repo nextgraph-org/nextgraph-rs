@@ -38,7 +38,7 @@
 <main class="container3" bind:this={top}>
   <div class="row">
     <a href="#/">
-      <Logo class="logo block h-40" alt="NextGraph Logo" />
+      <Logo class="logo block h-40" alt={$t("common.logo")} />
     </a>
   </div>
 
