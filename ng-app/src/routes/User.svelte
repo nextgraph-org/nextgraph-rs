@@ -154,7 +154,7 @@
                   class="w-7 h-7 text-green-600 transition duration-75 focus:outline-none dark:text-green-400 "
                 />
                 <span class="ml-3 text-green-600 dark:text-green-400"
-                  >{$t("pages.user_panel.online")}</span
+                  >{$t("connectivity.online")}</span
                 >
               {:else}
                 <SignalSlash
@@ -162,7 +162,7 @@
                   class="w-7 h-7 text-red-600 transition duration-75 focus:outline-none dark:text-red-400 "
                 />
                 <span class="ml-3 text-red-600 dark:text-red-400"
-                  >{$t("pages.user_panel.offline")}</span
+                  >{$t("connectivity.offline")}</span
                 >
               {/if}
             </li>
@@ -178,7 +178,7 @@
                 tabindex="-1"
                 class="w-7 h-7 text-black transition duration-75 focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
               />
-              <span class="ml-3">{$t("common.logout")}</span>
+              <span class="ml-3">{$t("buttons.logout")}</span>
             </li>
             <!-- <li
               tabindex="0"
@@ -206,7 +206,7 @@
               </svelte:fragment>
             </SidebarItem>
             <SidebarItem
-              label={$t("pages.wallet.title")}
+              label={$t("pages.wallet_info.title")}
               href="#/wallet"
               class="p-2"
             >
@@ -352,26 +352,26 @@
         </svg>
         {#if error == "AlreadyExists"}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            {$t("pages.user_panel.already_registered")}
+            {@html $t("errors.AlreadyExists")}
           </p>
           <a use:link href="/">
             <button
               tabindex="-1"
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
-              {$t("common.login")}
+              {$t("buttons.login")}
             </button>
           </a>
         {:else}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            {$t("pages.user_panel.error", { values: { error } })}
+            {@html $t("errors.error_occured", { values: { error } })}
           </p>
           <a use:link href="/">
             <button
               tabindex="-1"
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
-              {$t("common.back_to_homepage")}
+              {$t("buttons.back_to_homepage")}
             </button>
           </a>
         {/if}

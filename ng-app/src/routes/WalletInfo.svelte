@@ -30,7 +30,7 @@
   } from "svelte-heros-v2";
   import { onMount, tick } from "svelte";
   import { Sidebar, SidebarGroup, SidebarWrapper } from "flowbite-svelte";
-
+  import { t } from "svelte-i18n";
   import { close_active_wallet, active_session, active_wallet } from "../store";
 
   import { default as ng } from "../api";
@@ -104,7 +104,7 @@
         >
           <SidebarGroup ulClass="space-y-2" role="menu">
             <li>
-              <h2 class="text-xl mb-6">Wallet Info</h2>
+              <h2 class="text-xl mb-6">{$t("pages.wallet_info.title")}</h2>
             </li>
 
             <!-- Go Back -->
@@ -138,7 +138,7 @@
                     class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                   />
                 </div>
-                <span class="ml-3">Download Wallet File</span>
+                <span class="ml-3">{$t("pages.wallet_info.download")}</span>
               </li>
             {:else if download_error}
               <li
@@ -152,7 +152,9 @@
                   />
                 </div>
                 <span class="ml-3 text-left"
-                  >Download failed:<br /> {download_error}</span
+                  >{$t("pages.wallet_info.download_failed", {
+                    values: { error: download_error },
+                  })}</span
                 >
               </li>
             {:else if !wallet_file_ready}
@@ -166,7 +168,9 @@
                     class="w-7 h-7 text-blue-700  transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                   />
                 </div>
-                <span class="ml-3 text-left">Download in progress...</span>
+                <span class="ml-3 text-left"
+                  >{$t("pages.wallet_info.download_in_progress")}</span
+                >
               </li>
             {:else if download_link === true}
               <li
@@ -174,8 +178,9 @@
                 class="flex p-2 text-sm text-left break-all font-normal text-blue-700 rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
               >
                 <span
-                  >You will find the file named "{wallet_file_ready}" <br />in
-                  your Downloads folder</span
+                  >{@html $t("pages.wallet_info.download_successful", {
+                    values: { wallet_file: wallet_file_ready },
+                  })}</span
                 >
               </li>
             {:else}
@@ -198,7 +203,7 @@
                         class="w-14 h-14  transition duration-75 dark:text-white  dark:group-hover:text-white"
                       />
                     </div>
-                    Click here to download the wallet file
+                    {$t("pages.wallet_info.download_file_button")}
                   </button>
                 </a>
               </li>
@@ -218,7 +223,7 @@
                   class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                 />
               </div>
-              <span class="ml-3">Remove Wallet from Device</span>
+              <span class="ml-3">{$t("pages.wallet_info.remove_wallet")}</span>
             </li>
             <Modal
               autoclose
@@ -227,16 +232,16 @@
               title="Remove Wallet"
             >
               <p class="mt-4">
-                Are you sure you want to remove this wallet from your device?
+                {$t("pages.wallet_info.remove_confirm")}
               </p>
               <div class="mt-4 flex justify-end">
-                <button on:click={close_modal}> Cancel </button>
+                <button on:click={close_modal}>{$t("buttons.cancel")}</button>
 
                 <button
                   class="mr-2 bg-primary-700 text-white"
                   on:click={remove_wallet_confirmed}
                 >
-                  Remove
+                  {$t("buttons.remove")}
                 </button>
               </div>
             </Modal>
@@ -254,10 +259,13 @@
                     class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                   />
                 </div>
-                <span class="ml-3">Wallet QR-Code</span>
+                <span class="ml-3">{$t("qr_code")}</span>
               </li>
-              <Modal autoclose outsideclose title="My Wallet QR-Code"
-                >Use this QR-Code to log in with your wallet on new devices.
+              <Modal
+                autoclose
+                outsideclose
+                title={$t("pages.wallet_info.qr_modal_title")}
+                >{@html $t("pages.wallet_info.qr_modal_description")}
               </Modal>
             {/if}
 
@@ -274,7 +282,7 @@
                     class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                   />
                 </div>
-                <span class="ml-3">Copy Wallet Link</span>
+                <span class="ml-3">{$t("pages.login.copy_wallet_link")}</span>
               </li>
             {/if}
 
@@ -290,7 +298,7 @@
                   tabindex="-1"
                   class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                 />
-                <span class="ml-3">Save to Device for Future Logins</span>
+                <span class="ml-3">{$t("pages.login.keep_wallet")}</span>
               </li>
             {/if}
           </SidebarGroup>
@@ -316,27 +324,26 @@
         </svg>
         {#if error == "AlreadyExists"}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            The user is already registered with the selected broker.<br /> Try logging
-            in instead
+            {@html $t("errors.AlreadyExists")}
           </p>
           <a use:link href="/">
             <button
               tabindex="-1"
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
-              Login
+              {$t("buttons.login")}
             </button>
           </a>
         {:else}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            An error occurred:<br />{error}
+            {@html $t("errors.error_occurred", { values: { error } })}
           </p>
           <a use:link href="/">
             <button
               tabindex="-1"
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
-              Go back to homepage
+              {$t("buttons.back_to_homepage")}
             </button>
           </a>
         {/if}

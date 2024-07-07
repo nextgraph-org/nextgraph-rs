@@ -16,9 +16,11 @@
 
 <script lang="ts">
   import { Alert, Toggle, Button } from "flowbite-svelte";
-  import { onMount, createEventDispatcher, tick } from "svelte";
+  import { onMount, createEventDispatcher } from "svelte";
+  import { t } from "svelte-i18n";
   import ng from "../api";
-  import { emoji_cat, emojis, load_svg } from "../wallet_emojis";
+  import { emoji_cat, emojis, load_svg, type Emoji } from "../wallet_emojis";
+
   import {
     PuzzlePiece,
     XCircle,
@@ -89,7 +91,7 @@
     scrollToTop();
   }
 
-  let emojis2 = [];
+  let emojis2: Emoji[][] = [];
 
   let shuffle;
 
@@ -333,72 +335,54 @@
   {#if step == "load"}
     <div class="flex flex-col justify-center p-4 pt-6">
       <h2 class="pb-5 text-xl self-start">
-        How to open your wallet? You have 2 options:
+        {$t("pages.login.heading")}
       </h2>
-      <h3 class="pb-2 text-lg self-start">With your Pazzle</h3>
+      <h3 class="pb-2 text-lg self-start">{$t("pages.login.with_pazzle")}</h3>
       <ul class="mb-8 ml-3 space-y-4 text-justify text-sm list-decimal">
         <li>
-          For each one of the 9 categories of images, you will be presented with
-          the 15 possible image choices. The categories are shuffled at every
-          login. They will not always appear in the same order.
+          {$t("pages.login.pazzle_steps.1")}
         </li>
         <li>
-          At each category, only one of the 15 displayed choices is the correct
-          image that belongs to your pazzle. Find it and tap or click on that
-          one. The 15 images are shuffled too, they will not appear at the same
-          position at each login. On a computer, you can also use the tab key on
-          your keyboard to move to the desired item on the screen, then press
-          the space bar to select each one.
+          {$t("pages.login.pazzle_steps.2")}
         </li>
         <li>
-          Once you completed the last category, you will be presented with all
-          the images you have previously selected. Their order is displayed as
-          it was when you picked them. But this is not the correct order of the
-          images in your pazzle. You now have to order them correctly.
+          {$t("pages.login.pazzle_steps.3")}
         </li>
         <li>
-          You must remember which image should be the first one in your pazzle.
-          Find it on the screen and click or tap on it. It will be greyed out
-          and the number 1 will appear on top of it.
+          {$t("pages.login.pazzle_steps.4")}
         </li>
         <li>
-          Move on to the second image of your pazzle (that you memorized). Find
-          it on the screen and tap on it. Repeat this step until you reached the
-          last image.
+          {$t("pages.login.pazzle_steps.5")}
         </li>
         <li>
-          Finally, your PIN code will be asked. enter it by clicking or tapping
-          on the digits.
+          {$t("pages.login.pazzle_steps.6")}
         </li>
       </ul>
 
       <h3 class="pb-2 text-lg self-start">
-        With your 12 words Mnemonic (passphrase)
+        {$t("pages.login.with_mnemonic")}
       </h3>
       <ul class="mb-8 ml-3 space-y-4 text-justify text-sm list-decimal">
         <li>
-          Enter your twelve words mnemonic in the input field. The words must be
-          separated by spaces.
+          {$t("pages.login.mnemonic_steps.1")}
         </li>
-        <li>Enter the PIN code that you chose when you created your wallet.</li>
+        <li>
+          {$t("pages.login.mnemonic_steps.2")}
+        </li>
       </ul>
 
       <!-- Save wallet? -->
       {#if for_import}
         <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
-          <span class="text-xl">Do you trust this device? </span> <br />
+          <span class="text-xl">{$t("pages.login.trust_device")} </span> <br />
           <p class="text-sm">
-            If you do, if this device is yours or is used by few trusted persons
-            of your family or workplace, and you would like to login again from
-            this device in the future, then you can save your wallet on this
-            device. To the contrary, if this device is public and shared by
-            strangers, do not save your wallet here. {#if !tauri_platform}By
-              selecting this option, you agree to saving some cookies on your
-              browser.{/if}<br />
+            {$t("pages.login.trust_device_description")}
+            {#if !tauri_platform}
+              {$t("pages.login.trust_device_allow_cookies")}{/if}<br />
           </p>
           <div class="flex justify-center items-center my-4">
             <Toggle class="" bind:checked={trusted}
-              >Yes, save my wallet on this device</Toggle
+              >{$t("pages.login.trust_device_yes")}</Toggle
             >
           </div>
         </div>
@@ -407,7 +391,7 @@
       <div class=" max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
         <div class="flex flex-col justify-centerspace-x-12 mt-4 mb-4">
           {#if !loaded}
-            Loading pazzle...
+            {$t("pages.login.loading_pazzle")}...
             <svg
               class="animate-spin my-4 h-14 w-14 mx-auto"
               xmlns="http://www.w3.org/2000/svg"
@@ -438,7 +422,7 @@
                 tabindex="-1"
                 class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
               />
-              Open with Pazzle!
+              {$t("pages.login.open_with_pazzle")}
             </button>
           {/if}
           <button
@@ -447,7 +431,7 @@
             ><ArrowLeft
               tabindex="-1"
               class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-            />Cancel login</button
+            />{$t("pages.login.login_cancel")}</button
           >
           <span
             on:click={start_with_mnemonic}
@@ -456,7 +440,7 @@
             tabindex="0"
             class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center mb-2 underline cursor-pointer"
           >
-            Open with Mnemonic instead
+            {$t("pages.login.open_with_mnemonic")}
           </span>
         </div>
       </div>
@@ -479,7 +463,7 @@
             <label
               for="mnemonic-input"
               class="block mb-2 text-xl text-gray-900 dark:text-white"
-              >Enter your 12 words mnemonic</label
+              >{$t("pages.login.enter_mnemonic")}</label
             >
             <PasswordInput
               id="mnemonic-input"
@@ -497,17 +481,21 @@
                 ><CheckCircle
                   tabindex="-1"
                   class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
-                />Confirm</Button
+                />{$t("buttons.confirm")}</Button
               >
             </div>
           </form>
         {:else if step == "pazzle"}
           <p class="max-w-xl mx-auto lg:max-w-2xl">
             <span class="text-xl">
-              <!-- TODO: Internationalization-->
-              Select your emoji of category:<br />{emoji_cat[
-                shuffle.category_indices[pazzlePage]
-              ]}</span
+              {@html $t("pages.login.select_emoji", {
+                values: {
+                  category: $t(
+                    "emojis.category." +
+                      emoji_cat[shuffle.category_indices[pazzlePage]]
+                  ),
+                },
+              })}</span
             >
           </p>
           {#each [0, 1, 2, 3, 4] as row}
@@ -517,6 +505,7 @@
                   role="button"
                   tabindex="0"
                   class="w-full aspect-square emoji focus:outline-none focus:bg-gray-300"
+                  title={$t("emojis.codes." + emoji.code)}
                   on:click={() => select(row * 3 + i)}
                   on:keypress={() => select(row * 3 + i)}
                 >
@@ -527,7 +516,7 @@
           {/each}
         {:else if step == "order"}
           <p class="max-w-xl mx-auto lg:max-w-2xl mb-2">
-            <span class="text-xl">Select each image in the correct order</span>
+            <span class="text-xl">{$t("pages.login.order_emojis")}</span>
           </p>
           {#each [0, 1, 2] as row}
             <div class="columns-3 gap-0">
@@ -539,6 +528,10 @@
                     class="w-full aspect-square emoji focus:outline-none focus:bg-gray-300"
                     on:click={() => select_order(emoji)}
                     on:keypress={() => select_order(emoji)}
+                    title={$t(
+                      "emojis.codes." +
+                        emojis[emoji_cat[emoji.cat]][emoji.index].code
+                    )}
                   >
                     <svelte:component
                       this={emojis[emoji_cat[emoji.cat]][emoji.index].svg
@@ -548,6 +541,10 @@
                 {:else}
                   <div
                     class="w-full aspect-square opacity-25 select-none sel-emoji"
+                    title={$t(
+                      "emojis.codes." +
+                        emojis[emoji_cat[emoji.cat]][emoji.index].code
+                    )}
                   >
                     <svelte:component
                       this={emojis[emoji_cat[emoji.cat]][emoji.index].svg
@@ -565,7 +562,7 @@
           {/each}
         {:else if step == "pin"}
           <p class="items-center">
-            <span class="text-xl">Enter your PIN code</span>
+            <span class="text-xl">{$t("pages.login.enter_pin")}</span>
           </p>
           <!-- Chrome requires the columns-3 __flex__ to be set, or else it wraps the lines incorrectly.
                However, this leads to the width decreasing and the buttons come together in mobile view.
@@ -625,7 +622,7 @@
           ><XCircle
             tabindex="-1"
             class="w-8 h-8 mr-2 -ml-1 transition focus:outline-none duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
-          />Cancel</button
+          />{$t("buttons.cancel")}</button
         >
         <button
           class="mt-1 ml-2 min-w-[141px] focus:ring-4 focus:ring-primary-100/50 rounded-lg sm:text-lg px-5 py-2.5 text-center select-none inline-flex items-center dark:focus:ring-primary-700/55"
@@ -633,15 +630,18 @@
           ><Backspace
             tabindex="-1"
             class="w-8 h-8 mr-2 -ml-1 transition focus:outline-none duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
-          />{#if step === "mnemonic" || (step === "pazzle" && pazzlePage === 0)}Go
-            back{:else}Correct{/if}</button
-        >
+          />
+          {#if step === "mnemonic" || (step === "pazzle" && pazzlePage === 0)}
+            {$t("buttons.go_back")}
+          {:else}
+            {$t("buttons.correct")}
+          {/if}
+        </button>
       </div>
     </div>
   {:else if step == "opening"}
     <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-primary-700">
-      Opening your wallet...<br />
-      Please wait
+      {@html $t("pages.login.opening_wallet")}
       <svg
         class="animate-spin mt-10 h-14 w-14 mx-auto"
         xmlns="http://www.w3.org/2000/svg"
@@ -668,7 +668,7 @@
     {#if error}
       <div class=" max-w-6xl lg:px-8 mx-auto text-red-800">
         <div class="mt-auto max-w-6xl lg:px-8">
-          An error occurred !
+          {$t("errors.an_error_occurred")}
           <svg
             fill="none"
             class="animate-bounce mt-10 h-10 w-10 mx-auto"
@@ -685,7 +685,7 @@
             />
           </svg>
           <Alert color="red" class="mt-5">
-            {error}
+            {$t("errors." + error)}
           </Alert>
         </div>
         <div class="flex justify-between mt-auto gap-4">
@@ -695,7 +695,7 @@
             ><XCircle
               tabindex="-1"
               class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none group-hover:text-gray-900 dark:group-hover:text-white"
-            />Cancel</button
+            />{$t("buttons.cancel")}</button
           >
           <button
             class="mt-10 ml-2 select-none text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
@@ -705,13 +705,13 @@
               tabindex="-1"
               class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none group-hover:text-gray-900 dark:group-hover:text-white"
             />
-            Try again
+            {$t("buttons.try_again")}
           </button>
         </div>
       </div>
     {:else}
       <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-green-800">
-        Your wallet is opened! <br />Please wait while the app is loading...
+        {@html $t("pages.login.wallet_opened")}
         <svg
           class="my-10 h-16 w-16 mx-auto"
           fill="none"

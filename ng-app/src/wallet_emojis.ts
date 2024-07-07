@@ -7,6 +7,13 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+export type Emoji = {
+  hexcode: string;
+  shortcode: string;
+  code: string;
+  svg?: any;
+};
+
 let face = [
   {
     hexcode: "1f600",
@@ -1709,7 +1716,7 @@ export async function load_svg() {
   });
 }
 
-export const emojis = {
+export const emojis: Record<string, Emoji[]> = {
   face,
   face_unwell,
   face_costume,
@@ -1765,3 +1772,58 @@ export function emojis_from_pazzle_ids(pazzle: number[]) {
     return { cat: cat_name, ...emojis[cat_name][idx] };
   });
 }
+
+/*
+import en_annotations from "./locales/en_annotations.json";
+import de_annotations from "./locales/de_annotations.json";
+import fr_annotations from "./locales/fr_annotations.json";
+import ru_annotations from "./locales/ru_annotations.json";
+import es_annotations from "./locales/es_annotations.json";
+import it_annotations from "./locales/it_annotations.json";
+import zh_annotations from "./locales/zh_annotations.json";
+import pt_annotations from "./locales/pt_annotations.json";
+
+function i18n_for_emoji(annotations, emoji: Emoji) {
+  const char = String.fromCodePoint(Number.parseInt(emoji.hexcode, 16));
+  return annotations.annotations.annotations[char]?.tts[0];
+}
+
+function match_codes(annotations, emojis: Record<string, Emoji[]>) {
+  const not_found = [];
+  const map: Record<string, string> = {};
+  for (const cat in emojis) {
+    for (const emoji of emojis[cat]) {
+      const name = i18n_for_emoji(annotations, emoji);
+      if (!name) {
+        not_found.push(emoji);
+      } else {
+        map[emoji.code] = name;
+      }
+    }
+  }
+  if (not_found.length > 0) {
+    console.log("Not found: ", not_found);
+  }
+  return map;
+}
+
+export function to_debug() {
+  const en = match_codes(en_annotations, emojis);
+  const de = match_codes(de_annotations, emojis);
+  const fr = match_codes(fr_annotations, emojis);
+  const ru = match_codes(ru_annotations, emojis);
+  const es = match_codes(es_annotations, emojis);
+  const it = match_codes(it_annotations, emojis);
+  const zh = match_codes(zh_annotations, emojis);
+  const pt = match_codes(pt_annotations, emojis);
+
+  console.debug("en", JSON.stringify(en));
+  console.debug("de", JSON.stringify(de));
+  console.debug("fr", JSON.stringify(fr));
+  console.debug("ru", JSON.stringify(ru));
+  console.debug("es", JSON.stringify(es));
+  console.debug("it", JSON.stringify(it));
+  console.debug("zh", JSON.stringify(zh));
+  console.debug("pt", JSON.stringify(pt));
+}
+*/

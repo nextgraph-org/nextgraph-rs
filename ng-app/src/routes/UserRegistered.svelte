@@ -66,26 +66,26 @@
         </svg>
         {#if error == "AlreadyExists"}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            {$t("pages.user_registered.already_exists")}
+            {@html $t("pages.user_registered.already_exists")}
           </p>
           <a use:link href="/">
             <button
               tabindex="-1"
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
-              {$t("common.login")}
+              {$t("buttons.login")}
             </button>
           </a>
         {:else}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            {$t("pages.user_registered.error", { values: { error } })}
+            {@html $t("errors.error_occured", { values: { error } })}
           </p>
           <a use:link href="/">
             <button
               tabindex="-1"
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
-              {$t("common.back_to_homepage")}
+              {$t("buttons.back_to_homepage")}
             </button>
           </a>
         {/if}
@@ -108,9 +108,13 @@
           />
         </svg>
         <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-          {$t("pages.user_registered.success", {
-            values: { invitation_name: invitation?.V0?.name },
-          })}
+          {#if invitation?.V0?.name}
+            {$t("pages.user_registered.success_with_invitation", {
+              values: { invitation_name: invitation?.V0?.name },
+            })}
+          {:else}
+            {$t("pages.user_registered.success")}
+          {/if}
         </p>
       </div>
     {/if}

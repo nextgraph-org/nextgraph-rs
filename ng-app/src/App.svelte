@@ -269,6 +269,9 @@
     unsubscribe();
     if (unsub_main_close) unsub_main_close();
   });
+
+  // import { to_debug } from "./wallet_emojis";
+  // to_debug();
 </script>
 
 <!-- <p>
