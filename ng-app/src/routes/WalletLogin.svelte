@@ -18,6 +18,7 @@
 <script lang="ts">
   import { onMount, onDestroy, tick } from "svelte";
   import { link, push } from "svelte-spa-router";
+  import { t, locale  } from "svelte-i18n";
   import Login from "../lib/Login.svelte";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import ng from "../api";
@@ -212,7 +213,9 @@
         </svg>
 
         <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-          An error occurred:<br />{error}
+          {@html $t("errors.error_occurred", {
+            values: { message: $t("errors." + error) },
+          })}
         </p>
         <button
           on:click={() => {
@@ -222,7 +225,7 @@
           }}
           class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
         >
-          Start over
+          {$t("buttons.start_over")}
         </button>
       </div>
     {:else if wallet}
@@ -237,7 +240,7 @@
       <div class="row">
         <Logo class="logo block h-40" alt="NextGraph Logo" />
       </div>
-      <h2 class="pb-5 text-xl">Select a wallet to login with</h2>
+      <h2 class="pb-5 text-xl">{$t("pages.wallet_login.select_wallet")}</h2>
       <div class="flex flex-wrap justify-center gap-5 mb-10">
         {#each Object.entries($wallets) as wallet_entry}
           <div
@@ -265,8 +268,10 @@
           </div>
         {/each}
         <div class="wallet-box">
-          {#if $has_wallets}<p class="mt-1">Log in with another wallet</p>
-          {:else}<p class="mt-1">Import your wallet</p>
+          {#if $has_wallets}<p class="mt-1">
+              {$t("pages.wallet_login.with_another_wallet")}
+            </p>
+          {:else}<p class="mt-1">{$t("pages.wallet_login.import_wallet")}</p>
           {/if}
           <Fileupload
             style="display:none;"
@@ -295,7 +300,7 @@
                 d="M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15M9 12l3 3m0 0l3-3m-3 3V2.25"
               />
             </svg>
-            Import a Wallet File
+            {$t("pages.wallet_login.import_file")}
           </button>
           <Button
             style="min-width: 250px;justify-content: left;"
@@ -322,7 +327,7 @@
                 d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"
               />
             </svg>
-            Import with QRcode
+            {$t("pages.wallet_login.import_qr")}
           </Button>
           <Button
             style="min-width: 250px;justify-content: left;"
@@ -345,7 +350,7 @@
               />
             </svg>
 
-            Enter a Wallet Link
+            {$t("pages.wallet_login.import_link")}
           </Button>
           <a href="/wallet/create" use:link>
             <button
@@ -367,14 +372,14 @@
                   d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
                 />
               </svg>
-              Create a new wallet
+              {$t("pages.wallet_login.new_wallet")}
             </button>
           </a>
         </div>
       </div>
       <!-- {:else if step == "security"}{:else if step == "qrcode"}{:else if step == "cloud"} -->
     {:else if step == "loggedin"}
-      You are logged in.<br /> please wait while the app is loading...{/if}
+      {@html $t("pages.wallet_login.logged_in")}...{/if}
   </CenteredLayout>
 </div>
 

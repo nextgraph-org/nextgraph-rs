@@ -88,7 +88,7 @@ let face = [
   {
     hexcode: "1f9d0",
     shortcode: "face_with_monocle",
-    code: "monocole",
+    code: "monocle",
   },
   {
     hexcode: "1f634",

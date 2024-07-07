@@ -620,7 +620,8 @@
               <h2 class="pb-5 text-xl">
                 {$t("pages.wallet_create.wallet_about.title")}<span
                   class="text-sm"
-                  >{$t("pages.wallet_create.wallet_about.please_read")}</span
+                  >&nbsp
+                  {$t("pages.wallet_create.wallet_about.please_read")}</span
                 >
               </h2>
               <ul
@@ -818,7 +819,7 @@
               <h2 class="pb-5 text-xl">
                 {$t("pages.wallet_create.broker_about.title")}<span
                   class="text-sm"
-                  >{@html $t(
+                  >&nbsp{@html $t(
                     "pages.wallet_create.broker_about.please_read"
                   )}</span
                 >
@@ -1158,7 +1159,7 @@
               </Alert>
             </p>
             <p class="text-left mt-5 px-3">
-              {$t("pages.wallet_create.chose_pin.rules")}
+              {$t("pages.wallet_create.choose_pin.rules")}
             </p>
             <ul class="text-left list-disc list-inside px-3">
               <li>{@html $t("pages.wallet_create.choose_pin.1")}</li>
@@ -1427,7 +1428,7 @@
                 >{@html $t(
                   "pages.wallet_create.save_wallet_options.trust"
                 )}</span
-              > <br />
+              ><br />
               {@html $t(
                 "pages.wallet_create.save_wallet_options.trust_description"
               )}
@@ -1701,7 +1702,7 @@
                 autoclose
                 outsideclose
                 bind:open={confirm_modal_open}
-                title={$t("pages.wallet_create.confirm")}
+                title={$t("pages.wallet_create.continue_confirm")}
               >
                 <span class="text-lg text-neutral-950">
                   {@html $t("pages.wallet_create.continue_confirm_description")}
