@@ -12,7 +12,8 @@
 <script lang="ts">
   import ng from "../api";
   import { onMount, tick } from "svelte";
-  import { current_lang, available_languages } from "../store";
+  import { locale } from "svelte-i18n";
+  import { available_languages } from "../locales/i18n-init";
   import { Language } from "svelte-heros-v2";
   import { t } from "svelte-i18n";
 
@@ -31,7 +32,7 @@
   }
 
   const selectLang = async (lang) => {
-    current_lang.set(lang);
+    locale.set(lang);
     changingLang = false;
     await tick();
     scrollToTop();

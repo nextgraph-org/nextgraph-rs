@@ -86,7 +86,7 @@ const face: [EmojiDef<'static>; 15] = [
     EmojiDef {
         hexcode: "1f9d0",
         shortcode: "face_with_monocle",
-        code: "monocole",
+        code: "monocle",
     },
     EmojiDef {
         hexcode: "1f634",

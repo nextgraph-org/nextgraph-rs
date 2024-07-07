@@ -7,37 +7,34 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-import { writable, readable, readonly, derived, get, type Writable } from "svelte/store";
+import {
+    writable,
+    readable,
+    readonly,
+    derived,
+    get,
+    type Writable,
+} from "svelte/store";
+import { locale } from "svelte-i18n";
 import ng from "./api";
 import { official_classes } from "./classes";
 import { official_apps, official_services } from "./zeras";
+import { available_languages } from "./locales/i18n-init";
 
 let all_branches = {};
 
-export const available_languages = {
-    "en": "English",
-    "de": "Deutsch",
-    "fr": "Français",
-    "ru": "Русский",
-    "es": "Español",
-    "it": "Italiano",
-    "zh": "中文",
-    "pt": "Português",
-};
 
-export const current_lang = writable("en");
-
-export const select_default_lang = async() => {
+export const select_default_lang = async () => {
     let locales = await ng.locales();
     for (let lo of locales) {
         if (available_languages[lo]) {
             // exact match (if locales is a 2 chars lang code, or if we support regionalized translations)
-            current_lang.set(lo);
+            locale.set(lo);
             return;
         }
-        lo = lo.substr(0,2);
+        lo = lo.substr(0, 2);
         if (available_languages[lo]) {
-            current_lang.set(lo);
+            locale.set(lo);
             return;
         }
     }
@@ -58,7 +55,7 @@ export const load_app = async (appName: string) => {
 
 };
 
-export const invoke_service = async (serviceName: string, nuri:string, args: object) => {
+export const invoke_service = async (serviceName: string, nuri: string, args: object) => {
 
     if (serviceName.startsWith("n:g:z")) {
         let service = official_services[serviceName];
@@ -77,7 +74,7 @@ export const invoke_service = async (serviceName: string, nuri:string, args: obj
 
 export const cur_tab = writable({
     cur_store: {
-        has_outer : {
+        has_outer: {
             nuri_trail: ":v:l"
         },
         type: "public", // "protected", "private", "group", "dialog",
@@ -117,7 +114,7 @@ export const cur_tab = writable({
         authors: "",
         icon: "",
         description: "",
-        stream : {
+        stream: {
             notif: 1,
             last: "",
         },
@@ -147,7 +144,7 @@ export const connection_status: Writable<"disconnected" | "connected" | "connect
 
 let next_reconnect: NodeJS.Timeout | null = null;
 
-const updateConnectionStatus = ($connections: Record<string, any> ) => {
+const updateConnectionStatus = ($connections: Record<string, any>) => {
     // Reset error state for PeerAlreadyConnected errors.
     Object.entries($connections).forEach(([cnx, connection]) => {
         if (connection.error === "PeerAlreadyConnected") {
@@ -172,7 +169,7 @@ const updateConnectionStatus = ($connections: Record<string, any> ) => {
         console.log("will try reconnect in 20 sec");
         next_reconnect = setTimeout(async () => {
             await reconnect();
-            
+
             next_reconnect = null;
         }, 20000);
     }
@@ -189,7 +186,7 @@ connections.subscribe(($connections) => {
     updateConnectionStatus($connections);
 });
 
-export const online = derived(connection_status,($connectionStatus) => $connectionStatus == "connected");
+export const online = derived(connection_status, ($connectionStatus) => $connectionStatus == "connected");
 
 export const cannot_load_offline = writable(false);
 
@@ -208,7 +205,7 @@ if (get(connection_status) == "disconnected" && !import.meta.env.TAURI_PLATFORM)
     });
 }
 
-export const has_wallets = derived(wallets,($wallets) => Object.keys($wallets).length);
+export const has_wallets = derived(wallets, ($wallets) => Object.keys($wallets).length);
 
 
 
@@ -219,7 +216,7 @@ export const set_active_session = function(session) {
 export { writable, readonly, derived };
 
 export const close_active_wallet = async function() {
-    if (next_reconnect) { 
+    if (next_reconnect) {
         clearTimeout(next_reconnect);
         next_reconnect = null;
     }
@@ -240,7 +237,7 @@ export const close_active_session = async function() {
     await ng.session_stop(session.user);
 
     connections.set({});
-    
+
     active_session.set(undefined);
     //console.log("setting active_session to undefined",get(active_session));
 
@@ -254,11 +251,10 @@ export const close_active_session = async function() {
 const can_connect = derived([active_wallet, active_session], ([$s1, $s2]) => [
     $s1,
     $s2,
-  ]
-);
+]);
 
 export const reconnect = async function() {
-    if (next_reconnect) { 
+    if (next_reconnect) {
         clearTimeout(next_reconnect);
         next_reconnect = null;
     }
@@ -270,12 +266,12 @@ export const reconnect = async function() {
     try {
         let info = await ng.client_info()
         //console.log("Connecting with",get(active_session).user);
-        connections.set(await ng.user_connect( 
+        connections.set(await ng.user_connect(
             info,
             get(active_session).user,
             location.href
         ));
-    }catch (e) {
+    } catch (e) {
         console.error(e)
     }
 }
@@ -309,19 +305,18 @@ export const disconnections_subscribe = async function() {
 
 
 readable(false, function start(set) {
-	
 
-	return function stop() {
-		disconnections_unsub();
-	};
+    return function stop() {
+        disconnections_unsub();
+    };
 });
 
 can_connect.subscribe(async (value) => {
     if (value[0] && value[0].wallet && value[1]) {
 
-      await reconnect();
+        await reconnect();
     }
-  });
+});
 
 export const branch_subs = function(nuri) {
     // console.log("branch_commits")
@@ -352,9 +347,9 @@ export const branch_subs = function(nuri) {
     // // update,
     // };
 
-    
+
     return {
-        load: async ()  => {
+        load: async () => {
             //console.log("load upper");
             let already_subscribed = all_branches[nuri];
             if (!already_subscribed) return;
@@ -367,12 +362,11 @@ export const branch_subs = function(nuri) {
             }
         },
         subscribe: (run, invalid) => {
-            
             let already_subscribed = all_branches[nuri];
             if (!already_subscribed) {
                 const { subscribe, set, update } = writable([]); // create the underlying writable store
                 let count = 0;
-                let unsub = () => {};
+                let unsub = () => { };
                 already_subscribed = {
                     load: async () => {
                         try {
@@ -383,33 +377,32 @@ export const branch_subs = function(nuri) {
                                 return;
                             }
                             unsub();
-                            unsub = () => {};
+                            unsub = () => { };
                             set([]);
-                            let req= await ng.doc_fetch_repo_subscribe(nuri);
+                            let req = await ng.doc_fetch_repo_subscribe(nuri);
                             req.V0.session_id = session.session_id;
-                            unsub = await ng.app_request_stream(req, 
-                            async (commit) => {
-                                //console.log("GOT APP RESPONSE", commit);
-                                if (commit.V0.State) {
-                                    for (const file of commit.V0.State.files) {
-                                        update( (old) => {old.unshift(file); return old;} )
+                            unsub = await ng.app_request_stream(req,
+                                async (commit) => {
+                                    //console.log("GOT APP RESPONSE", commit);
+                                    if (commit.V0.State) {
+                                        for (const file of commit.V0.State.files) {
+                                            update((old) => { old.unshift(file); return old; })
+                                        }
+                                    } else if (commit.V0.Patch.other?.FileAdd) {
+                                        update((old) => { old.unshift(commit.V0.Patch.other.FileAdd); return old; })
                                     }
-                                } else if (commit.V0.Patch.other?.FileAdd) {
-                                    update( (old) => {old.unshift(commit.V0.Patch.other.FileAdd); return old;} )
-                                }
-                                
-                            });
+                                });
                         }
                         catch (e) {
                             console.error(e);
                         }
                         // this is in case decrease has been called before the load function returned.
-                        if (count == 0) {unsub();}
+                        if (count == 0) { unsub(); }
                     },
                     increase: () => {
                         count += 1;
                         //console.log("increase sub to",count);
-                        return readonly({subscribe});
+                        return readonly({ subscribe });
                     },
                     decrease: () => {
                         count -= 1;
@@ -422,13 +415,13 @@ export const branch_subs = function(nuri) {
                     },
                     unsubscribe: () => {
                         unsub();
-                        console.log("unsubscribed ",nuri);
+                        console.log("unsubscribed ", nuri);
                         delete all_branches[nuri];
                     }
                 }
                 all_branches[nuri] = already_subscribed;
             }
-            
+
             let new_store = already_subscribed.increase();
             let read_unsub = new_store.subscribe(run, invalid);
             return () => {
@@ -436,7 +429,7 @@ export const branch_subs = function(nuri) {
                 //console.log("callback unsub");
                 already_subscribed.decrease();
             }
-            
+
         }
     }
 };

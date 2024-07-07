@@ -18,7 +18,7 @@
 <CenteredLayout displayFooter={true}>
   <div class="p-8">
     <Alert color="red">
-      <span class="font-medium">404</span>{$t("pages.not_found.title")}
+      <span class="font-medium">404</span> {$t("pages.not_found.title")}
       <br />
       <span class="text-sm">{$t("pages.not_found.message")}</span>
     </Alert>

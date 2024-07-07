@@ -1,6 +1,6 @@
 {
   "emojis": {
-    "code": {
+    "codes": {
       "happy": "grinsendes Gesicht",
       "happy_tears": "Gesicht mit Freudentränen",
       "halo": "lächelndes Gesicht mit Heiligenschein",
@@ -14,7 +14,7 @@
       "celebrating": "Partygesicht",
       "sunglasses": "lächelndes Gesicht mit Sonnenbrille",
       "eyes_up": "Augen verdrehendes Gesicht",
-      "monocole": "Gesicht mit Monokel",
+      "monocle": "Gesicht mit Monokel",
       "sleeping": "schlafendes Gesicht",
       "mask": "Gesicht mit Atemschutzmaske",
       "fever": "Gesicht mit Fieberthermometer",
