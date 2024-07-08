@@ -21,17 +21,19 @@
     active_session,
     cannot_load_offline,
     online,
+    get_blob,
   } from "../store";
   import { link } from "svelte-spa-router";
   import { onMount, onDestroy, tick } from "svelte";
-  import { Button } from "flowbite-svelte";
+  import { Button, Progressbar, Spinner } from "flowbite-svelte";
   import DataClassIcon from "./DataClassIcon.svelte";
   import { t } from "svelte-i18n";
   let is_tauri = import.meta.env.TAURI_PLATFORM;
 
-  let files = $active_session && branch_subs($active_session.private_store_id);
+  let upload_progress: null | { total: number; current: number; error?: any } =
+    null;
 
-  let img_map = {};
+  let files = $active_session && branch_subs($active_session.private_store_id);
 
   let gitgraph;
 
@@ -526,76 +528,28 @@
     // ]);
   });
 
-  async function get_img(ref) {
-    if (!ref) return false;
-    let cache = img_map[ref.nuri];
-    if (cache) {
-      return cache;
-    }
-    let prom = new Promise(async (resolve) => {
-      try {
-        let nuri = {
-          target: "PrivateStore",
-          entire_store: false,
-          access: [{ Key: ref.reference.key }],
-          locator: [],
-          object: ref.reference.id,
-        };
-
-        let file_request = {
-          V0: {
-            command: "FileGet",
-            nuri,
-            session_id: $active_session.session_id,
-          },
-        };
-
-        let final_blob;
-        let content_type;
-        let unsub = await ng.app_request_stream(file_request, async (blob) => {
-          //console.log("GOT APP RESPONSE", blob);
-          if (blob.V0.FileMeta) {
-            content_type = blob.V0.FileMeta.content_type;
-            final_blob = new Blob([], { type: content_type });
-          } else if (blob.V0.FileBinary) {
-            if (blob.V0.FileBinary.byteLength > 0) {
-              final_blob = new Blob([final_blob, blob.V0.FileBinary], {
-                type: content_type,
-              });
-            }
-          } else if (blob.V0 == "EndOfStream") {
-            var imageUrl = URL.createObjectURL(final_blob);
-            resolve(imageUrl);
-          }
-        });
-      } catch (e) {
-        console.error(e);
-        resolve(false);
-      }
-    });
-    img_map[ref.nuri] = prom;
-    return prom;
-  }
-
   let fileinput;
 
   function uploadFile(upload_id, nuri, file, success) {
-    let chunkSize = 1048564;
+    let chunkSize = 1_048_564;
     let fileSize = file.size;
     let offset = 0;
     let readBlock = null;
+    upload_progress = { total: fileSize, current: offset };
 
     let onLoadHandler = async function (event) {
       let result = event.target.result;
 
       if (event.target.error == null) {
-        offset += event.target.result.byteLength;
-        //console.log("chunk", event.target.result);
+        offset += result.byteLength;
+        upload_progress = { total: fileSize, current: offset };
+
+        // console.log("chunk", result);
 
         let res = await ng.upload_chunk(
           $active_session.session_id,
           upload_id,
-          event.target.result,
+          result,
           nuri
         );
         //console.log("chunk upload res", res);
@@ -609,6 +563,7 @@
         return;
       }
 
+      // If finished:
       if (offset >= fileSize) {
         //console.log("file uploaded");
         let res = await ng.upload_chunk(
@@ -619,8 +574,16 @@
         );
         //console.log("end upload res", res);
         if (success) {
+          upload_progress = { total: fileSize, current: fileSize };
           success(res);
+        } else {
+          upload_progress = { total: fileSize, current: fileSize, error: true };
         }
+
+        // Make progress bar disappear
+        setTimeout(() => {
+          upload_progress = null;
+        }, 2_500);
         return;
       }
 
@@ -696,7 +659,7 @@
   {#if $cannot_load_offline}
     <div class="row p-4">
       <p>
-        {$t("pages.text.cannot_load_offline")}
+        {@html $t("pages.test.cannot_load_offline")}
         <a href="#/user">{$t("pages.user_panel.title")}</a>.
       </p>
     </div>
@@ -747,6 +710,17 @@
         bind:this={fileinput}
       />
     </div>
+    {#if upload_progress !== null}
+      <div class="mx-6 mt-2">
+        <Progressbar
+          progress={(
+            (100 * upload_progress.current) /
+            upload_progress.total
+          ).toFixed(0)}
+          labelOutside={$t("pages.test.upload_progress")}
+        />
+      </div>
+    {/if}
     {#if files}
       {#await files.load()}
         <p>{$t("connectivity.loading")}...</p>
@@ -755,7 +729,11 @@
           <p>
             {file.name}
 
-            {#await get_img(file) then url}
+            {#await get_blob(file)}
+              <div class="ml-2">
+                <Spinner />
+              </div>
+            {:then url}
               {#if url}
                 <img src={url} title={file.nuri} alt={file.name} />
               {/if}
