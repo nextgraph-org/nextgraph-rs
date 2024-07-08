@@ -63,7 +63,8 @@
     },
     "test": {
       "cannot_load_offline": "You are offline and using the web app. You need to connect to the broker at least once before you can start using the app locally because the web app does not keep a local copy of your documents.<br /><br /> Once connected, if you lose connectivity again, you will be able to have limited access to some functionalities. Sending binary files won't be possible, because the limit of local storage in your browser is around 5MB.<br /><br /> All those limitations will be lifted once the \"UserStorage for Web\" feature will be released. Stay tuned! <br /><br /> Check your connection status in the ",
-      "add_image": "Add Image"
+      "add_image": "Add Image",
+      "upload_progress": "Uploading..."
     },
     "login": {
       "heading": "How to open your wallet? You have 2 options:",
