@@ -15,14 +15,33 @@ import {
     get,
     type Writable,
 } from "svelte/store";
-import { locale } from "svelte-i18n";
+import { register, init, locale } from "svelte-i18n";
 import ng from "./api";
 import { official_classes } from "./classes";
 import { official_apps, official_services } from "./zeras";
-import { available_languages } from "./locales/i18n-init";
 
 let all_branches = {};
 
+// Make sure that a file named `locales/<lang>.json` exists when adding it here.
+export const available_languages = {
+  en: "English",
+  de: "Deutsch",
+  fr: "Français",
+  ru: "Русский",
+  es: "Español",
+  it: "Italiano",
+  zh: "中文",
+  pt: "Português",
+};
+
+for (const lang of Object.keys(available_languages)) {
+  register(lang, () => import(`./locales/${lang}.json`))
+}
+
+init({
+  fallbackLocale: "en",
+  initialLocale: "en",
+});
 
 export const select_default_lang = async () => {
     let locales = await ng.locales();

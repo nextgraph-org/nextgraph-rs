@@ -12,10 +12,9 @@
 <script lang="ts">
   import ng from "../api";
   import { onMount, tick } from "svelte";
-  import { locale } from "svelte-i18n";
-  import { available_languages } from "../locales/i18n-init";
+  import { locale, t } from "svelte-i18n";
+  import { available_languages } from "../store";
   import { Language } from "svelte-heros-v2";
-  import { t } from "svelte-i18n";
 
   export let displayFooter = false;
 

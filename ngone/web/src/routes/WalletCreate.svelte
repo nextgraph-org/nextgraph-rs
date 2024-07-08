@@ -73,7 +73,7 @@
         class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
       >
         <EULogo class="mr-4 block h-10 w-10" alt="European Union flag" />
-        For European Union citizens
+        European Union citizens
       </button>
     </a>
   </div>

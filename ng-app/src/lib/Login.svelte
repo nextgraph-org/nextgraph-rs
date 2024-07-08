@@ -374,9 +374,9 @@
       <!-- Save wallet? -->
       {#if for_import}
         <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
-          <span class="text-xl">{$t("pages.login.trust_device")} </span> <br />
+          <span class="text-xl">{$t("pages.wallet_create.save_wallet_options.trust")} </span> <br />
           <p class="text-sm">
-            {$t("pages.login.trust_device_description")}
+            {$t("pages.wallet_create.save_wallet_options.trust_description")}
             {#if !tauri_platform}
               {$t("pages.login.trust_device_allow_cookies")}{/if}<br />
           </p>
@@ -467,7 +467,7 @@
             >
             <PasswordInput
               id="mnemonic-input"
-              placeholder="12 words separated by spaces"
+              placeholder={$t("pages.login.mnemonic_placeholder")}
               bind:value={mnemonic}
               className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
               auto_complete="mnemonic"
