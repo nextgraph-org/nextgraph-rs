@@ -36,10 +36,10 @@
       <a href="/wallet/create" use:link>
         <button
           tabindex="-1"
-          class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mr-2 mb-2"
+          class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
         >
           <svg
-            class="w-8 h-8 mr-2 -ml-1"
+            class="w-8 h-8 -ml-1"
             fill="none"
             stroke="currentColor"
             stroke-width="1.5"
@@ -61,7 +61,7 @@
       <a href="/wallet/login" use:link>
         <button
           tabindex="-1"
-          class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2 mb-2"
+          class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
         >
           <svg
             class="w-8 h-8 mr-2 -ml-1"
