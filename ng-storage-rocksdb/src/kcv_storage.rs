@@ -702,7 +702,14 @@ impl RocksDbKCVStorage {
         // TODO: use open_cf and choose which column family to create/ versus using set_prefix_extractor and doing prefix seek
 
         let tx_options = TransactionDBOptions::new();
-        let db: TransactionDB = TransactionDB::open(&opts, &tx_options, &path).unwrap();
+        let db: TransactionDB = TransactionDB::open(&opts, &tx_options, &path).map_err(|e| {
+            log_err!("{e}");
+            if e.into_string().starts_with("IO error: While lock file") {
+                StorageError::ServerAlreadyRunningInOtherProcess
+            } else {
+                StorageError::BackendError
+            }
+        })?;
 
         log_info!(
             "created kcv storage with Rocksdb Version: {}",

@@ -79,7 +79,14 @@ impl RocksDbBlockStorage {
         let env = Env::enc_env(key).unwrap();
         opts.set_env(&env);
         let tx_options = TransactionDBOptions::new();
-        let db: TransactionDB = TransactionDB::open(&opts, &tx_options, &path).unwrap();
+        let db: TransactionDB = TransactionDB::open(&opts, &tx_options, &path).map_err(|e| {
+            log_err!("{e}");
+            if e.into_string().starts_with("IO error: While lock file") {
+                StorageError::ServerAlreadyRunningInOtherProcess
+            } else {
+                StorageError::BackendError
+            }
+        })?;
 
         log_info!(
             "created blockstorage with Rocksdb Version: {}",

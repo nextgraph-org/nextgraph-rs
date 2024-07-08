@@ -218,6 +218,7 @@ pub enum StorageError {
     OverlayBranchNotFound,
     Abort,
     NotEmpty,
+    ServerAlreadyRunningInOtherProcess,
 }
 
 impl core::fmt::Display for StorageError {
