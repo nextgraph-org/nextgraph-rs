@@ -11,7 +11,6 @@
 
 <script lang="ts">
   import { push, default as Router } from "svelte-spa-router";
-  import "./locales/i18n-init";
   import { isLoading } from "svelte-i18n";
 
   import { onMount, tick, onDestroy } from "svelte";
@@ -49,7 +48,7 @@
   routes.set("/user", User);
   routes.set("/user/registered", UserRegistered);
   routes.set("/wallet", WalletInfo);
-  routes.set("/user/account", AccountInfo);
+  routes.set("/user/accounts", AccountInfo);
   if (import.meta.env.NG_APP_WEB) routes.set("/install", Install);
   routes.set(/^\/did:ng(.*)/i, NURI);
   routes.set("*", NotFound);
@@ -283,7 +282,9 @@
 </p> -->
 
 {#if $isLoading}
-  <p>Loading...</p>
+  <p class="text-center">Loading translations...</p>
 {:else}
   <Router {routes} />
 {/if}
+
+

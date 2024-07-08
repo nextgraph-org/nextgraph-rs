@@ -246,7 +246,7 @@
               </div>
             </Modal>
 
-            <!-- TODO: Show QR-Code -->
+            <!-- TODO: Show QRCode -->
             {#if false}
               <li
                 tabindex="0"

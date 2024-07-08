@@ -1325,7 +1325,7 @@
                 bind:this={phrase}
                 class="mt-10 mr-0"
                 id="security-phrase-input"
-                placeholder="Type a security phrase..."
+                placeholder={$t("pages.wallet_create.type_security_phrase_placeholder")}
                 bind:value={security_txt}
                 on:keypress={security_phrase_ok}
               /><button on:click={async () => await security_phrase_ok()}>
@@ -1375,7 +1375,7 @@
                   {:else}
                     <span class="font-semibold"
                       >{$t("pages.wallet_create.click_to_upload")}</span
-                    >{$t("pages.wallet_create.or_drag_drop")}
+                    > {$t("pages.wallet_create.or_drag_drop")}
                   {/if}
                 </p>
                 <svg
@@ -1433,9 +1433,9 @@
                 "pages.wallet_create.save_wallet_options.trust_description"
               )}
               {#if !tauri_platform}{@html $t(
-                  "pages.wallet_create.save_wallet_options.trust_allow_cookies"
-                )}{/if}<br />
-              <Toggle class="mt-3" bind:checked={options.trusted}
+                  "pages.login.trust_device_allow_cookies"
+                )}{/if}<br /><br />
+              <Toggle bind:checked={options.trusted}
                 >{@html $t(
                   "pages.wallet_create.save_wallet_options.trust_toggle"
                 )}</Toggle
@@ -1460,8 +1460,8 @@
                   "pages.wallet_create.save_wallet_options.cloud_tos"
                 )}</span
               >.
-              <br />
-              <Toggle disabled class="mt-3" bind:checked={options.cloud}
+              <br /><br />
+              <Toggle disabled  bind:checked={options.cloud}
                 >{@html $t(
                   "pages.wallet_create.save_wallet_options.cloud_toggle"
                 )}</Toggle
@@ -1475,8 +1475,8 @@
               {@html $t(
                 "pages.wallet_create.save_wallet_options.pdf_description"
               )}
-              <br />
-              <Toggle disabled class="mt-3" bind:checked={options.pdf}
+              <br /><br />
+              <Toggle disabled bind:checked={options.pdf}
                 >{@html $t(
                   "pages.wallet_create.save_wallet_options.pdf_toggle"
                 )}</Toggle
@@ -1500,8 +1500,8 @@
                     "pages.wallet_create.save_wallet_options.cloud_tos"
                   )}</span
                 >.
-                <br />
-                <Toggle disabled class="mt-3" bind:checked={options.bootstrap}
+                <br /><br />
+                <Toggle disabled bind:checked={options.bootstrap}
                   >{@html $t(
                     "pages.wallet_create.save_wallet_options.link_toggle"
                   )}</Toggle
@@ -1645,7 +1645,7 @@
                     </div>
                     <div class="flex flex-col ml-4">
                       <div class="w-[10em] text-left">
-                        <span>{emoji.cat}</span>
+                        <span>{$t("emojis.category." + emoji.cat)}</span>
                       </div>
                       <div class="font-bold text-lg h-full content-center">
                         <span>{$t("emojis.codes." + emoji.code)}</span>

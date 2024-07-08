@@ -11,7 +11,7 @@
 
 <!--
   @component  
-  "Account Info" user panel sub menu.
+  "Accounts Info" user panel sub menu.
   Provides info about wallet, broker, etc. and download option.
 -->
 
