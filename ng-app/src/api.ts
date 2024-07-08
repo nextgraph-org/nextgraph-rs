@@ -73,7 +73,7 @@ const handler = {
                 switch (tauri_platform) {
                     case 'macos': client_type = "NativeMacOS";break;
                     case 'linux': client_type = "NativeLinux";break;
-                    case 'windows': client_type = "NativeWindows";break;
+                    case 'windows': client_type = "NativeWin";break;
                     case 'android': client_type = "NativeAndroid";break;
                     case 'ios': client_type = "NativeIos";break;
                 }
