@@ -90,7 +90,8 @@ export const official_classes = {
         "ng:a": "A Source Code file. many languages supported",
         "ng:o": "n:g:z:pre",
         "ng:w": "n:g:z:code_editor",
-        "ng:compat": ["code/*","file/iana/text/javascript","file/iana/text/css","file/iana/text/html","file/iana/text/markdown", "file/iana/application/xml", "file/iana/application/yaml", "file/iana/text/xml", "file/iana/application/xhtml+xml"],
+        "ng:compat": ["code/*","file/iana/text/javascript","file/iana/text/css","file/iana/text/html","file/iana/text/markdown", "file/iana/application/xml", 
+                    "file/iana/application/yaml", "file/iana/text/xml", "file/iana/application/xhtml+xml"],
     },
     "app": {
         "ng:n": "Official App",
@@ -235,7 +236,8 @@ export const official_classes = {
             "rdf":true,
             "xsd":true,
         },
-        "ng:compat": [ "rdf:*", "xsd:*", "file/iana/text/n3", "file/iana/text/rdf+n3", "file/iana/text/turtle", "file/iana/application/n-quads", "file/iana/application/trig", "file/iana/application/n-triples", "file/iana/application/rdf+xml", "file/iana/application/ld+json"],
+        "ng:compat": [ "rdf:*", "xsd:*", "file/iana/text/n3", "file/iana/text/rdf+n3", "file/iana/text/turtle", "file/iana/application/n-quads", "file/iana/application/trig", "file/iana/application/n-triples", 
+                        "file/iana/application/rdf+xml", "file/iana/application/ld+json"],
     },
     "data/json": {
         "ng:crdt": "Automerge",
@@ -863,7 +865,7 @@ export const official_classes = {
         "ng:a": "Text file",
         "ng:o": "n:g:z:file_viewer",
         "ng:w": "n:g:z:file_viewer",
-        "ng:compat": ["file/iana/text/*", "image/svg+xml", "file/iana/application/n-quads", "file/iana/application/trig", "file/iana/application/n-triples", "file/iana/application/rdf+xml", "file/iana/application/ld+json",
+        "ng:compat": ["file/iana/text/*", "file/iana/image/svg+xml", "file/iana/application/n-quads", "file/iana/application/trig", "file/iana/application/n-triples", "file/iana/application/rdf+xml", "file/iana/application/ld+json",
         "file/iana/application/xml", "file/iana/application/yaml", "file/iana/application/xhtml+xml", "file/iana/application/node","file/iana/application/sparql-results+json","file/iana/application/sparql-results+xml",
         "file/iana/message/rfc822","file/iana/multipart/related", "file/iana/text/vnd.graphviz", "file/iana/application/vnd.excalidraw+json", "file/iana/application/x-tex","file/iana/text/x-tex",
         "file/iana/application/vcard+json", "file/iana/application/vcard+xml", "file/iana/text/calendar", "file/iana/application/calendar+xml", "file/iana/application/calendar+json", 
