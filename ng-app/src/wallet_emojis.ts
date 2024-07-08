@@ -1774,6 +1774,11 @@ export function emojis_from_pazzle_ids(pazzle: number[]) {
 }
 
 /*
+// To find more unicode (emoji) translations files (xx_annotations.json),
+// visit: https://github.com/unicode-org/cldr-json/tree/main/cldr-json/cldr-annotations-full/annotations
+// Some of the face-emoji names have been slightly adjusted for unambiguity.
+// See the English translations.
+
 import en_annotations from "./locales/en_annotations.json";
 import de_annotations from "./locales/de_annotations.json";
 import fr_annotations from "./locales/fr_annotations.json";
