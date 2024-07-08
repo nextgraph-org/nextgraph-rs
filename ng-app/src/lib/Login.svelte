@@ -32,6 +32,7 @@
     ArrowLeft,
   } from "svelte-heros-v2";
   import PasswordInput from "./components/PasswordInput.svelte";
+  import Spinner from "./components/Spinner.svelte";
   //import Worker from "../worker.js?worker&inline";
   export let wallet;
   export let for_import = false;
@@ -374,7 +375,9 @@
       <!-- Save wallet? -->
       {#if for_import}
         <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
-          <span class="text-xl">{$t("pages.wallet_create.save_wallet_options.trust")} </span> <br />
+          <span class="text-xl"
+            >{$t("pages.wallet_create.save_wallet_options.trust")}
+          </span> <br />
           <p class="text-sm">
             {$t("pages.wallet_create.save_wallet_options.trust_description")}
             {#if !tauri_platform}
@@ -384,6 +387,7 @@
             <Toggle class="" bind:checked={trusted}
               >{$t("pages.login.trust_device_yes")}</Toggle
             >
+            <!-- Ask for Device Name -->
           </div>
         </div>
       {/if}
@@ -392,27 +396,7 @@
         <div class="flex flex-col justify-centerspace-x-12 mt-4 mb-4">
           {#if !loaded}
             {$t("pages.login.loading_pazzle")}...
-            <svg
-              class="animate-spin my-4 h-14 w-14 mx-auto"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                class="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                stroke-width="4"
-              />
-              <path
-                class="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
+            <Spinner className="my-4 h-14 w-14 mx-auto" />
           {:else}
             <button
               on:click={start_with_pazzle}
@@ -642,27 +626,7 @@
   {:else if step == "opening"}
     <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-primary-700">
       {@html $t("pages.login.opening_wallet")}
-      <svg
-        class="animate-spin mt-10 h-14 w-14 mx-auto"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <circle
-          class="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          stroke-width="4"
-        />
-        <path
-          class="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-        />
-      </svg>
+      <Spinner className="mt-10 h-14 w-14 mx-auto" />
     </div>
   {:else if step == "end"}
     {#if error}

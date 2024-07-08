@@ -45,6 +45,7 @@
 
   import { onMount, onDestroy, tick } from "svelte";
   import { wallets, set_active_session, has_wallets } from "../store";
+  import Spinner from "../lib/components/Spinner.svelte";
 
   const param = new URLSearchParams($querystring);
 
@@ -528,27 +529,7 @@
         {:else}
           {wait}
         {/if}
-        <svg
-          class="animate-spin mt-10 h-14 w-14 mx-auto"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            class="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            stroke-width="4"
-          />
-          <path
-            class="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          />
-        </svg>
+        <Spinner className="mt-10 h-14 w-14 mx-auto" />
       </div>
     {:else}
       <div class="container3" bind:this={top}>
@@ -1325,7 +1306,9 @@
                 bind:this={phrase}
                 class="mt-10 mr-0"
                 id="security-phrase-input"
-                placeholder={$t("pages.wallet_create.type_security_phrase_placeholder")}
+                placeholder={$t(
+                  "pages.wallet_create.type_security_phrase_placeholder"
+                )}
                 bind:value={security_txt}
                 on:keypress={security_phrase_ok}
               /><button on:click={async () => await security_phrase_ok()}>
@@ -1375,7 +1358,8 @@
                   {:else}
                     <span class="font-semibold"
                       >{$t("pages.wallet_create.click_to_upload")}</span
-                    > {$t("pages.wallet_create.or_drag_drop")}
+                    >
+                    {$t("pages.wallet_create.or_drag_drop")}
                   {/if}
                 </p>
                 <svg
@@ -1440,6 +1424,7 @@
                   "pages.wallet_create.save_wallet_options.trust_toggle"
                 )}</Toggle
               >
+              <!-- Device Name-->
             </p>
             <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
               <span class="text-xl"
@@ -1461,7 +1446,7 @@
                 )}</span
               >.
               <br /><br />
-              <Toggle disabled  bind:checked={options.cloud}
+              <Toggle disabled bind:checked={options.cloud}
                 >{@html $t(
                   "pages.wallet_create.save_wallet_options.cloud_toggle"
                 )}</Toggle
@@ -1535,27 +1520,7 @@
           {#if !ready}
             <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-primary-700">
               {$t("pages.wallet_create.creating")}
-              <svg
-                class="animate-spin mt-10 h-6 w-6 mx-auto"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  class="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="4"
-                />
-                <path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
+              <Spinner className="mt-10 h-6 w-6 mx-auto" />
             </div>
           {:else}
             <div class="text-left mx-4">

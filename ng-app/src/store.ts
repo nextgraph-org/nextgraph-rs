@@ -24,23 +24,23 @@ let all_branches = {};
 
 // Make sure that a file named `locales/<lang>.json` exists when adding it here.
 export const available_languages = {
-  en: "English",
-  de: "Deutsch",
-  fr: "Français",
-  ru: "Русский",
-  es: "Español",
-  it: "Italiano",
-  zh: "中文",
-  pt: "Português",
+    en: "English",
+    de: "Deutsch",
+    fr: "Français",
+    ru: "Русский",
+    es: "Español",
+    it: "Italiano",
+    zh: "中文",
+    pt: "Português",
 };
 
 for (const lang of Object.keys(available_languages)) {
-  register(lang, () => import(`./locales/${lang}.json`))
+    register(lang, () => import(`./locales/${lang}.json`))
 }
 
 init({
-  fallbackLocale: "en",
-  initialLocale: "en",
+    fallbackLocale: "en",
+    initialLocale: "en",
 });
 
 export const select_default_lang = async () => {
@@ -452,5 +452,57 @@ export const branch_subs = function(nuri) {
         }
     }
 };
+
+let blob_cache = {};
+export async function get_blob(ref: { nuri: string | number; reference: { key: any; id: any; }; }) {
+    if (!ref) return false;
+    const cached = blob_cache[ref.nuri];
+    if (cached) {
+        return cached;
+    }
+    let prom = new Promise(async (resolve) => {
+        try {
+            let nuri = {
+                target: "PrivateStore",
+                entire_store: false,
+                access: [{ Key: ref.reference.key }],
+                locator: [],
+                object: ref.reference.id,
+            };
+
+            let file_request = {
+                V0: {
+                    command: "FileGet",
+                    nuri,
+                    session_id: get(active_session).session_id,
+                },
+            };
+
+            let final_blob;
+            let content_type;
+            let unsub = await ng.app_request_stream(file_request, async (blob) => {
+                //console.log("GOT APP RESPONSE", blob);
+                if (blob.V0.FileMeta) {
+                    content_type = blob.V0.FileMeta.content_type;
+                    final_blob = new Blob([], { type: content_type });
+                } else if (blob.V0.FileBinary) {
+                    if (blob.V0.FileBinary.byteLength > 0) {
+                        final_blob = new Blob([final_blob, blob.V0.FileBinary], {
+                            type: content_type,
+                        });
+                    }
+                } else if (blob.V0 == "EndOfStream") {
+                    var imageUrl = URL.createObjectURL(final_blob);
+                    resolve(imageUrl);
+                }
+            });
+        } catch (e) {
+            console.error(e);
+            resolve(false);
+        }
+    });
+    blob_cache[ref.nuri] = prom;
+    return prom;
+}
 
 //export default branch_commits;
