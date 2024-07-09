@@ -459,7 +459,7 @@
             <div class="flex">
               <Button
                 type="submit"
-                class="mt-3 mb-2 ml-auto text-white bg-primary-700 disabled:opacity-65 focus:ring-4 focus:ring-blue-500 focus:border-blue-500 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                class="mt-3 mb-2 ml-auto text-white bg-primary-700 hover:bg-primary-700/90 disabled:opacity-65 focus:ring-4 focus:ring-blue-500 focus:border-blue-500 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-blue-500 dark:focus:border-blue-500"
                 on:click={start_pin}
                 disabled={mnemonic.split(" ").length !== 12}
                 ><CheckCircle
