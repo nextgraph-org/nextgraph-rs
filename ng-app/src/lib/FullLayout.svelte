@@ -20,7 +20,7 @@
   import MobileBottomBarItem from "./MobileBottomBarItem.svelte";
   import MobileBottomBar from "./MobileBottomBar.svelte";
   // @ts-ignore
-  import Logo from "../assets/nextgraph.svg?component";
+  import Logo from "./components/Logo.svelte";
   // @ts-ignore
   import { t } from "svelte-i18n";
   import { onMount, tick } from "svelte";
