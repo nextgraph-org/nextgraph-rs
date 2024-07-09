@@ -23,6 +23,7 @@
     "classnames": "^2.3.2",
     "flowbite": "^1.6.5",
     "flowbite-svelte": "^0.43.3",
+    "html5-qrcode": "^2.3.8",
     "ng-sdk-js": "workspace:^0.1.0-preview.1",
     "svelte-i18n": "^4.0.0",
     "svelte-spa-router": "^3.3.0",
