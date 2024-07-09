@@ -27,7 +27,6 @@
     Backspace,
     ArrowPath,
     LockOpen,
-    Key,
     CheckCircle,
     ArrowLeft,
   } from "svelte-heros-v2";
@@ -122,6 +121,11 @@
 
   let unlockWith: "pazzle" | "mnemonic" | undefined;
 
+  let device_name;
+
+  // TODO: @niko Implement API
+  // ng.get_device_name().then((name) => (device_name = name));
+
   function order() {
     step = "order";
     ordered = [];
@@ -168,6 +172,7 @@
     // open the wallet
     try {
       if (tauri_platform) {
+        // TODO @niko: Add device_name as param to open_with_* APIs
         let opened_wallet =
           unlockWith === "pazzle"
             ? await ng.wallet_open_with_pazzle(wallet, pazzle, pin_code)
@@ -191,6 +196,7 @@
           wallet: opened_wallet,
           id: opened_wallet.V0.wallet_id,
           trusted,
+          device_name,
         });
       } else {
         let worker_import = await import("../worker.js?worker&inline");
@@ -211,9 +217,14 @@
           //console.log("Message received from worker", msg.data);
           if (msg.data.loaded) {
             if (unlockWith === "pazzle") {
-              myWorker.postMessage({ wallet, pazzle, pin_code });
+              myWorker.postMessage({ wallet, pazzle, pin_code, device_name });
             } else {
-              myWorker.postMessage({ wallet, mnemonic_words, pin_code });
+              myWorker.postMessage({
+                wallet,
+                mnemonic_words,
+                pin_code,
+                device_name,
+              });
             }
             //console.log("postMessage");
           } else if (msg.data.success) {
@@ -233,6 +244,7 @@
               wallet: msg.data.success,
               id: msg.data.success.V0.wallet_id,
               trusted,
+              device_name,
             });
           } else {
             console.error(msg.data.error);
@@ -387,13 +399,28 @@
             <Toggle class="" bind:checked={trusted}
               >{$t("pages.login.trust_device_yes")}</Toggle
             >
-            <!-- Ask for Device Name -->
           </div>
         </div>
       {/if}
 
-      <div class=" max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
+      <div class="max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
         <div class="flex flex-col justify-centerspace-x-12 mt-4 mb-4">
+          <!-- Device Name, if trusted-->
+          {#if for_import}
+            <label for="device-name-input" class="text-sm text-black">
+              {$t("pages.login.device_name_label")}
+            </label>
+            <input
+              id="device-name-input"
+              disabled
+              bind:value={device_name}
+              placeholder={$t("pages.login.device_name_placeholder")}
+              type="text"
+              autocomplete="device-name"
+              class="w-full mb-4 lg:px-8 mx-auto px-4 cursor-not-allowed opacity-50 bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            />
+          {/if}
+
           {#if !loaded}
             {$t("pages.login.loading_pazzle")}...
             <Spinner className="my-4 h-14 w-14 mx-auto" />

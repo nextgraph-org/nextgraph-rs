@@ -454,7 +454,7 @@ export const branch_subs = function(nuri) {
 };
 
 let blob_cache = {};
-export async function get_blob(ref: { nuri: string | number; reference: { key: any; id: any; }; }) {
+export async function get_blob(ref: { nuri: string; reference: { key: any; id: any; }; }) {
     if (!ref) return false;
     const cached = blob_cache[ref.nuri];
     if (cached) {
