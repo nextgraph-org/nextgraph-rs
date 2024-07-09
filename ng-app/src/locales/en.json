@@ -18,13 +18,29 @@
     },
     "wallet_info": {
       "title": "Wallet",
+      "scan_qr": "Scan QR to export",
+      "generate_qr": "Generate QR to export",
       "download": "Download Wallet File",
       "download_failed": "Download Failed:<br/>{error}",
       "download_in_progress": "Download in progress...",
       "download_successful": "You will find the file named \"{wallet_file}\" in your Downloads folder",
       "download_file_button": "Click here to download the wallet file",
       "remove_wallet": "Remove wallet from Device",
-      "remove_wallet_confirm": "Are you sure you want to remove this wallet from your device?"
+      "remove_wallet_modal.title": "Remove wallet?",
+      "remove_wallet_modal.confirm": "Are you sure you want to remove this wallet from your device?",
+      "offline_warning": "You cannot export your Wallet with QR-Code while being offline.<br />Please connect to the internet and to your broker first.",
+      "scan_qr.title": "Export by scanning QR-Code",
+      "scan_qr.notes": "Scan the QR-Code on the device that you want to transfer your wallet to.<br />For the wallet transfer, you agree that your double-encrypted wallet is stored on our servers for no more than 5 minutes.",
+      "scan_qr.scan_btn": "Scan QR Code ",
+      "scan_qr.scanner.title": "Scan your QR Code",
+      "scan_qr.scanner.loading": "Loading scanner",
+      "scan_qr.syncing": "Synchronizing wallet",
+      "scan_qr.scan_successful": "Success!<br />Your wallet has been synchronized to the new device.",
+      "gen_qr.title": "Export with generated QR-Code",
+      "gen_qr.notes": "Use the following QR-Code to scan with the device that you want to transfer your wallet to.<br />For the wallet transfer, you agree for your double-encrypted wallet to be stored on our servers for no more than 5 minutes.",
+      "gen_qr.img_title": "Your Export QR Code to Scan",
+      "gen_qr.img_alt": "Your Export QR Code to Scan",
+      "gen_qr.gen_button": "Generate QR Code"
     },
     "settings": {
       "title": "Settings"
