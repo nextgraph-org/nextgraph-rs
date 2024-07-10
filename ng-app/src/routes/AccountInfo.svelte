@@ -22,7 +22,7 @@
   import { onMount, tick } from "svelte";
   import { Sidebar, SidebarGroup, SidebarWrapper } from "flowbite-svelte";
   import { t } from "svelte-i18n";
-  import { active_session, active_wallet, connections } from "../store";
+  import { active_session, active_wallet, connections, display_error } from "../store";
 
   import { default as ng } from "../api";
   import DeviceIcon from "../lib/components/DeviceIcon.svelte";
@@ -343,7 +343,7 @@
         {:else}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
             {@html $t("errors.error_occurred", {
-              values: { message: $t("errors." + error) },
+              values: { message: display_error(error) },
             })}
           </p>
           <a use:link href="/">

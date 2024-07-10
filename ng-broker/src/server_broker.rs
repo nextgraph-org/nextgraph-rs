@@ -12,14 +12,15 @@
 //! Implementation of the Server Broker
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     path::PathBuf,
     sync::Arc,
+    time::{Duration, SystemTime},
 };
 
 use async_std::sync::{Mutex, RwLock};
 use either::Either;
-use futures::StreamExt;
+use futures::{channel::mpsc, SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 
 use ng_repo::{
@@ -35,6 +36,7 @@ use ng_net::{
     connection::NoiseFSM,
     server_broker::IServerBroker,
     types::*,
+    utils::{spawn_and_log_error, Receiver, ResultSend, Sender},
 };
 
 use ng_verifier::{
@@ -147,6 +149,10 @@ pub struct ServerBrokerState {
 
     verifiers: HashMap<UserId, Arc<RwLock<DetachableVerifier>>>,
     remote_apps: HashMap<(DirectPeerId, u64), UserId>,
+
+    wallet_rendezvous: HashMap<SymKey, Sender<ExportedWallet>>,
+    wallet_exports: HashMap<SymKey, ExportedWallet>,
+    wallet_exports_timestamp: BTreeMap<SystemTime, SymKey>,
 }
 
 pub struct ServerBroker {
@@ -167,6 +173,9 @@ impl ServerBroker {
                 local_subscriptions: HashMap::new(),
                 verifiers: HashMap::new(),
                 remote_apps: HashMap::new(),
+                wallet_rendezvous: HashMap::new(),
+                wallet_exports: HashMap::new(),
+                wallet_exports_timestamp: BTreeMap::new(),
             }),
 
             path_users,
@@ -273,10 +282,98 @@ impl ServerBroker {
     }
 }
 
+use async_std::future::timeout;
+
+async fn wait_for_wallet(
+    mut internal_receiver: Receiver<ExportedWallet>,
+    mut sender: Sender<Result<ExportedWallet, ServerError>>,
+    rendezvous: SymKey,
+) -> ResultSend<()> {
+    let wallet_future = internal_receiver.next();
+    let _ = sender
+        .send(
+            match timeout(Duration::from_millis(5 * 60_000), wallet_future).await {
+                Err(_) => Err(ServerError::ExportWalletTimeOut),
+                Ok(Some(w)) => Ok(w),
+                Ok(None) => Err(ServerError::BrokerError),
+            },
+        )
+        .await;
+    BROKER
+        .read()
+        .await
+        .get_server_broker()?
+        .read()
+        .await
+        .remove_rendezvous(&rendezvous)
+        .await;
+
+    Ok(())
+}
+
 //TODO: the purpose of this trait is to have a level of indirection so we can keep some data in memory (cache) and avoid hitting the storage backend (rocksdb) at every call.
 //for now this cache is not implemented, but the structs are ready (see above), and it would just require to change slightly the implementation of the trait functions here below.
 #[async_trait::async_trait]
 impl IServerBroker for ServerBroker {
+    async fn remove_rendezvous(&self, rendezvous: &SymKey) {
+        let mut lock = self.state.write().await;
+        let _ = lock.wallet_rendezvous.remove(&rendezvous);
+    }
+    async fn wait_for_wallet_at_rendezvous(
+        &self,
+        rendezvous: SymKey,
+    ) -> Receiver<Result<ExportedWallet, ServerError>> {
+        let (internal_sender, internal_receiver) = mpsc::unbounded();
+        let (mut sender, receiver) = mpsc::unbounded();
+        {
+            let mut state = self.state.write().await;
+            if state.wallet_rendezvous.contains_key(&rendezvous) {
+                let _ = sender.send(Err(ServerError::BrokerError));
+                sender.close_channel();
+                return receiver;
+            } else {
+                let _ = state
+                    .wallet_rendezvous
+                    .insert(rendezvous.clone(), internal_sender);
+            }
+        }
+        spawn_and_log_error(wait_for_wallet(internal_receiver, sender, rendezvous));
+        receiver
+    }
+
+    async fn get_wallet_export(&self, rendezvous: SymKey) -> Result<ExportedWallet, ServerError> {
+        let mut state = self.state.write().await;
+        match state.wallet_exports.remove(&rendezvous) {
+            Some(wallet) => Ok(wallet),
+            None => Err(ServerError::NotFound),
+        }
+    }
+
+    async fn put_wallet_export(&self, rendezvous: SymKey, export: ExportedWallet) {
+        let mut state = self.state.write().await;
+        let _ = state.wallet_exports.insert(rendezvous.clone(), export);
+        let _ = state
+            .wallet_exports_timestamp
+            .insert(SystemTime::now(), rendezvous);
+    }
+
+    // TODO:  periodically (every 5 min) remove entries in wallet_exports_timestamp and wallet_exports
+
+    async fn put_wallet_at_rendezvous(
+        &self,
+        rendezvous: SymKey,
+        export: ExportedWallet,
+    ) -> Result<(), ServerError> {
+        let mut state = self.state.write().await;
+        match state.wallet_rendezvous.remove(&rendezvous) {
+            None => Err(ServerError::NotFound),
+            Some(mut sender) => {
+                let _ = sender.send(export).await;
+                Ok(())
+            }
+        }
+    }
+
     fn get_block_storage(
         &self,
     ) -> std::sync::Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>> {
