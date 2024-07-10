@@ -813,6 +813,26 @@ impl Verifier {
         }
     }
 
+    pub async fn client_request<
+        A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
+        B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,
+    >(
+        &self,
+        msg: A,
+    ) -> Result<SoS<B>, NgError> {
+        if self.connected_broker.is_some() {
+            let connected_broker = self.connected_broker.clone();
+            let broker = BROKER.read().await;
+            let user = self.user_id().clone();
+
+            broker
+                .request::<A, B>(&Some(user), &connected_broker.into(), msg)
+                .await
+        } else {
+            Err(NgError::NotConnected)
+        }
+    }
+
     async fn send_or_save_event_to_outbox<'a>(
         &'a mut self,
         commit_ref: ObjectRef,

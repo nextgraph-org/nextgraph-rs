@@ -43,9 +43,9 @@ Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/)
 
 ## For contributors
 
-- [Install Rust](https://www.rust-lang.org/tools/install) minimum required MSRV 1.74.0
-- [Install Nodejs](https://nodejs.org/en/download/)
-- [Install LLVM](https://rust-lang.github.io/rust-bindgen/requirements.html)
+-   [Install Rust](https://www.rust-lang.org/tools/install) minimum required MSRV 1.74.0
+-   [Install Nodejs](https://nodejs.org/en/download/)
+-   [Install LLVM](https://rust-lang.github.io/rust-bindgen/requirements.html)
 
 On openbsd, for LLVM you need to choose llvm-17.
 
@@ -56,6 +56,14 @@ cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2
 ```
 
 then :
+
+create a file called `nextgraph/src/local_broker_dev_env.rs` with the content :
+
+```
+pub const PEER_ID: &str = "FtdzuDYGewfXWdoPuXIPb0wnd0SAg1WoA2B14S7jW3MA";
+```
+
+once your ngd server will run in your dev env, replace the above string with the actual PEER ID of your ngd server.
 
 ```
 cargo install cargo-watch
@@ -70,20 +78,20 @@ cargo build
 
 The crates are organized as follow :
 
-- [nextgraph](nextgraph/README.md) : Client library. Use this crate to embed NextGraph client in your Rust application
-- [ngcli](ngcli/README.md) : CLI tool to manipulate the local documents and repos and administrate the server
-- [ngd](ngd/README.md) : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
-- [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the official web app.
-- [ng-sdk-js](ng-sdk-js/DEV.md) : contains the JS SDK, with example for: web app, react app, or node service.
-- ng-repo : Repositories common library
-- ng-net : Network common library
-- ng-verifier : Verifier library, that exposes the document API to the app
-- ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
-- ng-broker : Core and Server Broker library
-- ng-client-ws : Websocket client library
-- ng-storage-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
-- ngone : server for nextgraph.one. helps user bootstrap into the right app. Not useful to you. Published here for transparency
-- ngaccount : server for nextgraph's Broker Service Provider account manager. Not useful to you. Published here for transparency
+-   [nextgraph](nextgraph/README.md) : Client library. Use this crate to embed NextGraph client in your Rust application
+-   [ngcli](ngcli/README.md) : CLI tool to manipulate the local documents and repos and administrate the server
+-   [ngd](ngd/README.md) : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
+-   [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the official web app.
+-   [ng-sdk-js](ng-sdk-js/DEV.md) : contains the JS SDK, with example for: web app, react app, or node service.
+-   ng-repo : Repositories common library
+-   ng-net : Network common library
+-   ng-verifier : Verifier library, that exposes the document API to the app
+-   ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
+-   ng-broker : Core and Server Broker library
+-   ng-client-ws : Websocket client library
+-   ng-storage-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
+-   ngone : server for nextgraph.one. helps user bootstrap into the right app. Not useful to you. Published here for transparency
+-   ngaccount : server for nextgraph's Broker Service Provider account manager. Not useful to you. Published here for transparency
 
 ### Run
 
@@ -224,9 +232,9 @@ additional terms or conditions.
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-  at your option.
+-   Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+-   MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+    at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
 

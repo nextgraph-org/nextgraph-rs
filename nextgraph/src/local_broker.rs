@@ -20,6 +20,8 @@ use once_cell::sync::Lazy;
 use serde_bare::to_vec;
 use serde_json::json;
 use zeroize::Zeroize;
+use qrcode::{render::svg, QrCode};
+use lazy_static::lazy_static;
 
 use ng_repo::block_storage::BlockStorage;
 use ng_repo::block_storage::HashMapBlockStorage;
@@ -27,7 +29,7 @@ use ng_repo::errors::{NgError, ProtocolError};
 use ng_repo::log::*;
 use ng_repo::os_info::get_os_info;
 use ng_repo::types::*;
-use ng_repo::utils::{derive_key, generate_keypair};
+use ng_repo::utils::{derive_key, generate_keypair, encrypt_in_place};
 
 use ng_net::{actor::*,actors::admin::*};
 use ng_net::broker::*;
@@ -1492,6 +1494,238 @@ pub async fn wallet_add(lws: LocalWalletStorageV0) -> Result<(), NgError> {
     }
     Ok(())
 }
+#[cfg(debug_assertions)]
+lazy_static! {
+    
+    static ref NEXTGRAPH_EU: BrokerServerV0 = BrokerServerV0 {
+        server_type: BrokerServerTypeV0::Localhost(14400),
+        can_verify: false,
+        can_forward: false,
+        peer_id: ng_repo::utils::decode_key({use crate::local_broker_dev_env::PEER_ID; PEER_ID}).unwrap(),
+    };
+}
+
+#[cfg(not(debug_assertions))]
+lazy_static! {
+    static ref NEXTGRAPH_EU: BrokerServerV0 = BrokerServerV0 {
+        server_type: BrokerServerTypeV0::Domain("nextgraph.eu".to_string()),
+        can_verify: false,
+        can_forward: false,
+        peer_id: ng_repo::utils::decode_key("FtdzuDYGewfXWdoPuXIPb0wnd0SAg1WoA2B14S7jW3MA").unwrap(),
+    };
+
+}
+
+/// Obtains a Wallet object from a QRCode or a TextCode.
+///
+/// The returned object can be used to import the wallet into a new Device
+/// with the help of the function [wallet_open_with_pazzle_words]
+/// followed by [wallet_import]
+pub async fn wallet_import_from_code(code: String) -> Result<Wallet, NgError> {
+
+    let qr = NgQRCode::from_code(code)?;
+    match qr {
+        NgQRCode::V0(NgQRCodeV0{broker, rendezvous, secret_key, is_rendezvous}) => {
+            let wallet: ExportedWallet = do_ext_call(
+                &broker,
+                ExtWalletGetExportV0 {
+                    id:rendezvous,
+                    is_rendezvous
+                }).await?;
+
+            let mut buf = wallet.0.into_vec();
+            encrypt_in_place(&mut buf,*secret_key.slice(), [0;12]);
+            let wallet: Wallet = serde_bare::from_slice(&buf)?;
+
+            let broker = match LOCAL_BROKER.get() {
+                None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+                Some(Ok(broker)) => broker.read().await,
+            };
+            // check that the wallet is not already present in local_broker
+            let wallet_name = wallet.name();
+            if broker.wallets.get(&wallet_name).is_none() {
+                Ok(wallet)
+            } else {
+                Err(NgError::WalletAlreadyAdded)
+            }
+                
+        }
+    }
+}
+
+/// Starts a rendez-vous to obtain a wallet from other device.
+///
+/// A rendezvous is used when the device that is importing, doesn't have a camera.
+/// The QRCode is displayed on that device, and another device (with camera, and with the wallet) will scan it.
+/// 
+/// Returns the QRcode in SVG format, and the code (a string) to be used with [wallet_import_from_code]
+pub async fn wallet_import_rendezvous(size: u32) -> Result<(String,String), NgError> {
+    let code = NgQRCode::V0(NgQRCodeV0 {
+        broker: NEXTGRAPH_EU.clone(),
+        rendezvous: SymKey::random(),
+        secret_key: SymKey::random(),
+        is_rendezvous: true
+    });
+    let code_string = code.to_code();
+
+    let code_svg = match QrCode::with_error_correction_level(&code_string, qrcode::EcLevel::M) {
+        Ok(qr) => {
+            let svg = qr
+            .render()
+            .max_dimensions(size, size)
+            .dark_color(svg::Color("#000000"))
+            .light_color(svg::Color("#ffffff"))
+            .build();
+            svg
+        },
+        Err(_e) => {return Err(NgError::BrokerError)}
+    };
+
+    Ok((code_svg,code_string))
+}
+
+/// Gets the TextCode to display in order to export the wallet of the current session ID
+///
+/// The ExportedWallet is valid for 5 min.
+/// 
+/// Returns the TextCode
+pub async fn wallet_export_get_textcode(session_id: u64) -> Result<String, NgError> {
+
+    let broker = match LOCAL_BROKER.get() {
+        None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+        Some(Ok(broker)) => broker.read().await,
+    };
+
+    match &broker.config {
+        LocalBrokerConfig::Headless(_) => {
+            return Err(NgError::LocalBrokerIsHeadless)
+        },
+        _ => {
+            let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(session_id)?;
+
+            if is_remote {
+                return Err(NgError::NotImplemented);
+            } else {
+                let session = broker.opened_sessions_list[real_session_id].as_ref()
+                    .ok_or(NgError::SessionNotFound)?;
+                let wallet_name = session.config.wallet_name();
+
+                match broker.wallets.get(&wallet_name) {
+                    None => Err(NgError::WalletNotFound),
+                    Some(lws) => {
+                        let broker = lws.bootstrap.servers().first().unwrap();
+                        let wallet = &lws.wallet;
+            
+                        let secret_key = SymKey::random();
+                        let rendezvous =  SymKey::random();
+                        let code = NgQRCode::V0(NgQRCodeV0 {
+                            broker: broker.clone(),
+                            rendezvous: rendezvous.clone(),
+                            secret_key: secret_key.clone(),
+                            is_rendezvous: false
+                        });
+                        let code_string = code.to_code();
+
+                        let mut wallet_ser = serde_bare::to_vec(wallet)?;
+                        encrypt_in_place(&mut wallet_ser,*secret_key.slice(), [0;12]);
+                        let exported_wallet = ExportedWallet(serde_bytes::ByteBuf::from(wallet_ser));
+            
+                        match session.verifier.client_request::<WalletPutExport, ()>(WalletPutExport::V0(WalletPutExportV0{wallet:exported_wallet, rendezvous_id:rendezvous, is_rendezvous:false})).await {
+                            Err(e) => Err(e),
+                            Ok(SoS::Stream(_)) => Err(NgError::InvalidResponse),
+                            Ok(SoS::Single(_)) => Ok(code_string)          
+                        }
+                    }
+                }
+            }   
+        }
+    }
+}
+
+/// Gets the QRcode to display in order to export a wallet of the current session ID
+///
+/// The ExportedWallet is valid for 5 min.
+/// 
+/// Returns the QRcode in SVG format
+pub async fn wallet_export_get_qrcode(session_id: u64, size: u32) -> Result<String, NgError> {
+
+    let code_string = wallet_export_get_textcode(session_id).await?;
+
+    let code_svg = match QrCode::with_error_correction_level(&code_string, qrcode::EcLevel::M) {
+        Ok(qr) => {
+            let svg = qr
+            .render()
+            .max_dimensions(size, size)
+            .dark_color(svg::Color("#000000"))
+            .light_color(svg::Color("#ffffff"))
+            .build();
+            svg
+        },
+        Err(_e) => {return Err(NgError::BrokerError)}
+    };
+    
+    Ok(code_svg)
+
+}
+
+/// Puts the Wallet to the rendezvous ID that was scanned
+///
+/// The rendezvous ID is valid for 5 min.
+pub async fn wallet_export_rendezvous(session_id: u64, code: String) -> Result<(), NgError> {
+
+    let qr = NgQRCode::from_code(code)?;
+    match qr {
+        NgQRCode::V0(NgQRCodeV0{broker: _, rendezvous, secret_key, is_rendezvous}) => {
+
+            if !is_rendezvous {
+                return Err(NgError::NotARendezVous);
+            }
+
+            let broker = match LOCAL_BROKER.get() {
+                None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+                Some(Ok(broker)) => broker.read().await,
+            };
+        
+            match &broker.config {
+                LocalBrokerConfig::Headless(_) => {
+                    return Err(NgError::LocalBrokerIsHeadless)
+                },
+                _ => {
+                    let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(session_id)?;
+        
+                    if is_remote {
+                        return Err(NgError::NotImplemented);
+                    } else {
+                        let session = broker.opened_sessions_list[real_session_id].as_ref()
+                            .ok_or(NgError::SessionNotFound)?;
+                        let wallet_name = session.config.wallet_name();
+        
+                        match broker.wallets.get(&wallet_name) {
+                            None => Err(NgError::WalletNotFound),
+                            Some(lws) => {
+                                //let broker = lws.bootstrap.servers().first().unwrap();
+                                let wallet = &lws.wallet;
+        
+                                let mut wallet_ser = serde_bare::to_vec(wallet)?;
+                                encrypt_in_place(&mut wallet_ser,*secret_key.slice(), [0;12]);
+                                let exported_wallet = ExportedWallet(serde_bytes::ByteBuf::from(wallet_ser));
+                    
+                                // TODO: send the WalletPutExport client request to the broker received from QRcode. for now it is cheer luck that all clients are connected to nextgraph.eu.
+                                // if the user doesn't have an account with nextgraph.eu, their broker should relay the request (core protocol ?)
+
+                                match session.verifier.client_request::<WalletPutExport, ()>(WalletPutExport::V0(WalletPutExportV0{wallet:exported_wallet, rendezvous_id:rendezvous, is_rendezvous:true})).await {
+                                    Err(e) => Err(e),
+                                    Ok(SoS::Stream(_)) => Err(NgError::InvalidResponse),
+                                    Ok(SoS::Single(_)) => Ok(())          
+                                }
+                            }
+                        }
+                    }   
+                }
+            }
+        }
+    }
+}
 
 /// Reads a binary Wallet File and decodes it to a Wallet object.
 ///
@@ -2126,7 +2360,7 @@ pub async fn app_request(request: AppRequest) -> Result<AppResponse, NgError> {
                 let session = broker.opened_sessions_list[real_session_id]
                     .as_mut()
                     .ok_or(NgError::SessionNotFound)?;
-                    session.verifier.app_request(request).await
+                session.verifier.app_request(request).await
             }   
         }
     }
@@ -2209,6 +2443,29 @@ async fn do_admin_call<
             admin_user_key.to_pub(),
             admin_user_key.clone(),
             bind_address,
+            cmd,
+        )
+        .await
+}
+
+async fn do_ext_call<
+    A: Into<ProtocolMessage> + Into<ExtRequestContentV0> + std::fmt::Debug + Sync + Send + 'static,
+    B: TryFrom<ProtocolMessage, Error = ProtocolError>
+            + std::fmt::Debug
+            + Sync
+            + Send
+            + 'static,
+>(
+    broker_server: &BrokerServerV0,
+    cmd: A,
+) -> Result<B, NgError> {
+    let (peer_privk, peer_pubk) = generate_keypair();
+    Broker::ext(
+            Box::new(ConnectionWebSocket {}),
+            peer_privk,
+            peer_pubk,
+            broker_server.peer_id,
+            broker_server.get_ws_url(&None).await.unwrap().0, // for now we are only connecting to NextGraph SaaS cloud (nextgraph.eu) so it is safe.
             cmd,
         )
         .await
