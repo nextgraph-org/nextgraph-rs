@@ -1613,23 +1613,20 @@ pub async fn wallet_export_get_textcode(session_id: u64) -> Result<String, NgErr
                 match broker.wallets.get(&wallet_name) {
                     None => Err(NgError::WalletNotFound),
                     Some(lws) => {
-                        let broker = lws.bootstrap.servers().first().unwrap();
+                        //let broker = lws.bootstrap.servers().first().unwrap();
                         let wallet = &lws.wallet;
-            
                         let secret_key = SymKey::random();
                         let rendezvous =  SymKey::random();
                         let code = NgQRCode::V0(NgQRCodeV0 {
-                            broker: broker.clone(),
+                            broker: NEXTGRAPH_EU.clone(),
                             rendezvous: rendezvous.clone(),
                             secret_key: secret_key.clone(),
                             is_rendezvous: false
                         });
                         let code_string = code.to_code();
-
                         let mut wallet_ser = serde_bare::to_vec(wallet)?;
                         encrypt_in_place(&mut wallet_ser,*secret_key.slice(), [0;12]);
                         let exported_wallet = ExportedWallet(serde_bytes::ByteBuf::from(wallet_ser));
-            
                         match session.verifier.client_request::<WalletPutExport, ()>(WalletPutExport::V0(WalletPutExportV0{wallet:exported_wallet, rendezvous_id:rendezvous, is_rendezvous:false})).await {
                             Err(e) => Err(e),
                             Ok(SoS::Stream(_)) => Err(NgError::InvalidResponse),

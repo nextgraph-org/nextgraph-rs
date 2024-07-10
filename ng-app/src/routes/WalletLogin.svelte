@@ -379,6 +379,14 @@
             </button>
           </a>
           <button
+            on:click={async () => {
+              try {
+                wallet = await ng.wallet_import_from_code("AABAOAAAAHNb4y7hdWADqFWDgER3J0xvD3K5D9pZ1wd7Bja4c9cWAOFNpmUIZOFRro0UIpZWr5Ah8U7PlRFe1GFZSKuIextFAA8A45zZUJmUPhfdBrcho1vYPfgda0BAgIT1qjzgEkBQAA");
+                importing = true;
+              } catch (e) {
+                error = e;
+              }
+            }}
             style="min-width: 250px;justify-content: left;"
             class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
           >
