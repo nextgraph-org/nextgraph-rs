@@ -53,6 +53,7 @@
       await scrollToTop();
     }
     text_code = await ng.wallet_export_get_textcode($active_session.session_id);
+    qr_code = await ng.wallet_export_get_qrcode($active_session.session_id, 250);
   });
 
   let downloading = false;
@@ -80,11 +81,16 @@
   }
 
   let text_code;
+  let qr_code;
 
   let wallet_remove_modal_open = false;
   async function remove_wallet_clicked() {
     //wallet_remove_modal_open = true;
-    await ng.wallet_export_rendezvous($active_session.session_id, "AABAOAAAAHNb4y7hdWADqFWDgER3J0xvD3K5D9pZ1wd7Bja4c9cWAGLFmUlRYG3D2ULZKhHltZY9IhE2wzBbOqRL-PLw7ZiKAJPyRr_TGnHd-9Uh2Zsv9ahfOWD6tB3q8tVPUS54qdrdAQ");
+    try {
+      await ng.wallet_export_rendezvous($active_session.session_id, "AABAOAAAAHNb4y7hdWADqFWDgER3J0xvD3K5D9pZ1wd7Bja4c9cWAGpnQYDjun-jOFI8XookNLWKfgpQIkDS21VruUzizWahAH6fStLoA0kBMVR5ZMPHMv7RpQITUGZmZsjlWjnxCRZBAQ");
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   const close_modal = () => {
@@ -215,7 +221,11 @@
 
             <li class="break-all">
               {text_code}
+              {#if qr_code}
+                {@html qr_code}
+              {/if}
             </li>
+            
 
             <!-- Remove Wallet -->
             <li
