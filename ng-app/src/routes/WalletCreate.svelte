@@ -44,7 +44,7 @@
   } from "../wallet_emojis";
 
   import { onMount, onDestroy, tick } from "svelte";
-  import { wallets, set_active_session, has_wallets } from "../store";
+  import { wallets, set_active_session, has_wallets, display_error } from "../store";
 
   const param = new URLSearchParams($querystring);
 
@@ -315,7 +315,7 @@
     unsub_register_accepted = undefined;
   };
 
-  onDestroy(() => {
+  onDestroy(async () => {
     unsub_register();
   });
 
@@ -589,7 +589,7 @@
             {:else}
               <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
                 {@html $t("errors.error_occurred", {
-                  values: { message: $t("errors." + registration_error) },
+                  values: { message: display_error(registration_error) },
                 })}
               </p>
               <a use:link href="/">
@@ -1743,7 +1743,7 @@
               />
             </svg>
             <Alert color="red" class="mt-5">
-              {$t("errors." + error)}
+              {display_error(error)}
             </Alert>
             <button
               class="mt-10 select-none"

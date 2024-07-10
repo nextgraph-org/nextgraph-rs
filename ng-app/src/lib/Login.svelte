@@ -32,6 +32,7 @@
     ArrowLeft,
   } from "svelte-heros-v2";
   import PasswordInput from "./components/PasswordInput.svelte";
+  import { display_error } from "../store";
   //import Worker from "../worker.js?worker&inline";
   export let wallet;
   export let for_import = false;
@@ -685,7 +686,7 @@
             />
           </svg>
           <Alert color="red" class="mt-5">
-            {$t("errors." + error)}
+            {display_error(error)}
           </Alert>
         </div>
         <div class="flex justify-between mt-auto gap-4">

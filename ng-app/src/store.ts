@@ -15,7 +15,7 @@ import {
     get,
     type Writable,
 } from "svelte/store";
-import { register, init, locale } from "svelte-i18n";
+import { register, init, locale, format } from "svelte-i18n";
 import ng from "./api";
 import { official_classes } from "./classes";
 import { official_apps, official_services } from "./zeras";
@@ -42,6 +42,15 @@ init({
   fallbackLocale: "en",
   initialLocale: "en",
 });
+
+export const display_error = (error:string) => {
+    const parts = error.split(":");
+    let res = get(format)("errors."+parts[0]);
+    if (parts[1]) {
+        res += " "+get(format)("errors."+parts[1]);
+    }
+    return res;
+} 
 
 export const select_default_lang = async () => {
     let locales = await ng.locales();
@@ -147,6 +156,8 @@ export const cur_tab = writable({
     action: false, // "view_as", "edit_with", "share", "react", "repost", "copy", "dm_author", "new_block", "notifs", "schema", "signature", "permissions", "query",
 
 });
+
+export const wallet_import_qrcode = writable("");
 
 export const opened_wallets = writable({});
 
