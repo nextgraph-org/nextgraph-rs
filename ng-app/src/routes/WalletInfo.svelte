@@ -136,9 +136,15 @@
     html5QrcodeScanner = new WebQRScanner(
       "scanner-div",
       { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] },
-      /* verbose= */ false
+      false
     );
     html5QrcodeScanner.render(onScanSuccess, undefined);
+
+    // Auto-Request camera permissions (there's no native way, unfortunately...)
+    setTimeout(() => {
+      // Auto-start by clicking button
+      document.getElementById("html5-qrcode-button-camera-permission")?.click();
+    }, 100);
   }
 
   function close_scanner() {

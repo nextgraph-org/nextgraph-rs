@@ -18,7 +18,7 @@
 <script lang="ts">
   import { onMount, onDestroy, tick } from "svelte";
   import { link, push } from "svelte-spa-router";
-  import { t, locale  } from "svelte-i18n";
+  import { t, locale } from "svelte-i18n";
   import Login from "../lib/Login.svelte";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import ng from "../api";
@@ -33,6 +33,7 @@
     set_active_session,
     has_wallets,
   } from "../store";
+  import { QrCode } from "svelte-heros-v2";
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
 
@@ -302,56 +303,40 @@
             </svg>
             {$t("pages.wallet_login.import_file")}
           </button>
-          <Button
-            style="min-width: 250px;justify-content: left;"
-            disabled
-            class="disabled mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
-          >
-            <svg
-              class="w-8 h-8 mr-2 -ml-1"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
+          <a href="/wallet/login-qr" use:link>
+            <Button
+              style="min-width: 250px;justify-content: left;"
+              class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"
-              />
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"
-              />
-            </svg>
-            {$t("pages.wallet_login.import_qr")}
-          </Button>
-          <Button
-            style="min-width: 250px;justify-content: left;"
-            disabled
-            class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-          >
-            <svg
-              class="w-8 h-8 mr-2 -ml-1"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
+              <QrCode class="w-8 h-8 mr-2 -ml-1" />
+              {$t("pages.wallet_login.import_qr")}
+            </Button>
+          </a>
+          <a href="/wallet/login-text-code" use:link>
+            <Button
+              style="min-width: 250px;justify-content: left;"
+              disabled
+              class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
-              />
-            </svg>
+              <svg
+                class="w-8 h-8 mr-2 -ml-1"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
+                />
+              </svg>
 
-            {$t("pages.wallet_login.import_link")}
-          </Button>
+              {$t("pages.wallet_login.import_link")}
+            </Button>
+          </a>
           <a href="/wallet/create" use:link>
             <button
               tabindex="-1"
