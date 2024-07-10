@@ -38,11 +38,15 @@
 
   import ng from "./api";
   import AccountInfo from "./routes/AccountInfo.svelte";
+  import WalletLoginQr from "./routes/WalletLoginQr.svelte";
+  import WalletLoginTextCode from "./routes/WalletLoginTextCode.svelte";
 
   const routes = new Map();
   routes.set("/", Home);
   routes.set("/test", Test);
   routes.set("/wallet/login", WalletLogin);
+  routes.set("/wallet/login-qr", WalletLoginQr);
+  routes.set("/wallet/login-text-code", WalletLoginTextCode);
   routes.set("/wallet/create", WalletCreate);
   routes.set("/i/:invitation", Invitation);
   routes.set("/user", User);
@@ -286,5 +290,3 @@
 {:else}
   <Router {routes} />
 {/if}
-
-

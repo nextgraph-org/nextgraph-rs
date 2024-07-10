@@ -9,6 +9,15 @@
 // according to those terms.
 */
 
+/** To format paths, like Settings > Wallet > Generate Wallet QR */
+.path {
+  font-family: monospace;
+  background-color: rgba(73, 114, 165, 0.1);
+}
+
+/* TODO: hide qr scanner and info button */
+
+
 .logo {
   padding: 1.5em;
   will-change: filter;

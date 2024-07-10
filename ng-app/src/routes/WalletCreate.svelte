@@ -1622,7 +1622,6 @@
 
               <br />
 
-              <!-- Mnemonic (copy button). TODO: once the component is available-->
               <label for="mnemonic"
                 >{@html $t("pages.wallet_create.your_mnemonic")}</label
               >

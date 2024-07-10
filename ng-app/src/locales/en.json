@@ -30,17 +30,17 @@
       "remove_wallet_modal.confirm": "Are you sure you want to remove this wallet from your device?",
       "offline_warning": "You cannot export your Wallet with QR-Code while being offline.<br />Please connect to the internet and to your broker first.",
       "scan_qr.title": "Export by scanning QR-Code",
-      "scan_qr.notes": "Scan the QR-Code on the device that you want to transfer your wallet to.<br />For the wallet transfer, you agree that your double-encrypted wallet is stored on our servers for no more than 5 minutes.",
+      "scan_qr.notes": "Scan the QR-Code on the device that you want to transfer your wallet to.<br />During this wallet import, your wallet will be temporarily and securely stored on our servers for up to 5 minutes, using two levels of encryption.",
       "scan_qr.scan_btn": "Scan QR Code ",
       "scan_qr.scanner.title": "Scan your QR Code",
       "scan_qr.scanner.loading": "Loading scanner",
       "scan_qr.syncing": "Synchronizing wallet",
       "scan_qr.scan_successful": "Success!<br />Your wallet has been synchronized to the new device.",
       "gen_qr.title": "Export with generated QR-Code",
-      "gen_qr.notes": "Use the following QR-Code to scan with the device that you want to transfer your wallet to.<br />For the wallet transfer, you agree for your double-encrypted wallet to be stored on our servers for no more than 5 minutes.",
+      "gen_qr.notes": "Use the following QR-Code to scan with the device that you want to transfer your wallet to.<br />During this wallet import, your wallet will be temporarily and securely stored on our servers for up to 5 minutes, using two levels of encryption.",
       "gen_qr.img_title": "Your Export QR Code to Scan",
       "gen_qr.img_alt": "Your Export QR Code to Scan",
-      "gen_qr.gen_button": "Generate QR Code"
+      "gen_qr.gen_button": "Display QR Code"
     },
     "settings": {
       "title": "Settings"
@@ -244,6 +244,25 @@
       "import_link": "Enter a Wallet Link",
       "new_wallet": "Create a new Wallet",
       "logged_in": "You are logged in.<br /> please wait while the app is loading"
+    },
+    "wallet_login_qr": {
+      "title": "Import Wallet with QR-Code",
+      "offline_warning": "Cannot connect to the wallet synchronization service. Are you offline?",
+      "scan.description": "To import your wallet from another device, generate a wallet QR-Code there. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Generate QR</span> to export.<br />Both devices need to be online.<br />For the wallet transfer, your wallet will be temporarily and securely stored on our servers for up to 5 minutes, using double encryption.",
+      "scan.button": "Scan QR-Code",
+      "scan.syncing": "Importing wallet",
+      "scan.error": "An error occurred transferring wallet: {error}",
+      "scan.modal.title": "Scan Wallet QR-Code",
+      "scan.success": "Your wallet has been imported!",
+      "gen.button": "Generate",
+      "gen.description": "To import your wallet from another device, you have to display a QR-Code here on this device, and then scan it with your other device. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Scan QR</span> to export.<br />Both devices need to be online.<br />For the wallet transfer, your wallet will be temporarily and securely stored on our servers for up to 5 minutes, using double encryption. If your other device does not have a camera, then you should use the \"Enter a TextCode\" option on the previous screen.",
+      "gen.generated": "Scan this QR-Code from the the other device.",
+      "gen.success": "Your wallet has been imported!",
+      "success_btn": "Continue to Login"
+    },
+    "wallet_login_textcode": {
+      "title": "Import Wallet from TextCode",
+      "warning": "You have to exchange this TextCode with the other device by any means available to you (email, other messenger apps, etc...). It is highly recommended to use a tool that is end-to-end encrypted. If you can, you should use instead the \"Import with QRCode\" option, as it is safer. If your devices are not connected to the internet, then you can use the \"Import a Wallet File\" option. In this case, you will transfer the wallet file with a USB key, from one device to the other, or for mobile, by connecting your mobile with the USB cable, to the computer, and then transferring the file with the File Transfer utility on Android, or AirDrop/Finder/iTunes on an iPhone/mac/PC. We do not recommend uploading your wallet file to any cloud service."
     }
   },
   "buttons": {
