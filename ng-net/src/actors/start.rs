@@ -23,7 +23,7 @@ use crate::actors::noise::Noise;
 use crate::connection::NoiseFSM;
 use crate::types::{
     AdminRequest, ClientInfo, CoreBrokerConnect, CoreBrokerConnectResponse, CoreMessage,
-    CoreMessageV0, CoreResponse, CoreResponseContentV0, CoreResponseV0, ExtResponse,
+    CoreMessageV0, CoreResponse, CoreResponseContentV0, CoreResponseV0, ExtRequest,
 };
 use crate::{actor::*, types::ProtocolMessage};
 
@@ -34,7 +34,7 @@ use crate::{actor::*, types::ProtocolMessage};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum StartProtocol {
     Client(ClientHello),
-    Ext(ExtHello),
+    Ext(ExtRequest),
     Core(CoreHello),
     Admin(AdminRequest),
     App(AppHello),
@@ -136,28 +136,28 @@ impl EActor for Actor<'_, CoreBrokerConnect, CoreBrokerConnectResponse> {
     }
 }
 
-/// External Hello (finalizes the Noise handshake and sends first ExtRequest)
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ExtHello {
-    // contains the 3rd Noise handshake message "s,se"
-    pub noise: Noise,
+// /// External Hello (finalizes the Noise handshake and sends first ExtRequest)
+// #[derive(Clone, Debug, Serialize, Deserialize)]
+// pub struct ExtHello {
+//     // contains the 3rd Noise handshake message "s,se"
+//     pub noise: Noise,
 
-    /// Noise encrypted payload (an ExtRequest)
-    #[serde(with = "serde_bytes")]
-    pub payload: Vec<u8>,
-}
+//     /// Noise encrypted payload (an ExtRequest)
+//     #[serde(with = "serde_bytes")]
+//     pub payload: Vec<u8>,
+// }
 
-impl ExtHello {
-    pub fn get_actor(&self) -> Box<dyn EActor> {
-        Actor::<ExtHello, ExtResponse>::new_responder(0)
-    }
-}
+// impl ExtHello {
+//     pub fn get_actor(&self) -> Box<dyn EActor> {
+//         Actor::<ExtHello, ExtResponse>::new_responder(0)
+//     }
+// }
 
-impl From<ExtHello> for ProtocolMessage {
-    fn from(msg: ExtHello) -> ProtocolMessage {
-        ProtocolMessage::Start(StartProtocol::Ext(msg))
-    }
-}
+// impl From<ExtHello> for ProtocolMessage {
+//     fn from(msg: ExtHello) -> ProtocolMessage {
+//         ProtocolMessage::Start(StartProtocol::Ext(msg))
+//     }
+// }
 
 /// Client Hello
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -251,18 +251,18 @@ impl EActor for Actor<'_, ClientHello, ServerHello> {
     }
 }
 
-impl Actor<'_, ExtHello, ExtResponse> {}
+// impl Actor<'_, ExtHello, ExtResponse> {}
 
-#[async_trait::async_trait]
-impl EActor for Actor<'_, ExtHello, ExtResponse> {
-    async fn respond(
-        &mut self,
-        _msg: ProtocolMessage,
-        _fsm: Arc<Mutex<NoiseFSM>>,
-    ) -> Result<(), ProtocolError> {
-        Ok(())
-    }
-}
+// #[async_trait::async_trait]
+// impl EActor for Actor<'_, ExtHello, ExtResponse> {
+//     async fn respond(
+//         &mut self,
+//         _msg: ProtocolMessage,
+//         _fsm: Arc<Mutex<NoiseFSM>>,
+//     ) -> Result<(), ProtocolError> {
+//         Ok(())
+//     }
+// }
 
 // ///////////// APP HELLO ///////////////
 

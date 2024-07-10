@@ -98,3 +98,6 @@ pub mod verifier {
 pub mod wallet {
     pub use ng_wallet::*;
 }
+
+#[cfg(debug_assertions)]
+mod local_broker_dev_env;

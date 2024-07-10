@@ -21,3 +21,5 @@ pub mod client;
 pub mod admin;
 
 pub mod app;
+
+pub mod ext;

@@ -16,6 +16,7 @@ importers:
       '@sveltejs/vite-plugin-svelte': ^2.0.0
       '@tauri-apps/api': 2.0.0-alpha.8
       '@tauri-apps/cli': 2.0.0-alpha.14
+      '@tauri-apps/plugin-barcode-scanner': 2.0.0-alpha.0
       '@tauri-apps/plugin-window': 2.0.0-alpha.1
       '@tsconfig/svelte': ^3.0.0
       '@types/node': ^18.7.10
@@ -50,6 +51,7 @@ importers:
     dependencies:
       '@popperjs/core': 2.11.8
       '@tauri-apps/api': 2.0.0-alpha.8
+      '@tauri-apps/plugin-barcode-scanner': 2.0.0-alpha.0
       '@tauri-apps/plugin-window': 2.0.0-alpha.1
       async-proxy: 0.4.1
       classnames: 2.3.2
@@ -891,6 +893,12 @@ packages:
       '@tauri-apps/cli-win32-ia32-msvc': 2.0.0-alpha.14
       '@tauri-apps/cli-win32-x64-msvc': 2.0.0-alpha.14
     dev: true
+
+  /@tauri-apps/plugin-barcode-scanner/2.0.0-alpha.0:
+    resolution: {integrity: sha512-qXc/HfGdWI2x2vUEfgf65kb4Bw3PEDMLz6tNizLdzQ5Q4wJLMkaPZxFsqS6ZbuRjILAqM0lfp/otgR93OGVOgA==}
+    dependencies:
+      '@tauri-apps/api': 2.0.0-alpha.8
+    dev: false
 
   /@tauri-apps/plugin-window/2.0.0-alpha.1:
     resolution: {integrity: sha512-dFOAgal/3Txz3SQ+LNQq0AK1EPC+acdaFlwPVB/6KXUZYmaFleIlzgxDVoJCQ+/xOhxvYrdQaFLefh0I/Kldbg==}
