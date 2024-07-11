@@ -61,6 +61,11 @@ pub async fn locales() -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
+pub async fn get_device_name() -> Result<JsValue, JsValue> {
+    Ok(serde_wasm_bindgen::to_value(&nextgraph::get_device_name()).unwrap())
+}
+
+#[wasm_bindgen]
 pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {
     let res = retrieve_local_bootstrap(location, invite.as_string(), false).await;
     if res.is_some() {

@@ -34,6 +34,7 @@ const mapping = {
     "user_disconnect": ["user_id"],
     "app_request": ["request"],
     "test": [ ],
+    "get_device_name": [],
     "doc_fetch_private_subscribe": [],
     "doc_fetch_repo_subscribe": ["repo_id"],
 }

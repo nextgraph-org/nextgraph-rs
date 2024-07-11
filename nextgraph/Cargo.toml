@@ -26,6 +26,7 @@ async-std = { version = "1.12.0", features = [ "attributes", "unstable" ] }
 async-trait = "0.1.64"
 async-once-cell = "0.5.3"
 web-time = "0.2.0"
+whoami = "1.5.1"
 ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1" }
 ng-net = { path = "../ng-net", version = "0.1.0-preview.1" }
 ng-wallet = { path = "../ng-wallet", version = "0.1.0-preview.5" }
