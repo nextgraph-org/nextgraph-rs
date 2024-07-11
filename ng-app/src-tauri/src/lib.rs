@@ -127,8 +127,9 @@ async fn wallet_open_with_mnemonic_words(
     pin: [u8; 4],
     _app: tauri::AppHandle,
 ) -> Result<SensitiveWallet, String> {
-    let wallet = nextgraph::local_broker::wallet_open_with_mnemonic_words(&wallet, &mnemonic_words, pin)
-        .map_err(|e| e.to_string())?;
+    let wallet =
+        nextgraph::local_broker::wallet_open_with_mnemonic_words(&wallet, &mnemonic_words, pin)
+            .map_err(|e| e.to_string())?;
     Ok(wallet)
 }
 
@@ -491,6 +492,11 @@ fn client_info_rust() -> Result<Value, String> {
     Ok(ng_repo::os_info::get_os_info())
 }
 
+#[tauri::command(rename_all = "snake_case")]
+fn get_device_name() -> Result<String, String> {
+    Ok(nextgraph::get_device_name())
+}
+
 #[derive(Default)]
 pub struct AppBuilder {
     setup: Option<SetupHook>,
@@ -565,6 +571,7 @@ impl AppBuilder {
                 app_request_stream,
                 app_request,
                 upload_chunk,
+                get_device_name,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

@@ -141,9 +141,6 @@
   let confirm_modal_open = false;
   let device_name;
 
-  // TODO @niko add API
-  // ng.get_device_name().then((name) => (device_name = name));
-
   function scrollToTop() {
     top.scrollIntoView();
   }
@@ -226,6 +223,8 @@
   }
 
   async function save_security() {
+    
+    device_name = await ng.get_device_name();
     options = {
       trusted: true,
       cloud: false,
@@ -259,7 +258,7 @@
       core_bootstrap: invitation.V0.bootstrap,
       core_registration,
       additional_bootstrap,
-      device_name,
+      //TODO: device_name,
     };
     //console.log("do wallet with params", params);
     try {
@@ -1441,14 +1440,12 @@
               </p>
               <input
                 id="device-name-input"
-                disabled
-                class="cursor-not-allowed opacity-50 mt-2 bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                class="mt-2 bg-gray-50 border border-gray-300 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                 bind:value={device_name}
                 placeholder={$t(
-                  "pages.wallet_create.save_wallet_options.device_name_placeholder"
+                  "pages.login.device_name_placeholder"
                 )}
                 type="text"
-                autocomplete="device-name"
               />
             {/if}
             <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">

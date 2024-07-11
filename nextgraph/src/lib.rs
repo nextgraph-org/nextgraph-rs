@@ -98,3 +98,34 @@ pub mod verifier {
 pub mod wallet {
     pub use ng_wallet::*;
 }
+
+pub fn get_device_name() -> String {
+    let mut list: Vec<String> = Vec::with_capacity(3);
+    #[cfg(not(target_arch = "wasm32"))]
+    if let Ok(realname) = whoami::fallible::realname() {
+        list.push(realname);
+    } else {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(username) = whoami::fallible::username() {
+            list.push(username);
+        }
+    }
+    if let Ok(devicename) = whoami::fallible::devicename() {
+        list.push(devicename);
+    } else {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(hostname) = whoami::fallible::hostname() {
+            list.push(hostname);
+        } else {
+            if let Ok(distro) = whoami::fallible::distro() {
+                list.push(distro);
+            }
+        }
+    }
+    #[cfg(target_arch = "wasm32")]
+    if let Ok(distro) = whoami::fallible::distro() {
+        list.push(distro);
+    }
+
+    list.join(" ")
+}

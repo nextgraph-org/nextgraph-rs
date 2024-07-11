@@ -47,9 +47,13 @@
 
   onMount(async () => {
     loaded = false;
+    if (for_import) {
+      device_name = await ng.get_device_name();
+    }
     load_svg();
     //console.log(wallet);
     await init();
+
   });
 
   async function init() {
@@ -122,9 +126,6 @@
   let unlockWith: "pazzle" | "mnemonic" | undefined;
 
   let device_name;
-
-  // TODO: @niko Implement API
-  // ng.get_device_name().then((name) => (device_name = name));
 
   function order() {
     step = "order";
@@ -412,12 +413,10 @@
             </label>
             <input
               id="device-name-input"
-              disabled
               bind:value={device_name}
               placeholder={$t("pages.login.device_name_placeholder")}
               type="text"
-              autocomplete="device-name"
-              class="w-full mb-4 lg:px-8 mx-auto px-4 cursor-not-allowed opacity-50 bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+              class="w-full mb-10 lg:px-8 mx-auto px-4 bg-gray-50 border border-gray-300 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
             />
           {/if}
 
@@ -449,7 +448,7 @@
             on:keypress={start_with_mnemonic}
             role="link"
             tabindex="0"
-            class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center mb-2 underline cursor-pointer"
+            class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center mb-10 underline cursor-pointer"
           >
             {$t("pages.login.open_with_mnemonic")}
           </span>
