@@ -43,14 +43,16 @@ init({
     initialLocale: "en",
 });
 
-export const display_error = (error:string) => {
+export const display_error = (error: string) => {
+    // Check, if error tranlsation does not exist
     const parts = error.split(":");
-    let res = get(format)("errors."+parts[0]);
+
+    let res = get(format)("errors." + parts[0]);
     if (parts[1]) {
-        res += " "+get(format)("errors."+parts[1]);
+        res += " " + get(format)("errors." + parts[1]);
     }
     return res;
-} 
+}
 
 export const select_default_lang = async () => {
     let locales = await ng.locales();
@@ -157,7 +159,8 @@ export const cur_tab = writable({
 
 });
 
-export const wallet_import_qrcode = writable("");
+export const scanned_qr_code = writable("");
+export const wallet_from_import = writable<null | object>(null);
 
 export const opened_wallets = writable({});
 

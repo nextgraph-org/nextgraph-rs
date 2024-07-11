@@ -16,6 +16,30 @@
 }
 
 /* TODO: hide qr scanner and info button */
+#scanner-div {
+  border: none !important;
+}
+#scanner-div * {
+  display: none; 
+}
+#scanner-div__scan_region {
+  display: block;
+}
+#scanner-div__scan_region * {
+  display: block;
+}
+#scanner-div__dashboard_section_csr {
+  display: none !important;
+}
+#html5-qrcode-anchor-scan-type-change {
+  display: none !important;
+}
+[alt="Camera based scan"] {
+  display: none !important;
+}
+[alt="Info icon"] {
+  display: none !important;
+}
 
 
 .logo {

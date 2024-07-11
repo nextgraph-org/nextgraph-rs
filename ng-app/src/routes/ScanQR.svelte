@@ -10,42 +10,94 @@
 -->
 
 <!--
-  Home page to display for logged in users.
-  Redirects to no-wallet or login page, if not logged in.
+  @component
+  QR Scanner Component and Route
 -->
 
-<script>
+<script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import {
-    wallet_import_qrcode
-  } from "../store";
+  import { t } from "svelte-i18n";
+  import { scanned_qr_code } from "../store";
+  import { ArrowLeft } from "svelte-heros-v2";
+  import { Spinner } from "flowbite-svelte";
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
   let mobile = tauri_platform == "android" || tauri_platform == "ios";
-  
+
+  let webScanner;
+  let nativeScanner;
+
+  function on_qr_scanned(content) {
+    scanned_qr_code.set(content);
+    window.history.go(-1);
+  }
+
   onMount(async () => {
-    //TODO: here we should also take into account the case of a webapp with camera feature, and sue the lib https://www.npmjs.com/package/html5-qrcode
     if (mobile) {
-      const scanner = await import("@tauri-apps/plugin-barcode-scanner");
-      let perms = await scanner.requestPermissions();
+      // Load Native Scanner
+      nativeScanner = await import("@tauri-apps/plugin-barcode-scanner");
+
+      let perms = await nativeScanner.requestPermissions();
       console.log(perms);
-      wallet_import_qrcode.set("");
-      let result = await scanner.scan({ windowed: false, cameraDirection: "back", formats: [scanner.Format.QRCode] })
-      console.log(result)
-      wallet_import_qrcode.set(result.content);
-      window.history.go(-1);
+      scanned_qr_code.set("");
+      let result = await nativeScanner.scan({
+        windowed: false,
+        cameraDirection: "back",
+        formats: [nativeScanner.Format.QRCode],
+      });
+      console.log(result);
+      on_qr_scanned(result.content);
+    } else {
+      // Load Web Scanner
+      const { Html5QrcodeScanner } = await import("html5-qrcode");
+      // Init scanner object
+      webScanner = new Html5QrcodeScanner(
+        "scanner-div",
+        { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] },
+        false
+      );
+
+      // Add scanner to Screen.
+      webScanner.render((decoded_text, decoded_result) => {
+        // Handle scan result
+        on_qr_scanned(decoded_text);
+      }, undefined);
+
+      // Auto-Request camera permissions (there's no native way, unfortunately...)
+      setTimeout(() => {
+        // Auto-start by clicking button
+        document
+          .getElementById("html5-qrcode-button-camera-permission")
+          ?.click();
+      }, 100);
     }
   });
 
   onDestroy(async () => {
     if (mobile) {
-      const scanner = await import("@tauri-apps/plugin-barcode-scanner");
-      await scanner.cancel();
+      if (nativeScanner) await nativeScanner.cancel();
+    } else {
+      if (webScanner) webScanner.clear();
     }
   });
 </script>
 
 <div class="text-center">
-  <!-- please translate this too. i didnt want to do it to avoid a merge conflict-->
-  Scanning the QRcode
+  <div>
+    <h2 class="text-xl mb-6">{$t("pages.scan_qr.scanning")}</h2>
+  </div>
+
+  <!-- Web Scanner -->
+  <div id="scanner-div"><Spinner /></div>
+
+  <div class="mx-auto max-w-xs">
+    <button
+      on:click={() => window.history.go(-1)}
+      class="mt-8 w-full text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+      ><ArrowLeft
+        tabindex="-1"
+        class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
+      />{$t("buttons.back")}</button
+    >
+  </div>
 </div>
