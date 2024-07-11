@@ -44,7 +44,7 @@
   } from "../wallet_emojis";
 
   import { onMount, onDestroy, tick } from "svelte";
-  import { wallets, set_active_session, has_wallets, display_error } from "../store";
+  import { wallets, has_wallets, display_error } from "../store";
   import Spinner from "../lib/components/Spinner.svelte";
 
   const param = new URLSearchParams($querystring);
@@ -223,7 +223,6 @@
   }
 
   async function save_security() {
-    
     device_name = await ng.get_device_name();
     options = {
       trusted: true,
@@ -583,7 +582,7 @@
                   tabindex="-1"
                   class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
                 >
-                  {$t("bottons.back_to_homepage")}
+                  {$t("buttons.back_to_homepage")}
                 </button>
               </a>
             {/if}
@@ -1442,9 +1441,7 @@
                 id="device-name-input"
                 class="mt-2 bg-gray-50 border border-gray-300 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                 bind:value={device_name}
-                placeholder={$t(
-                  "pages.login.device_name_placeholder"
-                )}
+                placeholder={$t("pages.login.device_name_placeholder")}
                 type="text"
               />
             {/if}

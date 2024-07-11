@@ -1,14 +1,8 @@
 <script lang="ts">
   import { t } from "svelte-i18n";
   import { Alert, Modal, Spinner } from "flowbite-svelte";
-  import {
-    ArrowLeft,
-    ArrowRightCircle,
-    Camera,
-    CheckBadge,
-    QrCode,
-  } from "svelte-heros-v2";
-  import { onMount } from "svelte";
+  import { ArrowLeft, Camera, QrCode } from "svelte-heros-v2";
+  import { onDestroy, onMount } from "svelte";
   import { push } from "svelte-spa-router";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import { wallet_from_import, scanned_qr_code, display_error } from "../store";
@@ -16,7 +10,7 @@
 
   // <a href="/wallet/scanqr" use:link>
 
-  let top;
+  let top: HTMLElement;
   const tauri_platform: string | undefined = import.meta.env.TAURI_PLATFORM;
   const use_native_cam =
     tauri_platform === "ios" || tauri_platform === "android";
@@ -31,6 +25,7 @@
 
   let gen_state: "before_start" | "generating" | "generated" = "before_start";
   let qr_code_html: string | undefined = undefined;
+  let rendezvous_code;
 
   const open_scanner = () => {
     push("#/wallet/scanqr");
@@ -72,12 +67,15 @@
   async function generate_qr() {
     gen_state = "generating";
     try {
-      const [qr_code_el, code] = await ng.wallet_import_rendezvous(300);
+      const [qr_code_el, code] = await ng.wallet_import_rendezvous(
+        top.clientWidth
+      );
+      rendezvous_code = code;
       qr_code_html = qr_code_el;
       gen_state = "generated";
       const imported_wallet = await ng.wallet_import_from_code(code);
+      // Login with imported wallet.
       wallet_from_import.set(imported_wallet);
-      // Login in with imported wallet.
       push("#/wallet/login");
     } catch (e) {
       error = e;
@@ -98,6 +96,11 @@
       check_has_camera();
     }
     scrollToTop();
+  });
+  onDestroy(() => {
+    if (rendezvous_code) {
+      // TODO: Destroy
+    }
   });
 </script>
 
@@ -152,7 +155,7 @@
           <div class="text-left text-sm">
             {@html $t("pages.wallet_login_qr.gen.description")}
             <br />
-            {@html $t("wallet_sync.transfer_notice")}
+            {@html $t("wallet_sync.server_transfer_notice")}
           </div>
         {:else if gen_state === "generating"}
           <div>

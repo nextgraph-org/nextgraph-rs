@@ -12,7 +12,6 @@
       "personal": "Personal"
     },
     "user_registered": {
-      "back_to_homepage": "Go Back to Homepage",
       "success": "You have been successfully registered.",
       "success_with_invitation": "You have been successfully registered to {invitation_name}."
     },
@@ -28,6 +27,7 @@
       "remove_wallet": "Remove wallet from Device",
       "remove_wallet_modal.title": "Remove wallet?",
       "remove_wallet_modal.confirm": "Are you sure you want to remove this wallet from your device?",
+      "create_text_code": "Generate TextCode to export",
       "scan_qr.title": "Export by scanning QR-Code",
       "scan_qr.notes": "Scan the QR-Code on the device that you want to transfer your wallet to.<br />.",
       "scan_qr.scan_btn": "Scan QR Code ",
@@ -39,7 +39,9 @@
       "gen_qr.notes": "Use the following QR-Code to scan with the device that you want to transfer your wallet to.",
       "gen_qr.img_title": "Your Export QR Code to Scan",
       "gen_qr.img_alt": "Your Export QR Code to Scan",
-      "gen_qr.gen_button": "Display QR Code"
+      "gen_qr.gen_button": "Display QR Code",
+      "gen_text_code.title": "Export with TextCode",
+      "gen_text_code.gen_btn": "Generate   TextCode"
     },
     "settings": {
       "title": "Settings"
@@ -115,7 +117,6 @@
       "qr_code": "Wallet QRCode",
       "qr_modal_title": "My Wallet QRCode",
       "qr_modal_description": "Use this QRCode to log in with your wallet on new devices.",
-      "copy_wallet_link": "Copy Wallet Link",
       "keep_wallet": "Save to Device for Future Logins"
     },
     "account_info": {
@@ -239,6 +240,8 @@
     },
     "wallet_login": {
       "select_wallet": "Select a wallet to login with",
+      "from_import.title": "Your wallet has been transferred",
+      "from_import.description": "Your wallet has been transferred!<br />To finish the import, please log in.",
       "with_another_wallet": "Log in with another wallet",
       "import_wallet": "Import your wallet",
       "import_file": "Import a Wallet File",
@@ -366,7 +369,7 @@
   },
   "wallet_sync": {
     "offline_warning": "You cannot transfer your wallet when offline.<br />Please make sure, you are connected first.",
-    "textcode.usage_warning": "You have to exchange this TextCode with the other device by any means available to you (email, other messenger apps, etc...). It is highly recommended to use a tool that is end-to-end encrypted. If you can, you should use instead the \"Import with QRCode\" option, as it is safer. If your devices are not connected to the internet, then you can use the \"Import a Wallet File\" option. In this case, you will transfer the wallet file with a USB key, from one device to the other, or for mobile, by connecting your mobile with the USB cable, to the computer, and then transferring the file with the File Transfer utility on Android, or AirDrop/Finder/iTunes on an iPhone/mac/PC. We do not recommend uploading your wallet file to any cloud service.",
+    "textcode.usage_warning": "You have to exchange this TextCode with the other device by any means available to you (email, other messenger apps, etc...). It is highly recommended to use a tool that is end-to-end encrypted. If you can, you should use the \"Import with QRCode\" option instead, as it is safer. If your devices are not connected to the internet, then you can use the \"Import a Wallet File\" option. In this case, you will transfer the wallet file with a USB key, from one device to the other, or for mobile, by connecting your mobile with the USB cable, to the computer, and then transferring the file with the File Transfer utility on Android, or AirDrop/Finder/iTunes on an iPhone/mac/PC. We do not recommend uploading your wallet file to any cloud service.",
     "server_transfer_notice": "Both devices need to be online.<br />During this wallet import, your wallet will be temporarily and securely stored on our servers for up to 5 minutes, using two levels of encryption.",
     "importing": "Importing wallet",
     "error": "An error occurred while synchronizing your wallet:<br />{error}"
