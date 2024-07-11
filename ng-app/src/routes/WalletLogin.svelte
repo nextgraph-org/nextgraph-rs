@@ -36,7 +36,7 @@
     display_error,
     wallet_from_import,
   } from "../store";
-  import { QrCode } from "svelte-heros-v2";
+  import { CheckBadge, QrCode } from "svelte-heros-v2";
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
 
@@ -99,37 +99,30 @@
 
     // Coming from the import Wallet with QR / TextCode ...
     if ($wallet_from_import) {
-      wallet = wallet_from_import;
+      wallet = $wallet_from_import;
       importing = true;
-      wallet_from_import.set(null);
-
       // TODO: Show component: "We got wallet from other device. Please log in to your wallet, to import the device."
     }
 
-    // <!-- TODO: QR / TextCode Success -->
-    //       <div class="mt-4">
-    //         <CheckBadge class="w-full" color="green" size="3em" />
-    //       </div>
-    //       <div class="mt-4">
-    //         {@html $t("pages.wallet_login_qr.scan.success")}
-    // </div>
-
     // Sample textcode AABAOAAAAHNb4y7hdWADqFWDgER3J0xvD3K5D9pZ1wd7Bja4c9cWAOFNpmUIZOFRro0UIpZWr5Ah8U7PlRFe1GFZSKuIextFAA8A45zZUJmUPhfdBrcho1vYPfgda0BAgIT1qjzgEkBQAA"
-
-    // TODO: display with QRcode with :
-    // {#if qrcode}
-    //   {@html qrcode[0]}
-    // {/if}
   });
 
   function loggedin() {
     step = "loggedin";
     push("#/");
   }
+
+  function start_login_from_import() {
+    // Login button clicked, `wallet` is was set onMount.
+    // Unset, to show login screen.
+    wallet_from_import.set(null);
+  }
+
   onDestroy(() => {
     if (wallets_unsub) wallets_unsub();
     if (opened_wallets_unsub) opened_wallets_unsub();
     if (active_wallet_unsub) active_wallet_unsub();
+    wallet_from_import.set(null);
   });
   async function gotError(event) {
     importing = false;
@@ -255,6 +248,50 @@
           class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
         >
           {$t("buttons.start_over")}
+        </button>
+      </div>
+    {:else if $wallet_from_import}
+      <!-- Imported a wallet -->
+
+      <!-- Title -->
+      <div>
+        <h2 class="text-xl mb-6">
+          {$t("pages.wallet_login.from_import.title")}
+        </h2>
+      </div>
+
+      <CheckBadge class="w-full h-6" />
+
+      <div>
+        {@html $t("pages.wallet_login.from_import.description")}
+      </div>
+
+      <!-- Show wallet security image and phrase. -->
+      <!--
+      <div
+        class="wallet-box"
+        role="button"
+        tabindex="0"
+        title={$wallet_from_import[0]}
+      >
+        <span class="securitytxt"
+          >{$wallet_from_import[1].wallet.V0.content.security_txt}
+        </span>
+        <img
+          alt={$wallet_from_import[1].wallet.V0.content.security_txt}
+          class="securityimg"
+          src={convert_img_to_url(
+            $wallet_from_import[1].wallet.V0.content.security_img
+          )}
+        />
+      </div>
+-->
+      <div>
+        <button
+          class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
+          on:click={start_login_from_import}
+        >
+          {$t("buttons.login")}
         </button>
       </div>
     {:else if wallet}

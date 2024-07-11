@@ -61,7 +61,7 @@
       <div class="text-left text-sm mb-4">
         {@html $t("pages.wallet_login_textcode.description")}
         <br />
-        {@html $t("wallet_sync.transfer_notice")}
+        {@html $t("wallet_sync.server_transfer_notice")}
       </div>
 
       <!-- TextCode Input -->
