@@ -58,6 +58,7 @@ pub(crate) struct Actor<
     //initiator: bool,
 }
 
+#[derive(Debug)]
 pub enum SoS<B> {
     Single(B),
     Stream(Receiver<B>),
@@ -185,6 +186,10 @@ impl<
                 }
                 fsm.lock().await.remove_actor(self.id).await;
                 let server_error: Result<ServerError, NgError> = (&msg).try_into();
+                //log_debug!("server_error {:?}", server_error);
+                if server_error.is_ok() {
+                    return Err(NgError::ServerError(server_error.unwrap()));
+                }
                 let response: B = match msg.try_into() {
                     Ok(b) => b,
                     Err(ProtocolError::ServerError) => {

@@ -129,3 +129,6 @@ pub fn get_device_name() -> String {
 
     list.join(" ")
 }
+
+#[cfg(debug_assertions)]
+mod local_broker_dev_env;

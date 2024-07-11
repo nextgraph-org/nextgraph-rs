@@ -3251,6 +3251,20 @@ impl CommitGet {
 
 /// Request to store one or more blocks
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct WalletPutExportV0 {
+    pub wallet: ExportedWallet,
+    pub rendezvous_id: SymKey,
+    pub is_rendezvous: bool,
+}
+
+/// Request to store one or more blocks
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum WalletPutExport {
+    V0(WalletPutExportV0),
+}
+
+/// Request to store one or more blocks
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BlocksPutV0 {
     /// Blocks to store
     pub blocks: Vec<Block>,
@@ -3414,6 +3428,8 @@ pub enum ClientRequestContentV0 {
     // For InnerOverlay's only :
     BlocksPut(BlocksPut),
     PublishEvent(PublishEvent),
+
+    WalletPutExport(WalletPutExport),
 }
 
 impl ClientRequestContentV0 {
@@ -3428,6 +3444,7 @@ impl ClientRequestContentV0 {
             ClientRequestContentV0::BlocksPut(a) => a.set_overlay(overlay),
             ClientRequestContentV0::BlocksExist(a) => a.set_overlay(overlay),
             ClientRequestContentV0::BlocksGet(a) => a.set_overlay(overlay),
+            ClientRequestContentV0::WalletPutExport(_a) => {}
             _ => unimplemented!(),
         }
     }
@@ -3479,6 +3496,7 @@ impl ClientRequest {
                 ClientRequestContentV0::BlocksPut(r) => r.get_actor(self.id()),
                 ClientRequestContentV0::BlocksExist(r) => r.get_actor(self.id()),
                 ClientRequestContentV0::BlocksGet(r) => r.get_actor(self.id()),
+                ClientRequestContentV0::WalletPutExport(r) => r.get_actor(self.id()),
                 _ => unimplemented!(),
             },
         }
@@ -3946,23 +3964,41 @@ pub enum ExtObjectGet {
     V0(ExtObjectGetV0),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ExtWalletGetExportV0 {
+    pub id: SymKey,
+    pub is_rendezvous: bool,
+}
+
 /// Topic synchronization request
 pub type ExtTopicSyncReq = TopicSyncReq;
 
 /// Content of ExtRequestV0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExtRequestContentV0 {
+    WalletGetExport(ExtWalletGetExportV0),
     ExtObjectGet(ExtObjectGet),
     ExtTopicSyncReq(ExtTopicSyncReq),
     // TODO inbox requests
     // TODO subreq ?
 }
 
+impl ExtRequestContentV0 {
+    pub fn get_actor(&self) -> Box<dyn EActor> {
+        match self {
+            Self::WalletGetExport(a) => a.get_actor(),
+            _ => unimplemented!()
+            // Self::ExtObjectGet(a) => a.get_actor(),
+            // Self::ExtTopicSyncReq(a) => a.get_actor(),
+        }
+    }
+}
+
 /// External request with its request ID
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtRequestV0 {
     /// outer overlayId
-    pub overlay: Digest,
+    pub overlay: Option<Digest>,
 
     /// Request ID
     pub id: i64,
@@ -3993,14 +4029,46 @@ impl ExtRequest {
             }
         }
     }
+    pub fn get_actor(&self) -> Box<dyn EActor> {
+        match self {
+            Self::V0(a) => a.content.get_actor(),
+        }
+    }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ExportedWallet(pub serde_bytes::ByteBuf);
 
 /// Content of ExtResponseV0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExtResponseContentV0 {
+    EmptyResponse,
     Block(Block),
+    Wallet(ExportedWallet),
     // TODO  inbox related replies
     // TODO event ?
+}
+
+impl TryFrom<ProtocolMessage> for ExtResponseContentV0 {
+    type Error = ProtocolError;
+    fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
+        if let ProtocolMessage::ExtResponse(ExtResponse::V0(ExtResponseV0 {
+            content,
+            result,
+            ..
+        })) = msg
+        {
+            let err = ServerError::try_from(result).unwrap();
+            if !err.is_err() {
+                Ok(content)
+            } else {
+                Err(ProtocolError::ServerError)
+            }
+        } else {
+            log_debug!("INVALID {:?}", msg);
+            Err(ProtocolError::InvalidValue)
+        }
+    }
 }
 
 /// Response to an ExtRequest
@@ -4013,7 +4081,7 @@ pub struct ExtResponseV0 {
     pub result: u16,
 
     /// Response content
-    pub content: Option<ExtResponseContentV0>,
+    pub content: ExtResponseContentV0,
 }
 
 /// Response to an ExtRequest
@@ -4035,6 +4103,16 @@ impl ExtResponse {
             }
         }
     }
+    pub fn result(&self) -> u16 {
+        match self {
+            Self::V0(o) => o.result,
+        }
+    }
+    pub fn content_v0(&self) -> ExtResponseContentV0 {
+        match self {
+            Self::V0(o) => o.content.clone(),
+        }
+    }
 }
 
 impl TryFrom<ProtocolMessage> for ExtResponse {
@@ -4045,6 +4123,29 @@ impl TryFrom<ProtocolMessage> for ExtResponse {
         } else {
             Err(ProtocolError::InvalidValue)
         }
+    }
+}
+
+impl From<Result<ExtResponseContentV0, ServerError>> for ExtResponseV0 {
+    fn from(res: Result<ExtResponseContentV0, ServerError>) -> ExtResponseV0 {
+        match res {
+            Err(e) => ExtResponseV0 {
+                id: 0,
+                result: e.into(),
+                content: ExtResponseContentV0::EmptyResponse,
+            },
+            Ok(content) => ExtResponseV0 {
+                id: 0,
+                result: 0,
+                content,
+            },
+        }
+    }
+}
+
+impl From<ExtResponseV0> for ProtocolMessage {
+    fn from(msg: ExtResponseV0) -> ProtocolMessage {
+        ProtocolMessage::ExtResponse(ExtResponse::V0(msg))
     }
 }
 
@@ -4149,6 +4250,12 @@ impl TryFrom<&ProtocolMessage> for ServerError {
                 return Ok(ServerError::try_from(res).unwrap());
             }
         }
+        if let ProtocolMessage::ExtResponse(ref bm) = msg {
+            let res = bm.result();
+            if res != 0 {
+                return Ok(ServerError::try_from(res).unwrap());
+            }
+        }
         if let ProtocolMessage::AppMessage(ref bm) = msg {
             let res = bm.result();
             if res != 0 {
@@ -4205,12 +4312,6 @@ impl ProtocolMessage {
         match self {
             ProtocolMessage::ClientMessage(s) => Some(s as &dyn IStreamable),
             ProtocolMessage::AppMessage(s) => Some(s as &dyn IStreamable),
-            // ProtocolMessage::ServerHello(a) => a.get_actor(),
-            // ProtocolMessage::ClientAuth(a) => a.get_actor(),
-            // ProtocolMessage::AuthResult(a) => a.get_actor(),
-            // ProtocolMessage::ExtRequest(a) => a.get_actor(),
-            // ProtocolMessage::ExtResponse(a) => a.get_actor(),
-            // ProtocolMessage::BrokerMessage(a) => a.get_actor(),
             _ => None,
         }
     }
@@ -4224,8 +4325,8 @@ impl ProtocolMessage {
             // ProtocolMessage::ServerHello(a) => a.get_actor(),
             // ProtocolMessage::ClientAuth(a) => a.get_actor(),
             // ProtocolMessage::AuthResult(a) => a.get_actor(),
-            // ProtocolMessage::ExtRequest(a) => a.get_actor(),
-            // ProtocolMessage::ExtResponse(a) => a.get_actor(),
+            //ProtocolMessage::ExtRequest(a) => a.get_actor(),
+            //ProtocolMessage::ExtResponse(a) => a.get_actor(),
             // ProtocolMessage::BrokerMessage(a) => a.get_actor(),
             _ => unimplemented!(),
         }
