@@ -299,18 +299,19 @@
     "VerifierError": "Error during verification.",
     "SiteNotFoundOnBroker": "The site cannot be found on the broker",
     "BrokerConfigErrorStr": "{error}",
-    "BrokerConfigError": "Error in the broker configuration",
+    "BrokerConfigError": "Error in the broker configuration.",
     "MalformedEvent": "The event has an invalid format.",
     "InvalidPayload": "The payload is invalid.",
     "WrongUploadId": "The upload ID is incorrect.",
     "FileError": "Error with file.",
     "InternalError": "Internal Error",
     "OxiGraphError": "Error in OxiGraph database.",
-    "ConfigError": "Error in configuration",
+    "ConfigError": "Error in configuration.",
     "LocalBrokerIsHeadless": "The local broker is headless.",
     "LocalBrokerIsNotHeadless": "The local broker is not headless.",
-    "InvalidNuri": "Invalid NextGraph URI",
-    "InvalidTarget": "Cannot resolve target"
+    "InvalidNuri": "Invalid NextGraph URI.",
+    "InvalidTarget": "Cannot resolve target.",
+    "ExportWalletTimeOut": "Export of wallet has expired."
   },
   "connectivity": {
     "stopped": "Stopped",

@@ -21,7 +21,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.0.0-alpha.8", features = [] }
 # tauri-macros = { version = "=2.0.0-alpha.6" }
 # tauri-codegen = { version = "=2.0.0-alpha.6" }
-# tauri-utils = { version = "=2.0.0-alpha.6" }
+tauri-utils = { version = "=2.0.0-alpha.7" }
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -32,6 +32,7 @@ sys-locale = { version = "0.3.1" }
 ng-async-tungstenite = {  git = "https://git.nextgraph.org/NextGraph/async-tungstenite.git", branch = "nextgraph",  features = ["async-std-runtime", "async-native-tls"] }
 tauri = { version = "2.0.0-alpha.14", features = [] }
 tauri-plugin-window = "2.0.0-alpha.1"
+tauri-plugin-barcode-scanner = "=2.0.0-alpha.0"
 # tauri-plugin-window = { git = "https://git.nextgraph.org/NextGraph/plugins-workspace.git", branch="window-alpha.1-nextgraph" }
 # tauri = { git = "https://git.nextgraph.org/NextGraph/tauri.git", branch="alpha.11-nextgraph", features = ["no-ipc-custom-protocol"] }
 # tauri = { git = "https://github.com/simonhyll/tauri.git", branch="fix/ipc-mixup", features = [] }

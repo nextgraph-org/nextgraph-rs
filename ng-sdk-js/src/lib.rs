@@ -541,6 +541,81 @@ pub async fn wallet_read_file(file: JsValue) -> Result<JsValue, String> {
 }
 
 #[wasm_bindgen]
+pub async fn wallet_import_from_code(code: JsValue) -> Result<JsValue, String> {
+    init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
+    let code = serde_wasm_bindgen::from_value::<String>(code)
+        .map_err(|_| "Deserialization error of code".to_string())?;
+
+    let wallet = nextgraph::local_broker::wallet_import_from_code(code)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(serde_wasm_bindgen::to_value(&wallet).unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn wallet_import_rendezvous(size: JsValue) -> Result<JsValue, String> {
+    init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
+    let size: u32 = serde_wasm_bindgen::from_value::<u32>(size)
+        .map_err(|_| "Deserialization error of size".to_string())?;
+
+    let res = nextgraph::local_broker::wallet_import_rendezvous(size)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(serde_wasm_bindgen::to_value(&res).unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn wallet_export_get_qrcode(
+    session_id: JsValue,
+    size: JsValue,
+) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let size: u32 = serde_wasm_bindgen::from_value::<u32>(size)
+        .map_err(|_| "Deserialization error of size".to_string())?;
+
+    init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
+
+    let res = nextgraph::local_broker::wallet_export_get_qrcode(session_id, size)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(serde_wasm_bindgen::to_value(&res).unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn wallet_export_get_textcode(session_id: JsValue) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+
+    init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
+
+    let res = nextgraph::local_broker::wallet_export_get_textcode(session_id)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(serde_wasm_bindgen::to_value(&res).unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn wallet_export_rendezvous(session_id: JsValue, code: JsValue) -> Result<(), String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let code = serde_wasm_bindgen::from_value::<String>(code)
+        .map_err(|_| "Deserialization error of code".to_string())?;
+
+    init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
+
+    nextgraph::local_broker::wallet_export_rendezvous(session_id, code)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(())
+}
+
+#[wasm_bindgen]
 pub async fn wallet_was_opened(
     opened_wallet: JsValue, //SensitiveWallet
 ) -> Result<JsValue, String> {

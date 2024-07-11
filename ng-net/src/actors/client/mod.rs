@@ -15,3 +15,5 @@ pub mod blocks_put;
 pub mod blocks_exist;
 
 pub mod blocks_get;
+
+pub mod wallet_put_export;

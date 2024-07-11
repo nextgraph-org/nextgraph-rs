@@ -32,6 +32,8 @@
     active_session,
     set_active_session,
     has_wallets,
+    wallet_import_qrcode,
+    display_error,
   } from "../store";
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
@@ -55,7 +57,10 @@
     return imageUrl;
   }
 
+  let qrcode;
+
   onMount(async () => {
+
     step = "open";
     wallets_unsub = wallets.subscribe((value) => {
       wallet = selected && $wallets[selected]?.wallet;
@@ -92,6 +97,25 @@
         }
       }
     });
+    if ($wallet_import_qrcode) {
+      let code = $wallet_import_qrcode;
+      wallet_import_qrcode.set("");
+      try {
+        wallet = await ng.wallet_import_from_code(code);
+        importing = true;
+      } catch(e) {
+        error = e;
+      }
+    }
+
+    // example of rendezvous for desktop and web without cam (please remove it)
+    qrcode = await ng.wallet_import_rendezvous(300);
+    try {
+      wallet = await ng.wallet_import_from_code(qrcode[1]);
+      importing = true;
+    } catch (e) {
+      error = e;
+    }
   });
   function loggedin() {
     step = "loggedin";
@@ -214,7 +238,7 @@
 
         <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
           {@html $t("errors.error_occurred", {
-            values: { message: $t("errors." + error) },
+            values: { message: display_error(error) },
           })}
         </p>
         <button
@@ -267,11 +291,35 @@
             />
           </div>
         {/each}
+       <!-- remove all this-->
+        <div
+            class="wallet-box"
+            role="button"
+            tabindex="0"
+          >
+          {#if qrcode}
+            {@html qrcode[0]}
+          {/if}
+        </div>
+        <div
+            class="wallet-box break-all"
+            role="button"
+            tabindex="0"
+          >
+          {#if qrcode}
+            {qrcode[1]}
+          {/if}
+        </div>
+        <!-- remove until here -->
         <div class="wallet-box">
-          {#if $has_wallets}<p class="mt-1">
+          {#if $has_wallets}
+            <p class="mt-1">
               {$t("pages.wallet_login.with_another_wallet")}
             </p>
-          {:else}<p class="mt-1">{$t("pages.wallet_login.import_wallet")}</p>
+          {:else}
+            <p class="mt-1">
+              {$t("pages.wallet_login.import_wallet")}
+            </p>
           {/if}
           <Fileupload
             style="display:none;"
@@ -302,36 +350,44 @@
             </svg>
             {$t("pages.wallet_login.import_file")}
           </button>
-          <Button
-            style="min-width: 250px;justify-content: left;"
-            disabled
-            class="disabled mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
-          >
-            <svg
-              class="w-8 h-8 mr-2 -ml-1"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
+          <a href="/wallet/scanqr" use:link>
+            <button
+              style="min-width: 250px;justify-content: left;"
+              class="disabled mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"
-              />
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"
-              />
-            </svg>
-            {$t("pages.wallet_login.import_qr")}
-          </Button>
-          <Button
+              <svg
+                class="w-8 h-8 mr-2 -ml-1"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"
+                />
+              </svg>
+              {$t("pages.wallet_login.import_qr")}
+            </button>
+          </a>
+          <button
+            on:click={async () => {
+              try {
+                wallet = await ng.wallet_import_from_code("AABAOAAAAHNb4y7hdWADqFWDgER3J0xvD3K5D9pZ1wd7Bja4c9cWAOFNpmUIZOFRro0UIpZWr5Ah8U7PlRFe1GFZSKuIextFAA8A45zZUJmUPhfdBrcho1vYPfgda0BAgIT1qjzgEkBQAA");
+                importing = true;
+              } catch (e) {
+                error = e;
+              }
+            }}
             style="min-width: 250px;justify-content: left;"
-            disabled
             class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
           >
             <svg
@@ -351,7 +407,7 @@
             </svg>
 
             {$t("pages.wallet_login.import_link")}
-          </Button>
+          </button>
           <a href="/wallet/create" use:link>
             <button
               tabindex="-1"

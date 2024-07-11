@@ -17,6 +17,7 @@ use num_enum::TryFromPrimitive;
 
 pub use crate::commit::{CommitLoadError, CommitVerifyError};
 use crate::file::FileError;
+use crate::log::*;
 use crate::object::Object;
 use crate::types::BlockId;
 
@@ -83,6 +84,9 @@ pub enum NgError {
     LocalBrokerIsNotHeadless,
     InvalidNuri,
     InvalidTarget,
+    InvalidQrCode,
+    NotImplemented,
+    NotARendezVous,
 }
 
 impl Error for NgError {}
@@ -90,24 +94,24 @@ impl Error for NgError {}
 impl fmt::Display for NgError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::WalletError(string) => write!(f, "WalletError: {}", string),
-            Self::JsStorageWriteError(string) => write!(f, "JsStorageWriteError: {}", string),
+            Self::WalletError(string) => write!(f, "WalletError:{}", string),
+            Self::JsStorageWriteError(string) => write!(f, "JsStorageWriteError:{}", string),
             Self::CommitVerifyError(commit_verify_error) => {
-                write!(f, "CommitVerifyError: {:?}", commit_verify_error)
+                write!(f, "CommitVerifyError:{:?}", commit_verify_error)
             }
-            Self::ProtocolError(error) => write!(f, "ProtocolError: {:?}", error),
-            Self::ServerError(error) => write!(f, "ServerError: {:?}", error),
-            Self::VerifierError(error) => write!(f, "VerifierError: {:?}", error),
+            Self::ProtocolError(error) => write!(f, "ProtocolError:{:?}", error),
+            Self::ServerError(error) => write!(f, "ServerError:{:?}", error),
+            Self::VerifierError(error) => write!(f, "VerifierError:{:?}", error),
             Self::CommitLoadError(commit_load_error) => {
-                write!(f, "CommitLoadError: {:?}", commit_load_error)
+                write!(f, "CommitLoadError:{:?}", commit_load_error)
             }
             Self::BootstrapError(error) => {
-                write!(f, "BootstrapError: {:?}", error)
+                write!(f, "BootstrapError:{:?}", error)
             }
-            Self::ObjectParseError(error) => write!(f, "ObjectParseError: {:?}", error),
-            Self::StorageError(storage_error) => write!(f, "StorageError: {:?}", storage_error),
-            Self::BrokerConfigErrorStr(s) => write!(f, "BrokerConfigError: {s}"),
-            Self::BrokerConfigError(s) => write!(f, "BrokerConfigError: {s}"),
+            Self::ObjectParseError(error) => write!(f, "ObjectParseError:{:?}", error),
+            Self::StorageError(storage_error) => write!(f, "StorageError:{:?}", storage_error),
+            Self::BrokerConfigErrorStr(s) => write!(f, "BrokerConfigError:{s}"),
+            Self::BrokerConfigError(s) => write!(f, "BrokerConfigError:{s}"),
             _ => write!(f, "{:?}", self),
         }
     }
@@ -264,6 +268,8 @@ pub enum ServerError {
     OxiGraphError,
     InvalidNuri,
     InvalidTarget,
+    ExportWalletTimeOut,
+    NetError,
 }
 
 impl From<StorageError> for ServerError {
@@ -275,12 +281,23 @@ impl From<StorageError> for ServerError {
     }
 }
 
+impl From<NetError> for ServerError {
+    fn from(e: NetError) -> Self {
+        match e {
+            _ => ServerError::NetError,
+        }
+    }
+}
+
 impl From<ProtocolError> for ServerError {
     fn from(e: ProtocolError) -> Self {
         match e {
             ProtocolError::NotFound => ServerError::NotFound,
             ProtocolError::BrokerError => ServerError::BrokerError,
-            _ => ServerError::ProtocolError,
+            _ => {
+                log_err!("{:?}", e);
+                ServerError::ProtocolError
+            }
         }
     }
 }

@@ -31,7 +31,7 @@
   import { onMount, tick } from "svelte";
   import { Sidebar, SidebarGroup, SidebarWrapper } from "flowbite-svelte";
   import { t } from "svelte-i18n";
-  import { close_active_wallet, active_session, active_wallet } from "../store";
+  import { close_active_wallet, active_session, active_wallet, display_error } from "../store";
 
   import { default as ng } from "../api";
 
@@ -52,6 +52,8 @@
     } else {
       await scrollToTop();
     }
+    text_code = await ng.wallet_export_get_textcode($active_session.session_id);
+    qr_code = await ng.wallet_export_get_qrcode($active_session.session_id, 250);
   });
 
   let downloading = false;
@@ -78,9 +80,17 @@
     }
   }
 
+  let text_code;
+  let qr_code;
+
   let wallet_remove_modal_open = false;
-  function remove_wallet_clicked() {
-    wallet_remove_modal_open = true;
+  async function remove_wallet_clicked() {
+    //wallet_remove_modal_open = true;
+    try {
+      await ng.wallet_export_rendezvous($active_session.session_id, "AABAOAAAAHNb4y7hdWADqFWDgER3J0xvD3K5D9pZ1wd7Bja4c9cWAGpnQYDjun-jOFI8XookNLWKfgpQIkDS21VruUzizWahAH6fStLoA0kBMVR5ZMPHMv7RpQITUGZmZsjlWjnxCRZBAQ");
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   const close_modal = () => {
@@ -208,6 +218,14 @@
                 </a>
               </li>
             {/if}
+
+            <li class="break-all">
+              {text_code}
+              {#if qr_code}
+                {@html qr_code}
+              {/if}
+            </li>
+            
 
             <!-- Remove Wallet -->
             <li
@@ -337,7 +355,7 @@
         {:else}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
             {@html $t("errors.error_occurred", {
-              values: { message: $t("errors." + error) },
+              values: { message: display_error(error) },
             })}
           </p>
           <a use:link href="/">
