@@ -32,8 +32,9 @@
     active_session,
     set_active_session,
     has_wallets,
-    wallet_import_qrcode,
+    scanned_qr_code,
     display_error,
+    wallet_from_import,
   } from "../store";
   import { QrCode } from "svelte-heros-v2";
 
@@ -59,7 +60,6 @@
   }
 
   onMount(async () => {
-
     step = "open";
     wallets_unsub = wallets.subscribe((value) => {
       wallet = selected && $wallets[selected]?.wallet;
@@ -96,50 +96,32 @@
         }
       }
     });
-    if ($wallet_import_qrcode) {
-      
-      let code = $wallet_import_qrcode;
-      wallet_import_qrcode.set("");
-      try {
-        let temp_wallet = await ng.wallet_import_from_code(code);
-        // TODO: in 2 steps. first display: wallet was retrieved successfully.
-        // then when user clicks on  "continue to login", do:
-        wallet = temp_wallet;
-        importing = true;
-      } catch(e) {
-        error = e;
-      }
+
+    // Coming from the import Wallet with QR / TextCode ...
+    if ($wallet_from_import) {
+      wallet = wallet_from_import;
+      importing = true;
+      wallet_from_import.set(null);
+
+      // TODO: Show component: "We got wallet from other device. Please log in to your wallet, to import the device."
     }
 
-    // example of getting wallet from TextCode 
-    // async () => {
-    //           try {
-    //             let temp_wallet = await ng.wallet_import_from_code("AABAOAAAAHNb4y7hdWADqFWDgER3J0xvD3K5D9pZ1wd7Bja4c9cWAOFNpmUIZOFRro0UIpZWr5Ah8U7PlRFe1GFZSKuIextFAA8A45zZUJmUPhfdBrcho1vYPfgda0BAgIT1qjzgEkBQAA");
-    //             // TODO: in 2 steps. first display: wallet was retrieved successfully.
-    //             // then when user clicks on  "continue to login", do:
-    //             wallet = temp_wallet;           
-    //             importing = true;
-    //           } catch (e) {
-    //             error = e;
-    //           }
-    //         }
+    // <!-- TODO: QR / TextCode Success -->
+    //       <div class="mt-4">
+    //         <CheckBadge class="w-full" color="green" size="3em" />
+    //       </div>
+    //       <div class="mt-4">
+    //         {@html $t("pages.wallet_login_qr.scan.success")}
+    // </div>
 
-    // example of rendezvous for desktop and web without cam (please remove it)
-    // qrcode = await ng.wallet_import_rendezvous(300);
-    // try {
-    //   let temp_wallet = await ng.wallet_import_from_code(qrcode[1]);
-    //   // TODO: in 2 steps. first display: wallet was retrieved successfully.
-    //   // then when user clicks on  "continue to login", do:
-    //   wallet = temp_wallet;
-    //   importing = true;
-    // } catch (e) {
-    //   error = e;
-    // }
+    // Sample textcode AABAOAAAAHNb4y7hdWADqFWDgER3J0xvD3K5D9pZ1wd7Bja4c9cWAOFNpmUIZOFRro0UIpZWr5Ah8U7PlRFe1GFZSKuIextFAA8A45zZUJmUPhfdBrcho1vYPfgda0BAgIT1qjzgEkBQAA"
+
     // TODO: display with QRcode with :
     // {#if qrcode}
     //   {@html qrcode[0]}
     // {/if}
   });
+
   function loggedin() {
     step = "loggedin";
     push("#/");
@@ -356,7 +338,7 @@
           <a href="/wallet/login-qr" use:link>
             <button
               style="min-width: 250px;justify-content: left;"
-              class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
+              class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
             >
               <QrCode class="w-8 h-8 mr-2 -ml-1" />
               {$t("pages.wallet_login.import_qr")}
@@ -365,8 +347,8 @@
           <a href="/wallet/login-text-code" use:link>
             <button
               style="min-width: 250px;justify-content: left;"
-              class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-              >
+              class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+            >
               <svg
                 class="w-8 h-8 mr-2 -ml-1"
                 fill="none"

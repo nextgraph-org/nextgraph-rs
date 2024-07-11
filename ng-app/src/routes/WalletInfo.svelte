@@ -43,7 +43,7 @@
     active_session,
     active_wallet,
     display_error,
-    online
+    online,
   } from "../store";
 
   import { default as ng } from "../api";
@@ -65,7 +65,7 @@
 
   let generated_text_code: string | null = null;
   // TODO: do that only when needed // generated_text_code = await ng.wallet_export_get_textcode($active_session.session_id);
-  
+
   let scanner_open = false;
   let scanned_qr = null;
   let scan_successful: null | true = null;
@@ -116,7 +116,7 @@
   async function on_qr_scanned(text: string) {
     scanned_qr = text;
     // TODO: API calls for synchronization @niko
-    // 
+    //
     // example :
     // try {
     //   await ng.wallet_export_rendezvous($active_session.session_id, text);
@@ -266,7 +266,7 @@
                 <div>
                   <QrCode
                     tabindex="-1"
-                   class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                    class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                   />
                 </div>
                 <span class="ml-3">{$t("pages.wallet_info.generate_qr")}</span>
@@ -462,7 +462,7 @@
               {#if !$online}
                 <li class="text-left">
                   <Alert color="red">
-                    {@html $t("pages.wallet_info.offline_warning")}
+                    {@html $t("wallet_sync.offline_warning")}
                   </Alert>
                 </li>
               {/if}
@@ -539,13 +539,15 @@
               <!-- Notes about generated QR -->
               <li class="text-left">
                 {@html $t("pages.wallet_info.gen_qr.notes")}
+                <br />
+                {@html $t("wallet_sync.transfer_notice")}
               </li>
 
               <!-- Warning if offline -->
               {#if !$online}
                 <li class="text-left">
                   <Alert color="red">
-                    {@html $t("pages.wallet_info.offline_warning")}
+                    {@html $t("wallet_sync.offline_warning")}
                   </Alert>
                 </li>
               {/if}
@@ -569,9 +571,8 @@
                       <QrCode class="w-full h-full" />
                     </div>
                   {:else}
-                    
-                      {@html generated_qr}
-                    
+                    {@html generated_qr}
+
                     <!--img
                       src={generated_qr}
                       title={$t("pages.wallet_info.gen_qr.img_title")}

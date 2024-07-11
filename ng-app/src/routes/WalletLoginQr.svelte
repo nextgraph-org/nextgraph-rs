@@ -1,17 +1,6 @@
 <script lang="ts">
   import { t } from "svelte-i18n";
-  import {
-    type Html5QrcodeResult,
-    type Html5QrcodeScanner,
-  } from "html5-qrcode";
-  import {
-    Alert,
-    Modal,
-    Sidebar,
-    SidebarGroup,
-    SidebarWrapper,
-    Spinner,
-  } from "flowbite-svelte";
+  import { Alert, Modal, Spinner } from "flowbite-svelte";
   import {
     ArrowLeft,
     ArrowRightCircle,
@@ -19,49 +8,36 @@
     CheckBadge,
     QrCode,
   } from "svelte-heros-v2";
-  import CenteredLayout from "../lib/CenteredLayout.svelte";
   import { onMount } from "svelte";
   import { push } from "svelte-spa-router";
+  import CenteredLayout from "../lib/CenteredLayout.svelte";
+  import { wallet_from_import, scanned_qr_code, display_error } from "../store";
+  import ng from "../api";
 
-  let WebQRScannerClassPromise: Promise<typeof Html5QrcodeScanner>;
-  let html5QrcodeScanner: Html5QrcodeScanner;
-  async function load_qr_scanner_lib() {
-    // Load in browser only
-    if (!tauri_platform && !WebQRScannerClassPromise) {
-      WebQRScannerClassPromise = new Promise((resolve) => {
-        import("html5-qrcode").then((lib) => resolve(lib.Html5QrcodeScanner)); // comment: why you don't use await ?
-      });
-    }
-    // TODO: Load alternative for native apps?
-
-    // <a href="/wallet/scanqr" use:link>
-
-    
-  }
+  // <a href="/wallet/scanqr" use:link>
 
   let top;
   const tauri_platform: string | undefined = import.meta.env.TAURI_PLATFORM;
+  const use_native_cam =
+    tauri_platform === "ios" || tauri_platform === "android";
+  // TODO: Check connectivity to sync service.
+  let connected = true;
   let has_camera: boolean | "checking" = "checking";
   let login_method: "scan" | "gen" | undefined = undefined;
 
-  let scan_state:
-    | "before_start"
-    | "scanning"
-    | "has_scanned"
-    | "success"
-    | Error = "before_start";
-  let scanned_qr: string | undefined = undefined;
+  let error;
 
-  let gen_state:
-    | "before_start"
-    | "generating"
-    | "generated"
-    | "success"
-    | Error = "before_start";
-  let generated_qr: string | undefined = undefined;
+  let scan_state: "before_start" | "importing" = "before_start";
+
+  let gen_state: "before_start" | "generating" | "generated" = "before_start";
+  let qr_code_html: string | undefined = undefined;
+
+  const open_scanner = () => {
+    push("#/wallet/scanqr");
+  };
 
   const check_has_camera = async () => {
-    if (!tauri_platform) {
+    if (!use_native_cam) {
       // If there is a camera, go to scan mode, else gen mode.
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -70,81 +46,59 @@
       } catch {
         has_camera = false;
       }
+      has_camera = false;
       login_method = has_camera ? "scan" : "gen";
-      // Load Scanner lib, if necessary.
-      if (has_camera) load_qr_scanner_lib();
     } else {
-      // TODO: rust API @niko
+      // TODO: There does not seem to be an API for checking, if the native device
+      //  really supports cameras, as far as I can tell?
+      // https://github.com/tauri-apps/plugins-workspace/blob/v2/plugins/barcode-scanner/guest-js/index.ts
+      has_camera = true;
     }
   };
-  check_has_camera();
 
-  function on_qr_scanned(text: string) {
-    scan_state = "has_scanned";
-    scanned_qr = text;
-    // TODO: API calls for synchronization @niko
-    // ToRemove:
-    setTimeout(() => {
-      scan_state = "success";
-    }, 2_000);
-  }
-
-  function clear_scanner() {
-    if (html5QrcodeScanner) html5QrcodeScanner.clear();
-    html5QrcodeScanner = null;
-  }
-
-  async function open_scanner() {
-    scan_state = "scanning";
-
-    const WebQRScanner = await WebQRScannerClassPromise;
-    html5QrcodeScanner = new WebQRScanner(
-      "scanner-div",
-      { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] },
-      false
-    );
-
-    html5QrcodeScanner.render((decoded_text, decoded_result) => {
-      // Handle scan result
-      on_qr_scanned(decoded_text);
-      clear_scanner();
-    }, undefined);
-
-    // Auto-Request camera permissions (there's no native way, unfortunately...)
-    setTimeout(() => {
-      // Auto-start by clicking button
-      document.getElementById("html5-qrcode-button-camera-permission")?.click();
-    }, 100);
-  }
-
-  function close_scanner_modal() {
-    clear_scanner();
-    if (scanned_qr) {
-      scan_state = "has_scanned";
-    } else {
-      scan_state = "before_start";
+  async function on_qr_scanned(code) {
+    login_method = "scan";
+    scan_state = "importing";
+    try {
+      const imported_wallet = await ng.wallet_import_from_code(code);
+      wallet_from_import.set(imported_wallet);
+      // Login in with imported wallet.
+      push("#/wallet/login");
+    } catch (e) {
+      error = e;
     }
   }
 
-  function generate_qr() {
+  async function generate_qr() {
     gen_state = "generating";
-    // TODO: @niko  generated_qr = await ng.generate_export_qr();
-    // ToRemove:
-    setTimeout(() => {
+    try {
+      const [qr_code_el, code] = await ng.wallet_import_rendezvous(300);
+      qr_code_html = qr_code_el;
       gen_state = "generated";
-      generated_qr = "dummy";
-    }, 1500);
-    setTimeout(() => {
-      gen_state = "success";
-    }, 3500);
+      const imported_wallet = await ng.wallet_import_from_code(code);
+      wallet_from_import.set(imported_wallet);
+      // Login in with imported wallet.
+      push("#/wallet/login");
+    } catch (e) {
+      error = e;
+    }
   }
-
-  function continue_to_login(wallet) {}
 
   function scrollToTop() {
     top.scrollIntoView();
   }
-  onMount(() => scrollToTop());
+
+  onMount(() => {
+    // Handle return from QR scanner.
+    if ($scanned_qr_code) {
+      on_qr_scanned($scanned_qr_code);
+      scanned_qr_code.set("");
+    } else {
+      // Or check, if a camera exists and offer scanner or QR generator, respectively.
+      check_has_camera();
+    }
+    scrollToTop();
+  });
 </script>
 
 <CenteredLayout>
@@ -159,45 +113,37 @@
 
       <!-- Checking, if camera is available... -->
       {#if login_method === undefined}
-        <!-- TODO: Check connectivity here-->
         <div><Spinner /></div>
-      {:else if false}
+      {:else if !connected}
         <!-- Warning, if offline -->
         <!-- TODO: just use $online from store to know if it is online -->
+        <!-- @Niko isnt online only true, when logged in and connected to a broker? -->
         <div class="text-left">
           <Alert color="red">
-            {@html $t("pages.wallet_login_qr.offline_warning")}
+            {@html $t("wallet_sync.offline_warning")}
           </Alert>
         </div>
+      {:else if error}
+        <Alert color="red">
+          {@html $t("wallet_sync.error", {
+            values: { error: display_error(error) },
+          })}
+        </Alert>
       {:else if login_method === "scan"}
-        <!-- Scan Mode -->
         {#if scan_state === "before_start"}
+          <!-- Scan Mode -->
           <!-- Notes about QR -->
           <div class="text-left text-sm">
             {@html $t("pages.wallet_login_qr.scan.description")}
+            <br />
+            {@html $t("wallet_sync.server_transfer_notice")}
           </div>
-        {:else if scan_state === "scanning"}
-          <!-- Modal is down at the bottom -->
-        {:else if scan_state === "has_scanned"}
-          <!-- Scanned QR -->
-          <div>
-            <Spinner />
+        {:else if scan_state === "importing"}
+          <div class="mb-4 w-full">
+            {@html $t("wallet_sync.importing")}
           </div>
-          <div class="mt-2">
-            {$t("pages.wallet_login_qr.scan.syncing")}
-          </div>
-        {:else if scan_state === "success"}
-          <div class="mt-4">
-            <CheckBadge class="w-full" color="green" size="3em" />
-          </div>
-          <div class="mt-4">
-            {@html $t("pages.wallet_login_qr.scan.success")}
-          </div>
-        {:else}
-          <!-- Error -->
-          {$t("pages.wallet_login_qr.scan.error", {
-            values: { error: $t("errors." + scan_state) },
-          })}
+
+          <div class="w-full"><Spinner /></div>
         {/if}
       {:else if login_method === "gen"}
         <!-- Generate QR Code to log in with another device -->
@@ -205,6 +151,8 @@
           <!-- Notes about QR Generation -->
           <div class="text-left text-sm">
             {@html $t("pages.wallet_login_qr.gen.description")}
+            <br />
+            {@html $t("wallet_sync.transfer_notice")}
           </div>
         {:else if gen_state === "generating"}
           <div>
@@ -218,34 +166,13 @@
 
           <!-- Generated QR Code -->
           <div>
-            {#if generated_qr === "dummy"}
-              <div title={$t("pages.wallet_info.gen_qr.img_title")}>
-                <QrCode class="w-full h-full" />
-              </div>
-            {:else}
-              <img
-                src={generated_qr}
-                title={$t("pages.wallet_info.gen_qr.img_title")}
-                alt="pages.wallet_info.gen_qr_alt"
-                class="w-full h-full"
-              />
-            {/if}
+            {@html qr_code_html}
           </div>
-        {:else if gen_state === "success"}
-          <div class="mt-4">
-            <CheckBadge class="w-full" color="green" size="3em" />
-          </div>
-          <div class="mt-4">
-            {@html $t("pages.wallet_login_qr.gen.success")}
-          </div>
-        {:else}
-          <!-- gen_state has Error -->
-          {$t("pages.wallet_login_qr.gen.error")}
         {/if}
       {/if}
 
       <div class="mx-auto">
-        <div class="my-4">
+        <div class="my-4 mx-1">
           {#if login_method === "scan" && scan_state === "before_start"}
             <!-- Open Scanner Button-->
             <button
@@ -270,45 +197,19 @@
               />
               {$t("pages.wallet_login_qr.gen.button")}
             </button>
-          {:else if scan_state === "success" || gen_state === "success"}
-            <a href="#/wallet/login">
-              <button
-                class="mt-4 w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-              >
-                <ArrowRightCircle
-                  tabindex="-1"
-                  class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-                {$t("pages.wallet_login_qr.success_btn")}
-              </button>
-            </a>
           {/if}
 
           <!-- Go Back -->
-          {#if scan_state !== "success" && gen_state !== "success"}
-            <button
-              on:click={() => window.history.go(-1)}
-              class="mt-8 w-full text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-              ><ArrowLeft
-                tabindex="-1"
-                class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-              />{$t("buttons.back")}</button
-            >
-          {/if}
+          <button
+            on:click={() => window.history.go(-1)}
+            class="mt-8 w-full text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            ><ArrowLeft
+              tabindex="-1"
+              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
+            />{$t("buttons.back")}</button
+          >
         </div>
       </div>
     </div>
-    <!-- Scanner Open-->
-    <Modal
-      title={$t("pages.wallet_login_qr.scan.modal.title")}
-      placement="center"
-      on:hide={close_scanner_modal}
-      open={scan_state === "scanning"}
-      class="h-[85vh]"
-    >
-      <div id="scanner-div" class="h-full">
-        {$t("pages.wallet_login_qr.scan.modal.loading")}...
-      </div>
-    </Modal>
   </div>
 </CenteredLayout>
