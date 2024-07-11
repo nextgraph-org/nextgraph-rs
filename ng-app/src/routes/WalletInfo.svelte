@@ -42,7 +42,8 @@
     close_active_wallet,
     active_session,
     active_wallet,
-    online,
+    display_error,
+    online
   } from "../store";
 
   import { default as ng } from "../api";
@@ -63,7 +64,8 @@
   let generated_qr: string | undefined = undefined;
 
   let generated_text_code: string | null = null;
-
+  // TODO: do that only when needed // generated_text_code = await ng.wallet_export_get_textcode($active_session.session_id);
+  
   let scanner_open = false;
   let scanned_qr = null;
   let scan_successful: null | true = null;
@@ -107,12 +109,20 @@
     setTimeout(() => {
       generation_state = "generated";
       generated_qr = "dummy";
+      // TODO: generated_qr = await ng.wallet_export_get_qrcode($active_session.session_id, 250);
     }, 3000);
   }
 
-  function on_qr_scanned(text: string) {
+  async function on_qr_scanned(text: string) {
     scanned_qr = text;
     // TODO: API calls for synchronization @niko
+    // 
+    // example :
+    // try {
+    //   await ng.wallet_export_rendezvous($active_session.session_id, text);
+    // } catch (e) {
+    //   console.error(e);
+    // }
     // ToRemove:
     setTimeout(() => {
       scan_successful = true;
@@ -184,7 +194,7 @@
   }
 
   let wallet_remove_modal_open = false;
-  function remove_wallet_clicked() {
+  async function remove_wallet_clicked() {
     wallet_remove_modal_open = true;
   }
 
@@ -256,7 +266,7 @@
                 <div>
                   <QrCode
                     tabindex="-1"
-                    class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                   class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                   />
                 </div>
                 <span class="ml-3">{$t("pages.wallet_info.generate_qr")}</span>
@@ -559,12 +569,15 @@
                       <QrCode class="w-full h-full" />
                     </div>
                   {:else}
-                    <img
+                    
+                      {@html generated_qr}
+                    
+                    <!--img
                       src={generated_qr}
                       title={$t("pages.wallet_info.gen_qr.img_title")}
                       alt="pages.wallet_info.gen_qr_alt"
                       class="w-full h-full"
-                    />
+                    /-->
                   {/if}
                 </div>
               {/if}
@@ -607,7 +620,7 @@
         {:else}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
             {@html $t("errors.error_occurred", {
-              values: { message: $t("errors." + error) },
+              values: { message: display_error(error) },
             })}
           </p>
           <a use:link href="/">

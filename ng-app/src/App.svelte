@@ -35,6 +35,7 @@
   import User from "./routes/User.svelte";
   import UserRegistered from "./routes/UserRegistered.svelte";
   import Install from "./routes/Install.svelte";
+  import ScanQR from "./routes/ScanQR.svelte";
 
   import ng from "./api";
   import AccountInfo from "./routes/AccountInfo.svelte";
@@ -53,6 +54,7 @@
   routes.set("/user/registered", UserRegistered);
   routes.set("/wallet", WalletInfo);
   routes.set("/user/accounts", AccountInfo);
+  routes.set("/wallet/scanqr", ScanQR);
   if (import.meta.env.NG_APP_WEB) routes.set("/install", Install);
   routes.set(/^\/did:ng(.*)/i, NURI);
   routes.set("*", NotFound);

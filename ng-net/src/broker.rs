@@ -894,6 +894,34 @@ impl Broker {
         connection.admin::<A>().await
     }
 
+    pub async fn ext<
+        A: Into<ProtocolMessage> + Into<ExtRequestContentV0> + std::fmt::Debug + Sync + Send + 'static,
+        B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,
+    >(
+        cnx: Box<dyn IConnect>,
+        peer_privk: PrivKey,
+        peer_pubk: PubKey,
+        remote_peer_id: DirectPeerId,
+        url: String,
+        request: A,
+    ) -> Result<B, NgError> {
+        let config = StartConfig::Ext(ExtConfig {
+            url,
+            request: request.into(),
+        });
+        let remote_peer_id_dh = remote_peer_id.to_dh_from_ed();
+        let mut connection = cnx
+            .open(
+                config.get_url(),
+                peer_privk.clone(),
+                peer_pubk,
+                remote_peer_id_dh,
+                config.clone(),
+            )
+            .await?;
+        connection.ext::<A, B>().await
+    }
+
     #[doc(hidden)]
     pub fn connect_local(&mut self, peer_pubk: PubKey, user: UserId) -> Result<(), ProtocolError> {
         if self.closing {

@@ -112,7 +112,7 @@ pub enum FSMstate {
     Noise3,
     AdminRequest,
     ExtRequest,
-    ExtResponse,
+    //ExtResponse,
     ClientHello,
     ServerHello,
     ClientAuth,
@@ -177,7 +177,10 @@ pub struct ClientConfig {
 }
 
 #[derive(Debug, Clone)]
-pub struct ExtConfig {}
+pub struct ExtConfig {
+    pub url: String,
+    pub request: ExtRequestContentV0,
+}
 
 #[derive(Debug, Clone)]
 pub struct CoreConfig {
@@ -215,10 +218,14 @@ pub enum StartConfig {
 impl StartConfig {
     pub fn get_url(&self) -> String {
         match self {
-            Self::Client(config) => config.url.clone(),
-            Self::Admin(config) => format!("ws://{}:{}", config.addr.ip, config.addr.port),
-            Self::Core(config) => format!("ws://{}:{}", config.addr.ip, config.addr.port),
-            Self::App(config) => format!("ws://{}:{}", config.addr.ip, config.addr.port),
+            Self::Client(ClientConfig { url, .. }) | Self::Ext(ExtConfig { url, .. }) => {
+                url.clone()
+            }
+            Self::Admin(AdminConfig { addr, .. })
+            | Self::Core(CoreConfig { addr, .. })
+            | Self::App(AppConfig { addr, .. }) => {
+                format!("ws://{}:{}", addr.ip, addr.port)
+            }
             _ => unimplemented!(),
         }
     }
@@ -235,9 +242,9 @@ impl StartConfig {
             _ => false,
         }
     }
-    pub fn is_admin(&self) -> bool {
+    pub fn is_oneshot(&self) -> bool {
         match self {
-            StartConfig::Admin(_) => true,
+            StartConfig::Admin(_) | StartConfig::Ext(_) => true,
             _ => false,
         }
     }
@@ -635,7 +642,10 @@ impl NoiseFSM {
                                     self.state = FSMstate::ClientHello;
                                 }
                                 StartConfig::Ext(_ext_config) => {
-                                    todo!();
+                                    let noise = Noise::V0(NoiseV0 { data: payload });
+                                    self.send(noise.into()).await?;
+                                    self.state = FSMstate::Noise3;
+                                    next_step = StepReply::ReEnter;
                                 }
                                 StartConfig::Core(_core_config) => {
                                     todo!();
@@ -774,8 +784,18 @@ impl NoiseFSM {
                         StartConfig::Client(_) => {
                             return Err(ProtocolError::InvalidState);
                         }
-                        StartConfig::Ext(_ext_config) => {
-                            todo!();
+                        StartConfig::Ext(ext_config) => {
+                            let ext_req = ExtRequestV0 {
+                                content: ext_config.request.clone(),
+                                id: 0,
+                                overlay: None,
+                            };
+                            let protocol_start = StartProtocol::Ext(ExtRequest::V0(ext_req));
+
+                            self.send(protocol_start.into()).await?;
+                            self.state = FSMstate::ExtRequest;
+
+                            return Ok(StepReply::NONE);
                         }
                         StartConfig::Core(_core_config) => {
                             todo!();
@@ -807,8 +827,9 @@ impl NoiseFSM {
                             StartProtocol::Client(_) => {
                                 return Err(ProtocolError::InvalidState);
                             }
-                            StartProtocol::Ext(_ext_config) => {
-                                todo!();
+                            StartProtocol::Ext(_ext_req) => {
+                                self.state = FSMstate::Closing;
+                                return Ok(StepReply::Responder(msg_opt.unwrap()));
                             }
                             // StartProtocol::Core(core_config) => {
                             //     todo!();
@@ -852,8 +873,15 @@ impl NoiseFSM {
                     return Ok(StepReply::Response(msg));
                 }
             }
-            FSMstate::ExtRequest => {}
-            FSMstate::ExtResponse => {}
+            FSMstate::ExtRequest => {
+                // CLIENT side receiving ExtResponse
+                if let Some(msg) = msg_opt {
+                    if self.dir.is_server() || msg.type_id() != TypeId::of::<ExtResponse>() {
+                        return Err(ProtocolError::InvalidState);
+                    }
+                    return Ok(StepReply::Response(msg));
+                }
+            }
             FSMstate::ClientHello => {
                 if let Some(msg) = msg_opt.as_ref() {
                     if !self.dir.is_server() {
@@ -1371,6 +1399,47 @@ impl ConnectionBase {
         }
     }
 
+    pub async fn ext<
+        A: Into<ProtocolMessage> + Into<ExtRequestContentV0> + std::fmt::Debug + Sync + Send + 'static,
+        B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,
+    >(
+        &mut self,
+    ) -> Result<B, NgError> {
+        if !self.dir.is_server() {
+            let mut actor = Box::new(Actor::<A, B>::new(0, true));
+            self.actors.lock().await.insert(0, actor.get_receiver_tx());
+            let mut receiver = actor.detach_receiver();
+            match receiver.next().await {
+                Some(ConnectionCommand::Msg(msg)) => {
+                    self.fsm
+                        .as_ref()
+                        .unwrap()
+                        .lock()
+                        .await
+                        .remove_actor(0)
+                        .await;
+
+                    let server_error: Result<ServerError, NgError> = (&msg).try_into();
+                    let response: B = match msg.try_into() {
+                        Ok(b) => b,
+                        Err(ProtocolError::ServerError) => {
+                            return Err(NgError::ServerError(server_error?));
+                        }
+                        Err(e) => return Err(NgError::ProtocolError(e)),
+                    };
+                    self.close().await;
+                    Ok(response)
+                }
+                Some(ConnectionCommand::ProtocolError(e)) => Err(e.into()),
+                Some(ConnectionCommand::Error(e)) => Err(ProtocolError::from(e).into()),
+                Some(ConnectionCommand::Close) => Err(ProtocolError::Closing.into()),
+                _ => Err(ProtocolError::ActorError.into()),
+            }
+        } else {
+            panic!("cannot call ext on a server-side connection");
+        }
+    }
+
     pub async fn probe(&mut self) -> Result<Option<PubKey>, ProtocolError> {
         if !self.dir.is_server() {
             let config = StartConfig::Probe;
@@ -1431,7 +1500,7 @@ impl ConnectionBase {
     pub async fn start(&mut self, config: StartConfig) -> Result<(), ProtocolError> {
         // BOOTSTRAP the protocol from client-side
         if !self.dir.is_server() {
-            let is_admin = config.is_admin();
+            let is_oneshot = config.is_oneshot();
             let res;
             {
                 let mut fsm = self.fsm.as_ref().unwrap().lock().await;
@@ -1442,7 +1511,7 @@ impl ConnectionBase {
                 self.send(ConnectionCommand::ProtocolError(err.clone()))
                     .await;
                 Err(err)
-            } else if !is_admin {
+            } else if !is_oneshot {
                 let mut actor = Box::new(Actor::<Connecting, ()>::new(0, true));
                 self.actors.lock().await.insert(0, actor.get_receiver_tx());
 

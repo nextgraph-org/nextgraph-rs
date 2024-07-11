@@ -29,10 +29,14 @@
     // Load in browser only
     if (!tauri_platform && !WebQRScannerClassPromise) {
       WebQRScannerClassPromise = new Promise((resolve) => {
-        import("html5-qrcode").then((lib) => resolve(lib.Html5QrcodeScanner));
+        import("html5-qrcode").then((lib) => resolve(lib.Html5QrcodeScanner)); // comment: why you don't use await ?
       });
     }
     // TODO: Load alternative for native apps?
+
+    // <a href="/wallet/scanqr" use:link>
+
+    
   }
 
   let top;
@@ -159,7 +163,7 @@
         <div><Spinner /></div>
       {:else if false}
         <!-- Warning, if offline -->
-        <!-- TODO: get connection status to nextgraph.one -->
+        <!-- TODO: just use $online from store to know if it is online -->
         <div class="text-left">
           <Alert color="red">
             {@html $t("pages.wallet_login_qr.offline_warning")}

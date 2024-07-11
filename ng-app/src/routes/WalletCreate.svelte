@@ -44,7 +44,7 @@
   } from "../wallet_emojis";
 
   import { onMount, onDestroy, tick } from "svelte";
-  import { wallets, set_active_session, has_wallets } from "../store";
+  import { wallets, set_active_session, has_wallets, display_error } from "../store";
   import Spinner from "../lib/components/Spinner.svelte";
 
   const param = new URLSearchParams($querystring);
@@ -139,6 +139,8 @@
   /** The emojis for the newly created pazzle. */
   let pazzle_emojis = [];
   let confirm_modal_open = false;
+  let device_name;
+
   function scrollToTop() {
     top.scrollIntoView();
   }
@@ -221,6 +223,8 @@
   }
 
   async function save_security() {
+    
+    device_name = await ng.get_device_name();
     options = {
       trusted: true,
       cloud: false,
@@ -254,6 +258,7 @@
       core_bootstrap: invitation.V0.bootstrap,
       core_registration,
       additional_bootstrap,
+      //TODO: device_name,
     };
     //console.log("do wallet with params", params);
     try {
@@ -316,7 +321,7 @@
     unsub_register_accepted = undefined;
   };
 
-  onDestroy(() => {
+  onDestroy(async () => {
     unsub_register();
   });
 
@@ -570,7 +575,7 @@
             {:else}
               <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
                 {@html $t("errors.error_occurred", {
-                  values: { message: $t("errors." + registration_error) },
+                  values: { message: display_error(registration_error) },
                 })}
               </p>
               <a use:link href="/">
@@ -1424,8 +1429,25 @@
                   "pages.wallet_create.save_wallet_options.trust_toggle"
                 )}</Toggle
               >
-              <!-- Device Name-->
             </p>
+            <!-- Device Name -->
+            {#if options.trusted}
+              <br />
+              <p class="max-w-xl md:mx-auto lg:max-w-2xl text-left">
+                {@html $t(
+                  "pages.wallet_create.save_wallet_options.device_name_description"
+                )}
+              </p>
+              <input
+                id="device-name-input"
+                class="mt-2 bg-gray-50 border border-gray-300 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                bind:value={device_name}
+                placeholder={$t(
+                  "pages.login.device_name_placeholder"
+                )}
+                type="text"
+              />
+            {/if}
             <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
               <span class="text-xl"
                 >{@html $t(
@@ -1707,7 +1729,7 @@
               />
             </svg>
             <Alert color="red" class="mt-5">
-              {$t("errors." + error)}
+              {display_error(error)}
             </Alert>
             <button
               class="mt-10 select-none"

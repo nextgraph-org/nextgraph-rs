@@ -32,6 +32,8 @@
     active_session,
     set_active_session,
     has_wallets,
+    wallet_import_qrcode,
+    display_error,
   } from "../store";
   import { QrCode } from "svelte-heros-v2";
 
@@ -57,6 +59,7 @@
   }
 
   onMount(async () => {
+
     step = "open";
     wallets_unsub = wallets.subscribe((value) => {
       wallet = selected && $wallets[selected]?.wallet;
@@ -93,6 +96,49 @@
         }
       }
     });
+    if ($wallet_import_qrcode) {
+      
+      let code = $wallet_import_qrcode;
+      wallet_import_qrcode.set("");
+      try {
+        let temp_wallet = await ng.wallet_import_from_code(code);
+        // TODO: in 2 steps. first display: wallet was retrieved successfully.
+        // then when user clicks on  "continue to login", do:
+        wallet = temp_wallet;
+        importing = true;
+      } catch(e) {
+        error = e;
+      }
+    }
+
+    // example of getting wallet from TextCode 
+    // async () => {
+    //           try {
+    //             let temp_wallet = await ng.wallet_import_from_code("AABAOAAAAHNb4y7hdWADqFWDgER3J0xvD3K5D9pZ1wd7Bja4c9cWAOFNpmUIZOFRro0UIpZWr5Ah8U7PlRFe1GFZSKuIextFAA8A45zZUJmUPhfdBrcho1vYPfgda0BAgIT1qjzgEkBQAA");
+    //             // TODO: in 2 steps. first display: wallet was retrieved successfully.
+    //             // then when user clicks on  "continue to login", do:
+    //             wallet = temp_wallet;           
+    //             importing = true;
+    //           } catch (e) {
+    //             error = e;
+    //           }
+    //         }
+
+    // example of rendezvous for desktop and web without cam (please remove it)
+    // qrcode = await ng.wallet_import_rendezvous(300);
+    // try {
+    //   let temp_wallet = await ng.wallet_import_from_code(qrcode[1]);
+    //   // TODO: in 2 steps. first display: wallet was retrieved successfully.
+    //   // then when user clicks on  "continue to login", do:
+    //   wallet = temp_wallet;
+    //   importing = true;
+    // } catch (e) {
+    //   error = e;
+    // }
+    // TODO: display with QRcode with :
+    // {#if qrcode}
+    //   {@html qrcode[0]}
+    // {/if}
   });
   function loggedin() {
     step = "loggedin";
@@ -215,7 +261,7 @@
 
         <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
           {@html $t("errors.error_occurred", {
-            values: { message: $t("errors." + error) },
+            values: { message: display_error(error) },
           })}
         </p>
         <button
@@ -269,10 +315,14 @@
           </div>
         {/each}
         <div class="wallet-box">
-          {#if $has_wallets}<p class="mt-1">
+          {#if $has_wallets}
+            <p class="mt-1">
               {$t("pages.wallet_login.with_another_wallet")}
             </p>
-          {:else}<p class="mt-1">{$t("pages.wallet_login.import_wallet")}</p>
+          {:else}
+            <p class="mt-1">
+              {$t("pages.wallet_login.import_wallet")}
+            </p>
           {/if}
           <Fileupload
             style="display:none;"
@@ -304,20 +354,19 @@
             {$t("pages.wallet_login.import_file")}
           </button>
           <a href="/wallet/login-qr" use:link>
-            <Button
+            <button
               style="min-width: 250px;justify-content: left;"
               class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
             >
               <QrCode class="w-8 h-8 mr-2 -ml-1" />
               {$t("pages.wallet_login.import_qr")}
-            </Button>
+            </button>
           </a>
           <a href="/wallet/login-text-code" use:link>
-            <Button
+            <button
               style="min-width: 250px;justify-content: left;"
-              disabled
               class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-            >
+              >
               <svg
                 class="w-8 h-8 mr-2 -ml-1"
                 fill="none"
@@ -333,9 +382,8 @@
                   d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
                 />
               </svg>
-
               {$t("pages.wallet_login.import_link")}
-            </Button>
+            </button>
           </a>
           <a href="/wallet/create" use:link>
             <button
