@@ -18,6 +18,7 @@
   "dependencies": {
     "@popperjs/core": "^2.11.8",
     "@tauri-apps/api": "2.0.0-alpha.8",
+    "@tauri-apps/plugin-barcode-scanner": "2.0.0-alpha.0",
     "@tauri-apps/plugin-window": "2.0.0-alpha.1",
     "async-proxy": "^0.4.1",
     "classnames": "^2.3.2",

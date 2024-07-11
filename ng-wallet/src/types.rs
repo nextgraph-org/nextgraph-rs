@@ -1426,3 +1426,27 @@ pub struct ShuffledPazzle {
     pub category_indices: Vec<u8>,
     pub emoji_indices: Vec<Vec<u8>>,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NgQRCodeV0 {
+    pub broker: BrokerServerV0,
+    pub rendezvous: SymKey, // Rendez-vous ID
+    pub secret_key: SymKey,
+    pub is_rendezvous: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum NgQRCode {
+    V0(NgQRCodeV0),
+}
+
+impl NgQRCode {
+    pub fn from_code(code: String) -> Result<Self, NgError> {
+        let decoded = base64_url::decode(&code).map_err(|_| NgError::SerializationError)?;
+        Ok(serde_bare::from_slice(&decoded)?)
+    }
+    pub fn to_code(&self) -> String {
+        let ser = serde_bare::to_vec(self).unwrap();
+        base64_url::encode(&ser)
+    }
+}

@@ -127,8 +127,9 @@ async fn wallet_open_with_mnemonic_words(
     pin: [u8; 4],
     _app: tauri::AppHandle,
 ) -> Result<SensitiveWallet, String> {
-    let wallet = nextgraph::local_broker::wallet_open_with_mnemonic_words(&wallet, &mnemonic_words, pin)
-        .map_err(|e| e.to_string())?;
+    let wallet =
+        nextgraph::local_broker::wallet_open_with_mnemonic_words(&wallet, &mnemonic_words, pin)
+            .map_err(|e| e.to_string())?;
     Ok(wallet)
 }
 
@@ -201,6 +202,55 @@ async fn wallet_import(
     _app: tauri::AppHandle,
 ) -> Result<ClientV0, String> {
     nextgraph::local_broker::wallet_import(encrypted_wallet, opened_wallet, in_memory)
+        .await
+        .map_err(|e: NgError| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_export_rendezvous(
+    session_id: u64,
+    code: String,
+    _app: tauri::AppHandle,
+) -> Result<(), String> {
+    nextgraph::local_broker::wallet_export_rendezvous(session_id, code)
+        .await
+        .map_err(|e: NgError| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_export_get_qrcode(
+    session_id: u64,
+    size: u32,
+    _app: tauri::AppHandle,
+) -> Result<String, String> {
+    nextgraph::local_broker::wallet_export_get_qrcode(session_id, size)
+        .await
+        .map_err(|e: NgError| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_export_get_textcode(
+    session_id: u64,
+    _app: tauri::AppHandle,
+) -> Result<String, String> {
+    nextgraph::local_broker::wallet_export_get_textcode(session_id)
+        .await
+        .map_err(|e: NgError| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_import_rendezvous(
+    size: u32,
+    _app: tauri::AppHandle,
+) -> Result<(String, String), String> {
+    nextgraph::local_broker::wallet_import_rendezvous(size)
+        .await
+        .map_err(|e: NgError| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn wallet_import_from_code(code: String, _app: tauri::AppHandle) -> Result<Wallet, String> {
+    nextgraph::local_broker::wallet_import_from_code(code)
         .await
         .map_err(|e: NgError| e.to_string())
 }
@@ -491,6 +541,11 @@ fn client_info_rust() -> Result<Value, String> {
     Ok(ng_repo::os_info::get_os_info())
 }
 
+#[tauri::command(rename_all = "snake_case")]
+fn get_device_name() -> Result<String, String> {
+    Ok(nextgraph::get_device_name())
+}
+
 #[derive(Default)]
 pub struct AppBuilder {
     setup: Option<SetupHook>,
@@ -517,7 +572,7 @@ impl AppBuilder {
 
     pub fn run(self) {
         let setup = self.setup;
-        tauri::Builder::default()
+        let builder = tauri::Builder::default()
             .setup(move |app| {
                 if let Some(setup) = setup {
                     (setup)(app)?;
@@ -533,7 +588,14 @@ impl AppBuilder {
                 }
                 Ok(())
             })
-            .plugin(tauri_plugin_window::init())
+            .plugin(tauri_plugin_window::init());
+
+        #[cfg(mobile)]
+        {
+            let builder = builder.plugin(tauri_plugin_barcode_scanner::init());
+        }
+
+        builder
             .invoke_handler(tauri::generate_handler![
                 test,
                 locales,
@@ -547,6 +609,11 @@ impl AppBuilder {
                 wallet_read_file,
                 wallet_get_file,
                 wallet_import,
+                wallet_export_rendezvous,
+                wallet_export_get_qrcode,
+                wallet_export_get_textcode,
+                wallet_import_rendezvous,
+                wallet_import_from_code,
                 wallet_close,
                 encode_create_account,
                 session_start,
@@ -565,6 +632,7 @@ impl AppBuilder {
                 app_request_stream,
                 app_request,
                 upload_chunk,
+                get_device_name,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

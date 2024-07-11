@@ -365,7 +365,7 @@
         {:else}
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
             {@html $t("errors.error_occurred", {
-              values: { message: $t("errors." + error) },
+              values: { message: display_error(error) },
             })}
           </p>
           <a use:link href="/">
