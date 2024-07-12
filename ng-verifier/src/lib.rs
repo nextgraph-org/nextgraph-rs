@@ -1,4 +1,3 @@
-
 pub mod types;
 
 pub mod site;
@@ -12,5 +11,5 @@ mod commits;
 
 mod request_processor;
 
-#[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+#[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 mod rocksdb_user_storage;

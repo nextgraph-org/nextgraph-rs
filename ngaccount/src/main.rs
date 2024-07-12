@@ -12,17 +12,17 @@ extern crate anyhow;
 mod types;
 
 use std::convert::Infallible;
+use std::env;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::{env};
 
 use duration_str::parse;
+use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use warp::http::header::{HeaderMap, HeaderValue};
 use warp::reply::Response;
 use warp::{Filter, Reply};
-use rust_embed::RustEmbed;
 
 use ng_repo::log::*;
 use ng_repo::types::*;
@@ -32,11 +32,10 @@ use ng_net::actors::admin::add_invitation::*;
 use ng_net::broker::BROKER;
 use ng_net::types::{
     AdminResponseContentV0, BindAddress, CreateAccountBSP, Invitation, InvitationCode,
-     APP_ACCOUNT_REGISTERED_SUFFIX, 
+    APP_ACCOUNT_REGISTERED_SUFFIX,
 };
 
 use ng_client_ws::remote_ws::ConnectionWebSocket;
-
 
 #[derive(RustEmbed)]
 #[folder = "web/dist"]
@@ -261,7 +260,6 @@ async fn main() -> anyhow::Result<()> {
             "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self' http://localhost:3031",
             #[cfg(not(debug_assertions))]
             "default-src 'self' data:; connect-src ipc: https://ipc.localhost 'self'",
-            
         ),
     );
 

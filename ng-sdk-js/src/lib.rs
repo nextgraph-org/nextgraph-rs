@@ -148,14 +148,16 @@ pub fn wallet_open_with_pazzle(
 #[wasm_bindgen]
 pub fn wallet_open_with_mnemonic(
     wallet: JsValue,
-    mnemonic: Vec<u16>,
+    mnemonic: JsValue,
     pin: JsValue,
 ) -> Result<JsValue, JsValue> {
     let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(wallet)
         .map_err(|_| "Deserialization error of wallet")?;
     let pin = serde_wasm_bindgen::from_value::<[u8; 4]>(pin)
         .map_err(|_| "Deserialization error of pin")?;
-    let res = nextgraph::local_broker::wallet_open_with_mnemonic(&encrypted_wallet, mnemonic, pin);
+    let mnemonic = serde_wasm_bindgen::from_value::<[u16; 12]>(mnemonic)
+        .map_err(|_| "Deserialization error of mnemonic")?;
+    let res = ng_wallet::open_wallet_with_mnemonic(&encrypted_wallet, mnemonic, pin);
     match res {
         Ok(r) => Ok(r
             .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))

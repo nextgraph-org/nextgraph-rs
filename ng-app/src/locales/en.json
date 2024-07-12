@@ -348,7 +348,8 @@
     "InvalidNuri": "Invalid NextGraph URI.",
     "InvalidTarget": "Cannot resolve target.",
     "ExportWalletTimeOut": "Export of wallet has expired.",
-    "ConnectionError": "Could not connect to the server."
+    "ConnectionError": "Could not connect to the server.",
+    "IncompatibleQrCode": "You scanned a NextGraph QR-Code that is of the wrong type"
   },
   "connectivity": {
     "stopped": "Stopped",

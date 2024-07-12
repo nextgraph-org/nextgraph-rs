@@ -17,6 +17,7 @@ const mapping = {
     "wallet_gen_shuffle_for_pin": [],
     "wallet_open_with_pazzle": ["wallet","pazzle","pin"],
     "wallet_open_with_mnemonic_words": ["wallet","mnemonic_words","pin"],
+    "wallet_open_with_mnemonic": ["wallet","mnemonic","pin"],
     "wallet_was_opened": ["opened_wallet"],
     "wallet_create": ["params"],
     "wallet_read_file": ["file"],
@@ -189,7 +190,7 @@ const handler = {
                 return false;
             } else if (path[0] === "get_local_url") {
                 return false;
-            } else if (path[0] === "wallet_open_with_pazzle" || path[0] === "wallet_open_with_mnemonic_words") {
+            } else if (path[0] === "wallet_open_with_pazzle" || path[0] === "wallet_open_with_mnemonic_words" || path[0] === "wallet_open_with_mnemonic") {
                 let arg:any = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 let img = Array.from(new Uint8Array(arg.wallet.V0.content.security_img));

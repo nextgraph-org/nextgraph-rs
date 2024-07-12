@@ -1428,7 +1428,7 @@ pub struct ShuffledPazzle {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NgQRCodeV0 {
+pub struct NgQRCodeWalletTransferV0 {
     pub broker: BrokerServerV0,
     pub rendezvous: SymKey, // Rendez-vous ID
     pub secret_key: SymKey,
@@ -1436,8 +1436,17 @@ pub struct NgQRCodeV0 {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NgQRCodeWalletRecoveryV0 {
+    pub wallet: WalletContentV0, //of which security_img is emptied
+    pub pazzle: Vec<u8>,
+    pub mnemonic: [u16; 12],
+    pub pin: [u8; 4],
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum NgQRCode {
-    V0(NgQRCodeV0),
+    WalletTransferV0(NgQRCodeWalletTransferV0),
+    WalletRecoveryV0(NgQRCodeWalletRecoveryV0),
 }
 
 impl NgQRCode {

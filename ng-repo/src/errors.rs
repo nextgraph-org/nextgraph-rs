@@ -87,6 +87,7 @@ pub enum NgError {
     InvalidQrCode,
     NotImplemented,
     NotARendezVous,
+    IncompatibleQrCode,
 }
 
 impl Error for NgError {}
