@@ -101,7 +101,7 @@
               tabindex="-1"
               class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
             />
-            {$t("pages.wallet_login_textcode.login_btn")}
+            {$t("pages.wallet_login_textcode.import_btn")}
           </button>
 
           <!-- Back Button -->

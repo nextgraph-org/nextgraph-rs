@@ -35,7 +35,7 @@
       "scan_qr.scanner.loading": "Loading scanner",
       "scan_qr.syncing": "Synchronizing wallet",
       "scan_qr.scan_successful": "Success!<br />Your wallet has been transferred to the new device.",
-      "gen_qr.title": "Export with generated QR-Code",
+      "gen_qr.title": "Export by generating QR-Code",
       "gen_qr.notes": "Use the following QR-Code to scan with the device that you want to transfer your wallet to.",
       "gen_qr.img_title": "Your Export QR Code to Scan",
       "gen_qr.img_alt": "Your Export QR Code to Scan",
@@ -128,7 +128,6 @@
       "no_brokers_connected": "No brokers connected"
     },
     "wallet_create": {
-      "pease_wait": "Please wait",
       "redirecting_to_registration_page": "Redirecting to the Broker Service Provider registration page",
       "complete_in_popup": "Complete the registration in the popup window",
       "own_your_ngbox": "Own your NG-Box",
@@ -206,7 +205,7 @@
       "pins_no_match": "You didn't enter the same PIN twice",
       "almost_done": "We are almost done!",
       "save_wallet_options": {
-        "description": "There are 4 options to choose before we can create your wallet. Those options can help you to use and keep your wallet. But we also want to be careful with your security and privacy.<br /><br /> Remember that in any case, once your wallet will be created, you will download a file that you should keep privately somewhere on your device, USB key or hard-disk. This is the default way you can use and keep your wallet. Now let's look at some options that can make your life a bit easier.",
+        "description": "There are 4 options to choose before we can create your wallet. Those options can help you to use and keep your wallet. But we also want to be careful with your security and privacy.<br /><br />Remember that in any case, once your wallet will be created, you will download a file that you should keep privately somewhere on your device, USB key or hard-disk. This is the default way you can use and keep your wallet. Now let's look at some options that can make your life a bit easier.",
         "trust": "Do you trust this device?",
         "trust_description": "If you do, if this device is yours, or it is used by a few trusted persons of your family or workplace, and you would like to login again from this device in the future, then you can save your wallet on this device. To the contrary, if this device is public and shared by strangers, do not save your wallet here.",
         "trust_toggle": "Save my wallet on this device?",
@@ -254,18 +253,17 @@
     },
     "wallet_login_qr": {
       "title": "Import Wallet with QR-Code",
-      "scan.description": "To import your wallet from another device, generate a wallet QR-Code there. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Generate QR</span> to export.",
+      "scan.description": "To import your wallet from another device, generate an export-QR-Code there. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Export by scanning QR-Code</span> to export.",
       "scan.button": "Scan QR-Code",
       "scan.modal.title": "Scan Wallet QR-Code",
-      "gen.button": "Generate",
-      "gen.description": "To import your wallet from another device, you have to generate a QR-Code here on this device, and then scan it with your other device. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Scan QR</span> to export.",
+      "gen.description": "To import your wallet from another device, you have to generate an import-QR-Code here on this device, and then scan it with your other device. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Export by generating QR-Code</span>, to export.",
       "gen.generated": "Scan this QR-Code from the the other device.",
       "success_btn": "Continue to Login"
     },
     "wallet_login_textcode": {
       "title": "Import Wallet from TextCode",
       "description": "To generate a TextCode, open a logged in device and go to<br /><span class=\"path\">User Panel > Wallet > Generate TextCode</span> to export.",
-      "login_btn": "Import with TextCode"
+      "import_btn": "Import with TextCode"
     },
     "scan_qr": {
       "scanning": "Scan the QR-Code"
@@ -283,7 +281,8 @@
     "back_to_homepage": "Go back to Homepage",
     "logout": "Logout",
     "login": "Login",
-    "start_over": "Start over"
+    "start_over": "Start over",
+    "generate": "generate"
   },
   "errors": {
     "an_error_occurred": "An error occurred",
@@ -349,7 +348,7 @@
     "LocalBrokerIsNotHeadless": "The local broker is not headless.",
     "InvalidNuri": "Invalid NextGraph URI.",
     "InvalidTarget": "Cannot resolve target.",
-    "ExportWalletTimeOut": "Export of wallet has expired.",
+    "ExportWalletTimeOut": "The wallet-export session has expired. Try again.",
     "ConnectionError": "Could not connect to the server.",
     "IncompatibleQrCode": "You scanned a NextGraph QR-Code that is of the wrong type.",
     "NotARendezVous": "You scanned an invalid QR-Code."
@@ -418,7 +417,7 @@
       "bandage": "face with head-bandage",
       "vomit": "face vomiting",
       "tissue": "tissue sneezing face",
-      "hot": "hot face with head-bandage",
+      "hot": "red face with sweat",
       "cold": "cold face",
       "crossed_eyes": "face with crossed-out eyes",
       "exploding": "exploding head",
