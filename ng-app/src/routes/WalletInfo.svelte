@@ -225,7 +225,8 @@
                     class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                   />
                 </div>
-                <span class="ml-3">{$t("pages.wallet_info.scan_qr")}</span>
+                <span class="ml-3">{$t("pages.wallet_info.scan_qr.title")}</span
+                >
               </li>
 
               <!-- Generate QR Code to log in with another device -->
@@ -242,7 +243,7 @@
                     class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
                   />
                 </div>
-                <span class="ml-3">{$t("pages.wallet_info.generate_qr")}</span>
+                <span class="ml-3">{$t("pages.wallet_info.gen_qr.title")}</span>
               </li>
 
               <!-- Download Wallet -->
