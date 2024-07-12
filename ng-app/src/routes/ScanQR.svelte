@@ -82,7 +82,7 @@
   });
 </script>
 
-<div class="text-center">
+<div class="text-center max-w-4xl mx-auto">
   <div>
     <h2 class="text-xl mb-6">{$t("pages.scan_qr.scanning")}</h2>
   </div>
