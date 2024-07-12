@@ -57,6 +57,7 @@
     active_wallet,
     connections,
     reconnect,
+    display_error,
   } from "../store";
 
   import {
