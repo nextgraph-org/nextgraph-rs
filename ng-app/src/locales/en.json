@@ -29,19 +29,20 @@
       "remove_wallet_modal.confirm": "Are you sure you want to remove this wallet from your device?",
       "create_text_code": "Generate TextCode to export",
       "scan_qr.title": "Export by scanning QR-Code",
-      "scan_qr.notes": "Scan the QR-Code on the device that you want to transfer your wallet to.<br />.",
+      "scan_qr.notes": "Scan the QR-Code on the device that you want to transfer your wallet to.",
       "scan_qr.scan_btn": "Scan QR Code ",
       "scan_qr.scanner.title": "Scan your QR Code",
       "scan_qr.scanner.loading": "Loading scanner",
       "scan_qr.syncing": "Synchronizing wallet",
-      "scan_qr.scan_successful": "Success!<br />Your wallet has been synchronized to the new device.",
+      "scan_qr.scan_successful": "Success!<br />Your wallet has been transferred to the new device.",
       "gen_qr.title": "Export with generated QR-Code",
       "gen_qr.notes": "Use the following QR-Code to scan with the device that you want to transfer your wallet to.",
       "gen_qr.img_title": "Your Export QR Code to Scan",
       "gen_qr.img_alt": "Your Export QR Code to Scan",
-      "gen_qr.gen_button": "Display QR Code",
+      "gen_qr.gen_button": "Show QR Code",
       "gen_text_code.title": "Export with TextCode",
-      "gen_text_code.gen_btn": "Generate   TextCode"
+      "gen_text_code.gen_btn": "Generate TextCode",
+      "gen_text_code.label": "Your TextCode:"
     },
     "settings": {
       "title": "Settings"
@@ -241,7 +242,8 @@
     "wallet_login": {
       "select_wallet": "Select a wallet to login with",
       "from_import.title": "Your wallet has been transferred",
-      "from_import.description": "Your wallet has been transferred!<br />To finish the import, please log in.",
+      "from_import.description": "Your wallet has been received:",
+      "from_import.instruction": "To finish the import, please log in.",
       "with_another_wallet": "Log in with another wallet",
       "import_wallet": "Import your wallet",
       "import_file": "Import a Wallet File",
@@ -256,7 +258,7 @@
       "scan.button": "Scan QR-Code",
       "scan.modal.title": "Scan Wallet QR-Code",
       "gen.button": "Generate",
-      "gen.description": "To import your wallet from another device, you have to display a QR-Code here on this device, and then scan it with your other device. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Scan QR</span> to export.",
+      "gen.description": "To import your wallet from another device, you have to generate a QR-Code here on this device, and then scan it with your other device. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Scan QR</span> to export.",
       "gen.generated": "Scan this QR-Code from the the other device.",
       "success_btn": "Continue to Login"
     },
@@ -349,7 +351,8 @@
     "InvalidTarget": "Cannot resolve target.",
     "ExportWalletTimeOut": "Export of wallet has expired.",
     "ConnectionError": "Could not connect to the server.",
-    "IncompatibleQrCode": "You scanned a NextGraph QR-Code that is of the wrong type"
+    "IncompatibleQrCode": "You scanned a NextGraph QR-Code that is of the wrong type.",
+    "NotARendezVous": "You scanned an invalid QR-Code."
   },
   "connectivity": {
     "stopped": "Stopped",

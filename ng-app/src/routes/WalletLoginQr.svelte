@@ -1,7 +1,12 @@
 <script lang="ts">
   import { t } from "svelte-i18n";
   import { Alert, Modal, Spinner } from "flowbite-svelte";
-  import { ArrowLeft, Camera, QrCode } from "svelte-heros-v2";
+  import {
+    ArrowLeft,
+    Camera,
+    ExclamationTriangle,
+    QrCode,
+  } from "svelte-heros-v2";
   import { onDestroy, onMount } from "svelte";
   import { push } from "svelte-spa-router";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
@@ -41,7 +46,7 @@
       } catch {
         has_camera = false;
       }
-      has_camera = false;
+
       login_method = has_camera ? "scan" : "gen";
     } else {
       // TODO: There does not seem to be an API for checking, if the native device
@@ -68,7 +73,7 @@
     gen_state = "generating";
     try {
       const [qr_code_el, code] = await ng.wallet_import_rendezvous(
-        top.clientWidth
+        Math.ceil(top.clientWidth * 0.9)
       );
       rendezvous_code = code;
       qr_code_html = qr_code_el;
@@ -127,11 +132,15 @@
           </Alert>
         </div>
       {:else if error}
-        <Alert color="red">
-          {@html $t("wallet_sync.error", {
-            values: { error: display_error(error) },
-          })}
-        </Alert>
+        <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
+          <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
+
+          <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
+            {@html $t("errors.error_occurred", {
+              values: { message: display_error(error) },
+            })}
+          </p>
+        </div>
       {:else if login_method === "scan"}
         {#if scan_state === "before_start"}
           <!-- Scan Mode -->
@@ -168,7 +177,7 @@
           </div>
 
           <!-- Generated QR Code -->
-          <div>
+          <div class="my-4 my-auto">
             {@html qr_code_html}
           </div>
         {/if}

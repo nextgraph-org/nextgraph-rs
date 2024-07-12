@@ -36,7 +36,7 @@
     display_error,
     wallet_from_import,
   } from "../store";
-  import { CheckBadge, QrCode } from "svelte-heros-v2";
+  import { CheckBadge, ExclamationTriangle, QrCode } from "svelte-heros-v2";
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
 
@@ -113,8 +113,8 @@
   }
 
   function start_login_from_import() {
-    // Login button clicked, `wallet` is was set onMount.
-    // Unset, to show login screen.
+    // Login button was clicked and `wallet` was set in `onMount`.
+    // Unset variable from store, to show login screen.
     wallet_from_import.set(null);
   }
 
@@ -218,21 +218,7 @@
   <CenteredLayout displayFooter={!wallet}>
     {#if error}
       <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
-        <svg
-          class="animate-bounce mt-10 h-16 w-16 mx-auto"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-          />
-        </svg>
+        <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
 
         <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
           {@html $t("errors.error_occurred", {
@@ -260,35 +246,40 @@
         </h2>
       </div>
 
-      <CheckBadge class="w-full h-6" />
+      <span class="text-green-800">
+        <CheckBadge class="w-full mt-4" size="3em" />
 
-      <div>
-        {@html $t("pages.wallet_login.from_import.description")}
-      </div>
+        <div class="mt-4">
+          {@html $t("pages.wallet_login.from_import.description")}
+        </div>
+      </span>
 
       <!-- Show wallet security image and phrase. -->
-      <!--
       <div
-        class="wallet-box"
+        class="wallet-box mt-4 mx-auto"
         role="button"
         tabindex="0"
-        title={$wallet_from_import[0]}
+        on:click={start_login_from_import}
+        on:keypress={start_login_from_import}
       >
         <span class="securitytxt"
-          >{$wallet_from_import[1].wallet.V0.content.security_txt}
+          >{$wallet_from_import.V0.content.security_txt}
         </span>
         <img
-          alt={$wallet_from_import[1].wallet.V0.content.security_txt}
+          alt={$wallet_from_import.V0.content.security_txt}
           class="securityimg"
-          src={convert_img_to_url(
-            $wallet_from_import[1].wallet.V0.content.security_img
-          )}
+          src={convert_img_to_url($wallet_from_import.V0.content.security_img)}
         />
       </div>
--->
+
+      <!-- Login to finish import instructions-->
+      <div class="my-4">
+        {@html $t("pages.wallet_login.from_import.instruction")}
+      </div>
+
       <div>
         <button
-          class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
+          class="mt-4 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
           on:click={start_login_from_import}
         >
           {$t("buttons.login")}
@@ -313,7 +304,6 @@
             class="wallet-box"
             role="button"
             tabindex="0"
-            title={wallet_entry[0]}
             on:click={() => {
               select(wallet_entry[0]);
             }}

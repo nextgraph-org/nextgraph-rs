@@ -28,6 +28,7 @@
     Link,
     Camera,
     CheckBadge,
+    ExclamationTriangle,
   } from "svelte-heros-v2";
   import { onDestroy, onMount, tick } from "svelte";
   import { Sidebar, SidebarGroup, SidebarWrapper } from "flowbite-svelte";
@@ -43,8 +44,7 @@
   } from "../store";
 
   import { default as ng } from "../api";
-
-  let WebQRScannerClassPromise: Promise<typeof Html5QrcodeScanner>;
+  import CopyToClipboard from "../lib/components/CopyToClipboard.svelte";
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
   let error;
@@ -55,12 +55,13 @@
 
   let sub_menu: "scan_qr" | "generate_qr" | "text_code" | null = null;
 
-  let generation_state: "loading" | "generated" | null = null;
-  let generated_qr: string | undefined = undefined;
+  let generation_state: "before_start" | "loading" | "generated" =
+    "before_start";
 
+  let generated_qr: string | undefined = undefined;
   let generated_text_code: string | null = null;
 
-  let scanner_state: null | "scanned" | "success" = null;
+  let scanner_state: "before_start" | "scanned" | "success" = "before_start";
 
   async function scrollToTop() {
     await tick();
@@ -85,19 +86,19 @@
 
   async function open_gen_menu() {
     sub_menu = "generate_qr";
-    generation_state = null;
+    generation_state = "before_start";
   }
 
   function open_textcode_menu() {
     sub_menu = "text_code";
-    scanner_state = null;
+    scanner_state = "before_start";
   }
 
   async function generate_qr_code() {
     generation_state = "loading";
     generated_qr = await ng.wallet_export_get_qrcode(
       $active_session.session_id,
-      container.clientWidth
+      Math.ceil(container.clientWidth * 0.9)
     );
     generation_state = "generated";
   }
@@ -129,7 +130,8 @@
     sub_menu = null;
     generated_qr = undefined;
     generated_text_code = null;
-    generation_state = null;
+    generation_state = "before_start";
+    scanner_state = "before_start";
   }
 
   let downloading = false;
@@ -399,7 +401,7 @@
               <li
                 tabindex="0"
                 role="menuitem"
-                class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
+                class="mb-2 text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
                 on:keypress={to_main_menu}
                 on:click={to_main_menu}
               >
@@ -410,21 +412,23 @@
                 <span class="ml-3">{$t("buttons.back")}</span>
               </li>
 
-              <!-- NOTES ABOUT QR-->
-              <li class="text-left">
-                {@html $t("pages.wallet_info.scan_qr.notes")}
-              </li>
-
-              <!-- Warning if offline -->
-              {#if !$online}
+              {#if scanner_state === "before_start"}
+                <!-- NOTES ABOUT QR-->
                 <li class="text-left">
-                  <Alert color="red">
-                    {@html $t("wallet_sync.offline_warning")}
-                  </Alert>
+                  {@html $t("pages.wallet_info.scan_qr.notes")}
+                  <br />
+                  {@html $t("wallet_sync.server_transfer_notice")}
                 </li>
-              {/if}
 
-              {#if !scanner_state}
+                <!-- Warning if offline -->
+                {#if !$online}
+                  <li class="text-left">
+                    <Alert color="red">
+                      {@html $t("wallet_sync.offline_warning")}
+                    </Alert>
+                  </li>
+                {/if}
+
                 <Button
                   on:click={open_scanner}
                   disabled={false || !$online}
@@ -493,17 +497,15 @@
                 </li>
               {/if}
 
-              {#if !generated_qr || generation_state === "loading"}
+              {#if generation_state === "before_start"}
                 <Button
                   on:click={generate_qr_code}
-                  disabled={generation_state === "loading" || !$online}
                   class="w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
                 >
-                  {#if generation_state === "loading"}
-                    <Spinner class="mr-2" size="6" />
-                  {/if}
                   {$t("pages.wallet_info.gen_qr.gen_button")}
                 </Button>
+              {:else if generation_state === "loading"}
+                <Spinner class="mx-auto" size="6" />
               {:else}
                 <!-- QR Code -->
                 <div class="w-full">
@@ -534,8 +536,8 @@
                 <span class="ml-3">{$t("buttons.back")}</span>
               </li>
 
-              <!-- Warning to better use QR codes or wallet downloads -->
-              <div class="text-left">
+              <!-- Warning to prefer QR codes or wallet downloads -->
+              <div class="text-left my-4">
                 <Alert color="yellow">
                   {@html $t("wallet_sync.textcode.usage_warning")}
                 </Alert>
@@ -543,35 +545,32 @@
 
               <!-- Warning if offline -->
               {#if !$online}
-                <li class="text-left">
+                <li class="text-left my-4">
                   <Alert color="red">
                     {@html $t("wallet_sync.offline_warning")}
                   </Alert>
                 </li>
               {/if}
 
-              {#if generation_state !== "generated"}
-                <Button
-                  on:click={generate_text_code}
-                  disabled={generation_state === "loading" || !$online}
-                  class="w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-                >
-                  {#if generation_state === "loading"}
-                    <Spinner class="mr-2" size="6" />
-                  {/if}
-                  {$t("pages.wallet_info.gen_text_code.gen_btn")}
-                </Button>
-              {:else}
-                <!-- TextCode Code -->
-                <div>
-                  <textarea
-                    rows="6"
-                    value={generated_text_code}
-                    class="col-span-6 pr-11 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                    readonly
-                  />
-                </div>
-              {/if}
+              <div class="mt-4">
+                {#if generation_state === "before_start"}
+                  <Button
+                    on:click={generate_text_code}
+                    disabled={!$online}
+                    class="my-4 w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+                  >
+                    {$t("pages.wallet_info.gen_text_code.gen_btn")}
+                  </Button>
+                {:else if generation_state == "loading"}
+                  <Spinner class="mx-auto" size="6" />
+                {:else}
+                  <!-- TextCode Code -->
+                  <label>{$t("pages.wallet_info.gen_text_code.label")}</label>
+                  <div>
+                    <CopyToClipboard rows={8} value={generated_text_code} />
+                  </div>
+                {/if}
+              </div>
             </SidebarGroup>
           {/if}
         </SidebarWrapper>
@@ -579,48 +578,13 @@
     </div>
     {#if error}
       <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
-        <svg
-          class="animate-bounce mt-10 h-16 w-16 mx-auto"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-          />
-        </svg>
-        {#if error == "AlreadyExists"}
-          <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            {@html $t("errors.AlreadyExists")}
-          </p>
-          <a use:link href="/">
-            <button
-              tabindex="-1"
-              class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-            >
-              {$t("buttons.login")}
-            </button>
-          </a>
-        {:else}
-          <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-            {@html $t("errors.error_occurred", {
-              values: { message: display_error(error) },
-            })}
-          </p>
-          <a use:link href="/">
-            <button
-              tabindex="-1"
-              class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-            >
-              {$t("buttons.back_to_homepage")}
-            </button>
-          </a>
-        {/if}
+        <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
+
+        <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
+          {@html $t("errors.error_occurred", {
+            values: { message: display_error(error) },
+          })}
+        </p>
       </div>
     {/if}
   </div>
