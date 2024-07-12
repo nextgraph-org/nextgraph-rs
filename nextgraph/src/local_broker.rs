@@ -22,7 +22,7 @@ use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str};
 use qrcode::{render::svg, QrCode};
 use serde_bare::to_vec;
 use serde_json::json;
-use svg2pdf::{ConversionOptions, PageOptions};
+use svg2pdf::ConversionOptions;
 use zeroize::Zeroize;
 
 use ng_repo::block_storage::BlockStorage;
@@ -1618,7 +1618,7 @@ pub async fn wallet_recovery_pdf(
 
     // you can use the methods of pdf_writer library.
 
-    let (mut chunk, reference) = svg2pdf::to_chunk(&tree, ConversionOptions::default());
+    let (chunk, qrcode_ref) = svg2pdf::to_chunk(&tree, ConversionOptions::default());
     // probably then: add the text with chunk.stream() or chunk.indirect()
 
     //let pdf_buf = svg2pdf::to_pdf(&tree, ConversionOptions::default(), PageOptions::default());
@@ -1630,6 +1630,7 @@ pub async fn wallet_recovery_pdf(
     let font_id = Ref::new(1003);
     let content_id = Ref::new(1004);
     let font_name = Name(b"F1");
+    let qrcode_name = Name(b"Im1");
 
     let mut content = Content::new();
     content.begin_text();
@@ -1637,8 +1638,17 @@ pub async fn wallet_recovery_pdf(
     content.next_line(108.0, 734.0);
     content.show(Str(b"Hello World from Rust!"));
     content.end_text();
+    content.begin_text();
+    content.set_font(font_name, 14.0);
+    content.next_line(15.0, 810.0);
+    content.show(Str(recovery_str.as_bytes()));
+    content.end_text();
+    content.save_state();
+    content.transform([595.0, 0.0, 0.0, 595.0, 0.0, 0.0]);
+    content.x_object(qrcode_name);
+    content.restore_state();
 
-    // Write a document catalog and a page tree with one A4 page that uses no resources.
+    // Write a document catalog and a page tree with one A4 page .
     let mut pdf = Pdf::new();
     pdf.stream(content_id, &content.finish());
     pdf.catalog(catalog_id).pages(page_tree_id);
@@ -1650,6 +1660,7 @@ pub async fn wallet_recovery_pdf(
             .media_box(Rect::new(0.0, 0.0, 595.0, 842.0))
             .resources();
         page_resources.fonts().pair(font_name, font_id);
+        page_resources.x_objects().pair(qrcode_name, qrcode_ref);
         page_resources.finish();
 
         page.contents(content_id);
