@@ -227,14 +227,15 @@ lazy_static! {
 }
 
 /// Taking a list of bip39 words, returns a list of u16 codes
-pub fn encode_mnemonic(words: &Vec<String>) -> Result<Vec<u16>, NgError> {
-    let mut res = vec![];
-    for word in words {
-        res.push(
-            *BIP39_WORD_MAP
-                .get(word.as_str())
-                .ok_or(NgError::InvalidMnemonic)?,
-        );
+pub fn encode_mnemonic(words: &Vec<String>) -> Result<[u16; 12], NgError> {
+    if words.len() != 12 {
+        return Err(NgError::InvalidMnemonic);
+    }
+    let mut res = [0u16; 12];
+    for (idx, word) in words.iter().enumerate() {
+        res[idx] = *BIP39_WORD_MAP
+            .get(word.as_str())
+            .ok_or(NgError::InvalidMnemonic)?;
     }
     Ok(res)
 }

@@ -16,12 +16,14 @@ use async_once_cell::OnceCell;
 use async_std::sync::{Arc, Mutex, RwLock};
 use futures::channel::mpsc;
 use futures::SinkExt;
+use lazy_static::lazy_static;
 use once_cell::sync::Lazy;
+use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str};
+use qrcode::{render::svg, QrCode};
 use serde_bare::to_vec;
 use serde_json::json;
+use svg2pdf::{ConversionOptions, PageOptions};
 use zeroize::Zeroize;
-use qrcode::{render::svg, QrCode};
-use lazy_static::lazy_static;
 
 use ng_repo::block_storage::BlockStorage;
 use ng_repo::block_storage::HashMapBlockStorage;
@@ -29,31 +31,31 @@ use ng_repo::errors::{NgError, ProtocolError};
 use ng_repo::log::*;
 use ng_repo::os_info::get_os_info;
 use ng_repo::types::*;
-use ng_repo::utils::{derive_key, generate_keypair, encrypt_in_place};
+use ng_repo::utils::{derive_key, encrypt_in_place, generate_keypair};
 
-use ng_net::{actor::*,actors::admin::*};
-use ng_net::broker::*;
-use ng_net::connection::{ClientConfig, IConnect, NoiseFSM, StartConfig, AppConfig};
-use ng_net::types::*;
 use ng_net::app_protocol::*;
+use ng_net::broker::*;
+use ng_net::connection::{AppConfig, ClientConfig, IConnect, NoiseFSM, StartConfig};
+use ng_net::types::*;
 use ng_net::utils::{Receiver, Sender};
+use ng_net::{actor::*, actors::admin::*};
 
 use ng_verifier::types::*;
 use ng_verifier::verifier::Verifier;
 
-use ng_wallet::emojis::encode_pazzle;
 use ng_wallet::bip39::encode_mnemonic;
+use ng_wallet::emojis::encode_pazzle;
 use ng_wallet::{create_wallet_first_step_v0, create_wallet_second_step_v0, types::*};
 
 #[cfg(not(target_family = "wasm"))]
 use ng_client_ws::remote_ws::ConnectionWebSocket;
 #[cfg(target_family = "wasm")]
 use ng_client_ws::remote_ws_wasm::ConnectionWebSocket;
-#[cfg(not(any(target_family = "wasm",docsrs)))]
+#[cfg(not(any(target_family = "wasm", docsrs)))]
 use ng_storage_rocksdb::block_storage::RocksDbBlockStorage;
 
 #[doc(hidden)]
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct HeadlessConfig {
     // parse_ip_and_port_for(string, "verifier_server")
     pub server_addr: BindAddress,
@@ -272,24 +274,45 @@ struct RemoteSession {
 
 impl RemoteSession {
     pub(crate) async fn send_request(&self, req: AppRequest) -> Result<AppResponse, NgError> {
-        match BROKER.read().await.request::<AppRequest, AppResponse>(&Some(self.user_id), &Some(self.remote_peer_id), req).await {
+        match BROKER
+            .read()
+            .await
+            .request::<AppRequest, AppResponse>(
+                &Some(self.user_id),
+                &Some(self.remote_peer_id),
+                req,
+            )
+            .await
+        {
             Err(e) => Err(e),
             Ok(SoS::Stream(_)) => Err(NgError::InvalidResponse),
-            Ok(SoS::Single(res)) => Ok(res),           
+            Ok(SoS::Single(res)) => Ok(res),
         }
     }
-    
-    pub(crate) async fn send_request_stream(&self, req: AppRequest) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-        match BROKER.read().await.request::<AppRequest, AppResponse>(&Some(self.user_id), &Some(self.remote_peer_id), req).await {
+
+    pub(crate) async fn send_request_stream(
+        &self,
+        req: AppRequest,
+    ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
+        match BROKER
+            .read()
+            .await
+            .request::<AppRequest, AppResponse>(
+                &Some(self.user_id),
+                &Some(self.remote_peer_id),
+                req,
+            )
+            .await
+        {
             Err(e) => Err(e),
             Ok(SoS::Single(_)) => Err(NgError::InvalidResponse),
             Ok(SoS::Stream(stream)) => {
                 let fnonce = Box::new(move || {
                     // stream.close();
-                    //TODO: implement CancelStream in AppRequest 
+                    //TODO: implement CancelStream in AppRequest
                 });
                 Ok((stream, fnonce))
-            },           
+            }
         }
     }
 }
@@ -299,8 +322,7 @@ struct HeadlessSession {
     user_id: UserId,
 }
 
-impl HeadlessSession {
-}
+impl HeadlessSession {}
 
 #[derive(Debug)]
 struct Session {
@@ -340,7 +362,7 @@ impl SessionConfig {
             Self::HeadlessV0(_) => true,
         }
     }
-    pub fn set_verifier_type(&mut self, vt:VerifierType) {
+    pub fn set_verifier_type(&mut self, vt: VerifierType) {
         match self {
             Self::V0(v0) => v0.verifier_type = vt,
             Self::WithCredentialsV0(creds) => creds.verifier_type = vt,
@@ -401,9 +423,7 @@ impl SessionConfig {
     }
 
     #[doc(hidden)]
-    pub fn new_headless(
-        user_id: UserId,
-    ) -> Self {
+    pub fn new_headless(user_id: UserId) -> Self {
         SessionConfig::HeadlessV0(user_id)
     }
 
@@ -451,8 +471,8 @@ impl SessionConfig {
         if match self {
             Self::HeadlessV0(_) => {
                 panic!("don't call session_start on a Headless LocalBroker")
-            },
-            _  => match local_broker_config {
+            }
+            _ => match local_broker_config {
                 LocalBrokerConfig::InMemory => {
                     self.set_verifier_type(VerifierType::Memory);
                     true
@@ -471,7 +491,6 @@ impl SessionConfig {
                     panic!("don't call session_start on a Headless LocalBroker")
                 }
             },
-            
         } {
             Ok(())
         } else {
@@ -606,54 +625,91 @@ impl LocalBroker {
     }
 
     async fn connect_remote_broker(&mut self) -> Result<(), NgError> {
-
         self.err_if_not_headless()?;
 
-        if self.headless_connected_to_remote_broker {return Ok(())}
+        if self.headless_connected_to_remote_broker {
+            return Ok(());
+        }
 
         let info = get_client_info(ClientType::NodeService);
 
         let config = self.config.headless_config();
 
-        BROKER.write().await.connect(
-            Arc::new(Box::new(ConnectionWebSocket {})),
-            config.client_peer_key.as_ref().unwrap().clone(),
-            config.client_peer_key.as_ref().unwrap().to_pub(), 
-            config.server_peer_id, 
-            StartConfig::App(AppConfig{user_priv:None, info, addr:config.server_addr})
-        ).await?;
-           
+        BROKER
+            .write()
+            .await
+            .connect(
+                Arc::new(Box::new(ConnectionWebSocket {})),
+                config.client_peer_key.as_ref().unwrap().clone(),
+                config.client_peer_key.as_ref().unwrap().to_pub(),
+                config.server_peer_id,
+                StartConfig::App(AppConfig {
+                    user_priv: None,
+                    info,
+                    addr: config.server_addr,
+                }),
+            )
+            .await?;
+
         self.headless_connected_to_remote_broker = true;
 
         Ok(())
     }
 
-    pub(crate) async fn send_request_headless<A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
-    B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,>(&self, req: A) -> Result<B, NgError> {
+    pub(crate) async fn send_request_headless<
+        A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
+        B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,
+    >(
+        &self,
+        req: A,
+    ) -> Result<B, NgError> {
         self.err_if_not_headless()?;
 
-        match BROKER.read().await.request::<A, B>(&None, &Some(self.config.headless_config().server_peer_id), req).await {
+        match BROKER
+            .read()
+            .await
+            .request::<A, B>(
+                &None,
+                &Some(self.config.headless_config().server_peer_id),
+                req,
+            )
+            .await
+        {
             Err(e) => Err(e),
             Ok(SoS::Stream(_)) => Err(NgError::InvalidResponse),
-            Ok(SoS::Single(res)) => Ok(res),           
+            Ok(SoS::Single(res)) => Ok(res),
         }
     }
-    
+
     #[allow(dead_code)]
-    pub(crate) async fn send_request_stream_headless<A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
-    B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,>(&self, req: A) -> Result<(Receiver<B>, CancelFn), NgError> {
+    pub(crate) async fn send_request_stream_headless<
+        A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
+        B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,
+    >(
+        &self,
+        req: A,
+    ) -> Result<(Receiver<B>, CancelFn), NgError> {
         self.err_if_not_headless()?;
 
-        match BROKER.read().await.request::<A, B>(&None, &Some(self.config.headless_config().server_peer_id), req).await {
+        match BROKER
+            .read()
+            .await
+            .request::<A, B>(
+                &None,
+                &Some(self.config.headless_config().server_peer_id),
+                req,
+            )
+            .await
+        {
             Err(e) => Err(e),
             Ok(SoS::Single(_)) => Err(NgError::InvalidResponse),
             Ok(SoS::Stream(stream)) => {
                 let fnonce = Box::new(move || {
                     // stream.close();
-                    //TODO: implement CancelStream in AppRequest 
+                    //TODO: implement CancelStream in AppRequest
                 });
                 Ok((stream, fnonce))
-            },           
+            }
         }
     }
 
@@ -666,8 +722,8 @@ impl LocalBroker {
 
     fn err_if_not_headless(&self) -> Result<(), NgError> {
         match self.config {
-             LocalBrokerConfig::Headless(_) => Ok(()),
-             _ => Err(NgError::LocalBrokerIsHeadless),
+            LocalBrokerConfig::Headless(_) => Ok(()),
+            _ => Err(NgError::LocalBrokerIsHeadless),
         }
     }
 
@@ -700,12 +756,13 @@ impl LocalBroker {
     #[allow(dead_code)]
     fn to_external_session_id(session_id: u64, is_remote: bool) -> u64 {
         let mut ext = (session_id) << 1;
-        if !is_remote {ext += 1;}
+        if !is_remote {
+            ext += 1;
+        }
         ext
     }
 
-    fn user_to_local_session_id_for_mut(&self, user_id: &UserId) -> Result<usize,NgError> {
-        
+    fn user_to_local_session_id_for_mut(&self, user_id: &UserId) -> Result<usize, NgError> {
         let session_id = self
             .opened_sessions
             .get(user_id)
@@ -713,17 +770,18 @@ impl LocalBroker {
         self.get_local_session_id_for_mut(*session_id)
     }
 
-    fn get_local_session_id_for_mut(&self, session_id: u64) -> Result<usize,NgError> {
-        let _ = Self::is_local_session(session_id).then_some(true).ok_or(NgError::SessionNotFound)?;
-        let session_id = Self::to_real_session_id(session_id) as usize ;
+    fn get_local_session_id_for_mut(&self, session_id: u64) -> Result<usize, NgError> {
+        let _ = Self::is_local_session(session_id)
+            .then_some(true)
+            .ok_or(NgError::SessionNotFound)?;
+        let session_id = Self::to_real_session_id(session_id) as usize;
         if session_id >= self.opened_sessions_list.len() {
             return Err(NgError::InvalidArgument);
         }
-        Ok(session_id )
+        Ok(session_id)
     }
 
-    fn get_real_session_id_for_mut(&self, session_id: u64) -> Result<(usize,bool),NgError> {
-        
+    fn get_real_session_id_for_mut(&self, session_id: u64) -> Result<(usize, bool), NgError> {
         let is_remote = Self::is_remote_session(session_id);
         let session_id = Self::to_real_session_id(session_id) as usize;
         if is_remote {
@@ -739,7 +797,9 @@ impl LocalBroker {
     }
 
     fn get_session(&self, session_id: u64) -> Result<&Session, NgError> {
-        let _ = Self::is_local_session(session_id).then_some(true).ok_or(NgError::SessionNotFound)?;
+        let _ = Self::is_local_session(session_id)
+            .then_some(true)
+            .ok_or(NgError::SessionNotFound)?;
         let session_id = Self::to_real_session_id(session_id);
         if session_id as usize >= self.opened_sessions_list.len() {
             return Err(NgError::InvalidArgument);
@@ -751,32 +811,35 @@ impl LocalBroker {
 
     #[allow(dead_code)]
     fn get_headless_session(&self, session_id: u64) -> Result<&HeadlessSession, NgError> {
-
         self.err_if_not_headless()?;
 
-        self
-            .headless_sessions
+        self.headless_sessions
             .get(&session_id)
             .ok_or(NgError::SessionNotFound)
-        
     }
 
     #[allow(dead_code)]
     fn get_headless_session_by_user(&self, user_id: &UserId) -> Result<&HeadlessSession, NgError> {
-
         self.err_if_not_headless()?;
 
-        let session_id = self.opened_sessions.get(user_id).ok_or(NgError::SessionNotFound)?;
+        let session_id = self
+            .opened_sessions
+            .get(user_id)
+            .ok_or(NgError::SessionNotFound)?;
 
         self.get_headless_session(*session_id)
-        
     }
 
-    fn remove_headless_session(&mut self, user_id: &UserId) -> Result<(u64,HeadlessSession), NgError> {
-
+    fn remove_headless_session(
+        &mut self,
+        user_id: &UserId,
+    ) -> Result<(u64, HeadlessSession), NgError> {
         self.err_if_not_headless()?;
 
-        let session_id = self.opened_sessions.remove(user_id).ok_or(NgError::SessionNotFound)?;
+        let session_id = self
+            .opened_sessions
+            .remove(user_id)
+            .ok_or(NgError::SessionNotFound)?;
 
         let session = self
             .headless_sessions
@@ -787,7 +850,9 @@ impl LocalBroker {
 
     #[allow(dead_code)]
     fn get_remote_session(&self, session_id: u64) -> Result<&RemoteSession, NgError> {
-        let _ = Self::is_remote_session(session_id).then_some(true).ok_or(NgError::SessionNotFound)?;
+        let _ = Self::is_remote_session(session_id)
+            .then_some(true)
+            .ok_or(NgError::SessionNotFound)?;
         let session_id = Self::to_real_session_id(session_id);
         if session_id as usize >= self.remote_sessions_list.len() {
             return Err(NgError::InvalidArgument);
@@ -914,7 +979,7 @@ impl LocalBroker {
             Arc::new(std::sync::RwLock::new(HashMapBlockStorage::new()))
                 as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
         } else {
-            #[cfg(all(not(target_family = "wasm"),not(docsrs)))]
+            #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
             {
                 let key_material = wallet
                     .client()
@@ -935,7 +1000,7 @@ impl LocalBroker {
                 )?))
                     as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
             }
-            #[cfg(any(target_family = "wasm",docsrs))]
+            #[cfg(any(target_family = "wasm", docsrs))]
             {
                 Arc::new(std::sync::RwLock::new(HashMapBlockStorage::new()))
                     as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
@@ -972,7 +1037,6 @@ impl LocalBroker {
     }
 
     fn add_headless_session(&mut self, session: HeadlessSession) -> Result<SessionInfo, NgError> {
-
         let user_id = session.user_id;
 
         let mut first_available: u64 = 0;
@@ -1494,14 +1558,121 @@ pub async fn wallet_add(lws: LocalWalletStorageV0) -> Result<(), NgError> {
     }
     Ok(())
 }
+
+pub fn wallet_to_wallet_recovery(
+    wallet: &Wallet,
+    pazzle: Vec<u8>,
+    mnemonic: [u16; 12],
+    pin: [u8; 4],
+) -> NgQRCodeWalletRecoveryV0 {
+    match wallet {
+        Wallet::V0(v0) => {
+            let mut content = v0.content.clone();
+            content.security_img = vec![];
+            NgQRCodeWalletRecoveryV0 {
+                wallet: content,
+                pazzle,
+                mnemonic,
+                pin,
+            }
+        }
+        _ => unimplemented!(),
+    }
+}
+
+/// Generates the Recovery PDF containing the Wallet, PIN, Pazzle and Mnemonic.
+pub async fn wallet_recovery_pdf(
+    content: NgQRCodeWalletRecoveryV0,
+    size: u32,
+) -> Result<Vec<u8>, NgError> {
+    let ser = serde_bare::to_vec(&content)?;
+    if ser.len() > 2_953 {
+        return Err(NgError::InvalidPayload);
+    }
+    let recovery_str = base64_url::encode(&ser);
+    let wallet_svg = match QrCode::with_error_correction_level(&ser, qrcode::EcLevel::M) {
+        Ok(qr) => {
+            let svg = qr
+                .render()
+                .max_dimensions(size, size)
+                .dark_color(svg::Color("#000000"))
+                .light_color(svg::Color("#ffffff"))
+                .build();
+            svg
+        }
+        Err(_e) => return Err(NgError::BrokerError),
+    };
+
+    let options = svg2pdf::usvg::Options::default();
+    let tree = svg2pdf::usvg::Tree::from_str(&wallet_svg, &options)
+        .map_err(|e| NgError::WalletError(e.to_string()))?;
+
+    // PDF uses A4 format (21cm x 29.7cm)
+    // TODO: instead of to_pdf in the next line, do to_chunk, and then add the text below the SVG.
+    // the SVG should take all the width of the A4 (so that only 29.7-21 = 8cm remains below the SVG, for all the following)
+    // the text is :
+    // - one line with : "PIN = 1234 pazzle = cat_slug:emoji_slug cat_slug:emoji_slug ...[x9]"
+    // - one line with the 9 emoji SVGs (with size so they fit in one line, width of the A4)
+    // - one line with : "mnemonic = [12 words of mnemonic]"
+    // - one line with recovery_str (it is quite long. choose a font size that make it fit here so the whole document is only one page)
+
+    // you can use the methods of pdf_writer library.
+
+    let (mut chunk, reference) = svg2pdf::to_chunk(&tree, ConversionOptions::default());
+    // probably then: add the text with chunk.stream() or chunk.indirect()
+
+    //let pdf_buf = svg2pdf::to_pdf(&tree, ConversionOptions::default(), PageOptions::default());
+
+    // Define some indirect reference ids we'll use.
+    let catalog_id = Ref::new(1000);
+    let page_tree_id = Ref::new(1001);
+    let page_id = Ref::new(1002);
+    let font_id = Ref::new(1003);
+    let content_id = Ref::new(1004);
+    let font_name = Name(b"F1");
+
+    let mut content = Content::new();
+    content.begin_text();
+    content.set_font(font_name, 14.0);
+    content.next_line(108.0, 734.0);
+    content.show(Str(b"Hello World from Rust!"));
+    content.end_text();
+
+    // Write a document catalog and a page tree with one A4 page that uses no resources.
+    let mut pdf = Pdf::new();
+    pdf.stream(content_id, &content.finish());
+    pdf.catalog(catalog_id).pages(page_tree_id);
+    pdf.pages(page_tree_id).kids([page_id]).count(1);
+    {
+        let mut page = pdf.page(page_id);
+        let mut page_resources = page
+            .parent(page_tree_id)
+            .media_box(Rect::new(0.0, 0.0, 595.0, 842.0))
+            .resources();
+        page_resources.fonts().pair(font_name, font_id);
+        page_resources.finish();
+
+        page.contents(content_id);
+        page.finish();
+    }
+    pdf.type1_font(font_id).base_font(Name(b"Courier"));
+    pdf.extend(&chunk);
+    let pdf_buf = pdf.finish();
+
+    Ok(pdf_buf)
+}
+
 #[cfg(debug_assertions)]
 lazy_static! {
-    
     static ref NEXTGRAPH_EU: BrokerServerV0 = BrokerServerV0 {
         server_type: BrokerServerTypeV0::Localhost(14400),
         can_verify: false,
         can_forward: false,
-        peer_id: ng_repo::utils::decode_key({use crate::local_broker_dev_env::PEER_ID; PEER_ID}).unwrap(),
+        peer_id: ng_repo::utils::decode_key({
+            use crate::local_broker_dev_env::PEER_ID;
+            PEER_ID
+        })
+        .unwrap(),
     };
 }
 
@@ -1511,9 +1682,9 @@ lazy_static! {
         server_type: BrokerServerTypeV0::Domain("nextgraph.eu".to_string()),
         can_verify: false,
         can_forward: false,
-        peer_id: ng_repo::utils::decode_key("FtdzuDYGewfXWdoPuXIPb0wnd0SAg1WoA2B14S7jW3MA").unwrap(),
+        peer_id: ng_repo::utils::decode_key("FtdzuDYGewfXWdoPuXIPb0wnd0SAg1WoA2B14S7jW3MA")
+            .unwrap(),
     };
-
 }
 
 /// Obtains a Wallet object from a QRCode or a TextCode.
@@ -1522,19 +1693,25 @@ lazy_static! {
 /// with the help of the function [wallet_open_with_pazzle_words]
 /// followed by [wallet_import]
 pub async fn wallet_import_from_code(code: String) -> Result<Wallet, NgError> {
-
     let qr = NgQRCode::from_code(code)?;
     match qr {
-        NgQRCode::V0(NgQRCodeV0{broker, rendezvous, secret_key, is_rendezvous}) => {
+        NgQRCode::WalletTransferV0(NgQRCodeWalletTransferV0 {
+            broker,
+            rendezvous,
+            secret_key,
+            is_rendezvous,
+        }) => {
             let wallet: ExportedWallet = do_ext_call(
                 &broker,
                 ExtWalletGetExportV0 {
-                    id:rendezvous,
-                    is_rendezvous
-                }).await?;
+                    id: rendezvous,
+                    is_rendezvous,
+                },
+            )
+            .await?;
 
             let mut buf = wallet.0.into_vec();
-            encrypt_in_place(&mut buf,*secret_key.slice(), [0;12]);
+            encrypt_in_place(&mut buf, *secret_key.slice(), [0; 12]);
             let wallet: Wallet = serde_bare::from_slice(&buf)?;
 
             let broker = match LOCAL_BROKER.get() {
@@ -1548,8 +1725,8 @@ pub async fn wallet_import_from_code(code: String) -> Result<Wallet, NgError> {
             } else {
                 Err(NgError::WalletAlreadyAdded)
             }
-                
         }
+        _ => Err(NgError::IncompatibleQrCode),
     }
 }
 
@@ -1557,56 +1734,54 @@ pub async fn wallet_import_from_code(code: String) -> Result<Wallet, NgError> {
 ///
 /// A rendezvous is used when the device that is importing, doesn't have a camera.
 /// The QRCode is displayed on that device, and another device (with camera, and with the wallet) will scan it.
-/// 
+///
 /// Returns the QRcode in SVG format, and the code (a string) to be used with [wallet_import_from_code]
-pub async fn wallet_import_rendezvous(size: u32) -> Result<(String,String), NgError> {
-    let code = NgQRCode::V0(NgQRCodeV0 {
+pub async fn wallet_import_rendezvous(size: u32) -> Result<(String, String), NgError> {
+    let code = NgQRCode::WalletTransferV0(NgQRCodeWalletTransferV0 {
         broker: NEXTGRAPH_EU.clone(),
         rendezvous: SymKey::random(),
         secret_key: SymKey::random(),
-        is_rendezvous: true
+        is_rendezvous: true,
     });
     let code_string = code.to_code();
 
     let code_svg = match QrCode::with_error_correction_level(&code_string, qrcode::EcLevel::M) {
         Ok(qr) => {
             let svg = qr
-            .render()
-            .max_dimensions(size, size)
-            .dark_color(svg::Color("#000000"))
-            .light_color(svg::Color("#ffffff"))
-            .build();
+                .render()
+                .max_dimensions(size, size)
+                .dark_color(svg::Color("#000000"))
+                .light_color(svg::Color("#ffffff"))
+                .build();
             svg
-        },
-        Err(_e) => {return Err(NgError::BrokerError)}
+        }
+        Err(_e) => return Err(NgError::BrokerError),
     };
 
-    Ok((code_svg,code_string))
+    Ok((code_svg, code_string))
 }
 
 /// Gets the TextCode to display in order to export the wallet of the current session ID
 ///
 /// The ExportedWallet is valid for 5 min.
-/// 
+///
 /// Returns the TextCode
 pub async fn wallet_export_get_textcode(session_id: u64) -> Result<String, NgError> {
-
     let broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.read().await,
     };
 
     match &broker.config {
-        LocalBrokerConfig::Headless(_) => {
-            return Err(NgError::LocalBrokerIsHeadless)
-        },
+        LocalBrokerConfig::Headless(_) => return Err(NgError::LocalBrokerIsHeadless),
         _ => {
             let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(session_id)?;
 
             if is_remote {
                 return Err(NgError::NotImplemented);
             } else {
-                let session = broker.opened_sessions_list[real_session_id].as_ref()
+                let session = broker.opened_sessions_list[real_session_id]
+                    .as_ref()
                     .ok_or(NgError::SessionNotFound)?;
                 let wallet_name = session.config.wallet_name();
 
@@ -1616,25 +1791,36 @@ pub async fn wallet_export_get_textcode(session_id: u64) -> Result<String, NgErr
                         //let broker = lws.bootstrap.servers().first().unwrap();
                         let wallet = &lws.wallet;
                         let secret_key = SymKey::random();
-                        let rendezvous =  SymKey::random();
-                        let code = NgQRCode::V0(NgQRCodeV0 {
+                        let rendezvous = SymKey::random();
+                        let code = NgQRCode::WalletTransferV0(NgQRCodeWalletTransferV0 {
                             broker: NEXTGRAPH_EU.clone(),
                             rendezvous: rendezvous.clone(),
                             secret_key: secret_key.clone(),
-                            is_rendezvous: false
+                            is_rendezvous: false,
                         });
                         let code_string = code.to_code();
                         let mut wallet_ser = serde_bare::to_vec(wallet)?;
-                        encrypt_in_place(&mut wallet_ser,*secret_key.slice(), [0;12]);
-                        let exported_wallet = ExportedWallet(serde_bytes::ByteBuf::from(wallet_ser));
-                        match session.verifier.client_request::<WalletPutExport, ()>(WalletPutExport::V0(WalletPutExportV0{wallet:exported_wallet, rendezvous_id:rendezvous, is_rendezvous:false})).await {
+                        encrypt_in_place(&mut wallet_ser, *secret_key.slice(), [0; 12]);
+                        let exported_wallet =
+                            ExportedWallet(serde_bytes::ByteBuf::from(wallet_ser));
+                        match session
+                            .verifier
+                            .client_request::<WalletPutExport, ()>(WalletPutExport::V0(
+                                WalletPutExportV0 {
+                                    wallet: exported_wallet,
+                                    rendezvous_id: rendezvous,
+                                    is_rendezvous: false,
+                                },
+                            ))
+                            .await
+                        {
                             Err(e) => Err(e),
                             Ok(SoS::Stream(_)) => Err(NgError::InvalidResponse),
-                            Ok(SoS::Single(_)) => Ok(code_string)          
+                            Ok(SoS::Single(_)) => Ok(code_string),
                         }
                     }
                 }
-            }   
+            }
         }
     }
 }
@@ -1642,38 +1828,39 @@ pub async fn wallet_export_get_textcode(session_id: u64) -> Result<String, NgErr
 /// Gets the QRcode to display in order to export a wallet of the current session ID
 ///
 /// The ExportedWallet is valid for 5 min.
-/// 
+///
 /// Returns the QRcode in SVG format
 pub async fn wallet_export_get_qrcode(session_id: u64, size: u32) -> Result<String, NgError> {
-
     let code_string = wallet_export_get_textcode(session_id).await?;
 
     let code_svg = match QrCode::with_error_correction_level(&code_string, qrcode::EcLevel::M) {
         Ok(qr) => {
             let svg = qr
-            .render()
-            .max_dimensions(size, size)
-            .dark_color(svg::Color("#000000"))
-            .light_color(svg::Color("#ffffff"))
-            .build();
+                .render()
+                .max_dimensions(size, size)
+                .dark_color(svg::Color("#000000"))
+                .light_color(svg::Color("#ffffff"))
+                .build();
             svg
-        },
-        Err(_e) => {return Err(NgError::BrokerError)}
+        }
+        Err(_e) => return Err(NgError::BrokerError),
     };
-    
-    Ok(code_svg)
 
+    Ok(code_svg)
 }
 
 /// Puts the Wallet to the rendezvous ID that was scanned
 ///
 /// The rendezvous ID is valid for 5 min.
 pub async fn wallet_export_rendezvous(session_id: u64, code: String) -> Result<(), NgError> {
-
     let qr = NgQRCode::from_code(code)?;
     match qr {
-        NgQRCode::V0(NgQRCodeV0{broker: _, rendezvous, secret_key, is_rendezvous}) => {
-
+        NgQRCode::WalletTransferV0(NgQRCodeWalletTransferV0 {
+            broker: _,
+            rendezvous,
+            secret_key,
+            is_rendezvous,
+        }) => {
             if !is_rendezvous {
                 return Err(NgError::NotARendezVous);
             }
@@ -1682,45 +1869,57 @@ pub async fn wallet_export_rendezvous(session_id: u64, code: String) -> Result<(
                 None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
                 Some(Ok(broker)) => broker.read().await,
             };
-        
+
             match &broker.config {
-                LocalBrokerConfig::Headless(_) => {
-                    return Err(NgError::LocalBrokerIsHeadless)
-                },
+                LocalBrokerConfig::Headless(_) => return Err(NgError::LocalBrokerIsHeadless),
                 _ => {
-                    let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(session_id)?;
-        
+                    let (real_session_id, is_remote) =
+                        broker.get_real_session_id_for_mut(session_id)?;
+
                     if is_remote {
                         return Err(NgError::NotImplemented);
                     } else {
-                        let session = broker.opened_sessions_list[real_session_id].as_ref()
+                        let session = broker.opened_sessions_list[real_session_id]
+                            .as_ref()
                             .ok_or(NgError::SessionNotFound)?;
                         let wallet_name = session.config.wallet_name();
-        
+
                         match broker.wallets.get(&wallet_name) {
                             None => Err(NgError::WalletNotFound),
                             Some(lws) => {
                                 //let broker = lws.bootstrap.servers().first().unwrap();
                                 let wallet = &lws.wallet;
-        
+
                                 let mut wallet_ser = serde_bare::to_vec(wallet)?;
-                                encrypt_in_place(&mut wallet_ser,*secret_key.slice(), [0;12]);
-                                let exported_wallet = ExportedWallet(serde_bytes::ByteBuf::from(wallet_ser));
-                    
+                                encrypt_in_place(&mut wallet_ser, *secret_key.slice(), [0; 12]);
+                                let exported_wallet =
+                                    ExportedWallet(serde_bytes::ByteBuf::from(wallet_ser));
+
                                 // TODO: send the WalletPutExport client request to the broker received from QRcode. for now it is cheer luck that all clients are connected to nextgraph.eu.
                                 // if the user doesn't have an account with nextgraph.eu, their broker should relay the request (core protocol ?)
 
-                                match session.verifier.client_request::<WalletPutExport, ()>(WalletPutExport::V0(WalletPutExportV0{wallet:exported_wallet, rendezvous_id:rendezvous, is_rendezvous:true})).await {
+                                match session
+                                    .verifier
+                                    .client_request::<WalletPutExport, ()>(WalletPutExport::V0(
+                                        WalletPutExportV0 {
+                                            wallet: exported_wallet,
+                                            rendezvous_id: rendezvous,
+                                            is_rendezvous: true,
+                                        },
+                                    ))
+                                    .await
+                                {
                                     Err(e) => Err(e),
                                     Ok(SoS::Stream(_)) => Err(NgError::InvalidResponse),
-                                    Ok(SoS::Single(_)) => Ok(())          
+                                    Ok(SoS::Single(_)) => Ok(()),
                                 }
                             }
                         }
-                    }   
+                    }
                 }
             }
         }
+        _ => Err(NgError::IncompatibleQrCode),
     }
 }
 
@@ -1787,27 +1986,6 @@ pub fn wallet_open_with_pazzle(
     Ok(opened_wallet)
 }
 
-#[doc(hidden)]
-/// This is a bit hard to use as the mnemonic words are encoded in u16.
-/// prefer the function wallet_open_with_mnemonic_words
-pub fn wallet_open_with_mnemonic(
-    wallet: &Wallet,
-    mnemonic: Vec<u16>,
-    pin: [u8; 4],
-) -> Result<SensitiveWallet, NgError> {
-    if mnemonic.len() != 12 {
-        return Err(NgError::InvalidMnemonic);
-    }
-    // Convert from vec to array.
-    let mut mnemonic_arr = [0u16; 12];
-    for (place, element) in mnemonic_arr.iter_mut().zip(mnemonic.iter()) {
-        *place = *element;
-    }
-    let opened_wallet = ng_wallet::open_wallet_with_mnemonic(wallet, mnemonic_arr, pin)?;
-
-    Ok(opened_wallet)
-}
-
 /// Opens a wallet by providing an ordered list of words, and the pin.
 ///
 /// If you are opening a wallet that is already known to the LocalBroker, you must then call [wallet_was_opened].
@@ -1822,7 +2000,6 @@ pub fn wallet_open_with_pazzle_words(
     wallet_open_with_pazzle(wallet, encode_pazzle(pazzle_words)?, pin)
 }
 
-
 /// Opens a wallet by providing an ordered list of mnemonic words, and the pin.
 ///
 /// If you are opening a wallet that is already known to the LocalBroker, you must then call [wallet_was_opened].
@@ -1832,9 +2009,11 @@ pub fn wallet_open_with_mnemonic_words(
     mnemonic: &Vec<String>,
     pin: [u8; 4],
 ) -> Result<SensitiveWallet, NgError> {
-    let encoded: Vec<u16> = encode_mnemonic(mnemonic)?;
-
-    wallet_open_with_mnemonic(wallet, encoded, pin)
+    Ok(ng_wallet::open_wallet_with_mnemonic(
+        wallet,
+        encode_mnemonic(mnemonic)?,
+        pin,
+    )?)
 }
 
 /// Imports a wallet into the LocalBroker so the user can then access its content.
@@ -1901,7 +2080,7 @@ pub async fn session_start(config: SessionConfig) -> Result<SessionInfo, NgError
                     // establish the connection if not already there?
 
                     broker.connect_remote_broker().await?;
-                    
+
                     let session = HeadlessSession { user_id: user_id.clone() };
                     let mut session_info = broker.add_headless_session(session)?;
 
@@ -1931,7 +2110,6 @@ pub async fn session_start(config: SessionConfig) -> Result<SessionInfo, NgError
         // TODO: implement SessionConfig::WithCredentials . VerifierType::Remote => it needs to establish a connection to remote here, then send the AppSessionStart in it.
         // also, it is using broker.remote_sessions.get
         _ => {
-
             if config.is_remote() || config.is_with_credentials() {
                 unimplemented!();
             }
@@ -2185,10 +2363,9 @@ pub async fn session_stop(user_id: &UserId) -> Result<(), NgError> {
 
     match broker.config {
         LocalBrokerConfig::Headless(_) => {
-            
-            let (session_id,_) = broker.remove_headless_session(user_id)?;
+            let (session_id, _) = broker.remove_headless_session(user_id)?;
 
-            let request = AppSessionStop::V0(AppSessionStopV0{
+            let request = AppSessionStop::V0(AppSessionStopV0 {
                 session_id,
                 force_close: false,
             });
@@ -2223,15 +2400,17 @@ pub async fn session_headless_stop(session_id: u64, force_close: bool) -> Result
 
     match broker.config {
         LocalBrokerConfig::Headless(_) => {
-            
             let session = broker
                 .headless_sessions
                 .remove(&session_id)
                 .ok_or(NgError::SessionNotFound)?;
 
-            let _ = broker.opened_sessions.remove(&session.user_id).ok_or(NgError::SessionNotFound)?;
+            let _ = broker
+                .opened_sessions
+                .remove(&session.user_id)
+                .ok_or(NgError::SessionNotFound)?;
 
-            let request = AppSessionStop::V0(AppSessionStopV0{
+            let request = AppSessionStop::V0(AppSessionStopV0 {
                 session_id,
                 force_close,
             });
@@ -2271,7 +2450,7 @@ pub async fn wallet_close(wallet_name: &String) -> Result<(), NgError> {
             for user in opened_wallet.wallet.site_names() {
                 let key: PubKey = (user.as_str()).try_into().unwrap();
                 match broker.opened_sessions.remove(&key) {
-                    Some(id) => { 
+                    Some(id) => {
                         let session = broker.get_local_session_id_for_mut(id)?;
                         broker.opened_sessions_list[session].take();
                     }
@@ -2342,23 +2521,22 @@ pub async fn app_request(request: AppRequest) -> Result<AppResponse, NgError> {
         Some(Ok(broker)) => broker.write().await,
     };
     match &broker.config {
-        LocalBrokerConfig::Headless(_) => {
-            broker.send_request_headless(request).await
-        },
+        LocalBrokerConfig::Headless(_) => broker.send_request_headless(request).await,
         _ => {
-            let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(request.session_id())?;
+            let (real_session_id, is_remote) =
+                broker.get_real_session_id_for_mut(request.session_id())?;
 
             if is_remote {
                 let session = broker.remote_sessions_list[real_session_id]
-                .as_ref()
-                .ok_or(NgError::SessionNotFound)?;
+                    .as_ref()
+                    .ok_or(NgError::SessionNotFound)?;
                 session.send_request(request).await
             } else {
                 let session = broker.opened_sessions_list[real_session_id]
                     .as_mut()
                     .ok_or(NgError::SessionNotFound)?;
                 session.verifier.app_request(request).await
-            }   
+            }
         }
     }
 }
@@ -2372,22 +2550,21 @@ pub async fn app_request_stream(
         Some(Ok(broker)) => broker.write().await,
     };
     match &broker.config {
-        LocalBrokerConfig::Headless(_) => {
-            broker.send_request_stream_headless(request).await
-        },
+        LocalBrokerConfig::Headless(_) => broker.send_request_stream_headless(request).await,
         _ => {
-            let (real_session_id, is_remote) = broker.get_real_session_id_for_mut(request.session_id())?;
+            let (real_session_id, is_remote) =
+                broker.get_real_session_id_for_mut(request.session_id())?;
 
             if is_remote {
                 let session = broker.remote_sessions_list[real_session_id]
-                .as_ref()
-                .ok_or(NgError::SessionNotFound)?;
+                    .as_ref()
+                    .ok_or(NgError::SessionNotFound)?;
                 session.send_request_stream(request).await
             } else {
                 let session = broker.opened_sessions_list[real_session_id]
                     .as_mut()
                     .ok_or(NgError::SessionNotFound)?;
-                    session.verifier.app_request_stream(request).await
+                session.verifier.app_request_stream(request).await
             }
         }
     }
@@ -2447,45 +2624,41 @@ async fn do_admin_call<
 
 async fn do_ext_call<
     A: Into<ProtocolMessage> + Into<ExtRequestContentV0> + std::fmt::Debug + Sync + Send + 'static,
-    B: TryFrom<ProtocolMessage, Error = ProtocolError>
-            + std::fmt::Debug
-            + Sync
-            + Send
-            + 'static,
+    B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,
 >(
     broker_server: &BrokerServerV0,
     cmd: A,
 ) -> Result<B, NgError> {
     let (peer_privk, peer_pubk) = generate_keypair();
     Broker::ext(
-            Box::new(ConnectionWebSocket {}),
-            peer_privk,
-            peer_pubk,
-            broker_server.peer_id,
-            broker_server.get_ws_url(&None).await.unwrap().0, // for now we are only connecting to NextGraph SaaS cloud (nextgraph.eu) so it is safe.
-            cmd,
-        )
-        .await
+        Box::new(ConnectionWebSocket {}),
+        peer_privk,
+        peer_pubk,
+        broker_server.peer_id,
+        broker_server.get_ws_url(&None).await.unwrap().0, // for now we are only connecting to NextGraph SaaS cloud (nextgraph.eu) so it is safe.
+        cmd,
+    )
+    .await
 }
 
 #[doc(hidden)]
-pub async fn admin_create_user(server_peer_id: DirectPeerId, admin_user_key: PrivKey, server_addr: BindAddress) -> Result<UserId, ProtocolError>  {
-
+pub async fn admin_create_user(
+    server_peer_id: DirectPeerId,
+    admin_user_key: PrivKey,
+    server_addr: BindAddress,
+) -> Result<UserId, ProtocolError> {
     let res = do_admin_call(
         server_peer_id,
         admin_user_key,
         server_addr,
-        CreateUser::V0(CreateUserV0 {
-            
-        }),
+        CreateUser::V0(CreateUserV0 {}),
     )
     .await?;
 
     match res {
         AdminResponseContentV0::UserId(id) => Ok(id),
-        _ => Err(ProtocolError::InvalidValue)
+        _ => Err(ProtocolError::InvalidValue),
     }
-    
 }
 
 #[allow(unused_imports)]
@@ -2716,5 +2889,36 @@ mod test {
 
         // closes the wallet
         wallet_close(&wallet_name).await.expect("wallet_close");
+    }
+
+    #[async_std::test]
+    async fn recovery_pdf() {
+        let wallet_file = read("tests/wallet.ngw").expect("read wallet file");
+
+        init_local_broker(Box::new(|| LocalBrokerConfig::InMemory)).await;
+
+        let wallet = wallet_read_file(wallet_file)
+            .await
+            .expect("wallet_read_file");
+
+        let pazzle_string = read_to_string("tests/wallet.pazzle").expect("read pazzle file");
+        let pazzle_words = pazzle_string.split(' ').map(|s| s.to_string()).collect();
+
+        let mnemonic_string = read_to_string("tests/wallet.mnemonic").expect("read mnemonic file");
+        let mnemonic_words = mnemonic_string.split(' ').map(|s| s.to_string()).collect();
+
+        let pin: [u8; 4] = [1, 2, 1, 2];
+
+        let pazzle = encode_pazzle(&pazzle_words).expect("encode_pazzle");
+        let mnemonic = encode_mnemonic(&mnemonic_words).expect("encode_mnemonic");
+
+        let wallet_recovery = wallet_to_wallet_recovery(&wallet, pazzle, mnemonic, pin);
+
+        let pdf_buffer = wallet_recovery_pdf(wallet_recovery, 600)
+            .await
+            .expect("wallet_recovery_pdf");
+        let mut file =
+            File::create("tests/recovery.pdf").expect("open for write recovery.pdf file");
+        file.write_all(&pdf_buffer).expect("write of recovery.pdf");
     }
 }

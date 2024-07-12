@@ -639,7 +639,7 @@ impl Broker {
                 let res = join.next().await;
                 match res {
                     Some(Either::Right(remote_peer_id)) => {
-                        let res = join.next().await;
+                        let _res = join.next().await;
 
                         // if res.is_some()
                         //     && res.as_ref().unwrap().as_ref().unwrap_left() == &NetError::Closing

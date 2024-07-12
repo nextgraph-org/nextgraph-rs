@@ -111,12 +111,12 @@ async fn wallet_open_with_pazzle(
 #[tauri::command(rename_all = "snake_case")]
 async fn wallet_open_with_mnemonic(
     wallet: Wallet,
-    mnemonic: Vec<u16>,
+    mnemonic: [u16; 12],
     pin: [u8; 4],
     _app: tauri::AppHandle,
 ) -> Result<SensitiveWallet, String> {
-    let wallet = nextgraph::local_broker::wallet_open_with_mnemonic(&wallet, mnemonic, pin)
-        .map_err(|e| e.to_string())?;
+    let wallet =
+        ng_wallet::open_wallet_with_mnemonic(&wallet, mnemonic, pin).map_err(|e| e.to_string())?;
     Ok(wallet)
 }
 
