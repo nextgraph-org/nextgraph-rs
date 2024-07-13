@@ -16,7 +16,7 @@
 }
 
 /* TODO: hide qr scanner and info button */
-/* #scanner-div {
+#scanner-div {
     border: none !important;
 }
 #scanner-div * {
@@ -39,7 +39,7 @@
 }
 [alt="Info icon"] {
     display: none !important;
-} */
+}
 
 .logo {
     padding: 1.5em;

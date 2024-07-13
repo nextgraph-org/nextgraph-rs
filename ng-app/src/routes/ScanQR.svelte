@@ -89,9 +89,9 @@
   <div>
     <h2 class="text-xl mb-6">{$t("pages.scan_qr.scanning")}</h2>
   </div>
-
+  <Spinner />
   <!-- Web Scanner -->
-  <div id="scanner-div"><Spinner /></div>
+  <div id="scanner-div"></div>
 
   <div class="mx-auto max-w-xs">
     <button
