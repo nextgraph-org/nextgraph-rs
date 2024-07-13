@@ -89,7 +89,7 @@
     unlockWith = "pazzle";
     scrollToTop();
   }
-  function start_with_mnemonic() {
+  async function start_with_mnemonic() {
     loaded = false;
     step = "mnemonic";
     unlockWith = "mnemonic";

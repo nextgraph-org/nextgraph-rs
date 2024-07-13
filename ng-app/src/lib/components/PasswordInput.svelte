@@ -46,6 +46,7 @@
     {placeholder}
     {id}
     {type}
+    autofocus
     on:input={handleInput}
     class={`${className} pr-12 text-md block`}
     autocomplete={auto_complete}

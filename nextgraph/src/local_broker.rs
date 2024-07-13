@@ -44,7 +44,7 @@ use ng_verifier::types::*;
 use ng_verifier::verifier::Verifier;
 
 use ng_wallet::bip39::encode_mnemonic;
-use ng_wallet::emojis::{display_pazzle, display_pazzle_one, encode_pazzle};
+use ng_wallet::emojis::{display_pazzle, encode_pazzle};
 use ng_wallet::{
     create_wallet_first_step_v0, create_wallet_second_step_v0, display_mnemonic, types::*,
 };

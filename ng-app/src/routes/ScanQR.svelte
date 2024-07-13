@@ -59,9 +59,12 @@
 
       // Add scanner to Screen.
       webScanner.render((decoded_text, decoded_result) => {
+        console.log(decoded_result);
         // Handle scan result
         on_qr_scanned(decoded_text);
-      }, undefined);
+      }, (error) => {
+        console.error(error);
+      });
 
       // Auto-Request camera permissions (there's no native way, unfortunately...)
       setTimeout(() => {

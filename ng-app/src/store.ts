@@ -177,6 +177,32 @@ export const connection_status: Writable<"disconnected" | "connected" | "connect
 
 let next_reconnect: NodeJS.Timeout | null = null;
 
+export const check_has_camera = async () => {
+    const tauri_platform: string | undefined = import.meta.env.TAURI_PLATFORM;
+    const use_native_cam =
+      tauri_platform === "ios" || tauri_platform === "android";
+    
+    let has_camera: boolean | "checking" = "checking";
+
+    if (!use_native_cam) {
+      // If there is a camera, go to scan mode, else gen mode.
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        has_camera =
+          devices.filter((device) => device.kind === "videoinput").length > 0;
+      } catch {
+        has_camera = false;
+      }
+
+    } else {
+      // TODO: There does not seem to be an API for checking, if the native device
+      //  really supports cameras, as far as I can tell?
+      // https://github.com/tauri-apps/plugins-workspace/blob/v2/plugins/barcode-scanner/guest-js/index.ts
+      has_camera = true;
+    }
+    return has_camera;
+  };
+
 const updateConnectionStatus = ($connections: Record<string, any>) => {
     // Reset error state for PeerAlreadyConnected errors.
     Object.entries($connections).forEach(([cnx, connection]) => {
