@@ -44,8 +44,10 @@ use ng_verifier::types::*;
 use ng_verifier::verifier::Verifier;
 
 use ng_wallet::bip39::encode_mnemonic;
-use ng_wallet::emojis::encode_pazzle;
-use ng_wallet::{create_wallet_first_step_v0, create_wallet_second_step_v0, types::*};
+use ng_wallet::emojis::{display_pazzle, display_pazzle_one, encode_pazzle};
+use ng_wallet::{
+    create_wallet_first_step_v0, create_wallet_second_step_v0, display_mnemonic, types::*,
+};
 
 #[cfg(not(target_family = "wasm"))]
 use ng_client_ws::remote_ws::ConnectionWebSocket;
@@ -1582,10 +1584,10 @@ pub fn wallet_to_wallet_recovery(
 
 /// Generates the Recovery PDF containing the Wallet, PIN, Pazzle and Mnemonic.
 pub async fn wallet_recovery_pdf(
-    content: NgQRCodeWalletRecoveryV0,
+    recovery: NgQRCodeWalletRecoveryV0,
     size: u32,
 ) -> Result<Vec<u8>, NgError> {
-    let ser = serde_bare::to_vec(&content)?;
+    let ser = serde_bare::to_vec(&recovery)?;
     if ser.len() > 2_953 {
         return Err(NgError::InvalidPayload);
     }
@@ -1607,20 +1609,7 @@ pub async fn wallet_recovery_pdf(
     let tree = svg2pdf::usvg::Tree::from_str(&wallet_svg, &options)
         .map_err(|e| NgError::WalletError(e.to_string()))?;
 
-    // PDF uses A4 format (21cm x 29.7cm)
-    // TODO: instead of to_pdf in the next line, do to_chunk, and then add the text below the SVG.
-    // the SVG should take all the width of the A4 (so that only 29.7-21 = 8cm remains below the SVG, for all the following)
-    // the text is :
-    // - one line with : "PIN = 1234 pazzle = cat_slug:emoji_slug cat_slug:emoji_slug ...[x9]"
-    // - one line with the 9 emoji SVGs (with size so they fit in one line, width of the A4)
-    // - one line with : "mnemonic = [12 words of mnemonic]"
-    // - one line with recovery_str (it is quite long. choose a font size that make it fit here so the whole document is only one page)
-
-    // you can use the methods of pdf_writer library.
-
     let (chunk, qrcode_ref) = svg2pdf::to_chunk(&tree, ConversionOptions::default());
-    // probably then: add the text with chunk.stream() or chunk.indirect()
-
     //let pdf_buf = svg2pdf::to_pdf(&tree, ConversionOptions::default(), PageOptions::default());
 
     // Define some indirect reference ids we'll use.
@@ -1632,17 +1621,52 @@ pub async fn wallet_recovery_pdf(
     let font_name = Name(b"F1");
     let qrcode_name = Name(b"Im1");
 
+    let chunks = recovery_str
+        .as_bytes()
+        .chunks(92)
+        .map(|buf| buf)
+        .collect::<Vec<&[u8]>>();
+
     let mut content = Content::new();
-    content.begin_text();
-    content.set_font(font_name, 14.0);
-    content.next_line(108.0, 734.0);
-    content.show(Str(b"Hello World from Rust!"));
-    content.end_text();
-    content.begin_text();
-    content.set_font(font_name, 14.0);
-    content.next_line(15.0, 810.0);
-    content.show(Str(recovery_str.as_bytes()));
-    content.end_text();
+
+    for (line, string) in chunks.iter().enumerate() {
+        content.begin_text();
+        content.set_font(font_name, 10.0);
+        content.next_line(20.0, 810.0 - line as f32 * 15.0);
+        content.show(Str(*string));
+        content.end_text();
+    }
+
+    let pazzle: Vec<String> = display_pazzle(&recovery.pazzle)
+        .iter()
+        .map(|p| p.1.to_string())
+        .collect();
+    let mnemonic = display_mnemonic(&recovery.mnemonic);
+
+    let credentials = format!(
+        "PIN:{}{}{}{} PAZZLE:{} MNEMONIC:{}",
+        recovery.pin[0],
+        recovery.pin[1],
+        recovery.pin[2],
+        recovery.pin[3],
+        pazzle.join(" "),
+        mnemonic.join(" ")
+    );
+
+    let chunks = credentials
+        .as_bytes()
+        .chunks(92)
+        .map(|buf| buf)
+        .collect::<Vec<&[u8]>>();
+
+    for (line, string) in chunks.iter().enumerate() {
+        content.begin_text();
+        content.set_font(font_name, 10.0);
+        content.next_line(20.0, 630.0 - line as f32 * 15.0);
+        content.show(Str(*string));
+        content.end_text();
+    }
+
     content.save_state();
     content.transform([595.0, 0.0, 0.0, 595.0, 0.0, 0.0]);
     content.x_object(qrcode_name);
@@ -2924,7 +2948,6 @@ mod test {
         let mnemonic = encode_mnemonic(&mnemonic_words).expect("encode_mnemonic");
 
         let wallet_recovery = wallet_to_wallet_recovery(&wallet, pazzle, mnemonic, pin);
-
         let pdf_buffer = wallet_recovery_pdf(wallet_recovery, 600)
             .await
             .expect("wallet_recovery_pdf");
