@@ -408,25 +408,6 @@ pub fn display_mnemonic(mnemonic: &[u16; 12]) -> Vec<String> {
     res
 }
 
-use crate::emojis::{EMOJIS, EMOJI_CAT};
-
-pub fn display_pazzle(pazzle: &Vec<u8>) -> Vec<String> {
-    let res: Vec<String> = pazzle
-        .into_iter()
-        .map(|i| {
-            let cat = i >> 4;
-            let idx = i & 15;
-            let cat_str = EMOJI_CAT[cat as usize];
-            String::from(format!(
-                "{}:{}",
-                cat_str,
-                EMOJIS.get(cat_str).unwrap()[idx as usize].code
-            ))
-        })
-        .collect();
-    res
-}
-
 pub fn gen_shuffle_for_pazzle_opening(pazzle_length: u8) -> ShuffledPazzle {
     let mut rng = rand::thread_rng();
     let mut category_indices: Vec<u8> = (0..pazzle_length).collect();
@@ -870,7 +851,7 @@ mod test {
         let _ = file.write_all(&ser_wallet);
 
         log_debug!("wallet id: {}", res.wallet.id());
-        log_debug!("pazzle {:?}", display_pazzle(&res.pazzle));
+        log_debug!("pazzle {:?}", display_pazzle_one(&res.pazzle));
         log_debug!("mnemonic {:?}", display_mnemonic(&res.mnemonic));
         log_debug!("pin {:?}", pin);
 

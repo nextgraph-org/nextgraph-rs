@@ -1258,13 +1258,20 @@ pub fn display_pazzle(pazzle: &Vec<u8>) -> Vec<(&'static str, &'static str)> {
     for emoji in pazzle {
         let cat = (emoji & 240) >> 4;
         let idx = emoji & 15;
-        res.push((
-            EMOJI_CAT[cat as usize],
-            EMOJIS.get(&EMOJI_CAT[cat as usize]).unwrap()[idx as usize].code,
-        ));
+        let cat_str = EMOJI_CAT[cat as usize];
+        res.push((cat_str, EMOJIS.get(cat_str).unwrap()[idx as usize].code));
     }
     res
 }
+
+pub fn display_pazzle_one(pazzle: &Vec<u8>) -> Vec<String> {
+    let res: Vec<String> = display_pazzle(pazzle)
+        .into_iter()
+        .map(|(cat, emoji)| String::from(format!("{cat}:{emoji}")))
+        .collect();
+    res
+}
+
 //use ng_repo::log::*;
 
 /// taking a list of pazzle words, returns a list of u8 codes
