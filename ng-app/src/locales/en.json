@@ -244,7 +244,7 @@
     "wallet_login": {
       "select_wallet": "Select a wallet to login with",
       "from_import.title": "Your wallet has been transferred",
-      "from_import.description": "Your wallet has been received:",
+      "from_import.description": "Your wallet has been received from the other device!",
       "from_import.instruction": "To finish the import, please log in.",
       "with_another_wallet": "Log in with another wallet",
       "import_wallet": "Import your wallet",
@@ -272,7 +272,7 @@
       "import_btn": "Import with TextCode"
     },
     "scan_qr": {
-      "scanning": "Scan the QR-Code"
+      "scanning": "Scanning the QR-Code"
     }
   },
   "buttons": {
