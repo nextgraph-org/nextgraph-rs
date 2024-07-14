@@ -572,7 +572,9 @@ impl AppBuilder {
 
     pub fn run(self) {
         let setup = self.setup;
-        let builder = tauri::Builder::default()
+
+        #[allow(unused_mut)]
+        let mut builder = tauri::Builder::default()
             .setup(move |app| {
                 if let Some(setup) = setup {
                     (setup)(app)?;
@@ -592,7 +594,7 @@ impl AppBuilder {
 
         #[cfg(mobile)]
         {
-            let builder = builder.plugin(tauri_plugin_barcode_scanner::init());
+            builder = builder.plugin(tauri_plugin_barcode_scanner::init());
         }
 
         builder

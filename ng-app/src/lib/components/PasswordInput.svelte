@@ -40,6 +40,7 @@
 </script>
 
 <div class="relative">
+  <!-- svelte-ignore a11y-autofocus -->
   <input
     bind:this={input}
     {value}
