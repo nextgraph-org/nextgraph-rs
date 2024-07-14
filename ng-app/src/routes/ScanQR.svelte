@@ -18,14 +18,14 @@
   import { onMount, onDestroy } from "svelte";
   import { t } from "svelte-i18n";
   import { scanned_qr_code } from "../store";
-  import { ArrowLeft } from "svelte-heros-v2";
+  import { ArrowLeft, ExclamationTriangle } from "svelte-heros-v2";
   import { Spinner } from "flowbite-svelte";
-
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
   let mobile = tauri_platform == "android" || tauri_platform == "ios";
 
   let webScanner;
   let nativeScanner;
+  let error = false;
 
   function on_qr_scanned(content) {
     scanned_qr_code.set(content);
@@ -64,12 +64,17 @@
           on_qr_scanned(decoded_text);
         });
       } catch (e) {
-        webScanner = new Html5Qrcode ("scanner-div");
-        await webScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] }, (decoded_text, decoded_result) => {
-          //console.log(decoded_result);
-          // Handle scan result
-          on_qr_scanned(decoded_text);
-        });
+        try {
+          webScanner = new Html5Qrcode ("scanner-div");
+          await webScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] }, (decoded_text, decoded_result) => {
+            //console.log(decoded_result);
+            // Handle scan result
+            on_qr_scanned(decoded_text);
+          });
+        } catch (e) {
+          webScanner = null;
+          error = true;
+        }
       }
 
       // // Add scanner to Screen.
@@ -118,10 +123,18 @@
   <div>
     <h2 class="text-xl mb-6">{$t("pages.scan_qr.scanning")}</h2>
   </div>
-  <Spinner />
+  {#if !error}<Spinner />{/if}
   <!-- Web Scanner -->
   <div id="scanner-div"></div>
 
+  {#if error}
+    <div class="mx-6 max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
+      <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
+      
+        {@html $t("errors.camera_unavailable")}
+      
+    </div>
+  {/if}
   <div class="mx-auto max-w-xs">
     <button
       on:click={() => window.history.go(-1)}
