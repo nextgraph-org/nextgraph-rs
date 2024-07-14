@@ -56,12 +56,21 @@
       //   { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] },
       //   false
       // );
-      webScanner = new Html5Qrcode ("scanner-div");
-      webScanner.start({ facingMode: { exact: "environment"} }, { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] }, (decoded_text, decoded_result) => {
-        //console.log(decoded_result);
-        // Handle scan result
-        on_qr_scanned(decoded_text);
-      });
+      try {
+        webScanner = new Html5Qrcode ("scanner-div");
+        webScanner.start({ facingMode: { exact: "environment"} }, { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] }, (decoded_text, decoded_result) => {
+          //console.log(decoded_result);
+          // Handle scan result
+          on_qr_scanned(decoded_text);
+        });
+      } catch (e) {
+        webScanner = new Html5Qrcode ("scanner-div");
+        webScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] }, (decoded_text, decoded_result) => {
+          //console.log(decoded_result);
+          // Handle scan result
+          on_qr_scanned(decoded_text);
+        });
+      }
 
       // // Add scanner to Screen.
       // webScanner.render((decoded_text, decoded_result) => {
