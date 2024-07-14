@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from "svelte-i18n";
+  import { onMount } from "svelte";
   import { Alert, Modal, Spinner } from "flowbite-svelte";
   import {
     ArrowLeft,
@@ -32,6 +33,11 @@
       error = e;
     }
   };
+
+  function scrollToTop() {
+    top.scrollIntoView();
+  }
+  onMount(() => scrollToTop());
 </script>
 
 <CenteredLayout>
@@ -65,6 +71,8 @@
         <br />
         {@html $t("wallet_sync.server_transfer_notice")}
       </div>
+      
+      <p><br/>{@html $t("pages.wallet_login_textcode.enter_here")}</p>
 
       <!-- TextCode Input -->
       <textarea

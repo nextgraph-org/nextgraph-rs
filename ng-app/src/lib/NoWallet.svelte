@@ -39,7 +39,7 @@
           class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
         >
           <svg
-            class="w-8 h-8 -ml-1"
+            class="w-8 h-8 -ml-1 mr-2"
             fill="none"
             stroke="currentColor"
             stroke-width="1.5"

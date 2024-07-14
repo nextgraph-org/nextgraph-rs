@@ -101,7 +101,6 @@
     if ($wallet_from_import) {
       wallet = $wallet_from_import;
       importing = true;
-      // TODO: Show component: "We got wallet from other device. Please log in to your wallet, to import the device."
     }
 
   });

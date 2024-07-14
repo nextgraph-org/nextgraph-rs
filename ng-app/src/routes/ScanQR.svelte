@@ -49,38 +49,58 @@
       on_qr_scanned(result.content);
     } else {
       // Load Web Scanner
-      const { Html5QrcodeScanner } = await import("html5-qrcode");
+      const { Html5QrcodeScanner, Html5Qrcode } = await import("html5-qrcode");
       // Init scanner object
-      webScanner = new Html5QrcodeScanner(
-        "scanner-div",
-        { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] },
-        false
-      );
-
-      // Add scanner to Screen.
-      webScanner.render((decoded_text, decoded_result) => {
-        console.log(decoded_result);
+      // webScanner = new Html5QrcodeScanner(
+      //   "scanner-div",
+      //   { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] },
+      //   false
+      // );
+      webScanner = new Html5Qrcode ("scanner-div");
+      webScanner.start({ facingMode: { exact: "environment"} }, { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] }, (decoded_text, decoded_result) => {
+        //console.log(decoded_result);
         // Handle scan result
         on_qr_scanned(decoded_text);
-      }, (error) => {
-        console.error(error);
       });
 
+      // // Add scanner to Screen.
+      // webScanner.render((decoded_text, decoded_result) => {
+      //   //console.log(decoded_result);
+      //   // Handle scan result
+      //   on_qr_scanned(decoded_text);
+      // }, (error) => {
+      //   //console.error(error);
+      // });
+
       // Auto-Request camera permissions (there's no native way, unfortunately...)
-      setTimeout(() => {
-        // Auto-start by clicking button
-        document
-          .getElementById("html5-qrcode-button-camera-permission")
-          ?.click();
-      }, 100);
+      // setTimeout(() => {
+      //   // Auto-start by clicking button
+      //   document
+      //     .getElementById("html5-qrcode-button-camera-permission")
+      //     ?.click();
+      // }, 100);
+
+      // setTimeout(check_ready_and_start, 1000);
+
     }
   });
+
+  // const check_ready_and_start = () => {
+  //       // Auto-start by clicking button
+  //       let start_btn = document
+  //         .getElementById("html5-qrcode-button-camera-start");
+  //       if (start_btn) {
+  //         start_btn.click();
+  //       } else {
+  //         setTimeout(check_ready_and_start, 1000);
+  //       }
+  //     };
 
   onDestroy(async () => {
     if (mobile) {
       if (nativeScanner) await nativeScanner.cancel();
     } else {
-      if (webScanner) webScanner.clear();
+      if (webScanner) webScanner.stop();
     }
   });
 </script>

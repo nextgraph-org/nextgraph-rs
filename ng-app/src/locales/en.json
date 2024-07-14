@@ -31,17 +31,17 @@
       "scan_qr.title": "Export by scanning a QR-Code",
       "scan_qr.no_camera": "If to the contrary, the other device does not have a camera, ",
       "scan_qr.other_has_camera": "If the other device where you want to import the Wallet, has a camera, then you can just click on the Back button and select <span class=\"path\">Generate QR to export</span>",
-      "scan_qr.notes": "You will now scan the QR-Code that appears on the screen of the other device (the one you want to transfer your wallet to).",
+      "scan_qr.notes": "You will now scan the QR-Code that appears on the screen of the other device (the one you want to transfer your wallet to). You will be asked to allow the app to use your camera.",
       "scan_qr.scan_btn": "Scan QR-Code ",
-      "scan_qr.scanner.title": "Scan your QR Code",
+      "scan_qr.scanner.title": "Scan your QR-Code",
       "scan_qr.scanner.loading": "Loading scanner",
       "scan_qr.syncing": "Synchronizing wallet",
-      "scan_qr.scan_successful": "Success!<br />Your wallet has been transferred to the new device.",
-      "gen_qr.title": "Export by generating QR-Code",
+      "scan_qr.scan_successful": "Success!<br />Your wallet has been transferred to the other device.",
+      "gen_qr.title": "Export by generating a QR-Code",
       "gen_qr.notes": "In order to transfer your wallet to another device, you will now display a QR-Code here on this device, and you will then scan it with the other device where you want to transfer your wallet to.",
       "gen_qr.no_camera": "If the device where you want to import the Wallet, does not have a camera, then you will have to choose another method.",
-      "gen_qr.img_title": "Your Export QR Code to Scan",
-      "gen_qr.img_alt": "Your Export QR Code to Scan",
+      "gen_qr.img_title": "Your Export QR-Code to Scan",
+      "gen_qr.img_alt": "Your Export QR-Code to Scan",
       "gen_qr.gen_button": "Display QR-Code",
       "gen_text_code.title": "Export with TextCode",
       "gen_text_code.gen_btn": "Generate TextCode",
@@ -268,8 +268,9 @@
     },
     "wallet_login_textcode": {
       "title": "Import Wallet from TextCode",
-      "description": "To generate a TextCode, open a logged in device and go to<br /><span class=\"path\">User Panel > Wallet > Generate TextCode</span> to export.",
-      "import_btn": "Import with TextCode"
+      "description": "To generate a TextCode, open a logged in device and go to<br /><span class=\"path\">User Panel > Wallet > Generate TextCode to export</span>.",
+      "import_btn": "Import with TextCode",
+      "enter_here": "Enter your TextCode here below and click on Import button"
     },
     "scan_qr": {
       "scanning": "Scanning the QR-Code"
@@ -378,9 +379,10 @@
   },
   "wallet_sync": {
     "offline_warning": "You cannot transfer your wallet when offline.<br />Please make sure you are connected to the internet first.",
-    "textcode.usage_warning": "You have to exchange this TextCode with the other device by any means available to you (email, other messenger apps, etc...). It is highly recommended to use a tool that is end-to-end encrypted. If you can, you should use the \"Import with QRCode\" option instead, as it is safer and simpler. If your devices are not connected to the internet, then you can use the \"Import a Wallet File\" option. In this case, you will transfer the wallet file with a USB key, from one device to the other, or for mobile, by connecting your mobile with the USB cable, to the computer, and then transferring the file with the File Transfer utility on Android, or AirDrop/Finder/iTunes on an iPhone/mac/PC. We do not recommend uploading your wallet file to any cloud service.",
+    "textcode.usage_warning": "You have to exchange this TextCode with the other device by any means available to you (email, other messenger apps, etc...). It is highly recommended to use a tool that is end-to-end encrypted. If you can, you should use the \"Import with QR-Code\" option instead, as it is safer and simpler. If your devices are not connected to the internet, then you can use the \"Import a Wallet File\" option. In this case, you will transfer the wallet file with a USB key, from one device to the other, or for mobile, by connecting your mobile with the USB cable, to the computer, and then transferring the file with the File Transfer utility on Android, or AirDrop/Finder/iTunes on an iPhone/mac/PC. We do not recommend uploading your wallet file to any cloud service.",
     "server_transfer_notice": "Both devices need to be online.<br />During this wallet transfer, your wallet will be temporarily and securely stored on our servers for up to 5 minutes, using two levels of encryption.<br/> We at NextGraph will never be able to read your wallet, your PIN, your pazzle nor your mnemonic.",
     "importing": "Importing wallet",
+    "expiry": "The TextCode will be valid for 5 minutes.",
     "error": "An error occurred while synchronizing your wallet:<br />{error}",
     "no_camera": "Unfortunately, your device does not have a camera.<br /> You cannot scan any QR-Code.<br /> In order to export your wallet to another device, you will have to use another method.",
     "no_camera_alternatives": "You have 2 other options: \"Import a Wallet file\" (transfer it using a USB key by example, useful if you are offline) or \"Import a TextCode\" (which is a text you will have to transfer with another messaging app)."
