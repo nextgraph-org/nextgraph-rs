@@ -128,7 +128,7 @@
   <div id="scanner-div"></div>
 
   {#if error}
-    <div class="mx-6 max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
+    <div class="max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
       <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
       
         {@html $t("errors.camera_unavailable")}
