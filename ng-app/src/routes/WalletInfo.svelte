@@ -577,75 +577,64 @@
           </div>
         {/if}
       {:else if sub_menu === "text_code"}
-        <Sidebar {nonActiveClass}>
-          <SidebarWrapper
-              divClass="mb-10 bg-gray-60 overflow-y-auto py-4 px-3 rounded dark:bg-gray-800"
+        <div
+          class="flex flex-col justify-center max-w-md mx-6 mb-20 bg-gray-60 overflow-y-auto py-4 dark:bg-gray-800"
+        >
+          <div>
+            <h2 class="text-xl mb-6">
+              {$t("pages.wallet_info.gen_text_code.title")}
+            </h2>
+          </div>
+
+          <!-- Go Back -->
+          <button
+            on:click={to_main_menu}
+            class="w-full text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            ><ArrowLeft
+              tabindex="-1"
+              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
+            />{$t("buttons.back")}</button
           >
-            <SidebarGroup ulClass="space-y-2" role="menu">
-              <li>
-                <h2 class="text-xl mb-6">
-                  {$t("pages.wallet_info.gen_text_code.title")}
-                </h2>
-              </li>
 
-              <!-- Go Back -->
-              <li
-                tabindex="0"
-                role="menuitem"
-                class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-                on:keypress={to_main_menu}
-                on:click={to_main_menu}
+          <!-- Warning to prefer QR codes or wallet downloads -->
+          {#if generation_state === "before_start"}
+            <div class="text-left my-4">
+              <Alert color="yellow">
+                {@html $t("wallet_sync.textcode.usage_warning")}
+              </Alert>
+            </div>
+          {/if}
+          <!-- Warning if offline -->
+          <div class="text-left my-4">
+            {#if !$online}
+              <Alert color="red">
+                {@html $t("wallet_sync.offline_warning")}
+              </Alert>
+            {:else}
+              {@html $t("wallet_sync.expiry")}
+            {/if}
+          </div>
+
+          <div class="mt-4">
+            {#if generation_state === "before_start"}
+              <Button
+                on:click={generate_text_code}
+                disabled={!$online}
+                class="my-4 w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
               >
-                <ArrowLeft
-                  tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-                <span class="ml-3">{$t("buttons.back")}</span>
-              </li>
-
-              <!-- Warning to prefer QR codes or wallet downloads -->
-              {#if generation_state === "before_start"}
-                <div class="text-left my-4">
-                  <Alert color="yellow">
-                    {@html $t("wallet_sync.textcode.usage_warning")}
-                  </Alert>
-                </div>
-              {/if}
-              <!-- Warning if offline -->
-              {#if !$online}
-                <li class="text-left my-4">
-                  <Alert color="red">
-                    {@html $t("wallet_sync.offline_warning")}
-                  </Alert>
-                </li>
-              {:else}
-                <li class="text-left my-4">
-                  {@html $t("wallet_sync.expiry")}
-                </li>
-              {/if}
-
-              <div class="mt-4">
-                {#if generation_state === "before_start"}
-                  <Button
-                    on:click={generate_text_code}
-                    disabled={!$online}
-                    class="my-4 w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-                  >
-                    {$t("pages.wallet_info.gen_text_code.gen_btn")}
-                  </Button>
-                {:else if generation_state == "loading"}
-                  <Spinner class="mx-auto" size="6" />
-                {:else}
-                  <!-- TextCode Code -->
-                  <span>{$t("pages.wallet_info.gen_text_code.label")}</span>
-                  <div>
-                    <CopyToClipboard rows={8} value={generated_text_code} />
-                  </div>
-                {/if}
+                {$t("pages.wallet_info.gen_text_code.gen_btn")}
+              </Button>
+            {:else if generation_state == "loading"}
+              <Spinner class="mx-auto" size="6" />
+            {:else}
+              <!-- TextCode Code -->
+              <span>{$t("pages.wallet_info.gen_text_code.label")}</span>
+              <div>
+                <CopyToClipboard rows={8} value={generated_text_code} />
               </div>
-            </SidebarGroup>
-          </SidebarWrapper>
-        </Sidebar>
+            {/if}
+          </div>
+        </div>
       {/if}  
     </div>
     {#if error}

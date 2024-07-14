@@ -106,6 +106,11 @@ const handler = {
                 };
                 //console.log(info,res);
                 return res;
+            } else if (path[0] === "get_device_name") {
+                let tauri_platform = import.meta.env.TAURI_PLATFORM;
+                if (tauri_platform == 'android') return "Android Phone";
+                else if (tauri_platform == 'ios') return "iPhone";
+                else return await tauri.invoke(path[0],{});
             } else if (path[0] === "locales") {
                 let from_rust = await tauri.invoke("locales",{});
                 let from_js = window.navigator.languages;
