@@ -358,7 +358,8 @@
     "ExportWalletTimeOut": "The wallet-export session has expired. Try again.",
     "ConnectionError": "Could not connect to the server.",
     "IncompatibleQrCode": "You scanned a NextGraph QR-Code that is of the wrong type.",
-    "NotARendezVous": "You scanned an invalid QR-Code."
+    "NotARendezVous": "You scanned an invalid QR-Code.",
+    "camera_unavailable": "Camera is unavailable."
   },
   "connectivity": {
     "stopped": "Stopped",
