@@ -256,7 +256,7 @@
     },
     "wallet_login_qr": {
       "title": "Import Wallet with QR-Code",
-      "scan.description": "To import your wallet from another device, generate an export-QR-Code there. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Export by scanning QR-Code</span> to export.",
+      "scan.description": "To import your wallet from another device, generate an export QR-Code there. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Generate QR</span> to export.",
       "scan.button": "Scan QR-Code",
       "scan.modal.title": "Scan Wallet QR-Code",
       "gen.button": "Generate QR-Code",
@@ -288,8 +288,7 @@
     "back_to_homepage": "Go back to Homepage",
     "logout": "Logout",
     "login": "Login",
-    "start_over": "Start over",
-    "generate": "generate"
+    "start_over": "Start over"
   },
   "errors": {
     "an_error_occurred": "An error occurred",

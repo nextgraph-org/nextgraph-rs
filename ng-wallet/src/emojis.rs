@@ -123,7 +123,7 @@ const face_unwell: [EmojiDef<'static>; 15] = [
         code: "tissue",
     },
     EmojiDef {
-        hexcode: "1f915",
+        hexcode: "1f975",
         shortcode: "hot_face",
         code: "hot",
     },

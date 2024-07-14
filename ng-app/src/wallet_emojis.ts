@@ -126,8 +126,7 @@ let face_unwell = [
     code: "tissue",
   },
   {
-    // TODO: This unicode id is incorrect. It should probably be 1F975
-    hexcode: "1f915",
+    hexcode: "1f975",
     shortcode: "hot_face",
     code: "hot",
   },
