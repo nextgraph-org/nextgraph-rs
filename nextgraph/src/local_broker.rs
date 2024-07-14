@@ -1728,7 +1728,7 @@ lazy_static! {
 /// with the help of the function [wallet_open_with_pazzle_words]
 /// followed by [wallet_import]
 pub async fn wallet_import_from_code(code: String) -> Result<Wallet, NgError> {
-    let qr = NgQRCode::from_code(code)?;
+    let qr = NgQRCode::from_code(code.trim().to_string())?;
     match qr {
         NgQRCode::WalletTransferV0(NgQRCodeWalletTransferV0 {
             broker,

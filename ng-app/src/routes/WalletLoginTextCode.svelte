@@ -99,7 +99,7 @@
         <!-- Submit Button-->
         <div class="my-4 mx-1">
           <button
-            class="mt-4 w-full text-white bg-primary-700 disabled:bg-primary-700/50 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            class="mt-4 mb-8 w-full text-white bg-primary-700 disabled:bg-primary-700/50 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
             on:click={textcode_submit}
             disabled={!connected || !textcode}
             class:hidden={state === "importing" || error}
@@ -114,7 +114,7 @@
           <!-- Back Button -->
           <button
             on:click={() => window.history.go(-1)}
-            class="mt-8 w-full text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            class="w-full text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
             ><ArrowLeft
               tabindex="-1"
               class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
