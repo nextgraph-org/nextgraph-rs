@@ -85,7 +85,6 @@
       {#if error}
         <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
           <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
-
           <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
             {@html $t("errors.error_occurred", {
               values: { message: display_error(error) },

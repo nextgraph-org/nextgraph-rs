@@ -476,9 +476,15 @@
                     <div class="mt-4">
                       <CheckBadge color="green" size="3em" />
                     </div>
-                    <div class="mt-4">
+                    <div class="mt-4 mb-4">
                       {@html $t("pages.wallet_info.scan_qr.scan_successful")}
                     </div>
+                    <Button
+                      on:click={to_main_menu}
+                      class="w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+                    >
+                      {$t("buttons.go_back")}
+                    </Button>
                   </li>
                 {/if}
               {/if}
