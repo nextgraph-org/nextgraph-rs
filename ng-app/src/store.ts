@@ -184,13 +184,18 @@ export const check_has_camera = async () => {
     let has_camera: boolean | "checking" = "checking";
 
     if (!use_native_cam) {
-      // If there is a camera, go to scan mode, else gen mode.
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        has_camera =
-          devices.filter((device) => device.kind === "videoinput").length > 0;
-      } catch {
+      if (tauri_platform) {
         has_camera = false;
+      }
+      else {
+        // If there is a camera, go to scan mode, else gen mode.
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            has_camera =
+            devices.filter((device) => device.kind === "videoinput").length > 0;
+        } catch {
+            has_camera = false;
+        }
       }
 
     } else {
