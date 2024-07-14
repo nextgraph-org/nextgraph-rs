@@ -72,6 +72,7 @@ const handler = {
             }
         } else {
             let tauri = await import("@tauri-apps/api/tauri");
+            try {
             if (path[0] === "client_info") {
                 let from_rust = await tauri.invoke("client_info_rust",{});
                 
@@ -166,6 +167,15 @@ const handler = {
                 }
                 return res || {};
 
+            } else if (path[0] === "wallet_import_from_code") {
+                let arg = {};
+                args.map((el,ix) => arg[mapping[path[0]][ix]]=el);
+                let res = await tauri.invoke(path[0],arg);
+                if (res) {
+                    res.V0.content.security_img = Uint8Array.from(res.V0.content.security_img);
+                }
+                return res || {};
+
             } else if (path[0] === "upload_chunk") {
                 let session_id = args[0];
                 let upload_id = args[1];
@@ -202,8 +212,11 @@ const handler = {
             } else {
                 let arg = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
-                return tauri.invoke(path[0],arg)
+                return await tauri.invoke(path[0],arg)
             }
+        }catch (e) {
+            throw JSON.parse(e);
+        }
         }
     },
   };

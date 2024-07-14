@@ -123,7 +123,7 @@
     wallet_from_import.set(null);
   });
   async function gotError(event) {
-    importing = false;
+    //importing = false;
     console.error(event.detail);
   }
   async function gotWallet(event) {
@@ -189,6 +189,7 @@
     } else {
       wallet = $wallets[selected]?.wallet;
     }
+    importing = false;
   }
   function handleWalletUpload(event) {
     const files = event.target.files;
