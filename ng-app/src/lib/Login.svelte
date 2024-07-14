@@ -169,7 +169,7 @@
       pazzle.push((emoji.cat << 4) + emoji.index);
     }
 
-    const mnemonic_words = mnemonic.split(" ");
+    const mnemonic_words = mnemonic.split(" ").filter((t) => t !== "");
 
     // open the wallet
     try {

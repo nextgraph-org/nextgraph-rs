@@ -297,7 +297,7 @@
     "AlreadyExists": "The user is already registered with the selected broker.<br />Try logging in instead.",
     "InvalidSignature": "The signature is invalid.",
     "IncompleteSignature": "The signature is incomplete.",
-    "SerializationError": "The object could not be serialized.",
+    "SerializationError": "The data could not be serialized.",
     "EncryptionError": "Your wallet could not be opened. You probably did a mistake.",
     "DecryptionError": "Error with decryption.",
     "InvalidValue": "The value is invalid.",
