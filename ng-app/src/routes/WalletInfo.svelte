@@ -573,7 +573,7 @@
       {:else if sub_menu === "text_code"}
         <Sidebar {nonActiveClass}>
           <SidebarWrapper
-              divClass="bg-gray-60 overflow-y-auto py-4 px-3 rounded dark:bg-gray-800"
+              divClass="mb-10 bg-gray-60 overflow-y-auto py-4 px-3 rounded dark:bg-gray-800"
           >
             <SidebarGroup ulClass="space-y-2" role="menu">
               <li>
@@ -598,18 +598,23 @@
               </li>
 
               <!-- Warning to prefer QR codes or wallet downloads -->
-              <div class="text-left my-4">
-                <Alert color="yellow">
-                  {@html $t("wallet_sync.textcode.usage_warning")}
-                </Alert>
-              </div>
-
+              {#if generation_state === "before_start"}
+                <div class="text-left my-4">
+                  <Alert color="yellow">
+                    {@html $t("wallet_sync.textcode.usage_warning")}
+                  </Alert>
+                </div>
+              {/if}
               <!-- Warning if offline -->
               {#if !$online}
                 <li class="text-left my-4">
                   <Alert color="red">
                     {@html $t("wallet_sync.offline_warning")}
                   </Alert>
+                </li>
+              {:else}
+                <li class="text-left my-4">
+                  {@html $t("wallet_sync.expiry")}
                 </li>
               {/if}
 
