@@ -215,7 +215,11 @@ const handler = {
                 return await tauri.invoke(path[0],arg)
             }
         }catch (e) {
-            throw JSON.parse(e);
+            try {
+                throw JSON.parse(e);
+            } catch (f) {
+                throw e;
+            }
         }
         }
     },
