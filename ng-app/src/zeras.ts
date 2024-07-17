@@ -9,9 +9,10 @@
 // according to those terms.
 
 // "n:g:z:hide" >> hides when in viewer mode
+// "n:g:z:compose" >> a viewer made of a list of viewers (useful when different views on the same branch needs to be aggregated, or when the discrete is not composable - i.e it is not a Post)
 //"n:g:z:json_ld_editor", "n:g:z:json_editor", "n:g:z:triple_editor", "n:g:z:rdf_viewer:turtle", "n:g:z:rdf_viewer:n3", "n:g:z:rdf_viewer:json_ld", "n:g:z:rdf_viewer:graph",
 //"n:g:z:sparql_query:yasgui", "n:g:z:sparql_query:sparnatural", "n:g:z:graphql_query", "n:g:z:sparql_update:yasgui", "n:g:z:ontology_editor", "n:g:z:owl_viewer", "n:g:z:sparql:invoke", "n:g:z:graphql:invoke", "n:g:z:dump_download",
-// "n:g:z:post_rich_editor", "n:g:z:post_md_editor", "n:g:z:code_editor", "n:g:z:file_viewer", "n:g:z:file_source", "n:g:z:crdt_source_viewer:xml", "n:g:z:crdt_source_viewer:json", "n:g:z:crdt_source_viewer:text", "n:g:z:crdt_source_viewer:rdf"
+// "n:g:z:post_rich_editor", "n:g:z:post_md_editor", "n:g:z:code_editor", "n:g:z:file_viewer", "n:g:z:file_source", "n:g:z:crdt_source_viewer:xml", "n:g:z:crdt_source_viewer:md",  "n:g:z:crdt_source_viewer:json", "n:g:z:crdt_source_viewer:text", "n:g:z:crdt_source_viewer:rdf"
 //"n:g:z:post:rich", "n:g:z:post:md", "n:g:z:text", "n:g:z:pre", "n:g:z:pad", "n:g:z:card", "n:g:z:gallery", "n:g:z:columns", "n:g:z:tree", "n:g:z:summary", "n:g:z:list", "n:g:z:grid", "n:g:z:list_n_post", "n:g:z:grid_n_post", "n:g:z:board", 
 //"n:g:z:map", "n:g:z:chart", "n:g:z:pivot", "n:g:z:timeline", "n:g:z:email", "n:g:z:web_archive", "n:g:z:diagram_editor", "n:g:z:pdf", "n:g:z:latex", "n:g:z:media", "n:g:z:media_editor", 
 //"n:g:z:service_editor", "n:g:z:service_invoke", "n:g:z:external_service_invoke", "n:g:z:contract", "n:g:z:text_query", "n:g:z:web_query", "n:g:z:scan_qrcode", "n:g:z:upload_file",
@@ -21,38 +22,112 @@
 
 export const official_apps = {
     "n:g:z:json_ld_editor": {
-        "ng:n": "JSON-LD editor",
-        "ng:a": "View and edit the RDF Graph as JSON-LD",
+        "ng:n": "JSON-LD Editor",
+        "ng:a": "Edit the RDF Graph as JSON-LD",
         "ng:c": "app", 
         "ng:u": "json_ld_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:json_ld_editor",
         "ng:b": "JsonLdEditor",
-        "ng:o": ["data/graph"],
         "ng:w": ["data/graph"],
     },
     "n:g:z:json_editor": {
-        "ng:n": "JSON editor",
-        "ng:a": "View and edit your JSON data",
+        "ng:n": "JSON Editor",
+        "ng:a": "Edit the JSON data",
         "ng:c": "app", 
         "ng:u": "json_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:json_editor",
         "ng:b": "JsonEditor",
-        "ng:o": ["data/json","data/array","data/map"],
         "ng:w": ["data/json","data/array","data/map"],
     },
     "n:g:z:triple_editor": {
-        "ng:n": "Graph triples",
-        "ng:a": "Edit your RDF Graph as triples",
+        "ng:n": "Graph Triples Editor",
+        "ng:a": "Edit the RDF Graph as triples",
         "ng:c": "app", 
         "ng:u": "triple_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:triple_editor",
         "ng:b": "TripleEditor",
-        "ng:o": ["data/graph"],
         "ng:w": ["data/graph"],
+    },
+    "n:g:z:json_ld_viewer": {
+        "ng:n": "JSON-LD",
+        "ng:a": "View the RDF Graph as JSON-LD",
+        "ng:c": "app", 
+        "ng:u": "json_ld_editor",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:json_ld_viewer",
+        "ng:b": "JsonLdViewer",
+        "ng:o": ["data/graph"],
+    },
+    "n:g:z:rdf_viewer:graph": {
+        "ng:n": "Graph Explorer",
+        "ng:a": "View the RDF Graph as interactive visualization",
+        "ng:c": "app", 
+        "ng:u": "graph_viewer",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:rdf_viewer:graph",
+        "ng:b": "GraphViewer", // GraphExplorer https://github.com/zazuko/graph-explorer !! AGPL
+        "ng:o": ["data/graph"],
+        "ng:w": [],
+    },
+    "n:g:z:json_viewer": {
+        "ng:n": "JSON",
+        "ng:a": "View the JSON data",
+        "ng:c": "app", 
+        "ng:u": "json_editor",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:json_viewer",
+        "ng:b": "JsonViewer",
+        "ng:o": ["data/json","data/array","data/map"],
+    },
+    "n:g:z:triple_viewer": {
+        "ng:n": "Graph Triples",
+        "ng:a": "View the RDF Graph as triples",
+        "ng:c": "app", 
+        "ng:u": "triple_editor",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:triple_viewer",
+        "ng:b": "TripleViewer",
+        "ng:o": ["data/graph"],
+    },
+    "n:g:z:sparql_query:yasgui": {
+        "ng:n": "SPARQL Query",
+        "ng:a": "View, edit and invoke the Graph SPARQL query",
+        "ng:c": "app", 
+        "ng:u": "sparql_query",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:sparql_query:yasgui",
+        "ng:b": "SparqlQueryEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
+        "ng:o": ["data/graph"],
+        "ng:w": ["query/sparql"],
+    },
+    "n:g:z:sparql_query:sparnatural": {
+        "ng:n": "SPARNatural Query",
+        "ng:a": "View, edit and invoke the Graph SPARQL query with SPARnatural tool",
+        "ng:c": "app", 
+        "ng:u": "sparnatural",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:sparql_query:sparnatural",
+        "ng:b": "SparNaturalEditor",
+        "ng:o": ["data/graph"],
+        "ng:w": ["query/sparql"],
+    },
+    "n:g:z:graphql_query": {
+        "ng:n": "GraphQL Query",
+        "ng:a": "View, edit and invoke the GraphQL query",
+        "ng:c": "app", 
+        "ng:u": "graphql",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:graphql_query",
+        "ng:b": "GraphqlEditor",
+        "ng:o": ["data/graph"],
+        "ng:w": ["query/graphql"],
+    },
+    "n:g:z:sparql_update:yasgui": {
+        "ng:n": "SPARQL Update",
+        "ng:a": "View, edit and invoke a Graph SPARQL Update",
+        "ng:c": "app",
+        "ng:u": "sparql_query",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:sparql_update:yasgui",
+        "ng:b": "SparqlUpdateEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
+        "ng:o": [],
+        "ng:w": ["query/sparql_update","data/graph"],
     },
     "n:g:z:rdf_viewer:turtle": { // https://github.com/highlightjs/highlightjs-turtle/tree/master
         "ng:n": "Turtle",
-        "ng:a": "View your RDF Graph in Turtle format",
+        "ng:a": "View the RDF Graph in Turtle format",
         "ng:c": "app", 
         "ng:u": "rdf_viewer",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:rdf_viewer:turtle",
@@ -62,7 +137,7 @@ export const official_apps = {
     },
     "n:g:z:rdf_viewer:n3": { // ?
         "ng:n": "N3",
-        "ng:a": "View your RDF Graph in N3 format",
+        "ng:a": "View the RDF Graph in N3 format",
         "ng:c": "app", 
         "ng:u": "rdf_viewer",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:rdf_viewer:n3",
@@ -71,8 +146,8 @@ export const official_apps = {
         "ng:w": [],
     },
     "n:g:z:rdf_viewer:json_ld": { // highlight.js JSON
-        "ng:n": "JSON-LD",
-        "ng:a": "View your RDF Graph in N3 format",
+        "ng:n": "JSON-LD Source",
+        "ng:a": "View the RDF Graph in N3 format",
         "ng:c": "app", 
         "ng:u": "rdf_viewer",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:rdf_viewer:json_ld",
@@ -80,59 +155,9 @@ export const official_apps = {
         "ng:o": ["data/graph"],
         "ng:w": [],
     },
-    "n:g:z:rdf_viewer:graph": {
-        "ng:n": "Graph Explorer",
-        "ng:a": "View your RDF Graph as interactive visualization",
-        "ng:c": "app", 
-        "ng:u": "graph_viewer",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:rdf_viewer:graph",
-        "ng:b": "GraphViewer", // GraphExplorer https://github.com/zazuko/graph-explorer !! AGPL
-        "ng:o": ["data/graph"],
-        "ng:w": [],
-    },
-    "n:g:z:sparql_query:yasgui": {
-        "ng:n": "SPARQL Query",
-        "ng:a": "View, edit and invoke your Graph SPARQL query",
-        "ng:c": "app", 
-        "ng:u": "sparql_query",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:sparql_query:yasgui",
-        "ng:b": "SparqlQueryEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
-        "ng:o": [],
-        "ng:w": ["query/sparql"],
-    },
-    "n:g:z:sparql_query:sparnatural": {
-        "ng:n": "SPARQL natural Query",
-        "ng:a": "View, edit and invoke your Graph SPARQL query with SPARnatural tool",
-        "ng:c": "app", 
-        "ng:u": "sparnatural",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:sparql_query:sparnatural",
-        "ng:b": "SparNaturalEditor",
-        "ng:o": [],
-        "ng:w": ["query/sparql"],
-    },
-    "n:g:z:graphql_query": {
-        "ng:n": "GraphQL Query",
-        "ng:a": "View, edit and invoke your GraphQL query",
-        "ng:c": "app", 
-        "ng:u": "graphql",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:graphql_query",
-        "ng:b": "GraphqlEditor",
-        "ng:o": [],
-        "ng:w": ["query/graphql"],
-    },
-    "n:g:z:sparql_update:yasgui": {
-        "ng:n": "SPARQL Update",
-        "ng:a": "View, edit and invoke your Graph SPARQL Update",
-        "ng:c": "app",
-        "ng:u": "sparql_query",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:sparql_update:yasgui",
-        "ng:b": "SparqlUpdateEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
-        "ng:o": [],
-        "ng:w": ["query/sparql_update"],
-    },
     "n:g:z:ontology_editor": {
-        "ng:n": "Ontology editor",
-        "ng:a": "Edit your Ontology",
+        "ng:n": "Ontology Editor",
+        "ng:a": "Edit the Ontology",
         "ng:c": "app",
         "ng:u": "json_ld_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:ontology_editor",
@@ -142,7 +167,7 @@ export const official_apps = {
     },
     "n:g:z:owl_viewer": {
         "ng:n": "OWL Ontology",
-        "ng:a": "View your OWL Ontology",
+        "ng:a": "View the OWL Ontology",
         "ng:c": "app",
         "ng:u": "ontology_viewer",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:owl_viewer",
@@ -152,7 +177,7 @@ export const official_apps = {
     },
     "n:g:z:sparql:invoke": { // displayed with highlight.js https://github.com/highlightjs/highlightjs-turtle/tree/master
         "ng:n": "SPARQL Invoke",
-        "ng:a": "View and invoke your saved SPARQL query",
+        "ng:a": "View and invoke the saved SPARQL query",
         "ng:c": "app", 
         "ng:u": "invoke",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:sparql:invoke",
@@ -162,7 +187,7 @@ export const official_apps = {
     },
     "n:g:z:graphql:invoke": { 
         "ng:n": "GraphQL Invoke",
-        "ng:a": "View and invoke your saved GraphQL query",
+        "ng:a": "View and invoke the saved GraphQL query",
         "ng:c": "app", 
         "ng:u": "invoke",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:graphql:invoke",
@@ -172,7 +197,7 @@ export const official_apps = {
     },
     "n:g:z:dump_download": {
         "ng:n": "Download",
-        "ng:a": "Download a file containing a document export data",
+        "ng:a": "Download a file containing a document exported data",
         "ng:c": "app", 
         "ng:u": "download",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_download",
@@ -182,19 +207,19 @@ export const official_apps = {
     },
     "n:g:z:post_rich_editor": {
         "ng:n": "Post Editor",
-        "ng:a": "Edit your post with ProseMirror",
+        "ng:a": "Edit the post with ProseMirror",
         "ng:c": "app", 
-        "ng:u": "post_edit",//favicon. can be a did:ng:j 
+        "ng:u": "edit",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:post_rich_editor",
         "ng:b": "ProseMirrorEditor",
         "ng:o": [],
         "ng:w": ["post/rich"],
     },
     "n:g:z:post_md_editor": {
-        "ng:n": "Post Editor",
-        "ng:a": "Edit your post with MilkDown",
+        "ng:n": "Post MD Editor",
+        "ng:a": "Edit the post with MilkDown",
         "ng:c": "app", 
-        "ng:u": "post_edit",//favicon. can be a did:ng:j 
+        "ng:u": "edit",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:post_md_editor",
         "ng:b": "MilkDownEditor",
         "ng:o": [],
@@ -202,9 +227,9 @@ export const official_apps = {
     },
     "n:g:z:code_editor": {
         "ng:n": "Code and Text Editor",
-        "ng:a": "Edit your code/text with CodeMirror",
+        "ng:a": "Edit the code/text with CodeMirror",
         "ng:c": "app", 
-        "ng:u": "post_edit",//favicon. can be a did:ng:j 
+        "ng:u": "edit",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:code_editor",
         "ng:b": "CodeMirrorEditor",
         "ng:o": [],
@@ -238,6 +263,16 @@ export const official_apps = {
         "ng:g": "n:g:z:crdt_source_viewer:xml",
         "ng:b": "XmlSource", // displayed with highlight.js , with option to download
         "ng:o": ["post/rich","post/md","post/html","page","data/xml", "doc/diagram/drawio"],
+        "ng:w": [],
+    },
+    "n:g:z:viewer:md": { 
+        "ng:n": "MarkDown source",
+        "ng:a": "See the MarkDown source of this document",
+        "ng:c": "app", 
+        "ng:u": "source",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:viewer:md",
+        "ng:b": "MdSource", // displayed with highlight.js , with option to download
+        "ng:o": ["post/md"],
         "ng:w": [],
     },
     "n:g:z:crdt_source_viewer:json": { 
@@ -353,7 +388,7 @@ export const official_apps = {
     },
     "n:g:z:app_editor": {
         "ng:n": "App editor",
-        "ng:a": "Create and modify your App with NextGraph IDE",
+        "ng:a": "Create and modify Apps with NextGraph IDE",
         "ng:c": "app", 
         "ng:u": "app_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:app_editor", 
@@ -368,8 +403,8 @@ export const official_apps = {
         "ng:u": "list",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:list", 
         "ng:b": "ListView",
-        "ng:o": ["data/graph"],
-        "ng:w": ["data/graph"],
+        "ng:o": ["data/collection","data/container"],
+        "ng:w": ["data/collection","data/container"],
     },
     "n:g:z:grid": {
         "ng:n": "Grid view",
@@ -378,8 +413,8 @@ export const official_apps = {
         "ng:u": "grid",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:grid", 
         "ng:b": "GridView",
-        "ng:o": ["data/graph"],
-        "ng:w": ["data/graph"],
+        "ng:o": ["data/grid"],
+        "ng:w": ["data/grid"],
     },
     "n:g:z:media": {
         "ng:n": "Media view",
@@ -393,9 +428,9 @@ export const official_apps = {
     },
     "n:g:z:service_editor": {
         "ng:n": "Service Editor",
-        "ng:a": "Write and define your Service in Rust or JS/Deno",
+        "ng:a": "Write and define a Service in Rust or JS/Deno",
         "ng:c": "app", 
-        "ng:u": "post_edit",//favicon. can be a did:ng:j 
+        "ng:u": "edit",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:service_editor",
         "ng:b": "CodeMirrorEditor",
         "ng:o": [],
@@ -422,11 +457,21 @@ export const official_apps = {
         "ng:w": [],
     },
     "n:g:z:upload_file": {
-        "ng:n": "Upload file",
-        "ng:a": "Upload a binary file into a document",
+        "ng:n": "Upload binary file",
+        "ng:a": "Upload a binary file into the Document",
         "ng:c": "app", 
         "ng:u": "load",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:upload_file",
+        "ng:b": "UploadFile",
+        "ng:o": [],
+        "ng:w": ["data/graph"],
+    },
+    "n:g:z:import_file": {
+        "ng:n": "Import from external file",
+        "ng:a": "Import an external file with compatible format",
+        "ng:c": "app", 
+        "ng:u": "load_graph",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:import_file",
         "ng:b": "UploadFile",
         "ng:o": [],
         "ng:w": ["data/graph"],

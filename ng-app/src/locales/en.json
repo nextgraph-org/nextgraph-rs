@@ -1,4 +1,157 @@
 {
+  "doc": {
+    "graph" : "Graph",
+    "discrete" : "Document",
+    "menu" : {
+      "edit_with": "Edit with",
+      "view_as": "View as",
+      "install_app_to_edit": "Install App to edit",
+      "live_editing": "Live editing (real-time)",
+      "live_editing_description": "Collaborate in real-time with other users. If deactivated, you will have to save manually your edits",
+      "items": {
+        "new_block": {
+          "label": "New Block",
+          "desc": "Create a new block that can be embedded/included in this doc or other docs"
+        },
+        "editor_chat": {
+          "label": "Editors' Chat",
+          "desc": "Chat with other Editors about the Document you are editing"
+        },
+        "folders": {
+          "label": "Folders",
+          "desc": "Organize your documents in folders and platos"
+        },
+        "toc": {
+          "label": "Table of Content",
+          "desc": "Table of Content for Graph and Document"
+        },
+        "share": {
+          "label": "Share",
+          "desc": "Share with others, or react"
+        },
+        "comments": {
+          "label": "Comments",
+          "desc": "See comments or annotations, replies, and write your own."
+        },
+        "branches": {
+          "label": "Branches",
+          "desc": "View, edit or fork branches and blocks"
+        },
+        "history": {
+          "label": "History",
+          "desc": "Open history of modifications, and travel back in time, to previous revisions"
+        },
+        "find": {
+          "label": "Find",
+          "desc": "Information about the document, statistics, and keywords"
+        },
+        "bookmark": {
+          "label": "Save",
+          "desc": "Keep a bookmark of this Document in your private store."
+        },
+        "annotate": {
+          "label": "Annotate",
+          "desc": "Write private annotations on this Document. Only you can see those annotations. You will also have an option to share them with others."
+        },
+        "info": {
+          "label": "Information",
+          "desc": "Information about the document, statistics, and keywords"
+        },
+        "repost": {
+          "label": "Post in my Stream",
+          "desc": "Post in your Stream (publish, repost, reply, boost)"
+        },
+        "dm": {
+          "label": "Send in Direct Message",
+          "desc": "Send as Direct Message to a contact or in a group chat"
+        },
+        "react": {
+          "label": "Like and React",
+          "desc": "Like, react, rate"
+        },
+        "author": {
+          "label": "Reply to Author(s)",
+          "desc": "Sends a private message to the author(s) in reply to this Document"
+        },
+        "quote": {
+          "label": "Quote/Mention in new Post",
+          "desc": "Write a Post that quotes/cites this Document"
+        },
+        "forward": {
+          "label": "Share via other apps",
+          "desc": "Share this document to users with other platforms and apps"
+        },
+        "link": {
+          "label": "Links",
+          "desc": "Get the links to access this Document on the web"
+        },
+        "qr": {
+          "label": "QR-Code",
+          "desc": "Display or download a QR-Code that links to this Document"
+        },
+        "download": {
+          "label": "Export and Download",
+          "desc": "Export to several formats and Download the file, or create a self-contained HTML file of this Document that works offline"
+        },
+        "notifs": {
+          "label": "Notifications",
+          "desc": "Change your notification settings for this Document"
+        },
+        "permissions": {
+          "label": "Permissions",
+          "desc": "See and change permissions and members for this Document"
+        },
+        "settings": {
+          "label": "Settings",
+          "desc": "Change settings for this Document"
+        },
+        "copy": {
+          "label": "Copy or Move",
+          "desc": "Copy, Move, Duplicate, Fork"
+        },
+        "embed": {
+          "label": "Embed",
+          "desc": "Embed this Document or Block into another Document, or insert a Block into this Document"
+        },
+        "schema": {
+          "label": "Schema",
+          "desc": "See and manage the Schema of this Document (Model, Ontology, Vocabulary)"
+        },
+        "signature": {
+          "label": "Signature",
+          "desc": "Obtain and verify the Signature of the Document to prove its authenticity. Or request a signature if there isn't any."
+        },
+        "services": {
+          "label": "Services",
+          "desc": "See and invoke services available for this Document. Services can be read-only, or read-write"
+        },
+        "print": {
+          "label": "Print",
+          "desc": "Print or save to PDF"
+        },
+        "console": {
+          "label": "Console",
+          "desc": "Open a console and run interactive commands"
+        },
+        "source": {
+          "label": "Source",
+          "desc": "View and Download the source code of this Document"
+        },
+        "dev": {
+          "label": "Developer",
+          "desc": "Open the developer toolbox"
+        },
+        "tools": {
+          "label": "Tools",
+          "desc": "Select a tool"
+        },
+        "mc": {
+          "label": "Magic Carpet",
+          "desc": "Opens the Magic Carpet (like a clipboard, but better)"
+        }
+      }
+    }
+  },
   "pages": {
     "not_found": {
       "title": "Page Not Found",

@@ -77,7 +77,6 @@ pub enum TargetBranchV0 {
     Comments,
     BackLinks,
     Context,
-    Ontology,
     BranchId(BranchId),
     Named(String),          // branch or commit
     Commits(Vec<ObjectId>), // only possible if access to their branch is given. must belong to the same branch.

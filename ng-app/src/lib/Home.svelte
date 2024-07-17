@@ -36,12 +36,12 @@
       class="border-t border-solid border-gray-200 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 dark:border-gray-700 divide-gray-100 dark:divide-gray-700 px-2 sm:px-4 py-2.5 w-full"
     >
       <div
-        class="mx-auto flex flex-wrap justify-between items-center w-full px-2 xxs:px-8 xs:px-10"
+        class="mx-auto flex flex-wrap justify-between items-center w-full xxs:px-8 xs:px-10"
       >
         <a href="#/user" class="flex items-center" on:click>
           <Logo className="w-7 h-7 tall:w-10 tall:h-10" />
           <span
-            class="ml-2 self-center text-lg font-normal text-gray-900 rounded-lg dark:text-white whitespace-nowrap"
+            class="ml-2 self-center text-base font-normal text-gray-900 rounded-lg dark:text-white whitespace-nowrap"
             >NextGraph</span
           >
         </a>
@@ -79,7 +79,6 @@
       </div>
     </nav>
   {/if}
-  <div />
 
   <Test />
 </FullLayout>

@@ -361,7 +361,5 @@
 </CenteredLayout>
 
 <style>
-  li.clickable {
-    cursor: pointer;
-  }
+
 </style>

@@ -26,6 +26,11 @@
 // epub, dejavu, 
 // animation: snap, lottie, smil editor: https://github.com/HaikuTeam/animator/
 
+export const has_toc = (class_name) => {
+    return class_name === "post/rich" || class_name === "post/md" || class_name === "post/html" || class_name === "post/asciidoc" || class_name === "app/z" || class_name === "class" 
+    || class_name.startsWith("schema") || class_name === "doc/pdf" || class_name === "doc/odf" || class_name === "doc/latex" || class_name === "doc/ps" || class_name === "prod/project" || class_name === "prod/slides" 
+};
+
 export const official_classes = {
     "post/rich": {
         "ng:crdt": "YXml",
@@ -119,7 +124,7 @@ export const official_classes = {
         "ng:crdt": "Graph",
         "ng:n": "Schema - RDFS", 
         "ng:a": "Define the Schema, Ontology or Vocabulary for your data and the relations between them, with RDFS",
-        "ng:o": "n:g:z:json_ld_editor", // default viewer
+        "ng:o": "n:g:z:json_ld_viewer", // default viewer
         "ng:w": "n:g:z:ontology_editor", // default editor
         "ng:x": {
             "rdfs":true,
@@ -143,7 +148,7 @@ export const official_classes = {
         "ng:crdt": "Graph",
         "ng:n": "Schema - SHACL", 
         "ng:a": "Define the Schema, Ontology or Vocabulary for your data and the relations between them, with SHACL",
-        "ng:o": "n:g:z:json_ld_editor", // default viewer
+        "ng:o": "n:g:z:json_ld_viewer", // default viewer
         "ng:w": "n:g:z:ontology_editor", // default editor
         "ng:x": {
             "sh":true,
@@ -155,7 +160,7 @@ export const official_classes = {
         "ng:crdt": "Graph",
         "ng:n": "Schema - SHEX", 
         "ng:a": "Define the Schema, Ontology or Vocabulary for your data and the relations between them, with SHEX",
-        "ng:o": "n:g:z:json_ld_editor", // default viewer
+        "ng:o": "n:g:z:json_ld_viewer", // default viewer
         "ng:w": "n:g:z:ontology_editor", // default editor
         "ng:x": {
             "shex":true,
@@ -230,7 +235,7 @@ export const official_classes = {
         "ng:crdt": "Graph", // https://github.com/highlightjs/highlightjs-turtle/tree/master
         "ng:n": "Graph", 
         "ng:a": "Define the Graph of your data with Semantic Web / Linked Data",
-        "ng:o": "n:g:z:json_ld_editor", // default viewer
+        "ng:o": "n:g:z:json_ld_viewer", // default viewer
         "ng:w": "n:g:z:json_ld_editor", // default editor
         "ng:x": {
             "rdf":true,
@@ -243,7 +248,7 @@ export const official_classes = {
         "ng:crdt": "Automerge",
         "ng:n": "JSON", 
         "ng:a": "JSON Data CRDT",
-        "ng:o": "n:g:z:json_editor", // default viewer
+        "ng:o": "n:g:z:json_viewer", // default viewer
         "ng:w": "n:g:z:json_editor", // default editor
         "ng:compat": ["file/iana/application/json", "code:json"],
     },
@@ -251,7 +256,7 @@ export const official_classes = {
         "ng:crdt": "YArray",
         "ng:n": "JSON Array", 
         "ng:a": "JSON Array CRDT",
-        "ng:o": "n:g:z:json_editor", // default viewer
+        "ng:o": "n:g:z:json_viewer", // default viewer
         "ng:w": "n:g:z:json_editor", // default editor
         "ng:compat": ["file/iana/application/json", "code:json"],
     },
@@ -259,7 +264,7 @@ export const official_classes = {
         "ng:crdt": "YMap",
         "ng:n": "JSON Map", 
         "ng:a": "JSON Map CRDT",
-        "ng:o": "n:g:z:json_editor", // default viewer
+        "ng:o": "n:g:z:json_viewer", // default viewer
         "ng:w": "n:g:z:json_editor", // default editor
         "ng:compat": ["file/iana/application/json", "code:json"],
     },
@@ -298,6 +303,13 @@ export const official_classes = {
             "ldp": true,
         },
         "ng:compat": ["rdfs:member","ldp:contains","rdf:Bag","rdf:Alt"],
+    },
+    "data/plato": {
+        "ng:crdt": "Graph",
+        "ng:n": "Plato",
+        "ng:a": "A tree of files and folders",
+        "ng:o": "n:g:z:tree",
+        "ng:compat": ["ng:plato","ng:has_plato"],
     },
     "data/board": {
         "ng:crdt": "Graph",
@@ -369,6 +381,12 @@ export const official_classes = {
         "ng:n": "Pad",
         "ng:a": "Pad representation of a document",
         "ng:o": "n:g:z:pad",
+    },
+    "doc/compose" : {
+        "ng:crdt": "YArray",
+        "ng:n": "Composition",
+        "ng:a": "Compose several blocks into a single document",
+        "ng:o": "n:g:z:compose",
     },
     "doc/diagram/mermaid" : {
         "ng:crdt": "YText",
@@ -639,6 +657,15 @@ export const official_classes = {
         "ng:o": "n:g:z:media",
         "ng:compat": []
     },
+    "social/activity": {
+        "ng:crdt": "Graph",
+        "ng:n": "Activity",
+        "ng:a": "Activity sent in a Stream",
+        "ng:x": {
+            "as":true,
+        },
+        "ng:compat": ["as:Activity"]
+    },
     "social/channel": {
         "ng:crdt": "Graph",
         "ng:n": "Channel",
@@ -841,7 +868,6 @@ export const official_classes = {
         "ng:n": "File",
         "ng:a": "Binary file",
         "ng:o": "n:g:z:file_viewer",
-        "ng:w": "n:g:z:file_viewer",
         "ng:compat": [] 
     }, 
     "file/ng/wallet" : {
@@ -864,7 +890,6 @@ export const official_classes = {
         "ng:n": "File",
         "ng:a": "Text file",
         "ng:o": "n:g:z:file_viewer",
-        "ng:w": "n:g:z:file_viewer",
         "ng:compat": ["file/iana/text/*", "file/iana/image/svg+xml", "file/iana/application/n-quads", "file/iana/application/trig", "file/iana/application/n-triples", "file/iana/application/rdf+xml", "file/iana/application/ld+json",
         "file/iana/application/xml", "file/iana/application/yaml", "file/iana/application/xhtml+xml", "file/iana/application/node","file/iana/application/sparql-results+json","file/iana/application/sparql-results+xml",
         "file/iana/message/rfc822","file/iana/multipart/related", "file/iana/text/vnd.graphviz", "file/iana/application/vnd.excalidraw+json", "file/iana/application/x-tex","file/iana/text/x-tex",

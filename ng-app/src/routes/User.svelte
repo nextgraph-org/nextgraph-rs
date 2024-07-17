@@ -384,9 +384,7 @@
 </CenteredLayout>
 
 <style>
-  li.clickable {
-    cursor: pointer;
-  }
+
   .site-cnx-details {
     @apply mt-0 !important;
   }
