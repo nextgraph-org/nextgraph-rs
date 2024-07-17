@@ -15,6 +15,32 @@
     background-color: rgba(73, 114, 165, 0.1);
 }
 
+.menu-bg-modal + div {
+    padding: 0 !important;
+    height: 100%;
+}
+.menu-bg-modal + div > div {
+    width: 320px !important;
+    height: 100%;
+}
+#menu-modal {
+    border-radius: 0;
+}
+#menu-modal div {
+    padding: 5px;
+}
+#menu-modal > button {
+    margin-right: 10px;
+}
+#menu-modal li {
+    margin: 0;
+}
+#menu-modal li.submenu {
+    padding-left: 30px;
+}
+.toggle * {
+    cursor: pointer;
+}
 /*
 #scanner-div {
     border: none !important;
@@ -94,6 +120,10 @@ div[role="alert"] div {
 
 .choice-button {
     min-width: 320px;
+}
+
+li.clickable {
+    cursor: pointer;
 }
 
 .row {

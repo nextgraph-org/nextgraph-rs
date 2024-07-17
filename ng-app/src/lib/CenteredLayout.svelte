@@ -106,7 +106,5 @@
     text-align: center;
     width: fit-content;
   }
-  li.clickable {
-    cursor: pointer;
-  }
+  
 </style>

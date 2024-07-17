@@ -87,7 +87,7 @@
     invoke: Play,
     ontology_viewer: ArrowsPointingOut,
     download: DocumentArrowDown,
-    post_edit: PencilSquare,
+    edit: PencilSquare,
     file: Document,
     source: CodeBracket,
     post: DocumentText,
@@ -117,4 +117,4 @@
   };
 </script>
 
-<Icon {...config} variation="outline" color="black" icon={find(zera)} />
+<Icon {...config} variation="outline" color="currentColor" icon={find(zera)} />

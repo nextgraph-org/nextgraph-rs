@@ -64,6 +64,8 @@
     StopCircle,
     Bolt,
     Heart,
+    Cog,
+    Square3Stack3d
   } from "svelte-heros-v2";
 
   export let config = {};
@@ -71,6 +73,7 @@
 
   const exact_mapping = {
     page: Window,
+    "app": Cog,
     "app/z": SquaresPlus,
     class: ViewfinderCircle,
     contract: Briefcase,
@@ -79,6 +82,7 @@
     "data/graph": Sun,
     "data/table": TableCells,
     "data/collection": ListBullet,
+    "data/container": Square3Stack3d,
     "data/board": RectangleGroup,
     "data/grid": Squares2x2,
     "data/geomap": MapPin,
