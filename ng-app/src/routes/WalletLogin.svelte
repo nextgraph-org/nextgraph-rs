@@ -428,7 +428,7 @@
   .wallet-box {
     width: 300px;
     height: 300px;
-    background-color: white;
+    background-color: #f6f6f6;
     position: relative;
     cursor: pointer;
   }

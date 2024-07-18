@@ -272,6 +272,9 @@
 
   async function on_pin_key(val) {
     pin_code = [...pin_code, val];
+    if (pin_code.length == 4) {
+      setTimeout(()=>window.document.getElementById("confirm_pin_btn").focus(),50);
+    }
   }
 
   async function select_order(val) {
@@ -610,8 +613,10 @@
             </button>
             <Button
               tabindex="0"
+              id="confirm_pin_btn"
               class="w-full bg-green-300 hover:bg-green-300/90 enabled:animate-bounce disabled:bg-gray-200 disabled:opacity-15 m-1 select-none align-bottom text-7xl p-0 aspect-square border-0"
               on:click={async () => await finish()}
+              on:keypress={async () => await finish()}
               disabled={pin_code.length < 4}
             >
               <LockOpen

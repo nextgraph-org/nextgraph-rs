@@ -27,15 +27,13 @@
     border-radius: 0;
 }
 #menu-modal div {
-    padding: 5px;
+    padding: 0;
 }
 #menu-modal > button {
-    margin-right: 10px;
+    display: none;
 }
 #menu-modal li {
-    margin: 0;
-    margin-top: 5px;
-    margin-bottom: 5px;
+    margin: 5px;
 }
 #menu-modal li.submenu {
     padding-left: 30px;
@@ -140,7 +138,7 @@ li.clickable {
     font-weight: 400;
 
     color: #0f0f0f;
-    background-color: #f6f6f6;
+    background-color: white;
 
     font-synthesis: none;
     text-rendering: optimizeLegibility;

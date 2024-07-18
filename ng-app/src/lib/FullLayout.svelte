@@ -25,6 +25,8 @@
   // @ts-ignore
   import Logo from "./components/Logo.svelte";
   import MenuItem from "./components/MenuItem.svelte";
+  import PaneHeader from "./components/PaneHeader.svelte";
+  import BranchIcon from "./components/BranchIcon.svelte";
   // @ts-ignore
   import { t } from "svelte-i18n";
   import { onMount, tick } from "svelte";
@@ -32,6 +34,7 @@
           available_editors, available_viewers, set_editor, set_viewer, set_view_or_edit, toggle_live_edit,
           has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu } from "../tab";
   import ZeraIcon from "./ZeraIcon.svelte";
+
   import {
     Home,
     Bolt,
@@ -76,6 +79,8 @@
     WrenchScrewdriver,
     Sparkles,
     PaperClip,
+    XMark,
+    ArrowLeft,
   } from "svelte-heros-v2";
     import NavBar from "./components/NavBar.svelte";
 
@@ -95,6 +100,109 @@
     mobile = true;
   }
 
+  let panes_available = 0;
+  $: if (width < 983) {
+    panes_available = 0;
+  } else if (width >= 983 && width < 1304) {
+    panes_available = 1;
+  } else if (width >= 1304 && width < 1625) {
+    panes_available = 2;
+  } else if (width >= 1625) {
+    panes_available = 3;
+  };
+
+  let pane_left1_used: boolean | string = false;
+  let pane_left2_used: boolean | string = false;
+  let pane_right_used: boolean | string = false;
+  let pane_lefts_used = 0;
+  $: if (pane_left1_used && pane_left2_used) {
+    pane_lefts_used = 2;
+  } else if (pane_left1_used || pane_left2_used) {
+    pane_lefts_used = 1;
+  } else {
+    pane_lefts_used = 0;
+  };
+
+  $: if (panes_available == 0) {
+    pane_left1_used = false;
+    pane_left2_used = false;
+    pane_right_used = false;
+    if ($cur_tab.right_pane || $cur_tab.folders_pane || $cur_tab.toc_pane) {
+      $cur_tab.show_modal_menu = true;
+    }
+  } else {
+    if ($cur_tab.show_modal_menu && !$cur_tab.show_menu) {
+      $cur_tab.show_modal_menu = false;
+    }
+    if (panes_available == 1) {
+      if ($cur_tab.right_pane) {
+        pane_right_used = $cur_tab.right_pane;
+        pane_left1_used = false;
+        pane_left2_used = false;
+      } else if ($cur_tab.folders_pane) {
+        pane_left1_used = "folders";
+        pane_right_used = false;
+        pane_left2_used = false;
+      } else if ($cur_tab.toc_pane) {
+        pane_left1_used = "toc";
+        pane_right_used = false;
+        pane_left2_used = false;
+      } else {
+        pane_left1_used = false;
+        pane_left2_used = false;
+        pane_right_used = false;
+      }
+    } else if (panes_available == 2) {
+      if ($cur_tab.right_pane) {
+        pane_right_used = $cur_tab.right_pane;
+        pane_left2_used = false;
+        if ($cur_tab.folders_pane) {
+          pane_left1_used = "folders";
+        } else if ($cur_tab.toc_pane) {
+          pane_left1_used = "toc";
+        } else {
+          pane_left1_used = false;
+        }
+      } else {
+        pane_right_used = false;
+        if ($cur_tab.folders_pane) {
+          pane_left1_used = "folders";
+          if ($cur_tab.toc_pane) {
+            pane_left2_used = "toc";
+          } else {
+            pane_left2_used = false;
+          }
+        } else if ($cur_tab.toc_pane) {
+          pane_left1_used = "toc";
+          pane_left2_used = false;
+        } else {
+          pane_left1_used = false;
+          pane_left2_used = false;
+        }
+      }
+    } else if (panes_available == 3) {
+      if ($cur_tab.right_pane) {
+        pane_right_used = $cur_tab.right_pane;
+      } else {
+        pane_right_used = false;
+      }
+      if ($cur_tab.folders_pane) {
+        pane_left1_used = "folders";
+        if ($cur_tab.toc_pane) {
+          pane_left2_used = "toc";
+        } else {
+          pane_left2_used = false;
+        }
+      } else if ($cur_tab.toc_pane) {
+        pane_left1_used = "toc";
+        pane_left2_used = false;
+      } else {
+        pane_left1_used = false;
+        pane_left2_used = false;
+      }
+    }
+  }
+
   let top;
   let shareMenu;
   let toolsMenu;
@@ -112,6 +220,7 @@
   }
   onMount(async () => {await open_doc(""); await scrollToTop()});
 
+
   $: activeUrl = "#" + $location;
 
   const launchAppStore = (class_name:string) => {
@@ -126,7 +235,37 @@
 
   const openPane = (pane:string) => {
     // TODO
-    hideMenu();
+    if ( pane == "folders") {
+      $cur_tab.folders_pane = !$cur_tab.folders_pane;
+      if ($cur_tab.folders_pane) {
+        if (panes_available <= 1 ) {
+          $cur_tab.right_pane = "";
+        }
+      }
+    } else if ( pane == "toc") {
+      $cur_tab.toc_pane = !$cur_tab.toc_pane;
+      if ($cur_tab.toc_pane) {
+        if (panes_available <= 1 ) {
+          $cur_tab.folders_pane = false;
+          $cur_tab.right_pane = "";
+        } else if (panes_available == 2) {
+          if ($cur_tab.folders_pane && $cur_tab.right_pane)
+            $cur_tab.folders_pane = false;
+        }
+      }
+    } else {
+      if ($cur_tab.right_pane == pane) 
+        $cur_tab.right_pane = "";
+      else {
+        $cur_tab.right_pane = pane;
+      }
+    }
+    if (panes_available) {
+      hideMenu();
+    } else {
+      $cur_tab.show_modal_menu = true;
+      $cur_tab.show_menu = false;
+    }
   }
 
   const openShare = (share:string) => {
@@ -147,6 +286,29 @@
   const annotate = (share:string) => {
     // TODO
     hideMenu();
+  }
+
+  const closeModal = () => {
+    cur_tab.update(ct => {
+        ct.show_menu = false;
+        ct.show_modal_menu = false;
+        if (!panes_available) {
+          $cur_tab.right_pane = "";
+          $cur_tab.folders_pane = false;
+          $cur_tab.toc_pane = false;
+        }
+        return ct;
+    });
+  }
+
+  const closePaneInModal = () => {
+    cur_tab.update(ct => {
+        ct.show_menu = true;
+        $cur_tab.right_pane = "";
+        $cur_tab.folders_pane = false;
+        $cur_tab.toc_pane = false;
+        return ct;
+    });
   }
 
   const share_items = [
@@ -173,6 +335,18 @@
     {n:"dev",i:Beaker},
   ];
 
+  const pane_items = {
+    "folders":FolderOpen,
+    "toc":BookOpen,
+    "branches":BranchIcon,
+    "files":PaperClip,
+    "history":Clock,
+    "comments":ChatBubbleOvalLeft,
+    "info":InformationCircle,
+    "chat":ChatBubbleLeftRight,
+    "mc":Sparkles,
+  };
+
   let asideClass = "w-48";
   let spanClass = "flex-1 ml-3 whitespace-nowrap";
   let nonActiveClass =
@@ -183,266 +357,265 @@
 
 <Modal id="menu-modal"
     outsideclose
-    bind:open={$cur_tab.show_menu}
+    bind:open={$cur_tab.show_modal_menu}
     size = 'xs'
     placement = 'top-right'
     backdropClass="bg-gray-900 bg-opacity-50 dark:bg-opacity-80 menu-bg-modal"
   >
-
-  <aside style="width:295px;" class="bg-white" aria-label="Sidebar">
-    <div class="bg-gray-60 overflow-y-auto dark:bg-gray-800">
-      <ul class="space-y-1 space-x-0 mb-10">
-        {#if $cur_branch_has_discrete}
-        <li>
-          <div class="inline-flex graph-discrete-toggle mb-2" role="group">
-            <button on:click={toggle_graph_discrete} disabled={$cur_tab.graph_or_discrete} type="button" style="border-top-left-radius: 0.375rem;border-bottom-left-radius: 0.375rem;" class:selected-toggle={$cur_tab.graph_or_discrete} class:unselected-toggle={!$cur_tab.graph_or_discrete}  class="common-toggle"  >
-              <Sun class="mr-2 focus:outline-none"/> {$t("doc.graph")}
-            </button>
-            <button on:click={toggle_graph_discrete} disabled={!$cur_tab.graph_or_discrete} type="button" style="border-top-right-radius: 0.375rem;border-bottom-right-radius: 0.375rem;" class:selected-toggle={!$cur_tab.graph_or_discrete} class:unselected-toggle={$cur_tab.graph_or_discrete} class="common-toggle">
-              <Cloud class="mr-2 focus:outline-none"/> {$t("doc.discrete")}
-            </button>
-          </div>
-        </li>
-        {/if}
-        {#if $cur_viewer}
-          <MenuItem selected={$cur_tab.view_or_edit} title={$cur_viewer["ng:a"]} clickable={($available_viewers.length > 1 || !$cur_tab.view_or_edit) && function () { if ($available_viewers.length > 1) { open_view_as = !open_view_as; } else { set_view_or_edit(true); hideMenu(); } open_edit_with=false;} }>
-            <Eye
-              tabindex="-1"
-              class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
-            />
-            <span class="ml-3">{$t("doc.menu.view_as")} {#if $cur_tab.view_or_edit || $available_viewers.length == 1 }{$cur_viewer["ng:n"]}{/if}</span>
-          </MenuItem>
-          {#if open_view_as && $available_viewers.length > 1 }
-            {#each $available_viewers as viewer}
-              <MenuItem title={viewer["ng:a"]} extraClass="submenu" clickable={(viewer["ng:g"] !== $cur_viewer["ng:g"] || !$cur_tab.view_or_edit) && function () { set_view_or_edit(true); set_viewer(viewer["ng:g"]); hideMenu(); open_view_as = false} }>
-                <ZeraIcon
-                  zera={viewer["ng:u"]}
-                  config={{
-                      tabindex:"-1",
-                      class:"w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
-                    }}
+  <div class="static">
+    <div class="absolute top-2 right-4 w-10 h-10" role="button" aria-label="Close menu" title="Close menu" 
+      on:click={closeModal}
+      on:keypress={closeModal}
+      tabindex="0">
+      <XMark class="w-10 h-10 text-gray-700  focus:outline-none  dark:text-white"/>
+    </div>
+    {#if !$cur_tab.show_menu}
+      <div class="m-3 flex items-center" role="button" aria-label="Back to menu" title="Back to menu" 
+        on:click={closePaneInModal}
+        on:keypress={closePaneInModal}
+        tabindex="0">
+        <ArrowLeft class="w-8 h-8 text-gray-700 focus:outline-none dark:text-white"/>
+        <span class="ml-2 inline-block text-gray-700 select-none dark:text-white">Back to menu</span>
+      </div>
+    {/if}
+    {#if $cur_tab.show_menu || (!$cur_tab.folders_pane && !$cur_tab.toc_pane && !$cur_tab.right_pane)}
+      <aside style="width:305px; padding:5px;" class="bg-white" aria-label="Sidebar">
+        <div class="bg-gray-60 overflow-y-auto dark:bg-gray-800">
+          <ul class="space-y-1 space-x-0 mb-10">
+            {#if $cur_branch_has_discrete}
+            <li>
+              <div class="inline-flex graph-discrete-toggle mb-2 ml-2" role="group">
+                <button on:click={toggle_graph_discrete} disabled={$cur_tab.graph_or_discrete} type="button" style="border-top-left-radius: 0.375rem;border-bottom-left-radius: 0.375rem;" class:selected-toggle={$cur_tab.graph_or_discrete} class:unselected-toggle={!$cur_tab.graph_or_discrete}  class="common-toggle"  >
+                  <Sun class="mr-2 focus:outline-none"/> {$t("doc.graph")}
+                </button>
+                <button on:click={toggle_graph_discrete} disabled={!$cur_tab.graph_or_discrete} type="button" style="border-top-right-radius: 0.375rem;border-bottom-right-radius: 0.375rem;" class:selected-toggle={!$cur_tab.graph_or_discrete} class:unselected-toggle={$cur_tab.graph_or_discrete} class="common-toggle">
+                  <Cloud class="mr-2 focus:outline-none"/> {$t("doc.discrete")}
+                </button>
+              </div>
+            </li>
+            {/if}
+            {#if $cur_viewer}
+              <MenuItem selected={$cur_tab.view_or_edit} title={$cur_viewer["ng:a"]} clickable={($available_viewers.length > 1 || !$cur_tab.view_or_edit) && function () { if ($available_viewers.length > 1) { open_view_as = !open_view_as; } else { set_view_or_edit(true); hideMenu(); } open_edit_with=false;} }>
+                <Eye
+                  tabindex="-1"
+                  class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
                 />
-                <span class="ml-3">{viewer["ng:n"]}</span>
+                <span class="ml-3">{$t("doc.menu.view_as")} {#if $cur_tab.view_or_edit || $available_viewers.length == 1 }{$cur_viewer["ng:n"]}{/if}</span>
               </MenuItem>
-            {/each}
-          {/if}
-        {/if}
-        {#if $cur_tab.doc.can_edit}
-          {#if $cur_editor}
-            <MenuItem title={$cur_editor["ng:a"]} selected={!$cur_tab.view_or_edit} clickable={ ($available_editors.length > 1 || $cur_tab.view_or_edit) && function () { if ($available_editors.length > 1) { open_edit_with = !open_edit_with;  } else { set_view_or_edit(false); hideMenu(); } open_view_as=false;} }>
-              <PencilSquare
-                tabindex="-1"
-                class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
-              />
-              <span class="ml-3">{$t("doc.menu.edit_with")} {#if !$cur_tab.view_or_edit || $available_editors.length == 1 }{$cur_editor["ng:n"]}{/if}</span>
-            </MenuItem>
-            {#if open_edit_with && $available_editors.length > 1 }
-              {#each $available_editors as editor}
-                <MenuItem title={editor["ng:a"]} extraClass="submenu" clickable={(editor["ng:g"] !== $cur_editor["ng:g"] || $cur_tab.view_or_edit) && function () { set_view_or_edit(false); set_editor(editor["ng:g"]); hideMenu(); open_edit_with = false} }>
-                  <ZeraIcon
-                    zera={editor["ng:u"]}
-                    config={{
-                        tabindex:"-1",
-                        class:"w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
-                      }}
+              {#if open_view_as && $available_viewers.length > 1 }
+                {#each $available_viewers as viewer}
+                  <MenuItem title={viewer["ng:a"]} extraClass="submenu" clickable={(viewer["ng:g"] !== $cur_viewer["ng:g"] || !$cur_tab.view_or_edit) && function () { set_view_or_edit(true); set_viewer(viewer["ng:g"]); hideMenu(); open_view_as = false} }>
+                    <ZeraIcon
+                      zera={viewer["ng:u"]}
+                      config={{
+                          tabindex:"-1",
+                          class:"w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
+                        }}
+                    />
+                    <span class="ml-3">{viewer["ng:n"]}</span>
+                  </MenuItem>
+                {/each}
+              {/if}
+            {/if}
+            {#if $cur_tab.doc.can_edit}
+              {#if $cur_editor}
+                <MenuItem title={$cur_editor["ng:a"]} selected={!$cur_tab.view_or_edit} clickable={ ($available_editors.length > 1 || $cur_tab.view_or_edit) && function () { if ($available_editors.length > 1) { open_edit_with = !open_edit_with;  } else { set_view_or_edit(false); hideMenu(); } open_view_as=false;} }>
+                  <PencilSquare
+                    tabindex="-1"
+                    class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
                   />
-                  <span class="ml-3">{editor["ng:n"]}</span>
-                 
+                  <span class="ml-3">{$t("doc.menu.edit_with")} {#if !$cur_tab.view_or_edit || $available_editors.length == 1 }{$cur_editor["ng:n"]}{/if}</span>
+                </MenuItem>
+                {#if open_edit_with && $available_editors.length > 1 }
+                  {#each $available_editors as editor}
+                    <MenuItem title={editor["ng:a"]} extraClass="submenu" clickable={(editor["ng:g"] !== $cur_editor["ng:g"] || $cur_tab.view_or_edit) && function () { set_view_or_edit(false); set_editor(editor["ng:g"]); hideMenu(); open_edit_with = false} }>
+                      <ZeraIcon
+                        zera={editor["ng:u"]}
+                        config={{
+                            tabindex:"-1",
+                            class:"w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
+                          }}
+                      />
+                      <span class="ml-3">{editor["ng:n"]}</span>
+                    
+                    </MenuItem>
+                  {/each}
+                {/if}
+                {#if !$cur_tab.view_or_edit || open_edit_with }
+                  <li title={$t("doc.menu.live_editing_description")} style="margin: 7px 0; padding-left: 32px;" class="toggle">
+                    <Toggle
+                      on:change={ toggle_live_edit }
+                      checked={  $cur_tab.doc.live_edit }
+                      ><span class="text-gray-700 text-base">{$t("doc.menu.live_editing")}</span>
+                    </Toggle>
+                  </li>
+                {/if}
+              {:else}
+                <MenuItem clickable={()=>launchAppStore($cur_tab.cur_branch.class)}>
+                  <ZeraIcon
+                    zera="app_store"
+                    config={{tabindex:"-1",
+                    class:"w-7 h-7 text-gray-700  focus:outline-none  dark:text-white "}}
+                  />
+                  <span class="ml-3">{$t("doc.menu.install_app_to_edit")}</span>
+                </MenuItem>
+              {/if}
+            {/if}
+
+            {#if $cur_tab.doc.can_edit}
+              <MenuItem title={$t("doc.menu.items.new_block.desc")} clickable={ ()=> openAction("new_block") }>
+                <PlusCircle
+                  tabindex="-1"
+                  class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+                />
+                <span class="ml-3">{$t("doc.menu.items.new_block.label")}</span>
+              </MenuItem>
+            {/if}
+            {#if $has_editor_chat}
+              <MenuItem title={$t("doc.menu.items.editor_chat.desc")} selected={$cur_tab.right_pane == "chat"} clickable={ ()=> openPane("chat") }>
+                <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["chat"]} />
+                <span class="ml-3">{$t("doc.menu.items.editor_chat.label")}</span>
+              </MenuItem>
+            {/if}
+
+            <MenuItem title={$t("doc.menu.items.mc.desc")} selected={$cur_tab.right_pane == "mc"} clickable={ ()=> openPane("mc") }>
+              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["mc"]} />
+              <span class="ml-3">{$t("doc.menu.items.mc.label")}</span>
+            </MenuItem>
+
+            <MenuItem title={$t("doc.menu.items.folders.desc")} selected={$cur_tab.folders_pane} clickable={ ()=> openPane("folders") }>
+              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["folders"]} />
+              <span class="ml-3">{$t("doc.menu.items.folders.label")}</span>
+            </MenuItem>
+            <MenuItem title={$t("doc.menu.items.toc.desc")} selected={$cur_tab.toc_pane} clickable={ ()=> openPane("toc") }>
+              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["toc"]} />
+              <span class="ml-3">{$t("doc.menu.items.toc.label")}</span>
+            </MenuItem>
+            <MenuItem title={$t("doc.menu.items.files.desc")} selected={$cur_tab.right_pane == "files"} clickable={ ()=> openPane("files") }>
+              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["files"]} />
+              <span class="ml-3">{$t("doc.menu.items.files.label")} {$all_files_count}</span>
+            </MenuItem>
+            <div style="padding:0;" bind:this={shareMenu}></div>
+            <MenuItem title={$t("doc.menu.items.share.desc")} clickable={ () => { open_share = !open_share; scrollToMenuShare(); } }>
+              <Share
+                tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
+              />
+              <span class="ml-3">{$t("doc.menu.items.share.label")}</span>
+            </MenuItem>
+            {#if open_share }
+              {#each share_items as share}
+                <MenuItem title={$t(`doc.menu.items.${share.n}.desc`)} extraClass="submenu" clickable={ () => openShare(share.n) }>
+                  <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={share.i} />
+                  <span class="ml-3">{$t(`doc.menu.items.${share.n}.label`)}</span>
                 </MenuItem>
               {/each}
             {/if}
-            {#if !$cur_tab.view_or_edit || open_edit_with }
-              <li title={$t("doc.menu.live_editing_description")} style="margin: 7px 0; padding-left: 32px;" class="toggle">
-                <Toggle
-                  on:change={ toggle_live_edit }
-                  checked={  $cur_tab.doc.live_edit }
-                  ><span class="text-gray-700 text-base">{$t("doc.menu.live_editing")}</span>
-                </Toggle>
-              </li>
-            {/if}
-          {:else}
-            <MenuItem clickable={()=>launchAppStore($cur_tab.cur_branch.class)}>
-              <ZeraIcon
-                zera="app_store"
-                config={{tabindex:"-1",
-                class:"w-7 h-7 text-gray-700  focus:outline-none  dark:text-white "}}
+
+            <MenuItem title={$t("doc.menu.items.comments.desc")} selected={$cur_tab.right_pane == "comments"} clickable={ ()=> openPane("comments") }>
+              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["comments"]} />
+              <span class="ml-3">{$t("doc.menu.items.comments.label")} {$all_comments_count}</span>
+            </MenuItem>
+
+            <MenuItem title={$t("doc.menu.items.branches.desc")} selected={$cur_tab.right_pane == "branches"} clickable={ ()=> openPane("branches") }>
+              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["branches"]} />
+              <span class="ml-3">{$t("doc.menu.items.branches.label")}</span>
+            </MenuItem>
+
+            <MenuItem title={$t("doc.menu.items.history.desc")} selected={$cur_tab.right_pane == "history"} clickable={ ()=> openPane("history") }>
+              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["history"]} />
+              <span class="ml-3">{$t("doc.menu.items.history.label")}</span>
+            </MenuItem>
+
+            <MenuItem title={$t("doc.menu.items.find.desc")} clickable={ find }>
+              <MagnifyingGlass
+                tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
               />
-              <span class="ml-3">{$t("doc.menu.install_app_to_edit")}</span>
+              <span class="ml-3">{$t("doc.menu.items.find.label")}</span>
             </MenuItem>
-          {/if}
-        {/if}
 
-        {#if $cur_tab.doc.can_edit}
-          <MenuItem title={$t("doc.menu.items.new_block.desc")} clickable={ ()=> openAction("new_block") }>
-            <PlusCircle
-              tabindex="-1"
-              class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-            />
-            <span class="ml-3">{$t("doc.menu.items.new_block.label")}</span>
-          </MenuItem>
-        {/if}
-        {#if $has_editor_chat}
-          <MenuItem title={$t("doc.menu.items.editor_chat.desc")} clickable={ ()=> openPane("chat") }>
-            <ChatBubbleLeftRight
-              tabindex="-1"
-              class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-            />
-            <span class="ml-3">{$t("doc.menu.items.editor_chat.label")}</span>
-          </MenuItem>
-        {/if}
-
-        <MenuItem title={$t("doc.menu.items.mc.desc")} clickable={ ()=> openPane("mc") }>
-          <Sparkles
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.mc.label")}</span>
-        </MenuItem>
-
-        <MenuItem title={$t("doc.menu.items.folders.desc")} clickable={ ()=> openPane("folders") }>
-          <FolderOpen
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.folders.label")}</span>
-        </MenuItem>
-        <MenuItem title={$t("doc.menu.items.toc.desc")} clickable={ ()=> openPane("toc") }>
-          <BookOpen
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.toc.label")}</span>
-        </MenuItem>
-        <MenuItem title={$t("doc.menu.items.files.desc")} clickable={ ()=> openPane("files") }>
-          <PaperClip
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.files.label")} {$all_files_count}</span>
-        </MenuItem>
-        <div style="padding:0;" bind:this={shareMenu}></div>
-        <MenuItem title={$t("doc.menu.items.share.desc")} clickable={ () => { open_share = !open_share; scrollToMenuShare(); } }>
-          <Share
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.share.label")}</span>
-        </MenuItem>
-        {#if open_share }
-          {#each share_items as share}
-            <MenuItem title={$t(`doc.menu.items.${share.n}.desc`)} extraClass="submenu" clickable={ () => openShare(share.n) }>
-              <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={share.i} />
-              <span class="ml-3">{$t(`doc.menu.items.${share.n}.label`)}</span>
+            <MenuItem title={$t("doc.menu.items.bookmark.desc")} clickable={ bookmark }>
+              <Bookmark
+                tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+              />
+              <span class="ml-3">{$t("doc.menu.items.bookmark.label")}</span>
             </MenuItem>
-          {/each}
-        {/if}
 
-        <MenuItem title={$t("doc.menu.items.comments.desc")} clickable={ ()=> openPane("comments") }>
-          <ChatBubbleOvalLeft
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.comments.label")} {$all_comments_count}</span>
-        </MenuItem>
-
-        <MenuItem title={$t("doc.menu.items.branches.desc")} clickable={ ()=> openPane("branches") }>
-          <svg xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 512 512" fill="currentColor" width="24" height="24" tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white" >
-            <path d="M365.1,74.6c-43.8,0-80.2,36.4-80.2,80.2c0,38.2,27,70.9,64.3,78.3c-0.9,21.4-12.1,33.6-30.8,48.5
-              c-23.3,17.7-53.2,23.3-74.6,27c-46.6,8.4-71.8,30.8-83,45.7V159.5c16.8-2.8,32.6-12.1,44.8-25.2c13.1-14.9,20.5-33.6,20.5-54.1
-              C226.2,36.4,189.8,0,146,0S65.7,36.4,65.7,80.2c0,19.6,7.5,38.2,19.6,53.2c11.2,13.1,26.1,21.4,42.9,25.2v195.8
-              c-16.8,3.7-31.7,13.1-42.9,25.2c-13.1,14.9-19.6,33.6-19.6,52.2c0,43.8,36.4,80.2,80.2,80.2s80.2-36.4,80.2-80.2
-              c0-27-13.1-51.3-35.4-66.2c10.3-11.2,28-22.4,58.8-28c25.2-4.7,60.6-11.2,88.6-32.6c27-20.5,42-42,43.8-73.7
-              c37.3-7.5,64.3-40.1,64.3-78.3C445.3,110,408.9,74.6,365.1,74.6L365.1,74.6z M97.5,81.1c0-26.1,21.4-48.5,48.5-48.5
-              c26.1,0,48.5,21.4,48.5,48.5S173,129.6,146,129.6C118.9,129.6,97.5,107.2,97.5,81.1z M193.5,433.7c0,26.1-21.4,48.5-48.5,48.5
-              c-26.1,0-48.5-21.4-48.5-48.5s21.4-48.5,48.5-48.5C172.1,386.1,193.5,407.5,193.5,433.7z M365.1,202.4c-26.1,0-48.5-21.4-48.5-48.5
-              c0-26.1,21.4-48.5,48.5-48.5c26.1,0,48.5,21.4,48.5,48.5C412.7,180.9,391.2,202.4,365.1,202.4z"/>
-          </svg>
-          <span class="ml-3">{$t("doc.menu.items.branches.label")}</span>
-        </MenuItem>
-
-        <MenuItem title={$t("doc.menu.items.history.desc")} clickable={ ()=> openPane("history") }>
-          <Clock
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.history.label")}</span>
-        </MenuItem>
-
-        <MenuItem title={$t("doc.menu.items.find.desc")} clickable={ find }>
-          <MagnifyingGlass
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.find.label")}</span>
-        </MenuItem>
-
-        <MenuItem title={$t("doc.menu.items.bookmark.desc")} clickable={ bookmark }>
-          <Bookmark
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.bookmark.label")}</span>
-        </MenuItem>
-
-        <MenuItem title={$t("doc.menu.items.annotate.desc")} clickable={ annotate }>
-          <ChatBubbleLeftEllipsis
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.annotate.label")}</span>
-        </MenuItem>
-
-        <MenuItem title={$t("doc.menu.items.info.desc")} clickable={ ()=> openPane("info") }>
-          <InformationCircle
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.info.label")}</span>
-        </MenuItem>
-
-        <MenuItem title={$t("doc.menu.items.notifs.desc")} clickable={ ()=> openAction("notifs") }>
-          <Bell
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.notifs.label")}</span>
-        </MenuItem>
-        {#if $cur_tab.doc.is_member}
-          <MenuItem title={$t("doc.menu.items.permissions.desc")} clickable={ ()=>  openAction("permissions") }>
-            <LockOpen
-              tabindex="-1"
-              class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-            />
-            <span class="ml-3">{$t("doc.menu.items.permissions.label")}</span>
-          </MenuItem>
-        {/if}
-        <MenuItem title={$t("doc.menu.items.settings.desc")} clickable={ ()=>  openAction("settings") }>
-          <Cog6Tooth
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.settings.label")}</span>
-        </MenuItem>
-        <div style="padding:0;" bind:this={toolsMenu}></div>
-        <MenuItem title={$t("doc.menu.items.tools.desc")} clickable={ () => {open_tools = !open_tools; scrollToMenuTools();} } >
-          <WrenchScrewdriver
-            tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
-          />
-          <span class="ml-3">{$t("doc.menu.items.tools.label")}</span>
-        </MenuItem>
-        {#if open_tools }
-          {#each tools_items as tool}
-            <MenuItem title={$t(`doc.menu.items.${tool.n}.desc`)} extraClass="submenu" clickable={ () => openAction(tool.n) }>
-              <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={tool.i} />
-              <span class="ml-3">{$t(`doc.menu.items.${tool.n}.label`)}</span>
+            <MenuItem title={$t("doc.menu.items.annotate.desc")} clickable={ annotate }>
+              <ChatBubbleLeftEllipsis
+                tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+              />
+              <span class="ml-3">{$t("doc.menu.items.annotate.label")}</span>
             </MenuItem>
-          {/each}
-        {/if}
-      </ul>
-    </div>
-  </aside>
+
+            <MenuItem title={$t("doc.menu.items.info.desc")} selected={$cur_tab.right_pane == "info"} clickable={ ()=> openPane("info") }>
+              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["info"]} />
+              <span class="ml-3">{$t("doc.menu.items.info.label")}</span>
+            </MenuItem>
+
+            <MenuItem title={$t("doc.menu.items.notifs.desc")} clickable={ ()=> openAction("notifs") }>
+              <Bell
+                tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+              />
+              <span class="ml-3">{$t("doc.menu.items.notifs.label")}</span>
+            </MenuItem>
+            {#if $cur_tab.doc.is_member}
+              <MenuItem title={$t("doc.menu.items.permissions.desc")} clickable={ ()=>  openAction("permissions") }>
+                <LockOpen
+                  tabindex="-1"
+                  class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+                />
+                <span class="ml-3">{$t("doc.menu.items.permissions.label")}</span>
+              </MenuItem>
+            {/if}
+            <MenuItem title={$t("doc.menu.items.settings.desc")} clickable={ ()=>  openAction("settings") }>
+              <Cog6Tooth
+                tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+              />
+              <span class="ml-3">{$t("doc.menu.items.settings.label")}</span>
+            </MenuItem>
+            <div style="padding:0;" bind:this={toolsMenu}></div>
+            <MenuItem title={$t("doc.menu.items.tools.desc")} clickable={ () => {open_tools = !open_tools; scrollToMenuTools();} } >
+              <WrenchScrewdriver
+                tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
+              />
+              <span class="ml-3">{$t("doc.menu.items.tools.label")}</span>
+            </MenuItem>
+            {#if open_tools }
+              {#each tools_items as tool}
+                <MenuItem title={$t(`doc.menu.items.${tool.n}.desc`)} extraClass="submenu" clickable={ () => openAction(tool.n) }>
+                  <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={tool.i} />
+                  <span class="ml-3">{$t(`doc.menu.items.${tool.n}.label`)}</span>
+                </MenuItem>
+              {/each}
+            {/if}
+          </ul>
+        </div>
+      </aside>
+    {:else if $cur_tab.right_pane}
+      <div style="height:44px; background-color: rgb(251, 251, 251);" class="flex items-center">
+        <Icon tabindex="-1" class="ml-3 w-8 h-8 text-gray-400 dark:text-white focus:outline-none " variation="outline" color="currentColor" icon={pane_items[$cur_tab.right_pane]} />
+        <span class="ml-2 inline-block text-gray-500 select-none dark:text-white">{$t(`doc.menu.items.${$cur_tab.right_pane}.label`)}</span>
+      </div>
+    {:else if $cur_tab.folders_pane}
+      <div style="height:44px; background-color: rgb(251, 251, 251);" class="flex items-center">
+        <Icon tabindex="-1" class="ml-3 w-8 h-8 text-gray-400 dark:text-white focus:outline-none " variation="outline" color="currentColor" icon={pane_items["folders"]} />
+        <span class="ml-2 inline-block text-gray-500 select-none dark:text-white">{$t("doc.menu.items.folders.label")}</span>
+      </div>
+    {:else if $cur_tab.toc_pane}
+      <div style="height:44px; background-color: rgb(251, 251, 251);" class="flex items-center">
+        <Icon tabindex="-1" class="ml-3 w-8 h-8 text-gray-400 dark:text-white focus:outline-none " variation="outline" color="currentColor" icon={pane_items["toc"]} />
+        <span class="ml-2 inline-block text-gray-500 select-none dark:text-white">{$t("doc.menu.items.toc.label")}</span>
+      </div>
+      
+    {/if}
+  </div>
 </Modal>
 
 {#if mobile}
@@ -453,7 +626,7 @@
       </div>
     {/if}
     <div bind:this={top}></div>
-    <main class:mt-12={!withoutNavBar} class="pb-14 bg-white dark:bg-black">
+    <main class:mt-11={!withoutNavBar} class="pb-14 bg-white dark:bg-black">
       <slot />
     </main>
     <MobileBottomBar {activeUrl}>
@@ -477,7 +650,7 @@
   </div>
 {:else}
   <div class="full-layout">
-    <Sidebar {activeUrl} {asideClass} {nonActiveClass} class="fixed">
+    <Sidebar {activeUrl} {asideClass} {nonActiveClass} style="background-color: #f6f6f6;" class="fixed h-full">
       <SidebarWrapper
         divClass="bg-gray-60 overflow-y-auto tall-xs:py-4 px-3 rounded dark:bg-gray-800"
       >
@@ -599,65 +772,40 @@
         </SidebarGroup>
       </SidebarWrapper>
     </Sidebar>
-
-<!--   $: nav_bar = {
-    icon: false,
-    title: "",
-    back: true,
-    newest: 0,
-    save: undefined,
-  };-->
-
-    <!-- <div style="background-color: #f6f6f6;" class="fixed top-0 left-48 right-0 h-10 flex text-center text-gray-900 dark:text-white">
-      {#if $nav_bar.back}
-        <div role="button" tabindex="0" on:click={back} on:keypress={back} class="flex-none w-10 flex justify-center items-center">
-          <ArrowLeft tabindex="-1" class="w-8 h-8 focus:outline-none"/>
-        </div>
-      {/if}
-      {#if $nav_bar.icon}
-        <div style="cursor:pointer;" class="flex-none w-8 m-1 " on:click={scrollToTop} on:keypress={scrollToTop}>
-          <NavIcon img={$nav_bar.icon} config={{
-            tabindex:"-1",
-            class:"w-8 h-8 focus:outline-none"
-          }}/>
-        </div>
-      {/if}
-      <div style="cursor:pointer;" class="grow w-10 items-center flex px-1"><span class="inline-block truncate" on:click={scrollToTop} on:keypress={scrollToTop}> {$nav_bar.title} </span></div>
-      {#if $nav_bar.newest}
-        <div role="button" tabindex="0" class="flex-none m-1 rounded-full bg-primary-700 text-white dark:bg-primary-700" on:click={scrollToTop}>
-          <div class="flex items-center grow pr-2"> 
-            <ChevronDoubleUp tabindex="-1" class="w-6 h-6 m-1 focus:outline-none"/>
-            <span class="inline-block">{@html $nav_bar.newest < 100 ? "+ "+$nav_bar.newest : "<span class=\"text-xl\">&infin;</span>"}</span>
-          </div>
-        </div>
-      {/if}
-      {#if $nav_bar.save !== undefined}
-        
-        {#if $nav_bar.save }
-          <div class="flex-none w-10" role="button" on:click={save} on:keypress={save} title="Save">
-            <CheckCircle variation="solid" tabindex="-1" strokeWidth="3" class="w-10 h-10  text-primary-400 focus:outline-none"/>
-          </div>
-        {:else}
-          <div class="flex-none w-10" title="Saved!">
-            <CheckBadge tabindex="-1" class="w-8 h-8 m-1 text-green-500 focus:outline-none"/>
-          </div>
-        {/if}
- 
-      {/if}
-      <div class="flex-none w-10 " role="button" title="Open Menu" on:click={()=>show_menu = true} on:keypress={()=>show_menu = true}>
-        <EllipsisVertical tabindex="-1" class="w-8 h-8 my-1 mr-2"/>
+  </div>
+  {#if pane_left1_used}
+    <div class="left-[192px] w-[321px;] full-layout h-full absolute top-0 bg-white border-r border-r-1 border-gray-200">
+      <div class="static">
+        <PaneHeader class="left-[472px]" pane_name={pane_left1_used} {pane_items}/>
+      
       </div>
-    </div> -->
-    <div class="fixed top-0 left-48 right-0">
+    </div>
+  {/if}
+  {#if pane_left2_used}
+    <div class="left-[513px] w-[321px;] full-layout h-full absolute top-0 bg-white border-r border-r-1 border-gray-200">
+      <div class="static">
+        <PaneHeader class="left-[793px]" pane_name={pane_left2_used} {pane_items}/>
+        
+      </div>
+    </div>
+  {/if}
+  <div class:left-[192px]={pane_lefts_used==0} class:left-[513px]={pane_lefts_used==1} class:left-[834px]={pane_lefts_used==2} class:right-0={!pane_right_used} class:right-[321px]={pane_right_used} class="full-layout absolute top-0">
+    <div class:left-[192px]={pane_lefts_used==0} class:left-[513px]={pane_lefts_used==1} class:left-[834px]={pane_lefts_used==2} class:right-0={!pane_right_used} class:right-[321px]={pane_right_used} class="fixed top-0">
       <NavBar {scrollToTop}/>
     </div>
-
-
     <div bind:this={top}></div>
-    <main class="ml-48 mt-12 bg-white dark:bg-black" >
+    <main class="mt-11 bg-white dark:bg-black" >
       <slot />
     </main>
   </div>
+  {#if pane_right_used}
+    <div class="w-[321px;] full-layout h-full absolute top-0 right-0 bg-white border-l border-l-1 border-gray-200">
+      <div class="static">
+        <PaneHeader class="right-0" pane_name={pane_right_used} {pane_items}/>
+        
+      </div>
+    </div>
+  {/if}
 {/if}
 
 <style>

@@ -62,7 +62,7 @@
         <div class="mb-20 mt-10">
           <button
             on:click={changeLang}
-            class="text-primary-700 bg-[#f6f6f6] bg-none ring-0 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55"
+            class="text-primary-700 bg-white bg-none ring-0 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55"
           >
             <Language
               tabindex="-1"
@@ -72,7 +72,7 @@
           <br />
           <button
             on:click={displayNextgraphOrg}
-            class="text-primary-700 bg-[#f6f6f6] bg-none ring-0 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+            class="text-primary-700 bg-white bg-none ring-0 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
           >
             {$t("common.about_nextgraph")}
           </button>

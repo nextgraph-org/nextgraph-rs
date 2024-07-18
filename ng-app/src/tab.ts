@@ -227,9 +227,10 @@ export const cur_tab = writable({
     },
     folders_pane: false,
     toc_pane: false,
-    right_pane: false, // "folders", "toc", "branches", "files", "history", "comments", "info", "chat", "mc"
-    action: false, // "repost", "dm", "react",  "author", "copy", "forward", "links", "qr", "download", "embed", "new_block", "notifs", "schema", "signature", "permissions", "settings", "print", "console", "source", "services", "dev",
+    right_pane: "", // "branches", "files", "history", "comments", "info", "chat", "mc"
+    action: false, // "repost", "dm", "react",  "author", "copy", "forward", "link", "qr", "download", "embed", "new_block", "notifs", "schema", "signature", "permissions", "settings", "print", "console", "source", "services", "dev",
 
+    show_modal_menu: false,
     show_menu: false,
 });
 
@@ -237,6 +238,7 @@ export const cur_tab = writable({
 export const showMenu = () => {
     cur_tab.update(ct => {
         ct.show_menu = true;
+        ct.show_modal_menu = true;
         return ct;
     });
 }
@@ -244,6 +246,7 @@ export const showMenu = () => {
 export const hideMenu = () => {
     cur_tab.update(ct => {
         ct.show_menu = false;
+        ct.show_modal_menu = false;
         return ct;
     });
 }
