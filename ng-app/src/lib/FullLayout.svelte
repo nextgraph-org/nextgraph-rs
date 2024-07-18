@@ -21,6 +21,7 @@
   import { link, location } from "svelte-spa-router";
   import MobileBottomBarItem from "./MobileBottomBarItem.svelte";
   import MobileBottomBar from "./MobileBottomBar.svelte";
+  import NavIcon from "./components/NavIcon.svelte";
   // @ts-ignore
   import Logo from "./components/Logo.svelte";
   import MenuItem from "./components/MenuItem.svelte";
@@ -29,7 +30,7 @@
   import { onMount, tick } from "svelte";
   import { cur_branch_has_discrete, cur_tab, cur_viewer, cur_editor, toggle_graph_discrete, open_doc, 
           available_editors, available_viewers, set_editor, set_viewer, set_view_or_edit, toggle_live_edit,
-          has_editor_chat } from "../tab";
+          has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu } from "../tab";
   import ZeraIcon from "./ZeraIcon.svelte";
   import {
     Home,
@@ -74,12 +75,15 @@
     Beaker,
     WrenchScrewdriver,
     Sparkles,
+    PaperClip,
   } from "svelte-heros-v2";
+    import NavBar from "./components/NavBar.svelte";
+
+  export let withoutNavBar = false;
 
   let width: number;
   let breakPoint: number = 662;
   let mobile = false;
-  let show_menu = true;
   let open_view_as = false;
   let open_edit_with = false;
   let open_share = false;
@@ -92,14 +96,19 @@
   }
 
   let top;
-  let topMenu;
+  let shareMenu;
+  let toolsMenu;
   async function scrollToTop() {
     await tick();
     top.scrollIntoView();
   }
-  async function scrollToTopMenu() {
+  async function scrollToMenuShare() {
     await tick();
-    topMenu.scrollIntoView();
+    shareMenu.scrollIntoView();
+  }
+  async function scrollToMenuTools() {
+    await tick();
+    toolsMenu.scrollIntoView();
   }
   onMount(async () => {await open_doc(""); await scrollToTop()});
 
@@ -107,37 +116,37 @@
 
   const launchAppStore = (class_name:string) => {
     //TODO
-    show_menu = false;
+    hideMenu();
   };
 
   const openAction = (action:string) => {
     // TODO
-    show_menu = false;
+    hideMenu();
   }
 
   const openPane = (pane:string) => {
     // TODO
-    show_menu = false;
+    hideMenu();
   }
 
   const openShare = (share:string) => {
     // TODO
-    show_menu = false;
+    hideMenu();
   }
 
   const find = (share:string) => {
     // TODO
-    show_menu = false;
+    hideMenu();
   }
 
   const bookmark = (share:string) => {
     // TODO
-    show_menu = false;
+    hideMenu();
   }
 
   const annotate = (share:string) => {
     // TODO
-    show_menu = false;
+    hideMenu();
   }
 
   const share_items = [
@@ -174,14 +183,14 @@
 
 <Modal id="menu-modal"
     outsideclose
-    bind:open={show_menu}
+    bind:open={$cur_tab.show_menu}
     size = 'xs'
     placement = 'top-right'
     backdropClass="bg-gray-900 bg-opacity-50 dark:bg-opacity-80 menu-bg-modal"
   >
 
   <aside style="width:295px;" class="bg-white" aria-label="Sidebar">
-    <div class="bg-gray-60 overflow-y-auto dark:bg-gray-800" bind:this={topMenu}>
+    <div class="bg-gray-60 overflow-y-auto dark:bg-gray-800">
       <ul class="space-y-1 space-x-0 mb-10">
         {#if $cur_branch_has_discrete}
         <li>
@@ -196,7 +205,7 @@
         </li>
         {/if}
         {#if $cur_viewer}
-          <MenuItem selected={$cur_tab.view_or_edit} title={$cur_viewer["ng:a"]} clickable={($available_viewers.length > 1 || !$cur_tab.view_or_edit) && function () { if ($available_viewers.length > 1) { open_view_as = !open_view_as; } else { set_view_or_edit(true); show_menu = false; } open_edit_with=false;} }>
+          <MenuItem selected={$cur_tab.view_or_edit} title={$cur_viewer["ng:a"]} clickable={($available_viewers.length > 1 || !$cur_tab.view_or_edit) && function () { if ($available_viewers.length > 1) { open_view_as = !open_view_as; } else { set_view_or_edit(true); hideMenu(); } open_edit_with=false;} }>
             <Eye
               tabindex="-1"
               class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
@@ -205,7 +214,7 @@
           </MenuItem>
           {#if open_view_as && $available_viewers.length > 1 }
             {#each $available_viewers as viewer}
-              <MenuItem title={viewer["ng:a"]} extraClass="submenu" clickable={(viewer["ng:g"] !== $cur_viewer["ng:g"] || !$cur_tab.view_or_edit) && function () { set_view_or_edit(true); set_viewer(viewer["ng:g"]); show_menu = false; open_view_as = false} }>
+              <MenuItem title={viewer["ng:a"]} extraClass="submenu" clickable={(viewer["ng:g"] !== $cur_viewer["ng:g"] || !$cur_tab.view_or_edit) && function () { set_view_or_edit(true); set_viewer(viewer["ng:g"]); hideMenu(); open_view_as = false} }>
                 <ZeraIcon
                   zera={viewer["ng:u"]}
                   config={{
@@ -220,7 +229,7 @@
         {/if}
         {#if $cur_tab.doc.can_edit}
           {#if $cur_editor}
-            <MenuItem title={$cur_editor["ng:a"]} selected={!$cur_tab.view_or_edit} clickable={ ($available_editors.length > 1 || $cur_tab.view_or_edit) && function () { if ($available_editors.length > 1) { open_edit_with = !open_edit_with;  } else { set_view_or_edit(false); show_menu = false; } open_view_as=false;} }>
+            <MenuItem title={$cur_editor["ng:a"]} selected={!$cur_tab.view_or_edit} clickable={ ($available_editors.length > 1 || $cur_tab.view_or_edit) && function () { if ($available_editors.length > 1) { open_edit_with = !open_edit_with;  } else { set_view_or_edit(false); hideMenu(); } open_view_as=false;} }>
               <PencilSquare
                 tabindex="-1"
                 class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
@@ -229,7 +238,7 @@
             </MenuItem>
             {#if open_edit_with && $available_editors.length > 1 }
               {#each $available_editors as editor}
-                <MenuItem title={editor["ng:a"]} extraClass="submenu" clickable={(editor["ng:g"] !== $cur_editor["ng:g"] || $cur_tab.view_or_edit) && function () { set_view_or_edit(false); set_editor(editor["ng:g"]); show_menu = false; open_edit_with = false} }>
+                <MenuItem title={editor["ng:a"]} extraClass="submenu" clickable={(editor["ng:g"] !== $cur_editor["ng:g"] || $cur_tab.view_or_edit) && function () { set_view_or_edit(false); set_editor(editor["ng:g"]); hideMenu(); open_edit_with = false} }>
                   <ZeraIcon
                     zera={editor["ng:u"]}
                     config={{
@@ -262,6 +271,7 @@
             </MenuItem>
           {/if}
         {/if}
+
         {#if $cur_tab.doc.can_edit}
           <MenuItem title={$t("doc.menu.items.new_block.desc")} clickable={ ()=> openAction("new_block") }>
             <PlusCircle
@@ -280,6 +290,15 @@
             <span class="ml-3">{$t("doc.menu.items.editor_chat.label")}</span>
           </MenuItem>
         {/if}
+
+        <MenuItem title={$t("doc.menu.items.mc.desc")} clickable={ ()=> openPane("mc") }>
+          <Sparkles
+            tabindex="-1"
+            class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+          />
+          <span class="ml-3">{$t("doc.menu.items.mc.label")}</span>
+        </MenuItem>
+
         <MenuItem title={$t("doc.menu.items.folders.desc")} clickable={ ()=> openPane("folders") }>
           <FolderOpen
             tabindex="-1"
@@ -294,15 +313,15 @@
           />
           <span class="ml-3">{$t("doc.menu.items.toc.label")}</span>
         </MenuItem>
-        <MenuItem title={$t("doc.menu.items.mc.desc")} clickable={ ()=> openPane("mc") }>
-          <Sparkles
+        <MenuItem title={$t("doc.menu.items.files.desc")} clickable={ ()=> openPane("files") }>
+          <PaperClip
             tabindex="-1"
             class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
           />
-          <span class="ml-3">{$t("doc.menu.items.mc.label")}</span>
+          <span class="ml-3">{$t("doc.menu.items.files.label")} {$all_files_count}</span>
         </MenuItem>
-        
-        <MenuItem title={$t("doc.menu.items.share.desc")} clickable={ () => open_share = !open_share }>
+        <div style="padding:0;" bind:this={shareMenu}></div>
+        <MenuItem title={$t("doc.menu.items.share.desc")} clickable={ () => { open_share = !open_share; scrollToMenuShare(); } }>
           <Share
             tabindex="-1"
             class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
@@ -323,7 +342,7 @@
             tabindex="-1"
             class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
           />
-          <span class="ml-3">{$t("doc.menu.items.comments.label")}</span>
+          <span class="ml-3">{$t("doc.menu.items.comments.label")} {$all_comments_count}</span>
         </MenuItem>
 
         <MenuItem title={$t("doc.menu.items.branches.desc")} clickable={ ()=> openPane("branches") }>
@@ -405,8 +424,8 @@
           />
           <span class="ml-3">{$t("doc.menu.items.settings.label")}</span>
         </MenuItem>
-
-        <MenuItem title={$t("doc.menu.items.tools.desc")} clickable={ () => open_tools = !open_tools }>
+        <div style="padding:0;" bind:this={toolsMenu}></div>
+        <MenuItem title={$t("doc.menu.items.tools.desc")} clickable={ () => {open_tools = !open_tools; scrollToMenuTools();} } >
           <WrenchScrewdriver
             tabindex="-1"
             class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
@@ -428,25 +447,32 @@
 
 {#if mobile}
   <div class="full-layout">
-    <main class="pb-14" bind:this={top}>
+    {#if !withoutNavBar} 
+      <div class="fixed top-0 left-0 right-0">
+        <NavBar {scrollToTop}/>
+      </div>
+    {/if}
+    <div bind:this={top}></div>
+    <main class:mt-12={!withoutNavBar} class="pb-14 bg-white dark:bg-black">
       <slot />
     </main>
     <MobileBottomBar {activeUrl}>
-      <MobileBottomBarItem href="#/" icon={Home} on:click={scrollToTop}>
+      <MobileBottomBarItem href="#/" icon={Home} on:click={scrollToTop} >
         <span
           class="inline-flex justify-center items-center p-3 mt-1 -ml-2 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"
         >
           13
         </span>
       </MobileBottomBarItem>
-      <MobileBottomBarItem href="#/stream" icon={Bolt} on:click={scrollToTop} />
+      <MobileBottomBarItem href="#/stream" icon={Bolt} on:click={scrollToTop}  />
       <MobileBottomBarItem
         href="#/search"
         icon={MagnifyingGlass}
         on:click={scrollToTop}
+        
       />
       <MobileBottomBarItem href="#/create" icon={PlusCircle} />
-      <MobileBottomBarItem href="#/site" icon={User} on:click={scrollToTop} />
+      <MobileBottomBarItem href="#/site" icon={User} on:click={scrollToTop}  />
     </MobileBottomBar>
   </div>
 {:else}
@@ -464,7 +490,7 @@
           <SidebarItem
             label={$t("pages.full_layout.home")}
             href="#/"
-            on:click={scrollToTop}
+            on:click={scrollToTop} on:keypress={scrollToTop} 
             class="py-1 tall-xs:p-2"
           >
             <svelte:fragment slot="icon">
@@ -538,6 +564,7 @@
             label={$t("pages.full_layout.messages")}
             href="#/messages"
             class="py-1 tall-xs:p-2"
+            on:click={scrollToTop} on:keypress={scrollToTop}
           >
             <svelte:fragment slot="icon">
               <PaperAirplane
@@ -555,6 +582,7 @@
             label={$t("pages.full_layout.notifications")}
             href="#/notifications"
             class="mt-1 py-1 tall-xs:p-2"
+            on:click={scrollToTop} on:keypress={scrollToTop}
           >
             <svelte:fragment slot="icon">
               <Bell
@@ -572,7 +600,61 @@
       </SidebarWrapper>
     </Sidebar>
 
-    <main class="ml-48" bind:this={top}>
+<!--   $: nav_bar = {
+    icon: false,
+    title: "",
+    back: true,
+    newest: 0,
+    save: undefined,
+  };-->
+
+    <!-- <div style="background-color: #f6f6f6;" class="fixed top-0 left-48 right-0 h-10 flex text-center text-gray-900 dark:text-white">
+      {#if $nav_bar.back}
+        <div role="button" tabindex="0" on:click={back} on:keypress={back} class="flex-none w-10 flex justify-center items-center">
+          <ArrowLeft tabindex="-1" class="w-8 h-8 focus:outline-none"/>
+        </div>
+      {/if}
+      {#if $nav_bar.icon}
+        <div style="cursor:pointer;" class="flex-none w-8 m-1 " on:click={scrollToTop} on:keypress={scrollToTop}>
+          <NavIcon img={$nav_bar.icon} config={{
+            tabindex:"-1",
+            class:"w-8 h-8 focus:outline-none"
+          }}/>
+        </div>
+      {/if}
+      <div style="cursor:pointer;" class="grow w-10 items-center flex px-1"><span class="inline-block truncate" on:click={scrollToTop} on:keypress={scrollToTop}> {$nav_bar.title} </span></div>
+      {#if $nav_bar.newest}
+        <div role="button" tabindex="0" class="flex-none m-1 rounded-full bg-primary-700 text-white dark:bg-primary-700" on:click={scrollToTop}>
+          <div class="flex items-center grow pr-2"> 
+            <ChevronDoubleUp tabindex="-1" class="w-6 h-6 m-1 focus:outline-none"/>
+            <span class="inline-block">{@html $nav_bar.newest < 100 ? "+ "+$nav_bar.newest : "<span class=\"text-xl\">&infin;</span>"}</span>
+          </div>
+        </div>
+      {/if}
+      {#if $nav_bar.save !== undefined}
+        
+        {#if $nav_bar.save }
+          <div class="flex-none w-10" role="button" on:click={save} on:keypress={save} title="Save">
+            <CheckCircle variation="solid" tabindex="-1" strokeWidth="3" class="w-10 h-10  text-primary-400 focus:outline-none"/>
+          </div>
+        {:else}
+          <div class="flex-none w-10" title="Saved!">
+            <CheckBadge tabindex="-1" class="w-8 h-8 m-1 text-green-500 focus:outline-none"/>
+          </div>
+        {/if}
+ 
+      {/if}
+      <div class="flex-none w-10 " role="button" title="Open Menu" on:click={()=>show_menu = true} on:keypress={()=>show_menu = true}>
+        <EllipsisVertical tabindex="-1" class="w-8 h-8 my-1 mr-2"/>
+      </div>
+    </div> -->
+    <div class="fixed top-0 left-48 right-0">
+      <NavBar {scrollToTop}/>
+    </div>
+
+
+    <div bind:this={top}></div>
+    <main class="ml-48 mt-12 bg-white dark:bg-black" >
       <slot />
     </main>
   </div>
@@ -585,7 +667,7 @@
     overflow: auto;
   }
   main {
-    overflow: hidden;
+    overflow-x: clip;
     overflow-wrap: break-word;
   }
   .graph-discrete-toggle button {

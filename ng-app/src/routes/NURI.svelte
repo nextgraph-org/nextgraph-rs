@@ -9,17 +9,27 @@
 // according to those terms.
 -->
 <script>
+  import { onMount } from "svelte";
+  import { push } from "svelte-spa-router";
+  import FullLayout from "../lib/FullLayout.svelte";
   import { t } from "svelte-i18n";
   // The params prop contains values matched from the URL
   export let params = {};
+  import {
+    active_session,
+  } from "../store";
 
   console.log(params);
+
+  onMount(async () => {
+    if (!$active_session) {
+      push("#/");
+    } else {
+      //await scrollToTop();
+    }
+  });
 </script>
 
-<div class="fix">
-  <div
-    class="h-screen aspect-[3/5] pazzleline max-w-[720px] bg-yellow-300 inner"
-  >
-    <p>{$t("pages.nextgraph_uri.message", { values: { uri: params[1] } })}</p>
-  </div>
-</div>
+<FullLayout>
+  { params[1] }
+</FullLayout>

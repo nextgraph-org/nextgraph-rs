@@ -22,7 +22,7 @@
 {#if clickable}
     <li {title} role="menuitem" tabindex="0" class:text-primary-600={selected} class:text-gray-800={!selected} class:dark:text-white={!selected} class:dark:text-primary-300={selected} 
         class="{extraClass} select-none clickable focus:outline-2 focus:outline flex items-center px-2 py-1 text-base font-normal rounded-lg  hover:bg-gray-200 dark:hover:bg-gray-700 mt-1"
-        on:click={clickable} on:keypress={clickable} on:keydown={(e) => {if (e.code=='Space') { e.preventDefault(); clickable();} }}>
+        on:click={(e) => { e.currentTarget.blur(); clickable();}} on:keypress={clickable} on:keydown={(e) => {if (e.code=='Space') { e.preventDefault(); clickable();} }}>
         <slot />
     </li>
 {:else}

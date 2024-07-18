@@ -25,6 +25,10 @@
           "label": "Table of Content",
           "desc": "Table of Content for Graph and Document"
         },
+        "files": {
+          "label": "Attachments and Files",
+          "desc": "List all attached files and resources files, and download them if needed"
+        },
         "share": {
           "label": "Share",
           "desc": "Share with others, or react"
@@ -156,9 +160,6 @@
     "not_found": {
       "title": "Page Not Found",
       "message": "The page you are looking for does not exist."
-    },
-    "nextgraph_uri": {
-      "message": "Nextgraph URI {uri}"
     },
     "user_panel": {
       "title": "User Panel",
