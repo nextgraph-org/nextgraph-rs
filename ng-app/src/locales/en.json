@@ -159,7 +159,7 @@
   "pages": {
     "not_found": {
       "title": "Page Not Found",
-      "message": "The page you are looking for does not exist."
+      "message": "The page you are looking for does not exist.<br/>It has probably not been implemented yet"
     },
     "user_panel": {
       "title": "User Panel",
@@ -265,7 +265,7 @@
       "open_with_pazzle": "Open With Pazzle",
       "login_cancel": "Cancel Login",
       "open_with_mnemonic": "Open with Mnemonic instead",
-      "enter_mnemonic": "Enter your 12 words mnemonic.",
+      "enter_mnemonic": "Enter your 12 words mnemonic",
       "mnemonic_placeholder": "12 words separated by spaces",
       "select_emoji": "Select your image for category:<br />{category}",
       "order_emojis": "Select each image in the correct order",

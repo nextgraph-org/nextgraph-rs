@@ -9,12 +9,6 @@
 // according to those terms.
 -->
 
-<!--
-    @component DeviceIcon
-    Display an icon for a device class provided by the `device` attribute.
-    Pass `config` for custom attributes.
--->
-
 <script lang="ts">
   import {
     ArrowLeft,
@@ -35,7 +29,7 @@
   }
 </script>
   
-<div style="background-color: #f6f6f6;" class="h-12 pb-2 flex text-center text-gray-900 dark:text-white">
+<div style="background-color: #fbfbfb;" class="h-11 pb-1 flex text-center text-gray-700 dark:text-white">
     {#if $nav_bar.back}
         <div role="button" tabindex="0" on:click={back} on:keypress={back} class="flex-none w-10 flex justify-center items-center">
         <ArrowLeft tabindex="-1" class="w-8 h-8 focus:outline-none"/>
