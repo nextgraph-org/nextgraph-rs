@@ -230,6 +230,46 @@ export const cur_tab = writable({
     right_pane: false, // "folders", "toc", "branches", "files", "history", "comments", "info", "chat", "mc"
     action: false, // "repost", "dm", "react",  "author", "copy", "forward", "links", "qr", "download", "embed", "new_block", "notifs", "schema", "signature", "permissions", "settings", "print", "console", "source", "services", "dev",
 
+    show_menu: false,
+});
+
+
+export const showMenu = () => {
+    cur_tab.update(ct => {
+        ct.show_menu = true;
+        return ct;
+    });
+}
+
+export const hideMenu = () => {
+    cur_tab.update(ct => {
+        ct.show_menu = false;
+        return ct;
+    });
+}
+
+export const nav_bar = writable({
+    //icon: "class:post/rich",
+    icon: "nav:private",
+    //icon: "blob:http://localhost:1421/be6f968f-ff51-4e8f-bd32-36c60b7af49a",
+    title: "Private Store",
+    back: false,
+    newest: 0,
+    save: true,
+});
+
+export const save = async () => {
+    // saving the doc
+}
+
+export const all_files_count = derived(cur_tab, ($cur_tab) => {
+    let total = $cur_tab.cur_branch.attachments + $cur_tab.cur_branch.files;
+    return total ? `(${total})` : "";
+});
+
+export const all_comments_count = derived(cur_tab, ($cur_tab) => {
+    let total = $cur_tab.cur_branch.comments;
+    return total ? `(${total})` : "";
 });
 
 export const has_editor_chat = derived(cur_tab, ($cur_tab) => {

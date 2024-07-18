@@ -19,7 +19,9 @@
     Users,
   } from "svelte-heros-v2";
   import Logo from "./components/Logo.svelte";
+    import NavBar from "./components/NavBar.svelte";
 
+  let top;
   let width: number;
   let breakPoint: number = 662;
   let mobile = false;
@@ -28,12 +30,16 @@
   } else {
     mobile = true;
   }
+
+  function scrollToTop() {
+    top.scrollIntoView();
+  }
 </script>
 
-<FullLayout>
+<FullLayout withoutNavBar={true}>
   {#if mobile}
-    <nav
-      class="border-t border-solid border-gray-200 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 dark:border-gray-700 divide-gray-100 dark:divide-gray-700 px-2 sm:px-4 py-2.5 w-full"
+    <nav bind:this={top}
+      style="background-color: #f6f6f6;"  class="border-t border-solid border-gray-200  text-gray-700 dark:text-gray-200 dark:border-gray-700 divide-gray-100 dark:divide-gray-700 px-2 sm:px-4 py-2.5 w-full"
     >
       <div
         class="mx-auto flex flex-wrap justify-between items-center w-full xxs:px-8 xs:px-10"
@@ -78,6 +84,11 @@
         </div>
       </div>
     </nav>
+    <div class="sticky top-0 w-full">
+
+      <NavBar {scrollToTop}/>
+      
+    </div>
   {/if}
 
   <Test />

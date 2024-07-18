@@ -343,8 +343,8 @@
 
 <div
   class="flex-col justify-center md:max-w-2xl py-4 sm:px-8"
-  class:h-screen={step !== "load" && height > 660}
-  class:flex={height > 660}
+  class:h-screen={step !== "load" && height > 640}
+  class:flex={height > 640}
   bind:this={top}
 >
   {#if step == "load"}
@@ -460,8 +460,8 @@
   {:else if step == "pazzle" || step == "order" || step == "pin" || step == "mnemonic"}
     <div
       class="flex-col justify-center h-screen"
-      class:flex={height > 660}
-      class:min-w-[310px]={mobile}
+      class:flex={height > 640}
+      class:min-w-[300px]={mobile}
       class:min-w-[500px]={!mobile}
       class:max-w-[370px]={mobile}
       class:max-w-[600px]={!mobile}
@@ -585,7 +585,7 @@
                   tabindex="0"
                   class="pindigit m-1 disabled:opacity-15 disabled:text-gray-200 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
                   class:h-[160px]={!mobile}
-                  class:h-[100px]={mobile}
+                  class:h-[93px]={mobile}
                   class:text-8xl={!mobile}
                   on:click={async () => await on_pin_key(num)}
                   disabled={pin_code.length >= 4}
@@ -601,7 +601,7 @@
               tabindex="0"
               class="pindigit disabled:opacity-15 m-1 disabled:text-gray-200 select-none align-bottom text-7xl p-0 w-full aspect-square border-0"
               class:h-[160px]={!mobile}
-              class:h-[100px]={mobile}
+              class:h-[93px]={mobile}
               class:text-8xl={!mobile}
               on:click={async () => await on_pin_key(shuffle_pin[9])}
               disabled={pin_code.length >= 4}
@@ -620,7 +620,7 @@
               />
             </Button>
           </div>
-          <span class="mt-3 text-9xl min-h-[8rem] text-center"
+          <span class="select-none text-9xl h-[4rem] text-center"
             >{#each pin_code as pin_key}*{/each}</span
           >
         {/if}
@@ -727,7 +727,7 @@
 
 <style>
   .pindigit {
-    min-height: 99px;
+    min-height: 93px;
   }
 
   /* .pazzleline {

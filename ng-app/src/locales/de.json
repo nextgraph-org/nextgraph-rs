@@ -4,9 +4,6 @@
       "title": "Seite nicht gefunden",
       "message": "Die gesuchte Seite existiert nicht."
     },
-    "nextgraph_uri": {
-      "message": "Nextgraph Link {uri}"
-    },
     "user_panel": {
       "title": "Nutzerbereich",
       "personal": "Privat"
