@@ -38,6 +38,7 @@ use ng_repo::utils::verify;
 
 use crate::actor::{Actor, SoS};
 use crate::actors::*;
+use crate::broker::LocalBrokerMessage;
 use crate::broker::{ClientPeerId, BROKER};
 use crate::types::*;
 use crate::utils::*;
@@ -1032,13 +1033,15 @@ impl NoiseFSM {
                         None => {
                             if let ProtocolMessage::ClientMessage(cm) = msg {
                                 if let Some((event, overlay)) = cm.forwarded_event() {
-                                    BROKER
+                                    let _ = BROKER
                                         .read()
                                         .await
                                         .get_local_broker()?
-                                        .write()
-                                        .await
-                                        .deliver(event, overlay, self.user_id()?)
+                                        .send(LocalBrokerMessage::Deliver {
+                                            event,
+                                            overlay,
+                                            user: self.user_id()?,
+                                        })
                                         .await;
                                     return Ok(StepReply::NONE);
                                 }

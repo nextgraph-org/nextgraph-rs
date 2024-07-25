@@ -41,6 +41,18 @@
 .toggle * {
     cursor: pointer;
 }
+
+.error-popover h3 {
+    text-align: center;
+    color: rgb(200 30 30);
+}
+.error-popover > div:first-child {
+    background-color: rgb(200 30 30);
+}
+.error-popover > div:first-child > h3 {
+    color: white;
+}
+
 /*
 #scanner-div {
     border: none !important;

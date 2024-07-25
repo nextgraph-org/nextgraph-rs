@@ -28,6 +28,9 @@ lazy_static! {
     static ref RE_FILE_READ_CAP: Regex =
         Regex::new(r"^did:ng:j:([A-Za-z0-9-_]*):k:([A-Za-z0-9-_]*)$").unwrap();
     #[doc(hidden)]
+    static ref RE_REPO_O: Regex =
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*)$").unwrap();
+    #[doc(hidden)]
     static ref RE_REPO: Regex =
         Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*):v:([A-Za-z0-9-_]*)$").unwrap();
     #[doc(hidden)]
@@ -143,7 +146,7 @@ pub struct CommitInfoJs {
     pub author: String,
     pub final_consistency: bool,
     pub commit_type: CommitType,
-    pub branch: String,
+    pub branch: Option<String>,
     pub x: u32,
     pub y: u32,
 }
@@ -157,7 +160,7 @@ impl From<&CommitInfo> for CommitInfoJs {
             author: info.author.clone(),
             final_consistency: info.final_consistency,
             commit_type: info.commit_type.clone(),
-            branch: info.branch.unwrap().to_string(),
+            branch: info.branch.map(|b| b.to_string()),
             x: info.x,
             y: info.y,
         }
@@ -211,7 +214,7 @@ impl NuriV0 {
     }
 
     pub fn object_ref(obj_ref: &ObjectRef) -> String {
-        format!("{DID_PREFIX}{}", obj_ref.nuri())
+        format!("{DID_PREFIX}:{}", obj_ref.object_nuri())
     }
 
     pub fn token(token: &Digest) -> String {
@@ -283,80 +286,99 @@ impl NuriV0 {
         }
     }
     pub fn new_from(from: &String) -> Result<Self, NgError> {
-        let c = RE_FILE_READ_CAP.captures(from);
+        let c = RE_REPO_O.captures(from);
 
-        if c.is_some()
-            && c.as_ref().unwrap().get(1).is_some()
-            && c.as_ref().unwrap().get(2).is_some()
-        {
+        if c.is_some() && c.as_ref().unwrap().get(1).is_some() {
             let cap = c.unwrap();
-            let j = cap.get(1).unwrap().as_str();
-            let k = cap.get(2).unwrap().as_str();
-            let id = decode_digest(j)?;
-            let key = decode_sym_key(k)?;
+            let o = cap.get(1).unwrap().as_str();
+
+            let repo_id = decode_key(o)?;
             Ok(Self {
                 identity: None,
-                target: NuriTargetV0::PrivateStore,
+                target: NuriTargetV0::Repo(repo_id),
                 entire_store: false,
-                object: Some(id),
+                object: None,
                 branch: None,
                 overlay: None,
-                access: vec![NgAccessV0::Key(key)],
+                access: vec![],
                 topic: None,
                 locator: vec![],
             })
         } else {
-            let c = RE_REPO.captures(from);
-
+            let c = RE_FILE_READ_CAP.captures(from);
             if c.is_some()
                 && c.as_ref().unwrap().get(1).is_some()
                 && c.as_ref().unwrap().get(2).is_some()
             {
                 let cap = c.unwrap();
-                let o = cap.get(1).unwrap().as_str();
-
-                let v = cap.get(2).unwrap().as_str();
-                let repo_id = decode_key(o)?;
-                let overlay_id = decode_overlayid(v)?;
+                let j = cap.get(1).unwrap().as_str();
+                let k = cap.get(2).unwrap().as_str();
+                let id = decode_digest(j)?;
+                let key = decode_sym_key(k)?;
                 Ok(Self {
                     identity: None,
-                    target: NuriTargetV0::Repo(repo_id),
+                    target: NuriTargetV0::PrivateStore,
                     entire_store: false,
-                    object: None,
+                    object: Some(id),
                     branch: None,
-                    overlay: Some(overlay_id.into()),
-                    access: vec![],
+                    overlay: None,
+                    access: vec![NgAccessV0::Key(key)],
                     topic: None,
                     locator: vec![],
                 })
             } else {
-                let c = RE_BRANCH.captures(from);
+                let c = RE_REPO.captures(from);
 
                 if c.is_some()
                     && c.as_ref().unwrap().get(1).is_some()
                     && c.as_ref().unwrap().get(2).is_some()
-                    && c.as_ref().unwrap().get(3).is_some()
                 {
                     let cap = c.unwrap();
                     let o = cap.get(1).unwrap().as_str();
+
                     let v = cap.get(2).unwrap().as_str();
-                    let b = cap.get(3).unwrap().as_str();
                     let repo_id = decode_key(o)?;
                     let overlay_id = decode_overlayid(v)?;
-                    let branch_id = decode_key(b)?;
                     Ok(Self {
                         identity: None,
                         target: NuriTargetV0::Repo(repo_id),
                         entire_store: false,
                         object: None,
-                        branch: Some(TargetBranchV0::BranchId(branch_id)),
+                        branch: None,
                         overlay: Some(overlay_id.into()),
                         access: vec![],
                         topic: None,
                         locator: vec![],
                     })
                 } else {
-                    Err(NgError::InvalidNuri)
+                    let c = RE_BRANCH.captures(from);
+
+                    if c.is_some()
+                        && c.as_ref().unwrap().get(1).is_some()
+                        && c.as_ref().unwrap().get(2).is_some()
+                        && c.as_ref().unwrap().get(3).is_some()
+                    {
+                        let cap = c.unwrap();
+                        let o = cap.get(1).unwrap().as_str();
+                        let v = cap.get(2).unwrap().as_str();
+                        let b = cap.get(3).unwrap().as_str();
+                        let repo_id = decode_key(o)?;
+                        let overlay_id = decode_overlayid(v)?;
+                        let branch_id = decode_key(b)?;
+                        Ok(Self {
+                            identity: None,
+                            target: NuriTargetV0::Repo(repo_id),
+                            entire_store: false,
+                            object: None,
+                            branch: Some(TargetBranchV0::BranchId(branch_id)),
+                            overlay: Some(overlay_id.into()),
+                            access: vec![],
+                            topic: None,
+                            locator: vec![],
+                        })
+                    } else {
+                        Err(NgError::InvalidNuri)
+                    }
                 }
             }
         }
@@ -535,6 +557,8 @@ pub enum DiscreteUpdate {
     #[serde(with = "serde_bytes")]
     YMap(Vec<u8>),
     #[serde(with = "serde_bytes")]
+    YArray(Vec<u8>),
+    #[serde(with = "serde_bytes")]
     YXml(Vec<u8>),
     #[serde(with = "serde_bytes")]
     YText(Vec<u8>),
@@ -599,6 +623,8 @@ pub enum DiscretePatch {
     #[serde(with = "serde_bytes")]
     YMap(Vec<u8>),
     #[serde(with = "serde_bytes")]
+    YArray(Vec<u8>),
+    #[serde(with = "serde_bytes")]
     YXml(Vec<u8>),
     #[serde(with = "serde_bytes")]
     YText(Vec<u8>),
@@ -622,6 +648,8 @@ pub enum DiscreteState {
     /// A yrs::StateVector
     #[serde(with = "serde_bytes")]
     YMap(Vec<u8>),
+    #[serde(with = "serde_bytes")]
+    YArray(Vec<u8>),
     #[serde(with = "serde_bytes")]
     YXml(Vec<u8>),
     #[serde(with = "serde_bytes")]
@@ -687,8 +715,8 @@ pub enum OtherPatch {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppPatch {
-    pub commit_id: ObjectId,
-    pub commit_info: CommitInfo,
+    pub commit_id: String,
+    pub commit_info: CommitInfoJs,
     // or graph, or discrete, or both, or other.
     pub graph: Option<GraphPatch>,
     pub discrete: Option<DiscretePatch>,
@@ -709,8 +737,53 @@ pub struct FileMetaV0 {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppTabStoreInfo {
+    pub overlay: Option<String>, //+
+    pub has_outer: Option<String>,
+    pub store_type: Option<String>, //+
+    pub readcap: Option<String>,
+    pub is_member: Option<String>,
+    pub inner: Option<String>,
+    pub title: Option<String>,
+    pub icon: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppTabDocInfo {
+    pub nuri: Option<String>,      //+
+    pub is_store: Option<bool>,    //+
+    pub is_member: Option<String>, //+
+    pub title: Option<String>,
+    pub icon: Option<String>,
+    pub description: Option<String>,
+    pub authors: Option<Vec<String>>,
+    pub inbox: Option<String>,
+    pub can_edit: Option<bool>, //+
+                                //TODO stream
+                                //TODO live_editors
+                                //TODO branches
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppTabBranchInfo {
+    pub id: Option<String>,      //+
+    pub readcap: Option<String>, //+
+    pub comment_branch: Option<String>,
+    pub class: Option<String>, //+
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppTabInfo {
+    pub branch: Option<AppTabBranchInfo>,
+    pub doc: Option<AppTabDocInfo>,
+    pub store: Option<AppTabStoreInfo>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppResponseV0 {
     SessionStart(AppSessionStartResponse),
+    TabInfo(AppTabInfo),
     State(AppState),
     Patch(AppPatch),
     History(AppHistory),

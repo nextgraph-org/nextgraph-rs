@@ -10,16 +10,28 @@
 -->
 
 <script lang="ts">
+  import { onMount, tick } from "svelte";
+  import { t } from "svelte-i18n";
   import FullLayout from "./FullLayout.svelte";
-  import Test from "./Test.svelte";
+  import Document from "./Document.svelte";
+  import {
+    active_session,
+  } from "../store";
+  import {
+    change_nav_bar,reset_in_memory
+  } from "../tab";
   import {
     PaperAirplane,
     Bell,
     ArrowRightOnRectangle,
-    Users,
+    User,
+    Bookmark,
+    Sparkles,
+    Square3Stack3d,
+    ArchiveBox,
   } from "svelte-heros-v2";
   import Logo from "./components/Logo.svelte";
-    import NavBar from "./components/NavBar.svelte";
+  import NavBar from "./components/NavBar.svelte";
 
   let top;
   let width: number;
@@ -34,6 +46,12 @@
   function scrollToTop() {
     top.scrollIntoView();
   }
+  onMount(() => {
+    change_nav_bar("nav:private",$t("doc.private_store"), false);
+    reset_in_memory();
+  });
+
+  let nuri = $active_session && ("o:"+$active_session.private_store_id);
 </script>
 
 <FullLayout withoutNavBar={true}>
@@ -52,8 +70,8 @@
           >
         </a>
         <div class="w-auto flex row">
-          <a href="#/shared" class="row items-center" on:click>
-            <Users
+          <a href="#/site" class="row items-center" on:click={scrollToTop}>
+            <User
               tabindex="-1"
               class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white focus:outline-none"
             />
@@ -84,13 +102,23 @@
         </div>
       </div>
     </nav>
-    <div class="sticky top-0 w-full">
+    <div class="sticky top-0 w-full"  style="z-index:39;">
 
       <NavBar {scrollToTop}/>
       
     </div>
   {/if}
-
-  <Test />
+  <div class="bg-gray-100 flex p-1 justify-around md:justify-start h-11 gap-0 xs:gap-3 text-gray-500">
+    <div class="overflow-hidden w-24 sm:ml-3 flex justify-start mr-1" role="button" tabindex="0">
+      <Bookmark tabindex="-1" class="mt-1 flex-none w-7 h-7 mr-1 focus:outline-none "/><div class="text-xs xs:text-sm flex items-center"><div style="overflow-wrap: anywhere;" class="max-h-8 xs:max-h-10">{$t("doc.header.buttons.bookmarked")}</div></div>
+    </div>
+    <div class="overflow-hidden w-32 sm:ml-3 flex justify-start mr-1" role="button" tabindex="0" title={$t("doc.menu.items.mc.desc")}>
+      <Sparkles tabindex="-1" class="mt-1 flex-none w-7 h-7 mr-1 focus:outline-none "/><div class="text-xs xs:text-sm flex items-center"><div style="overflow-wrap: anywhere;" class="max-h-8 xs:max-h-10">{$t("doc.menu.items.mc.label")}</div></div>
+    </div>
+    <div class="overflow-hidden w-28 sm:ml-3 flex justify-start" role="button" tabindex="0">
+      <Square3Stack3d tabindex="-1" class="mt-1 flex-none w-7 h-7 mr-1 focus:outline-none "/><div class="text-xs xs:text-sm flex items-center"><div style="overflow-wrap: anywhere;" class="max-h-8 xs:max-h-10">{$t("doc.header.buttons.all_docs")}</div></div>
+    </div>
+  </div>
+  <Document {nuri}/>
 </FullLayout>
 <svelte:window bind:innerWidth={width} />

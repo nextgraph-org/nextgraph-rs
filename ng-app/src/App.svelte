@@ -36,6 +36,8 @@
   import UserRegistered from "./routes/UserRegistered.svelte";
   import Install from "./routes/Install.svelte";
   import ScanQR from "./routes/ScanQR.svelte";
+  import Shared from "./routes/Shared.svelte";
+  import Site from "./routes/Site.svelte";
 
   import ng from "./api";
   import AccountInfo from "./routes/AccountInfo.svelte";
@@ -56,7 +58,9 @@
   routes.set("/user/accounts", AccountInfo);
   routes.set("/wallet/scanqr", ScanQR);
   if (import.meta.env.NG_APP_WEB) routes.set("/install", Install);
-  routes.set(/^\/did:ng(.*)/i, NURI);
+  routes.set("/shared", Shared);
+  routes.set("/site", Site);
+  routes.set(/^\/did:ng:(.*)/i, NURI);
   routes.set("*", NotFound);
 
   let unsubscribe = () => {};
@@ -74,7 +78,7 @@
       await disconnections_subscribe();
       await select_default_lang();
     } catch (e) {
-      console.error(e);
+      console.warn(e);
       //console.log("called disconnections_subscribe twice");
     }
     let tauri_platform = import.meta.env.TAURI_PLATFORM;

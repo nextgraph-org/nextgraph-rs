@@ -93,11 +93,17 @@ pub struct BranchInfo {
 
     pub branch_type: BranchType,
 
-    pub topic: TopicId,
+    pub crdt: BranchCrdt,
+
+    pub topic: Option<TopicId>,
 
     pub topic_priv_key: Option<BranchWriteCapSecret>,
 
-    pub read_cap: ReadCap,
+    pub read_cap: Option<ReadCap>,
+
+    pub fork_of: Option<BranchId>,
+
+    pub merged_in: Option<BranchId>,
 
     pub current_heads: Vec<ObjectRef>,
 
@@ -549,7 +555,7 @@ impl Repo {
 
     pub fn overlay_branch_read_cap(&self) -> Option<&ReadCap> {
         match self.overlay_branch() {
-            Some(bi) => Some(&bi.read_cap),
+            Some(bi) => Some(bi.read_cap.as_ref().unwrap()),
             None => self.read_cap.as_ref(), // this is for private stores that don't have an overlay branch
         }
     }

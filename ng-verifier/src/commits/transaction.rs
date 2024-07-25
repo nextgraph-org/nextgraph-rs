@@ -16,7 +16,7 @@ use ng_oxigraph::oxigraph::storage_ng::numeric_encoder::{EncodedQuad, EncodedTer
 use ng_oxigraph::oxigraph::storage_ng::*;
 use serde::{Deserialize, Serialize};
 
-use ng_net::app_protocol::{NuriV0, TargetBranchV0};
+use ng_net::app_protocol::*;
 use ng_oxigraph::oxrdf::{GraphName, GraphNameRef, NamedNode, Quad, Triple, TripleRef};
 use ng_repo::errors::VerifierError;
 use ng_repo::log::*;
@@ -31,11 +31,22 @@ pub struct GraphTransaction {
     pub removes: Vec<Triple>,
 }
 
+impl GraphTransaction {
+    fn as_patch(&self) -> GraphPatch {
+        GraphPatch {
+            inserts: serde_bare::to_vec(&self.inserts).unwrap(),
+            removes: serde_bare::to_vec(&self.removes).unwrap(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DiscreteTransaction {
     /// A yrs::Update
     #[serde(with = "serde_bytes")]
     YMap(Vec<u8>),
+    #[serde(with = "serde_bytes")]
+    YArray(Vec<u8>),
     #[serde(with = "serde_bytes")]
     YXml(Vec<u8>),
     #[serde(with = "serde_bytes")]
@@ -69,6 +80,7 @@ struct BranchUpdateInfo {
     previous_heads: HashSet<ObjectId>,
     commit_id: ObjectId,
     transaction: GraphTransaction,
+    commit_info: CommitInfoJs,
 }
 
 impl Verifier {
@@ -210,24 +222,27 @@ impl Verifier {
         let repo = self.get_repo(repo_id, store.get_store_repo())?;
 
         let branch = repo.branch(branch_id)?;
+        let commit_id = commit.id().unwrap();
+        let commit_info: CommitInfoJs = (&commit.as_info(repo)).into();
 
         if body.graph.is_some() {
             let info = BranchUpdateInfo {
                 branch_id: *branch_id,
                 branch_is_main: branch.branch_type.is_main(),
                 repo_id: *repo_id,
-                topic_id: branch.topic,
-                token: branch.read_cap.tokenize(),
+                topic_id: branch.topic.clone().unwrap(),
+                token: branch.read_cap.as_ref().unwrap().tokenize(),
                 overlay_id: store.overlay_id,
                 previous_heads: commit.direct_causal_past_ids(),
-                commit_id: commit.id().unwrap(),
+                commit_id,
                 transaction: body.graph.take().unwrap(),
+                commit_info,
             };
-            self.update_graph(&[info])
-        } else {
-            Ok(())
+            self.update_graph(vec![info]).await?;
         }
         //TODO: discrete update
+
+        Ok(())
     }
 
     fn find_branch_and_repo_for_quad(
@@ -258,8 +273,8 @@ impl Verifier {
                             b.id,
                             b.topic_priv_key.is_some(),
                             true,
-                            b.topic,
-                            b.read_cap.tokenize(),
+                            b.topic.clone().unwrap(),
+                            b.read_cap.as_ref().unwrap().tokenize(),
                         )
                     }
                     Some(TargetBranchV0::BranchId(id)) => {
@@ -269,8 +284,8 @@ impl Verifier {
                             id,
                             b.topic_priv_key.is_some(),
                             false,
-                            b.topic,
-                            b.read_cap.tokenize(),
+                            b.topic.clone().unwrap(),
+                            b.read_cap.as_ref().unwrap().tokenize(),
                         )
                     }
                     // TODO: implement TargetBranchV0::Named
@@ -367,6 +382,9 @@ impl Verifier {
                 )
                 .await?;
 
+            let repo = self.get_repo(&repo_id, &store_repo)?;
+            let commit_info: CommitInfoJs = (&commit.as_info(repo)).into();
+
             let graph_update = transac.graph.take().unwrap();
 
             let info = BranchUpdateInfo {
@@ -379,21 +397,24 @@ impl Verifier {
                 previous_heads: commit.direct_causal_past_ids(),
                 commit_id: commit.id().unwrap(),
                 transaction: graph_update,
+                commit_info,
             };
             updates.push(info);
         }
-        self.update_graph(&updates)
+        self.update_graph(updates).await
     }
 
-    fn update_graph(&mut self, updates: &[BranchUpdateInfo]) -> Result<(), VerifierError> {
-        self.graph_dataset
+    async fn update_graph(&mut self, updates: Vec<BranchUpdateInfo>) -> Result<(), VerifierError> {
+        let updates_ref = &updates;
+        let res = self
+            .graph_dataset
             .as_ref()
             .unwrap()
             .ng_transaction(
                 move |mut transaction| -> Result<(), ng_oxigraph::oxigraph::store::StorageError> {
                     let reader = transaction.ng_get_reader();
 
-                    for update in updates {
+                    for update in updates_ref {
                         let commit_name =
                             NuriV0::commit_graph_name(&update.commit_id, &update.overlay_id);
                         let commit_encoded = numeric_encoder::StrHash::new(&commit_name);
@@ -477,9 +498,9 @@ impl Verifier {
                                 ));
                             }
 
-                            let at_current_heads = current_heads != direct_causal_past_encoded;
+                            let at_current_heads = current_heads == direct_causal_past_encoded;
                             // if not, we need to base ourselves on the materialized state of the direct_causal_past of the commit
-
+                            log_info!("AT CURRENT HEADS {}", at_current_heads);
                             let value = if update.branch_is_main {
                                 REMOVED_IN_MAIN
                             } else {
@@ -487,6 +508,7 @@ impl Verifier {
                             };
 
                             for remove in update.transaction.removes.iter() {
+                                log_info!("REMOVING {}", remove.to_string());
                                 let encoded_subject = remove.subject.as_ref().into();
                                 let encoded_predicate = remove.predicate.as_ref().into();
                                 let encoded_object = remove.object.as_ref().into();
@@ -498,6 +520,11 @@ impl Verifier {
                                         &direct_causal_past_encoded,
                                         at_current_heads,
                                     )?;
+                                log_info!(
+                                    "direct_causal_past_encoded {:?}",
+                                    direct_causal_past_encoded
+                                );
+                                log_info!("observed_adds {:?}", observed_adds);
                                 for removing in observed_adds {
                                     let graph_encoded = EncodedTerm::NamedNode { iri_id: removing };
                                     let quad_encoded = EncodedQuad::new(
@@ -521,6 +548,10 @@ impl Verifier {
                                             )?
                                             .is_empty()
                                     };
+                                    log_info!(
+                                        "should_remove_ov_triples {}",
+                                        should_remove_ov_triples
+                                    );
                                     if should_remove_ov_triples {
                                         let ov_graphname_ref =
                                             GraphNameRef::NamedNode(ov_graphname.into());
@@ -536,7 +567,24 @@ impl Verifier {
                     Ok(())
                 },
             )
-            .map_err(|e| VerifierError::OxigraphError(e.to_string()))
+            .map_err(|e| VerifierError::OxigraphError(e.to_string()));
+        if res.is_ok() {
+            for update in updates {
+                let graph_patch = update.transaction.as_patch();
+                self.push_app_response(
+                    &update.branch_id,
+                    AppResponse::V0(AppResponseV0::Patch(AppPatch {
+                        commit_id: update.commit_id.to_string(),
+                        commit_info: update.commit_info,
+                        graph: Some(graph_patch),
+                        discrete: None,
+                        other: None,
+                    })),
+                )
+                .await;
+            }
+        }
+        res
     }
 
     pub(crate) async fn process_sparql_update(

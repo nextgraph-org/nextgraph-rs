@@ -208,13 +208,18 @@ impl EventV0 {
         let repo_id = repo.id;
         let store = Arc::clone(&repo.store);
         let branch = repo.branch(branch_id)?;
-        let topic_id = &branch.topic;
+        let topic_id = &branch.topic.unwrap();
         let topic_priv_key = branch
             .topic_priv_key
             .as_ref()
             .ok_or(NgError::PermissionDenied)?;
         let publisher_pubkey = publisher.to_pub();
-        let key = Self::derive_key(&repo_id, branch_id, &branch.read_cap.key, &publisher_pubkey);
+        let key = Self::derive_key(
+            &repo_id,
+            branch_id,
+            &branch.read_cap.as_ref().unwrap().key,
+            &publisher_pubkey,
+        );
         let commit_key = commit.key().unwrap();
         let mut encrypted_commit_key = Vec::from(commit_key.slice());
         let mut nonce = seq.to_le_bytes().to_vec();
@@ -274,7 +279,7 @@ impl EventV0 {
             &repo.store,
             &repo.id,
             &branch.id,
-            &branch.read_cap.key,
+            &branch.read_cap.as_ref().unwrap().key,
             true,
         )
     }

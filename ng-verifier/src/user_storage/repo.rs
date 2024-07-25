@@ -240,7 +240,7 @@ impl<'a> RepoStorage<'a> {
         for branch in branch_ids {
             let info = BranchStorage::load(&branch, storage)?;
             if info.branch_type == BranchType::Overlay {
-                overlay_branch_read_cap = Some(info.read_cap.clone());
+                overlay_branch_read_cap = Some(info.read_cap.clone().unwrap());
             }
             //log_info!("LOADING BRANCH INFO {}", branch);
             //log_info!("TOPIC {}", info.topic);
@@ -263,13 +263,13 @@ impl<'a> RepoStorage<'a> {
                     prop(Self::STORE_REPO, &props).map_err(|_| StorageError::NotAStoreRepo)?;
                 let store_info = branches.get(id).ok_or(StorageError::NotFound)?;
                 let overlay_branch_read_cap = if store_repo.is_private() {
-                    store_info.read_cap.clone()
+                    store_info.read_cap.clone().unwrap()
                 } else {
                     overlay_branch_read_cap.ok_or(StorageError::OverlayBranchNotFound)?
                 };
                 Arc::new(Store::new(
                     store_repo,
-                    store_info.read_cap.clone(),
+                    store_info.read_cap.clone().unwrap(),
                     overlay_branch_read_cap,
                     bs,
                 ))

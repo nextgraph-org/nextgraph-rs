@@ -52,6 +52,8 @@ use std::{io, thread};
 
 use self::numeric_encoder::EncodedTriple;
 
+use ng_repo::log::*;
+
 mod backend;
 mod binary_encoder;
 mod error;
@@ -715,6 +717,7 @@ impl StorageReader {
         graph_name_string: &String,
         iri_id: Option<StrHash>,
     ) -> Result<MatchBy, StorageError> {
+        //log_info!("{}", graph_name_string);
         let graph_name_string_len = graph_name_string.len();
         // TODO: deal with <:v> and <:v:n>
         if graph_name_string_len < 100 {
@@ -725,6 +728,7 @@ impl StorageReader {
         let (repo_part, other_part) = graph_name_string.split_at(100);
 
         let c = RE_REPO.captures(repo_part);
+        //log_info!("{:?}", c);
         let (_repo, overlay) = if c.is_some()
             && c.as_ref().unwrap().get(1).is_some()
             && c.as_ref().unwrap().get(2).is_some()
@@ -746,10 +750,8 @@ impl StorageReader {
 
         // we check that did:ng:o:v is present in dataset
         self.get_str(&ov_hash)?.ok_or::<StorageError>(
-            CorruptionError::msg(
-                "Invalid graph_name (did:ng:o:v part not found) in parse_graph_name",
-            )
-            .into(),
+            CorruptionError::msg(format!("Graph {} not found in dataset", graph_name_string))
+                .into(),
         )?;
 
         Ok(if graph_name_string_len > 100 && iri_id.is_some() {
@@ -948,7 +950,7 @@ impl StorageReader {
                     self.aggregate_causal_past(aggregate, next, cache)?;
                 }
             } else {
-                // we add the last one (that doesnt have past) as it must be the first commit in branch that hold content
+                // we add the last one (that doesnt have past) as it must be the first commit in branch that holds content
                 aggregate.insert(current, false);
             }
         }
@@ -1963,7 +1965,7 @@ pub const COMMIT_PREFIX: u8 = 1;
 
 #[inline]
 fn is_added(val: u8) -> bool {
-    (val & MASK_ADDED) == 1
+    (val & MASK_ADDED) == MASK_ADDED
 }
 
 #[inline]

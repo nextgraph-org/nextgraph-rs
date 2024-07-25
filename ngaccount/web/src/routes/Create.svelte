@@ -250,7 +250,7 @@
                 />
               </svg>
               <span
-                >All the data you exchange with us while using the broker is
+                >All the data you exchange with us while using this broker is
                 end-to-end encrypted and we do not have access to your
                 decryption keys, meaning that we cannot see the content of your
                 documents.</span
@@ -279,7 +279,7 @@
                 to the broker. We collect general purpose information about your
                 device (OS version, browser version, and if you use the app, the
                 version and date of last update). We do not have access to any
-                unique tracking identifier of your device (like Android MAID or
+                unique tracking identifier of your device (like Android MAID/AAID or
                 iPhone IDFA). We could nevertheless be asked by law enforcement
                 authorities, depending on the jurisdiction of the server, to log
                 the IP you use when connecting to the broker, and/or to provide
@@ -305,12 +305,18 @@
                 />
               </svg>
               <span>
-                You can delete your account with us at any time by going to the
-                link <span
-                  style="font-weight: 500;
-                color: #646cff;">account.{domain}/#/delete</span
-                > or by entering in your NextGraph application and selecting the
-                menu, then Accounts, then under broker "delete registration"</span
+                You can delete your account with us at any time by opening your NextGraph application, logging in, 
+                and entering in the User Panel, then Accounts, then under Brokers "delete registration". Before deleting your account with us, make sure you register to another broker before, otherwise you will not be able to sync or share your data with any other users or devices</span
+              >
+            </li>
+            <li class="flex space-x-3">
+              <svg
+                class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+                fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"></path>
+              </svg>
+              <span>
+                Q: I heard that with NextGraph there will be no more ToS to accept. Why then are there some ToS here? <br/> A: You are right that with NextGraph we can do without ToS, when the user is connecting to a self-hosted broker or to an NGbox. As those 2 options are not available yet, we only offer our public Broker Service Provider for now, which needs some ToS to be accepted. Very soon those 2 additional options will be available, but some users might still prefer using our brokers. In any case, the ToS here are minimal and with end-to-end encryption, your data is unreadable to us anyway.</span
               >
             </li>
             <li class="flex space-x-3">
@@ -363,11 +369,11 @@
 
                 <span
                   >By agreeing to those terms, you allow this software to store
-                  some personal data locally in localStorage, the equivalent of
-                  a cookie. This cookie contains your wallet and is never sent
-                  to us. If you delete this cookie without keeping a copy of
-                  your wallet somewhere else, then you will permanently loose
-                  your wallet.
+                  some personal data locally on this device, in localStorage. 
+                  This data contains your wallet and is never sent
+                  to us. It only stays on this device or any other device where you will import your wallet.
+                  If you delete this data without keeping a copy of
+                  your wallet somewhere else, then access to your wallet and all its documents will be permanently lost.
                 </span>
               </li>
             {/if}

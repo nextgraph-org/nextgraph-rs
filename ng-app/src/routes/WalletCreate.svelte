@@ -992,7 +992,7 @@
               </button>
             </div>
 
-            <div class="row mt-5">
+            <!-- <div class="row mt-5">
               <button
                 on:click|once={selectNET}
                 class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
@@ -1014,7 +1014,7 @@
                 </svg>
                 {$t("pages.wallet_create.for_rest")}
               </button>
-            </div>
+            </div> -->
           {/if}
 
           <div class="row mt-5">
@@ -1445,7 +1445,7 @@
                 type="text"
               />
             {/if}
-            <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
+            <!-- <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
               <span class="text-xl"
                 >{@html $t(
                   "pages.wallet_create.save_wallet_options.cloud"
@@ -1470,7 +1470,7 @@
                   "pages.wallet_create.save_wallet_options.cloud_toggle"
                 )}</Toggle
               >
-            </p>
+            </p> -->
             <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
               <span class="text-xl"
                 >{@html $t("pages.wallet_create.save_wallet_options.pdf")}</span
@@ -1486,7 +1486,7 @@
                 )}</Toggle
               >
             </p>
-            {#if !options.cloud}
+            <!-- {#if !options.cloud}
               <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
                 <span class="text-xl"
                   >{@html $t("pages.wallet_create.save_wallet_options.link")}
@@ -1511,7 +1511,7 @@
                   )}</Toggle
                 >
               </p>
-            {/if}
+            {/if} -->
             <button
               on:click|once={do_wallet}
               class="mt-10 mb-20 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"

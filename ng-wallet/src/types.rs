@@ -134,6 +134,8 @@ pub struct SessionInfoString {
     pub session_id: u64,
     pub user: String,
     pub private_store_id: String,
+    pub protected_store_id: String,
+    pub public_store_id: String,
 }
 
 impl From<SessionInfo> for SessionInfoString {
@@ -141,6 +143,8 @@ impl From<SessionInfo> for SessionInfoString {
         SessionInfoString {
             session_id: f.session_id,
             private_store_id: f.private_store_id,
+            protected_store_id: f.protected_store_id,
+            public_store_id: f.public_store_id,
             user: f.user.to_string(),
         }
     }
@@ -151,6 +155,8 @@ pub struct SessionInfo {
     pub session_id: u64,
     pub user: UserId,
     pub private_store_id: String,
+    pub protected_store_id: String,
+    pub public_store_id: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

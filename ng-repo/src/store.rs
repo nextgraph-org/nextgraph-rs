@@ -178,6 +178,7 @@ impl Store {
     fn create_branch(
         &self,
         branch_type: BranchType,
+        crdt: BranchCrdt,
         creator: &UserId,
         creator_priv_key: &PrivKey,
         repo_pub_key: BranchId,
@@ -193,7 +194,7 @@ impl Store {
 
         let branch_commit_body = CommitBody::V0(CommitBodyV0::Branch(Branch::V0(BranchV0 {
             id: branch_pub_key,
-            content_type: BranchContentType::None,
+            crdt: crdt.clone(),
             repo: repository_commit_ref,
             root_branch_readcap_id,
             topic: branch_topic_pub_key,
@@ -227,9 +228,12 @@ impl Store {
         let add_branch_commit_body =
             CommitBody::V0(CommitBodyV0::AddBranch(AddBranch::V0(AddBranchV0 {
                 branch_type: branch_type.clone(),
-                topic_id: branch_topic_pub_key,
                 branch_id: branch_pub_key,
-                branch_read_cap: branch_read_cap.clone(),
+                topic_id: Some(branch_topic_pub_key),
+                branch_read_cap: Some(branch_read_cap.clone()),
+                fork_of: None,
+                merged_in: None,
+                crdt: crdt.clone(),
             })));
 
         let add_branch_commit = Commit::new_with_body_acks_deps_and_save(
@@ -252,9 +256,12 @@ impl Store {
         let branch_info = BranchInfo {
             id: branch_pub_key,
             branch_type,
-            topic: branch_topic_pub_key,
+            topic: Some(branch_topic_pub_key),
             topic_priv_key: Some(branch_topic_priv_key),
-            read_cap: branch_read_cap,
+            read_cap: Some(branch_read_cap),
+            fork_of: None,
+            merged_in: None,
+            crdt,
             current_heads: vec![],
             commits_nbr: 0,
         };
@@ -370,6 +377,7 @@ impl Store {
         let (main_branch_commit, main_add_branch_commit, main_branch_info) =
             self.as_ref().create_branch(
                 BranchType::Main,
+                BranchCrdt::Graph("data:container".to_string()),
                 creator,
                 creator_priv_key,
                 repo_pub_key,
@@ -390,6 +398,7 @@ impl Store {
             let (store_branch_commit, store_add_branch_commit, store_branch_info) =
                 self.as_ref().create_branch(
                     BranchType::Store,
+                    BranchCrdt::None,
                     creator,
                     creator_priv_key,
                     repo_pub_key,
@@ -413,6 +422,7 @@ impl Store {
                 } else {
                     BranchType::Overlay
                 },
+                BranchCrdt::None,
                 creator,
                 creator_priv_key,
                 repo_pub_key,
@@ -451,13 +461,13 @@ impl Store {
         // creating signature for RootBranch, AddBranch and Branch commits
         // signed with owner threshold signature (threshold = 0)
 
-        let mut signed_commits = vec![main_branch_info.read_cap.id];
+        let mut signed_commits = vec![main_branch_info.read_cap.as_ref().unwrap().id];
 
         if let Some((_, store_branch, oou_add_branch, oou_branch)) = &extra_branches {
             signed_commits.append(&mut vec![
                 oou_add_branch.id().unwrap(),
-                store_branch.read_cap.id,
-                oou_branch.read_cap.id,
+                store_branch.read_cap.as_ref().unwrap().id,
+                oou_branch.read_cap.as_ref().unwrap().id,
             ]);
         } else {
             signed_commits.push(main_add_branch_commit.id().unwrap());
@@ -573,8 +583,8 @@ impl Store {
                 creator,
                 *branch_id,
                 QuorumType::IamTheSignature,
-                vec![branch_info.read_cap.clone()],
-                vec![branch_info.read_cap.clone()],
+                vec![branch_info.read_cap.as_ref().unwrap().clone()],
+                vec![branch_info.read_cap.as_ref().unwrap().clone()],
                 sync_sig_commit_body.clone(),
                 &self,
             )?;
@@ -606,9 +616,12 @@ impl Store {
         let root_branch = BranchInfo {
             id: repo_pub_key.clone(),
             branch_type: BranchType::Root,
-            topic: topic_pub_key,
+            topic: Some(topic_pub_key),
             topic_priv_key: Some(topic_priv_key),
-            read_cap: root_branch_readcap.clone(),
+            read_cap: Some(root_branch_readcap.clone()),
+            fork_of: None,
+            merged_in: None,
+            crdt: BranchCrdt::None,
             current_heads: vec![sync_sig_on_root_branch_commit_ref],
             commits_nbr: 0,
         };

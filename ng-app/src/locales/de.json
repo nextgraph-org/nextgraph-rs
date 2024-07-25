@@ -202,7 +202,7 @@
       "pins_no_match": "Du hast nicht zweimal die gleiche PIN eingegeben",
       "almost_done": "Wir sind fast fertig!",
       "save_wallet_options": {
-        "description": "Es gibt 4 Optionen, die du auswählen musst, bevor wir dein Wallet erstellen können. Diese Optionen können dir helfen, dein Wallet zu nutzen und zu behalten. Wir möchten aber auch vorsichtig mit deiner Sicherheit und Privatsphäre umgehen.<br /><br />Denk daran, dass du in jedem Fall, sobald dein Wallet erstellt ist, eine Datei herunterladen wirst, die du privat irgendwo auf deinem Gerät, USB-Stick oder einer Festplatte aufbewahren solltest. Dies ist die Standardmethode, mit der du dein Wallet nutzen und aufbewahren kannst. Die folgenden Wahlmöglichkeiten können dir dein Leben ein wenig erleichtern.",
+        "description": "Es gibt 2 Optionen, die du auswählen musst, bevor wir dein Wallet erstellen können.",
         "trust": "Vertraust du diesem Gerät?",
         "trust_description": "Wenn ja, wenn dieses Gerät dir gehört oder von wenigen vertrauenswürdigen Personen deiner Familie oder deines Arbeitsplatzes genutzt wird und du dich in Zukunft wieder von diesem Gerät aus anmelden möchtest, dann kannst du dein Wallet auf diesem Gerät speichern. Wenn dieses Gerät hingegen öffentlich ist und von Fremden geteilt wird, speichere dein Wallet nicht hier.",
         "trust_toggle": "Mein Wallet auf diesem Gerät speichern?",

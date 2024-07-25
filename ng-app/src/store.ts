@@ -17,8 +17,11 @@ import {
 } from "svelte/store";
 import { register, init, locale, format } from "svelte-i18n";
 import ng from "./api";
+import { persistent_error, update_class, update_branch_display, open_branch, tab_update, change_nav_bar, cur_branch, cur_tab } from "./tab";
+import { encode } from "./base64url";
 
 let all_branches = {};
+let retry_branches = {};
 
 // Make sure that a file named `locales/<lang>.json` exists when adding it here.
 export const available_languages = {
@@ -82,7 +85,9 @@ export const connections: Writable<Record<string, any>> = writable({});
 
 export const active_session = writable(undefined);
 
-export const connection_status: Writable<"disconnected" | "connected" | "connecting"> = writable("disconnected");
+export const redirect_after_login = writable(undefined);
+
+export const connection_status: Writable<"disconnected" | "connected" | "connecting" | "starting"> = writable("starting");
 
 let next_reconnect: NodeJS.Timeout | null = null;
 
@@ -117,7 +122,7 @@ export const check_has_camera = async () => {
     return has_camera;
   };
 
-const updateConnectionStatus = ($connections: Record<string, any>) => {
+const updateConnectionStatus = async ($connections: Record<string, any>) => {
     // Reset error state for PeerAlreadyConnected errors.
     Object.entries($connections).forEach(([cnx, connection]) => {
         if (connection.error === "PeerAlreadyConnected") {
@@ -149,34 +154,50 @@ const updateConnectionStatus = ($connections: Record<string, any>) => {
 
     if (is_connected) {
         connection_status.set("connected");
+        cannot_load_offline.set(false);
+        for (const retry of Object.entries(retry_branches)) {
+            if (!await retry[1]()) {
+                delete retry_branches[retry[0]];
+            }
+        }
     } else if (is_connecting) {
         connection_status.set("connecting");
-    } else {
+    } else if (Object.keys($connections).length) {
         connection_status.set("disconnected");
+        if (get(cannot_load_offline) === undefined) {
+            cannot_load_offline.set(true);
+        }
+        for (const retry of Object.entries(retry_branches)) {
+            if (!await retry[1]()) {
+                delete retry_branches[retry[0]];
+            }
+        }
+    } else {
+        connection_status.set("starting");
     }
 };
-connections.subscribe(($connections) => {
-    updateConnectionStatus($connections);
+connections.subscribe(async ($connections) => {
+    await updateConnectionStatus($connections);
 });
 
 export const online = derived(connection_status, ($connectionStatus) => $connectionStatus == "connected");
 
-export const cannot_load_offline = writable(false);
+export const cannot_load_offline = writable(undefined);
 
-if (get(connection_status) == "disconnected" && !import.meta.env.TAURI_PLATFORM) {
-    cannot_load_offline.set(true);
+// if (get(connection_status) == "disconnected" && !import.meta.env.TAURI_PLATFORM) {
+//     cannot_load_offline.set(true);
 
-    let unsubscribe = connection_status.subscribe(async (value) => {
-        if (value != "disconnected") {
-            cannot_load_offline.set(false);
-            if (value == "connected") {
-                unsubscribe();
-            }
-        } else {
-            cannot_load_offline.set(true);
-        }
-    });
-}
+//     let unsubscribe = connection_status.subscribe(async (value) => {
+//         if (value != "disconnected") {
+//             cannot_load_offline.set(false);
+//             if (value == "connected") {
+//                 unsubscribe();
+//             }
+//         } else {
+//             cannot_load_offline.set(true);
+//         }
+//     });
+// }
 
 export const has_wallets = derived(wallets, ($wallets) => Object.keys($wallets).length);
 
@@ -218,6 +239,7 @@ export const close_active_session = async function() {
         let sub = all_branches[branch];
         sub.unsubscribe();
     }
+    retry_branches = {};
 
 }
 
@@ -245,7 +267,7 @@ export const reconnect = async function() {
             location.href
         ));
     } catch (e) {
-        console.error(e)
+        //console.error(e)
     }
 }
 // export const disconnections_subscribe = async function() {
@@ -286,13 +308,31 @@ readable(false, function start(set) {
 
 can_connect.subscribe(async (value) => {
     if (value[0] && value[0].wallet && value[1]) {
-
+        //setTimeout(async()=> {await reconnect();},5000);
         await reconnect();
     }
 });
 
-export const branch_subs = function(nuri) {
-    // console.log("branch_commits")
+export const digest_to_string = function(digest) {
+    let copy = [...digest.Blake3Digest32];
+    copy.reverse();
+    copy.push(0);
+    let buffer = Uint8Array.from(copy);
+    return encode(buffer.buffer);
+};
+
+export const sparql_update = async function(sparql:string) {
+    let session = get(active_session);
+    if (!session) {
+        console.error("no session");
+        return;
+    }
+    let nuri = "did:ng:"+get(cur_tab).branch.nuri;
+    await ng.sparql_update(session.session_id, nuri, sparql);
+}
+
+export const branch_subscribe = function(nuri:string, in_tab:boolean) {
+    //console.log("branch_subscribe", nuri)
     // const { subscribe, set, update } = writable([]); // create the underlying writable store
 
     // let unsub = () => {};
@@ -320,6 +360,8 @@ export const branch_subs = function(nuri) {
     // // update,
     // };
 
+    open_branch(nuri, in_tab);
+
 
     return {
         load: async () => {
@@ -331,13 +373,16 @@ export const branch_subs = function(nuri) {
                 let loader = already_subscribed.load;
                 already_subscribed.load = undefined;
                 // already_subscribed.load2 = loader;
-                await loader();
+                if (await loader()) {
+                    retry_branches[nuri] = loader;
+                }
             }
         },
         subscribe: (run, invalid) => {
+            //console.log("sub");
             let already_subscribed = all_branches[nuri];
             if (!already_subscribed) {
-                const { subscribe, set, update } = writable([]); // create the underlying writable store
+                const { subscribe, set, update } = writable({graph:[], discrete:[], files:[], history: false, heads: []}); // create the underlying writable store
                 let count = 0;
                 let unsub = () => { };
                 already_subscribed = {
@@ -351,23 +396,132 @@ export const branch_subs = function(nuri) {
                             }
                             unsub();
                             unsub = () => { };
-                            set([]);
-                            let req = await ng.doc_fetch_repo_subscribe(nuri);
+                 
+                            persistent_error(nuri, false);
+                            
+                            let req = await ng.doc_fetch_repo_subscribe("did:ng:"+nuri);
                             req.V0.session_id = session.session_id;
                             unsub = await ng.app_request_stream(req,
-                                async (commit) => {
-                                    //console.log("GOT APP RESPONSE", commit);
-                                    if (commit.V0.State) {
-                                        for (const file of commit.V0.State.files) {
-                                            update((old) => { old.unshift(file); return old; })
+                                async (response) => {
+                                    console.log("GOT APP RESPONSE", response);
+                                    if (response.V0.TabInfo) {
+                                        tab_update(nuri, ($cur_tab) => {
+                                            if (response.V0.TabInfo.branch?.id) {
+                                                //console.log("BRANCH ID",response.V0.TabInfo.branch?.id);
+                                                $cur_tab.branch.id = response.V0.TabInfo.branch.id;
+                                            }
+                                            if (response.V0.TabInfo.branch?.class) {
+                                                $cur_tab = update_class($cur_tab, response.V0.TabInfo.branch.class);
+                                            }
+                                            if (response.V0.TabInfo.branch?.readcap) {
+                                                $cur_tab.branch.readcap = response.V0.TabInfo.branch.readcap;
+                                            }
+                                            if (response.V0.TabInfo.doc?.nuri) {
+                                                $cur_tab.doc.nuri = response.V0.TabInfo.doc.nuri;
+                                            }
+                                            if (response.V0.TabInfo.doc?.can_edit) {
+                                                $cur_tab.doc.can_edit = response.V0.TabInfo.doc.can_edit;
+                                            }
+                                            if (response.V0.TabInfo.doc?.is_store) {
+                                                $cur_tab.doc.is_store = response.V0.TabInfo.doc.is_store;
+                                            }
+                                            if (response.V0.TabInfo.doc?.is_member) {
+                                                $cur_tab.doc.is_member = response.V0.TabInfo.doc.is_member;
+                                            }
+                                            if (response.V0.TabInfo.store?.overlay) {
+                                                $cur_tab.store.overlay = response.V0.TabInfo.store.overlay;
+                                            }
+                                            if (response.V0.TabInfo.store?.store_type) {
+                                                
+                                                if (get(cur_branch) == nuri) {
+                                                    change_nav_bar(`nav:${response.V0.TabInfo.store.store_type}`,get(format)(`doc.${response.V0.TabInfo.store.store_type}_store`), undefined); 
+                                                }
+                                               
+                                                $cur_tab.store.store_type = response.V0.TabInfo.store.store_type;
+                                                
+                                            }
+                                            update_branch_display($cur_tab);
+                                            return $cur_tab;
+                                        });
+                                    } 
+                                    else update((old) => {
+                                        if (response.V0.State) {
+                                            for (const head of response.V0.State.heads) {
+                                                let commitId = digest_to_string(head);
+                                                old.heads.push(commitId);
+                                            }
+                                            for (const file of response.V0.State.files) {
+                                                old.files.unshift(file);
+                                            }
+                                            if (response.V0.State.graph) {
+                                                for (const triple of response.V0.State.graph.triples){
+                                                    // TODO: detect ng:a ng:i ng:n and update the tab accordingly
+                                                    old.graph.push(triple);
+                                                }
+                                                old.graph.sort();
+                                            }
+                                        } else if (response.V0.Patch) {
+                                            let i = old.heads.length;
+                                            while (i--) {
+                                                if (response.V0.Patch.commit_info.past.includes(old.heads[i])) {
+                                                    old.heads.splice(i, 1);
+                                                }
+                                            }
+                                            old.heads.push(response.V0.Patch.commit_id);
+                                            if (old.history!==false) {
+                                                let commit = [response.V0.Patch.commit_id, response.V0.Patch.commit_info];
+                                                if (old.history === true) {
+                                                    old.history = [commit];
+                                                } else {
+                                                    old.history.push(commit);
+                                                }
+                                            }
+                                            if (response.V0.Patch.graph) {
+                                                let duplicates = [];
+                                                for (let i = 0; i < old.graph.length; i++) {
+                                                    if (response.V0.Patch.graph.inserts.includes(old.graph[i])) {
+                                                        duplicates.push(old.graph[i])
+                                                    } else
+                                                    if (response.V0.Patch.graph.removes.includes(old.graph[i])) {//TODO: optimization: remove this triple from the removes list.
+                                                        old.graph.splice(i, 1);
+                                                    }
+                                                }
+                                                for (const insert of response.V0.Patch.graph.inserts){
+                                                    // TODO: detect ng:a ng:i ng:n and update the tab accordingly
+                                                    if (!duplicates.includes(insert)) {
+                                                        old.graph.push(insert);
+                                                    }
+                                                }
+                                                old.graph.sort();
+                                            } else if (response.V0.Patch.other?.FileAdd) {
+                                                old.files.unshift(response.V0.Patch.other.FileAdd);
+                                            } else {
+
+                                            }
                                         }
-                                    } else if (commit.V0.Patch.other?.FileAdd) {
-                                        update((old) => { old.unshift(commit.V0.Patch.other.FileAdd); return old; })
-                                    }
+                                        return old;
+                                    });
                                 });
                         }
                         catch (e) {
-                            console.error(e);
+                            if (e=="RepoNotFound") {
+                                let cnx_status = get(connection_status);
+                                if (cnx_status=="connected" || cnx_status=="disconnected") {
+                                    persistent_error(nuri, {
+                                        title: get(format)("doc.not_found"),
+                                        desc: get(format)(cnx_status=="disconnected"?"doc.not_found_details_offline":"doc.not_found_details_online")
+                                    });
+                                }
+                                if (cnx_status!="connected") return true; 
+                            } else if (e=="InvalidNuri" || e=="InvalidKey") {
+                                persistent_error(nuri, {
+                                    title: get(format)("doc.errors.InvalidNuri"),
+                                    desc: get(format)("doc.errors_details.InvalidNuri")
+                                });
+                            } else {
+                                console.error(e);
+                                // TODO: display persistent_error
+                            }
                         }
                         // this is in case decrease has been called before the load function returned.
                         if (count == 0) { unsub(); }

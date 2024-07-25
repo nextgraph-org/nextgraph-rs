@@ -364,6 +364,7 @@ async fn app_request_stream(
         main_window: tauri::Window,
     ) -> ResultSend<()> {
         while let Some(app_response) = reader.next().await {
+            let app_response = nextgraph::verifier::prepare_app_response_for_js(app_response)?;
             main_window.emit(&stream_id, app_response).unwrap();
         }
 
@@ -391,10 +392,10 @@ async fn doc_fetch_private_subscribe() -> Result<AppRequest, String> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn doc_fetch_repo_subscribe(repo_id: String) -> Result<AppRequest, String> {
+async fn doc_fetch_repo_subscribe(repo_o: String) -> Result<AppRequest, String> {
     let request = AppRequest::new(
         AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
-        NuriV0::new_repo_target_from_string(repo_id).map_err(|e| e.to_string())?,
+        NuriV0::new_from(&repo_o).map_err(|e| e.to_string())?,
         None,
     );
     Ok(request)

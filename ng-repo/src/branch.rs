@@ -37,7 +37,7 @@ impl BranchV0 {
         let topic = topic_priv.to_pub();
         BranchV0 {
             id,
-            content_type: BranchContentType::None,
+            crdt: BranchCrdt::None,
             repo,
             root_branch_readcap_id,
             topic,

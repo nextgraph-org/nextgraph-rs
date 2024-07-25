@@ -38,13 +38,21 @@ impl<'a> BranchStorage<'a> {
     const READ_CAP: u8 = b'r';
     const TOPIC: u8 = b't';
     const COMMITS_NBR: u8 = b'n';
+    const FORK_OF: u8 = b'f';
+    const MERGED_IN: u8 = b'm';
+    const CRDT: u8 = b'd';
+    const CLASS: u8 = b'c';
 
-    const ALL_PROPERTIES: [u8; 5] = [
+    const ALL_PROPERTIES: [u8; 9] = [
         Self::TYPE,
         Self::PUBLISHER,
         Self::READ_CAP,
         Self::TOPIC,
         Self::COMMITS_NBR,
+        Self::FORK_OF,
+        Self::MERGED_IN,
+        Self::CRDT,
+        Self::CLASS,
     ];
 
     const PREFIX_HEADS: u8 = b'h';
@@ -83,6 +91,9 @@ impl<'a> BranchStorage<'a> {
             &info.read_cap,
             &info.branch_type,
             &info.topic,
+            &info.fork_of,
+            &info.merged_in,
+            &info.crdt,
             info.topic_priv_key.as_ref(),
             &info.current_heads,
             storage,
@@ -93,9 +104,12 @@ impl<'a> BranchStorage<'a> {
 
     pub fn create(
         id: &BranchId,
-        read_cap: &ReadCap,
+        read_cap: &Option<ReadCap>,
         branch_type: &BranchType,
-        topic: &TopicId,
+        topic: &Option<TopicId>,
+        fork_of: &Option<BranchId>,
+        merged_in: &Option<BranchId>,
+        crdt: &BranchCrdt,
         publisher: Option<&BranchWriteCapSecret>,
         current_heads: &Vec<ObjectRef>,
         storage: &'a dyn KCVStorage,
@@ -110,12 +124,31 @@ impl<'a> BranchStorage<'a> {
 
         storage.write_transaction(&mut |tx| {
             let id_ser = to_vec(&id)?;
-            let value = to_vec(read_cap)?;
-            tx.put(Self::PREFIX, &id_ser, Some(Self::READ_CAP), &value, &None)?;
+            if read_cap.is_some() {
+                let value = to_vec(read_cap.as_ref().unwrap())?;
+                tx.put(Self::PREFIX, &id_ser, Some(Self::READ_CAP), &value, &None)?;
+            }
+
             let value = to_vec(branch_type)?;
             tx.put(Self::PREFIX, &id_ser, Some(Self::TYPE), &value, &None)?;
-            let value = to_vec(topic)?;
-            tx.put(Self::PREFIX, &id_ser, Some(Self::TOPIC), &value, &None)?;
+            if topic.is_some() {
+                let value = to_vec(topic.as_ref().unwrap())?;
+                tx.put(Self::PREFIX, &id_ser, Some(Self::TOPIC), &value, &None)?;
+            }
+            if merged_in.is_some() {
+                let value = to_vec(merged_in.as_ref().unwrap())?;
+                tx.put(Self::PREFIX, &id_ser, Some(Self::MERGED_IN), &value, &None)?;
+            }
+            if fork_of.is_some() {
+                let value = to_vec(fork_of.as_ref().unwrap())?;
+                tx.put(Self::PREFIX, &id_ser, Some(Self::FORK_OF), &value, &None)?;
+            }
+            if *crdt != BranchCrdt::None {
+                let value = to_vec(&crdt.name())?;
+                tx.put(Self::PREFIX, &id_ser, Some(Self::CRDT), &value, &None)?;
+                let value = to_vec(&crdt.class())?;
+                tx.put(Self::PREFIX, &id_ser, Some(Self::CLASS), &value, &None)?;
+            }
             if let Some(privkey) = publisher {
                 let value = to_vec(privkey)?;
                 tx.put(Self::PREFIX, &id_ser, Some(Self::PUBLISHER), &value, &None)?;
@@ -140,11 +173,22 @@ impl<'a> BranchStorage<'a> {
             &None,
         )?;
 
+        let crdt_name = prop(Self::CRDT, &props).ok();
+        let class = prop(Self::CLASS, &props).ok();
+        let crdt: BranchCrdt = if crdt_name.is_none() || class.is_none() {
+            BranchCrdt::None
+        } else {
+            BranchCrdt::from(crdt_name.unwrap(), class.unwrap())
+        };
+
         let bs = BranchInfo {
             id: id.clone(),
             branch_type: prop(Self::TYPE, &props)?,
-            read_cap: prop(Self::READ_CAP, &props)?,
-            topic: prop(Self::TOPIC, &props)?,
+            read_cap: prop(Self::READ_CAP, &props).ok(),
+            topic: prop(Self::TOPIC, &props).ok(),
+            fork_of: prop(Self::FORK_OF, &props).ok(),
+            merged_in: prop(Self::MERGED_IN, &props).ok(),
+            crdt,
             topic_priv_key: prop(Self::PUBLISHER, &props).ok(),
             current_heads: Self::get_all_heads(id, storage)?,
             commits_nbr: prop(Self::COMMITS_NBR, &props).unwrap_or(0),

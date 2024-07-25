@@ -65,7 +65,8 @@
     Bolt,
     Heart,
     Cog,
-    Square3Stack3d
+    Square3Stack3d,
+    ChatBubbleLeftRight,
   } from "svelte-heros-v2";
 
   export let config = {};
@@ -74,64 +75,65 @@
   const exact_mapping = {
     page: Window,
     "app": Cog,
-    "app/z": SquaresPlus,
+    "app:z": SquaresPlus,
     class: ViewfinderCircle,
     contract: Briefcase,
-    "query/text": MagnifyingGlass,
-    "query/web": MagnifyingGlass,
-    "data/graph": Sun,
-    "data/table": TableCells,
-    "data/collection": ListBullet,
-    "data/container": Square3Stack3d,
-    "data/board": RectangleGroup,
-    "data/grid": Squares2x2,
-    "data/geomap": MapPin,
-    "e/email": Envelope,
-    "mc/text": Bars3BottomLeft,
-    "mc/link": Link,
+    "query:text": MagnifyingGlass,
+    "query:web": MagnifyingGlass,
+    "data:graph": Sun,
+    "data:table": TableCells,
+    "data:collection": ListBullet,
+    "data:container": Square3Stack3d,
+    "data:board": RectangleGroup,
+    "data:grid": Squares2x2,
+    "data:geomap": MapPin,
+    "e:email": Envelope,
+    "mc:text": Bars3BottomLeft,
+    "mc:link": Link,
     "plato/card": Clipboard,
     "plato/pad": Square2Stack,
-    "media/image": Photo,
-    "media/reel": Film,
-    "media/video": Film,
-    "media/album": RectangleStack,
-    "media/audio": Microphone,
-    "media/song": MusicalNote,
-    "media/subtitle": Ticket,
-    "media/overlay": CursorArrowRays,
-    "social/channel": Megaphone,
-    "social/stream": Bolt,
-    "social/contact": User,
-    "social/event": Clock,
-    "social/calendar": CalendarDays,
-    "social/scheduler": Calendar,
-    "social/reaction": Heart,
-    "prod/task": Stop,
-    "prod/project": Flag,
-    "prod/issue": HandRaised,
-    "prod/form": Newspaper,
-    "prod/filling": PencilSquare,
-    "prod/cad": CubeTransparent,
-    "prod/slides": PresentationChartBar,
-    "prod/question": QuestionMarkCircle,
-    "prod/answer": CheckCircle,
-    "prod/poll": QuestionMarkCircle,
-    "prod/vote": CheckCircle,
+    "media:image": Photo,
+    "media:reel": Film,
+    "media:video": Film,
+    "media:album": RectangleStack,
+    "media:audio": Microphone,
+    "media:song": MusicalNote,
+    "media:subtitle": Ticket,
+    "media:overlay": CursorArrowRays,
+    "social:channel": Megaphone,
+    "social:stream": Bolt,
+    "social:contact": User,
+    "social:event": Clock,
+    "social:calendar": CalendarDays,
+    "social:scheduler": Calendar,
+    "social:reaction": Heart,
+    "social:chatroom": ChatBubbleLeftRight,
+    "prod:task": Stop,
+    "prod:project": Flag,
+    "prod:issue": HandRaised,
+    "prod:form": Newspaper,
+    "prod:filling": PencilSquare,
+    "prod:cad": CubeTransparent,
+    "prod:slides": PresentationChartBar,
+    "prod:question": QuestionMarkCircle,
+    "prod:answer": CheckCircle,
+    "prod:poll": QuestionMarkCircle,
+    "prod:vote": CheckCircle,
   };
 
   const prefix_mapping = {
-    "post/": DocumentText,
+    "post:": DocumentText,
     code: CodeBracket,
     schema: ArrowsPointingOut,
     service: Cube,
-    "e/": GlobeAlt,
-    "app/": StopCircle,
-    "query/": RocketLaunch,
-    "data/": CircleStack,
-    "doc/diagram": DocumentChartBar,
-    "doc/chart": ChartPie,
-    "doc/viz": ChartPie,
-    "doc/": ClipboardDocumentList,
+    "e:": GlobeAlt,
+    "app:": StopCircle,
+    "query:": RocketLaunch,
+    "data:": CircleStack,
+    "doc:diagram": DocumentChartBar,
+    "doc:chart": ChartPie,
+    "doc:viz": ChartPie,
+    "doc:": ClipboardDocumentList,
     file: Document,
   };
 
@@ -147,7 +149,7 @@
 
 <!--
 did:ng:n:g:z:[official apps]
-did:ng:n:g:ns
+did:ng:n:g:x:ng
 did:ng:n:g:x list of context used by nextgraph
   rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#
   rdfs: http://www.w3.org/2000/01/rdf-schema#
@@ -171,19 +173,19 @@ did:ng:n:g:x list of context used by nextgraph
   geo: http://www.opengis.net/ont/geosparql#
   time: http://www.w3.org/2006/time#
 
-  ng: did:ng:n:g:ns# or http://nextgraph.org/ns#
+  ng: did:ng:n:g:x:ng# or http://nextgraph.org/x:ng#
 
-did:ng:n:g:ns#post/rich
-ng:class => shortcut for did:ng:n:g:ns#class
+did:ng:n:g:x:ng#post:rich
+ng:class => shortcut for did:ng:n:g:x:ng#class
 a rdfs:Class
 a ng:class
 did:ng:o:xxxx:yy:yy
 did:ng:n:xx.xx#name
-did:ng:n:x: curated list of ontologies
+did:ng:x: curated list of ontologies
 did:ng:k common list of things (keyword)
-did:ng:n:c common data
-did:ng:n:z: curated list of external apps and services
-http://nextgraph.org/ns# => the ng: ontology (did:ng:n:g:ns#)
+did:ng:n:g:a common data
+did:ng:z: curated list of external apps and services (app store)
+http://nextgraph.org/x:ng# => the ng: ontology (did:ng:n:g:x:ng#)
 
 ng:compat -> owl:unionOf rdf:List (alphabetical order, including itself as first element)
 

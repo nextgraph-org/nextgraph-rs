@@ -21,7 +21,12 @@
       Bolt,
       Megaphone,
       QuestionMarkCircle,
+      ExclamationCircle,
       Key,
+      LockClosed,
+      GlobeAlt,
+      UserGroup,
+      PaperAirplane,
     } from "svelte-heros-v2";
   
     import DataClassIcon from "../DataClassIcon.svelte";
@@ -33,6 +38,11 @@
       stream: Bolt,
       channel: Megaphone,
       private: Key,
+      protected: LockClosed,
+      public: GlobeAlt,
+      group: UserGroup,
+      dialog: PaperAirplane,
+      unknown_doc: ExclamationCircle,
     };
   
     const find = (dataClass: string) => {

@@ -93,6 +93,7 @@ pub mod verifier {
     pub mod protocol {
         pub use ng_net::app_protocol::*;
     }
+    pub use ng_verifier::prepare_app_response_for_js;
 }
 
 pub mod wallet {

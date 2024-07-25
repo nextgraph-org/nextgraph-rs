@@ -32,9 +32,9 @@
     active_session,
     set_active_session,
     has_wallets,
-    scanned_qr_code,
     display_error,
     wallet_from_import,
+    redirect_after_login
   } from "../store";
   import { CheckBadge, ExclamationTriangle, QrCode } from "svelte-heros-v2";
 
@@ -107,7 +107,14 @@
 
   function loggedin() {
     step = "loggedin";
-    push("#/");
+    if ($redirect_after_login) {
+      let redir=$redirect_after_login; 
+      $redirect_after_login=undefined; 
+      push("#"+redir);
+    } else {
+      push("#/");
+    }
+    
   }
 
   function start_login_from_import() {
@@ -364,15 +371,17 @@
           <a href="/wallet/login-qr" use:link>
             <button
               style="justify-content: left;"
+              tabindex="-1"
               class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
             >
-              <QrCode class="w-8 h-8 mr-2 -ml-1" />
+              <QrCode class="w-8 h-8 mr-2 -ml-1" tabindex="-1"/>
               {$t("pages.wallet_login.import_qr")}
             </button>
           </a>
           <a href="/wallet/login-text-code" use:link>
             <button
               style="justify-content: left;"
+              tabindex="-1"
               class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
             >
               <svg

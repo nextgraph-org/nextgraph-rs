@@ -21,6 +21,7 @@ use async_std::sync::Mutex;
 use async_std::sync::{Arc, RwLock};
 use either::Either;
 use futures::channel::mpsc;
+use futures::channel::mpsc::UnboundedSender;
 use futures::SinkExt;
 use once_cell::sync::Lazy;
 
@@ -115,12 +116,15 @@ pub struct ServerConfig {
     pub bootstrap: BootstrapContent,
 }
 
-#[doc(hidden)]
-#[async_trait::async_trait]
-pub trait ILocalBroker: Send + Sync + EActor {
-    async fn deliver(&mut self, event: Event, overlay: OverlayId, user: UserId);
-
-    async fn user_disconnected(&mut self, user_id: UserId);
+pub enum LocalBrokerMessage {
+    Deliver {
+        event: Event,
+        overlay: OverlayId,
+        user: UserId,
+    },
+    Disconnected {
+        user_id: UserId,
+    },
 }
 
 pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new(Broker::new())));
@@ -139,7 +143,7 @@ pub struct Broker {
     server_broker: Option<Arc<RwLock<dyn IServerBroker + Send + Sync>>>,
 
     //local_broker: Option<Box<dyn ILocalBroker + Send + Sync + 'a>>,
-    local_broker: Option<Arc<RwLock<dyn ILocalBroker>>>,
+    local_broker: Option<UnboundedSender<LocalBrokerMessage>>,
 
     #[cfg(not(target_arch = "wasm32"))]
     listeners: HashMap<String, ListenerInfo>,
@@ -197,9 +201,9 @@ impl Broker {
     }
 
     #[doc(hidden)]
-    pub fn set_local_broker(&mut self, broker: Arc<RwLock<dyn ILocalBroker>>) {
+    pub fn set_local_broker(&mut self, pump: UnboundedSender<LocalBrokerMessage>) {
         //log_debug!("set_local_broker");
-        self.local_broker = Some(broker);
+        self.local_broker = Some(pump);
     }
 
     pub fn set_server_config(&mut self, config: ServerConfig) {
@@ -246,12 +250,14 @@ impl Broker {
     // }
 
     //Option<Arc<RwLock<dyn ILocalBroker>>>,
-    pub(crate) fn get_local_broker(&self) -> Result<Arc<RwLock<dyn ILocalBroker>>, ProtocolError> {
-        Ok(Arc::clone(
-            self.local_broker
-                .as_ref()
-                .ok_or(ProtocolError::NoLocalBrokerFound)?,
-        ))
+    pub(crate) fn get_local_broker(
+        &self,
+    ) -> Result<UnboundedSender<LocalBrokerMessage>, ProtocolError> {
+        Ok(self
+            .local_broker
+            .as_ref()
+            .ok_or(ProtocolError::NoLocalBrokerFound)?
+            .clone())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -1020,7 +1026,7 @@ impl Broker {
             _peer_pubkey: PubKey,
             remote_peer_id: [u8; 32],
             config: StartConfig,
-            local_broker: Arc<async_std::sync::RwLock<dyn ILocalBroker>>,
+            mut local_broker: UnboundedSender<LocalBrokerMessage>,
         ) -> ResultSend<()> {
             async move {
                 let res = join.next().await;
@@ -1046,7 +1052,9 @@ impl Broker {
 
                     // if all attempts fail :
                     if let Some(user) = config.get_user() {
-                        local_broker.write().await.user_disconnected(user).await;
+                        let _ = local_broker
+                            .send(LocalBrokerMessage::Disconnected { user_id: user })
+                            .await;
                     }
                 } else {
                     log_debug!("REMOVED");
