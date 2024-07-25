@@ -11,6 +11,9 @@ import topLevelAwait from "vite-plugin-top-level-await";
 export default defineConfig(async () => {
   const host = await internalIpV4()
   const config = {
+  // optimizeDeps: {
+  //   exclude: ["codemirror", "@codemirror/legacy-modes/mode/sparql"]
+  // },
   worker: {
     format: 'es',
     plugins : [

@@ -21,10 +21,9 @@ use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 // use js_sys::Reflect;
 use async_std::stream::StreamExt;
-use js_sys::Array;
+use js_sys::{Array, Object};
 use oxrdf::Triple;
 use sys_locale::get_locales;
 use wasm_bindgen::prelude::*;
@@ -303,15 +302,19 @@ pub async fn sparql_query(session_id: JsValue, sparql: String) -> Result<JsValue
     }
 }
 
-#[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
-pub async fn sparql_update(session_id: JsValue, sparql: String) -> Result<(), String> {
+pub async fn sparql_update(
+    session_id: JsValue,
+    nuri: String,
+    sparql: String,
+) -> Result<(), String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Invalid session_id".to_string())?;
+    let nuri = NuriV0::new_from(&nuri).map_err(|_| "Deserialization error of Nuri".to_string())?;
 
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::new_write_query(),
-        nuri: NuriV0::new_private_store_target(),
+        nuri,
         payload: Some(AppRequestPayload::new_sparql_query(sparql)),
         session_id,
     });
@@ -765,7 +768,50 @@ pub async fn app_request_stream(
         callback: js_sys::Function,
     ) -> ResultSend<()> {
         while let Some(app_response) = reader.next().await {
+            let app_response = nextgraph::verifier::prepare_app_response_for_js(app_response)?;
+            //let mut graph_triples_js: Option<JsValue> = None;
+            // if let AppResponse::V0(AppResponseV0::State(AppState { ref mut graph, .. })) =
+            //     app_response
+            // {
+            //     if graph.is_some() {
+            //         let graph_state = graph.take().unwrap();
+            //         let triples: Vec<Triple> = serde_bare::from_slice(&graph_state.triples)
+            //             .map_err(|_| "Deserialization error of graph".to_string())?;
+
+            //         let results = Array::new();
+            //         for triple in triples {
+            //             results.push(&JsQuad::from(triple).into());
+            //         }
+            //         let list:JsValue = results.into();
+            //         list.
+            //     };
+            // };
             let response_js = serde_wasm_bindgen::to_value(&app_response).unwrap();
+            // if let Some(graph_triples) = graph_triples_js {
+            //     let response: Object = response_js.try_into().map_err(|_| {
+            //         "Error while adding triples to AppResponse.V0.State".to_string()
+            //     })?;
+            //     let v0 = Object::get_own_property_descriptor(&response, &JsValue::from_str("V0"));
+            //     let v0_obj: Object = v0.try_into().map_err(|_| {
+            //         "Error while adding triples to AppResponse.V0.State".to_string()
+            //     })?;
+            //     let state =
+            //         Object::get_own_property_descriptor(&v0_obj, &JsValue::from_str("State"));
+            //     let state_obj: Object = state.try_into().map_err(|_| {
+            //         "Error while adding triples to AppResponse.V0.State".to_string()
+            //     })?;
+            //     let kv = Array::new_with_length(2);
+            //     kv.push(&JsValue::from_str("triples"));
+            //     kv.push(&graph_triples);
+            //     let entries = Array::new_with_length(1);
+            //     entries.push(&kv.into());
+            //     let graph = Object::from_entries(&entries).map_err(|_| {
+            //         "Error while creating the triples for AppResponse.V0.State.graph".to_string()
+            //     })?;
+            //     let response =
+            //         Object::define_property(&state_obj, &JsValue::from_str("graph"), &graph);
+            //     response_js = response.into();
+            // };
             let this = JsValue::null();
             match callback.call1(&this, &response_js) {
                 Ok(jsval) => {
@@ -1024,7 +1070,7 @@ pub async fn file_put_to_private_store(
         .map_err(|e| e.as_string().unwrap())?;
     let reference = serde_wasm_bindgen::from_value::<ObjectRef>(reference)
         .map_err(|_| "Deserialization error of reference".to_string())?;
-    let nuri = format!("did:ng{}", reference.nuri());
+    let nuri = format!("did:ng:{}", reference.object_nuri());
     Ok(nuri)
 }
 
@@ -1098,10 +1144,10 @@ pub async fn doc_fetch_private_subscribe() -> Result<JsValue, String> {
 }
 
 #[wasm_bindgen]
-pub async fn doc_fetch_repo_subscribe(repo_id: String) -> Result<JsValue, String> {
+pub async fn doc_fetch_repo_subscribe(repo_o: String) -> Result<JsValue, String> {
     let request = AppRequest::new(
         AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
-        NuriV0::new_repo_target_from_string(repo_id).map_err(|e| e.to_string())?,
+        NuriV0::new_from(&repo_o).map_err(|e| e.to_string())?,
         None,
     );
     Ok(serde_wasm_bindgen::to_value(&request).unwrap())

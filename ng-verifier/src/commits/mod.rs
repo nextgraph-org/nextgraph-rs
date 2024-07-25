@@ -110,9 +110,12 @@ impl CommitVerifier for RootBranch {
                 let root_branch = BranchInfo {
                     id: root_branch.id.clone(),
                     branch_type: BranchType::Root,
-                    topic: root_branch.topic,
+                    topic: Some(root_branch.topic),
                     topic_priv_key,
-                    read_cap: reference.clone(),
+                    read_cap: Some(reference.clone()),
+                    fork_of: None,
+                    crdt: BranchCrdt::None,
+                    merged_in: None,
                     current_heads: vec![reference.clone()],
                     commits_nbr: 1,
                 };
@@ -180,7 +183,7 @@ impl CommitVerifier for Branch {
                 let reference = commit.reference().unwrap();
 
                 let branch_info = repo.branch_mut(&branch.id)?;
-                if branch_info.read_cap != reference {
+                if branch_info.read_cap.as_ref().unwrap() != &reference {
                     return Err(VerifierError::InvalidBranch);
                 }
                 branch_info.topic_priv_key = topic_priv_key;
@@ -248,12 +251,17 @@ impl CommitVerifier for AddBranch {
                     return Err(VerifierError::InvalidBranch);
                 }
 
+                // TODO fetch the readcap and verify that crdt and other infos in Branch definition are the same as in AddBranch commit
+
                 let branch_info = BranchInfo {
                     id: v0.branch_id,
                     branch_type: v0.branch_type.clone(),
                     topic: v0.topic_id,
                     topic_priv_key: None,
                     read_cap: v0.branch_read_cap.clone(),
+                    fork_of: v0.fork_of,
+                    merged_in: v0.merged_in,
+                    crdt: v0.crdt.clone(),
                     current_heads: vec![],
                     commits_nbr: 0,
                 };
@@ -467,8 +475,8 @@ impl CommitVerifier for AddFile {
                 .push_app_response(
                     branch_id,
                     AppResponse::V0(AppResponseV0::Patch(AppPatch {
-                        commit_id,
-                        commit_info: commit.as_info(repo),
+                        commit_id: commit_id.to_string(),
+                        commit_info: (&commit.as_info(repo)).into(),
                         graph: None,
                         discrete: None,
                         other: Some(OtherPatch::FileAdd(filename)),

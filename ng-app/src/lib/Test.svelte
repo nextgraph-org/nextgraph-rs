@@ -17,7 +17,7 @@
   } from "../history/gitgraph-js/gitgraph";
   import ng from "../api";
   import {
-    branch_subs,
+    branch_subscribe,
     active_session,
     cannot_load_offline,
     online,
@@ -25,7 +25,7 @@
   } from "../store";
   import { link } from "svelte-spa-router";
   import { onMount, onDestroy, tick } from "svelte";
-  import { Button, Progressbar, Spinner } from "flowbite-svelte";
+  import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
   import DataClassIcon from "./DataClassIcon.svelte";
   import { t } from "svelte-i18n";
   let is_tauri = import.meta.env.TAURI_PLATFORM;
@@ -33,7 +33,7 @@
   let upload_progress: null | { total: number; current: number; error?: any } =
     null;
 
-  let files = $active_session && branch_subs($active_session.private_store_id);
+  let commits = $active_session && branch_subscribe($active_session.private_store_id, true);
 
   let gitgraph;
 
@@ -658,16 +658,14 @@
   <div id="graph-container"></div>
   {#if $cannot_load_offline}
     <div class="row p-4">
-      <p>
-        {@html $t("pages.test.cannot_load_offline")}
+       <Alert color="yellow">
+        {@html $t("doc.cannot_load_offline")}
         <a href="#/user">{$t("pages.user_panel.title")}</a>.
-      </p>
+      </Alert>
     </div>
   {:else}
     <div class="row pt-2">
-      <!-- <a use:link href="/">
-      <button tabindex="-1" class=" mr-5 select-none"> Back home </button>
-    </a> -->
+      
       <Button
         type="button"
         on:click={() => {
@@ -721,11 +719,13 @@
         />
       </div>
     {/if}
-    {#if files}
-      {#await files.load()}
+    {#if commits}
+      {#await commits.load()}
         <p>{$t("connectivity.loading")}...</p>
       {:then}
-        {#each $files as file}
+        {#each $commits.graph as triple} {triple}<br/> {/each}
+        {#each $commits.heads as head} {head} <br/> {/each}
+        {#each $commits.files as file}
           <p>
             {file.name}
 

@@ -463,8 +463,13 @@ impl BlockRef {
         BlockRef { id, key }
     }
 
-    pub fn nuri(&self) -> String {
-        format!(":j:{}:k:{}", self.id, self.key)
+    pub fn object_nuri(&self) -> String {
+        format!("j:{}:k:{}", self.id, self.key)
+    }
+
+    pub fn readcap_nuri(&self) -> String {
+        let ser = serde_bare::to_vec(self).unwrap();
+        format!("r:{}", base64_url::encode(&ser))
     }
 
     pub fn tokenize(&self) -> Digest {
@@ -627,33 +632,51 @@ pub enum StoreOverlayV0 {
     Dialog(Digest),
 }
 
+impl fmt::Display for StoreOverlayV0 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "StoreOverlay V0 ")?;
+        match self {
+            StoreOverlayV0::PublicStore(k) => writeln!(f, "PublicStore: {}", k),
+            StoreOverlayV0::ProtectedStore(k) => writeln!(f, "ProtectedStore: {}", k),
+            StoreOverlayV0::PrivateStore(k) => writeln!(f, "PrivateStore: {}", k),
+            StoreOverlayV0::Group(k) => writeln!(f, "Group: {}", k),
+            StoreOverlayV0::Dialog(k) => writeln!(f, "Dialog: {}", k),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum StoreOverlay {
     V0(StoreOverlayV0),
-    Own(BranchId), // The repo is a store, so the overlay can be derived from its own ID. In this case, the branchId of the `overlay` branch is entered here.
+    OwnV0(StoreOverlayV0), // The repo is a store, so the overlay can be derived from its own ID. In this case, the branchId of the `overlay` branch is entered here as PubKey of the StoreOverlayV0 variants.
 }
 
 impl fmt::Display for StoreOverlay {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::V0(v0) => {
-                write!(f, "StoreOverlay V0 ")?;
-                match v0 {
-                    StoreOverlayV0::PublicStore(k) => writeln!(f, "PublicStore: {}", k),
-                    StoreOverlayV0::ProtectedStore(k) => writeln!(f, "ProtectedStore: {}", k),
-                    StoreOverlayV0::PrivateStore(k) => writeln!(f, "PrivateStore: {}", k),
-                    StoreOverlayV0::Group(k) => writeln!(f, "Group: {}", k),
-                    StoreOverlayV0::Dialog(k) => writeln!(f, "Dialog: {}", k),
-                }
-            }
-            Self::Own(b) => writeln!(f, "Own: {}", b),
+            Self::V0(v0) => writeln!(f, "{}", v0),
+            Self::OwnV0(v0) => writeln!(f, "Own: {}", v0),
         }
     }
 }
 
 impl StoreOverlay {
-    pub fn from_store_repo(overlay_branch: BranchId) -> StoreOverlay {
-        StoreOverlay::Own(overlay_branch)
+    pub fn from_store_repo(store_repo: &StoreRepo, overlay_branch: BranchId) -> StoreOverlay {
+        match store_repo {
+            StoreRepo::V0(v0) => match v0 {
+                StoreRepoV0::PublicStore(_id) => {
+                    StoreOverlay::V0(StoreOverlayV0::PublicStore(overlay_branch))
+                }
+                StoreRepoV0::ProtectedStore(_id) => {
+                    StoreOverlay::V0(StoreOverlayV0::ProtectedStore(overlay_branch))
+                }
+                StoreRepoV0::PrivateStore(_id) => {
+                    StoreOverlay::V0(StoreOverlayV0::PrivateStore(overlay_branch))
+                }
+                StoreRepoV0::Group(_id) => StoreOverlay::V0(StoreOverlayV0::Group(overlay_branch)),
+                StoreRepoV0::Dialog((_, d)) => StoreOverlay::V0(StoreOverlayV0::Dialog(d.clone())),
+            },
+        }
     }
 
     pub fn overlay_id_for_read_purpose(&self) -> OverlayId {
@@ -663,7 +686,7 @@ impl StoreOverlay {
             | StoreOverlay::V0(StoreOverlayV0::PrivateStore(id))
             | StoreOverlay::V0(StoreOverlayV0::Group(id)) => OverlayId::outer(id),
             StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => OverlayId::Inner(d.clone().to_slice()),
-            StoreOverlay::Own(_) => unimplemented!(),
+            StoreOverlay::OwnV0(_) => unimplemented!(),
         }
     }
 
@@ -679,7 +702,7 @@ impl StoreOverlay {
                 OverlayId::inner(id, &store_overlay_branch_readcap_secret)
             }
             StoreOverlay::V0(StoreOverlayV0::Dialog(d)) => OverlayId::Inner(d.clone().to_slice()),
-            StoreOverlay::Own(_) => unimplemented!(),
+            StoreOverlay::OwnV0(_) => unimplemented!(),
         }
     }
 }
@@ -739,6 +762,19 @@ impl fmt::Display for StoreRepo {
 }
 
 impl StoreRepo {
+    pub fn store_type_for_app(&self) -> String {
+        match self {
+            Self::V0(v0) => match v0 {
+                StoreRepoV0::PublicStore(_) => "public",
+                StoreRepoV0::ProtectedStore(_) => "protected",
+                StoreRepoV0::PrivateStore(_) => "private",
+                StoreRepoV0::Group(_) => "group",
+                StoreRepoV0::Dialog(_) => "dialog",
+            },
+        }
+        .to_string()
+    }
+
     pub fn repo_id(&self) -> &RepoId {
         match self {
             Self::V0(v0) => match v0 {
@@ -1292,17 +1328,59 @@ pub enum Quorum {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum BranchContentType {
-    Graph,
-    YMap,
-    YXml,
-    YText,
-    Automerge,
+pub enum BranchCrdt {
+    Graph(String),
+    YMap(String),
+    YArray(String),
+    YXml(String),
+    YText(String),
+    Automerge(String),
+    Elmer(String),
     //Rdfs,
     //Owl,
     //Shacl,
     //Shex,
-    None, // this is used by Overlay and User BranchTypes
+    None, // this is used by Overlay, Store and User BranchTypes
+}
+
+impl BranchCrdt {
+    pub fn name(&self) -> String {
+        match self {
+            BranchCrdt::Graph(_) => "Graph",
+            BranchCrdt::YMap(_) => "YMap",
+            BranchCrdt::YArray(_) => "YArray",
+            BranchCrdt::YXml(_) => "YXml",
+            BranchCrdt::YText(_) => "YText",
+            BranchCrdt::Automerge(_) => "Automerge",
+            BranchCrdt::Elmer(_) => "Elmer",
+            BranchCrdt::None => panic!("BranchCrdt::None does not have a name"),
+        }
+        .to_string()
+    }
+    pub fn class(&self) -> &String {
+        match self {
+            BranchCrdt::Graph(c)
+            | BranchCrdt::YMap(c)
+            | BranchCrdt::YArray(c)
+            | BranchCrdt::YXml(c)
+            | BranchCrdt::YText(c)
+            | BranchCrdt::Automerge(c)
+            | BranchCrdt::Elmer(c) => c,
+            BranchCrdt::None => panic!("BranchCrdt::None does not have a class"),
+        }
+    }
+    pub fn from(name: String, class: String) -> Self {
+        match name.as_str() {
+            "Graph" => BranchCrdt::Graph(class),
+            "YMap" => BranchCrdt::YMap(class),
+            "YArray" => BranchCrdt::YArray(class),
+            "YXml" => BranchCrdt::YXml(class),
+            "YText" => BranchCrdt::YText(class),
+            "Automerge" => BranchCrdt::Automerge(class),
+            "Elmer" => BranchCrdt::Elmer(class),
+            _ => panic!("Invalid CRDT name"),
+        }
+    }
 }
 
 /// Branch definition
@@ -1318,7 +1396,7 @@ pub struct BranchV0 {
     /// Branch public key ID
     pub id: PubKey,
 
-    pub content_type: BranchContentType,
+    pub crdt: BranchCrdt,
 
     /// Reference to the repository commit
     pub repo: ObjectRef,
@@ -1383,8 +1461,7 @@ pub enum BranchType {
     Comments,
     BackLinks,
     Context,
-    Ontology,
-
+    //Ontology,
     Transactional, // this could have been called OtherTransactional, but for the sake of simplicity, we use Transactional for any branch that is not the Main one.
     Root,          // only used for BranchInfo
                    //Unknown, // only used temporarily when loading a branch info from commits (Branch commit, then AddBranch commit)
@@ -1416,7 +1493,7 @@ impl fmt::Display for BranchType {
                 Self::Comments => "Comments",
                 Self::BackLinks => "BackLinks",
                 Self::Context => "Context",
-                Self::Ontology => "Ontology",
+                //Self::Ontology => "Ontology",
                 //Self::Unknown => "==unknown==",
             }
         )
@@ -1428,17 +1505,24 @@ impl fmt::Display for BranchType {
 /// DEPS: if update branch: previous AddBranch commit of the same branchId
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AddBranchV0 {
-    /// the new topic_id (will be needed immediately by future readers
-    /// in order to subscribe to the pub/sub). should be identical to the one in the Branch definition
-    pub topic_id: TopicId,
+    // the new topic_id (will be needed immediately by future readers
+    // in order to subscribe to the pub/sub). should be identical to the one in the Branch definition.
+    // None if merged_in
+    pub topic_id: Option<TopicId>,
+    // the new branch definition commit
+    // (we need the ObjectKey in order to open the pub/sub Event)
+    // None if merged_in
+    pub branch_read_cap: Option<ReadCap>,
+
+    pub crdt: BranchCrdt,
 
     pub branch_id: BranchId,
 
     pub branch_type: BranchType,
 
-    // the new branch definition commit
-    // (we need the ObjectKey in order to open the pub/sub Event)
-    pub branch_read_cap: ReadCap,
+    pub fork_of: Option<BranchId>,
+
+    pub merged_in: Option<BranchId>,
 }
 
 impl fmt::Display for AddBranch {
@@ -1446,8 +1530,23 @@ impl fmt::Display for AddBranch {
         match self {
             Self::V0(v0) => {
                 writeln!(f, "V0         {}", v0.branch_type)?;
-                writeln!(f, "topic_id:         {}", v0.topic_id)?;
-                writeln!(f, "branch_read_cap:  {}", v0.branch_read_cap)?;
+                writeln!(f, "branch_id: {}", v0.branch_id)?;
+                if v0.topic_id.is_some() {
+                    writeln!(f, "topic_id:  {}", v0.topic_id.as_ref().unwrap())?;
+                }
+                if v0.branch_read_cap.is_some() {
+                    writeln!(
+                        f,
+                        "branch_read_cap: {}",
+                        v0.branch_read_cap.as_ref().unwrap()
+                    )?;
+                }
+                if v0.fork_of.is_some() {
+                    writeln!(f, "fork_of:   {}", v0.fork_of.as_ref().unwrap())?;
+                }
+                if v0.merged_in.is_some() {
+                    writeln!(f, "merged_in: {}", v0.merged_in.as_ref().unwrap())?;
+                }
                 Ok(())
             }
         }

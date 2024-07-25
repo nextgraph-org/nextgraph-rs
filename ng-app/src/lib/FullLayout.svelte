@@ -18,7 +18,7 @@
     Modal,
     Toggle,
   } from "flowbite-svelte";
-  import { link, location } from "svelte-spa-router";
+  import { link, location, push } from "svelte-spa-router";
   import MobileBottomBarItem from "./MobileBottomBarItem.svelte";
   import MobileBottomBar from "./MobileBottomBar.svelte";
   import NavIcon from "./components/NavIcon.svelte";
@@ -30,9 +30,12 @@
   // @ts-ignore
   import { t } from "svelte-i18n";
   import { onMount, tick } from "svelte";
-  import { cur_branch_has_discrete, cur_tab, cur_viewer, cur_editor, toggle_graph_discrete, open_doc, 
+  import { cur_tab, cur_viewer, cur_editor, toggle_graph_discrete, cur_tab_update,
           available_editors, available_viewers, set_editor, set_viewer, set_view_or_edit, toggle_live_edit,
-          has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu } from "../tab";
+          has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu, show_modal_menu } from "../tab";
+  import {
+    active_session, redirect_after_login,
+  } from "../store";
   import ZeraIcon from "./ZeraIcon.svelte";
 
   import {
@@ -81,6 +84,7 @@
     PaperClip,
     XMark,
     ArrowLeft,
+    ArchiveBox,
   } from "svelte-heros-v2";
     import NavBar from "./components/NavBar.svelte";
 
@@ -100,7 +104,7 @@
     mobile = true;
   }
 
-  let panes_available = 0;
+  let panes_available;
   $: if (width < 983) {
     panes_available = 0;
   } else if (width >= 983 && width < 1304) {
@@ -128,11 +132,12 @@
     pane_left2_used = false;
     pane_right_used = false;
     if ($cur_tab.right_pane || $cur_tab.folders_pane || $cur_tab.toc_pane) {
-      $cur_tab.show_modal_menu = true;
+      $show_modal_menu = true;
     }
-  } else {
-    if ($cur_tab.show_modal_menu && !$cur_tab.show_menu) {
-      $cur_tab.show_modal_menu = false;
+  }
+  $: if (panes_available > 0) {
+    if ($show_modal_menu && !$cur_tab.show_menu) {
+      $show_modal_menu = false;
     }
     if (panes_available == 1) {
       if ($cur_tab.right_pane) {
@@ -208,18 +213,24 @@
   let toolsMenu;
   async function scrollToTop() {
     await tick();
-    top.scrollIntoView();
+    if (top) top.scrollIntoView();
   }
   async function scrollToMenuShare() {
     await tick();
-    shareMenu.scrollIntoView();
+    if (shareMenu) shareMenu.scrollIntoView();
   }
   async function scrollToMenuTools() {
     await tick();
-    toolsMenu.scrollIntoView();
+    if (toolsMenu) toolsMenu.scrollIntoView();
   }
-  onMount(async () => {await open_doc(""); await scrollToTop()});
+  onMount(async () => {
+    await scrollToTop();
+  });
 
+  active_session.subscribe((as) => { if(!as) {
+    $redirect_after_login = $location;
+    push("#/");
+  } })
 
   $: activeUrl = "#" + $location;
 
@@ -234,38 +245,41 @@
   }
 
   const openPane = (pane:string) => {
-    // TODO
-    if ( pane == "folders") {
-      $cur_tab.folders_pane = !$cur_tab.folders_pane;
-      if ($cur_tab.folders_pane) {
-        if (panes_available <= 1 ) {
-          $cur_tab.right_pane = "";
+    cur_tab_update((ct) => {
+      if ( pane == "folders") {
+        ct.folders_pane = !ct.folders_pane;
+        if (ct.folders_pane) {
+          if (panes_available <= 1 ) {
+            ct.right_pane = "";
+          }
+        }
+      } else if ( pane == "toc") {
+        ct.toc_pane = !ct.toc_pane;
+        if (ct.toc_pane) {
+          if (panes_available <= 1 ) {
+            ct.folders_pane = false;
+            ct.right_pane = "";
+          } else if (panes_available == 2) {
+            if (ct.folders_pane && ct.right_pane)
+              ct.folders_pane = false;
+          }
+        }
+      } else {
+        if (ct.right_pane == pane) 
+          ct.right_pane = "";
+        else {
+          ct.right_pane = pane;
         }
       }
-    } else if ( pane == "toc") {
-      $cur_tab.toc_pane = !$cur_tab.toc_pane;
-      if ($cur_tab.toc_pane) {
-        if (panes_available <= 1 ) {
-          $cur_tab.folders_pane = false;
-          $cur_tab.right_pane = "";
-        } else if (panes_available == 2) {
-          if ($cur_tab.folders_pane && $cur_tab.right_pane)
-            $cur_tab.folders_pane = false;
-        }
+      if (panes_available > 0) {
+        ct.show_menu = false;
+        $show_modal_menu = false;
+      } else {
+        $show_modal_menu = true;
+        ct.show_menu = false;
       }
-    } else {
-      if ($cur_tab.right_pane == pane) 
-        $cur_tab.right_pane = "";
-      else {
-        $cur_tab.right_pane = pane;
-      }
-    }
-    if (panes_available) {
-      hideMenu();
-    } else {
-      $cur_tab.show_modal_menu = true;
-      $cur_tab.show_menu = false;
-    }
+      return ct;
+    });
   }
 
   const openShare = (share:string) => {
@@ -288,25 +302,30 @@
     hideMenu();
   }
 
+  const openArchive = (share:string) => {
+    // TODO
+    hideMenu();
+  }
+
   const closeModal = () => {
-    cur_tab.update(ct => {
+    $show_modal_menu = false;
+    cur_tab_update(ct => {
         ct.show_menu = false;
-        ct.show_modal_menu = false;
-        if (!panes_available) {
-          $cur_tab.right_pane = "";
-          $cur_tab.folders_pane = false;
-          $cur_tab.toc_pane = false;
+        if (panes_available === 0) {
+          ct.right_pane = "";
+          ct.folders_pane = false;
+          ct.toc_pane = false;
         }
         return ct;
     });
   }
 
   const closePaneInModal = () => {
-    cur_tab.update(ct => {
+    cur_tab_update(ct => {
         ct.show_menu = true;
-        $cur_tab.right_pane = "";
-        $cur_tab.folders_pane = false;
-        $cur_tab.toc_pane = false;
+        ct.right_pane = "";
+        ct.folders_pane = false;
+        ct.toc_pane = false;
         return ct;
     });
   }
@@ -357,7 +376,7 @@
 
 <Modal id="menu-modal"
     outsideclose
-    bind:open={$cur_tab.show_modal_menu}
+    bind:open={$show_modal_menu}
     size = 'xs'
     placement = 'top-right'
     backdropClass="bg-gray-900 bg-opacity-50 dark:bg-opacity-80 menu-bg-modal"
@@ -382,7 +401,7 @@
       <aside style="width:305px; padding:5px;" class="bg-white" aria-label="Sidebar">
         <div class="bg-gray-60 overflow-y-auto dark:bg-gray-800">
           <ul class="space-y-1 space-x-0 mb-10">
-            {#if $cur_branch_has_discrete}
+            {#if $cur_tab.branch.has_discrete}
             <li>
               <div class="inline-flex graph-discrete-toggle mb-2 ml-2" role="group">
                 <button on:click={toggle_graph_discrete} disabled={$cur_tab.graph_or_discrete} type="button" style="border-top-left-radius: 0.375rem;border-bottom-left-radius: 0.375rem;" class:selected-toggle={$cur_tab.graph_or_discrete} class:unselected-toggle={!$cur_tab.graph_or_discrete}  class="common-toggle"  >
@@ -451,7 +470,7 @@
                   </li>
                 {/if}
               {:else}
-                <MenuItem clickable={()=>launchAppStore($cur_tab.cur_branch.class)}>
+                <MenuItem clickable={()=>launchAppStore($cur_tab.branch.class)}>
                   <ZeraIcon
                     zera="app_store"
                     config={{tabindex:"-1",
@@ -478,123 +497,133 @@
               </MenuItem>
             {/if}
 
+            {#if $cur_tab.branch.id}
+              <MenuItem title={$t("doc.menu.items.folders.desc")} selected={$cur_tab.folders_pane} clickable={ ()=> openPane("folders") }>
+                <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["folders"]} />
+                <span class="ml-3">{$t("doc.menu.items.folders.label")}</span>
+              </MenuItem>
+              <MenuItem title={$t("doc.menu.items.toc.desc")} selected={$cur_tab.toc_pane} clickable={ ()=> openPane("toc") }>
+                <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["toc"]} />
+                <span class="ml-3">{$t("doc.menu.items.toc.label")}</span>
+              </MenuItem>
+              <MenuItem title={$t("doc.menu.items.files.desc")} selected={$cur_tab.right_pane == "files"} clickable={ ()=> openPane("files") }>
+                <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["files"]} />
+                <span class="ml-3">{$t("doc.menu.items.files.label")} {$all_files_count}</span>
+              </MenuItem>
+              <div style="padding:0;" bind:this={shareMenu}></div>
+              <MenuItem title={$t("doc.menu.items.share.desc")} clickable={ () => { open_share = !open_share; scrollToMenuShare(); } }>
+                <Share
+                  tabindex="-1"
+                  class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
+                />
+                <span class="ml-3">{$t("doc.menu.items.share.label")}</span>
+              </MenuItem>
+              {#if open_share }
+                {#each share_items as share}
+                  <MenuItem title={$t(`doc.menu.items.${share.n}.desc`)} extraClass="submenu" clickable={ () => openShare(share.n) }>
+                    <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={share.i} />
+                    <span class="ml-3">{$t(`doc.menu.items.${share.n}.label`)}</span>
+                  </MenuItem>
+                {/each}
+              {/if}
+
+              <MenuItem title={$t("doc.menu.items.comments.desc")} selected={$cur_tab.right_pane == "comments"} clickable={ ()=> openPane("comments") }>
+                <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["comments"]} />
+                <span class="ml-3">{$t("doc.menu.items.comments.label")} {$all_comments_count}</span>
+              </MenuItem>
+
+              {#if $cur_tab.doc.is_member}
+              <MenuItem title={$t("doc.menu.items.branches.desc")} selected={$cur_tab.right_pane == "branches"} clickable={ ()=> openPane("branches") }>
+                <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["branches"]} />
+                <span class="ml-3">{$t("doc.menu.items.branches.label")}</span>
+              </MenuItem>
+              {/if}
+
+              <MenuItem title={$t("doc.menu.items.history.desc")} selected={$cur_tab.right_pane == "history"} clickable={ ()=> openPane("history") }>
+                <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["history"]} />
+                <span class="ml-3">{$t("doc.menu.items.history.label")}</span>
+              </MenuItem>
+
+              <MenuItem title={$t("doc.menu.items.find.desc")} clickable={ find }>
+                <MagnifyingGlass
+                  tabindex="-1"
+                  class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+                />
+                <span class="ml-3">{$t("doc.menu.items.find.label")}</span>
+              </MenuItem>
+
+              <MenuItem title={$t("doc.menu.items.bookmark.desc")} clickable={ bookmark }>
+                <Bookmark
+                  tabindex="-1"
+                  class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+                />
+                <span class="ml-3">{$t("doc.menu.items.bookmark.label")}</span>
+              </MenuItem>
+
+              <MenuItem title={$t("doc.menu.items.annotate.desc")} clickable={ annotate }>
+                <ChatBubbleLeftEllipsis
+                  tabindex="-1"
+                  class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+                />
+                <span class="ml-3">{$t("doc.menu.items.annotate.label")}</span>
+              </MenuItem>
+
+              <MenuItem title={$t("doc.menu.items.info.desc")} selected={$cur_tab.right_pane == "info"} clickable={ ()=> openPane("info") }>
+                <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["info"]} />
+                <span class="ml-3">{$t("doc.menu.items.info.label")}</span>
+              </MenuItem>
+
+              <MenuItem title={$t("doc.menu.items.notifs.desc")} clickable={ ()=> openAction("notifs") }>
+                <Bell
+                  tabindex="-1"
+                  class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+                />
+                <span class="ml-3">{$t("doc.menu.items.notifs.label")}</span>
+              </MenuItem>
+              {#if $cur_tab.doc.is_member}
+                <MenuItem title={$t("doc.menu.items.permissions.desc")} clickable={ ()=>  openAction("permissions") }>
+                  <LockOpen
+                    tabindex="-1"
+                    class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+                  />
+                  <span class="ml-3">{$t("doc.menu.items.permissions.label")}</span>
+                </MenuItem>
+              {/if}
+              <MenuItem title={$t("doc.menu.items.settings.desc")} clickable={ ()=>  openAction("settings") }>
+                <Cog6Tooth
+                  tabindex="-1"
+                  class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
+                />
+                <span class="ml-3">{$t("doc.menu.items.settings.label")}</span>
+              </MenuItem>
+              <div style="padding:0;" bind:this={toolsMenu}></div>
+              <MenuItem title={$t("doc.menu.items.tools.desc")} clickable={ () => {open_tools = !open_tools; scrollToMenuTools();} } >
+                <WrenchScrewdriver
+                  tabindex="-1"
+                  class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
+                />
+                <span class="ml-3">{$t("doc.menu.items.tools.label")}</span>
+              </MenuItem>
+              {#if open_tools }
+                {#each tools_items as tool}
+                  <MenuItem title={$t(`doc.menu.items.${tool.n}.desc`)} extraClass="submenu" clickable={ () => openAction(tool.n) }>
+                    <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={tool.i} />
+                    <span class="ml-3">{$t(`doc.menu.items.${tool.n}.label`)}</span>
+                  </MenuItem>
+                {/each}
+              {/if}
+            {/if}
             <MenuItem title={$t("doc.menu.items.mc.desc")} selected={$cur_tab.right_pane == "mc"} clickable={ ()=> openPane("mc") }>
               <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["mc"]} />
               <span class="ml-3">{$t("doc.menu.items.mc.label")}</span>
             </MenuItem>
-
-            <MenuItem title={$t("doc.menu.items.folders.desc")} selected={$cur_tab.folders_pane} clickable={ ()=> openPane("folders") }>
-              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["folders"]} />
-              <span class="ml-3">{$t("doc.menu.items.folders.label")}</span>
-            </MenuItem>
-            <MenuItem title={$t("doc.menu.items.toc.desc")} selected={$cur_tab.toc_pane} clickable={ ()=> openPane("toc") }>
-              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["toc"]} />
-              <span class="ml-3">{$t("doc.menu.items.toc.label")}</span>
-            </MenuItem>
-            <MenuItem title={$t("doc.menu.items.files.desc")} selected={$cur_tab.right_pane == "files"} clickable={ ()=> openPane("files") }>
-              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["files"]} />
-              <span class="ml-3">{$t("doc.menu.items.files.label")} {$all_files_count}</span>
-            </MenuItem>
-            <div style="padding:0;" bind:this={shareMenu}></div>
-            <MenuItem title={$t("doc.menu.items.share.desc")} clickable={ () => { open_share = !open_share; scrollToMenuShare(); } }>
-              <Share
-                tabindex="-1"
-                class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
-              />
-              <span class="ml-3">{$t("doc.menu.items.share.label")}</span>
-            </MenuItem>
-            {#if open_share }
-              {#each share_items as share}
-                <MenuItem title={$t(`doc.menu.items.${share.n}.desc`)} extraClass="submenu" clickable={ () => openShare(share.n) }>
-                  <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={share.i} />
-                  <span class="ml-3">{$t(`doc.menu.items.${share.n}.label`)}</span>
-                </MenuItem>
-              {/each}
-            {/if}
-
-            <MenuItem title={$t("doc.menu.items.comments.desc")} selected={$cur_tab.right_pane == "comments"} clickable={ ()=> openPane("comments") }>
-              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["comments"]} />
-              <span class="ml-3">{$t("doc.menu.items.comments.label")} {$all_comments_count}</span>
-            </MenuItem>
-
-            <MenuItem title={$t("doc.menu.items.branches.desc")} selected={$cur_tab.right_pane == "branches"} clickable={ ()=> openPane("branches") }>
-              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["branches"]} />
-              <span class="ml-3">{$t("doc.menu.items.branches.label")}</span>
-            </MenuItem>
-
-            <MenuItem title={$t("doc.menu.items.history.desc")} selected={$cur_tab.right_pane == "history"} clickable={ ()=> openPane("history") }>
-              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["history"]} />
-              <span class="ml-3">{$t("doc.menu.items.history.label")}</span>
-            </MenuItem>
-
-            <MenuItem title={$t("doc.menu.items.find.desc")} clickable={ find }>
-              <MagnifyingGlass
-                tabindex="-1"
-                class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-              />
-              <span class="ml-3">{$t("doc.menu.items.find.label")}</span>
-            </MenuItem>
-
-            <MenuItem title={$t("doc.menu.items.bookmark.desc")} clickable={ bookmark }>
-              <Bookmark
-                tabindex="-1"
-                class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-              />
-              <span class="ml-3">{$t("doc.menu.items.bookmark.label")}</span>
-            </MenuItem>
-
-            <MenuItem title={$t("doc.menu.items.annotate.desc")} clickable={ annotate }>
-              <ChatBubbleLeftEllipsis
-                tabindex="-1"
-                class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-              />
-              <span class="ml-3">{$t("doc.menu.items.annotate.label")}</span>
-            </MenuItem>
-
-            <MenuItem title={$t("doc.menu.items.info.desc")} selected={$cur_tab.right_pane == "info"} clickable={ ()=> openPane("info") }>
-              <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["info"]} />
-              <span class="ml-3">{$t("doc.menu.items.info.label")}</span>
-            </MenuItem>
-
-            <MenuItem title={$t("doc.menu.items.notifs.desc")} clickable={ ()=> openAction("notifs") }>
-              <Bell
-                tabindex="-1"
-                class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-              />
-              <span class="ml-3">{$t("doc.menu.items.notifs.label")}</span>
-            </MenuItem>
-            {#if $cur_tab.doc.is_member}
-              <MenuItem title={$t("doc.menu.items.permissions.desc")} clickable={ ()=>  openAction("permissions") }>
-                <LockOpen
+            <MenuItem title={$t("doc.menu.items.archive.desc")} selected={$cur_tab.right_pane == "mc"} clickable={ ()=> openArchive() }>
+              <ArchiveBox
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
                 />
-                <span class="ml-3">{$t("doc.menu.items.permissions.label")}</span>
-              </MenuItem>
-            {/if}
-            <MenuItem title={$t("doc.menu.items.settings.desc")} clickable={ ()=>  openAction("settings") }>
-              <Cog6Tooth
-                tabindex="-1"
-                class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
-              />
-              <span class="ml-3">{$t("doc.menu.items.settings.label")}</span>
+              <span class="ml-3">{$t("doc.menu.items.archive.label")}</span>
             </MenuItem>
-            <div style="padding:0;" bind:this={toolsMenu}></div>
-            <MenuItem title={$t("doc.menu.items.tools.desc")} clickable={ () => {open_tools = !open_tools; scrollToMenuTools();} } >
-              <WrenchScrewdriver
-                tabindex="-1"
-                class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
-              />
-              <span class="ml-3">{$t("doc.menu.items.tools.label")}</span>
-            </MenuItem>
-            {#if open_tools }
-              {#each tools_items as tool}
-                <MenuItem title={$t(`doc.menu.items.${tool.n}.desc`)} extraClass="submenu" clickable={ () => openAction(tool.n) }>
-                  <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={tool.i} />
-                  <span class="ml-3">{$t(`doc.menu.items.${tool.n}.label`)}</span>
-                </MenuItem>
-              {/each}
-            {/if}
           </ul>
         </div>
       </aside>
@@ -621,7 +650,7 @@
 {#if mobile}
   <div class="full-layout">
     {#if !withoutNavBar} 
-      <div class="fixed top-0 left-0 right-0">
+      <div class="fixed top-0 left-0 right-0" style="z-index:39;">
         <NavBar {scrollToTop}/>
       </div>
     {/if}
@@ -637,15 +666,14 @@
           13
         </span>
       </MobileBottomBarItem>
-      <MobileBottomBarItem href="#/stream" icon={Bolt} on:click={scrollToTop}  />
+      <MobileBottomBarItem href="#/stream" icon={Bolt}  />
       <MobileBottomBarItem
         href="#/search"
         icon={MagnifyingGlass}
-        on:click={scrollToTop}
         
       />
       <MobileBottomBarItem href="#/create" icon={PlusCircle} />
-      <MobileBottomBarItem href="#/site" icon={User} on:click={scrollToTop}  />
+      <MobileBottomBarItem href="#/shared" icon={Users} on:click={scrollToTop}  />
     </MobileBottomBar>
   </div>
 {:else}
@@ -712,6 +740,7 @@
           <SidebarItem
             label={$t("pages.full_layout.shared")}
             href="#/shared"
+            on:click={scrollToTop} on:keypress={scrollToTop} 
             class="py-1 tall-xs:p-2"
           >
             <svelte:fragment slot="icon">
@@ -724,6 +753,7 @@
           <SidebarItem
             label={$t("pages.full_layout.site")}
             href="#/site"
+            on:click={scrollToTop} on:keypress={scrollToTop} 
             class="py-1 tall-xs:p-2"
           >
             <svelte:fragment slot="icon">
@@ -790,7 +820,7 @@
     </div>
   {/if}
   <div class:left-[192px]={pane_lefts_used==0} class:left-[513px]={pane_lefts_used==1} class:left-[834px]={pane_lefts_used==2} class:right-0={!pane_right_used} class:right-[321px]={pane_right_used} class="full-layout absolute top-0">
-    <div class:left-[192px]={pane_lefts_used==0} class:left-[513px]={pane_lefts_used==1} class:left-[834px]={pane_lefts_used==2} class:right-0={!pane_right_used} class:right-[321px]={pane_right_used} class="fixed top-0">
+    <div  style="z-index:39;" class:left-[192px]={pane_lefts_used==0} class:left-[513px]={pane_lefts_used==1} class:left-[834px]={pane_lefts_used==2} class:right-0={!pane_right_used} class:right-[321px]={pane_right_used} class="fixed top-0">
       <NavBar {scrollToTop}/>
     </div>
     <div bind:this={top}></div>

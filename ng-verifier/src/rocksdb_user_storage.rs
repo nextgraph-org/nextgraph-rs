@@ -15,7 +15,9 @@ use std::sync::{Arc, RwLock};
 
 use either::Either::{Left, Right};
 
-use ng_net::app_protocol::FileName;
+use ng_net::app_protocol::{
+    AppTabBranchInfo, AppTabDocInfo, AppTabInfo, AppTabStoreInfo, FileName, NuriV0,
+};
 use ng_repo::block_storage::BlockStorage;
 use ng_repo::log::*;
 use ng_repo::repo::{BranchInfo, Repo};
@@ -104,5 +106,56 @@ impl UserStorage for RocksDbUserStorage {
     }
     fn branch_get_all_files(&self, branch: &BranchId) -> Result<Vec<FileName>, StorageError> {
         BranchStorage::get_all_files(&branch, &self.user_storage)
+    }
+
+    fn branch_get_tab_info(
+        &self,
+        branch: &BranchId,
+        repo: &RepoId,
+        store: &StoreRepo,
+    ) -> Result<AppTabInfo, StorageError> {
+        let branch_info = BranchStorage::load(branch, &self.user_storage)?;
+
+        let branch_tab_info = AppTabBranchInfo {
+            id: Some(format!("b:{}", branch.to_string())),
+            readcap: Some(branch_info.read_cap.unwrap().readcap_nuri()),
+            class: Some(branch_info.crdt.class().clone()),
+            comment_branch: None, //TODO
+        };
+
+        let root_branch_info = BranchStorage::load(repo, &self.user_storage)?;
+
+        let doc_tab_info = AppTabDocInfo {
+            nuri: Some(format!("o:{}", repo.to_string())),
+            is_store: Some(store.repo_id() == repo),
+            is_member: Some(root_branch_info.read_cap.unwrap().readcap_nuri()), // TODO
+            authors: None,                                                      // TODO
+            inbox: None,                                                        // TODO
+            can_edit: Some(true),
+            title: None,
+            icon: None,
+            description: None,
+        };
+
+        let store_tab_info = AppTabStoreInfo {
+            overlay: Some(format!(
+                "v:{}",
+                store.overlay_id_for_read_purpose().to_string()
+            )),
+            store_type: Some(store.store_type_for_app()),
+            has_outer: None, //TODO
+            inner: None,     //TODO
+            is_member: None, //TODO
+            readcap: None,   //TODO
+            title: None,
+            icon: None,
+            description: None,
+        };
+
+        Ok(AppTabInfo {
+            branch: Some(branch_tab_info),
+            doc: Some(doc_tab_info),
+            store: Some(store_tab_info),
+        })
     }
 }

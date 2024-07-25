@@ -13,9 +13,9 @@ use std::fs::{read, remove_file, write};
 use std::path::PathBuf;
 
 use async_once_cell::OnceCell;
-use async_std::sync::{Arc, Mutex, RwLock};
+use async_std::sync::{Arc, Condvar, Mutex, RwLock};
 use futures::channel::mpsc;
-use futures::SinkExt;
+use futures::{SinkExt, StreamExt};
 use lazy_static::lazy_static;
 use once_cell::sync::Lazy;
 use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str};
@@ -37,7 +37,7 @@ use ng_net::app_protocol::*;
 use ng_net::broker::*;
 use ng_net::connection::{AppConfig, ClientConfig, IConnect, NoiseFSM, StartConfig};
 use ng_net::types::*;
-use ng_net::utils::{Receiver, Sender};
+use ng_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
 use ng_net::{actor::*, actors::admin::*};
 
 use ng_verifier::types::*;
@@ -552,6 +552,7 @@ struct LocalBroker {
 
     disconnections_sender: Sender<String>,
     disconnections_receiver: Option<Receiver<String>>,
+    pump_cond: Option<Arc<(Mutex<bool>, Condvar)>>,
 }
 
 impl fmt::Debug for LocalBroker {
@@ -563,6 +564,14 @@ impl fmt::Debug for LocalBroker {
         writeln!(f, "opened_sessions {:?}", self.opened_sessions)?;
         writeln!(f, "opened_sessions_list {:?}", self.opened_sessions_list)
     }
+}
+
+#[doc(hidden)]
+#[async_trait::async_trait]
+pub trait ILocalBroker: Send + Sync + EActor {
+    async fn deliver(&mut self, event: Event, overlay: OverlayId, user: UserId);
+
+    async fn user_disconnected(&mut self, user_id: UserId);
 }
 
 // used to deliver events to the verifier on Clients, or Core that have Verifiers attached.
@@ -599,7 +608,56 @@ impl EActor for LocalBroker {
     }
 }
 
+async fn pump(
+    mut reader: Receiver<LocalBrokerMessage>,
+    pair: Arc<(Mutex<bool>, Condvar)>,
+) -> ResultSend<()> {
+    while let Some(message) = reader.next().await {
+        let (lock, cvar) = &*pair;
+        let mut running = lock.lock().await;
+        while !*running {
+            running = cvar.wait(running).await;
+        }
+
+        let mut broker = match LOCAL_BROKER.get() {
+            None | Some(Err(_)) => return Err(Box::new(NgError::LocalBrokerNotInitialized)),
+            Some(Ok(broker)) => broker.write().await,
+        };
+        match message {
+            LocalBrokerMessage::Deliver {
+                event,
+                overlay,
+                user,
+            } => broker.deliver(event, overlay, user).await,
+            LocalBrokerMessage::Disconnected { user_id } => broker.user_disconnected(user_id).await,
+        }
+    }
+
+    log_debug!("END OF PUMP");
+    Ok(())
+}
+
 impl LocalBroker {
+    async fn stop_pump(&self) {
+        let (lock, cvar) = self.pump_cond.as_deref().as_ref().unwrap();
+        let mut running = lock.lock().await;
+        *running = false;
+        cvar.notify_one();
+    }
+
+    async fn start_pump(&self) {
+        let (lock, cvar) = self.pump_cond.as_deref().as_ref().unwrap();
+        let mut running = lock.lock().await;
+        *running = true;
+        cvar.notify_one();
+    }
+
+    fn init_pump(&mut self, broker_pump_receiver: Receiver<LocalBrokerMessage>) {
+        let pair = Arc::new((Mutex::new(false), Condvar::new()));
+        let pair2 = Arc::clone(&pair);
+        self.pump_cond = Some(pair);
+        spawn_and_log_error(pump(broker_pump_receiver, pair2));
+    }
     // fn storage_path_for_user(&self, user_id: &UserId) -> Option<PathBuf> {
     //     match &self.config {
     //         LocalBrokerConfig::InMemory | LocalBrokerConfig::JsStorage(_) => None,
@@ -914,12 +972,12 @@ impl LocalBroker {
     }
 
     fn get_wallet_and_session(
-        &mut self,
+        &self,
         user_id: &UserId,
-    ) -> Result<(&SensitiveWallet, &mut Session), NgError> {
+    ) -> Result<(&SensitiveWallet, &Session), NgError> {
         let session_idx = self.user_to_local_session_id_for_mut(user_id)?;
         let session = self.opened_sessions_list[session_idx]
-            .as_mut()
+            .as_ref()
             .ok_or(NgError::SessionNotFound)?;
         let wallet = &match &session.config {
             SessionConfig::WithCredentialsV0(_) | SessionConfig::HeadlessV0(_) => {
@@ -934,6 +992,14 @@ impl LocalBroker {
 
         Ok((wallet, session))
     }
+
+    fn get_session_mut(&mut self, user_id: &UserId) -> Result<&mut Session, NgError> {
+        let session_idx = self.user_to_local_session_id_for_mut(user_id)?;
+        self.opened_sessions_list[session_idx]
+            .as_mut()
+            .ok_or(NgError::SessionNotFound)
+    }
+
     async fn disconnect_session(&mut self, user_id: &PubKey) -> Result<(), NgError> {
         match self.opened_sessions.get(user_id) {
             Some(session) => {
@@ -1022,6 +1088,12 @@ impl LocalBroker {
         let private_store_id = self
             .get_site_store_of_session(&session, SiteStoreType::Private)?
             .to_string();
+        let protected_store_id = self
+            .get_site_store_of_session(&session, SiteStoreType::Protected)?
+            .to_string();
+        let public_store_id = self
+            .get_site_store_of_session(&session, SiteStoreType::Public)?
+            .to_string();
 
         let user_id = session.config.user_id();
 
@@ -1035,6 +1107,8 @@ impl LocalBroker {
             session_id: idx as u64,
             user: user_id,
             private_store_id,
+            protected_store_id,
+            public_store_id,
         })
     }
 
@@ -1059,7 +1133,9 @@ impl LocalBroker {
         Ok(SessionInfo {
             session_id: first_available,
             user: user_id,
-            private_store_id: String::new(), // will be updated when the AppSessionStart replies arrive from broker
+            private_store_id: String::new(), // will be updated when the AppSessionStart reply arrives from broker
+            protected_store_id: String::new(),
+            public_store_id: String::new(),
         })
     }
 
@@ -1360,7 +1436,10 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
         }
     };
     let (disconnections_sender, disconnections_receiver) = mpsc::unbounded::<String>();
-    let local_broker = LocalBroker {
+
+    let (localbroker_pump_sender, broker_pump_receiver) = mpsc::unbounded::<LocalBrokerMessage>();
+
+    let mut local_broker = LocalBroker {
         config,
         wallets,
         opened_wallets: HashMap::new(),
@@ -1373,7 +1452,10 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
         disconnections_sender,
         disconnections_receiver: Some(disconnections_receiver),
         headless_connected_to_remote_broker: false,
+        pump_cond: None,
     };
+
+    local_broker.init_pump(broker_pump_receiver);
     //log_debug!("{:?}", &local_broker);
 
     let broker = Arc::new(RwLock::new(local_broker));
@@ -1381,7 +1463,7 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
     BROKER
         .write()
         .await
-        .set_local_broker(Arc::clone(&broker) as Arc<RwLock<dyn ILocalBroker>>);
+        .set_local_broker(localbroker_pump_sender);
 
     Ok(broker)
 }
@@ -2135,11 +2217,13 @@ pub async fn session_start(config: SessionConfig) -> Result<SessionInfo, NgError
 
                     if let Ok(AppResponse::V0(AppResponseV0::SessionStart(AppSessionStartResponse::V0(response)))) = res {
                         session_info.private_store_id = response.private_store.to_string();
+                        session_info.protected_store_id = response.protected_store.to_string();
+                        session_info.public_store_id = response.public_store.to_string();
                     }
 
                     Ok(session_info)
                 },
-                _ => panic!("don't call session_start with a SessionConfig different from HeadlessV0 and a LocalBroker configured for Headless")
+                _ => panic!("don't call session_start with a SessionConfig different from HeadlessV0 when the LocalBroker is configured for Headless")
             }
         }
         // TODO: implement SessionConfig::WithCredentials . VerifierType::Remote => it needs to establish a connection to remote here, then send the AppSessionStart in it.
@@ -2163,6 +2247,12 @@ pub async fn session_start(config: SessionConfig) -> Result<SessionInfo, NgError
                                     user: user_id,
                                     private_store_id: broker
                                         .get_site_store_of_session(sess, SiteStoreType::Private)?
+                                        .to_string(),
+                                    protected_store_id: broker
+                                        .get_site_store_of_session(sess, SiteStoreType::Protected)?
+                                        .to_string(),
+                                    public_store_id: broker
+                                        .get_site_store_of_session(sess, SiteStoreType::Public)?
                                         .to_string(),
                                 });
                             }
@@ -2241,7 +2331,7 @@ fn get_client_info(client_type: ClientType) -> ClientInfo {
 #[doc(hidden)]
 pub async fn user_connect_with_device_info(
     info: ClientInfo,
-    user_id: &UserId,
+    original_user_id: &UserId,
     location: Option<String>,
 ) -> Result<Vec<(String, String, String, Option<String>, f64)>, NgError> {
     //FIXME: release this write lock much sooner than at the end of the loop of all tries to connect to some servers ?
@@ -2253,139 +2343,146 @@ pub async fn user_connect_with_device_info(
 
     local_broker.err_if_headless()?;
 
-    let (wallet, session) = local_broker.get_wallet_and_session(user_id)?;
+    let (client, sites, brokers, peer_key) = {
+        let (wallet, session) = local_broker.get_wallet_and_session(original_user_id)?;
+        match wallet {
+            SensitiveWallet::V0(wallet) => (
+                wallet.client.clone().unwrap(),
+                wallet.sites.clone(),
+                wallet.brokers.clone(),
+                session.peer_key.clone(),
+            ),
+        }
+    };
 
     let mut result: Vec<(String, String, String, Option<String>, f64)> = Vec::new();
     let arc_cnx: Arc<Box<dyn IConnect>> = Arc::new(Box::new(ConnectionWebSocket {}));
 
-    match wallet {
-        SensitiveWallet::V0(wallet) => {
-            let client = wallet.client.as_ref().unwrap();
-            let client_priv = &client.sensitive_client_storage.priv_key;
-            let client_name = &client.name;
-            let auto_open = &client.auto_open;
-            // log_info!(
-            //     "XXXX {} name={:?} auto_open={:?} {:?}",
-            //     client_id.to_string(),
-            //     client_name,
-            //     auto_open,
-            //     wallet
-            // );
-            for user in auto_open {
-                let user_id = user.to_string();
-                let peer_key = &session.peer_key;
-                let peer_id = peer_key.to_pub();
-                log_info!(
-                    "connecting with local peer_id {} for user {}",
-                    peer_id,
-                    user_id
-                );
-                let site = wallet.sites.get(&user_id);
-                if site.is_none() {
-                    result.push((
-                        user_id,
-                        "".into(),
-                        "".into(),
-                        Some("Site is missing".into()),
-                        get_unix_time(),
-                    ));
-                    continue;
-                }
-                let site = site.unwrap();
-                let user_priv = site.get_individual_user_priv_key().unwrap();
-                let core = site.cores[0]; //TODO: cycle the other cores if failure to connect (failover)
-                let server_key = core.0;
-                let broker = wallet.brokers.get(&core.0.to_string());
-                if broker.is_none() {
-                    result.push((
-                        user_id,
-                        core.0.to_string(),
-                        "".into(),
-                        Some("Broker is missing".into()),
-                        get_unix_time(),
-                    ));
-                    continue;
-                }
-                let brokers = broker.unwrap();
-                let mut tried: Option<(String, String, String, Option<String>, f64)> = None;
-                //TODO: on tauri (or forward in local broker, or CLI), prefer a Public to a Domain. Domain always comes first though, so we need to reorder the list
-                //TODO: use site.bootstraps to order the list of brokerInfo.
-                for broker_info in brokers {
-                    match broker_info {
-                        BrokerInfoV0::ServerV0(server) => {
-                            let url = server.get_ws_url(&location).await;
-                            log_debug!("URL {:?}", url);
-                            //Option<(String, Vec<BindAddress>)>
-                            if url.is_some() {
-                                let url = url.unwrap();
-                                if url.1.is_empty() {
-                                    // TODO deal with Box(Dyn)Public -> tunnel, and on tauri/forward/CLIs, deal with all Box -> direct connections (when url.1.len is > 0)
-                                    let res = BROKER
-                                        .write()
-                                        .await
-                                        .connect(
-                                            arc_cnx.clone(),
-                                            peer_key.clone(),
-                                            peer_id,
-                                            server_key,
-                                            StartConfig::Client(ClientConfig {
-                                                url: url.0.clone(),
-                                                name: client_name.clone(),
-                                                user_priv: user_priv.clone(),
-                                                client_priv: client_priv.clone(),
-                                                info: info.clone(),
-                                                registration: Some(core.1),
-                                            }),
-                                        )
-                                        .await;
-                                    log_debug!("broker.connect : {:?}", res);
+    let client_priv = &client.sensitive_client_storage.priv_key;
+    let client_name = &client.name;
+    let auto_open = &client.auto_open;
+    // log_info!(
+    //     "XXXX {} name={:?} auto_open={:?} {:?}",
+    //     client_id.to_string(),
+    //     client_name,
+    //     auto_open,
+    //     wallet
+    // );
+    for user in auto_open {
+        let user_id = user.to_string();
+        let peer_id = peer_key.to_pub();
+        log_info!(
+            "connecting with local peer_id {} for user {}",
+            peer_id,
+            user_id
+        );
+        let site = sites.get(&user_id);
+        if site.is_none() {
+            result.push((
+                user_id,
+                "".into(),
+                "".into(),
+                Some("Site is missing".into()),
+                get_unix_time(),
+            ));
+            continue;
+        }
+        let site = site.unwrap();
+        let user_priv = site.get_individual_user_priv_key().unwrap();
+        let core = site.cores[0]; //TODO: cycle the other cores if failure to connect (failover)
+        let server_key = core.0;
+        let broker = brokers.get(&core.0.to_string());
+        if broker.is_none() {
+            result.push((
+                user_id,
+                core.0.to_string(),
+                "".into(),
+                Some("Broker is missing".into()),
+                get_unix_time(),
+            ));
+            continue;
+        }
+        let brokers = broker.unwrap();
+        let mut tried: Option<(String, String, String, Option<String>, f64)> = None;
+        //TODO: on tauri (or forward in local broker, or CLI), prefer a Public to a Domain. Domain always comes first though, so we need to reorder the list
+        //TODO: use site.bootstraps to order the list of brokerInfo.
+        local_broker.stop_pump().await;
+        for broker_info in brokers {
+            match broker_info {
+                BrokerInfoV0::ServerV0(server) => {
+                    let url = server.get_ws_url(&location).await;
+                    log_debug!("URL {:?}", url);
+                    //Option<(String, Vec<BindAddress>)>
+                    if url.is_some() {
+                        let url = url.unwrap();
+                        if url.1.is_empty() {
+                            // TODO deal with Box(Dyn)Public -> tunnel, and on tauri/forward/CLIs, deal with all Box -> direct connections (when url.1.len is > 0)
+                            let res = BROKER
+                                .write()
+                                .await
+                                .connect(
+                                    arc_cnx.clone(),
+                                    peer_key.clone(),
+                                    peer_id,
+                                    server_key,
+                                    StartConfig::Client(ClientConfig {
+                                        url: url.0.clone(),
+                                        name: client_name.clone(),
+                                        user_priv: user_priv.clone(),
+                                        client_priv: client_priv.clone(),
+                                        info: info.clone(),
+                                        registration: Some(core.1),
+                                    }),
+                                )
+                                .await;
+                            log_debug!("broker.connect : {:?}", res);
 
-                                    tried = Some((
-                                        user_id.clone(),
-                                        core.0.to_string(),
-                                        url.0.into(),
-                                        match &res {
-                                            Ok(_) => None,
-                                            Err(e) => Some(e.to_string()),
-                                        },
-                                        get_unix_time(),
-                                    ));
-                                }
-                                if tried.is_some() && tried.as_ref().unwrap().3.is_none() {
-                                    if let Err(e) =
-                                        session.verifier.connection_opened(server_key).await
-                                    {
-                                        log_err!(
-                                            "got error while processing opened connection {:?}",
-                                            e
-                                        );
-                                        Broker::close_all_connections().await;
-                                        tried.as_mut().unwrap().3 = Some(e.to_string());
-                                    }
-
-                                    break;
-                                } else {
-                                    log_debug!("Failed connection {:?}", tried);
-                                }
-                            }
+                            tried = Some((
+                                user_id.clone(),
+                                core.0.to_string(),
+                                url.0.into(),
+                                match &res {
+                                    Ok(_) => None,
+                                    Err(e) => Some(e.to_string()),
+                                },
+                                get_unix_time(),
+                            ));
                         }
-                        // Core information is discarded
-                        _ => {}
+                        if tried.is_some() && tried.as_ref().unwrap().3.is_none() {
+                            let res = {
+                                let session = local_broker.get_session_mut(original_user_id)?;
+                                session.verifier.connection_opened(server_key).await
+                            };
+                            if res.is_err() {
+                                let e = res.unwrap_err();
+                                log_err!("got error while processing opened connection {:?}", e);
+                                Broker::close_all_connections().await;
+                                tried.as_mut().unwrap().3 = Some(e.to_string());
+                            } else {
+                                local_broker.start_pump().await;
+                            }
+                            break;
+                        } else {
+                            log_debug!("Failed connection {:?}", tried);
+                        }
                     }
                 }
-                if tried.is_none() {
-                    tried = Some((
-                        user_id,
-                        core.0.to_string(),
-                        "".into(),
-                        Some("No broker found".into()),
-                        get_unix_time(),
-                    ));
-                }
-                result.push(tried.unwrap());
+                // Core information is discarded
+                _ => {}
             }
         }
+        if tried.is_none() {
+            tried = Some((
+                user_id,
+                core.0.to_string(),
+                "".into(),
+                Some("No broker found".into()),
+                get_unix_time(),
+            ));
+        }
+        result.push(tried.unwrap());
     }
+
     Ok(result)
 }
 

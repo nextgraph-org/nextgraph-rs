@@ -590,7 +590,7 @@
                   class:h-[160px]={!mobile}
                   class:h-[93px]={mobile}
                   class:text-8xl={!mobile}
-                  on:click={async () => await on_pin_key(num)}
+                  on:click={async () => {window.document.activeElement.blur(); await on_pin_key(num)}}
                   disabled={pin_code.length >= 4}
                 >
                   <span>{num}</span>
@@ -606,7 +606,7 @@
               class:h-[160px]={!mobile}
               class:h-[93px]={mobile}
               class:text-8xl={!mobile}
-              on:click={async () => await on_pin_key(shuffle_pin[9])}
+              on:click={async () => {window.document.activeElement.blur();await on_pin_key(shuffle_pin[9])}}
               disabled={pin_code.length >= 4}
             >
               <span>{shuffle_pin[9]}</span>

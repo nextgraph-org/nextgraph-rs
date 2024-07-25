@@ -33,7 +33,7 @@ impl TopicSub {
             (
                 repo.store.inner_overlay(),
                 Some(PublisherAdvert::new(
-                    branch.topic,
+                    branch.topic.unwrap(),
                     branch.topic_priv_key.to_owned().unwrap(),
                     *broker_id.unwrap(),
                 )),
@@ -45,7 +45,7 @@ impl TopicSub {
         TopicSub::V0(TopicSubV0 {
             repo_hash: repo.id.into(),
             overlay: Some(overlay),
-            topic: branch.topic,
+            topic: branch.topic.unwrap(),
             publisher,
         })
     }

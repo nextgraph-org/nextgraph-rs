@@ -26,7 +26,6 @@ use async_std::sync::{Mutex, RwLockReadGuard};
 use bloomfilter::Bloom;
 use futures::channel::mpsc;
 use futures::SinkExt;
-use ng_repo::object::Object;
 use serde::{Deserialize, Serialize};
 use web_time::SystemTime;
 
@@ -34,6 +33,8 @@ use web_time::SystemTime;
 //use ng_oxigraph::oxigraph::store::Store;
 //use ng_oxigraph::oxigraph::model::GroundQuad;
 //use yrs::{StateVector, Update};
+
+use ng_oxigraph::oxrdf::{GraphNameRef, NamedNode, Triple};
 
 use ng_repo::file::ReadFile;
 use ng_repo::log::*;
@@ -43,6 +44,7 @@ use ng_repo::{
     block_storage::{store_max_value_size, BlockStorage, HashMapBlockStorage},
     errors::{NgError, ProtocolError, ServerError, StorageError, VerifierError},
     file::RandomAccessFile,
+    object::Object,
     repo::{BranchInfo, Repo},
     store::Store,
     types::*,
@@ -233,6 +235,49 @@ impl Verifier {
         }
     }
 
+    fn branch_get_tab_info(repo: &Repo, branch: &BranchId) -> Result<AppTabInfo, NgError> {
+        let branch_info = repo.branch(branch)?;
+
+        let branch_tab_info = AppTabBranchInfo {
+            id: Some(format!("b:{}", branch.to_string())),
+            readcap: Some(branch_info.read_cap.as_ref().unwrap().readcap_nuri()),
+            class: Some(branch_info.crdt.class().clone()),
+            comment_branch: None, //TODO
+        };
+
+        let root_branch_info = repo.branch(&repo.id)?;
+
+        let doc_tab_info = AppTabDocInfo {
+            nuri: Some(format!("o:{}", repo.id.to_string())),
+            is_store: Some(repo.store.id() == &repo.id),
+            is_member: Some(root_branch_info.read_cap.as_ref().unwrap().readcap_nuri()), // TODO
+            authors: None,                                                               // TODO
+            inbox: None,                                                                 // TODO
+            can_edit: Some(true),
+            title: None,
+            icon: None,
+            description: None,
+        };
+
+        let store_tab_info = AppTabStoreInfo {
+            overlay: Some(format!("v:{}", repo.store.outer_overlay().to_string())),
+            store_type: Some(repo.store.get_store_repo().store_type_for_app()),
+            has_outer: None, //TODO
+            inner: None,     //TODO
+            is_member: None, //TODO
+            readcap: None,   //TODO
+            title: None,
+            icon: None,
+            description: None,
+        };
+
+        Ok(AppTabInfo {
+            branch: Some(branch_tab_info),
+            doc: Some(doc_tab_info),
+            store: Some(store_tab_info),
+        })
+    }
+
     pub(crate) async fn create_branch_subscription(
         &mut self,
         repo_id: RepoId,
@@ -260,12 +305,54 @@ impl Verifier {
             .as_ref()
             .unwrap()
             .branch_get_all_files(&branch_id)?;
+
+        let tab_info = Self::branch_get_tab_info(repo, &branch_id)?;
+
+        // let tab_info = self.user_storage.as_ref().unwrap().branch_get_tab_info(
+        //     &branch_id,
+        //     &repo_id,
+        //     &store_repo,
+        // )?;
+
+        let store = self.graph_dataset.as_ref().unwrap();
+        let graph_name = self
+            .resolve_target_for_sparql(&NuriTargetV0::Repo(repo_id), false)?
+            .unwrap(); //TODO: deal with branch
+        let quad_iter = store.quads_for_pattern(
+            None,
+            None,
+            None,
+            Some(GraphNameRef::NamedNode(
+                NamedNode::new_unchecked(graph_name).as_ref(),
+            )),
+        );
+        let mut results = vec![];
+        for quad in quad_iter {
+            match quad {
+                Err(e) => {} //return Err(VerifierError::OxigraphError(e.to_string())),
+                Ok(quad) => results.push(Triple::from(quad)),
+            }
+        }
+
         let state = AppState {
             heads: branch.current_heads.iter().map(|h| h.id.clone()).collect(),
-            graph: None,
+            graph: if results.is_empty() {
+                None
+            } else {
+                Some(GraphState {
+                    triples: serde_bare::to_vec(&results).unwrap(),
+                })
+            },
             discrete: None,
             files,
         };
+
+        self.push_app_response(
+            &branch_id,
+            AppResponse::V0(AppResponseV0::TabInfo(tab_info)),
+        )
+        .await;
+
         self.push_app_response(&branch_id, AppResponse::V0(AppResponseV0::State(state)))
             .await;
 
@@ -1096,7 +1183,7 @@ impl Verifier {
                     // pinning the repo on the server broker
                     let (pin_req, topic_id) = {
                         let repo = self.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
-                        let topic_id = repo.branch(branch).unwrap().topic;
+                        let topic_id = repo.branch(branch).unwrap().topic.unwrap();
                         //TODO: only pin the requested branch.
                         let pin_req = PinRepo::from_repo(repo, remote_broker.broker_peer_id());
                         (pin_req, topic_id)
@@ -1135,7 +1222,7 @@ impl Verifier {
                     // checking that the branch is subscribed as publisher
                     let repo = self.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
                     let branch_info = repo.branch(branch)?;
-                    let topic_id = &branch_info.topic;
+                    let topic_id = branch_info.topic.as_ref().unwrap();
                     // log_info!(
                     //     "as_publisher {} {}",
                     //     as_publisher,
@@ -1266,7 +1353,12 @@ impl Verifier {
             .ok_or(VerifierError::BranchNotOpened)?;
         let branch = repo.branch(&branch_id)?;
 
-        let commit = event.open(&repo.store, &repo_id, &branch_id, &branch.read_cap.key)?;
+        let commit = event.open(
+            &repo.store,
+            &repo_id,
+            &branch_id,
+            &branch.read_cap.as_ref().unwrap().key,
+        )?;
 
         self.verify_commit(&commit, &branch_id, &repo_id, Arc::clone(&repo.store))
             .await?;
@@ -1353,11 +1445,15 @@ impl Verifier {
 
     fn user_storage_if_persistent(&self) -> Option<Arc<Box<dyn UserStorage>>> {
         if self.is_persistent() {
-            if let Some(us) = self.user_storage.as_ref() {
-                Some(Arc::clone(us))
-            } else {
-                None
-            }
+            self.user_storage()
+        } else {
+            None
+        }
+    }
+
+    fn user_storage(&self) -> Option<Arc<Box<dyn UserStorage>>> {
+        if let Some(us) = self.user_storage.as_ref() {
+            Some(Arc::clone(us))
         } else {
             None
         }
@@ -1373,7 +1469,7 @@ impl Verifier {
             user_storage.add_branch(repo_id, &branch_info)?;
         }
         let branch_id = branch_info.id.clone();
-        let topic_id = branch_info.topic.clone();
+        let topic_id = branch_info.topic.clone().unwrap();
         let repo = self.get_repo_mut(repo_id, store_repo)?;
         let res = repo.branches.insert(branch_info.id.clone(), branch_info);
         assert!(res.is_none());
@@ -1527,13 +1623,17 @@ impl Verifier {
             };
 
             let msg = TopicSyncReq::V0(TopicSyncReqV0 {
-                topic: branch_info.topic,
+                topic: branch_info.topic.unwrap(),
                 known_heads: ours_set.union(&theirs_found).into_iter().cloned().collect(),
                 target_heads: theirs_not_found,
                 known_commits,
                 overlay: Some(store.overlay_for_read_on_client_protocol()),
             });
-            (store, msg, branch_info.read_cap.key.clone())
+            (
+                store,
+                msg,
+                branch_info.read_cap.as_ref().unwrap().key.clone(),
+            )
         };
 
         match broker
@@ -1640,8 +1740,8 @@ impl Verifier {
                         .map(|(branch_id, branch)| {
                             (
                                 branch_id.clone(),
-                                branch.topic.clone(),
-                                branch.read_cap.key.clone(),
+                                branch.topic.clone().unwrap(),
+                                branch.read_cap.as_ref().unwrap().key.clone(),
                             )
                         })
                         .collect();
@@ -1831,7 +1931,7 @@ impl Verifier {
                                 .get(&(e.overlay, *e.event.topic_id()))
                                 .ok_or(VerifierError::TopicNotFound)?;
                             let branch = repo.branch(branch_id)?;
-                            (branch_id, &branch.read_cap.key)
+                            (branch_id, &branch.read_cap.as_ref().unwrap().key)
                         }
                     };
 
@@ -1888,7 +1988,7 @@ impl Verifier {
                                     .get(&(e.overlay, *e.event.topic_id()))
                                     .ok_or(VerifierError::TopicNotFound)?;
                                 let branch = repo.branch(branch_id)?;
-                                (branch_id, &branch.read_cap.key)
+                                (branch_id, &branch.read_cap.as_ref().unwrap().key)
                             }
                         };
 
@@ -2028,7 +2128,7 @@ impl Verifier {
                     &repo.store,
                     &repo_id,
                     &branch_id,
-                    &branch.read_cap.key,
+                    &branch.read_cap.as_ref().unwrap().key,
                 )?;
 
                 let store_repo = repo.store.get_store_repo().clone();
@@ -2206,7 +2306,7 @@ impl Verifier {
     pub(crate) fn populate_topics(&mut self, repo: &Repo) {
         for (branch_id, info) in repo.branches.iter() {
             let overlay_id: OverlayId = repo.store.inner_overlay();
-            let topic_id = info.topic.clone();
+            let topic_id = info.topic.clone().unwrap();
             let repo_id = repo.id.clone();
             let branch_id = branch_id.clone();
             let _res = self

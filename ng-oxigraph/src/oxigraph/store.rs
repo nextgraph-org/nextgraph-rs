@@ -300,18 +300,29 @@ impl Store {
         graph_name: Option<GraphNameRef<'_>>,
     ) -> QuadIter {
         let reader = self.storage.snapshot();
+        let match_by = if graph_name.is_some() {
+            if let GraphName::NamedNode(nn) = graph_name.unwrap().into_owned() {
+                match reader.parse_graph_name(nn.as_string(), None) {
+                    Err(e) => {
+                        return QuadIter {
+                            iter: OneErrorQuadIter::new_boxed(e),
+                            reader,
+                        }
+                    }
+                    Ok(o) => Some(o),
+                }
+            } else {
+                panic!("invalid graph name");
+            }
+        } else {
+            None
+        };
         QuadIter {
             iter: reader.quads_for_pattern(
                 subject.map(EncodedTerm::from).as_ref(),
                 predicate.map(EncodedTerm::from).as_ref(),
                 object.map(EncodedTerm::from).as_ref(),
-                graph_name.map(|graph_name_ref| {
-                    if let GraphName::NamedNode(nn) = graph_name_ref.into_owned() {
-                        reader.parse_graph_name(nn.as_string(), None).unwrap() //TODO improve error mng (remove unwrap)
-                    } else {
-                        panic!("invalid graph name");
-                    }
-                }),
+                match_by,
             ),
             reader,
         }
@@ -1202,18 +1213,29 @@ impl<'a> Transaction<'a> {
         graph_name: Option<GraphNameRef<'_>>,
     ) -> QuadIter {
         let reader = self.writer.reader();
+        let match_by = if graph_name.is_some() {
+            if let GraphName::NamedNode(nn) = graph_name.unwrap().into_owned() {
+                match reader.parse_graph_name(nn.as_string(), None) {
+                    Err(e) => {
+                        return QuadIter {
+                            iter: OneErrorQuadIter::new_boxed(e),
+                            reader,
+                        }
+                    }
+                    Ok(o) => Some(o),
+                }
+            } else {
+                panic!("invalid graph name");
+            }
+        } else {
+            None
+        };
         QuadIter {
             iter: reader.quads_for_pattern(
                 subject.map(EncodedTerm::from).as_ref(),
                 predicate.map(EncodedTerm::from).as_ref(),
                 object.map(EncodedTerm::from).as_ref(),
-                graph_name.map(|graph_name_ref| {
-                    if let GraphName::NamedNode(nn) = graph_name_ref.into_owned() {
-                        reader.parse_graph_name(nn.as_string(), None).unwrap() //TODO improve error mng (remove unwrap)
-                    } else {
-                        panic!("invalid graph name");
-                    }
-                }),
+                match_by,
             ),
             reader,
         }
@@ -1702,6 +1724,25 @@ impl Iterator for QuadIter {
             Ok(quad) => self.reader.decode_quad(&quad),
             Err(error) => Err(error),
         })
+    }
+}
+
+pub struct OneErrorQuadIter {
+    err: Option<StorageError>,
+}
+
+impl OneErrorQuadIter {
+    pub fn new_boxed(err: StorageError) -> Box<OneErrorQuadIter> {
+        Box::new(Self { err: Some(err) })
+    }
+}
+impl Iterator for OneErrorQuadIter {
+    type Item = Result<EncodedQuad, StorageError>;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.err.take() {
+            Some(e) => Some(Err(e)),
+            None => None,
+        }
     }
 }
 

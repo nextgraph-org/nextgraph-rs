@@ -29,7 +29,6 @@
   let display_login_create = !$has_wallets || !$active_wallet;
   let unsubscribe;
   onMount(() => {
-    cannot_load_offline.set(false);
     //setTimeout(function () {}, 2);
     const combined = derived([active_wallet, has_wallets], ([$s1, $s2]) => [
       $s1,

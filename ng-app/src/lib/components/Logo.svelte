@@ -28,7 +28,7 @@ Provide classes using the `className` prop.
   export let className: string = "";
   let connection_status_class = "logo-blue";
   // Color is adjusted to connection status.
-  $: if ($connection_status === "connecting") {
+  $: if ($connection_status === "connecting" || $connection_status === "starting") {
     connection_status_class = "logo-pulse";
   } else if ($connection_status === "disconnected") {
     connection_status_class = "logo-gray";

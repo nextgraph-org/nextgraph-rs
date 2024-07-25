@@ -14,7 +14,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use ng_net::app_protocol::FileName;
+use ng_net::app_protocol::{AppTabInfo, FileName};
 use ng_repo::{
     block_storage::BlockStorage,
     errors::StorageError,
@@ -50,6 +50,13 @@ pub trait UserStorage: Send + Sync {
     ) -> Result<(), StorageError>;
 
     fn branch_get_all_files(&self, branch: &BranchId) -> Result<Vec<FileName>, StorageError>;
+
+    fn branch_get_tab_info(
+        &self,
+        branch: &BranchId,
+        repo: &RepoId,
+        store: &StoreRepo,
+    ) -> Result<AppTabInfo, StorageError>;
 
     fn update_branch_current_heads(
         &self,
@@ -91,6 +98,15 @@ impl UserStorage for InMemoryUserStorage {
         } else {
             Ok(vec![])
         }
+    }
+
+    fn branch_get_tab_info(
+        &self,
+        branch: &BranchId,
+        repo: &RepoId,
+        store: &StoreRepo,
+    ) -> Result<AppTabInfo, StorageError> {
+        unimplemented!();
     }
 
     fn get_all_store_and_repo_ids(&self) -> Result<HashMap<StoreRepo, Vec<RepoId>>, StorageError> {

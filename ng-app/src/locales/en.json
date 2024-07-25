@@ -1,5 +1,33 @@
 {
   "doc": {
+    "doc": "Document",
+    "protected_store": "Protected Profile",
+    "public_store": "Public Site",
+    "private_store": "Private Store",
+    "group_store": "Group Store",
+    "dialog_store": "Dialog Store",
+    "not_found" : "Document not found",
+    "not_found_details_online" : "The document could not be found locally on this device, nor on the broker.",
+    "not_found_details_offline" : "The document could not be found locally on this device, and it seems like you are offline, so it could not be retrieved from any broker neither.<br/><br/>If you are opening this document for the first time on this device, you have to be online now so the document can be fetched.<br/><br/> We will try connecting and fetching it every 20 seconds.",
+    "cannot_load_offline": "You are offline and using the web app. There is currently a limitation on local storage within the Web App, and you need to connect to the broker every time you login with the Web App.<br/><br/>For now, the Web App does not keep a local copy of your documents. due to the limit of 5MB in localStorage. We will remove this limitation soon. Stay tuned!<br/><br/>Check your connectivity status in the ",
+    "header": {
+      "buttons": {
+        "edit": "Edit title, icon, intro",
+        "edit_profile": "Edit profile",
+        "bookmarked": "Saved",
+        "all_docs": "All Docs",
+        "groups": "Groups",
+        "channels": "Channels",
+        "inbox": "Inbox",
+        "chat": "Chat"
+      }
+    },
+    "errors": {
+      "InvalidNuri": "Invalid NURI"
+    },
+    "errors_details": {
+      "InvalidNuri": "The provided NextGraph URI is invalid"
+    },
     "graph" : "Graph",
     "discrete" : "Document",
     "menu" : {
@@ -152,6 +180,10 @@
         "mc": {
           "label": "Magic Carpet",
           "desc": "Opens the Magic Carpet (like a clipboard, but better)"
+        },
+        "archive": {
+          "label": "Archive",
+          "desc": "Archive documents that you don't need anymore"
         }
       }
     }
@@ -299,10 +331,10 @@
         "2": "In your wallet, we store all the permissions to access documents you have been granted with, or that you have created yourself.",
         "3": "In order to open it, you will need to enter your <b >pazzle</b > and a <b>PIN code</b> of 4 digits. Your personal pazzle (contraction of puzzle and password) is composed of 9 images you should remember. The order of the images is important too.",
         "4": "Don't worry, it is easier to remember 9 images than a password like \"69$g&ms%C*%\", and it has the same strength as a complex password. The entropy of your pazzle is <b >66bits</b >, which is considered very high by all standards.",
-        "5": "You should only create <b>one unique wallet for yourself</b >. All your accounts, identities and permissions will be added to this unique wallet later on. Do not create another wallet if you already have one. Instead, you will <b>import</b> your existing wallet in all the apps and websites where you need it.",
-        "6": "Your wallet can be imported with the help of a small file that you download, or with a QRcode. In any case, you should never share this file or QRcode with anybody else.",
+        "5": "You should only create <b>one unique wallet for yourself</b >. All your accounts, identities and permissions will be added to this unique wallet later on. Do not create another wallet if you already have one. Instead, you will <b>import</b> your unique existing wallet in all the apps and websites where you need it.",
+        "6": "Your wallet can be transferred from one device to another with the help of a small file that you download, or with a QRcode, or with a TextCode that you copy/paste. In any case, you should never share this file or QRcode with anybody else.",
         "7": "We at NextGraph will never see the content of your wallet. It is encrypted and we do not know your pazzle, so we cannot see what is inside.",
-        "8": "For the same reason, we won't be able to help you if you forget your pazzle or PIN code, or if you loose the wallet file. <span class=\"text-bold\">   There is no \"password recovery\" option</span > in this case. You can note your pazzle down on a piece of paper until you remember it, but don't forget to destroy this note after a while."
+        "8": "For the same reason, we won't be able to help you if you forget your pazzle or PIN code, or if you loose the wallet file. <span class=\"text-bold\"> There is no \"password recovery\" option</span > in this case. You can note your pazzle down on a piece of paper until you remember it, but don't forget to destroy this note after a while."
       },
       "create_wallet_now": "I create my wallet now!",
       "select_server": "NextGraph is based on an efficient decentralized P2P network, and in order to join this network and start using the app, you need to first select a <b>broker&nbsp;server</b>.",
@@ -319,7 +351,7 @@
       },
       "choose_broker": "Please choose one broker among the list",
       "register_with_broker": "Register with {broker}",
-      "for_eu_citizens": "European Union Citizens",
+      "for_eu_citizens": "European Union Server",
       "for_rest": "For the rest of the world",
       "enter_invite_link": "Enter an invitation link",
       "scan_invite_qr": "Scan an invitation QR-code",
@@ -362,18 +394,18 @@
       "pins_no_match": "You didn't enter the same PIN twice",
       "almost_done": "We are almost done!",
       "save_wallet_options": {
-        "description": "There are 4 options to choose before we can create your wallet. Those options can help you to use and keep your wallet. But we also want to be careful with your security and privacy.<br /><br />Remember that in any case, once your wallet will be created, you will download a file that you should keep privately somewhere on your device, USB key or hard-disk. This is the default way you can use and keep your wallet. Now let's look at some options that can make your life a bit easier.",
+        "description": "There are 2 options to choose before we can create your wallet.",
         "trust": "Do you trust this device?",
         "trust_description": "If you do, if this device is yours, or it is used by a few trusted persons of your family or workplace, and you would like to login again from this device in the future, then you can save your wallet on this device. To the contrary, if this device is public and shared by strangers, do not save your wallet here.",
-        "trust_toggle": "Save my wallet on this device?",
+        "trust_toggle": "Yes, save my wallet on this device",
         "device_name_description": "To see which devices you are connected with, every device should have a name (e.g. Bob's laptop). Please enter it here.",
         "cloud": "Keep a copy in the cloud?",
         "cloud_description": "Are you afraid that you will loose the file containing your wallet? If this would happen, your wallet would be lost forever, together with all your documents. We can keep an encrypted copy of your wallet in our cloud. Only you will be able to download it with a special link. You would have to keep this link safely though. By selecting this option, you agree to the",
         "cloud_toggle": "Save my wallet in the cloud?",
         "cloud_tos": "Terms of Service of our cloud",
-        "pdf": "Create a PDF file of your wallet?",
-        "pdf_description": "We can prepare for you a PDF file containing all the information of your wallet, unencrypted. You should print this file and then delete the PDF (and empty the trash). Keep this printed document in a safe place. It contains all the information to regenerate your wallet in case you lost access to it.",
-        "pdf_toggle": "Create a PDF of my wallet?",
+        "pdf": "Should we create a PDF file of your wallet?",
+        "pdf_description": "We can prepare for you a PDF file containing all the information of your wallet, unencrypted. In the next screen, once your wallet is ready, you will be able to download such PDF file. You should print this file and then delete the PDF (and empty the trash). Keep this printed document in a safe place. It contains all the information to regenerate your wallet in case you lost access to it.",
+        "pdf_toggle": "Yes, create a PDF of my wallet",
         "link": "Create a link to access your wallet easily?",
         "link_description": "When you want to use your wallet on the web or from other devices, we can help you find your wallet by creating a simple link accessible from anywhere. Only you will have access to this link. In order to do so, we will keep your wallet ID and some information about your broker on our cloud servers. If you prefer to opt out, just uncheck this option. By selecting this option, you agree to the",
         "link_toggle": "Create a link to my wallet?"

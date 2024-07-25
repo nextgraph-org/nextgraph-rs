@@ -28,7 +28,7 @@ export const official_apps = {
         "ng:u": "json_ld_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:json_ld_editor",
         "ng:b": "JsonLdEditor",
-        "ng:w": ["data/graph"],
+        "ng:w": ["data:graph"],
     },
     "n:g:z:json_editor": {
         "ng:n": "JSON Editor",
@@ -37,7 +37,7 @@ export const official_apps = {
         "ng:u": "json_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:json_editor",
         "ng:b": "JsonEditor",
-        "ng:w": ["data/json","data/array","data/map"],
+        "ng:w": ["data:json","data:array","data:map"],
     },
     "n:g:z:triple_editor": {
         "ng:n": "Graph Triples Editor",
@@ -46,7 +46,7 @@ export const official_apps = {
         "ng:u": "triple_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:triple_editor",
         "ng:b": "TripleEditor",
-        "ng:w": ["data/graph"],
+        "ng:w": ["data:graph"],
     },
     "n:g:z:json_ld_viewer": {
         "ng:n": "JSON-LD",
@@ -55,7 +55,7 @@ export const official_apps = {
         "ng:u": "json_ld_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:json_ld_viewer",
         "ng:b": "JsonLdViewer",
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
     },
     "n:g:z:rdf_viewer:graph": {
         "ng:n": "Graph Explorer",
@@ -64,7 +64,7 @@ export const official_apps = {
         "ng:u": "graph_viewer",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:rdf_viewer:graph",
         "ng:b": "GraphViewer", // GraphExplorer https://github.com/zazuko/graph-explorer !! AGPL
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
         "ng:w": [],
     },
     "n:g:z:json_viewer": {
@@ -74,7 +74,7 @@ export const official_apps = {
         "ng:u": "json_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:json_viewer",
         "ng:b": "JsonViewer",
-        "ng:o": ["data/json","data/array","data/map"],
+        "ng:o": ["data:json","data:array","data:map"],
     },
     "n:g:z:triple_viewer": {
         "ng:n": "Graph Triples",
@@ -83,37 +83,37 @@ export const official_apps = {
         "ng:u": "triple_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:triple_viewer",
         "ng:b": "TripleViewer",
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
     },
     "n:g:z:sparql_query:yasgui": {
         "ng:n": "SPARQL Query",
-        "ng:a": "View, edit and invoke the Graph SPARQL query",
+        "ng:a": "View, edit and invoke a Graph SPARQL query",
         "ng:c": "app", 
         "ng:u": "sparql_query",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:sparql_query:yasgui",
         "ng:b": "SparqlQueryEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
-        "ng:o": ["data/graph"],
-        "ng:w": ["query/sparql"],
+        "ng:o": ["data:graph"],
+        "ng:w": ["query:sparql"],
     },
     "n:g:z:sparql_query:sparnatural": {
         "ng:n": "SPARNatural Query",
-        "ng:a": "View, edit and invoke the Graph SPARQL query with SPARnatural tool",
+        "ng:a": "View, edit and invoke a Graph SPARQL query with SPARnatural tool",
         "ng:c": "app", 
         "ng:u": "sparnatural",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:sparql_query:sparnatural",
         "ng:b": "SparNaturalEditor",
-        "ng:o": ["data/graph"],
-        "ng:w": ["query/sparql"],
+        "ng:o": ["data:graph"],
+        "ng:w": ["query:sparql"],
     },
     "n:g:z:graphql_query": {
         "ng:n": "GraphQL Query",
-        "ng:a": "View, edit and invoke the GraphQL query",
+        "ng:a": "View, edit and invoke a GraphQL query",
         "ng:c": "app", 
         "ng:u": "graphql",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:graphql_query",
         "ng:b": "GraphqlEditor",
-        "ng:o": ["data/graph"],
-        "ng:w": ["query/graphql"],
+        "ng:o": ["data:graph"],
+        "ng:w": ["query:graphql"],
     },
     "n:g:z:sparql_update:yasgui": {
         "ng:n": "SPARQL Update",
@@ -123,7 +123,7 @@ export const official_apps = {
         "ng:g": "n:g:z:sparql_update:yasgui",
         "ng:b": "SparqlUpdateEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
         "ng:o": [],
-        "ng:w": ["query/sparql_update","data/graph"],
+        "ng:w": ["query:sparql_update","data:graph"],
     },
     "n:g:z:rdf_viewer:turtle": { // https://github.com/highlightjs/highlightjs-turtle/tree/master
         "ng:n": "Turtle",
@@ -132,7 +132,7 @@ export const official_apps = {
         "ng:u": "rdf_viewer",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:rdf_viewer:turtle",
         "ng:b": "TurtleViewer",
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
         "ng:w": [],
     },
     "n:g:z:rdf_viewer:n3": { // ?
@@ -142,7 +142,7 @@ export const official_apps = {
         "ng:u": "rdf_viewer",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:rdf_viewer:n3",
         "ng:b": "N3Viewer",
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
         "ng:w": [],
     },
     "n:g:z:rdf_viewer:json_ld": { // highlight.js JSON
@@ -152,7 +152,7 @@ export const official_apps = {
         "ng:u": "rdf_viewer",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:rdf_viewer:json_ld",
         "ng:b": "JsonLdViewer",
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
         "ng:w": [],
     },
     "n:g:z:ontology_editor": {
@@ -163,7 +163,7 @@ export const official_apps = {
         "ng:g": "n:g:z:ontology_editor",
         "ng:b": "JsonLdEditor",
         "ng:o": [],
-        "ng:w": ["schema/*"],
+        "ng:w": ["schema:*"],
     },
     "n:g:z:owl_viewer": {
         "ng:n": "OWL Ontology",
@@ -172,7 +172,7 @@ export const official_apps = {
         "ng:u": "ontology_viewer",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:owl_viewer",
         "ng:b": "OwlViewer", // display with https://github.com/VisualDataWeb/WebVOWL
-        "ng:o": ["schema/owl"],
+        "ng:o": ["schema:owl"],
         "ng:w": [],
     },
     "n:g:z:sparql:invoke": { // displayed with highlight.js https://github.com/highlightjs/highlightjs-turtle/tree/master
@@ -182,7 +182,7 @@ export const official_apps = {
         "ng:u": "invoke",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:sparql:invoke",
         "ng:b": "SparqlInvoker",
-        "ng:o": ["query/sparql","query/sparql_update"],
+        "ng:o": ["query:sparql","query:sparql_update"],
         "ng:w": [],
     },
     "n:g:z:graphql:invoke": { 
@@ -192,7 +192,7 @@ export const official_apps = {
         "ng:u": "invoke",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:graphql:invoke",
         "ng:b": "GraphqlInvoker",
-        "ng:o": ["query/graphql"],
+        "ng:o": ["query:graphql"],
         "ng:w": [],
     },
     "n:g:z:dump_download": {
@@ -202,7 +202,7 @@ export const official_apps = {
         "ng:u": "download",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_download",
         "ng:b": "Downloader",
-        "ng:o": ["data/graph","file*","data/*"],
+        "ng:o": ["data:graph","file*","data:*"],
         "ng:w": [],
     },
     "n:g:z:post_rich_editor": {
@@ -213,7 +213,7 @@ export const official_apps = {
         "ng:g": "n:g:z:post_rich_editor",
         "ng:b": "ProseMirrorEditor",
         "ng:o": [],
-        "ng:w": ["post/rich"],
+        "ng:w": ["post:rich"],
     },
     "n:g:z:post_md_editor": {
         "ng:n": "Post MD Editor",
@@ -223,7 +223,7 @@ export const official_apps = {
         "ng:g": "n:g:z:post_md_editor",
         "ng:b": "MilkDownEditor",
         "ng:o": [],
-        "ng:w": ["post/md"],
+        "ng:w": ["post:md"],
     },
     "n:g:z:code_editor": {
         "ng:n": "Code and Text Editor",
@@ -233,7 +233,7 @@ export const official_apps = {
         "ng:g": "n:g:z:code_editor",
         "ng:b": "CodeMirrorEditor",
         "ng:o": [],
-        "ng:w": ["code*","post/text"],
+        "ng:w": ["code*","post:text"],
     },
     "n:g:z:file_viewer": {
         "ng:n": "File details",
@@ -252,7 +252,7 @@ export const official_apps = {
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:file_source",
         "ng:b": "FileSource",
-        "ng:o": ["file/text"],
+        "ng:o": ["file:text"],
         "ng:w": [],
     },
     "n:g:z:crdt_source_viewer:xml": { 
@@ -262,7 +262,7 @@ export const official_apps = {
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:crdt_source_viewer:xml",
         "ng:b": "XmlSource", // displayed with highlight.js , with option to download
-        "ng:o": ["post/rich","post/md","post/html","page","data/xml", "doc/diagram/drawio"],
+        "ng:o": ["post:rich","post:md","post:html","page","data:xml", "doc:diagram:drawio"],
         "ng:w": [],
     },
     "n:g:z:viewer:md": { 
@@ -272,7 +272,7 @@ export const official_apps = {
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:viewer:md",
         "ng:b": "MdSource", // displayed with highlight.js , with option to download
-        "ng:o": ["post/md"],
+        "ng:o": ["post:md"],
         "ng:w": [],
     },
     "n:g:z:crdt_source_viewer:json": { 
@@ -282,7 +282,7 @@ export const official_apps = {
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:crdt_source_viewer:json",
         "ng:b": "JsonSource", // displayed with highlight.js , with option to download
-        "ng:o": ["data/json", "data/map", "data/array", "data/table", "doc/diagram/jsmind", "doc/diagram/gantt", "doc/diagram/excalidraw", "doc/viz/*", "doc/chart/*", "prod/cad"],
+        "ng:o": ["data:json", "data:map", "data:array", "data:table", "doc:diagram:jsmind", "doc:diagram:gantt", "doc:diagram:excalidraw", "doc:viz:*", "doc:chart:*", "prod:cad"],
         "ng:w": [],
     },
     "n:g:z:crdt_source_viewer:text": {
@@ -292,8 +292,8 @@ export const official_apps = {
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:crdt_source_viewer:text",
         "ng:b": "TextViewer", // displayed with highlight.js , with option to download
-        "ng:o": ["post/text", "post/asciidoc", "code*", "service*", "contract", "query/sparql*","query/graphql","doc/diagram/mermaid","doc/diagram/graphviz","doc/diagram/flowchart",
-                "doc/diagram/sequence","doc/diagram/markmap","doc/diagram/mymind","doc/music*", "doc/maths", "doc/chemistry", "doc/ancientscript", "doc/braille", "media/subtitle"],
+        "ng:o": ["post:text", "post:asciidoc", "code*", "service*", "contract", "query:sparql*","query:graphql","doc:diagram:mermaid","doc:diagram:graphviz","doc:diagram:flowchart",
+                "doc:diagram:sequence","doc:diagram:markmap","doc:diagram:mymind","doc:music*", "doc:maths", "doc:chemistry", "doc:ancientscript", "doc:braille", "media:subtitle"],
         "ng:w": [],
     },
     "n:g:z:crdt_source_viewer:rdf": {
@@ -303,7 +303,7 @@ export const official_apps = {
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:crdt_source_viewer:rdf",
         "ng:b": "TurtleViewer", //, with option to download
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
         "ng:w": [],
     },
     "n:g:z:post:rich": {
@@ -313,7 +313,7 @@ export const official_apps = {
         "ng:u": "post",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:post:rich",
         "ng:b": "PostRichViewer", // https://www.npmjs.com/package/prosemirror-to-html-js or https://prosemirror.net/docs/ref/version/0.4.0.html#toDOM https://prosemirror.net/docs/ref/version/0.4.0.html#toHTML
-        "ng:o": ["post/rich"],
+        "ng:o": ["post:rich"],
         "ng:w": [],
     },
     "n:g:z:post:md": {
@@ -323,7 +323,7 @@ export const official_apps = {
         "ng:u": "post",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:post:md",
         "ng:b": "PostMdViewer", // https://github.com/wooorm/markdown-rs
-        "ng:o": ["post/md"],
+        "ng:o": ["post:md"],
         "ng:w": [],
     },
     "n:g:z:post:text": {
@@ -333,7 +333,7 @@ export const official_apps = {
         "ng:u": "post",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:post:text", 
         "ng:b": "TextViewer", // displayed with a <p>
-        "ng:o": ["post/text"],
+        "ng:o": ["post:text"],
         "ng:w": [],
     },
     "n:g:z:pre": {
@@ -343,7 +343,7 @@ export const official_apps = {
         "ng:u": "post",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:pre", 
         "ng:b": "PreTextViewer", // displayed with highlight.js 
-        "ng:o": ["code*","post/text"],
+        "ng:o": ["code*","post:text"],
         "ng:w": [],
     },
     "n:g:z:pad": {
@@ -373,7 +373,7 @@ export const official_apps = {
         "ng:u": "gallery",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:gallery", 
         "ng:b": "Gallery",
-        "ng:o": ["media/album","data/collection"],
+        "ng:o": ["media:album","data:collection"],
         "ng:w": [],
     },
     "n:g:z:app_store": {
@@ -383,7 +383,7 @@ export const official_apps = {
         "ng:u": "app_store",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:app_store", 
         "ng:b": "AppStore",
-        "ng:o": ["app/z"],
+        "ng:o": ["app:z"],
         "ng:w": [],
     },
     "n:g:z:app_editor": {
@@ -393,37 +393,37 @@ export const official_apps = {
         "ng:u": "app_editor",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:app_editor", 
         "ng:b": "AppEditor",
-        "ng:o": ["app/z"],
-        "ng:w": ["app/z"],
+        "ng:o": ["app:z"],
+        "ng:w": ["app:z"],
     },
     "n:g:z:list": {
-        "ng:n": "List view",
+        "ng:n": "List",
         "ng:a": "See the content of document as a list",
         "ng:c": "app", 
         "ng:u": "list",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:list", 
         "ng:b": "ListView",
-        "ng:o": ["data/collection","data/container"],
-        "ng:w": ["data/collection","data/container"],
+        "ng:o": ["data:collection","data:container"],
+        "ng:w": ["data:collection","data:container"],
     },
     "n:g:z:grid": {
-        "ng:n": "Grid view",
+        "ng:n": "Grid",
         "ng:a": "See the content of document as a grid",
         "ng:c": "app", 
         "ng:u": "grid",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:grid", 
         "ng:b": "GridView",
-        "ng:o": ["data/grid"],
-        "ng:w": ["data/grid"],
+        "ng:o": ["data:grid"],
+        "ng:w": ["data:grid"],
     },
     "n:g:z:media": {
-        "ng:n": "Media view",
+        "ng:n": "Media",
         "ng:a": "View media",
         "ng:c": "app", 
         "ng:u": "view",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:media", 
         "ng:b": "MediaView",
-        "ng:o": ["media/*"],
+        "ng:o": ["media:*"],
         "ng:w": [],
     },
     "n:g:z:service_editor": {
@@ -434,7 +434,7 @@ export const official_apps = {
         "ng:g": "n:g:z:service_editor",
         "ng:b": "CodeMirrorEditor",
         "ng:o": [],
-        "ng:w": ["service/*"],
+        "ng:w": ["service:*"],
     },
     "n:g:z:service_invoke": {
         "ng:n": "Service Invoker",
@@ -453,7 +453,7 @@ export const official_apps = {
         "ng:u": "invoke",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:external_service_invoke",
         "ng:b": "ExternalServiceInvoker",
-        "ng:o": ["service/*"],
+        "ng:o": ["service:*"],
         "ng:w": [],
     },
     "n:g:z:upload_file": {
@@ -464,7 +464,7 @@ export const official_apps = {
         "ng:g": "n:g:z:upload_file",
         "ng:b": "UploadFile",
         "ng:o": [],
-        "ng:w": ["data/graph"],
+        "ng:w": ["data:graph"],
     },
     "n:g:z:import_file": {
         "ng:n": "Import from external file",
@@ -474,7 +474,7 @@ export const official_apps = {
         "ng:g": "n:g:z:import_file",
         "ng:b": "UploadFile",
         "ng:o": [],
-        "ng:w": ["data/graph"],
+        "ng:w": ["data:graph"],
     },
     // TODO: "n:g:z:columns", "n:g:z:tree", "n:g:z:summary", "n:g:z:list_n_post", "n:g:z:grid_n_post", "n:g:z:board", 
     // TODO: "n:g:z:map", "n:g:z:chart", "n:g:z:pivot", "n:g:z:timeline", "n:g:z:email", "n:g:z:web_archive", "n:g:z:diagram_editor", "n:g:z:pdf", "n:g:z:latex", "n:g:z:media_editor", 
@@ -496,9 +496,9 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "data",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_rdf:turtle",
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
         "ng:w": [],
-        "ng:result": ["file/iana/text/turtle"],
+        "ng:result": ["file:iana:text:turtle"],
     },
     "n:g:z:dump_rdf:n3": {
         "ng:n": "N3 export",
@@ -506,9 +506,9 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "data",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_rdf:n3",
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
         "ng:w": [],
-        "ng:result": ["file/iana/text/n3"],
+        "ng:result": ["file:iana:text:n3"],
     },
     "n:g:z:dump_rdf:json_ld": {
         "ng:n": "JSON-LD export",
@@ -516,9 +516,9 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "data",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_rdf:json_ld",
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
         "ng:w": [],
-        "ng:result": ["file/iana/application/ld+json"],
+        "ng:result": ["file:iana:application:ld+json"],
     },
     "n:g:z:load_rdf:turtle": {
         "ng:n": "Import Turtle triples",
@@ -527,7 +527,7 @@ export const official_services = {
         "ng:u": "load_graph",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:load_rdf:turtle",
         "ng:o": [],
-        "ng:w": ["data/graph"],
+        "ng:w": ["data:graph"],
     },
     "n:g:z:load_rdf:n3": {
         "ng:n": "Import N3 triples",
@@ -536,7 +536,7 @@ export const official_services = {
         "ng:u": "load_graph",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:load_rdf:n3",
         "ng:o": [],
-        "ng:w": ["data/graph"],
+        "ng:w": ["data:graph"],
     },
     "n:g:z:load_rdf:json_ld": {
         "ng:n": "Import JSON-LD triples",
@@ -545,7 +545,7 @@ export const official_services = {
         "ng:u": "load_graph",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:load_rdf:json_ld",
         "ng:o": [],
-        "ng:w": ["data/graph"],
+        "ng:w": ["data:graph"],
     },
     "n:g:z:load_file": {
         "ng:n": "Add file",
@@ -554,7 +554,7 @@ export const official_services = {
         "ng:u": "load",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:load_file",
         "ng:o": [],
-        "ng:w": ["data/graph"],
+        "ng:w": ["data:graph"],
     },
     "n:g:z:dump_file": {
         "ng:n": "Export file",
@@ -563,7 +563,7 @@ export const official_services = {
         "ng:u": "dump",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_file",
         "ng:o": ["file*"],
-        "ng:result": ["file/iana/*"],
+        "ng:result": ["file:iana:*"],
     },
     "n:g:z:dump_json": {
         "ng:n": "JSON export",
@@ -571,9 +571,9 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "data",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_json",
-        "ng:o": ["data/json", "data/map", "data/array", "data/table", "doc/diagram/jsmind", "doc/diagram/gantt", "doc/diagram/excalidraw", "doc/viz/*", "doc/chart/*", "prod/cad"],
+        "ng:o": ["data:json", "data:map", "data:array", "data:table", "doc:diagram:jsmind", "doc:diagram:gantt", "doc:diagram:excalidraw", "doc:viz:*", "doc:chart:*", "prod:cad"],
         "ng:w": [],
-        "ng:result": ["file/iana/application/json"],
+        "ng:result": ["file:iana:application:json"],
     },
     "n:g:z:dump_xml": {
         "ng:n": "XML export",
@@ -581,9 +581,9 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "data",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_xml",
-        "ng:o": ["post/rich","post/md","post/html","page","data/xml", "doc/diagram/drawio"],
+        "ng:o": ["post:rich","post:md","post:html","page","data:xml", "doc:diagram:drawio"],
         "ng:w": [],
-        "ng:result": ["file/iana/text/xml"],
+        "ng:result": ["file:iana:text:xml"],
     },
     "n:g:z:dump_text": {
         "ng:n": "Text export",
@@ -591,10 +591,10 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "dump",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_text",
-        "ng:o": ["post/text", "post/asciidoc", "code*", "service*", "contract", "query/sparql*","query/graphql","doc/diagram/mermaid","doc/diagram/graphviz","doc/diagram/flowchart",
-        "doc/diagram/sequence","doc/diagram/markmap","doc/diagram/mymind","doc/music*", "doc/maths", "doc/chemistry", "doc/ancientscript", "doc/braille", "media/subtitle"],
+        "ng:o": ["post:text", "post:asciidoc", "code*", "service*", "contract", "query:sparql*","query:graphql","doc:diagram:mermaid","doc:diagram:graphviz","doc:diagram:flowchart",
+        "doc:diagram:sequence","doc:diagram:markmap","doc:diagram:mymind","doc:music*", "doc:maths", "doc:chemistry", "doc:ancientscript", "doc:braille", "media:subtitle"],
         "ng:w": [],
-        "ng:result": ["file/iana/text/plain"],
+        "ng:result": ["file:iana:text:plain"],
     },
     "n:g:z:dump_ng_html_file": {
         "ng:n": "NextGraph Standalone file",
@@ -602,9 +602,9 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "ext",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_ng_html_file",
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
         "ng:w": [],
-        "ng:result": ["file/iana/text/html"],
+        "ng:result": ["file:iana:text:html"],
     },
     "n:g:z:load_json": {
         "ng:n": "Import JSON",
@@ -613,7 +613,7 @@ export const official_services = {
         "ng:u": "load",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:load_json",
         "ng:o": [],
-        "ng:w": ["data/json","data/map", "data/array"],
+        "ng:w": ["data:json","data:map", "data:array"],
     },
     "n:g:z:load_xml": {
         "ng:n": "Import XML",
@@ -622,7 +622,7 @@ export const official_services = {
         "ng:u": "load",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:load_xml",
         "ng:o": [],
-        "ng:w": ["data/xml"],
+        "ng:w": ["data:xml"],
     },
     "n:g:z:load_text": {
         "ng:n": "Import Text",
@@ -631,7 +631,7 @@ export const official_services = {
         "ng:u": "load",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:load_text",
         "ng:o": [],
-        "ng:w": ["post/text","post/rich","post/md"],
+        "ng:w": ["post:text","post:rich","post:md"],
     },
     "n:g:z:load_md": {
         "ng:n": "Import Markdown",
@@ -640,7 +640,7 @@ export const official_services = {
         "ng:u": "load",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:load_md",
         "ng:o": [],
-        "ng:w": ["post/md"],
+        "ng:w": ["post:md"],
     },
     "n:g:z:sparql_query": {
         "ng:n": "SPARQL query",
@@ -648,9 +648,9 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "sparql_query",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:sparql_query",
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
         "ng:w": [],
-        "ng:result": ["file/iana/application/sparql-results+json","file/iana/application/json"]
+        "ng:result": ["file:iana:application:sparql-results+json","file:iana:application:json"]
     },
     "n:g:z:sparql_update": {
         "ng:n": "SPARQL update",
@@ -659,7 +659,7 @@ export const official_services = {
         "ng:u": "sparql_query",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:sparql_update",
         "ng:o": [],
-        "ng:w": ["data/graph"],
+        "ng:w": ["data:graph"],
     },
     "n:g:z:dump_crdt_source": { // uses dump_rdf, dump_text, dump_json or dump_xml depending on the CRDT type
         "ng:n": "Export source",
@@ -667,8 +667,8 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "source",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_crdt_source",
-        "ng:o": ["data/graph"],
+        "ng:o": ["data:graph"],
         "ng:w": [],
-        "ng:result": ["file/iana/*"]
+        "ng:result": ["file:iana:*"]
     },
 };

@@ -18,19 +18,22 @@
     EllipsisVertical,
   } from "svelte-heros-v2";
   import { t } from "svelte-i18n";
-  import {cur_tab} from "../../tab";
+  import {cur_tab_update} from "../../tab";
 
   export let pane_name = "";
   export let pane_items = {};
 
   const closePane = (pane:string|boolean) => {
-    if (pane=="folders") {
-      $cur_tab.folders_pane = false;
-    } else if (pane=="toc") {
-      $cur_tab.toc_pane = false;
-    } else {
-      $cur_tab.right_pane = "";
-    }
+    cur_tab_update(($cur_tab) => {
+      if (pane=="folders") {
+        $cur_tab.folders_pane = false;
+      } else if (pane=="toc") {
+        $cur_tab.toc_pane = false;
+      } else {
+        $cur_tab.right_pane = "";
+      }
+      return $cur_tab;
+    });
   }
 </script>
   

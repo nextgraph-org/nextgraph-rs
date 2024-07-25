@@ -42,7 +42,7 @@ const mapping = {
     "test": [ ],
     "get_device_name": [],
     "doc_fetch_private_subscribe": [],
-    "doc_fetch_repo_subscribe": ["repo_id"],
+    "doc_fetch_repo_subscribe": ["repo_o"],
 }
 
 
@@ -67,6 +67,22 @@ const handler = {
             // } else if (path[0] === "wallet_create") {
             //     let res = await Reflect.apply(sdk[path], caller, args);
             //     return res;
+            } else if (path[0] === "app_request_stream") {
+                let callback = args[1];
+                let new_callback = (event) => {
+                    if (event.V0.State?.graph?.triples) {
+                        let json_str = new TextDecoder().decode(event.V0.State.graph.triples);
+                        event.V0.State.graph.triples = JSON.parse(json_str);
+                    } else if (event.V0.Patch?.graph) {
+                        let inserts_json_str = new TextDecoder().decode(event.V0.Patch.graph.inserts);
+                        event.V0.Patch.graph.inserts = JSON.parse(inserts_json_str);
+                        let removes_json_str = new TextDecoder().decode(event.V0.Patch.graph.removes);
+                        event.V0.Patch.graph.removes = JSON.parse(removes_json_str);
+                    }
+                    callback(event).then(()=> {})
+                };
+                args[1] = new_callback;
+                return Reflect.apply(sdk[path], caller, args)
             } else {
                 return Reflect.apply(sdk[path], caller, args)
             }
@@ -156,10 +172,24 @@ const handler = {
                     if (event.payload.V0.FileBinary) {
                         event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
                     }
+                    if (event.payload.V0.State?.graph?.triples) {
+                        let json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.State.graph.triples));
+                        event.payload.V0.State.graph.triples = JSON.parse(json_str);
+                    } else if (event.payload.V0.Patch?.graph) {
+                        let inserts_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.inserts));
+                        event.payload.V0.Patch.graph.inserts = JSON.parse(inserts_json_str);
+                        let removes_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.removes));
+                        event.payload.V0.Patch.graph.removes = JSON.parse(removes_json_str);
+                    }
                     callback(event.payload).then(()=> {})
                 })
-                await tauri.invoke("app_request_stream",{stream_id, request});
-                
+                try {
+                    await tauri.invoke("app_request_stream",{stream_id, request});
+                } catch (e) {
+                    unlisten();
+                    tauri.invoke("cancel_stream", {stream_id});
+                    throw e;
+                } 
                 return () => {
                     unlisten();
                     tauri.invoke("cancel_stream", {stream_id});

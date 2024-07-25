@@ -34,12 +34,12 @@ impl PinRepo {
         for (_, branch) in repo.branches.iter() {
             if let Some(privkey) = &branch.topic_priv_key {
                 rw_topics.push(PublisherAdvert::new(
-                    branch.topic,
+                    branch.topic.unwrap(),
                     privkey.clone(),
                     *broker_id,
                 ));
             } else {
-                ro_topics.push(branch.topic);
+                ro_topics.push(branch.topic.unwrap());
             }
         }
         PinRepo::V0(PinRepoV0 {
