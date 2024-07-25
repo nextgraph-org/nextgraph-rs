@@ -500,7 +500,6 @@ impl Verifier {
 
                             let at_current_heads = current_heads == direct_causal_past_encoded;
                             // if not, we need to base ourselves on the materialized state of the direct_causal_past of the commit
-                            log_info!("AT CURRENT HEADS {}", at_current_heads);
                             let value = if update.branch_is_main {
                                 REMOVED_IN_MAIN
                             } else {
@@ -508,7 +507,6 @@ impl Verifier {
                             };
 
                             for remove in update.transaction.removes.iter() {
-                                log_info!("REMOVING {}", remove.to_string());
                                 let encoded_subject = remove.subject.as_ref().into();
                                 let encoded_predicate = remove.predicate.as_ref().into();
                                 let encoded_object = remove.object.as_ref().into();
@@ -520,11 +518,7 @@ impl Verifier {
                                         &direct_causal_past_encoded,
                                         at_current_heads,
                                     )?;
-                                log_info!(
-                                    "direct_causal_past_encoded {:?}",
-                                    direct_causal_past_encoded
-                                );
-                                log_info!("observed_adds {:?}", observed_adds);
+
                                 for removing in observed_adds {
                                     let graph_encoded = EncodedTerm::NamedNode { iri_id: removing };
                                     let quad_encoded = EncodedQuad::new(
@@ -548,10 +542,6 @@ impl Verifier {
                                             )?
                                             .is_empty()
                                     };
-                                    log_info!(
-                                        "should_remove_ov_triples {}",
-                                        should_remove_ov_triples
-                                    );
                                     if should_remove_ov_triples {
                                         let ov_graphname_ref =
                                             GraphNameRef::NamedNode(ov_graphname.into());
