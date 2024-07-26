@@ -31,7 +31,7 @@ async-trait = "0.1.64"
 async-std = { version = "1.12.0", features = [ "attributes", "unstable" ] }
 automerge = "0.5.9"
 yrs = "0.18.2"
-bloomfilter = { version = "1.0.13", features = ["random","serde"] }
+sbbf-rs-safe = "0.3.2"
 ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1" }
 ng-net = { path = "../ng-net", version = "0.1.0-preview.1" }
 ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.7-ngpreview6" }

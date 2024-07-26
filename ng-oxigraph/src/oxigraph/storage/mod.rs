@@ -378,7 +378,7 @@ impl Storage {
 
     pub fn ng_transaction<'a, 'b: 'a, T, E: Error + 'static + From<StorageError>>(
         &'b self,
-        f: impl Fn(StorageWriter<'a>) -> Result<T, E>,
+        mut f: impl FnMut(StorageWriter<'a>) -> Result<T, E>,
     ) -> Result<T, E> {
         self.db.ng_transaction(|transaction| {
             f(StorageWriter {

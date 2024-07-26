@@ -714,7 +714,7 @@ impl Db {
 
     pub fn ng_transaction<'a, 'b: 'a, T, E: Error + 'static + From<StorageError>>(
         &'b self,
-        f: impl Fn(Transaction<'a>) -> Result<T, E>,
+        mut f: impl FnMut(Transaction<'a>) -> Result<T, E>,
     ) -> Result<T, E> {
         if let DbKind::ReadWrite(db) = &self.inner {
             loop {

@@ -13,9 +13,11 @@
 
 use core::fmt;
 use std::cmp::Ordering;
-use std::hash::Hash;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 use once_cell::sync::OnceCell;
+use sbbf_rs_safe::Filter;
 use serde::{Deserialize, Serialize};
 use threshold_crypto::serde_impl::SerdeSecret;
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -69,6 +71,16 @@ impl Digest {
         match self {
             Self::Blake3Digest32(o) => o,
         }
+    }
+    /// returns a hash that is consistent across platforms (32/64 bits. important for WASM32 compatibility with the rest)
+    /// see https://www.reddit.com/r/rust/comments/fwpki6/a_debugging_mystery_hashing_slices_in_wasm_works/
+    pub fn get_hash(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        let ser = serde_bare::to_vec(&self).unwrap();
+        for e in ser {
+            e.hash(&mut hasher);
+        }
+        hasher.finish()
     }
 }
 
@@ -373,10 +385,15 @@ pub enum BloomFilter {
 }
 
 impl BloomFilter {
-    pub fn filter(&self) -> &Vec<u8> {
+    pub fn filter(&self) -> Filter {
         match self {
-            Self::V0(v0) => &v0.f,
+            Self::V0(v0) => Filter::from_bytes(&v0.f).unwrap(),
         }
+    }
+    pub fn from_filter(filter: &Filter) -> Self {
+        BloomFilter::V0(BloomFilterV0 {
+            f: filter.as_bytes().to_vec(),
+        })
     }
 }
 
