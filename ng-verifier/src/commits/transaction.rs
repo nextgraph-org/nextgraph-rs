@@ -404,8 +404,11 @@ impl Verifier {
         self.update_graph(updates).await
     }
 
-    async fn update_graph(&mut self, updates: Vec<BranchUpdateInfo>) -> Result<(), VerifierError> {
-        let updates_ref = &updates;
+    async fn update_graph(
+        &mut self,
+        mut updates: Vec<BranchUpdateInfo>,
+    ) -> Result<(), VerifierError> {
+        let updates_ref = &mut updates;
         let res = self
             .graph_dataset
             .as_ref()
@@ -414,7 +417,7 @@ impl Verifier {
                 move |mut transaction| -> Result<(), ng_oxigraph::oxigraph::store::StorageError> {
                     let reader = transaction.ng_get_reader();
 
-                    for update in updates_ref {
+                    for update in updates_ref.iter_mut() {
                         let commit_name =
                             NuriV0::commit_graph_name(&update.commit_id, &update.overlay_id);
                         let commit_encoded = numeric_encoder::StrHash::new(&commit_name);
@@ -505,8 +508,8 @@ impl Verifier {
                             } else {
                                 REMOVED_IN_OTHER
                             };
-
-                            for remove in update.transaction.removes.iter() {
+                            let mut to_remove_from_removes: HashSet<usize> = HashSet::new();
+                            for (pos, remove) in update.transaction.removes.iter().enumerate() {
                                 let encoded_subject = remove.subject.as_ref().into();
                                 let encoded_predicate = remove.predicate.as_ref().into();
                                 let encoded_object = remove.object.as_ref().into();
@@ -548,12 +551,19 @@ impl Verifier {
                                         let triple_ref: TripleRef = remove.into();
                                         let quad_ref = triple_ref.in_graph(ov_graphname_ref);
                                         transaction.remove(quad_ref)?;
+                                    } else {
+                                        to_remove_from_removes.insert(pos);
                                     }
                                 }
                             }
+                            let mut idx: usize = 0;
+                            update.transaction.removes.retain(|_| {
+                                let retain = !to_remove_from_removes.remove(&idx);
+                                idx += 1;
+                                retain
+                            });
                         }
                     }
-
                     Ok(())
                 },
             )
