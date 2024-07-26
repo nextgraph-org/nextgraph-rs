@@ -23,9 +23,9 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_std::stream::StreamExt;
 use async_std::sync::{Mutex, RwLockReadGuard};
-use bloomfilter::Bloom;
 use futures::channel::mpsc;
 use futures::SinkExt;
+use sbbf_rs_safe::Filter;
 use serde::{Deserialize, Serialize};
 use web_time::SystemTime;
 
@@ -1585,6 +1585,7 @@ impl Verifier {
             let mut theirs_found = HashSet::new();
             let mut visited = HashMap::new();
             for our in ours_set.iter() {
+                //log_info!("OUR HEADS {}", our);
                 if let Ok(cobj) = Object::load(*our, None, &repo.store) {
                     let _ = Branch::load_causal_past(
                         &cobj,
@@ -1611,14 +1612,11 @@ impl Verifier {
                     // prepare bloom filter
                     let expected_elements =
                         remote_commits_nbr + max(visited.len() as u64, branch_info.commits_nbr);
-                    let mut filter =
-                        Bloom::<ObjectId>::new_for_fp_rate(expected_elements as usize, 0.01);
+                    let mut filter = Filter::new(27, expected_elements as usize);
                     for commit_id in visited.keys() {
-                        filter.set(commit_id);
+                        filter.insert_hash(commit_id.get_hash());
                     }
-                    Some(BloomFilter::V0(BloomFilterV0 {
-                        f: serde_bare::to_vec(&filter)?,
-                    }))
+                    Some(BloomFilter::from_filter(&filter))
                 }
             };
 

@@ -563,15 +563,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bit-vec"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "bit_field"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -668,17 +659,6 @@ dependencies = [
  "fastrand 1.9.0",
  "futures-lite",
  "log",
-]
-
-[[package]]
-name = "bloomfilter"
-version = "1.0.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b64d54e47a7f4fd723f082e8f11429f3df6ba8adaeca355a76556f9f0602bbcf"
-dependencies = [
- "bit-vec",
- "getrandom 0.2.10",
- "siphasher 1.0.1",
 ]
 
 [[package]]
@@ -1742,6 +1722,12 @@ checksum = "658bd65b1cf4c852a3cc96f18a8ce7b5640f6b703f905c7d74532294c2a63984"
 dependencies = [
  "getrandom 0.2.10",
 ]
+
+[[package]]
+name = "fastrange-rs"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e90a1392cd6ec5ebe42ccaf251f2b7ba6be654c377f05c913f3898bfb2172512"
 
 [[package]]
 name = "fdeflate"
@@ -3463,7 +3449,6 @@ version = "0.1.0-preview.1"
 dependencies = [
  "base64-url",
  "blake3",
- "bloomfilter",
  "chacha20",
  "crypto_box",
  "current_platform",
@@ -3478,6 +3463,7 @@ dependencies = [
  "once_cell",
  "os_info",
  "rand 0.7.3",
+ "sbbf-rs-safe",
  "serde",
  "serde_bare",
  "serde_bytes",
@@ -3566,7 +3552,6 @@ dependencies = [
  "async-std",
  "async-trait",
  "automerge",
- "bloomfilter",
  "either",
  "futures",
  "getrandom 0.2.10",
@@ -3575,6 +3560,7 @@ dependencies = [
  "ng-repo",
  "ng-storage-rocksdb",
  "rand 0.7.3",
+ "sbbf-rs-safe",
  "serde",
  "serde_bare",
  "serde_bytes",
@@ -4905,6 +4891,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "sbbf-rs"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5525db49c7719816ac719ea8ffd0d0b4586db1a3f5d3e7751593230dacc642fd"
+dependencies = [
+ "cpufeatures",
+ "fastrange-rs",
+]
+
+[[package]]
+name = "sbbf-rs-safe"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9902ffeb2cff3f8c072c60c7d526ac9560fc9a66fe1dfc3c240eba5e2151ba3c"
+dependencies = [
+ "sbbf-rs",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5242,9 +5247,6 @@ name = "siphasher"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "sized-chunks"

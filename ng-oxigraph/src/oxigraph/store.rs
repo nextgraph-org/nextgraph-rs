@@ -439,7 +439,7 @@ impl Store {
     /// ```
     fn transaction<'a, 'b: 'a, T, E: Error + 'static + From<StorageError>>(
         &'b self,
-        f: impl Fn(Transaction<'a>) -> Result<T, E>,
+        mut f: impl FnMut(Transaction<'a>) -> Result<T, E>,
     ) -> Result<T, E> {
         self.storage
             .ng_transaction(|writer| f(Transaction { writer }))
@@ -524,7 +524,7 @@ impl Store {
     #[doc(hidden)]
     pub fn ng_transaction<'a, 'b: 'a, T, E: Error + 'static + From<StorageError>>(
         &'b self,
-        f: impl Fn(Transaction<'a>) -> Result<T, E>,
+        mut f: impl FnMut(Transaction<'a>) -> Result<T, E>,
     ) -> Result<T, E> {
         self.storage
             .ng_transaction(|writer| f(Transaction { writer }))

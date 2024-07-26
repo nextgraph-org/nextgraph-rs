@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 
-use bloomfilter::Bloom;
+use sbbf_rs_safe::Filter;
 use zeroize::Zeroize;
 
 use crate::errors::*;
@@ -187,7 +187,7 @@ impl Branch {
         missing: &mut Option<&mut HashSet<ObjectId>>,
         future: Option<ObjectId>,
         theirs_found: &mut Option<&mut HashSet<ObjectId>>,
-        theirs_filter: &Option<Bloom<ObjectId>>,
+        theirs_filter: &Option<Filter>,
     ) -> Result<(), ObjectParseError> {
         let id = cobj.id();
 
@@ -195,7 +195,8 @@ impl Branch {
         // load deps, stop at the root(including it in visited) or if this is a commit object from known_heads
 
         let found_in_filter = if let Some(filter) = theirs_filter {
-            filter.check(&id)
+            let hash = id.get_hash();
+            filter.contains_hash(hash)
         } else {
             false
         };
@@ -276,7 +277,7 @@ impl Branch {
             // we silently discard any load error on the known_heads as the responder might not know them (yet).
         }
 
-        //log_debug!("their causal past \n{}", Dag(&theirs));
+        // log_debug!("their causal past \n{}", Dag(&theirs));
 
         let mut visited = HashMap::new();
 
@@ -284,8 +285,7 @@ impl Branch {
 
         let filter = if let Some(filter) = known_commits.as_ref() {
             Some(
-                serde_bare::from_slice(filter.filter())
-                    .map_err(|_| ObjectParseError::FilterDeserializationError)?,
+                filter.filter(), //.map_err(|_| ObjectParseError::FilterDeserializationError)?,
             )
         } else {
             None
@@ -309,7 +309,7 @@ impl Branch {
             // we silently discard any load error on the target_heads as they can be wrong if the requester is confused about what the responder has locally.
         }
 
-        //log_debug!("what we have here \n{}", Dag(&visited));
+        // log_debug!("what we have here \n{}", Dag(&visited));
 
         // now ordering to respect causal partial order.
         let mut next_generations = HashSet::new();
