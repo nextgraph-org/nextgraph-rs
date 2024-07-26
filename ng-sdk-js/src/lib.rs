@@ -319,11 +319,14 @@ pub async fn sparql_update(
         session_id,
     });
 
-    let _ = nextgraph::local_broker::app_request(request)
+    let res = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
-
-    Ok(())
+    if let AppResponse::V0(AppResponseV0::Error(e)) = res {
+        Err(e)
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(wasmpack_target = "nodejs")]

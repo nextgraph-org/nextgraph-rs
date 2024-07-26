@@ -13,11 +13,14 @@
     import { onMount, tick, onDestroy } from "svelte";
     import { 
       sparql_update,
+      toast_error,
+      toast_success
     } from "../store";
     import { 
-      in_memory_discrete, cur_tab
+      in_memory_discrete, open_viewer
     } from "../tab";
-    import{  RocketLaunch } from "svelte-heros-v2";
+    import{ Sun, RocketLaunch } from "svelte-heros-v2";
+    import { t } from "svelte-i18n";
 
     import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
     
@@ -35,26 +38,37 @@
         }
     });
     const run = async () => {
+      try{
         await sparql_update($in_memory_discrete);
+        toast_success($t("app.sparql_update_editor.success"));
+      } catch(e) {
+        toast_error(e);
+      }
     }
   
   </script>
   <div class="flex-col">
     
-    <CodeMirror bind:value={$in_memory_discrete} lineWrapping extensions={[basicSetup,StreamLanguage.define(sparql)]} styles={{
-        "&": {
-            
-            maxWidth: "100%",
-            
-        },
+    <CodeMirror bind:value={$in_memory_discrete} lineWrapping useTab={false} extensions={[basicSetup,StreamLanguage.define(sparql)]} styles={{
+      "&": {
+          maxWidth: "100%",
+      },
     }}/>
     <button
       on:click={run}
       on:keypress={run}
       class="select-none ml-2 mt-2 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
     >
-      <RocketLaunch class="mr-2 focus:outline-none" />
+      <RocketLaunch tabindex="-1" class="mr-2 focus:outline-none" />
       Run Update
+    </button>
+    <button
+      on:click={open_viewer}
+      on:keypress={open_viewer}
+      class="select-none ml-2 mt-2 mb-10 text-gray-600  focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+    >
+      <Sun class="mr-2 focus:outline-none" tabindex="-1" />
+      View Graph
     </button>
     
       

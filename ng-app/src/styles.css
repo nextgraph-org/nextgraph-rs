@@ -197,6 +197,13 @@ h1 {
     line-height: 1.1;
 }
 
+.toast {
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 49;
+    cursor: pointer;
+}
+
 input,
 button {
     border-radius: 8px;

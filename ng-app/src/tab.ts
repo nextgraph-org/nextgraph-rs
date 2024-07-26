@@ -481,6 +481,10 @@ export const set_view_or_edit = (val:boolean) => {
     });
 }
 
+export const open_viewer = () => {
+    set_view_or_edit(true);
+}
+
 export const cur_viewer = derived(cur_tab, ($cur_tab) => {
     let app_name = $cur_tab.graph_or_discrete ? $cur_tab.graph_viewer : $cur_tab.discrete_viewer;
     if (app_name) {

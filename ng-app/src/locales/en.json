@@ -1,4 +1,9 @@
 {
+  "app": {
+    "sparql_update_editor" : {
+      "success": "SPARQL Update successful!"
+    }
+  },
   "doc": {
     "doc": "Document",
     "protected_store": "Protected Profile",
