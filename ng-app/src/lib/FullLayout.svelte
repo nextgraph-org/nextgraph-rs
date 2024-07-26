@@ -17,6 +17,7 @@
     SidebarWrapper,
     Modal,
     Toggle,
+    Toast,
   } from "flowbite-svelte";
   import { link, location, push } from "svelte-spa-router";
   import MobileBottomBarItem from "./MobileBottomBarItem.svelte";
@@ -34,7 +35,7 @@
           available_editors, available_viewers, set_editor, set_viewer, set_view_or_edit, toggle_live_edit,
           has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu, show_modal_menu } from "../tab";
   import {
-    active_session, redirect_after_login,
+    active_session, redirect_after_login, toasts, remove_toast
   } from "../store";
   import ZeraIcon from "./ZeraIcon.svelte";
 
@@ -85,6 +86,9 @@
     XMark,
     ArrowLeft,
     ArchiveBox,
+    CheckCircle,
+    XCircle,
+    ExclamationCircle,
   } from "svelte-heros-v2";
     import NavBar from "./components/NavBar.svelte";
 
@@ -365,6 +369,27 @@
     "chat":ChatBubbleLeftRight,
     "mc":Sparkles,
   };
+
+  const toast_color = {
+    "error":"red",
+    "warning":"orange",
+    "success":"green",
+    "info":"blue"
+  };
+
+  const toast_icon = {
+    "error": XCircle,
+    "warning": ExclamationCircle,
+    "success": CheckCircle,
+    "info": InformationCircle,
+  }
+
+  const customEv = new CustomEvent('loaded', {});
+
+	async	function addLoaded(node) {
+		await tick()
+		node.dispatchEvent(customEv)
+	}
 
   let asideClass = "w-48";
   let spanClass = "flex-1 ml-3 whitespace-nowrap";
@@ -647,6 +672,15 @@
   </div>
 </Modal>
 
+{#each $toasts as toast, i}
+  <div class="toast fixed flex w-full max-w-xs" style="top:{16+i*74}px;" on:click|capture|stopPropagation={()=>{if (toast.timer) {clearTimeout(toast.timer);}; remove_toast(i);}} 
+    use:addLoaded on:loaded={()=>{if (toast.level=="success") {toast.timer = setTimeout(()=>{remove_toast(i);}, toast.timeout || 10000);}}} >
+    <Toast  color="{toast_color[toast.level]}" >
+      <Icon tabindex="-1"  slot="icon" class="w-8 h-8 p-1 focus:outline-none"  variation="outline" color="currentColor" icon={toast_icon[toast.level]} />
+      {toast.text}
+    </Toast>
+  </div>
+{/each}
 {#if mobile}
   <div class="full-layout">
     {#if !withoutNavBar} 
@@ -825,6 +859,7 @@
     </div>
     <div bind:this={top}></div>
     <main class="mt-11 bg-white dark:bg-black" >
+      
       <slot />
     </main>
   </div>
@@ -869,5 +904,4 @@
       @apply inline-flex items-center border border-gray-200  text-base font-medium px-2 py-2 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700 pr-3;
     }
   }
-
 </style>

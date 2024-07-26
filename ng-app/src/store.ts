@@ -70,6 +70,62 @@ export const select_default_lang = async () => {
         }
     }
 };
+/**
+ * { 
+ *      level:"error",//"warning","success","info"
+ *      text: ""
+ * }
+ */
+export const toasts = writable([
+    // {
+    //     level:"error",
+    //     text: "this is a serious error",
+    // },
+    // {
+    //     level:"info",
+    //     text: "this is an information for you that is very long long long and so long it doesnt fit",
+    // },
+    // {
+    //     level:"warning",
+    //     text: "this is a warning. be warned!",
+    // },
+    // {
+    //     level:"success",
+    //     text: "this is a success story",
+    //     timeout: 5000,
+    // }
+    
+]);
+
+export const remove_toast = function(idx) {
+    toasts.update((old)=>{
+        old.splice(idx,1);
+        return old;
+    });
+}
+
+export const toast = function(level, text) {
+    toasts.update((old)=>{
+        old.push({level,text});
+        return old;
+    });
+}
+
+export const toast_error = (text) => {
+    toast("error", text);
+}
+
+export const toast_info = (text) => {
+    toast("info", text);
+}
+
+export const toast_warning = (text) => {
+    toast("warning", text);
+}
+
+export const toast_success = (text) => {
+    toast("success", text);
+}
 
 export const scanned_qr_code = writable("");
 export const wallet_from_import = writable<null | object>(null);
@@ -324,8 +380,7 @@ export const digest_to_string = function(digest) {
 export const sparql_update = async function(sparql:string) {
     let session = get(active_session);
     if (!session) {
-        console.error("no session");
-        return;
+        throw new Error("no session");
     }
     let nuri = "did:ng:"+get(cur_tab).branch.nuri;
     await ng.sparql_update(session.session_id, nuri, sparql);
