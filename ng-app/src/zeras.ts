@@ -85,12 +85,12 @@ export const official_apps = {
         "ng:b": "TripleViewer",
         "ng:o": ["data:graph"],
     },
-    "n:g:z:sparql_query:yasgui": {
+    "n:g:z:sparql_query": {
         "ng:n": "SPARQL Query",
         "ng:a": "View, edit and invoke a Graph SPARQL query",
         "ng:c": "app", 
         "ng:u": "sparql_query",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:sparql_query:yasgui",
+        "ng:g": "n:g:z:sparql_query",
         "ng:b": "SparqlQueryEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
         "ng:o": ["data:graph"],
         "ng:w": ["query:sparql"],
@@ -115,12 +115,12 @@ export const official_apps = {
         "ng:o": ["data:graph"],
         "ng:w": ["query:graphql"],
     },
-    "n:g:z:sparql_update:yasgui": {
+    "n:g:z:sparql_update": {
         "ng:n": "SPARQL Update",
         "ng:a": "View, edit and invoke a Graph SPARQL Update",
         "ng:c": "app",
         "ng:u": "sparql_query",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:sparql_update:yasgui",
+        "ng:g": "n:g:z:sparql_update",
         "ng:b": "SparqlUpdateEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
         "ng:o": [],
         "ng:w": ["query:sparql_update","data:graph"],

@@ -218,7 +218,7 @@
       "remove_wallet": "Remove wallet from Device",
       "remove_wallet_modal.title": "Remove wallet?",
       "remove_wallet_modal.confirm": "Are you sure you want to remove this wallet from your device?",
-      "create_text_code": "Generate TextCode to export",
+      "create_text_code": "Export by generating a TextCode",
       "scan_qr.title": "Export by scanning a QR-Code",
       "scan_qr.no_camera": "If to the contrary, the other device does not have a camera, ",
       "scan_qr.other_has_camera": "If the other device where you want to import the Wallet, has a camera, then you can just click on the Back button and select <span class=\"path\">Generate QR to export</span>",
@@ -459,7 +459,7 @@
     },
     "wallet_login_textcode": {
       "title": "Import Wallet from TextCode",
-      "description": "To generate a TextCode, open a logged in device and go to<br /><span class=\"path\">User Panel > Wallet > Generate TextCode to export</span>.",
+      "description": "To generate a TextCode, open a logged in device and go to<br /><span class=\"path\">User Panel > Wallet > Export by generating a TextCode</span>.",
       "import_btn": "Import with TextCode",
       "enter_here": "Enter your TextCode here below and click on Import button"
     },

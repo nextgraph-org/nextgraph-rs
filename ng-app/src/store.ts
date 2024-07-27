@@ -111,6 +111,12 @@ export const toast = function(level, text) {
     });
 }
 
+export const reset_toasts = function() {
+    toasts.update((old)=>{
+        return [];
+    });
+}
+
 export const toast_error = (text) => {
     toast("error", text);
 }
@@ -377,13 +383,22 @@ export const digest_to_string = function(digest) {
     return encode(buffer.buffer);
 };
 
+export const sparql_query = async function(sparql:string, union:boolean) {
+    let session = get(active_session);
+    if (!session) {
+        throw new Error("no session");
+    }
+    let nuri = union ? undefined : "did:ng:"+get(cur_tab).branch.nuri;
+    return await ng.sparql_query(session.session_id, sparql, nuri);
+}
+
 export const sparql_update = async function(sparql:string) {
     let session = get(active_session);
     if (!session) {
         throw new Error("no session");
     }
     let nuri = "did:ng:"+get(cur_tab).branch.nuri;
-    await ng.sparql_update(session.session_id, nuri, sparql);
+    await ng.sparql_update(session.session_id, sparql, nuri);
 }
 
 export const branch_subscribe = function(nuri:string, in_tab:boolean) {

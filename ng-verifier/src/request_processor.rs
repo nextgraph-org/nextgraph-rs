@@ -169,6 +169,7 @@ impl Verifier {
                 if update {
                     return Err(NgError::InvalidTarget);
                 } else {
+                    //log_info!("QUERYING UNION GRAPH");
                     return Ok(None);
                 }
             }
@@ -248,7 +249,7 @@ impl Verifier {
                         query,
                     )))) = payload
                     {
-                        log_debug!("query={}", query);
+                        //log_debug!("query={}", query);
                         let store = self.graph_dataset.as_ref().unwrap();
                         let parsed = Query::parse(&query, None);
                         if parsed.is_err() {

@@ -200,7 +200,7 @@ export const official_classes = {
         "ng:n": "SPARQL Query", // edited with YASGUI or Sparnatural, displayed with highlight.js https://github.com/highlightjs/highlightjs-turtle/tree/master
         "ng:a": "Saved SPARQL Query that can be invoked",
         "ng:o": "n:g:z:sparql:invoke", 
-        "ng:w": "n:g:z:sparql_query:yasgui",
+        "ng:w": "n:g:z:sparql_query",
         "ng:compat": ["code:sparql", "file:iana:application:sparql-query","file:iana:application:x-sparql-query"],
     },
     "query:sparql_update": { 
@@ -208,7 +208,7 @@ export const official_classes = {
         "ng:n": "SPARQL Update", // edited with YASGUI, displayed with highlight.js https://github.com/highlightjs/highlightjs-turtle/tree/master
         "ng:a": "Saved SPARQL Update that can be invoked",
         "ng:o": "n:g:z:sparql:invoke", 
-        "ng:w": "n:g:z:sparql_update:yasgui",
+        "ng:w": "n:g:z:sparql_update",
         "ng:compat": ["code:sparql", "file:iana:application:sparql-update"],
     },
     "query:graphql": {
