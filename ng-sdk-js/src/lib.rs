@@ -259,16 +259,26 @@ pub async fn session_headless_stop(session_id: JsValue, force_close: bool) -> Re
 
     Ok(())
 }
-
+/*let app_response = nextgraph::verifier::prepare_app_response_for_js(app_response)?; */
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
-pub async fn sparql_query(session_id: JsValue, sparql: String) -> Result<JsValue, JsValue> {
+pub async fn sparql_query(
+    session_id: JsValue,
+    sparql: String,
+    nuri: JsValue,
+) -> Result<JsValue, JsValue> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Invalid session_id".to_string())?;
+    let nuri = if nuri.is_string() {
+        NuriV0::new_from(&nuri.as_string().unwrap())
+            .map_err(|_| "Deserialization error of Nuri".to_string())?
+    } else {
+        NuriV0::new_entire_user_site()
+    };
 
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::new_read_query(),
-        nuri: NuriV0::new_entire_user_site(),
+        nuri,
         payload: Some(AppRequestPayload::new_sparql_query(sparql)),
         session_id,
     });
@@ -305,8 +315,8 @@ pub async fn sparql_query(session_id: JsValue, sparql: String) -> Result<JsValue
 #[wasm_bindgen]
 pub async fn sparql_update(
     session_id: JsValue,
-    nuri: String,
     sparql: String,
+    nuri: String,
 ) -> Result<(), String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Invalid session_id".to_string())?;
@@ -326,6 +336,58 @@ pub async fn sparql_update(
         Err(e)
     } else {
         Ok(())
+    }
+}
+
+#[cfg(not(wasmpack_target = "nodejs"))]
+#[wasm_bindgen]
+pub async fn sparql_query(
+    session_id: JsValue,
+    sparql: String,
+    nuri: JsValue,
+) -> Result<JsValue, JsValue> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+
+    let nuri = if nuri.is_string() {
+        NuriV0::new_from(&nuri.as_string().unwrap())
+            .map_err(|_| "Deserialization error of Nuri".to_string())?
+    } else {
+        NuriV0::new_entire_user_site()
+    };
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_read_query(),
+        nuri,
+        payload: Some(AppRequestPayload::new_sparql_query(sparql)),
+        session_id,
+    });
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = response;
+    match res {
+        AppResponseV0::False => return Ok(JsValue::FALSE),
+        AppResponseV0::True => return Ok(JsValue::TRUE),
+        AppResponseV0::Graph(graph) => {
+            let triples: Vec<Triple> = serde_bare::from_slice(&graph)
+                .map_err(|_| "Deserialization error of Vec<Triple>".to_string())?;
+
+            Ok(JsValue::from(
+                triples
+                    .into_iter()
+                    .map(|x| JsValue::from_str(&x.to_string()))
+                    .collect::<Array>(),
+            ))
+        }
+        AppResponseV0::QueryResult(buf) => {
+            let string = String::from_utf8(buf)
+                .map_err(|_| "Deserialization error of JSON QueryResult String".to_string())?;
+            js_sys::JSON::parse(&string)
+        }
+        AppResponseV0::Error(e) => Err(e.to_string().into()),
+        _ => Err("invalid AppResponse".to_string().into()),
     }
 }
 

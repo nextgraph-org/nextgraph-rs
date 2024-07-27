@@ -9,6 +9,11 @@
 // according to those terms.
 */
 
+td.hljs {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
 /** To format paths, like Settings > Wallet > Generate Wallet QR */
 .path {
     font-family: monospace;

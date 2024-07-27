@@ -30,6 +30,7 @@ importers:
       dayjs: ^1.11.10
       flowbite: ^1.6.5
       flowbite-svelte: ^0.43.3
+      highlight.js: ^11.10.0
       html5-qrcode: ^2.3.8
       internal-ip: ^7.0.0
       ng-sdk-js: workspace:^0.1.0-preview.1
@@ -42,6 +43,7 @@ importers:
       svelte-check: ^3.0.0
       svelte-codemirror-editor: ^1.4.0
       svelte-heros-v2: ^0.10.12
+      svelte-highlight: ^7.7.0
       svelte-i18n: ^4.0.0
       svelte-inview: ^4.0.2
       svelte-preprocess: ^5.0.3
@@ -83,6 +85,7 @@ importers:
       autoprefixer: 10.4.14_postcss@8.4.24
       cross-env: 7.0.3
       dayjs: 1.11.10
+      highlight.js: 11.10.0
       internal-ip: 7.0.0
       node-gzip: 1.1.2
       postcss: 8.4.24
@@ -91,6 +94,7 @@ importers:
       svelte: 3.59.1
       svelte-check: 3.4.3_sxhny56dlbcmwov4vk7qwrzshi
       svelte-heros-v2: 0.10.12_svelte@3.59.1
+      svelte-highlight: 7.7.0
       svelte-preprocess: 5.0.4_vmz4xia4c7tzh4ii3qac2x3tom
       svelte-time: 0.8.0
       tailwindcss: 3.3.2
@@ -1604,6 +1608,11 @@ packages:
       function-bind: 1.1.1
     dev: true
 
+  /highlight.js/11.10.0:
+    resolution: {integrity: sha512-SYVnVFswQER+zu1laSya563s+F8VDGt7o35d4utbamowvUNLLMovFqwCLSocpZTz3MgaSRA1IbqRWZv97dtErQ==}
+    engines: {node: '>=12.0.0'}
+    dev: true
+
   /html5-qrcode/2.3.8:
     resolution: {integrity: sha512-jsr4vafJhwoLVEDW3n1KvPnCCXWaQfRng0/EEYk1vNcQGcG/htAdhJX0be8YyqMoSz7+hZvOZSTAepsabiuhiQ==}
     dev: false
@@ -2261,6 +2270,12 @@ packages:
       svelte: ^3.54.0 || ^4.0.0
     dependencies:
       svelte: 3.59.1
+    dev: true
+
+  /svelte-highlight/7.7.0:
+    resolution: {integrity: sha512-umBiTz3fLbbNCA+wGlRhJOb54iC6ap8S/dxjauQ+g6a8oFGTOGQeOP2rJVoh/K1ssF7IjP4P0T3Yuiu+vtaG5Q==}
+    dependencies:
+      highlight.js: 11.10.0
     dev: true
 
   /svelte-hmr/0.15.2_svelte@3.59.1:

@@ -195,7 +195,7 @@
           <SidebarWrapper
               divClass="bg-gray-60 overflow-y-auto py-4 px-3 rounded dark:bg-gray-800"
           >
-            <SidebarGroup ulClass="space-y-2" role="menu">
+            <SidebarGroup ulClass="space-y-2" class="text-left" role="menu">
               <li>
                 <h2 class="text-xl mb-6">{$t("pages.wallet_info.title")}</h2>
               </li>

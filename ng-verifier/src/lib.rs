@@ -17,7 +17,7 @@ mod rocksdb_user_storage;
 use ng_net::app_protocol::*;
 use ng_oxigraph::oxrdf::Triple;
 
-fn triples_ser_to_json_ser(ser: &Vec<u8>) -> Result<Vec<u8>, String> {
+pub fn triples_ser_to_json_string(ser: &Vec<u8>) -> Result<String, String> {
     let triples: Vec<Triple> = serde_bare::from_slice(ser)
         .map_err(|_| "Deserialization error of Vec<Triple>".to_string())?;
 
@@ -26,8 +26,12 @@ fn triples_ser_to_json_ser(ser: &Vec<u8>) -> Result<Vec<u8>, String> {
         triples_json.push(serde_json::Value::String(insert.to_string()));
     }
     let triples_json = serde_json::Value::Array(triples_json);
-    let json = serde_json::to_string(&triples_json)
-        .map_err(|_| "Cannot serialize Vec<Triple> to JSON".to_string())?;
+    serde_json::to_string(&triples_json)
+        .map_err(|_| "Cannot serialize Vec<Triple> to JSON".to_string())
+}
+
+fn triples_ser_to_json_ser(ser: &Vec<u8>) -> Result<Vec<u8>, String> {
+    let json = triples_ser_to_json_string(ser)?;
     Ok(json.as_bytes().to_vec())
 }
 
