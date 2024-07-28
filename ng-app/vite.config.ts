@@ -11,9 +11,9 @@ import topLevelAwait from "vite-plugin-top-level-await";
 export default defineConfig(async () => {
   const host = await internalIpV4()
   const config = {
-  // optimizeDeps: {
-  //   exclude: ["codemirror", "@codemirror/legacy-modes/mode/sparql"]
-  // },
+  optimizeDeps: {
+    exclude: ["codemirror", "@codemirror/*", "@codemirror/language", "@codemirror/state", "@codemirror/view","@codemirror/legacy-modes/mode/sparql"]
+  },
   worker: {
     format: 'es',
     plugins : [
@@ -68,6 +68,10 @@ export default defineConfig(async () => {
     port: process.env.NG_APP_WEB ? 1421 : 1420,
     host: '0.0.0.0',
     strictPort: true,
+    fs: {
+      // Allow serving files from one level up to the project root
+      allow: ['..'],
+    },
     hmr: {
       protocol: 'ws',
       host,

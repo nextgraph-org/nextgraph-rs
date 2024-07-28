@@ -3312,6 +3312,7 @@ dependencies = [
  "ng-net",
  "ng-repo",
  "ng-wallet",
+ "oxrdf",
  "serde",
  "serde_bare",
  "serde_bytes",

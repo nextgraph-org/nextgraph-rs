@@ -39,6 +39,8 @@ const mapping = {
     "user_connect": ["info","user_id","location"],
     "user_disconnect": ["user_id"],
     "app_request": ["request"],
+    "sparql_query": ["session_id","sparql","nuri"],
+    "sparql_update": ["session_id","sparql","nuri"],
     "test": [ ],
     "get_device_name": [],
     "doc_fetch_private_subscribe": [],

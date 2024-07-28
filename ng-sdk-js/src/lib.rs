@@ -259,7 +259,7 @@ pub async fn session_headless_stop(session_id: JsValue, force_close: bool) -> Re
 
     Ok(())
 }
-/*let app_response = nextgraph::verifier::prepare_app_response_for_js(app_response)?; */
+
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
 pub async fn sparql_query(

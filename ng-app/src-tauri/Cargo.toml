@@ -41,6 +41,7 @@ ng-repo = { path = "../../ng-repo" }
 ng-net = { path = "../../ng-net" }
 ng-wallet = { path = "../../ng-wallet" }
 nextgraph = { path = "../../nextgraph" }
+oxrdf = { git = "https://git.nextgraph.org/NextGraph/oxigraph.git",  branch="main", features = ["rdf-star", "oxsdatatypes"] }
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

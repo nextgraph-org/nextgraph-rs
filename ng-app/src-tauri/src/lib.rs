@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::fs::write;
 
 use async_std::stream::StreamExt;
+use oxrdf::Triple;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sys_locale::get_locales;
@@ -402,6 +403,76 @@ async fn doc_fetch_repo_subscribe(repo_o: String) -> Result<AppRequest, String> 
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn sparql_update(session_id: u64, sparql: String, nuri: String) -> Result<(), String> {
+    let nuri = NuriV0::new_from(&nuri).map_err(|_| "Deserialization error of Nuri".to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_write_query(),
+        nuri,
+        payload: Some(AppRequestPayload::new_sparql_query(sparql)),
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    if let AppResponse::V0(AppResponseV0::Error(e)) = res {
+        Err(e)
+    } else {
+        Ok(())
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn sparql_query(
+    session_id: u64,
+    sparql: String,
+    nuri: Option<String>,
+) -> Result<Value, String> {
+    let nuri = if nuri.is_some() {
+        NuriV0::new_from(&nuri.unwrap()).map_err(|_| "Deserialization error of Nuri".to_string())?
+    } else {
+        NuriV0::new_entire_user_site()
+    };
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_read_query(),
+        nuri,
+        payload: Some(AppRequestPayload::new_sparql_query(sparql)),
+        session_id,
+    });
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = response;
+    match res {
+        AppResponseV0::False => return Ok(Value::Bool(false)),
+        AppResponseV0::True => return Ok(Value::Bool(true)),
+        AppResponseV0::Graph(graph) => {
+            let triples: Vec<Triple> = serde_bare::from_slice(&graph)
+                .map_err(|_| "Deserialization error of graph".to_string())?;
+
+            Ok(Value::Array(
+                triples
+                    .into_iter()
+                    .map(|t| Value::String(t.to_string()))
+                    .collect(),
+            ))
+        }
+        AppResponseV0::QueryResult(buf) => {
+            let string = String::from_utf8(buf)
+                .map_err(|_| "Deserialization error of JSON QueryResult String".to_string())?;
+            Ok(serde_json::from_str(&string)
+                .map_err(|_| "Parsing error of JSON QueryResult String".to_string())?)
+        }
+        AppResponseV0::Error(e) => Err(e.to_string().into()),
+        _ => Err("invalid AppResponse".to_string().into()),
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn app_request(request: AppRequest, _app: tauri::AppHandle) -> Result<AppResponse, String> {
     //log_debug!("app request {:?}", request);
 
@@ -636,6 +707,8 @@ impl AppBuilder {
                 app_request,
                 upload_chunk,
                 get_device_name,
+                sparql_query,
+                sparql_update,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");
