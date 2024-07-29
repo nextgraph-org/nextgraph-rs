@@ -251,7 +251,10 @@
   });
 
   active_session.subscribe((as) => { if(!as) {
-    $redirect_after_login = $location;
+    console.log($location);
+    if ($location!="/user") {
+      $redirect_after_login = $location;
+    }
     push("#/");
   } })
 

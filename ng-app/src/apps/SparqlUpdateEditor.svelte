@@ -18,7 +18,7 @@
       reset_toasts,
     } from "../store";
     import { 
-      in_memory_discrete, open_viewer
+      in_memory_discrete, open_viewer, reset_in_memory
     } from "../tab";
     import{ Sun, RocketLaunch } from "svelte-heros-v2";
     import { t } from "svelte-i18n";
@@ -30,6 +30,7 @@
     import { sparql } from "@codemirror/legacy-modes/mode/sparql";
     import {basicSetup} from "codemirror"
     onMount(()=>{
+      reset_in_memory();
       if (!$in_memory_discrete){
         $in_memory_discrete = "INSERT DATA { \n  <did:ng:test> <test:predicate> \"An example value\".\r}";
       }

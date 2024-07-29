@@ -45,6 +45,7 @@ const mapping = {
     "get_device_name": [],
     "doc_fetch_private_subscribe": [],
     "doc_fetch_repo_subscribe": ["repo_o"],
+    "branch_history": ["session_id", "nuri"],
 }
 
 
@@ -189,7 +190,7 @@ const handler = {
                     await tauri.invoke("app_request_stream",{stream_id, request});
                 } catch (e) {
                     unlisten();
-                    tauri.invoke("cancel_stream", {stream_id});
+                    await tauri.invoke("cancel_stream", {stream_id});
                     throw e;
                 } 
                 return () => {
@@ -245,13 +246,13 @@ const handler = {
                 arg.wallet = {V0:{id:arg.wallet.V0.id, sig:arg.wallet.V0.sig, content:{}}};
                 Object.assign(arg.wallet.V0.content,old_content);
                 arg.wallet.V0.content.security_img = img;
-                return tauri.invoke(path[0],arg);
+                return await tauri.invoke(path[0],arg);
             } else {
                 let arg = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 return await tauri.invoke(path[0],arg)
             }
-        }catch (e) {
+        } catch (e) {
             let error;
             try {
                 error = JSON.parse(e);

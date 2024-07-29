@@ -114,7 +114,6 @@
     } else {
       push("#/");
     }
-    
   }
 
   function start_login_from_import() {
@@ -134,8 +133,8 @@
     console.error(event.detail);
   }
   async function gotWallet(event) {
-    if (importing) {
-      try {
+    try {
+      if (importing) {
         let in_memory = !event.detail.trusted;
         //console.log("IMPORTING", in_memory, event.detail.wallet, wallet);
         let client = await ng.wallet_import(
@@ -169,15 +168,15 @@
             window.wallet_channel.postMessage(new_in_mem, location.href);
           }
         }
-      } catch (e) {
+      } else {
+        let client = await ng.wallet_was_opened(event.detail.wallet);
+        event.detail.wallet.V0.client = client;
+      }
+    } catch (e) {
+        if (importing) {wallet = undefined;}
         importing = false;
-        wallet = undefined;
         error = e;
         return;
-      }
-    } else {
-      let client = await ng.wallet_was_opened(event.detail.wallet);
-      event.detail.wallet.V0.client = client;
     }
     //await tick();
     active_wallet.set(event.detail);
@@ -221,7 +220,7 @@
 </script>
 
 <div bind:this={top}>
-  <CenteredLayout displayFooter={!wallet}>
+  <CenteredLayout displayFooter={!wallet && !selected}>
     {#if error}
       <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
         <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
@@ -235,7 +234,6 @@
           on:click={() => {
             importing = false;
             error = undefined;
-            wallet = undefined;
           }}
           class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
         >
@@ -427,9 +425,26 @@
           </a>
         </div>
       </div>
-      <!-- {:else if step == "security"}{:else if step == "qrcode"}{:else if step == "cloud"} -->
     {:else if step == "loggedin"}
-      {@html $t("pages.wallet_login.logged_in")}...{/if}
+      <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-green-800">
+        {@html $t("pages.wallet_login.logged_in")}...
+        <svg
+          class="my-10 h-16 w-16 mx-auto"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"
+          />
+        </svg>
+      </div>
+    {/if}
   </CenteredLayout>
 </div>
 

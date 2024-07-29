@@ -205,9 +205,9 @@ impl Repo {
         } else {
             let commit_type = cobj.get_type().unwrap();
             let acks = cobj.acks();
-            for a in acks.iter() {
-                log_debug!("ACKS of {} {}", id.to_string(), a.id.to_string());
-            }
+            // for a in acks.iter() {
+            //     log_debug!("ACKS of {} {}", id.to_string(), a.id.to_string());
+            // }
             let (past, real_acks, next_future) = match commit_type {
                 CommitType::SyncSignature => {
                     assert_eq!(acks.len(), 1);

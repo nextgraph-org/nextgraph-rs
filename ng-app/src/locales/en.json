@@ -549,7 +549,8 @@
     "ConnectionError": "Could not connect to the server.",
     "IncompatibleQrCode": "You scanned a NextGraph QR-Code that is of the wrong type.",
     "NotARendezVous": "You scanned an invalid QR-Code.",
-    "camera_unavailable": "Camera is unavailable."
+    "camera_unavailable": "Camera is unavailable.",
+    "ServerAlreadyRunningInOtherProcess": "App is already running on this device. Check it and close it."
   },
   "connectivity": {
     "stopped": "Stopped",
