@@ -97,7 +97,14 @@ class GitgraphUserApi<TNode> {
       data["parents"].forEach((parent) => {
         let new_lane = this._graph.last_on_swimlanes.indexOf(parent);
         if ( new_lane < lane ) {
+          if (lane != Number.MAX_VALUE)
+            this._graph.swimlanes[lane] = undefined;
+
           lane = new_lane;
+        } else {
+          // we close that lane
+          //this._graph.swimlanes
+          this._graph.swimlanes[new_lane] = undefined;
         }
       });
       branch = this._graph.swimlanes[lane];
@@ -108,35 +115,39 @@ class GitgraphUserApi<TNode> {
       this._graph.last_on_swimlanes[lane] = data["hash"];
     } else {
       branch = data["hash"];
-      // this._graph.swimlanes.some((b, col) => {
-      //   console.log("is empty? ",col,!b);
-      //   if (!b) {
-      //     lane = col;
-      //     return true;
-      //   }
-      // });
-      // if (!lane) {
+      
+      this._graph.swimlanes.some((b, col) => {
+        //console.log("is empty? ",col,!b);
+        if (!b) {
+          let r = this._graph.rows.getRowOf(this._graph.last_on_swimlanes[col]);
+          if (data["parents"].some( (parent) => this._graph.rows.getRowOf(parent) < r ))
+            return false;
+          lane = col;
+          return true;
+        }
+      });
+      if (!lane) {
         lane = this._graph.swimlanes.length;
         this._graph.swimlanes.push(branch);
         this._graph.last_on_swimlanes.push(branch);
-      // } else {
-      //   this._graph.swimlanes[lane] = branch;
-      //   this._graph.last_on_swimlanes[lane] = branch;
-      // }
+      } else {
+        this._graph.swimlanes[lane] = branch;
+        this._graph.last_on_swimlanes[lane] = branch;
+      }
     }
 
-    data["parents"].forEach((parent) => {
-      let r = this._graph.rows.getRowOf(parent);
-      let c = this._graph.commits[r];
-      let b = c.branch;
-      if (branch!=b) {
-        this._graph.swimlanes.forEach((bb, col) => {
-          if (bb == b) {
-            this._graph.swimlanes[col] = undefined;
-          }
-        });
-      }
-    });
+    // data["parents"].forEach((parent) => {
+    //   let r = this._graph.rows.getRowOf(parent);
+    //   let c = this._graph.commits[r];
+    //   let b = c.branch;
+    //   if (branch!=b) {
+    //     this._graph.swimlanes.forEach((bb, col) => {
+    //       if (bb == b) {
+    //         this._graph.swimlanes[col] = undefined;
+    //       }
+    //     });
+    //   }
+    // });
 
     // if (!this._graph.branches.has(branch)) {
     //   this._graph.createBranch({name:branch});

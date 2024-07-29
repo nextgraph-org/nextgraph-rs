@@ -160,19 +160,23 @@ const class_to_viewers_editors = (class_name: string) => {
 }
 
 export const open_branch = (nuri: string, in_tab: boolean) => {
-    all_tabs.update((old) => {
-        if (!old[nuri]) {
-            //console.log("creating tab for ",nuri)
-            old[nuri] = JSON.parse(JSON.stringify(old[""]));
-            old[nuri].branch.nuri = nuri;
-        }
-        return old;
-    });
+    if (!get(all_tabs)[nuri]) {
+        all_tabs.update((old) => {
+            if (!old[nuri]) {
+                //console.log("creating tab for ",nuri)
+                old[nuri] = JSON.parse(JSON.stringify(old[""]));
+                old[nuri].branch.nuri = nuri;
+            }
+            return old;
+        });
+    }
+
     if (in_tab) {
         cur_branch.set(nuri);
         let store_type = get(all_tabs)[nuri].store.store_type;
         if (store_type) change_nav_bar(`nav:${store_type}`,get(format)(`doc.${store_type}_store`), undefined); 
     }
+    
 }
 
 export const update_class = (cur_tab, class_name) => {

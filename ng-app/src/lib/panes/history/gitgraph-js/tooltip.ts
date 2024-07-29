@@ -11,7 +11,7 @@ function createTooltip(commit: Commit): SVGElement {
   const path = createPath({ d: "", fill: "#EEE" });
   const text = createText({
     translate: { x: OFFSET + PADDING, y: 0 },
-    content: `${commit.hashAbbrev} - ${commit.subject}`,
+    content: `${commit.hashAbbrev}`,
     fill: "#333",
   });
 

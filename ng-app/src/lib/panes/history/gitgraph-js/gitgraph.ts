@@ -100,7 +100,8 @@ function createGitgraph(
       createG({
         // Translate graph left => left-most branch label is not cropped (horizontal)
         // Translate graph down => top-most commit tooltip is not cropped
-        translate: { x: 0, y: TOOLTIP_PADDING },
+        translate: { x: 10, y: TOOLTIP_PADDING },
+        scale: 0.75,
         children: [renderBranchesPaths(branchesPaths), $commits],
       }),
     );
@@ -312,8 +313,17 @@ function createGitgraph(
       return message;
     }
 
+    let msg = commit.message.split(" ");
+
     const text = createText({
-      content: commit.message,
+      content: msg[0],
+      fill: commit.style.message.color || "",
+      font: commit.style.message.font,
+      onClick: commit.onMessageClick,
+    });
+
+    const text2 = createText({
+      content: msg[1],
       fill: commit.style.message.color || "",
       font: commit.style.message.font,
       onClick: commit.onMessageClick,
@@ -323,6 +333,13 @@ function createGitgraph(
       translate: { x: 0, y: commit.style.dot.size },
       children: [text],
     });
+
+    let message2 = createG({
+      translate: { x: 0, y: commit.style.dot.size*2 },
+      children: [text2],
+    });
+
+    message.appendChild(message2);
 
     if (commit.body) {
       const body = createForeignObject({

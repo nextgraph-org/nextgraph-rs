@@ -22,7 +22,7 @@
   import { link, location, push } from "svelte-spa-router";
   import MobileBottomBarItem from "./MobileBottomBarItem.svelte";
   import MobileBottomBar from "./MobileBottomBar.svelte";
-  import NavIcon from "./components/NavIcon.svelte";
+  import Pane from "./Pane.svelte";
   // @ts-ignore
   import Logo from "./components/Logo.svelte";
   import MenuItem from "./components/MenuItem.svelte";
@@ -30,7 +30,7 @@
   import BranchIcon from "./components/BranchIcon.svelte";
   // @ts-ignore
   import { t } from "svelte-i18n";
-  import { onMount, tick } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
   import { cur_tab, cur_viewer, cur_editor, toggle_graph_discrete, cur_tab_update,
           available_editors, available_viewers, set_editor, set_viewer, set_view_or_edit, toggle_live_edit,
           has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu, show_modal_menu } from "../tab";
@@ -215,6 +215,7 @@
   let top;
   let shareMenu;
   let toolsMenu;
+  let unsub;
   async function scrollToTop() {
     await tick();
     if (top) top.scrollIntoView();
@@ -229,6 +230,24 @@
   }
   onMount(async () => {
     await scrollToTop();
+
+    unsub = show_modal_menu.subscribe((new_val) => {
+      if (!new_val) {
+          cur_tab_update(ct => {
+              ct.show_menu = false;
+              if (panes_available === 0) {
+                ct.right_pane = "";
+                ct.folders_pane = false;
+                ct.toc_pane = false;
+              }
+              return ct;
+          });
+      }
+    });
+  });
+
+  onDestroy(() => {
+    if (unsub) unsub();
   });
 
   active_session.subscribe((as) => { if(!as) {
@@ -291,37 +310,37 @@
     hideMenu();
   }
 
-  const find = (share:string) => {
+  const find = () => {
     // TODO
     hideMenu();
   }
 
-  const bookmark = (share:string) => {
+  const bookmark = () => {
     // TODO
     hideMenu();
   }
 
-  const annotate = (share:string) => {
+  const annotate = () => {
     // TODO
     hideMenu();
   }
 
-  const openArchive = (share:string) => {
+  const openArchive = () => {
     // TODO
     hideMenu();
   }
 
   const closeModal = () => {
     $show_modal_menu = false;
-    cur_tab_update(ct => {
-        ct.show_menu = false;
-        if (panes_available === 0) {
-          ct.right_pane = "";
-          ct.folders_pane = false;
-          ct.toc_pane = false;
-        }
-        return ct;
-    });
+    // cur_tab_update(ct => {
+    //     ct.show_menu = false;
+    //     if (panes_available === 0) {
+    //       ct.right_pane = "";
+    //       ct.folders_pane = false;
+    //       ct.toc_pane = false;
+    //     }
+    //     return ct;
+    // });
   }
 
   const closePaneInModal = () => {
@@ -657,17 +676,19 @@
         <Icon tabindex="-1" class="ml-3 w-8 h-8 text-gray-400 dark:text-white focus:outline-none " variation="outline" color="currentColor" icon={pane_items[$cur_tab.right_pane]} />
         <span class="ml-2 inline-block text-gray-500 select-none dark:text-white">{$t(`doc.menu.items.${$cur_tab.right_pane}.label`)}</span>
       </div>
+      <Pane pane_name={$cur_tab.right_pane}/>
     {:else if $cur_tab.folders_pane}
       <div style="height:44px; background-color: rgb(251, 251, 251);" class="flex items-center">
         <Icon tabindex="-1" class="ml-3 w-8 h-8 text-gray-400 dark:text-white focus:outline-none " variation="outline" color="currentColor" icon={pane_items["folders"]} />
         <span class="ml-2 inline-block text-gray-500 select-none dark:text-white">{$t("doc.menu.items.folders.label")}</span>
       </div>
+      <Pane pane_name="folders"/>
     {:else if $cur_tab.toc_pane}
       <div style="height:44px; background-color: rgb(251, 251, 251);" class="flex items-center">
         <Icon tabindex="-1" class="ml-3 w-8 h-8 text-gray-400 dark:text-white focus:outline-none " variation="outline" color="currentColor" icon={pane_items["toc"]} />
         <span class="ml-2 inline-block text-gray-500 select-none dark:text-white">{$t("doc.menu.items.toc.label")}</span>
       </div>
-      
+      <Pane pane_name="toc"/>
     {/if}
   </div>
 </Modal>
@@ -867,7 +888,7 @@
     <div class="w-[321px;] full-layout h-full absolute top-0 right-0 bg-white border-l border-l-1 border-gray-200">
       <div class="static">
         <PaneHeader class="right-0" pane_name={pane_right_used} {pane_items}/>
-        
+        <Pane pane_name={pane_right_used}/>
       </div>
     </div>
   {/if}
