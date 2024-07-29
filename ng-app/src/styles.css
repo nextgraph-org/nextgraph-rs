@@ -19,6 +19,13 @@ td.hljs {
     font-family: monospace;
     background-color: rgba(73, 114, 165, 0.1);
 }
+/* .splash-loaded {
+    display: none;
+} */
+
+.splashing {
+    display: none;
+}
 
 .menu-bg-modal + div {
     padding: 0 !important;
