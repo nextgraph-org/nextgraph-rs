@@ -74,6 +74,7 @@
   // };
 
   onMount(async () => {
+    //window.document.getElementById("splash").className="splash-loaded";
     try {
       await disconnections_subscribe();
       await select_default_lang();
