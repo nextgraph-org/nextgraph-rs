@@ -452,7 +452,12 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
             //console.log("sub");
             let already_subscribed = all_branches[nuri];
             if (!already_subscribed) {
-                const { subscribe, set, update } = writable({graph:[], discrete:[], files:[], history: false, heads: []}); // create the underlying writable store
+                const { subscribe, set, update } = writable({graph:[], discrete:[], files:[], history: {start:()=>{}, stop:()=>{}, take:()=>{}, commits:false}, heads: []}); // create the underlying writable store
+                update((old)=> {
+                    old.history.start = () => update((o) => {o.history.commits = true; return o;}) ;
+                    old.history.stop = () => update((o) => {o.history.commits = false; return o;}) ;
+                    old.history.take = () => { let res: boolean | Array<{}> = false; update((o) => {res = o.history.commits; o.history.commits = []; return o;});  return res;}
+                    return old;});
                 let count = 0;
                 let unsub = () => { };
                 already_subscribed = {
@@ -538,12 +543,12 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                                 }
                                             }
                                             old.heads.push(response.V0.Patch.commit_id);
-                                            if (old.history!==false) {
+                                            if (old.history.commits!==false) {
                                                 let commit = [response.V0.Patch.commit_id, response.V0.Patch.commit_info];
-                                                if (old.history === true) {
-                                                    old.history = [commit];
+                                                if (old.history.commits === true) {
+                                                    old.history.commits = [commit];
                                                 } else {
-                                                    old.history.push(commit);
+                                                    old.history.commits.push(commit);
                                                 }
                                             }
                                             if (response.V0.Patch.graph) {

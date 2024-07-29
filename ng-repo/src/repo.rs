@@ -167,6 +167,7 @@ pub struct CommitInfo {
     pub key: ObjectKey,
     pub signature: Option<ObjectRef>,
     pub author: String,
+    pub timestamp: Timestamp,
     pub final_consistency: bool,
     pub commit_type: CommitType,
     pub branch: Option<ObjectId>,
@@ -204,6 +205,9 @@ impl Repo {
         } else {
             let commit_type = cobj.get_type().unwrap();
             let acks = cobj.acks();
+            for a in acks.iter() {
+                log_debug!("ACKS of {} {}", id.to_string(), a.id.to_string());
+            }
             let (past, real_acks, next_future) = match commit_type {
                 CommitType::SyncSignature => {
                     assert_eq!(acks.len(), 1);
@@ -221,6 +225,7 @@ impl Repo {
                             key: o.key().unwrap(),
                             signature: Some(sign_ref.clone()),
                             author: self.get_user_string(o.author()),
+                            timestamp: o.timestamp(),
                             final_consistency: o.final_consistency(),
                             commit_type: o.get_type().unwrap(),
                             branch: None,
@@ -256,6 +261,7 @@ impl Repo {
                 key: cobj.key().unwrap(),
                 signature: None,
                 author: self.get_user_string(cobj.author()),
+                timestamp: cobj.timestamp(),
                 final_consistency: cobj.final_consistency(),
                 commit_type,
                 branch: None,
@@ -276,9 +282,13 @@ impl Repo {
         Ok(root)
     }
 
-    fn past_is_all_in(past: &Vec<ObjectId>, already_in: &HashMap<ObjectId, ObjectId>) -> bool {
+    fn past_is_all_in(
+        past: &Vec<ObjectId>,
+        already_in: &HashMap<ObjectId, ObjectId>,
+        coming_from: &ObjectId,
+    ) -> bool {
         for p in past {
-            if !already_in.contains_key(p) {
+            if !already_in.contains_key(p) && p != coming_from {
                 return false;
             }
         }
@@ -294,10 +304,10 @@ impl Repo {
         //swimlanes: &mut Vec<Vec<ObjectId>>,
     ) -> Vec<(ObjectId, CommitInfo)> {
         let (_, c) = dag.get(id).unwrap();
-        log_debug!("{id}");
-        if c.past.len() > 1 && !Self::past_is_all_in(&c.past, already_in) {
+        //log_debug!("processing {id}");
+        if c.past.len() > 1 && !Self::past_is_all_in(&c.past, already_in, id) {
             // we postpone the merge until all the past commits have been added
-            // log_debug!("postponed {}", id);
+            //log_debug!("postponed {}", id);
             vec![]
         } else {
             let (future, mut info) = dag.remove(id).unwrap();
@@ -328,7 +338,7 @@ impl Repo {
             //     swimlane.push(branch.clone());
             // }
             let mut res = vec![(*id, info)];
-            let first_child_branch = branch.clone();
+            let mut first_child_branch = branch.clone();
             already_in.insert(*id, branch);
             let mut future = Vec::from_iter(future);
             future.sort();
@@ -345,9 +355,26 @@ impl Repo {
                         let close = if previous_ordinal > new_ordinal {
                             let _ = info.branch.insert(branch);
                             // we close the previous branch
+                            // log_debug!(
+                            //     "closing previous {} {} in favor of new {} {}",
+                            //     previous_ordinal,
+                            //     b,
+                            //     new_ordinal,
+                            //     branch
+                            // );
                             &b
                         } else {
                             // otherwise we close the new branch
+                            if first_child_branch == branch {
+                                first_child_branch = b;
+                            }
+                            // log_debug!(
+                            //     "closing new branch {} {} in favor of previous {} {}",
+                            //     new_ordinal,
+                            //     branch,
+                            //     previous_ordinal,
+                            //     b
+                            // );
                             &branch
                         };
                         let i = branches.get(close).unwrap();
@@ -356,6 +383,15 @@ impl Repo {
                         let _ = info.branch.insert(branch);
                     }
                 }
+                // log_debug!(
+                //     "branches_order before children of {child} {:?}",
+                //     branches_order
+                //         .iter()
+                //         .enumerate()
+                //         .map(|(i, b)| b.map_or(format!("{i}:closed"), |bb| format!("{i}:{bb}")))
+                //         .collect::<Vec<String>>()
+                //         .join(" -- ")
+                // );
                 res.append(&mut Self::collapse(
                     child,
                     dag,
@@ -364,18 +400,32 @@ impl Repo {
                     branches,
                     //swimlanes,
                 ));
+                // log_debug!(
+                //     "branches_order after children of {child} {:?}",
+                //     branches_order
+                //         .iter()
+                //         .enumerate()
+                //         .map(|(i, b)| b.map_or(format!("{i}:closed"), |bb| format!("{i}:{bb}")))
+                //         .collect::<Vec<String>>()
+                //         .join(" -- ")
+                // );
                 // each other child gets a new branch
                 if let Some(next) = iterator.peek() {
                     branch = **next;
+                    if branches.contains_key(*next) {
+                        continue;
+                    }
                     let mut branch_inserted = false;
                     let mut first_child_branch_passed = false;
                     for (i, next_branch) in branches_order.iter_mut().enumerate() {
                         if let Some(b) = next_branch {
                             if b == &first_child_branch {
                                 first_child_branch_passed = true;
+                                //log_debug!("first_child_branch_passed");
                             }
                         }
                         if next_branch.is_none() && first_child_branch_passed {
+                            //log_debug!("found empty lane {}, putting branch in it {}", i, branch);
                             let _ = next_branch.insert(branch.clone());
                             branches.insert(branch, i);
                             branch_inserted = true;
@@ -384,6 +434,11 @@ impl Repo {
                     }
                     if !branch_inserted {
                         //swimlanes.push(Vec::new());
+                        // log_debug!(
+                        //     "adding new lane {}, for branch {}",
+                        //     branches_order.len(),
+                        //     branch
+                        // );
                         branches_order.push(Some(branch.clone()));
                         branches.insert(branch, branches_order.len() - 1);
                     }
@@ -398,13 +453,23 @@ impl Repo {
         heads: &[ObjectRef],
     ) -> Result<(Vec<(ObjectId, CommitInfo)>, Vec<Option<ObjectId>>), VerifierError> {
         assert!(!heads.is_empty());
+        // for h in heads {
+        //     log_debug!("HEAD {}", h.id);
+        // }
         let mut visited = HashMap::new();
         let mut root = None;
         for id in heads {
             if let Ok(cobj) = Commit::load(id.clone(), &self.store, true) {
-                root = self.load_causal_past(&cobj, &mut visited, None)?;
+                let r = self.load_causal_past(&cobj, &mut visited, None)?;
+                //log_debug!("ROOT? {:?}", r.map(|rr| rr.to_string()));
+                if r.is_some() {
+                    root = r;
+                }
             }
         }
+        // for h in visited.keys() {
+        //     log_debug!("VISITED {}", h);
+        // }
         if root.is_none() {
             return Err(VerifierError::MalformedDag);
         }

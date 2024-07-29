@@ -2592,7 +2592,9 @@ pub struct CommitContentV0 {
     /// This commit can only be accepted if signed by this quorum
     pub quorum: QuorumType,
 
-    /// App-specific metadata (commit message, creation time, etc)
+    pub timestamp: Timestamp,
+
+    /// App-specific metadata (commit message?)
     #[serde(with = "serde_bytes")]
     pub metadata: Vec<u8>,
 
@@ -2616,6 +2618,11 @@ impl CommitContent {
     pub fn author(&self) -> &Digest {
         match self {
             CommitContent::V0(v0) => &v0.author,
+        }
+    }
+    pub fn timestamp(&self) -> Timestamp {
+        match self {
+            CommitContent::V0(v0) => v0.timestamp,
         }
     }
     pub fn branch(&self) -> &BranchId {

@@ -18,8 +18,8 @@ use ng_repo::errors::NgError;
 use ng_repo::log::*;
 use ng_repo::repo::CommitInfo;
 use ng_repo::types::*;
-use ng_repo::utils::decode_overlayid;
 use ng_repo::utils::{decode_digest, decode_key, decode_sym_key};
+use ng_repo::utils::{decode_overlayid, display_timestamp_local};
 
 use crate::types::*;
 
@@ -144,6 +144,7 @@ pub struct CommitInfoJs {
     pub key: String,
     pub signature: Option<String>,
     pub author: String,
+    pub timestamp: String,
     pub final_consistency: bool,
     pub commit_type: CommitType,
     pub branch: Option<String>,
@@ -158,6 +159,7 @@ impl From<&CommitInfo> for CommitInfoJs {
             key: info.key.to_string(),
             signature: info.signature.as_ref().map(|s| NuriV0::object_ref(&s)),
             author: info.author.clone(),
+            timestamp: display_timestamp_local(info.timestamp),
             final_consistency: info.final_consistency,
             commit_type: info.commit_type.clone(),
             branch: info.branch.map(|b| b.to_string()),

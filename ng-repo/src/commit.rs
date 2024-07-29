@@ -70,6 +70,7 @@ impl CommitV0 {
             branch,
             header_keys: headers.1,
             quorum,
+            timestamp: now_timestamp(),
             metadata,
             body,
         });
@@ -105,6 +106,7 @@ impl CommitV0 {
             branch,
             header_keys: headers.1,
             quorum,
+            timestamp: now_timestamp(),
             metadata,
             body,
         });
@@ -435,6 +437,10 @@ impl Commit {
         self.content().author()
     }
 
+    pub fn timestamp(&self) -> Timestamp {
+        self.content().timestamp()
+    }
+
     pub fn final_consistency(&self) -> bool {
         self.content().final_consistency()
     }
@@ -459,6 +465,7 @@ impl Commit {
             key: self.key().unwrap(),
             signature: None,
             author: repo.get_user_string(self.author()),
+            timestamp: self.timestamp(),
             final_consistency: self.final_consistency(),
             commit_type: self.get_type().unwrap(),
             branch: None,

@@ -49,6 +49,7 @@ interface GOptions {
     x: number;
     y: number;
   };
+  scale?: number;
   fill?: string;
   stroke?: string;
   strokeWidth?: number;
@@ -60,11 +61,11 @@ interface GOptions {
 function createG(options: GOptions): SVGGElement {
   const g = document.createElementNS(SVG_NAMESPACE, "g");
   options.children.forEach((child) => child && g.appendChild(child));
-
+  let scale = options.scale ? ` scale(${options.scale})`: "";
   if (options.translate) {
     g.setAttribute(
       "transform",
-      `translate(${options.translate.x}, ${options.translate.y})`,
+      `translate(${options.translate.x}, ${options.translate.y})${scale}`,
     );
   }
 
@@ -118,7 +119,7 @@ function createText(options: TextOptions): SVGTextElement {
   }
 
   if (options.font) {
-    text.setAttribute("style", `font: ${options.font}`);
+    text.setAttribute("style", `font-family:monospace;font: Courier`);
   }
 
   if (options.anchor) {

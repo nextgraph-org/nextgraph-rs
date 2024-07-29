@@ -14,8 +14,7 @@ use ed25519_dalek::*;
 use futures::channel::mpsc;
 use rand::rngs::OsRng;
 use rand::RngCore;
-#[cfg(not(target_arch = "wasm32"))]
-use time::OffsetDateTime;
+use time::{OffsetDateTime, UtcOffset};
 use web_time::{Duration, SystemTime, UNIX_EPOCH};
 use zeroize::Zeroize;
 
@@ -220,20 +219,52 @@ pub fn timestamp_after(duration: Duration) -> Timestamp {
 /// displays the NextGraph Timestamp in UTC.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn display_timestamp(ts: &Timestamp) -> String {
-    let st = SystemTime::UNIX_EPOCH
-        + Duration::from_secs(EPOCH_AS_UNIX_TIMESTAMP)
-        + Duration::from_secs(*ts as u64 * 60u64);
-    let dt: OffsetDateTime = st.into();
+    let dur =
+        Duration::from_secs(EPOCH_AS_UNIX_TIMESTAMP) + Duration::from_secs(*ts as u64 * 60u64);
+
+    let dt: OffsetDateTime = OffsetDateTime::UNIX_EPOCH + dur;
 
     dt.format(&time::format_description::parse("[day]/[month]/[year] [hour]:[minute] UTC").unwrap())
         .unwrap()
+}
+
+/// displays the NextGraph Timestamp in local time for the history (JS)
+pub fn display_timestamp_local(ts: Timestamp) -> String {
+    let dur = Duration::from_secs(EPOCH_AS_UNIX_TIMESTAMP) + Duration::from_secs(ts as u64 * 60u64);
+
+    let dt: OffsetDateTime = OffsetDateTime::UNIX_EPOCH + dur;
+
+    let dt = dt.to_offset(TIMEZONE_OFFSET.clone());
+    dt.format(
+        &time::format_description::parse("[day]/[month]/[year repr:last_two] [hour]:[minute]")
+            .unwrap(),
+    )
+    .unwrap()
+}
+
+use lazy_static::lazy_static;
+lazy_static! {
+    static ref TIMEZONE_OFFSET: UtcOffset = unsafe {
+        time::util::local_offset::set_soundness(time::util::local_offset::Soundness::Unsound);
+        UtcOffset::current_local_offset().unwrap()
+    };
 }
 
 pub(crate) type Receiver<T> = mpsc::UnboundedReceiver<T>;
 
 #[cfg(test)]
 mod test {
-    use crate::log::*;
+    use crate::{
+        log::*,
+        utils::{display_timestamp_local, now_timestamp},
+    };
+
+    #[test]
+    pub fn test_time() {
+        let time = now_timestamp() + 120; // 2 hours later
+        log_info!("{}", display_timestamp_local(time));
+    }
+
     #[test]
     pub fn test_locales() {
         let list = vec!["C", "c", "aa-bb-cc-dd", "aa-ff_bb.456d"];

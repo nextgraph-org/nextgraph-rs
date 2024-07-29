@@ -270,8 +270,7 @@ pub async fn sparql_query(
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Invalid session_id".to_string())?;
     let nuri = if nuri.is_string() {
-        NuriV0::new_from(&nuri.as_string().unwrap())
-            .map_err(|_| "Deserialization error of Nuri".to_string())?
+        NuriV0::new_from(&nuri.as_string().unwrap()).map_err(|e| e.to_string())?
     } else {
         NuriV0::new_entire_user_site()
     };
@@ -320,7 +319,7 @@ pub async fn sparql_update(
 ) -> Result<(), String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Invalid session_id".to_string())?;
-    let nuri = NuriV0::new_from(&nuri).map_err(|_| "Deserialization error of Nuri".to_string())?;
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
 
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::new_write_query(),
@@ -350,8 +349,7 @@ pub async fn sparql_query(
         .map_err(|_| "Invalid session_id".to_string())?;
 
     let nuri = if nuri.is_string() {
-        NuriV0::new_from(&nuri.as_string().unwrap())
-            .map_err(|_| "Deserialization error of Nuri".to_string())?
+        NuriV0::new_from(&nuri.as_string().unwrap()).map_err(|e| e.to_string())?
     } else {
         NuriV0::new_entire_user_site()
     };
@@ -416,13 +414,13 @@ pub async fn rdf_dump(session_id: JsValue) -> Result<String, String> {
 }
 
 #[wasm_bindgen]
-pub async fn branch_history(session_id: JsValue) -> Result<JsValue, String> {
+pub async fn branch_history(session_id: JsValue, nuri: String) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Invalid session_id".to_string())?;
 
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::new_history(),
-        nuri: NuriV0::new_private_store_target(),
+        nuri: NuriV0::new_from(&nuri).map_err(|e| e.to_string())?,
         payload: None,
         session_id,
     });
@@ -432,6 +430,7 @@ pub async fn branch_history(session_id: JsValue) -> Result<JsValue, String> {
         .map_err(|e: NgError| e.to_string())?;
 
     let AppResponse::V0(res) = res;
+    log_debug!("{:?}", res);
     match res {
         AppResponseV0::History(s) => Ok(serde_wasm_bindgen::to_value(&s.to_js()).unwrap()),
         _ => Err("invalid response".to_string()),
@@ -932,7 +931,7 @@ pub async fn file_get_from_private_store(
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
 
-    let nuri = NuriV0::new_from(&nuri).map_err(|_| "Deserialization error of Nuri".to_string())?;
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
 
     let mut request = AppRequest::new(AppRequestCommandV0::FileGet, nuri.clone(), None);
     request.set_session_id(session_id);

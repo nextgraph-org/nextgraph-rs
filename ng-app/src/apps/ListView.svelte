@@ -22,6 +22,11 @@
   </script>
   <div class="flex-col">
       <h2>ListView</h2>
+      {#if Array.isArray(commits.history.commits)}
+      {#each commits.history.commits as c}
+          <div class="flex"> {c[0]} {JSON.stringify(c[1])}</div> 
+      {/each}
+      {/if}
       <div class="flex">
           HEADS: {#each commits.heads as head} {head} , {/each}
       </div>

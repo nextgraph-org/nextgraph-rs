@@ -14,7 +14,7 @@
     createGitgraph,
     templateExtend,
     TemplateName,
-  } from "../history/gitgraph-js/gitgraph";
+  } from "./panes/history/gitgraph-js/gitgraph";
   import ng from "../api";
   import {
     branch_subscribe,
@@ -136,7 +136,7 @@
         subject: "niko2",
         branch: "C",
         author: "",
-        parents: ["A"],
+        parents: ["B"],
         x: 2,
         y: 3,
       },

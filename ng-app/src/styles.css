@@ -34,6 +34,9 @@ td.hljs {
 #menu-modal div {
     padding: 0;
 }
+#menu-modal div.commit {
+    padding: 8px;
+}
 #menu-modal > button {
     display: none;
 }
