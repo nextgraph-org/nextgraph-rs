@@ -18,7 +18,7 @@
       reset_toasts
     } from "../store";
     import { 
-      in_memory_discrete, open_viewer, set_viewer
+      in_memory_discrete, open_viewer, set_viewer, reset_in_memory
     } from "../tab";
     import{ Sun, RocketLaunch } from "svelte-heros-v2";
     import { t } from "svelte-i18n";
@@ -43,9 +43,10 @@
     };
 
     onMount(()=>{
-        if (!$in_memory_discrete){
-            $in_memory_discrete = "SELECT ?subject ?predicate ?object WHERE {\n   ?subject ?predicate ?object .\n} LIMIT 10";
-        }
+      reset_in_memory();
+      if (!$in_memory_discrete){
+          $in_memory_discrete = "SELECT ?subject ?predicate ?object WHERE {\n   ?subject ?predicate ?object .\n} LIMIT 10";
+      }
     });
     let union = false;
     const run = async () => {

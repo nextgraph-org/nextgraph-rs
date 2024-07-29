@@ -50,53 +50,56 @@
     let unsub = () => {};
 
     onMount(async ()=>{
-        const graphContainer = document.getElementById("graph-container");
-        gitgraph = createGitgraph(graphContainer, {
-        template: templateExtend(TemplateName.Metro, {
-            branch: { label: { display: false } },
-            commit: { message: { displayAuthor: false, displayHash: false } },
-        }),
-        });
-        let res = await ng.branch_history($active_session.session_id, "did:ng:"+$cur_tab.branch.nuri);
-        // for (const h of res.history) {
-        //     console.log(h[0], h[1]);
-        // }
-        //console.log(res.swimlane_state);
-        history = [...res.history].reverse();
+        setTimeout(async()=> {
+            const graphContainer = document.getElementById("graph-container");
+            gitgraph = createGitgraph(graphContainer, {
+            template: templateExtend(TemplateName.Metro, {
+                branch: { label: { display: false } },
+                commit: { message: { displayAuthor: false, displayHash: false } },
+            }),
+            });
+            let res = await ng.branch_history($active_session.session_id, "did:ng:"+$cur_tab.branch.nuri);
+            // for (const h of res.history) {
+            //     console.log(h[0], h[1]);
+            // }
+            //console.log(res.swimlane_state);
+            history = [...res.history].reverse();
 
-        gitgraph.swimlanes(res.swimlane_state.map((s)=> s || false));
-        gitgraph.import(res.history.map((h)=>{return { 
-            hash:h[0], 
-            branch:h[1].branch, 
-            author:h[1].author, 
-            parents:h[1].past, 
-            x:h[1].x, 
-            y:h[1].y, 
-            subject:h[1].timestamp,
-            onClick:()=>openCommit(h[0]),
-            onMessageClick:()=>openCommit(h[0])
-        };}));
+            gitgraph.swimlanes(res.swimlane_state.map((s)=> s || false));
+            gitgraph.import(res.history.map((h)=>{return { 
+                hash:h[0], 
+                branch:h[1].branch, 
+                author:h[1].author, 
+                parents:h[1].past, 
+                x:h[1].x, 
+                y:h[1].y, 
+                subject:h[1].timestamp,
+                onClick:()=>openCommit(h[0]),
+                onMessageClick:()=>openCommit(h[0])
+            };}));
 
-        let branch = branch_subscribe($cur_tab.branch.nuri,false);
-        unsub = branch.subscribe((b) => {
-            //console.log("subscription callbak",b.history.commits);
-            if (Array.isArray(b.history.commits)) {
-                for (var h; h = b.history.commits.pop(); ) {
-                    //console.log(h);
-                    history.unshift(h);
-                    history = history;
-                    gitgraph.commit({
-                        hash: h[0], 
-                        author:h[1].author, 
-                        parents:h[1].past, 
-                        subject:h[1].timestamp,
-                        onClick:()=>openCommit(h[0]),
-                        onMessageClick:()=>openCommit(h[0])
-                    });
+            let branch = branch_subscribe($cur_tab.branch.nuri,false);
+            unsub();
+            unsub = branch.subscribe((b) => {
+                //console.log("subscription callbak",b.history.commits);
+                if (Array.isArray(b.history.commits)) {
+                    for (var h; h = b.history.commits.pop(); ) {
+                        //console.log(h);
+                        history.unshift(h);
+                        history = history;
+                        gitgraph.commit({
+                            hash: h[0], 
+                            author:h[1].author, 
+                            parents:h[1].past, 
+                            subject:h[1].timestamp,
+                            onClick:()=>openCommit(h[0]),
+                            onMessageClick:()=>openCommit(h[0])
+                        });
+                    }
                 }
-            }
-        });
-        get(branch).history.start();
+            });
+            get(branch).history.start();
+        },1);
     });
 
     onDestroy( ()=>{ 

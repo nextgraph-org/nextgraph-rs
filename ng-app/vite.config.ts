@@ -68,10 +68,10 @@ export default defineConfig(async () => {
     port: process.env.NG_APP_WEB ? 1421 : 1420,
     host: '0.0.0.0',
     strictPort: true,
-    fs: {
-      // Allow serving files from one level up to the project root
-      allow: ['..'],
-    },
+    // fs: {
+    //   // Allow serving files from one level up to the project root
+    //   allow: ['..'],
+    // },
     hmr: {
       protocol: 'ws',
       host,

@@ -430,7 +430,7 @@ pub async fn branch_history(session_id: JsValue, nuri: String) -> Result<JsValue
         .map_err(|e: NgError| e.to_string())?;
 
     let AppResponse::V0(res) = res;
-    log_debug!("{:?}", res);
+    //log_debug!("{:?}", res);
     match res {
         AppResponseV0::History(s) => Ok(serde_wasm_bindgen::to_value(&s.to_js()).unwrap()),
         _ => Err("invalid response".to_string()),

@@ -452,7 +452,7 @@
             on:keypress={start_with_mnemonic}
             role="link"
             tabindex="0"
-            class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center mb-10 underline cursor-pointer"
+            class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center underline cursor-pointer"
           >
             {$t("pages.login.open_with_mnemonic")}
           </span>

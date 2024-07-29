@@ -403,8 +403,29 @@ async fn doc_fetch_repo_subscribe(repo_o: String) -> Result<AppRequest, String> 
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn branch_history(session_id: u64, nuri: String) -> Result<AppHistoryJs, String> {
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_history(),
+        nuri: NuriV0::new_from(&nuri).map_err(|e| e.to_string())?,
+        payload: None,
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = res;
+    //log_debug!("{:?}", res);
+    match res {
+        AppResponseV0::History(s) => Ok(s.to_js()),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn sparql_update(session_id: u64, sparql: String, nuri: String) -> Result<(), String> {
-    let nuri = NuriV0::new_from(&nuri).map_err(|_| "Deserialization error of Nuri".to_string())?;
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
 
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::new_write_query(),
@@ -430,7 +451,7 @@ async fn sparql_query(
     nuri: Option<String>,
 ) -> Result<Value, String> {
     let nuri = if nuri.is_some() {
-        NuriV0::new_from(&nuri.unwrap()).map_err(|_| "Deserialization error of Nuri".to_string())?
+        NuriV0::new_from(&nuri.unwrap()).map_err(|e| e.to_string())?
     } else {
         NuriV0::new_entire_user_site()
     };
@@ -709,6 +730,7 @@ impl AppBuilder {
                 get_device_name,
                 sparql_query,
                 sparql_update,
+                branch_history,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");
