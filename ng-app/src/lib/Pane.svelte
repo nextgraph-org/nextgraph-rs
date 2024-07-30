@@ -15,6 +15,7 @@
 
   const panes = {
     "history": "History",
+    "files": "Files",
   };
 
   const load_pane = async (pane_name) => {

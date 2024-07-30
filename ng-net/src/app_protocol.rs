@@ -187,6 +187,9 @@ pub struct NuriV0 {
 }
 
 impl NuriV0 {
+    pub fn copy_target_from(&mut self, nuri: &NuriV0) {
+        self.target = nuri.target.clone();
+    }
     pub fn commit_graph_name(commit_id: &ObjectId, overlay_id: &OverlayId) -> String {
         format!("{DID_PREFIX}:c:{commit_id}:v:{overlay_id}")
     }
@@ -261,6 +264,20 @@ impl NuriV0 {
         })
     }
 
+    pub fn new_from_obj_ref(obj_ref: &ObjectRef) -> Self {
+        Self {
+            identity: None,
+            target: NuriTargetV0::None,
+            entire_store: false,
+            object: Some(obj_ref.id),
+            branch: None,
+            overlay: None,
+            access: vec![NgAccessV0::Key(obj_ref.key.clone())],
+            topic: None,
+            locator: vec![],
+        }
+    }
+
     pub fn new_private_store_target() -> Self {
         Self {
             identity: None,
@@ -319,7 +336,7 @@ impl NuriV0 {
                 let key = decode_sym_key(k)?;
                 Ok(Self {
                     identity: None,
-                    target: NuriTargetV0::PrivateStore,
+                    target: NuriTargetV0::None,
                     entire_store: false,
                     object: Some(id),
                     branch: None,

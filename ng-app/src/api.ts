@@ -39,6 +39,7 @@ const mapping = {
     "user_connect": ["info","user_id","location"],
     "user_disconnect": ["user_id"],
     "app_request": ["request"],
+    "app_request_with_nuri_command": ["nuri", "command", "session_id", "payload"],
     "sparql_query": ["session_id","sparql","nuri"],
     "sparql_update": ["session_id","sparql","nuri"],
     "test": [ ],
@@ -46,6 +47,7 @@ const mapping = {
     "doc_fetch_private_subscribe": [],
     "doc_fetch_repo_subscribe": ["repo_o"],
     "branch_history": ["session_id", "nuri"],
+    "file_save_to_downloads": ["session_id", "reference", "filename", "branch_nuri"],
 }
 
 
@@ -162,7 +164,42 @@ const handler = {
                 }
                 return ret;
             }
-            else if (path[0] === "app_request_stream") {
+            else if (path[0] === "file_get") {
+                let stream_id = (lastStreamId += 1).toString();
+                //console.log("stream_id",stream_id);
+                let { getCurrent } = await import("@tauri-apps/plugin-window");
+                //let session_id = args[0];
+                let callback = args[3];
+
+                let unlisten = await getCurrent().listen(stream_id, async (event) => {
+                    //console.log(event.payload);
+                    if (event.payload.V0.FileBinary) {
+                        event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
+                    }
+                    let ret = callback(event.payload);
+                    if (ret === true) {
+                        await tauri.invoke("cancel_stream", {stream_id});
+                    } else if (ret.then) {
+                        ret.then(async (val)=> { 
+                            if (val === true) {
+                                await tauri.invoke("cancel_stream", {stream_id});
+                            }
+                        });
+                    }
+                })
+                try {
+                    await tauri.invoke("file_get",{stream_id, session_id:args[0], reference: args[1], branch_nuri:args[2]});
+                } catch (e) {
+                    unlisten();
+                    await tauri.invoke("cancel_stream", {stream_id});
+                    throw e;
+                } 
+                return () => {
+                    unlisten();
+                    tauri.invoke("cancel_stream", {stream_id});
+                }
+                
+            } else if (path[0] === "app_request_stream") {
                 let stream_id = (lastStreamId += 1).toString();
                 //console.log("stream_id",stream_id);
                 let { getCurrent } = await import("@tauri-apps/plugin-window");
@@ -170,7 +207,7 @@ const handler = {
                 let request = args[0];
                 let callback = args[1];
 
-                let unlisten = await getCurrent().listen(stream_id, (event) => {
+                let unlisten = await getCurrent().listen(stream_id, async (event) => {
                     //console.log(event.payload);
                     if (event.payload.V0.FileBinary) {
                         event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
@@ -184,7 +221,16 @@ const handler = {
                         let removes_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.removes));
                         event.payload.V0.Patch.graph.removes = JSON.parse(removes_json_str);
                     }
-                    callback(event.payload).then(()=> {})
+                    let ret = callback(event.payload);
+                    if (ret === true) {
+                        await tauri.invoke("cancel_stream", {stream_id});
+                    } else if (ret.then) {
+                        ret.then(async (val)=> { 
+                            if (val === true) {
+                                await tauri.invoke("cancel_stream", {stream_id});
+                            }
+                        });
+                    }
                 })
                 try {
                     await tauri.invoke("app_request_stream",{stream_id, request});

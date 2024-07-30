@@ -429,7 +429,7 @@
     backdropClass="bg-gray-900 bg-opacity-50 dark:bg-opacity-80 menu-bg-modal"
   >
   <div class="static">
-    <div class="absolute top-2 right-4 w-10 h-10" role="button" aria-label="Close menu" title="Close menu" 
+    <div class="absolute top-2 right-4 w-10 h-10 bg-white" role="button" aria-label="Close menu" title="Close menu" 
       on:click={closeModal}
       on:keypress={closeModal}
       tabindex="0">

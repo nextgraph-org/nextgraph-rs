@@ -12,7 +12,6 @@
 <script lang="ts">
     
     import { 
-      get_blob,
     } from "../store";
   
     import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
@@ -34,21 +33,5 @@
       {#each commits.graph as triple}
           <div class="flex"> {triple}</div> 
       {/each}
-  
-      
-      {#each commits.files as file}
-      <div class="flex">
-          {file.name}
-  
-          {#await get_blob(file)}
-              <div class="row">
-              <Spinner />
-              </div>
-          {:then url}
-              {#if url}
-              <img src={url} title={file.nuri} alt={file.name} />
-              {/if}
-          {/await}
-      </div>
-      {/each}
+
   </div>
