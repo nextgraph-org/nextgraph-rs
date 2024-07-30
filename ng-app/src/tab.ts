@@ -428,7 +428,7 @@ export const save = async () => {
 }
 
 export const all_files_count = derived(cur_tab, ($cur_tab) => {
-    let total = $cur_tab.branch.attachments + $cur_tab.branch.files;
+    let total = $cur_tab.branch.files;
     return total ? `(${total})` : "";
 });
 

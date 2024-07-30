@@ -74,11 +74,6 @@
       "description": "Auf diesen Gerät scheint es noch kein Wallet zu geben.<br />Wenn du bereits ein Wallet hast, wähle \"Anmelden\". Andernfalls wähle \"Wallet erstellen\".",
       "create_wallet": "Wallet erstellen"
     },
-    "test": {
-      "cannot_load_offline": "Du bist offline und nutzt die Web-App. Du musst dich mindestens ein mal mit dem Broker verbinden, bevor du die App lokal nutzen kannst. Das liegt daran, dass die Web-App keine lokalen Kopien deiner Dokumente speichern kann.<br /><br />Sobald du ein mal verbunden warst, wirst du auch bei Verbindungsabbruch zu einigen Funktionen Zugriff haben. Das Senden von Binärdateien ist dann nicht möglich, da dein Browser nur begrenzte Speicherkapazitäten von circa 5MB zur Verfügung stellt.<br /><br />Diese Einschränkungen fallen weg, sobald das Feature \"UserStorage for Web\" veröffentlicht wurde!<br /><br />Deinen Verbindungsstatus siehst du auf",
-      "add_image": "Bild hinzufügen",
-      "upload_progress": "Lade hoch..."
-    },
     "login": {
       "heading": "Wie öffente ich mein Wallet? Es gibt zwei Optionen:",
       "with_pazzle": "Mit deinem Pazzle",
@@ -329,7 +324,7 @@
     "ServerError": "Server-Fehler.",
     "InvalidResponse": "Ungültige Antwort erhalten.",
     "BootstrapError": "Fehler beim Bootstrapping",
-    "NotAServerError": "Kein Server.",
+    "NotAServerError": "Kein Server-Fehler.",
     "VerifierError": "Fehler während der Überprüfung.",
     "SiteNotFoundOnBroker": "Die Seite kann nicht auf dem Broker gefunden werden",
     "BrokerConfigErrorStr": "{error}",

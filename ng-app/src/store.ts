@@ -452,11 +452,11 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
             //console.log("sub");
             let already_subscribed = all_branches[nuri];
             if (!already_subscribed) {
-                const { subscribe, set, update } = writable({graph:[], discrete:[], files:[], history: {start:()=>{}, stop:()=>{}, take:()=>{}, commits:false}, heads: []}); // create the underlying writable store
+                const { subscribe, set, update } = writable({graph:[], discrete:[], files:[], history: {start:()=>{}, stop:()=>{}, commits:false}, heads: []}); // create the underlying writable store // take:()=>{},
                 update((old)=> {
                     old.history.start = () => update((o) => {o.history.commits = true; return o;}) ;
                     old.history.stop = () => update((o) => {o.history.commits = false; return o;}) ;
-                    old.history.take = () => { let res: boolean | Array<{}> = false; update((o) => {res = o.history.commits; o.history.commits = []; return o;});  return res;}
+                    //old.history.take = () => { let res: boolean | Array<{}> = false; update((o) => {res = o.history.commits; o.history.commits = []; return o;});  return res;}
                     return old;});
                 let count = 0;
                 let unsub = () => { };
@@ -535,6 +535,10 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                                 }
                                                 old.graph.sort();
                                             }
+                                            tab_update(nuri, ($cur_tab) => {
+                                                $cur_tab.branch.files = old.files.length;
+                                                return $cur_tab;
+                                            });
                                         } else if (response.V0.Patch) {
                                             let i = old.heads.length;
                                             while (i--) {
@@ -570,6 +574,10 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                                 old.graph.sort();
                                             } else if (response.V0.Patch.other?.FileAdd) {
                                                 old.files.unshift(response.V0.Patch.other.FileAdd);
+                                                tab_update(nuri, ($cur_tab) => {
+                                                    $cur_tab.branch.files = old.files.length;
+                                                    return $cur_tab;
+                                                });
                                             } else {
 
                                             }
@@ -637,36 +645,25 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
 };
 
 let blob_cache = {};
-export async function get_blob(ref: { nuri: string; reference: { key: any; id: any; }; }) {
+export async function get_blob(ref: { nuri: string; reference: { key: any; id: any; }; }, only_img: boolean) {
     if (!ref) return false;
     const cached = blob_cache[ref.nuri];
-    if (cached) {
+    if (cached && (((await cached) !== true) || only_img )) {
         return cached;
     }
     let prom = new Promise(async (resolve) => {
         try {
-            let nuri = {
-                target: "PrivateStore",
-                entire_store: false,
-                access: [{ Key: ref.reference.key }],
-                locator: [],
-                object: ref.reference.id,
-            };
-
-            let file_request = {
-                V0: {
-                    command: "FileGet",
-                    nuri,
-                    session_id: get(active_session).session_id,
-                },
-            };
-
             let final_blob;
             let content_type;
-            let unsub = await ng.app_request_stream(file_request, async (blob) => {
+            let branch_nuri = "did:ng:"+get(cur_tab).branch.nuri;
+            let cancel = await ng.file_get(get(active_session).session_id, ref.reference, branch_nuri, async (blob) => {
                 //console.log("GOT APP RESPONSE", blob);
                 if (blob.V0.FileMeta) {
                     content_type = blob.V0.FileMeta.content_type;
+                    if (only_img && !content_type.startsWith("image/")) {
+                        resolve(true);
+                        return true;// to cancel
+                    }
                     final_blob = new Blob([], { type: content_type });
                 } else if (blob.V0.FileBinary) {
                     if (blob.V0.FileBinary.byteLength > 0) {

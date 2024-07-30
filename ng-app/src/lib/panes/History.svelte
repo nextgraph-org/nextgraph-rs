@@ -13,9 +13,6 @@
     import {
       branch_subscribe,
       active_session,
-      cannot_load_offline,
-      online,
-      get_blob
     } from "../../store";
     import { get } from "svelte/store";
     import { onMount, onDestroy, tick } from "svelte";
@@ -36,7 +33,7 @@
 
     import { t } from "svelte-i18n";
     import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
-    import { cur_tab, nav_bar, can_have_header, header_icon, header_title, header_description, cur_branch, set_header_in_view, edit_header_button, cur_app, load_official_app } from "../../tab";
+    import { cur_tab } from "../../tab";
     import ng from "../../api";
 
     import {
@@ -139,7 +136,7 @@
             {#if commit[1].final_consistency}<ShieldCheck tabindex="-1" class="w-5 h-5 absolute text-primary-600" style="top:9px;right:20px;" />
             {:else if commit[1].signature}<ShieldCheck tabindex="-1" class="w-5 h-5 absolute text-green-600" style="top:9px;right:20px;" />
             {/if}
-            <Icon tabindex="-1" class="w-5 h-5 outline-none absolute " style="top:9px;right:0px;" variation="outline" color="currentColor" icon={commit_type_icons[commit[1].commit_type]} />
+            <Icon tabindex="-1" class="w-5 h-5 focus:outline-none absolute " style="top:9px;right:0px;" variation="outline" color="currentColor" icon={commit_type_icons[commit[1].commit_type]} />
             {#if commit[1].commit_type==="TransactionBoth"}<Cloud tabindex="-1" class="w-5 h-5 absolute " style="top:28px;right:0px;" />{/if}
             <b>{commit[0].substring(0,7)}</b><br/>
             <span class="text-xs leading-tight">{commit[1].author.substring(0,9)}</span>

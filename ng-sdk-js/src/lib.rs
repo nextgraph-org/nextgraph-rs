@@ -23,6 +23,8 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 // use js_sys::Reflect;
 use async_std::stream::StreamExt;
+use futures::channel::mpsc;
+use futures::SinkExt;
 use js_sys::{Array, Object};
 use oxrdf::Triple;
 use sys_locale::get_locales;
@@ -40,7 +42,7 @@ use ng_net::broker::*;
 use ng_net::types::{BindAddress, ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, IP};
 use ng_net::utils::{
     decode_invitation_string, parse_ip_and_port_for, retrieve_local_bootstrap, retrieve_local_url,
-    spawn_and_log_error, Receiver, ResultSend,
+    spawn_and_log_error, Receiver, ResultSend, Sender,
 };
 use ng_net::{actor::*, actors::admin::*};
 use ng_net::{WS_PORT, WS_PORT_REVERSE_PROXY};
@@ -51,6 +53,7 @@ use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
+use nextgraph::verifier::CancelFn;
 
 use crate::model::*;
 
@@ -811,25 +814,76 @@ pub async fn test() {
     log_debug!("{:?}", client_info);
 }
 
+// #[wasm_bindgen]
+// pub async fn app_request_stream_with_nuri_command(
+//     nuri: String,
+//     command: JsValue,
+//     session_id: JsValue,
+//     callback: &js_sys::Function,
+//     payload: JsValue,
+// ) -> Result<JsValue, String> {
+//     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+//         .map_err(|_| "Deserialization error of session_id".to_string())?;
+//     let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+
+//     let command = serde_wasm_bindgen::from_value::<AppRequestCommandV0>(command)
+//         .map_err(|_| "Deserialization error of AppRequestCommandV0".to_string())?;
+
+//     let payload = if !payload.is_undefined() && payload.is_object() {
+//         Some(AppRequestPayload::V0(
+//             serde_wasm_bindgen::from_value::<AppRequestPayloadV0>(payload)
+//                 .map_err(|_| "Deserialization error of AppRequestPayloadV0".to_string())?,
+//         ))
+//     } else {
+//         None
+//     };
+
+//     let request = AppRequest::V0(AppRequestV0 {
+//         session_id,
+//         command,
+//         nuri,
+//         payload,
+//     });
+//     app_request_stream_(request, callback).await
+// }
+
+// #[wasm_bindgen]
+// pub async fn app_request_stream(
+//     // js_session_id: JsValue,
+//     request: JsValue,
+//     callback: &js_sys::Function,
+// ) -> Result<JsValue, String> {
+//     let request = serde_wasm_bindgen::from_value::<AppRequest>(request)
+//         .map_err(|_| "Deserialization error of AppRequest".to_string())?;
+
+//     app_request_stream_(request, callback).await
+// }
 #[wasm_bindgen]
 pub async fn app_request_stream(
     // js_session_id: JsValue,
     request: JsValue,
     callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
-    // let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(js_session_id)
-    //     .map_err(|_| "Deserialization error of session_id".to_string())?;
-
     let request = serde_wasm_bindgen::from_value::<AppRequest>(request)
         .map_err(|_| "Deserialization error of AppRequest".to_string())?;
 
+    app_request_stream_(request, callback).await
+}
+
+async fn app_request_stream_(
+    request: AppRequest,
+    callback: &js_sys::Function,
+) -> Result<JsValue, String> {
     let (reader, cancel) = nextgraph::local_broker::app_request_stream(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
 
+    let (canceller_tx, canceller_rx) = mpsc::unbounded();
+
     async fn inner_task(
         mut reader: Receiver<AppResponse>,
         callback: js_sys::Function,
+        mut canceller_tx: Sender<()>,
     ) -> ResultSend<()> {
         while let Some(app_response) = reader.next().await {
             let app_response = nextgraph::verifier::prepare_app_response_for_js(app_response)?;
@@ -881,10 +935,27 @@ pub async fn app_request_stream(
                 Ok(jsval) => {
                     let promise_res: Result<js_sys::Promise, JsValue> = jsval.dyn_into();
                     match promise_res {
-                        Ok(promise) => {
-                            let _ = JsFuture::from(promise).await;
+                        Ok(promise) => match JsFuture::from(promise).await {
+                            Ok(js_value) => {
+                                if js_value == JsValue::TRUE {
+                                    log_debug!("cancel because true");
+                                    reader.close();
+                                    canceller_tx.send(()).await;
+                                    canceller_tx.close_channel();
+                                    break;
+                                }
+                            }
+                            Err(_) => {}
+                        },
+                        Err(returned_val) => {
+                            if returned_val == JsValue::TRUE {
+                                log_debug!("cancel because true");
+                                reader.close();
+                                canceller_tx.send(()).await;
+                                canceller_tx.close_channel();
+                                break;
+                            }
                         }
-                        Err(_) => {}
                     }
                 }
                 Err(e) => {
@@ -895,12 +966,23 @@ pub async fn app_request_stream(
         Ok(())
     }
 
-    spawn_and_log_error(inner_task(reader, callback.clone()));
+    async fn inner_canceller(mut canceller_rx: Receiver<()>, cancel: CancelFn) -> ResultSend<()> {
+        if let Some(_) = canceller_rx.next().await {
+            log_info!("cancelling");
+            cancel();
+        }
+        Ok(())
+    }
+
+    spawn_and_log_error(inner_canceller(canceller_rx, cancel));
+
+    spawn_and_log_error(inner_task(reader, callback.clone(), canceller_tx.clone()));
 
     let cb = Closure::once(move || {
-        log_info!("cancelling");
+        log_info!("trying to cancel");
         //sender.close_channel()
-        cancel();
+        canceller_tx.unbounded_send(());
+        canceller_tx.close_channel();
     });
     //Closure::wrap(Box::new(move |sender| sender.close_channel()) as Box<FnMut(Sender<Commit>)>);
     let ret = cb.as_ref().clone();
@@ -923,6 +1005,43 @@ pub async fn app_request(request: JsValue) -> Result<JsValue, String> {
 }
 
 #[wasm_bindgen]
+pub async fn app_request_with_nuri_command(
+    nuri: String,
+    command: JsValue,
+    session_id: JsValue,
+    payload: JsValue,
+) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+
+    let command = serde_wasm_bindgen::from_value::<AppRequestCommandV0>(command)
+        .map_err(|_| "Deserialization error of AppRequestCommandV0".to_string())?;
+
+    let payload = if !payload.is_undefined() && payload.is_object() {
+        Some(AppRequestPayload::V0(
+            serde_wasm_bindgen::from_value::<AppRequestPayloadV0>(payload)
+                .map_err(|_| "Deserialization error of AppRequestPayloadV0".to_string())?,
+        ))
+    } else {
+        None
+    };
+
+    let request = AppRequest::V0(AppRequestV0 {
+        session_id,
+        command,
+        nuri,
+        payload,
+    });
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    Ok(serde_wasm_bindgen::to_value(&response).unwrap())
+}
+
+#[wasm_bindgen]
 pub async fn file_get_from_private_store(
     session_id: JsValue,
     nuri: String,
@@ -931,54 +1050,49 @@ pub async fn file_get_from_private_store(
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
 
-    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| format!("nuri: {}", e.to_string()))?;
 
-    let mut request = AppRequest::new(AppRequestCommandV0::FileGet, nuri.clone(), None);
+    let branch_nuri = NuriV0::new_private_store_target();
+
+    file_get_(session_id, nuri, branch_nuri, callback).await
+}
+
+#[wasm_bindgen]
+pub async fn file_get(
+    session_id: JsValue,
+    reference: JsValue,
+    branch_nuri: String,
+    callback: &js_sys::Function,
+) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let reference: BlockRef = serde_wasm_bindgen::from_value::<BlockRef>(reference)
+        .map_err(|_| "Deserialization error of file reference".to_string())?;
+
+    let branch_nuri =
+        NuriV0::new_from(&branch_nuri).map_err(|e| format!("branch_nuri: {}", e.to_string()))?;
+
+    file_get_(
+        session_id,
+        NuriV0::new_from_obj_ref(&reference),
+        branch_nuri,
+        callback,
+    )
+    .await
+}
+
+async fn file_get_(
+    session_id: u64,
+    mut nuri: NuriV0,
+    branch_nuri: NuriV0,
+    callback: &js_sys::Function,
+) -> Result<JsValue, String> {
+    nuri.copy_target_from(&branch_nuri);
+
+    let mut request = AppRequest::new(AppRequestCommandV0::FileGet, nuri, None);
     request.set_session_id(session_id);
 
-    let (reader, cancel) = nextgraph::local_broker::app_request_stream(request)
-        .await
-        .map_err(|e: NgError| e.to_string())?;
-
-    async fn inner_task(
-        mut reader: Receiver<AppResponse>,
-        callback: js_sys::Function,
-    ) -> ResultSend<()> {
-        while let Some(app_response) = reader.next().await {
-            let response_js = serde_wasm_bindgen::to_value(&app_response).unwrap();
-            let this = JsValue::null();
-            match callback.call1(&this, &response_js) {
-                Ok(jsval) => {
-                    let promise_res: Result<js_sys::Promise, JsValue> = jsval.dyn_into();
-                    match promise_res {
-                        Ok(promise) => {
-                            let _ = JsFuture::from(promise).await;
-                        }
-                        Err(_) => {}
-                    }
-                }
-                Err(e) => {
-                    log_err!(
-                        "JS callback for fetch_file_from_private_store failed with {:?}",
-                        e
-                    );
-                }
-            }
-        }
-        Ok(())
-    }
-
-    spawn_and_log_error(inner_task(reader, callback.clone()));
-
-    let cb = Closure::once(move || {
-        log_info!("cancelling");
-        //sender.close_channel()
-        cancel();
-    });
-    //Closure::wrap(Box::new(move |sender| sender.close_channel()) as Box<FnMut(Sender<Commit>)>);
-    let ret = cb.as_ref().clone();
-    cb.forget();
-    Ok(ret)
+    app_request_stream_(request, callback).await
 }
 
 async fn do_upload_done(
@@ -1083,13 +1197,12 @@ async fn do_upload_start(session_id: u64, nuri: NuriV0, mimetype: String) -> Res
 #[wasm_bindgen]
 pub async fn upload_start(
     session_id: JsValue,
-    nuri: JsValue,
+    nuri: String,
     mimetype: String,
 ) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
-    let nuri: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(nuri)
-        .map_err(|_| "Deserialization error of nuri".to_string())?;
+    let nuri: NuriV0 = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
 
     let upload_id = do_upload_start(session_id, nuri, mimetype).await?;
 
@@ -1180,7 +1293,7 @@ pub async fn upload_chunk(
     session_id: JsValue,
     upload_id: JsValue,
     chunk: JsValue,
-    nuri: JsValue,
+    nuri: String,
 ) -> Result<JsValue, String> {
     //log_debug!("upload_chunk {:?}", js_nuri);
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
@@ -1189,8 +1302,7 @@ pub async fn upload_chunk(
         .map_err(|_| "Deserialization error of upload_id".to_string())?;
     let chunk: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(chunk)
         .map_err(|_| "Deserialization error of chunk".to_string())?;
-    let nuri: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(nuri)
-        .map_err(|_| "Deserialization error of nuri".to_string())?;
+    let nuri: NuriV0 = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
 
     let response = do_upload_chunk(session_id, upload_id, chunk, nuri).await?;
 

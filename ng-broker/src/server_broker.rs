@@ -328,7 +328,7 @@ impl IServerBroker for ServerBroker {
         {
             let mut state = self.state.write().await;
             if state.wallet_rendezvous.contains_key(&rendezvous) {
-                let _ = sender.send(Err(ServerError::BrokerError));
+                let _ = sender.send(Err(ServerError::BrokerError)).await;
                 sender.close_channel();
                 return receiver;
             } else {

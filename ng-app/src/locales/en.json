@@ -27,6 +27,11 @@
         "chat": "Chat"
       }
     },
+    "file": {
+      "download": "Download",
+      "upload_progress": "Uploading...",
+      "upload": "Upload file"
+    },
     "errors": {
       "InvalidNuri": "Invalid NURI"
     },
@@ -272,11 +277,6 @@
       "welcome": "Welcome to NextGraph",
       "description": "We could not find a wallet saved on this device.<br /> If you already have a wallet, select \"Log in\", otherwise, select \"Create Wallet\" here below.",
       "create_wallet": "Create Wallet"
-    },
-    "test": {
-      "cannot_load_offline": "You are offline and using the web app. You need to connect to the broker at least once before you can start using the app locally because the web app does not keep a local copy of your documents.<br /><br /> Once connected, if you lose connectivity again, you will be able to have limited access to some functionalities. Sending binary files won't be possible, because the limit of local storage in your browser is around 5MB.<br /><br /> All those limitations will be lifted once the \"UserStorage for Web\" feature will be released. Stay tuned! <br /><br /> Check your connection status in the ",
-      "add_image": "Add Image",
-      "upload_progress": "Uploading..."
     },
     "login": {
       "heading": "How to open your wallet? You have 2 options:",
@@ -550,7 +550,8 @@
     "IncompatibleQrCode": "You scanned a NextGraph QR-Code that is of the wrong type.",
     "NotARendezVous": "You scanned an invalid QR-Code.",
     "camera_unavailable": "Camera is unavailable.",
-    "ServerAlreadyRunningInOtherProcess": "App is already running on this device. Check it and close it."
+    "ServerAlreadyRunningInOtherProcess": "App is already running on this device. Check it and close it.",
+    "cannot_load_this_file": "Cannot load this file"
   },
   "connectivity": {
     "stopped": "Stopped",

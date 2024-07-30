@@ -3498,6 +3498,7 @@ name = "ng-sdk-js"
 version = "0.1.0-preview.1"
 dependencies = [
  "async-std",
+ "futures",
  "getrandom 0.1.16",
  "gloo-timers",
  "js-sys",

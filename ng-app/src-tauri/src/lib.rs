@@ -339,6 +339,25 @@ async fn decode_invitation(invite: String) -> Option<Invitation> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn file_get(
+    session_id: u64,
+    stream_id: &str,
+    reference: BlockRef,
+    branch_nuri: String,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let branch_nuri =
+        NuriV0::new_from(&branch_nuri).map_err(|e| format!("branch_nuri: {}", e.to_string()))?;
+    let mut nuri = NuriV0::new_from_obj_ref(&reference);
+    nuri.copy_target_from(&branch_nuri);
+
+    let mut request = AppRequest::new(AppRequestCommandV0::FileGet, nuri, None);
+    request.set_session_id(session_id);
+
+    app_request_stream(request, stream_id, app).await
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn app_request_stream(
     request: AppRequest,
     stream_id: &str,
@@ -379,6 +398,69 @@ async fn app_request_stream(
 
     spawn_and_log_error(inner_task(reader, stream_id.to_string(), main_window));
 
+    Ok(())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn file_save_to_downloads(
+    session_id: u64,
+    reference: ObjectRef,
+    filename: String,
+    branch_nuri: String,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    let branch_nuri =
+        NuriV0::new_from(&branch_nuri).map_err(|e| format!("branch_nuri: {}", e.to_string()))?;
+    let mut nuri = NuriV0::new_from_obj_ref(&reference);
+    nuri.copy_target_from(&branch_nuri);
+
+    let mut request = AppRequest::new(AppRequestCommandV0::FileGet, nuri, None);
+    request.set_session_id(session_id);
+
+    let (mut reader, cancel) = nextgraph::local_broker::app_request_stream(request)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut file_vec: Vec<u8> = vec![];
+    while let Some(app_response) = reader.next().await {
+        match app_response {
+            AppResponse::V0(AppResponseV0::FileMeta(filemeta)) => {
+                file_vec = Vec::with_capacity(filemeta.size as usize);
+            }
+            AppResponse::V0(AppResponseV0::FileBinary(mut bin)) => {
+                if !bin.is_empty() {
+                    file_vec.append(&mut bin);
+                }
+            }
+            AppResponse::V0(AppResponseV0::EndOfStream) => break,
+            _ => return Err("invalid response".to_string()),
+        }
+    }
+
+    let mut i: usize = 0;
+    loop {
+        let dest_filename = if i == 0 {
+            filename.clone()
+        } else {
+            filename
+                .rsplit_once(".")
+                .map(|(l, r)| format!("{l} ({}).{r}", i.to_string()))
+                .or_else(|| Some(format!("{filename} ({})", i.to_string())))
+                .unwrap()
+        };
+
+        let path = app
+            .path()
+            .resolve(dest_filename, BaseDirectory::Download)
+            .unwrap();
+
+        if path.exists() {
+            i = i + 1;
+        } else {
+            write(path, &file_vec).map_err(|e| e.to_string())?;
+            break;
+        }
+    }
     Ok(())
 }
 
@@ -494,7 +576,7 @@ async fn sparql_query(
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn app_request(request: AppRequest, _app: tauri::AppHandle) -> Result<AppResponse, String> {
+async fn app_request(request: AppRequest) -> Result<AppResponse, String> {
     //log_debug!("app request {:?}", request);
 
     nextgraph::local_broker::app_request(request)
@@ -503,18 +585,39 @@ async fn app_request(request: AppRequest, _app: tauri::AppHandle) -> Result<AppR
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn app_request_with_nuri_command(
+    nuri: String,
+    command: AppRequestCommandV0,
+    session_id: u64,
+    payload: Option<AppRequestPayloadV0>,
+) -> Result<AppResponse, String> {
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+
+    let payload = payload.map(|p| AppRequestPayload::V0(p));
+
+    let request = AppRequest::V0(AppRequestV0 {
+        session_id,
+        command,
+        nuri,
+        payload,
+    });
+
+    app_request(request).await
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn upload_chunk(
     session_id: u64,
     upload_id: u32,
     chunk: serde_bytes::ByteBuf,
-    nuri: NuriV0,
+    nuri: String,
     _app: tauri::AppHandle,
 ) -> Result<AppResponse, String> {
     //log_debug!("upload_chunk {:?}", chunk);
 
     let mut request = AppRequest::new(
         AppRequestCommandV0::FilePut,
-        nuri,
+        NuriV0::new_from(&nuri).map_err(|e| e.to_string())?,
         Some(AppRequestPayload::V0(
             AppRequestPayloadV0::RandomAccessFilePutChunk((upload_id, chunk)),
         )),
@@ -725,7 +828,10 @@ impl AppBuilder {
                 doc_fetch_repo_subscribe,
                 cancel_stream,
                 app_request_stream,
+                file_get,
+                file_save_to_downloads,
                 app_request,
+                app_request_with_nuri_command,
                 upload_chunk,
                 get_device_name,
                 sparql_query,
