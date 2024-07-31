@@ -52,7 +52,7 @@
     let union = false;
     const run = async () => {
       try{
-        reset_toasts();
+        await reset_toasts();
         results = await sparql_query($in_memory_discrete, union);
       } catch(e) {
         toast_error(display_error(e));

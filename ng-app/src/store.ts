@@ -45,6 +45,7 @@ init({
 });
 
 export const display_error = (error: string) => {
+    if (e.message) return e.message;
     //console.log(error);
     // TODO: Check, if error tranlsation does not exist
     const parts = error.split(":");
@@ -70,16 +71,16 @@ export const select_default_lang = async () => {
         }
     }
 };
-/**
- * { 
- *      level:"error",//"warning","success","info"
- *      text: ""
- * }
- */
+
 export const toasts = writable([
     // {
     //     level:"error",
     //     text: "this is a serious error",
+    // },
+    // {
+    //     level:"success",
+    //     text: "this is a success story",
+    //     timeout: 5000,
     // },
     // {
     //     level:"info",
@@ -88,18 +89,18 @@ export const toasts = writable([
     // {
     //     level:"warning",
     //     text: "this is a warning. be warned!",
-    // },
-    // {
-    //     level:"success",
-    //     text: "this is a success story",
-    //     timeout: 5000,
     // }
-    
 ]);
 
-export const remove_toast = function(idx) {
+export const remove_toast = function(toast) {
     toasts.update((old)=>{
-        old.splice(idx,1);
+        for (const [index, value] of old.entries()) {
+            if (value.i == toast){
+                let t = old.splice(index,1);
+                if (t.timer) {clearTimeout(t.timer);}; 
+                break;
+            }
+        }
         return old;
     });
 }
@@ -111,10 +112,17 @@ export const toast = function(level, text) {
     });
 }
 
-export const reset_toasts = function() {
-    toasts.update((old)=>{
-        return [];
-    });
+export const reset_toasts = async function() {
+    let count = get(toasts).length;
+    if (count) {
+        toasts.update((old)=>{
+            for (let o of old) {
+                if (o.timer) clearTimeout(o.timer);
+            }
+            return [];
+        });
+        await new Promise((resolve) => setTimeout(resolve, 500));
+    }
 }
 
 export const toast_error = (text) => {
@@ -386,6 +394,10 @@ export const digest_to_string = function(digest) {
 export const sparql_query = async function(sparql:string, union:boolean) {
     let session = get(active_session);
     if (!session) {
+        persistent_error(get(cur_branch), {
+            title: get(format)("doc.errors.no_session"),
+            desc: get(format)("doc.errors_details.no_session")
+        });
         throw new Error("no session");
     }
     let nuri = union ? undefined : "did:ng:"+get(cur_tab).branch.nuri;
@@ -395,6 +407,10 @@ export const sparql_query = async function(sparql:string, union:boolean) {
 export const sparql_update = async function(sparql:string) {
     let session = get(active_session);
     if (!session) {
+        persistent_error(get(cur_branch), {
+            title: get(format)("doc.errors.no_session"),
+            desc: get(format)("doc.errors_details.no_session")
+        });
         throw new Error("no session");
     }
     let nuri = "did:ng:"+get(cur_tab).branch.nuri;
@@ -466,6 +482,10 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                             //console.log("load down");
                             let session = get(active_session);
                             if (!session) {
+                                persistent_error(get(cur_branch), {
+                                    title: get(format)("doc.errors.no_session"),
+                                    desc: get(format)("doc.errors_details.no_session")
+                                });
                                 console.error("no session");
                                 return;
                             }

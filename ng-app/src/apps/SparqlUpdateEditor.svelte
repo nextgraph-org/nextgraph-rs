@@ -38,7 +38,7 @@
     });
     const run = async () => {
       try{
-        reset_toasts();
+        await reset_toasts();
         await sparql_update($in_memory_discrete);
         toast_success($t("app.sparql_update_editor.success"));
       } catch(e) {
@@ -52,7 +52,6 @@
   
   </script>
   <div class="flex-col">
-    
     <CodeMirror bind:value={$in_memory_discrete} lineWrapping useTab={false} extensions={[basicSetup,StreamLanguage.define(sparql)]} styles={{
       "&": {
           maxWidth: "100%",

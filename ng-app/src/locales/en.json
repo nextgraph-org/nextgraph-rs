@@ -33,10 +33,12 @@
       "upload": "Upload file"
     },
     "errors": {
-      "InvalidNuri": "Invalid NURI"
+      "InvalidNuri": "Invalid NURI",
+      "no_session": "No active session"
     },
     "errors_details": {
-      "InvalidNuri": "The provided NextGraph URI is invalid"
+      "InvalidNuri": "The provided NextGraph URI is invalid",
+      "no_session": "Please refresh the page or close and reopen the app"
     },
     "graph" : "Graph",
     "discrete" : "Document",
