@@ -938,9 +938,9 @@ async fn app_request_stream_(
                         Ok(promise) => match JsFuture::from(promise).await {
                             Ok(js_value) => {
                                 if js_value == JsValue::TRUE {
-                                    log_debug!("cancel because true");
+                                    //log_debug!("cancel because true");
                                     reader.close();
-                                    canceller_tx.send(()).await;
+                                    let _ = canceller_tx.send(()).await;
                                     canceller_tx.close_channel();
                                     break;
                                 }
@@ -949,9 +949,9 @@ async fn app_request_stream_(
                         },
                         Err(returned_val) => {
                             if returned_val == JsValue::TRUE {
-                                log_debug!("cancel because true");
+                                //log_debug!("cancel because true");
                                 reader.close();
-                                canceller_tx.send(()).await;
+                                let _ = canceller_tx.send(()).await;
                                 canceller_tx.close_channel();
                                 break;
                             }
@@ -968,7 +968,7 @@ async fn app_request_stream_(
 
     async fn inner_canceller(mut canceller_rx: Receiver<()>, cancel: CancelFn) -> ResultSend<()> {
         if let Some(_) = canceller_rx.next().await {
-            log_info!("cancelling");
+            //log_info!("cancelling");
             cancel();
         }
         Ok(())
@@ -981,7 +981,7 @@ async fn app_request_stream_(
     let cb = Closure::once(move || {
         log_info!("trying to cancel");
         //sender.close_channel()
-        canceller_tx.unbounded_send(());
+        let _ = canceller_tx.unbounded_send(());
         canceller_tx.close_channel();
     });
     //Closure::wrap(Box::new(move |sender| sender.close_channel()) as Box<FnMut(Sender<Commit>)>);

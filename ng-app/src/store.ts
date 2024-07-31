@@ -45,7 +45,7 @@ init({
 });
 
 export const display_error = (error: string) => {
-    console.log(error);
+    //console.log(error);
     // TODO: Check, if error tranlsation does not exist
     const parts = error.split(":");
     let res = get(format)("errors." + parts[0]);
