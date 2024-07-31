@@ -15,7 +15,8 @@
       sparql_query,
       toast_error,
       toast_success,
-      reset_toasts
+      reset_toasts,
+      display_error,
     } from "../store";
     import { 
       in_memory_discrete, open_viewer, set_viewer, reset_in_memory
@@ -54,7 +55,7 @@
         reset_toasts();
         results = await sparql_query($in_memory_discrete, union);
       } catch(e) {
-        toast_error(e);
+        toast_error(display_error(e));
       }
     }
     const openTurtle = () => {
@@ -92,9 +93,13 @@
       <div>
         <span class="ml-2 font-bold">Results: <br/></span>
         {#if Array.isArray(results)}
-          <Highlight {language} code={results.join(" .\r\n") + " ."} class="mb-10"  let:highlighted >
-            <LineNumbers {highlighted} wrapLines hideBorder />
-          </Highlight>
+          {#if results.length}
+            <Highlight {language} code={results.join(" .\r\n") + (results.length ? " .":"")} class="mb-10"  let:highlighted >
+              <LineNumbers {highlighted} wrapLines hideBorder />
+            </Highlight>
+          {:else}
+            Empty
+          {/if}
         {:else if results?.head} 
           <Table>
             <TableHead>

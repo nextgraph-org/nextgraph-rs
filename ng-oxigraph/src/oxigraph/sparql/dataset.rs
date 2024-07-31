@@ -72,9 +72,9 @@ impl DatasetView {
     fn parse_graph_name(&self, graph_name: &EncodedTerm) -> Result<MatchBy, StorageError> {
         match graph_name {
             EncodedTerm::NamedNode { iri_id } => {
-                let graph_name_string = self.get_str(iri_id)?.ok_or::<StorageError>(
-                    CorruptionError::msg("graph_name not found in parse_graph_name").into(),
-                )?;
+                let graph_name_string = self
+                    .get_str(iri_id)?
+                    .ok_or::<StorageError>(CorruptionError::msg("graph_not_found").into())?;
                 self.reader
                     .parse_graph_name(&graph_name_string, Some(*iri_id))
             }

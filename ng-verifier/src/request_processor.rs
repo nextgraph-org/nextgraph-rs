@@ -109,7 +109,7 @@ impl Verifier {
 
                     spawn_and_log_error(sending_loop(Arc::new(file), tx.clone()));
                     let fnonce = Box::new(move || {
-                        log_debug!("FileGet cancelled");
+                        //log_debug!("FileGet cancelled");
                         tx.close_channel();
                     });
                     Ok((rx, fnonce))

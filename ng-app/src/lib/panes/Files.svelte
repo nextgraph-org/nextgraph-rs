@@ -156,7 +156,6 @@
                         object: reference.V0.FileUploaded,
                     },
                 };
-
                 await ng.app_request_with_nuri_command(nuri, "FilePut", $active_session.session_id, file_put_payload);
             }
         });
@@ -167,6 +166,7 @@
 
 
 <div class="w-full">
+  {#if $cur_tab.doc.can_edit}
     <div class="row pt-2 w-full">
       
       <Button
@@ -187,51 +187,52 @@
         bind:this={fileinput}
       />
     </div>
-    {#if upload_progress !== null}
-      <div class="mx-6 mt-2">
-        <Progressbar
-          progress={(
-            (100 * upload_progress.current) /
-            upload_progress.total
-          ).toFixed(0)}
-          labelOutside={$t("doc.file.upload_progress")}
-        />
-      </div>
-    {/if}
-    {#if commits}
-      {#await commits.load()}
-        <p>{$t("connectivity.loading")}...</p>
-      {:then}
-        {#each $commits.files as file}
-          <p class="mb-5">
+  {/if}
+  {#if upload_progress !== null}
+    <div class="mx-6 mt-2">
+      <Progressbar
+        progress={(
+          (100 * upload_progress.current) /
+          upload_progress.total
+        ).toFixed(0)}
+        labelOutside={$t("doc.file.upload_progress")}
+      />
+    </div>
+  {/if}
+  {#if commits}
+    {#await commits.load()}
+      <p>{$t("connectivity.loading")}...</p>
+    {:then}
+      {#each $commits.files as file}
+        <p class="mb-5">
 
-            {#await get_blob(file, true)}
-              <div class="ml-2">
-                <Spinner />
-              </div>
-            {:then url}
-              {#await isImage(url) then is}
-                {#if is}
-                  <img src={url} title={file.nuri} alt={file.name} />
-                {/if}
-              {/await}
-              <span class="ml-2 text-gray-600">{file.name}<br/></span>
-              {#if url === false}
-                <span><ExclamationTriangle tabindex="-1" class="ml-2  w-6 h-8 focus:outline-none" style="display:inline"/>{$t("errors.cannot_load_this_file")}</span>
-              {:else if prepare_url(file.nuri)}
-                <a bind:this={file_urls[file.nuri].click}
-                    href={file_urls[file.nuri].url || ""}
-                    target="_blank"
-                    download={file.name}
-                ></a>
-                <button class="ml-2 select-none p-1 pb-0 text-gray-600" style="box-shadow:none;" on:click={()=>download(file)}>
-                  <span><ArrowDownTray tabindex="-1" class="w-6 h-8 mr-3 focus:outline-none" style="display:inline"/>{$t("doc.file.download")}</span>
-                </button>
+          {#await get_blob(file, true)}
+            <div class="ml-2">
+              <Spinner />
+            </div>
+          {:then url}
+            {#await isImage(url) then is}
+              {#if is}
+                <img src={url} title={file.nuri} alt={file.name} />
               {/if}
             {/await}
-          </p>
-        {/each}
-      {/await}
-    {/if}
+            <span class="ml-2 text-gray-600">{file.name}<br/></span>
+            {#if url === false}
+              <span><ExclamationTriangle tabindex="-1" class="ml-2  w-6 h-8 focus:outline-none" style="display:inline"/>{$t("errors.cannot_load_this_file")}</span>
+            {:else if prepare_url(file.nuri)}
+              <a bind:this={file_urls[file.nuri].click}
+                  href={file_urls[file.nuri].url || ""}
+                  target="_blank"
+                  download={file.name}
+              ></a>
+              <button class="ml-2 select-none p-1 pb-0 pt-0 text-gray-600" style="box-shadow:none;" on:click={()=>download(file)}>
+                <span><ArrowDownTray tabindex="-1" class="w-6 h-8 mr-3 focus:outline-none" style="display:inline"/>{$t("doc.file.download")}</span>
+              </button>
+            {/if}
+          {/await}
+        </p>
+      {/each}
+    {/await}
+  {/if}
 
 </div>

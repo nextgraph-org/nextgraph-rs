@@ -551,7 +551,8 @@
     "NotARendezVous": "You scanned an invalid QR-Code.",
     "camera_unavailable": "Camera is unavailable.",
     "ServerAlreadyRunningInOtherProcess": "App is already running on this device. Check it and close it.",
-    "cannot_load_this_file": "Cannot load this file"
+    "cannot_load_this_file": "Cannot load this file",
+    "graph_not_found": "Graph not found"
   },
   "connectivity": {
     "stopped": "Stopped",

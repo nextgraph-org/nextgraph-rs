@@ -16,6 +16,7 @@
       toast_error,
       toast_success,
       reset_toasts,
+      display_error,
     } from "../store";
     import { 
       in_memory_discrete, open_viewer, reset_in_memory
@@ -41,7 +42,7 @@
         await sparql_update($in_memory_discrete);
         toast_success($t("app.sparql_update_editor.success"));
       } catch(e) {
-        toast_error(e);
+        toast_error(display_error(e));
       }
     }
     const openViewer = () => {

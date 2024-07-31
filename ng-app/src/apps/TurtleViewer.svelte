@@ -36,7 +36,7 @@
     
     export let commits = {graph:[]};
     let source = "";
-    $: source = commits.graph.join(" .\r\n") + " .";
+    $: source = commits.graph.join(" .\r\n") + (commits.graph.length ? " .":"");
 
     const openQuery = () => {
       set_viewer("n:g:z:sparql_query");
@@ -72,10 +72,11 @@
       </button>
     {/if}
 
-    <Highlight {language} code={source} class="mb-10"  let:highlighted >
-      <LineNumbers {highlighted} wrapLines hideBorder />
-    </Highlight>
-
+    {#if source}
+      <Highlight {language} code={source} class="mb-10"  let:highlighted >
+        <LineNumbers {highlighted} wrapLines hideBorder />
+      </Highlight>
+    {/if}
       
   </div>
   
