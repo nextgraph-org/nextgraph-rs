@@ -981,7 +981,7 @@
           {/if}
           
           {#await check_has_camera() then has_camera}
-            {#if !has_camera}
+            {#if has_camera}
               <MenuItem title={$t("buttons.scan_qr")} clickable={ ()=> scan_qr() }>
                 <QrCode tabindex="-1"
                 class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
@@ -999,31 +999,38 @@
                 class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
                 <span class="ml-3">{$t("doc.record_reel")}</span>
               </MenuItem>
+
+              <MenuItem title={$t("doc.record_voice")} clickable={ ()=> record_voice() }>
+                <Microphone tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
+                <span class="ml-3">{$t("doc.record_voice")}</span>
+              </MenuItem>
+            {/if}
+
+            <div style="padding:0;" bind:this={createMenu.media}></div>
+            <MenuItem title={$t("doc.media")} clickable={ () => { createMenuOpened.media = !createMenuOpened.media; scrollToCreateMenu("media"); } }>
+              <DocumentArrowUp
+                tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
+              />
+              <span class="ml-3">{$t("doc.media")}</span>
+            </MenuItem>
+            {#if createMenuOpened.media }
+              {#each create_media_items as item}
+                <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+                  <DataClassIcon dataClass={item} {config}/>
+                  <span class="ml-3">{get_class(item)["ng:n"]}</span>
+                </MenuItem>
+              {/each}
+              {#if !has_camera}
+                <MenuItem title={$t("doc.record_voice")} extraClass="submenu"  clickable={ ()=> record_voice() }>
+                  <Microphone tabindex="-1"
+                  class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
+                  <span class="ml-3">{$t("doc.record_voice")}</span>
+                </MenuItem>
+              {/if}
             {/if}
           {/await}
-
-          <MenuItem title={$t("doc.record_voice")} clickable={ ()=> record_voice() }>
-            <Microphone tabindex="-1"
-            class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
-            <span class="ml-3">{$t("doc.record_voice")}</span>
-          </MenuItem>
-
-          <div style="padding:0;" bind:this={createMenu.media}></div>
-          <MenuItem title={$t("doc.media")} clickable={ () => { createMenuOpened.media = !createMenuOpened.media; scrollToCreateMenu("media"); } }>
-            <DocumentArrowUp
-              tabindex="-1"
-              class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
-            />
-            <span class="ml-3">{$t("doc.media")}</span>
-          </MenuItem>
-          {#if createMenuOpened.media }
-            {#each create_media_items as item}
-              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
-                <DataClassIcon dataClass={item} {config}/>
-                <span class="ml-3">{get_class(item)["ng:n"]}</span>
-              </MenuItem>
-            {/each}
-          {/if}
 
           <div style="padding:0;" bind:this={createMenu.chart}></div>
           <MenuItem title={$t("doc.chart")} clickable={ () => { createMenuOpened.chart = !createMenuOpened.chart; scrollToCreateMenu("chart"); } }>

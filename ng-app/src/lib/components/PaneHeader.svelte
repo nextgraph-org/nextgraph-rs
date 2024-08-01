@@ -41,7 +41,7 @@
     on:click={()=>closePane(pane_name)}
     on:keypress={()=>closePane(pane_name)}
     tabindex="0">
-    <XMark class="w-8 h-8 p-1 text-gray-300  focus:outline-none dark:text-white"/>
+    <XMark class="w-8 h-8 p-1 text-gray-400  focus:outline-none dark:text-white"/>
 </div>
 <div style="height:44px; background-color: rgb(251, 251, 251);" class="p-1 flex items-center">
     <Icon tabindex="-1" class="w-8 h-8 text-gray-400 dark:text-white focus:outline-none " variation="outline" color="currentColor" icon={pane_items[pane_name]} />
