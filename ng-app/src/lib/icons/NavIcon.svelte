@@ -29,7 +29,7 @@
       PaperAirplane,
     } from "svelte-heros-v2";
   
-    import DataClassIcon from "../DataClassIcon.svelte";
+    import DataClassIcon from "./DataClassIcon.svelte";
 
     export let config = {};
     export let img: string;

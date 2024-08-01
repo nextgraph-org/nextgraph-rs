@@ -195,6 +195,12 @@ export const update_branch_display = (cur_tab) => {
 
 export const show_modal_menu = writable(false);
 
+export const show_modal_create = writable(false);
+
+export const openModalCreate = () => {
+    show_modal_create.set(true);
+  }
+
 export const in_memory_graph = writable("");
 export const in_memory_discrete = writable("");
 
@@ -215,8 +221,15 @@ export const all_tabs = writable({
             store_type: "", //"public" "protected", "private", "group", "dialog",
             readcap: "", // "r:" readcap of main
             is_member: "", // "r:" readcap of store root branch
+            can_edit: true,
             inner: "", // "w:l:"
             
+            stream: { // only if not a Dialog
+                notif: 0,
+                last: "",
+                nuri: "",
+            },
+
             // comes from main branch of store
             title: "",
             icon: "",
@@ -272,11 +285,6 @@ export const all_tabs = writable({
             icon: "",
             description: "",
     
-            stream: { // only if is_store
-                notif: 0,
-                last: "",
-                nuri: "",
-            },
             live_editors: {
     
             },

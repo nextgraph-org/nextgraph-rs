@@ -20,7 +20,7 @@
     ViewfinderCircle,
     ArrowsPointingOut,
     Cube,
-    Briefcase,
+    ClipboardDocumentCheck,
     MagnifyingGlass,
     RocketLaunch,
     Sun,
@@ -38,7 +38,7 @@
     Photo,
     Film,
     RectangleStack,
-    Microphone,
+    SpeakerWave,
     MusicalNote,
     Ticket,
     CursorArrowRays,
@@ -67,20 +67,41 @@
     Cog,
     Square3Stack3d,
     ChatBubbleLeftRight,
+    Fire,
+    ReceiptPercent,
+    ArrowTrendingUp,
+    CursorArrowRipple,
+    VideoCamera,
+    Variable,
+    Language,
+    QueueList,
   } from "svelte-heros-v2";
+
+  import PdfIcon from "./PdfIcon.svelte";
+  import BrailleIcon from "./BrailleIcon.svelte";
+  import ChemistryIcon from "./ChemistryIcon.svelte";
+  import GuitarIcon from "./GuitarIcon.svelte";
+  import JsonIcon from "./JsonIcon.svelte";
+  import JsIcon from "./JsIcon.svelte";
+  import TsIcon from "./TsIcon.svelte";
+  import RustIcon from "./RustIcon.svelte";
+  import SvelteIcon from "./SvelteIcon.svelte";
+  import ReactIcon from "./ReactIcon.svelte";
 
   export let config = {};
   export let dataClass: string;
+  export let color = "currentColor";
 
   const exact_mapping = {
     page: Window,
     "app": Cog,
     "app:z": SquaresPlus,
     class: ViewfinderCircle,
-    contract: Briefcase,
+    contract: ClipboardDocumentCheck,
     "query:text": MagnifyingGlass,
     "query:web": MagnifyingGlass,
     "data:graph": Sun,
+    "data:json": JsonIcon,
     "data:table": TableCells,
     "data:collection": ListBullet,
     "data:container": Square3Stack3d,
@@ -93,10 +114,10 @@
     "plato/card": Clipboard,
     "plato/pad": Square2Stack,
     "media:image": Photo,
-    "media:reel": Film,
+    "media:reel": VideoCamera,
     "media:video": Film,
     "media:album": RectangleStack,
-    "media:audio": Microphone,
+    "media:audio": SpeakerWave,
     "media:song": MusicalNote,
     "media:subtitle": Ticket,
     "media:overlay": CursorArrowRays,
@@ -108,6 +129,7 @@
     "social:scheduler": Calendar,
     "social:reaction": Heart,
     "social:chatroom": ChatBubbleLeftRight,
+    "social:live": Fire,
     "prod:task": Stop,
     "prod:project": Flag,
     "prod:issue": HandRaised,
@@ -117,8 +139,22 @@
     "prod:slides": PresentationChartBar,
     "prod:question": QuestionMarkCircle,
     "prod:answer": CheckCircle,
-    "prod:poll": QuestionMarkCircle,
+    "prod:poll": CursorArrowRipple,
     "prod:vote": CheckCircle,
+    "prod:spreadsheet": ReceiptPercent,
+    "doc:compose": QueueList,
+    "doc:maths": Variable,
+    "doc:music:abc": MusicalNote,
+    "doc:pdf": PdfIcon,
+    "doc:braille": BrailleIcon,
+    "doc:ancientscript": Language,
+    "doc:chemistry": ChemistryIcon,
+    "doc:music:guitar": GuitarIcon,
+    "code:js": JsIcon,
+    "code:ts": TsIcon,
+    "code:rust": RustIcon,
+    "code:svelte": SvelteIcon,
+    "code:react": ReactIcon,
   };
 
   const prefix_mapping = {
@@ -132,7 +168,7 @@
     "data:": CircleStack,
     "doc:diagram": DocumentChartBar,
     "doc:chart": ChartPie,
-    "doc:viz": ChartPie,
+    "doc:viz": ArrowTrendingUp,
     "doc:": ClipboardDocumentList,
     file: Document,
   };
@@ -147,47 +183,4 @@
   };
 </script>
 
-<!--
-did:ng:n:g:z:[official apps]
-did:ng:n:g:x:ng
-did:ng:n:g:x list of context used by nextgraph
-  rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#
-  rdfs: http://www.w3.org/2000/01/rdf-schema#
-  schema: https://schema.org/
-  skos: http://www.w3.org/2004/02/skos/core#
-  owl: http://www.w3.org/2002/07/owl#
-  foaf: http://xmlns.com/foaf/0.1/
-  relationship: http://purl.org/vocab/relationship/
-  dcterms: http://purl.org/dc/terms/
-  dcmitype: http://purl.org/dc/dcmitype/
-  sh: http://www.w3.org/ns/shacl#
-  shex: http://www.w3.org/ns/shex#
-  xsd: http://www.w3.org/2001/XMLSchema#
-  as: https://www.w3.org/ns/activitystreams#
-  ldp: http://www.w3.org/ns/ldp#
-  vcard: http://www.w3.org/2006/vcard/ns#
-  sec: https://w3id.org/security#
-  wgs: http://www.w3.org/2003/01/geo/wgs84_pos#
-  cc: http://creativecommons.org/ns#
-  gn: https://www.geonames.org/ontology#
-  geo: http://www.opengis.net/ont/geosparql#
-  time: http://www.w3.org/2006/time#
-
-  ng: did:ng:n:g:x:ng# or http://nextgraph.org/x:ng#
-
-did:ng:n:g:x:ng#post:rich
-ng:class => shortcut for did:ng:n:g:x:ng#class
-a rdfs:Class
-a ng:class
-did:ng:o:xxxx:yy:yy
-did:ng:n:xx.xx#name
-did:ng:x: curated list of ontologies
-did:ng:k common list of things (keyword)
-did:ng:n:g:a common data
-did:ng:z: curated list of external apps and services (app store)
-http://nextgraph.org/x:ng# => the ng: ontology (did:ng:n:g:x:ng#)
-
-ng:compat -> owl:unionOf rdf:List (alphabetical order, including itself as first element)
-
--->
-<Icon {...config} variation="outline" color="black" icon={find(dataClass)} />
+<Icon {...config} variation="outline" {color} icon={find(dataClass)} />

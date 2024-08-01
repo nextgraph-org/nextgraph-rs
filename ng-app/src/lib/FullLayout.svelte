@@ -17,27 +17,31 @@
     SidebarWrapper,
     Modal,
     Toggle,
+    Radio,
   } from "flowbite-svelte";
   import { link, location, push } from "svelte-spa-router";
   import MobileBottomBarItem from "./MobileBottomBarItem.svelte";
   import MobileBottomBar from "./MobileBottomBar.svelte";
   import Pane from "./Pane.svelte";
+  import DataClassIcon from "./icons/DataClassIcon.svelte";
+  import MarkdownIcon from "./icons/MarkdownIcon.svelte";
+  import TxtIcon from "./icons/TxtIcon.svelte";
   // @ts-ignore
   import Logo from "./components/Logo.svelte";
   import MenuItem from "./components/MenuItem.svelte";
   import PaneHeader from "./components/PaneHeader.svelte";
-  import BranchIcon from "./components/BranchIcon.svelte";
+  import BranchIcon from "./icons/BranchIcon.svelte";
   import Message from "./components/Message.svelte";
   // @ts-ignore
   import { t } from "svelte-i18n";
   import { onMount, onDestroy, tick } from "svelte";
-  import { cur_tab, cur_viewer, cur_editor, toggle_graph_discrete, cur_tab_update,
+  import { cur_tab, cur_viewer, cur_editor, toggle_graph_discrete, cur_tab_update, get_class,
           available_editors, available_viewers, set_editor, set_viewer, set_view_or_edit, toggle_live_edit,
-          has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu, show_modal_menu } from "../tab";
+          has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu, show_modal_menu, show_modal_create, openModalCreate } from "../tab";
   import {
-    active_session, redirect_after_login, toasts
+    active_session, redirect_after_login, toasts, check_has_camera
   } from "../store";
-  import ZeraIcon from "./ZeraIcon.svelte";
+  import ZeraIcon from "./icons/ZeraIcon.svelte";
 
   import {
     Home,
@@ -86,9 +90,14 @@
     XMark,
     ArrowLeft,
     ArchiveBox,
-    CheckCircle,
-    XCircle,
-    ExclamationCircle,
+    Square3Stack3d,
+    UserGroup,
+    Briefcase,
+    DocumentArrowUp,
+    Language,
+    Camera,
+    VideoCamera,
+    Microphone,
   } from "svelte-heros-v2";
     import NavBar from "./components/NavBar.svelte";
 
@@ -212,6 +221,137 @@
     }
   }
 
+  let createMenu = {
+    social: undefined,
+    pro: undefined,
+    media: undefined,
+    chart: undefined,
+    viz: undefined,
+    diagram: undefined,
+    doc: undefined,
+    data: undefined,
+    code: undefined,
+    apps: undefined,
+  };
+  async function scrollToCreateMenu(menu) {
+    await tick();
+    if (createMenu[menu]) createMenu[menu].scrollIntoView();
+  }
+
+  let createMenuOpened = {
+    social: false,
+    pro: false,
+    media: false,
+    chart: false,
+    viz: false,
+    diagram: false,
+    doc: false,
+    data: false,
+    code: false,
+    apps: false
+  }
+
+  const create_social_items = [
+    "social:contact",
+    "social:chatroom",
+    "social:event",
+    "social:channel",
+    "social:scheduler",
+    "social:calendar",
+    "social:live"
+  ];
+
+  const create_pro_items = [
+    "prod:project",
+    "prod:task",
+    "prod:issue",
+    "prod:form",
+    "prod:slides",
+    "prod:spreadsheet",
+    "contract",
+    "prod:question",
+    "prod:poll",
+    "prod:cad",
+  ];
+
+  const create_media_items = [
+    "media:image",
+    "media:reel",
+    "media:video",
+    "media:album",
+    "media:audio",
+    "media:song",
+    "media:overlay",
+  ];
+
+  const create_chart_items = [
+    "doc:chart:frappecharts",
+    "doc:chart:financial",
+    "doc:chart:apexcharts",
+    "doc:chart:billboard",
+    "doc:chart:echarts",
+    "doc:chart:chartjs",
+  ];
+
+  const create_viz_items = [
+    "doc:viz:cytoscape",
+    "doc:viz:vega",
+    "doc:viz:vizzu",
+    "doc:viz:plotly",
+    "doc:viz:avail",
+  ];
+
+  const create_diagram_items = [
+    "doc:diagram:mermaid",
+    "doc:diagram:drawio",
+    "doc:diagram:graphviz",
+    "doc:diagram:excalidraw",
+    "doc:diagram:gantt",
+    "doc:diagram:flowchart",
+    "doc:diagram:sequence",
+    "doc:diagram:markmap",
+    "doc:diagram:mymind",
+    "doc:diagram:jsmind",
+  ];
+
+  const create_doc_items = [
+    "doc:pdf",
+    "doc:odf",
+    "file",
+    "doc:music:abc",
+    "doc:music:guitar",
+    "doc:maths",
+    "doc:chemistry",
+    "doc:ancientscript",
+    "doc:braille",
+  ];
+
+  const create_data_items = [
+    "data:graph",
+    "data:container",
+    "data:collection",
+    "data:table",
+    "data:geomap",
+    "data:board",
+    "data:grid",
+    "data:json",
+    "data:array",
+    "data:map",
+    "data:xml",
+  ];
+
+  const create_code_items = [
+    "code:rust",
+    "code:js",
+    "code:ts",
+    "code:svelte",
+    "code:react",
+  ];
+
+  const create_apps_items = [
+    "app:n:xxx.xx.xx",
+  ];
+
   let top;
   let shareMenu;
   let toolsMenu;
@@ -251,7 +391,7 @@
   });
 
   active_session.subscribe((as) => { if(!as) {
-    console.log($location);
+    //console.log($location);
     if ($location!="/user") {
       $redirect_after_login = $location;
     }
@@ -346,6 +486,10 @@
     // });
   }
 
+  const closeModalCreate = () => {
+    $show_modal_create = false;
+  }
+
   const closePaneInModal = () => {
     cur_tab_update(ct => {
         ct.show_menu = true;
@@ -373,6 +517,7 @@
     {n:"embed",i:CodeBracketSquare},
     {n:"schema",i:ArrowsPointingOut},
     {n:"signature",i:ShieldCheck},
+    {n:"translations",i:Language},
     {n:"services",i:Cube},
     {n:"print",i:Printer},
     {n:"console",i:CommandLine},
@@ -392,12 +537,48 @@
     "mc":Sparkles,
   };
 
-  const customEv = new CustomEvent('loaded', {});
+  let destination = "store";
 
-	async	function addLoaded(node) {
-		await tick()
-		node.dispatchEvent(customEv)
-	}
+  $: destination = $cur_tab.branch.id === "" ? "mc" : destination == "mc" ? "store" : destination;
+
+  let config = { tabindex:"-1",
+                 class:"w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
+               };
+
+  const new_document = (class_name) => {
+
+    closeModalCreate();
+  }
+
+  const new_group = () => {
+
+    closeModalCreate();
+  }
+
+  const new_app = () => {
+
+    closeModalCreate();
+  }
+
+  const scan_qr = () => {
+
+    closeModalCreate();
+  }
+
+  const take_picture = () => {
+
+    closeModalCreate();
+  }
+
+  const record_reel = () => {
+
+    closeModalCreate();
+  }
+
+  const record_voice = () => {
+
+    closeModalCreate();
+  }
 
   let asideClass = "w-48";
   let spanClass = "flex-1 ml-3 whitespace-nowrap";
@@ -406,8 +587,7 @@
 </script>
 
 <svelte:window bind:innerWidth={width} />
-
-<Modal id="menu-modal"
+<Modal class="menu-modal"
     outsideclose
     bind:open={$show_modal_menu}
     size = 'xs'
@@ -433,7 +613,7 @@
     {#if $cur_tab.show_menu || (!$cur_tab.folders_pane && !$cur_tab.toc_pane && !$cur_tab.right_pane)}
       <aside style="width:305px; padding:5px;" class="bg-white" aria-label="Sidebar">
         <div class="bg-gray-60 overflow-y-auto dark:bg-gray-800">
-          <ul class="space-y-1 space-x-0 mb-10">
+          <ul class="mb-10">
             {#if $cur_tab.branch.has_discrete}
             <li>
               <div class="inline-flex graph-discrete-toggle mb-2 ml-2" role="group">
@@ -682,6 +862,248 @@
   </div>
 </Modal>
 
+<Modal class="menu-modal"
+    outsideclose
+    bind:open={$show_modal_create}
+    size = 'xs'
+    placement = 'top-left'
+    backdropClass="bg-gray-900 bg-opacity-50 dark:bg-opacity-80 menu-bg-modal"
+  >
+  <div class="static">
+    <div class="absolute top-2 right-4 w-10 h-10 bg-white" role="button" aria-label="Close menu" title="Close menu" 
+      on:click={closeModalCreate}
+      on:keypress={closeModalCreate}
+      tabindex="0">
+      <XMark class="w-10 h-10 text-gray-700  focus:outline-none  dark:text-white"/>
+    </div>
+
+    <aside style="width:305px; padding:5px;" class="bg-white" aria-label="Sidebar">
+      <div class="bg-gray-60 overflow-y-auto dark:bg-gray-800">
+        <ul class="mb-10">
+
+          <Radio class="clickable m-2 text-base font-normal" name="destination" disabled={!$cur_tab.branch.id} value="store" bind:group={destination}>
+            <Square3Stack3d class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white mr-2" />
+            {$t("doc.destination.store")}
+          </Radio>
+          <Radio class="clickable m-2 text-base font-normal" name="destination" disabled={!$cur_tab.branch.id} value="stream" bind:group={destination}>
+            <Bolt class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white mr-2" />
+            {#if $cur_tab.store.store_type !== "dialog"}{$t("doc.destination.stream")}{:else}{$t("doc.destination.dialog")}{/if}
+          </Radio>
+          <Radio class="clickable m-2 text-base font-normal" name="destination" value="mc" bind:group={destination}>
+            <Sparkles class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white mr-2" />
+            {$t("doc.destination.mc")}
+          </Radio>
+          <h2 class="ml-2 my-4">{$t("doc.select_class")}</h2>
+          <MenuItem title={$t("doc.rich")} clickable={ ()=> new_document("post:rich") }>
+            <DataClassIcon dataClass="post:rich" {config}/>
+            <span class="ml-3">{$t("doc.rich")}</span>
+          </MenuItem>
+          <MenuItem title={$t("doc.markdown")} clickable={ ()=> new_document("post:md")  }>
+            <MarkdownIcon class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" />
+            <span class="ml-3">{$t("doc.markdown")}</span>
+          </MenuItem>
+          <MenuItem title={$t("doc.text")} clickable={ ()=> new_document("post:text")  }>
+            <TxtIcon class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" />
+            <span class="ml-3">{$t("doc.text")}</span>
+          </MenuItem>
+          <MenuItem title={$t("doc.group")} clickable={ ()=> new_group() }>
+            <UserGroup tabindex="-1"
+            class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
+            <span class="ml-3">{$t("doc.group")}</span>
+          </MenuItem>
+          <MenuItem title={get_class("doc:compose")["ng:a"]} clickable={ ()=> new_document("doc:compose") }>
+            <DataClassIcon dataClass="doc:compose" {config}/>
+            <span class="ml-3">{get_class("doc:compose")["ng:n"]}</span>
+          </MenuItem>
+          <div style="padding:0;" bind:this={createMenu.social}></div>
+          <MenuItem title={$t("doc.social")} clickable={ () => { createMenuOpened.social = !createMenuOpened.social; scrollToCreateMenu("social"); } }>
+            <Users
+              tabindex="-1"
+              class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
+            />
+            <span class="ml-3">{$t("doc.social")}</span>
+          </MenuItem>
+          {#if createMenuOpened.social }
+            {#each create_social_items as item}
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+                <DataClassIcon dataClass={item} {config}/>
+                <span class="ml-3">{get_class(item)["ng:n"]}</span>
+              </MenuItem>
+            {/each}
+          {/if}
+
+          <div style="padding:0;" bind:this={createMenu.apps}></div>
+          <MenuItem title={$t("doc.apps")} clickable={ () => { createMenuOpened.apps = !createMenuOpened.apps; scrollToCreateMenu("apps"); } }>
+            <DataClassIcon dataClass="app:z" {config}/>
+            <span class="ml-3">{$t("doc.apps")}</span>
+          </MenuItem>
+          {#if createMenuOpened.apps }
+            <MenuItem title={$t("doc.new_app")} extraClass="submenu" clickable={ () => new_app() }>
+              <Beaker tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
+              <span class="ml-3">{$t("doc.new_app")}</span>
+            </MenuItem>
+            {#each create_apps_items as item}
+              <MenuItem title="" extraClass="submenu" clickable={ () => new_document(item) }>
+                <DataClassIcon dataClass={item} {config}/>
+                <span class="ml-3">3rd party app Class</span>
+              </MenuItem>
+            {/each}
+          {/if}
+
+          <div style="padding:0;" bind:this={createMenu.pro}></div>
+          <MenuItem title={$t("doc.pro")} clickable={ () => { createMenuOpened.pro = !createMenuOpened.pro; scrollToCreateMenu("pro"); } }>
+            <Briefcase
+              tabindex="-1"
+              class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
+            />
+            <span class="ml-3">{$t("doc.pro")}</span>
+          </MenuItem>
+          {#if createMenuOpened.pro }
+            {#each create_pro_items as item}
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+                <DataClassIcon dataClass={item} {config}/>
+                <span class="ml-3">{get_class(item)["ng:n"]}</span>
+              </MenuItem>
+            {/each}
+          {/if}
+          
+          {#await check_has_camera() then has_camera}
+            {#if !has_camera}
+              <MenuItem title={$t("buttons.scan_qr")} clickable={ ()=> scan_qr() }>
+                <QrCode tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
+                <span class="ml-3">{$t("buttons.scan_qr")}</span>
+              </MenuItem>
+
+              <MenuItem title={$t("doc.take_picture")} clickable={ ()=> take_picture() }>
+                <Camera tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
+                <span class="ml-3">{$t("doc.take_picture")}</span>
+              </MenuItem>
+
+              <MenuItem title={$t("doc.record_reel")} clickable={ ()=> record_reel() }>
+                <VideoCamera tabindex="-1"
+                class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
+                <span class="ml-3">{$t("doc.record_reel")}</span>
+              </MenuItem>
+            {/if}
+          {/await}
+
+          <MenuItem title={$t("doc.record_voice")} clickable={ ()=> record_voice() }>
+            <Microphone tabindex="-1"
+            class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
+            <span class="ml-3">{$t("doc.record_voice")}</span>
+          </MenuItem>
+
+          <div style="padding:0;" bind:this={createMenu.media}></div>
+          <MenuItem title={$t("doc.media")} clickable={ () => { createMenuOpened.media = !createMenuOpened.media; scrollToCreateMenu("media"); } }>
+            <DocumentArrowUp
+              tabindex="-1"
+              class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
+            />
+            <span class="ml-3">{$t("doc.media")}</span>
+          </MenuItem>
+          {#if createMenuOpened.media }
+            {#each create_media_items as item}
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+                <DataClassIcon dataClass={item} {config}/>
+                <span class="ml-3">{get_class(item)["ng:n"]}</span>
+              </MenuItem>
+            {/each}
+          {/if}
+
+          <div style="padding:0;" bind:this={createMenu.chart}></div>
+          <MenuItem title={$t("doc.chart")} clickable={ () => { createMenuOpened.chart = !createMenuOpened.chart; scrollToCreateMenu("chart"); } }>
+            <DataClassIcon dataClass="doc:chart" {config}/>
+            <span class="ml-3">{$t("doc.chart")}</span>
+          </MenuItem>
+          {#if createMenuOpened.chart }
+            {#each create_chart_items as item}
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+                <DataClassIcon dataClass={item} {config}/>
+                <span class="ml-3">{get_class(item)["ng:n"]}</span>
+              </MenuItem>
+            {/each}
+          {/if}
+
+          <div style="padding:0;" bind:this={createMenu.viz}></div>
+          <MenuItem title={$t("doc.viz")} clickable={ () => { createMenuOpened.viz = !createMenuOpened.viz; scrollToCreateMenu("viz"); } }>
+            <DataClassIcon dataClass="doc:viz" {config}/>
+            <span class="ml-3">{$t("doc.viz")}</span>
+          </MenuItem>
+          {#if createMenuOpened.viz }
+            {#each create_viz_items as item}
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+                <DataClassIcon dataClass={item} {config}/>
+                <span class="ml-3">{get_class(item)["ng:n"]}</span>
+              </MenuItem>
+            {/each}
+          {/if}
+
+          <div style="padding:0;" bind:this={createMenu.diagram}></div>
+          <MenuItem title={$t("doc.diagram")} clickable={ () => { createMenuOpened.diagram = !createMenuOpened.diagram; scrollToCreateMenu("diagram"); } }>
+            <DataClassIcon dataClass="doc:diagram" {config}/>
+            <span class="ml-3">{$t("doc.diagram")}</span>
+          </MenuItem>
+          {#if createMenuOpened.diagram }
+            {#each create_diagram_items as item}
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+                <DataClassIcon dataClass={item} {config}/>
+                <span class="ml-3">{get_class(item)["ng:n"]}</span>
+              </MenuItem>
+            {/each}
+          {/if}
+
+          <div style="padding:0;" bind:this={createMenu.doc}></div>
+          <MenuItem title={$t("doc.other")} clickable={ () => { createMenuOpened.doc = !createMenuOpened.doc; scrollToCreateMenu("doc"); } }>
+            <DataClassIcon dataClass="doc:" {config}/>
+            <span class="ml-3">{$t("doc.other")}</span>
+          </MenuItem>
+          {#if createMenuOpened.doc }
+            {#each create_doc_items as item}
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+                <DataClassIcon dataClass={item} {config}/>
+                <span class="ml-3">{get_class(item)["ng:n"]}</span>
+              </MenuItem>
+            {/each}
+          {/if}
+
+          <div style="padding:0;" bind:this={createMenu.data}></div>
+          <MenuItem title={$t("doc.data")} clickable={ () => { createMenuOpened.data = !createMenuOpened.data; scrollToCreateMenu("data"); } }>
+            <DataClassIcon dataClass="data:" {config}/>
+            <span class="ml-3">{$t("doc.data")}</span>
+          </MenuItem>
+          {#if createMenuOpened.data }
+            {#each create_data_items as item}
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+                <DataClassIcon dataClass={item} {config}/>
+                <span class="ml-3">{get_class(item)["ng:n"]}</span>
+              </MenuItem>
+            {/each}
+          {/if}
+
+          <div style="padding:0;" bind:this={createMenu.code}></div>
+          <MenuItem title={$t("doc.code")} clickable={ () => { createMenuOpened.code = !createMenuOpened.code; scrollToCreateMenu("code"); } }>
+            <DataClassIcon dataClass="code" {config}/>
+            <span class="ml-3">{$t("doc.code")}</span>
+          </MenuItem>
+          {#if createMenuOpened.code }
+            {#each create_code_items as item}
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+                <DataClassIcon dataClass={item} {config}/>
+                <span class="ml-3">{get_class(item)["ng:n"]}</span>
+              </MenuItem>
+            {/each}
+          {/if}
+
+        </ul>
+      </div>
+    </aside>
+    
+  </div>
+</Modal>
+
 {#each $toasts as toast, i}
   <Message {toast} {i}/>
 {/each}
@@ -710,7 +1132,12 @@
         icon={MagnifyingGlass}
         
       />
-      <MobileBottomBarItem href="#/create" icon={PlusCircle} />
+      <div class="flex items-center" on:click={openModalCreate} on:keypress={openModalCreate} tabindex="0" role="button">
+        <PlusCircle
+          tabindex="-1"
+          class="w-7 h-7 text-black  focus:outline-none dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+        />
+      </div>
       <MobileBottomBarItem href="#/shared" icon={Users} on:click={scrollToTop}  />
     </MobileBottomBar>
   </div>
@@ -763,18 +1190,16 @@
               />
             </svelte:fragment>
           </SidebarItem>
-          <SidebarItem
-            label={$t("pages.full_layout.create")}
-            href="#/create"
-            class="py-1 tall-xs:p-2"
-          >
-            <svelte:fragment slot="icon">
+          <li >
+            <div on:click={openModalCreate} on:keypress={openModalCreate} role="button" tabindex="0" class="flex items-center p-2 text-base font-normal text-gray-900 rounded-lg dark:text-white hover:bg-gray-200 hover:text-[#535bf2] dark:hover:bg-gray-700 py-1 tall-xs:p-2">
               <PlusCircle
                 tabindex="-1"
                 class="w-7 h-7 text-black  focus:outline-none dark:text-white group-hover:text-gray-900 "
               />
-            </svelte:fragment>
-          </SidebarItem>
+              <span class="ml-3">{$t("pages.full_layout.create")}</span>
+            </div>
+          </li>
+         
           <SidebarItem
             label={$t("pages.full_layout.shared")}
             href="#/shared"

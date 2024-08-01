@@ -18,7 +18,7 @@
     EllipsisVertical,
     ExclamationTriangle,
   } from "svelte-heros-v2";
-  import NavIcon from "./NavIcon.svelte";
+  import NavIcon from "../icons/NavIcon.svelte";
 
   import {
     Popover,

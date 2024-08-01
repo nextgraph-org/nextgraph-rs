@@ -25,7 +25,6 @@
       "create_text_code": "Export: TextCode erstellen",
       "scan_qr.title": "Export: QR-Code scannen",
       "scan_qr.notes": "Scanne einen QR-Code vom Gerät, auf das du dich anmelden möchtest.",
-      "scan_qr.scan_btn": "QR-Code scannen",
       "scan_qr.scanner.title": "QR-Code Scannen für Wallet-Export",
       "scan_qr.scanner.loading": "QR-Scanner wird geladen",
       "scan_qr.syncing": "Wallet wird übertragen",
@@ -246,7 +245,6 @@
     "wallet_login_qr": {
       "title": "Wallet mit QR-Code importieren",
       "scan.description": "Um dein Wallet von einem anderen Gerät zu importieren, erzeuge dort einen Export-QR-Code. Gehe zum Erstellen zu<br /><span class=\"path\">Nutzerbereich > Wallet > Export: QR-Code erstellen</span>.",
-      "scan.button": "QR-Code scannen",
       "scan.modal.title": "Export-QR-Code scannen",
       "gen.description": "Um dein Wallet von einem anderen Gerät zu importieren, kannst du hier auf diesem Gerät einen Import-QR-Code generieren und ihn dann mit deinem anderen Gerät scannen. Gehe auf dem anderen Gerät zu<br /><span class=\"path\">Nutzerbereich > Wallet > Export: QR scannen</span>, um zu exportieren.",
       "gen.generated": "Scanne diesen QR-Code vom anderen Gerät aus.",
@@ -274,7 +272,8 @@
     "logout": "Abmelden",
     "login": "Anmelden",
     "start_over": "Neu beginnen",
-    "generate": "Generieren"
+    "generate": "Generieren",
+    "scan_qr": "QR-Code scannen"
   },
   "errors": {
     "an_error_occurred": "Ein Fehler ist aufgetreten",

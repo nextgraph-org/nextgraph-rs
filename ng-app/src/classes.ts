@@ -98,6 +98,46 @@ export const official_classes = {
         "ng:compat": ["code:*","file:iana:text:javascript","file:iana:text:css","file:iana:text:html","file:iana:text:markdown", "file:iana:application:xml", 
                     "file:iana:application:yaml", "file:iana:text:xml", "file:iana:application:xhtml+xml"],
     },
+    "code:js": {
+        "ng:crdt": "YText",
+        "ng:n": "JavaScript", // edited with CodeMirror, displayed with highlight.js 
+        "ng:a": "A JavaScript Source Code file",
+        "ng:o": "n:g:z:pre",
+        "ng:w": "n:g:z:code_editor",
+        "ng:compat": ["file:iana:text:javascript"],
+    },
+    "code:ts": {
+        "ng:crdt": "YText",
+        "ng:n": "TypeScript", // edited with CodeMirror, displayed with highlight.js 
+        "ng:a": "A TypeScript Source Code file",
+        "ng:o": "n:g:z:pre",
+        "ng:w": "n:g:z:code_editor",
+        "ng:compat": ["file:iana:text:typescript"],
+    },
+    "code:rust": {
+        "ng:crdt": "YText",
+        "ng:n": "Rust", // edited with CodeMirror, displayed with highlight.js 
+        "ng:a": "A Rust Source Code file",
+        "ng:o": "n:g:z:pre",
+        "ng:w": "n:g:z:code_editor",
+        "ng:compat": [],
+    },
+    "code:svelte": {
+        "ng:crdt": "YText",
+        "ng:n": "Svelte", // edited with CodeMirror, displayed with highlight.js 
+        "ng:a": "A Svelte Source Code file",
+        "ng:o": "n:g:z:pre",
+        "ng:w": "n:g:z:code_editor",
+        "ng:compat": [],
+    },
+    "code:react": {
+        "ng:crdt": "YText",
+        "ng:n": "React", // edited with CodeMirror, displayed with highlight.js 
+        "ng:a": "A React Source Code file",
+        "ng:o": "n:g:z:pre",
+        "ng:w": "n:g:z:code_editor",
+        "ng:compat": [],
+    },
     "app": {
         "ng:n": "Official App",
         "ng:a": "App provided by NextGraph platform",
@@ -191,7 +231,7 @@ export const official_classes = {
     },
     "contract": {
         "ng:crdt": "YText",
-        "ng:n": "Contract", // edited with CodeMirror, displayed with highlight.js
+        "ng:n": "Smart Contract", // edited with CodeMirror, displayed with highlight.js
         "ng:a": "Smart Contract with Rust or JS code",
         "ng:compat": ["code:rust", "file:iana:application:wasm", "code:javascript", "code:typescript", "file:iana:text:javascript", "file:iana:application:node"],
     },
@@ -254,16 +294,16 @@ export const official_classes = {
     },
     "data:array": {
         "ng:crdt": "YArray",
-        "ng:n": "JSON Array", 
-        "ng:a": "JSON Array CRDT",
+        "ng:n": "Array", 
+        "ng:a": "Yjs Array CRDT",
         "ng:o": "n:g:z:json_viewer", // default viewer
         "ng:w": "n:g:z:json_editor", // default editor
         "ng:compat": ["file:iana:application:json", "code:json"],
     },
     "data:map": {
         "ng:crdt": "YMap",
-        "ng:n": "JSON Map", 
-        "ng:a": "JSON Map CRDT",
+        "ng:n": "Object", 
+        "ng:a": "Yjs Map CRDT",
         "ng:o": "n:g:z:json_viewer", // default viewer
         "ng:w": "n:g:z:json_editor", // default editor
         "ng:compat": ["file:iana:application:json", "code:json"],
@@ -285,7 +325,7 @@ export const official_classes = {
         "ng:crdt": "Graph",
         "ng:n": "Collection",
         "ng:a": "An ordered list of items",
-        "ng:o": "n:g:z:list",
+        "ng:o": "n:g:z:container",
         "ng:x": {
             "as": true,
             "rdf": true,
@@ -296,7 +336,7 @@ export const official_classes = {
         "ng:crdt": "Graph",
         "ng:n": "Container",
         "ng:a": "An unordered set of items",
-        "ng:o": "n:g:z:list",
+        "ng:o": "n:g:z:container",
         "ng:x": {
             "rdf": true,
             "rdfs": true,
@@ -386,7 +426,8 @@ export const official_classes = {
         "ng:crdt": "YArray",
         "ng:n": "Composition",
         "ng:a": "Compose several blocks into a single document",
-        "ng:o": "n:g:z:compose",
+        "ng:o": "n:g:z:compose:viewer",
+        "ng:w": "n:g:z:compose:editor",
     },
     "doc:diagram:mermaid" : {
         "ng:crdt": "YText",
@@ -534,7 +575,7 @@ export const official_classes = {
     },
     "doc:odf": { //!!! becareful: AGPL
         "ng:crdt": "Graph",
-        "ng:n": "OpenDocumentFormat (ODF)",
+        "ng:n": "ODF",
         "ng:a": "upload and display an ODF file",
         "ng:compat": ["file:iana:application:vnd.oasis.opendocument*"] // https://webodf.org/ https://github.com/webodf/WebODF https://viewerjs.org/ 
     },
@@ -553,7 +594,7 @@ export const official_classes = {
     },
     "doc:music:abc": { //https://github.com/paulrosen/abcjs
         "ng:crdt": "YText",
-        "ng:n": "Music ABC",
+        "ng:n": "Musical Notation",
         "ng:a": "sheet music notation",
         "ng:compat": []
     },
@@ -571,7 +612,7 @@ export const official_classes = {
     },
     "doc:chemistry": { //GPL!! https://github.com/aeris-data/ChemDoodle/tree/master/ChemDoodleWeb-8.0.0 or https://github.com/aseevia/smiles-3d-vue 
         "ng:crdt": "YText",
-        "ng:n": "Chemical",
+        "ng:n": "Molecules (SMILES)",
         "ng:a": "simplified molecular-input line-entry system (SMILES)",
         "ng:compat": ["file:iana:chemical:x-daylight-smiles"] // https://en.wikipedia.org/wiki/SYBYL_line_notation and http://fileformats.archiveteam.org/wiki/Chemical_data
     },
@@ -733,6 +774,11 @@ export const official_classes = {
         "ng:n": "ChatRoom",
         "ng:a": "A room for group chat",
     },
+    "social:live": {
+        "ng:crdt": "Graph",
+        "ng:n": "Live",
+        "ng:a": "A live session of video or audio, with optional chat",
+    },
     "prod:task": {
         "ng:crdt": "Graph",
         "ng:n": "Task",
@@ -819,6 +865,12 @@ export const official_classes = {
         "ng:crdt": "Automerge",
         "ng:n": "CAD",
         "ng:a": "CADmium",
+        "ng:compat": []
+    }, 
+    "prod:spreadsheet": { 
+        "ng:crdt": "Automerge",
+        "ng:n": "Spreadsheet",
+        "ng:a": "Spreadsheet",
         "ng:compat": []
     }, 
     "prod:slides": { //https://github.com/hakimel/reveal.js

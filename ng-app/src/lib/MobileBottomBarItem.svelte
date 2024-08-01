@@ -29,7 +29,7 @@
   $: active = sidebarUrl ? href === sidebarUrl : false;
 </script>
 
-<a {href} class="flex items-center" on:click>
+<a {href} class="flex items-center">
   <Icon
     tabindex="-1"
     color="black"

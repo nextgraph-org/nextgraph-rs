@@ -25,7 +25,7 @@
   import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
   import { inview } from 'svelte-inview';
   import { cur_tab, nav_bar, can_have_header, header_icon, header_title, header_description, cur_branch, set_header_in_view, edit_header_button, cur_app, load_official_app } from "../tab";
-  import NavIcon from "./components/NavIcon.svelte";
+  import NavIcon from "./icons/NavIcon.svelte";
 
   export let nuri = ""; 
 

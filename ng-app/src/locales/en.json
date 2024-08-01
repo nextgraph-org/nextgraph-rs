@@ -11,6 +11,31 @@
     "private_store": "Private Store",
     "group_store": "Group Store",
     "dialog_store": "Dialog Store",
+    "rich": "Post or Article",
+    "markdown": "Markdown",
+    "text": "Plain Text",
+    "social": "Social",
+    "group": "Group",
+    "pro": "Pro",
+    "media": "Media",
+    "chart": "Chart",
+    "viz": "Vizualitation",
+    "diagram": "Diagram",
+    "other": "Other file formats",
+    "data": "Data",
+    "code": "Code",
+    "apps": "Apps",
+    "new_app": "Create a new App",
+    "record_reel": "Record Reel",
+    "record_voice": "Record Audio",
+    "take_picture": "Take a picture",
+    "select_class": "Select a type of document to create",
+    "destination": {
+      "mc": "Keep in Magic Carpet",
+      "stream": "Send in current Stream",
+      "dialog": "Send in Dialog",
+      "store": "Save in current Store"
+    },
     "not_found" : "Document not found",
     "not_found_details_online" : "The document could not be found locally on this device, nor on the broker.",
     "not_found_details_offline" : "The document could not be found locally on this device, and it seems like you are offline, so it could not be retrieved from any broker neither.<br/><br/>If you are opening this document for the first time on this device, you have to be online now so the document can be fetched.<br/><br/> We will try connecting and fetching it every 20 seconds.",
@@ -165,6 +190,10 @@
           "label": "Signature",
           "desc": "Obtain and verify the Signature of the Document to prove its authenticity. Or request a signature if there isn't any."
         },
+        "translations": {
+          "label": "Translations",
+          "desc": "Manage the translations of your document in order to offer it in multiple languages"
+        },
         "services": {
           "label": "Services",
           "desc": "See and invoke services available for this Document. Services can be read-only, or read-write"
@@ -230,7 +259,6 @@
       "scan_qr.no_camera": "If to the contrary, the other device does not have a camera, ",
       "scan_qr.other_has_camera": "If the other device where you want to import the Wallet, has a camera, then you can just click on the Back button and select <span class=\"path\">Generate QR to export</span>",
       "scan_qr.notes": "You will now scan the QR-Code that appears on the screen of the other device (the one you want to transfer your wallet to). You will be asked to allow the app to use your camera.",
-      "scan_qr.scan_btn": "Scan QR-Code ",
       "scan_qr.scanner.title": "Scan your QR-Code",
       "scan_qr.scanner.loading": "Loading scanner",
       "scan_qr.syncing": "Synchronizing wallet",
@@ -450,7 +478,6 @@
     "wallet_login_qr": {
       "title": "Import Wallet with QR-Code",
       "scan.description": "To import your wallet from another device, generate an export QR-Code there. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Generate QR</span> to export.",
-      "scan.button": "Scan QR-Code",
       "scan.modal.title": "Scan Wallet QR-Code",
       "gen.button": "Generate QR-Code",
       "gen.description": "To import your wallet from another device, you have to generate a QR-Code here on this device, and then scan it with your other device (the one where your wallet is located for now).<br/>If your other device does not have a camera, then you have to use another method for importing your wallet here.",
@@ -481,7 +508,8 @@
     "back_to_homepage": "Go back to Homepage",
     "logout": "Logout",
     "login": "Login",
-    "start_over": "Start over"
+    "start_over": "Start over",
+    "scan_qr": "Scan QR-Code"
   },
   "errors": {
     "an_error_occurred": "An error occurred",

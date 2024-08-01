@@ -458,7 +458,7 @@
                       disabled={false || !$online}
                       class="w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
                     >
-                      {$t("pages.wallet_info.scan_qr.scan_btn")}
+                      {$t("buttons.scan_qr")}
                     </Button>
                   </li>
                 {:else if scanner_state === "scanned"}

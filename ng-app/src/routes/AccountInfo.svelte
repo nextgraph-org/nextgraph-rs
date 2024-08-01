@@ -25,7 +25,7 @@
   import { active_session, active_wallet, connections, display_error } from "../store";
 
   import { default as ng } from "../api";
-  import DeviceIcon from "../lib/components/DeviceIcon.svelte";
+  import DeviceIcon from "../lib/icons/DeviceIcon.svelte";
 
   let error;
   let nonActiveClass =

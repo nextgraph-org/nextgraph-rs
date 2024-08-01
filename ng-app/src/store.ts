@@ -173,7 +173,6 @@ export const check_has_camera = async () => {
         has_camera = false;
       }
       else {
-        // If there is a camera, go to scan mode, else gen mode.
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
             has_camera =
