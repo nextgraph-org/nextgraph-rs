@@ -199,7 +199,7 @@
                   tabindex="-1"
                   class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
                 />
-                {$t("pages.wallet_login_qr.scan.button")}
+                {$t("buttons.scan_qr")}
               </button>
             {:else if login_method === "gen" && gen_state === "before_start"}
               <!-- Generate QR Button -->

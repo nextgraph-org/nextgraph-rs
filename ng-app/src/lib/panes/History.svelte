@@ -29,7 +29,7 @@
       Icon,
       ShieldCheck,
     } from "svelte-heros-v2";
-    import BranchIcon from "../components/BranchIcon.svelte";
+    import BranchIcon from "../icons/BranchIcon.svelte";
 
     import { t } from "svelte-i18n";
     import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";

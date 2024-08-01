@@ -55,6 +55,7 @@
 
 <div class="toast fixed flex w-full max-w-xs" style="top:{16+i*74}px;" 
     on:click|capture|stopPropagation={()=>{remove_toast(toast.i);}} 
+    on:keypress={()=>{}}
     >
     <Toast color="{toast_color[toast.level]}" >
       <Icon tabindex="-1" slot="icon" class="w-8 h-8 p-1 focus:outline-none"  variation="outline" color="currentColor" icon={toast_icon[toast.level]} />

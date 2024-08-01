@@ -129,7 +129,7 @@ export const official_apps = {
         "ng:n": "Turtle",
         "ng:a": "View the RDF Graph in Turtle format",
         "ng:c": "app", 
-        "ng:u": "rdf_viewer",//favicon. can be a did:ng:j 
+        "ng:u": "turtle_viewer",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:rdf_viewer:turtle",
         "ng:b": "TurtleViewer",
         "ng:o": ["data:graph"],
@@ -147,11 +147,11 @@ export const official_apps = {
     },
     "n:g:z:rdf_viewer:json_ld": { // highlight.js JSON
         "ng:n": "JSON-LD Source",
-        "ng:a": "View the RDF Graph in N3 format",
+        "ng:a": "View the RDF Graph in JSON-LD format",
         "ng:c": "app", 
-        "ng:u": "rdf_viewer",//favicon. can be a did:ng:j 
+        "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:rdf_viewer:json_ld",
-        "ng:b": "JsonLdViewer",
+        "ng:b": "JsonLdSourceViewer",
         "ng:o": ["data:graph"],
         "ng:w": [],
     },
@@ -326,6 +326,24 @@ export const official_apps = {
         "ng:o": ["post:md"],
         "ng:w": [],
     },
+    "n:g:z:compose:editor": {
+        "ng:n": "Composition Editor",
+        "ng:a": "Compose several blocks into a single document",
+        "ng:c": "app", 
+        "ng:u": "compose",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:compose:editor",
+        "ng:b": "ComposeEditor",
+        "ng:w": ["doc:compose"],
+    },
+    "n:g:z:compose:viewer": {
+        "ng:n": "Composition",
+        "ng:a": "Composition of several blocks",
+        "ng:c": "app", 
+        "ng:u": "compose",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:compose:viewer",
+        "ng:b": "ComposeViewer",
+        "ng:o": ["doc:compose"],
+    },
     "n:g:z:post:text": {
         "ng:n": "Text",
         "ng:a": "View a Text Post",
@@ -396,13 +414,13 @@ export const official_apps = {
         "ng:o": ["app:z"],
         "ng:w": ["app:z"],
     },
-    "n:g:z:list": {
-        "ng:n": "List",
-        "ng:a": "See the content of document as a list",
+    "n:g:z:container": {
+        "ng:n": "Container",
+        "ng:a": "See the content of document as a Container",
         "ng:c": "app", 
-        "ng:u": "list",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:list", 
-        "ng:b": "ListView",
+        "ng:u": "container",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:container", 
+        "ng:b": "ContainerView",
         "ng:o": ["data:collection","data:container"],
         "ng:w": ["data:collection","data:container"],
     },

@@ -70,17 +70,25 @@
     CloudArrowDown,
     Beaker,
     Eye,
+    Square3Stack3d,
+    QueueList,
   } from "svelte-heros-v2";
+  import JsonIcon from "./JsonIcon.svelte";
+  import JsonLdIcon from "./JsonLdIcon.svelte";
+  import RdfIcon from "./RdfIcon.svelte";
+  import TurtleIcon from "./TurtleIcon.svelte";
 
   export let config = {};
   export let zera: string;
 
   const exact_mapping = {
-    json_ld_editor: TableCells,
-    json_editor: TableCells,
-    triple_editor: Share,
+    json_ld_editor: JsonLdIcon,
+    json_editor: JsonIcon,
+    triple_editor: RdfIcon,
+    turtle_viewer: TurtleIcon,
     rdf_viewer: CircleStack,
     graph_viewer: Sun,
+    compose: QueueList,
     sparql_query: RocketLaunch,
     sparnatural: CursorArrowRays,
     graphql: Cube,
@@ -92,6 +100,7 @@
     source: CodeBracket,
     post: DocumentText,
     pad: Square2Stack,
+    container: Square3Stack3d,
     card: Clipboard,
     gallery: RectangleStack,
     load_graph: CloudArrowUp,

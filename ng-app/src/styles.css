@@ -35,22 +35,22 @@ td.hljs {
     width: 320px !important;
     height: 100%;
 }
-#menu-modal {
+.menu-modal {
     border-radius: 0;
 }
-#menu-modal div {
+.menu-modal div {
     padding: 0;
 }
-#menu-modal div.commit {
+.menu-modal div.commit {
     padding: 8px;
 }
-#menu-modal > button {
+.menu-modal > button {
     display: none;
 }
-#menu-modal li {
+.menu-modal li {
     margin: 5px;
 }
-#menu-modal li.submenu {
+.menu-modal li.submenu {
     padding-left: 30px;
 }
 .toggle * {
@@ -149,7 +149,7 @@ div[role="alert"] div {
     min-width: 320px;
 }
 
-li.clickable {
+.clickable {
     cursor: pointer;
 }
 
