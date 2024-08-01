@@ -482,7 +482,7 @@ export const official_apps = {
         "ng:g": "n:g:z:upload_file",
         "ng:b": "UploadFile",
         "ng:o": [],
-        "ng:w": ["data:graph"],
+        "ng:w": [],
     },
     "n:g:z:import_file": {
         "ng:n": "Import from external file",

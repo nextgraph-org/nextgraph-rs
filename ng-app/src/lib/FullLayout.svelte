@@ -35,7 +35,7 @@
   // @ts-ignore
   import { t } from "svelte-i18n";
   import { onMount, onDestroy, tick } from "svelte";
-  import { cur_tab, cur_viewer, cur_editor, toggle_graph_discrete, cur_tab_update, get_class,
+  import { cur_tab, cur_viewer, cur_editor, toggle_graph_discrete, cur_tab_update, get_class, get_app,
           available_editors, available_viewers, set_editor, set_viewer, set_view_or_edit, toggle_live_edit,
           has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu, show_modal_menu, show_modal_create, openModalCreate } from "../tab";
   import {
@@ -672,6 +672,18 @@
                     
                     </MenuItem>
                   {/each}
+                {/if}
+                {#if open_edit_with}
+                  <MenuItem title={get_app("n:g:z:upload_file")["ng:a"]} extraClass="submenu" clickable={ () => {openPane("files")} }>
+                    <ZeraIcon
+                      zera={get_app("n:g:z:upload_file")["ng:u"]}
+                      config={{
+                          tabindex:"-1",
+                          class:"w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
+                        }}
+                    />
+                    <span class="ml-3">{get_app("n:g:z:upload_file")["ng:n"]}</span>  
+                  </MenuItem>
                 {/if}
                 {#if !$cur_tab.view_or_edit || open_edit_with }
                   <li title={$t("doc.menu.live_editing_description")} style="margin: 7px 0; padding-left: 32px;" class="toggle">
