@@ -387,6 +387,12 @@ export const official_classes = {
         },
         "ng:compat": ["file:iana:message:rfc822","file:iana:multipart:related"],
     },
+    "e:link": {
+        "ng:crdt": "Graph",
+        "ng:n": "Web Link",
+        "ng:a": "HTTP link to a page on the Web",
+        "ng:compat": [],
+    },
     "e:web": {
         "ng:crdt": "Graph",
         //https://www.npmjs.com/package/warcio https://github.com/N0taN3rd/node-warc
@@ -408,7 +414,7 @@ export const official_classes = {
     "mc:link": {
         "ng:crdt": "Graph",
         "ng:n": "Link",
-        "ng:a": "Link to a document kept in Magic Carpet",
+        "ng:a": "Link to a document. kept in Magic Carpet",
     },
     "plato/card": {
         "ng:crdt": "Graph",

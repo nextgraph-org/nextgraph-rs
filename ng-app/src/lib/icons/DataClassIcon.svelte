@@ -109,6 +109,7 @@
     "data:grid": Squares2x2,
     "data:geomap": MapPin,
     "e:email": Envelope,
+    "e:link": Link,
     "mc:text": Bars3BottomLeft,
     "mc:link": Link,
     "plato/card": Clipboard,

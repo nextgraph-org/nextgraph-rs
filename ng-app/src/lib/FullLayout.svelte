@@ -1116,6 +1116,11 @@
             {/each}
           {/if}
 
+          <MenuItem title={get_class("e:link")["ng:a"]} clickable={ ()=> new_document("e:link") }>
+            <DataClassIcon dataClass="e:link" {config}/>
+            <span class="ml-3">{get_class("e:link")["ng:n"]}</span>
+          </MenuItem>
+
         </ul>
       </div>
     </aside>
