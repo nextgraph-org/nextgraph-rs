@@ -1631,24 +1631,26 @@
               >
                 {#each pazzle_emojis as emoji, index}
                   <div
-                    class="flex w-full p-1 tall-sm:p-2 content-center"
+                    class="flex w-full py-2"
                     class:border-b={index !== pazzle_emojis.length - 1}
                     class:justify-center={!small_screen}
                   >
-                    <div class="mr-4 content-center pt-1 my-auto">
-                      {index + 1}
+                    <div class="flex w-[30%] justify-end">
+                      <div class="mr-4 content-center pt-1 my-auto">
+                        {index + 1}
+                      </div>
+                      <div
+                        class="flex justify-center w-[3em] h-[3em]"
+                        title={$t("emojis.codes." + emoji.code)}
+                      >
+                        <svelte:component
+                          this={emoji.svg?.default}
+                          class="w-[3em]  h-[3em] "
+                        />
+                      </div>
                     </div>
-                    <div
-                      class="flex justify-center w-[3em] h-[3em]"
-                      title={$t("emojis.codes." + emoji.code)}
-                    >
-                      <svelte:component
-                        this={emoji.svg?.default}
-                        class="w-[3em]  h-[3em] "
-                      />
-                    </div>
-                    <div class="flex flex-col ml-4">
-                      <div class="w-[10em] text-left">
+                    <div class="flex flex-col ml-4 w-[70%]">
+                      <div class="text-left">
                         <span>{$t("emojis.category." + emoji.cat)}</span>
                       </div>
                       <div class="font-bold text-lg h-full content-center">
