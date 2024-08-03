@@ -34,7 +34,7 @@
   </script>
   <div class="flex-col p-5">
       {#each contained(commits.graph) as doc}
-          <div class="flex font-mono"> <a use:link href="/{doc.nuri}">{doc.hash}</a> </div> 
+          <div class="flex font-mono mb-3"> <a use:link href="/{doc.nuri}">{doc.hash}</a> </div> 
       {/each}
 
   </div>
