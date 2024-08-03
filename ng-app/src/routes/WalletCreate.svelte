@@ -1635,7 +1635,7 @@
                     class:border-b={index !== pazzle_emojis.length - 1}
                     class:justify-center={!small_screen}
                   >
-                    <div class="flex w-[40%] justify-end">
+                    <div class="flex w-[30%] justify-end">
                       <div class="mr-4 content-center pt-1 my-auto">
                         {index + 1}
                       </div>
@@ -1649,7 +1649,7 @@
                         />
                       </div>
                     </div>
-                    <div class="flex flex-col ml-4 w-[60%]">
+                    <div class="flex flex-col ml-4 w-[70%]">
                       <div class="text-left">
                         <span>{$t("emojis.category." + emoji.cat)}</span>
                       </div>
