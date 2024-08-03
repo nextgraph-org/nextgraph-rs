@@ -44,6 +44,7 @@ const mapping = {
     "sparql_update": ["session_id","sparql","nuri"],
     "test": [ ],
     "get_device_name": [],
+    "doc_create": [ "session_id", "crdt", "class_name", "store_repo", "destination" ],
     "doc_fetch_private_subscribe": [],
     "doc_fetch_repo_subscribe": ["repo_o"],
     "branch_history": ["session_id", "nuri"],

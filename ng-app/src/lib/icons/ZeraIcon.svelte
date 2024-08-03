@@ -77,6 +77,7 @@
   import JsonLdIcon from "./JsonLdIcon.svelte";
   import RdfIcon from "./RdfIcon.svelte";
   import TurtleIcon from "./TurtleIcon.svelte";
+  import GraphQLIcon from "./GraphQLIcon.svelte";
 
   export let config = {};
   export let zera: string;
@@ -91,7 +92,7 @@
     compose: QueueList,
     sparql_query: RocketLaunch,
     sparnatural: CursorArrowRays,
-    graphql: Cube,
+    graphql: GraphQLIcon,
     invoke: Play,
     ontology_viewer: ArrowsPointingOut,
     download: DocumentArrowDown,

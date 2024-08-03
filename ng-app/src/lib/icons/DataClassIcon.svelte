@@ -87,6 +87,7 @@
   import RustIcon from "./RustIcon.svelte";
   import SvelteIcon from "./SvelteIcon.svelte";
   import ReactIcon from "./ReactIcon.svelte";
+  import GraphQLIcon from "./GraphQLIcon.svelte";
 
   export let config = {};
   export let dataClass: string;
@@ -100,6 +101,7 @@
     contract: ClipboardDocumentCheck,
     "query:text": MagnifyingGlass,
     "query:web": MagnifyingGlass,
+    "query:graphql": GraphQLIcon,
     "data:graph": Sun,
     "data:json": JsonIcon,
     "data:table": TableCells,

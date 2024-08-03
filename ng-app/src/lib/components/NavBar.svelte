@@ -24,7 +24,7 @@
     Popover,
   } from "flowbite-svelte";
 
-  import {save, nav_bar, showMenu, cur_tab, cur_tab_store_name_override, cur_tab_store_icon_override} from "../../tab";
+  import {nav_bar_newest, save, nav_bar, showMenu, cur_tab_header_in_view, cur_tab_store_name_override, cur_tab_store_icon_override, cur_tab_persistent_error} from "../../tab";
 
   export let scrollToTop = () => {};
 
@@ -56,22 +56,22 @@
     <div style="cursor:pointer;" class:pl-3={!$nav_bar.back && !$nav_bar.icon} class="grow w-10 items-center flex px-1" on:click={scrollToTop} on:keypress={scrollToTop}>
         <span class="inline-block truncate" > {$cur_tab_store_name_override || $nav_bar.title} </span>
     </div>
-    {#if $nav_bar.newest && !$cur_tab.header_in_view}
+    {#if $nav_bar_newest && !$cur_tab_header_in_view}
         <div role="button" tabindex="0" class="flex-none m-1 rounded-full bg-primary-700 text-white dark:bg-primary-700" on:click={scrollToTop} on:keypress={scrollToTop}>
         <div class="flex items-center grow pr-2"> 
             <ChevronDoubleUp tabindex="-1" class="w-6 h-6 m-1 focus:outline-none"/>
-            <span class="inline-block">{@html $nav_bar.newest < 100 ? "+"+$nav_bar.newest : "<span class=\"text-xl\">&infin;</span>"}</span>
+            <span class="inline-block">{@html $nav_bar_newest < 100 ? "+"+$nav_bar_newest : "<span class=\"text-xl\">&infin;</span>"}</span>
         </div>
         </div>
     {/if}
-    {#if $cur_tab.persistent_error}
-        <div id="error_popover_btn" tabindex="0" class="flex-none w-10" role="button" title={$cur_tab.persistent_error.title + ". Click for more details"}>
+    {#if $cur_tab_persistent_error}
+        <div id="error_popover_btn" tabindex="0" class="flex-none w-10" role="button" title={$cur_tab_persistent_error.title + ". Click for more details"}>
             <ExclamationTriangle variation="outline" tabindex="-1" strokeWidth="2" class="w-9 h-9 mt-1 text-red-700 focus:outline-none"/>
         </div>
-        <Popover class="text-left text-black w-[300px] text-sm error-popover" title={$cur_tab.persistent_error.title} triggeredBy="#error_popover_btn" trigger="click" placement = 'bottom' 
+        <Popover class="text-left text-black w-[300px] text-sm error-popover" title={$cur_tab_persistent_error.title} triggeredBy="#error_popover_btn" trigger="click" placement = 'bottom' 
             open={true}
             
-            >{@html $cur_tab.persistent_error.desc}
+            >{@html $cur_tab_persistent_error.desc}
             <br/><br/><span class="text-primary-700" on:click={closeErrorPopup} on:keypress={closeErrorPopup} role="button" tabindex="0">Dismiss</span>
         </Popover>
     {:else if $nav_bar.save !== undefined}

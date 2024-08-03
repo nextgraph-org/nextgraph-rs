@@ -35,13 +35,18 @@
   // @ts-ignore
   import { t } from "svelte-i18n";
   import { onMount, onDestroy, tick } from "svelte";
-  import { cur_tab, cur_viewer, cur_editor, toggle_graph_discrete, cur_tab_update, get_class, get_app,
+  import { cur_tab, cur_viewer, cur_editor, toggle_graph_discrete, cur_tab_update, get_class, get_app, all_tabs, live_editing,
           available_editors, available_viewers, set_editor, set_viewer, set_view_or_edit, toggle_live_edit,
-          has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu, show_modal_menu, show_modal_create, openModalCreate } from "../tab";
+          has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu, show_modal_menu, show_modal_create,
+          cur_tab_branch_nuri, cur_tab_doc_can_edit, cur_tab_doc_is_member, cur_tab_right_pane, cur_tab_folders_pane,
+          cur_tab_toc_pane, cur_tab_show_menu, cur_tab_branch_has_discrete, cur_tab_graph_or_discrete, cur_tab_view_or_edit } from "../tab";
   import {
-    active_session, redirect_after_login, toasts, check_has_camera
+    active_session, redirect_after_login, toasts, check_has_camera, toast_error,
+    reset_toasts,
+    display_error, openModalCreate
   } from "../store";
   import ZeraIcon from "./icons/ZeraIcon.svelte";
+  import ng from "../api";
 
   import {
     Home,
@@ -144,24 +149,24 @@
     pane_left1_used = false;
     pane_left2_used = false;
     pane_right_used = false;
-    if ($cur_tab.right_pane || $cur_tab.folders_pane || $cur_tab.toc_pane) {
+    if ($cur_tab_right_pane || $cur_tab_folders_pane || $cur_tab_toc_pane) {
       $show_modal_menu = true;
     }
   }
   $: if (panes_available > 0) {
-    if ($show_modal_menu && !$cur_tab.show_menu) {
+    if ($show_modal_menu && !$cur_tab_show_menu) {
       $show_modal_menu = false;
     }
     if (panes_available == 1) {
-      if ($cur_tab.right_pane) {
-        pane_right_used = $cur_tab.right_pane;
+      if ($cur_tab_right_pane) {
+        pane_right_used = $cur_tab_right_pane;
         pane_left1_used = false;
         pane_left2_used = false;
-      } else if ($cur_tab.folders_pane) {
+      } else if ($cur_tab_folders_pane) {
         pane_left1_used = "folders";
         pane_right_used = false;
         pane_left2_used = false;
-      } else if ($cur_tab.toc_pane) {
+      } else if ($cur_tab_toc_pane) {
         pane_left1_used = "toc";
         pane_right_used = false;
         pane_left2_used = false;
@@ -171,26 +176,26 @@
         pane_right_used = false;
       }
     } else if (panes_available == 2) {
-      if ($cur_tab.right_pane) {
-        pane_right_used = $cur_tab.right_pane;
+      if ($cur_tab_right_pane) {
+        pane_right_used = $cur_tab_right_pane;
         pane_left2_used = false;
-        if ($cur_tab.folders_pane) {
+        if ($cur_tab_folders_pane) {
           pane_left1_used = "folders";
-        } else if ($cur_tab.toc_pane) {
+        } else if ($cur_tab_toc_pane) {
           pane_left1_used = "toc";
         } else {
           pane_left1_used = false;
         }
       } else {
         pane_right_used = false;
-        if ($cur_tab.folders_pane) {
+        if ($cur_tab_folders_pane) {
           pane_left1_used = "folders";
-          if ($cur_tab.toc_pane) {
+          if ($cur_tab_toc_pane) {
             pane_left2_used = "toc";
           } else {
             pane_left2_used = false;
           }
-        } else if ($cur_tab.toc_pane) {
+        } else if ($cur_tab_toc_pane) {
           pane_left1_used = "toc";
           pane_left2_used = false;
         } else {
@@ -199,19 +204,19 @@
         }
       }
     } else if (panes_available == 3) {
-      if ($cur_tab.right_pane) {
-        pane_right_used = $cur_tab.right_pane;
+      if ($cur_tab_right_pane) {
+        pane_right_used = $cur_tab_right_pane;
       } else {
         pane_right_used = false;
       }
-      if ($cur_tab.folders_pane) {
+      if ($cur_tab_folders_pane) {
         pane_left1_used = "folders";
-        if ($cur_tab.toc_pane) {
+        if ($cur_tab_toc_pane) {
           pane_left2_used = "toc";
         } else {
           pane_left2_used = false;
         }
-      } else if ($cur_tab.toc_pane) {
+      } else if ($cur_tab_toc_pane) {
         pane_left1_used = "toc";
         pane_left2_used = false;
       } else {
@@ -539,15 +544,26 @@
 
   let destination = "store";
 
-  $: destination = $cur_tab.branch.id === "" ? "mc" : destination == "mc" ? "store" : destination;
+  $: destination = $cur_tab_branch_nuri === "" ? "mc" : destination == "mc" ? "store" : destination;
 
   let config = { tabindex:"-1",
                  class:"w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
                };
 
-  const new_document = (class_name) => {
-
+  const new_document = async (class_name) => {
     closeModalCreate();
+    try {
+      await reset_toasts();
+      let store_repo = $cur_tab.store.repo;
+      if (!store_repo) {
+        store_repo = $all_tabs["o:"+$active_session.private_store_id].store.repo
+      }
+      let nuri = await ng.doc_create($active_session.session_id, get_class(class_name)["ng:crdt"], class_name, store_repo, destination);
+      push("#/"+nuri);
+
+    } catch (e) {
+      toast_error(display_error(e));
+    }
   }
 
   const new_group = () => {
@@ -601,7 +617,7 @@
       tabindex="0">
       <XMark class="w-10 h-10 text-gray-700  focus:outline-none  dark:text-white"/>
     </div>
-    {#if !$cur_tab.show_menu}
+    {#if !$cur_tab_show_menu}
       <div class="m-3 flex items-center" role="button" aria-label="Back to menu" title="Back to menu" 
         on:click={closePaneInModal}
         on:keypress={closePaneInModal}
@@ -610,33 +626,33 @@
         <span class="ml-2 inline-block text-gray-700 select-none dark:text-white">Back to menu</span>
       </div>
     {/if}
-    {#if $cur_tab.show_menu || (!$cur_tab.folders_pane && !$cur_tab.toc_pane && !$cur_tab.right_pane)}
+    {#if $cur_tab_show_menu || (!$cur_tab_folders_pane && !$cur_tab_toc_pane && !$cur_tab_right_pane)}
       <aside style="width:305px; padding:5px;" class="bg-white" aria-label="Sidebar">
         <div class="bg-gray-60 overflow-y-auto dark:bg-gray-800">
           <ul class="mb-10">
-            {#if $cur_tab.branch.has_discrete}
+            {#if $cur_tab_branch_has_discrete}
             <li>
               <div class="inline-flex graph-discrete-toggle mb-2 ml-2" role="group">
-                <button on:click={toggle_graph_discrete} disabled={$cur_tab.graph_or_discrete} type="button" style="border-top-left-radius: 0.375rem;border-bottom-left-radius: 0.375rem;" class:selected-toggle={$cur_tab.graph_or_discrete} class:unselected-toggle={!$cur_tab.graph_or_discrete}  class="common-toggle"  >
+                <button on:click={toggle_graph_discrete} disabled={$cur_tab_graph_or_discrete} type="button" style="border-top-left-radius: 0.375rem;border-bottom-left-radius: 0.375rem;" class:selected-toggle={$cur_tab_graph_or_discrete} class:unselected-toggle={!$cur_tab_graph_or_discrete}  class="common-toggle"  >
                   <Sun class="mr-2 focus:outline-none"/> {$t("doc.graph")}
                 </button>
-                <button on:click={toggle_graph_discrete} disabled={!$cur_tab.graph_or_discrete} type="button" style="border-top-right-radius: 0.375rem;border-bottom-right-radius: 0.375rem;" class:selected-toggle={!$cur_tab.graph_or_discrete} class:unselected-toggle={$cur_tab.graph_or_discrete} class="common-toggle">
+                <button on:click={toggle_graph_discrete} disabled={!$cur_tab_graph_or_discrete} type="button" style="border-top-right-radius: 0.375rem;border-bottom-right-radius: 0.375rem;" class:selected-toggle={!$cur_tab_graph_or_discrete} class:unselected-toggle={$cur_tab_graph_or_discrete} class="common-toggle">
                   <Cloud class="mr-2 focus:outline-none"/> {$t("doc.discrete")}
                 </button>
               </div>
             </li>
             {/if}
             {#if $cur_viewer}
-              <MenuItem selected={$cur_tab.view_or_edit} title={$cur_viewer["ng:a"]} clickable={($available_viewers.length > 1 || !$cur_tab.view_or_edit) && function () { if ($available_viewers.length > 1) { open_view_as = !open_view_as; } else { set_view_or_edit(true); hideMenu(); } open_edit_with=false;} }>
+              <MenuItem selected={$cur_tab_view_or_edit} title={$cur_viewer["ng:a"]} clickable={($available_viewers.length > 1 || !$cur_tab_view_or_edit) && function () { if ($available_viewers.length > 1) { open_view_as = !open_view_as; } else { set_view_or_edit(true); hideMenu(); } open_edit_with=false;} }>
                 <Eye
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
                 />
-                <span class="ml-3">{$t("doc.menu.view_as")} {#if $cur_tab.view_or_edit || $available_viewers.length == 1 }{$cur_viewer["ng:n"]}{/if}</span>
+                <span class="ml-3">{$t("doc.menu.view_as")} {#if $cur_tab_view_or_edit || $available_viewers.length == 1 }{$cur_viewer["ng:n"]}{/if}</span>
               </MenuItem>
               {#if open_view_as && $available_viewers.length > 1 }
                 {#each $available_viewers as viewer}
-                  <MenuItem title={viewer["ng:a"]} extraClass="submenu" clickable={(viewer["ng:g"] !== $cur_viewer["ng:g"] || !$cur_tab.view_or_edit) && function () { set_view_or_edit(true); set_viewer(viewer["ng:g"]); hideMenu(); open_view_as = false} }>
+                  <MenuItem title={viewer["ng:a"]} extraClass="submenu" clickable={(viewer["ng:g"] !== $cur_viewer["ng:g"] || !$cur_tab_view_or_edit) && function () { set_view_or_edit(true); set_viewer(viewer["ng:g"]); hideMenu(); open_view_as = false} }>
                     <ZeraIcon
                       zera={viewer["ng:u"]}
                       config={{
@@ -649,18 +665,18 @@
                 {/each}
               {/if}
             {/if}
-            {#if $cur_tab.doc.can_edit}
+            {#if $cur_tab_doc_can_edit}
               {#if $cur_editor}
-                <MenuItem title={$cur_editor["ng:a"]} selected={!$cur_tab.view_or_edit} clickable={ ($available_editors.length > 1 || $cur_tab.view_or_edit) && function () { if ($available_editors.length > 1) { open_edit_with = !open_edit_with;  } else { set_view_or_edit(false); hideMenu(); } open_view_as=false;} }>
+                <MenuItem title={$cur_editor["ng:a"]} selected={!$cur_tab_view_or_edit} clickable={ ($available_editors.length > 1 || $cur_tab_view_or_edit) && function () { if ($available_editors.length > 1) { open_edit_with = !open_edit_with;  } else { set_view_or_edit(false); hideMenu(); } open_view_as=false;} }>
                   <PencilSquare
                     tabindex="-1"
                     class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
                   />
-                  <span class="ml-3">{$t("doc.menu.edit_with")} {#if !$cur_tab.view_or_edit || $available_editors.length == 1 }{$cur_editor["ng:n"]}{/if}</span>
+                  <span class="ml-3">{$t("doc.menu.edit_with")} {#if !$cur_tab_view_or_edit || $available_editors.length == 1 }{$cur_editor["ng:n"]}{/if}</span>
                 </MenuItem>
                 {#if open_edit_with && $available_editors.length > 1 }
                   {#each $available_editors as editor}
-                    <MenuItem title={editor["ng:a"]} extraClass="submenu" clickable={(editor["ng:g"] !== $cur_editor["ng:g"] || $cur_tab.view_or_edit) && function () { set_view_or_edit(false); set_editor(editor["ng:g"]); hideMenu(); open_edit_with = false} }>
+                    <MenuItem title={editor["ng:a"]} extraClass="submenu" clickable={(editor["ng:g"] !== $cur_editor["ng:g"] || $cur_tab_view_or_edit) && function () { set_view_or_edit(false); set_editor(editor["ng:g"]); hideMenu(); open_edit_with = false} }>
                       <ZeraIcon
                         zera={editor["ng:u"]}
                         config={{
@@ -685,11 +701,11 @@
                     <span class="ml-3">{get_app("n:g:z:upload_file")["ng:n"]}</span>  
                   </MenuItem>
                 {/if}
-                {#if !$cur_tab.view_or_edit || open_edit_with }
+                {#if !$cur_tab_view_or_edit || open_edit_with }
                   <li title={$t("doc.menu.live_editing_description")} style="margin: 7px 0; padding-left: 32px;" class="toggle">
                     <Toggle
                       on:change={ toggle_live_edit }
-                      checked={  $cur_tab.doc.live_edit }
+                      checked={ $live_editing }
                       ><span class="text-gray-700 text-base">{$t("doc.menu.live_editing")}</span>
                     </Toggle>
                   </li>
@@ -706,7 +722,7 @@
               {/if}
             {/if}
 
-            {#if $cur_tab.doc.can_edit}
+            {#if $cur_tab_doc_can_edit}
               <MenuItem title={$t("doc.menu.items.new_block.desc")} clickable={ ()=> openAction("new_block") }>
                 <PlusCircle
                   tabindex="-1"
@@ -716,22 +732,22 @@
               </MenuItem>
             {/if}
             {#if $has_editor_chat}
-              <MenuItem title={$t("doc.menu.items.editor_chat.desc")} selected={$cur_tab.right_pane == "chat"} clickable={ ()=> openPane("chat") }>
+              <MenuItem title={$t("doc.menu.items.editor_chat.desc")} selected={$cur_tab_right_pane == "chat"} clickable={ ()=> openPane("chat") }>
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["chat"]} />
                 <span class="ml-3">{$t("doc.menu.items.editor_chat.label")}</span>
               </MenuItem>
             {/if}
 
-            {#if $cur_tab.branch.id}
-              <MenuItem title={$t("doc.menu.items.folders.desc")} selected={$cur_tab.folders_pane} clickable={ ()=> openPane("folders") }>
+            {#if $cur_tab_branch_nuri}
+              <MenuItem title={$t("doc.menu.items.folders.desc")} selected={$cur_tab_folders_pane} clickable={ ()=> openPane("folders") }>
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["folders"]} />
                 <span class="ml-3">{$t("doc.menu.items.folders.label")}</span>
               </MenuItem>
-              <MenuItem title={$t("doc.menu.items.toc.desc")} selected={$cur_tab.toc_pane} clickable={ ()=> openPane("toc") }>
+              <MenuItem title={$t("doc.menu.items.toc.desc")} selected={$cur_tab_toc_pane} clickable={ ()=> openPane("toc") }>
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["toc"]} />
                 <span class="ml-3">{$t("doc.menu.items.toc.label")}</span>
               </MenuItem>
-              <MenuItem title={$t("doc.menu.items.files.desc")} selected={$cur_tab.right_pane == "files"} clickable={ ()=> openPane("files") }>
+              <MenuItem title={$t("doc.menu.items.files.desc")} selected={$cur_tab_right_pane == "files"} clickable={ ()=> openPane("files") }>
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["files"]} />
                 <span class="ml-3">{$t("doc.menu.items.files.label")} {$all_files_count}</span>
               </MenuItem>
@@ -752,19 +768,19 @@
                 {/each}
               {/if}
 
-              <MenuItem title={$t("doc.menu.items.comments.desc")} selected={$cur_tab.right_pane == "comments"} clickable={ ()=> openPane("comments") }>
+              <MenuItem title={$t("doc.menu.items.comments.desc")} selected={$cur_tab_right_pane == "comments"} clickable={ ()=> openPane("comments") }>
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["comments"]} />
                 <span class="ml-3">{$t("doc.menu.items.comments.label")} {$all_comments_count}</span>
               </MenuItem>
 
-              {#if $cur_tab.doc.is_member}
-              <MenuItem title={$t("doc.menu.items.branches.desc")} selected={$cur_tab.right_pane == "branches"} clickable={ ()=> openPane("branches") }>
+              {#if $cur_tab_doc_is_member}
+              <MenuItem title={$t("doc.menu.items.branches.desc")} selected={$cur_tab_right_pane == "branches"} clickable={ ()=> openPane("branches") }>
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["branches"]} />
                 <span class="ml-3">{$t("doc.menu.items.branches.label")}</span>
               </MenuItem>
               {/if}
 
-              <MenuItem title={$t("doc.menu.items.history.desc")} selected={$cur_tab.right_pane == "history"} clickable={ ()=> openPane("history") }>
+              <MenuItem title={$t("doc.menu.items.history.desc")} selected={$cur_tab_right_pane == "history"} clickable={ ()=> openPane("history") }>
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["history"]} />
                 <span class="ml-3">{$t("doc.menu.items.history.label")}</span>
               </MenuItem>
@@ -793,7 +809,7 @@
                 <span class="ml-3">{$t("doc.menu.items.annotate.label")}</span>
               </MenuItem>
 
-              <MenuItem title={$t("doc.menu.items.info.desc")} selected={$cur_tab.right_pane == "info"} clickable={ ()=> openPane("info") }>
+              <MenuItem title={$t("doc.menu.items.info.desc")} selected={$cur_tab_right_pane == "info"} clickable={ ()=> openPane("info") }>
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["info"]} />
                 <span class="ml-3">{$t("doc.menu.items.info.label")}</span>
               </MenuItem>
@@ -805,7 +821,7 @@
                 />
                 <span class="ml-3">{$t("doc.menu.items.notifs.label")}</span>
               </MenuItem>
-              {#if $cur_tab.doc.is_member}
+              {#if $cur_tab_doc_is_member}
                 <MenuItem title={$t("doc.menu.items.permissions.desc")} clickable={ ()=>  openAction("permissions") }>
                   <LockOpen
                     tabindex="-1"
@@ -838,11 +854,11 @@
                 {/each}
               {/if}
             {/if}
-            <MenuItem title={$t("doc.menu.items.mc.desc")} selected={$cur_tab.right_pane == "mc"} clickable={ ()=> openPane("mc") }>
+            <MenuItem title={$t("doc.menu.items.mc.desc")} selected={$cur_tab_right_pane == "mc"} clickable={ ()=> openPane("mc") }>
               <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["mc"]} />
               <span class="ml-3">{$t("doc.menu.items.mc.label")}</span>
             </MenuItem>
-            <MenuItem title={$t("doc.menu.items.archive.desc")} selected={$cur_tab.right_pane == "mc"} clickable={ ()=> openArchive() }>
+            <MenuItem title={$t("doc.menu.items.archive.desc")} selected={$cur_tab_right_pane == "mc"} clickable={ ()=> openArchive() }>
               <ArchiveBox
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
@@ -852,19 +868,19 @@
           </ul>
         </div>
       </aside>
-    {:else if $cur_tab.right_pane}
+    {:else if $cur_tab_right_pane}
       <div style="height:44px; background-color: rgb(251, 251, 251);" class="flex items-center">
-        <Icon tabindex="-1" class="ml-3 w-8 h-8 text-gray-400 dark:text-white focus:outline-none " variation="outline" color="currentColor" icon={pane_items[$cur_tab.right_pane]} />
-        <span class="ml-2 inline-block text-gray-500 select-none dark:text-white">{$t(`doc.menu.items.${$cur_tab.right_pane}.label`)}</span>
+        <Icon tabindex="-1" class="ml-3 w-8 h-8 text-gray-400 dark:text-white focus:outline-none " variation="outline" color="currentColor" icon={pane_items[$cur_tab_right_pane]} />
+        <span class="ml-2 inline-block text-gray-500 select-none dark:text-white">{$t(`doc.menu.items.${$cur_tab_right_pane}.label`)}</span>
       </div>
-      <Pane pane_name={$cur_tab.right_pane}/>
-    {:else if $cur_tab.folders_pane}
+      <Pane pane_name={$cur_tab_right_pane}/>
+    {:else if $cur_tab_folders_pane}
       <div style="height:44px; background-color: rgb(251, 251, 251);" class="flex items-center">
         <Icon tabindex="-1" class="ml-3 w-8 h-8 text-gray-400 dark:text-white focus:outline-none " variation="outline" color="currentColor" icon={pane_items["folders"]} />
         <span class="ml-2 inline-block text-gray-500 select-none dark:text-white">{$t("doc.menu.items.folders.label")}</span>
       </div>
       <Pane pane_name="folders"/>
-    {:else if $cur_tab.toc_pane}
+    {:else if $cur_tab_toc_pane}
       <div style="height:44px; background-color: rgb(251, 251, 251);" class="flex items-center">
         <Icon tabindex="-1" class="ml-3 w-8 h-8 text-gray-400 dark:text-white focus:outline-none " variation="outline" color="currentColor" icon={pane_items["toc"]} />
         <span class="ml-2 inline-block text-gray-500 select-none dark:text-white">{$t("doc.menu.items.toc.label")}</span>
@@ -893,11 +909,11 @@
       <div class="bg-gray-60 overflow-y-auto dark:bg-gray-800">
         <ul class="mb-10">
 
-          <Radio class="clickable m-2 text-base font-normal" name="destination" disabled={!$cur_tab.branch.id} value="store" bind:group={destination}>
+          <Radio class="clickable m-2 text-base font-normal" name="destination" disabled={!$cur_tab_branch_nuri} value="store" bind:group={destination}>
             <Square3Stack3d class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white mr-2" />
             {$t("doc.destination.store")}
           </Radio>
-          <Radio class="clickable m-2 text-base font-normal" name="destination" disabled={!$cur_tab.branch.id} value="stream" bind:group={destination}>
+          <Radio class="clickable m-2 text-base font-normal" name="destination" disabled={!$cur_tab_branch_nuri} value="stream" bind:group={destination}>
             <Bolt class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white mr-2" />
             {#if $cur_tab.store.store_type !== "dialog"}{$t("doc.destination.stream")}{:else}{$t("doc.destination.dialog")}{/if}
           </Radio>

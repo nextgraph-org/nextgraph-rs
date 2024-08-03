@@ -88,6 +88,7 @@ pub enum NgError {
     NotImplemented,
     NotARendezVous,
     IncompatibleQrCode,
+    InvalidClass,
 }
 
 impl Error for NgError {}
@@ -224,6 +225,7 @@ pub enum StorageError {
     Abort,
     NotEmpty,
     ServerAlreadyRunningInOtherProcess,
+    NgError(String),
 }
 
 impl core::fmt::Display for StorageError {
@@ -235,6 +237,12 @@ impl core::fmt::Display for StorageError {
 impl From<serde_bare::error::Error> for StorageError {
     fn from(_e: serde_bare::error::Error) -> Self {
         StorageError::SerializationError
+    }
+}
+
+impl From<NgError> for StorageError {
+    fn from(e: NgError) -> Self {
+        StorageError::NgError(e.to_string())
     }
 }
 
@@ -358,6 +366,7 @@ pub enum VerifierError {
     InvalidNamedGraph,
     OxigraphError(String),
     CannotRemoveTriplesWhenNewBranch,
+    PermissionDenied,
 }
 
 impl Error for VerifierError {}
@@ -381,6 +390,7 @@ impl From<NgError> for VerifierError {
             NgError::RepoNotFound => VerifierError::RepoNotFound,
             NgError::BranchNotFound => VerifierError::BranchNotFound,
             NgError::SerializationError => VerifierError::SerializationError,
+            NgError::PermissionDenied => VerifierError::PermissionDenied,
             // NgError::JsStorageReadError
             // NgError::JsStorageWriteError(String)
             // NgError::JsStorageKeyNotFound

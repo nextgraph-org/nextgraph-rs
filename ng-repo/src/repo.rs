@@ -609,6 +609,15 @@ impl Repo {
         None
     }
 
+    pub fn store_branch(&self) -> Option<&BranchInfo> {
+        for (_, branch) in self.branches.iter() {
+            if branch.branch_type == BranchType::Store {
+                return Some(branch);
+            }
+        }
+        None
+    }
+
     pub fn root_branch(&self) -> Option<&BranchInfo> {
         for (_, branch) in self.branches.iter() {
             if branch.branch_type == BranchType::Root {

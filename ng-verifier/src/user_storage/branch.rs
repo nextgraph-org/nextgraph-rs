@@ -178,7 +178,7 @@ impl<'a> BranchStorage<'a> {
         let crdt: BranchCrdt = if crdt_name.is_none() || class.is_none() {
             BranchCrdt::None
         } else {
-            BranchCrdt::from(crdt_name.unwrap(), class.unwrap())
+            BranchCrdt::from(crdt_name.unwrap(), class.unwrap())?
         };
 
         let bs = BranchInfo {

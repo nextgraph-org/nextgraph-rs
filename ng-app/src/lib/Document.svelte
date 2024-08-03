@@ -24,7 +24,7 @@
   import { t } from "svelte-i18n";
   import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
   import { inview } from 'svelte-inview';
-  import { cur_tab, nav_bar, can_have_header, header_icon, header_title, header_description, cur_branch, set_header_in_view, edit_header_button, cur_app, load_official_app } from "../tab";
+  import { cur_tab_doc_can_edit, nav_bar, can_have_header, header_icon, header_title, header_description, cur_branch, set_header_in_view, edit_header_button, cur_app, load_official_app, nav_bar_reset_newest } from "../tab";
   import NavIcon from "./icons/NavIcon.svelte";
 
   export let nuri = ""; 
@@ -32,6 +32,7 @@
   let width;
 
   let commits;
+  // TODO deals with cases when nuri has :r :w :l (remove them from nuri that should only have :o:v format , and add them in cur_tab)
   $: commits = $active_session && nuri && branch_subscribe(nuri, true);
 
   const inview_options = {};//{rootMargin: "-44px"};
@@ -54,7 +55,7 @@
     <div class="flex justify-left" class:justify-center={width>1024} use:inview={inview_options} on:inview_change={(event) => {
         const { inView, entry, scrollDirection, observer, node} = event.detail;
         if ($cur_branch) { set_header_in_view(inView); }
-        if (inView) $nav_bar.newest = 0;
+        if (inView) nav_bar_reset_newest();
       }}>
         
         <div class="flex flex-col ">
@@ -67,7 +68,7 @@
                         class:"w-8 h-8 mr-2 mb-2 flex-none focus:outline-none"
                     }}/>
                     {/if}
-                    {#if $cur_tab.doc.can_edit}
+                    {#if $cur_tab_doc_can_edit}
                     <button class="p-1 mr-2 mb-2 w-8 h-8 flex-none" on:click={openEditHeader} title={$t($edit_header_button)}>
                         <Pencil tabindex=-1 class="w-5 h-5 focus:outline-none" />
                         

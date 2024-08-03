@@ -17,7 +17,7 @@
       toast_success
     } from "../store";
     import { 
-      in_memory_discrete, open_viewer, set_viewer, set_editor, set_view_or_edit, cur_tab
+      in_memory_discrete, open_viewer, set_viewer, set_editor, set_view_or_edit, cur_tab_doc_can_edit
     } from "../tab";
     import{ PencilSquare, RocketLaunch } from "svelte-heros-v2";
     import { t } from "svelte-i18n";
@@ -61,7 +61,7 @@
       <RocketLaunch tabindex="-1" class="mr-2 focus:outline-none" />
       SPARQL Query
     </button>
-    {#if $cur_tab.doc.can_edit}
+    {#if $cur_tab_doc_can_edit}
       <button
         on:click={openUpdate}
         on:keypress={openUpdate}

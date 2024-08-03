@@ -21,6 +21,16 @@
 //"n:g:z:app_store", "n:g:z:app_editor", "n:xxx.xx.xx:yy", "o:xx:yy:zz"
 
 export const official_apps = {
+    "n:g:z:sparql_update": {
+        "ng:n": "SPARQL Update",
+        "ng:a": "View, edit and invoke a Graph SPARQL Update",
+        "ng:c": "app",
+        "ng:u": "sparql_query",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:sparql_update",
+        "ng:b": "SparqlUpdateEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
+        "ng:o": [],
+        "ng:w": ["query:sparql_update","data:graph"],
+    },
     "n:g:z:json_ld_editor": {
         "ng:n": "JSON-LD Editor",
         "ng:a": "Edit the RDF Graph as JSON-LD",
@@ -47,6 +57,26 @@ export const official_apps = {
         "ng:g": "n:g:z:triple_editor",
         "ng:b": "TripleEditor",
         "ng:w": ["data:graph"],
+    },
+    "n:g:z:sparql_query": {
+        "ng:n": "SPARQL Query",
+        "ng:a": "View, edit and invoke a Graph SPARQL query",
+        "ng:c": "app", 
+        "ng:u": "sparql_query",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:sparql_query",
+        "ng:b": "SparqlQueryEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
+        "ng:o": ["data:graph"],
+        "ng:w": ["query:sparql"],
+    },
+    "n:g:z:rdf_viewer:turtle": { // https://github.com/highlightjs/highlightjs-turtle/tree/master
+        "ng:n": "Turtle",
+        "ng:a": "View the RDF Graph in Turtle format",
+        "ng:c": "app", 
+        "ng:u": "turtle_viewer",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:rdf_viewer:turtle",
+        "ng:b": "TurtleViewer",
+        "ng:o": ["data:graph"],
+        "ng:w": [],
     },
     "n:g:z:json_ld_viewer": {
         "ng:n": "JSON-LD",
@@ -85,16 +115,6 @@ export const official_apps = {
         "ng:b": "TripleViewer",
         "ng:o": ["data:graph"],
     },
-    "n:g:z:sparql_query": {
-        "ng:n": "SPARQL Query",
-        "ng:a": "View, edit and invoke a Graph SPARQL query",
-        "ng:c": "app", 
-        "ng:u": "sparql_query",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:sparql_query",
-        "ng:b": "SparqlQueryEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
-        "ng:o": ["data:graph"],
-        "ng:w": ["query:sparql"],
-    },
     "n:g:z:sparql_query:sparnatural": {
         "ng:n": "SPARNatural Query",
         "ng:a": "View, edit and invoke a Graph SPARQL query with SPARnatural tool",
@@ -114,26 +134,6 @@ export const official_apps = {
         "ng:b": "GraphqlEditor",
         "ng:o": ["data:graph"],
         "ng:w": ["query:graphql"],
-    },
-    "n:g:z:sparql_update": {
-        "ng:n": "SPARQL Update",
-        "ng:a": "View, edit and invoke a Graph SPARQL Update",
-        "ng:c": "app",
-        "ng:u": "sparql_query",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:sparql_update",
-        "ng:b": "SparqlUpdateEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
-        "ng:o": [],
-        "ng:w": ["query:sparql_update","data:graph"],
-    },
-    "n:g:z:rdf_viewer:turtle": { // https://github.com/highlightjs/highlightjs-turtle/tree/master
-        "ng:n": "Turtle",
-        "ng:a": "View the RDF Graph in Turtle format",
-        "ng:c": "app", 
-        "ng:u": "turtle_viewer",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:rdf_viewer:turtle",
-        "ng:b": "TurtleViewer",
-        "ng:o": ["data:graph"],
-        "ng:w": [],
     },
     "n:g:z:rdf_viewer:n3": { // ?
         "ng:n": "N3",
@@ -312,7 +312,7 @@ export const official_apps = {
         "ng:c": "app", 
         "ng:u": "post",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:post:rich",
-        "ng:b": "PostRichViewer", // https://www.npmjs.com/package/prosemirror-to-html-js or https://prosemirror.net/docs/ref/version/0.4.0.html#toDOM https://prosemirror.net/docs/ref/version/0.4.0.html#toHTML
+        "ng:b": "ProseMirrorViewer", // https://www.npmjs.com/package/prosemirror-to-html-js or https://prosemirror.net/docs/ref/version/0.4.0.html#toDOM https://prosemirror.net/docs/ref/version/0.4.0.html#toHTML
         "ng:o": ["post:rich"],
         "ng:w": [],
     },

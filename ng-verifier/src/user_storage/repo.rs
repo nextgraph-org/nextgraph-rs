@@ -237,10 +237,14 @@ impl<'a> RepoStorage<'a> {
         let branch_ids = Self::get_all_branches(id, storage)?;
         let mut branches = HashMap::new();
         let mut overlay_branch_read_cap = None;
+        let mut store_branch_id = None;
         for branch in branch_ids {
             let info = BranchStorage::load(&branch, storage)?;
             if info.branch_type == BranchType::Overlay {
                 overlay_branch_read_cap = Some(info.read_cap.clone().unwrap());
+            }
+            if info.branch_type == BranchType::Store {
+                store_branch_id = Some(info.id.clone());
             }
             //log_info!("LOADING BRANCH INFO {}", branch);
             //log_info!("TOPIC {}", info.topic);
@@ -258,7 +262,10 @@ impl<'a> RepoStorage<'a> {
             Left(s) => s,
             Right(bs) => {
                 // we want to load a store. let's start by retrieving the store repo
-                // TODO: check that it has a STORE_BRANCH
+                // check that it has a STORE_BRANCH
+                if store_branch_id.is_none() {
+                    return Err(StorageError::NotAStoreRepo);
+                }
                 let store_repo: StoreRepo =
                     prop(Self::STORE_REPO, &props).map_err(|_| StorageError::NotAStoreRepo)?;
                 let store_info = branches.get(id).ok_or(StorageError::NotFound)?;
@@ -276,6 +283,12 @@ impl<'a> RepoStorage<'a> {
             }
         };
 
+        let opened_branches = if let Some(store_branch) = store_branch_id {
+            HashMap::from([(store_branch, true)])
+        } else {
+            HashMap::new()
+        };
+
         let repo = Repo {
             id: id.clone(),
             repo_def: prop(Self::DEFINITION, &props)?,
@@ -285,7 +298,7 @@ impl<'a> RepoStorage<'a> {
             //TODO: members
             members: HashMap::new(),
             branches,
-            opened_branches: HashMap::new(),
+            opened_branches,
             store,
         };
         Ok(repo)

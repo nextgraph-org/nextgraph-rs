@@ -17,7 +17,7 @@ import {
 } from "svelte/store";
 import { register, init, locale, format } from "svelte-i18n";
 import ng from "./api";
-import { persistent_error, update_class, update_branch_display, open_branch, tab_update, change_nav_bar, cur_branch, cur_tab } from "./tab";
+import { persistent_error, update_class, update_branch_display, open_branch, tab_update, change_nav_bar, cur_branch, cur_tab, show_modal_create } from "./tab";
 import { encode } from "./base64url";
 
 let all_branches = {};
@@ -45,7 +45,7 @@ init({
 });
 
 export const display_error = (error: string) => {
-    if (e.message) return e.message;
+    if (error.message) return error.message;
     //console.log(error);
     // TODO: Check, if error tranlsation does not exist
     const parts = error.split(":");
@@ -139,6 +139,11 @@ export const toast_warning = (text) => {
 
 export const toast_success = (text) => {
     toast("success", text);
+}
+
+export const openModalCreate = async () => {
+    await reset_toasts()
+    show_modal_create.set(true);
 }
 
 export const scanned_qr_code = writable("");
@@ -524,6 +529,9 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                             }
                                             if (response.V0.TabInfo.store?.overlay) {
                                                 $cur_tab.store.overlay = response.V0.TabInfo.store.overlay;
+                                            }
+                                            if (response.V0.TabInfo.store?.repo) {
+                                                $cur_tab.store.repo = response.V0.TabInfo.store.repo;
                                             }
                                             if (response.V0.TabInfo.store?.store_type) {
                                                 

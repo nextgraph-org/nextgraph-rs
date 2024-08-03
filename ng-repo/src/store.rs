@@ -274,8 +274,7 @@ impl Store {
         creator: &UserId,
         creator_priv_key: &PrivKey,
         repo_write_cap_secret: SymKey,
-        is_store: bool,
-        is_private_store: bool,
+        branch_crdt: BranchCrdt,
     ) -> Result<(Repo, Vec<(Commit, Vec<Digest>)>), NgError> {
         let (repo_priv_key, repo_pub_key) = generate_keypair();
 
@@ -285,8 +284,8 @@ impl Store {
             repo_priv_key,
             repo_pub_key,
             repo_write_cap_secret,
-            is_store,
-            is_private_store,
+            Some(branch_crdt),
+            false,
         )
     }
 
@@ -297,9 +296,14 @@ impl Store {
         repo_priv_key: PrivKey,
         repo_pub_key: PubKey,
         repo_write_cap_secret: SymKey,
-        is_store: bool,
+        mut branch_crdt: Option<BranchCrdt>,
         is_private_store: bool,
     ) -> Result<(Repo, Vec<(Commit, Vec<Digest>)>), NgError> {
+        let is_store = branch_crdt.is_none();
+        if is_store {
+            branch_crdt = Some(BranchCrdt::Graph("data:container".to_string()));
+        }
+
         let mut events = Vec::with_capacity(9);
         let mut events_postponed = Vec::with_capacity(6);
 
@@ -377,7 +381,7 @@ impl Store {
         let (main_branch_commit, main_add_branch_commit, main_branch_info) =
             self.as_ref().create_branch(
                 BranchType::Main,
-                BranchCrdt::Graph("data:container".to_string()),
+                branch_crdt.unwrap(),
                 creator,
                 creator_priv_key,
                 repo_pub_key,

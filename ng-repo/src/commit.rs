@@ -37,6 +37,7 @@ pub enum CommitLoadError {
     SingletonCannotHaveHeader,
     MalformedHeader,
     BodyTypeMismatch,
+    ContentParseError(ObjectParseError),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -316,10 +317,11 @@ impl Commit {
         let (id, key) = (commit_ref.id, commit_ref.key);
         match Object::load(id, Some(key.clone()), store) {
             Err(ObjectParseError::MissingHeaderBlocks((obj, mut missing))) => {
+                //log_debug!("MISSING {:?}", missing);
                 if with_body {
                     let content = obj
                         .content()
-                        .map_err(|_e| CommitLoadError::ObjectParseError)?;
+                        .map_err(|e| CommitLoadError::ContentParseError(e))?;
                     let mut commit = match content {
                         ObjectContent::V0(ObjectContentV0::Commit(c)) => c,
                         _ => return Err(CommitLoadError::NotACommit),
@@ -341,7 +343,7 @@ impl Commit {
             Ok(obj) => {
                 let content = obj
                     .content()
-                    .map_err(|_e| CommitLoadError::ObjectParseError)?;
+                    .map_err(|e| CommitLoadError::ContentParseError(e))?;
                 let mut commit = match content {
                     ObjectContent::V0(ObjectContentV0::Commit(c)) => c,
                     _ => return Err(CommitLoadError::NotACommit),
@@ -359,7 +361,10 @@ impl Commit {
             Err(ObjectParseError::MissingBlocks(missing)) => {
                 Err(CommitLoadError::MissingBlocks(missing))
             }
-            Err(_) => Err(CommitLoadError::ObjectParseError),
+            Err(_e) => {
+                log_err!("{:?}", _e);
+                Err(CommitLoadError::ObjectParseError)
+            }
         }
     }
 
