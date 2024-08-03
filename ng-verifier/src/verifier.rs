@@ -260,6 +260,7 @@ impl Verifier {
         };
 
         let store_tab_info = AppTabStoreInfo {
+            repo: Some(repo.store.get_store_repo().clone()),
             overlay: Some(format!("v:{}", repo.store.outer_overlay().to_string())),
             store_type: Some(repo.store.get_store_repo().store_type_for_app()),
             has_outer: None, //TODO
@@ -1081,7 +1082,7 @@ impl Verifier {
         as_publisher: bool,
     ) -> Result<(), NgError> {
         if !self.connected_broker.is_some() {
-            let repo = self.repos.get_mut(repo_id).ok_or(NgError::RepoNotFound)?;
+            let repo: &mut Repo = self.repos.get_mut(repo_id).ok_or(NgError::RepoNotFound)?;
             repo.opened_branches.insert(*branch, as_publisher);
             return Ok(());
         }
@@ -1405,6 +1406,7 @@ impl Verifier {
                 CommitBodyV0::StoreUpdate(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::AddSignerCap(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::AddFile(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::AddRepo(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::AsyncTransaction(a) => {
                     Box::pin(self.verify_async_transaction(a, commit, branch_id, repo_id, store))
                 }
@@ -1689,6 +1691,39 @@ impl Verifier {
         Ok(())
     }
 
+    pub(crate) async fn send_add_repo_to_store(
+        &mut self,
+        repo_id: &RepoId,
+        store_repo: &StoreRepo,
+    ) -> Result<(), VerifierError> {
+        let repo = self.get_repo(repo_id, store_repo)?;
+
+        let transaction_commit_body = CommitBodyV0::AddRepo(AddRepo::V0(AddRepoV0 {
+            read_cap: repo.read_cap.clone().ok_or(VerifierError::RepoNotFound)?,
+            metadata: vec![],
+        }));
+
+        let store_id = store_repo.repo_id();
+        let store_branch_id = {
+            let store = self.get_repo(store_id, store_repo)?;
+            let store_branch = store.store_branch().ok_or(VerifierError::StoreNotFound)?;
+            store_branch.id.clone()
+        };
+
+        let _commit = self
+            .new_transaction_commit(
+                transaction_commit_body,
+                store_id,
+                &store_branch_id,
+                &store_repo,
+                vec![],
+                vec![],
+            )
+            .await?;
+
+        Ok(())
+    }
+
     async fn load_store_from_read_cap<'a>(
         &mut self,
         broker: &RwLockReadGuard<'static, Broker>,
@@ -1696,9 +1731,40 @@ impl Verifier {
         remote: &Option<DirectPeerId>,
         store: Arc<Store>,
     ) -> Result<(), NgError> {
+        let (repo_id, store_branch) = self
+            .load_repo_from_read_cap(
+                store.get_store_readcap(),
+                broker,
+                user,
+                remote,
+                Arc::clone(&store),
+                true,
+            )
+            .await?;
+
+        // adding the Store branch to the opened_branches
+        // TODO: only do it if the Store is 3P.
+        if let Some(store_branch_id) = store_branch {
+            let repo = self.get_repo_mut(&repo_id, store.get_store_repo())?;
+            let _ = repo.opened_branches.insert(store_branch_id, true);
+        }
+
+        Ok(())
+    }
+
+    /// return the repo_id and an option branch_id of the Store branch, if any
+    pub(crate) async fn load_repo_from_read_cap<'a>(
+        &mut self,
+        read_cap: &ReadCap,
+        broker: &RwLockReadGuard<'static, Broker>,
+        user: &Option<UserId>,
+        remote: &Option<DirectPeerId>,
+        store: Arc<Store>,
+        load_branches: bool,
+    ) -> Result<(RepoId, Option<BranchId>), NgError> {
         // first we fetch the read_cap commit of private store repo.
         let root_branch_commit = Self::get_commit(
-            store.get_store_readcap().clone(),
+            read_cap.clone(),
             None,
             &store.overlay_for_read_on_client_protocol(),
             &broker,
@@ -1717,61 +1783,68 @@ impl Verifier {
 
                     let topic = root_branch.topic();
 
-                    let repo_id = store.id();
+                    let repo_id = root_branch.repo_id();
                     self.do_sync_req(
                         &broker,
                         user,
                         remote,
                         topic,
                         repo_id,
-                        store.get_store_readcap_secret(),
+                        &read_cap.key,
                         repo_id,
                         Arc::clone(&store),
                     )
                     .await
                     .map_err(|e| NgError::BootstrapError(e.to_string()))?;
 
-                    let other_branches: Vec<(PubKey, PubKey, SymKey)> = self
-                        .get_repo(repo_id, store.get_store_repo())?
-                        .branches
-                        .iter()
-                        .map(|(branch_id, branch)| {
-                            (
-                                branch_id.clone(),
-                                branch.topic.clone().unwrap(),
-                                branch.read_cap.as_ref().unwrap().key.clone(),
-                            )
-                        })
-                        .collect();
+                    let mut store_branch = None;
 
-                    // loading the other Branches of store
-                    for (branch_id, topic, secret) in other_branches {
-                        if branch_id == *repo_id {
-                            // root branch of store is already synced
-                            continue;
+                    if load_branches {
+                        let other_branches: Vec<(PubKey, PubKey, SymKey)> = self
+                            .get_repo(repo_id, store.get_store_repo())?
+                            .branches
+                            .iter()
+                            .map(|(branch_id, branch)| {
+                                if branch.branch_type == BranchType::Store {
+                                    store_branch = Some(branch_id.clone());
+                                }
+                                (
+                                    branch_id.clone(),
+                                    branch.topic.clone().unwrap(),
+                                    branch.read_cap.as_ref().unwrap().key.clone(),
+                                )
+                            })
+                            .collect();
+
+                        // loading the other Branches of store
+                        for (branch_id, topic, secret) in other_branches {
+                            if branch_id == *repo_id {
+                                // root branch of store is already synced
+                                continue;
+                            }
+                            self.do_sync_req(
+                                &broker,
+                                user,
+                                remote,
+                                &topic,
+                                &branch_id,
+                                &secret,
+                                repo_id,
+                                Arc::clone(&store),
+                            )
+                            .await
+                            .map_err(|e| NgError::BootstrapError(e.to_string()))?;
                         }
-                        self.do_sync_req(
-                            &broker,
-                            user,
-                            remote,
-                            &topic,
-                            &branch_id,
-                            &secret,
-                            repo_id,
-                            Arc::clone(&store),
-                        )
-                        .await
-                        .map_err(|e| NgError::BootstrapError(e.to_string()))?;
                     }
 
-                    log_info!("STORE loaded from read_cap {}", repo_id);
+                    log_info!("loaded from read_cap {}", repo_id);
                     // TODO: deal with AddSignerCap that are saved on rocksdb for now, but do not make it to the Verifier.repos
+
+                    return Ok((repo_id.clone(), store_branch));
                 }
                 _ => return Err(VerifierError::RootBranchNotFound.into()),
             },
         }
-
-        Ok(())
     }
 
     async fn get_commit(
@@ -2405,7 +2478,7 @@ impl Verifier {
             priv_key,
             store_repo.repo_id().clone(),
             repo_write_cap_secret,
-            true,
+            None,
             private,
         )?;
         let repo = self.complete_site_store(store_repo, repo)?;
@@ -2416,26 +2489,30 @@ impl Verifier {
     }
 
     /// returns the Repo and the last seq_num of the peer
-    #[allow(dead_code)]
-    async fn new_repo_default<'a>(
+    pub(crate) async fn new_repo_default<'a>(
         &'a mut self,
         creator: &UserId,
         creator_priv_key: &PrivKey,
         store_repo: &StoreRepo,
-    ) -> Result<&'a Repo, NgError> {
-        let store = self.get_store_or_load(store_repo);
-        let repo_write_cap_secret = SymKey::random();
-        let (repo, proto_events) = store.create_repo_default(
-            creator,
-            creator_priv_key,
-            repo_write_cap_secret,
-            false,
-            false,
-        )?;
-        self.populate_topics(&repo);
-        self.new_events_with_repo(proto_events, &repo).await?;
-        let repo_ref = self.add_repo_and_save(repo);
-        Ok(repo_ref)
+        branch_crdt: BranchCrdt,
+    ) -> Result<RepoId, NgError> {
+        let (repo_id, proto_events) = {
+            let store = self.get_store_or_load(store_repo);
+            let repo_write_cap_secret = SymKey::random();
+            let (repo, proto_events) = store.create_repo_default(
+                creator,
+                creator_priv_key,
+                repo_write_cap_secret,
+                branch_crdt,
+            )?;
+            self.populate_topics(&repo);
+            let repo_ref = self.add_repo_and_save(repo);
+            (repo_ref.id, proto_events)
+        };
+
+        self.new_events(proto_events, repo_id, store_repo).await?;
+        //let repo_ref = self.add_repo_and_save(repo);
+        Ok(repo_id)
     }
 }
 #[cfg(test)]
@@ -2457,11 +2534,14 @@ mod test {
         verifier.add_store(store);
 
         let repo = verifier
-            .new_repo_default(&creator_pub_key, &creator_priv_key, &store_repo)
+            .new_repo_default(
+                &creator_pub_key,
+                &creator_priv_key,
+                &store_repo,
+                BranchCrdt::Graph("test".to_string()),
+            )
             .await
             .expect("new_default");
-
-        log_debug!("REPO OBJECT {}", repo);
 
         assert_eq!(verifier.last_seq_num, 5);
     }

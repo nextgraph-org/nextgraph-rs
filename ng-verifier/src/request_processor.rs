@@ -244,6 +244,46 @@ impl Verifier {
         payload: Option<AppRequestPayload>,
     ) -> Result<AppResponse, NgError> {
         match command {
+            AppRequestCommandV0::Create => {
+                if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(doc_create))) =
+                    payload
+                {
+                    //TODO: deal with doc_create.destination
+
+                    let user_id = self.user_id().clone();
+                    let user_priv_key = self.user_privkey().clone();
+                    let repo_id = self
+                        .new_repo_default(
+                            &user_id,
+                            &user_priv_key,
+                            &doc_create.store,
+                            doc_create.class,
+                        )
+                        .await?;
+
+                    // adding an AddRepo commit to the Store branch of store.
+                    self.send_add_repo_to_store(&repo_id, &doc_create.store)
+                        .await?;
+
+                    // adding an ldp:contains triple to the store main branch
+                    let nuri = NuriV0::repo_graph_name(&repo_id, &doc_create.store.outer_overlay());
+                    let store_nuri = NuriV0::from_store_repo(&doc_create.store);
+                    let store_nuri_string = NuriV0::repo_graph_name(
+                        doc_create.store.repo_id(),
+                        &doc_create.store.outer_overlay(),
+                    );
+                    let query = format!("INSERT DATA {{ <{store_nuri_string}> <http://www.w3.org/ns/ldp#contains> <{nuri}>. }}");
+
+                    let ret = self.process_sparql_update(&store_nuri, &query).await;
+                    if let Err(e) = ret {
+                        return Ok(AppResponse::error(e));
+                    }
+
+                    return Ok(AppResponse::V0(AppResponseV0::Nuri(nuri)));
+                } else {
+                    return Err(NgError::InvalidPayload);
+                }
+            }
             AppRequestCommandV0::Fetch(fetch) => match fetch {
                 AppFetchContentV0::ReadQuery => {
                     if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0(

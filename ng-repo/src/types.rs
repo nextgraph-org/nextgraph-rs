@@ -1249,6 +1249,11 @@ impl RootBranch {
             Self::V0(v0) => &v0.topic,
         }
     }
+    pub fn repo_id(&self) -> &RepoId {
+        match self {
+            Self::V0(v0) => &v0.id,
+        }
+    }
     pub fn owners(&self) -> &Vec<UserId> {
         match self {
             Self::V0(v0) => &v0.owners,
@@ -1386,8 +1391,8 @@ impl BranchCrdt {
             BranchCrdt::None => panic!("BranchCrdt::None does not have a class"),
         }
     }
-    pub fn from(name: String, class: String) -> Self {
-        match name.as_str() {
+    pub fn from(name: String, class: String) -> Result<Self, NgError> {
+        Ok(match name.as_str() {
             "Graph" => BranchCrdt::Graph(class),
             "YMap" => BranchCrdt::YMap(class),
             "YArray" => BranchCrdt::YArray(class),
@@ -1395,8 +1400,8 @@ impl BranchCrdt {
             "YText" => BranchCrdt::YText(class),
             "Automerge" => BranchCrdt::Automerge(class),
             "Elmer" => BranchCrdt::Elmer(class),
-            _ => panic!("Invalid CRDT name"),
-        }
+            _ => return Err(NgError::InvalidClass),
+        })
     }
 }
 
@@ -1480,8 +1485,8 @@ pub enum BranchType {
     Context,
     //Ontology,
     Transactional, // this could have been called OtherTransactional, but for the sake of simplicity, we use Transactional for any branch that is not the Main one.
-    Root,          // only used for BranchInfo
-                   //Unknown, // only used temporarily when loading a branch info from commits (Branch commit, then AddBranch commit)
+    Root, // only used for BranchInfo//Unknown, // only used temporarily when loading a branch info from commits (Branch commit, then AddBranch commit)
+    Header,
 }
 
 impl BranchType {
@@ -1500,6 +1505,7 @@ impl fmt::Display for BranchType {
             "{}",
             match self {
                 Self::Main => "Main",
+                Self::Header => "Header",
                 Self::Store => "Store",
                 Self::Overlay => "Overlay",
                 Self::User => "User",
@@ -1815,6 +1821,14 @@ pub struct AddRepoV0 {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AddRepo {
     V0(AddRepoV0),
+}
+
+impl AddRepo {
+    pub fn read_cap(&self) -> &ReadCap {
+        match self {
+            Self::V0(v0) => &v0.read_cap,
+        }
+    }
 }
 
 /// Removes a repo from the store branch.

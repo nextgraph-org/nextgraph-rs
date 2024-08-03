@@ -247,7 +247,7 @@ impl Block {
                 match serde_bare::from_slice(content_dec.as_slice()) {
                     Ok(c) => content = c,
                     Err(_e) => {
-                        //log_debug!("Block deserialize error: {}", e);
+                        //log_debug!("Block deserialize error: {}", _e);
                         return Err(ObjectParseError::BlockDeserializeError);
                     }
                 }

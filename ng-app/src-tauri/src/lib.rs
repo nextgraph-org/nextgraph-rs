@@ -585,6 +585,42 @@ async fn app_request(request: AppRequest) -> Result<AppResponse, String> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn doc_create(
+    session_id: u64,
+    crdt: String,
+    class_name: String,
+    store_repo: StoreRepo,
+    destination: String,
+) -> Result<String, String> {
+    let class = BranchCrdt::from(crdt, class_name).map_err(|e| e.to_string())?;
+
+    let destination = DocCreateDestination::from(destination).map_err(|e| e.to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        session_id,
+        command: AppRequestCommandV0::new_create(),
+        nuri: NuriV0::new_empty(),
+        payload: Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(
+            DocCreate {
+                store: store_repo,
+                class,
+                destination,
+            },
+        ))),
+    });
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    if let AppResponse::V0(AppResponseV0::Nuri(nuri)) = response {
+        Ok(nuri)
+    } else {
+        Err("invalid response".to_string())
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn app_request_with_nuri_command(
     nuri: String,
     command: AppRequestCommandV0,
@@ -826,6 +862,7 @@ impl AppBuilder {
                 client_info_rust,
                 doc_fetch_private_subscribe,
                 doc_fetch_repo_subscribe,
+                doc_create,
                 cancel_stream,
                 app_request_stream,
                 file_get,

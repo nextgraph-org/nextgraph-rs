@@ -17,7 +17,7 @@
         online,
         get_blob,
     } from "../../store";
-    import { cur_tab } from "../../tab";
+    import { cur_tab, cur_tab_doc_can_edit } from "../../tab";
     import {
       ExclamationTriangle,
       ArrowDownTray,
@@ -166,7 +166,7 @@
 
 
 <div class="w-full">
-  {#if $cur_tab.doc.can_edit}
+  {#if $cur_tab_doc_can_edit}
     <div class="row pt-2 w-full">
       
       <Button

@@ -13,25 +13,28 @@
     
     import { 
     } from "../store";
-  
+    import { link } from "svelte-spa-router";
     import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
     
     export let commits;
+
+    function contained(graph) {
+        let ret = [];
+        for (const g of graph) {
+            console.log(g)
+            if (g.substring(104,137) === "http://www.w3.org/ns/ldp#contains") {
+                let nuri = g.substring(140,240);
+                let hash = nuri.substring(9,16);
+                ret.push({nuri,hash});
+            }
+        }
+        return ret;
+    }
   
   </script>
-  <div class="flex-col">
-      <h2>ListView</h2>
-      {#if Array.isArray(commits.history.commits)}
-      {#each commits.history.commits as c}
-          <div class="flex"> {c[0]} {JSON.stringify(c[1])}</div> 
-      {/each}
-      {/if}
-      <div class="flex">
-          HEADS: {#each commits.heads as head} {head} , {/each}
-      </div>
-      TRIPLES:
-      {#each commits.graph as triple}
-          <div class="flex"> {triple}</div> 
+  <div class="flex-col p-5">
+      {#each contained(commits.graph) as doc}
+          <div class="flex font-mono"> <a use:link href="/{doc.nuri}">{doc.hash}</a> </div> 
       {/each}
 
   </div>

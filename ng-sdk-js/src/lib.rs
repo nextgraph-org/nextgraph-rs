@@ -310,7 +310,7 @@ pub async fn sparql_query(
             js_sys::JSON::parse(&string)
         }
         AppResponseV0::Error(e) => Err(e.to_string().into()),
-        _ => Err("invalid AppResponse".to_string().into()),
+        _ => Err("invalid response".to_string().into()),
     }
 }
 
@@ -388,7 +388,7 @@ pub async fn sparql_query(
             js_sys::JSON::parse(&string)
         }
         AppResponseV0::Error(e) => Err(e.to_string().into()),
-        _ => Err("invalid AppResponse".to_string().into()),
+        _ => Err("invalid response".to_string().into()),
     }
 }
 
@@ -1039,6 +1039,48 @@ pub async fn app_request_with_nuri_command(
         .map_err(|e: NgError| e.to_string())?;
 
     Ok(serde_wasm_bindgen::to_value(&response).unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn doc_create(
+    session_id: JsValue,
+    crdt: String,
+    class_name: String,
+    store_repo: JsValue,
+    destination: String,
+) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+
+    let class = BranchCrdt::from(crdt, class_name).map_err(|e| e.to_string())?;
+
+    let store = serde_wasm_bindgen::from_value::<StoreRepo>(store_repo)
+        .map_err(|_| "Deserialization error of store_repo".to_string())?;
+
+    let destination = DocCreateDestination::from(destination).map_err(|e| e.to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        session_id,
+        command: AppRequestCommandV0::new_create(),
+        nuri: NuriV0::new_empty(),
+        payload: Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(
+            DocCreate {
+                store,
+                class,
+                destination,
+            },
+        ))),
+    });
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    if let AppResponse::V0(AppResponseV0::Nuri(nuri)) = response {
+        Ok(serde_wasm_bindgen::to_value(&nuri).unwrap())
+    } else {
+        Err("invalid response".to_string())
+    }
 }
 
 #[wasm_bindgen]

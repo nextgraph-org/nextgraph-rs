@@ -14,6 +14,7 @@ pub mod transaction;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ng_net::broker::BROKER;
 use ng_repo::errors::VerifierError;
 #[allow(unused_imports)]
 use ng_repo::log::*;
@@ -87,7 +88,7 @@ impl CommitVerifier for RootBranch {
 
                 let user_priv = verifier.user_privkey();
                 let user_id = verifier.user_id();
-                let repo_write_cap_secret = if store.is_private() {
+                let repo_write_cap_secret = if store.id() == &root_branch.id && store.is_private() {
                     Some(SymKey::nil())
                 } else if let Some(pos) = root_branch.owners.iter().position(|o| o == user_id) {
                     let cryptobox = &root_branch.owners_write_cap[pos];
@@ -156,7 +157,7 @@ impl CommitVerifier for Branch {
 
                 //TODO: deal with quorum_type (verify signature)
 
-                let repository_commit = Commit::load(branch.repo.clone(), &store, true)?;
+                let repository_commit: Commit = Commit::load(branch.repo.clone(), &store, true)?;
 
                 let repository = match repository_commit
                     .body()
@@ -252,7 +253,6 @@ impl CommitVerifier for AddBranch {
                 }
 
                 // TODO fetch the readcap and verify that crdt and other infos in Branch definition are the same as in AddBranch commit
-
                 let branch_info = BranchInfo {
                     id: v0.branch_id,
                     branch_type: v0.branch_type.clone(),
@@ -570,6 +570,13 @@ impl CommitVerifier for AddRepo {
         repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
+        let broker = BROKER.read().await;
+        let remote = (&verifier.connected_broker).into();
+        let user = Some(verifier.user_id().clone());
+        let read_cap = self.read_cap();
+        verifier
+            .load_repo_from_read_cap(read_cap, &broker, &user, &remote, store, true)
+            .await?;
         Ok(())
     }
 }

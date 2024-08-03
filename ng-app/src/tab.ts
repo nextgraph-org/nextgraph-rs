@@ -127,8 +127,12 @@ const class_to_viewers_editors = (class_name: string) => {
         if (class_def["ng:o"]) graph_viewers.push(class_def["ng:o"]);
         if (class_def["ng:w"]) graph_editors.push(class_def["ng:w"]);
     }
-    graph_viewers.push.apply(graph_viewers, find_viewers_for_class("data:graph"));
-    graph_editors.push.apply(graph_editors, find_editors_for_class("data:graph"));
+    for (const additional_g_v of find_viewers_for_class("data:graph")){
+        if (!graph_viewers.includes(additional_g_v)) graph_viewers.push(additional_g_v);
+    }
+    for (const additional_g_e of find_editors_for_class("data:graph")){
+        if (!graph_editors.includes(additional_g_e)) graph_editors.push(additional_g_e);
+    }
 
     let graph_viewer = graph_viewers[0];
     let graph_editor = graph_editors[0];
@@ -197,10 +201,6 @@ export const show_modal_menu = writable(false);
 
 export const show_modal_create = writable(false);
 
-export const openModalCreate = () => {
-    show_modal_create.set(true);
-  }
-
 export const in_memory_graph = writable("");
 export const in_memory_discrete = writable("");
 
@@ -216,6 +216,7 @@ export const reset_in_memory = () => {
 export const all_tabs = writable({
     "":{
         store: {
+            repo: false, // a StoreRepo serialization
             overlay: "", // "v:"
             has_outer: "", // "l:"
             store_type: "", //"public" "protected", "private", "group", "dialog",
@@ -309,10 +310,52 @@ export const set_header_in_view = function(val) {
 
 export const cur_branch = writable("");
 
-export const cur_tab = derived([cur_branch, all_tabs], ([cb, all]) => all[cb]);
+export const cur_tab = derived([cur_branch, all_tabs], ([cb, all]) => {return all[cb];});
 
 export const can_have_header = derived(cur_tab, ($cur_tab) => {
     return !($cur_tab.doc.is_store && ( $cur_tab.store.store_type === "private" || $cur_tab.store.store_type === "dialog"));
+});
+export const cur_tab_branch_nuri = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.branch.nuri;
+});
+export const cur_tab_doc_can_edit = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.doc.can_edit;
+});
+export const cur_tab_doc_is_store = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.doc.is_store;
+});
+export const cur_tab_doc_is_member = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.doc.is_member;
+});
+export const cur_tab_store_type = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.store.store_type;
+});
+export const cur_tab_persistent_error = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.persistent_error;
+});
+export const cur_tab_header_in_view = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.header_in_view;
+});
+export const cur_tab_right_pane = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.right_pane;
+});
+export const cur_tab_folders_pane = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.folders_pane;
+});
+export const cur_tab_toc_pane = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.toc_pane;
+});
+export const cur_tab_show_menu = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.show_menu;
+});
+export const cur_tab_branch_has_discrete = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.branch.has_discrete;
+});
+export const cur_tab_graph_or_discrete = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.graph_or_discrete;
+});
+export const cur_tab_view_or_edit = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.view_or_edit;
 });
 
 export const edit_header_button = derived(cur_tab, ($cur_tab) => {
@@ -382,6 +425,15 @@ export const cur_tab_update = function( fn ) {
     });
 };
 
+export const live_editing = writable(false);
+
+live_editing.subscribe((val) => {
+    cur_tab_update((old)=> {
+        old.doc.live_edit = val;
+        return old;
+    });
+});
+
 export const showMenu = () => {
     show_modal_menu.set(true);
     cur_tab_update(ct => {
@@ -408,6 +460,17 @@ export const nav_bar = writable({
     save: undefined,
     toasts: [],
 });
+
+export const nav_bar_newest = derived(nav_bar, ($nav_bar) => {
+    return $nav_bar.newest;
+});
+
+export const nav_bar_reset_newest = () => {
+    nav_bar.update((old) => {
+        old.newest = 0;
+        return old;
+    });
+}
 
 export const change_nav_bar = (icon, title, back) => {
     nav_bar.update((old) => {

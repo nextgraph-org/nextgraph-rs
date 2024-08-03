@@ -138,6 +138,7 @@ impl UserStorage for RocksDbUserStorage {
         };
 
         let store_tab_info = AppTabStoreInfo {
+            repo: Some(store.clone()),
             overlay: Some(format!(
                 "v:{}",
                 store.overlay_id_for_read_purpose().to_string()

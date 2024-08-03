@@ -20,7 +20,7 @@
     active_session,
   } from "../store";
   import {
-    change_nav_bar, cur_tab, reset_in_memory
+    change_nav_bar, cur_tab, reset_in_memory, cur_tab_doc_is_store, cur_tab_store_type
   } from "../tab";
   import {
     Square3Stack3d,
@@ -42,7 +42,7 @@
 </script>
 
 <FullLayout>
-  {#if nuri && $cur_tab.doc.is_store && $cur_tab.store.store_type === "group"}
+  {#if nuri && $cur_tab_doc_is_store && $cur_tab_store_type === "group"}
     <div class="bg-gray-100 flex p-1 justify-around md:justify-start h-11 gap-0 xs:gap-3 md:gap-10 text-gray-500">
       <div class="overflow-hidden w-16 xs:ml-3 flex justify-start" role="button" tabindex="0">
         <ChatBubbleLeftRight tabindex="-1" class="mt-1 flex-none w-7 h-7 mr-1 focus:outline-none "/><div class="text-xs xs:text-sm flex items-center"><div style="overflow-wrap: anywhere;" class="max-h-8 xs:max-h-10">{$t("doc.header.buttons.chat")}</div></div>

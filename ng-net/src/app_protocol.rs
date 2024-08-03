@@ -187,6 +187,19 @@ pub struct NuriV0 {
 }
 
 impl NuriV0 {
+    pub fn new_empty() -> Self {
+        NuriV0 {
+            identity: None,
+            target: NuriTargetV0::None,
+            entire_store: false,
+            object: None,
+            branch: None,
+            overlay: None,
+            access: vec![],
+            topic: None,
+            locator: vec![],
+        }
+    }
     pub fn copy_target_from(&mut self, nuri: &NuriV0) {
         self.target = nuri.target.clone();
     }
@@ -196,6 +209,20 @@ impl NuriV0 {
 
     pub fn commit_graph_name_from_base64(commit_base64: &String, overlay_id: &OverlayId) -> String {
         format!("{DID_PREFIX}:c:{commit_base64}:v:{overlay_id}")
+    }
+
+    pub fn from_store_repo(store_repo: &StoreRepo) -> Self {
+        NuriV0 {
+            identity: None,
+            target: NuriTargetV0::Repo(store_repo.repo_id().clone()),
+            entire_store: false,
+            object: None,
+            branch: None,
+            overlay: None,
+            access: vec![],
+            topic: None,
+            locator: vec![],
+        }
     }
 
     pub fn repo_graph_name(repo_id: &RepoId, overlay_id: &OverlayId) -> String {
@@ -439,6 +466,9 @@ impl AppRequestCommandV0 {
     pub fn new_history() -> Self {
         AppRequestCommandV0::Fetch(AppFetchContentV0::History)
     }
+    pub fn new_create() -> Self {
+        AppRequestCommandV0::Create
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -600,9 +630,28 @@ pub struct DocAddFile {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum DocCreateDestination {
+    Store,
+    Stream,
+    MagicCarpet,
+}
+
+impl DocCreateDestination {
+    pub fn from(s: String) -> Result<Self, NgError> {
+        Ok(match s.as_str() {
+            "store" => Self::Store,
+            "stream" => Self::Stream,
+            "mc" => Self::MagicCarpet,
+            _ => return Err(NgError::InvalidArgument),
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DocCreate {
-    store: StoreRepo,
-    class: String,
+    pub store: StoreRepo,
+    pub class: BranchCrdt,
+    pub destination: DocCreateDestination,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -757,6 +806,7 @@ pub struct FileMetaV0 {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppTabStoreInfo {
+    pub repo: Option<StoreRepo>, //+
     pub overlay: Option<String>, //+
     pub has_outer: Option<String>,
     pub store_type: Option<String>, //+
@@ -822,6 +872,7 @@ pub enum AppResponseV0 {
     False,
     Error(String),
     EndOfStream,
+    Nuri(String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

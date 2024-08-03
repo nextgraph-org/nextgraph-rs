@@ -87,7 +87,7 @@
       class="select-none ml-2 mt-2 mb-10 text-gray-600  focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
     >
       <Sun class="mr-2 focus:outline-none" tabindex="-1" />
-      View Graph
+      View as Turtle
     </button>
     {#if results!==undefined}
       <div>
