@@ -63,7 +63,7 @@ impl TryFrom<ProtocolMessage> for AppResponse {
         if let AppMessageContentV0::Response(res) = msg.try_into()? {
             Ok(res)
         } else {
-            log_info!("INVALID AppMessageContentV0::Response");
+            log_err!("INVALID AppMessageContentV0::Response");
             Err(ProtocolError::InvalidValue)
         }
     }
@@ -83,7 +83,7 @@ impl TryFrom<ProtocolMessage> for AppMessageContentV0 {
                 Err(ProtocolError::ServerError)
             }
         } else {
-            log_info!("INVALID AppMessageContentV0 {:?}", msg);
+            log_err!("INVALID AppMessageContentV0 {:?}", msg);
             Err(ProtocolError::InvalidValue)
         }
     }

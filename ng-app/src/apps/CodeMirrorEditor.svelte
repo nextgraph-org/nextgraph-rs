@@ -12,13 +12,17 @@
 <script lang="ts">
     import { onMount, tick, onDestroy } from "svelte";
     import { 
-      sparql_query,
       toast_error,
       toast_success,
       reset_toasts,
       display_error,
-      live_discrete_update
+      live_discrete_update,
+      discrete_update
     } from "../store";
+    import { 
+        cur_tab_register_on_save,
+        cur_tab_deregister_on_save
+    } from "../tab";
     
     import * as Y from 'yjs'
     // @ts-ignore
@@ -36,18 +40,27 @@
     ydoc.on('update', async (update, origin) => {
       if (!origin.local) {
         try {
-            await live_discrete_update(update, "YText", commits.heads);
+            await discrete_update(update, "YText", commits.heads);
         } catch (e){
             toast_error(display_error(e));
         }
       }
     })
 
-    ydoc.on('destroy', () => {
+    ydoc.on('destroy', async () => {
         commits.discrete?.deregisterOnUpdate();
+        await cur_tab_deregister_on_save();
     })
 
     onMount(()=>{
+
+        cur_tab_register_on_save(async (updates)=>{
+            
+            let update = Y.mergeUpdates(updates);
+            await live_discrete_update(update, "YText", commits.heads);
+            
+        });
+
         let history = commits.discrete?.registerOnUpdate((update) => {
             Y.applyUpdate(ydoc, update.YText, {local:true})
         });

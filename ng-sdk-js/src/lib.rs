@@ -1022,7 +1022,7 @@ async fn app_request_stream_(
     spawn_and_log_error(inner_task(reader, callback.clone(), canceller_tx.clone()));
 
     let cb = Closure::once(move || {
-        log_info!("trying to cancel");
+        log_debug!("trying to cancel");
         //sender.close_channel()
         let _ = canceller_tx.unbounded_send(());
         canceller_tx.close_channel();
