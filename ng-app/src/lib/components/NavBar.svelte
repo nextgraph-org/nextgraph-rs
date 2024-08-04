@@ -24,7 +24,8 @@
     Popover,
   } from "flowbite-svelte";
 
-  import {nav_bar_newest, save, nav_bar, showMenu, cur_tab_header_in_view, cur_tab_store_name_override, cur_tab_store_icon_override, cur_tab_persistent_error} from "../../tab";
+  import {nav_bar_newest, save, nav_bar, showMenu, cur_tab_header_in_view, cur_tab_store_name_override, cur_tab_store_icon_override, cur_tab_persistent_error, nav_bar_save,
+    cur_tab_view_or_edit, cur_tab_graph_or_discrete, nav_bar_back, nav_bar_title, nav_bar_icon} from "../../tab";
 
   export let scrollToTop = () => {};
 
@@ -40,21 +41,21 @@
 </script>
   
 <div style="background-color: #fbfbfb;" class="h-11 pb-1 flex text-center text-gray-700 dark:text-white">
-    {#if $nav_bar.back}
+    {#if $nav_bar_back}
         <div role="button" tabindex="0" on:click={back} on:keypress={back} class="flex-none w-10 flex justify-center items-center">
         <ArrowLeft tabindex="-1" class="w-8 h-8 focus:outline-none"/>
         </div>
     {/if}
-    {#if $cur_tab_store_icon_override || $nav_bar.icon}
-        <div style="cursor:pointer;" class:w-10={!$nav_bar.back} class:ml-3={!$nav_bar.back} class="flex-none w-8 m-1 " on:click={scrollToTop} on:keypress={scrollToTop}>
-        <NavIcon img={$cur_tab_store_icon_override || $nav_bar.icon} config={{
+    {#if $cur_tab_store_icon_override || $nav_bar_icon}
+        <div style="cursor:pointer;" class:w-10={!$nav_bar_back} class:ml-3={!$nav_bar_back} class="flex-none w-8 m-1 " on:click={scrollToTop} on:keypress={scrollToTop}>
+        <NavIcon img={$cur_tab_store_icon_override || $nav_bar_icon} config={{
             tabindex:"-1",
             class:"w-8 h-8 focus:outline-none"
         }}/>
         </div>
     {/if}
-    <div style="cursor:pointer;" class:pl-3={!$nav_bar.back && !$nav_bar.icon} class="grow w-10 items-center flex px-1" on:click={scrollToTop} on:keypress={scrollToTop}>
-        <span class="inline-block truncate" > {$cur_tab_store_name_override || $nav_bar.title} </span>
+    <div style="cursor:pointer;" class:pl-3={!$nav_bar_back && !$nav_bar_icon} class="grow w-10 items-center flex px-1" on:click={scrollToTop} on:keypress={scrollToTop}>
+        <span class="inline-block truncate" > {$cur_tab_store_name_override || $nav_bar_title} </span>
     </div>
     {#if $nav_bar_newest && !$cur_tab_header_in_view}
         <div role="button" tabindex="0" class="flex-none m-1 rounded-full bg-primary-700 text-white dark:bg-primary-700" on:click={scrollToTop} on:keypress={scrollToTop}>
@@ -74,9 +75,9 @@
             >{@html $cur_tab_persistent_error.desc}
             <br/><br/><span class="text-primary-700" on:click={closeErrorPopup} on:keypress={closeErrorPopup} role="button" tabindex="0">Dismiss</span>
         </Popover>
-    {:else if $nav_bar.save !== undefined}
+    {:else if $nav_bar_save !== undefined && !$cur_tab_view_or_edit && !$cur_tab_graph_or_discrete}
         
-        {#if $nav_bar.save }
+        {#if $nav_bar_save }
         <div tabindex="0" class="flex-none w-10" role="button" on:click={save} on:keypress={save} title="Save">
             <CheckCircle variation="solid" tabindex="-1" strokeWidth="3" class="w-10 h-10  text-primary-400 focus:outline-none"/>
         </div>

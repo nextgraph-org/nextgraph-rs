@@ -266,18 +266,19 @@ impl Verifier {
                         .await?;
 
                     // adding an ldp:contains triple to the store main branch
-                    let nuri = NuriV0::repo_graph_name(&repo_id, &doc_create.store.outer_overlay());
+                    let overlay_id = doc_create.store.outer_overlay();
+                    let nuri = NuriV0::repo_graph_name(&repo_id, &overlay_id);
                     let store_nuri = NuriV0::from_store_repo(&doc_create.store);
-                    let store_nuri_string = NuriV0::repo_graph_name(
-                        doc_create.store.repo_id(),
-                        &doc_create.store.outer_overlay(),
-                    );
+                    let store_nuri_string =
+                        NuriV0::repo_graph_name(doc_create.store.repo_id(), &overlay_id);
                     let query = format!("INSERT DATA {{ <{store_nuri_string}> <http://www.w3.org/ns/ldp#contains> <{nuri}>. }}");
 
                     let ret = self.process_sparql_update(&store_nuri, &query).await;
                     if let Err(e) = ret {
                         return Ok(AppResponse::error(e));
                     }
+
+                    self.add_doc(&repo_id, &overlay_id)?;
 
                     return Ok(AppResponse::V0(AppResponseV0::Nuri(nuri)));
                 } else {
@@ -329,6 +330,64 @@ impl Verifier {
                             Err(e) => AppResponse::error(e),
                             Ok(_) => AppResponse::ok(),
                         })
+                    } else {
+                        Err(NgError::InvalidPayload)
+                    };
+                }
+                AppFetchContentV0::Update => {
+                    if !nuri.is_valid_for_discrete_update() {
+                        return Err(NgError::InvalidNuri);
+                    }
+                    return if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Update(update))) =
+                        payload
+                    {
+                        //TODO: deal with update.graph
+                        //TODO: verify that update.heads are the same as what the Verifier knows
+                        if let Some(discrete) = update.discrete {
+                            let (repo_id, branch_id, store_repo) =
+                                match self.resolve_target(&nuri.target) {
+                                    Err(e) => return Ok(AppResponse::error(e.to_string())),
+                                    Ok(a) => a,
+                                };
+
+                            let patch: DiscreteTransaction = discrete.into();
+
+                            let transac = TransactionBody {
+                                body_type: TransactionBodyType::Discrete,
+                                graph: None,
+                                discrete: Some(patch.clone()),
+                            };
+
+                            let transaction_commit_body = CommitBodyV0::AsyncTransaction(
+                                Transaction::V0(serde_bare::to_vec(&transac)?),
+                            );
+
+                            let commit = self
+                                .new_transaction_commit(
+                                    transaction_commit_body,
+                                    &repo_id,
+                                    &branch_id,
+                                    &store_repo,
+                                    vec![], //TODO deps
+                                    vec![],
+                                )
+                                .await?;
+
+                            let repo = self.get_repo(&repo_id, &store_repo)?;
+                            let commit_info: CommitInfoJs = (&commit.as_info(repo)).into();
+
+                            let crdt = &repo.branch(&branch_id)?.crdt.clone();
+                            self.update_discrete(
+                                patch,
+                                &crdt,
+                                &branch_id,
+                                commit.id().unwrap(),
+                                commit_info,
+                            )
+                            .await?;
+                        }
+
+                        Ok(AppResponse::ok())
                     } else {
                         Err(NgError::InvalidPayload)
                     };

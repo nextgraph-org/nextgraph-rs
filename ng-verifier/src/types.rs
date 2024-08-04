@@ -18,9 +18,78 @@ use serde::{Deserialize, Serialize};
 //use oxigraph::model::GroundQuad;
 //use yrs::{StateVector, Update};
 
+use ng_net::{app_protocol::*, types::*};
+use ng_oxigraph::oxrdf::{GraphName, GraphNameRef, NamedNode, Quad, Triple, TripleRef};
 use ng_repo::{errors::*, types::*};
 
-use ng_net::types::*;
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GraphTransaction {
+    pub inserts: Vec<Triple>,
+    pub removes: Vec<Triple>,
+}
+
+impl GraphTransaction {
+    pub(crate) fn as_patch(&self) -> GraphPatch {
+        GraphPatch {
+            inserts: serde_bare::to_vec(&self.inserts).unwrap(),
+            removes: serde_bare::to_vec(&self.removes).unwrap(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum DiscreteTransaction {
+    /// A serialization of a yrs::Update
+    #[serde(with = "serde_bytes")]
+    YMap(Vec<u8>),
+    #[serde(with = "serde_bytes")]
+    YArray(Vec<u8>),
+    #[serde(with = "serde_bytes")]
+    YXml(Vec<u8>),
+    #[serde(with = "serde_bytes")]
+    YText(Vec<u8>),
+    /// An automerge::Patch
+    #[serde(with = "serde_bytes")]
+    Automerge(Vec<u8>),
+}
+
+impl From<DiscreteUpdate> for DiscreteTransaction {
+    fn from(update: DiscreteUpdate) -> Self {
+        match update {
+            DiscreteUpdate::Automerge(v) => DiscreteTransaction::Automerge(v),
+            DiscreteUpdate::YMap(v) => DiscreteTransaction::YMap(v),
+            DiscreteUpdate::YArray(v) => DiscreteTransaction::YArray(v),
+            DiscreteUpdate::YXml(v) => DiscreteTransaction::YXml(v),
+            DiscreteUpdate::YText(v) => DiscreteTransaction::YText(v),
+        }
+    }
+}
+
+impl DiscreteTransaction {
+    pub fn to_vec(&self) -> Vec<u8> {
+        match self {
+            Self::YMap(v)
+            | Self::YArray(v)
+            | Self::YXml(v)
+            | Self::YText(v)
+            | Self::Automerge(v) => v.to_vec(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TransactionBodyType {
+    Graph,
+    Discrete,
+    Both,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TransactionBody {
+    pub body_type: TransactionBodyType,
+    pub graph: Option<GraphTransaction>,
+    pub discrete: Option<DiscreteTransaction>,
+}
 
 #[doc(hidden)]
 #[derive(Clone, Debug, Serialize, Deserialize)]

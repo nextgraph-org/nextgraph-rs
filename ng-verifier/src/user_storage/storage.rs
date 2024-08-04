@@ -51,6 +51,14 @@ pub trait UserStorage: Send + Sync {
 
     fn branch_get_all_files(&self, branch: &BranchId) -> Result<Vec<FileName>, StorageError>;
 
+    fn branch_set_discrete_state(
+        &self,
+        branch: BranchId,
+        state: Vec<u8>,
+    ) -> Result<(), StorageError>;
+
+    fn branch_get_discrete_state(&self, branch: &BranchId) -> Result<Vec<u8>, StorageError>;
+
     fn branch_get_tab_info(
         &self,
         branch: &BranchId,
@@ -68,12 +76,14 @@ pub trait UserStorage: Send + Sync {
 
 pub(crate) struct InMemoryUserStorage {
     branch_files: RwLock<HashMap<BranchId, Vec<FileName>>>,
+    branch_discrete_state: RwLock<HashMap<BranchId, Vec<u8>>>,
 }
 
 impl InMemoryUserStorage {
     pub fn new() -> Self {
         InMemoryUserStorage {
             branch_files: RwLock::new(HashMap::new()),
+            branch_discrete_state: RwLock::new(HashMap::new()),
         }
     }
 }
@@ -97,6 +107,25 @@ impl UserStorage for InMemoryUserStorage {
             Ok(file_list.to_vec())
         } else {
             Ok(vec![])
+        }
+    }
+
+    fn branch_set_discrete_state(
+        &self,
+        branch: BranchId,
+        state: Vec<u8>,
+    ) -> Result<(), StorageError> {
+        let mut lock = self.branch_discrete_state.write().unwrap();
+        let _ = lock.insert(branch, state);
+        Ok(())
+    }
+
+    fn branch_get_discrete_state(&self, branch: &BranchId) -> Result<Vec<u8>, StorageError> {
+        let lock = self.branch_discrete_state.read().unwrap();
+        if let Some(state) = lock.get(&branch) {
+            Ok(state.to_vec())
+        } else {
+            Err(StorageError::NoDiscreteState)
         }
     }
 

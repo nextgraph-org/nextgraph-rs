@@ -261,7 +261,7 @@ impl Verifier {
 
         let store_tab_info = AppTabStoreInfo {
             repo: Some(repo.store.get_store_repo().clone()),
-            overlay: Some(format!("v:{}", repo.store.outer_overlay().to_string())),
+            overlay: Some(format!("v:{}", repo.store.overlay_id.to_string())),
             store_type: Some(repo.store.get_store_repo().store_type_for_app()),
             has_outer: None, //TODO
             inner: None,     //TODO
@@ -335,6 +335,29 @@ impl Verifier {
             }
         }
 
+        let crdt = &repo.branch(&branch_id)?.crdt;
+        let discrete = if crdt.is_graph() {
+            None
+        } else {
+            match self
+                .user_storage
+                .as_ref()
+                .unwrap()
+                .branch_get_discrete_state(&branch_id)
+            {
+                Ok(state) => Some(match repo.branch(&branch_id)?.crdt {
+                    BranchCrdt::Automerge(_) => DiscreteState::Automerge(state),
+                    BranchCrdt::YArray(_) => DiscreteState::YArray(state),
+                    BranchCrdt::YMap(_) => DiscreteState::YMap(state),
+                    BranchCrdt::YText(_) => DiscreteState::YText(state),
+                    BranchCrdt::YXml(_) => DiscreteState::YXml(state),
+                    _ => return Err(VerifierError::InvalidBranch),
+                }),
+                Err(StorageError::NoDiscreteState) => None,
+                Err(e) => return Err(e.into()),
+            }
+        };
+
         let state = AppState {
             heads: branch.current_heads.iter().map(|h| h.id.clone()).collect(),
             graph: if results.is_empty() {
@@ -344,7 +367,7 @@ impl Verifier {
                     triples: serde_bare::to_vec(&results).unwrap(),
                 })
             },
-            discrete: None,
+            discrete,
             files,
         };
 
@@ -2424,7 +2447,7 @@ impl Verifier {
         //TODO: improve the inner_to_outer insert. (should be done when store is created, not here. should work also for dialogs.)
         self.inner_to_outer.insert(
             repo.store.overlay_for_read_on_client_protocol(),
-            repo.store.outer_overlay(),
+            repo.store.overlay_id,
         );
         for sub in opened_repo {
             Self::branch_was_opened(&self.topics, repo, sub)?;

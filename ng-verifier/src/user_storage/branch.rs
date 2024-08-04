@@ -42,8 +42,9 @@ impl<'a> BranchStorage<'a> {
     const MERGED_IN: u8 = b'm';
     const CRDT: u8 = b'd';
     const CLASS: u8 = b'c';
+    const DISCRETE_STATE: u8 = b's';
 
-    const ALL_PROPERTIES: [u8; 9] = [
+    const ALL_PROPERTIES: [u8; 10] = [
         Self::TYPE,
         Self::PUBLISHER,
         Self::READ_CAP,
@@ -53,6 +54,7 @@ impl<'a> BranchStorage<'a> {
         Self::MERGED_IN,
         Self::CRDT,
         Self::CLASS,
+        Self::DISCRETE_STATE,
     ];
 
     const PREFIX_HEADS: u8 = b'h';
@@ -218,6 +220,26 @@ impl<'a> BranchStorage<'a> {
             }
         }
         Ok(res)
+    }
+
+    pub fn set_discrete_state(&self, state: Vec<u8>) -> Result<(), StorageError> {
+        self.storage.write_transaction(&mut |tx| {
+            let id_ser = &to_vec(&self.id)?;
+            tx.put(
+                Self::PREFIX,
+                &id_ser,
+                Some(Self::DISCRETE_STATE),
+                &state,
+                &None,
+            )?;
+            Ok(())
+        })
+    }
+
+    pub fn get_discrete_state(&self) -> Result<Vec<u8>, StorageError> {
+        let id_ser = &to_vec(&self.id)?;
+        self.storage
+            .get(Self::PREFIX, &id_ser, Some(Self::DISCRETE_STATE), &None)
     }
 
     pub fn add_file(&self, commit_id: &ObjectId, file: &FileName) -> Result<(), StorageError> {

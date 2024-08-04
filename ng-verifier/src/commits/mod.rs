@@ -574,9 +574,11 @@ impl CommitVerifier for AddRepo {
         let remote = (&verifier.connected_broker).into();
         let user = Some(verifier.user_id().clone());
         let read_cap = self.read_cap();
+        let overlay_id = store.overlay_id;
         verifier
             .load_repo_from_read_cap(read_cap, &broker, &user, &remote, store, true)
             .await?;
+        verifier.add_doc(repo_id, &overlay_id)?;
         Ok(())
     }
 }

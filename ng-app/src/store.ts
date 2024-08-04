@@ -395,6 +395,28 @@ export const digest_to_string = function(digest) {
     return encode(buffer.buffer);
 };
 
+export const discrete_update = async (update) => {
+    // if cur_tab.doc.live_edit => send directly to verifier (with live_discrete_update)
+    // else, save the update locally with the API. 
+    // and nav_bar.update((o) => { o.save = true; return o; });
+    // once save button is pressed, we call OnSave with all the updates that we retrieve from local storage (via API). and we set nav_bar.update((o) => { o.save = false; return o; });
+    // the editor then process those updates and calls live_discrete_update
+}
+
+export const live_discrete_update = async (update, crdt, heads) => {
+    // send directly to verifier with AppRequest Update
+    let session = get(active_session);
+    if (!session) {
+        persistent_error(get(cur_branch), {
+            title: get(format)("doc.errors.no_session"),
+            desc: get(format)("doc.errors_details.no_session")
+        });
+        throw new Error("no session");
+    }
+    let nuri = "did:ng:"+get(cur_tab).branch.nuri;
+    await ng.discrete_update(session.session_id, update, heads, crdt, nuri);
+}
+
 export const sparql_query = async function(sparql:string, union:boolean) {
     let session = get(active_session);
     if (!session) {
@@ -472,10 +494,12 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
             //console.log("sub");
             let already_subscribed = all_branches[nuri];
             if (!already_subscribed) {
-                const { subscribe, set, update } = writable({graph:[], discrete:[], files:[], history: {start:()=>{}, stop:()=>{}, commits:false}, heads: []}); // create the underlying writable store // take:()=>{},
+                let onUpdate = (update) => {};
+                const { subscribe, set, update } = writable({graph:[], discrete:{updates:[], deregisterOnUpdate:()=>{ onUpdate=()=>{};},registerOnUpdate:(f)=>{ }}, files:[], history: {start:()=>{}, stop:()=>{}, commits:false}, heads: []}); // create the underlying writable store // take:()=>{},
                 update((old)=> {
                     old.history.start = () => update((o) => {o.history.commits = true; return o;}) ;
                     old.history.stop = () => update((o) => {o.history.commits = false; return o;}) ;
+                    old.discrete.registerOnUpdate = (f) => { onUpdate = f; return get({subscribe}).discrete.updates; };
                     //old.history.take = () => { let res: boolean | Array<{}> = false; update((o) => {res = o.history.commits; o.history.commits = []; return o;});  return res;}
                     return old;});
                 let count = 0;
@@ -562,6 +586,10 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                                 }
                                                 old.graph.sort();
                                             }
+                                            if (response.V0.State.discrete) {
+                                                old.discrete.updates.push(response.V0.State.discrete);
+                                                onUpdate(response.V0.State.discrete);
+                                            }
                                             tab_update(nuri, ($cur_tab) => {
                                                 $cur_tab.branch.files = old.files.length;
                                                 return $cur_tab;
@@ -581,6 +609,10 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                                 } else {
                                                     old.history.commits.push(commit);
                                                 }
+                                            }
+                                            if (response.V0.Patch.discrete) {
+                                                old.discrete.updates.push(response.V0.Patch.discrete);
+                                                onUpdate(response.V0.Patch.discrete);
                                             }
                                             if (response.V0.Patch.graph) {
                                                 let duplicates = [];

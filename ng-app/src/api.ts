@@ -222,6 +222,13 @@ const handler = {
                         let removes_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.removes));
                         event.payload.V0.Patch.graph.removes = JSON.parse(removes_json_str);
                     }
+                    if (event.payload.V0.State?.discrete) {
+                        let crdt = Object.getOwnPropertyNames(event.payload.V0.State.discrete)[0];
+                        event.payload.V0.State.discrete[crdt] = Uint8Array.from(event.payload.V0.State.discrete[crdt]);
+                    } else if (event.payload.V0.Patch?.discrete) { 
+                        let crdt = Object.getOwnPropertyNames(event.payload.V0.Patch.discrete)[0];
+                        event.payload.V0.Patch.discrete[crdt] = Uint8Array.from(event.payload.V0.Patch.discrete[crdt]);
+                    }
                     let ret = callback(event.payload);
                     if (ret === true) {
                         await tauri.invoke("cancel_stream", {stream_id});

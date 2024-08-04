@@ -226,6 +226,7 @@ pub enum StorageError {
     NotEmpty,
     ServerAlreadyRunningInOtherProcess,
     NgError(String),
+    NoDiscreteState,
 }
 
 impl core::fmt::Display for StorageError {
@@ -367,6 +368,8 @@ pub enum VerifierError {
     OxigraphError(String),
     CannotRemoveTriplesWhenNewBranch,
     PermissionDenied,
+    YrsError(String),
+    InvalidNuri,
 }
 
 impl Error for VerifierError {}

@@ -260,6 +260,8 @@ export const all_tabs = writable({
             description: "",
     
             app: "", // current app being used
+            onSave: (updates) => {},
+            updates: [],
         },
         view_or_edit: true, // true=> view, false=> edit
         graph_viewer: "", // selected viewer
@@ -303,6 +305,13 @@ export const all_tabs = writable({
         header_in_view: true,
     }
 });
+
+export const cur_tab_register_on_save = (f:(updates) => {}) => {
+    cur_tab_update((old)=>{
+        old.branch.onSave = f;
+        return old;
+    });
+}
 
 export const set_header_in_view = function(val) {
     cur_tab_update((old) => { old.header_in_view = val; return old;});
@@ -427,13 +436,6 @@ export const cur_tab_update = function( fn ) {
 
 export const live_editing = writable(false);
 
-live_editing.subscribe((val) => {
-    cur_tab_update((old)=> {
-        old.doc.live_edit = val;
-        return old;
-    });
-});
-
 export const showMenu = () => {
     show_modal_menu.set(true);
     cur_tab_update(ct => {
@@ -458,11 +460,40 @@ export const nav_bar = writable({
     back: false,
     newest: 0,
     save: undefined,
-    toasts: [],
+});
+
+live_editing.subscribe((val) => {
+    cur_tab_update((old)=> {
+        old.doc.live_edit = val;
+        if (val) {
+            //TODO: send all the updates with live_discrete_update
+        }
+        nav_bar.update((o) => {
+            o.save = old.doc.live_edit ? undefined : ( old.branch.updates.length > 0 ? true : false )
+            return o;
+        });
+        return old;
+    });
 });
 
 export const nav_bar_newest = derived(nav_bar, ($nav_bar) => {
     return $nav_bar.newest;
+});
+
+export const nav_bar_save = derived(nav_bar, ($nav_bar) => {
+    return $nav_bar.save;
+});
+
+export const nav_bar_back = derived(nav_bar, ($nav_bar) => {
+    return $nav_bar.back;
+});
+
+export const nav_bar_title = derived(nav_bar, ($nav_bar) => {
+    return $nav_bar.title;
+});
+
+export const nav_bar_icon = derived(nav_bar, ($nav_bar) => {
+    return $nav_bar.icon;
 });
 
 export const nav_bar_reset_newest = () => {
@@ -496,6 +527,8 @@ export const persistent_error = (nuri, pe) => {
 
 export const save = async () => {
     // saving the doc
+    // fetch updates from local storage
+    get(cur_tab).branch.onSave([]);
 }
 
 export const all_files_count = derived(cur_tab, ($cur_tab) => {
@@ -515,6 +548,7 @@ export const has_editor_chat = derived(cur_tab, ($cur_tab) => {
 export const toggle_live_edit = () => {
     cur_tab_update(ct => {
         ct.doc.live_edit = !ct.doc.live_edit;
+        live_editing.set(ct.doc.live_edit);
         return ct;
     });
 }

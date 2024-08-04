@@ -315,6 +315,49 @@ pub async fn sparql_query(
 }
 
 #[wasm_bindgen]
+pub async fn discrete_update(
+    session_id: JsValue,
+    update: JsValue,
+    heads: Array,
+    crdt: String,
+    nuri: String,
+) -> Result<(), String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+    let mut head_strings = Vec::with_capacity(heads.length() as usize);
+    for head in heads.iter() {
+        if let Some(s) = head.as_string() {
+            head_strings.push(s)
+        } else {
+            return Err("Invalid HEADS".to_string());
+        }
+    }
+    let update: serde_bytes::ByteBuf =
+        serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(update)
+            .map_err(|_| "Deserialization error of update".to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_update(),
+        nuri,
+        payload: Some(
+            AppRequestPayload::new_discrete_update(head_strings, crdt, update.into_vec())
+                .map_err(|e| format!("Deserialization error of heads: {e}"))?,
+        ),
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    if let AppResponse::V0(AppResponseV0::Error(e)) = res {
+        Err(e)
+    } else {
+        Ok(())
+    }
+}
+
+#[wasm_bindgen]
 pub async fn sparql_update(
     session_id: JsValue,
     sparql: String,
