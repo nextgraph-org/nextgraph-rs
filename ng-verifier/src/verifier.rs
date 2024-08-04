@@ -227,7 +227,7 @@ impl Verifier {
         // );
         if let Some(sender) = self.branch_subscriptions.get_mut(branch) {
             if sender.is_closed() {
-                log_info!("closed so removed {}", branch);
+                log_debug!("closed so removed {}", branch);
                 self.branch_subscriptions.remove(branch);
             } else {
                 let _ = sender.send(response).await;
@@ -381,7 +381,7 @@ impl Verifier {
             .await;
 
         let fnonce = Box::new(move || {
-            log_info!("CLOSE_CHANNEL of subscription for branch {}", branch_id);
+            log_debug!("CLOSE_CHANNEL of subscription for branch {}", branch_id);
             if !tx.is_closed() {
                 tx.close_channel();
             }
@@ -439,7 +439,7 @@ impl Verifier {
             let stores = user_storage.get_all_store_and_repo_ids()?;
 
             for (store, repos) in stores.iter() {
-                log_info!("LOADING STORE: {}", store);
+                log_debug!("LOADING STORE: {}", store);
                 let repo = user_storage
                     .load_store(store, Arc::clone(self.block_storage.as_ref().unwrap()))?;
                 self.stores.insert(
@@ -1073,9 +1073,9 @@ impl Verifier {
 
         let user = self.user_id().clone();
         let broker = BROKER.read().await;
-        log_info!("looping on branches {:?}", branches);
+        log_debug!("looping on branches {:?}", branches);
         for (repo, branch, publisher) in branches {
-            log_info!("open_branch_ repo {} branch {}", repo, branch);
+            log_debug!("open_branch_ repo {} branch {}", repo, branch);
             let _e = self
                 .open_branch_(
                     &repo,
@@ -1087,7 +1087,7 @@ impl Verifier {
                     false,
                 )
                 .await;
-            log_info!(
+            log_debug!(
                 "END OF open_branch_ repo {} branch {} with {:?}",
                 repo,
                 branch,
@@ -1585,7 +1585,7 @@ impl Verifier {
         let (store, msg, branch_secret) = {
             //log_info!("do_sync_req_if_needed for branch {}", branch_id);
             if remote_commits_nbr == 0 || remote_heads.is_empty() {
-                log_info!("branch is new on the broker. doing nothing");
+                log_debug!("branch is new on the broker. doing nothing");
                 return Ok(());
             }
 
@@ -1860,7 +1860,7 @@ impl Verifier {
                         }
                     }
 
-                    log_info!("loaded from read_cap {}", repo_id);
+                    log_debug!("loaded from read_cap {}", repo_id);
                     // TODO: deal with AddSignerCap that are saved on rocksdb for now, but do not make it to the Verifier.repos
 
                     return Ok((repo_id.clone(), store_branch));
@@ -2128,7 +2128,7 @@ impl Verifier {
     pub async fn send_outbox(&mut self) -> Result<(), NgError> {
         let ret = self.take_events_from_outbox();
         if ret.is_err() {
-            log_info!(
+            log_debug!(
                 "take_events_from_outbox returned {:}",
                 ret.as_ref().unwrap_err()
             );
@@ -2231,7 +2231,7 @@ impl Verifier {
                     .await?;
 
                 for file in commit.files() {
-                    log_info!("PUT FILE {:?}", file.id);
+                    log_debug!("PUT FILE {:?}", file.id);
                     self.put_all_blocks_of_file(&file, &repo_id, &store_repo)
                         .await?;
                 }

@@ -37,7 +37,7 @@
   import { onMount, onDestroy, tick } from "svelte";
   import { cur_tab, cur_viewer, cur_editor, toggle_graph_discrete, cur_tab_update, get_class, get_app, all_tabs, live_editing,
           available_editors, available_viewers, set_editor, set_viewer, set_view_or_edit, toggle_live_edit,
-          has_editor_chat, all_files_count, all_comments_count, nav_bar, save, hideMenu, show_modal_menu, show_modal_create,
+          has_editor_chat, all_files_count, all_comments_count,  hideMenu, show_modal_menu, show_modal_create,
           cur_tab_branch_nuri, cur_tab_doc_can_edit, cur_tab_doc_is_member, cur_tab_right_pane, cur_tab_folders_pane,
           cur_tab_toc_pane, cur_tab_show_menu, cur_tab_branch_has_discrete, cur_tab_graph_or_discrete, cur_tab_view_or_edit } from "../tab";
   import {

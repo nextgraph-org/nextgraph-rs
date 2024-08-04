@@ -17,7 +17,7 @@ import {
 } from "svelte/store";
 import { register, init, locale, format } from "svelte-i18n";
 import ng from "./api";
-import { persistent_error, update_class, update_branch_display, open_branch, tab_update, change_nav_bar, cur_branch, cur_tab, show_modal_create } from "./tab";
+import { persistent_error, update_class, update_branch_display, open_branch, tab_update, change_nav_bar, cur_branch, cur_tab, show_modal_create, cur_tab_update, nav_bar,in_memory_save } from "./tab";
 import { encode } from "./base64url";
 
 let all_branches = {};
@@ -395,7 +395,13 @@ export const digest_to_string = function(digest) {
     return encode(buffer.buffer);
 };
 
-export const discrete_update = async (update) => {
+export const discrete_update = async (update, crdt, heads) => {
+    if (get(cur_tab).doc.live_edit) {
+        await live_discrete_update(update, crdt, heads);
+    } else {
+        in_memory_save.push(update);
+        nav_bar.update((o) => { o.save = true; return o; });
+    }
     // if cur_tab.doc.live_edit => send directly to verifier (with live_discrete_update)
     // else, save the update locally with the API. 
     // and nav_bar.update((o) => { o.save = true; return o; });

@@ -260,8 +260,6 @@ export const all_tabs = writable({
             description: "",
     
             app: "", // current app being used
-            onSave: (updates) => {},
-            updates: [],
         },
         view_or_edit: true, // true=> view, false=> edit
         graph_viewer: "", // selected viewer
@@ -306,11 +304,29 @@ export const all_tabs = writable({
     }
 });
 
-export const cur_tab_register_on_save = (f:(updates) => {}) => {
-    cur_tab_update((old)=>{
-        old.branch.onSave = f;
-        return old;
-    });
+export let in_memory_save = [];
+let in_memory_save_callback = async (updates) => {};
+
+export const cur_tab_register_on_save = (f:(updates) => Promise<void>) => {
+    console.log("cur_tab_register_on_save")
+    in_memory_save_callback = f;
+    in_memory_save = [];
+}
+
+export const cur_tab_deregister_on_save = async () => {
+    await save();
+    in_memory_save_callback = async (updates) => {};
+}
+
+export const save = async () => {
+    // saving the doc
+    // TODO fetch updates from local storage
+    
+    nav_bar.update((o) => { if (o.save === true) o.save = false; return o; });
+    if (in_memory_save.length > 0) {
+        await in_memory_save_callback(in_memory_save);
+    }
+    in_memory_save = [];
 }
 
 export const set_header_in_view = function(val) {
@@ -465,11 +481,8 @@ export const nav_bar = writable({
 live_editing.subscribe((val) => {
     cur_tab_update((old)=> {
         old.doc.live_edit = val;
-        if (val) {
-            //TODO: send all the updates with live_discrete_update
-        }
         nav_bar.update((o) => {
-            o.save = old.doc.live_edit ? undefined : ( old.branch.updates.length > 0 ? true : false )
+            o.save = old.doc.live_edit ? undefined : ( in_memory_save.length > 0 ? true : false )
             return o;
         });
         return old;
@@ -525,12 +538,6 @@ export const persistent_error = (nuri, pe) => {
     });
 }
 
-export const save = async () => {
-    // saving the doc
-    // fetch updates from local storage
-    get(cur_tab).branch.onSave([]);
-}
-
 export const all_files_count = derived(cur_tab, ($cur_tab) => {
     let total = $cur_tab.branch.files;
     return total ? `(${total})` : "";
@@ -545,12 +552,18 @@ export const has_editor_chat = derived(cur_tab, ($cur_tab) => {
     return $cur_tab.doc.can_edit && $cur_tab.store.store_type !== "private" && $cur_tab.store.store_type !== "dialog";
 });
 
-export const toggle_live_edit = () => {
+export const toggle_live_edit = async () => {
+    let is_live;
     cur_tab_update(ct => {
         ct.doc.live_edit = !ct.doc.live_edit;
+        is_live = ct.doc.live_edit;
         live_editing.set(ct.doc.live_edit);
         return ct;
     });
+    if (is_live) {
+        //send all the updates with live_discrete_update
+        await save();
+    }
 }
 
 export const set_viewer = (app_name: string) => {
