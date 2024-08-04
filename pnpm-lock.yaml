@@ -33,6 +33,7 @@ importers:
     specifiers:
       '@codemirror/autocomplete': ^6.17.0
       '@codemirror/commands': ^6.6.0
+      '@codemirror/lang-javascript': ^6.2.2
       '@codemirror/language': ^6.10.2
       '@codemirror/legacy-modes': ^6.4.0
       '@codemirror/lint': ^6.8.1
@@ -81,9 +82,12 @@ importers:
       vite-plugin-svelte-svg: ^2.2.1
       vite-plugin-top-level-await: ^1.3.1
       vite-plugin-wasm: ^3.2.2
+      y-codemirror.next: ^0.3.5
+      yjs: ^13.6.18
     dependencies:
       '@codemirror/autocomplete': 6.17.0_77urojsfbrmvdrcps23icldzhi
       '@codemirror/commands': 6.6.0
+      '@codemirror/lang-javascript': 6.2.2
       '@codemirror/language': 6.10.2
       '@codemirror/legacy-modes': 6.4.0
       '@codemirror/lint': 6.8.1
@@ -106,6 +110,8 @@ importers:
       svelte-inview: 4.0.2_svelte@3.59.1
       svelte-spa-router: 3.3.0
       vite-plugin-top-level-await: 1.3.1_vite@4.3.9
+      y-codemirror.next: 0.3.5_2derscuhaavtzv2sogf3enfvaa
+      yjs: 13.6.18
     devDependencies:
       '@sveltejs/vite-plugin-svelte': 2.4.1_svelte@3.59.1+vite@4.3.9
       '@tauri-apps/cli': 2.0.0-alpha.14
@@ -193,6 +199,18 @@ packages:
       '@codemirror/state': 6.4.1
       '@codemirror/view': 6.29.1
       '@lezer/common': 1.2.1
+    dev: false
+
+  /@codemirror/lang-javascript/6.2.2:
+    resolution: {integrity: sha512-VGQfY+FCc285AhWuwjYxQyUQcYurWlxdKYT4bqwr3Twnd5wP5WSeu52t4tvvuWmljT4EmgEgZCqSieokhtY8hg==}
+    dependencies:
+      '@codemirror/autocomplete': 6.17.0_77urojsfbrmvdrcps23icldzhi
+      '@codemirror/language': 6.10.2
+      '@codemirror/lint': 6.8.1
+      '@codemirror/state': 6.4.1
+      '@codemirror/view': 6.29.1
+      '@lezer/common': 1.2.1
+      '@lezer/javascript': 1.4.17
     dev: false
 
   /@codemirror/language/6.10.2:
@@ -716,6 +734,14 @@ packages:
     resolution: {integrity: sha512-WrS5Mw51sGrpqjlh3d4/fOwpEV2Hd3YOkp9DBt4k8XZQcoTHZFB7sx030A6OcahF4J1nDQAa3jXlTVVYH50IFA==}
     dependencies:
       '@lezer/common': 1.2.1
+    dev: false
+
+  /@lezer/javascript/1.4.17:
+    resolution: {integrity: sha512-bYW4ctpyGK+JMumDApeUzuIezX01H76R1foD6LcRX224FWfyYit/HYxiPGDjXXe/wQWASjCvVGoukTH68+0HIA==}
+    dependencies:
+      '@lezer/common': 1.2.1
+      '@lezer/highlight': 1.2.0
+      '@lezer/lr': 1.4.1
     dev: false
 
   /@lezer/lr/1.4.1:
@@ -1756,6 +1782,10 @@ packages:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
     dev: true
 
+  /isomorphic.js/0.2.5:
+    resolution: {integrity: sha512-PIeMbHqMt4DnUP3MA/Flc0HElYjMXArsw1qwJZcm9sqR8mq3l8NYizFMty0pWwE/tzIGH3EKK5+jes5mAr85yw==}
+    dev: false
+
   /jiti/1.18.2:
     resolution: {integrity: sha512-QAdOptna2NYiSSpv0O/BwoHBSmz4YhpzJHyi+fnMRTXFjp7B8i/YG5Z8IfusxB1ufjcD2Sre1F3R+nX3fvy7gg==}
     hasBin: true
@@ -1765,6 +1795,14 @@ packages:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==}
     engines: {node: '>=6'}
     dev: true
+
+  /lib0/0.2.95:
+    resolution: {integrity: sha512-St5XGDh5omvNawGkAOa7CFRjxl4xEKLj9DxgT8Nl7rmrD6l2WRTngvmZGhJKRaniROterT0RDVdnwLlU9PiEOg==}
+    engines: {node: '>=16'}
+    hasBin: true
+    dependencies:
+      isomorphic.js: 0.2.5
+    dev: false
 
   /lilconfig/2.1.0:
     resolution: {integrity: sha512-utWOt/GHzuUxnLKxB6dk81RoOeoNeHgbrXiuGk4yyF5qlRz+iIVWu56E2fqGHFrXz0QNUhLB/8nKqvRH66JKGQ==}
@@ -2770,7 +2808,27 @@ packages:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
     dev: true
 
+  /y-codemirror.next/0.3.5_2derscuhaavtzv2sogf3enfvaa:
+    resolution: {integrity: sha512-VluNu3e5HfEXybnypnsGwKAj+fKLd4iAnR7JuX1Sfyydmn1jCBS5wwEL/uS04Ch2ib0DnMAOF6ZRR/8kK3wyGw==}
+    peerDependencies:
+      '@codemirror/state': ^6.0.0
+      '@codemirror/view': ^6.0.0
+      yjs: ^13.5.6
+    dependencies:
+      '@codemirror/state': 6.4.1
+      '@codemirror/view': 6.29.1
+      lib0: 0.2.95
+      yjs: 13.6.18
+    dev: false
+
   /yaml/2.3.1:
     resolution: {integrity: sha512-2eHWfjaoXgTBC2jNM1LRef62VQa0umtvRiDSk6HSzW7RvS5YtkabJrwYLLEKWBc8a5U2PTSCs+dJjUTJdlHsWQ==}
     engines: {node: '>= 14'}
     dev: true
+
+  /yjs/13.6.18:
+    resolution: {integrity: sha512-GBTjO4QCmv2HFKFkYIJl7U77hIB1o22vSCSQD1Ge8ZxWbIbn8AltI4gyXbtL+g5/GJep67HCMq3Y5AmNwDSyEg==}
+    engines: {node: '>=16.0.0', npm: '>=8.0.0'}
+    dependencies:
+      lib0: 0.2.95
+    dev: false

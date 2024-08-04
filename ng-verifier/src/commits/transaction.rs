@@ -14,7 +14,10 @@ use std::sync::Arc;
 
 use ng_oxigraph::oxigraph::storage_ng::numeric_encoder::{EncodedQuad, EncodedTerm};
 use ng_oxigraph::oxigraph::storage_ng::*;
+use ng_repo::repo::Repo;
 use serde::{Deserialize, Serialize};
+use yrs::updates::decoder::Decode;
+use yrs::{ReadTxn, StateVector, Transact, Update};
 
 use ng_net::app_protocol::*;
 use ng_oxigraph::oxrdf::{GraphName, GraphNameRef, NamedNode, Quad, Triple, TripleRef};
@@ -23,52 +26,8 @@ use ng_repo::log::*;
 use ng_repo::store::Store;
 use ng_repo::types::*;
 
+use crate::types::*;
 use crate::verifier::Verifier;
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct GraphTransaction {
-    pub inserts: Vec<Triple>,
-    pub removes: Vec<Triple>,
-}
-
-impl GraphTransaction {
-    fn as_patch(&self) -> GraphPatch {
-        GraphPatch {
-            inserts: serde_bare::to_vec(&self.inserts).unwrap(),
-            removes: serde_bare::to_vec(&self.removes).unwrap(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DiscreteTransaction {
-    /// A yrs::Update
-    #[serde(with = "serde_bytes")]
-    YMap(Vec<u8>),
-    #[serde(with = "serde_bytes")]
-    YArray(Vec<u8>),
-    #[serde(with = "serde_bytes")]
-    YXml(Vec<u8>),
-    #[serde(with = "serde_bytes")]
-    YText(Vec<u8>),
-    /// An automerge::Patch
-    #[serde(with = "serde_bytes")]
-    Automerge(Vec<u8>),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum TransactionBodyType {
-    Graph,
-    Discrete,
-    Both,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TransactionBody {
-    body_type: TransactionBodyType,
-    graph: Option<GraphTransaction>,
-    discrete: Option<DiscreteTransaction>,
-}
 
 struct BranchUpdateInfo {
     branch_id: BranchId,
@@ -208,6 +167,77 @@ impl Verifier {
             .map_err(|e| VerifierError::OxigraphError(e.to_string()))
     }
 
+    pub(crate) async fn update_discrete(
+        &mut self,
+        patch: DiscreteTransaction,
+        crdt: &BranchCrdt,
+        branch_id: &BranchId,
+        commit_id: ObjectId,
+        commit_info: CommitInfoJs,
+    ) -> Result<(), VerifierError> {
+        let new_state = if let Ok(state) = self
+            .user_storage
+            .as_ref()
+            .unwrap()
+            .branch_get_discrete_state(branch_id)
+        {
+            match crdt {
+                BranchCrdt::Automerge(_) => {
+                    unimplemented!();
+                }
+                BranchCrdt::YArray(_)
+                | BranchCrdt::YMap(_)
+                | BranchCrdt::YText(_)
+                | BranchCrdt::YXml(_) => {
+                    let doc = yrs::Doc::new();
+                    {
+                        let mut txn = doc.transact_mut();
+                        let update = yrs::Update::decode_v1(&state)
+                            .map_err(|e| VerifierError::YrsError(e.to_string()))?;
+                        txn.apply_update(update);
+                        let update = yrs::Update::decode_v1(&patch.to_vec())
+                            .map_err(|e| VerifierError::YrsError(e.to_string()))?;
+                        txn.apply_update(update);
+                        txn.commit();
+                    }
+                    let empty_state_vector = yrs::StateVector::default();
+                    let transac = doc.transact();
+                    transac.encode_state_as_update_v1(&empty_state_vector)
+                }
+                _ => return Err(VerifierError::InvalidBranch),
+            }
+        } else {
+            patch.to_vec()
+        };
+        self.user_storage
+            .as_ref()
+            .unwrap()
+            .branch_set_discrete_state(*branch_id, new_state)?;
+
+        let patch = match (crdt, patch) {
+            (BranchCrdt::Automerge(_), DiscreteTransaction::Automerge(v)) => {
+                DiscretePatch::Automerge(v)
+            }
+            (BranchCrdt::YArray(_), DiscreteTransaction::YArray(v)) => DiscretePatch::YArray(v),
+            (BranchCrdt::YMap(_), DiscreteTransaction::YMap(v)) => DiscretePatch::YMap(v),
+            (BranchCrdt::YText(_), DiscreteTransaction::YText(v)) => DiscretePatch::YText(v),
+            (BranchCrdt::YXml(_), DiscreteTransaction::YXml(v)) => DiscretePatch::YXml(v),
+            _ => return Err(VerifierError::InvalidCommit),
+        };
+        self.push_app_response(
+            branch_id,
+            AppResponse::V0(AppResponseV0::Patch(AppPatch {
+                commit_id: commit_id.to_string(),
+                commit_info: commit_info,
+                graph: None,
+                discrete: Some(patch),
+                other: None,
+            })),
+        )
+        .await;
+        Ok(())
+    }
+
     pub(crate) async fn verify_async_transaction(
         &mut self,
         transaction: &Transaction,
@@ -239,11 +269,53 @@ impl Verifier {
                 commit_info,
             };
             self.update_graph(vec![info]).await?;
+        } else
+        //TODO: change the logic here. transaction commits can have both a discrete and graph update. Only one AppResponse should be sent in this case, containing both updates.
+        if body.discrete.is_some() {
+            let patch = body.discrete.unwrap();
+            let crdt = &repo.branch(branch_id)?.crdt.clone();
+            self.update_discrete(patch, &crdt, branch_id, commit_id, commit_info)
+                .await?;
         }
-        //TODO: discrete update
 
         Ok(())
     }
+
+    // pub(crate) fn find_branch_and_repo_for_nuri(
+    //     &self,
+    //     nuri: &NuriV0,
+    // ) -> Result<(RepoId, BranchId, StoreRepo), VerifierError> {
+    //     if !nuri.is_branch_identifier() {
+    //         return Err(VerifierError::InvalidNuri);
+    //     }
+    //     let store = self.get_store_by_overlay_id(&OverlayId::Outer(
+    //         nuri.overlay.as_ref().unwrap().outer().to_slice(),
+    //     ))?;
+    //     let repo = self.get_repo(nuri.target.repo_id(), store.get_store_repo())?;
+    //     Ok((
+    //         match nuri.branch {
+    //             None => {
+    //                 let b = repo.main_branch().ok_or(VerifierError::BranchNotFound)?;
+    //                 if b.topic_priv_key.is_none() {
+    //                     return Err(VerifierError::PermissionDenied);
+    //                 }
+    //                 b.id
+    //             }
+    //             Some(TargetBranchV0::BranchId(id)) => {
+    //                 let b = repo.branch(&id)?;
+    //                 //TODO: deal with named branch that is also the main branch
+    //                 if b.topic_priv_key.is_none() {
+    //                     return Err(VerifierError::PermissionDenied);
+    //                 }
+    //                 id
+    //             }
+    //             // TODO: implement TargetBranchV0::Named
+    //             _ => unimplemented!(),
+    //         },
+    //         repo.id,
+    //         store.get_store_repo().clone(),
+    //     ))
+    // }
 
     fn find_branch_and_repo_for_quad(
         &self,

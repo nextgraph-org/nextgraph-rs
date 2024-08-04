@@ -36,7 +36,10 @@
                 else if (params[1].startsWith("o:"+$active_session.protected_store_id)) push("#/shared"); 
                 else if (params[1].startsWith("o:"+$active_session.public_store_id)) push("#/site"); else nuri = params[1]; } 
   onMount(() => {
-    change_nav_bar("nav:unknown_doc",$t("doc.doc"), true);
+    if ($cur_tab.store.store_type) 
+      change_nav_bar(`nav:${$cur_tab.store.store_type}`,$t(`doc.${$cur_tab.store.store_type}_store`), true); 
+    else 
+      change_nav_bar("nav:unknown_doc",$t("doc.doc"), true);
     reset_in_memory();
   });
 </script>

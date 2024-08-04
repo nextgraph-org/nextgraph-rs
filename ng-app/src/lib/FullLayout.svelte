@@ -689,7 +689,7 @@
                     </MenuItem>
                   {/each}
                 {/if}
-                {#if open_edit_with}
+                {#if open_edit_with || $available_editors.length === 1}
                   <MenuItem title={get_app("n:g:z:upload_file")["ng:a"]} extraClass="submenu" clickable={ () => {openPane("files")} }>
                     <ZeraIcon
                       zera={get_app("n:g:z:upload_file")["ng:u"]}
@@ -701,7 +701,7 @@
                     <span class="ml-3">{get_app("n:g:z:upload_file")["ng:n"]}</span>  
                   </MenuItem>
                 {/if}
-                {#if !$cur_tab_view_or_edit || open_edit_with }
+                {#if (!$cur_tab_view_or_edit || open_edit_with) && !$cur_tab_graph_or_discrete }
                   <li title={$t("doc.menu.live_editing_description")} style="margin: 7px 0; padding-left: 32px;" class="toggle">
                     <Toggle
                       on:change={ toggle_live_edit }

@@ -226,7 +226,7 @@ export const official_apps = {
         "ng:w": ["post:md"],
     },
     "n:g:z:code_editor": {
-        "ng:n": "Code and Text Editor",
+        "ng:n": "Text Editor",
         "ng:a": "Edit the code/text with CodeMirror",
         "ng:c": "app", 
         "ng:u": "edit",//favicon. can be a did:ng:j 

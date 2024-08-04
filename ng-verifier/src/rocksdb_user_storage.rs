@@ -95,6 +95,22 @@ impl UserStorage for RocksDbUserStorage {
         }
     }
 
+    fn branch_set_discrete_state(
+        &self,
+        branch: BranchId,
+        state: Vec<u8>,
+    ) -> Result<(), StorageError> {
+        let branch = BranchStorage::open(&branch, &self.user_storage)?;
+        branch.set_discrete_state(state)
+    }
+
+    fn branch_get_discrete_state(&self, branch: &BranchId) -> Result<Vec<u8>, StorageError> {
+        let branch = BranchStorage::new(&branch, &self.user_storage)?;
+        branch
+            .get_discrete_state()
+            .map_err(|_| StorageError::NoDiscreteState)
+    }
+
     fn branch_add_file(
         &self,
         commit_id: ObjectId,

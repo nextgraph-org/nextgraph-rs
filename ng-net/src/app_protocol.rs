@@ -43,12 +43,12 @@ lazy_static! {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppFetchContentV0 {
-    Get,       // does not subscribe. more to be detailed
-    Subscribe, // more to be detailed
+    Get, // does not subscribe.
+    Subscribe,
     Update,
     //Invoke,
-    ReadQuery,  // more to be detailed
-    WriteQuery, // more to be detailed
+    ReadQuery,
+    WriteQuery,
     RdfDump,
     History,
 }
@@ -92,6 +92,13 @@ impl TargetBranchV0 {
             _ => true,
         }
     }
+    pub fn is_valid_for_discrete_update(&self) -> bool {
+        match self {
+            Self::BranchId(_) => true,
+            //TODO: add Named(s) is s is a branch => true
+            _ => false,
+        }
+    }
     pub fn branch_id(&self) -> &BranchId {
         match self {
             Self::BranchId(id) => id,
@@ -121,6 +128,12 @@ impl NuriTargetV0 {
     pub fn is_valid_for_sparql_update(&self) -> bool {
         match self {
             Self::UserSite | Self::AllDialogs | Self::AllGroups => false,
+            _ => true,
+        }
+    }
+    pub fn is_valid_for_discrete_update(&self) -> bool {
+        match self {
+            Self::UserSite | Self::AllDialogs | Self::AllGroups | Self::None => false,
             _ => true,
         }
     }
@@ -275,6 +288,15 @@ impl NuriV0 {
                 .branch
                 .as_ref()
                 .map_or(true, |b| b.is_valid_for_sparql_update())
+    }
+    pub fn is_valid_for_discrete_update(&self) -> bool {
+        self.object.is_none()
+            && self.entire_store == false
+            && self.target.is_valid_for_discrete_update()
+            && self
+                .branch
+                .as_ref()
+                .map_or(true, |b| b.is_valid_for_discrete_update())
     }
     pub fn new_repo_target_from_string(repo_id_string: String) -> Result<Self, NgError> {
         let repo_id: RepoId = repo_id_string.as_str().try_into()?;
@@ -460,6 +482,9 @@ impl AppRequestCommandV0 {
     pub fn new_write_query() -> Self {
         AppRequestCommandV0::Fetch(AppFetchContentV0::WriteQuery)
     }
+    pub fn new_update() -> Self {
+        AppRequestCommandV0::Fetch(AppFetchContentV0::Update)
+    }
     pub fn new_rdf_dump() -> Self {
         AppRequestCommandV0::Fetch(AppFetchContentV0::RdfDump)
     }
@@ -616,11 +641,24 @@ pub enum DiscreteUpdate {
     Automerge(Vec<u8>),
 }
 
+impl DiscreteUpdate {
+    pub fn from(crdt: String, update: Vec<u8>) -> Self {
+        match crdt.as_str() {
+            "YMap" => Self::YMap(update),
+            "YArray" => Self::YArray(update),
+            "YXml" => Self::YXml(update),
+            "YText" => Self::YText(update),
+            "Automerge" => Self::Automerge(update),
+            _ => panic!("wrong crdt type"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DocUpdate {
-    heads: Vec<ObjectId>,
-    graph: Option<GraphUpdate>,
-    discrete: Option<DiscreteUpdate>,
+    pub heads: Vec<ObjectId>,
+    pub graph: Option<GraphUpdate>,
+    pub discrete: Option<DiscreteUpdate>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -683,6 +721,24 @@ impl AppRequestPayload {
     pub fn new_sparql_query(query: String) -> Self {
         AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0(query)))
     }
+    pub fn new_discrete_update(
+        head_strings: Vec<String>,
+        crdt: String,
+        update: Vec<u8>,
+    ) -> Result<Self, NgError> {
+        let mut heads = Vec::with_capacity(head_strings.len());
+        for head in head_strings {
+            heads.push(decode_digest(&head)?);
+        }
+        let discrete = Some(DiscreteUpdate::from(crdt, update));
+        Ok(AppRequestPayload::V0(AppRequestPayloadV0::Update(
+            DocUpdate {
+                heads,
+                graph: None,
+                discrete,
+            },
+        )))
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -713,7 +769,7 @@ pub struct GraphPatch {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DiscreteState {
-    /// A yrs::StateVector
+    /// A yrs::Update
     #[serde(with = "serde_bytes")]
     YMap(Vec<u8>),
     #[serde(with = "serde_bytes")]

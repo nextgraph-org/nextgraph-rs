@@ -1366,6 +1366,12 @@ pub enum BranchCrdt {
 }
 
 impl BranchCrdt {
+    pub fn is_graph(&self) -> bool {
+        match self {
+            BranchCrdt::Graph(_) => true,
+            _ => false,
+        }
+    }
     pub fn name(&self) -> String {
         match self {
             BranchCrdt::Graph(_) => "Graph",
