@@ -24,6 +24,7 @@
         cur_tab_deregister_on_save,
         cur_tab_branch_class
     } from "../tab";
+    import { t } from "svelte-i18n";
     
     import * as Y from 'yjs'
     // @ts-ignore
@@ -37,6 +38,8 @@
 
     const ydoc = new Y.Doc()
     const yxml = ydoc.getXmlFragment('ng')
+
+    let view;
 
     ydoc.on('update', async (update, origin) => {
         console.log(update,origin);
@@ -82,6 +85,8 @@
         for (const h of history) {
             Y.applyUpdate(ydoc, h.YXml, {local:true})
         }
+        view.focus()
+
     });
 
     onDestroy(()=>{
@@ -94,6 +99,8 @@
         className="prosemirror-editor"
         {editorState} 
         debounceChangeEventsInterval=2000
+        placeholder={$t("doc.type_your_text_here")}
+        bind:view={view}
     />
     
   </div>
