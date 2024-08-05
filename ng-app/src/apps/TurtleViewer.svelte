@@ -52,14 +52,16 @@
   
   </script>
   <div class="flex-col">
-    
+    {#if !source}
+    <p class="p-3">{$t("doc.no_triples")}</p>
+    {/if}
     <button
       on:click={openQuery}
       on:keypress={openQuery}
       class="select-none ml-2 mt-2 mb-2 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
     >
       <RocketLaunch tabindex="-1" class="mr-2 focus:outline-none" />
-      SPARQL Query
+      {$t("doc.sparql_query")}
     </button>
     {#if $cur_tab_doc_can_edit}
       <button
@@ -68,7 +70,7 @@
         class="select-none ml-2 mt-2  text-gray-600  focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
       >
         <PencilSquare class="mr-2 focus:outline-none" tabindex="-1" />
-        SPARQL Update
+        {$t("doc.sparql_update")}
       </button>
     {/if}
 

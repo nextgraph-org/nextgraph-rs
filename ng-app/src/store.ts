@@ -46,6 +46,7 @@ init({
 
 export const display_error = (error: string) => {
     if (error.message) return error.message;
+    if (error.includes(" ")) return error;
     //console.log(error);
     // TODO: Check, if error tranlsation does not exist
     const parts = error.split(":");

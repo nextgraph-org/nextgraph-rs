@@ -275,8 +275,8 @@ export const official_classes = {
         "ng:crdt": "Graph", // https://github.com/highlightjs/highlightjs-turtle/tree/master
         "ng:n": "Graph", 
         "ng:a": "Define the Graph of your data with Semantic Web / Linked Data",
-        "ng:o": "n:g:z:json_ld_viewer", // default viewer
-        "ng:w": "n:g:z:json_ld_editor", // default editor
+        //"ng:o": "n:g:z:json_ld_viewer", // default viewer
+        //"ng:w": "n:g:z:json_ld_editor", // default editor
         "ng:x": {
             "rdf":true,
             "xsd":true,

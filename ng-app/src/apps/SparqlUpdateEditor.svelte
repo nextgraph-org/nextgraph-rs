@@ -63,7 +63,7 @@
       class="select-none ml-2 mt-2 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
     >
       <RocketLaunch tabindex="-1" class="mr-2 focus:outline-none" />
-      Run Update
+      {$t("doc.run_update")}
     </button>
     <button
       on:click={openViewer}
@@ -71,7 +71,7 @@
       class="select-none ml-2 mt-2 mb-10 text-gray-600  focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
     >
       <Sun class="mr-2 focus:outline-none" tabindex="-1" />
-      View Graph
+      {$t("doc.view_graph")}
     </button>
     
       

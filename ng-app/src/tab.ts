@@ -99,7 +99,7 @@ const find_editors_for_class = (class_name: string) => {
     return found;
 }
 
-const find_source_viewer_for_class = (class_def) => {
+const find_source_viewer_for_class = (class_def, class_name) => {
     switch (class_def["ng:crdt"]) {
         case 'Graph':
             return "n:g:z:crdt_source_viewer:rdf";
@@ -111,6 +111,7 @@ const find_source_viewer_for_class = (class_def) => {
         case 'YXml':
             return "n:g:z:crdt_source_viewer:xml";
         case 'YText':
+            if (class_name === "post:text" || class_name.startsWith("code")) return false;
             return "n:g:z:crdt_source_viewer:text";
     }
 }
@@ -148,7 +149,8 @@ const class_to_viewers_editors = (class_name: string) => {
         for (const e of find_editors_for_class(class_name)) {
             if (e!==discrete_editor) discrete_editors.push(e);
         }
-        discrete_viewers.push(find_source_viewer_for_class(class_def));
+        let source_viewer = find_source_viewer_for_class(class_def, class_name);
+        if (source_viewer) discrete_viewers.push(source_viewer);
         if (!discrete_viewer) discrete_viewer = discrete_viewers[0];
     }
     return {
@@ -308,7 +310,6 @@ export let in_memory_save = [];
 let in_memory_save_callback = async (updates) => {};
 
 export const cur_tab_register_on_save = (f:(updates) => Promise<void>) => {
-    console.log("cur_tab_register_on_save")
     in_memory_save_callback = f;
     in_memory_save = [];
 }
@@ -373,6 +374,9 @@ export const cur_tab_toc_pane = derived(cur_tab, ($cur_tab) => {
 export const cur_tab_show_menu = derived(cur_tab, ($cur_tab) => {
     return $cur_tab.show_menu;
 });
+export const cur_tab_branch_class = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.branch.class;
+});
 export const cur_tab_branch_has_discrete = derived(cur_tab, ($cur_tab) => {
     return $cur_tab.branch.has_discrete;
 });
@@ -414,8 +418,8 @@ export const header_icon = derived(cur_tab, ($cur_tab) => {
     } else {
         let icon = $cur_tab.branch.icon || $cur_tab.doc.icon;
         if (icon) return icon;// TODO: fetch image and return blob:
-        let app = get_app($cur_tab.branch.class);
-        if (app) return "class:" + app["ng:n"];
+        let class_type = get_class($cur_tab.branch.class);
+        if (class_type) return "class:" + $cur_tab.branch.class;
     }
     return false;
 });

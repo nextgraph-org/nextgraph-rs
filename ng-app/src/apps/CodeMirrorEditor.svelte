@@ -21,7 +21,8 @@
     } from "../store";
     import { 
         cur_tab_register_on_save,
-        cur_tab_deregister_on_save
+        cur_tab_deregister_on_save,
+        cur_tab_branch_class
     } from "../tab";
     
     import * as Y from 'yjs'
@@ -30,9 +31,22 @@
 
     import CodeMirror from "svelte-codemirror-editor";
     import { javascript } from '@codemirror/lang-javascript'
+    import { rust } from '@codemirror/lang-rust'
+    import { svelte } from "@replit/codemirror-lang-svelte";
     import {basicSetup} from "codemirror"
 
     export let commits = {};
+
+    const class_to_lang = {
+        "code:js" : javascript(),
+        "code:ts" : javascript({"typescript":true}),
+        "code:rust" : rust(),
+        "code:svelte" : svelte(),
+        "code:react" : javascript({"jsx":true, "typescript":true}),
+    }
+
+    let lang;
+    $: lang = $cur_tab_branch_class && class_to_lang[$cur_tab_branch_class]
 
     const ydoc = new Y.Doc()
     const ytext = ydoc.getText('ng')
@@ -51,6 +65,8 @@
         commits.discrete?.deregisterOnUpdate();
         await cur_tab_deregister_on_save();
     })
+
+    let view;
 
     onMount(()=>{
 
@@ -76,7 +92,7 @@
   </script>
   <div class="flex-col">
     
-    <CodeMirror lang={javascript()} lineWrapping useTab={false} extensions={[basicSetup, yCollab(ytext, false, { undoManager: false })]} styles={{
+    <CodeMirror {lang} on:ready={(e) => { view = e.detail; view.focus(); }} lineWrapping extensions={[basicSetup, yCollab(ytext, false, { undoManager: false })]} styles={{
       "&": {
           maxWidth: "100%",
       },

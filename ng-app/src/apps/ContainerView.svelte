@@ -15,7 +15,14 @@
     } from "../store";
     import { link } from "svelte-spa-router";
     import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
-    
+    import{ PencilSquare } from "svelte-heros-v2";
+    import { t } from "svelte-i18n";
+    import { 
+      in_memory_discrete, open_viewer, set_viewer, set_editor, set_view_or_edit, cur_tab_branch_class, cur_tab_doc_can_edit
+    } from "../tab";
+    import {
+        openModalCreate
+    } from "../store";
     export let commits;
 
     function contained(graph) {
@@ -29,11 +36,27 @@
         }
         return ret;
     }
+
+    const create = () => {
+        openModalCreate();
+    }
   
   </script>
   <div class="flex-col p-5">
       {#each contained(commits.graph) as doc}
           <div class="flex font-mono mb-3"> <a use:link href="/{doc.nuri}">{doc.hash}</a> </div> 
       {/each}
-
+      {#if commits.graph.length == 0 || contained(commits.graph).length == 0} 
+        <p>{$t("doc.empty_container")}</p>
+        {#if $cur_tab_doc_can_edit}
+        <button
+            on:click={create}
+            on:keypress={create}
+            class="select-none ml-0 mt-2 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+        >
+            <PencilSquare tabindex="-1" class="mr-2 focus:outline-none" />
+            {$t("doc.create")}
+        </button>
+    {/if}
+      {/if}
   </div>

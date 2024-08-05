@@ -68,7 +68,7 @@
                         class:"w-8 h-8 mr-2 mb-2 flex-none focus:outline-none"
                     }}/>
                     {/if}
-                    {#if !$header_title} <span class="font-mono h-8 py-1 inline-block align-middle mr-3"> {$cur_tab.doc.nuri.substring(2,9)} </span>  {/if}
+                    {#if !$header_title} <span class="font-mono h-8 py-1 inline-block align-middle mr-2"> {$cur_tab.doc.nuri.substring(2,9)} </span>  {/if}
                     {#if $cur_tab_doc_can_edit}
                     <button class="p-1 mr-2 mb-2 w-8 h-8 flex-none" on:click={openEditHeader} title={$t($edit_header_button)}>
                         <Pencil tabindex=-1 class="w-5 h-5 focus:outline-none" />
