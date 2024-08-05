@@ -13,7 +13,8 @@ export default defineConfig(async () => {
   const config = {
   optimizeDeps: {
     exclude: ["codemirror", "@codemirror/*", "@codemirror/language", "@codemirror/state", "@codemirror/view","@codemirror/legacy-modes/mode/sparql",
-    "@codemirror/lang-javascript", "@codemirror/lang-rust", "@replit/codemirror-lang-svelte", "yjs", "y-codemirror.next", "svelte-codemirror-editor"],
+    "@codemirror/lang-javascript", "@codemirror/lang-rust", "@replit/codemirror-lang-svelte", "yjs", "y-codemirror.next", "svelte-codemirror-editor",
+    "prosemirror-svelte", "prosemirror-svelte/state", "prosemirror-svelte/helpers", "y-prosemirror", "prosemirror-state", "prosemirror-model", "prosemirror-view", "y-protocols"],
   },
   worker: {
     format: 'es',

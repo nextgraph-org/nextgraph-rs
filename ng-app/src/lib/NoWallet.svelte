@@ -27,7 +27,7 @@
     <div class="row">
       <Logo class="logo block h-40" alt={$t("common.logo")} />
     </div>
-    <h1 class="text-2xl mb-10">{$t("pages.no_wallet.welcome")}</h1>
+    <h1 class="text-2xl text-center mb-10">{$t("pages.no_wallet.welcome")}</h1>
 
     <p class="max-w-sm">
       {@html $t("pages.no_wallet.description")}

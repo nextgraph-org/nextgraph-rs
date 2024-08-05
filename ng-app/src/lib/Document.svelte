@@ -58,7 +58,7 @@
         if (inView) nav_bar_reset_newest();
       }}>
         
-        <div class="flex flex-col ">
+        <div class="flex flex-col grow">
             {#if $can_have_header}
             
                 <div class="flex p-4 max-w-screen-lg justify-start flex-wrap" class:w-[1024px]={width>1024} > 
