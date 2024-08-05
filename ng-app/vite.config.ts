@@ -12,7 +12,8 @@ export default defineConfig(async () => {
   const host = await internalIpV4()
   const config = {
   optimizeDeps: {
-    exclude: ["codemirror", "@codemirror/*", "@codemirror/language", "@codemirror/state", "@codemirror/view","@codemirror/legacy-modes/mode/sparql"]
+    exclude: ["codemirror", "@codemirror/*", "@codemirror/language", "@codemirror/state", "@codemirror/view","@codemirror/legacy-modes/mode/sparql",
+    "@codemirror/lang-javascript", "@codemirror/lang-rust", "@replit/codemirror-lang-svelte", "yjs", "y-codemirror.next", "svelte-codemirror-editor"],
   },
   worker: {
     format: 'es',

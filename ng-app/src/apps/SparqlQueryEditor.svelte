@@ -55,6 +55,7 @@
         await reset_toasts();
         results = await sparql_query($in_memory_discrete, union);
       } catch(e) {
+        console.log(e)
         toast_error(display_error(e));
       }
     }
@@ -72,14 +73,14 @@
           maxWidth: "100%",
       },
     }}/>
-    <Toggle class="mt-1 ml-2" bind:checked={union}>Query all docs</Toggle>
+    <Toggle class="mt-1 ml-2" bind:checked={union}>{$t("doc.query_all_docs")}</Toggle>
     <button
       on:click={run}
       on:keypress={run}
       class="select-none ml-2 mt-2 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
     >
       <RocketLaunch tabindex="-1" class="mr-2 focus:outline-none" />
-      Run Query
+      {$t("doc.run_query")}
     </button>
     <button
       on:click={openTurtle}
@@ -87,18 +88,18 @@
       class="select-none ml-2 mt-2 mb-10 text-gray-600  focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
     >
       <Sun class="mr-2 focus:outline-none" tabindex="-1" />
-      View as Turtle
+      {$t("doc.view_as_turtle")}
     </button>
     {#if results!==undefined}
       <div>
-        <span class="ml-2 font-bold">Results: <br/></span>
+        <span class="ml-2 font-bold">{$t("doc.results")}: <br/></span>
         {#if Array.isArray(results)}
           {#if results.length}
             <Highlight {language} code={results.join(" .\r\n") + (results.length ? " .":"")} class="mb-10"  let:highlighted >
               <LineNumbers {highlighted} wrapLines hideBorder />
             </Highlight>
           {:else}
-            Empty
+          <span class="ml-2">{$t("doc.empty")}</span>
           {/if}
         {:else if results?.head} 
           <Table>

@@ -58,16 +58,6 @@ export const official_apps = {
         "ng:b": "TripleEditor",
         "ng:w": ["data:graph"],
     },
-    "n:g:z:sparql_query": {
-        "ng:n": "SPARQL Query",
-        "ng:a": "View, edit and invoke a Graph SPARQL query",
-        "ng:c": "app", 
-        "ng:u": "sparql_query",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:sparql_query",
-        "ng:b": "SparqlQueryEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
-        "ng:o": ["data:graph"],
-        "ng:w": ["query:sparql"],
-    },
     "n:g:z:rdf_viewer:turtle": { // https://github.com/highlightjs/highlightjs-turtle/tree/master
         "ng:n": "Turtle",
         "ng:a": "View the RDF Graph in Turtle format",
@@ -77,6 +67,16 @@ export const official_apps = {
         "ng:b": "TurtleViewer",
         "ng:o": ["data:graph"],
         "ng:w": [],
+    },
+    "n:g:z:sparql_query": {
+        "ng:n": "SPARQL Query",
+        "ng:a": "View, edit and invoke a Graph SPARQL query",
+        "ng:c": "app", 
+        "ng:u": "sparql_query",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:sparql_query",
+        "ng:b": "SparqlQueryEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
+        "ng:o": ["data:graph"],
+        "ng:w": ["query:sparql"],
     },
     "n:g:z:json_ld_viewer": {
         "ng:n": "JSON-LD",
@@ -292,7 +292,7 @@ export const official_apps = {
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:crdt_source_viewer:text",
         "ng:b": "TextViewer", // displayed with highlight.js , with option to download
-        "ng:o": ["post:text", "post:asciidoc", "code*", "service*", "contract", "query:sparql*","query:graphql","doc:diagram:mermaid","doc:diagram:graphviz","doc:diagram:flowchart",
+        "ng:o": ["post:asciidoc", "service*", "contract", "query:sparql*","query:graphql","doc:diagram:mermaid","doc:diagram:graphviz","doc:diagram:flowchart",
                 "doc:diagram:sequence","doc:diagram:markmap","doc:diagram:mymind","doc:music*", "doc:maths", "doc:chemistry", "doc:ancientscript", "doc:braille", "media:subtitle"],
         "ng:w": [],
     },
@@ -350,7 +350,7 @@ export const official_apps = {
         "ng:c": "app", 
         "ng:u": "post",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:post:text", 
-        "ng:b": "TextViewer", // displayed with a <p>
+        "ng:b": "TextViewer",
         "ng:o": ["post:text"],
         "ng:w": [],
     },
@@ -360,8 +360,8 @@ export const official_apps = {
         "ng:c": "app", 
         "ng:u": "post",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:pre", 
-        "ng:b": "PreTextViewer", // displayed with highlight.js 
-        "ng:o": ["code*","post:text"],
+        "ng:b": "TextViewer", // displayed with highlight.js 
+        "ng:o": ["code*"],
         "ng:w": [],
     },
     "n:g:z:pad": {
@@ -575,7 +575,7 @@ export const official_services = {
         "ng:w": ["data:graph"],
     },
     "n:g:z:dump_file": {
-        "ng:n": "Export file",
+        "ng:n": "Export File",
         "ng:a": "Get the binary content of a file",
         "ng:c": "service",
         "ng:u": "dump",// favicon. can be a did:ng:j 
@@ -584,7 +584,7 @@ export const official_services = {
         "ng:result": ["file:iana:*"],
     },
     "n:g:z:dump_json": {
-        "ng:n": "JSON export",
+        "ng:n": "Export JSON",
         "ng:a": "Export JSON content of document",
         "ng:c": "service",
         "ng:u": "data",// favicon. can be a did:ng:j 
@@ -594,7 +594,7 @@ export const official_services = {
         "ng:result": ["file:iana:application:json"],
     },
     "n:g:z:dump_xml": {
-        "ng:n": "XML export",
+        "ng:n": "Export XML",
         "ng:a": "Export XML content of document",
         "ng:c": "service",
         "ng:u": "data",// favicon. can be a did:ng:j 
@@ -604,7 +604,7 @@ export const official_services = {
         "ng:result": ["file:iana:text:xml"],
     },
     "n:g:z:dump_text": {
-        "ng:n": "Text export",
+        "ng:n": "Export Text",
         "ng:a": "Export plain-text content of document",
         "ng:c": "service",
         "ng:u": "dump",// favicon. can be a did:ng:j 
@@ -644,12 +644,12 @@ export const official_services = {
     },
     "n:g:z:load_text": {
         "ng:n": "Import Text",
-        "ng:a": "Import some text into the document",
+        "ng:a": "Import plain text into the document",
         "ng:c": "service",
         "ng:u": "load",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:load_text",
         "ng:o": [],
-        "ng:w": ["post:text","post:rich","post:md"],
+        "ng:w": ["post:text","post:rich","post:md","code*"],
     },
     "n:g:z:load_md": {
         "ng:n": "Import Markdown",
