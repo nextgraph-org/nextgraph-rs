@@ -44,6 +44,7 @@
     "view_graph": "View Graph",
     "results": "Results",
     "empty": "Empty",
+    "type_your_text_here": "Type your text here",
     "sparql_update": "SPARQL Update",
     "no_triples": "No triples in this Graph.",
     "start_editing": "Start editing",

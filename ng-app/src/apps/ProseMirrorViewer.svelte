@@ -68,6 +68,7 @@
   
   </script>
   <div class="grow p-5">
+    
     {#if source}
       
         <div class="post-rich-text">
