@@ -212,6 +212,10 @@ td.hljs {
     stroke: rgb(73, 114, 165);
 }
 
+.jse-absolute-popup-content {
+    left: 0 !important;
+}
+
 .container3 {
     margin: 0;
     min-width: 280px;
