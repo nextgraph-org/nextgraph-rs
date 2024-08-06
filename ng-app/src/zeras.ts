@@ -40,14 +40,32 @@ export const official_apps = {
         "ng:b": "JsonLdEditor",
         "ng:w": ["data:graph"],
     },
-    "n:g:z:json_editor": {
+    "n:g:z:json_yarray_editor": {
         "ng:n": "JSON Editor",
         "ng:a": "Edit the JSON data",
         "ng:c": "app", 
         "ng:u": "json_editor",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:json_editor",
-        "ng:b": "JsonEditor",
-        "ng:w": ["data:json","data:array","data:map"],
+        "ng:g": "n:g:z:json_yarray_editor",
+        "ng:b": "YArrayEditor",
+        "ng:w": ["data:array"],
+    },
+    "n:g:z:json_automerge_editor": {
+        "ng:n": "JSON Editor",
+        "ng:a": "Edit the JSON data",
+        "ng:c": "app", 
+        "ng:u": "json_editor",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:json_automerge_editor",
+        "ng:b": "AutomergeEditor",
+        "ng:w": ["data:json"],
+    },
+    "n:g:z:json_ymap_editor": {
+        "ng:n": "JSON Editor",
+        "ng:a": "Edit the JSON data",
+        "ng:c": "app", 
+        "ng:u": "json_editor",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:json_ymap_editor",
+        "ng:b": "YMapEditor",
+        "ng:w": ["data:map"],
     },
     "n:g:z:triple_editor": {
         "ng:n": "Graph Triples Editor",

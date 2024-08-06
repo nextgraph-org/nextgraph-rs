@@ -64,12 +64,10 @@
     function width_changed() {
         if (!editor) return;
         if (width < 768 && split) {
-            console.log("toggle down")
             split = false;
             editor.action(callCommand(toggleSplitEditing.key, true));
         } else if (width >= 768 && !split) {
             split = true;
-            console.log("toggle up")
             editor.action(callCommand(toggleSplitEditing.key, false));
         }
     }

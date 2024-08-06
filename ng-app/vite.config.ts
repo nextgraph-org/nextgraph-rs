@@ -17,8 +17,12 @@ export default defineConfig(async () => {
     "prosemirror-svelte", "prosemirror-svelte/state", "prosemirror-svelte/helpers", "y-prosemirror", "prosemirror-state", "prosemirror-model", "prosemirror-view", "y-protocols",
     "@milkdown/core", "@milkdown/ctx", "@milkdown/prose", "@milkdown/transformer", "@milkdown/preset-commonmark", "@milkdown/theme-nord", "@milkdown/plugin-collab",
     "svelte-highlight", "svelte-highlight/languages/typescript", "svelte-highlight/languages/javascript", "svelte-highlight/languages/rust", "@milkdown/preset-gfm",
-    "@milkdown-lab/plugin-split-editing", "@milkdown/plugin-slash", "@milkdown/utils", "@milkdown/plugin-prism", "@milkdown/plugin-emoji", "@milkdown/plugin-math", "@milkdown/plugin-indent"],
-    include: ["debug","extend","highlight.js","highlight.js/lib/core","lodash.debounce","@sindresorhus/is","char-regex","emojilib","skin-tone"]
+    "@milkdown-lab/plugin-split-editing", "@milkdown/plugin-slash", "@milkdown/utils", "@milkdown/plugin-prism", "@milkdown/plugin-emoji", "@milkdown/plugin-math", "@milkdown/plugin-indent",
+    "svelte-jsoneditor"],
+
+    include: ["debug","extend","highlight.js","highlight.js/lib/core","lodash.debounce","@sindresorhus/is","char-regex","emojilib","skin-tone",
+      'immutable-json-patch', ]
+      
   },
   worker: {
     format: 'es',
