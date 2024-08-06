@@ -26,7 +26,31 @@ td.hljs {
 .splashing {
     display: none;
 }
-.prosemirror-editor {
+
+.split-editor {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: 1fr;
+}
+
+.split-editor:has(.milkdown-split-editor.hidden) {
+    grid-template-columns: repeat(1, 1fr);
+}
+
+.milkdown-split-editor.hidden {
+    display: none;
+}
+
+.ProseMirror.editor_empty::before {
+    position: absolute;
+    content: attr(data-placeholder);
+    pointer-events: none;
+    color: rgb(170, 170, 170);
+}
+
+.prosemirror-editor,
+.prosemirror-editor .milkdown,
+.prosemirror-editor .milkdown .ProseMirror {
     height: 100%;
     overflow-wrap: anywhere !important;
 }

@@ -42,7 +42,6 @@
     let view;
 
     ydoc.on('update', async (update, origin) => {
-        console.log(update,origin);
       if (!origin.local) {
         try {
             await discrete_update(update, "YXml", commits.heads);
