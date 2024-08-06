@@ -288,7 +288,7 @@ export const official_classes = {
         "ng:crdt": "Automerge",
         "ng:n": "JSON", 
         "ng:a": "JSON Data CRDT",
-        "ng:o": "n:g:z:json_viewer", // default viewer
+        "ng:o": "n:g:z:json_automerge_viewer", // default viewer
         "ng:w": "n:g:z:json_automerge_editor", // default editor
         "ng:compat": ["file:iana:application:json", "code:json"],
     },
@@ -296,7 +296,7 @@ export const official_classes = {
         "ng:crdt": "YArray",
         "ng:n": "Array", 
         "ng:a": "Yjs Array CRDT",
-        "ng:o": "n:g:z:json_viewer", // default viewer
+        "ng:o": "n:g:z:json_yarray_viewer", // default viewer
         "ng:w": "n:g:z:json_yarray_editor", // default editor
         "ng:compat": ["file:iana:application:json", "code:json"],
     },
@@ -304,7 +304,7 @@ export const official_classes = {
         "ng:crdt": "YMap",
         "ng:n": "Object", 
         "ng:a": "Yjs Map CRDT",
-        "ng:o": "n:g:z:json_viewer", // default viewer
+        "ng:o": "n:g:z:json_ymap_viewer", // default viewer
         "ng:w": "n:g:z:json_ymap_editor", // default editor
         "ng:compat": ["file:iana:application:json", "code:json"],
     },
