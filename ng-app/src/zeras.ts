@@ -115,14 +115,32 @@ export const official_apps = {
         "ng:o": ["data:graph"],
         "ng:w": [],
     },
-    "n:g:z:json_viewer": {
+    "n:g:z:json_ymap_viewer": {
         "ng:n": "JSON",
         "ng:a": "View the JSON data",
         "ng:c": "app", 
         "ng:u": "json_editor",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:json_viewer",
-        "ng:b": "JsonViewer",
-        "ng:o": ["data:json","data:array","data:map"],
+        "ng:g": "n:g:z:json_ymap_viewer",
+        "ng:b": "YMapViewer",
+        "ng:o": ["data:map"],
+    },
+    "n:g:z:json_yarray_viewer": {
+        "ng:n": "JSON",
+        "ng:a": "View the JSON data",
+        "ng:c": "app", 
+        "ng:u": "json_editor",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:json_yarray_viewer",
+        "ng:b": "YArrayViewer",
+        "ng:o": ["data:array"],
+    },
+    "n:g:z:json_automerge_viewer": {
+        "ng:n": "JSON",
+        "ng:a": "View the JSON data",
+        "ng:c": "app", 
+        "ng:u": "json_editor",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:json_automerge_viewer",
+        "ng:b": "AutomergeViewer",
+        "ng:o": ["data:json"],
     },
     "n:g:z:triple_viewer": {
         "ng:n": "Graph Triples",
@@ -295,13 +313,33 @@ export const official_apps = {
         "ng:w": [],
     },
     "n:g:z:crdt_source_viewer:json": { 
-        "ng:n": "JSON source",
+        "ng:n": "JSON Source",
         "ng:a": "See the source code of this document, in JSON",
         "ng:c": "app", 
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:crdt_source_viewer:json",
         "ng:b": "JsonSource", // displayed with highlight.js , with option to download
-        "ng:o": ["data:json", "data:map", "data:array", "data:table", "doc:diagram:jsmind", "doc:diagram:gantt", "doc:diagram:excalidraw", "doc:viz:*", "doc:chart:*", "prod:cad"],
+        "ng:o": ["data:json", "data:table", "doc:diagram:jsmind", "doc:diagram:gantt", "doc:diagram:excalidraw", "doc:viz:*", "doc:chart:*", "prod:cad"],
+        "ng:w": [],
+    },
+    "n:g:z:crdt_source_viewer:ymap": { 
+        "ng:n": "JSON Source",
+        "ng:a": "See the source code of this document, in JSON",
+        "ng:c": "app", 
+        "ng:u": "source",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:crdt_source_viewer:ymap",
+        "ng:b": "YMapSource", // displayed with highlight.js , with option to download
+        "ng:o": ["data:map"],
+        "ng:w": [],
+    },
+    "n:g:z:crdt_source_viewer:yarray": { 
+        "ng:n": "JSON Source",
+        "ng:a": "See the source code of this document, in JSON",
+        "ng:c": "app", 
+        "ng:u": "source",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:crdt_source_viewer:yarray",
+        "ng:b": "YArraySource", // displayed with highlight.js , with option to download
+        "ng:o": ["data:array"],
         "ng:w": [],
     },
     "n:g:z:crdt_source_viewer:text": {

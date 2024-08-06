@@ -104,7 +104,9 @@ const find_source_viewer_for_class = (class_def, class_name) => {
         case 'Graph':
             return "n:g:z:crdt_source_viewer:rdf";
         case 'YMap':
+            return "n:g:z:crdt_source_viewer:ymap";
         case 'YArray':
+            return "n:g:z:crdt_source_viewer:yarray";
         case 'Automerge':
         case 'Elmer':
             return "n:g:z:crdt_source_viewer:json";
