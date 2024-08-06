@@ -93,7 +93,7 @@
     });
   
   </script>
-  <div class="grow p-5 post-rich-text" style="min-height:300px;">
+  <div class="grow p-5 post-rich-text prose" style="min-height:300px;">
     <ProsemirrorEditor 
         className="prosemirror-editor"
         {editorState} 

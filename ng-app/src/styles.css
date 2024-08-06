@@ -59,35 +59,52 @@ td.hljs {
     outline-offset: 2px;
 }
 
-.post-rich-text em {
+.post-rich-text em,
+.prose em {
     font-style: italic;
     font-family: Verdana, Arial, sans-serif;
 }
-
+/*
 .post-rich-text h1 {
-    font-size: 2.5rem /* 24px */;
-    line-height: 4rem /* 32px */;
+    font-size: 2.5rem;
+    line-height: 4rem;
 }
 
 .post-rich-text h2 {
-    font-size: 2rem /* 20px */;
-    line-height: 3rem /* 28px */;
+    font-size: 2rem;
+    line-height: 3rem;
 }
 
 .post-rich-text h3 {
-    font-size: 1.5rem /* 18px */;
-    line-height: 2.5rem /* 28px */;
+    font-size: 1.5rem;
+    line-height: 2.5rem;
 }
 
 .post-rich-text h4 {
-    font-size: 1.25rem /* 18px */;
-    line-height: 2rem /* 28px */;
+    font-size: 1.25rem;
+    line-height: 2rem;
     font-weight: 700;
 }
 
 .post-rich-text h5 {
-    font-size: 1.125rem /* 18px */;
-    line-height: 2rem /* 28px */;
+    font-size: 1.125rem;
+    line-height: 2rem;
+} */
+.prose {
+    max-width: 100%;
+}
+
+.prose .emoji {
+    width: 25px;
+}
+
+.prose li p,
+.prose dd p {
+    margin: 0;
+}
+
+.prose table {
+    width: calc(100% - 32px) !important;
 }
 
 .menu-bg-modal + div {
