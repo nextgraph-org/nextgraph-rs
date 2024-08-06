@@ -71,7 +71,7 @@
     
     {#if source}
       
-        <div class="post-rich-text">
+        <div class="post-rich-text prose">
             {@html source}
         </div>
 

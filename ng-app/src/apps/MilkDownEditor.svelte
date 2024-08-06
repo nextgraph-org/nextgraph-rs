@@ -45,12 +45,36 @@
     import { placeholder, placeholderCtx } from './milkdown-placeholder'
     import { splitEditing, toggleSplitEditing } from '@milkdown-lab/plugin-split-editing'
     import { SlashProvider, slashFactory } from '@milkdown/plugin-slash'
+    import { callCommand } from '@milkdown/utils';
+    import { emoji } from '@milkdown/plugin-emoji';
+    import { math } from '@milkdown/plugin-math';
+    import 'katex/dist/katex.min.css';
+    import { indent } from '@milkdown/plugin-indent';
+    import { prism } from '@milkdown/plugin-prism';
+    import 'prism-themes/themes/prism-nord.css'
 
     export let commits = {};
 
     const ydoc = new Y.Doc()
 
     let editor;
+    let width;
+    let split = true;
+
+    function width_changed() {
+        if (!editor) return;
+        if (width < 768 && split) {
+            console.log("toggle down")
+            split = false;
+            editor.action(callCommand(toggleSplitEditing.key, true));
+        } else if (width >= 768 && !split) {
+            split = true;
+            console.log("toggle up")
+            editor.action(callCommand(toggleSplitEditing.key, false));
+        }
+    }
+
+    $: width, width_changed();
 
     function slashPluginView(view) {
         const content = document.createElement('div');
@@ -79,7 +103,17 @@
             ctx.set(slash.key, {
                 view: slashPluginView
             })
-        }).use(slash).config(nord).use(commonmark).use(gfm).use(placeholder).use(splitEditing).use(collab).create();
+        }).use(slash)
+        .config(nord)
+        .use(commonmark)
+        .use(gfm)
+        .use(prism)
+        .use(indent)
+        .use(math)
+        .use(emoji)
+        .use(placeholder)
+        .use(splitEditing)
+        .use(collab).create();
    
         ydoc.on('update', async (update, origin) => {
             //console.log(update,origin);
@@ -124,8 +158,8 @@
         editor.action((ctx) => {
             const editorView = ctx.get(editorViewCtx)
             editorView.focus();
-            //toggleSplitEditing(ctx);
         });
+        width_changed();
     }
 
     onMount(async ()=>{
@@ -141,7 +175,7 @@
   
   </script>
 
-  <div class="grow p-5 post-rich-text" style="min-height:300px;">
+  <div class="grow p-5 post-rich-text" style="min-height:300px;" bind:clientWidth={width}>
     <div id="mdeditor" class="prosemirror-editor"></div>
   </div>
 

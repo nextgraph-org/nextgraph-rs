@@ -31,6 +31,9 @@
 
   let width;
 
+  let center;
+  $: center = width > 1024 && !$cur_app?.full_width
+
   let commits;
   // TODO deals with cases when nuri has :r :w :l (remove them from nuri that should only have :o:v format , and add them in cur_tab)
   $: commits = $active_session && nuri && branch_subscribe(nuri, true);
@@ -52,16 +55,16 @@
       </Alert>
     </div>
   {:else}
-    <div class="flex justify-left" class:justify-center={width>1024} use:inview={inview_options} on:inview_change={(event) => {
+    <div class="flex justify-left" class:justify-center={center} use:inview={inview_options} on:inview_change={(event) => {
         const { inView, entry, scrollDirection, observer, node} = event.detail;
         if ($cur_branch) { set_header_in_view(inView); }
         if (inView) nav_bar_reset_newest();
       }}>
         
-        <div class="flex flex-col grow">
+        <div class="flex flex-col" class:grow={width<=1024 || $cur_app?.full_width}>
             {#if $can_have_header}
             
-                <div class="flex p-4 max-w-screen-lg justify-start flex-wrap" class:w-[1024px]={width>1024} > 
+                <div class:max-w-screen-lg={center} class="flex p-4 justify-start flex-wrap" class:w-[1024px]={center} > 
                     {#if $header_icon} 
                     <NavIcon img={$header_icon} config={{
                         tabindex:"-1",
@@ -80,21 +83,21 @@
                     {/if}
                 </div>
                 {#if $header_description}
-                    <div class="flex p-4 max-w-screen-lg text-left text-gray-600 dark:text-white" class:w-[1024px]={width>1024}> 
+                    <div class:max-w-screen-lg={center} class="flex p-4 text-left text-gray-600 dark:text-white" class:w-[1024px]={center}> 
                         {$header_description}
                     </div>
                 {/if}
             {/if}
             {#if commits}
                 {#await commits.load()}
-                    <div class="row p-4 max-w-screen-lg text-gray-600" class:w-[1024px]={width>1024}> 
+                    <div class:max-w-screen-lg={center} class="row p-4 text-gray-600" class:w-[1024px]={center}> 
                         <p>{$t("connectivity.loading")}...</p>
                     </div>
                 {:then}
                 
                     {#if $cur_app}
                         {#await load_official_app($cur_app) then app}
-                        <div class="flex max-w-screen-lg" style="overflow-wrap: anywhere;" class:w-[1024px]={width>1024} > 
+                        <div class:max-w-screen-lg={center} class="flex" style="overflow-wrap: anywhere;" class:w-[1024px]={center} > 
                             <svelte:component this={app} commits={$commits}/>
                         </div>
                         {/await}

@@ -224,6 +224,7 @@ export const official_apps = {
         "ng:b": "MilkDownEditor",
         "ng:o": [],
         "ng:w": ["post:md"],
+        "full_width": true,
     },
     "n:g:z:code_editor": {
         "ng:n": "Text Editor",
