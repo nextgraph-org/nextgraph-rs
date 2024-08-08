@@ -83,11 +83,11 @@
 
         return {
             update: (updatedView, prevState) => {
-            provider.update(updatedView, prevState);
+                provider.update(updatedView, prevState);
             },
             destroy: () => {
-            provider.destroy();
-            content.remove();
+                provider.destroy();
+                content.remove();
             }
         }
     }

@@ -75,6 +75,15 @@ impl DiscreteTransaction {
             | Self::Automerge(v) => v.to_vec(),
         }
     }
+    pub fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::YMap(v)
+            | Self::YArray(v)
+            | Self::YXml(v)
+            | Self::YText(v)
+            | Self::Automerge(v) => v,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

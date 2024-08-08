@@ -636,7 +636,7 @@ pub enum DiscreteUpdate {
     YXml(Vec<u8>),
     #[serde(with = "serde_bytes")]
     YText(Vec<u8>),
-    /// An automerge::Patch
+    /// An automerge::Change.raw_bytes()
     #[serde(with = "serde_bytes")]
     Automerge(Vec<u8>),
 }
@@ -752,7 +752,7 @@ pub enum DiscretePatch {
     YXml(Vec<u8>),
     #[serde(with = "serde_bytes")]
     YText(Vec<u8>),
-    /// An automerge::Patch
+    /// An automerge::Change.raw_bytes() or a concatenation of several.
     #[serde(with = "serde_bytes")]
     Automerge(Vec<u8>),
 }
