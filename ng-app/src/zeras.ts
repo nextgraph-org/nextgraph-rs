@@ -57,6 +57,7 @@ export const official_apps = {
         "ng:g": "n:g:z:json_automerge_editor",
         "ng:b": "AutomergeEditor",
         "ng:w": ["data:json"],
+        "full_width": true,
     },
     "n:g:z:json_ymap_editor": {
         "ng:n": "JSON Editor",
@@ -141,6 +142,7 @@ export const official_apps = {
         "ng:g": "n:g:z:json_automerge_viewer",
         "ng:b": "AutomergeViewer",
         "ng:o": ["data:json"],
+        "full_width": true,
     },
     "n:g:z:triple_viewer": {
         "ng:n": "Graph Triples",
@@ -318,7 +320,7 @@ export const official_apps = {
         "ng:c": "app", 
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:crdt_source_viewer:json",
-        "ng:b": "JsonSource", // displayed with highlight.js , with option to download
+        "ng:b": "AutomergeJsonSource", // displayed with highlight.js , with option to download
         "ng:o": ["data:json", "data:table", "doc:diagram:jsmind", "doc:diagram:gantt", "doc:diagram:excalidraw", "doc:viz:*", "doc:chart:*", "prod:cad"],
         "ng:w": [],
     },

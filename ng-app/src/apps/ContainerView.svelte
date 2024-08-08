@@ -34,6 +34,7 @@
                 ret.push({nuri,hash});
             }
         }
+        ret.sort((a, b) => a.hash.localeCompare(b.hash));
         return ret;
     }
 

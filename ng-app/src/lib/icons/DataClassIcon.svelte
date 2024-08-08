@@ -104,6 +104,8 @@
     "query:graphql": GraphQLIcon,
     "data:graph": Sun,
     "data:json": JsonIcon,
+    "data:map": JsonIcon,
+    "data:array": JsonIcon,
     "data:table": TableCells,
     "data:collection": ListBullet,
     "data:container": Square3Stack3d,

@@ -369,6 +369,7 @@ pub enum VerifierError {
     CannotRemoveTriplesWhenNewBranch,
     PermissionDenied,
     YrsError(String),
+    AutomergeError(String),
     InvalidNuri,
 }
 

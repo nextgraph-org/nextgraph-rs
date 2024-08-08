@@ -286,15 +286,15 @@ export const official_classes = {
     },
     "data:json": {
         "ng:crdt": "Automerge",
-        "ng:n": "JSON", 
-        "ng:a": "JSON Data CRDT",
+        "ng:n": "JSON (Automerge)", 
+        "ng:a": "Automerge JSON Data CRDT",
         "ng:o": "n:g:z:json_automerge_viewer", // default viewer
         "ng:w": "n:g:z:json_automerge_editor", // default editor
         "ng:compat": ["file:iana:application:json", "code:json"],
     },
     "data:array": {
         "ng:crdt": "YArray",
-        "ng:n": "Array", 
+        "ng:n": "Array (Yjs)", 
         "ng:a": "Yjs Array CRDT",
         "ng:o": "n:g:z:json_yarray_viewer", // default viewer
         "ng:w": "n:g:z:json_yarray_editor", // default editor
@@ -302,16 +302,16 @@ export const official_classes = {
     },
     "data:map": {
         "ng:crdt": "YMap",
-        "ng:n": "Object", 
-        "ng:a": "Yjs Map CRDT",
+        "ng:n": "Object (Yjs)", 
+        "ng:a": "Yjs Map CRDT (JSON Object)",
         "ng:o": "n:g:z:json_ymap_viewer", // default viewer
         "ng:w": "n:g:z:json_ymap_editor", // default editor
         "ng:compat": ["file:iana:application:json", "code:json"],
     },
     "data:xml": {
         "ng:crdt": "YXml",
-        "ng:n": "XML", 
-        "ng:a": "XML Data CRDT",
+        "ng:n": "XML (Yjs)", 
+        "ng:a": "Yjs XML CRDT",
         "ng:compat": ["file:iana:text:xml","file:iana:application:xml", "code:xml"],
     },
     "data:table": {

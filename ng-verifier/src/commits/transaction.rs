@@ -183,7 +183,12 @@ impl Verifier {
         {
             match crdt {
                 BranchCrdt::Automerge(_) => {
-                    unimplemented!();
+                    let mut doc = automerge::Automerge::load(&state)
+                        .map_err(|e| VerifierError::AutomergeError(e.to_string()))?;
+                    let _ = doc
+                        .load_incremental(patch.as_slice())
+                        .map_err(|e| VerifierError::AutomergeError(e.to_string()))?;
+                    doc.save()
                 }
                 BranchCrdt::YArray(_)
                 | BranchCrdt::YMap(_)
@@ -195,7 +200,7 @@ impl Verifier {
                         let update = yrs::Update::decode_v1(&state)
                             .map_err(|e| VerifierError::YrsError(e.to_string()))?;
                         txn.apply_update(update);
-                        let update = yrs::Update::decode_v1(&patch.to_vec())
+                        let update = yrs::Update::decode_v1(patch.as_slice())
                             .map_err(|e| VerifierError::YrsError(e.to_string()))?;
                         txn.apply_update(update);
                         txn.commit();
