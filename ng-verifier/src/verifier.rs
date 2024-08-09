@@ -1609,21 +1609,25 @@ impl Verifier {
 
             let mut theirs_found = HashSet::new();
             let mut visited = HashMap::new();
-            for our in ours_set.iter() {
-                //log_info!("OUR HEADS {}", our);
-                if let Ok(cobj) = Object::load(*our, None, &repo.store) {
-                    let _ = Branch::load_causal_past(
-                        &cobj,
-                        &repo.store,
-                        &theirs,
-                        &mut visited,
-                        &mut None,
-                        None,
-                        &mut Some(&mut theirs_found),
-                        &None,
-                    );
-                }
-            }
+
+            let mut recursor: Vec<(ObjectId, Option<ObjectId>)> =
+                ours_set.iter().map(|h| (h.clone(), None)).collect();
+
+            let _ = Branch::load_causal_past(
+                &mut recursor,
+                &repo.store,
+                &theirs,
+                &mut visited,
+                &mut None,
+                &mut Some(&mut theirs_found),
+                &None,
+            );
+            // for our in ours_set.iter() {
+            //     //log_info!("OUR HEADS {}", our);
+            //     if let Ok(cobj) = Object::load(*our, None, &repo.store) {
+            //         let _ =
+            //     }
+            // }
 
             let theirs_not_found: Vec<ObjectId> =
                 theirs.difference(&theirs_found).cloned().collect();

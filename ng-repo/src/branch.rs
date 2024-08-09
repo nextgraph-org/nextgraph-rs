@@ -180,64 +180,79 @@ impl Branch {
     /// optionally collecting the missing objects/blocks that couldn't be found locally on the way,
     /// and also optionally, collecting the commits of `theirs` found on the way
     pub fn load_causal_past(
-        cobj: &Object,
+        recursor: &mut Vec<(ObjectId, Option<ObjectId>)>,
         store: &Store,
         theirs: &HashSet<ObjectId>,
         visited: &mut HashMap<ObjectId, DagNode>,
         missing: &mut Option<&mut HashSet<ObjectId>>,
-        future: Option<ObjectId>,
         theirs_found: &mut Option<&mut HashSet<ObjectId>>,
         theirs_filter: &Option<Filter>,
     ) -> Result<(), ObjectParseError> {
-        let id = cobj.id();
+        while let Some((id, future)) = recursor.pop() {
+            match Object::load(id, None, store) {
+                Ok(cobj) => {
+                    let id = cobj.id();
 
-        // check if this commit object is present in theirs or has already been visited in the current walk
-        // load deps, stop at the root(including it in visited) or if this is a commit object from known_heads
+                    // check if this commit object is present in theirs or has already been visited in the current walk
+                    // load deps, stop at the root(including it in visited) or if this is a commit object from known_heads
 
-        let found_in_filter = if let Some(filter) = theirs_filter {
-            let hash = id.get_hash();
-            filter.contains_hash(hash)
-        } else {
-            false
-        };
+                    let found_in_filter = if let Some(filter) = theirs_filter {
+                        let hash = id.get_hash();
+                        filter.contains_hash(hash)
+                    } else {
+                        false
+                    };
 
-        if !found_in_filter && !theirs.contains(&id) {
-            if let Some(past) = visited.get_mut(&id) {
-                // we update the future
-                if let Some(f) = future {
-                    past.future.insert(f);
-                }
-            } else {
-                let mut new_node_to_insert = DagNode::new();
-                if let Some(f) = future {
-                    new_node_to_insert.future.insert(f);
-                }
-                let pasts = cobj.acks_and_nacks();
-                new_node_to_insert.past.extend(pasts.iter().cloned());
-                visited.insert(id, new_node_to_insert);
-                for past_id in pasts {
-                    match Object::load(past_id, None, store) {
-                        Ok(o) => {
-                            Self::load_causal_past(
-                                &o,
-                                store,
-                                theirs,
-                                visited,
-                                missing,
-                                Some(id),
-                                theirs_found,
-                                theirs_filter,
-                            )?;
+                    if !found_in_filter && !theirs.contains(&id) {
+                        if let Some(past) = visited.get_mut(&id) {
+                            // we update the future
+                            if let Some(f) = future {
+                                past.future.insert(f);
+                            }
+                        } else {
+                            let mut new_node_to_insert = DagNode::new();
+                            if let Some(f) = future {
+                                new_node_to_insert.future.insert(f);
+                            }
+                            let pasts = cobj.acks_and_nacks();
+                            new_node_to_insert.past.extend(pasts.iter().cloned());
+                            visited.insert(id, new_node_to_insert);
+                            recursor.extend(pasts.into_iter().map(|past_id| (past_id, Some(id))));
+                            // for past_id in pasts {
+                            //     match Object::load(past_id, None, store) {
+                            //         Ok(o) => {
+                            //             Self::load_causal_past(
+                            //                 recursor,
+                            //                 store,
+                            //                 theirs,
+                            //                 visited,
+                            //                 missing,
+                            //                 theirs_found,
+                            //                 theirs_filter,
+                            //             )?;
+                            //         }
+                            //         Err(ObjectParseError::MissingBlocks(blocks)) => {
+                            //             missing.as_mut().map(|m| m.extend(blocks));
+                            //         }
+                            //         Err(e) => return Err(e),
+                            //     }
+                            // }
                         }
-                        Err(ObjectParseError::MissingBlocks(blocks)) => {
-                            missing.as_mut().map(|m| m.extend(blocks));
-                        }
-                        Err(e) => return Err(e),
+                    } else if theirs_found.is_some() {
+                        theirs_found.as_mut().unwrap().insert(id);
+                    }
+                }
+                Err(ObjectParseError::MissingBlocks(blocks)) => {
+                    if future.is_some() {
+                        missing.as_mut().map(|m| m.extend(blocks));
+                    }
+                }
+                Err(e) => {
+                    if future.is_some() {
+                        return Err(e);
                     }
                 }
             }
-        } else if theirs_found.is_some() {
-            theirs_found.as_mut().unwrap().insert(id);
         }
         Ok(())
     }
@@ -260,22 +275,20 @@ impl Branch {
         // their commits
         let mut theirs: HashMap<ObjectId, DagNode> = HashMap::new();
 
+        //
+        let mut recursor: Vec<(ObjectId, Option<ObjectId>)> =
+            known_heads.iter().map(|h| (h.clone(), None)).collect();
         // collect causal past of known_heads
-        for id in known_heads {
-            if let Ok(cobj) = Object::load(*id, None, store) {
-                Self::load_causal_past(
-                    &cobj,
-                    store,
-                    &HashSet::new(),
-                    &mut theirs,
-                    &mut None,
-                    None,
-                    &mut None,
-                    &None,
-                )?;
-            }
-            // we silently discard any load error on the known_heads as the responder might not know them (yet).
-        }
+        // we silently discard any load error on the known_heads as the responder might not know them (yet).
+        Self::load_causal_past(
+            &mut recursor,
+            store,
+            &HashSet::new(),
+            &mut theirs,
+            &mut None,
+            &mut None,
+            &None,
+        )?;
 
         // log_debug!("their causal past \n{}", Dag(&theirs));
 
@@ -291,23 +304,35 @@ impl Branch {
             None
         };
 
+        let mut recursor: Vec<(ObjectId, Option<ObjectId>)> =
+            target_heads.map(|h| (h.clone(), None)).collect();
         // collect all commits reachable from target_heads
         // up to the root or until encountering a commit from theirs
-        for id in target_heads {
-            if let Ok(cobj) = Object::load(id, None, store) {
-                Self::load_causal_past(
-                    &cobj,
-                    store,
-                    &theirs,
-                    &mut visited,
-                    &mut None,
-                    None,
-                    &mut None,
-                    &filter,
-                )?;
-            }
-            // we silently discard any load error on the target_heads as they can be wrong if the requester is confused about what the responder has locally.
-        }
+        // we silently discard any load error on the target_heads as they can be wrong if the requester is confused about what the responder has locally.
+        Self::load_causal_past(
+            &mut recursor,
+            store,
+            &theirs,
+            &mut visited,
+            &mut None,
+            &mut None,
+            &filter,
+        )?;
+        // for id in target_heads {
+        //     if let Ok(cobj) = Object::load(id, None, store) {
+        //         Self::load_causal_past(
+        //             &cobj,
+        //             store,
+        //             &theirs,
+        //             &mut visited,
+        //             &mut None,
+        //             None,
+        //             &mut None,
+        //             &filter,
+        //         )?;
+        //     }
+
+        // }
 
         // log_debug!("what we have here \n{}", Dag(&visited));
 
