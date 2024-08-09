@@ -12,10 +12,8 @@
 
 <script lang="ts">
   
-  import { onMount } from "svelte";
     import { createEventDispatcher } from 'svelte';
     const dispatch = createEventDispatcher();
-    import "flowbite/dist/flowbite.min.js"
 
     export let value;
 
