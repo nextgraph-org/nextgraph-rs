@@ -533,7 +533,7 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                             req.V0.session_id = session.session_id;
                             unsub = await ng.app_request_stream(req,
                                 async (response) => {
-                                    console.log("GOT APP RESPONSE", response);
+                                    //console.log("GOT APP RESPONSE", response);
                                     if (response.V0.TabInfo) {
                                         tab_update(nuri, ($cur_tab) => {
                                             if (response.V0.TabInfo.branch?.id) {

@@ -323,6 +323,7 @@ export const official_apps = {
         "ng:b": "AutomergeJsonSource", // displayed with highlight.js , with option to download
         "ng:o": ["data:json", "data:table", "doc:diagram:jsmind", "doc:diagram:gantt", "doc:diagram:excalidraw", "doc:viz:*", "doc:chart:*", "prod:cad"],
         "ng:w": [],
+        "full_width": true,
     },
     "n:g:z:crdt_source_viewer:ymap": { 
         "ng:n": "JSON Source",
