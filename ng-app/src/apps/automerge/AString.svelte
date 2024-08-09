@@ -20,13 +20,24 @@
 
     export let path;
 
+    function update() {
+        temp_val = value;
+        previous_val = value;
+    }
+
+    let temp_val;
+    let previous_val;
+    $: value, update();
+
     const change = (event) => { 
-        dispatch('updateText', {
-            s: event.target.value,
-            p: [path]
-        });
+
+        if (previous_val!=temp_val)
+            dispatch('updateText', {
+                s: event.target.value,
+                p: [path]
+            });
     }
 
 </script>
 
-<Input bind:value={value} on:keyup={change} type="text" placeholder="Enter some text" />
+<Input bind:value={temp_val} on:keyup={change} type="text" placeholder="Enter some text" />
