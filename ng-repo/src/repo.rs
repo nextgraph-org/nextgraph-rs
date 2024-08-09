@@ -191,91 +191,95 @@ impl Repo {
 
     fn load_causal_past(
         &self,
-        cobj: &Commit,
+        recursor: &mut Vec<(BlockRef, Option<ObjectId>)>,
         visited: &mut HashMap<ObjectId, (HashSet<ObjectId>, CommitInfo)>,
-        future: Option<ObjectId>,
     ) -> Result<Option<ObjectId>, VerifierError> {
         let mut root = None;
-        let id = cobj.id().unwrap();
-        if let Some((future_set, _)) = visited.get_mut(&id) {
-            // we update the future
-            if let Some(f) = future {
-                future_set.insert(f);
-            }
-        } else {
-            let commit_type = cobj.get_type().unwrap();
-            let acks = cobj.acks();
-            // for a in acks.iter() {
-            //     log_debug!("ACKS of {} {}", id.to_string(), a.id.to_string());
-            // }
-            let (past, real_acks, next_future) = match commit_type {
-                CommitType::SyncSignature => {
-                    assert_eq!(acks.len(), 1);
-                    let dep = cobj.deps();
-                    assert_eq!(dep.len(), 1);
-                    let mut current_commit = dep[0].clone();
-                    let sign_ref = cobj.get_signature_reference().unwrap();
-                    let real_acks;
-                    let mut future = id;
-                    loop {
-                        let o = Commit::load(current_commit.clone(), &self.store, true)?;
-                        let deps = o.deps();
-                        let commit_info = CommitInfo {
-                            past: deps.iter().map(|r| r.id.clone()).collect(),
-                            key: o.key().unwrap(),
-                            signature: Some(sign_ref.clone()),
-                            author: self.get_user_string(o.author()),
-                            timestamp: o.timestamp(),
-                            final_consistency: o.final_consistency(),
-                            commit_type: o.get_type().unwrap(),
-                            branch: None,
-                            x: 0,
-                            y: 0,
-                        };
-                        let id = o.id().unwrap();
+        while let Some((next_ref, future)) = recursor.pop() {
+            if let Ok(cobj) = Commit::load(next_ref, &self.store, true) {
+                let id = cobj.id().unwrap();
+                if let Some((future_set, _)) = visited.get_mut(&id) {
+                    // we update the future
+                    if let Some(f) = future {
+                        future_set.insert(f);
+                    }
+                } else {
+                    let commit_type = cobj.get_type().unwrap();
+                    let acks = cobj.acks();
+                    // for a in acks.iter() {
+                    //     log_debug!("ACKS of {} {}", id.to_string(), a.id.to_string());
+                    // }
+                    let (past, real_acks, next_future) = match commit_type {
+                        CommitType::SyncSignature => {
+                            assert_eq!(acks.len(), 1);
+                            let dep = cobj.deps();
+                            assert_eq!(dep.len(), 1);
+                            let mut current_commit = dep[0].clone();
+                            let sign_ref = cobj.get_signature_reference().unwrap();
+                            let real_acks;
+                            let mut future = id;
+                            loop {
+                                let o = Commit::load(current_commit.clone(), &self.store, true)?;
+                                let deps = o.deps();
+                                let commit_info = CommitInfo {
+                                    past: deps.iter().map(|r| r.id.clone()).collect(),
+                                    key: o.key().unwrap(),
+                                    signature: Some(sign_ref.clone()),
+                                    author: self.get_user_string(o.author()),
+                                    timestamp: o.timestamp(),
+                                    final_consistency: o.final_consistency(),
+                                    commit_type: o.get_type().unwrap(),
+                                    branch: None,
+                                    x: 0,
+                                    y: 0,
+                                };
+                                let id = o.id().unwrap();
 
-                        visited.insert(id, ([future].into(), commit_info));
-                        future = id;
-                        if id == acks[0].id {
-                            real_acks = o.acks();
-                            break;
+                                visited.insert(id, ([future].into(), commit_info));
+                                future = id;
+                                if id == acks[0].id {
+                                    real_acks = o.acks();
+                                    break;
+                                }
+                                assert_eq!(deps.len(), 1);
+                                current_commit = deps[0].clone();
+                            }
+                            (vec![dep[0].id], real_acks, future)
                         }
-                        assert_eq!(deps.len(), 1);
-                        current_commit = deps[0].clone();
-                    }
-                    (vec![dep[0].id], real_acks, future)
-                }
-                CommitType::AsyncSignature => {
-                    let past: Vec<ObjectId> = acks.iter().map(|r| r.id.clone()).collect();
-                    for p in past.iter() {
-                        visited.get_mut(p).unwrap().1.signature =
-                            Some(cobj.get_signature_reference().unwrap());
-                    }
-                    (past, acks, id)
-                }
-                _ => (acks.iter().map(|r| r.id.clone()).collect(), acks, id),
-            };
+                        CommitType::AsyncSignature => {
+                            let past: Vec<ObjectId> = acks.iter().map(|r| r.id.clone()).collect();
+                            for p in past.iter() {
+                                visited.get_mut(p).unwrap().1.signature =
+                                    Some(cobj.get_signature_reference().unwrap());
+                            }
+                            (past, acks, id)
+                        }
+                        _ => (acks.iter().map(|r| r.id.clone()).collect(), acks, id),
+                    };
 
-            let commit_info = CommitInfo {
-                past,
-                key: cobj.key().unwrap(),
-                signature: None,
-                author: self.get_user_string(cobj.author()),
-                timestamp: cobj.timestamp(),
-                final_consistency: cobj.final_consistency(),
-                commit_type,
-                branch: None,
-                x: 0,
-                y: 0,
-            };
-            visited.insert(id, (future.map_or([].into(), |f| [f].into()), commit_info));
-            if real_acks.is_empty() {
-                root = Some(next_future);
-            }
-            for past_ref in real_acks {
-                let o = Commit::load(past_ref, &self.store, true)?;
-                if let Some(r) = self.load_causal_past(&o, visited, Some(next_future))? {
-                    root = Some(r);
+                    let commit_info = CommitInfo {
+                        past,
+                        key: cobj.key().unwrap(),
+                        signature: None,
+                        author: self.get_user_string(cobj.author()),
+                        timestamp: cobj.timestamp(),
+                        final_consistency: cobj.final_consistency(),
+                        commit_type,
+                        branch: None,
+                        x: 0,
+                        y: 0,
+                    };
+                    visited.insert(id, (future.map_or([].into(), |f| [f].into()), commit_info));
+                    if real_acks.is_empty() && root.is_none() {
+                        root = Some(next_future);
+                    }
+                    recursor.extend(real_acks.into_iter().map(|br| (br, Some(next_future))));
+                    // for past_ref in real_acks {
+                    //     let o = Commit::load(past_ref, &self.store, true)?;
+                    //     if let Some(r) = self.load_causal_past(&o, visited, Some(next_future))? {
+                    //         root = Some(r);
+                    //     }
+                    // }
                 }
             }
         }
@@ -458,15 +462,22 @@ impl Repo {
         // }
         let mut visited = HashMap::new();
         let mut root = None;
-        for id in heads {
-            if let Ok(cobj) = Commit::load(id.clone(), &self.store, true) {
-                let r = self.load_causal_past(&cobj, &mut visited, None)?;
-                //log_debug!("ROOT? {:?}", r.map(|rr| rr.to_string()));
-                if r.is_some() {
-                    root = r;
-                }
-            }
+        let mut recursor: Vec<(BlockRef, Option<ObjectId>)> =
+            heads.iter().map(|h| (h.clone(), None)).collect();
+        let r = self.load_causal_past(&mut recursor, &mut visited)?;
+        if r.is_some() {
+            root = r;
         }
+        // for id in heads {
+        //     if let Ok(cobj) = Commit::load(id.clone(), &self.store, true) {
+        //         let r = self.load_causal_past(&cobj, &mut visited, None)?;
+        //         //log_debug!("ROOT? {:?}", r.map(|rr| rr.to_string()));
+        //         if r.is_some() {
+        //             root = r;
+        //         }
+        //     }
+        // }
+
         // for h in visited.keys() {
         //     log_debug!("VISITED {}", h);
         // }
