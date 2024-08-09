@@ -97,337 +97,337 @@ let face = [
   },
 ];
 
-let face_unwell = [
-  {
-    hexcode: "1f637",
-    shortcode: "face_with_medical_mask",
-    svg: "",
-    code: "mask",
-  },
-  {
-    hexcode: "1f912",
-    shortcode: "face_with_thermometer",
-    code: "fever",
-  },
-  {
-    hexcode: "1f915",
-    shortcode: "face_with_head_bandage",
-    code: "bandage",
-  },
+// let face_unwell = [
+//   {
+//     hexcode: "1f637",
+//     shortcode: "face_with_medical_mask",
+//     svg: "",
+//     code: "mask",
+//   },
+//   {
+//     hexcode: "1f912",
+//     shortcode: "face_with_thermometer",
+//     code: "fever",
+//   },
+//   {
+//     hexcode: "1f915",
+//     shortcode: "face_with_head_bandage",
+//     code: "bandage",
+//   },
 
-  {
-    hexcode: "1f92e",
-    shortcode: "face_vomiting",
-    code: "vomit",
-  },
-  {
-    hexcode: "1f927",
-    shortcode: "sneezing_face",
-    code: "tissue",
-  },
-  {
-    hexcode: "1f975",
-    shortcode: "hot_face",
-    code: "hot",
-  },
+//   {
+//     hexcode: "1f92e",
+//     shortcode: "face_vomiting",
+//     code: "vomit",
+//   },
+//   {
+//     hexcode: "1f927",
+//     shortcode: "sneezing_face",
+//     code: "tissue",
+//   },
+//   {
+//     hexcode: "1f975",
+//     shortcode: "hot_face",
+//     code: "hot",
+//   },
 
-  {
-    hexcode: "1f976",
-    shortcode: "cold_face",
-    code: "cold",
-  },
-  {
-    hexcode: "1f635",
-    shortcode: "knocked_out_face",
-    code: "crossed_eyes",
-  },
-  {
-    hexcode: "1f92f",
-    shortcode: "exploding_head",
-    code: "exploding",
-  },
+//   {
+//     hexcode: "1f976",
+//     shortcode: "cold_face",
+//     code: "cold",
+//   },
+//   {
+//     hexcode: "1f635",
+//     shortcode: "knocked_out_face",
+//     code: "crossed_eyes",
+//   },
+//   {
+//     hexcode: "1f92f",
+//     shortcode: "exploding_head",
+//     code: "exploding",
+//   },
 
-  {
-    hexcode: "2639",
-    shortcode: "frowning_face",
-    code: "sad",
-  },
-  {
-    hexcode: "1f925",
-    shortcode: "lying_face",
-    code: "long_nose",
-  },
-  {
-    hexcode: "1f62d",
-    shortcode: "loudly_crying_face",
-    code: "many_tears",
-  },
+//   {
+//     hexcode: "2639",
+//     shortcode: "frowning_face",
+//     code: "sad",
+//   },
+//   {
+//     hexcode: "1f925",
+//     shortcode: "lying_face",
+//     code: "long_nose",
+//   },
+//   {
+//     hexcode: "1f62d",
+//     shortcode: "loudly_crying_face",
+//     code: "many_tears",
+//   },
 
-  {
-    hexcode: "1f631",
-    shortcode: "face_screaming_in_fear",
-    code: "fear",
-  },
-  {
-    hexcode: "1f971",
-    shortcode: "yawning_face",
-    code: "tired",
-  },
-  {
-    hexcode: "1f624",
-    shortcode: "face_with_steam_from_nose",
-    code: "annoyed",
-  },
-];
+//   {
+//     hexcode: "1f631",
+//     shortcode: "face_screaming_in_fear",
+//     code: "fear",
+//   },
+//   {
+//     hexcode: "1f971",
+//     shortcode: "yawning_face",
+//     code: "tired",
+//   },
+//   {
+//     hexcode: "1f624",
+//     shortcode: "face_with_steam_from_nose",
+//     code: "annoyed",
+//   },
+// ];
 
-let face_costume = [
-  {
-    hexcode: "1f921",
-    shortcode: "clown_face",
-    code: "clown",
-    svg: "",
-  },
-  {
-    hexcode: "1f47b",
-    shortcode: "ghost",
-    code: "ghost",
-  },
-  {
-    hexcode: "1f436",
-    shortcode: "dog_face",
-    code: "dog",
-  },
+// let face_costume = [
+//   {
+//     hexcode: "1f921",
+//     shortcode: "clown_face",
+//     code: "clown",
+//     svg: "",
+//   },
+//   {
+//     hexcode: "1f47b",
+//     shortcode: "ghost",
+//     code: "ghost",
+//   },
+//   {
+//     hexcode: "1f436",
+//     shortcode: "dog_face",
+//     code: "dog",
+//   },
 
-  {
-    hexcode: "1f638",
-    shortcode: "grinning_cat_with_smiling_eyes",
-    code: "happy_cat",
-  },
-  {
-    hexcode: "1f640",
-    shortcode: "weary_cat",
-    code: "scared_cat",
-  },
-  {
-    hexcode: "1f63f",
-    shortcode: "crying_cat",
-    code: "sad_cat",
-  },
+//   {
+//     hexcode: "1f638",
+//     shortcode: "grinning_cat_with_smiling_eyes",
+//     code: "happy_cat",
+//   },
+//   {
+//     hexcode: "1f640",
+//     shortcode: "weary_cat",
+//     code: "scared_cat",
+//   },
+//   {
+//     hexcode: "1f63f",
+//     shortcode: "crying_cat",
+//     code: "sad_cat",
+//   },
 
-  {
-    hexcode: "1f648",
-    shortcode: "see_no_evil_monkey",
-    code: "monkey_no_see",
-  },
-  {
-    hexcode: "1f649",
-    shortcode: "hear_no_evil_monkey",
-    code: "monkey_no_hear",
-  },
-  {
-    hexcode: "1f64a",
-    shortcode: "speak_no_evil_monkey",
-    code: "monkey_no_talk",
-  },
+//   {
+//     hexcode: "1f648",
+//     shortcode: "see_no_evil_monkey",
+//     code: "monkey_no_see",
+//   },
+//   {
+//     hexcode: "1f649",
+//     shortcode: "hear_no_evil_monkey",
+//     code: "monkey_no_hear",
+//   },
+//   {
+//     hexcode: "1f64a",
+//     shortcode: "speak_no_evil_monkey",
+//     code: "monkey_no_talk",
+//   },
 
-  {
-    hexcode: "1f477",
-    shortcode: "construction_worker",
-    code: "builder",
-  },
-  {
-    hexcode: "1f478",
-    shortcode: "princess",
-    code: "princess",
-  },
-  {
-    hexcode: "1f9d1_200d_1f692",
-    shortcode: "firefighter",
-    code: "firefighter",
-  },
+//   {
+//     hexcode: "1f477",
+//     shortcode: "construction_worker",
+//     code: "builder",
+//   },
+//   {
+//     hexcode: "1f478",
+//     shortcode: "princess",
+//     code: "princess",
+//   },
+//   {
+//     hexcode: "1f9d1_200d_1f692",
+//     shortcode: "firefighter",
+//     code: "firefighter",
+//   },
 
-  {
-    hexcode: "1f9d9",
-    shortcode: "mage",
-    code: "mage",
-  },
-  {
-    hexcode: "1f9dc",
-    shortcode: "merperson",
-    code: "mermaid",
-  },
-  {
-    hexcode: "1f9da",
-    shortcode: "fairy",
-    code: "fairy",
-  },
-];
+//   {
+//     hexcode: "1f9d9",
+//     shortcode: "mage",
+//     code: "mage",
+//   },
+//   {
+//     hexcode: "1f9dc",
+//     shortcode: "merperson",
+//     code: "mermaid",
+//   },
+//   {
+//     hexcode: "1f9da",
+//     shortcode: "fairy",
+//     code: "fairy",
+//   },
+// ];
 
-let emotion = [
-  {
-    hexcode: "1f48c",
-    shortcode: "love_letter",
-    code: "letter_heart",
-    svg: "",
-  },
-  {
-    hexcode: "2764",
-    shortcode: "red_heart",
-    code: "red_heart",
-  },
-  {
-    hexcode: "1f495",
-    shortcode: "two_hearts",
-    code: "two_hearts",
-  },
+// let emotion = [
+//   {
+//     hexcode: "1f48c",
+//     shortcode: "love_letter",
+//     code: "letter_heart",
+//     svg: "",
+//   },
+//   {
+//     hexcode: "2764",
+//     shortcode: "red_heart",
+//     code: "red_heart",
+//   },
+//   {
+//     hexcode: "1f495",
+//     shortcode: "two_hearts",
+//     code: "two_hearts",
+//   },
 
-  {
-    hexcode: "1f48b",
-    shortcode: "kiss_mark",
-    code: "kiss",
-  },
-  {
-    hexcode: "1f4af",
-    shortcode: "hundred_points",
-    code: "hundred",
-  },
-  {
-    hexcode: "1f4a5",
-    shortcode: "collision",
-    code: "explosion",
-  },
+//   {
+//     hexcode: "1f48b",
+//     shortcode: "kiss_mark",
+//     code: "kiss",
+//   },
+//   {
+//     hexcode: "1f4af",
+//     shortcode: "hundred_points",
+//     code: "hundred",
+//   },
+//   {
+//     hexcode: "1f4a5",
+//     shortcode: "collision",
+//     code: "explosion",
+//   },
 
-  {
-    hexcode: "1f4a6",
-    shortcode: "sweat_droplets",
-    code: "drops",
-  },
-  {
-    hexcode: "1f91d",
-    shortcode: "handshake",
-    code: "handshake",
-  },
-  {
-    hexcode: "1f590",
-    shortcode: "hand_with_fingers_splayed",
-    code: "hand_five_fingers",
-  },
+//   {
+//     hexcode: "1f4a6",
+//     shortcode: "sweat_droplets",
+//     code: "drops",
+//   },
+//   {
+//     hexcode: "1f91d",
+//     shortcode: "handshake",
+//     code: "handshake",
+//   },
+//   {
+//     hexcode: "1f590",
+//     shortcode: "hand_with_fingers_splayed",
+//     code: "hand_five_fingers",
+//   },
 
-  {
-    hexcode: "270c",
-    shortcode: "victory_hand",
-    code: "hand_two_fingers",
-  },
-  {
-    hexcode: "1f44d",
-    shortcode: "thumbs_up",
-    code: "thumbs_up",
-  },
-  {
-    hexcode: "270a",
-    shortcode: "raised_fist",
-    code: "fist",
-  },
+//   {
+//     hexcode: "270c",
+//     shortcode: "victory_hand",
+//     code: "hand_two_fingers",
+//   },
+//   {
+//     hexcode: "1f44d",
+//     shortcode: "thumbs_up",
+//     code: "thumbs_up",
+//   },
+//   {
+//     hexcode: "270a",
+//     shortcode: "raised_fist",
+//     code: "fist",
+//   },
 
-  {
-    hexcode: "1f450",
-    shortcode: "open_hands",
-    code: "two_hands",
-  },
-  {
-    hexcode: "270d",
-    shortcode: "writing_hand",
-    code: "writing",
-  },
-  {
-    hexcode: "1f64f",
-    shortcode: "folded_hands",
-    code: "praying",
-  },
-];
+//   {
+//     hexcode: "1f450",
+//     shortcode: "open_hands",
+//     code: "two_hands",
+//   },
+//   {
+//     hexcode: "270d",
+//     shortcode: "writing_hand",
+//     code: "writing",
+//   },
+//   {
+//     hexcode: "1f64f",
+//     shortcode: "folded_hands",
+//     code: "praying",
+//   },
+// ];
 
-let body = [
-  {
-    hexcode: "1f4aa",
-    shortcode: "flexed_biceps",
-    code: "arm",
-    svg: "",
-  },
-  {
-    hexcode: "1f9b5",
-    shortcode: "leg",
-    code: "leg",
-  },
-  {
-    hexcode: "1f9b6",
-    shortcode: "foot",
-    code: "foot",
-  },
+// let body = [
+//   {
+//     hexcode: "1f4aa",
+//     shortcode: "flexed_biceps",
+//     code: "arm",
+//     svg: "",
+//   },
+//   {
+//     hexcode: "1f9b5",
+//     shortcode: "leg",
+//     code: "leg",
+//   },
+//   {
+//     hexcode: "1f9b6",
+//     shortcode: "foot",
+//     code: "foot",
+//   },
 
-  {
-    hexcode: "1f442",
-    shortcode: "ear",
-    code: "ear",
-  },
-  {
-    hexcode: "1f443",
-    shortcode: "nose",
-    code: "nose",
-  },
-  {
-    hexcode: "1f9e0",
-    shortcode: "brain",
-    code: "brain",
-  },
+//   {
+//     hexcode: "1f442",
+//     shortcode: "ear",
+//     code: "ear",
+//   },
+//   {
+//     hexcode: "1f443",
+//     shortcode: "nose",
+//     code: "nose",
+//   },
+//   {
+//     hexcode: "1f9e0",
+//     shortcode: "brain",
+//     code: "brain",
+//   },
 
-  {
-    hexcode: "1f9b7",
-    shortcode: "tooth",
-    code: "tooth",
-  },
-  {
-    hexcode: "1f9b4",
-    shortcode: "bone",
-    code: "bone",
-  },
-  {
-    hexcode: "1f441",
-    shortcode: "eye",
-    code: "eye",
-  },
+//   {
+//     hexcode: "1f9b7",
+//     shortcode: "tooth",
+//     code: "tooth",
+//   },
+//   {
+//     hexcode: "1f9b4",
+//     shortcode: "bone",
+//     code: "bone",
+//   },
+//   {
+//     hexcode: "1f441",
+//     shortcode: "eye",
+//     code: "eye",
+//   },
 
-  {
-    hexcode: "1f445",
-    shortcode: "tongue",
-    code: "tongue",
-  },
-  {
-    hexcode: "1f444",
-    shortcode: "mouth",
-    code: "mouth",
-  },
-  {
-    hexcode: "1f455",
-    shortcode: "t_shirt",
-    code: "shirt",
-  },
+//   {
+//     hexcode: "1f445",
+//     shortcode: "tongue",
+//     code: "tongue",
+//   },
+//   {
+//     hexcode: "1f444",
+//     shortcode: "mouth",
+//     code: "mouth",
+//   },
+//   {
+//     hexcode: "1f455",
+//     shortcode: "t_shirt",
+//     code: "shirt",
+//   },
 
-  {
-    hexcode: "1f456",
-    shortcode: "jeans",
-    code: "pants",
-  },
-  {
-    hexcode: "1f457",
-    shortcode: "dress",
-    code: "dress",
-  },
-  {
-    hexcode: "1f45f",
-    shortcode: "running_shoe",
-    code: "shoe",
-  },
-];
+//   {
+//     hexcode: "1f456",
+//     shortcode: "jeans",
+//     code: "pants",
+//   },
+//   {
+//     hexcode: "1f457",
+//     shortcode: "dress",
+//     code: "dress",
+//   },
+//   {
+//     hexcode: "1f45f",
+//     shortcode: "running_shoe",
+//     code: "shoe",
+//   },
+// ];
 
 let sport = [
   {
@@ -1084,171 +1084,171 @@ let sky = [
   },
 ];
 
-let play = [
-  {
-    hexcode: "1f3b8",
-    shortcode: "guitar",
-    code: "guitar",
-    svg: "",
-  },
-  {
-    hexcode: "1f3b7",
-    shortcode: "saxophone",
-    code: "saxophone",
-  },
-  {
-    hexcode: "1f3b5",
-    shortcode: "musical_note",
-    code: "music",
-  },
+// let play = [
+//   {
+//     hexcode: "1f3b8",
+//     shortcode: "guitar",
+//     code: "guitar",
+//     svg: "",
+//   },
+//   {
+//     hexcode: "1f3b7",
+//     shortcode: "saxophone",
+//     code: "saxophone",
+//   },
+//   {
+//     hexcode: "1f3b5",
+//     shortcode: "musical_note",
+//     code: "music",
+//   },
 
-  {
-    hexcode: "1f3a8",
-    shortcode: "artist_palette",
-    code: "painting",
-  },
-  {
-    hexcode: "265f",
-    shortcode: "chess_pawn",
-    code: "chess",
-  },
-  {
-    hexcode: "1f381",
-    shortcode: "wrapped_gift",
-    code: "gift",
-  },
+//   {
+//     hexcode: "1f3a8",
+//     shortcode: "artist_palette",
+//     code: "painting",
+//   },
+//   {
+//     hexcode: "265f",
+//     shortcode: "chess_pawn",
+//     code: "chess",
+//   },
+//   {
+//     hexcode: "1f381",
+//     shortcode: "wrapped_gift",
+//     code: "gift",
+//   },
 
-  {
-    hexcode: "1f3b2",
-    shortcode: "game_die",
-    code: "die",
-  },
-  {
-    hexcode: "1f9e9",
-    shortcode: "puzzle_piece",
-    code: "puzzle",
-  },
-  {
-    hexcode: "1f9f8",
-    shortcode: "teddy_bear",
-    code: "teddy_bear",
-  },
+//   {
+//     hexcode: "1f3b2",
+//     shortcode: "game_die",
+//     code: "die",
+//   },
+//   {
+//     hexcode: "1f9e9",
+//     shortcode: "puzzle_piece",
+//     code: "puzzle",
+//   },
+//   {
+//     hexcode: "1f9f8",
+//     shortcode: "teddy_bear",
+//     code: "teddy_bear",
+//   },
 
-  {
-    hexcode: "1f9e8",
-    shortcode: "firecracker",
-    code: "firecracker",
-  },
-  {
-    hexcode: "1f3af",
-    shortcode: "bullseye",
-    code: "bullseye",
-  },
-  {
-    hexcode: "1f6fc",
-    shortcode: "roller_skate",
-    code: "roller_skate",
-  },
+//   {
+//     hexcode: "1f9e8",
+//     shortcode: "firecracker",
+//     code: "firecracker",
+//   },
+//   {
+//     hexcode: "1f3af",
+//     shortcode: "bullseye",
+//     code: "bullseye",
+//   },
+//   {
+//     hexcode: "1f6fc",
+//     shortcode: "roller_skate",
+//     code: "roller_skate",
+//   },
 
-  {
-    hexcode: "1f6f4",
-    shortcode: "kick_scooter",
-    code: "kick_scooter",
-  },
-  {
-    hexcode: "2693",
-    shortcode: "anchor",
-    code: "anchor",
-  },
-  {
-    hexcode: "1f93f",
-    shortcode: "diving_mask",
-    code: "scuba_diving",
-  },
-];
+//   {
+//     hexcode: "1f6f4",
+//     shortcode: "kick_scooter",
+//     code: "kick_scooter",
+//   },
+//   {
+//     hexcode: "2693",
+//     shortcode: "anchor",
+//     code: "anchor",
+//   },
+//   {
+//     hexcode: "1f93f",
+//     shortcode: "diving_mask",
+//     code: "scuba_diving",
+//   },
+// ];
 
-let house = [
-  {
-    hexcode: "1f9f9",
-    shortcode: "broom",
-    code: "broom",
-    svg: "",
-  },
-  {
-    hexcode: "1f50d",
-    shortcode: "magnifying_glass_tilted_left",
-    code: "magnifying_glass",
-  },
-  {
-    hexcode: "1f4a1",
-    shortcode: "light_bulb",
-    code: "bulb",
-  },
+// let house = [
+//   {
+//     hexcode: "1f9f9",
+//     shortcode: "broom",
+//     code: "broom",
+//     svg: "",
+//   },
+//   {
+//     hexcode: "1f50d",
+//     shortcode: "magnifying_glass_tilted_left",
+//     code: "magnifying_glass",
+//   },
+//   {
+//     hexcode: "1f4a1",
+//     shortcode: "light_bulb",
+//     code: "bulb",
+//   },
 
-  {
-    hexcode: "1f4da",
-    shortcode: "books",
-    code: "three_books",
-  },
-  {
-    hexcode: "1f4e6",
-    shortcode: "package",
-    code: "package",
-  },
-  {
-    hexcode: "270f",
-    shortcode: "pencil",
-    code: "pencil",
-  },
+//   {
+//     hexcode: "1f4da",
+//     shortcode: "books",
+//     code: "three_books",
+//   },
+//   {
+//     hexcode: "1f4e6",
+//     shortcode: "package",
+//     code: "package",
+//   },
+//   {
+//     hexcode: "270f",
+//     shortcode: "pencil",
+//     code: "pencil",
+//   },
 
-  {
-    hexcode: "1f4cc",
-    shortcode: "pushpin",
-    code: "pin",
-  },
-  {
-    hexcode: "1f4ce",
-    shortcode: "paperclip",
-    code: "paperclip",
-  },
-  {
-    hexcode: "2702",
-    shortcode: "scissors",
-    code: "scissors",
-  },
+//   {
+//     hexcode: "1f4cc",
+//     shortcode: "pushpin",
+//     code: "pin",
+//   },
+//   {
+//     hexcode: "1f4ce",
+//     shortcode: "paperclip",
+//     code: "paperclip",
+//   },
+//   {
+//     hexcode: "2702",
+//     shortcode: "scissors",
+//     code: "scissors",
+//   },
 
-  {
-    hexcode: "1f511",
-    shortcode: "key",
-    code: "key",
-  },
-  {
-    hexcode: "1f513",
-    shortcode: "unlocked",
-    code: "lock",
-  },
-  {
-    hexcode: "1fa91",
-    shortcode: "chair",
-    code: "chair",
-  },
+//   {
+//     hexcode: "1f511",
+//     shortcode: "key",
+//     code: "key",
+//   },
+//   {
+//     hexcode: "1f513",
+//     shortcode: "unlocked",
+//     code: "lock",
+//   },
+//   {
+//     hexcode: "1fa91",
+//     shortcode: "chair",
+//     code: "chair",
+//   },
 
-  {
-    hexcode: "1f6c1",
-    shortcode: "bathtub",
-    code: "bathtub",
-  },
-  {
-    hexcode: "1f9fd",
-    shortcode: "sponge",
-    code: "sponge",
-  },
-  {
-    hexcode: "1f6d2",
-    shortcode: "shopping_cart",
-    code: "shopping_cart",
-  },
-];
+//   {
+//     hexcode: "1f6c1",
+//     shortcode: "bathtub",
+//     code: "bathtub",
+//   },
+//   {
+//     hexcode: "1f9fd",
+//     shortcode: "sponge",
+//     code: "sponge",
+//   },
+//   {
+//     hexcode: "1f6d2",
+//     shortcode: "shopping_cart",
+//     code: "shopping_cart",
+//   },
+// ];
 
 let svgs_loaded = Promise.resolve(false);
 /** Loads SVGs if they are not yet. TODO: This could probably be sped up by not awaiting sequentially. */
@@ -1280,179 +1280,179 @@ export async function load_svg() {
 
     /***************** FACE UNWELL ******************/
 
-    face_unwell[0].svg = await import(
-      "./assets/pazzle/emoji_u1f637.svg?component"
-    );
-    face_unwell[1].svg = await import(
-      "./assets/pazzle/emoji_u1f912.svg?component"
-    );
-    face_unwell[2].svg = await import(
-      "./assets/pazzle/emoji_u1f915.svg?component"
-    );
+    // face_unwell[0].svg = await import(
+    //   "./assets/pazzle/emoji_u1f637.svg?component"
+    // );
+    // face_unwell[1].svg = await import(
+    //   "./assets/pazzle/emoji_u1f912.svg?component"
+    // );
+    // face_unwell[2].svg = await import(
+    //   "./assets/pazzle/emoji_u1f915.svg?component"
+    // );
 
-    face_unwell[3].svg = await import(
-      "./assets/pazzle/emoji_u1f92e.svg?component"
-    );
-    face_unwell[4].svg = await import(
-      "./assets/pazzle/emoji_u1f927.svg?component"
-    );
-    face_unwell[5].svg = await import(
-      "./assets/pazzle/emoji_u1f975.svg?component"
-    );
+    // face_unwell[3].svg = await import(
+    //   "./assets/pazzle/emoji_u1f92e.svg?component"
+    // );
+    // face_unwell[4].svg = await import(
+    //   "./assets/pazzle/emoji_u1f927.svg?component"
+    // );
+    // face_unwell[5].svg = await import(
+    //   "./assets/pazzle/emoji_u1f975.svg?component"
+    // );
 
-    face_unwell[6].svg = await import(
-      "./assets/pazzle/emoji_u1f976.svg?component"
-    );
-    face_unwell[7].svg = await import(
-      "./assets/pazzle/emoji_u1f635.svg?component"
-    );
-    face_unwell[8].svg = await import(
-      "./assets/pazzle/emoji_u1f92f.svg?component"
-    );
+    // face_unwell[6].svg = await import(
+    //   "./assets/pazzle/emoji_u1f976.svg?component"
+    // );
+    // face_unwell[7].svg = await import(
+    //   "./assets/pazzle/emoji_u1f635.svg?component"
+    // );
+    // face_unwell[8].svg = await import(
+    //   "./assets/pazzle/emoji_u1f92f.svg?component"
+    // );
 
-    face_unwell[9].svg = await import(
-      "./assets/pazzle/emoji_u2639.svg?component"
-    );
-    face_unwell[10].svg = await import(
-      "./assets/pazzle/emoji_u1f925.svg?component"
-    );
-    face_unwell[11].svg = await import(
-      "./assets/pazzle/emoji_u1f62d.svg?component"
-    );
+    // face_unwell[9].svg = await import(
+    //   "./assets/pazzle/emoji_u2639.svg?component"
+    // );
+    // face_unwell[10].svg = await import(
+    //   "./assets/pazzle/emoji_u1f925.svg?component"
+    // );
+    // face_unwell[11].svg = await import(
+    //   "./assets/pazzle/emoji_u1f62d.svg?component"
+    // );
 
-    face_unwell[12].svg = await import(
-      "./assets/pazzle/emoji_u1f631.svg?component"
-    );
-    face_unwell[13].svg = await import(
-      "./assets/pazzle/emoji_u1f971.svg?component"
-    );
-    face_unwell[14].svg = await import(
-      "./assets/pazzle/emoji_u1f624.svg?component"
-    );
+    // face_unwell[12].svg = await import(
+    //   "./assets/pazzle/emoji_u1f631.svg?component"
+    // );
+    // face_unwell[13].svg = await import(
+    //   "./assets/pazzle/emoji_u1f971.svg?component"
+    // );
+    // face_unwell[14].svg = await import(
+    //   "./assets/pazzle/emoji_u1f624.svg?component"
+    // );
 
     /****************** FACE COSTUME *****************/
 
-    face_costume[0].svg = await import(
-      "./assets/pazzle/emoji_u1f921.svg?component"
-    );
-    face_costume[1].svg = await import(
-      "./assets/pazzle/emoji_u1f47b.svg?component"
-    );
-    face_costume[2].svg = await import(
-      "./assets/pazzle/emoji_u1f436.svg?component"
-    );
+    // face_costume[0].svg = await import(
+    //   "./assets/pazzle/emoji_u1f921.svg?component"
+    // );
+    // face_costume[1].svg = await import(
+    //   "./assets/pazzle/emoji_u1f47b.svg?component"
+    // );
+    // face_costume[2].svg = await import(
+    //   "./assets/pazzle/emoji_u1f436.svg?component"
+    // );
 
-    face_costume[3].svg = await import(
-      "./assets/pazzle/emoji_u1f638.svg?component"
-    );
-    face_costume[4].svg = await import(
-      "./assets/pazzle/emoji_u1f640.svg?component"
-    );
-    face_costume[5].svg = await import(
-      "./assets/pazzle/emoji_u1f63f.svg?component"
-    );
+    // face_costume[3].svg = await import(
+    //   "./assets/pazzle/emoji_u1f638.svg?component"
+    // );
+    // face_costume[4].svg = await import(
+    //   "./assets/pazzle/emoji_u1f640.svg?component"
+    // );
+    // face_costume[5].svg = await import(
+    //   "./assets/pazzle/emoji_u1f63f.svg?component"
+    // );
 
-    face_costume[6].svg = await import(
-      "./assets/pazzle/emoji_u1f648.svg?component"
-    );
-    face_costume[7].svg = await import(
-      "./assets/pazzle/emoji_u1f649.svg?component"
-    );
-    face_costume[8].svg = await import(
-      "./assets/pazzle/emoji_u1f64a.svg?component"
-    );
+    // face_costume[6].svg = await import(
+    //   "./assets/pazzle/emoji_u1f648.svg?component"
+    // );
+    // face_costume[7].svg = await import(
+    //   "./assets/pazzle/emoji_u1f649.svg?component"
+    // );
+    // face_costume[8].svg = await import(
+    //   "./assets/pazzle/emoji_u1f64a.svg?component"
+    // );
 
-    face_costume[9].svg = await import(
-      "./assets/pazzle/emoji_u1f477.svg?component"
-    );
-    face_costume[10].svg = await import(
-      "./assets/pazzle/emoji_u1f478.svg?component"
-    );
-    face_costume[11].svg = await import(
-      "./assets/pazzle/emoji_u1f9d1_200d_1f692.svg?component"
-    );
+    // face_costume[9].svg = await import(
+    //   "./assets/pazzle/emoji_u1f477.svg?component"
+    // );
+    // face_costume[10].svg = await import(
+    //   "./assets/pazzle/emoji_u1f478.svg?component"
+    // );
+    // face_costume[11].svg = await import(
+    //   "./assets/pazzle/emoji_u1f9d1_200d_1f692.svg?component"
+    // );
 
-    face_costume[12].svg = await import(
-      "./assets/pazzle/emoji_u1f9d9.svg?component"
-    );
-    face_costume[13].svg = await import(
-      "./assets/pazzle/emoji_u1f9dc.svg?component"
-    );
-    face_costume[14].svg = await import(
-      "./assets/pazzle/emoji_u1f9da.svg?component"
-    );
+    // face_costume[12].svg = await import(
+    //   "./assets/pazzle/emoji_u1f9d9.svg?component"
+    // );
+    // face_costume[13].svg = await import(
+    //   "./assets/pazzle/emoji_u1f9dc.svg?component"
+    // );
+    // face_costume[14].svg = await import(
+    //   "./assets/pazzle/emoji_u1f9da.svg?component"
+    // );
 
     /************** EMOTION *********************/
 
-    emotion[0].svg = await import("./assets/pazzle/emoji_u1f48c.svg?component");
-    emotion[1].svg = await import("./assets/pazzle/emoji_u2764.svg?component");
-    emotion[2].svg = await import("./assets/pazzle/emoji_u1f495.svg?component");
+    // emotion[0].svg = await import("./assets/pazzle/emoji_u1f48c.svg?component");
+    // emotion[1].svg = await import("./assets/pazzle/emoji_u2764.svg?component");
+    // emotion[2].svg = await import("./assets/pazzle/emoji_u1f495.svg?component");
 
-    emotion[3].svg = await import("./assets/pazzle/emoji_u1f48b.svg?component");
-    emotion[4].svg = await import("./assets/pazzle/emoji_u1f4af.svg?component");
-    emotion[5].svg = await import("./assets/pazzle/emoji_u1f4a5.svg?component");
+    // emotion[3].svg = await import("./assets/pazzle/emoji_u1f48b.svg?component");
+    // emotion[4].svg = await import("./assets/pazzle/emoji_u1f4af.svg?component");
+    // emotion[5].svg = await import("./assets/pazzle/emoji_u1f4a5.svg?component");
 
-    emotion[6].svg = await import("./assets/pazzle/emoji_u1f4a6.svg?component");
-    emotion[7].svg = await import("./assets/pazzle/emoji_u1f91d.svg?component");
-    emotion[8].svg = await import("./assets/pazzle/emoji_u1f590.svg?component");
+    // emotion[6].svg = await import("./assets/pazzle/emoji_u1f4a6.svg?component");
+    // emotion[7].svg = await import("./assets/pazzle/emoji_u1f91d.svg?component");
+    // emotion[8].svg = await import("./assets/pazzle/emoji_u1f590.svg?component");
 
-    emotion[9].svg = await import("./assets/pazzle/emoji_u270c.svg?component");
-    emotion[10].svg = await import(
-      "./assets/pazzle/emoji_u1f44d.svg?component"
-    );
-    emotion[11].svg = await import("./assets/pazzle/emoji_u270a.svg?component");
+    // emotion[9].svg = await import("./assets/pazzle/emoji_u270c.svg?component");
+    // emotion[10].svg = await import(
+    //   "./assets/pazzle/emoji_u1f44d.svg?component"
+    // );
+    // emotion[11].svg = await import("./assets/pazzle/emoji_u270a.svg?component");
 
-    emotion[12].svg = await import(
-      "./assets/pazzle/emoji_u1f450.svg?component"
-    );
-    emotion[13].svg = await import("./assets/pazzle/emoji_u270d.svg?component");
-    emotion[14].svg = await import(
-      "./assets/pazzle/emoji_u1f64f.svg?component"
-    );
+    // emotion[12].svg = await import(
+    //   "./assets/pazzle/emoji_u1f450.svg?component"
+    // );
+    // emotion[13].svg = await import("./assets/pazzle/emoji_u270d.svg?component");
+    // emotion[14].svg = await import(
+    //   "./assets/pazzle/emoji_u1f64f.svg?component"
+    // );
 
     /************** BODY *********************/
 
-    body[0].svg = await import("./assets/pazzle/emoji_u1f4aa.svg?component");
-    body[1].svg = await import("./assets/pazzle/emoji_u1f9b5.svg?component");
-    body[2].svg = await import("./assets/pazzle/emoji_u1f9b6.svg?component");
+    // body[0].svg = await import("./assets/pazzle/emoji_u1f4aa.svg?component");
+    // body[1].svg = await import("./assets/pazzle/emoji_u1f9b5.svg?component");
+    // body[2].svg = await import("./assets/pazzle/emoji_u1f9b6.svg?component");
 
-    body[3].svg = await import("./assets/pazzle/emoji_u1f442.svg?component");
-    body[4].svg = await import("./assets/pazzle/emoji_u1f443.svg?component");
-    body[5].svg = await import("./assets/pazzle/emoji_u1f9e0.svg?component");
+    // body[3].svg = await import("./assets/pazzle/emoji_u1f442.svg?component");
+    // body[4].svg = await import("./assets/pazzle/emoji_u1f443.svg?component");
+    // body[5].svg = await import("./assets/pazzle/emoji_u1f9e0.svg?component");
 
-    body[6].svg = await import("./assets/pazzle/emoji_u1f9b7.svg?component");
-    body[7].svg = await import("./assets/pazzle/emoji_u1f9b4.svg?component");
-    body[8].svg = await import("./assets/pazzle/emoji_u1f441.svg?component");
+    // body[6].svg = await import("./assets/pazzle/emoji_u1f9b7.svg?component");
+    // body[7].svg = await import("./assets/pazzle/emoji_u1f9b4.svg?component");
+    // body[8].svg = await import("./assets/pazzle/emoji_u1f441.svg?component");
 
-    body[9].svg = await import("./assets/pazzle/emoji_u1f445.svg?component");
-    body[10].svg = await import("./assets/pazzle/emoji_u1f444.svg?component");
-    body[11].svg = await import("./assets/pazzle/emoji_u1f455.svg?component");
+    // body[9].svg = await import("./assets/pazzle/emoji_u1f445.svg?component");
+    // body[10].svg = await import("./assets/pazzle/emoji_u1f444.svg?component");
+    // body[11].svg = await import("./assets/pazzle/emoji_u1f455.svg?component");
 
-    body[12].svg = await import("./assets/pazzle/emoji_u1f456.svg?component");
-    body[13].svg = await import("./assets/pazzle/emoji_u1f457.svg?component");
-    body[14].svg = await import("./assets/pazzle/emoji_u1f45f.svg?component");
+    // body[12].svg = await import("./assets/pazzle/emoji_u1f456.svg?component");
+    // body[13].svg = await import("./assets/pazzle/emoji_u1f457.svg?component");
+    // body[14].svg = await import("./assets/pazzle/emoji_u1f45f.svg?component");
 
     /************** SPORT *********************/
 
-    sport[0].svg = await import("./assets/pazzle/emoji_u1f93a.svg?component");
-    sport[1].svg = await import("./assets/pazzle/emoji_u1f3c7.svg?component");
-    sport[2].svg = await import("./assets/pazzle/emoji_u26f7.svg?component");
+    // sport[0].svg = await import("./assets/pazzle/emoji_u1f93a.svg?component");
+    // sport[1].svg = await import("./assets/pazzle/emoji_u1f3c7.svg?component");
+    // sport[2].svg = await import("./assets/pazzle/emoji_u26f7.svg?component");
 
-    sport[3].svg = await import("./assets/pazzle/emoji_u1f6a3.svg?component");
-    sport[4].svg = await import("./assets/pazzle/emoji_u1f3ca.svg?component");
-    sport[5].svg = await import("./assets/pazzle/emoji_u1f3c4.svg?component");
+    // sport[3].svg = await import("./assets/pazzle/emoji_u1f6a3.svg?component");
+    // sport[4].svg = await import("./assets/pazzle/emoji_u1f3ca.svg?component");
+    // sport[5].svg = await import("./assets/pazzle/emoji_u1f3c4.svg?component");
 
-    sport[6].svg = await import("./assets/pazzle/emoji_u1f3cb.svg?component");
-    sport[7].svg = await import("./assets/pazzle/emoji_u1f93c.svg?component");
-    sport[8].svg = await import("./assets/pazzle/emoji_u1f6b4.svg?component");
+    // sport[6].svg = await import("./assets/pazzle/emoji_u1f3cb.svg?component");
+    // sport[7].svg = await import("./assets/pazzle/emoji_u1f93c.svg?component");
+    // sport[8].svg = await import("./assets/pazzle/emoji_u1f6b4.svg?component");
 
-    sport[9].svg = await import("./assets/pazzle/emoji_u1fa82.svg?component");
-    sport[10].svg = await import("./assets/pazzle/emoji_u26bd.svg?component");
-    sport[11].svg = await import("./assets/pazzle/emoji_u1f3c0.svg?component");
+    // sport[9].svg = await import("./assets/pazzle/emoji_u1fa82.svg?component");
+    // sport[10].svg = await import("./assets/pazzle/emoji_u26bd.svg?component");
+    // sport[11].svg = await import("./assets/pazzle/emoji_u1f3c0.svg?component");
 
-    sport[12].svg = await import("./assets/pazzle/emoji_u1f3be.svg?component");
-    sport[13].svg = await import("./assets/pazzle/emoji_u1f3d3.svg?component");
-    sport[14].svg = await import("./assets/pazzle/emoji_u1f94b.svg?component");
+    // sport[12].svg = await import("./assets/pazzle/emoji_u1f3be.svg?component");
+    // sport[13].svg = await import("./assets/pazzle/emoji_u1f3d3.svg?component");
+    // sport[14].svg = await import("./assets/pazzle/emoji_u1f94b.svg?component");
 
     /************** BIGGER ANIMAL *********************/
 
@@ -1670,47 +1670,47 @@ export async function load_svg() {
 
     /************** PLAY *********************/
 
-    play[0].svg = await import("./assets/pazzle/emoji_u1f3b8.svg?component");
-    play[1].svg = await import("./assets/pazzle/emoji_u1f3b7.svg?component");
-    play[2].svg = await import("./assets/pazzle/emoji_u1f3b5.svg?component");
+    // play[0].svg = await import("./assets/pazzle/emoji_u1f3b8.svg?component");
+    // play[1].svg = await import("./assets/pazzle/emoji_u1f3b7.svg?component");
+    // play[2].svg = await import("./assets/pazzle/emoji_u1f3b5.svg?component");
 
-    play[3].svg = await import("./assets/pazzle/emoji_u1f3a8.svg?component");
-    play[4].svg = await import("./assets/pazzle/emoji_u265f.svg?component");
-    play[5].svg = await import("./assets/pazzle/emoji_u1f381.svg?component");
+    // play[3].svg = await import("./assets/pazzle/emoji_u1f3a8.svg?component");
+    // play[4].svg = await import("./assets/pazzle/emoji_u265f.svg?component");
+    // play[5].svg = await import("./assets/pazzle/emoji_u1f381.svg?component");
 
-    play[6].svg = await import("./assets/pazzle/emoji_u1f3b2.svg?component");
-    play[7].svg = await import("./assets/pazzle/emoji_u1f9e9.svg?component");
-    play[8].svg = await import("./assets/pazzle/emoji_u1f9f8.svg?component");
+    // play[6].svg = await import("./assets/pazzle/emoji_u1f3b2.svg?component");
+    // play[7].svg = await import("./assets/pazzle/emoji_u1f9e9.svg?component");
+    // play[8].svg = await import("./assets/pazzle/emoji_u1f9f8.svg?component");
 
-    play[9].svg = await import("./assets/pazzle/emoji_u1f9e8.svg?component");
-    play[10].svg = await import("./assets/pazzle/emoji_u1f3af.svg?component");
-    play[11].svg = await import("./assets/pazzle/emoji_u1f6fc.svg?component");
+    // play[9].svg = await import("./assets/pazzle/emoji_u1f9e8.svg?component");
+    // play[10].svg = await import("./assets/pazzle/emoji_u1f3af.svg?component");
+    // play[11].svg = await import("./assets/pazzle/emoji_u1f6fc.svg?component");
 
-    play[12].svg = await import("./assets/pazzle/emoji_u1f6f4.svg?component");
-    play[13].svg = await import("./assets/pazzle/emoji_u2693.svg?component");
-    play[14].svg = await import("./assets/pazzle/emoji_u1f93f.svg?component");
+    // play[12].svg = await import("./assets/pazzle/emoji_u1f6f4.svg?component");
+    // play[13].svg = await import("./assets/pazzle/emoji_u2693.svg?component");
+    // play[14].svg = await import("./assets/pazzle/emoji_u1f93f.svg?component");
 
     /************** HOUSE *********************/
 
-    house[0].svg = await import("./assets/pazzle/emoji_u1f9f9.svg?component");
-    house[1].svg = await import("./assets/pazzle/emoji_u1f50d.svg?component");
-    house[2].svg = await import("./assets/pazzle/emoji_u1f4a1.svg?component");
+    // house[0].svg = await import("./assets/pazzle/emoji_u1f9f9.svg?component");
+    // house[1].svg = await import("./assets/pazzle/emoji_u1f50d.svg?component");
+    // house[2].svg = await import("./assets/pazzle/emoji_u1f4a1.svg?component");
 
-    house[3].svg = await import("./assets/pazzle/emoji_u1f4da.svg?component");
-    house[4].svg = await import("./assets/pazzle/emoji_u1f4e6.svg?component");
-    house[5].svg = await import("./assets/pazzle/emoji_u270f.svg?component");
+    // house[3].svg = await import("./assets/pazzle/emoji_u1f4da.svg?component");
+    // house[4].svg = await import("./assets/pazzle/emoji_u1f4e6.svg?component");
+    // house[5].svg = await import("./assets/pazzle/emoji_u270f.svg?component");
 
-    house[6].svg = await import("./assets/pazzle/emoji_u1f4cc.svg?component");
-    house[7].svg = await import("./assets/pazzle/emoji_u1f4ce.svg?component");
-    house[8].svg = await import("./assets/pazzle/emoji_u2702.svg?component");
+    // house[6].svg = await import("./assets/pazzle/emoji_u1f4cc.svg?component");
+    // house[7].svg = await import("./assets/pazzle/emoji_u1f4ce.svg?component");
+    // house[8].svg = await import("./assets/pazzle/emoji_u2702.svg?component");
 
-    house[9].svg = await import("./assets/pazzle/emoji_u1f511.svg?component");
-    house[10].svg = await import("./assets/pazzle/emoji_u1f513.svg?component");
-    house[11].svg = await import("./assets/pazzle/emoji_u1fa91.svg?component");
+    // house[9].svg = await import("./assets/pazzle/emoji_u1f511.svg?component");
+    // house[10].svg = await import("./assets/pazzle/emoji_u1f513.svg?component");
+    // house[11].svg = await import("./assets/pazzle/emoji_u1fa91.svg?component");
 
-    house[12].svg = await import("./assets/pazzle/emoji_u1f6c1.svg?component");
-    house[13].svg = await import("./assets/pazzle/emoji_u1f9fd.svg?component");
-    house[14].svg = await import("./assets/pazzle/emoji_u1f6d2.svg?component");
+    // house[12].svg = await import("./assets/pazzle/emoji_u1f6c1.svg?component");
+    // house[13].svg = await import("./assets/pazzle/emoji_u1f9fd.svg?component");
+    // house[14].svg = await import("./assets/pazzle/emoji_u1f6d2.svg?component");
 
     resolve(true);
   });
@@ -1718,10 +1718,10 @@ export async function load_svg() {
 
 export const emojis: Record<string, Emoji[]> = {
   face,
-  face_unwell,
-  face_costume,
-  emotion,
-  body,
+  //face_unwell,
+  //face_costume,
+  //emotion,
+  //body,
   sport,
   bigger_animal,
   smaller_animal,
@@ -1730,8 +1730,8 @@ export const emojis: Record<string, Emoji[]> = {
   food,
   travel,
   sky,
-  play,
-  house,
+  //play,
+  //house,
 };
 
 export const emoji_cat = [
@@ -1745,13 +1745,13 @@ export const emoji_cat = [
   "travel",
   "sky",
 
-  "body",
-  "face_unwell",
-  "house",
+  //"body",
+  //"face_unwell",
+  //"house",
 
-  "play",
-  "face_costume",
-  "emotion",
+  //"play",
+  //"face_costume",
+  //"emotion",
 ];
 
 export function display_pazzle(pazzle: number[]) {
