@@ -23,11 +23,13 @@
     import { 
         cur_tab_register_on_save,
         cur_tab_deregister_on_save,
-        cur_tab_branch_class
+        cur_tab_doc_can_edit,
+        set_view_or_edit
     } from "../tab";
     import { t } from "svelte-i18n";
     import wasmUrl from "@automerge/automerge/automerge.wasm?url";
     import { next as A } from "@automerge/automerge/slim";
+    import{ PencilSquare } from "svelte-heros-v2";
 
     import AMap from "./automerge/AMap.svelte";
 
@@ -116,14 +118,31 @@
             toast_error(display_error(e));
         }
     }
+
+    const edit = () => {
+      set_view_or_edit(false);
+    }
   
   </script>
     {#if safari_error}
         <Alert class="m-2" color="red">{$t("errors.no_wasm_on_old_safari")}</Alert>
     {:else}
-        <div class="grow mb-20" style="min-height:300px;">
-            <AMap {readonly} value={doc} {doc} on:update={update} on:updateText={updateText} proxy={root_proxy}/>
-        </div>
+        {#if Object.keys(doc).length !== 0 || !readonly}
+            <div class="grow mb-20" style="min-height:300px;">
+                <AMap {readonly} value={doc} {doc} on:update={update} on:updateText={updateText} proxy={root_proxy}/>
+            </div>
+        {:else if $cur_tab_doc_can_edit}
+            <button
+                on:click={edit}
+                on:keypress={edit}
+                class="select-none ml-4 mt-2 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            >
+                <PencilSquare class="mr-2 focus:outline-none" tabindex="-1" />
+                {$t("doc.start_editing")}
+            </button>
+        {:else}
+            <p class="ml-5">{$t("doc.empty")}</p>
+        {/if}
     {/if}
   <style>
 

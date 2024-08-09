@@ -99,7 +99,7 @@
               <LineNumbers {highlighted} wrapLines hideBorder />
             </Highlight>
           {:else}
-          <span class="ml-2">{$t("doc.empty")}</span>
+            <span class="ml-2">{$t("doc.empty")}</span>
           {/if}
         {:else if results?.head} 
           <Table>
