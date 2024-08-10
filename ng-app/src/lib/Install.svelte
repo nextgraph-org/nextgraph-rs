@@ -51,7 +51,7 @@
     </Alert>
   {/if}
   <div class="row mt-5">
-    <a href="#/">
+    <a href="https://nextgraph.org/download/#android" target="_blank">
       <button
         tabindex="-1"
         class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
@@ -71,7 +71,7 @@
     </a>
   </div>
   <div class="row mt-5">
-    <a href="https://nextgraph.org/download/#android">
+    <a href="https://nextgraph.org/download/#android" target="_blank">
       <button
         tabindex="-1"
         class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
@@ -91,7 +91,7 @@
     </a>
   </div>
   <div class="row mt-5">
-    <a href="#/">
+    <a href="https://nextgraph.org/download/#ios" target="_blank">
       <button
         tabindex="-1"
         class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
@@ -112,7 +112,7 @@
   </div>
 
   <div class="row mt-5">
-    <a href="https://nextgraph.org/download/#macos">
+    <a href="https://nextgraph.org/download/#macos" target="_blank">
       <button
         tabindex="-1"
         class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
@@ -133,7 +133,7 @@
   </div>
 
   <div class="row mt-5">
-    <a href="https://nextgraph.org/download/#linux">
+    <a href="https://nextgraph.org/download/#linux" target="_blank">
       <button
         tabindex="-1"
         class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
@@ -154,7 +154,7 @@
   </div>
 
   <div class="row mt-5">
-    <a href="https://nextgraph.org/download/#windows">
+    <a href="https://nextgraph.org/download/#windows" target="_blank">
       <button
         tabindex="-1"
         class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
@@ -174,8 +174,8 @@
     </a>
   </div>
 
-  <div class="row mt-5 mb-12">
-    <a href="https://nextgraph.org/self-host">
+  <!-- <div class="row mt-5 mb-12">
+    <a href="https://nextgraph.org/self-host" target="_blank">
       <button
         tabindex="-1"
         class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
@@ -193,5 +193,5 @@
         {$t("pages.install.other_platforms")}
       </button>
     </a>
-  </div>
+  </div> -->
 </main>

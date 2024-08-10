@@ -525,7 +525,7 @@
 <svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
 <CenteredLayout>
-  <div class="max-w-2xl lg:px-8 mx-auto">
+  <div class="max-w-2xl lg:px-8 mx-auto mb-20">
     {#if wait}
       <div class="lg:px-8 text-primary-700">
         {#if wait === true}
@@ -768,7 +768,7 @@
               </ul>
             </div>
           </div>
-          <div class="row mb-20">
+          <div class="row">
             <button
               on:click|once={create_wallet}
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
@@ -1073,7 +1073,7 @@
               </button>
             </div>
           {/if}
-          <div class="row mt-5">
+          <!-- <div class="row mt-5">
             <button
               on:click={displaySelfHost}
               class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
@@ -1095,8 +1095,103 @@
               </svg>
               {$t("pages.wallet_create.self_hosted_broker")}
             </button>
+          </div> -->
+          {#if import.meta.env.NG_APP_WEB}
+          <div class="row mt-5 max-w-xl md:mx-auto lg:max-w-2xl px-4 lg:px-8 pb-0 text-left text-gray-500 dark:text-gray-400 flex space-x-3">
+            <svg class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"  fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 1 0 9.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1 1 14.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"></path>
+            </svg>
+            
+            <span>
+              {@html $t("pages.wallet_create.broker_about.8")}
+            </span>
           </div>
-          <div class="row mt-5 mb-12">
+          <div class="row mt-5">
+            
+            <a href="/install" use:link>
+              <button
+                tabindex="-1"
+                class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+              >
+                <svg
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  class=" block h-10 w-10"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"
+                  />
+                </svg>
+                or
+        
+                <svg
+                  class="mr-4 ml-2 block h-10 w-10"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  viewBox="0 0 64 50"
+                  version="1.1"
+                  xmlns="http://www.w3.org/2000/svg"
+                  xmlns:xlink="http://www.w3.org/1999/xlink"
+                >
+                  <defs />
+                  <g id="Page-1" stroke-width="1" fill="none" fill-rule="evenodd">
+                    <g
+                      id="Laptop"
+                      transform="translate(1.000000, 1.000000)"
+                      stroke-width="2"
+                    >
+                      <path
+                        d="M56,27 C56,28.1 55.1,29 54,29 L8,29 C6.9,29 6,28.1 6,27 L6,2 C6,0.9 6.9,0 8,0 L54,0 C55.1,0 56,0.9 56,2 L56,26.5 L56,27 L56,27 Z"
+                        id="Shape"
+                      />
+                      <path
+                        d="M57,31 C57,29.9 56.1,29 55,29 L7,29 C5.9,29 5,29.9 5,31 L0,46 C0,47.1 0.9,48 2,48 L60,48 C61.1,48 62,47.1 62,46 L57,31 L57,31 Z"
+                        id="Shape"
+                      />
+                      <path d="M2,42.9 L61,42.9" id="Shape" />
+                      <path
+                        d="M52.1,24 C52.1,25.1 51.2,26 50.1,26 L12,26 C10.9,26 10,25.1 10,24 L10,6 C10,4.9 10.9,4 12,4 L50,4 C51.1,4 52,4.9 52,6 L52.1,24 L52.1,24 Z"
+                        id="Shape"
+                      />
+                      <path d="M22,39 L40,39" id="Shape" />
+                      <path d="M17.2,39 L20,39" id="Shape" />
+                      <path d="M12.1,39 L15,39" id="Shape" />
+                      <path d="M7,39 L10,39" id="Shape" />
+                      <path d="M9.2,35 L12,35" id="Shape" />
+                      <path d="M14,35 L17,35" id="Shape" />
+                      <path d="M19,35 L22,35" id="Shape" />
+                      <path d="M24,35 L27,35" id="Shape" />
+                      <path d="M29,35 L32,35" id="Shape" />
+                      <path d="M34,35 L37,35" id="Shape" />
+                      <path d="M39,35 L42,35" id="Shape" />
+                      <path d="M45,35 L48,35" id="Shape" />
+                      <path d="M50,35 L53,35" id="Shape" />
+                      <path d="M47,32 L50,32" id="Shape" />
+                      <path d="M42,32 L45,32" id="Shape" />
+                      <path d="M37,32 L40,32" id="Shape" />
+                      <path d="M32,32 L35,32" id="Shape" />
+                      <path d="M27,32 L30,32" id="Shape" />
+                      <path d="M22,32 L25,32" id="Shape" />
+                      <path d="M17.1,32 L20,32" id="Shape" />
+                      <path d="M12,32 L15,32" id="Shape" />
+                      <path d="M42,39 L44.8,39" id="Shape" />
+                      <path d="M47,39 L49.9,39" id="Shape" />
+                      <path d="M52,39 L55,39" id="Shape" />
+                    </g>
+                  </g>
+                </svg>
+                {$t("pages.wallet_create.install_app")}
+              </button>
+            </a>
+          </div>
+          {/if}
+          <!-- <div class="row mt-5 mb-12">
             <button
               on:click={displayNGbox}
               class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
@@ -1123,7 +1218,7 @@
               </svg>
               {$t("pages.wallet_create.ng_box")}
             </button>
-          </div>
+          </div> -->
         {:else if pin.length < 4}
           <div class=" max-w-6xl lg:px-8 mx-auto">
             {#if registration_success}
@@ -1514,7 +1609,7 @@
             {/if} -->
             <button
               on:click|once={do_wallet}
-              class="mt-10 mb-20 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+              class="mt-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
             >
               <svg
                 class="w-8 h-8 mr-2 -ml-1"
@@ -1682,7 +1777,7 @@
               <div class="flex flex-col items-center">
                 <button
                   tabindex="-1"
-                  class="mb-20 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2"
+                  class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2"
                   on:click={() => (confirm_modal_open = true)}
                 >
                   <svg

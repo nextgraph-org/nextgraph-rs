@@ -396,7 +396,8 @@
         "4": "It will be possible in the future to use NextGraph without any broker and to have direct connections between peers, but this will imply a less smooth experience.",
         "5": "At anytime you can decide to switch to another broker service provider or host it yourself. Your data is totally <b >portable</b > and can freely move to another broker.",
         "6": "Soon we will offer you the opportunity to host your own broker at <b>home</b> or <b>office</b>. Instead of using a \"broker service provider\", you will own a small device that you connect behind your internet router. It is called <b>NG Box</b> and will be available soon.",
-        "7": "Organizations and companies have the opportunity to host a broker <b>on-premise</b> or in the <b>cloud</b>, as the software is open source. Individuals can also <b>self-host</b> a broker on any VPS server or at home, on their dedicated hardware."
+        "7": "Organizations and companies have the opportunity to host a broker <b>on-premise</b> or in the <b>cloud</b>, as the software is open source. Individuals can also <b>self-host</b> a broker on any VPS server or at home, on their dedicated hardware.",
+        "8": "You can also start by installing the Native App and create the wallet from there, and select the broker also from the app. <br/>At any time you will be able to transfer your Wallet from one device to another (including from the web-app and the native apps)."
       },
       "choose_broker": "Please choose one broker among the list",
       "register_with_broker": "Register with {broker}",
@@ -406,6 +407,7 @@
       "scan_invite_qr": "Scan an invitation QR-code",
       "self_hosted_broker": "Self-hosted broker",
       "ng_box": "NG Box (owned or invited)",
+      "install_app": "Install the app",
       "registration_success": "You have been successfully registered to {broker}",
       "choose_pin": {
         "title": "Let's start creating your wallet by choosing a PIN code",
