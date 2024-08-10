@@ -38,6 +38,7 @@ const mapping = {
     "decode_invitation": ["invite"],
     "user_connect": ["info","user_id","location"],
     "user_disconnect": ["user_id"],
+    "discrete_update": ["session_id", "update", "heads", "crdt", "nuri"],
     "app_request": ["request"],
     "app_request_with_nuri_command": ["nuri", "command", "session_id", "payload"],
     "sparql_query": ["session_id","sparql","nuri"],
@@ -200,6 +201,11 @@ const handler = {
                     tauri.invoke("cancel_stream", {stream_id});
                 }
                 
+            } else if (path[0] === "discrete_update") {
+                let arg = {};
+                args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
+                arg.update = Array.from(new Uint8Array(arg.update));
+                return await tauri.invoke(path[0],arg)
             } else if (path[0] === "app_request_stream") {
                 let stream_id = (lastStreamId += 1).toString();
                 //console.log("stream_id",stream_id);

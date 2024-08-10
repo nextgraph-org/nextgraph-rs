@@ -44,13 +44,12 @@
     import { collab, collabServiceCtx } from '@milkdown/plugin-collab';
     import { placeholder, placeholderCtx } from './milkdown-placeholder'
     import { splitEditing, toggleSplitEditing } from '@milkdown-lab/plugin-split-editing'
-    import { SlashProvider, slashFactory } from '@milkdown/plugin-slash'
+    //import { SlashProvider, slashFactory } from '@milkdown/plugin-slash'
     import { callCommand } from '@milkdown/utils';
     import { emoji } from '@milkdown/plugin-emoji';
     import { math } from '@milkdown/plugin-math';
     import 'katex/dist/katex.min.css';
     import { indent } from '@milkdown/plugin-indent';
-    import { prism } from '@milkdown/plugin-prism';
     import 'prism-themes/themes/prism-nord.css'
 
     export let commits = {};
@@ -74,38 +73,59 @@
 
     $: width, width_changed();
 
-    function slashPluginView(view) {
-        const content = document.createElement('div');
+    // function slashPluginView(view) {
+    //     const content = document.createElement('div');
 
-        const provider = new SlashProvider({
-            content,
-        });
+    //     const provider = new SlashProvider({
+    //         content,
+    //     });
 
-        return {
-            update: (updatedView, prevState) => {
-                provider.update(updatedView, prevState);
-            },
-            destroy: () => {
-                provider.destroy();
-                content.remove();
-            }
-        }
-    }
+    //     return {
+    //         update: (updatedView, prevState) => {
+    //             provider.update(updatedView, prevState);
+    //         },
+    //         destroy: () => {
+    //             provider.destroy();
+    //             content.remove();
+    //         }
+    //     }
+    // }
 
-    const slash = slashFactory('my-slash');
+    // const slash = slashFactory('my-slash');
 
     async function setup() {
+        if (!Array.prototype.at) {
+            Array.prototype.at = function at(n) {
+                let i = Math.trunc(n) || 0
+                i = i < 0 ? this.length + i : i
+
+                if (i < 0 || i >= this.length) return undefined
+
+                return this[i]
+            }
+        }
+        if (!Element.prototype.replaceChildren) {
+            Element.prototype.replaceChildren = function replaceChildren(...new_children) {
+                const { childNodes } = this;
+                while (childNodes.length) {
+                    childNodes[0].remove();
+                }
+                this.append(...new_children);
+            }
+        }
+        let prism = await import("@milkdown/plugin-prism");       
+
         editor = await Editor.make().config((ctx) => {
             ctx.set(rootCtx, '#mdeditor')
             ctx.set(placeholderCtx, $t("doc.type_your_text_here"))
-            ctx.set(slash.key, {
-                view: slashPluginView
-            })
-        }).use(slash)
+            // ctx.set(slash.key, {
+            //     view: slashPluginView
+            // })
+        })//.use(slash)
         .config(nord)
         .use(commonmark)
         .use(gfm)
-        .use(prism)
+        .use(prism.prism)
         .use(indent)
         .use(math)
         .use(emoji)

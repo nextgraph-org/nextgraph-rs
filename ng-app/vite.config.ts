@@ -7,6 +7,20 @@ import svelteSVG from "vite-plugin-svelte-svg";
 import wasm from "vite-plugin-wasm";
 import topLevelAwait from "vite-plugin-top-level-await";
 
+const jsToBottom = () => {
+  return {
+    name: "script-at-end-of-body",
+    transformIndexHtml(html) {
+      let scriptTag = html.match(/<script type[^>]*>(.*?)<\/script[^>]*>/)[0]
+      //console.log("\n SCRIPT TAG", scriptTag, "\n")
+      html = html.replace(scriptTag, "")
+      html = html.replace("<!-- # INSERT SCRIPT HERE -->", scriptTag)
+      return html;
+    }
+  }
+}
+
+
 // https://vitejs.dev/config/
 export default defineConfig(async () => {
   const host = await internalIpV4()
@@ -104,6 +118,9 @@ export default defineConfig(async () => {
 if (process.env.NG_APP_FILE) {
   config.plugins.push(viteSingleFile());
   config.worker.plugins.push(viteSingleFile());
+}
+if (process.env.NG_APP_WEB) {
+  config.plugins.push(jsToBottom());
 }
 return config
 })
