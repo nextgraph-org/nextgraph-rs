@@ -196,6 +196,10 @@ fn prepare_urls_from_private_addrs(addrs: &Vec<BindAddress>, port: u16) -> Vec<S
 #[include = "*.gzip"]
 struct App;
 
+#[derive(RustEmbed)]
+#[folder = "../ng-app/public/"]
+struct AppPublic;
+
 static ROBOTS: &str = "User-agent: *\r\nDisallow: /";
 
 fn upgrade_ws_or_serve_app(
@@ -256,6 +260,15 @@ fn upgrade_ws_or_serve_app(
                 .header("Content-Type", "text/json")
                 .header("Cache-Control", "max-age=0, must-revalidate")
                 .body(Some(BOOTSTRAP_STRING.get().unwrap().as_bytes().to_vec()))
+                .unwrap();
+            return Err(res);
+        } else if uri == "/favicon.ico" {
+            let file = AppPublic::get("favicon.ico").unwrap();
+            let res = Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "image/x-icon")
+                .header("Cache-Control", "max-age=432000, must-revalidate")
+                .body(Some(file.data.to_vec()))
                 .unwrap();
             return Err(res);
         } else if uri == "/robots.txt" {

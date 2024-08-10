@@ -402,6 +402,36 @@ async fn app_request_stream(
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn discrete_update(
+    session_id: u64,
+    update: serde_bytes::ByteBuf,
+    heads: Vec<String>,
+    crdt: String,
+    nuri: String,
+) -> Result<(), String> {
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_update(),
+        nuri,
+        payload: Some(
+            AppRequestPayload::new_discrete_update(heads, crdt, update.into_vec())
+                .map_err(|e| format!("Deserialization error of heads: {e}"))?,
+        ),
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    if let AppResponse::V0(AppResponseV0::Error(e)) = res {
+        Err(e)
+    } else {
+        Ok(())
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn file_save_to_downloads(
     session_id: u64,
     reference: ObjectRef,
@@ -417,7 +447,7 @@ async fn file_save_to_downloads(
     let mut request = AppRequest::new(AppRequestCommandV0::FileGet, nuri, None);
     request.set_session_id(session_id);
 
-    let (mut reader, cancel) = nextgraph::local_broker::app_request_stream(request)
+    let (mut reader, _cancel) = nextgraph::local_broker::app_request_stream(request)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -864,6 +894,7 @@ impl AppBuilder {
                 doc_fetch_repo_subscribe,
                 doc_create,
                 cancel_stream,
+                discrete_update,
                 app_request_stream,
                 file_get,
                 file_save_to_downloads,

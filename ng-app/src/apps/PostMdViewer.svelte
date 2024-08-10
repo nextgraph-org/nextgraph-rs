@@ -45,54 +45,85 @@
     import { math } from '@milkdown/plugin-math';
     import 'katex/dist/katex.min.css';
     import { indent } from '@milkdown/plugin-indent';
-    import { prism } from '@milkdown/plugin-prism';
-    import 'prism-themes/themes/prism-nord.css'
+    import "prism-themes/themes/prism-nord.css";
 
     export let commits = {};
 
     const ydoc = new Y.Doc()
 
     let editor;
-    let has_content = false;
+    let has_content = true;
 
     async function setup() {
-        editor = await Editor.make().config((ctx) => {
-            ctx.set(rootCtx, '#mdeditor')
-            ctx.update(editorViewOptionsCtx, (prev) => ({
-                ...prev,
-                editable:() => false,
-            }))
-        }).config(nord)
-        .use(commonmark)
-        .use(gfm)
-        .use(prism)
-        .use(indent)
-        .use(math)
-        .use(emoji)
-        .use(collab)
-        .create();
-   
-        ydoc.on('destroy', async () => {
-            commits.discrete?.deregisterOnUpdate();
-        })
+        try {
+            editor = Editor.make().config((ctx) => {
+                ctx.set(rootCtx, '#mdeditor')
+                ctx.update(editorViewOptionsCtx, (prev) => ({
+                    ...prev,
+                    editable:() => false,
+                }))
+            }).config(nord)
+            .use(commonmark)
+            .use(gfm);
+            // do not load prism if Safari < 15.4
+            if (!Array.prototype.at) {
+                Array.prototype.at = function at(n) {
+                    let i = Math.trunc(n) || 0
+                    i = i < 0 ? this.length + i : i
 
-        editor.action((ctx) => {
-            const collabService = ctx.get(collabServiceCtx);
+                    if (i < 0 || i >= this.length) return undefined
 
-            collabService
-            // bind doc and awareness
-            .bindDoc(ydoc)
-            // connect yjs with milkdown
-            .connect();
-        });
+                    return this[i]
+                }
+            }
+            if (!Element.prototype.replaceChildren) {
+                Element.prototype.replaceChildren = function replaceChildren(...new_children) {
+                    const { childNodes } = this;
+                    while (childNodes.length) {
+                        childNodes[0].remove();
+                    }
+                    this.append(...new_children);
+                }
+            }
+            if ([].at) {
+                let prism = await import("@milkdown/plugin-prism");
+                editor = editor.use(prism.prism);
+            }
+            
+            editor = await editor
+            .use(indent)
+            .use(math)
+            .use(emoji)
+            .use(collab)
+            .create();
+    
+            ydoc.on('destroy', async () => {
+                commits.discrete?.deregisterOnUpdate();
+            })
 
-        let history = commits.discrete?.registerOnUpdate((update) => {
-            Y.applyUpdate(ydoc, update.YXml, {local:true})
-            has_content = true;
-        });
-        for (const h of history) {
-            Y.applyUpdate(ydoc, h.YXml, {local:true})
-            has_content = true;
+            editor.action((ctx) => {
+                const collabService = ctx.get(collabServiceCtx);
+
+                collabService
+                // bind doc and awareness
+                .bindDoc(ydoc)
+                // connect yjs with milkdown
+                .connect();
+            });
+
+            has_content = false;
+            let history = commits.discrete?.registerOnUpdate((update) => {
+                Y.applyUpdate(ydoc, update.YXml, {local:true})
+                has_content = true;
+            });
+            for (const h of history) {
+                Y.applyUpdate(ydoc, h.YXml, {local:true})
+                has_content = true;
+            }
+        }
+        catch (e){
+            console.log("in setup ")
+            console.log(e)
         }
     }
 
@@ -103,7 +134,12 @@
 
     onDestroy(async ()=>{
         ydoc.destroy();
-        await editor.destroy();
+        try {
+            if (editor) await editor.destroy();
+        } catch(e) {
+            console.log(e);
+        }
+
     });
 
     const edit = () => {
@@ -116,7 +152,7 @@
         <button
             on:click={edit}
             on:keypress={edit}
-            class="select-none mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            class="select-none ml-5 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
         >
             <PencilSquare tabindex="-1" class="mr-2 focus:outline-none" />
             {$t("doc.start_editing")}            

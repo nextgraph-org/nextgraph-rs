@@ -64,7 +64,6 @@
         try {
             await A.initializeWasm(wasmUrl);
         } catch (e) {
-            toast_error($t("errors.no_wasm_on_old_safari"));
             safari_error = true;
             return;
         }
