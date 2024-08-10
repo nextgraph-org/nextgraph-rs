@@ -65,7 +65,7 @@
             }).config(nord)
             .use(commonmark)
             .use(gfm);
-            // do not load prism if Safari < 15.4
+            // polyfill if Safari < 15.4
             if (!Array.prototype.at) {
                 Array.prototype.at = function at(n) {
                     let i = Math.trunc(n) || 0

@@ -1,4 +1,4 @@
-#![doc(html_logo_url = "https://file.nextgraph.org/download/1fd175bb6d7d832156bd5ad4abcdee7e")]
+#![doc(html_logo_url = "https://nextgraph.org/nextgraph-logo-192.png")]
 #![doc(issue_tracker_base_url = "https://git.nextgraph.org/NextGraph/nextgraph-rs/issues")]
 #![doc(html_favicon_url = "https://nextgraph.org/favicon.svg")]
 //! # NextGraph framework client library
