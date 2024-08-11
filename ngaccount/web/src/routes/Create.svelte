@@ -316,7 +316,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"></path>
               </svg>
               <span>
-                Q: I heard that with NextGraph there will be no more ToS to accept. Why then are there some ToS here? <br/> A: You are right that with NextGraph we can do without ToS, when the user is connecting to a self-hosted broker or to an NGbox. As those 2 options are not available yet, we only offer our public Broker Service Provider for now, which needs some ToS to be accepted. Very soon those 2 additional options will be available, but some users might still prefer using our brokers. In any case, the ToS here are minimal and with end-to-end encryption, your data is unreadable to us anyway.</span
+                Q: I heard that with NextGraph there will be no more ToS to accept. Why then are there some ToS here? <br/> A: You are right that with NextGraph we can do without ToS, when the user is connecting to a self-hosted broker. As those 2 options are not available yet, we only offer our public Broker Service Provider for now, which needs some ToS to be accepted. Very soon those 2 additional options will be available, but some users might still prefer using our brokers. In any case, the ToS here are minimal and with end-to-end encryption, your data is unreadable to us anyway.</span
               >
             </li>
             <li class="flex space-x-3">

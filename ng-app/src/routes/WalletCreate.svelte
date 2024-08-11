@@ -903,7 +903,7 @@
                   </svg>
                   <span> {@html $t("pages.wallet_create.broker_about.5")}</span>
                 </li>
-                <li class="flex space-x-3">
+                <!-- <li class="flex space-x-3">
                   <svg
                     class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
                     fill="none"
@@ -921,7 +921,7 @@
                   </svg>
 
                   <span> {@html $t("pages.wallet_create.broker_about.6")}</span>
-                </li>
+                </li> -->
                 <li class="flex space-x-3">
                   <svg
                     class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"

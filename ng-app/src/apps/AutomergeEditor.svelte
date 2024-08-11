@@ -38,6 +38,7 @@
     export let readonly = false;
 
     let doc = {};
+    let loading = true;
 
     let safari_error = false;
 
@@ -87,6 +88,8 @@
             root_proxy = d;
         });
 
+        loading = false;
+
     });
 
     async function update(event) {
@@ -126,19 +129,47 @@
     {#if safari_error}
         <Alert class="m-2" color="red">{$t("errors.no_wasm_on_old_safari")}</Alert>
     {:else}
+        {#if loading}
+            <div class="mb-4 flex flex-col justify-center text-primary-700">
+                <svg
+                    class="animate-spin mt-4 h-10 w-10 mb-4 mx-auto"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                    />
+                    <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                </svg>
+                <p class="text-center">{$t("connectivity.loading")}...</p>
+            </div>
+        {/if}
         {#if Object.keys(doc).length !== 0 || !readonly}
             <div class="grow mb-20" style="min-height:300px;">
                 <AMap {readonly} value={doc} {doc} on:update={update} on:updateText={updateText} proxy={root_proxy}/>
             </div>
         {:else if $cur_tab_doc_can_edit}
-            <button
-                on:click={edit}
-                on:keypress={edit}
-                class="select-none ml-4 mt-2 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            >
-                <PencilSquare class="mr-2 focus:outline-none" tabindex="-1" />
-                {$t("doc.start_editing")}
-            </button>
+            <div class="flex-row">
+                <button
+                    on:click={edit}
+                    on:keypress={edit}
+                    class="shrink select-none ml-4 mt-2 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+                >
+                    <PencilSquare class="mr-2 focus:outline-none" tabindex="-1" />
+                    {$t("doc.start_editing")}
+                </button>
+            </div>
         {:else}
             <p class="ml-5">{$t("doc.empty")}</p>
         {/if}
