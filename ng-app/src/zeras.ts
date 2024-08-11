@@ -30,6 +30,7 @@ export const official_apps = {
         "ng:b": "SparqlUpdateEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
         "ng:o": [],
         "ng:w": ["query:sparql_update","data:graph"],
+        implemented: true,
     },
     "n:g:z:json_ld_editor": {
         "ng:n": "JSON-LD Editor",
@@ -48,6 +49,7 @@ export const official_apps = {
         "ng:g": "n:g:z:json_yarray_editor",
         "ng:b": "YArrayEditor",
         "ng:w": ["data:array"],
+        implemented: true,
     },
     "n:g:z:json_automerge_editor": {
         "ng:n": "JSON Editor",
@@ -58,6 +60,7 @@ export const official_apps = {
         "ng:b": "AutomergeEditor",
         "ng:w": ["data:json"],
         "full_width": true,
+        implemented: true,
     },
     "n:g:z:json_ymap_editor": {
         "ng:n": "JSON Editor",
@@ -67,6 +70,7 @@ export const official_apps = {
         "ng:g": "n:g:z:json_ymap_editor",
         "ng:b": "YMapEditor",
         "ng:w": ["data:map"],
+        implemented: true,
     },
     "n:g:z:triple_editor": {
         "ng:n": "Graph Triples Editor",
@@ -86,6 +90,7 @@ export const official_apps = {
         "ng:b": "TurtleViewer",
         "ng:o": ["data:graph"],
         "ng:w": [],
+        implemented: true,
     },
     "n:g:z:sparql_query": {
         "ng:n": "SPARQL Query",
@@ -96,6 +101,7 @@ export const official_apps = {
         "ng:b": "SparqlQueryEditor", // YASGUI of Zazuko https://github.com/zazuko/trifid/tree/main/packages/yasgui
         "ng:o": ["data:graph"],
         "ng:w": ["query:sparql"],
+        implemented: true,
     },
     "n:g:z:json_ld_viewer": {
         "ng:n": "JSON-LD",
@@ -124,6 +130,7 @@ export const official_apps = {
         "ng:g": "n:g:z:json_ymap_viewer",
         "ng:b": "YMapViewer",
         "ng:o": ["data:map"],
+        implemented: true,
     },
     "n:g:z:json_yarray_viewer": {
         "ng:n": "JSON",
@@ -133,6 +140,7 @@ export const official_apps = {
         "ng:g": "n:g:z:json_yarray_viewer",
         "ng:b": "YArrayViewer",
         "ng:o": ["data:array"],
+        implemented: true,
     },
     "n:g:z:json_automerge_viewer": {
         "ng:n": "JSON",
@@ -143,6 +151,7 @@ export const official_apps = {
         "ng:b": "AutomergeViewer",
         "ng:o": ["data:json"],
         "full_width": true,
+        implemented: true,
     },
     "n:g:z:triple_viewer": {
         "ng:n": "Graph Triples",
@@ -252,6 +261,7 @@ export const official_apps = {
         "ng:b": "ProseMirrorEditor",
         "ng:o": [],
         "ng:w": ["post:rich"],
+        implemented: true,
     },
     "n:g:z:post_md_editor": {
         "ng:n": "Post MD Editor",
@@ -263,6 +273,7 @@ export const official_apps = {
         "ng:o": [],
         "ng:w": ["post:md"],
         "full_width": true,
+        implemented: true,
     },
     "n:g:z:code_editor": {
         "ng:n": "Text Editor",
@@ -273,6 +284,7 @@ export const official_apps = {
         "ng:b": "CodeMirrorEditor",
         "ng:o": [],
         "ng:w": ["code*","post:text"],
+        implemented: true,
     },
     "n:g:z:file_viewer": {
         "ng:n": "File details",
@@ -303,6 +315,7 @@ export const official_apps = {
         "ng:b": "XmlSource", // displayed with highlight.js , with option to download
         "ng:o": ["post:rich","post:md","post:html","page","data:xml", "doc:diagram:drawio"],
         "ng:w": [],
+        implemented: true,
     },
     "n:g:z:viewer:md": { 
         "ng:n": "MarkDown source",
@@ -313,6 +326,7 @@ export const official_apps = {
         "ng:b": "MdSource", // displayed with highlight.js , with option to download
         "ng:o": ["post:md"],
         "ng:w": [],
+        implemented: true,
     },
     "n:g:z:crdt_source_viewer:json": { 
         "ng:n": "JSON Source",
@@ -324,6 +338,7 @@ export const official_apps = {
         "ng:o": ["data:json", "data:table", "doc:diagram:jsmind", "doc:diagram:gantt", "doc:diagram:excalidraw", "doc:viz:*", "doc:chart:*", "prod:cad"],
         "ng:w": [],
         "full_width": true,
+        implemented: true,
     },
     "n:g:z:crdt_source_viewer:ymap": { 
         "ng:n": "JSON Source",
@@ -334,6 +349,7 @@ export const official_apps = {
         "ng:b": "YMapSource", // displayed with highlight.js , with option to download
         "ng:o": ["data:map"],
         "ng:w": [],
+        implemented: true,
     },
     "n:g:z:crdt_source_viewer:yarray": { 
         "ng:n": "JSON Source",
@@ -344,6 +360,7 @@ export const official_apps = {
         "ng:b": "YArraySource", // displayed with highlight.js , with option to download
         "ng:o": ["data:array"],
         "ng:w": [],
+        implemented: true,
     },
     "n:g:z:crdt_source_viewer:text": {
         "ng:n": "Text source",
@@ -351,21 +368,23 @@ export const official_apps = {
         "ng:c": "app", 
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:crdt_source_viewer:text",
-        "ng:b": "TextViewer", // displayed with highlight.js , with option to download
+        "ng:b": "TextViewer", // displayed with highlight.js , with option to download and copy paste
         "ng:o": ["post:asciidoc", "service*", "contract", "query:sparql*","query:graphql","doc:diagram:mermaid","doc:diagram:graphviz","doc:diagram:flowchart",
                 "doc:diagram:sequence","doc:diagram:markmap","doc:diagram:mymind","doc:music*", "doc:maths", "doc:chemistry", "doc:ancientscript", "doc:braille", "media:subtitle"],
         "ng:w": [],
+        implemented: true,
     },
-    "n:g:z:crdt_source_viewer:rdf": {
-        "ng:n": "RDF source",
-        "ng:a": "See the source graph of this document, in RDF (turtle)",
-        "ng:c": "app", 
-        "ng:u": "source",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:crdt_source_viewer:rdf",
-        "ng:b": "TurtleViewer", //, with option to download
-        "ng:o": ["data:graph"],
-        "ng:w": [],
-    },
+    // "n:g:z:crdt_source_viewer:rdf": {
+    //     "ng:n": "RDF source",
+    //     "ng:a": "See the source graph of this document, in RDF (turtle)",
+    //     "ng:c": "app", 
+    //     "ng:u": "source",//favicon. can be a did:ng:j 
+    //     "ng:g": "n:g:z:crdt_source_viewer:rdf",
+    //     "ng:b": "TurtleViewer", //, with option to download
+    //     "ng:o": ["data:graph"],
+    //     "ng:w": [],
+    //     implemented: true,
+    // },
     "n:g:z:post:rich": {
         "ng:n": "Post",
         "ng:a": "View a Rich Post",
@@ -375,6 +394,7 @@ export const official_apps = {
         "ng:b": "ProseMirrorViewer", // https://www.npmjs.com/package/prosemirror-to-html-js or https://prosemirror.net/docs/ref/version/0.4.0.html#toDOM https://prosemirror.net/docs/ref/version/0.4.0.html#toHTML
         "ng:o": ["post:rich"],
         "ng:w": [],
+        implemented: true,
     },
     "n:g:z:post:md": {
         "ng:n": "Post",
@@ -385,6 +405,7 @@ export const official_apps = {
         "ng:b": "PostMdViewer", // https://github.com/wooorm/markdown-rs
         "ng:o": ["post:md"],
         "ng:w": [],
+        implemented: true,
     },
     "n:g:z:compose:editor": {
         "ng:n": "Composition Editor",
@@ -413,6 +434,7 @@ export const official_apps = {
         "ng:b": "TextViewer",
         "ng:o": ["post:text"],
         "ng:w": [],
+        implemented: true,
     },
     "n:g:z:pre": {
         "ng:n": "Source Code",
@@ -423,6 +445,7 @@ export const official_apps = {
         "ng:b": "TextViewer", // displayed with highlight.js 
         "ng:o": ["code*"],
         "ng:w": [],
+        implemented: true,
     },
     "n:g:z:pad": {
         "ng:n": "Pad",
@@ -481,6 +504,7 @@ export const official_apps = {
         "ng:u": "container",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:container", 
         "ng:b": "ContainerView",
+        implemented: true,
         "ng:o": ["data:collection","data:container"],
         "ng:w": ["data:collection","data:container"],
     },

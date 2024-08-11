@@ -103,6 +103,8 @@
     Camera,
     VideoCamera,
     Microphone,
+    ChevronUp,
+    ChevronDown,
   } from "svelte-heros-v2";
     import NavBar from "./components/NavBar.svelte";
 
@@ -340,8 +342,8 @@
     "data:board",
     "data:grid",
     "data:json",
-    "data:array",
     "data:map",
+    "data:array",
     "data:xml",
   ];
 
@@ -643,7 +645,7 @@
             </li>
             {/if}
             {#if $cur_viewer}
-              <MenuItem selected={$cur_tab_view_or_edit} title={$cur_viewer["ng:a"]} clickable={($available_viewers.length > 1 || !$cur_tab_view_or_edit) && function () { if ($available_viewers.length > 1) { open_view_as = !open_view_as; } else { set_view_or_edit(true); hideMenu(); } open_edit_with=false;} }>
+              <MenuItem selected={$cur_tab_view_or_edit} title={$cur_viewer["ng:a"]} dropdown={$available_viewers.length > 1 ? open_view_as : undefined} clickable={($available_viewers.length > 1 || !$cur_tab_view_or_edit) && function () { if ($available_viewers.length > 1) { open_view_as = !open_view_as; } else { set_view_or_edit(true); hideMenu(); } open_edit_with=false;} }>
                 <Eye
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
@@ -652,7 +654,7 @@
               </MenuItem>
               {#if open_view_as && $available_viewers.length > 1 }
                 {#each $available_viewers as viewer}
-                  <MenuItem title={viewer["ng:a"]} extraClass="submenu" clickable={(viewer["ng:g"] !== $cur_viewer["ng:g"] || !$cur_tab_view_or_edit) && function () { set_view_or_edit(true); set_viewer(viewer["ng:g"]); hideMenu(); open_view_as = false} }>
+                  <MenuItem title={viewer["ng:a"]} extraClass="submenu" clickable={viewer["implemented"] ? (viewer["ng:g"] !== $cur_viewer["ng:g"] || !$cur_tab_view_or_edit) && function () { set_view_or_edit(true); set_viewer(viewer["ng:g"]); hideMenu(); open_view_as = false} : undefined }>
                     <ZeraIcon
                       zera={viewer["ng:u"]}
                       config={{
@@ -667,7 +669,9 @@
             {/if}
             {#if $cur_tab_doc_can_edit}
               {#if $cur_editor}
-                <MenuItem title={$cur_editor["ng:a"]} selected={!$cur_tab_view_or_edit} clickable={ ($available_editors.length > 1 || $cur_tab_view_or_edit) && function () { if ($available_editors.length > 1) { open_edit_with = !open_edit_with;  } else { set_view_or_edit(false); hideMenu(); } open_view_as=false;} }>
+                <MenuItem title={$cur_editor["ng:a"]} selected={!$cur_tab_view_or_edit} 
+                          dropdown={$available_editors.length > 1 ? open_edit_with : undefined} 
+                          clickable={ ($available_editors.length > 1 || $cur_tab_view_or_edit) && function () { if ($available_editors.length > 1) { open_edit_with = !open_edit_with;  } else { set_view_or_edit(false); hideMenu(); } open_view_as=false;} }>
                   <PencilSquare
                     tabindex="-1"
                     class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
@@ -676,7 +680,8 @@
                 </MenuItem>
                 {#if open_edit_with && $available_editors.length > 1 }
                   {#each $available_editors as editor}
-                    <MenuItem title={editor["ng:a"]} extraClass="submenu" clickable={(editor["ng:g"] !== $cur_editor["ng:g"] || $cur_tab_view_or_edit) && function () { set_view_or_edit(false); set_editor(editor["ng:g"]); hideMenu(); open_edit_with = false} }>
+                    <MenuItem title={editor["ng:a"]} extraClass="submenu" 
+                      clickable={editor["implemented"] ? (editor["ng:g"] !== $cur_editor["ng:g"] || $cur_tab_view_or_edit) && function () { set_view_or_edit(false); set_editor(editor["ng:g"]); hideMenu(); open_edit_with = false} : undefined }>
                       <ZeraIcon
                         zera={editor["ng:u"]}
                         config={{
@@ -752,7 +757,7 @@
                 <span class="ml-3">{$t("doc.menu.items.files.label")} {$all_files_count}</span>
               </MenuItem>
               <div style="padding:0;" bind:this={shareMenu}></div>
-              <MenuItem title={$t("doc.menu.items.share.desc")} clickable={ () => { open_share = !open_share; scrollToMenuShare(); } }>
+              <MenuItem title={$t("doc.menu.items.share.desc")} dropdown={open_share} clickable={ () => { open_share = !open_share; scrollToMenuShare(); } }>
                 <Share
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
@@ -838,7 +843,7 @@
                 <span class="ml-3">{$t("doc.menu.items.settings.label")}</span>
               </MenuItem>
               <div style="padding:0;" bind:this={toolsMenu}></div>
-              <MenuItem title={$t("doc.menu.items.tools.desc")} clickable={ () => {open_tools = !open_tools; scrollToMenuTools();} } >
+              <MenuItem title={$t("doc.menu.items.tools.desc")} dropdown={open_tools} clickable={ () => {open_tools = !open_tools; scrollToMenuTools();} } >
                 <WrenchScrewdriver
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
@@ -858,7 +863,7 @@
               <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["mc"]} />
               <span class="ml-3">{$t("doc.menu.items.mc.label")}</span>
             </MenuItem>
-            <MenuItem title={$t("doc.menu.items.archive.desc")} selected={$cur_tab_right_pane == "mc"} clickable={ ()=> openArchive() }>
+            <MenuItem title={$t("doc.menu.items.archive.desc")} clickable={ ()=> openArchive() }>
               <ArchiveBox
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
@@ -934,17 +939,19 @@
             <TxtIcon class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" />
             <span class="ml-3">{$t("doc.text")}</span>
           </MenuItem>
-          <MenuItem title={$t("doc.group")} clickable={ ()=> new_group() }>
+          <!--new_group-->
+          <MenuItem title={$t("doc.group")} clickable={ undefined }>
             <UserGroup tabindex="-1"
             class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
             <span class="ml-3">{$t("doc.group")}</span>
           </MenuItem>
-          <MenuItem title={get_class("doc:compose")["ng:a"]} clickable={ ()=> new_document("doc:compose") }>
+          <!-- ()=> new_document("doc:compose") -->
+          <MenuItem title={get_class("doc:compose")["ng:a"]} clickable={ undefined  }>
             <DataClassIcon dataClass="doc:compose" {config}/>
             <span class="ml-3">{get_class("doc:compose")["ng:n"]}</span>
           </MenuItem>
           <div style="padding:0;" bind:this={createMenu.social}></div>
-          <MenuItem title={$t("doc.social")} clickable={ () => { createMenuOpened.social = !createMenuOpened.social; scrollToCreateMenu("social"); } }>
+          <MenuItem title={$t("doc.social")} dropdown={createMenuOpened.social} clickable={ () => { createMenuOpened.social = !createMenuOpened.social; scrollToCreateMenu("social"); } }>
             <Users
               tabindex="-1"
               class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
@@ -953,7 +960,8 @@
           </MenuItem>
           {#if createMenuOpened.social }
             {#each create_social_items as item}
-              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+              <!-- () => new_document(item) -->
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ undefined }>
                 <DataClassIcon dataClass={item} {config}/>
                 <span class="ml-3">{get_class(item)["ng:n"]}</span>
               </MenuItem>
@@ -961,18 +969,20 @@
           {/if}
 
           <div style="padding:0;" bind:this={createMenu.apps}></div>
-          <MenuItem title={$t("doc.apps")} clickable={ () => { createMenuOpened.apps = !createMenuOpened.apps; scrollToCreateMenu("apps"); } }>
+          <MenuItem title={$t("doc.apps")} dropdown={createMenuOpened.apps} clickable={ () => { createMenuOpened.apps = !createMenuOpened.apps; scrollToCreateMenu("apps"); } }>
             <DataClassIcon dataClass="app:z" {config}/>
             <span class="ml-3">{$t("doc.apps")}</span>
           </MenuItem>
           {#if createMenuOpened.apps }
-            <MenuItem title={$t("doc.new_app")} extraClass="submenu" clickable={ () => new_app() }>
+            <!-- () => new_app() -->
+            <MenuItem title={$t("doc.new_app")} extraClass="submenu" clickable={ undefined }>
               <Beaker tabindex="-1"
                 class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
               <span class="ml-3">{$t("doc.new_app")}</span>
             </MenuItem>
             {#each create_apps_items as item}
-              <MenuItem title="" extraClass="submenu" clickable={ () => new_document(item) }>
+            <!-- () => new_document(item) -->
+              <MenuItem title="" extraClass="submenu" clickable={ undefined }>
                 <DataClassIcon dataClass={item} {config}/>
                 <span class="ml-3">3rd party app Class</span>
               </MenuItem>
@@ -980,7 +990,7 @@
           {/if}
 
           <div style="padding:0;" bind:this={createMenu.pro}></div>
-          <MenuItem title={$t("doc.pro")} clickable={ () => { createMenuOpened.pro = !createMenuOpened.pro; scrollToCreateMenu("pro"); } }>
+          <MenuItem title={$t("doc.pro")} dropdown={createMenuOpened.pro} clickable={ () => { createMenuOpened.pro = !createMenuOpened.pro; scrollToCreateMenu("pro"); } }>
             <Briefcase
               tabindex="-1"
               class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
@@ -989,7 +999,8 @@
           </MenuItem>
           {#if createMenuOpened.pro }
             {#each create_pro_items as item}
-              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+              <!-- () => new_document(item) -->
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ undefined }>
                 <DataClassIcon dataClass={item} {config}/>
                 <span class="ml-3">{get_class(item)["ng:n"]}</span>
               </MenuItem>
@@ -998,25 +1009,26 @@
           
           {#await check_has_camera() then has_camera}
             {#if has_camera}
-              <MenuItem title={$t("buttons.scan_qr")} clickable={ ()=> scan_qr() }>
+              <!-- ()=> scan_qr() -->
+              <MenuItem title={$t("buttons.scan_qr")} clickable={ undefined }>
                 <QrCode tabindex="-1"
                 class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
                 <span class="ml-3">{$t("buttons.scan_qr")}</span>
               </MenuItem>
-
-              <MenuItem title={$t("doc.take_picture")} clickable={ ()=> take_picture() }>
+              <!-- ()=> take_picture() -->
+              <MenuItem title={$t("doc.take_picture")} clickable={ undefined }>
                 <Camera tabindex="-1"
                 class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
                 <span class="ml-3">{$t("doc.take_picture")}</span>
               </MenuItem>
-
-              <MenuItem title={$t("doc.record_reel")} clickable={ ()=> record_reel() }>
+              <!-- ()=> record_reel() -->
+              <MenuItem title={$t("doc.record_reel")} clickable={ undefined }>
                 <VideoCamera tabindex="-1"
                 class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
                 <span class="ml-3">{$t("doc.record_reel")}</span>
               </MenuItem>
-
-              <MenuItem title={$t("doc.record_voice")} clickable={ ()=> record_voice() }>
+              <!-- ()=> record_voice() -->
+              <MenuItem title={$t("doc.record_voice")} clickable={ undefined }>
                 <Microphone tabindex="-1"
                 class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
                 <span class="ml-3">{$t("doc.record_voice")}</span>
@@ -1024,7 +1036,7 @@
             {/if}
 
             <div style="padding:0;" bind:this={createMenu.media}></div>
-            <MenuItem title={$t("doc.media")} clickable={ () => { createMenuOpened.media = !createMenuOpened.media; scrollToCreateMenu("media"); } }>
+            <MenuItem title={$t("doc.media")} dropdown={createMenuOpened.media} clickable={ () => { createMenuOpened.media = !createMenuOpened.media; scrollToCreateMenu("media"); } }>
               <DocumentArrowUp
                 tabindex="-1"
                 class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
@@ -1033,13 +1045,15 @@
             </MenuItem>
             {#if createMenuOpened.media }
               {#each create_media_items as item}
-                <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+                <!-- () => new_document(item) -->
+                <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ undefined }>
                   <DataClassIcon dataClass={item} {config}/>
                   <span class="ml-3">{get_class(item)["ng:n"]}</span>
                 </MenuItem>
               {/each}
               {#if !has_camera}
-                <MenuItem title={$t("doc.record_voice")} extraClass="submenu"  clickable={ ()=> record_voice() }>
+                <!-- ()=> record_voice() -->
+                <MenuItem title={$t("doc.record_voice")} extraClass="submenu"  clickable={ undefined }>
                   <Microphone tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"/>
                   <span class="ml-3">{$t("doc.record_voice")}</span>
@@ -1049,13 +1063,14 @@
           {/await}
 
           <div style="padding:0;" bind:this={createMenu.chart}></div>
-          <MenuItem title={$t("doc.chart")} clickable={ () => { createMenuOpened.chart = !createMenuOpened.chart; scrollToCreateMenu("chart"); } }>
+          <MenuItem title={$t("doc.chart")} dropdown={createMenuOpened.chart} clickable={ () => { createMenuOpened.chart = !createMenuOpened.chart; scrollToCreateMenu("chart"); } }>
             <DataClassIcon dataClass="doc:chart" {config}/>
             <span class="ml-3">{$t("doc.chart")}</span>
           </MenuItem>
           {#if createMenuOpened.chart }
             {#each create_chart_items as item}
-              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+              <!-- () => new_document(item) -->
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ undefined }>
                 <DataClassIcon dataClass={item} {config}/>
                 <span class="ml-3">{get_class(item)["ng:n"]}</span>
               </MenuItem>
@@ -1063,13 +1078,14 @@
           {/if}
 
           <div style="padding:0;" bind:this={createMenu.viz}></div>
-          <MenuItem title={$t("doc.viz")} clickable={ () => { createMenuOpened.viz = !createMenuOpened.viz; scrollToCreateMenu("viz"); } }>
+          <MenuItem title={$t("doc.viz")} dropdown={createMenuOpened.viz} clickable={ () => { createMenuOpened.viz = !createMenuOpened.viz; scrollToCreateMenu("viz"); } }>
             <DataClassIcon dataClass="doc:viz" {config}/>
             <span class="ml-3">{$t("doc.viz")}</span>
           </MenuItem>
           {#if createMenuOpened.viz }
             {#each create_viz_items as item}
-              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+              <!-- () => new_document(item) -->
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ undefined }>
                 <DataClassIcon dataClass={item} {config}/>
                 <span class="ml-3">{get_class(item)["ng:n"]}</span>
               </MenuItem>
@@ -1077,13 +1093,14 @@
           {/if}
 
           <div style="padding:0;" bind:this={createMenu.diagram}></div>
-          <MenuItem title={$t("doc.diagram")} clickable={ () => { createMenuOpened.diagram = !createMenuOpened.diagram; scrollToCreateMenu("diagram"); } }>
+          <MenuItem title={$t("doc.diagram")} dropdown={createMenuOpened.diagram} clickable={ () => { createMenuOpened.diagram = !createMenuOpened.diagram; scrollToCreateMenu("diagram"); } }>
             <DataClassIcon dataClass="doc:diagram" {config}/>
             <span class="ml-3">{$t("doc.diagram")}</span>
           </MenuItem>
           {#if createMenuOpened.diagram }
             {#each create_diagram_items as item}
-              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+              <!-- () => new_document(item) -->
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ undefined }>
                 <DataClassIcon dataClass={item} {config}/>
                 <span class="ml-3">{get_class(item)["ng:n"]}</span>
               </MenuItem>
@@ -1091,13 +1108,14 @@
           {/if}
 
           <div style="padding:0;" bind:this={createMenu.doc}></div>
-          <MenuItem title={$t("doc.other")} clickable={ () => { createMenuOpened.doc = !createMenuOpened.doc; scrollToCreateMenu("doc"); } }>
+          <MenuItem title={$t("doc.other")} dropdown={createMenuOpened.doc} clickable={ () => { createMenuOpened.doc = !createMenuOpened.doc; scrollToCreateMenu("doc"); } }>
             <DataClassIcon dataClass="doc:" {config}/>
             <span class="ml-3">{$t("doc.other")}</span>
           </MenuItem>
           {#if createMenuOpened.doc }
             {#each create_doc_items as item}
-              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+              <!-- () => new_document(item) -->
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ undefined }>
                 <DataClassIcon dataClass={item} {config}/>
                 <span class="ml-3">{get_class(item)["ng:n"]}</span>
               </MenuItem>
@@ -1105,13 +1123,13 @@
           {/if}
 
           <div style="padding:0;" bind:this={createMenu.data}></div>
-          <MenuItem title={$t("doc.data")} clickable={ () => { createMenuOpened.data = !createMenuOpened.data; scrollToCreateMenu("data"); } }>
+          <MenuItem title={$t("doc.data")} dropdown={createMenuOpened.data} clickable={ () => { createMenuOpened.data = !createMenuOpened.data; scrollToCreateMenu("data"); } }>
             <DataClassIcon dataClass="data:" {config}/>
             <span class="ml-3">{$t("doc.data")}</span>
           </MenuItem>
           {#if createMenuOpened.data }
             {#each create_data_items as item}
-              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ () => new_document(item) }>
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ get_class(item)["implemented"] ? () => new_document(item) : undefined }>
                 <DataClassIcon dataClass={item} {config}/>
                 <span class="ml-3">{get_class(item)["ng:n"]}</span>
               </MenuItem>
@@ -1119,7 +1137,7 @@
           {/if}
 
           <div style="padding:0;" bind:this={createMenu.code}></div>
-          <MenuItem title={$t("doc.code")} clickable={ () => { createMenuOpened.code = !createMenuOpened.code; scrollToCreateMenu("code"); } }>
+          <MenuItem title={$t("doc.code")} dropdown={createMenuOpened.code} clickable={ () => { createMenuOpened.code = !createMenuOpened.code; scrollToCreateMenu("code"); } }>
             <DataClassIcon dataClass="code" {config}/>
             <span class="ml-3">{$t("doc.code")}</span>
           </MenuItem>
@@ -1132,7 +1150,8 @@
             {/each}
           {/if}
 
-          <MenuItem title={get_class("e:link")["ng:a"]} clickable={ ()=> new_document("e:link") }>
+          <!-- ()=> new_document("e:link") -->
+          <MenuItem title={get_class("e:link")["ng:a"]} clickable={ undefined }>
             <DataClassIcon dataClass="e:link" {config}/>
             <span class="ml-3">{get_class("e:link")["ng:n"]}</span>
           </MenuItem>

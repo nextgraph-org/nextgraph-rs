@@ -16,17 +16,36 @@
     export let extraClass = "";
     export let selected = false;
     export let title = "";
+    export let dropdown = undefined;
+
+    import {
+        ChevronUp,
+        ChevronDown,
+    } from "svelte-heros-v2";
 
 </script>
 
 {#if clickable}
     <li {title} role="menuitem" tabindex="0" class:text-primary-600={selected} class:text-gray-800={!selected} class:dark:text-white={!selected} class:dark:text-primary-300={selected} 
-        class="{extraClass} select-none clickable focus:outline-2 focus:outline flex items-center px-2 py-1 text-base font-normal rounded-lg  hover:bg-gray-200 dark:hover:bg-gray-700 mt-1"
+        class="{extraClass} select-none clickable focus:outline-2 focus:outline flex items-center pl-2 py-1 text-base font-normal rounded-lg  hover:bg-gray-200 dark:hover:bg-gray-700 mt-1 pr-0"
         on:click={(e) => { e.currentTarget.blur(); clickable();}} on:keypress={clickable} on:keydown={(e) => {if (e.code=='Space') { e.preventDefault(); clickable();} }}>
+        <slot />
+        {#if dropdown!==undefined}
+        <div class="grow"></div>
+            {#if dropdown}
+                <ChevronUp/>
+            {:else}
+                <ChevronDown/>
+            {/if}
+        {/if}
+    </li>
+{:else if clickable === false}
+    <li {title} class="{extraClass} select-none flex items-center px-2 py-1 text-base font-normal  text-primary-600 rounded-lg dark:text-primary-300  mt-1">
         <slot />
     </li>
 {:else}
-    <li class="{extraClass} select-none flex items-center px-2 py-1 text-base font-normal  text-primary-600 rounded-lg dark:text-primary-300  mt-1">
+    <li {title} class="{extraClass} select-none flex items-center px-2 py-1 text-base font-normal deactivated-menu text-gray-400 rounded-lg dark:text-gray-400  mt-1" >
         <slot />
     </li>
 {/if}
+

@@ -19,6 +19,7 @@
   };
 
   const load_pane = async (pane_name) => {
+    if (!panes[pane_name]) return false;
     let component = await import(`./panes/${panes[pane_name]}.svelte`);
     return component.default;
   };
@@ -29,9 +30,11 @@
 
   {#if pane_name}
       {#await load_pane(pane_name) then pane}
-      <div class="flex w-full" style="overflow-wrap: anywhere;"> 
-          <svelte:component this={pane}/>
-      </div>
+        {#if pane}
+          <div class="flex w-full" style="overflow-wrap: anywhere;"> 
+              <svelte:component this={pane}/>
+          </div>
+        {/if}
       {/await}
   {/if}
 

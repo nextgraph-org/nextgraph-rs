@@ -105,6 +105,7 @@ export const official_classes = {
         "ng:o": "n:g:z:pre",
         "ng:w": "n:g:z:code_editor",
         "ng:compat": ["file:iana:text:javascript"],
+        "implemented": true
     },
     "code:ts": {
         "ng:crdt": "YText",
@@ -113,6 +114,7 @@ export const official_classes = {
         "ng:o": "n:g:z:pre",
         "ng:w": "n:g:z:code_editor",
         "ng:compat": ["file:iana:text:typescript"],
+        "implemented": true
     },
     "code:rust": {
         "ng:crdt": "YText",
@@ -121,6 +123,7 @@ export const official_classes = {
         "ng:o": "n:g:z:pre",
         "ng:w": "n:g:z:code_editor",
         "ng:compat": [],
+        "implemented": true
     },
     "code:svelte": {
         "ng:crdt": "YText",
@@ -129,6 +132,7 @@ export const official_classes = {
         "ng:o": "n:g:z:pre",
         "ng:w": "n:g:z:code_editor",
         "ng:compat": [],
+        "implemented": true
     },
     "code:react": {
         "ng:crdt": "YText",
@@ -137,6 +141,7 @@ export const official_classes = {
         "ng:o": "n:g:z:pre",
         "ng:w": "n:g:z:code_editor",
         "ng:compat": [],
+        "implemented": true
     },
     "app": {
         "ng:n": "Official App",
@@ -283,6 +288,7 @@ export const official_classes = {
         },
         "ng:compat": [ "rdf:*", "xsd:*", "file:iana:text:n3", "file:iana:text:rdf+n3", "file:iana:text:turtle", "file:iana:application:n-quads", "file:iana:application:trig", "file:iana:application:n-triples", 
                         "file:iana:application:rdf+xml", "file:iana:application:ld+json"],
+        "implemented": true
     },
     "data:json": {
         "ng:crdt": "Automerge",
@@ -291,6 +297,7 @@ export const official_classes = {
         "ng:o": "n:g:z:json_automerge_viewer", // default viewer
         "ng:w": "n:g:z:json_automerge_editor", // default editor
         "ng:compat": ["file:iana:application:json", "code:json"],
+        "implemented": true
     },
     "data:array": {
         "ng:crdt": "YArray",
@@ -299,6 +306,7 @@ export const official_classes = {
         "ng:o": "n:g:z:json_yarray_viewer", // default viewer
         "ng:w": "n:g:z:json_yarray_editor", // default editor
         "ng:compat": ["file:iana:application:json", "code:json"],
+        "implemented": true
     },
     "data:map": {
         "ng:crdt": "YMap",
@@ -307,6 +315,7 @@ export const official_classes = {
         "ng:o": "n:g:z:json_ymap_viewer", // default viewer
         "ng:w": "n:g:z:json_ymap_editor", // default editor
         "ng:compat": ["file:iana:application:json", "code:json"],
+        "implemented": true
     },
     "data:xml": {
         "ng:crdt": "YXml",
@@ -343,6 +352,7 @@ export const official_classes = {
             "ldp": true,
         },
         "ng:compat": ["rdfs:member","ldp:contains","rdf:Bag","rdf:Alt"],
+        "implemented": true
     },
     "data:plato": {
         "ng:crdt": "Graph",

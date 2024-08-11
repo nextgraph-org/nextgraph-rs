@@ -535,6 +535,7 @@ export const change_nav_bar = (icon, title, back) => {
         }
         return old;
     });
+    live_editing.set(get(cur_tab).doc.live_edit);
 };
 
 export const persistent_error = (nuri, pe) => {

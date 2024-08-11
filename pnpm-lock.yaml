@@ -101,6 +101,7 @@ importers:
       vite-plugin-svelte-svg: ^2.2.1
       vite-plugin-top-level-await: ^1.3.1
       vite-plugin-wasm: ^3.2.2
+      xml-beautifier: ^0.5.0
       y-codemirror.next: ^0.3.5
       y-prosemirror: ^1.2.10
       y-protocols: ^1.0.1
@@ -172,6 +173,7 @@ importers:
       svelte-jsoneditor: 0.23.8_@lezer+common@1.2.1
       svelte-spa-router: 3.3.0
       vite-plugin-top-level-await: 1.3.1_vite@4.3.9
+      xml-beautifier: 0.5.0
       y-codemirror.next: 0.3.5_2derscuhaavtzv2sogf3enfvaa
       y-prosemirror: 1.2.10_t5dsb3fc2figoeqqliqhb3exne
       y-protocols: 1.0.6_yjs@13.6.18
@@ -3720,6 +3722,11 @@ packages:
       - supports-color
     dev: false
 
+  /repeat-string/1.6.1:
+    resolution: {integrity: sha512-PV0dzCYDNfRi1jCDbJzpW7jNNDRuCOG/jI5ctQcGKt/clZD+YcPS3yIlWuTJMmESC8aevCFmWJy5wjAFgNqN6w==}
+    engines: {node: '>=0.10'}
+    dev: false
+
   /require-from-string/2.0.2:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
     engines: {node: '>=0.10.0'}
@@ -4598,6 +4605,12 @@ packages:
 
   /wrappy/1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
+
+  /xml-beautifier/0.5.0:
+    resolution: {integrity: sha512-QG/qiHeolHUd1tAtM+5zHxTzDprb8qvhmIYUYV1E9QK/jTFlrAa1Mz7QQqJPeqc3uuFAGzTOhjvbdx2hOP6bHw==}
+    dependencies:
+      repeat-string: 1.6.1
+    dev: false
 
   /y-codemirror.next/0.3.5_2derscuhaavtzv2sogf3enfvaa:
     resolution: {integrity: sha512-VluNu3e5HfEXybnypnsGwKAj+fKLd4iAnR7JuX1Sfyydmn1jCBS5wwEL/uS04Ch2ib0DnMAOF6ZRR/8kK3wyGw==}

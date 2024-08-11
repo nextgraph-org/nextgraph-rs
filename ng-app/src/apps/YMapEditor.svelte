@@ -266,7 +266,7 @@
 
     function onRenderContextMenu(items, context) {
         if (items[4].items[1].items[0].text == "Convert to:") items[4].items.pop();
-        if (Array.isArray(context.selection.path) && context.selection.path.length == 0 && context.selection.type === "value") {
+        if (Array.isArray(context.selection?.path) && context.selection.path.length == 0 && context.selection.type === "value") {
             items[2].items.shift();
             items[2].items.pop();
             items[4].items[0].items.pop();
@@ -275,6 +275,7 @@
     }
   
   </script>
+
   <div class="grow ng-json-editor" style="min-height:300px;">
     <JSONEditor bind:this={editor} {content} onChange={handleChange} {onRenderMenu} {onRenderContextMenu}/>
     
