@@ -645,7 +645,7 @@
             </li>
             {/if}
             {#if $cur_viewer}
-              <MenuItem selected={$cur_tab_view_or_edit} title={$cur_viewer["ng:a"]} dropdown={$available_viewers.length > 1 ? open_view_as : undefined} clickable={($available_viewers.length > 1 || !$cur_tab_view_or_edit) && function () { if ($available_viewers.length > 1) { open_view_as = !open_view_as; } else { set_view_or_edit(true); hideMenu(); } open_edit_with=false;} }>
+              <MenuItem offset={!$cur_tab_branch_has_discrete} selected={$cur_tab_view_or_edit} title={$cur_viewer["ng:a"]} dropdown={$available_viewers.length > 1 ? open_view_as : undefined} clickable={($available_viewers.length > 1 || !$cur_tab_view_or_edit) && function () { if ($available_viewers.length > 1) { open_view_as = !open_view_as; } else { set_view_or_edit(true); hideMenu(); } open_edit_with=false;} }>
                 <Eye
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  "
