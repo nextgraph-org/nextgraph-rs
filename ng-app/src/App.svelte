@@ -74,7 +74,7 @@
   // };
 
   onMount(async () => {
-    console.log("hide splash", window.supported);
+    //console.log("hide splash", window.supported);
     if (window.supported) {
       window.document.getElementById("splash").className="noshow";
       window.document.getElementById("app").className="";

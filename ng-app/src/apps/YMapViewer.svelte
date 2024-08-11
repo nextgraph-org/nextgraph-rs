@@ -20,11 +20,11 @@
       discrete_update
     } from "../store";
     import { 
-        cur_tab_register_on_save,
-        cur_tab_deregister_on_save,
-        cur_tab_branch_class
+        cur_tab_doc_can_edit,
+        set_view_or_edit
     } from "../tab";
     import { t } from "svelte-i18n";
+    import{ PencilSquare } from "svelte-heros-v2";
     
     import * as Y from 'yjs'
     import { JSONEditor } from 'svelte-jsoneditor'
@@ -119,12 +119,17 @@
         for (const h of history) {
             Y.applyUpdate(ydoc, h[crdt], {local:true})
         }
+        loading = false;
     });
 
     onDestroy(async ()=>{
         ydoc.destroy();
         await editor.destroy();
     });
+
+    const edit = () => {
+      set_view_or_edit(false);
+    }
   
   </script>
 
@@ -154,6 +159,20 @@
             <p class="text-center">{$t("connectivity.loading")}...</p>
         </div>
     {/if}
+
+
+  {#if $cur_tab_doc_can_edit && ( crdt=="YMap" && Object.keys(content.json).length == 0 || crdt=="YArray" && Array.isArray(content.json) && content.json.length == 0 ) }
+    <div class="flex-row">
+        <button
+            on:click={edit}
+            on:keypress={edit}
+            class="shrink select-none ml-4 mt-2 mb-4 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+        >
+            <PencilSquare class="mr-2 focus:outline-none" tabindex="-1" />
+            {$t("doc.start_editing")}
+        </button>
+    </div>
+  {/if}
 
   <div class="grow ng-json-editor" style="min-height:300px;">
     <JSONEditor bind:this={editor} {content} readOnly={true} />

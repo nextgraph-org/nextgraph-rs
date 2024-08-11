@@ -31,7 +31,7 @@
     let source = "";
 
     const ydoc = new Y.Doc()
-    const yxml = ydoc.getXmlFragment('ng')
+    const yxml = ydoc.getXmlFragment('prosemirror')
 
     let loading = true;
 
@@ -101,7 +101,7 @@
 
     {#if source}
       
-        <div class="post-rich-text prose">
+        <div class="post-rich-text prose" style="margin-top: 1.25em;">
             {@html source}
         </div>
 

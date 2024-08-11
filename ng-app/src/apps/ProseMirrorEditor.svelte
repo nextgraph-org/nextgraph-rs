@@ -37,7 +37,7 @@
     export let commits = {};
 
     const ydoc = new Y.Doc()
-    const yxml = ydoc.getXmlFragment('ng')
+    const yxml = ydoc.getXmlFragment('prosemirror')
 
     let view;
 
