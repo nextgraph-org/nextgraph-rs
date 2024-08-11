@@ -17,6 +17,7 @@
     export let selected = false;
     export let title = "";
     export let dropdown = undefined;
+    export let offset = false;
 
     import {
         ChevronUp,
@@ -31,11 +32,16 @@
         on:click={(e) => { e.currentTarget.blur(); clickable();}} on:keypress={clickable} on:keydown={(e) => {if (e.code=='Space') { e.preventDefault(); clickable();} }}>
         <slot />
         {#if dropdown!==undefined}
-        <div class="grow"></div>
+            <div class="grow"></div>
             {#if dropdown}
                 <ChevronUp/>
             {:else}
                 <ChevronDown/>
+            {/if}
+            {#if offset}
+                <div style="width:35px;">
+
+                </div>
             {/if}
         {/if}
     </li>
