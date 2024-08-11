@@ -50,14 +50,14 @@
       {#if commits.graph.length == 0 || contained(commits.graph).length == 0} 
         <p>{$t("doc.empty_container")}</p>
         {#if $cur_tab_doc_can_edit}
-        <button
-            on:click={create}
-            on:keypress={create}
-            class="select-none ml-0 mt-2 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-        >
-            <PencilSquare tabindex="-1" class="mr-2 focus:outline-none" />
-            {$t("doc.create")}
-        </button>
-    {/if}
+            <button
+                on:click={create}
+                on:keypress={create}
+                class="select-none ml-0 mt-2 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            >
+                <PencilSquare tabindex="-1" class="mr-2 focus:outline-none" />
+                {$t("doc.create")}
+            </button>
+        {/if}
       {/if}
   </div>
