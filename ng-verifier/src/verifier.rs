@@ -25,6 +25,7 @@ use async_std::stream::StreamExt;
 use async_std::sync::{Mutex, RwLockReadGuard};
 use futures::channel::mpsc;
 use futures::SinkExt;
+use ng_repo::utils::derive_key;
 use sbbf_rs_safe::Filter;
 use serde::{Deserialize, Serialize};
 use web_time::SystemTime;
@@ -2321,21 +2322,21 @@ impl Verifier {
                 let mut path_user = path.clone();
                 path_user.push("user");
                 create_dir_all(path_user.clone()).unwrap();
+                let oxi_key = derive_key("NextGraph OxiGraph BLAKE3 key", &config.user_master_key);
+                let user_storage_key =
+                    derive_key("NextGraph UserStorage BLAKE3 key", &config.user_master_key);
                 (
-                    // FIXME BIG TIME: we are reusing the same encryption key here.
-                    // this is very temporary, until we remove the code in oxi_rocksdb of oxigraph,
+                    // FIXME: we are using 2 derived keys here.
+                    // this is temporary, until we remove the code in oxi_rocksdb of oxigraph,
                     // and have oxigraph use directly the UserStorage
                     Some(
-                        ng_oxigraph::oxigraph::store::Store::open_with_key(
-                            path_oxi,
-                            config.user_master_key,
-                        )
-                        .map_err(|e| NgError::OxiGraphError(e.to_string()))?,
+                        ng_oxigraph::oxigraph::store::Store::open_with_key(path_oxi, oxi_key)
+                            .map_err(|e| NgError::OxiGraphError(e.to_string()))?,
                     ),
-                    Some(Box::new(RocksDbUserStorage::open(
-                        &path_user,
-                        config.user_master_key,
-                    )?) as Box<dyn UserStorage>),
+                    Some(
+                        Box::new(RocksDbUserStorage::open(&path_user, user_storage_key)?)
+                            as Box<dyn UserStorage>,
+                    ),
                     Some(block_storage),
                 )
             }
