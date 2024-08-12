@@ -23,6 +23,10 @@
   routes.set("/create", Create);
   routes.set("/delete", Delete);
   routes.set("*", NotFound);
+
+  onMount(() => {
+    window.document.getElementById("splash").className="noshow";
+  });
 </script>
 
 <main class="">
