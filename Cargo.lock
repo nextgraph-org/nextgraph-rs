@@ -3276,7 +3276,7 @@ checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
 name = "nextgraph"
-version = "0.1.0-preview.6"
+version = "0.1.0-preview.7"
 dependencies = [
  "async-once-cell",
  "async-std",
@@ -3304,7 +3304,7 @@ dependencies = [
 
 [[package]]
 name = "ng-app"
-version = "0.1.0-preview.1"
+version = "0.1.0-preview.7"
 dependencies = [
  "async-std",
  "nextgraph",
@@ -3342,7 +3342,7 @@ dependencies = [
 
 [[package]]
 name = "ng-broker"
-version = "0.1.0-preview.6"
+version = "0.1.0-preview.7"
 dependencies = [
  "async-std",
  "async-trait",
@@ -3367,7 +3367,7 @@ dependencies = [
 
 [[package]]
 name = "ng-client-ws"
-version = "0.1.0-preview.1"
+version = "0.1.0-preview.7"
 dependencies = [
  "async-std",
  "async-trait",
@@ -3386,7 +3386,7 @@ dependencies = [
 
 [[package]]
 name = "ng-net"
-version = "0.1.0-preview.1"
+version = "0.1.0-preview.7"
 dependencies = [
  "async-recursion",
  "async-std",
@@ -3416,7 +3416,7 @@ dependencies = [
 
 [[package]]
 name = "ng-oxigraph"
-version = "0.4.0-alpha.7-ngpreview6"
+version = "0.4.0-alpha.7-ngpreview7"
 dependencies = [
  "base64-url",
  "codspeed-criterion-compat",
@@ -3440,14 +3440,14 @@ dependencies = [
  "serde",
  "sha1",
  "sha2 0.10.8",
- "siphasher 1.0.1",
+ "siphasher 0.3.10",
  "thiserror",
  "zstd",
 ]
 
 [[package]]
 name = "ng-repo"
-version = "0.1.0-preview.1"
+version = "0.1.0-preview.7"
 dependencies = [
  "base64-url",
  "blake3",
@@ -3496,7 +3496,7 @@ dependencies = [
 
 [[package]]
 name = "ng-sdk-js"
-version = "0.1.0-preview.1"
+version = "0.1.0-preview.7"
 dependencies = [
  "async-std",
  "futures",
@@ -3523,7 +3523,7 @@ dependencies = [
 
 [[package]]
 name = "ng-storage-rocksdb"
-version = "0.1.0-preview.6"
+version = "0.1.0-preview.7"
 dependencies = [
  "ng-repo",
  "ng-rocksdb",
@@ -3551,7 +3551,7 @@ dependencies = [
 
 [[package]]
 name = "ng-verifier"
-version = "0.1.0-preview.6"
+version = "0.1.0-preview.7"
 dependencies = [
  "async-std",
  "async-trait",
@@ -3575,7 +3575,7 @@ dependencies = [
 
 [[package]]
 name = "ng-wallet"
-version = "0.1.0-preview.6"
+version = "0.1.0-preview.7"
 dependencies = [
  "aes-gcm-siv",
  "argon2",
@@ -3602,7 +3602,7 @@ dependencies = [
 
 [[package]]
 name = "ngaccount"
-version = "0.1.0-preview.1"
+version = "0.1.0-preview.7"
 dependencies = [
  "anyhow",
  "duration-str",
@@ -3620,7 +3620,7 @@ dependencies = [
 
 [[package]]
 name = "ngcli"
-version = "0.1.0-preview.1"
+version = "0.1.0-preview.7"
 dependencies = [
  "async-std",
  "blake3",
@@ -3639,7 +3639,7 @@ dependencies = [
 
 [[package]]
 name = "ngd"
-version = "0.1.0-preview.1"
+version = "0.1.0-preview.7"
 dependencies = [
  "addr",
  "async-std",
@@ -3658,7 +3658,7 @@ dependencies = [
 
 [[package]]
 name = "ngone"
-version = "0.1.0-preview.1"
+version = "0.1.0-preview.7"
 dependencies = [
  "base64-url",
  "bytes",

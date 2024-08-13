@@ -197,7 +197,7 @@ fn prepare_urls_from_private_addrs(addrs: &Vec<BindAddress>, port: u16) -> Vec<S
 struct App;
 
 #[derive(RustEmbed)]
-#[folder = "../ng-app/public/"]
+#[folder = "src/public/"]
 struct AppPublic;
 
 static ROBOTS: &str = "User-agent: *\r\nDisallow: /";

@@ -1,6 +1,6 @@
 [package]
 name = "ng-oxigraph"
-version = "0.4.0-alpha.7-ngpreview6"
+version = "0.4.0-alpha.7-ngpreview7"
 authors = ["Tpt <thomas@pellissier-tanon.fr>", "Niko PLP <niko@nextgraph.org>"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -46,7 +46,7 @@ quick-xml = ">=0.29, <0.32"
 memchr = "2.5"
 peg = "0.8"
 base64-url = "2.0.0"
-ng-repo = { path = "../ng-repo", version = "0.1.0-preview.1" }
+ng-repo = { path = "../ng-repo", version = "0.1.0-preview.7" }
 
 [target.'cfg(all(not(target_family = "wasm"),not(docsrs)))'.dependencies]
 libc = "0.2"
