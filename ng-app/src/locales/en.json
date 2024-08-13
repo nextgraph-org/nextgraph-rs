@@ -49,6 +49,7 @@
     "no_triples": "No triples in this Graph.",
     "start_editing": "Start editing",
     "create": "Create a Document",
+    "creating": "Please wait while your Document is being created",
     "not_found" : "Document not found",
     "empty_container": "Container is empty.",
     "not_found_details_online" : "The document could not be found locally on this device, nor on the broker.",

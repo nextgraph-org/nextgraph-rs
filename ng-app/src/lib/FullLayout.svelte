@@ -28,6 +28,7 @@
   import TxtIcon from "./icons/TxtIcon.svelte";
   // @ts-ignore
   import Logo from "./components/Logo.svelte";
+  import Spinner from "./components/Spinner.svelte";
   import MenuItem from "./components/MenuItem.svelte";
   import PaneHeader from "./components/PaneHeader.svelte";
   import BranchIcon from "./icons/BranchIcon.svelte";
@@ -39,7 +40,7 @@
           available_editors, available_viewers, set_editor, set_viewer, set_view_or_edit, toggle_live_edit,
           has_editor_chat, all_files_count, all_comments_count,  hideMenu, show_modal_menu, show_modal_create,
           cur_tab_branch_nuri, cur_tab_doc_can_edit, cur_tab_doc_is_member, cur_tab_right_pane, cur_tab_folders_pane,
-          cur_tab_toc_pane, cur_tab_show_menu, cur_tab_branch_has_discrete, cur_tab_graph_or_discrete, cur_tab_view_or_edit } from "../tab";
+          cur_tab_toc_pane, cur_tab_show_menu, cur_tab_branch_has_discrete, cur_tab_graph_or_discrete, cur_tab_view_or_edit, show_spinner } from "../tab";
   import {
     active_session, redirect_after_login, toasts, check_has_camera, toast_error,
     reset_toasts,
@@ -506,6 +507,12 @@
         return ct;
     });
   }
+  const openSpinner = () => {
+    $show_spinner = true;
+  }
+  const closeSpinner = () => {
+    $show_spinner = false;
+  }
 
   const share_items = [
     {n:"repost",i:Bolt},
@@ -554,6 +561,7 @@
 
   const new_document = async (class_name) => {
     closeModalCreate();
+    openSpinner();
     try {
       await reset_toasts();
       let store_repo = $cur_tab.store.repo;
@@ -561,9 +569,11 @@
         store_repo = $all_tabs[$active_session.private_store_id].store.repo
       }
       let nuri = await ng.doc_create($active_session.session_id, get_class(class_name)["ng:crdt"], class_name, store_repo, destination);
+      closeSpinner();
       push("#/"+nuri);
 
     } catch (e) {
+      closeSpinner();
       toast_error(display_error(e));
     }
   }
@@ -894,7 +904,18 @@
     {/if}
   </div>
 </Modal>
-
+<Modal class="spinner-overlay"
+    dismissable={false}
+    bind:open={$show_spinner}
+    size = 'xs'
+    placement = 'center'
+    backdropClass="bg-gray-900 bg-opacity-50 dark:bg-opacity-80"
+  >
+  <p>{$t("doc.creating")}...</p>
+  <div class="w-full flex justify-center">
+    <Spinner className="w-10 h-10"/>
+  </div>
+</Modal>
 <Modal class="menu-modal"
     outsideclose
     bind:open={$show_modal_create}
