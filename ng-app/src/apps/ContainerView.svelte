@@ -28,8 +28,8 @@
     function contained(graph) {
         let ret = [];
         for (const g of graph) {
-            if (g.substring(104,137) === "http://www.w3.org/ns/ldp#contains") {
-                let nuri = g.substring(140,240);
+            if (g.substring(57,90) === "http://www.w3.org/ns/ldp#contains") {
+                let nuri = g.substring(93,193);
                 let hash = nuri.substring(9,16);
                 ret.push({nuri,hash});
             }

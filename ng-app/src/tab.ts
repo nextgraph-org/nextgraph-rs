@@ -173,7 +173,8 @@ export const open_branch = (nuri: string, in_tab: boolean) => {
             if (!old[nuri]) {
                 //console.log("creating tab for ",nuri)
                 old[nuri] = JSON.parse(JSON.stringify(old[""]));
-                old[nuri].branch.nuri = nuri;
+                old[nuri].branch.nuri = nuri.substring(0,nuri.length-47); // we remove the ":v:[char;44]" part
+                old[nuri].store.overlay = nuri.substring(nuri.length-47); // and put it in store.overlay
             }
             return old;
         });
@@ -245,7 +246,7 @@ export const all_tabs = writable({
             can_edit: false,
         },
         branch: {
-            nuri: "", // :o:v or :o:v:b
+            nuri: "", // :o or :o:b
             readcap: "", // "r:"
             comment_branch: "", // nuri
             class: "",

@@ -31,7 +31,7 @@
 
     let upload_progress: null | { total: number; current: number; error?: any } = null;
 
-    let commits = $active_session && branch_subscribe($cur_tab.branch.nuri, false);
+    let commits = $active_session && branch_subscribe($cur_tab.branch.nuri+":"+$cur_tab.store.overlay, false);
     let fileinput;
 
     let file_urls = {};
@@ -46,7 +46,7 @@
 
     const download = async (file) => {
       if (is_tauri) {
-        await ng.file_save_to_downloads($active_session.session_id, file.reference, file.name, "did:ng:"+$cur_tab.branch.nuri);
+        await ng.file_save_to_downloads($active_session.session_id, file.reference, file.name, "did:ng:"+$cur_tab.branch.nuri+":"+$cur_tab.store.overlay);
       } else {
         file_urls[file.nuri].url = await get_blob(file, false);
         //console.log(file.name);
@@ -144,7 +144,7 @@
         let start_request_payload = {
             RandomAccessFilePut: image.type,
         };
-        let nuri = "did:ng:"+$cur_tab.branch.nuri;
+        let nuri = "did:ng:"+$cur_tab.branch.nuri+":"+$cur_tab.store.overlay;
         let start_res = await ng.app_request_with_nuri_command(nuri, "FilePut", $active_session.session_id, start_request_payload);
         let upload_id = start_res.V0.FileUploading;
 

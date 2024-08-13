@@ -16,7 +16,6 @@ use chacha20::ChaCha20;
 use zeroize::Zeroize;
 
 use crate::errors::*;
-use crate::log::*;
 use crate::repo::{BranchInfo, Repo};
 use crate::store::Store;
 use crate::types::*;

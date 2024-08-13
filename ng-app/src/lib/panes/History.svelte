@@ -55,7 +55,7 @@
                 commit: { message: { displayAuthor: false, displayHash: false } },
             }),
             });
-            let res = await ng.branch_history($active_session.session_id, "did:ng:"+$cur_tab.branch.nuri);
+            let res = await ng.branch_history($active_session.session_id, "did:ng:"+$cur_tab.branch.nuri+":"+$cur_tab.store.overlay);
             // for (const h of res.history) {
             //     console.log(h[0], h[1]);
             // }
@@ -75,7 +75,7 @@
                 onMessageClick:()=>openCommit(h[0])
             };}));
 
-            let branch = branch_subscribe($cur_tab.branch.nuri,false);
+            let branch = branch_subscribe($cur_tab.branch.nuri+":"+$cur_tab.store.overlay,false);
             unsub();
             unsub = branch.subscribe((b) => {
                 //console.log("subscription callbak",b.history.commits);
@@ -100,7 +100,7 @@
     });
 
     onDestroy( ()=>{ 
-        let branch = branch_subscribe($cur_tab.branch.nuri,false);
+        let branch = branch_subscribe($cur_tab.branch.nuri+":"+$cur_tab.store.overlay,false);
         get(branch).history.stop();
         unsub();
     });
