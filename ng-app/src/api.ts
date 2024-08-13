@@ -41,7 +41,7 @@ const mapping = {
     "discrete_update": ["session_id", "update", "heads", "crdt", "nuri"],
     "app_request": ["request"],
     "app_request_with_nuri_command": ["nuri", "command", "session_id", "payload"],
-    "sparql_query": ["session_id","sparql","nuri"],
+    "sparql_query": ["session_id","sparql","base","nuri"],
     "sparql_update": ["session_id","sparql","nuri"],
     "test": [ ],
     "get_device_name": [],
