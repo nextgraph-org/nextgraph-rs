@@ -238,8 +238,25 @@ impl NuriV0 {
         }
     }
 
+    pub fn to_store_nuri_string(store_id: &RepoId) -> String {
+        let overlay_id = OverlayId::outer(store_id);
+        format!("o:{store_id}:v:{overlay_id}")
+    }
+
     pub fn repo_graph_name(repo_id: &RepoId, overlay_id: &OverlayId) -> String {
         format!("{DID_PREFIX}:o:{repo_id}:v:{overlay_id}")
+    }
+
+    pub fn repo_skolem(
+        prefix: &String,
+        peer_id: &Vec<u8>,
+        random: u128,
+    ) -> Result<String, NgError> {
+        let mut arr = Vec::with_capacity(32);
+        arr.extend_from_slice(peer_id);
+        arr.extend_from_slice(&random.to_be_bytes());
+        let sko: SymKey = arr.as_slice().try_into()?;
+        Ok(format!("{prefix}:u:{sko}"))
     }
 
     pub fn overlay_id(overlay_id: &OverlayId) -> String {
@@ -612,7 +629,10 @@ impl AppSessionStart {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DocQuery {
-    V0(String), // Sparql
+    V0 {
+        sparql: String,
+        base: Option<String>,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -718,8 +738,8 @@ pub enum AppRequestPayload {
 }
 
 impl AppRequestPayload {
-    pub fn new_sparql_query(query: String) -> Self {
-        AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0(query)))
+    pub fn new_sparql_query(sparql: String, base: Option<String>) -> Self {
+        AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0 { sparql, base }))
     }
     pub fn new_discrete_update(
         head_strings: Vec<String>,

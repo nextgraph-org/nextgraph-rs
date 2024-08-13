@@ -1434,25 +1434,25 @@ export async function load_svg() {
 
     /************** SPORT *********************/
 
-    // sport[0].svg = await import("./assets/pazzle/emoji_u1f93a.svg?component");
-    // sport[1].svg = await import("./assets/pazzle/emoji_u1f3c7.svg?component");
-    // sport[2].svg = await import("./assets/pazzle/emoji_u26f7.svg?component");
+    sport[0].svg = await import("./assets/pazzle/emoji_u1f93a.svg?component");
+    sport[1].svg = await import("./assets/pazzle/emoji_u1f3c7.svg?component");
+    sport[2].svg = await import("./assets/pazzle/emoji_u26f7.svg?component");
 
-    // sport[3].svg = await import("./assets/pazzle/emoji_u1f6a3.svg?component");
-    // sport[4].svg = await import("./assets/pazzle/emoji_u1f3ca.svg?component");
-    // sport[5].svg = await import("./assets/pazzle/emoji_u1f3c4.svg?component");
+    sport[3].svg = await import("./assets/pazzle/emoji_u1f6a3.svg?component");
+    sport[4].svg = await import("./assets/pazzle/emoji_u1f3ca.svg?component");
+    sport[5].svg = await import("./assets/pazzle/emoji_u1f3c4.svg?component");
 
-    // sport[6].svg = await import("./assets/pazzle/emoji_u1f3cb.svg?component");
-    // sport[7].svg = await import("./assets/pazzle/emoji_u1f93c.svg?component");
-    // sport[8].svg = await import("./assets/pazzle/emoji_u1f6b4.svg?component");
+    sport[6].svg = await import("./assets/pazzle/emoji_u1f3cb.svg?component");
+    sport[7].svg = await import("./assets/pazzle/emoji_u1f93c.svg?component");
+    sport[8].svg = await import("./assets/pazzle/emoji_u1f6b4.svg?component");
 
-    // sport[9].svg = await import("./assets/pazzle/emoji_u1fa82.svg?component");
-    // sport[10].svg = await import("./assets/pazzle/emoji_u26bd.svg?component");
-    // sport[11].svg = await import("./assets/pazzle/emoji_u1f3c0.svg?component");
+    sport[9].svg = await import("./assets/pazzle/emoji_u1fa82.svg?component");
+    sport[10].svg = await import("./assets/pazzle/emoji_u26bd.svg?component");
+    sport[11].svg = await import("./assets/pazzle/emoji_u1f3c0.svg?component");
 
-    // sport[12].svg = await import("./assets/pazzle/emoji_u1f3be.svg?component");
-    // sport[13].svg = await import("./assets/pazzle/emoji_u1f3d3.svg?component");
-    // sport[14].svg = await import("./assets/pazzle/emoji_u1f94b.svg?component");
+    sport[12].svg = await import("./assets/pazzle/emoji_u1f3be.svg?component");
+    sport[13].svg = await import("./assets/pazzle/emoji_u1f3d3.svg?component");
+    sport[14].svg = await import("./assets/pazzle/emoji_u1f94b.svg?component");
 
     /************** BIGGER ANIMAL *********************/
 

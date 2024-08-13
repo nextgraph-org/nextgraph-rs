@@ -20,7 +20,9 @@ use yrs::updates::decoder::Decode;
 use yrs::{ReadTxn, StateVector, Transact, Update};
 
 use ng_net::app_protocol::*;
-use ng_oxigraph::oxrdf::{GraphName, GraphNameRef, NamedNode, Quad, Triple, TripleRef};
+use ng_oxigraph::oxrdf::{
+    BlankNode, GraphName, GraphNameRef, NamedNode, Quad, Subject, Term, Triple, TripleRef,
+};
 use ng_repo::errors::VerifierError;
 use ng_repo::log::*;
 use ng_repo::store::Store;
@@ -668,21 +670,63 @@ impl Verifier {
         &mut self,
         nuri: &NuriV0,
         query: &String,
+        base: &Option<String>,
+        peer_id: Vec<u8>,
     ) -> Result<(), String> {
         let store = self.graph_dataset.as_ref().unwrap();
 
+        let update = ng_oxigraph::oxigraph::sparql::Update::parse(query, base.as_deref())
+            .map_err(|e| e.to_string())?;
+
         let res = store.ng_update(
-            query,
+            update,
             self.resolve_target_for_sparql(&nuri.target, true)
                 .map_err(|e| e.to_string())?,
         );
         match res {
             Err(e) => Err(e.to_string()),
-            Ok((inserts, removes)) => {
+            Ok((mut inserts, removes)) => {
                 if inserts.is_empty() && removes.is_empty() {
                     Ok(())
                 } else {
-                    self.prepare_sparql_update(Vec::from_iter(inserts), Vec::from_iter(removes))
+                    let mut new_inserts = Vec::with_capacity(inserts.len());
+                    for mut quad in inserts.drain() {
+                        //log_debug!("INSERTING BN {}", quad);
+                        if quad.subject.is_blank_node() {
+                            if base.is_none() {
+                                return Err("Cannot insert blank nodes without a base".to_string());
+                            }
+                            //log_debug!("INSERTING SUBJECT BN {}", quad.subject);
+                            if let Subject::BlankNode(b) = &quad.subject {
+                                let iri = NuriV0::repo_skolem(
+                                    base.as_ref().unwrap(),
+                                    &peer_id,
+                                    b.as_ref().unique_id().unwrap(),
+                                )
+                                .map_err(|e| e.to_string())?;
+                                quad.subject = Subject::NamedNode(NamedNode::new_unchecked(iri));
+                            }
+                        }
+                        if quad.object.is_blank_node() {
+                            if base.is_none() {
+                                return Err("Cannot insert blank nodes without a base".to_string());
+                            }
+                            //log_debug!("INSERTING OBJECT BN {}", quad.object);
+                            if let Term::BlankNode(b) = &quad.object {
+                                let iri = NuriV0::repo_skolem(
+                                    base.as_ref().unwrap(),
+                                    &peer_id,
+                                    b.as_ref().unique_id().unwrap(),
+                                )
+                                .map_err(|e| e.to_string())?;
+                                quad.object = Term::NamedNode(NamedNode::new_unchecked(iri));
+                            }
+                        }
+                        // TODO deal with triples in subject and object (RDF-STAR)
+                        new_inserts.push(quad);
+                    }
+
+                    self.prepare_sparql_update(new_inserts, Vec::from_iter(removes))
                         .await
                         .map_err(|e| e.to_string())
                 }

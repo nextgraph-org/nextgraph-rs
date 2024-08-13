@@ -15,7 +15,8 @@ global.WebSocket = WebSocket;
 let config = {
     server_peer_id: "FtdzuDYGewfXWdoPuXIPb0wnd0SAg1WoA2B14S7jW3MA",
     admin_user_key: "pye0YFzk1ix1amKEwd6AeqaUAN_PNpH5zGLomh0M1PAA",
-    client_peer_key: "GRP0QnlzaB8o2vdiBaNoOYDNOFX-uehLZMxeCaG3JA0A"
+    client_peer_key: "GRP0QnlzaB8o2vdiBaNoOYDNOFX-uehLZMxeCaG3JA0A",
+    server_addr: "127.0.0.1:14400"
 };
 
 ng.init_headless(config).then( async() => {
@@ -24,7 +25,9 @@ ng.init_headless(config).then( async() => {
         //let user_id = await ng.admin_create_user(config);
         //console.log("user created: ",user_id);
         
-        let user_id = "tJVG293o6xirl3Ys5rzxMgdnPE_1d3IPAdrlR5qGRAIA";
+        let user_id = "NnAJWxO-KapuWyCm7RGwO5VszZwaJARGit-i3i1mXbkA";
+
+        let base = "did:ng:o:8mqfhoSprneBjkAASinRk0OYvFpbiyhjMBVHKQIarDEA:v:dmn9xLARD-LrCz1tdmRiTKelikOCadGEvsLklUrwee4A";
 
         let session = await ng.session_headless_start(user_id);
         session_id = session.session_id;
@@ -33,38 +36,55 @@ ng.init_headless(config).then( async() => {
         let dump = await ng.rdf_dump(session.session_id);
         console.log(dump);
 
-        let sparql_result = await ng.sparql_query(session.session_id, "SELECT ?s ?p ?o WHERE { ?s ?p ?o }");
+        console.log("******** SELECT")
+
+        let sparql_result = await ng.sparql_query(session.session_id, "SELECT ?s ?p ?o WHERE { ?s ?p ?o }", base);
         console.log(sparql_result);
         for (const q of sparql_result.results.bindings) {
             console.log(q);
         }
 
-        let history = await ng.branch_history(session.session_id);
-        for (const h of history.history) {
-            console.log(h[0], h[1]);
-        }
-        console.log(history.swimlane_state);
-
+        // let history = await ng.branch_history(session.session_id);
+        // for (const h of history.history) {
+        //     console.log(h[0], h[1]);
+        // }
+        // console.log(history.swimlane_state);
+        
+        //await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:o:8mqfhoSprneBjkAASinRk0OYvFpbiyhjMBVHKQIarDEA> <did:ng:i> <did:ng:j> }");
         // await ng.sparql_update(session.session_id, "DELETE DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:i> <did:ng:j> }");
 
         // await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:i> <did:ng:j> }");
         // await ng.sparql_update(session.session_id, "INSERT { ?s <did:ng:i> <did:ng:k> } WHERE { ?s <did:ng:i> <did:ng:j> } ");
 
         // await ng.sparql_update(session.session_id, "INSERT DATA {  <did:ng:z> <did:ng:j> <did:ng:t:BJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE>. <did:ng:t:BJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:m> <did:ng:n> }");
+        //await ng.sparql_update(session.session_id, "INSERT DATA {  <did:ng:z> <did:ng:j> [ <did:ng:m> <did:ng:n> ]. }");
+        //await ng.sparql_update(session.session_id, "INSERT DATA {  [ <did:ng:m> <did:ng:n> ] <did:ng:ok> <did:ng:v>  . }");
+        //await ng.sparql_update(session.session_id, "INSERT {  ?a <did:ng:ok> <did:ng:v>  . } WHERE { ?a <did:ng:m> <did:ng:n>  } ");
+        //await ng.sparql_update(session.session_id, "INSERT DATA {  <did:ng:z> <did:ng:j> _:1 . _:1 <did:ng:m> <did:ng:n>. }");
+        //await ng.sparql_update(session.session_id, "INSERT DATA {  _:f766ca988268ddc60315ddd5bd621387 <did:ng:o> <did:ng:>. }");
+        //await ng.sparql_update(session.session_id, "INSERT {  _:_ <did:ng:ok> <did:ng:v>  . } WHERE { _:_ <did:ng:m> <did:ng:n>  } ");
+        //await ng.sparql_update(session.session_id, "INSERT DATA {  _:_ <abc:a> <d:a>  .  _:_a <abceee:a> <d:a>  . }");
         
-        sparql_result = await ng.sparql_query(session.session_id, "SELECT ?a WHERE { ?a <did:ng:j> _:abc. _:abc <did:ng:m> <did:ng:n>  }");
+        //await ng.sparql_update(session.session_id, "INSERT DATA {  <> <a:self> <a:self>  . }",base);
+
+        await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:TEST3>  <did:ng:j> _:_  .   _:_ <did:ng:m> <did:ng:n>  . }", base);
+        await ng.sparql_update(session.session_id, "INSERT DATA {  <did:ng:TEST4> <did:ng:j> [ <did:ng:m> <did:ng:n> ]. }", base);
+
+        sparql_result = await ng.sparql_query(session.session_id, "SELECT ?a WHERE { ?a <did:ng:j> _:abc. _:abc <did:ng:m> <did:ng:n>  }", base);
         console.log(sparql_result);
         for (const q of sparql_result.results.bindings) {
             console.log(q);
         }
 
-        sparql_result = await ng.sparql_query(session.session_id, "SELECT ?s ?a WHERE { ?s <did:ng:i> ?a  }");
+        sparql_result = await ng.sparql_query(session.session_id, "SELECT ?s ?a WHERE { ?s <did:ng:j> ?a  }", base);
         console.log(sparql_result);
         for (const q of sparql_result.results.bindings) {
             console.log(q);
         }
 
-        let quads = await ng.sparql_query(session.session_id, "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }");
+        console.log("******** CONSTRUCT")
+
+        let quads = await ng.sparql_query(session.session_id, "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }",base);
         for (const q of quads) {
             console.log(q.subject.toString(), q.predicate.toString(), q.object.toString(), q.graph.toString())
         }

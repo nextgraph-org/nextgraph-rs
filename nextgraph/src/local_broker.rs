@@ -1085,15 +1085,15 @@ impl LocalBroker {
     }
 
     fn add_session(&mut self, session: Session) -> Result<SessionInfo, NgError> {
-        let private_store_id = self
-            .get_site_store_of_session(&session, SiteStoreType::Private)?
-            .to_string();
-        let protected_store_id = self
-            .get_site_store_of_session(&session, SiteStoreType::Protected)?
-            .to_string();
-        let public_store_id = self
-            .get_site_store_of_session(&session, SiteStoreType::Public)?
-            .to_string();
+        let private_store_id = NuriV0::to_store_nuri_string(
+            &self.get_site_store_of_session(&session, SiteStoreType::Private)?,
+        );
+        let protected_store_id = NuriV0::to_store_nuri_string(
+            &self.get_site_store_of_session(&session, SiteStoreType::Protected)?,
+        );
+        let public_store_id = NuriV0::to_store_nuri_string(
+            &self.get_site_store_of_session(&session, SiteStoreType::Public)?,
+        );
 
         let user_id = session.config.user_id();
 
@@ -2216,9 +2216,9 @@ pub async fn session_start(config: SessionConfig) -> Result<SessionInfo, NgError
                     }
 
                     if let Ok(AppResponse::V0(AppResponseV0::SessionStart(AppSessionStartResponse::V0(response)))) = res {
-                        session_info.private_store_id = response.private_store.to_string();
-                        session_info.protected_store_id = response.protected_store.to_string();
-                        session_info.public_store_id = response.public_store.to_string();
+                        session_info.private_store_id = NuriV0::to_store_nuri_string(&response.private_store);
+                        session_info.protected_store_id = NuriV0::to_store_nuri_string(&response.protected_store);
+                        session_info.public_store_id = NuriV0::to_store_nuri_string(&response.public_store);
                     }
 
                     Ok(session_info)
@@ -2245,15 +2245,24 @@ pub async fn session_start(config: SessionConfig) -> Result<SessionInfo, NgError
                                 return Ok(SessionInfo {
                                     session_id: *idx,
                                     user: user_id,
-                                    private_store_id: broker
-                                        .get_site_store_of_session(sess, SiteStoreType::Private)?
-                                        .to_string(),
-                                    protected_store_id: broker
-                                        .get_site_store_of_session(sess, SiteStoreType::Protected)?
-                                        .to_string(),
-                                    public_store_id: broker
-                                        .get_site_store_of_session(sess, SiteStoreType::Public)?
-                                        .to_string(),
+                                    private_store_id: NuriV0::to_store_nuri_string(
+                                        &broker.get_site_store_of_session(
+                                            sess,
+                                            SiteStoreType::Private,
+                                        )?,
+                                    ),
+                                    protected_store_id: NuriV0::to_store_nuri_string(
+                                        &broker.get_site_store_of_session(
+                                            sess,
+                                            SiteStoreType::Protected,
+                                        )?,
+                                    ),
+                                    public_store_id: NuriV0::to_store_nuri_string(
+                                        &broker.get_site_store_of_session(
+                                            sess,
+                                            SiteStoreType::Public,
+                                        )?,
+                                    ),
                                 });
                             }
                         }

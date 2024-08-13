@@ -30,7 +30,7 @@
       change_nav_bar("nav:protected",$t("doc.protected_store"), false);
       reset_in_memory();
     });
-    let nuri = $active_session && ("o:"+$active_session.protected_store_id);
+    let nuri = $active_session && $active_session.protected_store_id;
   </script>
   
   <FullLayout>

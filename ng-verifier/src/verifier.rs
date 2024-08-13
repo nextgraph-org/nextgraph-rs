@@ -122,6 +122,10 @@ struct EventOutboxStorage {
 }
 
 impl Verifier {
+    pub(crate) fn get_peer_id_for_skolem(&self) -> Vec<u8> {
+        self.peer_id.to_dh_slice()[0..16].to_vec()
+    }
+
     pub fn complement_credentials(&self, creds: &mut Credentials) {
         creds.private_store = self.private_store_id().clone();
         creds.protected_store = self.protected_store_id().clone();
@@ -2416,6 +2420,7 @@ impl Verifier {
 
     fn add_repo_(&mut self, repo: Repo) -> &Repo {
         //self.populate_topics(&repo);
+        let _ = self.add_doc(&repo.id, &repo.store.overlay_id);
         let repo_ref = self.repos.entry(repo.id).or_insert(repo);
         repo_ref
     }
@@ -2547,7 +2552,15 @@ impl Verifier {
 mod test {
 
     use crate::verifier::*;
+    use ng_oxigraph::oxrdf::BlankNode;
     use ng_repo::store::Store;
+    use std::str::FromStr;
+
+    #[test]
+    pub fn test_blank_node() {
+        let bn = BlankNode::from_str("_:____").expect("parse");
+        log_debug!("{:?}", bn);
+    }
 
     #[async_std::test]
     pub async fn test_new_repo_default() {

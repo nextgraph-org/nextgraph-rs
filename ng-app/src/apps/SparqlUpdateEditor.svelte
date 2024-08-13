@@ -33,7 +33,7 @@
     onMount(()=>{
       reset_in_memory();
       if (!$in_memory_discrete){
-        $in_memory_discrete = "INSERT DATA { \n  <did:ng:test> <test:predicate> \"An example value\".\r}";
+        $in_memory_discrete = "INSERT DATA { \n  <> <example:predicate> \"An example value\".\r}";
       }
     });
     const run = async () => {

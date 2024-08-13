@@ -433,8 +433,10 @@ export const sparql_query = async function(sparql:string, union:boolean) {
         });
         throw new Error("no session");
     }
-    let nuri = union ? undefined : "did:ng:"+get(cur_tab).branch.nuri;
-    return await ng.sparql_query(session.session_id, sparql, nuri);
+    let base = "did:ng:"+get(cur_tab).branch.nuri;
+    console.log(base)
+    let nuri = union ? undefined : base;
+    return await ng.sparql_query(session.session_id, sparql, base, nuri);
 }
 
 export const sparql_update = async function(sparql:string) {
