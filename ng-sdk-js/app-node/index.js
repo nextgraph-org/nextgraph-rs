@@ -27,7 +27,7 @@ ng.init_headless(config).then( async() => {
         
         let user_id = "NnAJWxO-KapuWyCm7RGwO5VszZwaJARGit-i3i1mXbkA";
 
-        let base = "did:ng:o:8mqfhoSprneBjkAASinRk0OYvFpbiyhjMBVHKQIarDEA:v:dmn9xLARD-LrCz1tdmRiTKelikOCadGEvsLklUrwee4A";
+        let base = "did:ng:o:8mqfhoSprneBjkAASinRk0OYvFpbiyhjMBVHKQIarDEA";
 
         let session = await ng.session_headless_start(user_id);
         session_id = session.session_id;
@@ -67,8 +67,8 @@ ng.init_headless(config).then( async() => {
         
         //await ng.sparql_update(session.session_id, "INSERT DATA {  <> <a:self> <a:self>  . }",base);
 
-        await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:TEST3>  <did:ng:j> _:_  .   _:_ <did:ng:m> <did:ng:n>  . }", base);
-        await ng.sparql_update(session.session_id, "INSERT DATA {  <did:ng:TEST4> <did:ng:j> [ <did:ng:m> <did:ng:n> ]. }", base);
+        await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:TEST4>  <did:ng:j> _:_  .   _:_ <did:ng:m> <did:ng:n>  . }");
+        await ng.sparql_update(session.session_id, "INSERT DATA {  <did:ng:TEST5> <did:ng:j> [ <did:ng:m> <did:ng:n> ]. }");
 
         sparql_result = await ng.sparql_query(session.session_id, "SELECT ?a WHERE { ?a <did:ng:j> _:abc. _:abc <did:ng:m> <did:ng:n>  }", base);
         console.log(sparql_result);

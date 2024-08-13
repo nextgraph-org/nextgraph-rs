@@ -328,12 +328,12 @@ impl Verifier {
         &self,
         quad: &Quad,
         branches: &mut HashMap<BranchId, (StoreRepo, RepoId, bool, TopicId, Digest, OverlayId)>,
-        nuri_branches: &mut HashMap<String, (BranchId, bool)>,
-    ) -> Result<(BranchId, bool), VerifierError> {
+        nuri_branches: &mut HashMap<String, (RepoId, BranchId, bool)>,
+    ) -> Result<(RepoId, BranchId, bool), VerifierError> {
         match &quad.graph_name {
             GraphName::NamedNode(named_node) => {
                 let graph_name = named_node.as_string();
-                log_debug!("graph_name {graph_name}");
+                //log_debug!("graph_name {graph_name}");
                 if let Some(branch_found) = nuri_branches.get(graph_name) {
                     return Ok(branch_found.clone());
                 }
@@ -378,10 +378,12 @@ impl Verifier {
                     token,
                     store.overlay_id,
                 ));
-                let _ = nuri_branches
-                    .entry(graph_name.clone())
-                    .or_insert((branch_id, is_publisher));
-                Ok((branch_id, is_publisher))
+                let _ = nuri_branches.entry(graph_name.clone()).or_insert((
+                    repo.id,
+                    branch_id,
+                    is_publisher,
+                ));
+                Ok((repo.id, branch_id, is_publisher))
             }
             _ => Err(VerifierError::InvalidNamedGraph),
         }
@@ -391,6 +393,7 @@ impl Verifier {
         &mut self,
         inserts: Vec<Quad>,
         removes: Vec<Quad>,
+        peer_id: Vec<u8>,
     ) -> Result<(), VerifierError> {
         // options when not a publisher on the repo:
         // - skip
@@ -401,11 +404,12 @@ impl Verifier {
         let mut removes_map: HashMap<BranchId, HashSet<Triple>> = HashMap::with_capacity(1);
         let mut branches: HashMap<BranchId, (StoreRepo, RepoId, bool, TopicId, Digest, OverlayId)> =
             HashMap::with_capacity(1);
-        let mut nuri_branches: HashMap<String, (BranchId, bool)> = HashMap::with_capacity(1);
+        let mut nuri_branches: HashMap<String, (RepoId, BranchId, bool)> =
+            HashMap::with_capacity(1);
         let mut inserts_len = inserts.len();
         let mut removes_len = removes.len();
-        for insert in inserts {
-            let (branch_id, is_publisher) =
+        for mut insert in inserts {
+            let (repo_id, branch_id, is_publisher) =
                 self.find_branch_and_repo_for_quad(&insert, &mut branches, &mut nuri_branches)?;
             if !is_publisher {
                 continue;
@@ -415,10 +419,32 @@ impl Verifier {
                 inserts_len = 1;
                 set
             });
+
+            // changing blank node to skolemized node
+
+            //log_debug!("INSERTING BN {}", quad);
+            if insert.subject.is_blank_node() {
+                //log_debug!("INSERTING SUBJECT BN {}", insert.subject);
+                if let Subject::BlankNode(b) = &insert.subject {
+                    let iri =
+                        NuriV0::repo_skolem(&repo_id, &peer_id, b.as_ref().unique_id().unwrap())?;
+                    insert.subject = Subject::NamedNode(NamedNode::new_unchecked(iri));
+                }
+            }
+            if insert.object.is_blank_node() {
+                //log_debug!("INSERTING OBJECT BN {}", insert.object);
+                if let Term::BlankNode(b) = &insert.object {
+                    let iri =
+                        NuriV0::repo_skolem(&repo_id, &peer_id, b.as_ref().unique_id().unwrap())?;
+                    insert.object = Term::NamedNode(NamedNode::new_unchecked(iri));
+                }
+            }
+            // TODO deal with triples in subject and object (RDF-STAR)
+
             set.insert(insert.into());
         }
         for remove in removes {
-            let (branch_id, is_publisher) =
+            let (repo_id, branch_id, is_publisher) =
                 self.find_branch_and_repo_for_quad(&remove, &mut branches, &mut nuri_branches)?;
             if !is_publisher {
                 continue;
@@ -689,46 +715,13 @@ impl Verifier {
                 if inserts.is_empty() && removes.is_empty() {
                     Ok(())
                 } else {
-                    let mut new_inserts = Vec::with_capacity(inserts.len());
-                    for mut quad in inserts.drain() {
-                        //log_debug!("INSERTING BN {}", quad);
-                        if quad.subject.is_blank_node() {
-                            if base.is_none() {
-                                return Err("Cannot insert blank nodes without a base".to_string());
-                            }
-                            //log_debug!("INSERTING SUBJECT BN {}", quad.subject);
-                            if let Subject::BlankNode(b) = &quad.subject {
-                                let iri = NuriV0::repo_skolem(
-                                    base.as_ref().unwrap(),
-                                    &peer_id,
-                                    b.as_ref().unique_id().unwrap(),
-                                )
-                                .map_err(|e| e.to_string())?;
-                                quad.subject = Subject::NamedNode(NamedNode::new_unchecked(iri));
-                            }
-                        }
-                        if quad.object.is_blank_node() {
-                            if base.is_none() {
-                                return Err("Cannot insert blank nodes without a base".to_string());
-                            }
-                            //log_debug!("INSERTING OBJECT BN {}", quad.object);
-                            if let Term::BlankNode(b) = &quad.object {
-                                let iri = NuriV0::repo_skolem(
-                                    base.as_ref().unwrap(),
-                                    &peer_id,
-                                    b.as_ref().unique_id().unwrap(),
-                                )
-                                .map_err(|e| e.to_string())?;
-                                quad.object = Term::NamedNode(NamedNode::new_unchecked(iri));
-                            }
-                        }
-                        // TODO deal with triples in subject and object (RDF-STAR)
-                        new_inserts.push(quad);
-                    }
-
-                    self.prepare_sparql_update(new_inserts, Vec::from_iter(removes))
-                        .await
-                        .map_err(|e| e.to_string())
+                    self.prepare_sparql_update(
+                        Vec::from_iter(inserts),
+                        Vec::from_iter(removes),
+                        peer_id,
+                    )
+                    .await
+                    .map_err(|e| e.to_string())
                 }
             }
         }

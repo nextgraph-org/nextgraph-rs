@@ -248,7 +248,7 @@ impl NuriV0 {
     }
 
     pub fn repo_skolem(
-        prefix: &String,
+        repo_id: &RepoId,
         peer_id: &Vec<u8>,
         random: u128,
     ) -> Result<String, NgError> {
@@ -256,7 +256,7 @@ impl NuriV0 {
         arr.extend_from_slice(peer_id);
         arr.extend_from_slice(&random.to_be_bytes());
         let sko: SymKey = arr.as_slice().try_into()?;
-        Ok(format!("{prefix}:u:{sko}"))
+        Ok(format!("{DID_PREFIX}:o:{repo_id}:u:{sko}"))
     }
 
     pub fn overlay_id(overlay_id: &OverlayId) -> String {
