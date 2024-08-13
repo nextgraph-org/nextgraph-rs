@@ -29,7 +29,6 @@ use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::types::*;
 
-use crate::actor::EActor;
 use crate::actor::SoS;
 use crate::connection::*;
 use crate::server_broker::IServerBroker;

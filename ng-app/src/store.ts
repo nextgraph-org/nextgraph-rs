@@ -420,7 +420,7 @@ export const live_discrete_update = async (update, crdt, heads) => {
         });
         throw new Error("no session");
     }
-    let nuri = "did:ng:"+get(cur_tab).branch.nuri;
+    let nuri = "did:ng:"+get(cur_tab).doc.nuri+":"+get(cur_tab).store.overlay;
     await ng.discrete_update(session.session_id, update, heads, crdt, nuri);
 }
 
@@ -433,9 +433,9 @@ export const sparql_query = async function(sparql:string, union:boolean) {
         });
         throw new Error("no session");
     }
-    let base = "did:ng:"+get(cur_tab).branch.nuri;
-    console.log(base)
-    let nuri = union ? undefined : base;
+    let base = "did:ng:"+get(cur_tab).doc.nuri;
+    //console.log("BASE",base)
+    let nuri = union ? undefined : (base+":"+get(cur_tab).store.overlay);
     return await ng.sparql_query(session.session_id, sparql, base, nuri);
 }
 
@@ -448,7 +448,7 @@ export const sparql_update = async function(sparql:string) {
         });
         throw new Error("no session");
     }
-    let nuri = "did:ng:"+get(cur_tab).branch.nuri;
+    let nuri = "did:ng:"+get(cur_tab).doc.nuri+":"+get(cur_tab).store.overlay;
     await ng.sparql_update(session.session_id, sparql, nuri);
 }
 
@@ -723,7 +723,7 @@ export async function get_blob(ref: { nuri: string; reference: { key: any; id: a
         try {
             let final_blob;
             let content_type;
-            let branch_nuri = "did:ng:"+get(cur_tab).branch.nuri;
+            let branch_nuri = "did:ng:"+get(cur_tab).doc.nuri+":"+get(cur_tab).store.overlay;
             let cancel = await ng.file_get(get(active_session).session_id, ref.reference, branch_nuri, async (blob) => {
                 //console.log("GOT APP RESPONSE", blob);
                 if (blob.V0.FileMeta) {

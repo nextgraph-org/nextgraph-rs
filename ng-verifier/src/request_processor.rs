@@ -269,8 +269,7 @@ impl Verifier {
                     let overlay_id = doc_create.store.outer_overlay();
                     let nuri = NuriV0::repo_graph_name(&repo_id, &overlay_id);
                     let store_nuri = NuriV0::from_store_repo(&doc_create.store);
-                    let store_nuri_string =
-                        NuriV0::repo_graph_name(doc_create.store.repo_id(), &overlay_id);
+                    let store_nuri_string = NuriV0::repo_id(doc_create.store.repo_id());
                     let query = format!("INSERT DATA {{ <{store_nuri_string}> <http://www.w3.org/ns/ldp#contains> <{nuri}>. }}");
 
                     let ret = self

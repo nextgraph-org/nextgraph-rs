@@ -259,6 +259,14 @@ impl NuriV0 {
         Ok(format!("{DID_PREFIX}:o:{repo_id}:u:{sko}"))
     }
 
+    pub fn repo(&self) -> String {
+        Self::repo_id(self.target.repo_id())
+    }
+
+    pub fn repo_id(repo_id: &RepoId) -> String {
+        format!("{DID_PREFIX}:o:{}", repo_id)
+    }
+
     pub fn overlay_id(overlay_id: &OverlayId) -> String {
         format!("{DID_PREFIX}:v:{overlay_id}")
     }

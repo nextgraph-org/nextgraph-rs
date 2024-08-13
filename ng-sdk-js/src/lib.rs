@@ -375,7 +375,9 @@ pub async fn sparql_update(
 
     let (nuri, base) = if nuri.is_string() {
         let n = nuri.as_string().unwrap();
-        (NuriV0::new_from(&n).map_err(|e| e.to_string())?, Some(n))
+        let nuri = NuriV0::new_from(&n).map_err(|e| e.to_string())?;
+        let b = nuri.repo();
+        (nuri, Some(b))
     } else {
         (NuriV0::new_private_store_target(), None)
     };
