@@ -1,7 +1,7 @@
 {
   "name": "ng-app",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.0-preview.7",
   "type": "module",
   "scripts": {
     "dev": "shx cp index-native.html index.html && vite",
@@ -68,7 +68,7 @@
     "immutable-json-patch": "^6.0.1",
     "katex": "^0.16.11",
     "lodash.debounce": "4.0.8",
-    "ng-sdk-js": "workspace:^0.1.0-preview.1",
+    "ng-sdk-js": "workspace:^0.1.0-preview.7",
     "prism-themes": "^1.9.0",
     "prosemirror-model": "^1.7.1",
     "prosemirror-state": "^1.2.3",

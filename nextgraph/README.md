@@ -43,7 +43,7 @@ A tokio-based version (as a feature) might be available in the future.
 
 ```toml
 [dependencies]
-nextgraph = "0.1.0-preview.6"
+nextgraph = "0.1.0-preview.7"
 async-std = "1.12.0"
 ```
 
@@ -51,16 +51,16 @@ async-std = "1.12.0"
 
 You can find some examples on how to use the library:
 
-- [in_memory](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples)
-- [persistent](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples)
+-   [in_memory](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples)
+-   [persistent](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples)
 
 ## License
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-  at your option.
+-   Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+-   MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+    at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
 
