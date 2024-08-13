@@ -566,9 +566,11 @@ pub async fn add_in_memory_wallet(lws_js: JsValue) -> Result<(), String> {
     if !lws.in_memory {
         return Err("This is not an in memory wallet".to_string());
     }
-    nextgraph::local_broker::wallet_add(lws)
-        .await
-        .map_err(|e: NgError| e.to_string())
+    match nextgraph::local_broker::wallet_add(lws).await {
+        Ok(_) => Ok(()),
+        Err(NgError::WalletAlreadyAdded) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 #[cfg(not(wasmpack_target = "nodejs"))]

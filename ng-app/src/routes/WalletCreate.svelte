@@ -128,8 +128,11 @@
   let ready;
   let download_link;
   let download_name;
+  let pdf_link;
+  let pdf_name;
   let cloud_link;
   let animateDownload = true;
+  let animatePdf = true;
   let invitation;
   let pre_invitation;
 
@@ -228,7 +231,7 @@
       trusted: true,
       cloud: false,
       bootstrap: false,
-      pdf: false,
+      pdf: !mobile,
     };
     await tick();
     scrollToTop();
@@ -257,7 +260,8 @@
       core_bootstrap: invitation.V0.bootstrap,
       core_registration,
       additional_bootstrap,
-      //TODO: device_name,
+      device_name,
+      pdf: options.pdf
     };
     //console.log("do wallet with params", params);
     try {
@@ -275,11 +279,12 @@
           window.wallet_channel.postMessage(new_in_mem, location.href);
         }
       }
-      console.log("pazzle", ready.pazzle);
-      console.log("pazzle words", display_pazzle(ready.pazzle));
-      console.log("mnemonic", ready.mnemonic);
-      console.log("mnemonic words", ready.mnemonic_str);
+      // console.log("pazzle", ready.pazzle);
+      // console.log("pazzle words", display_pazzle(ready.pazzle));
+      // console.log("mnemonic", ready.mnemonic);
+      // console.log("mnemonic words", ready.mnemonic_str);
       download_name = "wallet-" + ready.wallet_name + ".ngw";
+      pdf_name = "wallet-" + ready.wallet_name + ".pdf";
       if (options.cloud) {
         cloud_link = "https://nextgraph.one/#/w/" + ready.wallet_name;
       }
@@ -288,6 +293,12 @@
           type: "application/octet-stream",
         });
         download_link = URL.createObjectURL(blob);
+      }
+      if (ready.pdf_file.length) {
+        const blob = new Blob([ready.pdf_file], {
+          type: "application/octet-stream",
+        });
+        pdf_link = URL.createObjectURL(blob);
       }
     } catch (e) {
       console.error(e);
@@ -1518,7 +1529,7 @@
               {#if !tauri_platform}{@html $t(
                   "pages.login.trust_device_allow_cookies"
                 )}{/if}<br /><br />
-              <Toggle bind:checked={options.trusted}
+              <Toggle bind:checked={options.trusted} on:change={()=> {if (!options.trusted) options.pdf=false;}}
                 >{@html $t(
                   "pages.wallet_create.save_wallet_options.trust_toggle"
                 )}</Toggle
@@ -1575,7 +1586,7 @@
                 "pages.wallet_create.save_wallet_options.pdf_description"
               )}
               <br /><br />
-              <Toggle disabled bind:checked={options.pdf}
+              <Toggle bind:checked={options.pdf}
                 >{@html $t(
                   "pages.wallet_create.save_wallet_options.pdf_toggle"
                 )}</Toggle
@@ -1718,6 +1729,47 @@
                     values: { download_name },
                   })}
                 {/if}
+                {#if pdf_link}
+                  {@html $t(
+                    "pages.wallet_create.download_pdf_description"
+                  )}<br />
+                  <a
+                    href={pdf_link}
+                    target="_blank"
+                    download={pdf_name}
+                  >
+                    <button
+                      tabindex="-1"
+                      class:animate-bounce={animatePdf}
+                      on:click={() => (animatePdf = false)}
+                      class="mt-10 mb-8 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+                    >
+                      <svg
+                        class="w-8 h-8 mr-2 -ml-1"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-hidden="true"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                        />
+                      </svg>
+
+                      {@html $t("pages.wallet_create.download_pdf")}
+                    </button>
+                  </a>
+
+                  <br />
+                {:else if options.pdf}
+                  {@html $t("pages.wallet_create.download_pdf_done", {
+                    values: { pdf_name },
+                  })}
+                {/if}
                 <!-- Pazzle -->
                 {@html $t("pages.wallet_create.your_pazzle")}
               </div>
@@ -1854,6 +1906,7 @@
                 creating = false;
                 error = undefined;
                 animateDownload = true;
+                animatePdf = true;
               }}
             >
               {$t("buttons.start_over")}

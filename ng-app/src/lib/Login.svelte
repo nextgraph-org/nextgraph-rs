@@ -411,7 +411,7 @@
       <div class="max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
         <div class="flex flex-col justify-centerspace-x-12 mt-4 mb-4">
           <!-- Device Name, if trusted-->
-          {#if for_import}
+          {#if for_import && trusted}
             <label for="device-name-input" class="text-sm text-black">
               {$t("pages.login.device_name_label")}
             </label>

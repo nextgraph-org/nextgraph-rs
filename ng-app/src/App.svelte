@@ -151,7 +151,7 @@
       window.wallet_channel = wallet_channel;
       wallet_channel.postMessage({ cmd: "startup" }, location.href);
       wallet_channel.onmessage = async (event) => {
-        //console.log(event.data.cmd, event.data);
+        // console.log(event.data.cmd, event.data);
         if (!location.href.startsWith(event.origin)) return;
         switch (event.data.cmd) {
           case "startup":

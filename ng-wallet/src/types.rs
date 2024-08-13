@@ -1248,6 +1248,14 @@ pub struct CreateWalletV0 {
     #[zeroize(skip)]
     /// Bootstrap of another server that you might use in order to connect to NextGraph network. It can be another interface on the same `core` server.
     pub additional_bootstrap: Option<BootstrapContentV0>,
+
+    #[zeroize(skip)]
+    /// Should generate a recovery PDF containing all the information of the wallet in plain text.
+    pub pdf: bool,
+
+    #[zeroize(skip)]
+    /// short name of the device
+    pub device_name: String,
 }
 
 impl CreateWalletV0 {
@@ -1261,6 +1269,8 @@ impl CreateWalletV0 {
         core_bootstrap: BootstrapContentV0,
         core_registration: Option<[u8; 32]>,
         additional_bootstrap: Option<BootstrapContentV0>,
+        pdf: bool,
+        device_name: String,
     ) -> Self {
         CreateWalletV0 {
             result_with_wallet_file: false,
@@ -1274,6 +1284,8 @@ impl CreateWalletV0 {
             core_bootstrap,
             core_registration,
             additional_bootstrap,
+            pdf,
+            device_name,
         }
     }
 }
@@ -1324,6 +1336,10 @@ pub struct CreateWalletResultV0 {
     pub in_memory: bool,
 
     pub session_id: u64,
+
+    #[serde(with = "serde_bytes")]
+    /// The PDF file that can be printed by the user
+    pub pdf_file: Vec<u8>,
 }
 
 impl CreateWalletResultV0 {
@@ -1369,6 +1385,8 @@ pub struct CreateWalletIntermediaryV0 {
     pub core_registration: Option<[u8; 32]>,
     #[zeroize(skip)]
     pub additional_bootstrap: Option<BootstrapContentV0>,
+    #[zeroize(skip)]
+    pub pdf: bool,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -1441,8 +1459,9 @@ pub struct NgQRCodeWalletTransferV0 {
     pub is_rendezvous: bool,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
 pub struct NgQRCodeWalletRecoveryV0 {
+    #[zeroize(skip)]
     pub wallet: WalletContentV0, //of which security_img is emptied
     pub pazzle: Vec<u8>,
     pub mnemonic: [u16; 12],

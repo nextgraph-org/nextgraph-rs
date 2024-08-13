@@ -30,6 +30,7 @@ serde_json = "1.0"
 serde_bytes = "0.11.7"
 async-std = { version = "1.12.0", features = ["attributes", "unstable"] }
 sys-locale = { version = "0.3.1" }
+zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
 ng-async-tungstenite = {  git = "https://git.nextgraph.org/NextGraph/async-tungstenite.git", branch = "nextgraph",  features = ["async-std-runtime", "async-native-tls"] }
 tauri = { version = "2.0.0-alpha.14", features = [] }
 # add the "devtools" feature if devtools in the production build should be activated
