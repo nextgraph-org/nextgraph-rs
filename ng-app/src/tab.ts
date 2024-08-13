@@ -203,7 +203,7 @@ export const update_branch_display = (cur_tab) => {
 }
 
 export const show_modal_menu = writable(false);
-
+export const show_spinner = writable(false);
 export const show_modal_create = writable(false);
 
 export const in_memory_graph = writable("");

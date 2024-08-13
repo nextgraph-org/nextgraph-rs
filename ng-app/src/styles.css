@@ -225,6 +225,10 @@ div[role="alert"] div {
     display: block;
 }
 
+.spinner-overlay button {
+    display: none;
+}
+
 .choice-button {
     min-width: 305px;
 }
