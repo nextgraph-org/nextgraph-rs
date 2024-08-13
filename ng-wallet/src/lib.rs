@@ -548,6 +548,7 @@ pub fn create_wallet_first_step_v0(
         core_bootstrap: params.core_bootstrap.clone(),
         core_registration: params.core_registration,
         additional_bootstrap: params.additional_bootstrap.clone(),
+        pdf: params.pdf,
     };
     Ok(intermediary)
 }
@@ -773,6 +774,7 @@ pub async fn create_wallet_second_step_v0(
             user,
             in_memory: params.in_memory,
             session_id: 0,
+            pdf_file: vec![],
         },
         site,
         brokers,
@@ -832,6 +834,8 @@ mod test {
             BootstrapContentV0::new_localhost(PubKey::nil()),
             None,
             None,
+            false,
+            "test".to_string(),
         ))
         .expect("create_wallet_first_step_v0");
 

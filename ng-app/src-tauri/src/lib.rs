@@ -18,6 +18,7 @@ use sys_locale::get_locales;
 use tauri::scope::ipc::RemoteDomainAccessScope;
 use tauri::utils::config::WindowConfig;
 use tauri::{path::BaseDirectory, App, Manager};
+use zeroize::Zeroize;
 
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
@@ -160,6 +161,7 @@ async fn wallet_create(
     //log_debug!("wallet_create from rust {:?}", params);
     params.result_with_wallet_file = !params.local_save;
     let local_save = params.local_save;
+    let pdf = params.pdf;
     let mut cwr = nextgraph::local_broker::wallet_create_v0(params)
         .await
         .map_err(|e| e.to_string())?;
@@ -173,7 +175,21 @@ async fn wallet_create(
             )
             .unwrap();
         let _r = write(path, &cwr.wallet_file);
+        cwr.wallet_file.zeroize();
         cwr.wallet_file = vec![];
+    }
+    if pdf {
+        // save pdf file to Downloads folder
+        let path = app
+            .path()
+            .resolve(
+                format!("wallet-{}.pdf", cwr.wallet_name),
+                BaseDirectory::Download,
+            )
+            .unwrap();
+        let _r = write(path, &cwr.pdf_file);
+        cwr.pdf_file.zeroize();
+        cwr.pdf_file = vec![];
     }
     Ok(cwr)
 }

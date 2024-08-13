@@ -3323,6 +3323,7 @@ dependencies = [
  "tauri-plugin-barcode-scanner",
  "tauri-plugin-window",
  "tauri-utils",
+ "zeroize",
 ]
 
 [[package]]

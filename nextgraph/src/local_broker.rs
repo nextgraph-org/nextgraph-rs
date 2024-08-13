@@ -1570,9 +1570,19 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
     // let session = broker.opened_sessions_list[session_info.session_id as usize]
     //     .as_mut()
     //     .unwrap();
-
+    let with_pdf = intermediate.pdf;
+    let pin = intermediate.pin;
     let (mut res, site, brokers) =
         create_wallet_second_step_v0(intermediate, &mut session.verifier).await?;
+
+    if with_pdf {
+        let wallet_recovery =
+            wallet_to_wallet_recovery(&res.wallet, res.pazzle.clone(), res.mnemonic, pin);
+
+        if let Ok(pdf_buffer) = wallet_recovery_pdf(wallet_recovery, 600).await {
+            res.pdf_file = pdf_buffer;
+        };
+    }
 
     //log_info!("VERIFIER DUMP {:?}", session.verifier);
 
@@ -2857,6 +2867,8 @@ mod test {
             core_bootstrap: BootstrapContentV0::new_localhost(peer_id_of_server_broker),
             core_registration: None,
             additional_bootstrap: None,
+            pdf: false,
+            device_name: "test".to_string(),
         })
         .await
         .expect("wallet_create_v0");

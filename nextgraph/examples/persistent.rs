@@ -63,6 +63,8 @@ async fn main() -> std::io::Result<()> {
         core_bootstrap: BootstrapContentV0::new_localhost(peer_id_of_server_broker),
         core_registration: None,
         additional_bootstrap: None,
+        pdf: false,
+        device_name: "test".to_string(),
     })
     .await?;
 
