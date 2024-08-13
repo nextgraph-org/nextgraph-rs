@@ -391,7 +391,7 @@ export const cur_tab_view_or_edit = derived(cur_tab, ($cur_tab) => {
 });
 
 export const edit_header_button = derived(cur_tab, ($cur_tab) => {
-    return ($cur_tab.doc.is_store && ( $cur_tab.store.store_type === "public" || $cur_tab.store.store_type === "protected"))? "doc.header.buttons.edit_profile" : "doc.header.buttons.edit";
+    return ($cur_tab.doc.is_store && ( $cur_tab.store.store_type === "public" || $cur_tab.store.store_type === "protected"))? "doc.header.buttons.edit_profile" : "doc.header.buttons.edit_intro";
 });
 
 export const header_title = derived(cur_tab, ($cur_tab) => {

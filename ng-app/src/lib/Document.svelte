@@ -19,12 +19,13 @@
   
   import {
     Pencil,
+    PencilSquare
   } from "svelte-heros-v2";
 
   import { t } from "svelte-i18n";
   import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
   import { inview } from 'svelte-inview';
-  import { cur_tab, cur_tab_view_or_edit, nav_bar, can_have_header, header_icon, header_title, header_description, cur_branch, set_header_in_view, edit_header_button, cur_app, load_official_app, nav_bar_reset_newest } from "../tab";
+  import { cur_tab, cur_tab_view_or_edit, cur_tab_doc_can_edit, can_have_header, header_icon, header_title, header_description, cur_branch, set_header_in_view, edit_header_button, cur_app, load_official_app, nav_bar_reset_newest, set_view_or_edit } from "../tab";
   import NavIcon from "./icons/NavIcon.svelte";
 
   export let nuri = ""; 
@@ -71,12 +72,17 @@
                         class:"w-8 h-8 mr-2 mb-2 flex-none focus:outline-none"
                     }}/>
                     {/if}
+                    {#if $cur_tab_view_or_edit && $cur_tab_doc_can_edit}
+                      <button class="p-1 mr-2 mb-2 w-8 h-8 flex-none" on:click={()=>{set_view_or_edit(false);}} title={$t("doc.header.buttons.edit")}>
+                        <PencilSquare tabindex=-1 class="w-5 h-5 focus:outline-none" />
+                      </button> 
+                    {/if}
                     {#if !$header_title} <span class="font-mono h-8 py-1 inline-block align-middle mr-2"> {$cur_tab.doc.nuri.substring(2,9)} </span>  {/if}
                     {#if !$cur_tab_view_or_edit}
                     <button class="p-1 mr-2 mb-2 w-8 h-8 flex-none" on:click={openEditHeader} title={$t($edit_header_button)}>
                         <Pencil tabindex=-1 class="w-5 h-5 focus:outline-none" />
-                        
                     </button>{#if !$header_title}<span role="button" on:click={openEditHeader} on:keypress={openEditHeader} tabindex="-1" class="h-8 py-1 inline-block align-middle ">{$t($edit_header_button)}</span>  {/if}
+
                     {/if}
                     {#if $header_title}
                         <h1 class="grow text-left text-2xl">{$header_title}</h1>
