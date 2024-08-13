@@ -56,7 +56,8 @@
     "cannot_load_offline": "You are offline and using the web app. There is currently a limitation on local storage within the Web App, and you need to connect to the broker every time you login with the Web App.<br/><br/>For now, the Web App does not keep a local copy of your documents. due to the limit of 5MB in localStorage. We will remove this limitation soon. Stay tuned!<br/><br/>Check your connectivity status in the ",
     "header": {
       "buttons": {
-        "edit": "Edit title & intro",
+        "edit": "Edit",
+        "edit_intro": "Edit title & intro",
         "edit_profile": "Edit profile",
         "bookmarked": "Saved",
         "all_docs": "All Docs",
