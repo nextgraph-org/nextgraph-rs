@@ -32,9 +32,9 @@
   } from "svelte-heros-v2";
   //console.log(params);
   let nuri = "";
-  $: if ($active_session && params[1]) { if (params[1].startsWith("o:"+$active_session.private_store_id)) push("#/"); 
-                else if (params[1].startsWith("o:"+$active_session.protected_store_id)) push("#/shared"); 
-                else if (params[1].startsWith("o:"+$active_session.public_store_id)) push("#/site"); else nuri = params[1]; } 
+  $: if ($active_session && params[1]) { if (params[1].startsWith($active_session.private_store_id)) push("#/"); 
+                else if (params[1].startsWith($active_session.protected_store_id)) push("#/shared"); 
+                else if (params[1].startsWith($active_session.public_store_id)) push("#/site"); else nuri = params[1]; } 
   onMount(() => {
     if ($cur_tab.store.store_type) 
       change_nav_bar(`nav:${$cur_tab.store.store_type}`,$t(`doc.${$cur_tab.store.store_type}_store`), true); 

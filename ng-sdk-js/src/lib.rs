@@ -268,6 +268,7 @@ pub async fn session_headless_stop(session_id: JsValue, force_close: bool) -> Re
 pub async fn sparql_query(
     session_id: JsValue,
     sparql: String,
+    base: JsValue,
     nuri: JsValue,
 ) -> Result<JsValue, JsValue> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
@@ -278,10 +279,16 @@ pub async fn sparql_query(
         NuriV0::new_entire_user_site()
     };
 
+    let base_opt = if base.is_string() {
+        Some(base.as_string().unwrap())
+    } else {
+        None
+    };
+
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::new_read_query(),
         nuri,
-        payload: Some(AppRequestPayload::new_sparql_query(sparql)),
+        payload: Some(AppRequestPayload::new_sparql_query(sparql, base_opt)),
         session_id,
     });
 
@@ -361,16 +368,22 @@ pub async fn discrete_update(
 pub async fn sparql_update(
     session_id: JsValue,
     sparql: String,
-    nuri: String,
+    nuri: JsValue,
 ) -> Result<(), String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Invalid session_id".to_string())?;
-    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+
+    let (nuri, base) = if nuri.is_string() {
+        let n = nuri.as_string().unwrap();
+        (NuriV0::new_from(&n).map_err(|e| e.to_string())?, Some(n))
+    } else {
+        (NuriV0::new_private_store_target(), None)
+    };
 
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::new_write_query(),
         nuri,
-        payload: Some(AppRequestPayload::new_sparql_query(sparql)),
+        payload: Some(AppRequestPayload::new_sparql_query(sparql, base)),
         session_id,
     });
 
@@ -389,6 +402,7 @@ pub async fn sparql_update(
 pub async fn sparql_query(
     session_id: JsValue,
     sparql: String,
+    base: JsValue,
     nuri: JsValue,
 ) -> Result<JsValue, JsValue> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
@@ -399,10 +413,16 @@ pub async fn sparql_query(
     } else {
         NuriV0::new_entire_user_site()
     };
+    let base_opt = if base.is_string() {
+        Some(base.as_string().unwrap())
+    } else {
+        None
+    };
+
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::new_read_query(),
         nuri,
-        payload: Some(AppRequestPayload::new_sparql_query(sparql)),
+        payload: Some(AppRequestPayload::new_sparql_query(sparql, base_opt)),
         session_id,
     });
 
@@ -460,13 +480,19 @@ pub async fn rdf_dump(session_id: JsValue) -> Result<String, String> {
 }
 
 #[wasm_bindgen]
-pub async fn branch_history(session_id: JsValue, nuri: String) -> Result<JsValue, String> {
+pub async fn branch_history(session_id: JsValue, nuri: JsValue) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Invalid session_id".to_string())?;
 
+    let nuri = if nuri.is_string() {
+        NuriV0::new_from(&nuri.as_string().unwrap()).map_err(|e| e.to_string())?
+    } else {
+        NuriV0::new_private_store_target()
+    };
+
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::new_history(),
-        nuri: NuriV0::new_from(&nuri).map_err(|e| e.to_string())?,
+        nuri,
         payload: None,
         session_id,
     });

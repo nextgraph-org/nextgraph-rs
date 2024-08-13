@@ -51,7 +51,7 @@
     reset_in_memory();
   });
 
-  let nuri = $active_session && ("o:"+$active_session.private_store_id);
+  let nuri = $active_session && $active_session.private_store_id;
 </script>
 
 <FullLayout withoutNavBar={true}>
@@ -119,6 +119,7 @@
       <Square3Stack3d tabindex="-1" class="mt-1 flex-none w-7 h-7 mr-1 focus:outline-none "/><div class="text-xs xs:text-sm flex items-center"><div style="overflow-wrap: anywhere;" class="max-h-8 xs:max-h-10">{$t("doc.header.buttons.all_docs")}</div></div>
     </div>
   </div>
+  
   <Document {nuri}/>
 </FullLayout>
 <svelte:window bind:innerWidth={width} />

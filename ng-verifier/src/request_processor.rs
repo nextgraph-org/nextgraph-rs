@@ -273,7 +273,9 @@ impl Verifier {
                         NuriV0::repo_graph_name(doc_create.store.repo_id(), &overlay_id);
                     let query = format!("INSERT DATA {{ <{store_nuri_string}> <http://www.w3.org/ns/ldp#contains> <{nuri}>. }}");
 
-                    let ret = self.process_sparql_update(&store_nuri, &query).await;
+                    let ret = self
+                        .process_sparql_update(&store_nuri, &query, &None, vec![])
+                        .await;
                     if let Err(e) = ret {
                         return Ok(AppResponse::error(e));
                     }
@@ -287,19 +289,22 @@ impl Verifier {
             }
             AppRequestCommandV0::Fetch(fetch) => match fetch {
                 AppFetchContentV0::ReadQuery => {
-                    if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0(
-                        query,
-                    )))) = payload
+                    if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0 {
+                        sparql,
+                        base,
+                    }))) = payload
                     {
                         //log_debug!("query={}", query);
                         let store = self.graph_dataset.as_ref().unwrap();
-                        let parsed = Query::parse(&query, None);
+                        let parsed = Query::parse(&sparql, base.as_deref());
                         if parsed.is_err() {
                             return Ok(AppResponse::error(parsed.unwrap_err().to_string()));
                         }
                         let mut parsed = parsed.unwrap();
                         let dataset = parsed.dataset_mut();
+                        //log_debug!("DEFAULTS {:?}", dataset.default_graph_graphs());
                         if dataset.has_no_default_dataset() {
+                            //log_info!("DEFAULT GRAPH AS UNION");
                             dataset.set_default_graph_as_union();
                         }
                         let results = store
@@ -323,13 +328,23 @@ impl Verifier {
                         return Err(NgError::InvalidNuri);
                     }
                     return if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Query(
-                        DocQuery::V0(query),
+                        DocQuery::V0 { sparql, base },
                     ))) = payload
                     {
-                        Ok(match self.process_sparql_update(&nuri, &query).await {
-                            Err(e) => AppResponse::error(e),
-                            Ok(_) => AppResponse::ok(),
-                        })
+                        Ok(
+                            match self
+                                .process_sparql_update(
+                                    &nuri,
+                                    &sparql,
+                                    &base,
+                                    self.get_peer_id_for_skolem(),
+                                )
+                                .await
+                            {
+                                Err(e) => AppResponse::error(e),
+                                Ok(_) => AppResponse::ok(),
+                            },
+                        )
                     } else {
                         Err(NgError::InvalidPayload)
                     };

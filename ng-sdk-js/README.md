@@ -30,10 +30,10 @@ npm i ng-sdk-js
 
 The API is divided in 4 parts:
 
-- the wallet API that lets user open and change their wallet and use its credentials
-- the LocalVerifier API to open the documents locally
-- the RemoteVerifier API that is connecting to the ngd server and runs the verifier on the server.
-- a special mode of operation for ngd called `Headless` where all the users of that server have given full control of their data, to the server.
+-   the wallet API that lets user open and change their wallet and use its credentials
+-   the LocalVerifier API to open the documents locally
+-   the RemoteVerifier API that is connecting to the ngd server and runs the verifier on the server.
+-   a special mode of operation for ngd called `Headless` where all the users of that server have given full control of their data, to the server.
 
 All of those API share a common `Session API` (all the functions that have a session_id as first argument)
 
@@ -73,29 +73,29 @@ entrust the credentials of user to an ngd server. coming soon
 
 ## Headless API
 
-- `ng.init_headless(config)` must be called before any other call.
-- `ng.admin_create_user(config)` creates a new user on the server, and populates their 3P stores. returns the user_id
-- `ng.session_headless_start(user_id)` starts a new session for the user. returns the session info, including the session_id
-- `ng.sparql_query(session_id, "[SPARQL query]")` returns or:
-  - for SELECT queries: a JSON Sparql Query Result as a Javascript object. [SPARQL Query Results JSON Format](https://www.w3.org/TR/sparql11-results-json/)
-  - for CONSTRUCT queries: a list of quads in the format [RDF-JS data model](http://rdf.js.org/data-model-spec/) that can be used as ingress to RDFjs lib.
-  - for ASK queries: a boolean
-- `ng.sparql_update(session_id, "[SPARQL update]")` returns nothing, but can throw an error.
-- `ng.file_put_to_private_store(session_id,"[filename]","[mimetype]")` returns the Nuri (NextGraph URI) of the file, as a string.
-- `ng.file_get_from_private_store(session_id, "[nuri]", callback)` returns a cancel function. The `callback(file)` function will be called as follow
-  - once at first with some metadata information in `file.V0.FileMeta`
-  - one or more times with all the blobs of data, in `file.V0.FileBinary`
-  - finally, one more time with `file.V0 == 'EndOfStream'`. See the example on how to reconstruct a buffer out of this.
-- `ng.session_headless_stop(session_id, force_close)` stops the session, but doesn't close the remote verifier, except if force_close is true. if false, the verifier is detached from the session and continues to run on the server. A new session can then be reattached to it, by calling session_headless_start with the same user_id.
+-   `ng.init_headless(config)` must be called before any other call.
+-   `ng.admin_create_user(config)` creates a new user on the server, and populates their 3P stores. returns the user_id
+-   `ng.session_headless_start(user_id)` starts a new session for the user. returns the session info, including the session_id
+-   `ng.sparql_query(session_id, "[SPARQL query]", base, nuri)` returns or:
+    -   for SELECT queries: a JSON Sparql Query Result as a Javascript object. [SPARQL Query Results JSON Format](https://www.w3.org/TR/sparql11-results-json/)
+    -   for CONSTRUCT queries: a list of quads in the format [RDF-JS data model](http://rdf.js.org/data-model-spec/) that can be used as ingress to RDFjs lib.
+    -   for ASK queries: a boolean
+-   `ng.sparql_update(session_id, "[SPARQL update]")` returns nothing, but can throw an error.
+-   `ng.file_put_to_private_store(session_id,"[filename]","[mimetype]")` returns the Nuri (NextGraph URI) of the file, as a string.
+-   `ng.file_get_from_private_store(session_id, "[nuri]", callback)` returns a cancel function. The `callback(file)` function will be called as follow
+    -   once at first with some metadata information in `file.V0.FileMeta`
+    -   one or more times with all the blobs of data, in `file.V0.FileBinary`
+    -   finally, one more time with `file.V0 == 'EndOfStream'`. See the example on how to reconstruct a buffer out of this.
+-   `ng.session_headless_stop(session_id, force_close)` stops the session, but doesn't close the remote verifier, except if force_close is true. if false, the verifier is detached from the session and continues to run on the server. A new session can then be reattached to it, by calling session_headless_start with the same user_id.
 
 Here is the format of the config object to be supplied in the calls to `init_headless` and `admin_create_user`:
 
 ```js
 config = {
-  server_peer_id: "[your server ID]",
-  admin_user_key: "[your admin key]",
-  client_peer_key: "[the client key]",
-  server_addr: "[IP and PORT of the server]", // this one is optional. it will default to localhost:1440. Format is: A.A.A.A:P for IPv4 or [AAAA:::]:P for IpV6
+    server_peer_id: "[your server ID]",
+    admin_user_key: "[your admin key]",
+    client_peer_key: "[the client key]",
+    server_addr: "[IP and PORT of the server]", // this one is optional. it will default to localhost:1440. Format is: A.A.A.A:P for IPv4 or [AAAA:::]:P for IpV6
 };
 ```
 
@@ -182,9 +182,9 @@ If you have configured a domain, then the web app can be accessed at https://app
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-  at your option.
+-   Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+-   MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+    at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
 

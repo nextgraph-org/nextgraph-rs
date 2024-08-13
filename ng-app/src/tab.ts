@@ -245,7 +245,7 @@ export const all_tabs = writable({
             can_edit: false,
         },
         branch: {
-            nuri: "", // :o or :o:b
+            nuri: "", // :o:v or :o:v:b
             readcap: "", // "r:"
             comment_branch: "", // nuri
             class: "",
