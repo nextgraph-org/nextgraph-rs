@@ -261,7 +261,6 @@
     "wallet_info": {
       "title": "Wallet",
       "scan_qr": "Scan QR to export",
-      "generate_qr": "Generate QR to export",
       "download": "Download Wallet File",
       "download_failed": "Download Failed:<br/>{error}",
       "download_in_progress": "Download in progress...",
@@ -273,7 +272,7 @@
       "create_text_code": "Export by generating a TextCode",
       "scan_qr.title": "Export by scanning a QR-Code",
       "scan_qr.no_camera": "If to the contrary, the other device does not have a camera, ",
-      "scan_qr.other_has_camera": "If the other device where you want to import the Wallet, has a camera, then you can just click on the Back button and select <span class=\"path\">Generate QR to export</span>",
+      "scan_qr.other_has_camera": "If the other device where you want to import the Wallet, has a camera, then you can just click on the Back button and select <span class=\"path\">Export by generating a QR-Code</span>",
       "scan_qr.notes": "You will now scan the QR-Code that appears on the screen of the other device (the one you want to transfer your wallet to). You will be asked to allow the app to use your camera.",
       "scan_qr.scanner.title": "Scan your QR-Code",
       "scan_qr.scanner.loading": "Loading scanner",
@@ -498,7 +497,7 @@
     },
     "wallet_login_qr": {
       "title": "Import Wallet with QR-Code",
-      "scan.description": "To import your wallet from another device, generate an export QR-Code there. On the other device, go to<br /><span class=\"path\">User Panel > Wallet > Generate QR</span> to export.",
+      "scan.description": "To import your wallet from another device, generate an export QR-Code there. In order to do so, on the other device, go to<br /><span class=\"path\">User Panel > Wallet > Export by generating a QR-Code</span>.",
       "scan.modal.title": "Scan Wallet QR-Code",
       "gen.button": "Generate QR-Code",
       "gen.description": "To import your wallet from another device, you have to generate a QR-Code here on this device, and then scan it with your other device (the one where your wallet is located for now).<br/>If your other device does not have a camera, then you have to use another method for importing your wallet here.",
