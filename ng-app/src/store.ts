@@ -219,12 +219,12 @@ const updateConnectionStatus = async ($connections: Record<string, any>) => {
         connection => connection.error === "ConnectionError"
     );
     if (should_reconnect) {
-        console.log("will try reconnect in 20 sec");
+        console.log("will try reconnect in 5 sec");
         next_reconnect = setTimeout(async () => {
             await reconnect();
 
             next_reconnect = null;
-        }, 20000);
+        }, 5000);
     }
 
     if (is_connected) {

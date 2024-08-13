@@ -53,7 +53,7 @@
     "not_found" : "Document not found",
     "empty_container": "Container is empty.",
     "not_found_details_online" : "The document could not be found locally on this device, nor on the broker.",
-    "not_found_details_offline" : "The document could not be found locally on this device, and it seems like you are offline, so it could not be retrieved from any broker neither.<br/><br/>If you are opening this document for the first time on this device, you have to be online now so the document can be fetched.<br/><br/> We will try connecting and fetching it every 20 seconds.",
+    "not_found_details_offline" : "The document could not be found locally on this device, and it seems like you are offline, so it could not be retrieved from any broker neither.<br/><br/>If you are opening this document for the first time on this device, you have to be online now so the document can be fetched.<br/><br/> We will try connecting and fetching it every 5 seconds.",
     "cannot_load_offline": "You are offline and using the web app. There is currently a limitation on local storage within the Web App, and you need to connect to the broker every time you login with the Web App.<br/><br/>For now, the Web App does not keep a local copy of your documents. due to the limit of 5MB in localStorage. We will remove this limitation soon. Stay tuned!<br/><br/>Check your connectivity status in the ",
     "header": {
       "buttons": {
