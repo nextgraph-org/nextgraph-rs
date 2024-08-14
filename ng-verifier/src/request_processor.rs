@@ -267,7 +267,7 @@ impl Verifier {
 
                     // adding an ldp:contains triple to the store main branch
                     let overlay_id = doc_create.store.outer_overlay();
-                    let nuri = NuriV0::repo_graph_name(&repo_id, &overlay_id);
+                    let nuri = NuriV0::repo_id(&repo_id);
                     let store_nuri = NuriV0::from_store_repo(&doc_create.store);
                     let store_nuri_string = NuriV0::repo_id(doc_create.store.repo_id());
                     let query = format!("INSERT DATA {{ <{store_nuri_string}> <http://www.w3.org/ns/ldp#contains> <{nuri}>. }}");

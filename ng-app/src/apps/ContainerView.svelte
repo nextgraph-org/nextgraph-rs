@@ -18,7 +18,7 @@
     import{ PencilSquare } from "svelte-heros-v2";
     import { t } from "svelte-i18n";
     import { 
-      in_memory_discrete, open_viewer, set_viewer, set_editor, set_view_or_edit, cur_tab_branch_class, cur_tab_doc_can_edit
+      in_memory_discrete, open_viewer, set_viewer, set_editor, set_view_or_edit, cur_tab_branch_class, cur_tab_doc_can_edit, cur_tab
     } from "../tab";
     import {
         openModalCreate
@@ -29,7 +29,8 @@
         let ret = [];
         for (const g of graph) {
             if (g.substring(57,90) === "http://www.w3.org/ns/ldp#contains") {
-                let nuri = g.substring(93,193);
+                let nuri = g.substring(93,146);
+                nuri = nuri + ":" + $cur_tab.store.overlay;
                 let hash = nuri.substring(9,16);
                 ret.push({nuri,hash});
             }

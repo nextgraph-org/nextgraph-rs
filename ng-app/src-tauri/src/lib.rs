@@ -552,13 +552,23 @@ async fn branch_history(session_id: u64, nuri: String) -> Result<AppHistoryJs, S
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn sparql_update(session_id: u64, sparql: String, nuri: String) -> Result<(), String> {
-    let nuriv0 = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+async fn sparql_update(
+    session_id: u64,
+    sparql: String,
+    nuri: Option<String>,
+) -> Result<(), String> {
+    let (nuri, base) = if let Some(n) = nuri {
+        let nuri = NuriV0::new_from(&n).map_err(|e| e.to_string())?;
+        let b = nuri.repo();
+        (nuri, Some(b))
+    } else {
+        (NuriV0::new_private_store_target(), None)
+    };
 
     let request = AppRequest::V0(AppRequestV0 {
         command: AppRequestCommandV0::new_write_query(),
-        nuri: nuriv0,
-        payload: Some(AppRequestPayload::new_sparql_query(sparql, Some(nuri))),
+        nuri,
+        payload: Some(AppRequestPayload::new_sparql_query(sparql, base)),
         session_id,
     });
 
