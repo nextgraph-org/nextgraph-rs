@@ -260,7 +260,6 @@
     },
     "wallet_info": {
       "title": "Wallet",
-      "scan_qr": "Scan QR to export",
       "download": "Download Wallet File",
       "download_failed": "Download Failed:<br/>{error}",
       "download_in_progress": "Download in progress...",
@@ -502,7 +501,7 @@
       "gen.button": "Generate QR-Code",
       "gen.description": "To import your wallet from another device, you have to generate a QR-Code here on this device, and then scan it with your other device (the one where your wallet is located for now).<br/>If your other device does not have a camera, then you have to use another method for importing your wallet here.",
       "offline_advice": "If you do not have internet on this device, you can use the \"Import a Wallet file\" method instead.",
-      "gen.letsgo": "Ready? On your other device, you first have to be logged-in (wallet is opened) and then you go to<br /><span class=\"path\">User Panel > Wallet > Scan QR to export</span>.<br />Then on this present device, click below on the<br/><span class=\"path\">Generate QR-Code</span> button.",
+      "gen.letsgo": "Ready? On your other device, you first have to be logged-in (wallet is opened) and then you go to<br /><span class=\"path\">User Panel > Wallet > Export by scanning a QR-code</span>.<br />Then on this present device, click below on the<br/><span class=\"path\">Generate QR-Code</span> button.",
       "gen.generated": "Scan this QR-Code from the other device.<br/>You have 5 minutes to do so.",
       "success_btn": "Continue to Login"
     },
@@ -601,6 +600,7 @@
     "NotARendezVous": "You scanned an invalid QR-Code.",
     "camera_unavailable": "Camera is unavailable.",
     "ServerAlreadyRunningInOtherProcess": "App is already running on this device. Check it and close it.",
+    "WsError": "WebSocket error",
     "cannot_load_this_file": "Cannot load this file",
     "graph_not_found": "Graph not found",
     "no_wasm_on_old_safari": "Your Safari browser is too old (version before 14.1). As a result we cannot load Automerge, needed for this document. Please upgrade your macOS or iOS system"

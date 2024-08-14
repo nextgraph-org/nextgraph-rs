@@ -172,7 +172,7 @@
   };
 
   async function remove_wallet_confirmed() {
-    if (!active_wallet) return;
+    if (!$active_wallet) return;
     // TODO: Wait for implementation
     // await ng.wallet_remove($active_wallet.id);
     close_active_wallet();
@@ -198,6 +198,7 @@
             <SidebarGroup ulClass="space-y-2" class="text-left" role="menu">
               <li>
                 <h2 class="text-xl mb-6">{$t("pages.wallet_info.title")}</h2>
+                <span class="break-all">ID: {$active_wallet?.id}</span>
               </li>
 
               <!-- Go Back -->
@@ -248,6 +249,25 @@
                   />
                 </div>
                 <span class="ml-3">{$t("pages.wallet_info.gen_qr.title")}</span>
+              </li>
+
+              <!-- Copy Wallet TextCode -->
+              <li
+                tabindex="0"
+                role="menuitem"
+                class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
+                on:keypress={open_textcode_menu}
+                on:click={open_textcode_menu}
+              >
+                <div>
+                  <Link
+                    tabindex="-1"
+                    class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
+                  />
+                </div>
+                <span class="ml-3"
+                  >{$t("pages.wallet_info.create_text_code")}</span
+                >
               </li>
 
               <!-- Download Wallet -->
@@ -335,25 +355,6 @@
                   </a>
                 </li>
               {/if}
-
-              <!-- Copy Wallet TextCode -->
-              <li
-                tabindex="0"
-                role="menuitem"
-                class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-                on:keypress={open_textcode_menu}
-                on:click={open_textcode_menu}
-              >
-                <div>
-                  <Link
-                    tabindex="-1"
-                    class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                  />
-                </div>
-                <span class="ml-3"
-                  >{$t("pages.wallet_info.create_text_code")}</span
-                >
-              </li>
 
               <!-- Remove Wallet -->
               <li
