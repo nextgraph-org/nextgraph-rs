@@ -36,7 +36,7 @@
     const change = (event) => { 
         
         let newval = new Date(date.split('/').reverse().join('/')+" "+time);
-        console.log(time, date, newval)
+        //console.log(time, date, newval)
        
         dispatch('updateScalar', {
             v: newval,
