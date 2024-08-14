@@ -65,7 +65,7 @@
     } 
 
     function uploadFile(upload_id, nuri, file, success) {
-        console.log(nuri);
+        //console.log(nuri);
         let chunkSize = 1_048_564;
         let fileSize = file.size;
         let offset = 0;
@@ -76,50 +76,48 @@
             let result = event.target.result;
 
             if (event.target.error == null) {
-            offset += result.byteLength;
-            upload_progress = { total: fileSize, current: offset };
+              offset += result.byteLength;
+              upload_progress = { total: fileSize, current: offset };
 
-            // console.log("chunk", result);
+              // console.log("chunk", result);
 
-            let res = await ng.upload_chunk(
-                $active_session.session_id,
-                upload_id,
-                result,
-                nuri
-            );
-            //console.log("chunk upload res", res);
-            // if (onChunkRead) {
-            //   onChunkRead(result);
-            // }
+              let res = await ng.upload_chunk(
+                  $active_session.session_id,
+                  upload_id,
+                  result,
+                  nuri
+              );
+              //console.log("chunk upload res", res);
+              // if (onChunkRead) {
+              //   onChunkRead(result);
+              // }
             } else {
-            // if (onChunkError) {
-            //   onChunkError(event.target.error);
-            // }
-            return;
+              // if (onChunkError) {
+              //   onChunkError(event.target.error);
+              // }
+              upload_progress = { total: fileSize, current: fileSize, error: true };
+              return;
             }
 
             // If finished:
             if (offset >= fileSize) {
-            //console.log("file uploaded");
-            let res = await ng.upload_chunk(
-                $active_session.session_id,
-                upload_id,
-                [],
-                nuri
-            );
-            //console.log("end upload res", res);
-            if (success) {
-                upload_progress = { total: fileSize, current: fileSize };
-                success(res);
-            } else {
-                upload_progress = { total: fileSize, current: fileSize, error: true };
-            }
-
-            // Make progress bar disappear
-            setTimeout(() => {
-                upload_progress = null;
-            }, 1_000);
-            return;
+              //console.log("file uploaded");
+              let res = await ng.upload_chunk(
+                  $active_session.session_id,
+                  upload_id,
+                  [],
+                  nuri
+              );
+              //console.log("end upload res", res);
+              if (success) {
+                  upload_progress = { total: fileSize, current: fileSize };
+                  await success(res);
+                  // Make progress bar disappear
+                  setTimeout(() => {
+                      upload_progress = null;
+                  }, 1_000);
+              } 
+              return;
             }
 
             readBlock(offset, chunkSize, file);
