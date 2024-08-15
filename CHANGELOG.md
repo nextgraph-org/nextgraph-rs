@@ -41,6 +41,10 @@ Access the sub-sections directly :
 -   A11Y : limited ARIA and tabulation navigation on all pages. not tested with screen-reader.
 -   I18N : english
 -   I18N : german (partial)
+-   Native app: macOS
+-   Native app: android
+-   Native app: linux and Ubuntu
+-   Native app: Windows
 
 ## SDK
 
