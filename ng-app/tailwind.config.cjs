@@ -31,7 +31,7 @@ const config = {
     require('flowbite/plugin'),
     require('@tailwindcss/typography')
   ],
-  darkMode: 'class',
+  darkMode: 'selector',
 };
 
 module.exports = config;
