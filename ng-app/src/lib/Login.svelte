@@ -258,6 +258,7 @@
       }
     } catch (e) {
       console.error(e);
+      if (e.message.includes("constructor") || (typeof e === "string" && e.includes("constructor") )) e = "BrowserTooOld";
       error = e;
       step = "end";
       dispatch("error", { error: e });
