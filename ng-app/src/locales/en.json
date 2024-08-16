@@ -604,7 +604,7 @@
     "cannot_load_this_file": "Cannot load this file",
     "graph_not_found": "Graph not found",
     "no_wasm_on_old_safari": "Your Safari browser is too old (version before 14.1). As a result we cannot load Automerge, needed for this document. Please upgrade your macOS or iOS system",
-    "BrowserTooOld": "Your browser is too old. Please upgrade it, use another browser, or install our native app"
+    "BrowserTooOld": "Your browser is too old. Please upgrade it, use another browser, or install our native app. If you are using jshelter or another javascript protection mechanism, please deactivate it as we need access to the WebWorker facility of your browser."
   },
   "connectivity": {
     "stopped": "Stopped",
