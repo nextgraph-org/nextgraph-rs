@@ -173,6 +173,17 @@
   async function bootstrap() {
     //console.log(await ng.client_info());
     if (!tauri_platform || tauri_platform == "android") {
+
+      if (!tauri_platform) {
+        try {
+          let worker_import = await import("../workertest.js?worker&inline");
+          const myWorker = new worker_import.default();
+        } catch (e) {
+          registration_error = "BrowserTooOld";
+          return;
+        }
+      }
+
       if (param.get("skipintro") || param.get("rs")) {
         intro = false;
       }
