@@ -33,6 +33,9 @@
   import PaneHeader from "./components/PaneHeader.svelte";
   import BranchIcon from "./icons/BranchIcon.svelte";
   import Message from "./components/Message.svelte";
+
+  import Signature from "./popups/Signature.svelte";
+
   // @ts-ignore
   import { t } from "svelte-i18n";
   import { onMount, onDestroy, tick } from "svelte";
@@ -40,7 +43,8 @@
           available_editors, available_viewers, set_editor, set_viewer, set_view_or_edit, toggle_live_edit,
           has_editor_chat, all_files_count, all_comments_count,  hideMenu, show_modal_menu, show_modal_create,
           cur_tab_branch_nuri, cur_tab_doc_can_edit, cur_tab_doc_is_member, cur_tab_right_pane, cur_tab_folders_pane,
-          cur_tab_toc_pane, cur_tab_show_menu, cur_tab_branch_has_discrete, cur_tab_graph_or_discrete, cur_tab_view_or_edit, show_spinner } from "../tab";
+          cur_tab_toc_pane, cur_tab_show_menu, cur_tab_branch_has_discrete, cur_tab_graph_or_discrete, cur_tab_view_or_edit, show_spinner,
+          in_private_store, show_doc_popup, cur_doc_popup, open_doc_popup } from "../tab";
   import {
     active_session, redirect_after_login, toasts, check_has_camera, toast_error,
     reset_toasts,
@@ -390,6 +394,8 @@
               }
               return ct;
           });
+      } else {
+        reset_toasts();
       }
     });
   });
@@ -414,8 +420,8 @@
   };
 
   const openAction = (action:string) => {
-    // TODO
     hideMenu();
+    if (doc_popups[action]) open_doc_popup(action);
   }
 
   const openPane = (pane:string) => {
@@ -550,6 +556,10 @@
     "chat":ChatBubbleLeftRight,
     "mc":Sparkles,
   };
+
+  const doc_popups = {
+    "signature": Signature,
+  }
 
   let destination = "store";
 
@@ -766,21 +776,28 @@
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["files"]} />
                 <span class="ml-3">{$t("doc.menu.items.files.label")} {$all_files_count}</span>
               </MenuItem>
-              <div style="padding:0;" bind:this={shareMenu}></div>
-              <MenuItem title={$t("doc.menu.items.share.desc")} dropdown={open_share} clickable={ () => { open_share = !open_share; scrollToMenuShare(); } }>
-                <Share
-                  tabindex="-1"
-                  class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
-                />
-                <span class="ml-3">{$t("doc.menu.items.share.label")}</span>
-              </MenuItem>
-              {#if open_share }
-                {#each share_items as share}
-                  <MenuItem title={$t(`doc.menu.items.${share.n}.desc`)} extraClass="submenu" clickable={ () => openShare(share.n) }>
-                    <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={share.i} />
-                    <span class="ml-3">{$t(`doc.menu.items.${share.n}.label`)}</span>
-                  </MenuItem>
-                {/each}
+              {#if !$in_private_store}
+                <div style="padding:0;" bind:this={shareMenu}></div>
+                <MenuItem title={$t("doc.menu.items.share.desc")} dropdown={open_share} clickable={ () => { open_share = !open_share; scrollToMenuShare(); } }>
+                  <Share
+                    tabindex="-1"
+                    class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white"
+                  />
+                  <span class="ml-3">{$t("doc.menu.items.share.label")}</span>
+                </MenuItem>
+                {#if open_share }
+                  {#each share_items as share}
+                    <MenuItem title={$t(`doc.menu.items.${share.n}.desc`)} extraClass="submenu" clickable={ () => openShare(share.n) }>
+                      <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={share.i} />
+                      <span class="ml-3">{$t(`doc.menu.items.${share.n}.label`)}</span>
+                    </MenuItem>
+                  {/each}
+                {/if}
+              {:else}
+                <MenuItem title={$t(`doc.menu.items.download.desc`)} clickable={ () => openShare("download") }>
+                  <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={DocumentArrowDown} />
+                  <span class="ml-3">{$t(`doc.menu.items.download.label`)}</span>
+                </MenuItem>
               {/if}
 
               <MenuItem title={$t("doc.menu.items.comments.desc")} selected={$cur_tab_right_pane == "comments"} clickable={ ()=> openPane("comments") }>
@@ -836,7 +853,7 @@
                 />
                 <span class="ml-3">{$t("doc.menu.items.notifs.label")}</span>
               </MenuItem>
-              {#if $cur_tab_doc_is_member}
+              {#if $cur_tab_doc_is_member && !$in_private_store}
                 <MenuItem title={$t("doc.menu.items.permissions.desc")} clickable={ ()=>  openAction("permissions") }>
                   <LockOpen
                     tabindex="-1"
@@ -862,10 +879,12 @@
               </MenuItem>
               {#if open_tools }
                 {#each tools_items as tool}
-                  <MenuItem title={$t(`doc.menu.items.${tool.n}.desc`)} extraClass="submenu" clickable={ () => openAction(tool.n) }>
-                    <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={tool.i} />
-                    <span class="ml-3">{$t(`doc.menu.items.${tool.n}.label`)}</span>
-                  </MenuItem>
+                  {#if !$in_private_store || tool.n !== "signature" }
+                    <MenuItem title={$t(`doc.menu.items.${tool.n}.desc`)} extraClass="submenu" clickable={ () => openAction(tool.n) }>
+                      <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={tool.i} />
+                      <span class="ml-3">{$t(`doc.menu.items.${tool.n}.label`)}</span>
+                    </MenuItem>
+                  {/if}
                 {/each}
               {/if}
             {/if}
@@ -915,6 +934,16 @@
   <div class="w-full flex justify-center">
     <Spinner className="w-10 h-10"/>
   </div>
+</Modal>
+<Modal class="document-popup"
+    outsideclose
+    bind:open={$show_doc_popup}
+    size = 'xs'
+    placement = 'center'
+    defaultClass="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-400 rounded-lg border-gray-200 dark:border-gray-700 divide-gray-200 dark:divide-gray-700 shadow-md relative flex flex-col mx-auto w-full"
+    backdropClass="bg-gray-900 bg-opacity-50 dark:bg-opacity-80 popup-bg-modal"
+  >
+  <svelte:component this={doc_popups[$cur_doc_popup]}/>
 </Modal>
 <Modal class="menu-modal"
     outsideclose

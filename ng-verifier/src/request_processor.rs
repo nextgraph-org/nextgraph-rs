@@ -9,6 +9,7 @@
 
 //! Processor for each type of AppRequest
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use futures::channel::mpsc;
@@ -20,10 +21,13 @@ use ng_repo::errors::*;
 use ng_repo::file::{RandomAccessFile, ReadFile};
 #[allow(unused_imports)]
 use ng_repo::log::*;
+use ng_repo::object::Object;
 use ng_repo::repo::CommitInfo;
+use ng_repo::store::Store;
 use ng_repo::types::BranchId;
 use ng_repo::types::StoreRepo;
 use ng_repo::types::*;
+use ng_repo::PublicKeySet;
 
 use ng_net::app_protocol::*;
 use ng_net::utils::ResultSend;
@@ -237,6 +241,295 @@ impl Verifier {
         repo.history_at_heads(&branch.current_heads)
     }
 
+    async fn signed_snapshot_request(
+        &mut self,
+        target: &NuriTargetV0,
+    ) -> Result<bool, VerifierError> {
+        let (repo_id, branch_id, store_repo) = self.resolve_target(target)?; // TODO deal with targets that are commit heads
+        let repo = self.get_repo(&repo_id, &store_repo)?;
+        let branch = repo.branch(&branch_id)?;
+
+        let snapshot_json = self.take_snapshot(&branch.crdt, &branch_id, target)?;
+        //log_debug!("snapshot created {snapshot_json}");
+        let snapshot_object = Object::new(
+            ObjectContent::V0(ObjectContentV0::Snapshot(snapshot_json.as_bytes().to_vec())),
+            None,
+            0,
+            &repo.store,
+        );
+
+        let snap_obj_blocks = snapshot_object.save(&repo.store)?;
+
+        if self.connected_broker.is_some() {
+            let mut blocks = Vec::with_capacity(snap_obj_blocks.len());
+            for block_id in snap_obj_blocks {
+                blocks.push(repo.store.get(&block_id)?);
+            }
+            self.put_blocks(blocks, repo).await?;
+        }
+
+        let snapshot_commit_body = CommitBodyV0::Snapshot(Snapshot::V0(SnapshotV0 {
+            heads: branch.current_heads.iter().map(|h| h.id).collect(),
+            content: snapshot_object.reference().unwrap(), //TODO : content could be omitted as the ref is already in files
+        }));
+
+        let mut proto_events = Vec::with_capacity(2);
+
+        let snapshot_commit = Commit::new_with_body_and_save(
+            self.user_privkey(),
+            self.user_id(),
+            branch_id,
+            QuorumType::Owners, // TODO: deal with PartialOrder (when the snapshot is not requested by owners)
+            vec![],
+            vec![],
+            branch.current_heads.clone(),
+            vec![],
+            vec![snapshot_object.reference().unwrap()],
+            vec![],
+            vec![],
+            CommitBody::V0(snapshot_commit_body),
+            0,
+            &repo.store,
+        )?;
+
+        let snapshot_commit_id = snapshot_commit.id().unwrap();
+        let snapshot_commit_ref = snapshot_commit.reference().unwrap();
+
+        let signature_content = SignatureContent::V0(SignatureContentV0 {
+            commits: vec![snapshot_commit_id],
+        });
+
+        let signature_content_ser = serde_bare::to_vec(&signature_content).unwrap();
+        let sig_share = repo
+            .signer
+            .as_ref()
+            .unwrap()
+            .sign_with_owner(&signature_content_ser)?;
+        let sig = PublicKeySet::combine_signatures_with_threshold(0, [(0, &sig_share)])
+            .map_err(|_| NgError::IncompleteSignature)?;
+        let threshold_sig = ThresholdSignatureV0::Owners(sig);
+
+        let signature = Signature::V0(SignatureV0 {
+            content: signature_content,
+            threshold_sig,
+            certificate_ref: repo.certificate_ref.clone().unwrap(),
+        });
+
+        let signature_object = Object::new(
+            ObjectContent::V0(ObjectContentV0::Signature(signature)),
+            None,
+            0,
+            &repo.store,
+        );
+
+        let sign_obj_blocks = signature_object.save(&repo.store)?;
+
+        let signature_commit_body =
+            CommitBodyV0::AsyncSignature(AsyncSignature::V0(signature_object.reference().unwrap()));
+
+        let signature_commit = Commit::new_with_body_and_save(
+            self.user_privkey(),
+            self.user_id(),
+            branch_id,
+            QuorumType::IamTheSignature,
+            vec![snapshot_commit_ref.clone()],
+            vec![],
+            vec![snapshot_commit_ref],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            CommitBody::V0(signature_commit_body),
+            0,
+            &repo.store,
+        )?;
+
+        let store = Arc::clone(&repo.store);
+        self.verify_commit_(
+            &snapshot_commit,
+            &branch_id,
+            &repo_id,
+            Arc::clone(&store),
+            true,
+        )
+        .await?;
+        self.verify_commit_(&signature_commit, &branch_id, &repo_id, store, true)
+            .await?;
+
+        proto_events.push((snapshot_commit, vec![]));
+        proto_events.push((signature_commit, sign_obj_blocks));
+        self.new_events(proto_events, repo_id, &store_repo).await?;
+        Ok(true)
+    }
+
+    fn find_signable_commits(
+        heads: &[BlockRef],
+        store: &Store,
+    ) -> Result<HashSet<BlockRef>, VerifierError> {
+        let mut res = HashSet::with_capacity(heads.len());
+        for head in heads {
+            let commit = Commit::load(head.clone(), store, true)?;
+            let commit_type = commit.get_type().unwrap();
+            res.extend(match commit_type {
+                CommitType::SyncSignature => {
+                    continue; // we shouldn't be signing asynchronously a SyncSignature
+                }
+                CommitType::AsyncSignature => {
+                    Self::find_signable_commits(&commit.deps(), store)?.into_iter()
+                }
+                _ => HashSet::from([commit.reference().unwrap()]).into_iter(),
+            });
+        }
+        Ok(res)
+    }
+
+    async fn signature_request(&mut self, target: &NuriTargetV0) -> Result<bool, VerifierError> {
+        let (repo_id, branch_id, store_repo) = self.resolve_target(target)?; // TODO deal with targets that are commit heads
+        let repo = self.get_repo(&repo_id, &store_repo)?;
+        let branch = repo.branch(&branch_id)?;
+
+        let commits = Vec::from_iter(
+            Verifier::find_signable_commits(&branch.current_heads, &repo.store)?.into_iter(),
+        );
+        if commits.is_empty() {
+            return Err(VerifierError::NothingToSign);
+        }
+
+        let signature_content = SignatureContent::V0(SignatureContentV0 {
+            commits: commits.iter().map(|h| h.id).collect(),
+        });
+
+        let signature_content_ser = serde_bare::to_vec(&signature_content).unwrap();
+        let sig_share = repo
+            .signer
+            .as_ref()
+            .unwrap()
+            .sign_with_owner(&signature_content_ser)?;
+        let sig = PublicKeySet::combine_signatures_with_threshold(0, [(0, &sig_share)])
+            .map_err(|_| NgError::IncompleteSignature)?;
+        let threshold_sig = ThresholdSignatureV0::Owners(sig);
+
+        let signature = Signature::V0(SignatureV0 {
+            content: signature_content,
+            threshold_sig,
+            certificate_ref: repo.certificate_ref.clone().unwrap(),
+        });
+
+        let signature_object = Object::new(
+            ObjectContent::V0(ObjectContentV0::Signature(signature)),
+            None,
+            0,
+            &repo.store,
+        );
+
+        let sign_obj_blocks = signature_object.save(&repo.store)?;
+
+        let signature_commit_body =
+            CommitBodyV0::AsyncSignature(AsyncSignature::V0(signature_object.reference().unwrap()));
+
+        let signature_commit = Commit::new_with_body_and_save(
+            self.user_privkey(),
+            self.user_id(),
+            branch_id,
+            QuorumType::IamTheSignature,
+            commits,
+            vec![],
+            branch.current_heads.clone(),
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            CommitBody::V0(signature_commit_body),
+            0,
+            &repo.store,
+        )?;
+
+        let store = Arc::clone(&repo.store);
+
+        self.verify_commit_(&signature_commit, &branch_id, &repo_id, store, true)
+            .await?;
+
+        self.new_event(&signature_commit, &sign_obj_blocks, repo_id, &store_repo)
+            .await?;
+
+        Ok(true)
+    }
+
+    fn find_signed_past(
+        commit: &Commit,
+        store: &Store,
+    ) -> Result<HashSet<ObjectRef>, VerifierError> {
+        let commit_type = commit.get_type().unwrap();
+        match commit_type {
+            CommitType::SyncSignature => {
+                let mut acks = commit.acks();
+                if acks.len() != 1 {
+                    return Err(VerifierError::MalformedSyncSignatureAcks);
+                }
+                let ack = &acks[0];
+                let deps = commit.deps();
+                if deps.len() != 1 {
+                    return Err(VerifierError::MalformedSyncSignatureDeps);
+                }
+                let commits =
+                    crate::commits::list_dep_chain_until(deps[0].clone(), &ack.id, &store, false)?;
+                let mut res = HashSet::with_capacity(commits.len() + 1);
+                res.extend(commits.into_iter().map(|c| c.reference().unwrap()));
+                res.insert(acks.pop().unwrap());
+                Ok(res)
+            }
+            CommitType::AsyncSignature => Ok(HashSet::from_iter(commit.deps().into_iter())),
+            _ => Ok(HashSet::new()),
+        }
+    }
+
+    fn signature_status(
+        &self,
+        target: &NuriTargetV0,
+    ) -> Result<Vec<(ObjectId, Option<String>, bool)>, VerifierError> {
+        let (repo_id, branch_id, store_repo) = self.resolve_target(target)?; // TODO deal with targets that are commit heads
+        let repo = self.get_repo(&repo_id, &store_repo)?;
+        let branch = repo.branch(&branch_id)?;
+        let mut res = Vec::with_capacity(branch.current_heads.len());
+        let is_unique_head = branch.current_heads.len() == 1;
+        for head in branch.current_heads.iter() {
+            let cobj = Commit::load(head.clone(), &repo.store, true)?;
+            let commit_type = cobj.get_type().unwrap();
+            let mut is_snapshot = false;
+            let has_sig = match commit_type {
+                CommitType::SyncSignature => true,
+                CommitType::AsyncSignature => {
+                    let mut past = cobj.acks();
+                    if is_unique_head && past.len() == 1 {
+                        // we check if the signed commit is a snapshot
+                        let signed_commit = Commit::load(past.pop().unwrap(), &repo.store, true)?;
+                        is_snapshot = match signed_commit.get_type().unwrap() {
+                            CommitType::Snapshot => true,
+                            _ => false,
+                        };
+                    }
+                    true
+                }
+                _ => false,
+            };
+            let sig = if has_sig {
+                Some(format!(
+                    "{}:{}",
+                    Verifier::find_signed_past(&cobj, &repo.store)?
+                        .into_iter()
+                        .map(|c| c.commit_nuri())
+                        .collect::<Vec<String>>()
+                        .join(":"),
+                    NuriV0::signature_ref(&cobj.get_signature_reference().unwrap())
+                ))
+            } else {
+                None
+            };
+            res.push((head.id, sig, is_snapshot));
+        }
+        Ok(res)
+    }
+
     pub(crate) async fn process(
         &mut self,
         command: &AppRequestCommandV0,
@@ -391,7 +684,7 @@ impl Verifier {
                             let repo = self.get_repo(&repo_id, &store_repo)?;
                             let commit_info: CommitInfoJs = (&commit.as_info(repo)).into();
 
-                            let crdt = &repo.branch(&branch_id)?.crdt.clone();
+                            let crdt: &BranchCrdt = &repo.branch(&branch_id)?.crdt.clone();
                             self.update_discrete(
                                 patch,
                                 &crdt,
@@ -425,13 +718,58 @@ impl Verifier {
                     if !nuri.is_valid_for_sparql_update() {
                         return Err(NgError::InvalidNuri);
                     }
-
                     return Ok(match self.history_for_nuri(&nuri.target) {
                         Err(e) => AppResponse::error(e.to_string()),
                         Ok(history) => AppResponse::V0(AppResponseV0::History(AppHistory {
                             history: history.0,
                             swimlane_state: history.1,
                         })),
+                    });
+                }
+                AppFetchContentV0::SignatureStatus => {
+                    if !nuri.is_valid_for_sparql_update() {
+                        return Err(NgError::InvalidNuri);
+                    }
+                    return Ok(match self.signature_status(&nuri.target) {
+                        Err(e) => AppResponse::error(e.to_string()),
+                        Ok(status) => AppResponse::V0(AppResponseV0::SignatureStatus(
+                            status
+                                .into_iter()
+                                .map(|(commitid, signature, is_snapshot)| {
+                                    (commitid.to_string(), signature, is_snapshot)
+                                })
+                                .collect(),
+                        )),
+                    });
+                }
+                AppFetchContentV0::SignedSnapshotRequest => {
+                    if !nuri.is_valid_for_sparql_update() {
+                        return Err(NgError::InvalidNuri);
+                    }
+                    return Ok(match self.signed_snapshot_request(&nuri.target).await {
+                        Err(e) => AppResponse::error(e.to_string()),
+                        Ok(immediate) => {
+                            if immediate {
+                                AppResponse::V0(AppResponseV0::True)
+                            } else {
+                                AppResponse::V0(AppResponseV0::False)
+                            }
+                        }
+                    });
+                }
+                AppFetchContentV0::SignatureRequest => {
+                    if !nuri.is_valid_for_sparql_update() {
+                        return Err(NgError::InvalidNuri);
+                    }
+                    return Ok(match self.signature_request(&nuri.target).await {
+                        Err(e) => AppResponse::error(e.to_string()),
+                        Ok(immediate) => {
+                            if immediate {
+                                AppResponse::V0(AppResponseV0::True)
+                            } else {
+                                AppResponse::V0(AppResponseV0::False)
+                            }
+                        }
                     });
                 }
                 _ => unimplemented!(),

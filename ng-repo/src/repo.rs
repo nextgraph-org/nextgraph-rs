@@ -123,6 +123,8 @@ pub struct Repo {
 
     pub signer: Option<SignerCap>,
 
+    pub certificate_ref: Option<ObjectRef>,
+
     pub members: HashMap<Digest, UserInfo>,
 
     pub branches: HashMap<BranchId, BranchInfo>,
@@ -193,15 +195,19 @@ impl Repo {
         &self,
         recursor: &mut Vec<(BlockRef, Option<ObjectId>)>,
         visited: &mut HashMap<ObjectId, (HashSet<ObjectId>, CommitInfo)>,
+        signatures: &mut HashMap<ObjectId, ObjectRef>,
     ) -> Result<Option<ObjectId>, VerifierError> {
         let mut root = None;
         while let Some((next_ref, future)) = recursor.pop() {
             if let Ok(cobj) = Commit::load(next_ref, &self.store, true) {
                 let id = cobj.id().unwrap();
-                if let Some((future_set, _)) = visited.get_mut(&id) {
+                if let Some((future_set, info)) = visited.get_mut(&id) {
                     // we update the future
                     if let Some(f) = future {
                         future_set.insert(f);
+                    }
+                    if let Some(sign) = signatures.remove(&id) {
+                        info.signature = Some(sign);
                     }
                 } else {
                     let commit_type = cobj.get_type().unwrap();
@@ -248,9 +254,10 @@ impl Repo {
                         }
                         CommitType::AsyncSignature => {
                             let past: Vec<ObjectId> = acks.iter().map(|r| r.id.clone()).collect();
-                            for p in past.iter() {
-                                visited.get_mut(p).unwrap().1.signature =
-                                    Some(cobj.get_signature_reference().unwrap());
+                            let sign = cobj.get_signature_reference().unwrap();
+                            for p in cobj.deps().iter() {
+                                signatures.insert(p.id, sign.clone());
+                                //visited.get_mut(&p.id).unwrap().1.signature = Some(sign.clone());
                             }
                             (past, acks, id)
                         }
@@ -260,7 +267,7 @@ impl Repo {
                     let commit_info = CommitInfo {
                         past,
                         key: cobj.key().unwrap(),
-                        signature: None,
+                        signature: signatures.remove(&id),
                         author: self.get_user_string(cobj.author()),
                         timestamp: cobj.timestamp(),
                         final_consistency: cobj.final_consistency(),
@@ -464,7 +471,8 @@ impl Repo {
         let mut root = None;
         let mut recursor: Vec<(BlockRef, Option<ObjectId>)> =
             heads.iter().map(|h| (h.clone(), None)).collect();
-        let r = self.load_causal_past(&mut recursor, &mut visited)?;
+        let mut signatures: HashMap<ObjectId, ObjectRef> = HashMap::new();
+        let r = self.load_causal_past(&mut recursor, &mut visited, &mut signatures)?;
         if r.is_some() {
             root = r;
         }
@@ -517,9 +525,12 @@ impl Repo {
             for p in past {
                 set.remove(&p);
             }
+            let already_in_heads = set.contains(&commit_ref);
             branch.current_heads = set.into_iter().cloned().collect();
-            branch.current_heads.push(commit_ref);
-            branch.commits_nbr += 1;
+            if !already_in_heads {
+                branch.current_heads.push(commit_ref);
+                branch.commits_nbr += 1;
+            }
             // we return the new current heads
             Ok(branch.current_heads.to_vec())
         } else {
@@ -558,6 +569,7 @@ impl Repo {
             members,
             store,
             signer: None,
+            certificate_ref: None,
             read_cap: None,
             write_cap: None,
             branches: HashMap::new(),

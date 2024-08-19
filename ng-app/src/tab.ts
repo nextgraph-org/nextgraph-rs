@@ -204,7 +204,14 @@ export const update_branch_display = (cur_tab) => {
 
 export const show_modal_menu = writable(false);
 export const show_spinner = writable(false);
+export const show_doc_popup = writable(false);
+export const cur_doc_popup = writable("");
 export const show_modal_create = writable(false);
+
+export const open_doc_popup = (popup_name) => {
+    cur_doc_popup.set(popup_name);
+    show_doc_popup.set(true);
+} 
 
 export const in_memory_graph = writable("");
 export const in_memory_discrete = writable("");
@@ -392,6 +399,9 @@ export const cur_tab_view_or_edit = derived(cur_tab, ($cur_tab) => {
 
 export const edit_header_button = derived(cur_tab, ($cur_tab) => {
     return ($cur_tab.doc.is_store && ( $cur_tab.store.store_type === "public" || $cur_tab.store.store_type === "protected"))? "doc.header.buttons.edit_profile" : "doc.header.buttons.edit_intro";
+});
+export const in_private_store = derived(cur_tab, ($cur_tab) => {
+    return $cur_tab.store.store_type === "private";
 });
 
 export const header_title = derived(cur_tab, ($cur_tab) => {

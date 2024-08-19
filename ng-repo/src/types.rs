@@ -20,6 +20,7 @@ use once_cell::sync::OnceCell;
 use sbbf_rs_safe::Filter;
 use serde::{Deserialize, Serialize};
 use threshold_crypto::serde_impl::SerdeSecret;
+use threshold_crypto::SignatureShare;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::errors::NgError;
@@ -482,6 +483,10 @@ impl BlockRef {
 
     pub fn object_nuri(&self) -> String {
         format!("j:{}:k:{}", self.id, self.key)
+    }
+
+    pub fn commit_nuri(&self) -> String {
+        format!("c:{}:k:{}", self.id, self.key)
     }
 
     pub fn readcap_nuri(&self) -> String {
@@ -1653,6 +1658,16 @@ pub struct SignerCap {
     pub partial_order: Option<SerdeSecret<threshold_crypto::SecretKeyShare>>,
 }
 
+impl SignerCap {
+    pub fn sign_with_owner(&self, content: &[u8]) -> Result<SignatureShare, NgError> {
+        if let Some(key_share) = &self.owner {
+            Ok(key_share.sign(content))
+        } else {
+            Err(NgError::KeyShareNotFound)
+        }
+    }
+}
+
 /// Permissions
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum PermissionV0 {
@@ -1900,7 +1915,7 @@ pub enum RemoveLink {
 /// so that a user can share with all its device a new signing capability that was just created.
 /// The cap's `epoch` field should be dereferenced and the user must be part of the quorum/owners.
 /// DEPS to the previous AddSignerCap commit(s) if it is an update. in this case, repo_ids have to match,
-/// and the the referenced rootbranch definition(s) should have compatible causal past (the newer AddSignerCap must have a newer epoch compared to the one of the replaced cap )
+/// and the referenced rootbranch definition(s) should have compatible causal past (the newer AddSignerCap must have a newer epoch compared to the one of the replaced cap )
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AddSignerCapV0 {
     pub cap: SignerCap,
@@ -2097,6 +2112,29 @@ pub enum Snapshot {
     V0(SnapshotV0),
 }
 
+impl Snapshot {
+    pub fn snapshot_ref(&self) -> &ObjectRef {
+        match self {
+            Self::V0(v0) => &v0.content,
+        }
+    }
+}
+
+impl fmt::Display for Snapshot {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "V0\r\nheads:")?;
+                for h in v0.heads.iter() {
+                    writeln!(f, "{h}")?;
+                }
+                writeln!(f, "content: {}", v0.content)?;
+                Ok(())
+            }
+        }
+    }
+}
+
 /// Compact: Hard Snapshot of a Branch
 ///
 /// Contains a data structure
@@ -2126,7 +2164,7 @@ pub enum Compact {
     V0(CompactV0),
 }
 
-// Async Threshold Signature of a commit V0 based on the partial order quorum
+// Async Threshold Signature of a commit (or commits) V0 based on the partial order quorum
 //
 // Can sign Transaction, AddFile, and Snapshot, after they have been committed to the DAG.
 // DEPS: the signed commits
@@ -2143,13 +2181,24 @@ pub enum AsyncSignature {
 }
 
 impl AsyncSignature {
-    pub fn verify(&self) -> bool {
+    pub fn verify_(&self) -> bool {
         // check that the signature object referenced here, is of type threshold_sig Partial
         unimplemented!();
     }
     pub fn reference(&self) -> &ObjectRef {
         match self {
             Self::V0(v0) => v0,
+        }
+    }
+}
+
+impl fmt::Display for AsyncSignature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "V0\r\nsignature object ref: {}", v0)?;
+                Ok(())
+            }
         }
     }
 }
@@ -2363,6 +2412,21 @@ impl fmt::Display for Signature {
     }
 }
 
+impl Signature {
+    pub fn certificate_ref(&self) -> &ObjectRef {
+        match self {
+            Self::V0(v0) => &v0.certificate_ref,
+        }
+    }
+    pub fn signed_commits(&self) -> &[ObjectId] {
+        match self {
+            Self::V0(v0) => match &v0.content {
+                SignatureContent::V0(v0) => &v0.commits,
+            },
+        }
+    }
+}
+
 /// A Signature object (it is not a commit), referenced in AsyncSignature or SyncSignature
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Signature {
@@ -2373,14 +2437,14 @@ pub enum Signature {
 ///
 /// Can be inherited from the store, in this case, it is an ObjectRef pointing to the latest Certificate of the store.
 /// Or can be 2 PublicKey defined specially for this repo,
-/// .0 one for the total_order (first one). it is a PublicKeysSet so that verifier can see the threshold value, and can also verify Shares individually
+/// .0 one for the total_order (first one).
 /// .1 the other for the partial_order (second one. a PublicKey. is optional, as some repos are forcefully totally ordered and do not have this set).
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum OrdersPublicKeySetsV0 {
     Store(ObjectRef),
     Repo(
         (
-            threshold_crypto::PublicKeySet,
+            threshold_crypto::PublicKey,
             Option<threshold_crypto::PublicKey>,
         ),
     ),
@@ -2518,7 +2582,7 @@ pub enum QuorumType {
 impl QuorumType {
     pub fn final_consistency(&self) -> bool {
         match self {
-            Self::TotalOrder | Self::Owners | Self::IamTheSignature => true,
+            Self::TotalOrder => true,
             _ => false,
         }
     }
@@ -2816,7 +2880,7 @@ pub enum ObjectContentV0 {
     RandomAccessFileMeta(RandomAccessFileMeta),
     RefreshCap(RefreshCap),
     #[serde(with = "serde_bytes")]
-    Snapshot(Vec<u8>), // serialization of an AppState
+    Snapshot(Vec<u8>), // JSON serialization (UTF8)
 }
 
 /// Immutable data stored encrypted in a Merkle tree
@@ -2901,7 +2965,7 @@ pub struct EventContentV0 {
     /// so that a valid EventContent can be sent (and so that its signature can be verified successfully)
     pub blocks: Vec<Block>,
 
-    /// Ids of additional Blocks (FILES) with encrypted content that are not to be pushed in the pub/sub
+    /// Ids of additional Blocks (FILES or Objects) with encrypted content that are not to be pushed in the pub/sub
     /// they will be retrieved later by interested users
     pub file_ids: Vec<BlockId>,
 
@@ -2911,7 +2975,7 @@ pub struct EventContentV0 {
     ///   - key: BLAKE3 derive_key ("NextGraph Event Commit ObjectKey ChaCha20 key",
     ///                             RepoId + BranchId + branch_secret(ReadCapSecret of the branch) + publisher)
     ///   - nonce: commit_seq
-    /// * If it is a CertificateRefresh, both the blocks and block_ids vectors are empty.
+    /// * If it is a CertificateRefresh, both the blocks and file_ids vectors are empty.
     ///   the key here contains an encrypted ObjectRef to the new Certificate.
     ///   The whole ObjectRef is encrypted (including the ID) to avoid correlation of topics who will have the same Certificate ID (belong to the same repo)
     ///   Encrypted using ChaCha20, with :

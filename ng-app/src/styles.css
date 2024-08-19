@@ -103,6 +103,12 @@ td.hljs {
     width: calc(100% - 32px) !important;
 }
 
+@media (max-width: 400px) {
+    .popup-bg-modal + div {
+        padding: 0 !important;
+    }
+}
+
 .menu-bg-modal + div {
     padding: 0 !important;
     height: 100%;

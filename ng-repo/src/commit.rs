@@ -448,6 +448,7 @@ impl Commit {
 
     pub fn final_consistency(&self) -> bool {
         self.content().final_consistency()
+            || self.body().is_some_and(|body| body.total_order_required())
     }
 
     pub fn get_type(&self) -> Option<CommitType> {
@@ -1009,6 +1010,8 @@ impl CommitBody {
     pub fn total_order_required(&self) -> bool {
         match self {
             Self::V0(v0) => match v0 {
+                CommitBodyV0::RootBranch(_) => true,
+                CommitBodyV0::Branch(_) => true,
                 CommitBodyV0::UpdateRootBranch(_) => true,
                 CommitBodyV0::UpdateBranch(_) => true,
                 CommitBodyV0::AddBranch(AddBranch::V0(AddBranchV0 {
@@ -1022,7 +1025,7 @@ impl CommitBody {
                 CommitBodyV0::RemovePermission(_) => true,
                 //CommitBodyV0::Quorum(_) => true,
                 CommitBodyV0::Compact(_) => true,
-                CommitBodyV0::SyncTransaction(_) => true, // check Quorum::TotalOrder in CommitContent
+                CommitBodyV0::SyncTransaction(_) => true, // check QuorumType::TotalOrder in CommitContent
                 CommitBodyV0::RootCapRefresh(_) => true,
                 CommitBodyV0::BranchCapRefresh(_) => true,
                 _ => false,
@@ -1497,7 +1500,7 @@ impl fmt::Display for CommitBody {
                     //
                     CommitBodyV0::Branch(b) => write!(f, "Branch {}", b), // singleton and should be first in branch
                     // CommitBodyV0::UpdateBranch(b) => write!(f, "UpdateBranch {}", b), // total order enforced with total_order_quorum
-                    // CommitBodyV0::Snapshot(b) => write!(f, "Snapshot {}", b), // a soft snapshot
+                    CommitBodyV0::Snapshot(b) => write!(f, "Snapshot {}", b), // a soft snapshot
                     // CommitBodyV0::AsyncTransaction(b) => write!(f, "AsyncTransaction {}", b), // partial_order
                     // CommitBodyV0::SyncTransaction(b) => write!(f, "SyncTransaction {}", b), // total_order
                     CommitBodyV0::AddFile(b) => write!(f, "AddFile {}", b),
@@ -1505,7 +1508,7 @@ impl fmt::Display for CommitBody {
                     // CommitBodyV0::Compact(b) => write!(f, "Compact {}", b), // a hard snapshot. total order enforced with total_order_quorum
                     //Merge(Merge) => write!(f, "RootBranch {}", b),
                     //Revert(Revert) => write!(f, "RootBranch {}", b), // only possible on partial order commit
-                    // CommitBodyV0::AsyncSignature(b) => write!(f, "AsyncSignature {}", b),
+                    CommitBodyV0::AsyncSignature(b) => write!(f, "AsyncSignature {}", b),
 
                     //
                     // For both

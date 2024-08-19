@@ -518,10 +518,11 @@ impl Store {
 
         // finally getting the signature:
 
+        let certificate_ref = cert_object.reference().unwrap();
         let signature = Signature::V0(SignatureV0 {
             content: signature_content,
             threshold_sig,
-            certificate_ref: cert_object.reference().unwrap(),
+            certificate_ref: certificate_ref.clone(),
         });
 
         // saving the signature
@@ -642,6 +643,7 @@ impl Store {
             write_cap: Some(repo_write_cap_secret),
             branches: branches.into_iter().collect(),
             opened_branches: HashMap::new(),
+            certificate_ref: Some(certificate_ref),
         };
 
         Ok((repo, events))

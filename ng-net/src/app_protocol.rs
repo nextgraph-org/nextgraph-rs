@@ -51,6 +51,9 @@ pub enum AppFetchContentV0 {
     WriteQuery,
     RdfDump,
     History,
+    SignatureStatus,
+    SignatureRequest,
+    SignedSnapshotRequest,
 }
 
 impl AppFetchContentV0 {
@@ -170,7 +173,7 @@ impl From<&CommitInfo> for CommitInfoJs {
         CommitInfoJs {
             past: info.past.iter().map(|objid| objid.to_string()).collect(),
             key: info.key.to_string(),
-            signature: info.signature.as_ref().map(|s| NuriV0::object_ref(&s)),
+            signature: info.signature.as_ref().map(|s| NuriV0::signature_ref(&s)),
             author: info.author.clone(),
             timestamp: display_timestamp_local(info.timestamp),
             final_consistency: info.final_consistency,
@@ -287,8 +290,16 @@ impl NuriV0 {
         format!("{DID_PREFIX}:{}", obj_ref.object_nuri())
     }
 
+    pub fn signature_ref(obj_ref: &ObjectRef) -> String {
+        format!("s:{}:k:{}", obj_ref.id, obj_ref.key)
+    }
+
     pub fn token(token: &Digest) -> String {
         format!("{DID_PREFIX}:n:{token}")
+    }
+
+    pub fn locator(locator: &Locator) -> String {
+        format!("l:{locator}")
     }
 
     pub fn is_branch_identifier(&self) -> bool {
@@ -515,6 +526,15 @@ impl AppRequestCommandV0 {
     }
     pub fn new_history() -> Self {
         AppRequestCommandV0::Fetch(AppFetchContentV0::History)
+    }
+    pub fn new_signature_status() -> Self {
+        AppRequestCommandV0::Fetch(AppFetchContentV0::SignatureStatus)
+    }
+    pub fn new_signature_request() -> Self {
+        AppRequestCommandV0::Fetch(AppFetchContentV0::SignatureRequest)
+    }
+    pub fn new_signed_snapshot_request() -> Self {
+        AppRequestCommandV0::Fetch(AppFetchContentV0::SignedSnapshotRequest)
     }
     pub fn new_create() -> Self {
         AppRequestCommandV0::Create
@@ -821,6 +841,7 @@ pub struct GraphState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppState {
     pub heads: Vec<ObjectId>,
+    pub head_keys: Vec<ObjectKey>,
     pub graph: Option<GraphState>, // there is always a graph present in the branch. but it might not have been asked in the request
     pub discrete: Option<DiscreteState>,
     pub files: Vec<FileName>,
@@ -859,7 +880,7 @@ impl AppHistory {
 pub enum OtherPatch {
     FileAdd(FileName),
     FileRemove(ObjectId),
-    AsyncSignature((ObjectRef, Vec<ObjectId>)),
+    AsyncSignature((String, Vec<String>)),
     Snapshot(ObjectRef),
     Compact(ObjectRef),
     Other,
@@ -940,6 +961,7 @@ pub enum AppResponseV0 {
     State(AppState),
     Patch(AppPatch),
     History(AppHistory),
+    SignatureStatus(Vec<(String, Option<String>, bool)>),
     Text(String),
     //File(FileName),
     FileUploading(u32),

@@ -11,6 +11,8 @@
 
 pub mod transaction;
 
+pub mod snapshot;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -39,10 +41,11 @@ pub trait CommitVerifier {
     ) -> Result<(), VerifierError>;
 }
 
-fn list_dep_chain_until(
+pub(crate) fn list_dep_chain_until(
     start: ObjectRef,
     end: &ObjectId,
     store: &Store,
+    with_body: bool,
 ) -> Result<Vec<Commit>, VerifierError> {
     let mut res = vec![];
     let mut pos = start;
@@ -51,7 +54,7 @@ fn list_dep_chain_until(
         if pos_id == *end {
             break;
         }
-        let commit = Commit::load(pos, &store, true)?;
+        let commit = Commit::load(pos, &store, with_body)?;
         let deps = commit.deps();
         if deps.len() != 1 {
             return Err(VerifierError::MalformedSyncSignatureDeps);
@@ -122,16 +125,20 @@ impl CommitVerifier for RootBranch {
                 };
                 let id = root_branch.id;
                 let branches = vec![(root_branch.id, root_branch)];
+                let signer = verifier
+                    .user_storage()
+                    .and_then(|storage| storage.get_signer_cap(&id).ok());
                 let repo = Repo {
                     id,
                     repo_def: repository.clone(),
-                    signer: None, //TO BE ADDED LATER when AddSignerCap commit is found
+                    signer,
                     members: HashMap::new(),
                     store: Arc::clone(&store),
                     read_cap: Some(reference),
                     write_cap: repo_write_cap_secret,
                     branches: branches.into_iter().collect(),
                     opened_branches: HashMap::new(),
+                    certificate_ref: verifier.temporary_repo_certificates.remove(&id),
                 };
                 verifier.populate_topics(&repo);
                 let _repo_ref = verifier.add_repo_and_save(repo);
@@ -210,8 +217,9 @@ impl CommitVerifier for SyncSignature {
             SyncSignature::V0(signature_ref) => {
                 let sign = Object::load_ref(signature_ref, &store)?;
                 match sign.content_v0()? {
-                    ObjectContentV0::Signature(_sig) => {
+                    ObjectContentV0::Signature(sig) => {
                         //TODO: verify signature
+                        verifier.update_repo_certificate(repo_id, sig.certificate_ref());
                     }
                     _ => return Err(VerifierError::InvalidSignatureObject),
                 }
@@ -225,7 +233,7 @@ impl CommitVerifier for SyncSignature {
                 if deps.len() != 1 {
                     return Err(VerifierError::MalformedSyncSignatureDeps);
                 }
-                let commits = list_dep_chain_until(deps[0].clone(), &ack.id, &store)?;
+                let commits = list_dep_chain_until(deps[0].clone(), &ack.id, &store, true)?;
                 for commit in commits {
                     verifier
                         .verify_commit(&commit, branch_id, repo_id, Arc::clone(&store))
@@ -441,6 +449,19 @@ impl CommitVerifier for Snapshot {
         repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
+        let repo = verifier.get_repo(repo_id, store.get_store_repo())?;
+        verifier
+            .push_app_response(
+                branch_id,
+                AppResponse::V0(AppResponseV0::Patch(AppPatch {
+                    commit_id: commit.id().unwrap().to_string(),
+                    commit_info: (&commit.as_info(repo)).into(),
+                    graph: None,
+                    discrete: None,
+                    other: Some(OtherPatch::Snapshot(self.snapshot_ref().clone())),
+                })),
+            )
+            .await;
         Ok(())
     }
 }
@@ -528,7 +549,41 @@ impl CommitVerifier for AsyncSignature {
         repo_id: &RepoId,
         store: Arc<Store>,
     ) -> Result<(), VerifierError> {
-        Ok(())
+        match self {
+            AsyncSignature::V0(signature_ref) => {
+                let sign = Object::load_ref(signature_ref, &store)?;
+                let deps: Vec<BlockRef> = commit.deps();
+                match sign.content_v0()? {
+                    ObjectContentV0::Signature(sig) => {
+                        //TODO: verify signature (each deps should be in the sig.signed_commits())
+
+                        // pushing AppResponse
+                        let repo = verifier.get_repo(repo_id, store.get_store_repo())?;
+                        verifier
+                            .push_app_response(
+                                branch_id,
+                                AppResponse::V0(AppResponseV0::Patch(AppPatch {
+                                    commit_id: commit.id().unwrap().to_string(),
+                                    commit_info: (&commit.as_info(repo)).into(),
+                                    graph: None,
+                                    discrete: None,
+                                    other: Some(OtherPatch::AsyncSignature((
+                                        NuriV0::signature_ref(&signature_ref),
+                                        sig.signed_commits()
+                                            .iter()
+                                            .map(|c| c.to_string())
+                                            .collect(),
+                                    ))),
+                                })),
+                            )
+                            .await;
+
+                        Ok(())
+                    }
+                    _ => return Err(VerifierError::InvalidSignatureObject),
+                }
+            }
+        }
     }
 }
 #[async_trait::async_trait]

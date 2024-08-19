@@ -396,6 +396,14 @@ export const digest_to_string = function(digest) {
     return encode(buffer.buffer);
 };
 
+export const symkey_to_string = function(key) {
+    let copy = [...key.ChaCha20Key];
+    copy.reverse();
+    copy.push(0);
+    let buffer = Uint8Array.from(copy);
+    return encode(buffer.buffer);
+};
+
 export const discrete_update = async (update, crdt, heads) => {
     if (get(cur_tab).doc.live_edit) {
         await live_discrete_update(update, crdt, heads);
@@ -504,7 +512,8 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
             let already_subscribed = all_branches[nuri];
             if (!already_subscribed) {
                 let onUpdate = (update) => {};
-                const { subscribe, set, update } = writable({graph:[], discrete:{updates:[], deregisterOnUpdate:()=>{ onUpdate=()=>{};},registerOnUpdate:(f)=>{ }}, files:[], history: {start:()=>{}, stop:()=>{}, commits:false}, heads: []}); // create the underlying writable store // take:()=>{},
+                const { subscribe, set, update } = writable({graph:[], discrete:{updates:[], deregisterOnUpdate:()=>{ onUpdate=()=>{};},registerOnUpdate:(f)=>{ }}, 
+                                                             files:[], history: {start:()=>{}, stop:()=>{}, commits:false}, heads: [], head_keys:[]}); // create the underlying writable store // take:()=>{},
                 update((old)=> {
                     old.history.start = () => update((o) => {o.history.commits = true; return o;}) ;
                     old.history.stop = () => update((o) => {o.history.commits = false; return o;}) ;
@@ -566,6 +575,9 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                             if (response.V0.TabInfo.store?.repo) {
                                                 $cur_tab.store.repo = response.V0.TabInfo.store.repo;
                                             }
+                                            if (response.V0.TabInfo.store?.has_outer) {
+                                                $cur_tab.store.has_outer = response.V0.TabInfo.store.has_outer;
+                                            }
                                             if (response.V0.TabInfo.store?.store_type) {
                                                 
                                                 if (get(cur_branch) == nuri) {
@@ -584,6 +596,10 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                             for (const head of response.V0.State.heads) {
                                                 let commitId = digest_to_string(head);
                                                 old.heads.push(commitId);
+                                            }
+                                            for (const key of response.V0.State.head_keys) {
+                                                let key_str = symkey_to_string(key);
+                                                old.head_keys.push(key_str);
                                             }
                                             for (const file of response.V0.State.files) {
                                                 old.files.unshift(file);
@@ -608,17 +624,12 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                             while (i--) {
                                                 if (response.V0.Patch.commit_info.past.includes(old.heads[i])) {
                                                     old.heads.splice(i, 1);
+                                                    old.head_keys.splice(i, 1);
                                                 }
                                             }
                                             old.heads.push(response.V0.Patch.commit_id);
-                                            if (old.history.commits!==false) {
-                                                let commit = [response.V0.Patch.commit_id, response.V0.Patch.commit_info];
-                                                if (old.history.commits === true) {
-                                                    old.history.commits = [commit];
-                                                } else {
-                                                    old.history.commits.push(commit);
-                                                }
-                                            }
+                                            old.head_keys.push(response.V0.Patch.commit_info.key);
+                                            
                                             if (response.V0.Patch.discrete) {
                                                 old.discrete.updates.push(response.V0.Patch.discrete);
                                                 onUpdate(response.V0.Patch.discrete);
@@ -646,8 +657,19 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                                     $cur_tab.branch.files = old.files.length;
                                                     return $cur_tab;
                                                 });
-                                            } else {
-
+                                            } else if (response.V0.Patch.other?.AsyncSignature) {
+                                                if (old.history.commits!==false) {
+                                                    // we pass the AsyncSignature to the History.svelte
+                                                    response.V0.Patch.commit_info.async_sig = response.V0.Patch.other.AsyncSignature;
+                                                }
+                                            }
+                                            if (old.history.commits!==false) {
+                                                let commit = [response.V0.Patch.commit_id, response.V0.Patch.commit_info];
+                                                if (old.history.commits === true) {
+                                                    old.history.commits = [commit];
+                                                } else {
+                                                    old.history.commits.push(commit);
+                                                }
                                             }
                                         }
                                         return old;

@@ -715,6 +715,10 @@ impl Object {
         &self.block_contents
     }
 
+    pub fn into_blocks(self) -> Vec<Block> {
+        self.block_contents.into_values().collect()
+    }
+
     /// Collect leaves from the tree
     fn collect_leaves(
         blocks: &Vec<BlockId>,

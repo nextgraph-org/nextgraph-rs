@@ -230,6 +230,7 @@ pub struct VerifierConfig {
     pub private_store_id: Option<RepoId>,
     pub public_store_id: Option<RepoId>,
     pub protected_store_id: Option<RepoId>,
+    pub locator: Locator,
 }
 
 #[doc(hidden)]

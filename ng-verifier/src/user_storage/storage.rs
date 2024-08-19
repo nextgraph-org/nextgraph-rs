@@ -42,6 +42,14 @@ pub trait UserStorage: Send + Sync {
 
     fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError>;
 
+    fn update_certificate(
+        &self,
+        repo_id: &RepoId,
+        certificate: &ObjectRef,
+    ) -> Result<(), StorageError>;
+
+    fn get_signer_cap(&self, repo_id: &RepoId) -> Result<SignerCap, StorageError>;
+
     fn branch_add_file(
         &self,
         commit_id: ObjectId,
@@ -77,6 +85,7 @@ pub trait UserStorage: Send + Sync {
 pub(crate) struct InMemoryUserStorage {
     branch_files: RwLock<HashMap<BranchId, Vec<FileName>>>,
     branch_discrete_state: RwLock<HashMap<BranchId, Vec<u8>>>,
+    repo_signer_cap: RwLock<HashMap<RepoId, SignerCap>>,
 }
 
 impl InMemoryUserStorage {
@@ -84,6 +93,7 @@ impl InMemoryUserStorage {
         InMemoryUserStorage {
             branch_files: RwLock::new(HashMap::new()),
             branch_discrete_state: RwLock::new(HashMap::new()),
+            repo_signer_cap: RwLock::new(HashMap::new()),
         }
     }
 }
@@ -161,8 +171,23 @@ impl UserStorage for InMemoryUserStorage {
         unimplemented!();
     }
 
-    fn update_signer_cap(&self, _signer_cap: &SignerCap) -> Result<(), StorageError> {
+    fn update_certificate(
+        &self,
+        repo_id: &RepoId,
+        certificate: &ObjectRef,
+    ) -> Result<(), StorageError> {
         unimplemented!();
+    }
+
+    fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError> {
+        let mut lock = self.repo_signer_cap.write().unwrap();
+        lock.insert(signer_cap.repo, signer_cap.clone());
+        Ok(())
+    }
+
+    fn get_signer_cap(&self, repo_id: &RepoId) -> Result<SignerCap, StorageError> {
+        let mut lock = self.repo_signer_cap.write().unwrap();
+        Ok(lock.remove(repo_id).ok_or(StorageError::NotFound)?)
     }
 
     fn update_branch_current_heads(

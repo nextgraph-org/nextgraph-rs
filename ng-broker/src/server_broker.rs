@@ -269,6 +269,7 @@ impl ServerBroker {
                 } else {
                     Some(credentials.public_store)
                 },
+                locator: Locator::empty(),
             },
             block_storage,
         )?;

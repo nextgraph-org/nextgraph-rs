@@ -15,7 +15,7 @@
     } from "../store";
     import { link } from "svelte-spa-router";
     import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
-    import{ PencilSquare } from "svelte-heros-v2";
+    import{ PlusCircle } from "svelte-heros-v2";
     import { t } from "svelte-i18n";
     import { 
       in_memory_discrete, open_viewer, set_viewer, set_editor, set_view_or_edit, cur_tab_branch_class, cur_tab_doc_can_edit, cur_tab
@@ -56,7 +56,7 @@
                 on:keypress={create}
                 class="select-none ml-0 mt-2 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
             >
-                <PencilSquare tabindex="-1" class="mr-2 focus:outline-none" />
+                <PlusCircle tabindex="-1" class="mr-2 focus:outline-none" />
                 {$t("doc.create")}
             </button>
         {/if}

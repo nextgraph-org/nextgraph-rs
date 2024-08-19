@@ -93,6 +93,7 @@ pub struct Verifier {
     last_reservation: SystemTime,
     stores: HashMap<OverlayId, Arc<Store>>,
     inner_to_outer: HashMap<OverlayId, OverlayId>,
+    pub(crate) outer: String,
     pub(crate) repos: HashMap<RepoId, Repo>,
     // TODO: deal with collided repo_ids. self.repos should be a HashMap<RepoId,Collision> enum Collision {Yes, No(Repo)}
     // add a collided_repos: HashMap<(OverlayId, RepoId), Repo>
@@ -104,6 +105,7 @@ pub struct Verifier {
     in_memory_outbox: Vec<EventOutboxStorage>,
     uploads: BTreeMap<u32, RandomAccessFile>,
     branch_subscriptions: HashMap<BranchId, Sender<AppResponse>>,
+    pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
 }
 
 impl fmt::Debug for Verifier {
@@ -119,6 +121,7 @@ impl fmt::Debug for Verifier {
 struct EventOutboxStorage {
     event: Event,
     overlay: OverlayId,
+    file_blocks: Vec<Block>,
 }
 
 impl Verifier {
@@ -210,12 +213,16 @@ impl Verifier {
         // check that the referenced object exists locally.
         repo.store.has(&file_ref.id)?;
         // we send all the blocks to the broker.
-        let file = RandomAccessFile::open(
+        let blocks = if let Ok(file) = RandomAccessFile::open(
             file_ref.id.clone(),
             file_ref.key.clone(),
             Arc::clone(&repo.store),
-        )?;
-        let blocks = file.get_all_blocks_ids()?;
+        ) {
+            file.get_all_blocks_ids()?
+        } else {
+            let obj = Object::load_ref(file_ref, &repo.store)?;
+            obj.block_ids()
+        };
         let found = self.has_blocks(blocks, repo).await?;
         for block_id in found.missing() {
             let block = repo.store.get(block_id)?;
@@ -240,7 +247,11 @@ impl Verifier {
         }
     }
 
-    fn branch_get_tab_info(repo: &Repo, branch: &BranchId) -> Result<AppTabInfo, NgError> {
+    fn branch_get_tab_info(
+        repo: &Repo,
+        branch: &BranchId,
+        outer: String,
+    ) -> Result<AppTabInfo, NgError> {
         let branch_info = repo.branch(branch)?;
 
         let branch_tab_info = AppTabBranchInfo {
@@ -268,10 +279,10 @@ impl Verifier {
             repo: Some(repo.store.get_store_repo().clone()),
             overlay: Some(format!("v:{}", repo.store.overlay_id.to_string())),
             store_type: Some(repo.store.get_store_repo().store_type_for_app()),
-            has_outer: None, //TODO
-            inner: None,     //TODO
-            is_member: None, //TODO
-            readcap: None,   //TODO
+            has_outer: Some(outer), //TODO
+            inner: None,            //TODO
+            is_member: None,        //TODO
+            readcap: None,          //TODO
             title: None,
             icon: None,
             description: None,
@@ -312,7 +323,7 @@ impl Verifier {
             .unwrap()
             .branch_get_all_files(&branch_id)?;
 
-        let tab_info = Self::branch_get_tab_info(repo, &branch_id)?;
+        let tab_info = Self::branch_get_tab_info(repo, &branch_id, self.outer.clone())?;
 
         // let tab_info = self.user_storage.as_ref().unwrap().branch_get_tab_info(
         //     &branch_id,
@@ -365,6 +376,7 @@ impl Verifier {
 
         let state = AppState {
             heads: branch.current_heads.iter().map(|h| h.id.clone()).collect(),
+            head_keys: branch.current_heads.iter().map(|h| h.key.clone()).collect(),
             graph: if results.is_empty() {
                 None
             } else {
@@ -412,7 +424,9 @@ impl Verifier {
                 private_store_id: None,
                 protected_store_id: None,
                 public_store_id: None,
+                locator: Locator::empty(),
             },
+            outer: "".to_string(),
             user_id,
             connected_broker: BrokerPeerId::None,
             graph_dataset: None,
@@ -429,6 +443,7 @@ impl Verifier {
             inner_to_outer: HashMap::new(),
             uploads: BTreeMap::new(),
             branch_subscriptions: HashMap::new(),
+            temporary_repo_certificates: HashMap::new(),
         }
     }
 
@@ -761,6 +776,55 @@ impl Verifier {
             .await
     }
 
+    pub(crate) async fn new_commits(
+        &mut self,
+        // commit_body, quorum_type, additional_blocks, deps, files
+        proto_commits: Vec<(
+            CommitBodyV0,
+            QuorumType,
+            &Vec<BlockId>,
+            Vec<ObjectRef>,
+            Vec<ObjectRef>,
+        )>,
+        repo_id: &RepoId,
+        branch_id: &BranchId,
+        store_repo: &StoreRepo,
+    ) -> Result<(), NgError> {
+        let repo = self.get_repo(repo_id, &store_repo)?;
+        let branch = repo.branch(branch_id)?;
+        let mut acks = branch.current_heads.clone();
+        let mut proto_events: Vec<(Commit, Vec<Digest>)> = Vec::with_capacity(proto_commits.len());
+        let store = Arc::clone(&repo.store);
+        for (commit_body, quorum_type, additional_blocks, deps, files) in proto_commits.into_iter()
+        {
+            let commit = {
+                let commit = Commit::new_with_body_and_save(
+                    self.user_privkey(),
+                    self.user_id(),
+                    *branch_id,
+                    quorum_type,
+                    deps,
+                    vec![],
+                    acks,
+                    vec![],
+                    files,
+                    vec![],
+                    vec![],
+                    CommitBody::V0(commit_body),
+                    0,
+                    &store,
+                )?;
+                self.verify_commit_(&commit, branch_id, repo_id, Arc::clone(&store), true)
+                    .await?;
+                commit
+            };
+            acks = vec![commit.reference().unwrap()];
+            proto_events.push((commit, additional_blocks.to_vec()));
+        }
+
+        self.new_events(proto_events, *repo_id, store_repo).await
+    }
+
     pub(crate) async fn new_transaction_commit(
         &mut self,
         commit_body: CommitBodyV0,
@@ -818,6 +882,24 @@ impl Verifier {
             vec![],
         )
         .await
+    }
+
+    pub(crate) fn update_repo_certificate(
+        &mut self,
+        repo_id: &RepoId,
+        certificate_ref: &ObjectRef,
+    ) {
+        match self.repos.get_mut(repo_id) {
+            Some(repo) => repo.certificate_ref = Some(certificate_ref.clone()),
+            None => {
+                self.temporary_repo_certificates
+                    .insert(*repo_id, certificate_ref.clone());
+            }
+        }
+        if let Some(user_storage) = self.user_storage_if_persistent() {
+            let _ = user_storage.update_certificate(repo_id, certificate_ref);
+        }
+        //TODO: verify the certificate with the previous one (chain), before changing it
     }
 
     #[allow(dead_code)]
@@ -964,7 +1046,7 @@ impl Verifier {
             .ok_or(NgError::TopicNotFound)?
             .to_owned();
 
-        self.update_branch_current_heads(&repo_id, &branch_id, past, commit_ref)?;
+        self.update_branch_current_heads(&repo_id, &branch_id, past, commit_ref.clone())?;
 
         if self.connected_broker.is_some() {
             // send the event to the server already
@@ -977,7 +1059,21 @@ impl Verifier {
             match &self.config.config_type {
                 VerifierConfigType::JsSaveSession(js) => {
                     //log_info!("========== SAVING EVENT {:03}", event.seq_num());
-                    let e = EventOutboxStorage { event, overlay };
+
+                    let mut file_blocks = Vec::new();
+                    if !event.file_ids().is_empty() {
+                        let store = &self.repos.get(&repo_id).unwrap().store;
+                        let commit = Commit::load(commit_ref, store, false)?;
+                        for file_ref in commit.files() {
+                            let obj = Object::load_ref(&file_ref, store)?;
+                            file_blocks.append(&mut obj.into_blocks());
+                        }
+                    }
+                    let e = EventOutboxStorage {
+                        event,
+                        overlay,
+                        file_blocks,
+                    };
 
                     (js.outbox_write_function)(
                         self.peer_id,
@@ -995,7 +1091,11 @@ impl Verifier {
                         .create(true)
                         .open(path)
                         .map_err(|_| NgError::IoError)?;
-                    let e = EventOutboxStorage { event, overlay };
+                    let e = EventOutboxStorage {
+                        event,
+                        overlay,
+                        file_blocks: vec![],
+                    };
                     let event_ser = serde_bare::to_vec(&e)?;
                     //log_info!("EVENT size={}", event_ser.len());
                     //log_info!("EVENT {:?}", event_ser);
@@ -1007,8 +1107,11 @@ impl Verifier {
                     file.sync_data().map_err(|_| NgError::IoError)?;
                 }
                 VerifierConfigType::Memory => {
-                    self.in_memory_outbox
-                        .push(EventOutboxStorage { event, overlay });
+                    self.in_memory_outbox.push(EventOutboxStorage {
+                        event,
+                        overlay,
+                        file_blocks: vec![],
+                    });
                 }
                 _ => unimplemented!(),
             }
@@ -1406,7 +1509,7 @@ impl Verifier {
             .await
     }
 
-    async fn verify_commit_(
+    pub(crate) async fn verify_commit_(
         &mut self,
         commit: &Commit,
         branch_id: &BranchId,
@@ -1435,6 +1538,10 @@ impl Verifier {
                 CommitBodyV0::AddSignerCap(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::AddFile(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::AddRepo(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::Snapshot(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::AsyncSignature(a) => {
+                    a.verify(commit, self, branch_id, repo_id, store)
+                }
                 CommitBodyV0::AsyncTransaction(a) => {
                     Box::pin(self.verify_async_transaction(a, commit, branch_id, repo_id, store))
                 }
@@ -1481,7 +1588,7 @@ impl Verifier {
         }
     }
 
-    fn user_storage(&self) -> Option<Arc<Box<dyn UserStorage>>> {
+    pub(crate) fn user_storage(&self) -> Option<Arc<Box<dyn UserStorage>>> {
         if let Some(us) = self.user_storage.as_ref() {
             Some(Arc::clone(us))
         } else {
@@ -1502,14 +1609,14 @@ impl Verifier {
         let topic_id = branch_info.topic.clone().unwrap();
         let repo = self.get_repo_mut(repo_id, store_repo)?;
         let res = repo.branches.insert(branch_info.id.clone(), branch_info);
-        assert!(res.is_none());
+        //assert!(res.is_none());
 
         let overlay_id: OverlayId = repo.store.inner_overlay();
         let repo_id = repo_id.clone();
         let res = self
             .topics
             .insert((overlay_id, topic_id), (repo_id, branch_id));
-        assert_eq!(res, None);
+        //assert_eq!(res, None);
 
         Ok(())
     }
@@ -1527,10 +1634,21 @@ impl Verifier {
         Ok(())
     }
 
-    pub(crate) fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), VerifierError> {
-        if let Some(user_storage) = self.user_storage_if_persistent() {
+    pub(crate) fn update_signer_cap(
+        &mut self,
+        signer_cap: &SignerCap,
+    ) -> Result<(), VerifierError> {
+        let storage = match self.repos.get_mut(&signer_cap.repo) {
+            Some(repo) => {
+                repo.signer = Some(signer_cap.clone());
+                self.user_storage_if_persistent()
+            }
+            None => self.user_storage(),
+        };
+        if let Some(user_storage) = storage {
             user_storage.update_signer_cap(signer_cap)?;
         }
+
         Ok(())
     }
 
@@ -1870,7 +1988,6 @@ impl Verifier {
                     }
 
                     log_debug!("loaded from read_cap {}", repo_id);
-                    // TODO: deal with AddSignerCap that are saved on rocksdb for now, but do not make it to the Verifier.repos
 
                     return Ok((repo_id.clone(), store_branch));
                 }
@@ -2213,7 +2330,7 @@ impl Verifier {
         log_info!("SENDING {} EVENTS FROM OUTBOX", events_to_replay.len());
         for e in events_to_replay {
             let files = e.event.file_ids();
-            if !files.is_empty() {
+            if !files.is_empty() || !need_replay {
                 let (repo_id, branch_id) = self
                     .topics
                     .get(&(e.overlay, *e.event.topic_id()))
@@ -2227,25 +2344,34 @@ impl Verifier {
 
                 let branch = repo.branch(&branch_id)?;
 
-                let commit = e.event.open_without_body(
+                let commit = e.event.open_with_body(
                     &repo.store,
                     &repo_id,
                     &branch_id,
                     &branch.read_cap.as_ref().unwrap().key,
+                    !need_replay,
                 )?;
 
                 let store_repo = repo.store.get_store_repo().clone();
+                let store = Arc::clone(&repo.store);
+                for block in e.file_blocks {
+                    _ = store.put(&block);
+                }
 
                 self.open_branch_(&repo_id, &branch_id, true, &broker, &user, &remote, false)
                     .await?;
 
                 for file in commit.files() {
-                    log_debug!("PUT FILE {:?}", file.id);
+                    //log_debug!("PUT FILE {:?}", file.id);
                     self.put_all_blocks_of_file(&file, &repo_id, &store_repo)
                         .await?;
                 }
-            }
 
+                if !need_replay {
+                    self.verify_commit_(&commit, &branch_id, &repo_id, store, false)
+                        .await?;
+                }
+            }
             self.send_event(e.event, &broker, &user, &remote, e.overlay)
                 .await?;
         }
@@ -2350,6 +2476,7 @@ impl Verifier {
         let peer_id = config.peer_priv_key.to_pub();
         let mut verif = Verifier {
             user_id: config.user_priv_key.to_pub(),
+            outer: NuriV0::locator(&config.locator),
             config,
             connected_broker: BrokerPeerId::None,
             graph_dataset: graph,
@@ -2366,6 +2493,7 @@ impl Verifier {
             inner_to_outer: HashMap::new(),
             uploads: BTreeMap::new(),
             branch_subscriptions: HashMap::new(),
+            temporary_repo_certificates: HashMap::new(),
         };
         // this is important as it will load the last seq from storage
         if verif.config.config_type.should_load_last_seq_num() {
@@ -2529,7 +2657,7 @@ impl Verifier {
         store_repo: &StoreRepo,
         branch_crdt: BranchCrdt,
     ) -> Result<RepoId, NgError> {
-        let (repo_id, proto_events) = {
+        let (repo_id, proto_events, add_signer_cap_commit, private_store_repo) = {
             let store = self.get_store_or_load(store_repo);
             let repo_write_cap_secret = SymKey::random();
             let (repo, proto_events) = store.create_repo_default(
@@ -2539,9 +2667,50 @@ impl Verifier {
                 branch_crdt,
             )?;
             self.populate_topics(&repo);
+
+            // send AddSignerCap to User branch of private store
+            let add_signer_cap_commit_body = CommitBody::V0(CommitBodyV0::AddSignerCap(
+                AddSignerCap::V0(AddSignerCapV0 {
+                    cap: repo.signer.as_ref().unwrap().clone(),
+                    metadata: vec![],
+                }),
+            ));
+            let (add_signer_cap_commit, private_store_repo) = {
+                // find user_branch of private repo
+                let private_repo = self
+                    .repos
+                    .get(self.private_store_id())
+                    .ok_or(NgError::StoreNotFound)?;
+                let user_branch = private_repo.user_branch().ok_or(NgError::BranchNotFound)?;
+                (
+                    Commit::new_with_body_acks_deps_and_save(
+                        creator_priv_key,
+                        creator,
+                        user_branch.id,
+                        QuorumType::NoSigning,
+                        vec![],
+                        user_branch.current_heads.clone(),
+                        add_signer_cap_commit_body,
+                        &private_repo.store,
+                    )?,
+                    private_repo.store.get_store_repo().clone(),
+                )
+            };
+
             let repo_ref = self.add_repo_and_save(repo);
-            (repo_ref.id, proto_events)
+            (
+                repo_ref.id,
+                proto_events,
+                add_signer_cap_commit,
+                private_store_repo,
+            )
         };
+        self.new_events(
+            vec![(add_signer_cap_commit, vec![])],
+            private_store_repo.repo_id().clone(),
+            &private_store_repo,
+        )
+        .await?;
 
         self.new_events(proto_events, repo_id, store_repo).await?;
         //let repo_ref = self.add_repo_and_save(repo);

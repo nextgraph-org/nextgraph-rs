@@ -517,6 +517,14 @@ impl SensitiveWallet {
             },
         }
     }
+    pub fn broker(&self, id: DirectPeerId) -> Result<Vec<BrokerInfoV0>, NgError> {
+        match self {
+            Self::V0(v0) => match v0.brokers.get(&id.to_string()) {
+                Some(broker_info) => Ok(broker_info.to_vec()),
+                None => Err(NgError::BrokerNotFound),
+            },
+        }
+    }
     pub fn set_client(&mut self, client: ClientV0) {
         match self {
             Self::V0(v0) => v0.client = Some(client),
@@ -1118,6 +1126,22 @@ impl BrokerInfoV0 {
             Self::CoreV0(c) => c.peer_id,
             Self::ServerV0(s) => s.peer_id,
         }
+    }
+    pub fn into_locator(&self) -> Locator {
+        match self {
+            Self::CoreV0(_) => panic!("BrokerCoreV0 cannot be made a Locator"),
+            Self::ServerV0(s) => s.clone().into(),
+        }
+    }
+    pub fn vec_into_locator(list: Vec<BrokerInfoV0>) -> Locator {
+        Locator::V0(
+            list.into_iter()
+                .filter_map(|info| match info {
+                    Self::CoreV0(_) => None,
+                    Self::ServerV0(bs) => Some(BrokerServer::V0(bs)),
+                })
+                .collect(),
+        )
     }
 }
 
