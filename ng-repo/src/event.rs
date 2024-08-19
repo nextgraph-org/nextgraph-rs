@@ -133,15 +133,16 @@ impl Event {
         }
     }
 
-    pub fn open_without_body(
+    pub fn open_with_body(
         &self,
         store: &Store,
         repo_id: &RepoId,
         branch_id: &BranchId,
         branch_secret: &ReadCapSecret,
+        with_body: bool,
     ) -> Result<Commit, NgError> {
         match self {
-            Self::V0(v0) => v0.open(store, repo_id, branch_id, branch_secret, false),
+            Self::V0(v0) => v0.open(store, repo_id, branch_id, branch_secret, with_body),
         }
     }
 

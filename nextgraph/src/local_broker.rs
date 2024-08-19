@@ -1312,6 +1312,11 @@ impl LocalBroker {
                 //     user_id.to_hash_string(),
                 //     key
                 // );
+
+                let site = opened_wallet.wallet.site(&user_id)?;
+                let core = site.cores[0]; //TODO: cycle the other cores if failure to connect (failover)
+                let brokers = opened_wallet.wallet.broker(core.0)?;
+
                 key_material.zeroize();
                 let mut verifier = Verifier::new(
                     VerifierConfig {
@@ -1325,6 +1330,7 @@ impl LocalBroker {
                         private_store_id: credentials.2,
                         protected_store_id: credentials.3,
                         public_store_id: credentials.4,
+                        locator: BrokerInfoV0::vec_into_locator(brokers),
                     },
                     block_storage,
                 )?;

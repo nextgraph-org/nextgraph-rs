@@ -201,6 +201,32 @@ pub enum BrokerServer {
     V0(BrokerServerV0),
 }
 
+pub type LocatorV0 = Vec<BrokerServer>;
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum Locator {
+    V0(LocatorV0),
+}
+
+impl fmt::Display for Locator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let ser = serde_bare::to_vec(&self).unwrap();
+        write!(f, "{}", base64_url::encode(&ser))
+    }
+}
+
+impl Locator {
+    pub fn empty() -> Self {
+        Self::V0(vec![])
+    }
+}
+
+impl From<BrokerServerV0> for Locator {
+    fn from(bs: BrokerServerV0) -> Self {
+        Locator::V0(vec![BrokerServer::V0(bs)])
+    }
+}
+
 impl BrokerServerV0 {
     pub fn new_localhost(peer_id: PubKey) -> Self {
         BrokerServerV0 {

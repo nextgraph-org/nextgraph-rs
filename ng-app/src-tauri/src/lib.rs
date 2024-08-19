@@ -642,6 +642,94 @@ async fn app_request(request: AppRequest) -> Result<AppResponse, String> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn signature_status(
+    session_id: u64,
+    nuri: Option<String>,
+) -> Result<Vec<(String, Option<String>, bool)>, String> {
+    let nuri = if nuri.is_some() {
+        NuriV0::new_from(&nuri.unwrap()).map_err(|e| e.to_string())?
+    } else {
+        NuriV0::new_private_store_target()
+    };
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_signature_status(),
+        nuri,
+        payload: None,
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = res;
+    //log_debug!("{:?}", res);
+    match res {
+        AppResponseV0::SignatureStatus(s) => Ok(s),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn signed_snapshot_request(session_id: u64, nuri: Option<String>) -> Result<bool, String> {
+    let nuri = if nuri.is_some() {
+        NuriV0::new_from(&nuri.unwrap()).map_err(|e| e.to_string())?
+    } else {
+        NuriV0::new_private_store_target()
+    };
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_signed_snapshot_request(),
+        nuri,
+        payload: None,
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = res;
+    //log_debug!("{:?}", res);
+    match res {
+        AppResponseV0::True => Ok(true),
+        AppResponseV0::False => Ok(false),
+        AppResponseV0::Error(e) => Err(e),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn signature_request(session_id: u64, nuri: Option<String>) -> Result<bool, String> {
+    let nuri = if nuri.is_some() {
+        NuriV0::new_from(&nuri.unwrap()).map_err(|e| e.to_string())?
+    } else {
+        NuriV0::new_private_store_target()
+    };
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_signature_request(),
+        nuri,
+        payload: None,
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = res;
+    //log_debug!("{:?}", res);
+    match res {
+        AppResponseV0::True => Ok(true),
+        AppResponseV0::False => Ok(false),
+        AppResponseV0::Error(e) => Err(e),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn doc_create(
     session_id: u64,
     crdt: String,
@@ -932,6 +1020,9 @@ impl AppBuilder {
                 sparql_query,
                 sparql_update,
                 branch_history,
+                signature_status,
+                signature_request,
+                signed_snapshot_request,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

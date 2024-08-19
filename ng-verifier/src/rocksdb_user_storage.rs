@@ -80,6 +80,18 @@ impl UserStorage for RocksDbUserStorage {
         RepoStorage::update_signer_cap(signer_cap, &self.user_storage)
     }
 
+    fn update_certificate(
+        &self,
+        repo_id: &RepoId,
+        certificate: &ObjectRef,
+    ) -> Result<(), StorageError> {
+        RepoStorage::update_certificate(repo_id, certificate, &self.user_storage)
+    }
+
+    fn get_signer_cap(&self, repo_id: &RepoId) -> Result<SignerCap, StorageError> {
+        RepoStorage::open(repo_id, &self.user_storage)?.get_signer_cap()
+    }
+
     fn update_branch_current_heads(
         &self,
         _repo_id: &RepoId,

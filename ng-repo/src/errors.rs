@@ -89,6 +89,8 @@ pub enum NgError {
     NotARendezVous,
     IncompatibleQrCode,
     InvalidClass,
+    KeyShareNotFound,
+    BrokerNotFound,
 }
 
 impl Error for NgError {}
@@ -145,6 +147,12 @@ impl From<ed25519_dalek::ed25519::Error> for NgError {
 impl From<CommitLoadError> for NgError {
     fn from(e: CommitLoadError) -> Self {
         NgError::CommitLoadError(e)
+    }
+}
+
+impl From<ObjectParseError> for NgError {
+    fn from(e: ObjectParseError) -> Self {
+        NgError::ObjectParseError(e)
     }
 }
 
@@ -371,6 +379,8 @@ pub enum VerifierError {
     YrsError(String),
     AutomergeError(String),
     InvalidNuri,
+    InvalidJson,
+    NothingToSign,
 }
 
 impl Error for VerifierError {}

@@ -57,8 +57,9 @@ impl<'a> RepoStorage<'a> {
     //const SIGNER_CAP_TOTAL: u8 = b't';
     const USER_BRANCH: u8 = b'u';
     const WRITE_CAP_SECRET: u8 = b'w';
+    const CERTIFICATE: u8 = b'f';
 
-    const ALL_PROPERTIES: [u8; 14] = [
+    const ALL_PROPERTIES: [u8; 15] = [
         Self::SIGNER_CAP,
         //Self::SIGNER_CAP_PARTIAL,
         Self::CHAT_BRANCH,
@@ -75,6 +76,7 @@ impl<'a> RepoStorage<'a> {
         //Self::SIGNER_CAP_TOTAL,
         Self::USER_BRANCH,
         Self::WRITE_CAP_SECRET,
+        Self::CERTIFICATE,
     ];
 
     const PREFIX_BRANCHES: u8 = b'b';
@@ -145,7 +147,6 @@ impl<'a> RepoStorage<'a> {
         storage: &'a dyn KCVStorage,
     ) -> Result<(), StorageError> {
         let repo_id = signer_cap.repo;
-        let _ = Self::new(&repo_id, storage);
         storage.write_transaction(&mut |tx| {
             let id_ser = to_vec(&repo_id)?;
             let value = to_vec(signer_cap)?;
@@ -153,6 +154,36 @@ impl<'a> RepoStorage<'a> {
             Ok(())
         })?;
         Ok(())
+    }
+
+    pub fn update_certificate(
+        id: &RepoId,
+        certificate: &ObjectRef,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<(), StorageError> {
+        storage.write_transaction(&mut |tx| {
+            let id_ser = to_vec(id)?;
+            let value = to_vec(certificate)?;
+            tx.put(
+                Self::PREFIX,
+                &id_ser,
+                Some(Self::CERTIFICATE),
+                &value,
+                &None,
+            )?;
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    pub fn get_signer_cap(&self) -> Result<SignerCap, StorageError> {
+        let ser = self.storage.get(
+            Self::PREFIX,
+            &to_vec(&self.id).unwrap(),
+            Some(Self::SIGNER_CAP),
+            &None,
+        )?;
+        Ok(from_slice(&ser)?)
     }
 
     pub fn create(
@@ -300,6 +331,7 @@ impl<'a> RepoStorage<'a> {
             branches,
             opened_branches,
             store,
+            certificate_ref: prop(Self::CERTIFICATE, &props).ok(),
         };
         Ok(repo)
     }

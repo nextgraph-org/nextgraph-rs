@@ -21,7 +21,7 @@
       Cloud,
       DocumentPlus,
       DocumentMinus,
-      CircleStack,
+      Camera,
       Funnel,
       FingerPrint,
       Key,
@@ -83,6 +83,17 @@
                     for (var h; h = b.history.commits.pop(); ) {
                         //console.log(h);
                         history.unshift(h);
+                        if (h[1].async_sig) {                                                   
+                            for (let hh of history) {
+                                const index = h[1].async_sig[1].indexOf(hh[0]);
+                                if (index > -1) {
+                                    h[1].async_sig[1].splice(index, 1);
+                                    hh[1].final_consistency = false;
+                                    hh[1].signature = h[1].async_sig[0];
+                                }
+                                if (h[1].async_sig[1].length == 0) break;
+                            }
+                        }
                         history = history;
                         gitgraph.commit({
                             hash: h[0], 
@@ -115,7 +126,7 @@
         "TransactionBoth": Sun,
         "FileAdd": DocumentPlus,
         "FileRemove": DocumentMinus,
-        "Snapshot": CircleStack,
+        "Snapshot": Camera,
         "Compact": Funnel,
         "AsyncSignature": FingerPrint,
         "SyncSignature": FingerPrint,

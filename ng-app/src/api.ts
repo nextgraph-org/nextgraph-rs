@@ -50,6 +50,9 @@ const mapping = {
     "doc_fetch_repo_subscribe": ["repo_o"],
     "branch_history": ["session_id", "nuri"],
     "file_save_to_downloads": ["session_id", "reference", "filename", "branch_nuri"],
+    "signature_status": ["session_id", "nuri"],
+    "signed_snapshot_request": ["session_id", "nuri"],
+    "signature_request": ["session_id", "nuri"],
 }
 
 

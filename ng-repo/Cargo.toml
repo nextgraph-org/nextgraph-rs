@@ -37,7 +37,7 @@ ed25519-dalek = "1.0.1"
 sbbf-rs-safe = "0.3.2"
 lazy_static = "1.4.0"
 curve25519-dalek = "3.2.0"
-threshold_crypto = "0.4.0"
+threshold_crypto = { version = "0.4.0", git = "https://github.com/nextgraph-org/threshold_crypto.git", branch = "master" } 
 crypto_box = { version = "0.8.2", features = ["seal"] }
 zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
 base64-url = "2.0.0"

@@ -511,6 +511,103 @@ pub async fn branch_history(session_id: JsValue, nuri: JsValue) -> Result<JsValu
     }
 }
 
+#[wasm_bindgen]
+pub async fn signature_status(session_id: JsValue, nuri: JsValue) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+
+    let nuri = if nuri.is_string() {
+        NuriV0::new_from(&nuri.as_string().unwrap()).map_err(|e| e.to_string())?
+    } else {
+        NuriV0::new_private_store_target()
+    };
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_signature_status(),
+        nuri,
+        payload: None,
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = res;
+    //log_debug!("{:?}", res);
+    match res {
+        AppResponseV0::SignatureStatus(s) => Ok(serde_wasm_bindgen::to_value(&s).unwrap()),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[wasm_bindgen]
+pub async fn signed_snapshot_request(
+    session_id: JsValue,
+    nuri: JsValue,
+) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+
+    let nuri = if nuri.is_string() {
+        NuriV0::new_from(&nuri.as_string().unwrap()).map_err(|e| e.to_string())?
+    } else {
+        NuriV0::new_private_store_target()
+    };
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_signed_snapshot_request(),
+        nuri,
+        payload: None,
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = res;
+    //log_debug!("{:?}", res);
+    match res {
+        AppResponseV0::True => Ok(JsValue::TRUE),
+        AppResponseV0::False => Ok(JsValue::FALSE),
+        AppResponseV0::Error(e) => Err(e),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[wasm_bindgen]
+pub async fn signature_request(session_id: JsValue, nuri: JsValue) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+
+    let nuri = if nuri.is_string() {
+        NuriV0::new_from(&nuri.as_string().unwrap()).map_err(|e| e.to_string())?
+    } else {
+        NuriV0::new_private_store_target()
+    };
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_signature_request(),
+        nuri,
+        payload: None,
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = res;
+    //log_debug!("{:?}", res);
+    match res {
+        AppResponseV0::True => Ok(JsValue::TRUE),
+        AppResponseV0::False => Ok(JsValue::FALSE),
+        AppResponseV0::Error(e) => Err(e),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
 pub async fn admin_create_user(config: JsValue) -> Result<JsValue, String> {
