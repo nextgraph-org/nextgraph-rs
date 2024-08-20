@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "Nextgraph",
-    "version": "0.1.0-preview.7"
+    "version": "0.1.0-preview.8"
   },
   "tauri": {
     "bundle": {
