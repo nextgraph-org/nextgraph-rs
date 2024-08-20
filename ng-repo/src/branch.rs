@@ -196,14 +196,21 @@ impl Branch {
                     // check if this commit object is present in theirs or has already been visited in the current walk
                     // load deps, stop at the root(including it in visited) or if this is a commit object from known_heads
 
-                    let found_in_filter = if let Some(filter) = theirs_filter {
-                        let hash = id.get_hash();
-                        filter.contains_hash(hash)
-                    } else {
-                        false
-                    };
+                    let mut found_in_theirs = theirs.contains(&id);
+                    if !found_in_theirs {
+                        found_in_theirs = if let Some(filter) = theirs_filter {
+                            let hash = id.get_hash();
+                            filter.contains_hash(hash)
+                        } else {
+                            false
+                        };
+                    }
 
-                    if !found_in_filter && !theirs.contains(&id) {
+                    if found_in_theirs {
+                        if theirs_found.is_some() {
+                            theirs_found.as_mut().unwrap().insert(id);
+                        }
+                    } else {
                         if let Some(past) = visited.get_mut(&id) {
                             // we update the future
                             if let Some(f) = future {
@@ -238,8 +245,6 @@ impl Branch {
                             //     }
                             // }
                         }
-                    } else if theirs_found.is_some() {
-                        theirs_found.as_mut().unwrap().insert(id);
                     }
                 }
                 Err(ObjectParseError::MissingBlocks(blocks)) => {

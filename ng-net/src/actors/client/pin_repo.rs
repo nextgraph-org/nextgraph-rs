@@ -27,6 +27,35 @@ impl PinRepo {
     pub fn get_actor(&self, id: i64) -> Box<dyn EActor> {
         Actor::<PinRepo, RepoOpened>::new_responder(id)
     }
+    pub fn for_branch(repo: &Repo, branch: &BranchId, broker_id: &DirectPeerId) -> PinRepo {
+        let overlay = OverlayAccess::new_write_access_from_store(&repo.store);
+        let mut rw_topics = Vec::with_capacity(1);
+        let mut ro_topics = vec![];
+        let branch = repo.branches.get(branch).unwrap();
+
+        if let Some(privkey) = &branch.topic_priv_key {
+            rw_topics.push(PublisherAdvert::new(
+                branch.topic.unwrap(),
+                privkey.clone(),
+                *broker_id,
+            ));
+        } else {
+            ro_topics.push(branch.topic.unwrap());
+        }
+
+        PinRepo::V0(PinRepoV0 {
+            hash: repo.id.into(),
+            overlay,
+            // TODO: overlay_root_topic
+            overlay_root_topic: None,
+            expose_outer: false,
+            peers: vec![],
+            max_peer_count: 0,
+            //allowed_peers: vec![],
+            ro_topics,
+            rw_topics,
+        })
+    }
     pub fn from_repo(repo: &Repo, broker_id: &DirectPeerId) -> PinRepo {
         let overlay = OverlayAccess::new_write_access_from_store(&repo.store);
         let mut rw_topics = Vec::with_capacity(repo.branches.len());

@@ -152,7 +152,7 @@
                             </div>
                           </div>
                         {:then app}
-                        <div class:max-w-screen-lg={center} class="flex flex-col" style="overflow-wrap: anywhere;" class:w-[1024px]={center} > 
+                        <div class:max-w-screen-lg={center} class="flex flex-col break-all" style="overflow-wrap: anywhere;" class:w-[1024px]={center} > 
                             <svelte:component this={app} commits={$commits}/>
                         </div>
                         {/await}

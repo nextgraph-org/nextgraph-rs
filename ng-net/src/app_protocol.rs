@@ -41,7 +41,7 @@ lazy_static! {
         Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*):v:([A-Za-z0-9-_]*):a:([A-Za-z0-9-_%]*)$").unwrap(); //TODO: allow international chars. disallow digit as first char
     #[doc(hidden)]
     static ref RE_OBJECTS: Regex =
-        Regex::new(r"^did:ng(?::o:([A-Za-z0-9-_]{44}))?:v:([A-Za-z0-9-_]{44})((?::c:[A-Za-z0-9-_]{44}:k:[A-Za-z0-9-_]{44})+)(?::s:([A-Za-z0-9-_]{44}):k:([A-Za-z0-9-_]{44}))?:l:([A-Za-z0-9-_]*)$").unwrap();
+        Regex::new(r"^did:ng(?::o:([A-Za-z0-9-_]{44}))?:v:([A-Za-z0-9-_]{44})((?::[cj]:[A-Za-z0-9-_]{44}:k:[A-Za-z0-9-_]{44})+)(?::s:([A-Za-z0-9-_]{44}):k:([A-Za-z0-9-_]{44}))?:l:([A-Za-z0-9-_]*)$").unwrap();
     #[doc(hidden)]
     static ref RE_OBJECT_READ_CAPS: Regex =
         Regex::new(r":[cj]:([A-Za-z0-9-_]{44}):k:([A-Za-z0-9-_]{44})").unwrap();

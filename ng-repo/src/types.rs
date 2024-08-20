@@ -83,6 +83,32 @@ impl Digest {
         }
         hasher.finish()
     }
+
+    pub fn print_all(all: &[Digest]) -> String {
+        all.iter()
+            .map(|d| d.to_string())
+            .collect::<Vec<String>>()
+            .join(" ")
+    }
+
+    pub fn print_iter(all: impl Iterator<Item = Digest>) -> String {
+        all.map(|d| d.to_string())
+            .collect::<Vec<String>>()
+            .join(" ")
+    }
+
+    pub fn print_iter_ref<'a>(all: impl Iterator<Item = &'a Digest>) -> String {
+        all.map(|d| d.to_string())
+            .collect::<Vec<String>>()
+            .join(" ")
+    }
+
+    pub fn print_all_ref(all: &[&Digest]) -> String {
+        all.into_iter()
+            .map(|d| d.to_string())
+            .collect::<Vec<String>>()
+            .join(" ")
+    }
 }
 
 impl fmt::Display for Digest {

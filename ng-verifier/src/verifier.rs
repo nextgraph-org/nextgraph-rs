@@ -154,6 +154,11 @@ impl Verifier {
         self.config.public_store_id.as_ref().unwrap()
     }
 
+    pub fn update_locator(&mut self, locator: Locator) {
+        self.outer = NuriV0::locator(&locator);
+        self.config.locator = locator;
+    }
+
     pub async fn close(&self) {
         log_debug!("VERIFIER CLOSED {}", self.user_id());
         BROKER
@@ -301,7 +306,7 @@ impl Verifier {
         branch_id: BranchId,
         store_repo: StoreRepo,
     ) -> Result<(Receiver<AppResponse>, CancelFn), VerifierError> {
-        //log_info!("#### create_branch_subscription {}", branch);
+        //log_info!("#### create_branch_subscription {}", branch_id);
         let (tx, rx) = mpsc::unbounded::<AppResponse>();
         //log_info!("SUBSCRIBE");
         if let Some(returned) = self.branch_subscriptions.insert(branch_id, tx.clone()) {
@@ -1181,9 +1186,15 @@ impl Verifier {
 
         let user = self.user_id().clone();
         let broker = BROKER.read().await;
-        log_debug!("looping on branches {:?}", branches);
+        // log_debug!(
+        //     "looping on branches {:?}",
+        //     branches
+        //         .iter()
+        //         .map(|(_, b, _)| b.to_string())
+        //         .collect::<Vec<String>>()
+        // );
         for (repo, branch, publisher) in branches {
-            log_debug!("open_branch_ repo {} branch {}", repo, branch);
+            //log_debug!("open_branch_ repo {} branch {}", repo, branch);
             let _e = self
                 .open_branch_(
                     &repo,
@@ -1195,12 +1206,12 @@ impl Verifier {
                     false,
                 )
                 .await;
-            log_debug!(
-                "END OF open_branch_ repo {} branch {} with {:?}",
-                repo,
-                branch,
-                _e
-            );
+            // log_debug!(
+            //     "END OF open_branch_ repo {} branch {} with {:?}",
+            //     repo,
+            //     branch,
+            //     _e
+            // );
             // discarding error.
         }
         Ok(())
@@ -1296,7 +1307,11 @@ impl Verifier {
                 }
             }
         };
-        //log_info!("need_open {} need_sub {}", need_open, need_sub);
+        // log_info!(
+        //     "OPEN BRANCH {branch} need_open {} need_sub {}",
+        //     need_open,
+        //     need_sub
+        // );
 
         let remote = remote_broker.into();
 
@@ -1316,7 +1331,9 @@ impl Verifier {
                     let (pin_req, topic_id) = {
                         let repo = self.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
                         let topic_id = repo.branch(branch).unwrap().topic.unwrap();
-                        //TODO: only pin the requested branch.
+                        // TODO only pinning the requested branch.
+                        // let pin_req =
+                        //     PinRepo::for_branch(repo, branch, remote_broker.broker_peer_id());
                         let pin_req = PinRepo::from_repo(repo, remote_broker.broker_peer_id());
                         (pin_req, topic_id)
                     };
@@ -1330,19 +1347,25 @@ impl Verifier {
                             //TODO: check that in the returned opened_repo, the branch we are interested in has effectively been subscribed as publisher by the broker.
 
                             for topic in opened {
-                                if topic.topic_id() == &topic_id {
-                                    self.do_sync_req_if_needed(
-                                        broker,
-                                        user,
-                                        &remote,
-                                        branch,
-                                        repo_id,
-                                        topic.known_heads(),
-                                        topic.commits_nbr(),
-                                    )
-                                    .await?;
-                                    break;
-                                }
+                                let (_, branch_id) = self
+                                    .topics
+                                    .get(&(overlay, *topic.topic_id()))
+                                    .ok_or(NgError::TopicNotFound)?
+                                    .to_owned();
+
+                                //if topic.topic_id() == &topic_id {
+                                self.do_sync_req_if_needed(
+                                    broker,
+                                    user,
+                                    &remote,
+                                    &branch_id,
+                                    repo_id,
+                                    topic.known_heads(),
+                                    topic.commits_nbr(),
+                                )
+                                .await?;
+                                //break;
+                                //}
                             }
                         }
                         Ok(_) => return Err(NgError::InvalidResponse),
@@ -1408,7 +1431,6 @@ impl Verifier {
                 Ok(SoS::Single(sub)) => {
                     let repo = self.repos.get_mut(&repo_id).ok_or(NgError::RepoNotFound)?;
                     Self::branch_was_opened(&self.topics, repo, &sub)?;
-
                     self.do_sync_req_if_needed(
                         broker,
                         user,
@@ -1706,7 +1728,12 @@ impl Verifier {
         remote_commits_nbr: u64,
     ) -> Result<(), NgError> {
         let (store, msg, branch_secret) = {
-            //log_info!("do_sync_req_if_needed for branch {}", branch_id);
+            // log_info!(
+            //     "do_sync_req_if_needed for branch {} {} {}",
+            //     branch_id,
+            //     remote_commits_nbr,
+            //     Digest::print_all(remote_heads)
+            // );
             if remote_commits_nbr == 0 || remote_heads.is_empty() {
                 log_debug!("branch is new on the broker. doing nothing");
                 return Ok(());
@@ -1726,7 +1753,11 @@ impl Verifier {
                 && theirs.difference(&ours_set).count() == 0
             {
                 // no need to sync
-                log_info!("branch {} is up to date", branch_id);
+                log_debug!(
+                    "branch {} is up to date at heads {}",
+                    branch_id,
+                    Digest::print_iter(ours)
+                );
                 return Ok(());
             }
 
@@ -1735,6 +1766,11 @@ impl Verifier {
 
             let mut recursor: Vec<(ObjectId, Option<ObjectId>)> =
                 ours_set.iter().map(|h| (h.clone(), None)).collect();
+
+            // log_debug!(
+            //     "SEARCHING FOR THEIR HEADS from OURS {}",
+            //     Digest::print_iter(ours)
+            // );
 
             let _ = Branch::load_causal_past(
                 &mut recursor,
@@ -1745,6 +1781,12 @@ impl Verifier {
                 &mut Some(&mut theirs_found),
                 &None,
             );
+
+            // log_debug!(
+            //     "FOUND THEIR HEADS {}",
+            //     Digest::print_iter_ref(theirs_found.iter())
+            // );
+
             // for our in ours_set.iter() {
             //     //log_info!("OUR HEADS {}", our);
             //     if let Ok(cobj) = Object::load(*our, None, &repo.store) {
@@ -1756,6 +1798,7 @@ impl Verifier {
                 theirs.difference(&theirs_found).cloned().collect();
 
             let known_commits = if theirs_not_found.is_empty() {
+                //log_debug!("local heads are newer than remote");
                 return Ok(());
             } else {
                 if visited.is_empty() {
@@ -1892,10 +1935,13 @@ impl Verifier {
             )
             .await?;
 
+        let repo = self.get_repo_mut(&repo_id, store.get_store_repo())?;
+        // for (b, _) in repo.branches.iter() {
+        //     let _ = repo.opened_branches.insert(b.clone(), true);
+        // }
         // adding the Store branch to the opened_branches
         // TODO: only do it if the Store is 3P.
         if let Some(store_branch_id) = store_branch {
-            let repo = self.get_repo_mut(&repo_id, store.get_store_repo())?;
             let _ = repo.opened_branches.insert(store_branch_id, true);
         }
 

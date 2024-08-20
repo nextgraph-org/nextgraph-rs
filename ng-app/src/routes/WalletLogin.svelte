@@ -73,6 +73,8 @@
     });
     active_wallet_unsub = active_wallet.subscribe(async (value) => {
       if (value && value.wallet) {
+        step = "loggedin";
+        await tick();
         if (!$active_session) {
           try {
             let session = await ng.session_start(
@@ -85,6 +87,7 @@
               loggedin();
             }
           } catch (e) {
+            step = "open";
             error = e;
             importing = false;
             wallet = undefined;
@@ -105,7 +108,7 @@
 
   });
 
-  function loggedin() {
+  async function loggedin() {
     step = "loggedin";
     if ($redirect_after_login) {
       let redir=$redirect_after_login; 

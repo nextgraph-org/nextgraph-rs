@@ -1498,7 +1498,7 @@ mod test {
         )
         .expect("open");
 
-        // this only works because we chose a big block size (1MB) so the small JPG file files in one block.
+        // this only works because we chose a big block size (1MB) so the small JPG file fits in one block.
         // if not, we would have to call read repeatedly and append the results into a buffer, in order to get the full file
         let res = file.read(0, len).expect("read all");
 

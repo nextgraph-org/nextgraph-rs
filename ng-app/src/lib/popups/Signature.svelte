@@ -91,9 +91,8 @@
 </script>
 
 <div class="flex flex-col">
-    <span class="font-bold text-xl">Signature</span>
-    
-    Current heads :
+    <span class="font-bold text-xl">{$t("doc.signature.title")}</span>
+    {$t("current_heads")} :
     {#each heads as head} 
         {#if head[1]}
             <div style="font-family: monospace; font: Courier; font-size:16px;" class="flex text-green-600 clickable my-2" 
@@ -119,7 +118,7 @@
                 <ShieldCheck tabindex="-1" class="mr-2 focus:outline-none" />
                 {$t("doc.sign_snapshot")}            
             </Button>
-            <span class="mb-2">or click on one of the signed heads to get its link.</span>
+            <span class="mb-2">{$t("doc.signature.or_click_on_head")}</span>
 
         {:else if can_sign} 
             <button
@@ -136,15 +135,15 @@
                 bind:checked={ snapshot }
                 ><span class="text-gray-700 text-base">{$t("doc.take_snapshot")}</span>
             </Toggle>
-            {#if has_signatures}<span>or click on one of the signed heads to get its link</span>{/if}
+            {#if has_signatures}<span>{$t("doc.signature.or_click_on_head")}</span>{/if}
         {:else}
-            <div class="flex mt-3"><Camera tabindex="-1" class="w-6 h-6 mr-3 text-green-600"/><span class="text-green-600">A signed snapshot is currently at the head.</span></div>
-            <span>Here is its link that you can share.<br/>For now this link is only usable with the CLI, by running the following command :<br/><br/></span>
+            <div class="flex mt-3"><Camera tabindex="-1" class="w-6 h-6 mr-3 text-green-600"/><span class="text-green-600">{$t("doc.signature.signed_snap_at_head")}</span></div>
+            <span>{$t("doc.signature.here_is_the_link")}<br/>{$t("doc.signature.cli_warning")} :<br/><br/></span>
             <span style="font-family: monospace; font: Courier; font-size:16px;" class="break-all">ngcli get {signed_commit_link(heads[0])}</span>
         {/if}
     {/if}
     {#if (force_snapshot || can_sign) && cur_link }
-        <span class="mt-3">For now the link is only usable with the CLI, by running the following command :<br/><br/></span>
+        <span class="mt-3">{$t("doc.signature.cli_warning")} :<br/><br/></span>
         <span style="font-family: monospace; font: Courier; font-size:16px;" class="break-all">ngcli get {cur_link}</span>
     {/if}
 </div>
