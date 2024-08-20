@@ -14,16 +14,19 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::fs::{read_to_string, write};
 use std::net::IpAddr;
+use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
 
-use clap::{arg, command, value_parser, Command};
+use clap::{arg, command, value_parser, ArgMatches, Command};
 use duration_str::parse;
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string_pretty};
 use zeroize::Zeroize;
 
 use ng_repo::errors::*;
+use ng_repo::file::{FileError, RandomAccessFile, ReadFile};
 use ng_repo::log::*;
 use ng_repo::object::Object;
 use ng_repo::store::Store;
@@ -76,6 +79,7 @@ pub enum NgcliError {
     OtherConfigError(String),
     OtherConfigErrorStr(&'static str),
     CannotSaveConfig(String),
+    FileError(FileError),
 }
 
 impl Error for NgcliError {}
@@ -94,6 +98,12 @@ impl From<NgcliError> for std::io::Error {
 impl From<NgError> for NgcliError {
     fn from(err: NgError) -> NgcliError {
         Self::NgError(err)
+    }
+}
+
+impl From<FileError> for NgcliError {
+    fn from(err: FileError) -> NgcliError {
+        Self::FileError(err)
     }
 }
 
@@ -154,6 +164,73 @@ async fn main() -> std::io::Result<()> {
     }
     Ok(())
 }
+
+fn get_random_access_file(
+    file_meta: RandomAccessFileMeta,
+    reference: ObjectRef,
+    mut filename: Option<String>,
+    sub_matches: &ArgMatches,
+    store: &Arc<Store>,
+) -> Result<(), NgcliError> {
+    println!("File content_type {}", file_meta.content_type());
+    println!("File size {}", file_meta.total_size());
+    let file = RandomAccessFile::open(reference.id, reference.key, Arc::clone(&store))?;
+    let filename_opt = sub_matches.get_one::<String>("output");
+    let save = sub_matches.get_flag("save") || filename_opt.is_some();
+    if save {
+        if filename.is_none() && filename_opt.is_some() {
+            filename = Some(filename_opt.unwrap().clone());
+        }
+        if let Some(filename) = filename {
+            let total = file_meta.total_size() as usize;
+            let mut file_content = Vec::with_capacity(total);
+            let mut pos = 0;
+            loop {
+                let mut res = file.read(pos, 1024 * 1024 * 1024)?;
+                pos += res.len();
+                file_content.append(&mut res);
+                if pos >= total {
+                    break;
+                }
+            }
+
+            let mut i: usize = 0;
+            let mut dest_filename;
+            loop {
+                dest_filename = if i == 0 {
+                    filename.clone()
+                } else {
+                    filename
+                        .rsplit_once(".")
+                        .map(|(l, r)| format!("{l} ({}).{r}", i.to_string()))
+                        .or_else(|| Some(format!("{filename} ({})", i.to_string())))
+                        .unwrap()
+                };
+
+                let path = Path::new(&dest_filename);
+
+                if path.exists() {
+                    i = i + 1;
+                } else {
+                    write(path, &file_content)?;
+                    break;
+                }
+            }
+            println!(
+                "The file has been saved in the current directory with the filename: {}",
+                dest_filename
+            );
+        } else {
+            println!("The file doesn't have a name and you didn't set the argument -o or --output , so we cannot save it.");
+        }
+    } else {
+        println!(
+            "You didn't set the argument -s or --save or -o or --output so we are not downloading the file locally"
+        );
+    }
+    Ok(())
+}
+
 async fn main_inner() -> Result<(), NgcliError> {
     let matches = command!()
             .arg(arg!(
@@ -237,6 +314,8 @@ async fn main_inner() -> Result<(), NgcliError> {
                 Command::new("get")
                     .about("fetches one or several commits, or a binary object, with an optional signature, from a broker, using the Ext Protocol, and connecting on the Outer Overlay. The request is anonymous and doesn't need any authentication")
                     .arg(arg!([NURI] "NextGraph URI of the commit(s) or object, containing the ReadCap in the form :c:k :j:k and optionally :s:k and the usual :o:v:l").required(true))
+                    .arg(arg!(-s --save "Saves the binary file(s) of the commits that have the type AddFile").required(false))
+                    .arg(arg!(-o --output <FILENAME> "Gives a filename for the binary file(s) to be saved locally. only used if no filename is present in metadata").required(false))
                 )
             .get_matches();
 
@@ -377,13 +456,41 @@ async fn main_inner() -> Result<(), NgcliError> {
 
             let mut signature = None;
 
+            let arc_store = Arc::new(store);
+            for obj_ref in nuri.objects.into_iter() {
+                match Object::load(obj_ref.id, Some(obj_ref.key.clone()), &arc_store) {
+                    Err(e) => println!("Error: {:?}", e),
+                    Ok(o) => match o.content_v0() {
+                        Err(e) => println!("Error: {:?}", e),
+                        Ok(ObjectContentV0::Commit(c)) => {
+                            next_round.push((c.body_ref().clone(), Some(obj_ref.id), c.files()));
+                        }
+                        Ok(ObjectContentV0::RandomAccessFileMeta(file_meta)) => {
+                            if let Err(e) = get_random_access_file(
+                                file_meta,
+                                obj_ref,
+                                None,
+                                sub_matches,
+                                &arc_store,
+                            ) {
+                                println!("An error occurred: {:?}", e);
+                            }
+                        }
+                        _ => println!("unsupported format"),
+                    },
+                }
+            }
+
+            let store = Arc::try_unwrap(arc_store)
+                .map_err(|_| NgcliError::NgError(NgError::InternalError))?;
+
             if let Some(sign_ref) = nuri.signature {
                 if let Ok(o) = Object::load(sign_ref.id, Some(sign_ref.key), &store) {
                     match o.content_v0() {
                         Ok(ObjectContentV0::Signature(Signature::V0(v0))) => {
                             let in_sig = HashSet::from_iter(v0.content.commits().iter().cloned());
                             if in_nuri.is_subset(&in_sig) {
-                                next_round.push((v0.certificate_ref.clone(), None));
+                                next_round.push((v0.certificate_ref.clone(), None, vec![]));
                                 signature = Some(v0);
                             } else {
                                 println!("Signature is invalid");
@@ -394,20 +501,9 @@ async fn main_inner() -> Result<(), NgcliError> {
                     }
                 }
             }
-
-            nuri.objects.into_iter().for_each(|obj_ref| {
-                match Object::load(obj_ref.id, Some(obj_ref.key), &store) {
-                    Err(e) => println!("Error: {:?}", e),
-                    Ok(o) => match o.content_v0() {
-                        Err(e) => println!("Error: {:?}", e),
-                        Ok(ObjectContentV0::Commit(c)) => {
-                            next_round.push((c.body_ref().clone(), Some(obj_ref.id)));
-                        }
-                        _ => println!("unsupported format"),
-                    },
-                }
-            });
-
+            if next_round.is_empty() {
+                return Ok(());
+            }
             let blocks: Vec<Block> = Broker::ext(
                 Box::new(ConnectionWebSocket {}),
                 peer_privk.clone(),
@@ -418,7 +514,7 @@ async fn main_inner() -> Result<(), NgcliError> {
                     overlay: overlay_id,
                     ids: next_round
                         .iter()
-                        .map(|(o, _)| o.id)
+                        .map(|(o, _, _)| o.id)
                         .collect::<Vec<ObjectId>>(),
                     include_files: true,
                 },
@@ -428,7 +524,7 @@ async fn main_inner() -> Result<(), NgcliError> {
 
             let mut third_round = Vec::with_capacity(2);
             let mut certificate = None;
-            for (body_ref, commit_id) in next_round.into_iter() {
+            for (body_ref, commit_id, mut files) in next_round.into_iter() {
                 match Object::load(body_ref.id, Some(body_ref.key), &store) {
                     Err(e) => println!("Error: {:?}", e),
                     Ok(o) => match o.content_v0() {
@@ -437,16 +533,34 @@ async fn main_inner() -> Result<(), NgcliError> {
                             CommitBodyV0::Snapshot(Snapshot::V0(snap)),
                         ))) => {
                             println!("Snapshot: {}", commit_id.unwrap());
-                            third_round.push(snap.content);
+                            third_round.push((snap.content, None));
+                        }
+                        Ok(ObjectContentV0::CommitBody(CommitBody::V0(CommitBodyV0::AddFile(
+                            AddFile::V0(add_file),
+                        )))) => {
+                            println!(
+                                "File added: {}",
+                                add_file.name.as_deref().unwrap_or("(no name)")
+                            );
+                            if files.len() != 1 {
+                                println!("Error: invalid AddFile commit");
+                            }
+                            third_round.push((files.pop().unwrap(), add_file.name));
                         }
                         Ok(ObjectContentV0::CommitBody(CommitBody::V0(
-                            CommitBodyV0::AsyncTransaction(_t),
+                            CommitBodyV0::AsyncTransaction(t),
+                        )))
+                        | Ok(ObjectContentV0::CommitBody(CommitBody::V0(
+                            CommitBodyV0::SyncTransaction(t),
                         ))) => {
                             println!("Transaction: {}", commit_id.unwrap());
+                            if t.body_type() == 0 || t.body_type() == 2 {
+                                //TODO display ADDs and REMOVEs
+                            }
                         }
                         Ok(ObjectContentV0::Certificate(Certificate::V0(certif))) => {
                             if commit_id.is_none() && signature.is_some() {
-                                third_round.push(certif.content.previous.clone());
+                                third_round.push((certif.content.previous.clone(), None));
                                 certificate = Some(certif);
                             }
                         }
@@ -454,7 +568,9 @@ async fn main_inner() -> Result<(), NgcliError> {
                     },
                 }
             }
-
+            if third_round.is_empty() {
+                return Ok(());
+            }
             let blocks: Vec<Block> = Broker::ext(
                 Box::new(ConnectionWebSocket {}),
                 peer_privk,
@@ -463,15 +579,18 @@ async fn main_inner() -> Result<(), NgcliError> {
                 broker_server.get_ws_url(&None).await.unwrap().0, // for now we are only connecting to NextGraph SaaS cloud (nextgraph.eu) so it is safe.
                 ExtObjectGetV0 {
                     overlay: overlay_id,
-                    ids: third_round.iter().map(|o| o.id).collect::<Vec<ObjectId>>(),
+                    ids: third_round
+                        .iter()
+                        .map(|(o, _)| o.id)
+                        .collect::<Vec<ObjectId>>(),
                     include_files: true,
                 },
             )
             .await?;
             blocks.into_iter().for_each(|b| _ = store.put(&b));
-
-            for third_ref in third_round.into_iter() {
-                match Object::load(third_ref.id, Some(third_ref.key), &store) {
+            let store = Arc::new(store);
+            for (third_ref, filename) in third_round.into_iter() {
+                match Object::load(third_ref.id, Some(third_ref.key.clone()), &store) {
                     Err(e) => println!("Error: {:?}", e),
                     Ok(o) => match o.content_v0() {
                         Err(e) => println!("Error: {:?}", e),
@@ -479,6 +598,15 @@ async fn main_inner() -> Result<(), NgcliError> {
                             Err(e) => println!("Error: {:?}", e),
                             Ok(s) => println!("Here is the snapshot data :\n\r{}", s),
                         },
+                        Ok(ObjectContentV0::RandomAccessFileMeta(file_meta)) => {
+                            get_random_access_file(
+                                file_meta,
+                                third_ref,
+                                filename,
+                                sub_matches,
+                                &store,
+                            )?;
+                        }
                         Ok(ObjectContentV0::CommitBody(CommitBody::V0(
                             CommitBodyV0::Repository(repo),
                         ))) => {

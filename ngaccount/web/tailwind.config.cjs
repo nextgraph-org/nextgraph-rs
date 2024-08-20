@@ -17,7 +17,7 @@ const config = {
   plugins: [
     require('flowbite/plugin')
   ],
-  darkMode: 'class',
+  darkMode: 'selector',
 };
 
 module.exports = config;

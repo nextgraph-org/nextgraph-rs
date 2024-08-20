@@ -107,7 +107,7 @@
                 }
             });
             get(branch).history.start();
-        },1);
+        },100);
     });
 
     onDestroy( ()=>{ 
@@ -140,7 +140,7 @@
   </script>
   
   <div style="width:120px; min-width:120px;font-family: monospace; font: Courier; font-size:16px;">
-  
+
     {#each history as commit}
     
         <div class="w-full commit relative text-gray-500" style="height:60px;" role="button" title={commit[0]} tabindex=0 on:click={()=>openCommit(commit[0])} on:keypress={()=>openCommit(commit[0])}>

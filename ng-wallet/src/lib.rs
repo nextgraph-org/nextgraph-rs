@@ -25,6 +25,7 @@ use aes_gcm_siv::{
 use argon2::{Algorithm, Argon2, AssociatedData, ParamsBuilder, Version};
 use chacha20poly1305::XChaCha20Poly1305;
 use image::{imageops::FilterType, io::Reader as ImageReader, ImageOutputFormat};
+use ng_net::types::Locator;
 use rand::distributions::{Distribution, Uniform};
 use rand::prelude::*;
 use safe_transmute::transmute_to_bytes;
@@ -650,8 +651,10 @@ pub async fn create_wallet_second_step_v0(
     if let Some(additional) = &params.additional_bootstrap {
         params.core_bootstrap.merge(additional);
     }
-
+    let mut locator = Locator::empty();
     for server in &params.core_bootstrap.servers {
+        locator.add(server.clone());
+
         wallet_log.add(WalletOperation::AddBrokerServerV0(server.clone()));
         wallet_log.add(WalletOperation::AddSiteBootstrapV0((user, server.peer_id)));
         site.bootstraps.push(server.peer_id);
@@ -666,6 +669,7 @@ pub async fn create_wallet_second_step_v0(
         }
         list.unwrap().push(broker);
     }
+    verifier.update_locator(locator);
 
     let mut master_key = [0u8; 32];
     getrandom::getrandom(&mut master_key).map_err(|_e| NgWalletError::InternalError)?;

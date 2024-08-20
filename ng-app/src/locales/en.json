@@ -74,6 +74,14 @@
         "chat": "Chat"
       }
     },
+    "signature": {
+      "title": "Signature",
+      "current_heads": "Current heads",
+      "or_click_on_head": "or click on one of the signed heads to get its link.",
+      "here_is_the_link": "Here is its link that you can share.",
+      "cli_warning": "For now the link is only usable with the CLI, by running the following command",
+      "signed_snap_at_head": "A signed snapshot is currently at the head."
+    },
     "file": {
       "download": "Download",
       "upload_progress": "Uploading...",
@@ -475,7 +483,7 @@
       "download_wallet_done": "Your wallet file has been downloaded into your \"Downloads\" folder, with the name<br /><span class=\"text-black\"> {download_name}</span ><br /> <span class=\"font-bold\" >Please move it to a safe and durable place.</span ><br />",
       "download_pdf_description": "Please download your Recovery PDF, print it, and delete it.",
       "download_pdf": "Download my PDF",
-      "download_pdf_done": "Your Recovery PDF file has been downloaded into your \"Downloads\" folder, with the name<br /><span class=\"text-black\"> {pdf_name}</span ><br /> <span class=\"font-bold\" >Please print it and then delete it.</span ><br />",
+      "download_pdf_done": "Your Recovery PDF file has been downloaded into your \"Downloads\" folder,<br /> with the name <span class=\"text-black\"> {pdf_name}</span ><br /><br />  <span class=\"font-bold\" >Please print it and then delete it.</span ><br /><br />",
       "your_pazzle": "Here below is your Pazzle. <br /> The <span class=\"font-bold\">order</span> of each image is <span class=\"font-bold\">important</span>!",
       "your_mnemonic": "And here is your mnemonic (your alternative passphrase):",
       "unlock_tips_1": "You can use both the pazzle or the mnemonic to unlock your wallet. The pazzle is easier to remember. The mnemonic is useful in some special cases. We recommend that you use the pazzle. <span class=\"font-bold text-xl\" >Copy both on a piece of paper.</span > You should try to memorize the pazzle. Once you did, you won't need the paper anymore.",
