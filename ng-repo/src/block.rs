@@ -193,6 +193,12 @@ impl Block {
         }
     }
 
+    pub fn destroy_header(&mut self) {
+        match self {
+            Block::V0(b) => b.commit_header_key = None,
+        }
+    }
+
     /// Get the header reference
     pub fn header_ref(&self) -> Option<CommitHeaderRef> {
         match self {

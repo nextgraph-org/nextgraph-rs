@@ -27,7 +27,7 @@ use crate::errors::NgError;
 use crate::utils::{
     decode_key, decode_priv_key, dh_pubkey_array_from_ed_pubkey_slice,
     dh_pubkey_from_ed_pubkey_slice, ed_privkey_to_ed_pubkey, from_ed_privkey_to_dh_privkey,
-    random_key,
+    random_key, verify,
 };
 
 //
@@ -2345,6 +2345,14 @@ pub enum SignatureContent {
     V0(SignatureContentV0),
 }
 
+impl SignatureContent {
+    pub fn commits(&self) -> &[ObjectId] {
+        match self {
+            Self::V0(v0) => &v0.commits,
+        }
+    }
+}
+
 impl fmt::Display for SignatureContent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -2396,6 +2404,21 @@ pub struct SignatureV0 {
 
     /// A reference to the Certificate that should be used to verify this signature.
     pub certificate_ref: ObjectRef,
+}
+
+impl SignatureV0 {
+    pub fn verify(&self, cert: &CertificateV0) -> Result<(), NgError> {
+        let ser = serde_bare::to_vec(&self.content).unwrap();
+        match &self.threshold_sig {
+            ThresholdSignatureV0::Owners(sig) => {
+                if !cert.get_owners_pub_key().verify(sig, &ser) {
+                    return Err(NgError::InvalidSignature);
+                }
+                return Ok(());
+            }
+            _ => unimplemented!(),
+        }
+    }
 }
 
 impl fmt::Display for Signature {
@@ -2454,7 +2477,7 @@ pub enum OrdersPublicKeySetsV0 {
 /// A Certificate content, that will be signed by the previous certificate signers.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CertificateContentV0 {
-    /// the previous certificate in the chain of trust. Can be another Certificate or the Repository commit when we are at the root of the chain of trust.
+    /// the previous certificate in the chain of trust. Can be another Certificate or the Repository commit's body when we are at the root of the chain of trust.
     pub previous: ObjectRef,
 
     /// The Commit Id of the latest RootBranch definition (= the ReadCap ID) in order to keep in sync with the options for signing.
@@ -2495,6 +2518,19 @@ pub struct CertificateV0 {
 
     /// signature over the content.
     pub sig: CertificateSignatureV0,
+}
+
+impl CertificateV0 {
+    pub fn verify_with_repo_id(&self, repo_id: &RepoId) -> Result<(), NgError> {
+        let ser = serde_bare::to_vec(&self.content).unwrap();
+        match self.sig {
+            CertificateSignatureV0::Repo(sig) => verify(&ser, sig, repo_id.clone()),
+            _ => Err(NgError::InvalidArgument),
+        }
+    }
+    pub fn get_owners_pub_key(&self) -> &threshold_crypto::PublicKey {
+        &self.content.owners_pk_set
+    }
 }
 
 /// A certificate object

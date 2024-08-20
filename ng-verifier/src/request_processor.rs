@@ -55,71 +55,66 @@ impl Verifier {
                 _ => unimplemented!(),
             },
             AppRequestCommandV0::FileGet => {
-                if nuri.access.len() < 1 || nuri.object.is_none() {
+                if nuri.objects.len() < 1 {
                     return Err(NgError::InvalidArgument);
                 }
                 let (repo_id, _, store_repo) = self.resolve_target(&nuri.target)?;
-                let access = nuri.access.get(0).unwrap();
-                if let NgAccessV0::Key(key) = access {
-                    let repo = self.get_repo(&repo_id, &store_repo)?;
-                    let obj_id = nuri.object.unwrap();
-                    if let Some(mut stream) = self
-                        .fetch_blocks_if_needed(&obj_id, &repo_id, &store_repo)
-                        .await?
-                    {
-                        // TODO: start opening the file and running the sending_loop after we received 10 (3 mandatory and 7 depths max) blocks.
-                        // for files below 10MB we wont see a difference, but for big files, we can start sending out some AppResponse earlier.
-                        while let Some(block) = stream.next().await {
-                            repo.store.put(&block)?;
-                        }
+                let obj = nuri.objects.get(0).unwrap();
+                let repo = self.get_repo(&repo_id, &store_repo)?;
+                if let Some(mut stream) = self
+                    .fetch_blocks_if_needed(&obj.id, &repo_id, &store_repo)
+                    .await?
+                {
+                    // TODO: start opening the file and running the sending_loop after we received 10 (3 mandatory and 7 depths max) blocks.
+                    // for files below 10MB we wont see a difference, but for big files, we can start sending out some AppResponse earlier.
+                    while let Some(block) = stream.next().await {
+                        repo.store.put(&block)?;
                     }
-                    let file =
-                        RandomAccessFile::open(obj_id, key.clone(), Arc::clone(&repo.store))?;
-
-                    let (mut tx, rx) = mpsc::unbounded::<AppResponse>();
-                    tx.send(AppResponse::V0(AppResponseV0::FileMeta(FileMetaV0 {
-                        content_type: file.meta().content_type().clone(),
-                        size: file.meta().total_size(),
-                    })))
-                    .await
-                    .map_err(|_| NgError::InternalError)?;
-
-                    async fn sending_loop(
-                        file: Arc<RandomAccessFile>,
-                        mut tx: Sender<AppResponse>,
-                    ) -> ResultSend<()> {
-                        let mut pos = 0;
-                        loop {
-                            let res = file.read(pos, 1048564);
-
-                            if res.is_err() {
-                                //log_info!("ERR={:?}", res.unwrap_err());
-                                let _ = tx.send(AppResponse::V0(AppResponseV0::EndOfStream)).await;
-                                tx.close_channel();
-                                break;
-                            }
-                            let res = res.unwrap();
-                            //log_info!("reading={} {}", pos, res.len());
-                            pos += res.len();
-                            if let Err(_) = tx
-                                .send(AppResponse::V0(AppResponseV0::FileBinary(res)))
-                                .await
-                            {
-                                break;
-                            }
-                        }
-                        Ok(())
-                    }
-
-                    spawn_and_log_error(sending_loop(Arc::new(file), tx.clone()));
-                    let fnonce = Box::new(move || {
-                        //log_debug!("FileGet cancelled");
-                        tx.close_channel();
-                    });
-                    Ok((rx, fnonce))
-                } else {
-                    return Err(NgError::InvalidArgument);
                 }
+                let file =
+                    RandomAccessFile::open(obj.id, obj.key.clone(), Arc::clone(&repo.store))?;
+
+                let (mut tx, rx) = mpsc::unbounded::<AppResponse>();
+                tx.send(AppResponse::V0(AppResponseV0::FileMeta(FileMetaV0 {
+                    content_type: file.meta().content_type().clone(),
+                    size: file.meta().total_size(),
+                })))
+                .await
+                .map_err(|_| NgError::InternalError)?;
+
+                async fn sending_loop(
+                    file: Arc<RandomAccessFile>,
+                    mut tx: Sender<AppResponse>,
+                ) -> ResultSend<()> {
+                    let mut pos = 0;
+                    loop {
+                        let res = file.read(pos, 1048564);
+
+                        if res.is_err() {
+                            //log_info!("ERR={:?}", res.unwrap_err());
+                            let _ = tx.send(AppResponse::V0(AppResponseV0::EndOfStream)).await;
+                            tx.close_channel();
+                            break;
+                        }
+                        let res = res.unwrap();
+                        //log_info!("reading={} {}", pos, res.len());
+                        pos += res.len();
+                        if let Err(_) = tx
+                            .send(AppResponse::V0(AppResponseV0::FileBinary(res)))
+                            .await
+                        {
+                            break;
+                        }
+                    }
+                    Ok(())
+                }
+
+                spawn_and_log_error(sending_loop(Arc::new(file), tx.clone()));
+                let fnonce = Box::new(move || {
+                    //log_debug!("FileGet cancelled");
+                    tx.close_channel();
+                });
+                Ok((rx, fnonce))
             }
             _ => unimplemented!(),
         }

@@ -39,6 +39,13 @@ lazy_static! {
     #[doc(hidden)]
     static ref RE_NAMED_BRANCH_OR_COMMIT: Regex =
         Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*):v:([A-Za-z0-9-_]*):a:([A-Za-z0-9-_%]*)$").unwrap(); //TODO: allow international chars. disallow digit as first char
+    #[doc(hidden)]
+    static ref RE_OBJECTS: Regex =
+        Regex::new(r"^did:ng(?::o:([A-Za-z0-9-_]{44}))?:v:([A-Za-z0-9-_]{44})((?::c:[A-Za-z0-9-_]{44}:k:[A-Za-z0-9-_]{44})+)(?::s:([A-Za-z0-9-_]{44}):k:([A-Za-z0-9-_]{44}))?:l:([A-Za-z0-9-_]*)$").unwrap();
+    #[doc(hidden)]
+    static ref RE_OBJECT_READ_CAPS: Regex =
+        Regex::new(r":[cj]:([A-Za-z0-9-_]{44}):k:([A-Za-z0-9-_]{44})").unwrap();
+
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -193,13 +200,15 @@ pub struct NuriV0 {
     pub target: NuriTargetV0,
     pub entire_store: bool, // If it is a store, will include all the docs belonging to the store
 
-    pub object: Option<ObjectId>, // used only for FileGet. // cannot be used for queries. only to download an object (file,commit..)
+    pub objects: Vec<ObjectRef>, // used only for FileGet. // cannot be used for queries. only to download an object (file,commit..)
+    pub signature: Option<ObjectRef>,
+
     pub branch: Option<TargetBranchV0>, // if None, the main branch is chosen
     pub overlay: Option<OverlayLink>,
 
     pub access: Vec<NgAccessV0>,
     pub topic: Option<TopicId>,
-    pub locator: Vec<PeerAdvert>,
+    pub locator: Option<Locator>,
 }
 
 impl NuriV0 {
@@ -208,12 +217,13 @@ impl NuriV0 {
             identity: None,
             target: NuriTargetV0::None,
             entire_store: false,
-            object: None,
+            objects: vec![],
+            signature: None,
             branch: None,
             overlay: None,
             access: vec![],
             topic: None,
-            locator: vec![],
+            locator: None,
         }
     }
     pub fn copy_target_from(&mut self, nuri: &NuriV0) {
@@ -232,12 +242,13 @@ impl NuriV0 {
             identity: None,
             target: NuriTargetV0::Repo(store_repo.repo_id().clone()),
             entire_store: false,
-            object: None,
+            objects: vec![],
+            signature: None,
             branch: None,
             overlay: None,
             access: vec![],
             topic: None,
-            locator: vec![],
+            locator: None,
         }
     }
 
@@ -303,7 +314,7 @@ impl NuriV0 {
     }
 
     pub fn is_branch_identifier(&self) -> bool {
-        self.locator.is_empty()
+        self.locator.is_none()
             && self.topic.is_none()
             && self.access.is_empty()
             && self.overlay.as_ref().map_or(false, |o| o.is_outer())
@@ -311,13 +322,15 @@ impl NuriV0 {
                 .branch
                 .as_ref()
                 .map_or(true, |b| b.is_valid_for_sparql_update())
-            && self.object.is_none()
+            && self.objects.is_empty()
+            && self.signature.is_none()
             && !self.entire_store
             && self.target.is_repo_id()
     }
 
     pub fn is_valid_for_sparql_update(&self) -> bool {
-        self.object.is_none()
+        self.objects.is_empty()
+            && self.signature.is_none()
             && self.entire_store == false
             && self.target.is_valid_for_sparql_update()
             && self
@@ -326,7 +339,8 @@ impl NuriV0 {
                 .map_or(true, |b| b.is_valid_for_sparql_update())
     }
     pub fn is_valid_for_discrete_update(&self) -> bool {
-        self.object.is_none()
+        self.objects.is_empty()
+            && self.signature.is_none()
             && self.entire_store == false
             && self.target.is_valid_for_discrete_update()
             && self
@@ -340,12 +354,13 @@ impl NuriV0 {
             identity: None,
             target: NuriTargetV0::Repo(repo_id),
             entire_store: false,
-            object: None,
+            objects: vec![],
+            signature: None,
             branch: None,
             overlay: None,
             access: vec![],
             topic: None,
-            locator: vec![],
+            locator: None,
         })
     }
 
@@ -354,12 +369,13 @@ impl NuriV0 {
             identity: None,
             target: NuriTargetV0::None,
             entire_store: false,
-            object: Some(obj_ref.id),
+            objects: vec![obj_ref.clone()],
+            signature: None,
             branch: None,
             overlay: None,
-            access: vec![NgAccessV0::Key(obj_ref.key.clone())],
+            access: vec![],
             topic: None,
-            locator: vec![],
+            locator: None,
         }
     }
 
@@ -368,12 +384,13 @@ impl NuriV0 {
             identity: None,
             target: NuriTargetV0::PrivateStore,
             entire_store: false,
-            object: None,
+            objects: vec![],
+            signature: None,
             branch: None,
             overlay: None,
             access: vec![],
             topic: None,
-            locator: vec![],
+            locator: None,
         }
     }
     pub fn new_entire_user_site() -> Self {
@@ -381,14 +398,71 @@ impl NuriV0 {
             identity: None,
             target: NuriTargetV0::UserSite,
             entire_store: false,
-            object: None,
+            objects: vec![],
+            signature: None,
             branch: None,
             overlay: None,
             access: vec![],
             topic: None,
-            locator: vec![],
+            locator: None,
         }
     }
+    pub fn new_for_readcaps(from: &str) -> Result<Self, NgError> {
+        let c = RE_OBJECTS.captures(from);
+        if let Some(c) = c {
+            let target = c.get(1).map_or(NuriTargetV0::None, |repo_match| {
+                if let Ok(id) = decode_key(repo_match.as_str()) {
+                    NuriTargetV0::Repo(id)
+                } else {
+                    NuriTargetV0::None
+                }
+            });
+            let overlay_id = decode_overlayid(c.get(2).ok_or(NgError::InvalidNuri)?.as_str())?;
+            let read_caps = c.get(3).ok_or(NgError::InvalidNuri)?.as_str();
+            let sign_obj_id = c.get(4).map(|c| decode_digest(c.as_str()));
+            let sign_obj_key = c.get(5).map(|c| decode_sym_key(c.as_str()));
+            let locator =
+                TryInto::<Locator>::try_into(c.get(6).ok_or(NgError::InvalidNuri)?.as_str())?;
+            let signature = if sign_obj_id.is_some() && sign_obj_key.is_some() {
+                Some(ObjectRef::from_id_key(
+                    sign_obj_id.unwrap()?,
+                    sign_obj_key.unwrap()?,
+                ))
+            } else {
+                None
+            };
+
+            let objects = RE_OBJECT_READ_CAPS
+                .captures_iter(read_caps)
+                .map(|c| {
+                    Ok(ObjectRef::from_id_key(
+                        decode_digest(c.get(1).ok_or(NgError::InvalidNuri)?.as_str())?,
+                        decode_sym_key(c.get(2).ok_or(NgError::InvalidNuri)?.as_str())?,
+                    ))
+                })
+                .collect::<Result<Vec<ObjectRef>, NgError>>()?;
+
+            if objects.len() < 1 {
+                return Err(NgError::InvalidNuri);
+            }
+
+            Ok(Self {
+                identity: None,
+                target,
+                entire_store: false,
+                objects,
+                signature,
+                branch: None,
+                overlay: Some(overlay_id.into()),
+                access: vec![],
+                topic: None,
+                locator: Some(locator),
+            })
+        } else {
+            Err(NgError::InvalidNuri)
+        }
+    }
+
     pub fn new_from(from: &String) -> Result<Self, NgError> {
         let c = RE_REPO_O.captures(from);
 
@@ -401,12 +475,13 @@ impl NuriV0 {
                 identity: None,
                 target: NuriTargetV0::Repo(repo_id),
                 entire_store: false,
-                object: None,
+                objects: vec![],
+                signature: None,
                 branch: None,
                 overlay: None,
                 access: vec![],
                 topic: None,
-                locator: vec![],
+                locator: None,
             })
         } else {
             let c = RE_FILE_READ_CAP.captures(from);
@@ -423,12 +498,13 @@ impl NuriV0 {
                     identity: None,
                     target: NuriTargetV0::None,
                     entire_store: false,
-                    object: Some(id),
+                    objects: vec![ObjectRef::from_id_key(id, key)],
+                    signature: None,
                     branch: None,
                     overlay: None,
-                    access: vec![NgAccessV0::Key(key)],
+                    access: vec![],
                     topic: None,
-                    locator: vec![],
+                    locator: None,
                 })
             } else {
                 let c = RE_REPO.captures(from);
@@ -447,12 +523,13 @@ impl NuriV0 {
                         identity: None,
                         target: NuriTargetV0::Repo(repo_id),
                         entire_store: false,
-                        object: None,
+                        objects: vec![],
+                        signature: None,
                         branch: None,
                         overlay: Some(overlay_id.into()),
                         access: vec![],
                         topic: None,
-                        locator: vec![],
+                        locator: None,
                     })
                 } else {
                     let c = RE_BRANCH.captures(from);
@@ -473,12 +550,13 @@ impl NuriV0 {
                             identity: None,
                             target: NuriTargetV0::Repo(repo_id),
                             entire_store: false,
-                            object: None,
+                            objects: vec![],
+                            signature: None,
                             branch: Some(TargetBranchV0::BranchId(branch_id)),
                             overlay: Some(overlay_id.into()),
                             access: vec![],
                             topic: None,
-                            locator: vec![],
+                            locator: None,
                         })
                     } else {
                         Err(NgError::InvalidNuri)
