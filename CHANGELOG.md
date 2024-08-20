@@ -6,11 +6,23 @@ Access the sub-sections directly :
 
 ## App
 
+### App [0.1.0-preview.8] - 2024-08-21
+
+#### Added
+
+-   signature tool: signs HEADS or a snapshot
+
+#### Fixed
+
+-   bug in synchronization of stores content (container) on tauri native apps
+-   removed dark theme (that wasn't implemented properly)
+-   on web-app, detects jshelter and ask user to deactivate it
+
 ### App [0.1.0-preview.7] - 2024-08-15
 
 #### Added
 
--   Wallet Creation : Downlaod Recovery PDF
+-   Wallet Creation : Download Recovery PDF
 -   Wallet Creation : Download wallet file
 -   Wallet Login : with pazzle
 -   Wallet Login : correct errors while entering pazzle
@@ -47,6 +59,15 @@ Access the sub-sections directly :
 -   Native app: Windows
 
 ## SDK
+
+### SDK [unreleased]
+
+#### Added
+
+-   js & nodejs : signature_status
+-   js & nodejs : signed_snapshot_request
+-   js & nodejs : signature_request
+-   rust : app_request: Fetch : SignatureStatus , SignatureRequest SignedSnapshotRequest
 
 ### SDK [0.1.0-preview.6] - 2024-08-15
 
@@ -95,6 +116,12 @@ Access the sub-sections directly :
 
 ## Broker
 
+### Broker [0.1.0-preview.8] - 2024-08-21
+
+#### Added
+
+-   ExtProtocol : ObjectGet
+
 ### Broker [0.1.0-preview.7] - 2024-08-15
 
 #### Added
@@ -106,8 +133,34 @@ Access the sub-sections directly :
 -   invite-admin
 -   broker service provider : add invitation for user
 -   serve web app
+-   ExtProtocol : WalletGetExport
+-   ClientProtocol : BlocksExist
+-   ClientProtocol : BlocksGet
+-   ClientProtocol : BlocksPut
+-   ClientProtocol : CommitGet
+-   ClientProtocol : Event
+-   ClientProtocol : PinRepo
+-   ClientProtocol : RepoPinStatus
+-   ClientProtocol : TopicSub
+-   ClientProtocol : TopicSyncReq
+-   ClientProtocol : WalletPutExport
+-   AppProtocol : AppRequest
+-   AppProtocol : AppSessionStart
+-   AppProtocol : AppSessionStop
+-   AdminProtocol : AddInvitation
+-   AdminProtocol : AddUser
+-   AdminProtocol : CreateUser
+-   AdminProtocol : DelUser
+-   AdminProtocol : ListInvitations
+-   AdminProtocol : ListUsers
 
 ## CLI
+
+### CLI [0.1.0-preview.8] - 2024-08-21
+
+#### Added
+
+-   get : download binary files, snapshots, and head commits, and verify signature
 
 ### CLI [0.1.0-preview.7] - 2024-08-15
 

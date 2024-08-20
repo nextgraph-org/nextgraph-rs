@@ -46,7 +46,7 @@ quick-xml = ">=0.29, <0.32"
 memchr = "2.5"
 peg = "0.8"
 base64-url = "2.0.0"
-ng-repo = { path = "../ng-repo", version = "0.1.0-preview.7" }
+ng-repo = { path = "../ng-repo", version = "0.1.0-preview.8" }
 
 [target.'cfg(all(not(target_family = "wasm"),not(docsrs)))'.dependencies]
 libc = "0.2"
