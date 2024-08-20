@@ -490,6 +490,23 @@ impl Object {
         key: Option<SymKey>,
         store: &Store,
     ) -> Result<Object, ObjectParseError> {
+        Self::load_(id, key, store, true)
+    }
+
+    pub fn load_without_header(
+        id: ObjectId,
+        key: Option<SymKey>,
+        store: &Store,
+    ) -> Result<Object, ObjectParseError> {
+        Self::load_(id, key, store, false)
+    }
+
+    fn load_(
+        id: ObjectId,
+        key: Option<SymKey>,
+        store: &Store,
+        with_header: bool,
+    ) -> Result<Object, ObjectParseError> {
         fn load_tree(
             parents: Vec<BlockId>,
             store: &Store,
@@ -540,22 +557,27 @@ impl Object {
             root.set_key(key);
         }
 
-        let header = match Self::load_header_(root, store) {
-            Err(ObjectParseError::MissingBlocks(m)) => {
-                return Err(ObjectParseError::MissingHeaderBlocks((
-                    Object {
-                        blocks,
-                        block_contents,
-                        header: None,
-                        header_blocks: vec![],
-                        #[cfg(test)]
-                        already_saved: false,
-                    },
-                    m,
-                )));
+        let header = if with_header {
+            match Self::load_header_(root, store) {
+                Err(ObjectParseError::MissingBlocks(m)) => {
+                    return Err(ObjectParseError::MissingHeaderBlocks((
+                        Object {
+                            blocks,
+                            block_contents,
+                            header: None,
+                            header_blocks: vec![],
+                            #[cfg(test)]
+                            already_saved: false,
+                        },
+                        m,
+                    )));
+                }
+                Err(e) => return Err(e),
+                Ok(h) => h,
             }
-            Err(e) => return Err(e),
-            Ok(h) => h,
+        } else {
+            root.destroy_header();
+            (None, vec![])
         };
 
         Ok(Object {

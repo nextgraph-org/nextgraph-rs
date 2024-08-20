@@ -492,6 +492,10 @@ impl Commit {
         }
     }
 
+    pub fn body_ref(&self) -> &ObjectRef {
+        &self.content_v0().body
+    }
+
     /// Get commit content V0
     pub fn content_v0(&self) -> &CommitContentV0 {
         match self {

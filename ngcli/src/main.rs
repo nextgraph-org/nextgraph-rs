@@ -10,6 +10,7 @@
 #![doc(hidden)]
 
 use core::fmt;
+use std::collections::HashSet;
 use std::error::Error;
 use std::fs::{read_to_string, write};
 use std::net::IpAddr;
@@ -24,14 +25,19 @@ use zeroize::Zeroize;
 
 use ng_repo::errors::*;
 use ng_repo::log::*;
+use ng_repo::object::Object;
+use ng_repo::store::Store;
 use ng_repo::types::*;
 use ng_repo::utils::{decode_priv_key, display_timestamp, generate_keypair, timestamp_after};
 
 use ng_net::actors::admin::*;
-use ng_net::broker::BROKER;
+use ng_net::app_protocol::{NuriTargetV0, NuriV0};
+use ng_net::broker::{Broker, BROKER};
 use ng_net::types::*;
 
 use ng_client_ws::remote_ws::ConnectionWebSocket;
+
+mod get;
 
 /// CliConfig Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -227,7 +233,11 @@ async fn main_inner() -> Result<(), NgcliError> {
             .subcommand(
                 Command::new("gen-key")
                     .about("Generates a new key pair () public key and private key ) to be used by example for user authentication.")
-            )
+            ).subcommand(
+                Command::new("get")
+                    .about("fetches one or several commits, or a binary object, with an optional signature, from a broker, using the Ext Protocol, and connecting on the Outer Overlay. The request is anonymous and doesn't need any authentication")
+                    .arg(arg!([NURI] "NextGraph URI of the commit(s) or object, containing the ReadCap in the form :c:k :j:k and optionally :s:k and the usual :o:v:l").required(true))
+                )
             .get_matches();
 
     if std::env::var("RUST_LOG").is_err() {
@@ -328,6 +338,183 @@ async fn main_inner() -> Result<(), NgcliError> {
         key.zeroize();
         None::<()>
     });
+
+    match matches.subcommand() {
+        Some(("get", sub_matches)) => {
+            log_debug!("processing get command");
+
+            let nuri = NuriV0::new_for_readcaps(sub_matches.get_one::<String>("NURI").unwrap())?;
+            let overlay_id = nuri.overlay.unwrap().try_into()?;
+
+            let peer_privk = PrivKey::Ed25519PrivKey(keys[1]);
+            let peer_pubk = peer_privk.to_pub();
+
+            let broker_server = nuri.locator.unwrap().first_broker_server()?;
+
+            let mut ids = nuri.objects.iter().map(|o| o.id).collect::<Vec<ObjectId>>();
+            let in_nuri: HashSet<Digest> = HashSet::from_iter(ids.iter().cloned());
+            nuri.signature.as_ref().map(|s| ids.push(s.id.clone()));
+
+            let mut store = Store::new_temp_in_mem();
+            store.overlay_id = overlay_id;
+
+            let blocks: Vec<Block> = Broker::ext(
+                Box::new(ConnectionWebSocket {}),
+                peer_privk.clone(),
+                peer_pubk,
+                broker_server.peer_id,
+                broker_server.get_ws_url(&None).await.unwrap().0, // for now we are only connecting to NextGraph SaaS cloud (nextgraph.eu) so it is safe.
+                ExtObjectGetV0 {
+                    overlay: overlay_id,
+                    ids,
+                    include_files: true,
+                },
+            )
+            .await?;
+            blocks.into_iter().for_each(|b| _ = store.put(&b));
+
+            let mut next_round = Vec::with_capacity(2);
+
+            let mut signature = None;
+
+            if let Some(sign_ref) = nuri.signature {
+                if let Ok(o) = Object::load(sign_ref.id, Some(sign_ref.key), &store) {
+                    match o.content_v0() {
+                        Ok(ObjectContentV0::Signature(Signature::V0(v0))) => {
+                            let in_sig = HashSet::from_iter(v0.content.commits().iter().cloned());
+                            if in_nuri.is_subset(&in_sig) {
+                                next_round.push((v0.certificate_ref.clone(), None));
+                                signature = Some(v0);
+                            } else {
+                                println!("Signature is invalid");
+                                log_err!("Signature is invalid");
+                            }
+                        }
+                        _ => println!("Error: invalid signature object"),
+                    }
+                }
+            }
+
+            nuri.objects.into_iter().for_each(|obj_ref| {
+                match Object::load(obj_ref.id, Some(obj_ref.key), &store) {
+                    Err(e) => println!("Error: {:?}", e),
+                    Ok(o) => match o.content_v0() {
+                        Err(e) => println!("Error: {:?}", e),
+                        Ok(ObjectContentV0::Commit(c)) => {
+                            next_round.push((c.body_ref().clone(), Some(obj_ref.id)));
+                        }
+                        _ => println!("unsupported format"),
+                    },
+                }
+            });
+
+            let blocks: Vec<Block> = Broker::ext(
+                Box::new(ConnectionWebSocket {}),
+                peer_privk.clone(),
+                peer_pubk,
+                broker_server.peer_id,
+                broker_server.get_ws_url(&None).await.unwrap().0, // for now we are only connecting to NextGraph SaaS cloud (nextgraph.eu) so it is safe.
+                ExtObjectGetV0 {
+                    overlay: overlay_id,
+                    ids: next_round
+                        .iter()
+                        .map(|(o, _)| o.id)
+                        .collect::<Vec<ObjectId>>(),
+                    include_files: true,
+                },
+            )
+            .await?;
+            blocks.into_iter().for_each(|b| _ = store.put(&b));
+
+            let mut third_round = Vec::with_capacity(2);
+            let mut certificate = None;
+            for (body_ref, commit_id) in next_round.into_iter() {
+                match Object::load(body_ref.id, Some(body_ref.key), &store) {
+                    Err(e) => println!("Error: {:?}", e),
+                    Ok(o) => match o.content_v0() {
+                        Err(e) => println!("Error: {:?}", e),
+                        Ok(ObjectContentV0::CommitBody(CommitBody::V0(
+                            CommitBodyV0::Snapshot(Snapshot::V0(snap)),
+                        ))) => {
+                            println!("Snapshot: {}", commit_id.unwrap());
+                            third_round.push(snap.content);
+                        }
+                        Ok(ObjectContentV0::CommitBody(CommitBody::V0(
+                            CommitBodyV0::AsyncTransaction(_t),
+                        ))) => {
+                            println!("Transaction: {}", commit_id.unwrap());
+                        }
+                        Ok(ObjectContentV0::Certificate(Certificate::V0(certif))) => {
+                            if commit_id.is_none() && signature.is_some() {
+                                third_round.push(certif.content.previous.clone());
+                                certificate = Some(certif);
+                            }
+                        }
+                        _ => println!("unsupported object"),
+                    },
+                }
+            }
+
+            let blocks: Vec<Block> = Broker::ext(
+                Box::new(ConnectionWebSocket {}),
+                peer_privk,
+                peer_pubk,
+                broker_server.peer_id,
+                broker_server.get_ws_url(&None).await.unwrap().0, // for now we are only connecting to NextGraph SaaS cloud (nextgraph.eu) so it is safe.
+                ExtObjectGetV0 {
+                    overlay: overlay_id,
+                    ids: third_round.iter().map(|o| o.id).collect::<Vec<ObjectId>>(),
+                    include_files: true,
+                },
+            )
+            .await?;
+            blocks.into_iter().for_each(|b| _ = store.put(&b));
+
+            for third_ref in third_round.into_iter() {
+                match Object::load(third_ref.id, Some(third_ref.key), &store) {
+                    Err(e) => println!("Error: {:?}", e),
+                    Ok(o) => match o.content_v0() {
+                        Err(e) => println!("Error: {:?}", e),
+                        Ok(ObjectContentV0::Snapshot(snap)) => match String::from_utf8(snap) {
+                            Err(e) => println!("Error: {:?}", e),
+                            Ok(s) => println!("Here is the snapshot data :\n\r{}", s),
+                        },
+                        Ok(ObjectContentV0::CommitBody(CommitBody::V0(
+                            CommitBodyV0::Repository(repo),
+                        ))) => {
+                            // DO THE SIGNATURE VERIFICATION
+                            if signature.is_some() && certificate.is_some() {
+                                if let NuriTargetV0::Repo(repo_id) = nuri.target {
+                                    if repo.id() != &repo_id {
+                                        println!(
+                                            "Repo in Nuri and Certificate differ : {}",
+                                            repo_id
+                                        )
+                                    }
+                                }
+                                println!("Repo that signed : {}", repo.id());
+
+                                certificate
+                                    .as_ref()
+                                    .unwrap()
+                                    .verify_with_repo_id(&repo.id())?;
+                                signature
+                                    .as_ref()
+                                    .unwrap()
+                                    .verify(certificate.as_ref().unwrap())?;
+
+                                println!("Signature is valid!");
+                            }
+                            // TODO deal with more rounds needed if root certificate is not the second one in chain
+                        }
+                        _ => println!("unsupported object"),
+                    },
+                }
+            }
+            return Ok(());
+        }
+        _ => {}
+    }
 
     // reading config from file, if any
     let mut config_path = path.clone();

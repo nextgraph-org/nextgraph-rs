@@ -1134,14 +1134,12 @@ impl BrokerInfoV0 {
         }
     }
     pub fn vec_into_locator(list: Vec<BrokerInfoV0>) -> Locator {
-        Locator::V0(
-            list.into_iter()
-                .filter_map(|info| match info {
-                    Self::CoreV0(_) => None,
-                    Self::ServerV0(bs) => Some(BrokerServer::V0(bs)),
-                })
-                .collect(),
-        )
+        let mut loc = Locator::empty();
+        list.into_iter().for_each(|info| match info {
+            Self::CoreV0(_) => {}
+            Self::ServerV0(bs) => loc.add(bs),
+        });
+        loc
     }
 }
 

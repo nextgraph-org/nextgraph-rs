@@ -324,6 +324,8 @@ impl Store {
             &self,
         )?;
 
+        let repository_commit_body_ref = repository_commit.body_ref().clone();
+
         //log_debug!("REPOSITORY COMMIT {}", repository_commit);
 
         let repository_commit_ref = repository_commit.reference().unwrap();
@@ -492,7 +494,7 @@ impl Store {
         // creating root certificate of the repo
 
         let cert_content = CertificateContentV0 {
-            previous: repository_commit_ref,
+            previous: repository_commit_body_ref,
             readcap_id: root_branch_readcap_id,
             owners_pk_set: pk_set.public_key(),
             orders_pk_sets: OrdersPublicKeySetsV0::None,

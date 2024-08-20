@@ -789,7 +789,6 @@ impl NoiseFSM {
                             let ext_req = ExtRequestV0 {
                                 content: ext_config.request.clone(),
                                 id: 0,
-                                overlay: None,
                             };
                             let protocol_start = StartProtocol::Ext(ExtRequest::V0(ext_req));
 

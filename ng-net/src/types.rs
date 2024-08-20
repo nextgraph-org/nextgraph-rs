@@ -197,8 +197,21 @@ pub struct BrokerServerV0 {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum BrokerServer {
-    V0(BrokerServerV0),
+pub struct BrokerServerContentV0 {
+    pub servers: Vec<BrokerServerTypeV0>,
+
+    pub version: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct BrokerServer {
+    pub content: BrokerServerContentV0,
+
+    /// peerId of the server
+    pub peer_id: PubKey,
+
+    /// optional signature over content by peer_id
+    pub sig: Option<Sig>,
 }
 
 pub type LocatorV0 = Vec<BrokerServer>;
@@ -219,11 +232,64 @@ impl Locator {
     pub fn empty() -> Self {
         Self::V0(vec![])
     }
+    pub fn first_broker_server(&self) -> Result<BrokerServerV0, NgError> {
+        match self {
+            Self::V0(v0) => {
+                let bs = v0.get(0).ok_or(NgError::BrokerNotFound)?;
+                Ok(BrokerServerV0 {
+                    server_type: bs
+                        .content
+                        .servers
+                        .get(0)
+                        .ok_or(NgError::BrokerNotFound)?
+                        .clone(),
+                    can_verify: false,
+                    can_forward: false,
+                    peer_id: bs.peer_id,
+                })
+            }
+        }
+    }
+    pub fn add(&mut self, bs: BrokerServerV0) {
+        match self {
+            Self::V0(v0) => {
+                for b in v0.iter_mut() {
+                    if b.peer_id == bs.peer_id {
+                        b.content.servers.push(bs.server_type);
+                        return;
+                    }
+                }
+                v0.push(BrokerServer {
+                    peer_id: bs.peer_id,
+                    sig: None,
+                    content: BrokerServerContentV0 {
+                        version: 0,
+                        servers: vec![bs.server_type],
+                    },
+                });
+            }
+        }
+    }
+}
+
+impl TryFrom<&str> for Locator {
+    type Error = NgError;
+    fn try_from(string: &str) -> Result<Self, NgError> {
+        let vec = base64_url::decode(string).map_err(|_| NgError::InvalidKey)?;
+        Ok(serde_bare::from_slice(&vec).map_err(|_| NgError::InvalidKey)?)
+    }
 }
 
 impl From<BrokerServerV0> for Locator {
     fn from(bs: BrokerServerV0) -> Self {
-        Locator::V0(vec![BrokerServer::V0(bs)])
+        Locator::V0(vec![BrokerServer {
+            peer_id: bs.peer_id,
+            content: BrokerServerContentV0 {
+                version: 0,
+                servers: vec![bs.server_type],
+            },
+            sig: None,
+        }])
     }
 }
 
@@ -1385,6 +1451,18 @@ impl OverlayLink {
             Self::Outer(o) => o,
             _ => panic!("not an outer overlay ID"),
         }
+    }
+}
+
+impl TryFrom<OverlayLink> for OverlayId {
+    type Error = NgError;
+    fn try_from(link: OverlayLink) -> Result<Self, Self::Error> {
+        Ok(match link {
+            OverlayLink::Inner(Digest::Blake3Digest32(i)) => OverlayId::Inner(i),
+            OverlayLink::Outer(Digest::Blake3Digest32(i)) => OverlayId::Outer(i),
+            OverlayLink::Global => OverlayId::Global,
+            _ => return Err(NgError::InvalidArgument),
+        })
     }
 }
 
@@ -3962,29 +4040,23 @@ impl ClientMessage {
 // EXTERNAL REQUESTS
 //
 
-/// Request object(s) by ID from a repository by non-members
-///
-/// The request is sent by a non-member to an overlay member node,
-/// which has a replica of the repository.
+/// Request object(s) by ID by non-members to a broker
 ///
 /// The response includes the requested objects and all their children recursively,
-/// and optionally all object dependencies recursively.
+/// and optionally all file object dependencies and their children recursively.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtObjectGetV0 {
-    /// Repository to request the objects from
-    pub repo: PubKey,
+    /// outer overlayId
+    pub overlay: OverlayId,
 
     /// List of Object IDs to request, including their children
     pub ids: Vec<ObjectId>,
 
-    /// Whether or not to include all children recursively
-    pub include_children: bool,
-
-    /// Expiry time after which the link becomes invalid
-    pub expiry: Option<Timestamp>,
+    /// Whether or not to include all files objects
+    pub include_files: bool,
 }
 
-/// Request object(s) by ID from a repository by non-members
+/// Request object(s) by ID by non-members
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExtObjectGet {
     V0(ExtObjectGetV0),
@@ -4003,7 +4075,7 @@ pub type ExtTopicSyncReq = TopicSyncReq;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExtRequestContentV0 {
     WalletGetExport(ExtWalletGetExportV0),
-    ExtObjectGet(ExtObjectGet),
+    ExtObjectGet(ExtObjectGetV0),
     ExtTopicSyncReq(ExtTopicSyncReq),
     // TODO inbox requests
     // TODO subreq ?
@@ -4013,9 +4085,8 @@ impl ExtRequestContentV0 {
     pub fn get_actor(&self) -> Box<dyn EActor> {
         match self {
             Self::WalletGetExport(a) => a.get_actor(),
-            _ => unimplemented!()
-            // Self::ExtObjectGet(a) => a.get_actor(),
-            // Self::ExtTopicSyncReq(a) => a.get_actor(),
+            Self::ExtObjectGet(a) => a.get_actor(),
+            _ => unimplemented!(), // Self::ExtTopicSyncReq(a) => a.get_actor(),
         }
     }
 }
@@ -4023,9 +4094,6 @@ impl ExtRequestContentV0 {
 /// External request with its request ID
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtRequestV0 {
-    /// outer overlayId
-    pub overlay: Option<Digest>,
-
     /// Request ID
     pub id: i64,
 
@@ -4070,6 +4138,7 @@ pub struct ExportedWallet(pub serde_bytes::ByteBuf);
 pub enum ExtResponseContentV0 {
     EmptyResponse,
     Block(Block),
+    Blocks(Vec<Block>),
     Wallet(ExportedWallet),
     // TODO  inbox related replies
     // TODO event ?
