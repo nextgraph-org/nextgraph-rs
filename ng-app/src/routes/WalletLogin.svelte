@@ -34,7 +34,8 @@
     has_wallets,
     display_error,
     wallet_from_import,
-    redirect_after_login
+    redirect_after_login,
+    redirect_if_wallet_is
   } from "../store";
   import { CheckBadge, ExclamationTriangle, QrCode } from "svelte-heros-v2";
 
@@ -110,10 +111,18 @@
 
   async function loggedin() {
     step = "loggedin";
+    
     if ($redirect_after_login) {
-      let redir=$redirect_after_login; 
-      $redirect_after_login=undefined; 
-      push("#"+redir);
+      if (!$redirect_if_wallet_is || $redirect_if_wallet_is == $active_wallet?.id) {
+        let redir=$redirect_after_login; 
+        $redirect_after_login=undefined; 
+        $redirect_if_wallet_is=undefined;
+        push("#"+redir);
+      } else {
+        $redirect_after_login=undefined; 
+        $redirect_if_wallet_is=undefined;
+        push("#/");
+      }
     } else {
       push("#/");
     }

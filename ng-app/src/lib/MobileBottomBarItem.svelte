@@ -13,6 +13,7 @@
   import { getContext } from "svelte";
   import type { ComponentType } from "svelte";
   import { Icon } from "svelte-heros-v2";
+  import { onMount, onDestroy, tick } from "svelte";
 
   export let href: string = "";
   export let icon: ComponentType;
@@ -22,8 +23,14 @@
   };
 
   let sidebarUrl = "";
-  activeUrlStore.subscribe((value) => {
-    sidebarUrl = value;
+  let unsub;
+  onMount( () => {
+    unsub = activeUrlStore.subscribe((value) => {
+      sidebarUrl = value;
+    });
+  });
+  onDestroy( () => {
+    if (unsub) unsub();
   });
 
   $: active = sidebarUrl ? href === sidebarUrl : false;

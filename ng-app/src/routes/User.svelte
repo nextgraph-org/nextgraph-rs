@@ -59,7 +59,7 @@
     reconnect,
     display_error,
   } from "../store";
-
+ 
   import {
     NG_EU_BSP,
     NG_NET_BSP,
@@ -88,6 +88,7 @@
   });
 
   async function logout() {
+    
     await close_active_wallet();
   }
 

@@ -35,6 +35,9 @@
   import Message from "./components/Message.svelte";
 
   import Signature from "./popups/Signature.svelte";
+  import {
+    get,
+  } from "svelte/store";
 
   // @ts-ignore
   import { t } from "svelte-i18n";
@@ -47,7 +50,7 @@
           in_private_store, show_doc_popup, cur_doc_popup, open_doc_popup } from "../tab";
   import {
     active_session, redirect_after_login, toasts, check_has_camera, toast_error,
-    reset_toasts,
+    reset_toasts, redirect_if_wallet_is, active_wallet,
     display_error, openModalCreate
   } from "../store";
   import ZeraIcon from "./icons/ZeraIcon.svelte";
@@ -368,6 +371,7 @@
   let shareMenu;
   let toolsMenu;
   let unsub;
+  let unsub2;
   async function scrollToTop() {
     await tick();
     if (top) top.scrollIntoView();
@@ -398,19 +402,22 @@
         reset_toasts();
       }
     });
+
+    unsub2 = active_session.subscribe((as) => { 
+      if(!as) {
+        $redirect_after_login = $location;
+        $redirect_if_wallet_is = get(active_wallet)?.id
+        push("#/");
+      } 
+    })
   });
 
   onDestroy(() => {
     if (unsub) unsub();
+    if (unsub2) unsub2();
   });
 
-  active_session.subscribe((as) => { if(!as) {
-    //console.log($location);
-    if ($location!="/user") {
-      $redirect_after_login = $location;
-    }
-    push("#/");
-  } })
+
 
   $: activeUrl = "#" + $location;
 

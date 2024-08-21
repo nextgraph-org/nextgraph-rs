@@ -162,6 +162,7 @@ export const connections: Writable<Record<string, any>> = writable({});
 export const active_session = writable(undefined);
 
 export const redirect_after_login = writable(undefined);
+export const redirect_if_wallet_is = writable(undefined);
 
 export const connection_status: Writable<"disconnected" | "connected" | "connecting" | "starting"> = writable("starting");
 
@@ -285,6 +286,8 @@ export const set_active_session = function(session) {
 export { writable, readonly, derived };
 
 export const close_active_wallet = async function() {
+    redirect_after_login.set(undefined);
+    redirect_if_wallet_is.set(undefined);
     if (next_reconnect) {
         clearTimeout(next_reconnect);
         next_reconnect = null;
