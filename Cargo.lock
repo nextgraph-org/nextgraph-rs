@@ -3577,6 +3577,7 @@ dependencies = [
  "env_logger",
  "getrandom 0.2.10",
  "log",
+ "ng-async-tungstenite",
  "ng-client-ws",
  "ng-net",
  "ng-repo",
