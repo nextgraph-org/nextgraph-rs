@@ -420,7 +420,7 @@ async fn main_inner() -> Result<(), NgcliError> {
 
     match matches.subcommand() {
         Some(("get", sub_matches)) => {
-            log_debug!("processing get command");
+            //log_debug!("processing get command");
 
             let nuri = NuriV0::new_for_readcaps(sub_matches.get_one::<String>("NURI").unwrap())?;
             let overlay_id = nuri.overlay.unwrap().try_into()?;

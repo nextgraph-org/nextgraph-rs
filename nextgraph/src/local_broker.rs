@@ -1819,7 +1819,7 @@ lazy_static! {
         server_type: BrokerServerTypeV0::Domain("nextgraph.eu".to_string()),
         can_verify: false,
         can_forward: false,
-        peer_id: ng_repo::utils::decode_key("BVboIbTZzSgRzjtNSc0do8Uw2YlKk8m-4ePZ6CJkjgEA")
+        peer_id: ng_repo::utils::decode_key("qCDCdmh39BccRrIzuxiyGY7r2012mFeUmMV57-RbB-cA")
             .unwrap(),
     };
 }
