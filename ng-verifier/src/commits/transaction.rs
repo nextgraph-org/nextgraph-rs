@@ -229,7 +229,10 @@ impl Verifier {
             (BranchCrdt::YMap(_), DiscreteTransaction::YMap(v)) => DiscretePatch::YMap(v),
             (BranchCrdt::YText(_), DiscreteTransaction::YText(v)) => DiscretePatch::YText(v),
             (BranchCrdt::YXml(_), DiscreteTransaction::YXml(v)) => DiscretePatch::YXml(v),
-            _ => return Err(VerifierError::InvalidCommit),
+            _ => {
+                //log_debug!("{:?} {:?}", crdt, patch);
+                return Err(VerifierError::InvalidCommit);
+            }
         };
         self.push_app_response(
             branch_id,

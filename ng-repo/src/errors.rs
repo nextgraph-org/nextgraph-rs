@@ -405,6 +405,7 @@ impl From<NgError> for VerifierError {
             NgError::BranchNotFound => VerifierError::BranchNotFound,
             NgError::SerializationError => VerifierError::SerializationError,
             NgError::PermissionDenied => VerifierError::PermissionDenied,
+            NgError::VerifierError(e) => e,
             // NgError::JsStorageReadError
             // NgError::JsStorageWriteError(String)
             // NgError::JsStorageKeyNotFound

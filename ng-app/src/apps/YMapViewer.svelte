@@ -125,6 +125,7 @@
     onDestroy(async ()=>{
         ydoc.destroy();
         await editor.destroy();
+        editor = undefined;
     });
 
     const edit = () => {

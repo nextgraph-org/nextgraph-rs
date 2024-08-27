@@ -104,6 +104,7 @@
     }
 
     onMount(async ()=>{
+        if (editor) await editor.destroy();
         await setup();
 
     });
@@ -112,6 +113,7 @@
         ydoc.destroy();
         commits.discrete?.deregisterOnUpdate();
         if (editor) await editor.destroy();
+        editor = undefined;
     });
 
  

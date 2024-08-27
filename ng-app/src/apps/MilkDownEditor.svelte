@@ -181,7 +181,7 @@
     }
 
     onMount(async ()=>{
-
+        if (editor) await editor.destroy();
         await setup();
 
     });
@@ -189,6 +189,7 @@
     onDestroy(async ()=>{
         ydoc.destroy();
         if (editor) await editor.destroy();
+        editor = undefined;
     });
   
   </script>
