@@ -1,1 +1,1 @@
-console.log("workertest ok");
+;

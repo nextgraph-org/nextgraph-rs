@@ -335,9 +335,11 @@ export const save = async () => {
     
     nav_bar.update((o) => { if (o.save === true) o.save = false; return o; });
     if (in_memory_save.length > 0) {
-        await in_memory_save_callback(in_memory_save);
+        let temp = in_memory_save;
+        in_memory_save = [];
+        await in_memory_save_callback(temp);
     }
-    in_memory_save = [];
+    
 }
 
 export const set_header_in_view = function(val) {
@@ -469,7 +471,8 @@ export const cur_tab_update = function( fn ) {
 
 export const live_editing = writable(false);
 
-export const showMenu = () => {
+export const showMenu = async () => {
+    await save();
     show_modal_menu.set(true);
     cur_tab_update(ct => {
         ct.show_menu = true;

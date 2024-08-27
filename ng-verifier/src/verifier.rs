@@ -1415,6 +1415,7 @@ impl Verifier {
             let broker_id = if as_publisher {
                 if branch_info.topic_priv_key.is_none() {
                     // we need to subscribe as publisher, but we cant
+                    log_debug!("no topic_priv_key");
                     return Err(NgError::PermissionDenied);
                 }
                 Some(remote_broker.broker_peer_id())
@@ -1990,8 +1991,7 @@ impl Verifier {
                         repo_id,
                         Arc::clone(&store),
                     )
-                    .await
-                    .map_err(|e| NgError::BootstrapError(e.to_string()))?;
+                    .await?;
 
                     let mut store_branch = None;
 
@@ -2028,8 +2028,7 @@ impl Verifier {
                                 repo_id,
                                 Arc::clone(&store),
                             )
-                            .await
-                            .map_err(|e| NgError::BootstrapError(e.to_string()))?;
+                            .await?;
                         }
                     }
 

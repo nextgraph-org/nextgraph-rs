@@ -254,6 +254,7 @@
     onDestroy(async ()=>{
         ydoc.destroy();
         await editor.destroy();
+        editor = undefined;
     });
 
     function onRenderMenu(items, context) {

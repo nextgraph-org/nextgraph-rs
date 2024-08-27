@@ -17,7 +17,7 @@ import {
 } from "svelte/store";
 import { register, init, locale, format } from "svelte-i18n";
 import ng from "./api";
-import { persistent_error, update_class, update_branch_display, open_branch, tab_update, change_nav_bar, cur_branch, cur_tab, show_modal_create, cur_tab_update, nav_bar,in_memory_save } from "./tab";
+import { persistent_error, update_class, update_branch_display, open_branch, tab_update, change_nav_bar, cur_branch, cur_tab, show_modal_create, save, nav_bar,in_memory_save } from "./tab";
 import { encode } from "./base64url";
 
 let all_branches = {};
@@ -47,6 +47,7 @@ init({
 export const display_error = (error: string) => {
     if (error.message) return error.message;
     if (error.includes(" ")) return error;
+    if (error.includes("\"")) return error;
     //console.log(error);
     // TODO: Check, if error tranlsation does not exist
     const parts = error.split(":");
@@ -143,6 +144,7 @@ export const toast_success = (text) => {
 }
 
 export const openModalCreate = async () => {
+    await save();
     await reset_toasts()
     show_modal_create.set(true);
 }
@@ -464,6 +466,7 @@ export const sparql_update = async function(sparql:string) {
 }
 
 export const branch_subscribe = function(nuri:string, in_tab:boolean) {
+
     //console.log("branch_subscribe", nuri)
     // const { subscribe, set, update } = writable([]); // create the underlying writable store
 
@@ -492,12 +495,14 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
     // // update,
     // };
 
-    open_branch(nuri, in_tab);
-
+    
 
     return {
         load: async () => {
             //console.log("load upper");
+            await save();
+            open_branch(nuri, in_tab);
+
             let already_subscribed = all_branches[nuri];
             if (!already_subscribed) return;
             if (already_subscribed.load) {
@@ -696,7 +701,10 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                 });
                             } else {
                                 console.error(e);
-                                // TODO: display persistent_error
+                                persistent_error(nuri, {
+                                    title: get(format)("errors.an_error_occurred"),
+                                    desc: display_error(e)
+                                });
                             }
                         }
                         // this is in case decrease has been called before the load function returned.
