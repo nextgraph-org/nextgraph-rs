@@ -2975,7 +2975,7 @@ impl OpenRepo {
 
 /// Request to pin a repo on the broker.
 ///
-/// When client will disconnect, the subscriptions and publisherAdvert of the topics will be remain active on the broker.
+/// When client will disconnect, the subscriptions and publisherAdvert of the topics will remain active on the broker.
 /// replied with a RepoOpened
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PinRepoV0 {
@@ -3329,7 +3329,7 @@ impl BlocksGet {
 /// and we need to default to using BlocksGet instead.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CommitGetV0 {
-    /// Block IDs to request
+    /// Commit ID to request
     pub id: ObjectId,
 
     /// Topic the commit is referenced from, if it is known by the requester.

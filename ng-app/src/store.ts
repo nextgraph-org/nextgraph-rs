@@ -27,12 +27,12 @@ let retry_branches = {};
 export const available_languages = {
     en: "English",
     de: "Deutsch",
-    fr: "Français",
-    ru: "Русский",
-    es: "Español",
-    it: "Italiano",
-    zh: "中文",
-    pt: "Português",
+    //fr: "Français",
+    //ru: "Русский",
+    //es: "Español",
+    //it: "Italiano",
+    //zh: "中文",
+    //pt: "Português",
 };
 
 for (const lang of Object.keys(available_languages)) {

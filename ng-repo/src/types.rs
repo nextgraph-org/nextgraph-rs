@@ -1669,7 +1669,7 @@ pub enum RemoveMember {
     V0(RemoveMemberV0),
 }
 
-/// when a signing capability is removed, a new SignerSecretKeys should be added to wallet, with the removed key set to None
+/// when a signing capability is removed, a new SignerCap should be committed to User branch, with the removed key set to None
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SignerCap {
     pub repo: RepoId,
@@ -2122,10 +2122,9 @@ pub enum RemoveFile {
 ///
 /// Contains a data structure
 /// computed from the commits at the specified head.
-/// ACKS contains the head the snapshot was made from
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SnapshotV0 {
-    // Branch heads the snapshot was made from, can be useful when shared outside and the commit_header_key is set to None. otherwise it is redundant to ACKS
+    // Branch heads the snapshot was made from
     pub heads: Vec<ObjectId>,
 
     /// Reference to Object containing Snapshot data structure
@@ -3005,7 +3004,7 @@ impl PeerId {
 /// Content of EventV0
 ///
 /// Contains the objects of newly published Commit, its optional blocks, and optional FILES and their blocks.
-/// If a block is not present in the Event, its ID should be present in block_ids and the block should be put on the emitting broker beforehand with BlocksPut.
+/// If a block is not present in the Event, its ID should be present in file_ids and the block should be put on the emitting broker beforehand with BlocksPut.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventContentV0 {
     /// Pub/sub topic
