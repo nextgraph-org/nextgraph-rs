@@ -53,7 +53,6 @@ pub enum AppFetchContentV0 {
     Get, // does not subscribe.
     Subscribe,
     Update,
-    //Invoke,
     ReadQuery,
     WriteQuery,
     RdfDump,
@@ -61,6 +60,7 @@ pub enum AppFetchContentV0 {
     SignatureStatus,
     SignatureRequest,
     SignedSnapshotRequest,
+    //Invoke,
 }
 
 impl AppFetchContentV0 {
@@ -80,7 +80,7 @@ pub enum NgAccessV0 {
     #[serde(with = "serde_bytes")]
     ExtRequest(Vec<u8>),
     Key(BlockKey),
-    Inbox(Digest),
+    Inbox(PubKey),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -743,10 +743,10 @@ pub enum DocQuery {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GraphUpdate {
-    // serialization of Vec<Quad>
+    // serialization of Vec<Triple>
     #[serde(with = "serde_bytes")]
     pub inserts: Vec<u8>,
-    // serialization of Vec<Quad>
+    // serialization of Vec<Triple>
     #[serde(with = "serde_bytes")]
     pub removes: Vec<u8>,
 }
@@ -830,12 +830,14 @@ pub enum AppRequestPayloadV0 {
     Query(DocQuery),
     Update(DocUpdate),
     AddFile(DocAddFile),
-    //RemoveFile
+
     Delete(DocDelete),
-    //Invoke(InvokeArguments),
+
     SmallFilePut(SmallFile),
     RandomAccessFilePut(String), // content_type (iana media type)
     RandomAccessFilePutChunk((u32, serde_bytes::ByteBuf)), // end the upload with an empty vec
+                                 //RemoveFile
+                                 //Invoke(InvokeArguments),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
