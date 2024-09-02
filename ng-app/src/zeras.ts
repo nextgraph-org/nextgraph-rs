@@ -210,16 +210,16 @@ export const official_apps = {
         "ng:g": "n:g:z:ontology_editor",
         "ng:b": "JsonLdEditor",
         "ng:o": [],
-        "ng:w": ["schema:*"],
+        "ng:w": ["schema*"],
     },
-    "n:g:z:owl_viewer": {
-        "ng:n": "OWL Ontology",
+    "n:g:z:ontology_viewer": {
+        "ng:n": "Ontology",
         "ng:a": "View the OWL Ontology",
         "ng:c": "app",
         "ng:u": "ontology_viewer",//favicon. can be a did:ng:j 
-        "ng:g": "n:g:z:owl_viewer",
-        "ng:b": "OwlViewer", // display with https://github.com/VisualDataWeb/WebVOWL
-        "ng:o": ["schema:owl"],
+        "ng:g": "n:g:z:ontology_viewer",
+        "ng:b": "OntologyViewer", // display with https://github.com/VisualDataWeb/WebVOWL
+        "ng:o": ["schema*"],
         "ng:w": [],
     },
     "n:g:z:sparql:invoke": { // displayed with highlight.js https://github.com/highlightjs/highlightjs-turtle/tree/master
@@ -313,7 +313,7 @@ export const official_apps = {
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:crdt_source_viewer:xml",
         "ng:b": "XmlSource", // displayed with highlight.js , with option to download
-        "ng:o": ["post:rich","post:md","post:html","page","data:xml", "doc:diagram:drawio"],
+        "ng:o": ["post:rich","post:md","post:html","page","data:xml", "diagram:drawio"],
         "ng:w": [],
         implemented: true,
     },
@@ -335,7 +335,7 @@ export const official_apps = {
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:crdt_source_viewer:json",
         "ng:b": "AutomergeJsonSource", // displayed with highlight.js , with option to download
-        "ng:o": ["data:json", "data:table", "doc:diagram:jsmind", "doc:diagram:gantt", "doc:diagram:excalidraw", "doc:viz:*", "doc:chart:*", "prod:cad"],
+        "ng:o": ["data:json", "data:table", "diagram:jsmind", "diagram:gantt", "diagram:excalidraw", "viz:*", "chart:*", "prod:cad"],
         "ng:w": [],
         "full_width": true,
         implemented: true,
@@ -369,8 +369,8 @@ export const official_apps = {
         "ng:u": "source",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:crdt_source_viewer:text",
         "ng:b": "TextViewer", // displayed with highlight.js , with option to download and copy paste
-        "ng:o": ["post:asciidoc", "service*", "contract", "query:sparql*","query:graphql","doc:diagram:mermaid","doc:diagram:graphviz","doc:diagram:flowchart",
-                "doc:diagram:sequence","doc:diagram:markmap","doc:diagram:mymind","doc:music*", "doc:maths", "doc:chemistry", "doc:ancientscript", "doc:braille", "media:subtitle"],
+        "ng:o": ["post:asciidoc", "service*", "contract", "query:sparql*","query:graphql","diagram:mermaid","diagram:graphviz","diagram:flowchart",
+                "diagram:sequence","diagram:markmap","diagram:mymind","doc:music*", "doc:maths", "doc:chemistry", "doc:ancientscript", "doc:braille", "media:subtitle"],
         "ng:w": [],
         implemented: true,
     },
@@ -454,7 +454,7 @@ export const official_apps = {
         "ng:u": "pad",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:pad", 
         "ng:b": "Pad",
-        "ng:o": ["plato/pad"],
+        "ng:o": ["plato:pad"],
         "ng:w": [],
     },
     "n:g:z:card": {
@@ -464,7 +464,7 @@ export const official_apps = {
         "ng:u": "card",//favicon. can be a did:ng:j 
         "ng:g": "n:g:z:card", 
         "ng:b": "Card",
-        "ng:o": ["plato/card"],
+        "ng:o": ["plato:card"],
         "ng:w": [],
     },
     "n:g:z:gallery": {
@@ -673,7 +673,7 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "data",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_json",
-        "ng:o": ["data:json", "data:map", "data:array", "data:table", "doc:diagram:jsmind", "doc:diagram:gantt", "doc:diagram:excalidraw", "doc:viz:*", "doc:chart:*", "prod:cad"],
+        "ng:o": ["data:json", "data:map", "data:array", "data:table", "diagram:jsmind", "diagram:gantt", "diagram:excalidraw", "viz:*", "chart:*", "prod:cad"],
         "ng:w": [],
         "ng:result": ["file:iana:application:json"],
     },
@@ -683,7 +683,7 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "data",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_xml",
-        "ng:o": ["post:rich","post:md","post:html","page","data:xml", "doc:diagram:drawio"],
+        "ng:o": ["post:rich","post:md","post:html","page","data:xml", "diagram:drawio"],
         "ng:w": [],
         "ng:result": ["file:iana:text:xml"],
     },
@@ -693,8 +693,8 @@ export const official_services = {
         "ng:c": "service",
         "ng:u": "dump",// favicon. can be a did:ng:j 
         "ng:g": "n:g:z:dump_text",
-        "ng:o": ["post:text", "post:asciidoc", "code*", "service*", "contract", "query:sparql*","query:graphql","doc:diagram:mermaid","doc:diagram:graphviz","doc:diagram:flowchart",
-        "doc:diagram:sequence","doc:diagram:markmap","doc:diagram:mymind","doc:music*", "doc:maths", "doc:chemistry", "doc:ancientscript", "doc:braille", "media:subtitle"],
+        "ng:o": ["post:text", "post:asciidoc", "code*", "service*", "contract", "query:sparql*","query:graphql","diagram:mermaid","diagram:graphviz","diagram:flowchart",
+        "diagram:sequence","diagram:markmap","diagram:mymind","doc:music*", "doc:maths", "doc:chemistry", "doc:ancientscript", "doc:braille", "media:subtitle"],
         "ng:w": [],
         "ng:result": ["file:iana:text:plain"],
     },

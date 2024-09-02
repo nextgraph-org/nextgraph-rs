@@ -55,7 +55,7 @@
         await reset_toasts();
         results = await sparql_query($in_memory_discrete, union);
       } catch(e) {
-        console.log(e)
+        console.error(e)
         toast_error(display_error(e));
       }
     }
@@ -112,7 +112,7 @@
               {#each results.results.bindings as row}
                 <TableBodyRow>
                   {#each results.head.vars as variable}
-                    <TableBodyCell class="px-6 py-4 whitespace-break-spaces font-medium">{row[variable].value}</TableBodyCell>
+                    <TableBodyCell class="px-6 py-4 whitespace-break-spaces font-medium">{#if row[variable]} {row[variable].value }{/if}</TableBodyCell>
                   {/each}
                 </TableBodyRow>
               {/each}

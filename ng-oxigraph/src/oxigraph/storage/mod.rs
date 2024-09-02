@@ -2185,12 +2185,14 @@ impl<'a> StorageWriter<'a> {
         let value = [value];
         self.buffer.clear();
         write_spog_quad(&mut self.buffer, encoded);
-        let result = if self
-            .transaction
-            .contains_key_for_update(&self.storage.spog_cf, &self.buffer)?
+        let result = 
+        // if self
+        //     .transaction
+        //     .contains_key_for_update(&self.storage.spog_cf, &self.buffer)?
+        // {
+        //     false
+        // } else 
         {
-            false
-        } else {
             self.transaction
                 .insert(&self.storage.spog_cf, &self.buffer, &value)?;
 

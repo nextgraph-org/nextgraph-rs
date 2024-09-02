@@ -208,11 +208,6 @@ export const show_doc_popup = writable(false);
 export const cur_doc_popup = writable("");
 export const show_modal_create = writable(false);
 
-export const open_doc_popup = (popup_name) => {
-    cur_doc_popup.set(popup_name);
-    show_doc_popup.set(true);
-} 
-
 export const in_memory_graph = writable("");
 export const in_memory_discrete = writable("");
 
@@ -351,7 +346,7 @@ export const cur_branch = writable("");
 export const cur_tab = derived([cur_branch, all_tabs], ([cb, all]) => {return all[cb];});
 
 export const can_have_header = derived(cur_tab, ($cur_tab) => {
-    return !($cur_tab.doc.is_store && ( $cur_tab.store.store_type === "private" || $cur_tab.store.store_type === "dialog"));
+    return !($cur_tab.doc.is_store); // && ( $cur_tab.store.store_type === "private" || $cur_tab.store.store_type === "dialog"));
 });
 export const cur_tab_branch_nuri = derived(cur_tab, ($cur_tab) => {
     return $cur_tab.branch.nuri;

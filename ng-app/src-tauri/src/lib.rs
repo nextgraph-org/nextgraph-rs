@@ -552,6 +552,53 @@ async fn branch_history(session_id: u64, nuri: String) -> Result<AppHistoryJs, S
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn update_header(
+    session_id: u64,
+    nuri: String,
+    title: Option<String>,
+    about: Option<String>,
+) -> Result<(), String> {
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_header(),
+        nuri,
+        payload: Some(AppRequestPayload::new_header(title, about)),
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    if let AppResponse::V0(AppResponseV0::Error(e)) = res {
+        Err(e)
+    } else {
+        Ok(())
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn fetch_header(session_id: u64, nuri: String) -> Result<AppHeader, String> {
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_fetch_header(),
+        nuri,
+        payload: None,
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    match res {
+        AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
+        AppResponse::V0(AppResponseV0::Header(h)) => Ok(h),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn sparql_update(
     session_id: u64,
     sparql: String,
@@ -1023,6 +1070,8 @@ impl AppBuilder {
                 signature_status,
                 signature_request,
                 signed_snapshot_request,
+                update_header,
+                fetch_header,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

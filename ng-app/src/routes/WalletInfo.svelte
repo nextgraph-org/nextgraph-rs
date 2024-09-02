@@ -357,7 +357,7 @@
               {/if}
 
               <!-- Remove Wallet -->
-              <li
+              <!-- <li
                 tabindex="0"
                 role="menuitem"
                 class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -372,7 +372,7 @@
                 </div>
                 <span class="ml-3">{$t("pages.wallet_info.remove_wallet")}</span
                 >
-              </li>
+              </li> -->
               <!-- Confirm Remove Wallet Modal -->
               <Modal
                 autoclose

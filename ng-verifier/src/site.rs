@@ -106,7 +106,7 @@ impl SiteV0 {
         let protected_store = Self::site_store_to_store_repo(&protected);
         let private_store = Self::site_store_to_store_repo(&private);
 
-        verifier.reserve_more(33)?;
+        verifier.reserve_more(37)?;
 
         let mut signer_caps = Vec::with_capacity(3);
 

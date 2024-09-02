@@ -12,7 +12,7 @@
 // "data:graph", "data:json", "data:array", "data:map", "data:xml", "data:table", "data:collection", "data:board", "data:grid", "data:geomap", 
 // "e:email", "e:web", "e:http://[url of class in ontology]", "e:rdf" (read-only cache of RDF fetched from web2.0)
 // "mc:text", "mc:link", "mc:card", "mc:pad", 
-// "doc:diagram","doc:chart", "doc:pdf", "doc:odf", "doc:latex", "doc:ps", "doc:music", "doc:maths", "doc:chemistry", "doc:braille", "doc:ancientscript",
+// "diagram","chart", "doc:pdf", "doc:odf", "doc:latex", "doc:ps", "doc:music", "doc:maths", "doc:chemistry", "doc:braille", "doc:ancientscript",
 // "media:image", "media:reel", "media:album", "media:video", "media:audio", "media:song", "media:subtitle", "media:overlay",
 // "social:channel", "social:stream", "social:contact", "social:event", "social:calendar", "social:scheduler", "social:reaction", "social:chatroom",
 // "prod:task", "prod:project", "prod:issue", "prod:form", "prod:filling", "prod:cad", "prod:slides", "prod:question", "prod:answer", "prod:poll", "prod:vote"
@@ -165,35 +165,24 @@ export const official_classes = {
         },
         "ng:compat": ["rdfs:Class"],
     },
-    "schema:rdfs": {
+    "schema": { // display with https://github.com/VisualDataWeb/WebVOWL
         "ng:crdt": "Graph",
-        "ng:n": "Schema - RDFS", 
-        "ng:a": "Define the Schema, Ontology or Vocabulary for your data and the relations between them, with RDFS",
-        "ng:o": "n:g:z:json_ld_viewer", // default viewer
+        "ng:n": "Schema - RDFS/OWL", 
+        "ng:a": "Define the Schema, Ontology or Vocabulary for your data and the relations between them, with RDFS and/or OWL",
+        "ng:o": "n:g:z:ontology_viewer", // default viewer
         "ng:w": "n:g:z:ontology_editor", // default editor
         "ng:x": {
             "rdfs":true,
-        },
-        "ng:include": ["data:graph"],
-        "ng:compat": ["rdfs:*","class"],
-    },
-    "schema:owl": { // display with https://github.com/VisualDataWeb/WebVOWL
-        "ng:crdt": "Graph",
-        "ng:n": "Schema - OWL", 
-        "ng:a": "Define the Schema, Ontology or Vocabulary for your data and the relations between them, with OWL",
-        "ng:o": "n:g:z:owl_viewer", // default viewer
-        "ng:w": "n:g:z:ontology_editor", // default editor
-        "ng:x": {
             "owl":true,
         },
         "ng:include": ["data:graph"],
-        "ng:compat": ["owl:Ontology"],
+        "ng:compat": ["rdfs:*","class","owl:Ontology"],
     },
     "schema:shacl": {
         "ng:crdt": "Graph",
         "ng:n": "Schema - SHACL", 
-        "ng:a": "Define the Schema, Ontology or Vocabulary for your data and the relations between them, with SHACL",
-        "ng:o": "n:g:z:json_ld_viewer", // default viewer
+        "ng:a": "Define the rules for your data with SHACL",
+        "ng:o": "n:g:z:ontology_viewer", // default viewer
         "ng:w": "n:g:z:ontology_editor", // default editor
         "ng:x": {
             "sh":true,
@@ -204,8 +193,8 @@ export const official_classes = {
     "schema:shex": {
         "ng:crdt": "Graph",
         "ng:n": "Schema - SHEX", 
-        "ng:a": "Define the Schema, Ontology or Vocabulary for your data and the relations between them, with SHEX",
-        "ng:o": "n:g:z:json_ld_viewer", // default viewer
+        "ng:a": "Define the rules for your data with SHEX",
+        "ng:o": "n:g:z:ontology_viewer", // default viewer
         "ng:w": "n:g:z:ontology_editor", // default editor
         "ng:x": {
             "shex":true,
@@ -426,13 +415,13 @@ export const official_classes = {
         "ng:n": "Link",
         "ng:a": "Link to a document. kept in Magic Carpet",
     },
-    "plato/card": {
+    "plato:card": {
         "ng:crdt": "Graph",
         "ng:n": "Card",
         "ng:a": "Card representation of a document",
         "ng:o": "n:g:z:card",
     },
-    "plato/pad": {
+    "plato:pad": {
         "ng:crdt": "Graph",
         "ng:n": "Pad",
         "ng:a": "Pad representation of a document",
@@ -445,62 +434,62 @@ export const official_classes = {
         "ng:o": "n:g:z:compose:viewer",
         "ng:w": "n:g:z:compose:editor",
     },
-    "doc:diagram:mermaid" : {
+    "diagram:mermaid" : {
         "ng:crdt": "YText",
         "ng:n": "Diagram - Mermaid",
         "ng:a": "Describe Diagrams with Mermaid",
         "ng:compat": ["file:iana:application:vnd.mermaid"]
     },
-    "doc:diagram:drawio" : {
+    "diagram:drawio" : {
         "ng:crdt": "YXml",
         "ng:n": "Diagram - DrawIo",
         "ng:a": "Draw Diagrams with DrawIo",
         "ng:compat": ["file:iana:application:vnd.jgraph.mxfile","file:iana:application:x-drawio"]
     },
-    "doc:diagram:graphviz" : {
+    "diagram:graphviz" : {
         "ng:crdt": "YText",
         "ng:n": "Diagram - Graphviz",
         "ng:a": "Describe Diagrams with Graphviz",
         "ng:compat": ["file:iana:text:vnd.graphviz"]
     },
-    "doc:diagram:excalidraw" : {
+    "diagram:excalidraw" : {
         "ng:crdt": "Automerge",
         "ng:n": "Diagram - Excalidraw",
         "ng:a": "Collaborate on Diagrams with Excalidraw",
         "ng:compat": ["file:iana:application:vnd.excalidraw+json"]
     },
-    "doc:diagram:gantt" : { //https://github.com/frappe/gantt
+    "diagram:gantt" : { //https://github.com/frappe/gantt
         "ng:crdt": "Automerge",
         "ng:n": "Diagram - Gantt",
         "ng:a": "Interactive gantt chart",
         "ng:compat": []
     },
-    "doc:diagram:flowchart" : { //https://github.com/adrai/flowchart.js
+    "diagram:flowchart" : { //https://github.com/adrai/flowchart.js
         "ng:crdt": "YText",
         "ng:n": "Diagram - Flowchart",
         "ng:a": "flow chart diagrams",
         "ng:compat": []
     },
-    "doc:diagram:sequence" : { //https://github.com/bramp/js-sequence-diagrams
+    "diagram:sequence" : { //https://github.com/bramp/js-sequence-diagrams
         "ng:crdt": "YText",
         "ng:n": "Diagram - Sequence",
         "ng:a": "sequence diagrams",
         "ng:compat": []
     },
     // checkout https://www.mindmaps.app/ but it is AGPL 
-    "doc:diagram:markmap" : { //https://github.com/markmap/markmap
+    "diagram:markmap" : { //https://github.com/markmap/markmap
         "ng:crdt": "YText",
         "ng:n": "Diagram - Markmap",
         "ng:a": "mindmaps with markmap",
         "ng:compat": []
     },
-    "doc:diagram:mymind" : { //https://github.com/markmap/markmap
+    "diagram:mymind" : { //https://github.com/markmap/markmap
         "ng:crdt": "YText", // see MyMind format, MindMup JSON, FreeMind XML and MindMap Architect XML
         "ng:n": "Diagram - Mymind",
         "ng:a": "mindmaps with mymind",
         "ng:compat": [] // https://github.com/ondras/my-mind/wiki/Saving-and-loading#file-formats
     },
-    "doc:diagram:jsmind" : { //https://github.com/hizzgdev/jsmind
+    "diagram:jsmind" : { //https://github.com/hizzgdev/jsmind
         "ng:crdt": "Automerge",
         "ng:n": "Diagram - jsmind",
         "ng:a": "mindmaps with jsmind",
@@ -514,69 +503,69 @@ export const official_classes = {
     // https://github.com/Rich-Harris/pancake
     // https://github.com/williamngan/pts
     // https://visjs.org/
-    "doc:viz:cytoscape" : {
+    "viz:cytoscape" : {
         "ng:crdt": "Automerge",
         "ng:n": "Viz - Cytoscape",
         "ng:a": "Graph theory (network) visualization",
         "ng:compat": [] // https://github.com/cytoscape/cytoscape.js
     },
-    "doc:viz:vega" : {
+    "viz:vega" : {
         "ng:crdt": "Automerge",
         "ng:n": "Viz - Vega",
         "ng:a": "Grammar for interactive graphics",
         "ng:compat": [] // https://vega.github.io/vega-lite/docs/ https://github.com/vega/editor
     },
-    "doc:viz:vizzu" : {
+    "viz:vizzu" : {
         "ng:crdt": "Automerge",
         "ng:n": "Viz - Vizzu",
         "ng:a": "Animated data visualizations and data stories",
         "ng:compat": [] // https://github.com/vizzuhq/vizzu-lib
     },
-    "doc:viz:plotly" : { //https://github.com/plotly/plotly.js
+    "viz:plotly" : { //https://github.com/plotly/plotly.js
         "ng:crdt": "Automerge",
         "ng:n": "Viz - Plotly",
         "ng:a": "Declarative charts",
         "ng:compat": [] // https://github.com/cytoscape/cytoscape.js
     },
-    "doc:viz:avail" : { 
+    "viz:avail" : { 
         "ng:crdt": "Automerge",
         "ng:n": "Viz - Avail",
         "ng:a": "Time Data Availability Visualization",
         "ng:compat": [] // https://github.com/flrs/visavail
     },
-    "doc:chart:frappecharts" : {
+    "chart:frappecharts" : {
         "ng:crdt": "Automerge",
         "ng:n": "Charts - Frappe",
         "ng:a": "GitHub-inspired responsive charts",
         "ng:compat": [] // https://github.com/frappe/charts
     },
-    "doc:chart:financial" : {
+    "chart:financial" : {
         "ng:crdt": "Automerge",
         "ng:n": "Charts - Financial",
         "ng:a": "Financial charts",
         "ng:compat": [] //https://github.com/tradingview/lightweight-charts
     },
     // have a look at https://github.com/cube-js/cube and https://awesome.cube.dev/ and https://frappe.io/products
-    "doc:chart:apexcharts" : {
+    "chart:apexcharts" : {
         "ng:crdt": "Automerge",
         "ng:n": "Charts - ApexCharts",
         "ng:a": "Interactive data visualizations",
         "ng:compat": [] // https://github.com/apexcharts/apexcharts.js
     },
     //realtime data with https://github.com/square/cubism
-    "doc:chart:billboard" : {
+    "chart:billboard" : {
         "ng:crdt": "Automerge",
         "ng:n": "Charts - BillBoard",
         "ng:a": "Interactive data visualizations based on D3",
         "ng:compat": [] // https://github.com/naver/billboard.js
     },
-    "doc:chart:echarts" : {
+    "chart:echarts" : {
         "ng:crdt": "Automerge",
         "ng:n": "Charts - ECharts",
         "ng:a": "Interactive charting and data visualization with Apache ECharts",
         "ng:compat": [] // https://github.com/apache/echarts
     },
-    "doc:chart:chartjs" : {
+    "chart:chartjs" : {
         "ng:crdt": "Automerge",
         "ng:n": "Charts - Chart.js",
         "ng:a": "Simple yet flexible charting for designers & developers with Chart.js",

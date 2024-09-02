@@ -399,6 +399,71 @@ pub async fn sparql_update(
     }
 }
 
+#[wasm_bindgen]
+pub async fn update_header(
+    session_id: JsValue,
+    nuri: String,
+    title: JsValue,
+    about: JsValue,
+) -> Result<(), String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+
+    let title = if title.is_string() {
+        Some(title.as_string().unwrap())
+    } else {
+        None
+    };
+
+    let about = if about.is_string() {
+        Some(about.as_string().unwrap())
+    } else {
+        None
+    };
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_header(),
+        nuri,
+        payload: Some(AppRequestPayload::new_header(title, about)),
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    if let AppResponse::V0(AppResponseV0::Error(e)) = res {
+        Err(e)
+    } else {
+        Ok(())
+    }
+}
+
+#[wasm_bindgen]
+pub async fn fetch_header(session_id: JsValue, nuri: String) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+
+    let nuri = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_fetch_header(),
+        nuri,
+        payload: None,
+        session_id,
+    });
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    match res {
+        AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
+        AppResponse::V0(AppResponseV0::Header(h)) => Ok(serde_wasm_bindgen::to_value(&h).unwrap()),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
 #[cfg(not(wasmpack_target = "nodejs"))]
 #[wasm_bindgen]
 pub async fn sparql_query(
@@ -1211,6 +1276,7 @@ pub async fn app_request_with_nuri_command(
     Ok(serde_wasm_bindgen::to_value(&response).unwrap())
 }
 
+#[cfg(not(wasmpack_target = "nodejs"))]
 #[wasm_bindgen]
 pub async fn doc_create(
     session_id: JsValue,
@@ -1226,6 +1292,50 @@ pub async fn doc_create(
 
     let store = serde_wasm_bindgen::from_value::<StoreRepo>(store_repo)
         .map_err(|_| "Deserialization error of store_repo".to_string())?;
+
+    let destination = DocCreateDestination::from(destination).map_err(|e| e.to_string())?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        session_id,
+        command: AppRequestCommandV0::new_create(),
+        nuri: NuriV0::new_empty(),
+        payload: Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(
+            DocCreate {
+                store,
+                class,
+                destination,
+            },
+        ))),
+    });
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    if let AppResponse::V0(AppResponseV0::Nuri(nuri)) = response {
+        Ok(serde_wasm_bindgen::to_value(&nuri).unwrap())
+    } else {
+        Err("invalid response".to_string())
+    }
+}
+
+#[cfg(wasmpack_target = "nodejs")]
+#[wasm_bindgen]
+pub async fn doc_create(
+    session_id: JsValue,
+    crdt: String,
+    class_name: String,
+    store_type: String,
+    store_repo: String,
+    destination: String,
+) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+
+    let class = BranchCrdt::from(crdt, class_name).map_err(|e| e.to_string())?;
+
+    let store = StoreRepo::from_type_and_repo(&store_type, &store_repo)
+        .map_err(|_| "invalid store_repo".to_string())?;
 
     let destination = DocCreateDestination::from(destination).map_err(|e| e.to_string())?;
 

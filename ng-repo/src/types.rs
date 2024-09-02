@@ -810,6 +810,17 @@ impl fmt::Display for StoreRepo {
 }
 
 impl StoreRepo {
+    pub fn from_type_and_repo(store_type: &String, repo_id_str: &String) -> Result<Self, NgError> {
+        let repo_id: RepoId = repo_id_str.as_str().try_into()?;
+        Ok(StoreRepo::V0(match store_type.as_str() {
+            "public" => StoreRepoV0::PublicStore(repo_id),
+            "protected" => StoreRepoV0::ProtectedStore(repo_id),
+            "private" => StoreRepoV0::PrivateStore(repo_id),
+            "group" => StoreRepoV0::Group(repo_id),
+            "dialog" | _ => unimplemented!(),
+        }))
+    }
+
     pub fn store_type_for_app(&self) -> String {
         match self {
             Self::V0(v0) => match v0 {
@@ -1530,6 +1541,12 @@ impl BranchType {
     pub fn is_main(&self) -> bool {
         match self {
             Self::Main => true,
+            _ => false,
+        }
+    }
+    pub fn is_header(&self) -> bool {
+        match self {
+            Self::Header => true,
             _ => false,
         }
     }

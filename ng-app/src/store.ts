@@ -17,7 +17,7 @@ import {
 } from "svelte/store";
 import { register, init, locale, format } from "svelte-i18n";
 import ng from "./api";
-import { persistent_error, update_class, update_branch_display, open_branch, tab_update, change_nav_bar, cur_branch, cur_tab, show_modal_create, save, nav_bar,in_memory_save } from "./tab";
+import { persistent_error, update_class, update_branch_display, open_branch, tab_update, change_nav_bar, cur_branch, cur_tab, show_modal_create, save, nav_bar,in_memory_save, cur_doc_popup, show_doc_popup } from "./tab";
 import { encode } from "./base64url";
 
 let all_branches = {};
@@ -423,6 +423,43 @@ export const discrete_update = async (update, crdt, heads) => {
     // the editor then process those updates and calls live_discrete_update
 }
 
+export const open_doc_popup = async (popup_name) => {
+    await reset_toasts();
+    cur_doc_popup.set(popup_name);
+    show_doc_popup.set(true);  
+} 
+
+export const change_header = async (title_, about_) => {
+    let session = get(active_session);
+    if (!session) {
+        persistent_error(get(cur_branch), {
+            title: get(format)("doc.errors.no_session"),
+            desc: get(format)("doc.errors_details.no_session")
+        });
+        throw new Error("no session");
+    }
+    let nuri = "did:ng:"+get(cur_tab).doc.nuri+":"+get(cur_tab).store.overlay;
+
+    let title = undefined;
+    let about = undefined;
+    if ( get(cur_tab).doc.title != title_ ) {
+        title = title_;
+    }
+    if ( get(cur_tab).doc.description != about_ ) {
+        about = about_;
+    }
+    if (title === undefined && about === undefined) {
+        //console.log("identical"); 
+        return;
+    }
+    try {
+        await ng.update_header(session.session_id, nuri, title, about);
+    }
+    catch (e) {
+        toast_error(display_error(e));
+    }
+}
+
 export const live_discrete_update = async (update, crdt, heads) => {
     // send directly to verifier with AppRequest Update
     let session = get(active_session);
@@ -552,7 +589,7 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                             req.V0.session_id = session.session_id;
                             unsub = await ng.app_request_stream(req,
                                 async (response) => {
-                                    //console.log("GOT APP RESPONSE", response);
+                                    console.log("GOT APP RESPONSE", response);
                                     if (response.V0.TabInfo) {
                                         tab_update(nuri, ($cur_tab) => {
                                             if (response.V0.TabInfo.branch?.id) {
@@ -568,14 +605,20 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                             if (response.V0.TabInfo.doc?.nuri) {
                                                 $cur_tab.doc.nuri = response.V0.TabInfo.doc.nuri;
                                             }
-                                            if (response.V0.TabInfo.doc?.can_edit) {
+                                            if (typeof response.V0.TabInfo.doc?.can_edit === "boolean" ) {
                                                 $cur_tab.doc.can_edit = response.V0.TabInfo.doc.can_edit;
                                             }
-                                            if (response.V0.TabInfo.doc?.is_store) {
+                                            if (typeof response.V0.TabInfo.doc?.is_store === "boolean") {
                                                 $cur_tab.doc.is_store = response.V0.TabInfo.doc.is_store;
                                             }
                                             if (response.V0.TabInfo.doc?.is_member) {
                                                 $cur_tab.doc.is_member = response.V0.TabInfo.doc.is_member;
+                                            }
+                                            if (response.V0.TabInfo.doc?.title !== undefined && response.V0.TabInfo.doc?.title !== null) {
+                                                $cur_tab.doc.title = response.V0.TabInfo.doc.title;
+                                            }
+                                            if (response.V0.TabInfo.doc?.description !== undefined && response.V0.TabInfo.doc?.description !== null) {
+                                                $cur_tab.doc.description = response.V0.TabInfo.doc.description;
                                             }
                                             if (response.V0.TabInfo.store?.overlay) {
                                                 $cur_tab.store.overlay = response.V0.TabInfo.store.overlay;
@@ -643,13 +686,17 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                                 onUpdate(response.V0.Patch.discrete);
                                             }
                                             if (response.V0.Patch.graph) {
+                                                //console.log(response.V0.Patch.graph)
                                                 let duplicates = [];
                                                 for (let i = 0; i < old.graph.length; i++) {
                                                     if (response.V0.Patch.graph.inserts.includes(old.graph[i])) {
                                                         duplicates.push(old.graph[i])
-                                                    } else
-                                                    if (response.V0.Patch.graph.removes.includes(old.graph[i])) {//TODO: optimization: remove this triple from the removes list.
-                                                        old.graph.splice(i, 1);
+                                                    } else {
+                                                        //console.log("remove?", i, old.graph[i], JSON.stringify(old.graph))
+                                                        if (response.V0.Patch.graph.removes.includes(old.graph[i])) {//TODO: optimization: remove this triple from the removes list.
+                                                            old.graph.splice(i, 1);
+                                                            //console.log("yes",JSON.stringify(old.graph))
+                                                        }
                                                     }
                                                 }
                                                 for (const insert of response.V0.Patch.graph.inserts){

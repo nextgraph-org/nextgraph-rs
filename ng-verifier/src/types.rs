@@ -17,10 +17,23 @@ use serde::{Deserialize, Serialize};
 //use oxigraph::store::Store;
 //use oxigraph::model::GroundQuad;
 //use yrs::{StateVector, Update};
+use lazy_static::lazy_static;
 
 use ng_net::{app_protocol::*, types::*};
 use ng_oxigraph::oxrdf::{GraphName, GraphNameRef, NamedNode, Quad, Triple, TripleRef};
 use ng_repo::{errors::*, types::*};
+
+pub const NG_ONTOLOGY: &str = "did:ng:x:ng#";
+
+pub const NG_ONTOLOGY_ABOUT: &str = "did:ng:x:ng#a";
+pub const NG_ONTOLOGY_TITLE: &str = "did:ng:x:ng#n";
+pub const NG_ONTOLOGY_CLASS: &str = "did:ng:x:ng#c";
+
+lazy_static! {
+    pub static ref NG_ONTOLOGY_ABOUT_NAME: NamedNode = NamedNode::new_unchecked(NG_ONTOLOGY_ABOUT);
+    pub static ref NG_ONTOLOGY_TITLE_NAME: NamedNode = NamedNode::new_unchecked(NG_ONTOLOGY_TITLE);
+    pub static ref NG_ONTOLOGY_CLASS_NAME: NamedNode = NamedNode::new_unchecked(NG_ONTOLOGY_CLASS);
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GraphTransaction {

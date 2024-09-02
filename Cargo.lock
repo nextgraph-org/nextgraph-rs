@@ -3507,6 +3507,7 @@ dependencies = [
  "either",
  "futures",
  "getrandom 0.2.10",
+ "lazy_static",
  "ng-net",
  "ng-oxigraph",
  "ng-repo",

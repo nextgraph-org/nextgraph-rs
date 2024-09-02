@@ -25,6 +25,9 @@ use async_std::stream::StreamExt;
 use async_std::sync::{Mutex, RwLockReadGuard};
 use futures::channel::mpsc;
 use futures::SinkExt;
+use ng_oxigraph::oxigraph::sparql::Query;
+use ng_oxigraph::oxigraph::sparql::QueryResults;
+use ng_oxigraph::oxrdf::Term;
 use ng_repo::utils::derive_key;
 use sbbf_rs_safe::Filter;
 use serde::{Deserialize, Serialize};
@@ -253,10 +256,11 @@ impl Verifier {
     }
 
     fn branch_get_tab_info(
+        &self,
         repo: &Repo,
         branch: &BranchId,
         outer: String,
-    ) -> Result<AppTabInfo, NgError> {
+    ) -> Result<(AppTabInfo, Option<BranchId>), NgError> {
         let branch_info = repo.branch(branch)?;
 
         let branch_tab_info = AppTabBranchInfo {
@@ -265,6 +269,40 @@ impl Verifier {
             class: Some(branch_info.crdt.class().clone()),
             comment_branch: None, //TODO
         };
+
+        // Retrieve Header branch info (title and about)
+        let header_branch_info = repo.header_branch();
+        let mut about = None;
+        let mut title = None;
+        if let Some(header_branch_info) = header_branch_info {
+            let oxistore = self.graph_dataset.as_ref().unwrap();
+            let header_graph = NuriV0::branch_repo_graph_name(
+                &header_branch_info.id,
+                &repo.id,
+                &repo.store.overlay_id,
+            );
+            let base = NuriV0::repo_id(&repo.id);
+            let parsed = Query::parse(&format!("SELECT ?title ?about WHERE {{ OPTIONAL {{ <> <{NG_ONTOLOGY_ABOUT}> ?about }} OPTIONAL {{ <> <{NG_ONTOLOGY_TITLE}> ?title }} }}"), 
+                Some(&base)).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+
+            let results = oxistore
+                .query(parsed, Some(header_graph))
+                .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+
+            match results {
+                QueryResults::Solutions(mut sol) => {
+                    if let Some(Ok(s)) = sol.next() {
+                        if let Some(Term::Literal(l)) = s.get("title") {
+                            title = Some(l.value().to_string());
+                        }
+                        if let Some(Term::Literal(l)) = s.get("about") {
+                            about = Some(l.value().to_string());
+                        }
+                    }
+                }
+                _ => return Err(NgError::InvalidResponse),
+            }
+        }
 
         let root_branch_info = repo.branch(&repo.id)?;
 
@@ -275,9 +313,9 @@ impl Verifier {
             authors: None,                                                               // TODO
             inbox: None,                                                                 // TODO
             can_edit: Some(true),
-            title: None,
+            title,
             icon: None,
-            description: None,
+            description: about,
         };
 
         let store_tab_info = AppTabStoreInfo {
@@ -293,11 +331,14 @@ impl Verifier {
             description: None,
         };
 
-        Ok(AppTabInfo {
-            branch: Some(branch_tab_info),
-            doc: Some(doc_tab_info),
-            store: Some(store_tab_info),
-        })
+        Ok((
+            AppTabInfo {
+                branch: Some(branch_tab_info),
+                doc: Some(doc_tab_info),
+                store: Some(store_tab_info),
+            },
+            header_branch_info.map(|i| i.id),
+        ))
     }
 
     pub(crate) async fn create_branch_subscription(
@@ -317,18 +358,44 @@ impl Verifier {
                 //return Err(VerifierError::DoubleBranchSubscription);
             }
         }
+        let (heads, head_keys, tab_info, header_branch_id, crdt) = {
+            let repo = self.get_repo(&repo_id, &store_repo)?;
+            let branch = repo.branch(&branch_id)?;
 
-        let repo = self.get_repo(&repo_id, &store_repo)?;
-        let branch = repo.branch(&branch_id)?;
+            let heads: Vec<ObjectId> = branch.current_heads.iter().map(|h| h.id.clone()).collect();
+            let head_keys: Vec<ObjectKey> =
+                branch.current_heads.iter().map(|h| h.key.clone()).collect();
 
-        //let tx = self.branch_subscriptions.entry(branch).or_insert_with(|| {});
+            //let tx = self.branch_subscriptions.entry(branch).or_insert_with(|| {});
+
+            let (tab_info, header_branch_id) =
+                self.branch_get_tab_info(repo, &branch_id, self.outer.clone())?;
+
+            (
+                heads,
+                head_keys,
+                tab_info,
+                header_branch_id,
+                branch.crdt.clone(),
+            )
+        };
+
+        if let Some(header_branch_id) = header_branch_id {
+            if let Some(returned) = self
+                .branch_subscriptions
+                .insert(header_branch_id, tx.clone())
+            {
+                if !returned.is_closed() {
+                    returned.close_channel();
+                }
+            }
+        }
+
         let files = self
             .user_storage
             .as_ref()
             .unwrap()
             .branch_get_all_files(&branch_id)?;
-
-        let tab_info = Self::branch_get_tab_info(repo, &branch_id, self.outer.clone())?;
 
         // let tab_info = self.user_storage.as_ref().unwrap().branch_get_tab_info(
         //     &branch_id,
@@ -356,7 +423,6 @@ impl Verifier {
             }
         }
 
-        let crdt = &repo.branch(&branch_id)?.crdt;
         let discrete = if crdt.is_graph() {
             None
         } else {
@@ -366,7 +432,7 @@ impl Verifier {
                 .unwrap()
                 .branch_get_discrete_state(&branch_id)
             {
-                Ok(state) => Some(match repo.branch(&branch_id)?.crdt {
+                Ok(state) => Some(match crdt {
                     BranchCrdt::Automerge(_) => DiscreteState::Automerge(state),
                     BranchCrdt::YArray(_) => DiscreteState::YArray(state),
                     BranchCrdt::YMap(_) => DiscreteState::YMap(state),
@@ -380,8 +446,8 @@ impl Verifier {
         };
 
         let state = AppState {
-            heads: branch.current_heads.iter().map(|h| h.id.clone()).collect(),
-            head_keys: branch.current_heads.iter().map(|h| h.key.clone()).collect(),
+            heads,
+            head_keys,
             graph: if results.is_empty() {
                 None
             } else {
