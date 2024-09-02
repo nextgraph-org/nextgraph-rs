@@ -116,19 +116,24 @@
     </div>
     <script>
       const supported = (() => {
-        if (RegExp().hasIndices === undefined) return false;
+        if (RegExp().hasIndices === undefined) {console.log("no RegExp().hasIndices");return false;}
         try {
-            if (Worker === undefined) return false;
+            if (Worker === undefined) {console.log("no Worker");return false;}
             new Worker(URL.createObjectURL(new Blob([';'], {type: 'application/javascript'})));
             if (typeof WebAssembly === "object"
                 && typeof WebAssembly.instantiate === "function") {
                 const module = new WebAssembly.Module(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
                 if (module instanceof WebAssembly.Module)
                     return new WebAssembly.Instance(module) instanceof WebAssembly.Instance;
+                else {
+                  console.log("no WebAssembly module");
+                }
             }
             
         } catch (e) {
+          {console.log(e);return false;}
         }
+        console.log("no WebAssembly");
         return false;
       })();
       if (!supported ) {

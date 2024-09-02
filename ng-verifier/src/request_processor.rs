@@ -16,6 +16,7 @@ use futures::channel::mpsc;
 use futures::SinkExt;
 use futures::StreamExt;
 use ng_oxigraph::oxigraph::sparql::{results::*, Query, QueryResults};
+use ng_oxigraph::oxrdf::{Literal, NamedNode, Quad, Term};
 
 use ng_repo::errors::*;
 use ng_repo::file::{RandomAccessFile, ReadFile};
@@ -144,6 +145,23 @@ impl Verifier {
             }
             _ => unimplemented!(),
         }
+    }
+
+    fn resolve_header_branch(
+        &self,
+        target: &NuriTargetV0,
+    ) -> Result<(RepoId, BranchId, StoreRepo), NgError> {
+        Ok(match target {
+            NuriTargetV0::Repo(repo_id) => {
+                let (branch, store_repo) = {
+                    let repo = self.repos.get(repo_id).ok_or(NgError::RepoNotFound)?;
+                    let branch = repo.header_branch().ok_or(NgError::BranchNotFound)?;
+                    (branch.id, repo.store.get_store_repo().clone())
+                };
+                (*repo_id, branch, store_repo)
+            }
+            _ => return Err(NgError::NotImplemented),
+        })
     }
 
     pub(crate) fn resolve_target_for_sparql(
@@ -532,6 +550,80 @@ impl Verifier {
         payload: Option<AppRequestPayload>,
     ) -> Result<AppResponse, NgError> {
         match command {
+            AppRequestCommandV0::Header => {
+                if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Header(doc_header))) =
+                    payload
+                {
+                    let (repo_id, branch_id, store_repo) =
+                        match self.resolve_header_branch(&nuri.target) {
+                            Err(e) => return Ok(AppResponse::error(e.to_string())),
+                            Ok(a) => a,
+                        };
+                    let graph_name = NuriV0::branch_repo_graph_name(
+                        &branch_id,
+                        &repo_id,
+                        &store_repo.overlay_id_for_storage_purpose(),
+                    );
+
+                    let base = NuriV0::repo_id(&repo_id);
+
+                    let mut deletes = String::new();
+                    let mut wheres = String::new();
+                    let mut inserts = String::new();
+                    if let Some(about) = doc_header.about {
+                        deletes += &format!("<> <{NG_ONTOLOGY_ABOUT}> ?a. ");
+                        wheres += &format!("OPTIONAL {{ <> <{NG_ONTOLOGY_ABOUT}> ?a }} ");
+                        if about.len() > 0 {
+                            inserts += &format!(
+                                "<> <{NG_ONTOLOGY_ABOUT}> \"{}\". ",
+                                about.replace("\\", "\\\\").replace("\"", "\\\"")
+                            );
+                        }
+                    }
+                    if let Some(title) = doc_header.title {
+                        deletes += &format!("<> <{NG_ONTOLOGY_TITLE}> ?n. ");
+                        wheres += &format!("OPTIONAL {{ <> <{NG_ONTOLOGY_TITLE}> ?n }} ");
+                        if title.len() > 0 {
+                            inserts += &format!(
+                                "<> <{NG_ONTOLOGY_TITLE}> \"{}\". ",
+                                title.replace("\\", "\\\\").replace("\"", "\\\"")
+                            );
+                        }
+                    }
+                    let query = format!(
+                        "DELETE {{ {deletes} }} INSERT {{ {inserts} }} WHERE {{ {wheres} }}"
+                    );
+
+                    let oxistore = self.graph_dataset.as_ref().unwrap();
+
+                    let update = ng_oxigraph::oxigraph::sparql::Update::parse(&query, Some(&base))
+                        .map_err(|e| NgError::InternalError)?;
+
+                    let res = oxistore.ng_update(update, Some(graph_name));
+                    return Ok(match res {
+                        Err(e) => AppResponse::error(NgError::InternalError.to_string()),
+                        Ok((inserts, removes)) => {
+                            if inserts.is_empty() && removes.is_empty() {
+                                AppResponse::ok()
+                            } else {
+                                match self
+                                    .prepare_sparql_update(
+                                        Vec::from_iter(inserts),
+                                        Vec::from_iter(removes),
+                                        self.get_peer_id_for_skolem(),
+                                    )
+                                    .await
+                                {
+                                    Err(e) => AppResponse::error(e.to_string()),
+                                    Ok(_) => AppResponse::ok(),
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    return Err(NgError::InvalidPayload);
+                }
+            }
             AppRequestCommandV0::Create => {
                 if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(doc_create))) =
                     payload
@@ -540,6 +632,7 @@ impl Verifier {
 
                     let user_id = self.user_id().clone();
                     let user_priv_key = self.user_privkey().clone();
+                    let primary_class = doc_create.class.class().clone();
                     let repo_id = self
                         .new_repo_default(
                             &user_id,
@@ -548,6 +641,11 @@ impl Verifier {
                             doc_create.class,
                         )
                         .await?;
+
+                    let header_branch_id = {
+                        let repo = self.get_repo(&repo_id, &doc_create.store)?;
+                        repo.header_branch().ok_or(NgError::BranchNotFound)?.id
+                    };
 
                     // adding an AddRepo commit to the Store branch of store.
                     self.send_add_repo_to_store(&repo_id, &doc_create.store)
@@ -570,12 +668,73 @@ impl Verifier {
 
                     self.add_doc(&repo_id, &overlay_id)?;
 
+                    // adding the class triple to the header branch
+                    let header_branch_nuri = format!("{nuri_result}:b:{}", header_branch_id);
+                    let quad = Quad {
+                        subject: NamedNode::new_unchecked(&nuri).into(),
+                        predicate: NG_ONTOLOGY_CLASS_NAME.clone().into(),
+                        object: Literal::new_simple_literal(primary_class).into(),
+                        graph_name: NamedNode::new_unchecked(&header_branch_nuri).into(),
+                    };
+                    let ret = self.prepare_sparql_update(vec![quad], vec![], vec![]).await;
+                    if let Err(e) = ret {
+                        return Ok(AppResponse::error(e.to_string()));
+                    }
+
                     return Ok(AppResponse::V0(AppResponseV0::Nuri(nuri_result)));
                 } else {
                     return Err(NgError::InvalidPayload);
                 }
             }
             AppRequestCommandV0::Fetch(fetch) => match fetch {
+                AppFetchContentV0::Header => {
+                    let (repo_id, branch_id, store_repo) =
+                        match self.resolve_header_branch(&nuri.target) {
+                            Err(e) => return Ok(AppResponse::error(e.to_string())),
+                            Ok(a) => a,
+                        };
+
+                    self.open_branch(&repo_id, &branch_id, true).await?;
+
+                    let graph_name = NuriV0::branch_repo_graph_name(
+                        &branch_id,
+                        &repo_id,
+                        &store_repo.overlay_id_for_storage_purpose(),
+                    );
+                    let base = NuriV0::repo_id(&repo_id);
+                    let oxistore = self.graph_dataset.as_ref().unwrap();
+                    let parsed = Query::parse(
+                        &format!("SELECT ?class ?title ?about WHERE {{ OPTIONAL {{ <> <{NG_ONTOLOGY_CLASS}> ?class }} OPTIONAL {{ <> <{NG_ONTOLOGY_ABOUT}> ?about }} OPTIONAL {{ <> <{NG_ONTOLOGY_TITLE}> ?title }} }}"), Some(&base));
+                    if parsed.is_err() {
+                        return Ok(AppResponse::error(parsed.unwrap_err().to_string()));
+                    }
+                    let results = oxistore.query(parsed.unwrap(), Some(graph_name));
+                    match results {
+                        Err(e) => return Ok(AppResponse::error(e.to_string())),
+                        Ok(QueryResults::Solutions(mut sol)) => {
+                            let mut title = None;
+                            let mut about = None;
+                            let mut class = None;
+                            if let Some(Ok(s)) = sol.next() {
+                                if let Some(Term::Literal(l)) = s.get("title") {
+                                    title = Some(l.value().to_string());
+                                }
+                                if let Some(Term::Literal(l)) = s.get("about") {
+                                    about = Some(l.value().to_string());
+                                }
+                                if let Some(Term::Literal(l)) = s.get("class") {
+                                    class = Some(l.value().to_string());
+                                }
+                            }
+                            return Ok(AppResponse::V0(AppResponseV0::Header(AppHeader {
+                                about,
+                                title,
+                                class,
+                            })));
+                        }
+                        _ => return Err(NgError::InvalidResponse),
+                    };
+                }
                 AppFetchContentV0::ReadQuery => {
                     if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0 {
                         sparql,

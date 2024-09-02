@@ -34,7 +34,6 @@
   import BranchIcon from "./icons/BranchIcon.svelte";
   import Message from "./components/Message.svelte";
 
-  import Signature from "./popups/Signature.svelte";
   import {
     get,
   } from "svelte/store";
@@ -47,11 +46,11 @@
           has_editor_chat, all_files_count, all_comments_count,  hideMenu, show_modal_menu, show_modal_create,
           cur_tab_branch_nuri, cur_tab_doc_can_edit, cur_tab_doc_is_member, cur_tab_right_pane, cur_tab_folders_pane,
           cur_tab_toc_pane, cur_tab_show_menu, cur_tab_branch_has_discrete, cur_tab_graph_or_discrete, cur_tab_view_or_edit, show_spinner,
-          in_private_store, show_doc_popup, cur_doc_popup, open_doc_popup } from "../tab";
+          in_private_store, show_doc_popup, cur_doc_popup } from "../tab";
   import {
     active_session, redirect_after_login, toasts, check_has_camera, toast_error,
     reset_toasts, redirect_if_wallet_is, active_wallet,
-    display_error, openModalCreate
+    display_error, openModalCreate, open_doc_popup
   } from "../store";
   import ZeraIcon from "./icons/ZeraIcon.svelte";
   import ng from "../api";
@@ -300,33 +299,33 @@
   ];
 
   const create_chart_items = [
-    "doc:chart:frappecharts",
-    "doc:chart:financial",
-    "doc:chart:apexcharts",
-    "doc:chart:billboard",
-    "doc:chart:echarts",
-    "doc:chart:chartjs",
+    "chart:frappecharts",
+    "chart:financial",
+    "chart:apexcharts",
+    "chart:billboard",
+    "chart:echarts",
+    "chart:chartjs",
   ];
 
   const create_viz_items = [
-    "doc:viz:cytoscape",
-    "doc:viz:vega",
-    "doc:viz:vizzu",
-    "doc:viz:plotly",
-    "doc:viz:avail",
+    "viz:cytoscape",
+    "viz:vega",
+    "viz:vizzu",
+    "viz:plotly",
+    "viz:avail",
   ];
 
   const create_diagram_items = [
-    "doc:diagram:mermaid",
-    "doc:diagram:drawio",
-    "doc:diagram:graphviz",
-    "doc:diagram:excalidraw",
-    "doc:diagram:gantt",
-    "doc:diagram:flowchart",
-    "doc:diagram:sequence",
-    "doc:diagram:markmap",
-    "doc:diagram:mymind",
-    "doc:diagram:jsmind",
+    "diagram:mermaid",
+    "diagram:drawio",
+    "diagram:graphviz",
+    "diagram:excalidraw",
+    "diagram:gantt",
+    "diagram:flowchart",
+    "diagram:sequence",
+    "diagram:markmap",
+    "diagram:mymind",
+    "diagram:jsmind",
   ];
 
   const create_doc_items = [
@@ -366,6 +365,19 @@
   const create_apps_items = [
     "app:n:xxx.xx.xx",
   ];
+
+  import Signature from "./popups/Signature.svelte";
+  import Header from "./popups/Header.svelte";
+
+  const doc_popups = {
+    "signature": Signature,
+    "header": Header,
+  }
+
+  const doc_popups_size = {
+    "signature": "xs",
+    "header": "md",
+  }
 
   let top;
   let shareMenu;
@@ -428,7 +440,7 @@
 
   const openAction = (action:string) => {
     hideMenu();
-    if (doc_popups[action]) open_doc_popup(action);
+    open_doc_popup(action);
   }
 
   const openPane = (pane:string) => {
@@ -563,10 +575,6 @@
     "chat":ChatBubbleLeftRight,
     "mc":Sparkles,
   };
-
-  const doc_popups = {
-    "signature": Signature,
-  }
 
   let destination = "store";
 
@@ -755,7 +763,8 @@
             {/if}
 
             {#if $cur_tab_doc_can_edit}
-              <MenuItem title={$t("doc.menu.items.new_block.desc")} clickable={ ()=> openAction("new_block") }>
+            <!-- ()=> openAction("new_block") -->
+              <MenuItem title={$t("doc.menu.items.new_block.desc")} clickable={ undefined }>
                 <PlusCircle
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
@@ -764,7 +773,8 @@
               </MenuItem>
             {/if}
             {#if $has_editor_chat}
-              <MenuItem title={$t("doc.menu.items.editor_chat.desc")} selected={$cur_tab_right_pane == "chat"} clickable={ ()=> openPane("chat") }>
+            <!-- ()=> openPane("chat") -->
+              <MenuItem title={$t("doc.menu.items.editor_chat.desc")} selected={$cur_tab_right_pane == "chat"} clickable={ undefined }>
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["chat"]} />
                 <span class="ml-3">{$t("doc.menu.items.editor_chat.label")}</span>
               </MenuItem>
@@ -794,14 +804,16 @@
                 </MenuItem>
                 {#if open_share }
                   {#each share_items as share}
-                    <MenuItem title={$t(`doc.menu.items.${share.n}.desc`)} extraClass="submenu" clickable={ () => openShare(share.n) }>
+                  <!-- () => openShare(share.n) -->
+                    <MenuItem title={$t(`doc.menu.items.${share.n}.desc`)} extraClass="submenu" clickable={ undefined }>
                       <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={share.i} />
                       <span class="ml-3">{$t(`doc.menu.items.${share.n}.label`)}</span>
                     </MenuItem>
                   {/each}
                 {/if}
               {:else}
-                <MenuItem title={$t(`doc.menu.items.download.desc`)} clickable={ () => openShare("download") }>
+              <!-- () => openShare("download") -->
+                <MenuItem title={$t(`doc.menu.items.download.desc`)} clickable={ undefined }>
                   <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={DocumentArrowDown} />
                   <span class="ml-3">{$t(`doc.menu.items.download.label`)}</span>
                 </MenuItem>
@@ -823,37 +835,37 @@
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["history"]} />
                 <span class="ml-3">{$t("doc.menu.items.history.label")}</span>
               </MenuItem>
-
-              <MenuItem title={$t("doc.menu.items.find.desc")} clickable={ find }>
+              <!-- find -->
+              <MenuItem title={$t("doc.menu.items.find.desc")} clickable={ undefined }>
                 <MagnifyingGlass
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
                 />
                 <span class="ml-3">{$t("doc.menu.items.find.label")}</span>
               </MenuItem>
-
-              <MenuItem title={$t("doc.menu.items.bookmark.desc")} clickable={ bookmark }>
+              <!-- bookmark -->
+              <MenuItem title={$t("doc.menu.items.bookmark.desc")} clickable={ undefined }>
                 <Bookmark
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
                 />
                 <span class="ml-3">{$t("doc.menu.items.bookmark.label")}</span>
               </MenuItem>
-
-              <MenuItem title={$t("doc.menu.items.annotate.desc")} clickable={ annotate }>
+              <!-- annotate -->
+              <MenuItem title={$t("doc.menu.items.annotate.desc")} clickable={ undefined }>
                 <ChatBubbleLeftEllipsis
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
                 />
                 <span class="ml-3">{$t("doc.menu.items.annotate.label")}</span>
               </MenuItem>
-
-              <MenuItem title={$t("doc.menu.items.info.desc")} selected={$cur_tab_right_pane == "info"} clickable={ ()=> openPane("info") }>
+              <!-- ()=> openPane("info") -->
+              <MenuItem title={$t("doc.menu.items.info.desc")} selected={$cur_tab_right_pane == "info"} clickable={ undefined }>
                 <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["info"]} />
                 <span class="ml-3">{$t("doc.menu.items.info.label")}</span>
               </MenuItem>
-
-              <MenuItem title={$t("doc.menu.items.notifs.desc")} clickable={ ()=> openAction("notifs") }>
+              <!-- ()=> openAction("notifs") -->
+              <MenuItem title={$t("doc.menu.items.notifs.desc")} clickable={ undefined }>
                 <Bell
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
@@ -861,7 +873,8 @@
                 <span class="ml-3">{$t("doc.menu.items.notifs.label")}</span>
               </MenuItem>
               {#if $cur_tab_doc_is_member && !$in_private_store}
-                <MenuItem title={$t("doc.menu.items.permissions.desc")} clickable={ ()=>  openAction("permissions") }>
+                <!-- ()=>  openAction("permissions") -->
+                <MenuItem title={$t("doc.menu.items.permissions.desc")} clickable={ undefined }>
                   <LockOpen
                     tabindex="-1"
                     class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
@@ -869,7 +882,8 @@
                   <span class="ml-3">{$t("doc.menu.items.permissions.label")}</span>
                 </MenuItem>
               {/if}
-              <MenuItem title={$t("doc.menu.items.settings.desc")} clickable={ ()=>  openAction("settings") }>
+              <!-- ()=>  openAction("settings") -->
+              <MenuItem title={$t("doc.menu.items.settings.desc")} clickable={ undefined }>
                 <Cog6Tooth
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
@@ -887,7 +901,8 @@
               {#if open_tools }
                 {#each tools_items as tool}
                   {#if !$in_private_store || tool.n !== "signature" }
-                    <MenuItem title={$t(`doc.menu.items.${tool.n}.desc`)} extraClass="submenu" clickable={ () => openAction(tool.n) }>
+                  <!-- () => openAction(tool.n)  -->
+                    <MenuItem title={$t(`doc.menu.items.${tool.n}.desc`)} extraClass="submenu" clickable={ tool.n === "signature" ? () => openAction(tool.n) : undefined }>
                       <Icon tabindex="-1" class="w-7 h-7 text-gray-700  focus:outline-none  dark:text-white  " variation="outline" color="currentColor" icon={tool.i} />
                       <span class="ml-3">{$t(`doc.menu.items.${tool.n}.label`)}</span>
                     </MenuItem>
@@ -895,11 +910,13 @@
                 {/each}
               {/if}
             {/if}
-            <MenuItem title={$t("doc.menu.items.mc.desc")} selected={$cur_tab_right_pane == "mc"} clickable={ ()=> openPane("mc") }>
+            <!-- ()=> openPane("mc") -->
+            <MenuItem title={$t("doc.menu.items.mc.desc")} selected={$cur_tab_right_pane == "mc"} clickable={ undefined }>
               <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["mc"]} />
               <span class="ml-3">{$t("doc.menu.items.mc.label")}</span>
             </MenuItem>
-            <MenuItem title={$t("doc.menu.items.archive.desc")} clickable={ ()=> openArchive() }>
+            <!-- ()=> openArchive() -->
+            <MenuItem title={$t("doc.menu.items.archive.desc")} clickable={ undefined }>
               <ArchiveBox
                   tabindex="-1"
                   class="w-7 h-7 text-gray-700  focus:outline-none dark:text-white"
@@ -945,12 +962,12 @@
 <Modal class="document-popup"
     outsideclose
     bind:open={$show_doc_popup}
-    size = 'xs'
+    size = {doc_popups_size[$cur_doc_popup]}
     placement = 'center'
     defaultClass="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-400 rounded-lg border-gray-200 dark:border-gray-700 divide-gray-200 dark:divide-gray-700 shadow-md relative flex flex-col mx-auto w-full"
     backdropClass="bg-gray-900 bg-opacity-50 dark:bg-opacity-80 popup-bg-modal"
   >
-  <svelte:component this={doc_popups[$cur_doc_popup]}/>
+  {#if doc_popups[$cur_doc_popup]}<svelte:component this={doc_popups[$cur_doc_popup]}/>{/if}
 </Modal>
 <Modal class="menu-modal"
     outsideclose
@@ -1121,7 +1138,7 @@
 
           <div style="padding:0;" bind:this={createMenu.chart}></div>
           <MenuItem title={$t("doc.chart")} dropdown={createMenuOpened.chart} clickable={ () => { createMenuOpened.chart = !createMenuOpened.chart; scrollToCreateMenu("chart"); } }>
-            <DataClassIcon dataClass="doc:chart" {config}/>
+            <DataClassIcon dataClass="chart" {config}/>
             <span class="ml-3">{$t("doc.chart")}</span>
           </MenuItem>
           {#if createMenuOpened.chart }
@@ -1136,7 +1153,7 @@
 
           <div style="padding:0;" bind:this={createMenu.viz}></div>
           <MenuItem title={$t("doc.viz")} dropdown={createMenuOpened.viz} clickable={ () => { createMenuOpened.viz = !createMenuOpened.viz; scrollToCreateMenu("viz"); } }>
-            <DataClassIcon dataClass="doc:viz" {config}/>
+            <DataClassIcon dataClass="viz" {config}/>
             <span class="ml-3">{$t("doc.viz")}</span>
           </MenuItem>
           {#if createMenuOpened.viz }
@@ -1151,7 +1168,7 @@
 
           <div style="padding:0;" bind:this={createMenu.diagram}></div>
           <MenuItem title={$t("doc.diagram")} dropdown={createMenuOpened.diagram} clickable={ () => { createMenuOpened.diagram = !createMenuOpened.diagram; scrollToCreateMenu("diagram"); } }>
-            <DataClassIcon dataClass="doc:diagram" {config}/>
+            <DataClassIcon dataClass="diagram" {config}/>
             <span class="ml-3">{$t("doc.diagram")}</span>
           </MenuItem>
           {#if createMenuOpened.diagram }

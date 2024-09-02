@@ -60,6 +60,7 @@ pub enum AppFetchContentV0 {
     SignatureStatus,
     SignatureRequest,
     SignedSnapshotRequest,
+    Header,
     //Invoke,
 }
 
@@ -259,6 +260,14 @@ impl NuriV0 {
 
     pub fn repo_graph_name(repo_id: &RepoId, overlay_id: &OverlayId) -> String {
         format!("{DID_PREFIX}:o:{repo_id}:v:{overlay_id}")
+    }
+
+    pub fn branch_repo_graph_name(
+        branch_id: &BranchId,
+        repo_id: &RepoId,
+        overlay_id: &OverlayId,
+    ) -> String {
+        format!("{DID_PREFIX}:o:{repo_id}:v:{overlay_id}:b:{branch_id}")
     }
 
     pub fn repo_skolem(
@@ -576,6 +585,7 @@ pub enum AppRequestCommandV0 {
     Create,
     FileGet, // needs the Nuri of branch/doc/store AND ObjectId
     FilePut, // needs the Nuri of branch/doc/store
+    Header,
 }
 
 impl AppRequestCommandV0 {
@@ -587,6 +597,7 @@ impl AppRequestCommandV0 {
             | Self::Delete
             | Self::UnPin
             | Self::Pin
+            | Self::Header
             | Self::Fetch(_) => false,
         }
     }
@@ -616,6 +627,12 @@ impl AppRequestCommandV0 {
     }
     pub fn new_create() -> Self {
         AppRequestCommandV0::Create
+    }
+    pub fn new_header() -> Self {
+        AppRequestCommandV0::Header
+    }
+    pub fn new_fetch_header() -> Self {
+        AppRequestCommandV0::Fetch(AppFetchContentV0::Header)
     }
 }
 
@@ -794,6 +811,12 @@ pub struct DocAddFile {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DocHeader {
+    pub title: Option<String>,
+    pub about: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DocCreateDestination {
     Store,
     Stream,
@@ -836,8 +859,10 @@ pub enum AppRequestPayloadV0 {
     SmallFilePut(SmallFile),
     RandomAccessFilePut(String), // content_type (iana media type)
     RandomAccessFilePutChunk((u32, serde_bytes::ByteBuf)), // end the upload with an empty vec
-                                 //RemoveFile
-                                 //Invoke(InvokeArguments),
+
+    Header(DocHeader),
+    //RemoveFile
+    //Invoke(InvokeArguments),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -848,6 +873,9 @@ pub enum AppRequestPayload {
 impl AppRequestPayload {
     pub fn new_sparql_query(sparql: String, base: Option<String>) -> Self {
         AppRequestPayload::V0(AppRequestPayloadV0::Query(DocQuery::V0 { sparql, base }))
+    }
+    pub fn new_header(title: Option<String>, about: Option<String>) -> Self {
+        AppRequestPayload::V0(AppRequestPayloadV0::Header(DocHeader { title, about }))
     }
     pub fn new_discrete_update(
         head_strings: Vec<String>,
@@ -1019,6 +1047,22 @@ pub struct AppTabDocInfo {
                                 //TODO branches
 }
 
+impl AppTabDocInfo {
+    pub fn new() -> Self {
+        AppTabDocInfo {
+            nuri: None,
+            is_store: None,
+            is_member: None,
+            title: None,
+            icon: None,
+            description: None,
+            authors: None,
+            inbox: None,
+            can_edit: None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppTabBranchInfo {
     pub id: Option<String>,      //+
@@ -1032,6 +1076,13 @@ pub struct AppTabInfo {
     pub branch: Option<AppTabBranchInfo>,
     pub doc: Option<AppTabDocInfo>,
     pub store: Option<AppTabStoreInfo>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AppHeader {
+    pub about: Option<String>,
+    pub title: Option<String>,
+    pub class: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1059,6 +1110,7 @@ pub enum AppResponseV0 {
     Error(String),
     EndOfStream,
     Nuri(String),
+    Header(AppHeader),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

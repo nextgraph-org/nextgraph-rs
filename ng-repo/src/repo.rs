@@ -87,7 +87,7 @@ impl UserInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BranchInfo {
     pub id: BranchId,
 
@@ -635,6 +635,15 @@ impl Repo {
     pub fn store_branch(&self) -> Option<&BranchInfo> {
         for (_, branch) in self.branches.iter() {
             if branch.branch_type == BranchType::Store {
+                return Some(branch);
+            }
+        }
+        None
+    }
+
+    pub fn header_branch(&self) -> Option<&BranchInfo> {
+        for (_, branch) in self.branches.iter() {
+            if branch.branch_type == BranchType::Header {
                 return Some(branch);
             }
         }

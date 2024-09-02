@@ -16,7 +16,7 @@ use crate::oxigraph::storage::numeric_encoder::{
 };
 use crate::oxigraph::storage::{MatchBy, StorageError, StorageReader};
 use crate::oxigraph::store::CorruptionError;
-use crate::oxrdf::GraphName;
+use crate::oxrdf::{GraphName, NamedNodeRef};
 use crate::sparopt::algebra::NamedNode;
 
 use std::cell::RefCell;
@@ -43,30 +43,44 @@ impl Iterator for ErrorIterator {
 impl DatasetView {
     pub fn new(
         reader: StorageReader,
-        dataset: &QueryDataset,
+        query_dataset: &QueryDataset,
         default_graph: &Option<String>,
     ) -> Self {
         let dataset = EncodedDatasetSpec {
-            default: if dataset.has_no_default_dataset() && default_graph.is_some() {
+            default: if query_dataset.has_no_default_dataset() && default_graph.is_some() {
                 Some(vec![GraphName::NamedNode(NamedNode::new_unchecked(
                     default_graph.to_owned().unwrap(),
                 ))
                 .as_ref()
                 .into()])
             } else {
-                dataset
+                query_dataset
                     .default_graph_graphs()
                     .map(|graphs| graphs.iter().map(|g| g.as_ref().into()).collect::<Vec<_>>())
             },
-            named: dataset
+            named: query_dataset
                 .available_named_graphs()
                 .map(|graphs| graphs.iter().map(|g| g.as_ref().into()).collect::<Vec<_>>()),
         };
-        Self {
+        let res = Self {
             reader,
             extra: RefCell::new(HashMap::default()),
             dataset,
+        };
+        if let Some(default_graph) = default_graph {
+            res.encode_term(NamedNodeRef::new_unchecked(default_graph));
         }
+        if !query_dataset.has_no_default_dataset() {
+            query_dataset.default_graph_graphs().map(|graphs| {
+                graphs.iter().for_each(|g| match g {
+                    GraphName::NamedNode(nn) => {
+                        let _a = res.encode_term(nn);
+                    }
+                    _ => {}
+                })
+            });
+        }
+        res
     }
 
     fn parse_graph_name(&self, graph_name: &EncodedTerm) -> Result<MatchBy, StorageError> {

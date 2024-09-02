@@ -220,11 +220,15 @@ td.hljs {
 
 .container3 {
     margin: 0;
-    min-width: 280px;
+
     display: flex;
     flex-direction: column;
     justify-content: center;
     text-align: center;
+}
+
+.container3 aside {
+    width: 20rem !important;
 }
 
 div[role="alert"] div {

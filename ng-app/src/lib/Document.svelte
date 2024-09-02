@@ -14,7 +14,7 @@
     branch_subscribe,
     active_session,
     cannot_load_offline,
-    online,
+    open_doc_popup
   } from "../store";
   
   import {
@@ -42,7 +42,7 @@
   const inview_options = {};//{rootMargin: "-44px"};
 
   function openEditHeader() {
-    //TODO
+    open_doc_popup("header");
   }
 </script>
 

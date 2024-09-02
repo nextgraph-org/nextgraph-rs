@@ -21,7 +21,7 @@
     "chart": "Chart",
     "viz": "Visualization",
     "diagram": "Diagram",
-    "other": "Other file formats",
+    "other": "Other formats",
     "data": "Data",
     "code": "Code",
     "apps": "Apps",
@@ -71,7 +71,16 @@
         "groups": "Groups",
         "channels": "Channels",
         "inbox": "Inbox",
-        "chat": "Chat"
+        "chat": "Chat",
+        "save": "Save"
+      },
+      "doc":{
+        "title": "Title",
+        "about": "Introduction"
+      },
+      "profile": {
+        "title": "Name",
+        "about": "Bio"
       }
     },
     "signature": {

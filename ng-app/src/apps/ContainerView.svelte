@@ -11,8 +11,7 @@
 
 <script lang="ts">
     
-    import { 
-    } from "../store";
+    import ng from "../api";
     import { link } from "svelte-spa-router";
     import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
     import{ PlusCircle } from "svelte-heros-v2";
@@ -20,9 +19,16 @@
     import { 
       in_memory_discrete, open_viewer, set_viewer, set_editor, set_view_or_edit, cur_tab_branch_class, cur_tab_doc_can_edit, cur_tab
     } from "../tab";
+    import DataClassIcon from "../lib/icons/DataClassIcon.svelte";
     import {
-        openModalCreate
+        openModalCreate,
+        sparql_query,
+        active_session
     } from "../store";
+    import {
+        Clipboard
+    } from "svelte-heros-v2";
+
     export let commits;
 
     function contained(graph) {
@@ -30,23 +36,41 @@
         for (const g of graph) {
             if (g.substring(57,90) === "http://www.w3.org/ns/ldp#contains") {
                 let nuri = g.substring(93,146);
+                let repo = nuri;
                 nuri = nuri + ":" + $cur_tab.store.overlay;
                 let hash = nuri.substring(9,16);
-                ret.push({nuri,hash});
+                ret.push({nuri,hash,repo});
             }
         }
         ret.sort((a, b) => a.hash.localeCompare(b.hash));
         return ret;
     }
 
+    async function fetch_header(repo) {
+        try {
+            let res = await ng.fetch_header($active_session.session_id, repo);
+            return res;
+        }catch(e){
+            console.error(e);
+            return {};
+        }
+    }
+
     const create = () => {
         openModalCreate();
+    }
+    const config = {
+        class: "mr-2 w-6 h-6 shrink-0 focus:outline-none"
     }
   
   </script>
   <div class="flex-col p-5">
       {#each contained(commits.graph) as doc}
-          <div class="flex font-mono mb-3"> <a use:link href="/{doc.nuri}">{doc.hash}</a> </div> 
+          {#await fetch_header(doc.repo)}
+          <div class="flex"> <Clipboard tabindex="-1" class="mr-2 w-6 h-6 shrink-0 focus:outline-none"/><div class="flex font-mono mb-3"> <a use:link href="/{doc.nuri}">{doc.hash}</a> </div> </div>
+          {:then header}
+          <div class="flex" title="{header.about || ''}"> {#if header.class}<DataClassIcon {config} dataClass={header.class}/>{:else}<Clipboard tabindex="-1" class="mr-2 w-6 h-6 shrink-0 focus:outline-none"/>{/if}<div class="flex font-mono mb-3"> <a use:link href="/{doc.nuri}">{header.title || doc.hash}</a> </div></div>
+          {/await}
       {/each}
       {#if commits.graph.length == 0 || contained(commits.graph).length == 0} 
         <p>{$t("doc.empty_container")}</p>

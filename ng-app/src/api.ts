@@ -53,6 +53,8 @@ const mapping = {
     "signature_status": ["session_id", "nuri"],
     "signed_snapshot_request": ["session_id", "nuri"],
     "signature_request": ["session_id", "nuri"],
+    "update_header": ["session_id","nuri","title","about"],
+    "fetch_header": ["session_id", "nuri"]
 }
 
 

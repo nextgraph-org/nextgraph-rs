@@ -220,8 +220,6 @@ impl Store {
         )?;
         let branch_read_cap = branch_commit.reference().unwrap();
 
-        //log_debug!("{:?} BRANCH COMMIT {}", branch_type, branch_commit);
-
         // creating the AddBranch commit (on root_branch), deps to the RootBranch commit
         // author is the owner
 
@@ -246,12 +244,6 @@ impl Store {
             add_branch_commit_body,
             self,
         )?;
-
-        // log_debug!(
-        //     "ADD_BRANCH {:?} BRANCH COMMIT {}",
-        //     &branch_type,
-        //     add_branch_commit
-        // );
 
         let branch_info = BranchInfo {
             id: branch_pub_key,
@@ -369,7 +361,6 @@ impl Store {
             &self,
         )?;
 
-        //log_debug!("ROOT_BRANCH COMMIT {}", root_branch_commit);
         let root_branch_readcap = root_branch_commit.reference().unwrap();
         let root_branch_readcap_id = root_branch_readcap.id;
         // adding the 2 events for the Repository and Rootbranch commits
@@ -377,6 +368,32 @@ impl Store {
         events.push((repository_commit, vec![]));
 
         events.push((root_branch_commit, vec![]));
+
+        // creating the header branch
+        let (header_add_branch_commit, header_branch_info, next_dep) = if !is_private_store {
+            let (header_branch_commit, header_add_branch_commit, header_branch_info) =
+                self.as_ref().create_branch(
+                    BranchType::Header,
+                    BranchCrdt::Graph(branch_crdt.as_ref().unwrap().class().clone()),
+                    creator,
+                    creator_priv_key,
+                    repo_pub_key,
+                    repository_commit_ref.clone(),
+                    root_branch_readcap_id,
+                    &repo_write_cap_secret,
+                    vec![root_branch_readcap.clone()],
+                    vec![],
+                )?;
+            let header_add_branch_readcap = header_add_branch_commit.reference().unwrap();
+            events_postponed.push((header_branch_commit, vec![]));
+            (
+                Some(header_add_branch_commit),
+                Some(header_branch_info),
+                header_add_branch_readcap,
+            )
+        } else {
+            (None, None, root_branch_readcap.clone())
+        };
 
         // creating the main branch
 
@@ -390,10 +407,9 @@ impl Store {
                 repository_commit_ref.clone(),
                 root_branch_readcap_id,
                 &repo_write_cap_secret,
-                vec![root_branch_readcap.clone()],
+                vec![next_dep],
                 vec![],
             )?;
-
         events_postponed.push((main_branch_commit, vec![]));
 
         // TODO: optional AddMember and AddPermission, that should be added as deps to the SynSignature below (and to the commits of the SignatureContent)
@@ -414,7 +430,6 @@ impl Store {
                     vec![main_add_branch_commit.reference().unwrap()],
                     vec![],
                 )?;
-
             events_postponed.push((store_branch_commit, vec![]));
 
             // creating the overlay or user branch
@@ -467,7 +482,20 @@ impl Store {
         // creating signature for RootBranch, AddBranch and Branch commits
         // signed with owner threshold signature (threshold = 0)
 
-        let mut signed_commits = vec![main_branch_info.read_cap.as_ref().unwrap().id];
+        let mut signed_commits = if header_branch_info.is_some() {
+            vec![
+                header_branch_info
+                    .as_ref()
+                    .unwrap()
+                    .read_cap
+                    .as_ref()
+                    .unwrap()
+                    .id,
+                main_branch_info.read_cap.as_ref().unwrap().id,
+            ]
+        } else {
+            vec![main_branch_info.read_cap.as_ref().unwrap().id]
+        };
 
         if let Some((_, store_branch, oou_add_branch, oou_branch)) = &extra_branches {
             signed_commits.append(&mut vec![
@@ -563,16 +591,32 @@ impl Store {
             &self,
         )?;
 
-        let mut branches = vec![(main_branch_info.id, main_branch_info)];
+        let mut branches = if header_branch_info.is_some() {
+            vec![
+                (
+                    header_branch_info.as_ref().unwrap().id,
+                    header_branch_info.unwrap(),
+                ),
+                (main_branch_info.id, main_branch_info),
+            ]
+        } else {
+            vec![(main_branch_info.id, main_branch_info)]
+        };
 
         // adding the event for the sync_sig_on_root_branch_commit
 
-        let mut additional_blocks = Vec::with_capacity(
-            cert_obj_blocks.len() + sig_obj_blocks.len() + main_add_branch_commit.blocks().len(),
-        );
+        let mut capacity =
+            cert_obj_blocks.len() + sig_obj_blocks.len() + main_add_branch_commit.blocks().len();
+        if header_add_branch_commit.is_some() {
+            capacity += header_add_branch_commit.as_ref().unwrap().blocks().len()
+        }
+        let mut additional_blocks = Vec::with_capacity(capacity);
         additional_blocks.extend(cert_obj_blocks.iter());
         additional_blocks.extend(sig_obj_blocks.iter());
         additional_blocks.extend(main_add_branch_commit.blocks().iter());
+        if header_add_branch_commit.is_some() {
+            additional_blocks.extend(header_add_branch_commit.unwrap().blocks().iter());
+        }
         if let Some((store_add_branch, store_branch_info, oou_add_branch, oou_branch_info)) =
             extra_branches
         {
@@ -582,7 +626,7 @@ impl Store {
             branches.push((oou_branch_info.id, oou_branch_info));
         }
 
-        // creating the SyncSignature for all 3 branches with deps to the Branch commit and acks also to this commit as it is its direct causal future.
+        // creating the SyncSignature for all (2+ optional 2) branches with deps to the Branch commit and acks also to this commit as it is its direct causal future.
 
         for (branch_id, branch_info) in &mut branches {
             let sync_sig_on_branch_commit = Commit::new_with_body_acks_deps_and_save(
@@ -600,12 +644,10 @@ impl Store {
 
             // adding the event for the sync_sig_on_branch_commit
 
-            let mut additional_blocks =
-                Vec::with_capacity(cert_obj_blocks.len() + sig_obj_blocks.len());
-            additional_blocks.extend(cert_obj_blocks.iter());
-            additional_blocks.extend(sig_obj_blocks.iter());
-
-            events_postponed.push((sync_sig_on_branch_commit, additional_blocks));
+            let mut additional = Vec::with_capacity(cert_obj_blocks.len() + sig_obj_blocks.len());
+            additional.extend(cert_obj_blocks.iter());
+            additional.extend(sig_obj_blocks.iter());
+            events_postponed.push((sync_sig_on_branch_commit, additional));
 
             branch_info.current_heads = vec![sync_sig_on_branch_commit_ref];
 

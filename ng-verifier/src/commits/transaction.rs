@@ -33,7 +33,7 @@ use crate::verifier::Verifier;
 
 struct BranchUpdateInfo {
     branch_id: BranchId,
-    branch_is_main: bool,
+    branch_type: BranchType,
     repo_id: RepoId,
     topic_id: TopicId,
     token: Digest,
@@ -268,7 +268,7 @@ impl Verifier {
         if body.graph.is_some() {
             let info = BranchUpdateInfo {
                 branch_id: *branch_id,
-                branch_is_main: branch.branch_type.is_main(),
+                branch_type: branch.branch_type.clone(),
                 repo_id: *repo_id,
                 topic_id: branch.topic.clone().unwrap(),
                 token: branch.read_cap.as_ref().unwrap().tokenize(),
@@ -330,7 +330,10 @@ impl Verifier {
     fn find_branch_and_repo_for_quad(
         &self,
         quad: &Quad,
-        branches: &mut HashMap<BranchId, (StoreRepo, RepoId, bool, TopicId, Digest, OverlayId)>,
+        branches: &mut HashMap<
+            BranchId,
+            (StoreRepo, RepoId, BranchType, TopicId, Digest, OverlayId),
+        >,
         nuri_branches: &mut HashMap<String, (RepoId, BranchId, bool)>,
     ) -> Result<(RepoId, BranchId, bool), VerifierError> {
         match &quad.graph_name {
@@ -348,13 +351,13 @@ impl Verifier {
                     nuri.overlay.unwrap().outer().to_slice(),
                 ))?;
                 let repo = self.get_repo(nuri.target.repo_id(), store.get_store_repo())?;
-                let (branch_id, is_publisher, is_main, topic_id, token) = match nuri.branch {
+                let (branch_id, is_publisher, branch_type, topic_id, token) = match nuri.branch {
                     None => {
                         let b = repo.main_branch().ok_or(VerifierError::BranchNotFound)?;
                         (
                             b.id,
                             b.topic_priv_key.is_some(),
-                            true,
+                            b.branch_type.clone(),
                             b.topic.clone().unwrap(),
                             b.read_cap.as_ref().unwrap().tokenize(),
                         )
@@ -365,7 +368,7 @@ impl Verifier {
                         (
                             id,
                             b.topic_priv_key.is_some(),
-                            false,
+                            b.branch_type.clone(),
                             b.topic.clone().unwrap(),
                             b.read_cap.as_ref().unwrap().tokenize(),
                         )
@@ -376,7 +379,7 @@ impl Verifier {
                 let _ = branches.entry(branch_id).or_insert((
                     store.get_store_repo().clone(),
                     repo.id,
-                    is_main,
+                    branch_type,
                     topic_id,
                     token,
                     store.overlay_id,
@@ -392,7 +395,7 @@ impl Verifier {
         }
     }
 
-    async fn prepare_sparql_update(
+    pub(crate) async fn prepare_sparql_update(
         &mut self,
         inserts: Vec<Quad>,
         removes: Vec<Quad>,
@@ -405,8 +408,10 @@ impl Verifier {
         // for now we just do skip, without giving option to user
         let mut inserts_map: HashMap<BranchId, HashSet<Triple>> = HashMap::with_capacity(1);
         let mut removes_map: HashMap<BranchId, HashSet<Triple>> = HashMap::with_capacity(1);
-        let mut branches: HashMap<BranchId, (StoreRepo, RepoId, bool, TopicId, Digest, OverlayId)> =
-            HashMap::with_capacity(1);
+        let mut branches: HashMap<
+            BranchId,
+            (StoreRepo, RepoId, BranchType, TopicId, Digest, OverlayId),
+        > = HashMap::with_capacity(1);
         let mut nuri_branches: HashMap<String, (RepoId, BranchId, bool)> =
             HashMap::with_capacity(1);
         let mut inserts_len = inserts.len();
@@ -462,8 +467,7 @@ impl Verifier {
 
         let mut updates = Vec::with_capacity(branches.len());
 
-        for (branch_id, (store_repo, repo_id, branch_is_main, topic_id, token, overlay_id)) in
-            branches
+        for (branch_id, (store_repo, repo_id, branch_type, topic_id, token, overlay_id)) in branches
         {
             let graph_transac = GraphTransaction {
                 inserts: Vec::from_iter(inserts_map.remove(&branch_id).unwrap_or(HashSet::new())),
@@ -497,7 +501,7 @@ impl Verifier {
 
             let info = BranchUpdateInfo {
                 branch_id,
-                branch_is_main,
+                branch_type,
                 repo_id,
                 topic_id,
                 token,
@@ -526,13 +530,15 @@ impl Verifier {
                     let reader = transaction.ng_get_reader();
 
                     for update in updates_ref.iter_mut() {
+                        let branch_is_main = update.branch_type.is_main();
+
                         let commit_name =
                             NuriV0::commit_graph_name(&update.commit_id, &update.overlay_id);
                         let commit_encoded = numeric_encoder::StrHash::new(&commit_name);
 
                         let cv_graphname = NamedNode::new_unchecked(commit_name);
                         let cv_graphname_ref = GraphNameRef::NamedNode((&cv_graphname).into());
-                        let ov_main = if update.branch_is_main {
+                        let ov_main = if branch_is_main {
                             let ov_graphname = NamedNode::new_unchecked(NuriV0::repo_graph_name(
                                 &update.repo_id,
                                 &update.overlay_id,
@@ -541,7 +547,7 @@ impl Verifier {
                         } else {
                             None
                         };
-                        let value = if update.branch_is_main {
+                        let value = if branch_is_main {
                             ADDED_IN_MAIN
                         } else {
                             ADDED_IN_OTHER
@@ -611,7 +617,7 @@ impl Verifier {
 
                             let at_current_heads = current_heads == direct_causal_past_encoded;
                             // if not, we need to base ourselves on the materialized state of the direct_causal_past of the commit
-                            let value = if update.branch_is_main {
+                            let value = if branch_is_main {
                                 REMOVED_IN_MAIN
                             } else {
                                 REMOVED_IN_OTHER
@@ -678,18 +684,53 @@ impl Verifier {
             .map_err(|e| VerifierError::OxigraphError(e.to_string()));
         if res.is_ok() {
             for update in updates {
-                let graph_patch = update.transaction.as_patch();
-                self.push_app_response(
-                    &update.branch_id,
-                    AppResponse::V0(AppResponseV0::Patch(AppPatch {
-                        commit_id: update.commit_id.to_string(),
-                        commit_info: update.commit_info,
-                        graph: Some(graph_patch),
-                        discrete: None,
-                        other: None,
-                    })),
-                )
-                .await;
+                if update.branch_type.is_header() {
+                    let mut tab_doc_info = AppTabDocInfo::new();
+                    for removed in update.transaction.removes {
+                        match removed.predicate.as_str() {
+                            NG_ONTOLOGY_ABOUT => tab_doc_info.description = Some("".to_string()),
+                            NG_ONTOLOGY_TITLE => tab_doc_info.title = Some("".to_string()),
+                            _ => {}
+                        }
+                    }
+                    for inserted in update.transaction.inserts {
+                        match inserted.predicate.as_str() {
+                            NG_ONTOLOGY_ABOUT => {
+                                if let Term::Literal(l) = inserted.object {
+                                    tab_doc_info.description = Some(l.value().to_string())
+                                }
+                            }
+                            NG_ONTOLOGY_TITLE => {
+                                if let Term::Literal(l) = inserted.object {
+                                    tab_doc_info.title = Some(l.value().to_string())
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    self.push_app_response(
+                        &update.branch_id,
+                        AppResponse::V0(AppResponseV0::TabInfo(AppTabInfo {
+                            branch: None,
+                            doc: Some(tab_doc_info),
+                            store: None,
+                        })),
+                    )
+                    .await;
+                } else {
+                    let graph_patch = update.transaction.as_patch();
+                    self.push_app_response(
+                        &update.branch_id,
+                        AppResponse::V0(AppResponseV0::Patch(AppPatch {
+                            commit_id: update.commit_id.to_string(),
+                            commit_info: update.commit_info,
+                            graph: Some(graph_patch),
+                            discrete: None,
+                            other: None,
+                        })),
+                    )
+                    .await;
+                }
             }
         }
         res
@@ -714,7 +755,7 @@ impl Verifier {
         );
         match res {
             Err(e) => Err(e.to_string()),
-            Ok((mut inserts, removes)) => {
+            Ok((inserts, removes)) => {
                 if inserts.is_empty() && removes.is_empty() {
                     Ok(())
                 } else {
