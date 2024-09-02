@@ -2,7 +2,7 @@
 name = "nextgraph"
 description = "NextGraph client library. Nextgraph is a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
 categories = ["asynchronous","text-editors","web-programming","development-tools","database-implementations"]
-version = "0.1.0-preview.8"
+version = "0.1.1-alpha"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
@@ -32,14 +32,14 @@ whoami = "1.5.1"
 qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 svg2pdf = { version = "0.11.0", default-features = false }
 pdf-writer = "0.10.0"
-ng-repo = { path = "../ng-repo", version = "0.1.0-preview.8" }
-ng-net = { path = "../ng-net", version = "0.1.0-preview.8" }
-ng-wallet = { path = "../ng-wallet", version = "0.1.0-preview.8" }
-ng-client-ws = { path = "../ng-client-ws", version = "0.1.0-preview.8" }
-ng-verifier = { path = "../ng-verifier", version = "0.1.0-preview.8" }
+ng-repo = { path = "../ng-repo", version = "0.1.1-alpha" }
+ng-net = { path = "../ng-net", version = "0.1.1-alpha" }
+ng-wallet = { path = "../ng-wallet", version = "0.1.1-alpha" }
+ng-client-ws = { path = "../ng-client-ws", version = "0.1.1-alpha" }
+ng-verifier = { path = "../ng-verifier", version = "0.1.1-alpha" }
 
 [target.'cfg(all(not(target_family = "wasm"),not(docsrs)))'.dependencies]
-ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.0-preview.8" }
+ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.1-alpha" }
 
 [[example]]
 name = "in_memory"

@@ -1,6 +1,6 @@
-# Release 0.1.0-preview.8
+# Release 0.1.1-alpha
 
-_21 August 2024_
+_02 September 2024_
 
 This release is not stable and should not be used for any productive work or to store personal documents. This release is meant as a **preview** of what NextGraph can do as of today and hints at its future potential.
 
@@ -10,13 +10,9 @@ If you previously installed any NextGraph app on your device, please uninstall i
 
 ## App
 
-Please read the :
+Please read the [Getting started](https://docs.nextgraph.org/en/getting-started) guide.
 
--   [Getting started](https://docs.nextgraph.org/en/getting-started) guide.
--   list of [features](https://docs.nextgraph.org/en/features).
--   the [CRDTs page](https://docs.nextgraph.org/en/framework/crdts) in the framework docs.
-
-[changelog](CHANGELOG.md#app-0-1-0-preview-8-2024-08-21)
+[changelog](CHANGELOG.md#app-0-1-1-alpha-2024-09-02)
 
 ## SDK
 
@@ -28,13 +24,13 @@ The SDK for is not documented yet.
 
 The `ngd` daemon is release with the basic features listed in `ngd --help`. More documentation will come soon
 
-[changelog](CHANGELOG.md#broker-0-1-0-preview-8-2024-08-21)
+[changelog](CHANGELOG.md#broker-0-1-1-alpha-2024-09-02)
 
 ## CLI
 
 The `ngcli` daemon is release with the basic features listed in `ngcli --help`. More documentation will come soon.
 
-[changelog](CHANGELOG.md#cli-0-1-0-preview-8-2024-08-21)
+[changelog](CHANGELOG.md#cli-0-1-1-alpha-2024-09-02)
 
 ## Limitations of this release
 
