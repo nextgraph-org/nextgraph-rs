@@ -36,7 +36,7 @@ url = "2.4.0"
 regex = "1.8.4"
 base64-url = "2.0.0"
 web-time = "0.2.0"
-ng-repo = { path = "../ng-repo", version = "0.1.0-preview.8" }
+ng-repo = { path = "../ng-repo", version = "0.1.1-alpha" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = { version = "0.11.18", features = ["json","native-tls-vendored"] } 

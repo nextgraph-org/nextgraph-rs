@@ -6,6 +6,16 @@ Access the sub-sections directly :
 
 ## App
 
+### App [0.1.1-alpha] - 2024-09-02
+
+#### Added
+
+-   edit title and intro
+
+#### Fixed
+
+-   bug doc not saved when back navigation
+
 ### App [0.1.0-preview.8] - 2024-08-21
 
 #### Added
@@ -64,6 +74,8 @@ Access the sub-sections directly :
 
 #### Added
 
+-   js & nodejs : fetch_header
+-   js & nodejs : update_header
 -   js & nodejs : signature_status
 -   js & nodejs : signed_snapshot_request
 -   js & nodejs : signature_request
@@ -116,6 +128,8 @@ Access the sub-sections directly :
 
 ## Broker
 
+### Broker [0.1.1-alpha] - 2024-09-02
+
 ### Broker [0.1.0-preview.8] - 2024-08-21
 
 #### Added
@@ -155,6 +169,8 @@ Access the sub-sections directly :
 -   AdminProtocol : ListUsers
 
 ## CLI
+
+### CLI [0.1.1-alpha] - 2024-09-02
 
 ### CLI [0.1.0-preview.8] - 2024-08-21
 

@@ -43,7 +43,7 @@ A tokio-based version (as a feature) might be available in the future.
 
 ```toml
 [dependencies]
-nextgraph = "0.1.0-preview.8"
+nextgraph = "0.1.1-alpha"
 async-std = "1.12.0"
 ```
 
