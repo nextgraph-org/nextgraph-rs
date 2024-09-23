@@ -565,6 +565,7 @@
     "InvalidValue": "The value is invalid.",
     "ConnectionNotFound": "The connection was not found.",
     "InvalidSecurityImage": "The security image you chose is not valid.",
+    "InvalidSecurityText": "The security text you chose is too short. It must be at least 10 characters long.",
     "InvalidKey": "The key is invalid.",
     "InvalidInvitation": "The invitation is invalid.",
     "InvalidCreateAccount": "An error occurred creating the account.",
