@@ -20,4 +20,4 @@ ng-repo = { path = "../ng-repo", version = "0.1.1-alpha" }
 git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git"
 branch = "master"
 features = [  ]
-version = "0.21.0-ngpreview.4"
+version = "0.21.0-ngpreview.5"

@@ -3429,8 +3429,8 @@ dependencies = [
 
 [[package]]
 name = "ng-rocksdb"
-version = "0.21.0-ngpreview.4"
-source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#f1ce2e345f3d729350a02bcffb47c526674edd85"
+version = "0.21.0-ngpreview.5"
+source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#ce82c378b539368fd63711c214fc1844cb29d1dc"
 dependencies = [
  "bindgen",
  "bzip2-sys",
