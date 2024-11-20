@@ -32,7 +32,7 @@ NextGraph is not ready yet. You can subscribe to [our newsletter](https://list.n
 
 ## Building
 
-See [Build release binaries](../README.md#build-release-binaries) in the main README.
+See [Build release binaries](../DEV.md#build-release-binaries) in the main README.
 
 ## Usage
 
@@ -92,9 +92,9 @@ ngcli -s 127.0.0.1,1440,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-  at your option.
+-   Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+-   MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+    at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
 

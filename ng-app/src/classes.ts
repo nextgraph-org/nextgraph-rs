@@ -16,7 +16,7 @@
 // "media:image", "media:reel", "media:album", "media:video", "media:audio", "media:song", "media:subtitle", "media:overlay",
 // "social:channel", "social:stream", "social:contact", "social:event", "social:calendar", "social:scheduler", "social:reaction", "social:chatroom",
 // "prod:task", "prod:project", "prod:issue", "prod:form", "prod:filling", "prod:cad", "prod:slides", "prod:question", "prod:answer", "prod:poll", "prod:vote"
-// "file", "file:iana:*", "file:gimp", "file:inkscape", "file:kdenlive", "file:blender", "file:openscad", "file:lyx", "file:scribus", "file:libreoffice", "file:audacity", "file:godot"
+// "file", "file:iana:*", "file:gimp", "file:inkscape", "file:kdenlive", "file:blender", "file:openscad", "file:lyx", "file:scribus", "file:libreoffice", "file:audacity", "file:godot", "file:obsstudio", "file:ardor", "file:krita"
 
 
 // application/vnd.api+json
