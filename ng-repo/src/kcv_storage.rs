@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
 // or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,

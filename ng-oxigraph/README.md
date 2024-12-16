@@ -30,7 +30,7 @@ Both OxiGraph and NextGraph are licensed under either of
 
 Copyright is attributed to "Copyright (c) 2018 Oxigraph developers" for all the code corresponding to the commit [427d675c9b4e7f55308825357d8628c612b82a91](https://github.com/oxigraph/oxigraph/commit/427d675c9b4e7f55308825357d8628c612b82a91) of the OxiGraph repository on date Mon Apr 8 09:11:04 2024 +0200.
 
-All the code added in subsequent commits have a copyright attributed to "Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers".
+All the code added in subsequent commits have a copyright attributed to "Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers".
 
 ## NextGraph
 
