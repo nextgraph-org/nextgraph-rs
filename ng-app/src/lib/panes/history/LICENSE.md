@@ -1,7 +1,7 @@
 The MIT License (MIT)
 
 Copyright (c) 2013 Nicolas CARLO and Fabien BERNARD
-Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in

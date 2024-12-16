@@ -1,4 +1,4 @@
-// partial Copyright (c) 2022-2024 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// partial Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers
 // All rights reserved.
 // partial Copyright (c) 2018 Oxigraph developers
 // All work licensed under the Apache License, Version 2.0
