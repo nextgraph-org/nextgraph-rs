@@ -21,7 +21,7 @@ cd nextgraph-rs
 cargo build
 ```
 
-once your ngd server will run in your dev env, replace the above string in `src/local_broker_dev_env.rs` with the actual PEER ID of your ngd server.
+once your ngd server will run in your dev env, replace the above string in `nextgraph/src/local_broker_dev_env.rs` with the actual PEER ID of your ngd server.
 
 ### Packages
 
