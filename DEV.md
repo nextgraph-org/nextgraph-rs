@@ -12,8 +12,6 @@ until this [PR](https://github.com/rustwasm/wasm-pack/pull/1271) is accepted, wi
 cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2b663f25abe50631a236d57a8c6d7fd806413b2
 ```
 
-once your ngd server will run in your dev env, replace the above string with the actual PEER ID of your ngd server.
-
 ```
 cargo install cargo-watch
 // optionally, if you want a Rust REPL: cargo install evcxr_repl
@@ -22,6 +20,8 @@ git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
 cd nextgraph-rs
 cargo build
 ```
+
+once your ngd server will run in your dev env, replace the above string in `src/local_broker_dev_env.rs` with the actual PEER ID of your ngd server.
 
 ### Packages
 
