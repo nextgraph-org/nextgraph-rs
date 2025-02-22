@@ -47,7 +47,7 @@
     //import { SlashProvider, slashFactory } from '@milkdown/plugin-slash'
     import { callCommand } from '@milkdown/utils';
     import { emoji } from '@milkdown/plugin-emoji';
-    import { math } from '@milkdown/plugin-math';
+    //import { math } from '@milkdown/plugin-math';
     import 'katex/dist/katex.min.css';
     import { indent } from '@milkdown/plugin-indent';
     import 'prism-themes/themes/prism-nord.css'
@@ -127,7 +127,7 @@
         .use(gfm)
         .use(prism.prism)
         .use(indent)
-        .use(math)
+        //.use(math)
         .use(emoji)
         .use(placeholder)
         .use(splitEditing)

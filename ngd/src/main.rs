@@ -944,7 +944,7 @@ async fn main_inner() -> Result<(), NgdError> {
                 // create blob SetupRDV and send it to setup.nextgraph.net
                 // start server normally with a temporary key (erase all data before)
                 invite_admin = true;
-                std::fs::remove_dir_all(storage_path.clone()).unwrap();
+                let _ = std::fs::remove_dir_all(storage_path.clone());
                 SymKey::random()
             }
         }
@@ -1003,7 +1003,7 @@ async fn main_inner() -> Result<(), NgdError> {
                         getrandom::getrandom(&mut k).expect("getrandom failed");
                         let key = PrivKey::Ed25519PrivKey(k);
                         let mut master_key = key.to_string();
-                        std::fs::remove_dir_all(storage_path.clone()).unwrap();
+                        let _ = std::fs::remove_dir_all(storage_path.clone());
                         if args.save_key {
                             write(key_path.clone(), &master_key)
                                 .map_err(|e| NgdError::CannotSaveKey(e.to_string()))?;

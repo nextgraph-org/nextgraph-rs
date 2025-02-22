@@ -42,7 +42,7 @@
     import { collab, collabServiceCtx } from '@milkdown/plugin-collab';
     import "svelte-highlight/styles/github.css";
     import { emoji } from '@milkdown/plugin-emoji';
-    import { math } from '@milkdown/plugin-math';
+    //import { math } from '@milkdown/plugin-math';
     import 'katex/dist/katex.min.css';
     import { indent } from '@milkdown/plugin-indent';
     import "prism-themes/themes/prism-nord.css";
@@ -93,7 +93,7 @@
             
             editor = await editor
             .use(indent)
-            .use(math)
+            //.use(math)
             .use(emoji)
             .use(collab)
             .create();
