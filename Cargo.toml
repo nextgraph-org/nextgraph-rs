@@ -28,7 +28,7 @@ repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
 homepage = "https://nextgraph.org"
 keywords = [
 "crdt","dapp","decentralized","e2ee","local-first","p2p","semantic-web","eventual-consistency","json-ld","markdown",
-"ocap","z-cap","offline-first","p2p-network","collaboration","privacy-protection","rdf","rich-text-editor","self-hosted",
+"ocap","vc","offline-first","p2p-network","collaboration","privacy-protection","rdf","rich-text-editor","self-hosted",
 "sparql","byzantine-fault-tolerance",
 "web3", "graph-database", "database","triplestore"
 ]

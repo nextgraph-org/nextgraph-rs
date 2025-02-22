@@ -3444,7 +3444,7 @@ dependencies = [
 
 [[package]]
 name = "ng-sdk-js"
-version = "0.1.1-alpha"
+version = "0.1.1"
 dependencies = [
  "async-std",
  "futures",
