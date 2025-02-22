@@ -43,7 +43,7 @@ Still, this API will always be available as it is used internally by the NextGra
 ## Headless server (runs the verifiers of the users on the server)
 
 NextGraph daemon (ngd) is normally used only as a Broker of encrypted messages, but it can also be configured to run the verifiers of some or all of the users' data.
-The verifier is the service that opens the encrypted data and "materialize" it. In local-first/CRDT terminology, this means that the many commits that form the DAG of operations, are reduced in order to obtain the current state of a document, that can then be read or edited locally by the user. Usually, the verifier runs locally in the native NextGraph app, and the materialized state is persisted locally (with encryption at rest). The web version of the app (available at https://nextgraph.net) is not persisting the materialized state yet, because the "UserStorage for Web" feature is not ready yet. Programmers can also run a local verifier with the wallet API in Rust or nodeJS (not documented), or use the CLI to create a local materialized state.
+The verifier is the service that opens the encrypted data and "materialize" it. In local-first/CRDT terminology, this means that the many commits that form the DAG of operations, are reduced in order to obtain the current state of a document, that can then be read or edited locally by the user. Usually, the verifier runs locally in the native NextGraph app, and the materialized state is persisted locally (with encryption at rest). The web version of the app (available at https://nextgraph.app) is not persisting the materialized state yet, because the "UserStorage for Web" feature is not ready yet. Programmers can also run a local verifier with the wallet API in Rust or nodeJS (not documented), or use the CLI to create a local materialized state.
 
 It is also possible to run a remote verifier on ngd, and the user has to give their credentials to the server (partially or fully) so the server can decrypt the data and process it. Obviously this breaks the end-to-end-encryption. But depending on the use-cases, it can be useful to have the verifier run on some server.
 
@@ -116,51 +116,13 @@ In order to generate those keys, you will have first to run the `ngd` server, by
 
 The binaries can be obtained from the [release page](https://git.nextgraph.org/NextGraph/nextgraph-rs/releases).
 
-You can also, [compile](https://git.nextgraph.org/NextGraph/nextgraph-rs#build-release-binaries) them from source.
+You can also, [compile](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/DEV.md#first-run) them from source.
 
-The current directory will be used to save all the config, keys and storage data, in a subfolder called `.ng`.
-If you prefer to change the base directory, use the argument `--base [PATH]` when using `ngd` and/or `ngcli` commands.
-Use `--help` to see a full list of options and commands on those 2 binaries.
-
-```bash
-ngcli gen-key
-# this will output 2 keys. keep both keys
-# the private key is the NG_HEADLESS_ADMIN_USER_KEY value you need for the config of the above API calls.
-ngd -v --save-key -l 1440 -d <SERVER_DOMAIN> --admin <THE_PUBLIC_KEY_YOU_JUST_CREATED>
-# In the terminal output of the server, find the line `PeerId of node` and keep the value. You will need it for the next step, as PEER_ID_OF_NODE.
-# and it is also the value you need to give to NG_HEADLESS_SERVER_PEER_ID in the config for the above API calls.
-```
+After creating your wallet by following the above instructions, the NG_HEADLESS_ADMIN_USER_KEY is your user private key that you can find in the app, under User Panel / Account.
 
 `SERVER_DOMAIN` can be anything you want. If you run a web server with some content at `server.com`, then the NextGraph web app could be served at the subdomain `app.server.com` or `ng.server.com`.
 This is what you should enter in `SERVER_DOMAIN`. You also have to setup your reverse proxy (haproxy, nginx, etc...) to forward incoming TLS connections to ngd. ngd listens for TCP connections on localhost port 1440 as configured above. The header `X-Forwarded-For` must be set by your reverse proxy. ngd does not handle TLS. Your reverse proxy has to handle the TLS terminated connections, and forward a TCP connection to ngd.
 You can use ngd in your internal network (Docker, etc...) without exposing it to the internet. In this case, remove the `-d <SERVER_DOMAIN>` option. But the goal of ngd is to be a broker that connects to other brokers on the internet, so it should have a public interface configured at some point.
-
-In another terminal, same current working directory:
-
-```bash
-ngcli --save-key -s 127.0.0.1,1440,<PEER_ID_OF_NODE> -u <THE_PRIVATE_KEY_YOU_JUST_CREATED> admin add-user <THE_PUBLIC_KEY_YOU_JUST_CREATED> -a
-```
-
-you should see a message `User added successfully`.
-
-to check that the admin user has been created :
-
-```bash
-ngcli -s 127.0.0.1,1440,<PEER_ID_OF_NODE> -u <THE_PRIVATE_KEY_YOU_JUST_CREATED> admin list-users -a
-```
-
-should return your UserId
-
-you can now save the configs on both the server and client
-
-```bash
-# stop the running server by entering ctrl+C on its terminal.
-ngd -l 1440 -d <SERVER_DOMAIN> --save-config
-# in the other terminal
-ngcli -s 127.0.0.1,1440,<PEER_ID_OF_NODE> -u <THE_PRIVATE_KEY_YOU_JUST_CREATED> --save-config
-```
-
-From now on, you can just use `ngd` and `ngcli` commands without the need to specify the above options, as the config has been saved to disk. Except if you changed the base directory, in which case you have to supply the `--base` option at every call.
 
 The 2 API functions that need a config, also need a `NG_HEADLESS_CLIENT_PEER_KEY` that we haven't created yet.
 
