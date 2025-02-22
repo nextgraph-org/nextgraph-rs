@@ -72,7 +72,17 @@ cargo run -p ngcli -- --save-key --save-config -s 127.0.0.1,14400,<PEER_ID_OF_SE
 
 ### Adding more accounts and wallets
 
-In your dev env, if you want to create more wallets and accounts, you need to run a local instance of `ngaccount`.
+In your dev env, if you want to create more wallets and accounts, you have 2 options:
+
+-   creating an invitation link from the admin account
+
+```
+cargo run -p ngcli -- -s 127.0.0.1,14400,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED> admin add-invitation --notos
+```
+
+and then open the link after replacing the port number from `14400` to `1421`.
+
+-   run a local instance of `ngaccount`. this is useful if you want to test or develop the ngaccount part of the flow..
 
 See the [README of ngaccount here](ngaccount/README.md).
 

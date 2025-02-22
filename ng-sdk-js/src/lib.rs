@@ -78,8 +78,12 @@ pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {
 }
 
 #[wasm_bindgen]
-pub async fn get_local_bootstrap_with_public(location: String, invite: JsValue) -> JsValue {
-    let res = retrieve_local_bootstrap(location, invite.as_string(), true).await;
+pub async fn get_local_bootstrap_with_public(
+    location: String,
+    invite: JsValue,
+    must_be_public: bool,
+) -> JsValue {
+    let res = retrieve_local_bootstrap(location, invite.as_string(), must_be_public).await;
     if res.is_some() {
         serde_wasm_bindgen::to_value(&res.unwrap()).unwrap()
     } else {
