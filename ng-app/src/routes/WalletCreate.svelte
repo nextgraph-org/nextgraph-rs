@@ -198,7 +198,7 @@
         invitation = await ng.get_local_bootstrap_with_public(
           location.href,
           param.get("i"),
-          import.meta.env.PROD
+          false //import.meta.env.PROD
         );
         console.log("invitation", invitation);
         if (invitation && invitation.V0.url) {
