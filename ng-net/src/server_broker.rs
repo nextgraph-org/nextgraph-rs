@@ -47,6 +47,7 @@ pub trait IServerBroker: Send + Sync {
     fn get_block(&self, overlay_id: &OverlayId, block_id: &BlockId) -> Result<Block, ServerError>;
     async fn create_user(&self, broker_id: &DirectPeerId) -> Result<UserId, ProtocolError>;
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError>;
+    fn has_no_user(&self) -> Result<bool, ProtocolError>;
     fn get_user_credentials(&self, user_id: &PubKey) -> Result<Credentials, ProtocolError>;
     fn add_user_credentials(
         &self,
@@ -70,7 +71,7 @@ pub trait IServerBroker: Send + Sync {
     ) -> Result<(), ProtocolError>;
     fn get_invitation_type(&self, invite: [u8; 32]) -> Result<u8, ProtocolError>;
     fn remove_invitation(&self, invite: [u8; 32]) -> Result<(), ProtocolError>;
-
+    fn take_master_key(&mut self) -> Result<SymKey, ProtocolError>;
     async fn app_process_request(
         &self,
         req: AppRequest,

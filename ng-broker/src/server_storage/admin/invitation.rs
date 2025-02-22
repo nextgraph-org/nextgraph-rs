@@ -60,6 +60,7 @@ impl<'a> Invitation<'a> {
             InvitationCode::Unique(c) => (0u8, c.slice()),
             InvitationCode::Multi(c) => (1u8, c.slice()),
             InvitationCode::Admin(c) => (2u8, c.slice()),
+            InvitationCode::Setup(c) => (3u8, c.slice()),
         };
         let acc = Invitation {
             id: code.clone(),

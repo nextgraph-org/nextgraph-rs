@@ -43,7 +43,7 @@ Still, this API will always be available as it is used internally by the NextGra
 ## Headless server (runs the verifiers of the users on the server)
 
 NextGraph daemon (ngd) is normally used only as a Broker of encrypted messages, but it can also be configured to run the verifiers of some or all of the users' data.
-The verifier is the service that opens the encrypted data and "materialize" it. In local-first/CRDT terminology, this means that the many commits that form the DAG of operations, are reduced in order to obtain the current state of a document, that can then be read or edited locally by the user. Usually, the verifier runs locally in the native NextGraph app, and the materialized state is persisted locally (with encryption at rest). The web version of the app (available at https://app.nextgraph.one) is not persisting the materialized state yet, because the "UserStorage for Web" feature is not ready yet. Programmers can also run a local verifier with the wallet API in Rust or nodeJS (not documented), or use the CLI to create a local materialized state.
+The verifier is the service that opens the encrypted data and "materialize" it. In local-first/CRDT terminology, this means that the many commits that form the DAG of operations, are reduced in order to obtain the current state of a document, that can then be read or edited locally by the user. Usually, the verifier runs locally in the native NextGraph app, and the materialized state is persisted locally (with encryption at rest). The web version of the app (available at https://nextgraph.net) is not persisting the materialized state yet, because the "UserStorage for Web" feature is not ready yet. Programmers can also run a local verifier with the wallet API in Rust or nodeJS (not documented), or use the CLI to create a local materialized state.
 
 It is also possible to run a remote verifier on ngd, and the user has to give their credentials to the server (partially or fully) so the server can decrypt the data and process it. Obviously this breaks the end-to-end-encryption. But depending on the use-cases, it can be useful to have the verifier run on some server.
 
@@ -191,7 +191,6 @@ Licensed under either of
 ---
 
 NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure) and the [NGI Zero Commons Fund](https://nlnet.nl/commonsfund/), both funds established by [NLnet](https://nlnet.nl/) Foundation with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreements No 957073 and No 101092990, respectively.
-
 
 [license-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
 [license-link]: https://git.nextgraph.org/NextGraph/nextgraph-rs/raw/branch/master/LICENSE-APACHE2

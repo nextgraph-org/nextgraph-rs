@@ -18,7 +18,7 @@
 <script lang="ts">
   import { link, push } from "svelte-spa-router";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
-  import { ArrowLeft, ServerStack } from "svelte-heros-v2";
+  import { ArrowLeft, ServerStack, Key } from "svelte-heros-v2";
   import { onMount, tick } from "svelte";
   import { Sidebar, SidebarGroup, SidebarWrapper } from "flowbite-svelte";
   import { t } from "svelte-i18n";
@@ -86,7 +86,7 @@
    * site_type: Object { Individual: (2) […] } // Some key data as well
    */
   $: walletSites = wallet_unlocked?.sites;
-
+  
   /** Type:
    * client_type: "Web"
    * details: '{"browser":{"name":"Firefox","version":"127.0","appVersion":"5.0 (X11)","arch":"Linux x86_64","vendor":"","ua":"Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0"},"os":{"name":"Linux"},"platform":{"type":"desktop"},"engine":{"name":"Gecko","version":"20100101","sdk":"0.1.0-preview.1"}}'
@@ -168,6 +168,7 @@
 <CenteredLayout>
   <div class="container3" bind:this={top}>
     <div class="row mb-20">
+      
       <Sidebar {nonActiveClass}>
         <SidebarWrapper
           divClass="bg-gray-60 overflow-y-auto py-4 px-3 rounded dark:bg-gray-800"
@@ -200,6 +201,26 @@
               <h3 class="flex items-center mt-2 text-lg font-normal">
                 {$t("pages.account_info.site", { values: { name: site.name } })}
               </h3>
+            </li>
+
+            <li
+                    class="flex items-center p-2 text-base font-normal text-gray-900 bg-white shadow-md rounded-lg border-b"
+            >
+            <div>
+              <Key />
+            </div>
+            <div
+              class="flex flex-col ml-3 items-start text-left overflow-auto"
+            >
+                <div>
+                  <span class="text-gray-500">User Private Key (for ngcli)<br/></span>
+                  <span class="break-all">{#if walletSites}
+                    {#await ng.privkey_to_string(walletSites[personal_site_id].site_type.Individual[0]) then userprivkey}
+                      {userprivkey}
+                    {/await}
+                    {/if}</span>
+                </div>
+                </div>
             </li>
 
             <!-- Device Details -->

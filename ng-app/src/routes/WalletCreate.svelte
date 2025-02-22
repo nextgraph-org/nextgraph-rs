@@ -195,7 +195,7 @@
         invitation = await ng.decode_invitation(param.get("i"));
         window.location.replace(window.location.href.split("?")[0]);
       } else if (param.get("i")) {
-        invitation = await ng.get_local_bootstrap_with_public(
+        invitation = await ng.get_local_bootstrap(
           location.href,
           param.get("i")
         );

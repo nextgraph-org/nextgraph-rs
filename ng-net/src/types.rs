@@ -308,7 +308,7 @@ impl BrokerServerV0 {
 pub const APP_ACCOUNT_REGISTERED_SUFFIX: &str = "/#/user/registered";
 
 #[doc(hidden)]
-pub const NG_ONE_URL: &str = "https://nextgraph.one";
+pub const NG_ONE_URL: &str = "https://nextgraph.net";
 
 #[doc(hidden)]
 pub const APP_NG_ONE_URL: &str = "https://app.nextgraph.one";
@@ -700,12 +700,13 @@ pub enum InvitationCode {
     Unique(SymKey),
     Admin(SymKey),
     Multi(SymKey),
+    Setup(SymKey),
 }
 
 impl InvitationCode {
     pub fn get_symkey(&self) -> SymKey {
         match self {
-            Self::Unique(s) | Self::Admin(s) | Self::Multi(s) => s.clone(),
+            Self::Unique(s) | Self::Admin(s) | Self::Multi(s) | Self::Setup(s) => s.clone(),
         }
     }
 }
@@ -716,6 +717,7 @@ impl fmt::Display for InvitationCode {
             Self::Unique(k) => write!(f, "unique {}", k),
             Self::Admin(k) => write!(f, "admin {}", k),
             Self::Multi(k) => write!(f, "multi {}", k),
+            Self::Setup(k) => write!(f, "setup {}", k),
         }
     }
 }

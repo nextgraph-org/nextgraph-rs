@@ -36,13 +36,13 @@ See [Build release binaries](../DEV.md#build-release-binaries) in the main READM
 
 ## Usage
 
-### For a localhost server: The first start will create an invitation for the admin, so you can create your wallet
+### The first start of ngd will create an invitation for the admin, so you can create your wallet
 
 ```
-ngd --save-key -l 1440 --invite-admin --save-config
+ngd --save-key -l 1440 --save-config
 ```
 
-this will give you a link that you should open in your web browser. If there are many links, choose the one that starts with `http://localhost:`.
+In the logs/output, you will see a link that you should open in your web browser. If there are many links, choose the one that starts with `http://localhost:`.
 
 The computer you use to open the link should have direct access to the ngd server on localhost. In most of the cases, it will work, as you are running ngd on localhost. If you are running ngd in a docker container, then you need to give access to the container to the local network of the host by using `docker run --network="host"`. see more here https://docs.docker.com/network/drivers/host/
 
@@ -54,38 +54,19 @@ for the next start of ngd :
 ngd
 ```
 
-### For a server behind a domain: create the first admin user
+### Using ngcli with the account you just created
 
 The current directory will be used to save all the config, keys and storage data.
 If you prefer to change the base directory, use the argument `--base [PATH]` when using `ngd` and/or `ngcli`.
 
-```
-ngcli gen-key
-ngd -v --save-key -l 1440 -d <SERVER_DOMAIN> --admin <THE_USER_ID_YOU_JUST_CREATED>
-// note the server peerID from the logs
-```
+`PEER_ID_OF_SERVER` is displayed when you first start `ngd`, with a line starting with `INFO  ngd] PeerId of node:`.
 
-in another terminal:
+`THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED` can be found in the app, after you opened your wallet, click on the logo of NextGraph, and you will see the User Panel. Click on `Accounts` and you will find the User Private Key.
+
+By example, to list all the admin users :
 
 ```
-ngcli --save-key -s 127.0.0.1,1440,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED> admin add-user <THE_USER_ID_YOU_JUST_CREATED> -a
-```
-
-you should see a message `User added successfully`.
-
-to check that the admin user has been created :
-
-```
-ngcli --save-key -s 127.0.0.1,1440,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED> admin list-users -a
-```
-
-should return your userId
-
-you can now save the configs of both the server and client
-
-```
-ngd -l 1440 -d <SERVER_DOMAIN> --save-config
-ngcli -s 127.0.0.1,1440,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED> --save-config
+ngcli --save-key --save-config -s 127.0.0.1,1440,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED> admin list-users -a
 ```
 
 ## License
@@ -107,7 +88,6 @@ additional terms or conditions.
 ---
 
 NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure) and the [NGI Zero Commons Fund](https://nlnet.nl/commonsfund/), both funds established by [NLnet](https://nlnet.nl/) Foundation with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreements No 957073 and No 101092990, respectively.
-
 
 [rustc-image]: https://img.shields.io/badge/rustc-1.74+-blue.svg
 [license-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg

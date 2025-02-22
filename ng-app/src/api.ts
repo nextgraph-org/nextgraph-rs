@@ -12,7 +12,7 @@ import { Bowser } from "../../ng-sdk-js/js/bowser.js";
 import {version} from '../package.json';
 
 const mapping = {
-
+    "privkey_to_string": ["privkey"],
     "wallet_gen_shuffle_for_pazzle_opening": ["pazzle_length"],
     "wallet_gen_shuffle_for_pin": [],
     "wallet_open_with_pazzle": ["wallet","pazzle","pin"],
