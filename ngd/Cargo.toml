@@ -22,6 +22,7 @@ serde_json = "1.0"
 async-std = {  version = "1.12.0", features = ["attributes"] }
 zeroize = { version = "1.7.0" }
 addr = "0.15.6"
+getrandom = "0.2.7"
 regex = "1.8.4"
 lazy_static = "1.4.0"
 log = "0.4"

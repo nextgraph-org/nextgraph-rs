@@ -3429,8 +3429,8 @@ dependencies = [
 
 [[package]]
 name = "ng-rocksdb"
-version = "0.21.0-ngpreview.6"
-source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#75ee95166954e6ec67a229d5697b2319dd02efc6"
+version = "0.21.0-ngpreview.7"
+source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#a56d4082b0286c691d9004b34b9248f28a6f74f0"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -3595,6 +3595,7 @@ dependencies = [
  "async-std",
  "clap",
  "env_logger",
+ "getrandom 0.2.10",
  "lazy_static",
  "log",
  "ng-broker",

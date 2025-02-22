@@ -68,7 +68,7 @@ impl RocksDbServerStorage {
             let accounts_storage =
                 RocksDbKCVStorage::open(&accounts_path, accounts_key.slice().clone())?;
             let symkey = SymKey::random();
-            let invite_code = InvitationCode::Admin(symkey.clone());
+            let invite_code = InvitationCode::Setup(symkey.clone());
             let _ = Invitation::create(
                 &invite_code,
                 0,
@@ -77,7 +77,7 @@ impl RocksDbServerStorage {
             )?;
             let invitation = ng_net::types::Invitation::V0(InvitationV0 {
                 code: Some(symkey),
-                name: Some("your NG Box, as admin".into()),
+                name: Some("your Broker, as admin".into()),
                 url: None,
                 bootstrap: admin_invite.unwrap(),
             });
@@ -200,7 +200,10 @@ impl RocksDbServerStorage {
         log_debug!("get_user {user_id}");
         Ok(Account::open(&user_id, &self.accounts_storage)?.is_admin()?)
     }
-    /// returns the crednetials, storage_master_key, and peer_priv_key
+    pub(crate) fn has_no_user(&self) -> Result<bool, ProtocolError> {
+        Ok(!Account::has_users(&self.accounts_storage)?)
+    }
+    /// returns the credentials, storage_master_key, and peer_priv_key
     pub(crate) fn get_user_credentials(
         &self,
         user_id: &PubKey,

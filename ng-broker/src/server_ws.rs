@@ -786,7 +786,7 @@ pub async fn run_server_v0(
         // opening the server storage (that contains the encryption keys for each store/overlay )
         let server_storage = RocksDbServerStorage::open(
             &mut path,
-            wallet_master_key,
+            wallet_master_key.clone(),
             if admin_invite {
                 Some(bootstrap_v0.clone())
             } else {
@@ -797,7 +797,15 @@ pub async fn run_server_v0(
             NgError::BrokerConfigError(format!("Error while opening server storage: {}", e))
         })?;
 
-        let server_broker = ServerBroker::new(server_storage, path_users);
+        let server_broker = ServerBroker::new(
+            server_storage,
+            path_users,
+            if admin_invite {
+                Some(wallet_master_key)
+            } else {
+                None
+            },
+        );
 
         let mut broker = BROKER.write().await;
         broker.set_server_broker(server_broker);

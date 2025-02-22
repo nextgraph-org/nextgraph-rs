@@ -32,7 +32,7 @@ use ng_repo::log::*;
 use ng_repo::types::{Sig, SymKey};
 use ng_repo::utils::ed_keypair_from_priv_bytes;
 use ng_repo::{
-    types::PrivKey,
+    types::{PrivKey, PubKey},
     utils::{decode_key, decode_priv_key, sign, verify},
 };
 
@@ -217,6 +217,8 @@ fn prepare_accept_forward_for_domain(
 pub enum NgdError {
     IoError(std::io::Error),
     NgError(NgError),
+    InvalidPeerFile(String),
+    CannotSavePeer(String),
     InvalidKeyFile(String),
     CannotSaveKey(String),
     InvalidSignature,
@@ -332,97 +334,53 @@ async fn main_inner() -> Result<(), NgdError> {
     log_debug!("home {}", path.to_str().unwrap());
     std::fs::create_dir_all(path.clone()).unwrap();
 
-    // reading key from file, if any
-    let mut key_path = path.clone();
-    key_path.push("key");
+    // reading peer privkey file, if any
+    let mut peer_path = path.clone();
+    peer_path.push("peer");
 
-    let key_from_file: Option<[u8; 32]> = match read_to_string(key_path.clone()) {
-        Err(_) => None,
+    let peer_from_file: PrivKey = match read_to_string(peer_path.clone()) {
+        Err(_) => {
+            // if no peer privKey found, create one
+            let priv_key = PrivKey::random_ed();
+            write(peer_path, priv_key.to_string())
+                .map_err(|e| NgdError::CannotSavePeer(e.to_string()))?;
+            priv_key
+        }
         Ok(mut file) => {
             let first_line = file
                 .lines()
                 .nth(0)
-                .ok_or(NgdError::InvalidKeyFile("empty file".to_string()))?;
+                .ok_or(NgdError::InvalidPeerFile("empty file".to_string()))?;
             let res = decode_priv_key(first_line.trim())
-                .map_err(|_| NgdError::InvalidKeyFile("deserialization error".to_string()))?;
+                .map_err(|_| NgdError::InvalidPeerFile("deserialization error".to_string()))?;
             file.zeroize();
-            Some(*res.slice())
+            res
         }
     };
 
-    let mut keys: [[u8; 32]; 4] = match &args.key {
-        Some(key_string) => {
-            if key_from_file.is_some() {
-                log_err!("provided --key option will not be used as a key file is already present");
-                args.key.as_mut().unwrap().zeroize();
-                gen_broker_keys(key_from_file)
-            } else {
-                let res = decode_priv_key(key_string.as_str()).map_err(|_| {
-                    NgdError::InvalidKeyFile(
-                        "check the argument provided in command line".to_string(),
-                    )
-                })?;
-                if args.save_key {
-                    write(key_path.clone(), res.to_string())
-                        .map_err(|e| NgdError::CannotSaveKey(e.to_string()))?;
-                    //master_key.zeroize();
-                    log_info!("The key has been saved to {}", key_path.to_str().unwrap());
-                }
-                args.key.as_mut().unwrap().zeroize();
-                gen_broker_keys(Some(*res.slice()))
-            }
-        }
-        None => {
-            if key_from_file.is_some() {
-                gen_broker_keys(key_from_file)
-            } else {
-                let res = gen_broker_keys(None);
-                let key = PrivKey::Ed25519PrivKey(res[0]);
-                let mut master_key = key.to_string();
-                if args.save_key {
-                    write(key_path.clone(), &master_key)
-                        .map_err(|e| NgdError::CannotSaveKey(e.to_string()))?;
-                    log_info!("The key has been saved to {}", key_path.to_str().unwrap());
-                } else {
-                    // on purpose we don't log the key, just print it out to stdout, as it should not be saved in logger's files
-                    println!("YOUR GENERATED KEY IS: {}", master_key);
-                    log_err!("At your request, the key wasn't saved. If you want to save it to disk, use ---save-key");
-                    log_err!("provide it again to the next start of ngd with --key option or NG_SERVER_KEY env variable");
-                }
-                master_key.zeroize();
-                res
-            }
-        }
-    };
+    // let mut sign_path = path.clone();
+    // sign_path.push("sign");
+    // //let sign_from_file: Option<[u8; 32]>;
+    // let privkey: PrivKey = keys[3].into();
+    // let pubkey = privkey.to_pub();
 
-    key_from_file.and_then(|mut key| {
-        key.zeroize();
-        None::<()>
-    });
+    // if match std::fs::read(sign_path.clone()) {
+    //     Err(_) => true,
+    //     Ok(file) => {
+    //         let sig: Sig = serde_bare::from_slice(&file).map_err(|_| NgdError::InvalidSignature)?;
+    //         verify(&vec![110u8, 103u8, 100u8], sig, pubkey)
+    //             .map_err(|_| NgdError::InvalidSignature)?;
+    //         false
+    //     }
+    // } {
+    //     // time to save the signature
+    //     let sig = sign(&privkey, &pubkey, &vec![110u8, 103u8, 100u8])
+    //         .map_err(|e| NgdError::CannotSaveSignature(e.to_string()))?;
 
-    let mut sign_path = path.clone();
-    sign_path.push("sign");
-    //let sign_from_file: Option<[u8; 32]>;
-    let privkey: PrivKey = keys[3].into();
-    let pubkey = privkey.to_pub();
-
-    if match std::fs::read(sign_path.clone()) {
-        Err(_) => true,
-        Ok(file) => {
-            let sig: Sig = serde_bare::from_slice(&file).map_err(|_| NgdError::InvalidSignature)?;
-            verify(&vec![110u8, 103u8, 100u8], sig, pubkey)
-                .map_err(|_| NgdError::InvalidSignature)?;
-            false
-        }
-    } {
-        // time to save the signature
-        let sig = sign(&privkey, &pubkey, &vec![110u8, 103u8, 100u8])
-            .map_err(|e| NgdError::CannotSaveSignature(e.to_string()))?;
-
-        let sig_ser = serde_bare::to_vec(&sig).unwrap();
-        std::fs::write(sign_path, sig_ser)
-            .map_err(|e| NgdError::CannotSaveSignature(e.to_string()))?;
-    }
+    //     let sig_ser = serde_bare::to_vec(&sig).unwrap();
+    //     std::fs::write(sign_path, sig_ser)
+    //         .map_err(|e| NgdError::CannotSaveSignature(e.to_string()))?;
+    // }
 
     // DEALING WITH CONFIG
 
@@ -932,10 +890,7 @@ async fn main_inner() -> Result<(), NgdError> {
         }
     }
 
-    let (privkey, pubkey) = ed_keypair_from_priv_bytes(keys[1]);
-    keys[1].zeroize();
-    keys[0].zeroize();
-
+    let pubkey = peer_from_file.to_pub();
     log_info!("PeerId of node: {}", pubkey);
 
     //debug_println!("Private key of peer: {}", privkey.to_string());
@@ -943,17 +898,142 @@ async fn main_inner() -> Result<(), NgdError> {
     //let x_from_ed = pubkey.to_dh_from_ed();
     //log_info!("du Pubkey from ed: {}", x_from_ed);
 
+    // let mut users_path = path.clone();
+    // users_path.push("users");
+
+    let mut storage_path = path.clone();
+    storage_path.push("storage");
+
+    // reading setup from file, if any
+    let mut setup_path = path.clone();
+    setup_path.push("setup");
+
+    let setup_from_file: Option<()> = match read_to_string(setup_path.clone()) {
+        // TODO: use binary read instead
+        Err(_) => None,
+        Ok(mut file) => Some(()),
+    };
+
+    let mut invite_admin = false;
+
+    let wallet_key: SymKey = if setup_from_file.is_some() {
+        // reading remote_boot from file, if any
+        let mut remote_boot_path = path.clone();
+        remote_boot_path.push("remote_boot");
+
+        let remote_boot: Option<PubKey> = match read_to_string(remote_boot_path.clone()) {
+            Err(_) => None,
+            Ok(mut file) => {
+                let first_line = file
+                    .lines()
+                    .nth(0)
+                    .ok_or(NgdError::InvalidKeyFile("empty file".to_string()))?;
+                let res = decode_key(first_line.trim())
+                    .map_err(|_| NgdError::InvalidKeyFile("deserialization error".to_string()))?;
+                Some(res)
+            }
+        };
+        match remote_boot {
+            Some(pub_key) => {
+                // TODO: wait master key with a tiny server listening and waiting for Noise handshake between the pub_key (client) and peer_from_file (privkey of peerId of server)
+                // then receive the wallet key and return it
+                SymKey::nil()
+            }
+            None => {
+                // TODO: increment nonce (from setup_nonce file)
+                // create blob SetupRDV and send it to setup.nextgraph.net
+                // start server normally with a temporary key (erase all data before)
+                invite_admin = true;
+                std::fs::remove_dir_all(storage_path.clone()).unwrap();
+                SymKey::random()
+            }
+        }
+    } else {
+        // reading key from file, if any
+        let mut key_path = path.clone();
+        key_path.push("key");
+
+        let key_from_file: Option<[u8; 32]> = match read_to_string(key_path.clone()) {
+            Err(_) => None,
+            Ok(mut file) => {
+                let first_line = file
+                    .lines()
+                    .nth(0)
+                    .ok_or(NgdError::InvalidKeyFile("empty file".to_string()))?;
+                let res = decode_priv_key(first_line.trim())
+                    .map_err(|_| NgdError::InvalidKeyFile("deserialization error".to_string()))?;
+                file.zeroize();
+                Some(*res.slice())
+            }
+        };
+
+        let wallet_key: SymKey = match &args.key {
+            Some(key_string) => {
+                match key_from_file {
+                    Some(key) => {
+                        log_err!(
+                            "provided --key option will not be used as a key file is already present"
+                        );
+                        args.key.as_mut().unwrap().zeroize();
+                        SymKey::from_array(key)
+                    }
+                    None => {
+                        let res = decode_priv_key(key_string.as_str()).map_err(|_| {
+                            NgdError::InvalidKeyFile(
+                                "check the argument provided in command line".to_string(),
+                            )
+                        })?;
+                        if args.save_key {
+                            write(key_path.clone(), res.to_string())
+                                .map_err(|e| NgdError::CannotSaveKey(e.to_string()))?;
+                            //master_key.zeroize();
+                            log_info!("The key has been saved to {}", key_path.to_str().unwrap());
+                        }
+                        args.key.as_mut().unwrap().zeroize();
+                        SymKey::from_array(*res.slice())
+                    }
+                }
+            }
+            None => {
+                match key_from_file {
+                    Some(key) => SymKey::from_array(key),
+                    None => {
+                        log_warn!("No key provided, generating one");
+                        let mut k = [0u8; 32];
+                        getrandom::getrandom(&mut k).expect("getrandom failed");
+                        let key = PrivKey::Ed25519PrivKey(k);
+                        let mut master_key = key.to_string();
+                        std::fs::remove_dir_all(storage_path.clone()).unwrap();
+                        if args.save_key {
+                            write(key_path.clone(), &master_key)
+                                .map_err(|e| NgdError::CannotSaveKey(e.to_string()))?;
+                            log_info!("The key has been saved to {}", key_path.to_str().unwrap());
+                        } else {
+                            // on purpose we don't log the key, just print it out to stdout, as it should not be saved in logger's files
+                            println!("YOUR GENERATED KEY IS: {}", master_key);
+                            log_err!("At your request, the key wasn't saved. If you want to save it to disk, use ---save-key");
+                            log_err!("provide it again to the next start of ngd with --key option or NG_SERVER_KEY env variable");
+                            log_err!("or use the below links to create a wallet and an admin account for this broker.");
+                            log_err!("If you don't proceed to one of the above, during next startup, all your data will be deleted and a new key will be generated.");
+                        }
+                        invite_admin = true;
+                        master_key.zeroize();
+                        SymKey::from_array(*key.slice())
+                    }
+                }
+            }
+        };
+
+        key_from_file.and_then(|mut key| {
+            key.zeroize();
+            None::<()>
+        });
+        wallet_key
+    };
+
     match config.unwrap() {
         DaemonConfig::V0(v0) => {
-            run_server_v0(
-                privkey,
-                pubkey,
-                SymKey::from_array(keys[2]),
-                v0,
-                path,
-                args.invite_admin,
-            )
-            .await?
+            run_server_v0(peer_from_file, pubkey, wallet_key, v0, path, invite_admin).await?
         }
     }
 

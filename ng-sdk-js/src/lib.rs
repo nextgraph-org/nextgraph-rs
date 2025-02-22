@@ -129,6 +129,13 @@ pub fn wallet_gen_shuffle_for_pin() -> Vec<u8> {
 }
 
 #[wasm_bindgen]
+pub fn privkey_to_string(privkey: JsValue) -> Result<String, JsValue> {
+    let p = serde_wasm_bindgen::from_value::<PrivKey>(privkey)
+        .map_err(|_| "Deserialization error of privkey")?;
+    Ok(format!("{p}"))
+}
+
+#[wasm_bindgen]
 pub fn wallet_open_with_pazzle(
     wallet: JsValue,
     pazzle: Vec<u8>,

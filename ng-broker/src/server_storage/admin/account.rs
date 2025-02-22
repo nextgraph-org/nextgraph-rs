@@ -105,6 +105,16 @@ impl<'a> Account<'a> {
         }
         Ok(res)
     }
+
+    pub fn has_users(storage: &'a dyn KCVStorage) -> Result<bool, StorageError> {
+        let size = to_vec(&UserId::nil())?.len();
+        let mut res: Vec<UserId> = vec![];
+        //TODO: fix this. we shouldn't have to fetch all the users to know if there is at least one user. highly inefficient. need to add a storage.has_one_key_value method
+        Ok(!storage
+            .get_all_keys_and_values(Self::PREFIX_ACCOUNT, size, vec![], None, &None)?
+            .is_empty())
+    }
+
     pub fn exists(&self) -> bool {
         self.storage
             .get(

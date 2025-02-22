@@ -42,6 +42,11 @@ pub use mobile::*;
 pub type SetupHook = Box<dyn FnOnce(&mut App) -> Result<(), Box<dyn std::error::Error>> + Send>;
 
 #[tauri::command(rename_all = "snake_case")]
+async fn privkey_to_string(privkey: PrivKey) -> Result<String, String> {
+    Ok(format!("{privkey}"))
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn locales() -> Result<Vec<String>, ()> {
     Ok(get_locales()
         .filter_map(|lang| {
@@ -1025,6 +1030,7 @@ impl AppBuilder {
             .invoke_handler(tauri::generate_handler![
                 test,
                 locales,
+                privkey_to_string,
                 wallet_gen_shuffle_for_pazzle_opening,
                 wallet_gen_shuffle_for_pin,
                 wallet_open_with_pazzle,

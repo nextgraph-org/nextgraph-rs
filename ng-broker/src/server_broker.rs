@@ -161,10 +161,16 @@ pub struct ServerBroker {
     state: RwLock<ServerBrokerState>,
 
     path_users: PathBuf,
+
+    master_key: Option<SymKey>,
 }
 
 impl ServerBroker {
-    pub(crate) fn new(storage: RocksDbServerStorage, path_users: PathBuf) -> Self {
+    pub(crate) fn new(
+        storage: RocksDbServerStorage,
+        path_users: PathBuf,
+        master_key: Option<SymKey>,
+    ) -> Self {
         ServerBroker {
             storage: storage,
             state: RwLock::new(ServerBrokerState {
@@ -177,7 +183,7 @@ impl ServerBroker {
                 wallet_exports: HashMap::new(),
                 wallet_exports_timestamp: BTreeMap::new(),
             }),
-
+            master_key,
             path_users,
         }
     }
@@ -316,6 +322,12 @@ async fn wait_for_wallet(
 //for now this cache is not implemented, but the structs are ready (see above), and it would just require to change slightly the implementation of the trait functions here below.
 #[async_trait::async_trait]
 impl IServerBroker for ServerBroker {
+    fn take_master_key(&mut self) -> Result<SymKey, ProtocolError> {
+        match self.master_key.take() {
+            None => Err(ProtocolError::AccessDenied),
+            Some(key) => Ok(key),
+        }
+    }
     async fn remove_rendezvous(&self, rendezvous: &SymKey) {
         let mut lock = self.state.write().await;
         let _ = lock.wallet_rendezvous.remove(&rendezvous);
@@ -439,6 +451,9 @@ impl IServerBroker for ServerBroker {
 
     fn get_user(&self, user_id: PubKey) -> Result<bool, ProtocolError> {
         self.storage.get_user(user_id)
+    }
+    fn has_no_user(&self) -> Result<bool, ProtocolError> {
+        self.storage.has_no_user()
     }
     fn add_user_credentials(
         &self,

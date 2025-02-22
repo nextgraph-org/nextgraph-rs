@@ -30,7 +30,7 @@ pub(crate) struct Cli {
     #[arg(short, long, env = "NG_SERVER_KEY")]
     pub key: Option<String>,
 
-    /// Saves to disk the provided or automatically generated key. Only use if file storage is secure. Alternatives are passing the key at every start with --key or NG_SERVER_KEY env var.
+    /// Saves to disk the provided or automatically generated key. Only use for development purpose. Alternatives are passing the key at every start with --key or NG_SERVER_KEY env var.
     #[arg(long)]
     pub save_key: bool,
 
@@ -120,8 +120,8 @@ pub(crate) struct Cli {
     pub admin: Option<String>,
 
     /// Admin invitation
-    #[arg(long, conflicts_with("admin"))]
-    pub invite_admin: bool,
+    // #[arg(long, conflicts_with("admin"))]
+    // pub invite_admin: bool,
 
     /// Saves the quick config into a file on disk, that can then be modified for advanced configs
     #[arg(long)]

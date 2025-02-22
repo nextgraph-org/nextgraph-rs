@@ -289,10 +289,30 @@ impl Broker {
                 if user_and_registration.1.is_some() {
                     // user wants to register
                     let lock = self.get_server_broker()?;
-                    let storage = lock.read().await;
-                    if storage.get_user(user_and_registration.0).is_ok() {
-                        return Ok(());
+                    {
+                        let storage = lock.read().await;
+                        if storage.get_user(user_and_registration.0).is_ok() {
+                            return Ok(());
+                        }
                     }
+                    {
+                        let mut storage = lock.write().await;
+                        if storage.has_no_user()? {
+                            let code = user_and_registration.1.unwrap().unwrap();
+                            let inv_type = storage.get_invitation_type(code)?;
+                            if inv_type == 3u8 {
+                                // it is a setup invite
+                                // TODO send (return here) master_key to client (so they can save it in their wallet)
+                                let _master_key = storage.take_master_key()?;
+                                // TODO save remote_boot (in server.path)
+                                storage.add_user(user_and_registration.0, true)?;
+                                storage.remove_invitation(code)?;
+                                return Ok(());
+                            }
+                            return Err(ProtocolError::InvalidState);
+                        }
+                    }
+                    let storage = lock.read().await;
                     if let Some(ServerConfig {
                         registration: reg, ..
                     }) = &self.config
@@ -304,17 +324,10 @@ impl Broker {
                                 if user_and_registration.1.unwrap().is_none() {
                                     Err(ProtocolError::InvitationRequired)
                                 } else {
-                                    let mut is_admin = false;
                                     let code = user_and_registration.1.unwrap().unwrap();
                                     let inv_type = storage.get_invitation_type(code)?;
-                                    if inv_type == 2u8 {
-                                        // admin
-                                        is_admin = true;
-                                        storage.remove_invitation(code)?;
-                                    } else if inv_type == 1u8 {
-                                        storage.remove_invitation(code)?;
-                                    }
-                                    storage.add_user(user_and_registration.0, is_admin)?;
+                                    storage.add_user(user_and_registration.0, inv_type == 2u8)?;
+                                    storage.remove_invitation(code)?;
                                     Ok(())
                                 }
                             }

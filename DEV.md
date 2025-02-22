@@ -4,9 +4,9 @@
 -   [Install Nodejs](https://nodejs.org/en/download/)
 -   [Install LLVM](https://rust-lang.github.io/rust-bindgen/requirements.html)
 
-On openbsd, for LLVM you need to choose llvm-17.
+On OpenBSD, for LLVM you need to choose llvm-17.
 
-until this [PR](https://github.com/rustwasm/wasm-pack/pull/1271) is accepted, will have to install wasm-pack this way:
+Until this [PR](https://github.com/rustwasm/wasm-pack/pull/1271) is accepted, will have to install wasm-pack this way:
 
 ```
 cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2b663f25abe50631a236d57a8c6d7fd806413b2
@@ -16,12 +16,71 @@ cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2
 cargo install cargo-watch
 // optionally, if you want a Rust REPL: cargo install evcxr_repl
 git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
-// or if you don't have a git account: git clone https://git.nextgraph.org/NextGraph/nextgraph-rs.git
+// or if you don't have a git account with us: git clone https://git.nextgraph.org/NextGraph/nextgraph-rs.git
 cd nextgraph-rs
-cargo build
+npm install -g pnpm
+cd ng-sdk-js
+wasm-pack build --target bundler
+npm install --no-save pkg
+cd ../ng-app
+pnpm install
+pnpm webfilebuild
+cd ..
 ```
 
-once your ngd server will run in your dev env, replace the above string in `nextgraph/src/local_broker_dev_env.rs` with the actual PEER ID of your ngd server.
+For building the native apps, see the [ng-app/README](ng-app/README.md)
+
+### First run
+
+The current directory will be used to save all the config, keys and storage data.
+If you prefer to change the base directory, use the argument `--base [PATH]` when using `ngd` and/or `ngcli`.
+
+```
+// runs the daemon in one terminal
+cargo run -p ngd -- -vv --save-key -l 14400
+```
+
+If you are developing also the front-end, you should run it with this command in a separate terminal:
+
+```
+cd ng-app
+pnpm webdev
+```
+
+In the logs/output of ngd, you will see an invitation link that you should open in your web browser. If there are many links, choose the one that starts with `http://localhost:`, and if you run a local front-end, replace the prefix `http://localhost:14400/` with `http://localhost:1421/` before you open the link in your browser.
+
+The computer you use to open the link should have direct access to the ngd server on localhost. In most of the cases, it will work, as you are running ngd on localhost. If you are running ngd in a docker container, then you need to give access to the container to the local network of the host by using `docker run --network="host"`. see more here https://docs.docker.com/network/drivers/host/
+
+Follow the steps on the screen to create your wallet :)
+
+Once your ngd server will run in your dev env, replace the string in `nextgraph/src/local_broker_dev_env.rs` with the actual PEER ID of your ngd server that is displayed when you first start `ngd`, with a line starting with `INFO  ngd] PeerId of node:`.
+
+### Using ngcli with the account you just created
+
+The current directory will be used to save all the config, keys and storage data.
+If you prefer to change the base directory, use the argument `--base [PATH]` when using `ngd` and/or `ngcli`.
+
+`PEER_ID_OF_SERVER` is displayed when you first start `ngd`, with a line starting with `INFO  ngd] PeerId of node:`.
+
+`THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED` can be found in the app, after you opened your wallet, click on the logo of NextGraph, and you will see the User Panel. Click on `Accounts` and you will find the User Private Key.
+
+By example, to list all the admin users :
+
+```
+cargo run -p ngcli -- --save-key --save-config -s 127.0.0.1,14400,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED> admin list-users -a
+```
+
+### Adding more accounts and wallets
+
+In your dev env, if you want to create more wallets and accounts, you need to run a local instance of `ngaccount`.
+
+See the [README of ngaccount here](ngaccount/README.md).
+
+Then you need to stop your ngd and start it again with the additional option :
+
+```
+--registration-url="http://127.0.0.1:5173/#/create"
+```
 
 ### Packages
 
@@ -42,20 +101,6 @@ The crates are organized as follow :
 -   ng-storage-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
 -   ngone : server for nextgraph.one. helps user bootstrap into the right app. Not useful to you. Published here for transparency
 -   ngaccount : server for nextgraph's Broker Service Provider account manager. Not useful to you. Published here for transparency
-
-### Run
-
-Build & run debug executables:
-
-```
-// runs the daemon
-cargo run --bin ngd
-
-// runs the client
-cargo run --bin ngcli
-```
-
-For the apps, see the [README](ng-app/README.md)
 
 ### Test
 
