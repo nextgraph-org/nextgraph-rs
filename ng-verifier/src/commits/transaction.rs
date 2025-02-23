@@ -266,6 +266,8 @@ impl Verifier {
         let commit_info: CommitInfoJs = (&commit.as_info(repo)).into();
 
         if body.graph.is_some() {
+            let mut transaction = body.graph.take().unwrap();
+            transaction.tokenize_with_commit_id(commit_id, repo_id);
             let info = BranchUpdateInfo {
                 branch_id: *branch_id,
                 branch_type: branch.branch_type.clone(),
@@ -275,7 +277,7 @@ impl Verifier {
                 overlay_id: store.overlay_id,
                 previous_heads: commit.direct_causal_past_ids(),
                 commit_id,
-                transaction: body.graph.take().unwrap(),
+                transaction,
                 commit_info,
             };
             self.update_graph(vec![info]).await?;
@@ -497,7 +499,8 @@ impl Verifier {
             let repo = self.get_repo(&repo_id, &store_repo)?;
             let commit_info: CommitInfoJs = (&commit.as_info(repo)).into();
 
-            let graph_update = transac.graph.take().unwrap();
+            let mut graph_update = transac.graph.take().unwrap();
+            graph_update.tokenize_with_commit_id(commit.id().unwrap(), &repo_id);
 
             let info = BranchUpdateInfo {
                 branch_id,

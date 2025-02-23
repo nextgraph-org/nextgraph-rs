@@ -20,7 +20,9 @@ use serde::{Deserialize, Serialize};
 use lazy_static::lazy_static;
 
 use ng_net::{app_protocol::*, types::*};
-use ng_oxigraph::oxrdf::{GraphName, GraphNameRef, NamedNode, Quad, Triple, TripleRef};
+use ng_oxigraph::oxrdf::{
+    GraphName, GraphNameRef, NamedNode, Quad, Subject, Term, Triple, TripleRef,
+};
 use ng_repo::{errors::*, types::*};
 
 pub const NG_ONTOLOGY: &str = "did:ng:x:ng#";
@@ -41,11 +43,39 @@ pub struct GraphTransaction {
     pub removes: Vec<Triple>,
 }
 
+const TOKENIZED_COMMIT: &str = "did:ng:_";
+
 impl GraphTransaction {
     pub(crate) fn as_patch(&self) -> GraphPatch {
         GraphPatch {
             inserts: serde_bare::to_vec(&self.inserts).unwrap(),
             removes: serde_bare::to_vec(&self.removes).unwrap(),
+        }
+    }
+    pub(crate) fn tokenize_with_commit_id(&mut self, commit_id: ObjectId, repo_id: &RepoId) {
+        for triple in self.inserts.iter_mut() {
+            if let Subject::NamedNode(nn) = &triple.subject {
+                if nn.as_str().starts_with(TOKENIZED_COMMIT) {
+                    let mut str = nn.as_string().clone();
+                    let new_iri = NuriV0::tokenized_commit(repo_id, &commit_id);
+                    str.replace_range(..8, &new_iri);
+                    triple.subject = NamedNode::new_unchecked(str).into();
+                }
+            }
+            if triple.predicate.as_str().starts_with(TOKENIZED_COMMIT) {
+                let mut str = triple.predicate.as_string().clone();
+                let new_iri = NuriV0::tokenized_commit(repo_id, &commit_id);
+                str.replace_range(..8, &new_iri);
+                triple.predicate = NamedNode::new_unchecked(str);
+            }
+            if let Term::NamedNode(nn) = &triple.object {
+                if nn.as_str().starts_with(TOKENIZED_COMMIT) {
+                    let mut str = nn.as_string().clone();
+                    let new_iri = NuriV0::tokenized_commit(repo_id, &commit_id);
+                    str.replace_range(..8, &new_iri);
+                    triple.object = NamedNode::new_unchecked(str).into();
+                }
+            }
         }
     }
 }

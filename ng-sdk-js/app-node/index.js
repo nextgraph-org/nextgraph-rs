@@ -61,9 +61,9 @@ ng.init_headless(config).then( async() => {
         // }
         // console.log(history.swimlane_state);
 
-        await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:o:FwRgrwtOhli54mRT6xi8J5ZK7X4L7L86lpbwhNVmgbsA> <did:ng:i> <did:ng:j> }");
+        await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:_> <did:ng:i> <did:ng:j3> }");
         
-        sparql_result = await ng.sparql_query(session.session_id, "CONSTRUCT { ?s ?p ?o } WHERE { GRAPH <"+private_store+"> { ?s ?p ?o } }", base);
+        sparql_result = await ng.sparql_query(session.session_id, "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }");
         console.log("******** CONSTRUCT")
 
         for (const r of sparql_result) console.log(r.subject.value, r.predicate.value, r.object.value);
