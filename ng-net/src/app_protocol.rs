@@ -318,6 +318,10 @@ impl NuriV0 {
         format!("{DID_PREFIX}:n:{token}")
     }
 
+    pub fn tokenized_commit(repo_id: &RepoId, commit_id: &ObjectId) -> String {
+        format!("{DID_PREFIX}:o:{repo_id}:t:{commit_id}")
+    }
+
     pub fn locator(locator: &Locator) -> String {
         format!("l:{locator}")
     }
