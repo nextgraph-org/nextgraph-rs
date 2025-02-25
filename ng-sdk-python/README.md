@@ -2,13 +2,13 @@
     <img src="https://git.nextgraph.org/NextGraph/nextgraph-rs/raw/branch/master/nextgraph/.static/header.png" alt="nextgraph-header" />
 </p>
 
-# nextgraph
+# nextgraphpy
 
 ![MSRV][rustc-image]
 [![Apache 2.0 Licensed][license-image]][license-link]
 [![MIT Licensed][license-image2]][license-link2]
 [![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
-[![PyPI - Version](https://img.shields.io/pypi/v/nextgraph)](https://pypi.org/project/nextgraph/)
+[![PyPI - Version](https://img.shields.io/pypi/v/nextgraphpy)](https://pypi.org/project/nextgraphpy/)
 
 Python package for NextGraph, implemented in Rust
 

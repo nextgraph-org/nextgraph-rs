@@ -1,5 +1,5 @@
 import asyncio
-from nextgraph import wallet_open_with_mnemonic_words, doc_sparql_update, disconnect_and_close
+from nextgraphpy import wallet_open_with_mnemonic_words, doc_sparql_update, disconnect_and_close
 
 async def main():
     wallet_session = await wallet_open_with_mnemonic_words(
@@ -22,7 +22,7 @@ async def main():
     print(wallet_name)
     print(session_info)
     await doc_sparql_update(session_info["session_id"], 
-        "INSERT DATA { <did:ng:_> <example:predicate> \"An example value16\". }",
+        "INSERT DATA { <did:ng:_> <example:predicate> \"An example value22\". }",
         "did:ng:o:Dn0QpE9_4jhta1mUWRl_LZh1SbXUkXfOB5eu38PNIk4A:v:Z4ihjV3KMVIqBxzjP6hogVLyjkZunLsb7MMsCR0kizQA")
     await disconnect_and_close(session_info["user"], wallet_name)
 
