@@ -16,6 +16,7 @@ mod rocksdb_user_storage;
 
 use ng_net::app_protocol::*;
 use ng_oxigraph::oxrdf::Triple;
+use ng_repo::errors::NgError;
 
 pub fn triples_ser_to_json_string(ser: &Vec<u8>) -> Result<String, String> {
     let triples: Vec<Triple> = serde_bare::from_slice(ser)
@@ -33,6 +34,28 @@ pub fn triples_ser_to_json_string(ser: &Vec<u8>) -> Result<String, String> {
 fn triples_ser_to_json_ser(ser: &Vec<u8>) -> Result<Vec<u8>, String> {
     let json = triples_ser_to_json_string(ser)?;
     Ok(json.as_bytes().to_vec())
+}
+
+pub fn read_triples_in_app_response_from_rust(
+    mut app_response: AppResponse,
+) -> Result<(Vec<Triple>, Vec<Triple>), NgError> {
+    let mut inserts: Vec<Triple> = vec![];
+    let mut removes: Vec<Triple> = vec![];
+    if let AppResponse::V0(AppResponseV0::State(AppState { ref mut graph, .. })) = app_response {
+        if graph.is_some() {
+            let graph_state = graph.take().unwrap();
+            inserts = serde_bare::from_slice(&graph_state.triples)?;
+        };
+    } else if let AppResponse::V0(AppResponseV0::Patch(AppPatch { ref mut graph, .. })) =
+        app_response
+    {
+        if graph.is_some() {
+            let graph_patch = graph.take().unwrap();
+            inserts = serde_bare::from_slice(&graph_patch.inserts)?;
+            removes = serde_bare::from_slice(&graph_patch.removes)?;
+        };
+    }
+    Ok((inserts, removes))
 }
 
 pub fn prepare_app_response_for_js(mut app_response: AppResponse) -> Result<AppResponse, String> {

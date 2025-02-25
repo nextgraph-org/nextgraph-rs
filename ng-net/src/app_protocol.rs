@@ -684,6 +684,14 @@ impl AppRequest {
             session_id: 0,
         })
     }
+
+    pub fn doc_fetch_repo_subscribe(repo_o: String) -> Result<Self, NgError> {
+        Ok(AppRequest::new(
+            AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
+            NuriV0::new_from(&repo_o)?,
+            None,
+        ))
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
