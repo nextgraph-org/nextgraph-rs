@@ -101,6 +101,7 @@ The crates are organized as follow :
 -   [ngd](ngd/README.md) : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
 -   [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the official web app.
 -   [ng-sdk-js](ng-sdk-js/DEV.md) : contains the JS SDK, with example for: web app, react app, or node service.
+-   [ng-sdk-python](ng-sdk-python/README.md) : contains the Python SDK.
 -   ng-repo : Repositories common library
 -   ng-net : Network common library
 -   ng-oxigraph : Fork of OxiGraph. contains our CRDT of RDF

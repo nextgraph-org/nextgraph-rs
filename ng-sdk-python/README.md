@@ -1,19 +1,16 @@
 <p align="center">
-    <img src=".github/header.png" alt="nextgraph-header" />
+    <img src="https://git.nextgraph.org/NextGraph/nextgraph-rs/raw/branch/master/nextgraph/.static/header.png" alt="nextgraph-header" />
 </p>
 
-# nextgraph-rs
+# nextgraph
 
 ![MSRV][rustc-image]
 [![Apache 2.0 Licensed][license-image]][license-link]
 [![MIT Licensed][license-image2]][license-link2]
 [![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
-[![Crates.io Version](https://img.shields.io/crates/v/nextgraph)](https://crates.io/crates/nextgraph)
-[![docs.rs](https://img.shields.io/docsrs/nextgraph)](https://docs.rs/nextgraph)
-[![NPM Version](https://img.shields.io/npm/v/nextgraph)](https://www.npmjs.com/package/nextgraph)
 [![PyPI - Version](https://img.shields.io/pypi/v/nextgraph)](https://pypi.org/project/nextgraph/)
 
-Rust implementation of NextGraph
+Python package for NextGraph, implemented in Rust
 
 This repository is in active development at [https://git.nextgraph.org/NextGraph/nextgraph-rs](https://git.nextgraph.org/NextGraph/nextgraph-rs), a Gitea instance. For bug reports, issues, merge requests, and in order to join the dev team, please visit the link above and create an account (you can do so with a github account). The [github repo](https://github.com/nextgraph-org/nextgraph-rs) is just a read-only mirror that does not accept issues.
 
@@ -44,10 +41,6 @@ You can also subscribe to [our newsletter](https://list.nextgraph.org/subscripti
 ## NextGraph is also a Framework for App developers
 
 Read our [getting started guide for developers](https://docs.nextgraph.org/en/framework/getting-started/).
-
-## For contributors or self compilation
-
-See our [contributor's guide](DEV.md)
 
 ## License
 

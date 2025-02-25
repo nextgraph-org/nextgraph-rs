@@ -2641,23 +2641,15 @@ pub async fn wallet_remove(_wallet_name: String) -> Result<(), NgError> {
     // should close the wallet, then remove all the saved sessions and remove the wallet
 }
 
-// /// fetches a document's content.
-// pub async fn doc_fetch_nuri(
-//     session_id: u64,
-//     nuri: String,
-//     payload: Option<AppRequestPayload>,
-// ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-//     let mut broker = match LOCAL_BROKER.get() {
-//         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
-//         Some(Ok(broker)) => broker.write().await,
-//     };
-//     let session_id = self.get_local_session_id_for_mut(session_id)?;
-//     let session = broker.opened_sessions_list[session_id]
-//         .as_mut()
-//         .ok_or(NgError::SessionNotFound)?;
-
-//     session.verifier.doc_fetch_nuri(nuri, payload, true).await
-// }
+/// fetches a document's content.
+pub async fn doc_fetch_repo_subscribe(
+    session_id: u64,
+    repo_o: String,
+) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
+    let mut app_req = AppRequest::doc_fetch_repo_subscribe(repo_o)?;
+    app_req.set_session_id(session_id);
+    app_request_stream(app_req).await
+}
 
 // /// fetches the private store home page and subscribes to its updates.
 // pub async fn doc_fetch_private(
@@ -2674,6 +2666,36 @@ pub async fn wallet_remove(_wallet_name: String) -> Result<(), NgError> {
 
 //     session.verifier.doc_fetch_private(true).await
 // }
+
+pub async fn doc_sparql_update(
+    session_id: u64,
+    sparql: String,
+    nuri: Option<String>,
+) -> Result<(), String> {
+    let (nuri, base) = if let Some(n) = nuri {
+        let nuri = NuriV0::new_from(&n).map_err(|e| e.to_string())?;
+        let b = nuri.repo();
+        (nuri, Some(b))
+    } else {
+        (NuriV0::new_private_store_target(), None)
+    };
+
+    let request = AppRequest::V0(AppRequestV0 {
+        command: AppRequestCommandV0::new_write_query(),
+        nuri,
+        payload: Some(AppRequestPayload::new_sparql_query(sparql, base)),
+        session_id,
+    });
+
+    let res = app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+    if let AppResponse::V0(AppResponseV0::Error(e)) = res {
+        Err(e)
+    } else {
+        Ok(())
+    }
+}
 
 /// process any type of app request that returns a single value
 pub async fn app_request(request: AppRequest) -> Result<AppResponse, NgError> {

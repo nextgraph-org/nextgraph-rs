@@ -1654,12 +1654,10 @@ pub async fn doc_fetch_private_subscribe() -> Result<JsValue, String> {
 
 #[wasm_bindgen]
 pub async fn doc_fetch_repo_subscribe(repo_o: String) -> Result<JsValue, String> {
-    let request = AppRequest::new(
-        AppRequestCommandV0::Fetch(AppFetchContentV0::get_or_subscribe(true)),
-        NuriV0::new_from(&repo_o).map_err(|e| e.to_string())?,
-        None,
-    );
-    Ok(serde_wasm_bindgen::to_value(&request).unwrap())
+    Ok(serde_wasm_bindgen::to_value(
+        &AppRequest::doc_fetch_repo_subscribe(repo_o).map_err(|e| e.to_string())?,
+    )
+    .unwrap())
 }
 
 // // #[wasm_bindgen]

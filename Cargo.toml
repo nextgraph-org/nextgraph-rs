@@ -13,6 +13,7 @@ members = [
   "ngone",
   "ngaccount",
   "ng-sdk-js",
+  "ng-sdk-python",
   "ng-app/src-tauri",
   "ng-oxigraph",
 ]

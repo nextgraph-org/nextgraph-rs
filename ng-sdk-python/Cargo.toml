@@ -1,0 +1,25 @@
+[package]
+name = "ng-sdk-python"
+version.workspace = true
+description = "NextGraph python package. Nextgraph is a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = [ "crdt","e2ee","local-first","p2p","semantic-web" ]
+documentation.workspace = true
+rust-version.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "nextgraph"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.23.3"
+pyo3-async-runtimes = { version = "0.23", features = ["async-std-runtime"] }
+pythonize = "0.23.0"
+async-std = "1.12.0"
+serde = { version = "1.0.142", features = ["derive"] }
+nextgraph = { path = "../nextgraph" }
