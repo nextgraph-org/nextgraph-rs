@@ -3,7 +3,7 @@ requires = ["maturin>=1.8,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "nextgraph"
+name = "nextgraphpy"
 requires-python = ">=3.7.3"
 description = "NextGraph brings about the convergence of P2P and Semantic Web technologies, towards a decentralized, secure and privacy-preserving cloud, based on CRDTs."
 readme = "README.md"

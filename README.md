@@ -11,7 +11,7 @@
 [![Crates.io Version](https://img.shields.io/crates/v/nextgraph)](https://crates.io/crates/nextgraph)
 [![docs.rs](https://img.shields.io/docsrs/nextgraph)](https://docs.rs/nextgraph)
 [![NPM Version](https://img.shields.io/npm/v/nextgraph)](https://www.npmjs.com/package/nextgraph)
-[![PyPI - Version](https://img.shields.io/pypi/v/nextgraph)](https://pypi.org/project/nextgraph/)
+[![PyPI - Version](https://img.shields.io/pypi/v/nextgraphpy)](https://pypi.org/project/nextgraphpy/)
 
 Rust implementation of NextGraph
 
