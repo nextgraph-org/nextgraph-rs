@@ -14,11 +14,11 @@ JS/WASM crate containing the SDK of NextGraph
 
 This crate is composed of
 
-- the npm package `ng-sdk-js` which is the SDK
-- an example of web app using the ESmodule and webpack as bundler `app-web`
-- an example of React web app `app-react`
-- an example of node-js app `app-node`
-- `index.html` an example of vanilla JS usage of the SDK
+-   the npm package `ng-sdk-js` which is the SDK
+-   an example of web app using the ESmodule and webpack as bundler `app-web`
+-   an example of React web app `app-react`
+-   an example of node-js app `app-node`
+-   `index.html` an example of vanilla JS usage of the SDK
 
 ## Support
 
@@ -31,10 +31,19 @@ And our community forum where you can ask questions is here [https://forum.nextg
 Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/).
 
 ```
+// for nodejs
+npm i nextgraph
+// or for browser (not published to npm yet)
 npm i ng-sdk-js
 ```
 
 ## For contributors
+
+First of all, run:
+
+```
+cargo install cargo-run-script
+```
 
 We recommend contributors to use the production build, as the creation and opening of wallets is very slow in the dev build.
 Only use the dev build when debugging the sdk. see the next chapter for the production build.
@@ -42,16 +51,17 @@ Please note that the dev and prod builds share the same output folder, they thus
 When building the app, be sure to have the production build of the SDK in the output folder.
 
 ```
-wasm-pack build --dev --target bundler
+// for the app sdk (browser)
+cargo run-script appdev
 
-wasm-pack build --dev -t nodejs -d pkg-node
-node prepare-node.js
+// for the nodejs sdk
+cargo run-script nodedev
 ```
 
 For testing in vanilla JS
 
 ```
-wasm-pack build --dev --target web -d web
+cargo run-script webdev
 python3 -m http.server
 // open http://localhost:8000
 
@@ -66,15 +76,10 @@ wasm-pack test --chrome --headless
 ## Production build
 
 ```
-wasm-pack build --target bundler
+cargo run-script app
 tar --exclude .DS_Store -zcvf pkg.tar.gz pkg
-wasm-pack build -t nodejs -d pkg-node
-wasm-pack build --target web -d web
-node prepare-node.js
-cd pkg
-npm publish --access=public
-cd ../pkg-node
-npm publish --access=public
+cargo run-script node
+cargo run-script web
 ```
 
 ### Example Plain JS web app
@@ -83,7 +88,8 @@ npm publish --access=public
 cd ../app-web
 // for local development
 npm install --no-save ../pkg
-// or, for install from npm registry: npm install
+// or, for installation from npm registry: npm install
+// then:
 npm start
 ```
 
@@ -121,13 +127,12 @@ additional terms or conditions.s
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-  at your option.
+-   Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+-   MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+    at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
 
 ---
 
 NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure) and the [NGI Zero Commons Fund](https://nlnet.nl/commonsfund/), both funds established by [NLnet](https://nlnet.nl/) Foundation with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreements No 957073 and No 101092990, respectively.
-

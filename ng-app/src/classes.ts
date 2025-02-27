@@ -382,7 +382,7 @@ export const official_classes = {
         "ng:n": "Email",
         "ng:a": "Email content and headers",
         "ng:x": {
-            "email": "http://www.invincea.com/ontologies/icas/1.0/email#" //https://raw.githubusercontent.com/twosixlabs/icas-ontology/master/ontology/email.ttl
+            "email": "http://www.invincea.com/ontologies/icas/1.0/email#" //https://raw.githubusercontent.com/twosixlabs/icas-ontology/master/ontology/email.ttl // https://www.semanticdesktop.org/ontologies/2007/03/22/nmo/
         },
         "ng:compat": ["file:iana:message:rfc822","file:iana:multipart:related"],
     },

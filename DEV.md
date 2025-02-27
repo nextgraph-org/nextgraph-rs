@@ -14,13 +14,14 @@ cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2
 
 ```
 cargo install cargo-watch
+cargo install cargo-run-script
 // optionally, if you want a Rust REPL: cargo install evcxr_repl
 git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
 // or if you don't have a git account with us: git clone https://git.nextgraph.org/NextGraph/nextgraph-rs.git
 cd nextgraph-rs
 npm install -g pnpm
 cd ng-sdk-js
-wasm-pack build --target bundler
+cargo run-script app
 npm install --no-save pkg
 cd ../ng-app
 pnpm install
@@ -167,9 +168,11 @@ cd ..
 Otherwise, build from source the single-file release of ng-app
 
 ```
+cargo install cargo-run-script
 npm install -g pnpm
 cd ng-sdk-js
-wasm-pack build --target bundler
+cargo run-script app
+npm install --no-save pkg
 cd ../ng-app
 pnpm install
 pnpm webfilebuild
