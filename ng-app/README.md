@@ -21,7 +21,8 @@ prerequisites: compile the local SDK
 
 ```
 cd ../ng-sdk-js
-wasm-pack build --target bundler
+cargo install cargo-run-script
+cargo run-script app
 npm install --no-save pkg
 cd ../ng-app
 ```
@@ -95,15 +96,15 @@ cargo tauri build --target x86_64-pc-windows-msvc
 
 ### Android
 
-- [Install Android Studio](https://developer.android.com/studio)
+-   [Install Android Studio](https://developer.android.com/studio)
 
-- add the rust targets for android
+-   add the rust targets for android
 
 ```
 rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
 ```
 
-- follow the steps for Android in the [Prerequisites guide of Tauri](https://v2.tauri.app/start/prerequisites/#configure-for-mobile-targets)
+-   follow the steps for Android in the [Prerequisites guide of Tauri](https://v2.tauri.app/start/prerequisites/#configure-for-mobile-targets)
 
 Until I find out how to do this properly, if you are compiling the android app from a macos station, you need to override an env var. this is due to reqwest needing SSL support, and on linux and android it compiles it from source. apparently the compiler (cc-rs) doesn't know that when cross compiling to android targets, the tool ranlib is called llvm-ranlib (and not [target]-ranlib)
 
@@ -129,8 +130,8 @@ cargo tauri android build
 
 to debug the Svelte app, use Chrome :
 
-- [chrome://inspect/#devices](chrome://inspect/#devices)
-- install the [svelte extension](https://chrome.google.com/webstore/detail/svelte-devtools/ckolcbmkjpjmangdbmnkpjigpkddpogn)
+-   [chrome://inspect/#devices](chrome://inspect/#devices)
+-   install the [svelte extension](https://chrome.google.com/webstore/detail/svelte-devtools/ckolcbmkjpjmangdbmnkpjigpkddpogn)
 
 ### iOS
 

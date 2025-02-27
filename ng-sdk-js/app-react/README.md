@@ -16,7 +16,7 @@ Build the JS SDK
 
 ```
 cd ..
-wasm-pack build --target bundler
+cargo run-script app
 ```
 
 ```
@@ -31,13 +31,12 @@ Open this URL in browser : [http://localhost:8080](http://localhost:8080)
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-  at your option.
+-   Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+-   MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+    at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
 
 ---
 
 NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure) and the [NGI Zero Commons Fund](https://nlnet.nl/commonsfund/), both funds established by [NLnet](https://nlnet.nl/) Foundation with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreements No 957073 and No 101092990, respectively.
-
