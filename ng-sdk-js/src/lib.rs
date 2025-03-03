@@ -258,6 +258,23 @@ pub async fn session_start(wallet_name: String, user_js: JsValue) -> Result<JsVa
     Ok(serde_wasm_bindgen::to_value(&res).unwrap())
 }
 
+#[wasm_bindgen]
+pub async fn session_in_memory_start(
+    wallet_name: String,
+    user_js: JsValue,
+) -> Result<JsValue, String> {
+    let user_id = serde_wasm_bindgen::from_value::<PubKey>(user_js)
+        .map_err(|_| "Deserialization error of user_id")?;
+
+    let config = SessionConfig::new_in_memory(&user_id, &wallet_name);
+    let res: SessionInfoString = nextgraph::local_broker::session_start(config)
+        .await
+        .map_err(|e: NgError| e.to_string())?
+        .into();
+
+    Ok(serde_wasm_bindgen::to_value(&res).unwrap())
+}
+
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
 pub async fn session_headless_start(user_js: String) -> Result<JsValue, String> {

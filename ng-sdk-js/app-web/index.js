@@ -9,7 +9,9 @@
 
 import * as ng from "ng-sdk-js";
 
-import test from './test';
-ng.test();
-test();
-console.log(ng.start());
+// import test from './test';
+// ng.test();
+// test();
+//console.log(ng.start());
+
+await ng.wallet_read_file
