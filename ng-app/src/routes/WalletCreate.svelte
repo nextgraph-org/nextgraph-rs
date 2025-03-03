@@ -999,7 +999,7 @@
                   />
                 </svg>
                 {$t("pages.wallet_create.register_with_broker", {
-                  values: { broker: pre_invitation.V0.name || "this broker" },
+                  values: { broker: pre_invitation.V0.name || $t("pages.wallet_create.this_broker") },
                 })}
               </button>
             </div>

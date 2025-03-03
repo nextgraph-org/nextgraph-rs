@@ -503,6 +503,14 @@ impl BrokerServerV0 {
         }
     }
 
+    pub fn get_domain(&self) -> Option<String> {
+        if let BrokerServerTypeV0::Domain(domain) = &self.server_type {
+            Some(domain.clone())
+        } else {
+            None
+        }
+    }
+
     /// on web browser, returns the connection URL and an optional list of BindAddress if a relay is needed
     /// filtered by the current location url of the webpage
     /// on native apps (do not pass a location), returns or the connection URL without optional BindAddress or an empty string with
@@ -824,6 +832,15 @@ impl Invitation {
         match self {
             Invitation::V0(v0) => &v0.bootstrap.servers,
         }
+    }
+    pub fn get_domain(&self) -> Option<String> {
+        for bootstrap in self.get_servers() {
+            let res = bootstrap.get_domain();
+            if res.is_some() {
+                return res;
+            }
+        }
+        None
     }
 
     pub fn set_name(&mut self, name: Option<String>) {

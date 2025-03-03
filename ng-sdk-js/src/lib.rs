@@ -78,6 +78,17 @@ pub async fn get_local_bootstrap(location: String, invite: JsValue) -> JsValue {
 }
 
 #[wasm_bindgen]
+pub async fn get_local_bootstrap_and_domain(location: String) -> JsValue {
+    let res = retrieve_local_bootstrap(location, None, false).await;
+    if res.is_some() {
+        let domain = res.as_ref().unwrap().get_domain();
+        serde_wasm_bindgen::to_value(&(res.unwrap(), domain)).unwrap()
+    } else {
+        serde_wasm_bindgen::to_value(&(false, false)).unwrap()
+    }
+}
+
+#[wasm_bindgen]
 pub async fn get_local_bootstrap_with_public(
     location: String,
     invite: JsValue,

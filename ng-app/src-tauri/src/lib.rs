@@ -360,6 +360,15 @@ async fn decode_invitation(invite: String) -> Option<Invitation> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn retrieve_ng_bootstrap(
+    location: String,
+) -> Result<ng_net::types::LocalBootstrapInfo, String> {
+    ng_net::utils::retrieve_ng_bootstrap(&location)
+        .await
+        .ok_or("cannot retrieve bootstrap".to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn file_get(
     session_id: u64,
     stream_id: &str,
@@ -1073,6 +1082,7 @@ impl AppBuilder {
                 signed_snapshot_request,
                 update_header,
                 fetch_header,
+                retrieve_ng_bootstrap,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

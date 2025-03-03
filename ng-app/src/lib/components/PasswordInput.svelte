@@ -13,9 +13,10 @@
   export let value: string | undefined = undefined;
   export let placeholder: string | undefined = undefined;
   export let className: string | undefined = undefined;
+  export let classNameToggle: string | undefined = "right-0";
   export let id: string | undefined = undefined;
   export let auto_complete: string | undefined = undefined;
-
+  import { createEventDispatcher } from "svelte";
   export let show: boolean = false;
 
   let input;
@@ -28,6 +29,8 @@
     value = target.value;
   }
 
+  const dispatch = createEventDispatcher();
+
   async function toggle() {
     let { selectionStart, selectionEnd } = input;
     show = !show;
@@ -36,6 +39,11 @@
       input.selectionStart = selectionStart;
       input.selectionEnd = selectionEnd;
     }, 0);
+  }
+  const key_pressed = async (e: any) => {
+    if (e.key == "Enter" || e.keyCode == 13) {
+      dispatch("enter");
+    }
   }
 </script>
 
@@ -51,10 +59,11 @@
     on:input={handleInput}
     class={`${className} pr-12 text-md block`}
     autocomplete={auto_complete}
+    on:keypress={key_pressed}
   />
 
   <div
-    class="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
+    class={`${classNameToggle} absolute inset-y-0 pr-3 flex items-center text-sm leading-5`}
   >
     <svg
       fill="none"

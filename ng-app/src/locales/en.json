@@ -342,7 +342,7 @@
     },
     "no_wallet": {
       "welcome": "Welcome to NextGraph",
-      "description": "We could not find a wallet saved on this device.<br /> If you already have a wallet, select \"Log in\", otherwise, select \"Create Wallet\" here below.",
+      "description": "We could not find a wallet saved on this device.<br /> If you already have a wallet, select \"Login\", otherwise, select \"Create Wallet\" here below.",
       "create_wallet": "Create Wallet"
     },
     "login": {
@@ -425,7 +425,8 @@
       "choose_broker": "Please choose one broker among the list",
       "register_with_broker": "Register with {broker}",
       "for_eu_citizens": "European Union Server",
-      "for_rest": "For the rest of the world",
+      "for_rest": "International Server",
+      "this_broker": "this Broker",
       "enter_invite_link": "Enter an invitation link",
       "scan_invite_qr": "Scan an invitation QR-code",
       "self_hosted_broker": "Self-hosted broker",
@@ -434,7 +435,7 @@
       "registration_success": "You have been successfully registered to {broker}",
       "choose_pin": {
         "title": "Let's start creating your wallet by choosing a PIN code",
-        "description": "We recommend you to choose a PIN code that you already know very well. <br /> Your credit card PIN, by example, is a good choice.<br />We at NextGraph will never see your PIN.",
+        "description": "We recommend you to choose a PIN code that you already know very well. <br />We at NextGraph will never see your PIN.",
         "rules": "Here are the rules for the PIN:",
         "1": "It cannot be a series like 1234 or 8765.",
         "2": "The same digit cannot repeat more than once. By example 4484 is invalid.",
@@ -509,13 +510,35 @@
       "from_import.title": "Your wallet has been transferred",
       "from_import.description": "Your wallet has been received from the other device!",
       "from_import.instruction": "To finish the import, please log in.",
-      "with_another_wallet": "Log in with another wallet",
-      "import_wallet": "Import your wallet",
+      "with_username": "with my Username",
       "import_file": "Import a Wallet File",
       "import_qr": "Import with QR-Code",
       "import_link": "Import with TextCode",
       "new_wallet": "Create a new Wallet",
-      "logged_in": "You are logged in.<br /> please wait while the app is loading"
+      "logged_in": "You are logged in.<br /> please wait while the app is loading",
+      "offline_advice": "If you do not have internet on this device, you can use the \"Import a Wallet file\" method instead."
+    },
+    "wallet_login_username": {
+      "title": "Import Wallet with your Username",
+      "description": "If you have created a username and password for your Wallet, then you can enter the details here below in order to import your wallet from your broker. You only have to do that once on this device.",
+      "username": "Username",
+      "username_placeholder_domain": "with the @domain part",
+      "username_placeholder_without_domain": "without @{domain}",
+      "username_placeholder_without_at": "without the @domain part",
+      "password": "Password",
+      "password_placeholder": "Enter your password here",
+      "next": "Next",
+      "connect": "Connect",
+      "redirect": "Redirect me",
+      "retrieve_button": "Connect & Retrieve Wallet",
+      "success_btn": "Continue to Login",
+      "error.username": "The username you entered is invalid. Only alphanumerical characters are allowed (together with hyphen and underscore)",
+      "error.nodomainplease": "Please enter your username without a trailing @domain",
+      "warning.nodomainplease": "You shouldn't enter any @domain part for your username",
+      "warning.nospecificdomainplease": "You don't need to enter the @{domain} part of your username",
+      "error.invalid_domain": "the @domain part is invalid",
+      "error.mandatory_domain": "You must enter the @domain part of your username.",
+      "error.need_redirect": "This user is from another broker. Do you want to be redirected to that broker?"
     },
     "wallet_login_qr": {
       "title": "Import Wallet with QR-Code",
@@ -523,7 +546,6 @@
       "scan.modal.title": "Scan Wallet QR-Code",
       "gen.button": "Generate QR-Code",
       "gen.description": "To import your wallet from another device, you have to generate a QR-Code here on this device, and then scan it with your other device (the one where your wallet is located for now).<br/>If your other device does not have a camera, then you have to use another method for importing your wallet here.",
-      "offline_advice": "If you do not have internet on this device, you can use the \"Import a Wallet file\" method instead.",
       "gen.letsgo": "Ready? On your other device, you first have to be logged-in (wallet is opened) and then you go to<br /><span class=\"path\">User Panel > Wallet > Export by scanning a QR-code</span>.<br />Then on this present device, click below on the<br/><span class=\"path\">Generate QR-Code</span> button.",
       "gen.generated": "Scan this QR-Code from the other device.<br/>You have 5 minutes to do so.",
       "success_btn": "Continue to Login"

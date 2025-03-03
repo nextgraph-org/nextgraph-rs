@@ -28,7 +28,6 @@ use ng_repo::types::PubKey;
 use ng_repo::{log::*, types::PrivKey};
 
 use crate::types::*;
-#[cfg(target_arch = "wasm32")]
 use crate::NG_BOOTSTRAP_LOCAL_PATH;
 use crate::WS_PORT;
 
@@ -242,6 +241,42 @@ async fn retrieve_ng_bootstrap(location: &String) -> Option<LocalBootstrapInfo> 
         return None;
     }
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn retrieve_ng_bootstrap(location: &String) -> Option<LocalBootstrapInfo> {
+    let url = Url::parse(location).unwrap();
+    let prefix = url.origin().unicode_serialization();
+    let url = format!("{}{}", prefix, NG_BOOTSTRAP_LOCAL_PATH);
+    log_info!("url {}", url);
+    let resp = reqwest::get(url).await;
+    //log_info!("{:?}", resp);
+    if resp.is_ok() {
+        let resp = resp.unwrap().json::<LocalBootstrapInfo>().await;
+        return if resp.is_ok() {
+            Some(resp.unwrap())
+        } else {
+            None
+        };
+    } else {
+        //log_info!("err {}", resp.unwrap_err());
+        return None;
+    }
+}
+
+// #[cfg(target_arch = "wasm32")]
+// pub async fn retrieve_domain(location: String) -> Option<String> {
+//     let info = retrieve_ng_bootstrap(&location).await;
+//     if info.is_none() {
+//         return None;
+//     }
+//     for bootstrap in info.unwrap().servers() {
+//         let res = bootstrap.get_domain();
+//         if res.is_some() {
+//             return res;
+//         }
+//     }
+//     None
+// }
 
 #[cfg(target_arch = "wasm32")]
 pub async fn retrieve_local_url(location: String) -> Option<String> {
