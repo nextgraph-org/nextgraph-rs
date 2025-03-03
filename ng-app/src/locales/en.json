@@ -331,7 +331,7 @@
     },
     "install": {
       "app_availability": "<b>NextGraph App</b> is available for download as a native app for your mobile, tablet, laptop and desktop.<br /> The app supports iOS, Android, Linux, macOS, Windows, or any other platform with a modern browser.",
-      "has_wallet_warning": "A wallet is saved in this browser. If it is yours,<br /> once the installation of the app will be finished,<br /> choose the option \"Login\" on the app.<br /> (do not create another wallet from the app).",
+      "has_wallet_warning": "A wallet is saved in this browser. <br />If it is yours, once the installation of the app will be finished,<br /> choose the option \"Login\" on the app.<br /> (do not create another wallet from the app).",
       "android_play_store": "Android Play Store",
       "download_apk": "Download APK",
       "ios_app_store": "iOS App Store",
@@ -420,7 +420,7 @@
         "5": "At anytime you can decide to switch to another broker service provider or host it yourself. Your data is totally <b >portable</b > and can freely move to another broker.",
         "6": "Soon we will offer you the opportunity to host your own broker at <b>home</b> or <b>office</b>. Instead of using a \"broker service provider\", you will own a small device that you connect behind your internet router. It is called <b>NG Box</b> and will be available soon.",
         "7": "Organizations and companies have the opportunity to host a broker <b>on-premise</b> or in the <b>cloud</b>, as the software is open source. Individuals can also <b>self-host</b> a broker on any VPS server or at home, on their dedicated hardware.",
-        "8": "You can also start by installing the Native App and create the wallet from there, and select the broker also from the app. <br/>At any time you will be able to transfer your Wallet from one device to another (including from the web-app and the native apps)."
+        "8": "You can also start by installing the Native App and create the wallet from there, and then select the broker from the app. <br/>At any time you will be able to transfer your Wallet from one device to another (including from the web-app and the native apps)."
       },
       "choose_broker": "Please choose one broker among the list",
       "register_with_broker": "Register with {broker}",

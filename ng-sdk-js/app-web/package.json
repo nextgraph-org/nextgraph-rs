@@ -24,7 +24,7 @@
   },
   "homepage": "https://docs.nextgraph.org",
   "dependencies": {
-    "ng-sdk-js": "^0.1.0"
+    "ng-sdk-js": "^0.1.1"
   },
   "devDependencies": {
     "webpack": "^4.29.3",

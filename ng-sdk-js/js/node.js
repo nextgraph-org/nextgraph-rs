@@ -151,6 +151,7 @@ module.exports.upload_file = async ( filename, callback, end) => {
 
 module.exports.client_details = function () {
   const process = require('process');
+  const osnode = require('os');
   let arch = osnode.machine? osnode.machine() : process.arch;
   if (arch=="ia32") {arch="x86"}
   else if (arch=="x64") {arch="x86_64"}
@@ -158,7 +159,6 @@ module.exports.client_details = function () {
   else if (arch=="i686") {arch="x86"}
   else if (arch=="amd64") {arch="x86_64"}
   else if (arch=="arm64") {arch="aarch64"}
-  const osnode = require('os');
   let os = osName(osnode.platform(),osnode.release());
   if (osnode.version) os.uname = osnode.version();
   os.type = osnode.type();
