@@ -41,6 +41,7 @@
 
   import ng from "./api";
   import AccountInfo from "./routes/AccountInfo.svelte";
+  import WalletLoginUsername from "./routes/WalletLoginUsername.svelte";
   import WalletLoginQr from "./routes/WalletLoginQr.svelte";
   import WalletLoginTextCode from "./routes/WalletLoginTextCode.svelte";
 
@@ -48,6 +49,7 @@
   routes.set("/", Home);
   routes.set("/test", Test);
   routes.set("/wallet/login", WalletLogin);
+  routes.set("/wallet/username", WalletLoginUsername);
   routes.set("/wallet/login-qr", WalletLoginQr);
   routes.set("/wallet/login-text-code", WalletLoginTextCode);
   routes.set("/wallet/create", WalletCreate);

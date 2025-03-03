@@ -73,6 +73,9 @@
           <Alert color="red">
             {@html $t("wallet_sync.offline_warning")}
           </Alert>
+          <Alert color="blue" class="mt-4">
+            {@html $t("pages.wallet_login.offline_advice")}
+          </Alert>
         </div>
       {/if}
 
