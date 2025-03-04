@@ -67,7 +67,7 @@
     "immutable-json-patch": "^6.0.1",
     "katex": "^0.16.11",
     "lodash.debounce": "4.0.8",
-    "ng-sdk-js": "workspace:^0.1.1-alpha",
+    "ng-sdk-js": "workspace:^0.1.1",
     "prism-themes": "^1.9.0",
     "prosemirror-model": "^1.7.1",
     "prosemirror-state": "^1.2.3",

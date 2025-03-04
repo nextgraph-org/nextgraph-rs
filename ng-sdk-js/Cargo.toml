@@ -17,12 +17,12 @@ rust-version.workspace = true
 wasm-opt = false
 
 [package.metadata.scripts]
-appdev = "rm -rf pkg && wasm-pack build --target bundler"
-app = "rm -rf pkg && wasm-pack build --target bundler"
-nodedev = "rm -rf pkg-node && wasm-pack build --dev -t nodejs -d pkg-node && node prepare-node.js"
-node = "rm -rf pkg-node && wasm-pack build -t nodejs -d pkg-node && node prepare-node.js"
-web = "rm -rf web && wasm-pack build --target web -d web"
-webdev = "rm -rf web && wasm-pack build --dev --target web -d web"
+appdev = "rm -rf pkg/snippets && wasm-pack build --target bundler"
+app = "rm -rf pkg/snippets && wasm-pack build --target bundler"
+nodedev = "rm -rf pkg-node/snippets && wasm-pack build --dev -t nodejs -d pkg-node && node prepare-node.js"
+node = "rm -rf pkg-node/snippets && wasm-pack build -t nodejs -d pkg-node && node prepare-node.js"
+web = "rm -rf web/snippets && wasm-pack build --target web -d web"
+webdev = "rm -rf web/snippets && wasm-pack build --dev --target web -d web"
 
 [lib]
 crate-type = ["cdylib"]

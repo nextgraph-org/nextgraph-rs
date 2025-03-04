@@ -12,15 +12,6 @@ const WebSocket = require("ws");
 const ng = require("nextgraph");
 global.WebSocket = WebSocket;
 
-let config = {
-    // replace server_peer_id and admin_user_key with your own
-    // replace client_peer_key with a fresh key generated with `ngcli gen-key` (use the private key)
-    server_peer_id: "pzx0BqespDc0MjvtYmq1b6PRqc4i1mjYRqVbIXOw2RwA",
-    admin_user_key: "sB2JMURtgd42pWI4lLxCT_cNle-pfWkOLZQ0XyJiFswA",
-    client_peer_key: "GRP0QnlzaB8o2vdiBaNoOYDNOFX-uehLZMxeCaG3JA0A",
-    server_addr: "127.0.0.1:14400"
-};
-
 // get your wallet file as an ArrayBuffer and pass it to wallet_read_file  
 
 const fs = require('fs');
@@ -43,13 +34,11 @@ ng.wallet_read_file(buffer).then(async (wallet)=>{
             "lemon"],
             [2, 3, 2, 3]);
 
-        console.log(opened_wallet);
-
         let user_id = opened_wallet.V0.personal_site;
+        let user_id_string = opened_wallet.V0.personal_site_id;
         let wallet_name = opened_wallet.V0.wallet_id;
 
-        console.log(user_id)
-        console.log(wallet_name)
+        console.log("wallet_name=", wallet_name)
 
         let _client = await ng.wallet_import(wallet, opened_wallet, true)
 
@@ -58,31 +47,75 @@ ng.wallet_read_file(buffer).then(async (wallet)=>{
         let session_id = session.session_id;
         console.log(session);
 
-        let protected_repo_id = session.protected_store_id.substr(2,44);
+        let protected_repo_id = session.protected_store_id.substring(2,46);
         console.log("Session started. protected store ID = ", protected_repo_id)
 
         let info = await ng.client_info();
-        console.log(info);
         let connection_status = await ng.user_connect(
             info,
-            user_id
+            user_id_string
         );
 
         console.log(connection_status);
 
         let dump = await ng.rdf_dump(session_id);
+        console.log("==== DUMP ====");
         console.log(dump);
+        console.log("==== END of DUMP ====");
 
-        let nuri = await ng.doc_create(session_id, "Graph", "data:graph", "protected", protected_repo_id, "store");
-        console.log(nuri);
+        // we create a new document in the protected store of the user.
+        //let nuri = await ng.doc_create(session_id, "Graph", "data:graph", "protected", protected_repo_id, "store");
+        // once you have created a document, you can reuse its Nuri by entering it in the line below, remove the commenting, and comment out the above line
+        let nuri = "did:ng:o:W6GCQRfQkNTLtSS_2-QhKPJPkhEtLVh-B5lzpWMjGNEA:v:h8ViqyhCYMS2I6IKwPrY6UZi4ougUm1gpM4QnxlmNMQA";
+        console.log("nuri=",nuri);
+        let base = nuri.substring(0,53);
+        console.log("base=",base);
 
-        // await ng.sparql_update(session_id, 
-        // "INSERT DATA { <did:ng:_> <example:predicate> \"An example value30\". }", nuri );
+        await ng.sparql_update(session_id, "INSERT DATA { <> <example:predicate> \"An example value1000\". }", nuri );
+
+        // SELECT
+        // we use base to replace <> in the subject
+
+        let sparql_result = await ng.sparql_query(session_id, "SELECT ?p ?o ?g WHERE { GRAPH ?g { <> ?p ?o } }", base);
+        console.log(sparql_result);
+        for (const q of sparql_result.results.bindings) {
+            console.log(q);
+        }
+
+        // specifying a nuri in the query arguments, is equivalent to settings the GRAPH in the WHERE
+        sparql_result = await ng.sparql_query(session_id, "SELECT ?s ?p ?o WHERE { ?s ?p ?o }", undefined, nuri);
+        console.log(sparql_result);
+        for (const q of sparql_result.results.bindings) {
+            console.log(q);
+        }
+
+        // base can be omitted if it isn't used
+
+        sparql_result = await ng.sparql_query(session_id, "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }");
+        console.log(sparql_result);
+        for (const q of sparql_result.results.bindings) {
+            console.log(q);
+        }
+
+        // CONSTRUCT
+
+        let triples = await ng.sparql_query(session_id, `CONSTRUCT { ?s ?p ?o } WHERE { GRAPH <${nuri}> { ?s ?p ?o } }`, base);
+        for (const q of triples) {
+            console.log(q.subject.toString(), q.predicate.toString(), q.object.toString())
+        }
+
+        // is equivalent to 
+
+        triples = await ng.sparql_query(session_id, "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }", base, nuri);
+        for (const q of triples) {
+            console.log(q.subject.toString(), q.predicate.toString(), q.object.toString())
+        }
 
         // cleaning up
-        await ng.user_disconnect(user_id);
 
-        await ng.session_stop(user_id);
+        await ng.user_disconnect(user_id_string);
+
+        await ng.session_stop(user_id_string);
 
         await ng.wallet_close(wallet_name);
 
@@ -93,6 +126,15 @@ ng.wallet_read_file(buffer).then(async (wallet)=>{
 }).catch(err => {
     console.error(err);
 });
+
+// let config = {
+//     // replace server_peer_id and admin_user_key with your own
+//     // replace client_peer_key with a fresh key generated with `ngcli gen-key` (use the private key)
+//     server_peer_id: "pzx0BqespDc0MjvtYmq1b6PRqc4i1mjYRqVbIXOw2RwA",
+//     admin_user_key: "sB2JMURtgd42pWI4lLxCT_cNle-pfWkOLZQ0XyJiFswA",
+//     client_peer_key: "GRP0QnlzaB8o2vdiBaNoOYDNOFX-uehLZMxeCaG3JA0A",
+//     server_addr: "127.0.0.1:14400"
+// };
 
 // ng.init_headless(config).then( async() => {
 //     let session_id;
