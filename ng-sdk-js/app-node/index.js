@@ -58,8 +58,8 @@ ng.wallet_read_file(buffer).then(async (wallet)=>{
 
         console.log(connection_status);
 
-        let dump = await ng.rdf_dump(session_id);
         console.log("==== DUMP ====");
+        let dump = await ng.rdf_dump(session_id);
         console.log(dump);
         console.log("==== END of DUMP ====");
 
@@ -71,53 +71,89 @@ ng.wallet_read_file(buffer).then(async (wallet)=>{
         let base = nuri.substring(0,53);
         console.log("base=",base);
 
-        await ng.sparql_update(session_id, "INSERT DATA { <> <example:predicate> \"An example value1000\". }", nuri );
+        // EXAMPLE OF SUBSCRIBING TO A DOCUMENT. base is the Nuri half first part (the document ID proper).
+
+        //call unsub when you are done subscribing you don't want to receive updates anymore
+        let unsub = await ng.doc_subscribe(base, session_id,
+            async (response) => {
+
+                if (response.V0.State?.graph) {
+                    
+                    let json_str = new TextDecoder().decode(response.V0.State.graph.triples);
+                    triples = JSON.parse(json_str);
+                
+                    for (const triple of triples){
+                        // deal with each triple
+                        console.log("STATE",triple);
+                    }
+                    
+                } else if (response.V0.Patch?.graph) {
+                    
+                    let inserts_json_str = new TextDecoder().decode(response.V0.Patch.graph.inserts);
+                    let inserts = JSON.parse(inserts_json_str);
+                    let removes_json_str = new TextDecoder().decode(response.V0.Patch.graph.removes);
+                    let removes = JSON.parse(removes_json_str);
+
+                    for (const insert of inserts){
+                        // deal with each insert
+                        console.log("INSERT",insert);
+                    }
+                    for (const remove of removes){
+                        // deal with each remove
+                        console.log("REMOVE",remove);
+                    }
+                    
+                }
+            }
+        );
+
+        //await ng.sparql_update(session_id, "INSERT DATA { <> <example:predicate> \"An example value1000\". }", nuri );
 
         // SELECT
         // we use base to replace <> in the subject
 
-        let sparql_result = await ng.sparql_query(session_id, "SELECT ?p ?o ?g WHERE { GRAPH ?g { <> ?p ?o } }", base);
-        console.log(sparql_result);
-        for (const q of sparql_result.results.bindings) {
-            console.log(q);
-        }
+        // let sparql_result = await ng.sparql_query(session_id, "SELECT ?p ?o ?g WHERE { GRAPH ?g { <> ?p ?o } }", base);
+        // console.log(sparql_result);
+        // for (const q of sparql_result.results.bindings) {
+        //     console.log(q);
+        // }
 
-        // specifying a nuri in the query arguments, is equivalent to settings the GRAPH in the WHERE
-        sparql_result = await ng.sparql_query(session_id, "SELECT ?s ?p ?o WHERE { ?s ?p ?o }", undefined, nuri);
-        console.log(sparql_result);
-        for (const q of sparql_result.results.bindings) {
-            console.log(q);
-        }
+        // // specifying a nuri in the query arguments, is equivalent to settings the GRAPH in the WHERE
+        // sparql_result = await ng.sparql_query(session_id, "SELECT ?s ?p ?o WHERE { ?s ?p ?o }", undefined, nuri);
+        // console.log(sparql_result);
+        // for (const q of sparql_result.results.bindings) {
+        //     console.log(q);
+        // }
 
-        // base can be omitted if it isn't used
+        // // base can be omitted if it isn't used
 
-        sparql_result = await ng.sparql_query(session_id, "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }");
-        console.log(sparql_result);
-        for (const q of sparql_result.results.bindings) {
-            console.log(q);
-        }
+        // sparql_result = await ng.sparql_query(session_id, "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }");
+        // console.log(sparql_result);
+        // for (const q of sparql_result.results.bindings) {
+        //     console.log(q);
+        // }
 
-        // CONSTRUCT
+        // // CONSTRUCT
 
-        let triples = await ng.sparql_query(session_id, `CONSTRUCT { ?s ?p ?o } WHERE { GRAPH <${nuri}> { ?s ?p ?o } }`, base);
-        for (const q of triples) {
-            console.log(q.subject.toString(), q.predicate.toString(), q.object.toString())
-        }
+        // let triples = await ng.sparql_query(session_id, `CONSTRUCT { ?s ?p ?o } WHERE { GRAPH <${nuri}> { ?s ?p ?o } }`, base);
+        // for (const q of triples) {
+        //     console.log(q.subject.toString(), q.predicate.toString(), q.object.toString())
+        // }
 
-        // is equivalent to 
+        // // is equivalent to 
 
-        triples = await ng.sparql_query(session_id, "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }", base, nuri);
-        for (const q of triples) {
-            console.log(q.subject.toString(), q.predicate.toString(), q.object.toString())
-        }
+        // triples = await ng.sparql_query(session_id, "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }", base, nuri);
+        // for (const q of triples) {
+        //     console.log(q.subject.toString(), q.predicate.toString(), q.object.toString())
+        // }
 
-        // cleaning up
+        // // cleaning up
 
-        await ng.user_disconnect(user_id_string);
+        // await ng.user_disconnect(user_id_string);
 
-        await ng.session_stop(user_id_string);
+        // await ng.session_stop(user_id_string);
 
-        await ng.wallet_close(wallet_name);
+        // await ng.wallet_close(wallet_name);
 
         console.log("the end");
     } catch (e) {

@@ -1688,6 +1688,19 @@ pub async fn doc_fetch_repo_subscribe(repo_o: String) -> Result<JsValue, String>
     .unwrap())
 }
 
+#[wasm_bindgen]
+pub async fn doc_subscribe(
+    repo_o: String,
+    session_id: JsValue,
+    callback: &js_sys::Function,
+) -> Result<JsValue, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let mut request = AppRequest::doc_fetch_repo_subscribe(repo_o).map_err(|e| e.to_string())?;
+    request.set_session_id(session_id);
+    app_request_stream_(request, callback).await
+}
+
 // // #[wasm_bindgen]
 // pub async fn get_readcap() -> Result<JsValue, String> {
 //     let request = ObjectRef::nil();
