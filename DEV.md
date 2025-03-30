@@ -12,6 +12,11 @@ Until this [PR](https://github.com/rustwasm/wasm-pack/pull/1271) is accepted, wi
 cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2b663f25abe50631a236d57a8c6d7fd806413b2
 ```
 
+On Debian distros
+```
+sudo apt install pkg-config gcc build-essential libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev
+```
+
 ```
 cargo install cargo-watch
 cargo install cargo-run-script

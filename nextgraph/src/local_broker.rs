@@ -2865,6 +2865,20 @@ mod test {
     use std::path::Path;
 
     #[async_std::test]
+    async fn output_image_for_test_white() {
+        let f = File::open("examples/wallet-security-image-white.png")
+            .expect("open of examples/wallet-security-image-white.png");
+        let mut reader = BufReader::new(f);
+        let mut security_img = Vec::new();
+        // Read file into vector.
+        reader
+            .read_to_end(&mut security_img)
+            .expect("read of valid_security_image.jpg");
+
+        log_info!("{:?}", security_img);
+    }
+
+    #[async_std::test]
     async fn gen_wallet_for_test() {
         if Path::new("tests/wallet.ngw").exists() {
             println!("test files already generated. skipping");

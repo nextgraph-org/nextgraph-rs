@@ -82,6 +82,15 @@ cargo run-script node
 cargo run-script web
 ```
 
+## Publishing to npm
+
+```
+cargo run-script node
+cd pkg-node
+npm login --auth-type legacy
+npm publish --auth-type legacy
+```
+
 ### Example Plain JS web app
 
 ```
