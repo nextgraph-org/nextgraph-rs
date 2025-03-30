@@ -127,7 +127,7 @@ pub fn get_device_name() -> String {
     }
     #[cfg(target_arch = "wasm32")]
     if let Ok(distro) = whoami::fallible::distro() {
-        list.push(distro);
+        list.push(distro.replace("Unknown ",""));
     }
 
     list.join(" ")

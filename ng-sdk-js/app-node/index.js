@@ -20,6 +20,9 @@ let buffer = fs.readFileSync("/Users/nl/Downloads/wallet-Hr-UITwGtjE1k6lXBoVGzD4
 ng.wallet_read_file(buffer).then(async (wallet)=>{
     console.log("start");
     try {
+        //let wal = await ng.gen_wallet_for_test("rS6pZiroUZ5yjq9eraesDkpxWWOAoX_8QZ_5U9GXsOgA");
+        //console.log(wal);
+
         let opened_wallet = await ng.wallet_open_with_mnemonic_words(wallet, ["jealous",
             "during",
             "elevator",

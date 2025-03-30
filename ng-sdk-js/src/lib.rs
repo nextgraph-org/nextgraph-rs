@@ -39,7 +39,7 @@ use ng_repo::utils::{decode_key, decode_priv_key};
 
 use ng_net::app_protocol::*;
 use ng_net::broker::*;
-use ng_net::types::{BindAddress, ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, IP};
+use ng_net::types::{BindAddress, ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, IP, BootstrapContentV0};
 use ng_net::utils::{
     decode_invitation_string, parse_ip_and_port_for, retrieve_local_bootstrap, retrieve_local_url,
     spawn_and_log_error, Receiver, ResultSend, Sender,
@@ -54,6 +54,7 @@ use ng_wallet::*;
 
 use nextgraph::local_broker::*;
 use nextgraph::verifier::CancelFn;
+
 
 use crate::model::*;
 
@@ -1951,6 +1952,45 @@ pub async fn user_connect(
     Ok(opened_connections
         .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
         .unwrap())
+}
+
+const EMPTY_IMG: [u8;437] = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 150, 0, 0, 0, 150, 8, 6, 0, 0, 0, 60, 1, 113, 226, 0, 0, 0, 4, 103, 65, 77, 65, 0, 0, 177, 143, 11, 252, 97, 5, 0, 0, 0, 1, 115, 82, 71, 66, 1, 217, 201, 44, 127, 0, 0, 0, 32, 99, 72, 82, 77, 0, 0, 122, 38, 0, 0, 128, 132, 0, 0, 250, 0, 0, 0, 128, 232, 0, 0, 117, 48, 0, 0, 234, 96, 0, 0, 58, 152, 0, 0, 23, 112, 156, 186, 81, 60, 0, 0, 0, 9, 112, 72, 89, 115, 0, 0, 3, 0, 0, 0, 3, 0, 1, 217, 203, 178, 96, 0, 0, 1, 30, 73, 68, 65, 84, 120, 218, 237, 210, 49, 17, 0, 0, 8, 196, 48, 192, 191, 231, 199, 0, 35, 99, 34, 161, 215, 78, 146, 130, 103, 35, 1, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 193, 109, 1, 34, 65, 5, 40, 46, 151, 166, 52, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130];
+
+#[wasm_bindgen]
+pub async fn gen_wallet_for_test(ngd_peer_id: String)-> Result<JsValue, String>  {
+    init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
+    //init_local_broker(Box::new(|| LocalBrokerConfig::InMemory)).await;
+
+    let peer_id_of_server_broker = decode_key(&ngd_peer_id).map_err(|e: NgError| e.to_string())?;
+
+    let wallet_result = wallet_create_v0(CreateWalletV0 {
+        security_img: Vec::from(EMPTY_IMG),
+        security_txt: "testsecurityphrase".to_string(),
+        pin: [1, 2, 1, 2],
+        pazzle_length: 9,
+        send_bootstrap: false,
+        send_wallet: false,
+        result_with_wallet_file: true,
+        local_save: false,
+        core_bootstrap: BootstrapContentV0::new_localhost(peer_id_of_server_broker),
+        core_registration: None,
+        additional_bootstrap: None,
+        pdf: false,
+        device_name: "test".to_string(),
+    })
+    .await
+    .expect("wallet_create_v0");
+
+    let mut mnemonic_words = Vec::with_capacity(12);
+    display_mnemonic(&wallet_result.mnemonic)
+        .iter()
+        .for_each(|word| {
+            mnemonic_words.push(word.clone());
+        });
+
+    let res = (serde_bytes::ByteBuf::from(wallet_result.wallet_file.clone()),mnemonic_words);
+    Ok(serde_wasm_bindgen::to_value(&res).unwrap())
+
 }
 
 #[cfg(test)]
