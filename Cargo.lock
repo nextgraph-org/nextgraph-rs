@@ -3422,6 +3422,7 @@ dependencies = [
  "gloo-timers",
  "lazy_static",
  "log",
+ "ng_threshold_crypto",
  "num_enum",
  "once_cell",
  "os_info",
@@ -3432,7 +3433,6 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "slice_as_array",
- "threshold_crypto",
  "time 0.3.36",
  "wasm-bindgen",
  "web-time",
@@ -3570,6 +3570,25 @@ dependencies = [
  "serde_bare",
  "serde_bytes",
  "web-time",
+ "zeroize",
+]
+
+[[package]]
+name = "ng_threshold_crypto"
+version = "0.4.0"
+source = "git+https://git.nextgraph.org/NextGraph/threshold_crypto.git?branch=master#f3fee569e04999b898a1b3edc412ebf961099550"
+dependencies = [
+ "byteorder",
+ "ff",
+ "group",
+ "hex_fmt",
+ "log",
+ "pairing",
+ "rand 0.7.3",
+ "rand_chacha 0.2.2",
+ "serde",
+ "thiserror",
+ "tiny-keccak",
  "zeroize",
 ]
 
@@ -5928,25 +5947,6 @@ checksum = "3fdd6f064ccff2d6567adcb3873ca630700f00b5ad3f060c25b5dcfd9a4ce152"
 dependencies = [
  "cfg-if",
  "once_cell",
-]
-
-[[package]]
-name = "threshold_crypto"
-version = "0.4.0"
-source = "git+https://github.com/nextgraph-org/threshold_crypto.git?branch=master#b60552e4d42f67058455779eed476a76986b5478"
-dependencies = [
- "byteorder",
- "ff",
- "group",
- "hex_fmt",
- "log",
- "pairing",
- "rand 0.7.3",
- "rand_chacha 0.2.2",
- "serde",
- "thiserror",
- "tiny-keccak",
- "zeroize",
 ]
 
 [[package]]
