@@ -1970,7 +1970,7 @@ pub async fn gen_wallet_for_test(ngd_peer_id: String)-> Result<JsValue, String> 
         pazzle_length: 9,
         send_bootstrap: false,
         send_wallet: false,
-        result_with_wallet_file: true,
+        result_with_wallet_file: false,
         local_save: false,
         core_bootstrap: BootstrapContentV0::new_localhost(peer_id_of_server_broker),
         core_registration: None,
@@ -1988,7 +1988,7 @@ pub async fn gen_wallet_for_test(ngd_peer_id: String)-> Result<JsValue, String> 
             mnemonic_words.push(word.clone());
         });
 
-    let res = (serde_bytes::ByteBuf::from(wallet_result.wallet_file.clone()),mnemonic_words);
+    let res = (wallet_result,mnemonic_words);
     Ok(serde_wasm_bindgen::to_value(&res).unwrap())
 
 }

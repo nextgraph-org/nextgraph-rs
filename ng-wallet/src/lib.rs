@@ -787,6 +787,8 @@ pub async fn create_wallet_second_step_v0(
 
 #[cfg(test)]
 mod test {
+    use crate::emojis::display_pazzle_one;
+
     use super::*;
     use ng_net::types::BootstrapContentV0;
     use std::fs::File;
