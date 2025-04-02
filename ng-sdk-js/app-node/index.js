@@ -14,6 +14,14 @@ global.WebSocket = WebSocket;
 
 // get your wallet file as an ArrayBuffer and pass it to wallet_read_file  
 
+// ng.gen_wallet_for_test("rS6pZiroUZ5yjq9eraesDkpxWWOAoX_8QZ_5U9GXsOgA").then( async (res) => {
+//     console.log(res[0]);
+//     let opened = await ng.wallet_open_with_mnemonic_words(res[0].wallet, res[1], [1, 2, 1, 2]);
+//     console.log(opened.V0.personal_site);
+// });
+// return;
+        
+
 const fs = require('fs');
 let buffer = fs.readFileSync("/Users/nl/Downloads/wallet-Hr-UITwGtjE1k6lXBoVGzD4FQMiDkM3T6bSeAi9PXt4A.ngw");
 
