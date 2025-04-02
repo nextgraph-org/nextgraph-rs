@@ -19,8 +19,8 @@ use std::hash::{Hash, Hasher};
 use once_cell::sync::OnceCell;
 use sbbf_rs_safe::Filter;
 use serde::{Deserialize, Serialize};
-use threshold_crypto::serde_impl::SerdeSecret;
-use threshold_crypto::SignatureShare;
+use ng_threshold_crypto::serde_impl::SerdeSecret;
+use ng_threshold_crypto::SignatureShare;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::errors::NgError;
@@ -1694,11 +1694,11 @@ pub struct SignerCap {
     /// latest RootBranch commit or Quorum commit that defines the signing epoch
     pub epoch: ObjectId,
 
-    pub owner: Option<SerdeSecret<threshold_crypto::SecretKeyShare>>,
+    pub owner: Option<SerdeSecret<ng_threshold_crypto::SecretKeyShare>>,
 
-    pub total_order: Option<SerdeSecret<threshold_crypto::SecretKeyShare>>,
+    pub total_order: Option<SerdeSecret<ng_threshold_crypto::SecretKeyShare>>,
 
-    pub partial_order: Option<SerdeSecret<threshold_crypto::SecretKeyShare>>,
+    pub partial_order: Option<SerdeSecret<ng_threshold_crypto::SecretKeyShare>>,
 }
 
 impl SignerCap {
@@ -2414,9 +2414,9 @@ impl fmt::Display for SignatureContent {
 /// A Threshold Signature and the set used to generate it
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ThresholdSignatureV0 {
-    PartialOrder(threshold_crypto::Signature),
-    TotalOrder(threshold_crypto::Signature),
-    Owners(threshold_crypto::Signature),
+    PartialOrder(ng_threshold_crypto::Signature),
+    TotalOrder(ng_threshold_crypto::Signature),
+    Owners(ng_threshold_crypto::Signature),
 }
 
 impl fmt::Display for ThresholdSignatureV0 {
@@ -2509,8 +2509,8 @@ pub enum OrdersPublicKeySetsV0 {
     Store(ObjectRef),
     Repo(
         (
-            threshold_crypto::PublicKey,
-            Option<threshold_crypto::PublicKey>,
+            ng_threshold_crypto::PublicKey,
+            Option<ng_threshold_crypto::PublicKey>,
         ),
     ),
     None, // the total_order quorum is not defined (yet, or anymore). there are no signers for the total_order, neither for the partial_order. The owners replace them.
@@ -2527,7 +2527,7 @@ pub struct CertificateContentV0 {
     pub readcap_id: ObjectId,
 
     /// PublicKey used by the Owners. verifier uses this PK if the signature was issued by the Owners.
-    pub owners_pk_set: threshold_crypto::PublicKey,
+    pub owners_pk_set: ng_threshold_crypto::PublicKey,
 
     /// two "orders" PublicKeys (total_order and partial_order).
     pub orders_pk_sets: OrdersPublicKeySetsV0,
@@ -2539,14 +2539,14 @@ pub enum CertificateSignatureV0 {
     /// the root CertificateContentV0 is signed with the PrivKey of the Repo
     Repo(Sig),
     /// Any other certificate in the chain of trust is signed by the total_order quorum of the previous certificate, hence establishing the chain of trust.
-    TotalOrder(threshold_crypto::Signature),
+    TotalOrder(ng_threshold_crypto::Signature),
     /// if the previous cert's total order PKset has a threshold value of 0 or 1 (1 or 2 signers in the quorum),
     /// then it is allowed that the next certificate (this one) will be signed by the owners PKset instead.
     /// This is for a simple reason: if a user is removed from the list of signers in the total_order quorum,
     /// then in those 2 cases, the excluded signer will probably not cooperate to their exclusion, and will not sign the new certificate.
     /// to avoid deadlocks, we allow the owners to step in and sign the new cert instead.
     /// The Owners are also used when there is no quorum/signer defined (OrdersPublicKeySetsV0::None).
-    Owners(threshold_crypto::Signature),
+    Owners(ng_threshold_crypto::Signature),
     /// in case the new certificate being signed is an update on the store certificate (OrdersPublicKeySetsV0::Store(ObjectRef) has changed from previous cert)
     /// then the signature is in that new store certificate, and not here. nothing else should have changed in the CertificateContent, and the validity of the new store cert has to be checked
     Store,
@@ -2570,7 +2570,7 @@ impl CertificateV0 {
             _ => Err(NgError::InvalidArgument),
         }
     }
-    pub fn get_owners_pub_key(&self) -> &threshold_crypto::PublicKey {
+    pub fn get_owners_pub_key(&self) -> &ng_threshold_crypto::PublicKey {
         &self.content.owners_pk_set
     }
 }

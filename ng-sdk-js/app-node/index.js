@@ -23,7 +23,7 @@ global.WebSocket = WebSocket;
         
 
 const fs = require('fs');
-let buffer = fs.readFileSync("/Users/nl/Downloads/wallet-Hr-UITwGtjE1k6lXBoVGzD4FQMiDkM3T6bSeAi9PXt4A.ngw");
+let buffer = fs.readFileSync("/home/nn/Downloads/wallet-bCHhOmlelVtZ60jjGu7m-YtzF4TfD5WyErAMnEDOn-kA.ngw");
 
 ng.wallet_read_file(buffer).then(async (wallet)=>{
     console.log("start");
@@ -31,18 +31,8 @@ ng.wallet_read_file(buffer).then(async (wallet)=>{
         //let wal = await ng.gen_wallet_for_test("rS6pZiroUZ5yjq9eraesDkpxWWOAoX_8QZ_5U9GXsOgA");
         //console.log(wal);
 
-        let opened_wallet = await ng.wallet_open_with_mnemonic_words(wallet, ["jealous",
-            "during",
-            "elevator",
-            "swallow",
-            "pen",
-            "phone",
-            "like",
-            "employ",
-            "myth",
-            "remember",
-            "question",
-            "lemon"],
+        let opened_wallet = await ng.wallet_open_with_mnemonic_words(wallet, [
+            "mutual", "wife", "section", "actual", "spend", "illness", "save", "delay", "kiss", "crash", "baby", "degree" ],
             [2, 3, 2, 3]);
 
         let user_id = opened_wallet.V0.personal_site;
@@ -75,9 +65,9 @@ ng.wallet_read_file(buffer).then(async (wallet)=>{
         console.log("==== END of DUMP ====");
 
         // we create a new document in the protected store of the user.
-        //let nuri = await ng.doc_create(session_id, "Graph", "data:graph", "protected", protected_repo_id, "store");
+        let nuri = await ng.doc_create(session_id, "Graph", "data:graph", "store", "protected", protected_repo_id );
         // once you have created a document, you can reuse its Nuri by entering it in the line below, remove the commenting, and comment out the above line
-        let nuri = "did:ng:o:W6GCQRfQkNTLtSS_2-QhKPJPkhEtLVh-B5lzpWMjGNEA:v:h8ViqyhCYMS2I6IKwPrY6UZi4ougUm1gpM4QnxlmNMQA";
+        //let nuri = "did:ng:o:W6GCQRfQkNTLtSS_2-QhKPJPkhEtLVh-B5lzpWMjGNEA:v:h8ViqyhCYMS2I6IKwPrY6UZi4ougUm1gpM4QnxlmNMQA";
         console.log("nuri=",nuri);
         let base = nuri.substring(0,53);
         console.log("base=",base);
@@ -85,40 +75,41 @@ ng.wallet_read_file(buffer).then(async (wallet)=>{
         // EXAMPLE OF SUBSCRIBING TO A DOCUMENT. base is the Nuri half first part (the document ID proper).
 
         //call unsub when you are done subscribing you don't want to receive updates anymore
-        let unsub = await ng.doc_subscribe(base, session_id,
-            async (response) => {
+        // let unsub = await ng.doc_subscribe(base, session_id,
+        //     async (response) => {
 
-                if (response.V0.State?.graph) {
+        //         if (response.V0.State?.graph) {
                     
-                    let json_str = new TextDecoder().decode(response.V0.State.graph.triples);
-                    triples = JSON.parse(json_str);
+        //             let json_str = new TextDecoder().decode(response.V0.State.graph.triples);
+        //             triples = JSON.parse(json_str);
                 
-                    for (const triple of triples){
-                        // deal with each triple
-                        console.log("STATE",triple);
-                    }
+        //             for (const triple of triples){
+        //                 // deal with each triple
+        //                 console.log("STATE",triple);
+        //             }
                     
-                } else if (response.V0.Patch?.graph) {
+        //         } else if (response.V0.Patch?.graph) {
                     
-                    let inserts_json_str = new TextDecoder().decode(response.V0.Patch.graph.inserts);
-                    let inserts = JSON.parse(inserts_json_str);
-                    let removes_json_str = new TextDecoder().decode(response.V0.Patch.graph.removes);
-                    let removes = JSON.parse(removes_json_str);
+        //             let inserts_json_str = new TextDecoder().decode(response.V0.Patch.graph.inserts);
+        //             let inserts = JSON.parse(inserts_json_str);
+        //             let removes_json_str = new TextDecoder().decode(response.V0.Patch.graph.removes);
+        //             let removes = JSON.parse(removes_json_str);
 
-                    for (const insert of inserts){
-                        // deal with each insert
-                        console.log("INSERT",insert);
-                    }
-                    for (const remove of removes){
-                        // deal with each remove
-                        console.log("REMOVE",remove);
-                    }
+        //             for (const insert of inserts){
+        //                 // deal with each insert
+        //                 console.log("INSERT",insert);
+        //             }
+        //             for (const remove of removes){
+        //                 // deal with each remove
+        //                 console.log("REMOVE",remove);
+        //             }
                     
-                }
-            }
-        );
+        //         }
+        //     }
+        // );
 
-        //await ng.sparql_update(session_id, "INSERT DATA { <> <example:predicate> \"An example value1000\". }", nuri );
+        let res = await ng.sparql_update(session_id, "INSERT DATA { <> <example:predicate> \"An example value1000\". }", nuri );
+        console.log(res);
 
         // SELECT
         // we use base to replace <> in the subject

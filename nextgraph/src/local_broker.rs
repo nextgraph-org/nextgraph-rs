@@ -2671,7 +2671,7 @@ pub async fn doc_sparql_update(
     session_id: u64,
     sparql: String,
     nuri: Option<String>,
-) -> Result<(), String> {
+) -> Result<Vec<String>, String> {
     let (nuri, base) = if let Some(n) = nuri {
         let nuri = NuriV0::new_from(&n).map_err(|e| e.to_string())?;
         let b = nuri.repo();
@@ -2690,10 +2690,67 @@ pub async fn doc_sparql_update(
     let res = app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
-    if let AppResponse::V0(AppResponseV0::Error(e)) = res {
-        Err(e)
+    match res {
+        AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
+        AppResponse::V0(AppResponseV0::Commits(commits)) => Ok(commits),
+        _ => Err(NgError::InvalidResponse.to_string())
+    }
+}
+
+pub async fn doc_create(
+    session_id: u64,
+    crdt: String,
+    class_name: String,
+    destination: String,
+    store_type: Option<String>,
+    store_repo: Option<String>,
+) -> Result<String, NgError> {
+
+    let store_repo = if store_type.is_none() || store_repo.is_none() {
+        None
     } else {
-        Ok(())
+        Some(StoreRepo::from_type_and_repo(&store_type.unwrap(), &store_repo.unwrap())?)
+    };
+
+    doc_create_with_store_repo(session_id,crdt,class_name,destination,store_repo).await
+}
+
+pub async fn doc_create_with_store_repo(
+    session_id: u64,
+    crdt: String,
+    class_name: String,
+    destination: String,
+    store_repo: Option<StoreRepo>,
+) -> Result<String, NgError> {
+
+    let class = BranchCrdt::from(crdt, class_name)?;
+
+    let nuri = if store_repo.is_none() {
+        NuriV0::new_private_store_target()
+    } else {
+        NuriV0::from_store_repo(&store_repo.unwrap())
+    };
+
+    let destination = DocCreateDestination::from(destination)?;
+
+    let request = AppRequest::V0(AppRequestV0 {
+        session_id,
+        command: AppRequestCommandV0::new_create(),
+        nuri,
+        payload: Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(
+            DocCreate {
+                class,
+                destination,
+            },
+        ))),
+    });
+
+    let response = app_request(request).await?;
+
+    if let AppResponse::V0(AppResponseV0::Nuri(nuri)) = response {
+        Ok(nuri)
+    } else {
+        Err(NgError::InvalidResponse)
     }
 }
 

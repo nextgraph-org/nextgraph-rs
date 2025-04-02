@@ -21,10 +21,11 @@ use ::nextgraph::local_broker::{
     wallet_get_file, wallet_import, wallet_read_file, wallet_was_opened, LocalBrokerConfig,
     SessionConfig,
 };
+use ::nextgraph::net::app_protocol::*;
 use ::nextgraph::net::types::BootstrapContentV0;
 use ::nextgraph::repo::errors::NgError;
 use ::nextgraph::repo::log::*;
-use ::nextgraph::repo::types::PubKey;
+use ::nextgraph::repo::types::{BranchCrdt, StoreRepo, PubKey};
 use ::nextgraph::wallet::types::{CreateWalletV0, SessionInfo};
 use ::nextgraph::wallet::{display_mnemonic, emojis::display_pazzle};
 use async_std::stream::StreamExt;
@@ -104,10 +105,10 @@ fn doc_sparql_update(
     nuri: Option<String>,
 ) -> PyResult<Bound<PyAny>> {
     pyo3_async_runtimes::async_std::future_into_py(py, async move {
-        ::nextgraph::local_broker::doc_sparql_update(session_id, sparql, nuri)
+        let res = ::nextgraph::local_broker::doc_sparql_update(session_id, sparql, nuri)
             .await
             .map_err(|e| PyTypeError::new_err(e))?;
-        Ok(())
+        Ok(res)
     })
 }
 
@@ -136,10 +137,31 @@ fn disconnect_and_close<'a>(
     })
 }
 
+#[pyfunction]
+#[pyo3(signature = (session_id, crdt, class_name, destination="store".to_string(), store_type=None, store_repo=None))]
+fn doc_create(
+    py: Python,
+    session_id: u64,
+    crdt: String,
+    class_name: String,
+    destination: String,
+    store_type: Option<String>,
+    store_repo: Option<String>,
+) -> PyResult<Bound<PyAny>> {
+    pyo3_async_runtimes::async_std::future_into_py(py, async move {
+
+        Ok(nextgraph::local_broker::doc_create(session_id, crdt, class_name, destination, store_type, store_repo)
+            .await
+            .map_err(|e| Into::<PyNgError>::into(e))?
+        )
+    })
+}
+
 #[pymodule]
 fn nextgraphpy(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(wallet_open_with_mnemonic_words, m)?)?;
     m.add_function(wrap_pyfunction!(doc_sparql_update, m)?)?;
     m.add_function(wrap_pyfunction!(disconnect_and_close, m)?)?;
+    m.add_function(wrap_pyfunction!(doc_create, m)?)?;
     Ok(())
 }

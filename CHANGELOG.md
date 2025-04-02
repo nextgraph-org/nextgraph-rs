@@ -70,10 +70,20 @@ Access the sub-sections directly :
 
 ## SDK
 
-### SDK [unreleased]
+### SDK [0.1.1-alpha.7] - 2025-04-03
+
+#### Changed
+
+- js : doc_create : parameters are session_id, crdt, class_name, destination, store_repo (defaults to Private Store)
+- nodejs & python : doc_create : parameters are session_id, crdt, class_name, destination, store_type (string), store_repo (string) if 2 last params omitted, defaults to Private Store.
+- all : sparql_update : returns list of Nuri of new commits, in the form `did:ng:o:c`
 
 #### Added
 
+-   python : wallet_open_with_mnemonic_words
+-   python : disconnect_and_close
+-   python : doc_create
+-   python : doc_sparql_update
 -   js & nodejs : fetch_header
 -   js & nodejs : update_header
 -   js & nodejs : signature_status

@@ -322,6 +322,10 @@ impl NuriV0 {
         format!("{DID_PREFIX}:o:{repo_id}:t:{commit_id}")
     }
 
+    pub fn commit(repo_id: &RepoId, commit_id: &ObjectId) -> String {
+        format!("{DID_PREFIX}:o:{repo_id}:c:{commit_id}")
+    }
+
     pub fn locator(locator: &Locator) -> String {
         format!("l:{locator}")
     }
@@ -848,7 +852,6 @@ impl DocCreateDestination {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DocCreate {
-    pub store: StoreRepo,
     pub class: BranchCrdt,
     pub destination: DocCreateDestination,
 }
@@ -1123,6 +1126,7 @@ pub enum AppResponseV0 {
     EndOfStream,
     Nuri(String),
     Header(AppHeader),
+    Commits(Vec<String>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1136,5 +1140,8 @@ impl AppResponse {
     }
     pub fn ok() -> Self {
         AppResponse::V0(AppResponseV0::Ok)
+    }
+    pub fn commits(commits: Vec<String>) -> Self {
+        AppResponse::V0(AppResponseV0::Commits(commits))
     }
 }

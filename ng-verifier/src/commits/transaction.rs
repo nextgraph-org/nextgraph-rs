@@ -402,7 +402,7 @@ impl Verifier {
         inserts: Vec<Quad>,
         removes: Vec<Quad>,
         peer_id: Vec<u8>,
-    ) -> Result<(), VerifierError> {
+    ) -> Result<Vec<String>, VerifierError> {
         // options when not a publisher on the repo:
         // - skip
         // - TODO: abort (the whole transaction)
@@ -522,7 +522,7 @@ impl Verifier {
     async fn update_graph(
         &mut self,
         mut updates: Vec<BranchUpdateInfo>,
-    ) -> Result<(), VerifierError> {
+    ) -> Result<Vec<String>, VerifierError> {
         let updates_ref = &mut updates;
         let res = self
             .graph_dataset
@@ -685,58 +685,63 @@ impl Verifier {
                 },
             )
             .map_err(|e| VerifierError::OxigraphError(e.to_string()));
-        if res.is_ok() {
-            for update in updates {
-                if update.branch_type.is_header() {
-                    let mut tab_doc_info = AppTabDocInfo::new();
-                    for removed in update.transaction.removes {
-                        match removed.predicate.as_str() {
-                            NG_ONTOLOGY_ABOUT => tab_doc_info.description = Some("".to_string()),
-                            NG_ONTOLOGY_TITLE => tab_doc_info.title = Some("".to_string()),
-                            _ => {}
-                        }
-                    }
-                    for inserted in update.transaction.inserts {
-                        match inserted.predicate.as_str() {
-                            NG_ONTOLOGY_ABOUT => {
-                                if let Term::Literal(l) = inserted.object {
-                                    tab_doc_info.description = Some(l.value().to_string())
-                                }
+        match res {
+            Ok(()) => {
+                let mut commit_nuris = Vec::with_capacity(updates.len());
+                for update in updates {
+                    if update.branch_type.is_header() {
+                        let mut tab_doc_info = AppTabDocInfo::new();
+                        for removed in update.transaction.removes {
+                            match removed.predicate.as_str() {
+                                NG_ONTOLOGY_ABOUT => tab_doc_info.description = Some("".to_string()),
+                                NG_ONTOLOGY_TITLE => tab_doc_info.title = Some("".to_string()),
+                                _ => {}
                             }
-                            NG_ONTOLOGY_TITLE => {
-                                if let Term::Literal(l) = inserted.object {
-                                    tab_doc_info.title = Some(l.value().to_string())
-                                }
-                            }
-                            _ => {}
                         }
+                        for inserted in update.transaction.inserts {
+                            match inserted.predicate.as_str() {
+                                NG_ONTOLOGY_ABOUT => {
+                                    if let Term::Literal(l) = inserted.object {
+                                        tab_doc_info.description = Some(l.value().to_string())
+                                    }
+                                }
+                                NG_ONTOLOGY_TITLE => {
+                                    if let Term::Literal(l) = inserted.object {
+                                        tab_doc_info.title = Some(l.value().to_string())
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        self.push_app_response(
+                            &update.branch_id,
+                            AppResponse::V0(AppResponseV0::TabInfo(AppTabInfo {
+                                branch: None,
+                                doc: Some(tab_doc_info),
+                                store: None,
+                            })),
+                        )
+                        .await;
+                    } else {
+                        let graph_patch = update.transaction.as_patch();
+                        commit_nuris.push(NuriV0::commit(&update.repo_id, &update.commit_id));
+                        self.push_app_response(
+                            &update.branch_id,
+                            AppResponse::V0(AppResponseV0::Patch(AppPatch {
+                                commit_id: update.commit_id.to_string(),
+                                commit_info: update.commit_info,
+                                graph: Some(graph_patch),
+                                discrete: None,
+                                other: None,
+                            })),
+                        )
+                        .await;
                     }
-                    self.push_app_response(
-                        &update.branch_id,
-                        AppResponse::V0(AppResponseV0::TabInfo(AppTabInfo {
-                            branch: None,
-                            doc: Some(tab_doc_info),
-                            store: None,
-                        })),
-                    )
-                    .await;
-                } else {
-                    let graph_patch = update.transaction.as_patch();
-                    self.push_app_response(
-                        &update.branch_id,
-                        AppResponse::V0(AppResponseV0::Patch(AppPatch {
-                            commit_id: update.commit_id.to_string(),
-                            commit_info: update.commit_info,
-                            graph: Some(graph_patch),
-                            discrete: None,
-                            other: None,
-                        })),
-                    )
-                    .await;
                 }
-            }
+                Ok(commit_nuris)
+            },
+            Err(e) => Err(e)
         }
-        res
     }
 
     pub(crate) async fn process_sparql_update(
@@ -745,7 +750,7 @@ impl Verifier {
         query: &String,
         base: &Option<String>,
         peer_id: Vec<u8>,
-    ) -> Result<(), String> {
+    ) -> Result<Vec<String>, String> {
         let store = self.graph_dataset.as_ref().unwrap();
 
         let update = ng_oxigraph::oxigraph::sparql::Update::parse(query, base.as_deref())
@@ -760,7 +765,7 @@ impl Verifier {
             Err(e) => Err(e.to_string()),
             Ok((inserts, removes)) => {
                 if inserts.is_empty() && removes.is_empty() {
-                    Ok(())
+                    Ok(vec![])
                 } else {
                     self.prepare_sparql_update(
                         Vec::from_iter(inserts),

@@ -590,10 +590,10 @@
     try {
       await reset_toasts();
       let store_repo = $cur_tab.store.repo;
-      if (!store_repo) {
-        store_repo = $all_tabs[$active_session.private_store_id].store.repo
-      }
-      let nuri = await ng.doc_create($active_session.session_id, get_class(class_name)["ng:crdt"], class_name, store_repo, destination);
+      // if (!store_repo) {
+      //   store_repo = $all_tabs[$active_session.private_store_id].store.repo
+      // }
+      let nuri = await ng.doc_create($active_session.session_id, get_class(class_name)["ng:crdt"], class_name, destination, store_repo);
       closeSpinner();
       push("#/"+nuri);
 
