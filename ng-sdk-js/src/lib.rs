@@ -409,7 +409,7 @@ pub async fn sparql_update(
     session_id: JsValue,
     sparql: String,
     nuri: JsValue,
-) -> Result<(), String> {
+) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Invalid session_id".to_string())?;
 
@@ -432,10 +432,10 @@ pub async fn sparql_update(
     let res = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
-    if let AppResponse::V0(AppResponseV0::Error(e)) = res {
-        Err(e)
-    } else {
-        Ok(())
+    match res {
+        AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
+        AppResponse::V0(AppResponseV0::Commits(commits)) => Ok(serde_wasm_bindgen::to_value(&commits).unwrap()),
+        _ => Err(NgError::InvalidResponse.to_string())
     }
 }
 
@@ -1322,41 +1322,18 @@ pub async fn doc_create(
     session_id: JsValue,
     crdt: String,
     class_name: String,
-    store_repo: JsValue,
     destination: String,
+    store_repo: JsValue,
 ) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
 
-    let class = BranchCrdt::from(crdt, class_name).map_err(|e| e.to_string())?;
-
-    let store = serde_wasm_bindgen::from_value::<StoreRepo>(store_repo)
+    let store_repo = serde_wasm_bindgen::from_value::<Option<StoreRepo>>(store_repo)
         .map_err(|_| "Deserialization error of store_repo".to_string())?;
 
-    let destination = DocCreateDestination::from(destination).map_err(|e| e.to_string())?;
-
-    let request = AppRequest::V0(AppRequestV0 {
-        session_id,
-        command: AppRequestCommandV0::new_create(),
-        nuri: NuriV0::new_empty(),
-        payload: Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(
-            DocCreate {
-                store,
-                class,
-                destination,
-            },
-        ))),
-    });
-
-    let response = nextgraph::local_broker::app_request(request)
+    nextgraph::local_broker::doc_create_with_store_repo(session_id, crdt, class_name, destination, store_repo)
         .await
-        .map_err(|e: NgError| e.to_string())?;
-
-    if let AppResponse::V0(AppResponseV0::Nuri(nuri)) = response {
-        Ok(serde_wasm_bindgen::to_value(&nuri).unwrap())
-    } else {
-        Err("invalid response".to_string())
-    }
+        .map_err(|e| e.to_string()).map(|nuri| serde_wasm_bindgen::to_value(&nuri).unwrap())
 }
 
 #[cfg(wasmpack_target = "nodejs")]
@@ -1365,42 +1342,22 @@ pub async fn doc_create(
     session_id: JsValue,
     crdt: String,
     class_name: String,
-    store_type: String,
-    store_repo: String,
     destination: String,
+    store_type: JsValue,
+    store_repo: JsValue,
 ) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
 
-    let class = BranchCrdt::from(crdt, class_name).map_err(|e| e.to_string())?;
+    let store_type = serde_wasm_bindgen::from_value::<Option<String>>(store_type)
+        .map_err(|_| "Deserialization error of store_type".to_string())?;
 
-    let store = StoreRepo::from_type_and_repo(&store_type, &store_repo)
-        .map_err(|_| "invalid store_repo".to_string())?;
+    let store_repo = serde_wasm_bindgen::from_value::<Option<String>>(store_repo)
+        .map_err(|_| "Deserialization error of store_repo".to_string())?;
 
-    let destination = DocCreateDestination::from(destination).map_err(|e| e.to_string())?;
-
-    let request = AppRequest::V0(AppRequestV0 {
-        session_id,
-        command: AppRequestCommandV0::new_create(),
-        nuri: NuriV0::new_empty(),
-        payload: Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(
-            DocCreate {
-                store,
-                class,
-                destination,
-            },
-        ))),
-    });
-
-    let response = nextgraph::local_broker::app_request(request)
+    nextgraph::local_broker::doc_create(session_id, crdt, class_name, destination, store_type, store_repo)
         .await
-        .map_err(|e: NgError| e.to_string())?;
-
-    if let AppResponse::V0(AppResponseV0::Nuri(nuri)) = response {
-        Ok(serde_wasm_bindgen::to_value(&nuri).unwrap())
-    } else {
-        Err("invalid response".to_string())
-    }
+        .map_err(|e| e.to_string()).map(|nuri| serde_wasm_bindgen::to_value(&nuri).unwrap())
 }
 
 #[wasm_bindgen]

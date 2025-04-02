@@ -34,7 +34,7 @@ pub mod kcv_storage;
 
 pub mod os_info;
 
-pub use threshold_crypto::PublicKeySet;
+pub use ng_threshold_crypto::PublicKeySet;
 
 #[macro_use]
 extern crate slice_as_array;

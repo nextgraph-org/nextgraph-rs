@@ -633,30 +633,31 @@ impl Verifier {
                     let user_id = self.user_id().clone();
                     let user_priv_key = self.user_privkey().clone();
                     let primary_class = doc_create.class.class().clone();
+                    let (_,_,store) = self.resolve_target(&nuri.target)?;
                     let repo_id = self
                         .new_repo_default(
                             &user_id,
                             &user_priv_key,
-                            &doc_create.store,
+                            &store,
                             doc_create.class,
                         )
                         .await?;
 
                     let header_branch_id = {
-                        let repo = self.get_repo(&repo_id, &doc_create.store)?;
+                        let repo = self.get_repo(&repo_id, &store)?;
                         repo.header_branch().ok_or(NgError::BranchNotFound)?.id
                     };
 
                     // adding an AddRepo commit to the Store branch of store.
-                    self.send_add_repo_to_store(&repo_id, &doc_create.store)
+                    self.send_add_repo_to_store(&repo_id, &store)
                         .await?;
 
                     // adding an ldp:contains triple to the store main branch
-                    let overlay_id = doc_create.store.outer_overlay();
+                    let overlay_id = store.outer_overlay();
                     let nuri = NuriV0::repo_id(&repo_id);
                     let nuri_result = NuriV0::repo_graph_name(&repo_id, &overlay_id);
-                    let store_nuri = NuriV0::from_store_repo(&doc_create.store);
-                    let store_nuri_string = NuriV0::repo_id(doc_create.store.repo_id());
+                    let store_nuri = NuriV0::from_store_repo(&store);
+                    let store_nuri_string = NuriV0::repo_id(store.repo_id());
                     let query = format!("INSERT DATA {{ <{store_nuri_string}> <http://www.w3.org/ns/ldp#contains> <{nuri}>. }}");
 
                     let ret = self
@@ -789,7 +790,7 @@ impl Verifier {
                                 .await
                             {
                                 Err(e) => AppResponse::error(e),
-                                Ok(_) => AppResponse::ok(),
+                                Ok(commits) => AppResponse::commits(commits),
                             },
                         )
                     } else {

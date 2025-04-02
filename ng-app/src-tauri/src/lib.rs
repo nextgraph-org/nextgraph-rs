@@ -612,7 +612,7 @@ async fn sparql_update(
     session_id: u64,
     sparql: String,
     nuri: Option<String>,
-) -> Result<(), String> {
+) -> Result<Vec<String>, String> {
     let (nuri, base) = if let Some(n) = nuri {
         let nuri = NuriV0::new_from(&n).map_err(|e| e.to_string())?;
         let b = nuri.repo();
@@ -631,10 +631,10 @@ async fn sparql_update(
     let res = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
-    if let AppResponse::V0(AppResponseV0::Error(e)) = res {
-        Err(e)
-    } else {
-        Ok(())
+    match res {
+        AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
+        AppResponse::V0(AppResponseV0::Commits(commits)) => Ok(commits),
+        _ => Err(NgError::InvalidResponse.to_string())
     }
 }
 
@@ -790,35 +790,12 @@ async fn doc_create(
     session_id: u64,
     crdt: String,
     class_name: String,
-    store_repo: StoreRepo,
     destination: String,
+    store_repo: Option<StoreRepo>
 ) -> Result<String, String> {
-    let class = BranchCrdt::from(crdt, class_name).map_err(|e| e.to_string())?;
-
-    let destination = DocCreateDestination::from(destination).map_err(|e| e.to_string())?;
-
-    let request = AppRequest::V0(AppRequestV0 {
-        session_id,
-        command: AppRequestCommandV0::new_create(),
-        nuri: NuriV0::new_empty(),
-        payload: Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(
-            DocCreate {
-                store: store_repo,
-                class,
-                destination,
-            },
-        ))),
-    });
-
-    let response = nextgraph::local_broker::app_request(request)
-        .await
-        .map_err(|e: NgError| e.to_string())?;
-
-    if let AppResponse::V0(AppResponseV0::Nuri(nuri)) = response {
-        Ok(nuri)
-    } else {
-        Err("invalid response".to_string())
-    }
+    nextgraph::local_broker::doc_create_with_store_repo(session_id, crdt, class_name, destination, store_repo)
+            .await
+            .map_err(|e| e.to_string())
 }
 
 #[tauri::command(rename_all = "snake_case")]

@@ -15,7 +15,7 @@ use core::fmt;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use threshold_crypto::SecretKeySet;
+use ng_threshold_crypto::SecretKeySet;
 
 use crate::block_storage::{BlockStorage, HashMapBlockStorage};
 use crate::errors::{NgError, StorageError};
@@ -568,7 +568,7 @@ impl Store {
         let signer_cap = SignerCap {
             repo: repo_pub_key,
             epoch: root_branch_readcap_id,
-            owner: Some(threshold_crypto::serde_impl::SerdeSecret(sk_share)),
+            owner: Some(ng_threshold_crypto::serde_impl::SerdeSecret(sk_share)),
             total_order: None,
             partial_order: None,
         };
