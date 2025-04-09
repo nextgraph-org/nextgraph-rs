@@ -808,7 +808,7 @@ impl StorageReader {
                         heads: HashSet::from_iter(
                             commits
                                 .into_iter()
-                                .map(|c| StrHash::new(&format!("{DID_PREFIX}:c:{c}:v:{overlay}"))),
+                                .map(|c| { let s = format!("{DID_PREFIX}{c}:v:{overlay}"); StrHash::new(&s) }),
                         ),
                         at_current_heads: false,
                         original_graph_name,
