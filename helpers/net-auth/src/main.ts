@@ -21,7 +21,7 @@ select_default_lang(()=>{return window.navigator.languages;}).then(() => {});
 
 const origin = decodeURIComponent(location.search.substring(3));
 
-
+document.getElementById("banner").innerText = "Opening Wallet for "+ new URL(origin).host;
 
 async function rpc( method:string, args?: any) : Promise<any> {
   const { readable, writablePort } = new RemoteReadableStream();

@@ -55,7 +55,6 @@
       </svg>
     </div>
     <script>
-      document.getElementById("banner").innerText = "Opening Wallet for "+ location.host;
       document.getElementById("close-auth").onclick = (e)=> {
         window.ng_status_callback.write({status:"cancelled"});
       };

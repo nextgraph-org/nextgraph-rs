@@ -19,6 +19,7 @@ init( async (event) => {
 
     if (event.status == "cancelled") {
 
+        document.getElementById("result").innerText = "Login cancelled";
         console.log("CANCELLED");
 
     } else if (event.status == "loggedin") {
