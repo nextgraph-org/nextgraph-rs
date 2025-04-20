@@ -17,8 +17,14 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/nextgraphweb.js",
-      "require": "./dist/nextgraphweb.umd.cjs"
+      "import":{
+        "types": "./dist/index.d.ts",
+        "default": "./dist/nextgraphweb.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/nextgraphweb.umd.cjs"
+      }
     }
   },
   "scripts": {

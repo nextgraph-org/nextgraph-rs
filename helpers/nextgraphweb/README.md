@@ -62,9 +62,7 @@ Here is the format of the config object to be supplied in the calls to `init_hea
 
 ## Local development
 
-The binaries can be obtained from the [release page](https://git.nextgraph.org/NextGraph/nextgraph-rs/releases).
-
-You can also, [compile](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/DEV.md#first-run) them from source.
+you need to have a running local ngd server and a local ng-app frontend too. See those [instructions first](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/DEV.md#first-run).
 
 You will need to create an admin wallet on the local ngd instance, as explained in the above link.
 
@@ -102,7 +100,7 @@ call :
 ```javascript
 import {default as ng, init} from "nextgraphweb";
 
-await init( location.origin, (event) => {
+await init( (event) => {
     // callback
     // once you receive event.status == "loggedin"
     // you can use the full API
@@ -120,7 +118,7 @@ You can alternatively wrap the callback inside a Promise in order to wait for th
 import {default as ng, init} from "nextgraphweb";
 
 let loggedin = new Promise( async (resolve) => {
-    await init( location.origin, (event) => {
+    await init( (event) => {
         // callback
         // once you receive event.status == "loggedin"
         // you can use the full API

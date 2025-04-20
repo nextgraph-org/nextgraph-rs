@@ -1,6 +1,6 @@
-# example-webapp-vite
+# example-webapp-react
 
-Example of a Web app made with NextGraph, using Vite
+Example of a Web app made with NextGraph, using React and LDO, and Vite
 
 ## NextGraph
 
@@ -10,9 +10,18 @@ Example of a Web app made with NextGraph, using Vite
 >
 > More info here [https://nextgraph.org](https://nextgraph.org)
 
+## For developing against a public Broker
+
+```
+npm install
+npm run dev
+```
+
+You will have to use a Wallet that was created on one of our public Broker Service Providers (nextgraph.eu by example).
+
 ## For developing locally
 
-you need to have a running local ngd server and a local ng-app frontend too. See those [instructions first](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/DEV.md#first-run).
+you need to have a running local ngd server. See those [instructions first](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/DEV.md#first-run).
 
 Then compile the nextgraphweb package in dev mode:
 
@@ -26,13 +35,11 @@ npm link ../../helpers/nextgraphweb
 npm run dev
 ```
 
-Due to the way `npm link`  works, you will have to run this command again, after every time you use `npm install`.
+Due to the way `npm link`  works, you will have to run this command again, after each time you use `npm install`.
 
-In our case, we have configured vite server to run on port 5174 for local development.
+Open this URL in browser : [http://localhost:5173](http://localhost:5173)
 
-Open this URL in browser : [http://localhost:5174](http://localhost:5174)
-
-See the example code in [src/main.js](./src/main.js)
+See the example code in [src/main.tsx](./src/main.tsx)
 
 ## For usage in your project
 
@@ -41,7 +48,7 @@ call :
 ```javascript
 import {default as ng, init} from "nextgraphweb";
 
-await init( (event) => {
+await init( location.origin, (event) => {
     // callback
     // once you receive event.status == "loggedin"
     // you can use the full API
