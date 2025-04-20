@@ -147,12 +147,14 @@ async function rpc( method:string, args?: any) : Promise<any> {
       resolve(()=>{ 
         // unsub function that does nothing.
         //TODO: implement it
+        console.log("unsubscribed!");
       });
       for (var msg; msg = await reader.read(); ) {
         if (msg.done) break;
         if (msg.value.error) {
           throw new Error(msg.value.ret);
         } else if (msg.value.stream) {
+          console.log("GOT",msg.value.ret);
           (callback)(msg.value.ret);
         }
         // TODO: deal with end of stream
