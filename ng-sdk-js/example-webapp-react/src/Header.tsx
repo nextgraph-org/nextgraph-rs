@@ -11,7 +11,7 @@ export const Header: FunctionComponent = () => {
       
       {session.sessionId ? (
         // If the session is logged in
-        <div className="p-1 text-center fixed top-0 left-0 right-0" style={{zIndex:1000, height:'36px', backgroundColor:'rgb(73, 114, 165)'}}>
+        <div className="p-1 text-white text-center fixed top-0 left-0 right-0" style={{zIndex:1000, height:'36px', backgroundColor:'rgb(73, 114, 165)'}}>
           You are logged in. <span className="font-bold clickable" onClick={logout}> Log out</span>
         </div>
       ) : (

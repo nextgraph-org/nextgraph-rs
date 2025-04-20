@@ -83,13 +83,17 @@ export function createBrowserNGReactMethods(
 
     const nextGraphAuthFunctions = useMemo(
       () => ({
+        runInitialAuthCheck,
         login,
         logout,
         session,
+        ranInitialAuthCheck,
       }),
       [
         login,
         logout,
+        ranInitialAuthCheck,
+        runInitialAuthCheck,
         session,
       ],
     );

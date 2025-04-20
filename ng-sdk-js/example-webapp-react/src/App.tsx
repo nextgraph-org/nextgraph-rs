@@ -2,7 +2,7 @@ import { useState } from 'react'
 import React, { FunctionComponent } from 'react';
 import { Header } from './Header';
 import { Contact } from './Contact';
-import { BrowserNGLdoProvider } from './reactMethods';
+import { BrowserNGLdoProvider, useNextGraphAuth } from './reactMethods';
 
 import './App.css'
 
@@ -20,11 +20,15 @@ import "../../../common/src/styles.css";
 // }
 
 const App: FunctionComponent = () => {
+  //const { session } = useNextGraphAuth();
+
   return (
     <div className="App">
       <BrowserNGLdoProvider>
         <Header />
+
         <Contact />
+        
       </BrowserNGLdoProvider>
     </div>
   );

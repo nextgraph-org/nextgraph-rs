@@ -32,6 +32,26 @@ async function rpc( method:string, args?: any) : Promise<any> {
   return ret.value;
 }
 
+async function rpc_stream( method:string, args: any, writer:WritableStreamDefaultWriter<any>) {
+  const { readable, writablePort } = new RemoteReadableStream();
+  (<any>window).ng_broker_selected.postMessage({ method, args, port: writablePort }, (<any>window).ng_iframe_origin, [writablePort]);
+  const reader = readable.getReader();
+  for (var msg; msg = await reader.read(); ) {
+    if (msg.done) {
+      writer.close();
+      break;
+    }
+    if (msg.value.error) {
+      writer.write(msg.value);
+      writer.close();
+      break;
+    } else if (msg.value.stream) {
+      writer.write(msg.value);
+    }
+    // TODO: deal with end of stream
+  }
+}
+
 const AUTH_HOME = "#/";
 // const AUTH_USER_PANEL = "#/user";
 // const AUTH_USER_ACCOUNTS = "#/user/accounts";
@@ -74,6 +94,11 @@ window.addEventListener("message", async (event)=>{
       writer.write(await rpc("login"));
       writer.close();
     }
+  } else if ( method === "doc_subscribe" ) {
+
+    console.log("net forward doc_subscribe to app", method, event.data.args)
+    await rpc_stream(method, event.data.args, writer);
+
   } else {
     console.log("net forward to app", method, event.data.args)
     // forward to app auth iframe

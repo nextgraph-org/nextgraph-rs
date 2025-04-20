@@ -67,6 +67,23 @@ window.addEventListener("message", async (event)=>{
       writer.close();
     }
 
+  } else if ( method === "doc_subscribe" ) {
+
+    let args = event.data.args;
+    console.log("processing doc_subscribe...",method, args);
+    args.push((callbacked)=> {
+      writer.write({stream:true, ret:callbacked});
+    });
+
+    // TODO: deal with cancel and end of stream (call writer.close())
+
+    try {
+      let cancel_function = await Reflect.apply(web_api[method], null, args);
+    } catch (e) {
+      writer.write({ok:false, ret:e});
+      writer.close();
+    }
+
   } else {
 
     // forwarding to ng
@@ -79,7 +96,6 @@ window.addEventListener("message", async (event)=>{
       writer.write({ok:false, ret:e});
       writer.close();
     }
-
 
   }
 

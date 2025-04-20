@@ -39,26 +39,9 @@ Due to the way `npm link`  works, you will have to run this command again, after
 
 Open this URL in browser : [http://localhost:5173](http://localhost:5173)
 
-See the example code in [src/main.tsx](./src/main.tsx)
+See the example code in [src/main.tsx](./src/App.tsx)
 
-## For usage in your project
 
-call :
-
-```javascript
-import {default as ng, init} from "nextgraphweb";
-
-await init( location.origin, (event) => {
-    // callback
-    // once you receive event.status == "loggedin"
-    // you can use the full API
-}
-, true // singleton: boolean (will your app create many docs in the system, or should it be launched as a unique instance)
-, []); //list of AccessRequests (for now, leave this empty)
-
-await ng.login(); // this will return false at the first attempt. but it will open the wallet login page so the user can login.
-    // if you call it again later once the user has logged in already, it will return true, and nothing more will happen
-```
 
 ## License
 
