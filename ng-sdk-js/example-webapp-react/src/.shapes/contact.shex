@@ -1,0 +1,26 @@
+
+# Platform ontologies:
+PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+PREFIX dc: <http://purl.org/dc/terms/>
+
+# Domain ontology for Contacts in vcard-like form
+PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
+PREFIX schem: <http://schema.org/>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX ngx: <did:ng:n:g:x:social:contact#>
+
+ngx:NGSocialContact EXTRA a {
+  a [vcard:Individual ]
+    // rdfs:comment  "Defines the node as an Individual (from vcard)" ;
+  a [ schem:Person ]
+    // rdfs:comment  "Defines the node as a Person (from Schema.org)" ;
+  a [ foaf:Person ]
+    // rdfs:comment  "Defines the node as a Person (from foaf)" ;
+  vcard:fn xsd:string ?
+    // rdfs:comment  "The formatted name of a person. Example: John Smith" ;
+  vcard:hasEmail xsd:string ?
+    // rdfs:comment  "The person's email." ;
+}

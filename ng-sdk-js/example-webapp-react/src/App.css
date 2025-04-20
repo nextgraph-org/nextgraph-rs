@@ -1,1 +1,56 @@
 
+
+.centered {
+  /*max-width: 1280px;*/
+  margin: 0 auto;
+  padding: 0rem;
+  text-align: center;
+  width: fit-content;
+}
+  
+.contact {
+  width: 300px;
+  height: 100px;
+  background-color: #f6f6f6;
+  position: relative;
+  overflow-wrap: anywhere;
+}
+
+.name {
+  width: 300px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 5px;
+  height: 35px;
+  overflow: hidden;
+  background-color: #e0e0e0d0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email-logo {
+  position: absolute;
+  left: 5px;
+  top: 35px;
+}
+
+.email {
+  width: 270px;
+  position: absolute;
+  left: 30px;
+  top: 30px;
+  padding: 5px;
+  overflow-wrap: anywhere;
+}
+
+input {
+  margin: 5px;
+}
+
+#save {
+  background-color:rgb(73, 114, 165);
+  color:white;
+  cursor:pointer;
+}
