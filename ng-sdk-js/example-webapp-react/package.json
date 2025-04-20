@@ -14,7 +14,7 @@
     "@ldo/connected-nextgraph": "^1.0.0-alpha.7",
     "@ldo/ldo": "^1.0.0-alpha.3",
     "@ldo/react": "^1.0.0-alpha.3",
-    "nextgraphweb": "^0.1.1-alpha.1",
+    "nextgraphweb": "^0.1.1-alpha.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
