@@ -9,7 +9,7 @@ On OpenBSD, for LLVM you need to choose llvm-17.
 Until this [PR](https://github.com/rustwasm/wasm-pack/pull/1271) is accepted, will have to install wasm-pack this way:
 
 ```
-cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2b663f25abe50631a236d57a8c6d7fd806413b2
+cargo install wasm-pack --git https://git.nextgraph.org/NextGraph/wasm-pack.git --branch master
 ```
 
 On Debian distros
@@ -27,11 +27,10 @@ cd nextgraph-rs
 npm install -g pnpm
 cd ng-sdk-js
 cargo run-script app
-npm install --no-save pkg
-cd ../ng-app
-pnpm install
-pnpm webfilebuild
 cd ..
+pnpm -C ./ng-app install
+pnpm -C ./ng-app webfilebuild
+pnpm -C ./helpers/app-auth run build
 ```
 
 For building the native apps, see the [ng-app/README](ng-app/README.md)
@@ -50,6 +49,8 @@ If you are developing also the front-end, you should run it with this command in
 
 ```
 cd ng-app
+pnpm -C ../helpers/net-auth run builddev
+pnpm -C ../helpers/net-bootstrap run builddev
 pnpm webdev
 ```
 
@@ -116,8 +117,7 @@ The crates are organized as follow :
 -   ng-broker : Core and Server Broker library
 -   ng-client-ws : Websocket client library
 -   ng-storage-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
--   ngone : server for nextgraph.one. helps user bootstrap into the right app. Not useful to you. Published here for transparency
--   ngaccount : server for nextgraph's Broker Service Provider account manager. Not useful to you. Published here for transparency
+-   helpers : all kind of servers and front end code needed for our infrastructure.
 
 ### Test
 
@@ -177,7 +177,6 @@ cargo install cargo-run-script
 npm install -g pnpm
 cd ng-sdk-js
 cargo run-script app
-npm install --no-save pkg
 cd ../ng-app
 pnpm install
 pnpm webfilebuild

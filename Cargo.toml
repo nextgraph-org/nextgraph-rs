@@ -10,12 +10,14 @@ members = [
   "ng-verifier",
   "ng-wallet",
   "ng-storage-rocksdb",
-  "ngone",
-  "ngaccount",
   "ng-sdk-js",
   "ng-sdk-python",
   "ng-app/src-tauri",
   "ng-oxigraph",
+  "helpers/wasm-tools",
+  "helpers/ngnet",
+  "helpers/ngapp",
+  "helpers/ngaccount",
 ]
 default-members = [ "nextgraph", "ngcli",  "ngd" ]
 

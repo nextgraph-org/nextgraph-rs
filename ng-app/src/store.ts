@@ -17,11 +17,47 @@ import {
 } from "svelte/store";
 import { register, init, locale, format } from "svelte-i18n";
 import ng from "./api";
-import { persistent_error, update_class, update_branch_display, open_branch, tab_update, change_nav_bar, cur_branch, cur_tab, show_modal_create, save, nav_bar,in_memory_save, cur_doc_popup, show_doc_popup } from "./tab";
+import { persistent_error, update_class, update_branch_display, open_branch, tab_update, change_nav_bar, cur_branch, cur_tab, show_modal_create, 
+    save, nav_bar,in_memory_save, cur_doc_popup, show_doc_popup } from "./tab";
 import { encode } from "./base64url";
+import { RemoteReadableStream } from 'remote-web-streams';
 
 let all_branches = {};
 let retry_branches = {};
+
+export const register_bootstrap = async function (bootstrap_iframe_msgs) {
+    console.log("register_bootstrap", bootstrap_iframe_msgs)
+    let iframe = (<HTMLIFrameElement>window.document.getElementById('nextgraph-bootstrap-iframe'))?.contentWindow;
+    if (!iframe) return false;
+    const { readable, writablePort } = new RemoteReadableStream();
+    console.log("adding", bootstrap_iframe_msgs, NG_BOOTSTRAP_IFRAME_ORIGIN)
+    iframe.postMessage({ method: "add", port:writablePort, msgs: bootstrap_iframe_msgs}, NG_BOOTSTRAP_IFRAME_ORIGIN, [writablePort]);
+    const reader = readable.getReader();
+    let ret = await reader.read();
+    await reader.read(); // the close
+    if (ret.value.status=="ok") return true;
+    return ret.value.error
+  }
+
+export const test_bootstrap = async function () {
+    let iframe = (<HTMLIFrameElement>window.document.getElementById('nextgraph-bootstrap-iframe'))?.contentWindow;
+    if (!iframe) return false;
+    const { readable, writablePort } = new RemoteReadableStream();
+    iframe.postMessage({method:"test", port:writablePort}, NG_BOOTSTRAP_IFRAME_ORIGIN, [writablePort]);
+    const reader = readable.getReader();
+    let ret = await reader.read();
+    await reader.read(); // the close
+    if (ret.value.status=="ok") return true;
+    else return false;
+  }
+
+export const NG_BOOTSTRAP_IFRAME_SRC = import.meta.env.TAURI_PLATFORM ? false : import.meta.env.PROD
+    ? "https://nextgraph.net/bootstrap/?o=" + encodeURIComponent(location.origin)
+    : "/bootstrap.html?o=" + encodeURIComponent(location.origin);
+
+export const NG_BOOTSTRAP_IFRAME_ORIGIN = import.meta.env.TAURI_PLATFORM ? "" : import.meta.env.PROD
+    ? "https://nextgraph.net"
+    : location.origin;
 
 // Make sure that a file named `locales/<lang>.json` exists when adding it here.
 export const available_languages = {
@@ -657,7 +693,7 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                             }
                                             if (response.V0.State.graph) {
                                                 for (const triple of response.V0.State.graph.triples){
-                                                    // TODO: detect ng:a ng:i ng:n and update the tab accordingly
+                                                    // TODO: detect ng:a ng:j ng:n and update the tab accordingly
                                                     old.graph.push(triple);
                                                 }
                                                 old.graph.sort();
@@ -700,7 +736,7 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                                                     }
                                                 }
                                                 for (const insert of response.V0.Patch.graph.inserts){
-                                                    // TODO: detect ng:a ng:i ng:n and update the tab accordingly
+                                                    // TODO: detect ng:a ng:j ng:n and update the tab accordingly
                                                     if (!duplicates.includes(insert)) {
                                                         old.graph.push(insert);
                                                     }

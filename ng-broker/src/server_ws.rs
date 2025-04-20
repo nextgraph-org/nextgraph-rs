@@ -18,9 +18,11 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use futures::StreamExt;
+use ng_async_tungstenite::tungstenite::http::header::REFERER;
 use once_cell::sync::OnceCell;
 use rust_embed::RustEmbed;
 use serde_json::json;
+use urlencoding::decode;
 
 use async_std::net::{TcpListener, TcpStream};
 use ng_async_tungstenite::accept_hdr_async;
@@ -197,6 +199,13 @@ fn prepare_urls_from_private_addrs(addrs: &Vec<BindAddress>, port: u16) -> Vec<S
 struct App;
 
 #[derive(RustEmbed)]
+#[folder = "../helpers/app-auth/dist/"]
+#[include = "*.sha256"]
+#[include = "*.gzip"]
+
+struct AppAuth;
+
+#[derive(RustEmbed)]
 #[folder = "src/public/"]
 struct AppPublic;
 
@@ -209,6 +218,7 @@ fn upgrade_ws_or_serve_app(
     uri: &Uri,
     last_etag: Option<&HeaderValue>,
     cors: Option<&str>,
+    referer: Option<&HeaderValue>,
 ) -> Result<(), ErrorResponse> {
     if connection.is_some()
         && connection
@@ -242,6 +252,54 @@ fn upgrade_ws_or_serve_app(
             let file = App::get("index.gzip").unwrap();
             let res = Response::builder()
                 .status(StatusCode::OK)
+                .header("Content-Type", "text/html")
+                .header("Cache-Control", "max-age=31536000, must-revalidate")
+                .header("Content-Encoding", "gzip")
+                .header("ETag", sha)
+                .body(Some(file.data.to_vec()))
+                .unwrap();
+            return Err(res);
+        } else if uri.path() == "/auth/" {
+            log_debug!("Serving auth app");
+            if referer.is_none() || referer.unwrap().to_str().is_err() || referer.unwrap().to_str().unwrap() != "https://nextgraph.net/" {
+                return Err(make_error(StatusCode::FORBIDDEN));
+            }
+            let webapp_origin = match uri.query() {
+                Some(query) => {
+                    if query.starts_with("o=") {
+                        match decode(&query.chars().skip(2).collect::<String>()) {
+                            Err(_) => return Err(make_error(StatusCode::BAD_REQUEST)),
+                            Ok(cow) => {
+                                cow.into_owned()
+                            }
+                        }
+                    } else {
+                        return Err(make_error(StatusCode::BAD_REQUEST))
+                    }
+                },
+                None => {return Err(make_error(StatusCode::BAD_REQUEST))}
+            };
+            let sha_file = AppAuth::get("index.sha256").unwrap();
+            let sha = format!(
+                "\"{}\"",
+                std::str::from_utf8(sha_file.data.as_ref()).unwrap()
+            );
+            if last_etag.is_some() && last_etag.unwrap().to_str().unwrap() == sha {
+                // return 304
+                let res = Response::builder()
+                    .status(StatusCode::NOT_MODIFIED)
+                    .header("Cache-Control", "max-age=31536000, must-revalidate")
+                    .header("ETag", sha)
+                    .header("Content-Security-Policy", format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"))
+                    .header("X-Frame-Options", format!("ALLOW-FROM {webapp_origin}"))
+                    .body(None)
+                    .unwrap();
+                return Err(res);
+            }
+            let file = AppAuth::get("index.gzip").unwrap();
+            let res = Response::builder().status(StatusCode::OK)
+                .header("Content-Security-Policy", format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"))
+                .header("X-Frame-Options", format!("ALLOW-FROM {webapp_origin}"))
                 .header("Content-Type", "text/html")
                 .header("Cache-Control", "max-age=31536000, must-revalidate")
                 .header("Content-Encoding", "gzip")
@@ -326,6 +384,7 @@ impl Callback for SecurityCallback {
         let connection = request.headers().get(CONNECTION);
         let host = request.headers().get(HOST);
         let origin = request.headers().get(ORIGIN);
+        let referer = request.headers().get(REFERER);
         let remote = self.remote_bind_address.ip;
         let last_etag = request.headers().get("If-None-Match");
         let uri = request.uri();
@@ -350,7 +409,7 @@ impl Callback for SecurityCallback {
                 check_no_origin(origin)?;
                 // let mut urls_str = vec![];
                 // if !listener.config.refuse_clients {
-                //     urls_str.push(APP_NG_ONE_URL.to_string());
+                //     urls_str.push(NG_APP_URL.to_string());
                 // }
                 // check_origin_is_url(origin, urls_str)?;
 
@@ -366,6 +425,7 @@ impl Callback for SecurityCallback {
                     uri,
                     last_etag,
                     None,
+                    referer
                 );
             }
             InterfaceType::Loopback => {
@@ -401,6 +461,7 @@ impl Callback for SecurityCallback {
                                 Some(val)
                             }
                         }),
+                        referer
                     );
                 } else if listener.config.accept_forward_for.is_private_domain() {
                     let (hosts_str, urls_str) =
@@ -416,6 +477,7 @@ impl Callback for SecurityCallback {
                         uri,
                         last_etag,
                         origin.map(|or| or.to_str().unwrap()),
+                        referer
                     );
                 } else if listener.config.accept_forward_for == AcceptForwardForV0::No {
                     check_host(host, local_hosts)?;
@@ -430,6 +492,7 @@ impl Callback for SecurityCallback {
                         uri,
                         last_etag,
                         origin.map(|or| or.to_str().unwrap()),
+                        referer
                     );
                 }
             }
@@ -452,7 +515,7 @@ impl Callback for SecurityCallback {
                         .get_public_bind_addresses();
                     let mut urls_str = vec![];
                     // if !listener.config.refuse_clients {
-                    //     urls_str.push(APP_NG_ONE_URL.to_string());
+                    //     urls_str.push(NG_APP_URL.to_string());
                     // }
                     if listener.config.accept_direct {
                         addrs.extend(&listener.addrs);
@@ -472,6 +535,7 @@ impl Callback for SecurityCallback {
                         uri,
                         last_etag,
                         origin.map(|or| or.to_str().unwrap()),
+                        referer
                     );
                 } else if listener.config.accept_forward_for.is_public_domain() {
                     if !remote.is_private() {
@@ -511,6 +575,7 @@ impl Callback for SecurityCallback {
                                 Some(val)
                             }
                         }),
+                        referer
                     );
                 } else if listener.config.accept_forward_for == AcceptForwardForV0::No {
                     if !remote.is_private() {
@@ -531,6 +596,7 @@ impl Callback for SecurityCallback {
                         uri,
                         last_etag,
                         origin.map(|or| or.to_str().unwrap()),
+                        referer
                     );
                 }
             }
@@ -861,7 +927,10 @@ pub async fn run_server_v0(
     // TODO : select on the shutdown stream too
     while let Some(tcp) = incoming.next().await {
         // TODO select peer_priv_ket according to config. if --domain-peer present and the connection is for that listener (PublicDomainPeer) then use the peer configured there
-        accept(tcp.unwrap(), peer_priv_key.clone()).await;
+        let key = peer_priv_key.clone();
+        async_std::task::spawn(async move {
+            accept(tcp.unwrap(), key).await;
+        });
     }
 
     Ok(())

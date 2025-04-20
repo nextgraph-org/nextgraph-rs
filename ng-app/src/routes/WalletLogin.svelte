@@ -35,7 +35,9 @@
     display_error,
     wallet_from_import,
     redirect_after_login,
-    redirect_if_wallet_is
+    redirect_if_wallet_is,
+    NG_BOOTSTRAP_IFRAME_SRC,
+    register_bootstrap
   } from "../store";
   import { CheckBadge, ExclamationTriangle, QrCode, Cloud } from "svelte-heros-v2";
 
@@ -152,6 +154,13 @@
         $redirect_if_wallet_is=undefined;
         let in_memory = !event.detail.trusted;
         //console.log("IMPORTING", in_memory, event.detail.wallet, wallet);
+        if (!in_memory && !tauri_platform && (await ng.get_bowser())!=="Safari") {
+          let bootstrap_iframe_msgs = await ng.get_bootstrap_iframe_msgs_for_brokers(event.detail.wallet.V0.brokers);
+          let res = await register_bootstrap(bootstrap_iframe_msgs);
+          if (res !== true) {
+            throw new Error("We could not save your bootstrap information at nextgraph.net. This is needed for links and third-party webapps to work properly. so we are stopping here. Reason: " + res);
+          }
+        }
         let client = await ng.wallet_import(
           wallet,
           event.detail.wallet,
@@ -235,6 +244,11 @@
   onMount(() => scrollToTop());
 </script>
 
+{#if NG_BOOTSTRAP_IFRAME_SRC}
+  <iframe title="bootstrap" id="nextgraph-bootstrap-iframe" scrolling="no" frameborder="0"
+      style="width:0; height:0; visibility: hidden;"
+  ></iframe>
+{/if}
 <div bind:this={top}>
   <CenteredLayout displayFooter={!wallet && !selected}>
     {#if error}

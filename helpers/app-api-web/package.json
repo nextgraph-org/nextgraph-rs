@@ -1,0 +1,13 @@
+{
+  "name": "@nextgraph-monorepo/app-api-web",
+  "private": true,
+  "version": "0.1.1-alpha",
+  "type": "module",
+  "main": "main.ts",
+  "dependencies": {
+    "async-proxy": "^0.4.1",
+    "@nextgraph-monorepo/ng-sdk-js": "workspace:*"
+  },
+  "devDependencies": {
+  }
+}

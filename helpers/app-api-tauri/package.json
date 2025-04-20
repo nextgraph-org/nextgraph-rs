@@ -1,0 +1,14 @@
+{
+  "name": "@nextgraph-monorepo/app-api-tauri",
+  "private": true,
+  "version": "0.1.1-alpha",
+  "type": "module",
+  "main": "main.ts",
+  "dependencies": {
+    "async-proxy": "^0.4.1",
+    "@tauri-apps/api": "2.0.0-alpha.8",
+    "@tauri-apps/plugin-window": "2.0.0-alpha.1"
+  },
+  "devDependencies": {
+  }
+}

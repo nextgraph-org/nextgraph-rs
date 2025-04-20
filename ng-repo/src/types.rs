@@ -1531,9 +1531,9 @@ pub enum BranchType {
     Comments,
     BackLinks,
     Context,
-    //Ontology,
     Transactional, // this could have been called OtherTransactional, but for the sake of simplicity, we use Transactional for any branch that is not the Main one.
-    Root, // only used for BranchInfo//Unknown, // only used temporarily when loading a branch info from commits (Branch commit, then AddBranch commit)
+    Root, // only used for BranchInfo
+    //Unknown, // only used temporarily when loading a branch info from commits (Branch commit, then AddBranch commit)
     Header,
 }
 

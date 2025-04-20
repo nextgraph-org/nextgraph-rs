@@ -1,0 +1,45 @@
+[package]
+name = "wasm-tools"
+version = "0.1.1"
+description = "WASM tools for JS apps"
+publish = false
+# version.workspace = true
+edition.workspace = true
+license = "MIT/Apache-2.0"
+authors.workspace = true
+repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs" 
+homepage = "https://nextgraph.org"
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.scripts]
+appdev = "wasm-pack build --dev --target bundler && node prepare-web.cjs"
+app = "wasm-pack build --target bundler && node prepare-web.cjs"
+nodedev = "wasm-pack build --dev -t nodejs -d pkg-node && node prepare-node.cjs"
+node = "wasm-pack build -t nodejs -d pkg-node && node prepare-node.cjs"
+web = "wasm-pack build --target web -d web"
+webdev = "wasm-pack build --dev --target web -d web"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_bare = "0.5.0"
+wasm-bindgen = { version = "0.2.88", features = ["serde-serialize"] }
+ng-wallet = { path = "../../ng-wallet" }
+sys-locale = { version = "0.3.1", features = ["js"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+serde-wasm-bindgen = "0.6"
+wasm-bindgen-futures = "0.4.34"
+
+[dev-dependencies]
+wasm-bindgen-test = "^0.3"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(wasmpack_target, values("nodejs"))'] }

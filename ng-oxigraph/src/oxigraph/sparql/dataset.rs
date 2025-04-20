@@ -16,7 +16,7 @@ use crate::oxigraph::storage::numeric_encoder::{
 };
 use crate::oxigraph::storage::{MatchBy, StorageError, StorageReader};
 use crate::oxigraph::store::CorruptionError;
-use crate::oxrdf::{GraphName, NamedNodeRef};
+use crate::oxrdf::{GraphName, NamedNodeRef, NamedOrBlankNode};
 use crate::sparopt::algebra::NamedNode;
 
 use std::cell::RefCell;
@@ -80,6 +80,12 @@ impl DatasetView {
                 })
             });
         }
+        query_dataset
+                .available_named_graphs()
+                .map(|graphs| for nob in graphs { match nob {
+                    NamedOrBlankNode::NamedNode(nn) => { res.encode_term(NamedNodeRef::new_unchecked(nn.as_str())); }
+                    ,_=>{} 
+                } });
         res
     }
 

@@ -1,4 +1,14 @@
 packages:
   - ng-sdk-js/pkg
   - ng-app
-  - ngone/web
+  - common
+  - helpers/wasm-tools/pkg
+  - helpers/ngnet/web
+  - helpers/ngapp/web
+  - helpers/*
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - '@swc/core'
+  - es5-ext
+  - esbuild
+  - svelte-preprocess

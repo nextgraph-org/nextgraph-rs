@@ -9,8 +9,23 @@
 
 import "./app.postcss";
 import "./styles.css";
-import * as api from "ng-sdk-js";
+import * as api from "@nextgraph-monorepo/ng-sdk-js";
 import App from "./App.svelte";
+
+if (!import.meta.env.TAURI_PLATFORM) {
+  // cleaning old wallets :(
+  try {
+    let version = localStorage.getItem("ng_wallet_version");
+    if (!version || version != "0.1.1") {
+      localStorage.clear();
+      sessionStorage.clear();
+      localStorage.setItem("ng_wallet_version","0.1.1")
+    }
+  }
+  catch (e) {
+    // it is ok to fail. it means access denied for local storage.
+  }
+}
 
 const app = new App({
   target: document.getElementById("app"),

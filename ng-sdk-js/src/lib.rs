@@ -19,6 +19,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use ng_wallet::types::SensitiveWallet;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 // use js_sys::Reflect;
@@ -66,6 +67,22 @@ pub async fn locales() -> Result<JsValue, JsValue> {
 #[wasm_bindgen]
 pub async fn get_device_name() -> Result<JsValue, JsValue> {
     Ok(serde_wasm_bindgen::to_value(&nextgraph::get_device_name()).unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn bootstrap_to_iframe_msgs(bootstrap: JsValue) -> Result<JsValue, JsValue> {
+    let content: BootstrapContentV0 = serde_wasm_bindgen::from_value::<BootstrapContentV0>(bootstrap)
+        .map_err(|_| "Invalid BootstrapContentV0".to_string())?;
+    let iframe_msg = content.to_iframe_msgs();
+    Ok(serde_wasm_bindgen::to_value(&iframe_msg).unwrap())
+}
+
+#[wasm_bindgen]
+pub async fn get_bootstrap_iframe_msgs_for_brokers(brokers: JsValue) -> Result<JsValue, JsValue> {
+    let brokers = serde_wasm_bindgen::from_value::<HashMap<String, Vec<BrokerInfoV0>>>(brokers)
+        .map_err(|_| "Invalid brokers".to_string())?;
+    let iframe_msgs = SensitiveWallet::get_bootstrap_iframe_msgs(brokers);
+    Ok(serde_wasm_bindgen::to_value(&iframe_msgs).unwrap())
 }
 
 #[wasm_bindgen]
@@ -124,7 +141,7 @@ pub async fn get_local_url(location: String) -> JsValue {
 }
 
 #[wasm_bindgen]
-pub async fn get_ngone_url_of_invitation(invitation_string: String) -> JsValue {
+pub async fn get_ngnet_url_of_invitation(invitation_string: String) -> JsValue {
     let res = decode_invitation_string(invitation_string);
     if res.is_some() {
         serde_wasm_bindgen::to_value(&res.unwrap().get_urls()[0]).unwrap()
@@ -246,8 +263,8 @@ pub async fn get_wallets() -> Result<JsValue, JsValue> {
 }
 
 #[wasm_bindgen]
-pub async fn session_start(wallet_name: String, user_js: JsValue) -> Result<JsValue, String> {
-    let user_id = serde_wasm_bindgen::from_value::<PubKey>(user_js)
+pub async fn session_start(wallet_name: String, user_id: JsValue) -> Result<JsValue, String> {
+    let user_id = serde_wasm_bindgen::from_value::<PubKey>(user_id)
         .map_err(|_| "Deserialization error of user_id")?;
 
     let config = SessionConfig::new_save(&user_id, &wallet_name);
@@ -262,9 +279,9 @@ pub async fn session_start(wallet_name: String, user_js: JsValue) -> Result<JsVa
 #[wasm_bindgen]
 pub async fn session_in_memory_start(
     wallet_name: String,
-    user_js: JsValue,
+    user_id: JsValue,
 ) -> Result<JsValue, String> {
-    let user_id = serde_wasm_bindgen::from_value::<PubKey>(user_js)
+    let user_id = serde_wasm_bindgen::from_value::<PubKey>(user_id)
         .map_err(|_| "Deserialization error of user_id")?;
 
     let config = SessionConfig::new_in_memory(&user_id, &wallet_name);
@@ -278,8 +295,8 @@ pub async fn session_in_memory_start(
 
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen]
-pub async fn session_headless_start(user_js: String) -> Result<JsValue, String> {
-    let user_id = decode_key(&user_js).map_err(|_| "Invalid user_id")?;
+pub async fn session_headless_start(user_id: String) -> Result<JsValue, String> {
+    let user_id = decode_key(&user_id).map_err(|_| "Invalid user_id")?;
 
     let config = SessionConfig::new_headless(user_id);
     let res: SessionInfoString = nextgraph::local_broker::session_start(config)
@@ -735,13 +752,13 @@ pub async fn admin_create_user(config: JsValue) -> Result<JsValue, String> {
 #[wasm_bindgen]
 pub async fn session_start_remote(
     wallet_name: String,
-    user_js: JsValue,
-    peer_id_js: JsValue,
+    user_id: JsValue,
+    peer_id: JsValue,
 ) -> Result<JsValue, String> {
-    let user_id = serde_wasm_bindgen::from_value::<PubKey>(user_js)
+    let user_id = serde_wasm_bindgen::from_value::<PubKey>(user_id)
         .map_err(|_| "Deserialization error of user_id")?;
 
-    let peer_id = serde_wasm_bindgen::from_value::<Option<PubKey>>(peer_id_js)
+    let peer_id = serde_wasm_bindgen::from_value::<Option<PubKey>>(peer_id)
         .map_err(|_| "Deserialization error of peer_id")?;
 
     let config = SessionConfig::new_remote(&user_id, &wallet_name, peer_id);
@@ -762,8 +779,8 @@ pub async fn wallets_reload() -> Result<(), String> {
 }
 
 #[wasm_bindgen]
-pub async fn add_in_memory_wallet(lws_js: JsValue) -> Result<(), String> {
-    let lws = serde_wasm_bindgen::from_value::<LocalWalletStorageV0>(lws_js)
+pub async fn add_in_memory_wallet(lws: JsValue) -> Result<(), String> {
+    let lws = serde_wasm_bindgen::from_value::<LocalWalletStorageV0>(lws)
         .map_err(|_| "Deserialization error of lws")?;
     if !lws.in_memory {
         return Err("This is not an in memory wallet".to_string());
@@ -1839,8 +1856,8 @@ pub async fn start() {
 }
 
 #[wasm_bindgen]
-pub async fn session_stop(user_id_js: String) -> Result<(), String> {
-    let user_id = decode_key(&user_id_js).map_err(|_| "Invalid user_id")?;
+pub async fn session_stop(user_id: String) -> Result<(), String> {
+    let user_id = decode_key(&user_id).map_err(|_| "Invalid user_id")?;
 
     nextgraph::local_broker::session_stop(&user_id)
         .await
@@ -1848,8 +1865,8 @@ pub async fn session_stop(user_id_js: String) -> Result<(), String> {
 }
 
 #[wasm_bindgen]
-pub async fn user_disconnect(user_id_js: String) -> Result<(), String> {
-    let user_id = decode_key(&user_id_js).map_err(|_| "Invalid user_id")?;
+pub async fn user_disconnect(user_id: String) -> Result<(), String> {
+    let user_id = decode_key(&user_id).map_err(|_| "Invalid user_id")?;
 
     nextgraph::local_broker::user_disconnect(&user_id)
         .await
@@ -1865,13 +1882,13 @@ pub async fn wallet_close(wallet_name: String) -> Result<(), String> {
 
 #[wasm_bindgen]
 pub async fn user_connect(
-    client_info_js: JsValue,
-    user_id_js: String,
+    client_info: JsValue,
+    user_id: String,
     location: Option<String>,
 ) -> Result<JsValue, String> {
-    let info = serde_wasm_bindgen::from_value::<ClientInfo>(client_info_js)
+    let info = serde_wasm_bindgen::from_value::<ClientInfo>(client_info)
         .map_err(|_| "serde error on info")?;
-    let user_id = decode_key(&user_id_js).map_err(|_| "Invalid user_id")?;
+    let user_id = decode_key(&user_id).map_err(|_| "Invalid user_id")?;
 
     #[derive(Serialize, Deserialize)]
     struct ConnectionInfo {

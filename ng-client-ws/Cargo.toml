@@ -22,7 +22,7 @@ ng-repo = { path = "../ng-repo", version = "0.1.1-alpha" }
 ng-net = { path = "../ng-net", version = "0.1.1-alpha" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2"
+wasm-bindgen = "0.2.88"
 ws_stream_wasm = "0.7"
 pharos = "0.5"
 

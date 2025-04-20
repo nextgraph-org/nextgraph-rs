@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-import * as api from "ng-sdk-js";
+import * as api from "@nextgraph-monorepo/ng-sdk-js";
 import { default as ng } from "./api";
 
 //console.log("loaded worker");

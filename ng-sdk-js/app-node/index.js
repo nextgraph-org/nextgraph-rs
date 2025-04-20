@@ -214,7 +214,7 @@ ng.wallet_read_file(buffer).then(async (wallet)=>{
 //         // }
 //         // console.log(history.swimlane_state);
 
-//         await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:_> <did:ng:i> <did:ng:j3> }");
+//         await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:_> <did:ng:j> <did:ng:j3> }");
         
 //         sparql_result = await ng.sparql_query(session.session_id, "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }");
 //         console.log("******** CONSTRUCT")
@@ -222,10 +222,10 @@ ng.wallet_read_file(buffer).then(async (wallet)=>{
 //         for (const r of sparql_result) console.log(r.subject.value, r.predicate.value, r.object.value);
         
         
-//         // await ng.sparql_update(session.session_id, "DELETE DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:i> <did:ng:j> }");
+//         // await ng.sparql_update(session.session_id, "DELETE DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:j> <did:ng:j> }");
 
-//         // await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:i> <did:ng:j> }");
-//         // await ng.sparql_update(session.session_id, "INSERT { ?s <did:ng:i> <did:ng:k> } WHERE { ?s <did:ng:i> <did:ng:j> } ");
+//         // await ng.sparql_update(session.session_id, "INSERT DATA { <did:ng:t:AJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:j> <did:ng:j> }");
+//         // await ng.sparql_update(session.session_id, "INSERT { ?s <did:ng:j> <did:ng:k> } WHERE { ?s <did:ng:j> <did:ng:j> } ");
 
 //         // await ng.sparql_update(session.session_id, "INSERT DATA {  <did:ng:z> <did:ng:j> <did:ng:t:BJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE>. <did:ng:t:BJQ5gCLoXXjalC9diTDCvxxWu5ZQUcYWEE821nhVRMcE> <did:ng:m> <did:ng:n> }");
 //         //await ng.sparql_update(session.session_id, "INSERT DATA {  <did:ng:z> <did:ng:j> [ <did:ng:m> <did:ng:n> ]. }");

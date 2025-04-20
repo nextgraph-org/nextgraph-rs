@@ -1,11 +1,11 @@
 {
-  "name": "ng-app",
+  "name": "@nextgraph-monorepo/ng-app",
   "private": true,
   "version": "0.1.1-alpha",
   "type": "module",
   "scripts": {
     "dev": "shx cp index-native.html index.html && vite",
-    "webdev": "shx cp index-web.html index.html && cross-env NG_APP_WEB=1 TAURI_DEBUG=1 vite",
+    "webdev": "shx cp index-web.html index.html && cross-env NG_APP_WEB=1 NG_PUBLIC_DEV=1 TAURI_DEBUG=1 vite",
     "webbuild": "shx cp index-web.html index.html && cross-env NG_APP_WEB=1 vite build && shx rm -f ./dist-web/assets/*.svg && tar --exclude .DS_Store -zcvf dist-web.tar.gz dist-web",
     "webfilebuild": "shx cp index-web.html index.html && cross-env NG_APP_WEB=1 NG_APP_FILE=1 vite build && node prepare-app-file.cjs && shx rm -rf ./dist-file/assets && tar --exclude .DS_Store -zcvf dist-file.tar.gz dist-file",
     "webfilebuilddebug": "shx cp index-web.html index.html && cross-env NG_APP_WEB=1 NG_APP_FILE=1 TAURI_DEBUG=1 vite build -m debug",
@@ -67,7 +67,7 @@
     "immutable-json-patch": "^6.0.1",
     "katex": "^0.16.11",
     "lodash.debounce": "4.0.8",
-    "ng-sdk-js": "workspace:^0.1.1",
+    "@nextgraph-monorepo/ng-sdk-js": "workspace:*",
     "prism-themes": "^1.9.0",
     "prosemirror-model": "^1.7.1",
     "prosemirror-state": "^1.2.3",
@@ -85,7 +85,8 @@
     "y-codemirror.next": "^0.3.5",
     "y-prosemirror": "^1.2.10",
     "y-protocols": "^1.0.1",
-    "yjs": "^13.6.18"
+    "yjs": "^13.6.18",
+    "remote-web-streams": "^0.2.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "2.0.0",

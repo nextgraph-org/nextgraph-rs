@@ -23,11 +23,18 @@ prerequisites: compile the local SDK
 cd ../ng-sdk-js
 cargo install cargo-run-script
 cargo run-script app
-npm install --no-save pkg
 cd ../ng-app
 ```
 
 #### Dev
+
+First time:
+```
+pnpm -C ../helpers/net-auth run builddev
+pnpm -C ../helpers/net-bootstrap run builddev
+```
+
+Then run your local front-end:
 
 ```
 pnpm webdev

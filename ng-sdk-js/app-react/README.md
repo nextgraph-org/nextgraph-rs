@@ -21,7 +21,7 @@ cargo run-script app
 
 ```
 cd app-react
-npm install --no-save ../pkg
+npm i
 npm run dev
 ```
 

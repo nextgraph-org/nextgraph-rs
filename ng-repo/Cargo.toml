@@ -43,7 +43,7 @@ zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
 base64-url = "2.0.0"
 web-time = "0.2.0"
 time = { version= "0.3.36", features = ["formatting","local-offset"] }
-wasm-bindgen = "0.2"
+wasm-bindgen = "0.2.88"
 os_info = "3"
 current_platform = "0.2.0"
 

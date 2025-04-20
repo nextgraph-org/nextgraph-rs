@@ -15,6 +15,7 @@ dist-web
 dist-file
 dist-ssr
 *.local
+public_dev
 
 # Editor directories and files
 .vscode/*

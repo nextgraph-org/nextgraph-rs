@@ -102,6 +102,7 @@ export default defineConfig(async () => {
       port: process.env.NG_APP_WEB ? 5184 : 5183,
     }
   },
+  publicDir: process.env.NG_PUBLIC_DEV ? "public_dev" : false,
   // to make use of `TAURI_DEBUG` and other env variables
   // https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
   envPrefix: ["VITE_", "TAURI_", "NG_"],

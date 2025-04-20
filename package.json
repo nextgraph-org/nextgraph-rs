@@ -1,5 +1,5 @@
 {
-  "name": "nextgraph-rs",
+  "name": "nextgraph-monorepo",
   "private": true,
   "version": "0.1.0",
   "pnpm": {

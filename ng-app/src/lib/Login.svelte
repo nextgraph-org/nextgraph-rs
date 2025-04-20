@@ -16,7 +16,7 @@
 
 <script lang="ts">
   import { Alert, Toggle, Button } from "flowbite-svelte";
-  import { onMount, createEventDispatcher } from "svelte";
+  import { onMount, createEventDispatcher, tick } from "svelte";
   import { t } from "svelte-i18n";
   import ng from "../api";
   import { emoji_cat, emojis, load_svg, type Emoji } from "../wallet_emojis";
@@ -32,7 +32,7 @@
   } from "svelte-heros-v2";
   import PasswordInput from "./components/PasswordInput.svelte";
   import Spinner from "./components/Spinner.svelte";
-  import { display_error } from "../store";
+  import { display_error, test_bootstrap, NG_BOOTSTRAP_IFRAME_SRC } from "../store";
   //import Worker from "../worker.js?worker&inline";
   export let wallet;
   export let for_import = false;
@@ -46,6 +46,24 @@
 
   const dispatch = createEventDispatcher();
 
+  async function test_local_storage() {
+    if (!tauri_platform) {
+      if ((await ng.get_bowser())=="Safari") return;
+      await tick();
+      let iframe: HTMLIFrameElement = <HTMLIFrameElement>window.document.getElementById('nextgraph-bootstrap-iframe');
+      return new Promise(async (resolve) => {
+        iframe.addEventListener("load", async function() {
+          if (!await test_bootstrap()){
+            trusted = false;
+            no_local_storage = true;
+          }
+          resolve(null);
+        });
+        iframe.src=NG_BOOTSTRAP_IFRAME_SRC as string;
+      });
+    }
+  }
+
   onMount(async () => {
     loaded = false;
     if (for_import) {
@@ -55,6 +73,16 @@
     //console.log(wallet);
     await init();
 
+    if (!tauri_platform) {
+      try {
+        localStorage;
+      } catch (e) {
+        trusted = false;
+        no_local_storage = true;
+        console.log("no access to localStorage")
+      }
+      await test_local_storage();
+    }
   });
 
   async function init() {
@@ -121,6 +149,7 @@
   let error;
 
   let trusted = true;
+  let no_local_storage = false;
 
   let mnemonic = "";
 
@@ -139,10 +168,8 @@
 
   async function start_pin() {
     pin_code = [];
-    //console.log(ordered);
     shuffle_pin = await ng.wallet_gen_shuffle_for_pin();
     step = "pin";
-    //console.log(shuffle_pin);
   }
 
   /** Called on selecting emoji in a category. */
@@ -345,6 +372,12 @@
   }
 </script>
 
+{#if NG_BOOTSTRAP_IFRAME_SRC}
+  <iframe title="bootstrap" id="nextgraph-bootstrap-iframe" scrolling="no" frameborder="0"
+      style="width:0; height:0; visibility: hidden;"
+  ></iframe>
+{/if}
+
 <div
   class="flex-col justify-center md:max-w-2xl py-4 sm:px-8"
   class:h-screen={step !== "load" && height > 640}
@@ -392,6 +425,15 @@
 
       <!-- Save wallet? -->
       {#if for_import}
+        {#if no_local_storage}
+        <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
+          <Alert color="orange" class="">
+            Access to local storage is denied. <br/>You won't be able to save your wallet in this browser.<br/>
+            If you wanted to save it, please allow storing local data<br/> for the websites {location.origin} <br/>
+            and https://nextgraph.net and then reload the page.
+          </Alert>
+        </div>
+        {:else}
         <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
           <span class="text-xl"
             >{$t("pages.wallet_create.save_wallet_options.trust")}
@@ -407,6 +449,7 @@
             >
           </div>
         </div>
+        {/if}
       {/if}
 
       <div class="max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
@@ -491,7 +534,6 @@
               <Button
                 type="submit"
                 class="mt-3 mb-2 ml-auto text-white bg-primary-700 hover:bg-primary-700/90 disabled:opacity-65 focus:ring-4 focus:ring-blue-500 focus:border-blue-500 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                on:click={start_pin}
                 disabled={mnemonic.split(" ").length !== 12}
                 ><CheckCircle
                   tabindex="-1"

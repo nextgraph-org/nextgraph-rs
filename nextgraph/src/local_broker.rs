@@ -1819,7 +1819,7 @@ lazy_static! {
         server_type: BrokerServerTypeV0::Domain("nextgraph.eu".to_string()),
         can_verify: false,
         can_forward: false,
-        peer_id: ng_repo::utils::decode_key("qCDCdmh39BccRrIzuxiyGY7r2012mFeUmMV57-RbB-cA")
+        peer_id: ng_repo::utils::decode_key("LZn-rQD_NUNxrWT_hBXeHk6cjI6WAy-knRVOdovIjwsA")
             .unwrap(),
     };
 }
@@ -2531,7 +2531,7 @@ pub async fn session_stop(user_id: &UserId) -> Result<(), NgError> {
                 force_close: false,
             });
 
-            let _res = broker.send_request_headless(request).await?;
+            broker.send_request_headless::<_, EmptyAppResponse>(request).await?;
         }
         _ => {
             // TODO implement for Remote
@@ -2576,7 +2576,7 @@ pub async fn session_headless_stop(session_id: u64, force_close: bool) -> Result
                 force_close,
             });
 
-            let _res = broker.send_request_headless(request).await?;
+            broker.send_request_headless::<_, EmptyAppResponse>(request).await?;
         }
         _ => {
             return Err(NgError::LocalBrokerIsNotHeadless);

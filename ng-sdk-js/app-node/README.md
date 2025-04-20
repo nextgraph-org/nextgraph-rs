@@ -21,7 +21,7 @@ cargo run-script node
 
 ```
 cd app-node
-npm install --no-save ../pkg-node
+npm i
 npm start
 ```
 

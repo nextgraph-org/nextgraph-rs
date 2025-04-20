@@ -168,10 +168,10 @@ fn parse_ip_and_port_for_(string: String, for_option: &str) -> Result<(IpAddr, u
 }
 
 pub fn check_is_local_url(bootstrap: &BrokerServerV0, location: &String) -> Option<String> {
-    if location.starts_with(APP_NG_ONE_URL) {
+    if location.starts_with(NG_APP_URL) {
         match &bootstrap.server_type {
             BrokerServerTypeV0::Public(_) | BrokerServerTypeV0::BoxPublicDyn(_) => {
-                return Some(APP_NG_ONE_WS_URL.to_string());
+                return Some(APP_NG_WS_URL.to_string());
             }
             _ => {}
         }

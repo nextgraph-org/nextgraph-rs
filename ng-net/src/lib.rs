@@ -31,6 +31,9 @@ pub mod utils;
 pub mod tests;
 
 #[doc(hidden)]
+pub mod bsps;
+
+#[doc(hidden)]
 pub static NG_BOOTSTRAP_LOCAL_PATH: &str = "/.ng_bootstrap";
 
 #[cfg(debug_assertions)]

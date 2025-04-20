@@ -1,0 +1,32 @@
+{
+  "name": "example-webapp-vite",
+  "version": "0.1.0",
+  "description": "Web-based example application for NextGraph (Vite)",
+  "scripts": {
+    "build": "vite build --base=./",
+    "dev": "vite --host"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://git.nextgraph.org/NextGraph/nextgraph-rs.git"
+  },
+  "keywords": [
+    "nextgraph",
+    "webapp",
+    "framework",
+    "frontend",
+    "vite"
+  ],
+  "author": "Niko PLP <niko@nextgraph.org>",
+  "license": "(MIT OR Apache-2.0)",
+  "bugs": {
+    "url": "https://git.nextgraph.org/NextGraph/nextgraph-rs/issues"
+  },
+  "homepage": "https://docs.nextgraph.org",
+  "devDependencies": {
+    "vite": "^6.2.6"
+  },
+  "dependencies": {
+    "@ldo/connected-nextgraph": "^1.0.0-alpha.6"
+  }
+}

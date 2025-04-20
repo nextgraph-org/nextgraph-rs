@@ -1,0 +1,41 @@
+{
+  "name": "@nextgraph-monorepo/net-auth",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "cd ../wasm-tools && cargo run-script app && cd ../net-auth && vite build --base=./ && shx rm -rf ./dist/assets",
+    "builddev": "cd ../wasm-tools && cargo run-script app && cd ../net-auth && cross-env NG_DEV=1 vite build --base=./ && shx rm -rf ./dist/assets && shx mkdir -p ../../ng-app/public_dev && cp ./dist/index.html ../../ng-app/public_dev/auth.html",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "flowbite": "^1.6.5",
+    "flowbite-svelte": "^0.37.1",
+    "svelte-spa-router": "^3.3.0",
+    "@tailwindcss/typography": "^0.5.13",
+    "svelte-i18n": "^4.0.0",
+    "@nextgraph-monorepo/common": "workspace:*",
+    "@nextgraph-monorepo/wasm-tools-auth": "workspace:*",
+    "async-proxy": "^0.4.1",
+    "remote-web-streams": "^0.2.0"
+  },
+  "devDependencies": {
+    "shx": "^0.3.4",
+    "cross-env": "^7.0.3",
+    "node-gzip": "^1.1.2",
+    "@sveltejs/vite-plugin-svelte": "^2.0.4",
+    "svelte": "^3.58.0",
+    "vite": "^4.3.9",
+    "postcss": "^8.4.23",
+    "postcss-load-config": "^4.0.1",
+    "svelte-heros-v2": "^0.10.12",
+    "svelte-preprocess": "^5.0.3",
+    "tailwindcss": "^3.3.1",
+    "autoprefixer": "^10.4.14",
+    "vite-plugin-svelte-svg": "^2.2.1",
+    "vite-plugin-top-level-await": "1.3.1",
+    "vite-plugin-singlefile": "0.13.5",
+    "vite-plugin-wasm": "3.2.2"
+  }
+}

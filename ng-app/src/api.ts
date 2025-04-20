@@ -65,8 +65,11 @@ const handler = {
     async apply(target, path, caller, args) {
         
         if (import.meta.env.NG_APP_WEB) {
-            let sdk = await import("ng-sdk-js")
-            if (path[0] === "client_info") {
+            let sdk = await import("@nextgraph-monorepo/ng-sdk-js")
+            if (path[0] === "get_bowser") {
+                let info = Bowser.parse(window.navigator.userAgent);
+                return info.browser.name;
+            } else if (path[0] === "client_info") {
                 let client_info = await Reflect.apply(sdk[path], caller, args);
                 client_info.V0.version=version;
                 //console.log(client_info);

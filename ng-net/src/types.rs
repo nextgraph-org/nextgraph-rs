@@ -293,32 +293,21 @@ impl From<BrokerServerV0> for Locator {
     }
 }
 
-impl BrokerServerV0 {
-    pub fn new_localhost(peer_id: PubKey) -> Self {
-        BrokerServerV0 {
-            server_type: BrokerServerTypeV0::Localhost(WS_PORT_ALTERNATE[0]),
-            can_verify: false,
-            can_forward: true,
-            peer_id,
-        }
-    }
-}
-
 #[doc(hidden)]
 pub const APP_ACCOUNT_REGISTERED_SUFFIX: &str = "/#/user/registered";
 
 #[doc(hidden)]
-pub const NG_ONE_URL: &str = "https://nextgraph.net";
+pub const NG_NET_URL: &str = "https://nextgraph.net";
 
 #[doc(hidden)]
-pub const APP_NG_ONE_URL: &str = "https://app.nextgraph.one";
+pub const NG_APP_URL: &str = "https://nextgraph.app";
 
 #[doc(hidden)]
-pub const APP_NG_ONE_WS_URL: &str = "wss://app.nextgraph.one";
+pub const APP_NG_WS_URL: &str = "wss://nextgraph.app";
 
 #[allow(dead_code)]
 fn api_dyn_peer_url(peer_id: &PubKey) -> String {
-    format!("https://nextgraph.one/api/v1/dynpeer/{}", peer_id)
+    format!("https://nextgraph.net/api/v1/dynpeer/{}", peer_id)
 }
 
 #[doc(hidden)]
@@ -364,7 +353,17 @@ impl BrokerServerTypeV0 {
         }
     }
 }
+
 impl BrokerServerV0 {
+    pub fn new_localhost(peer_id: PubKey) -> Self {
+        BrokerServerV0 {
+            server_type: BrokerServerTypeV0::Localhost(WS_PORT_ALTERNATE[0]),
+            can_verify: false,
+            can_forward: true,
+            peer_id,
+        }
+    }
+
     fn first_ipv4(&self) -> Option<(String, Vec<BindAddress>)> {
         self.server_type.find_first_ipv4().map_or(None, |bindaddr| {
             Some((format!("ws://{}:{}", bindaddr.ip, bindaddr.port), vec![]))
@@ -411,7 +410,7 @@ impl BrokerServerV0 {
         return None;
     }
 
-    fn app_ng_one_bootstrap_url(addr: &BindAddress, key: PubKey) -> Option<String> {
+    fn ng_app_bootstrap_url(addr: &BindAddress, key: PubKey) -> Option<String> {
         let payload = (addr, key);
         let payload_ser = serde_bare::to_vec(&payload).ok();
         if payload_ser.is_none() {
@@ -419,28 +418,28 @@ impl BrokerServerV0 {
         }
         Some(format!(
             "{}?b={}",
-            APP_NG_ONE_URL,
+            NG_APP_URL,
             base64_url::encode(&payload_ser.unwrap())
         ))
     }
 
-    fn app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
+    fn ng_app_bootstrap_url_with_first_ipv6_or_ipv4(
         ipv4: bool,
         ipv6: bool,
         addrs: &Vec<BindAddress>,
         key: PubKey,
     ) -> Option<String> {
         if let Some(addr) = Self::first_ipv6_or_ipv4(ipv4, ipv6, addrs) {
-            return Self::app_ng_one_bootstrap_url(addr, key);
+            return Self::ng_app_bootstrap_url(addr, key);
         }
         None
     }
 
     /// set ipv6 only if the browser connected with a remote IPV6. always set ipv4 as a fallback (for now).
-    pub async fn get_url_for_ngone(&self, ipv4: bool, ipv6: bool) -> Option<String> {
+    pub async fn get_url_for_ngnet(&self, ipv4: bool, ipv6: bool) -> Option<String> {
         match &self.server_type {
             BrokerServerTypeV0::Public(addrs) => {
-                Self::app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
+                Self::ng_app_bootstrap_url_with_first_ipv6_or_ipv4(
                     ipv4,
                     ipv6,
                     addrs,
@@ -452,7 +451,7 @@ impl BrokerServerV0 {
                 // if resp.is_ok() {
                 //     let resp = resp.unwrap().json::<Vec<BindAddress>>().await;
                 //     if resp.is_ok() {
-                //         return Self::app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
+                //         return Self::ng_app_bootstrap_url_with_first_ipv6_or_ipv4(
                 //             ipv4,
                 //             ipv6,
                 //             &resp.unwrap(),
@@ -461,7 +460,7 @@ impl BrokerServerV0 {
                 //     }
                 // }
                 if addrs.len() > 0 {
-                    Self::app_ng_one_bootstrap_url_with_first_ipv6_or_ipv4(
+                    Self::ng_app_bootstrap_url_with_first_ipv6_or_ipv4(
                         ipv4,
                         ipv6,
                         &addrs,
@@ -521,21 +520,21 @@ impl BrokerServerV0 {
     ) -> Option<(String, Vec<BindAddress>)> {
         if location.is_some() {
             let location = location.as_ref().unwrap();
-            if location.starts_with(APP_NG_ONE_URL) {
+            if location.starts_with(NG_APP_URL) {
                 match &self.server_type {
                     BrokerServerTypeV0::Public(addrs) => {
-                        Some((APP_NG_ONE_WS_URL.to_string(), addrs.clone()))
+                        Some((APP_NG_WS_URL.to_string(), addrs.clone()))
                     }
                     BrokerServerTypeV0::BoxPublicDyn(addrs) => {
                         // let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
                         // if resp.is_ok() {
                         //     let resp = resp.unwrap().json::<Vec<BindAddress>>().await;
                         //     if resp.is_ok() {
-                        //         return Some((APP_NG_ONE_WS_URL.to_string(), resp.unwrap()));
+                        //         return Some((APP_NG_WS_URL.to_string(), resp.unwrap()));
                         //     }
                         // }
                         if addrs.len() > 0 {
-                            Some((APP_NG_ONE_WS_URL.to_string(), addrs.clone()))
+                            Some((APP_NG_WS_URL.to_string(), addrs.clone()))
                         } else {
                             None
                         }
@@ -611,6 +610,69 @@ impl BrokerServerV0 {
             }
         }
     }
+
+    pub fn to_iframe_msg(&self) -> BootstrapIframeMsg {
+
+        match &self.server_type {
+            BrokerServerTypeV0::Domain(domain) => BootstrapIframeMsg::domain(domain.clone()),
+            BrokerServerTypeV0::Localhost(port) => BootstrapIframeMsg::local(*port, self.peer_id),
+            BrokerServerTypeV0::BoxPrivate(addrs) => BootstrapIframeMsg::private(addrs.to_vec(), self.peer_id),
+            BrokerServerTypeV0::Public(_) | BrokerServerTypeV0::BoxPublicDyn(_) => BootstrapIframeMsg::ngbox(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BootstrapIframeMsg {
+
+    pub peer_id: Option<String>,
+
+    pub private: Option<Vec<BindAddress>>,
+
+    pub ngbox: Option<bool>,
+
+    pub domain: Option<String>,
+
+    pub localhost: Option<u16>,
+
+}
+
+impl BootstrapIframeMsg {
+    fn new() -> Self {
+        Self {
+            peer_id:None,
+            private:None,
+            ngbox:None,
+            domain:None,
+            localhost:None
+        }
+    }
+
+    fn domain(domain: String) -> Self {
+        let mut s = Self::new();
+        s.domain = Some(domain);
+        s
+    }
+
+    fn ngbox() -> Self {
+        let mut s = Self::new();
+        s.ngbox = Some(true);
+        s
+    }
+
+    fn private(addrs: Vec<BindAddress>, peer_id: PubKey) -> Self {
+        let mut s = Self::new();
+        s.peer_id = Some(peer_id.to_string());
+        s.private = Some(addrs);
+        s
+    }
+
+    fn local(port: u16, peer_id: PubKey) -> Self {
+        let mut s = Self::new();
+        s.peer_id = Some(peer_id.to_string());
+        s.localhost = Some(port);
+        s
+    }
 }
 
 /// Bootstrap content Version 0
@@ -650,6 +712,10 @@ impl BootstrapContentV0 {
             }
         }
         None
+    }
+
+    pub fn to_iframe_msgs(&self) -> Vec<BootstrapIframeMsg> {
+        self.servers.iter().map(|server| server.to_iframe_msg()).collect()
     }
 }
 
@@ -859,14 +925,14 @@ impl Invitation {
         }
     }
 
-    /// first URL in the list is the ngone one
+    /// first URL in the list is the ngnet one
     pub fn get_urls(&self) -> Vec<String> {
         match self {
             Invitation::V0(v0) => {
                 let mut res = vec![];
                 let ser = serde_bare::to_vec(&self).unwrap();
                 let url_param = base64_url::encode(&ser);
-                res.push(format!("{}/#/i/{}", NG_ONE_URL, url_param));
+                res.push(format!("{}/#/i/{}", NG_NET_URL, url_param));
                 for server in &v0.bootstrap.servers {
                     match &server.server_type {
                         BrokerServerTypeV0::Domain(domain) => {
@@ -1148,7 +1214,7 @@ pub struct ListenerV0 {
     pub bind_public_ipv6: bool,
 
     /// default to false. Set to true by --core (use --core-with-clients to override to false). only useful for a public IP listener, if the clients should use another listener like --domain or --domain-private.
-    /// do not set it on a --domain or --domain-private, as this will enable the relay_websocket feature, which should not be used except by app.nextgraph.one
+    /// do not set it on a --domain or --domain-private, as this will enable the relay_websocket feature, which should not be used except by nextgraph.app
     pub refuse_clients: bool,
 
     // will answer a probe coming from private LAN and if is_private, with its own peerId, so that guests on the network will be able to connect.

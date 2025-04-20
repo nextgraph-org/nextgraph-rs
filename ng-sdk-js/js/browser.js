@@ -7,6 +7,39 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+let ls;
+let ss;
+let no_local_storage; false;
+
+(async () => {
+    try {
+        ls = localStorage;
+        ss = sessionStorage;
+
+        try {
+            let ret = await document.requestStorageAccess({ localStorage: true, sessionStorage: true });
+            ls = ret.localStorage;
+            ss = ret.sessionStorage;
+            console.log("REQUEST STORAGE ACCESS GRANTED by chrome");
+        }
+        catch(e) {
+            console.warn("requestStorageAccess of chrome failed. falling back to previous api", e)
+            try {
+                await document.requestStorageAccess();
+                localStorage;
+                console.log("REQUEST STORAGE ACCESS GRANTED");
+            } catch (e) {
+                console.error("REQUEST STORAGE ACCESS DENIED",e);
+                no_local_storage = true;
+            }
+        }
+
+    } catch (e) {
+        no_local_storage = true;
+        console.log("no access to localStorage")
+    }
+})();
+
 export function client_details() {
     return window.navigator.userAgent;
 }
@@ -23,8 +56,7 @@ export function client_details2(obj,version) {
 
 export function session_save(key,value) {
     try {
-        
-        sessionStorage.setItem(key, value);
+        ss.setItem(key, value);
 
     } catch(e) {
         console.error(e);
@@ -53,7 +85,7 @@ function convert_error(e) {
 export function session_get(key) {
 
     try {
-        return sessionStorage.getItem(key);
+        return ss.getItem(key);
 
     } catch(e) {
         console.error(e);
@@ -64,7 +96,7 @@ export function session_get(key) {
 export function session_remove(key) {
 
     try {
-        return sessionStorage.removeItem(key);
+        return ss.removeItem(key);
 
     } catch(e) {
         console.error(e);
@@ -74,7 +106,7 @@ export function session_remove(key) {
 
 export function local_save(key,value) {
     try {
-        localStorage.setItem(key, value);
+        ls.setItem(key, value);
 
     } catch(e) {
         console.error(e);
@@ -84,8 +116,8 @@ export function local_save(key,value) {
 
 export function storage_clear() {
     try {
-        localStorage.clear();
-        sessionStorage.clear();
+        ls.clear();
+        ss.clear();
 
     } catch(e) {
         console.error(e);
@@ -95,7 +127,7 @@ export function storage_clear() {
 export function local_get(key) {
 
     try {
-        return localStorage.getItem(key);
+        return ls.getItem(key);
 
     } catch(e) {
         console.error(e);

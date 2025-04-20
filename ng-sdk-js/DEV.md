@@ -15,7 +15,7 @@ JS/WASM crate containing the SDK of NextGraph
 This crate is composed of
 
 -   the npm package `ng-sdk-js` which is the SDK
--   an example of web app using the ESmodule and webpack as bundler `app-web`
+-   an example of web app using the vite bundler `example-webapp-vite`
 -   an example of React web app `app-react`
 -   an example of node-js app `app-node`
 -   `index.html` an example of vanilla JS usage of the SDK
@@ -33,8 +33,8 @@ Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/)
 ```
 // for nodejs
 npm i nextgraph
-// or for browser (not published to npm yet)
-npm i ng-sdk-js
+// or for browser
+npm i nextgraphweb
 ```
 
 ## For contributors
@@ -91,26 +91,14 @@ npm login --auth-type legacy
 npm publish --auth-type legacy
 ```
 
-### Example Plain JS web app
+### Example Plain JS web app (with Vite)
 
-```
-cd ../app-web
-// for local development
-npm install --no-save ../pkg
-// or, for installation from npm registry: npm install
-// then:
-npm start
-```
-
-Open this URL in browser : [http://localhost:8080](http://localhost:8080)
+see [README here](example-webapp-vite/README.md)
 
 ### Example React web app
 
 ```
 cd ../app-react
-// for local development
-npm install --no-save ../pkg
-// or, for install from npm registry: npm install
 npm run dev
 ```
 
@@ -120,9 +108,6 @@ This URL will open automatically in browser : [http://localhost:8080](http://loc
 
 ```
 cd ../app-node
-// for local development
-npm install --no-save ../pkg-node
-// or, for install from npm registry: npm install
 npm run start
 ```
 

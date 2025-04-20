@@ -16,6 +16,8 @@ pub mod bip39;
 
 pub mod emojis;
 
+pub mod permissions;
+
 use std::{collections::HashMap, io::Cursor};
 
 use aes_gcm_siv::{
@@ -439,7 +441,7 @@ pub fn gen_shuffle_for_pin() -> Vec<u8> {
     digits
 }
 
-/// creates a Wallet from a pin, a security text and image (with option to send the bootstrap and wallet to nextgraph.one)
+/// creates a Wallet from a pin, a security text and image
 /// and returns the Wallet, the pazzle and the mnemonic
 pub fn create_wallet_first_step_v0(
     params: CreateWalletV0,
@@ -611,7 +613,7 @@ pub async fn create_wallet_second_step_v0(
         // mnemonic,
         // pin: params.pin,
         personal_site: site.clone(),
-        save_to_ng_one: if params.send_wallet {
+        save_recovery_kit: if params.send_wallet {
             SaveToNGOne::Wallet
         } else if params.send_bootstrap {
             SaveToNGOne::Bootstrap

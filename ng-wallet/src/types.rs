@@ -268,7 +268,7 @@ impl From<&CreateWalletIntermediaryV0> for SensitiveWalletV0 {
         SensitiveWalletV0 {
             wallet_privkey: res.wallet_privkey.clone(),
             wallet_id: res.wallet_name.clone(),
-            save_to_ng_one: if res.send_wallet {
+            save_recovery_kit: if res.send_wallet {
                 SaveToNGOne::Wallet
             } else if res.send_bootstrap {
                 SaveToNGOne::Bootstrap
@@ -444,7 +444,7 @@ pub struct SensitiveWalletV0 {
 
     //pub pin: [u8; 4],
     #[zeroize(skip)]
-    pub save_to_ng_one: SaveToNGOne,
+    pub save_recovery_kit: SaveToNGOne,
 
     #[zeroize(skip)]
     pub personal_site: PubKey,
@@ -485,6 +485,12 @@ pub enum SensitiveWallet {
 }
 
 impl SensitiveWallet {
+    pub fn get_bootstrap_iframe_msgs(brokers: HashMap<String, Vec<BrokerInfoV0>>) -> Vec<BootstrapIframeMsg> {
+        brokers.values().flatten().filter_map(|broker_info| match broker_info {
+            BrokerInfoV0::CoreV0(_) => None,
+            BrokerInfoV0::ServerV0(s) => Some(s.to_iframe_msg())
+        }).collect::<Vec<BootstrapIframeMsg>>()
+    }
     pub fn privkey(&self) -> PrivKey {
         match self {
             Self::V0(v0) => v0.wallet_privkey.clone(),
@@ -750,7 +756,7 @@ impl WalletLogV0 {
                     WalletOperation::RemoveBrokerServerV0(_) => {}
                     WalletOperation::SetSaveToNGOneV0(o) => {
                         if self.is_last_occurrence(op.0, &op.1) != 0 {
-                            wallet.save_to_ng_one = o.clone();
+                            wallet.save_recovery_kit = o.clone();
                         }
                     }
                     WalletOperation::SetBrokerCoreV0(o) => {
@@ -1041,7 +1047,7 @@ pub struct WalletOpCreateV0 {
     // #[serde(skip)]
     // pub pin: [u8; 4],
     #[zeroize(skip)]
-    pub save_to_ng_one: SaveToNGOne,
+    pub save_recovery_kit: SaveToNGOne,
 
     #[zeroize(skip)]
     pub personal_site: SiteV0,
@@ -1061,7 +1067,7 @@ impl From<&WalletOpCreateV0> for SensitiveWalletV0 {
             //pazzle: op.pazzle.clone(),
             //mnemonic: op.mnemonic.clone(),
             //pin: op.pin.clone(),
-            save_to_ng_one: op.save_to_ng_one.clone(),
+            save_recovery_kit: op.save_recovery_kit.clone(),
             personal_site,
             personal_site_id: personal_site.to_string(),
             sites: HashMap::new(),
@@ -1146,7 +1152,7 @@ impl BrokerInfoV0 {
 /// ReducedSensitiveWallet block Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReducedSensitiveWalletV0 {
-    pub save_to_ng_one: SaveToNGOne,
+    pub save_recovery_kit: SaveToNGOne,
 
     // main Site (Personal)
     pub personal_site: ReducedSiteV0,
@@ -1186,7 +1192,7 @@ pub enum Wallet {
 /// Add Wallet Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AddWalletV0 {
-    /// wallet. optional (for those who chose not to upload their wallet to nextgraph.one server)
+    /// wallet. optional (for those who chose not to upload their wallet recovery kit to their broker)
     pub wallet: Option<Wallet>,
 
     /// bootstrap

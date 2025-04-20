@@ -20,6 +20,7 @@
   import { link } from "svelte-spa-router";
   import CenteredLayout from "./CenteredLayout.svelte";
   import { t } from "svelte-i18n";
+  import { Alert } from "flowbite-svelte";
 </script>
 
 <CenteredLayout displayFooter={true}>
@@ -32,6 +33,9 @@
     <p class="max-w-sm">
       {@html $t("pages.no_wallet.description")}
     </p>
+    <Alert color="blue" class="max-w-sm mt-3">
+      If you had created a wallet before 17 April 2025, it doesn't work anymore. please create a new wallet. We are still in alpha, and this can happen again.
+    </Alert>
     <div class="row mt-5">
       <a href="/wallet/create" use:link>
         <button

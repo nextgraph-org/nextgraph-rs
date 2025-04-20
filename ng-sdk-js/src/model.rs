@@ -1,3 +1,7 @@
+// Copyright (c) 2018 Oxigraph developers (Thomas Pellissier Tanon)
+// taken from Oxigraph https://github.com/oxigraph/oxigraph https://oxigraph.org
+// Licensed under Apache-2.0 and MIT
+
 #![allow(dead_code, clippy::inherent_to_string, clippy::unused_self)]
 
 use js_sys::{Error, Reflect, UriError};

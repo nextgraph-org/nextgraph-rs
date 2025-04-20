@@ -1,0 +1,69 @@
+{
+  "name": "nextgraphweb",
+  "collaborators": [
+    "Niko PLP <niko@nextgraph.org>"
+  ],
+  "description": "TS SDK of NextGraph for web apps",
+  "version": "0.1.1-alpha.1",
+  "license": "MIT/Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://git.nextgraph.org/NextGraph/nextgraph-rs"
+  },
+  "type": "module",
+  "files": ["dist"],
+	"main": "./dist/nextgraphweb.umd.cjs",
+  "module": "./dist/nextgraphweb.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/nextgraphweb.js",
+      "require": "./dist/nextgraphweb.umd.cjs"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "builddev": "tsc && cross-env NG_DEV=1 vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "async-proxy": "^0.4.1",
+    "remote-web-streams": "^0.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.7.10",
+    "typescript": "~5.7.2",
+    "vite": "^6.2.0",
+    "vite-plugin-dts": "^4.5.3",
+    "cross-env": "^7.0.3"
+  },
+  "keywords": [
+    "crdt",
+    "dapp",
+    "decentralized",
+    "e2ee",
+    "local-first",
+    "p2p",
+    "semantic-web",
+    "eventual-consistency",
+    "json-ld",
+    "markdown",
+    "ocap",
+    "vc",
+    "offline-first",
+    "p2p-network",
+    "collaboration",
+    "privacy-protection",
+    "rdf",
+    "rich-text-editor",
+    "self-hosted",
+    "sparql",
+    "byzantine-fault-tolerance",
+    "web3",
+    "graph-database",
+    "database",
+    "triplestore"
+  ],
+  "homepage": "https://nextgraph.org"
+}
