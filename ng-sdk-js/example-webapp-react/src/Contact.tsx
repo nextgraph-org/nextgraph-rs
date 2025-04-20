@@ -6,14 +6,14 @@ import { useSubscribeToResource, useResource, useSubject } from "./reactMethods.
 export const Contact: FunctionComponent = () => {
   const { session } = useNextGraphAuth();
   
-  let myContainer;
   let container_overlay;
 
+  useResource(session.sessionId ? "did:ng:"+session.privateStoreId : undefined);
+  let myContainer = useSubject(ContainerShapeType, session.sessionId ? "did:ng:"+(session.privateStoreId.substring(0,46)) : undefined);
+
   if (session.sessionId) {
-    useResource("did:ng:"+session.privateStoreId);
     container_overlay =  session.privateStoreId.substring(46);
     console.log(container_overlay);
-    myContainer = useSubject(ContainerShapeType, "did:ng:"+(session.privateStoreId.substring(0,46)));
   }
   
   if (!session.sessionId) return <></>;
