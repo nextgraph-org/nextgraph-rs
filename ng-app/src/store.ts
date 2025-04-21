@@ -26,11 +26,11 @@ let all_branches = {};
 let retry_branches = {};
 
 export const register_bootstrap = async function (bootstrap_iframe_msgs) {
-    console.log("register_bootstrap", bootstrap_iframe_msgs)
+    //console.log("register_bootstrap", bootstrap_iframe_msgs)
     let iframe = (<HTMLIFrameElement>window.document.getElementById('nextgraph-bootstrap-iframe'))?.contentWindow;
     if (!iframe) return false;
     const { readable, writablePort } = new RemoteReadableStream();
-    console.log("adding", bootstrap_iframe_msgs, NG_BOOTSTRAP_IFRAME_ORIGIN)
+    //console.log("adding", bootstrap_iframe_msgs, NG_BOOTSTRAP_IFRAME_ORIGIN)
     iframe.postMessage({ method: "add", port:writablePort, msgs: bootstrap_iframe_msgs}, NG_BOOTSTRAP_IFRAME_ORIGIN, [writablePort]);
     const reader = readable.getReader();
     let ret = await reader.read();

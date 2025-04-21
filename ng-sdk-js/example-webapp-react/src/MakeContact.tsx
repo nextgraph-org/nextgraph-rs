@@ -12,12 +12,14 @@ export const MakeContact: FunctionComponent = () => {
   const onSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-
-      if (name.trim().length > 2 && email.trim().length > 6 && email.indexOf("@") >= 0) { 
-
+      const new_name = name.trim();
+      const new_email = email.trim();
+      if (new_name.trim().length > 2 && new_email.trim().length > 6 && new_email.indexOf("@") >= 0) { 
+        setName("");
+        setEmail("");
         const resource = await dataset.createResource("nextgraph");
         if (!resource.isError) {
-          console.log("Created resource:", resource.uri);
+          //console.log("Created resource:", resource.uri);
 
           const contact = createData(
               NGSocialContactShapeType,
@@ -26,8 +28,8 @@ export const MakeContact: FunctionComponent = () => {
             );
 
           contact.type = { "@id": "Individual" };
-          contact.fn = name.trim();
-          contact.hasEmail = email.trim();
+          contact.fn = new_name;
+          contact.hasEmail = new_email;
           const result = await commitData(contact);
           if (result.isError) {
               console.error(result.message);

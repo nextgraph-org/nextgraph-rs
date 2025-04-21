@@ -27,14 +27,14 @@ export function createBrowserNGReactMethods(
     const [ranInitialAuthCheck, setRanInitialAuthCheck] = useState(false);
 
     const runInitialAuthCheck = useCallback(async () => {
-      console.log("runInitialAuthCheck called", ranInitialAuthCheck)
+      //console.log("runInitialAuthCheck called", ranInitialAuthCheck)
       if (ranInitialAuthCheck) return;
 
-      console.log("init called");
+      //console.log("init called");
       setRanInitialAuthCheck(true);
       // TODO: export the types for the session object coming from NG.
       await init( (event: { status: string; session: { session_id: unknown; protected_store_id: unknown; private_store_id: unknown; public_store_id: unknown; }; }) => {
-        console.log("called back in react", event)
+        //console.log("called back in react", event)
         
         // callback
         // once you receive event.status == "loggedin"

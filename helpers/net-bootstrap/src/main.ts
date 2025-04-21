@@ -67,7 +67,7 @@ catch (e) {
 
 window.addEventListener("message", async (event)=>{
 
-  console.log("net-bootstrap got msg", event.data, event.origin)
+  //console.log("net-bootstrap got msg", event.data, event.origin)
   const {method, port, msgs} = event.data;
   const writable = fromWritablePort(port);
   const writer = writable.getWriter();
@@ -93,9 +93,9 @@ window.addEventListener("message", async (event)=>{
         }
       }
       localStorage
-      console.log("net-bootstrap writes back ok")
+      //console.log("net-bootstrap writes back ok")
       writer.write({status:'ok'});
-      console.log(`localStorage on bootstrap ${location.origin} is ok`)
+      //console.log(`localStorage on bootstrap ${location.origin} is ok`)
     } catch (e) {
       console.log("net-bootstrap writes back error")
       writer.write({status:'error', error:e});
@@ -123,13 +123,13 @@ window.addEventListener("message", async (event)=>{
 
     let key;
 
-    console.log("ng_bootstrap received msg",JSON.stringify(data), is_ng_box, is_domain,is_lan,is_local,new URL(event.origin).hostname, new URL(event.origin).hostname === data.domain, data.domain && is_domain && new URL(event.origin).hostname === data.domain  )
+    //console.log("ng_bootstrap received msg",JSON.stringify(data), is_ng_box, is_domain,is_lan,is_local,new URL(event.origin).hostname, new URL(event.origin).hostname === data.domain, data.domain && is_domain && new URL(event.origin).hostname === data.domain  )
 
     if (data.ngbox && (is_ng_box || is_lan || is_local || is_domain)) {
       key = "Self-hosted / NGbox";
     } else if (data.domain && is_domain && new URL(event.origin).hostname === data.domain ) {
       key = data.domain;
-      console.log("key for domain is", key)
+      //console.log("key for domain is", key)
     } else if (data.localhost && (is_local || is_lan)) {
       if (!data.peer_id) {
         writer.write({status:'error', error:"missing peer_id of localhost"});
@@ -179,17 +179,17 @@ window.addEventListener("message", async (event)=>{
     }
     let bootstraps = JSON.parse(ls.getItem("ng_bootstrap") || "{}");
     for (const [i, key] of keys.entries()) {
-      console.log(method, method === "add",bootstraps, !bootstraps[key])
+      //console.log(method, method === "add",bootstraps, !bootstraps[key])
       const value = msgs[i];
       if ( method === "add" && !bootstraps[key]) {
-        console.log("adding..."+key)
+        //console.log("adding..."+key)
         bootstraps[key] = value;
         if (channel) channel.postMessage({ key, value });
-        console.log("added",key,value);
+        //console.log("added",key,value);
       } else if ( method === "remove" && bootstraps[key]) {
         delete bootstraps[key];
         if (channel) channel.postMessage({ key });
-        console.log("removed",key);
+        //console.log("removed",key);
       }
     }
     ls.setItem("ng_bootstrap",JSON.stringify(bootstraps));

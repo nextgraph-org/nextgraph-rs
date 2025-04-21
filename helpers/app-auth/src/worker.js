@@ -15,7 +15,7 @@ self.onmessage = (event) => {
         const { method, args, port } = event.data;
         const writable = fromWritablePort(port);
         const writer = writable.getWriter();
-        console.log("Message received by worker", method, args);
+        //console.log("Message received by worker", method, args);
 
         let ret = await Reflect.apply(sdk[method], null, args);
         writer.write(ret);
@@ -23,4 +23,4 @@ self.onmessage = (event) => {
     })();
 }
 
-console.log("worker loaded");
+//console.log("worker loaded");

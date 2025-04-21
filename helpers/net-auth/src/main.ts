@@ -96,11 +96,11 @@ window.addEventListener("message", async (event)=>{
     }
   } else if ( method === "doc_subscribe" ) {
 
-    console.log("net forward doc_subscribe to app", method, event.data.args)
+    //console.log("net forward doc_subscribe to app", method, event.data.args)
     await rpc_stream(method, event.data.args, writer);
 
   } else {
-    console.log("net forward to app", method, event.data.args)
+    //console.log("net forward to app", method, event.data.args)
     // forward to app auth iframe
     writer.write(await rpc(method, event.data.args));
     writer.close();

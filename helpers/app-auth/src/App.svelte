@@ -236,10 +236,10 @@
       });
     
       unsubscribe_session = active_session.subscribe(async (value) => {
-        console.log("active_session has changed", value)
+        //console.log("active_session has changed", value)
         if (value) {
           if ((<any>window).ng_status_callback) {
-            console.log("writing loggedin to callback");
+            //console.log("writing loggedin to callback");
             (<any>window).ng_status_callback.write({status:"loggedin", session:value});
           }
         } else {

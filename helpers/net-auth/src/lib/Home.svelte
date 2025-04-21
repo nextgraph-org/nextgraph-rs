@@ -67,7 +67,7 @@
           //remove this listener
           window.removeEventListener("message",ready_handler);
           const { readable, writablePort } = new RemoteReadableStream();
-          console.log("sending init message to app-auth");
+          //console.log("sending init message to app-auth");
           (<any>window).ng_broker_selected.postMessage({ method: "init", manifest:window.ng_manifest, port: writablePort }, (<any>window).ng_iframe_origin, [writablePort]);
           const reader = readable.getReader();
           for (var msg; msg = await reader.read(); ) {
@@ -75,7 +75,7 @@
               (<any>window).ng_status_callback.close();
               break;
             } else {
-              console.log("forwarding upstream",msg.value);
+              //console.log("forwarding upstream",msg.value);
               (<any>window).ng_status_callback.write(msg.value);
             }
           }

@@ -136,7 +136,7 @@ function hide_nextgraph_auth() {
 
 async function rpc( method:string, args?: any) : Promise<any> {
   const { readable, writablePort } = new RemoteReadableStream();
-  console.log("POSTING",method, args);
+  //console.log("POSTING",method, args);
   if (method==="doc_subscribe") {
 
     let callback = args[2];
@@ -147,14 +147,14 @@ async function rpc( method:string, args?: any) : Promise<any> {
       resolve(()=>{ 
         // unsub function that does nothing.
         //TODO: implement it
-        console.log("unsubscribed!");
+        //console.log("unsubscribed!");
       });
       for (var msg; msg = await reader.read(); ) {
         if (msg.done) break;
         if (msg.value.error) {
           throw new Error(msg.value.ret);
         } else if (msg.value.stream) {
-          console.log("GOT",msg.value.ret);
+          //console.log("GOT",msg.value.ret);
           (callback)(msg.value.ret);
         }
         // TODO: deal with end of stream
@@ -166,7 +166,7 @@ async function rpc( method:string, args?: any) : Promise<any> {
     initialized?.postMessage({ method, args, port: writablePort }, iframe_config.origin, [writablePort]);
     const reader = readable.getReader();
     let ret = await reader.read();
-    console.log(ret)
+    //console.log(ret)
     await reader.read(); // the close
     if (ret.value.ok) 
       return ret.value.ret;

@@ -40,7 +40,7 @@ const AUTH_HOME = "#/";
 // const AUTH_WALLET = "#/wallet";
 
 window.addEventListener("message", async (event)=>{
-  console.log("got msg in app-auth",event)
+  //console.log("got msg in app-auth",event)
   const { method, port } = event.data;
   const writable = fromWritablePort(port);
   const writer = writable.getWriter();
@@ -49,7 +49,7 @@ window.addEventListener("message", async (event)=>{
     writer.close();
   } else if ( method === "init" ) {
     
-    console.log("app-auth init done, ng_status_callback set");
+    //console.log("app-auth init done, ng_status_callback set");
     (<any>window).ng_status_callback = writer;
     
     manifest.set(event.data.manifest);
@@ -70,7 +70,7 @@ window.addEventListener("message", async (event)=>{
   } else if ( method === "doc_subscribe" ) {
 
     let args = event.data.args;
-    console.log("processing doc_subscribe...",method, args);
+    //console.log("processing doc_subscribe...",method, args);
     args.push((callbacked)=> {
       writer.write({stream:true, ret:callbacked});
     });
@@ -87,7 +87,7 @@ window.addEventListener("message", async (event)=>{
   } else {
 
     // forwarding to ng
-    console.log("processing...",method, event.data.args);
+    //console.log("processing...",method, event.data.args);
     try {
       let res = await Reflect.apply(web_api[method], null, event.data.args);
       writer.write({ok:true, ret:res});
@@ -101,7 +101,7 @@ window.addEventListener("message", async (event)=>{
 
 }, false);
 
-console.log("addEventListener for message in app-auth done")
+//console.log("addEventListener for message in app-auth done")
 parent.postMessage({ready:true},origin);
 
 const app = new App({

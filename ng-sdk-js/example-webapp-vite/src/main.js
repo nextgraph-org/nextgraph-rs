@@ -15,12 +15,12 @@ const ldoDataset = createNextGraphLdoDataset();
 init( async (event) => {
     // callback
     // event.status: "loggedin"...
-    console.log("callback",event);
+    //console.log("callback",event);
 
     if (event.status == "cancelled") {
 
         document.getElementById("result").innerText = "Login cancelled";
-        console.log("CANCELLED");
+        //console.log("CANCELLED");
 
     } else if (event.status == "loggedin") {
 
@@ -34,7 +34,7 @@ init( async (event) => {
 
         const resource = await ldoDataset.createResource("nextgraph");
         if (!resource.isError) {
-            console.log("Created resource:", resource.uri);
+            //console.log("Created resource:", resource.uri);
         }
 
         const ttlData = `
@@ -54,14 +54,14 @@ init( async (event) => {
         // TESTING error handling. See the "SELCT" instead of SELECT
         try {
             let res = await ng.sparql_query(session_id,"SELCT ?subject ?predicate ?object WHERE { ?subject ?predicate ?object .} LIMIT 10");
-            console.log(res);
+            //console.log(res);
         } catch (e) {
-            console.error("got an error", e)
+            //console.error("got an error", e)
         }
         // This one shall pass
         try {
             let res = await ng.sparql_query(session_id,"SELECT ?subject ?predicate ?object WHERE { ?subject ?predicate ?object .} LIMIT 10");
-            console.log(res);
+            //console.log(res);
         } catch (e) {
             console.error("got an error", e)
         }
@@ -69,5 +69,5 @@ init( async (event) => {
 
 }, true, []//list of AccessRequests
 ).then(async ()=>{
-    console.log("1st login returned",await ng.login());
+    //console.log("1st login returned",await ng.login());
 });

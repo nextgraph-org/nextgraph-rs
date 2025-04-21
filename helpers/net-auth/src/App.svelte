@@ -73,7 +73,7 @@
     window.document.getElementById("app").className="";
 
     let info = Bowser.parse(window.navigator.userAgent);
-    console.log(info);
+    //console.log(info);
     is_safari = info.browser.name == "Safari";
     if (is_safari) return;
 
@@ -108,7 +108,7 @@
 
     } catch (e) {
       no_local_storage = true;
-      console.log("no access to localStorage")
+      console.log("no access to localStorage",e)
     }
     
   if (!no_local_storage) {
