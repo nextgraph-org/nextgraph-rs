@@ -20,21 +20,19 @@ export const Contacts: FunctionComponent = () => {
   if (!session.sessionId) return <></>;
   
   return <>
-
-  <div className="centered">
-    <div className="flex flex-wrap justify-center gap-5 mb-10">
-    <MakeContact/>
-        </div>
-    <div className="flex flex-wrap justify-center gap-5 mb-10">
-
-    { 
-        myContainer.contains?.map((contained) => 
-            <Contact key={contained["@id"]} nuri={contained["@id"]+container_overlay}/>
-          
-    )}
+    <div className="centered">
+      <div className="flex flex-wrap justify-center gap-5 mb-10">
+        <MakeContact/>
+      </div>
+      <div className="flex flex-wrap justify-center gap-5 mb-10">
+        { 
+          myContainer.contains?.map(
+            (contained) => 
+              <Contact key={contained["@id"]} nuri={contained["@id"]+container_overlay}/>
+          )
+        }
+      </div>
     </div>
-  </div>
   </>;
-
 };
 
