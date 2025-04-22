@@ -25,7 +25,7 @@ cargo watch -c -w src -x run
 
 ```
 cd web
-pnpm run build
+pnpm build
 cd ..
 cargo build --release
 ```

@@ -52,8 +52,9 @@ If you are developing also the front-end, you should run it with this command in
 
 ```
 cd ng-app
-pnpm -C ../helpers/net-auth run builddev
-pnpm -C ../helpers/net-bootstrap run builddev
+pnpm -C ../helpers/net-auth builddev
+pnpm -C ../helpers/app-auth builddev
+pnpm -C ../helpers/net-bootstrap builddev
 pnpm webdev
 ```
 

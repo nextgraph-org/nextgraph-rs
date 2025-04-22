@@ -30,8 +30,8 @@ cd ../ng-app
 
 First time:
 ```
-pnpm -C ../helpers/net-auth run builddev
-pnpm -C ../helpers/net-bootstrap run builddev
+pnpm -C ../helpers/net-auth builddev
+pnpm -C ../helpers/net-bootstrap builddev
 ```
 
 Then run your local front-end:

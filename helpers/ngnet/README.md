@@ -16,8 +16,8 @@ pnpm install
 compile the 2 helpers, in dev mode
 
 ```
-pnpm -C ../net-auth run builddev
-pnpm -C ../net-bootstrap run builddev
+pnpm -C ../net-auth builddev
+pnpm -C ../net-bootstrap builddev
 ```
 
 ```bash
@@ -34,9 +34,9 @@ cargo watch -c -w src -x run
 ## Prod
 
 ```
-pnpm -C ../net-auth run build
-pnpm -C ../net-bootstrap run build
-pnpm -C ./web run build
+pnpm -C ../net-auth build
+pnpm -C ../net-bootstrap build
+pnpm -C ./web build
 cargo build -r
 ```
 
