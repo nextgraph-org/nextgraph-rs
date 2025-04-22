@@ -28,9 +28,12 @@ npm install -g pnpm
 cd ng-sdk-js
 cargo run-script app
 cd ..
+cd helpers/wasm-helpers
+cargo run-script app
+cd ../..
 pnpm -C ./ng-app install
 pnpm -C ./ng-app webfilebuild
-pnpm -C ./helpers/app-auth run build
+pnpm -C ./helpers/app-auth build
 ```
 
 For building the native apps, see the [ng-app/README](ng-app/README.md)
