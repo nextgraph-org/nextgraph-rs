@@ -26,7 +26,7 @@ duration-str = "0.7.1"
 clap = { version = "4.3.5", features = ["env","string","cargo"] }
 log = "0.4"
 env_logger = "0.10"
-ng-repo = { path = "../ng-repo", version = "0.1.1-alpha", features = ["server_log_output"] }
-ng-net = { path = "../ng-net", version = "0.1.1-alpha" }
-ng-client-ws = { path = "../ng-client-ws", version = "0.1.1-alpha" }
+ng-repo = { path = "../ng-repo", version = "0.1.1-alpha.2", features = ["server_log_output"] }
+ng-net = { path = "../ng-net", version = "0.1.1-alpha.2" }
+ng-client-ws = { path = "../ng-client-ws", version = "0.1.1-alpha.2" }
 ng-async-tungstenite = { version = "0.22.2", git = "https://git.nextgraph.org/NextGraph/async-tungstenite.git", branch = "nextgraph",  features = ["async-std-runtime", "async-native-tls"] }

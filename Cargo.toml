@@ -22,7 +22,7 @@ members = [
 default-members = [ "nextgraph", "ngcli",  "ngd" ]
 
 [workspace.package]
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 edition = "2021"
 rust-version = "1.74.0"
 license = "MIT/Apache-2.0"

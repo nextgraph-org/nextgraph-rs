@@ -1,7 +1,7 @@
 {
   "name": "@nextgraph-monorepo/ng-app",
   "private": true,
-  "version": "0.1.1-alpha",
+  "version": "0.1.1-alpha.2",
   "type": "module",
   "scripts": {
     "dev": "shx cp index-native.html index.html && vite",

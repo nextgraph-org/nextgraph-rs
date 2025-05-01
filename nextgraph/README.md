@@ -44,7 +44,7 @@ A tokio-based version (as a feature) might be available in the future.
 
 ```toml
 [dependencies]
-nextgraph = "0.1.1-alpha"
+nextgraph = "0.1.1-alpha.2"
 async-std = "1.12.0"
 ```
 

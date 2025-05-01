@@ -18,8 +18,8 @@ either = "1.8.1"
 futures = "0.3.24"
 async-trait = "0.1.64"
 async-std = {  version = "1.12.0", features = ["attributes","unstable"] }
-ng-repo = { path = "../ng-repo", version = "0.1.1-alpha" }
-ng-net = { path = "../ng-net", version = "0.1.1-alpha" }
+ng-repo = { path = "../ng-repo", version = "0.1.1-alpha.2" }
+ng-net = { path = "../ng-net", version = "0.1.1-alpha.2" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.88"

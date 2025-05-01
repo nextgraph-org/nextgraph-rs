@@ -37,7 +37,7 @@ regex = "1.8.4"
 base64-url = "2.0.0"
 web-time = "0.2.0"
 time = "0.3.41"
-ng-repo = { path = "../ng-repo", version = "0.1.1-alpha" }
+ng-repo = { path = "../ng-repo", version = "0.1.1-alpha.2" }
 reqwest = { version = "0.11.18", features = ["json","native-tls-vendored"] } 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]

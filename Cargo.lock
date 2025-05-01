@@ -3236,7 +3236,7 @@ checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
 name = "nextgraph"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "async-once-cell",
  "async-std",
@@ -3264,7 +3264,7 @@ dependencies = [
 
 [[package]]
 name = "ng-app"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "async-std",
  "nextgraph",
@@ -3289,7 +3289,7 @@ dependencies = [
 [[package]]
 name = "ng-async-tungstenite"
 version = "0.22.2"
-source = "git+https://git.nextgraph.org/NextGraph/async-tungstenite.git?branch=nextgraph#13de4e36436cdfcb0d2cbe7d21995ff4072faf30"
+source = "git+https://git.nextgraph.org/NextGraph/async-tungstenite.git?branch=nextgraph#84fcc9e457f7686afcec0e6068819f482c0afa8c"
 dependencies = [
  "async-native-tls",
  "async-std",
@@ -3302,7 +3302,7 @@ dependencies = [
 
 [[package]]
 name = "ng-broker"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "async-std",
  "async-trait",
@@ -3328,7 +3328,7 @@ dependencies = [
 
 [[package]]
 name = "ng-client-ws"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "async-std",
  "async-trait",
@@ -3347,7 +3347,7 @@ dependencies = [
 
 [[package]]
 name = "ng-net"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "async-recursion",
  "async-std",
@@ -3378,7 +3378,7 @@ dependencies = [
 
 [[package]]
 name = "ng-oxigraph"
-version = "0.4.0-alpha.7-ngalpha"
+version = "0.4.0-alpha.8-ngalpha"
 dependencies = [
  "base64-url",
  "codspeed-criterion-compat",
@@ -3402,14 +3402,14 @@ dependencies = [
  "serde",
  "sha1",
  "sha2 0.10.8",
- "siphasher 1.0.1",
+ "siphasher 0.3.10",
  "thiserror",
  "zstd",
 ]
 
 [[package]]
 name = "ng-repo"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "base64-url",
  "blake3",
@@ -3444,7 +3444,7 @@ dependencies = [
 [[package]]
 name = "ng-rocksdb"
 version = "0.21.0-ngpreview.7"
-source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#a56d4082b0286c691d9004b34b9248f28a6f74f0"
+source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#0861351ab34188cb2ed71ee865f463d80019b165"
 dependencies = [
  "bindgen",
  "bzip2-sys",
@@ -3485,7 +3485,7 @@ dependencies = [
 
 [[package]]
 name = "ng-sdk-python"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "async-std",
  "nextgraph",
@@ -3497,7 +3497,7 @@ dependencies = [
 
 [[package]]
 name = "ng-storage-rocksdb"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "ng-repo",
  "ng-rocksdb",
@@ -3525,7 +3525,7 @@ dependencies = [
 
 [[package]]
 name = "ng-verifier"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "async-std",
  "async-trait",
@@ -3550,7 +3550,7 @@ dependencies = [
 
 [[package]]
 name = "ng-wallet"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "aes-gcm-siv",
  "argon2",
@@ -3596,7 +3596,7 @@ dependencies = [
 
 [[package]]
 name = "ngaccount"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "anyhow",
  "duration-str",
@@ -3614,7 +3614,7 @@ dependencies = [
 
 [[package]]
 name = "ngapp"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "base64-url",
  "bytes",
@@ -3634,7 +3634,7 @@ dependencies = [
 
 [[package]]
 name = "ngcli"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "async-std",
  "blake3",
@@ -3654,7 +3654,7 @@ dependencies = [
 
 [[package]]
 name = "ngd"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "addr",
  "async-std",
@@ -3674,7 +3674,7 @@ dependencies = [
 
 [[package]]
 name = "ngnet"
-version = "0.1.1-alpha"
+version = "0.1.1-alpha.2"
 dependencies = [
  "anyhow",
  "duration-str",
