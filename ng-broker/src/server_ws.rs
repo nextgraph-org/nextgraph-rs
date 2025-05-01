@@ -192,14 +192,14 @@ fn prepare_urls_from_private_addrs(addrs: &Vec<BindAddress>, port: u16) -> Vec<S
     res
 }
 
-#[cfg(debug_assertions)]
+#[cfg(not(docsrs))]
 #[derive(RustEmbed)]
 #[folder = "../ng-app/dist-file/"]
 #[include = "*.sha256"]
 #[include = "*.gzip"]
 struct App;
 
-#[cfg(debug_assertions)]
+#[cfg(not(docsrs))]
 #[derive(RustEmbed)]
 #[folder = "../helpers/app-auth/dist/"]
 #[include = "*.sha256"]
@@ -207,14 +207,14 @@ struct App;
 
 struct AppAuth;
 
-#[cfg(not(debug_assertions))]
+#[cfg(docsrs)]
 #[derive(RustEmbed)]
 #[folder = "./static/app/"]
 #[include = "*.sha256"]
 #[include = "*.gzip"]
 struct App;
 
-#[cfg(not(debug_assertions))]
+#[cfg(docsrs)]
 #[derive(RustEmbed)]
 #[folder = "./static/app-auth/"]
 #[include = "*.sha256"]
