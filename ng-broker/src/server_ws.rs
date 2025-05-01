@@ -46,6 +46,10 @@ use ng_net::NG_BOOTSTRAP_LOCAL_PATH;
 
 use ng_client_ws::remote_ws::ConnectionWebSocket;
 
+use ng_app_auth::{get_app_auth_gzip, get_app_auth_sha256};
+
+use ng_app_web::{get_app_web_gzip, get_app_web_sha256};
+
 use crate::interfaces::*;
 use crate::rocksdb_server_storage::RocksDbServerStorage;
 use crate::server_broker::ServerBroker;
@@ -207,20 +211,20 @@ fn prepare_urls_from_private_addrs(addrs: &Vec<BindAddress>, port: u16) -> Vec<S
 
 // struct AppAuth;
 
-#[cfg(not(docsrs))]
-#[derive(RustEmbed)]
-#[folder = "./static/app/"]
-#[include = "*.sha256"]
-#[include = "*.gzip"]
-struct App;
+// #[cfg(not(docsrs))]
+// #[derive(RustEmbed)]
+// #[folder = "./static/app/"]
+// #[include = "*.sha256"]
+// #[include = "*.gzip"]
+// struct App;
 
-#[cfg(not(docsrs))]
-#[derive(RustEmbed)]
-#[folder = "./static/app-auth/"]
-#[include = "*.sha256"]
-#[include = "*.gzip"]
+// #[cfg(not(docsrs))]
+// #[derive(RustEmbed)]
+// #[folder = "./static/app-auth/"]
+// #[include = "*.sha256"]
+// #[include = "*.gzip"]
 
-struct AppAuth;
+// struct AppAuth;
 
 #[derive(RustEmbed)]
 #[folder = "src/public/"]
@@ -251,7 +255,7 @@ fn upgrade_ws_or_serve_app(
     if serve_app && (remote.is_private() || remote.is_loopback()) {
         if uri == "/" {
             log_debug!("Serving the app");
-            let sha_file = App::get("index.sha256").unwrap();
+            let sha_file = get_app_web_sha256();
             let sha = format!(
                 "\"{}\"",
                 std::str::from_utf8(sha_file.data.as_ref()).unwrap()
@@ -266,7 +270,7 @@ fn upgrade_ws_or_serve_app(
                     .unwrap();
                 return Err(res);
             }
-            let file = App::get("index.gzip").unwrap();
+            let file = get_app_web_gzip();
             let res = Response::builder()
                 .status(StatusCode::OK)
                 .header("Content-Type", "text/html")
@@ -296,7 +300,7 @@ fn upgrade_ws_or_serve_app(
                 },
                 None => {return Err(make_error(StatusCode::BAD_REQUEST))}
             };
-            let sha_file = AppAuth::get("index.sha256").unwrap();
+            let sha_file = get_app_auth_sha256();
             let sha = format!(
                 "\"{}\"",
                 std::str::from_utf8(sha_file.data.as_ref()).unwrap()
@@ -313,7 +317,7 @@ fn upgrade_ws_or_serve_app(
                     .unwrap();
                 return Err(res);
             }
-            let file = AppAuth::get("index.gzip").unwrap();
+            let file = get_app_auth_gzip();
             let res = Response::builder().status(StatusCode::OK)
                 .header("Content-Security-Policy", format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"))
                 .header("X-Frame-Options", format!("ALLOW-FROM {webapp_origin}"))

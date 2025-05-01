@@ -13,11 +13,13 @@ members = [
   "ng-sdk-js",
   "ng-sdk-python",
   "ng-app/src-tauri",
+  "ng-app",
   "ng-oxigraph",
   "helpers/wasm-tools",
   "helpers/ngnet",
   "helpers/ngapp",
   "helpers/ngaccount",
+  "helpers/app-auth",
 ]
 default-members = [ "nextgraph", "ngcli",  "ngd" ]
 

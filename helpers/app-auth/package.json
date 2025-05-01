@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "buildcargo": "vite build --base=./ && node prepare-app-file.cjs && shx rm -rf ./dist/assets",
     "build": "cd ../wasm-tools && cargo run-script app && cd ../app-auth && vite build --base=./ && node prepare-app-file.cjs && shx rm -rf ./dist/assets",
     "builddev": "cd ../wasm-tools && cargo run-script app && cd ../app-auth && cross-env NG_DEV=1 vite build --base=./ && shx rm -rf ./dist/assets && shx mkdir -p ../../ng-app/public_dev && cp ./dist/index.html ../../ng-app/public_dev/appauth.html",
     "preview": "vite preview"

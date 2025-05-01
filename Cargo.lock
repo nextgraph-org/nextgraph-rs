@@ -3287,6 +3287,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ng-app-auth"
+version = "0.1.1-alpha.2"
+dependencies = [
+ "rust-embed",
+]
+
+[[package]]
+name = "ng-app-web"
+version = "0.1.1-alpha.2"
+dependencies = [
+ "rust-embed",
+]
+
+[[package]]
 name = "ng-async-tungstenite"
 version = "0.22.2"
 source = "git+https://git.nextgraph.org/NextGraph/async-tungstenite.git?branch=nextgraph#84fcc9e457f7686afcec0e6068819f482c0afa8c"
@@ -3311,6 +3325,8 @@ dependencies = [
  "futures",
  "getrandom 0.2.10",
  "netdev",
+ "ng-app-auth",
+ "ng-app-web",
  "ng-async-tungstenite",
  "ng-client-ws",
  "ng-net",
