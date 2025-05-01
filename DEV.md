@@ -167,15 +167,7 @@ cargo test --package ng-client-ws --lib -- remote_ws::test::test_ws --show-outpu
 ### Build release binaries
 
 First you will need to have the production build of the frontend.
-If you do not want to setup a whole development environment for the frontend, you can use the precompiled release of the frontend available in `dist-file.tar.gz` that you can download from the release page.
-
-```
-cd ng-app
-tar -xzf dist-file.tar.gz
-cd ..
-```
-
-Otherwise, build from source the single-file release of ng-app
+You need to freshly built it from source, following those instructions:
 
 ```
 cargo install cargo-run-script
@@ -187,9 +179,6 @@ pnpm -C ./ng-app install
 pnpm -C ./ng-app webfilebuild
 pnpm -C ./helpers/app-auth install
 pnpm -C ./helpers/app-auth build
-mkdir ng-broker/static
-cp -r ./ng-app/dist-file ./ng-broker/static/app
-cp -r ./helpers/app-auth/dist ./ng-broker/static/app-auth
 ```
 
 then build the ngd daemon

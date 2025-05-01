@@ -32,8 +32,6 @@ ng-net = { path = "../ng-net", version = "0.1.1-alpha.2" }
 ng-client-ws = { path = "../ng-client-ws", version = "0.1.1-alpha.2" }
 ng-verifier = { path = "../ng-verifier", version = "0.1.1-alpha.2" }
 ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.1-alpha.2" }
-ng-app-auth = { path = "../helpers/app-auth", version = "0.1.1-alpha.2" }
-ng-app-web = { path = "../ng-app", version = "0.1.1-alpha.2" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
 version = "0.2.7"

@@ -3287,20 +3287,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ng-app-auth"
-version = "0.1.1-alpha.2"
-dependencies = [
- "rust-embed",
-]
-
-[[package]]
-name = "ng-app-web"
-version = "0.1.1-alpha.2"
-dependencies = [
- "rust-embed",
-]
-
-[[package]]
 name = "ng-async-tungstenite"
 version = "0.22.2"
 source = "git+https://git.nextgraph.org/NextGraph/async-tungstenite.git?branch=nextgraph#84fcc9e457f7686afcec0e6068819f482c0afa8c"
@@ -3325,8 +3311,6 @@ dependencies = [
  "futures",
  "getrandom 0.2.10",
  "netdev",
- "ng-app-auth",
- "ng-app-web",
  "ng-async-tungstenite",
  "ng-client-ws",
  "ng-net",
@@ -3593,8 +3577,8 @@ dependencies = [
 
 [[package]]
 name = "ng_threshold_crypto"
-version = "0.4.0"
-source = "git+https://git.nextgraph.org/NextGraph/threshold_crypto.git?branch=master#f3fee569e04999b898a1b3edc412ebf961099550"
+version = "0.4.1"
+source = "git+https://git.nextgraph.org/NextGraph/threshold_crypto.git?branch=master#5475af23b4fe77f5ad1aba083c9058379065fffa"
 dependencies = [
  "byteorder",
  "ff",
