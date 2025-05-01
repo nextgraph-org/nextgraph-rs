@@ -33,6 +33,7 @@ cargo run-script app
 cd ../..
 pnpm -C ./ng-app install
 pnpm -C ./ng-app webfilebuild
+pnpm -C ./helpers/app-auth install
 pnpm -C ./helpers/app-auth build
 ```
 
@@ -181,10 +182,14 @@ cargo install cargo-run-script
 npm install -g pnpm
 cd ng-sdk-js
 cargo run-script app
-cd ../ng-app
-pnpm install
-pnpm webfilebuild
 cd ..
+pnpm -C ./ng-app install
+pnpm -C ./ng-app webfilebuild
+pnpm -C ./helpers/app-auth install
+pnpm -C ./helpers/app-auth build
+mkdir ng-broker/static
+cp -r ./ng-app/dist-file ./ng-broker/static/app
+cp -r ./helpers/app-auth/dist ./ng-broker/static/app-auth
 ```
 
 then build the ngd daemon
