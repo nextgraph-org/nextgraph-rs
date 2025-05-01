@@ -8,7 +8,9 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
-keywords.workspace = true
+keywords = [
+"crdt","decentralized","cli","local-first","p2p"
+]
 documentation.workspace = true
 rust-version.workspace = true
 
