@@ -2761,7 +2761,7 @@ pub struct CommitContentV0 {
     pub metadata: Vec<u8>,
 
     /// reference to an Object with a CommitBody inside.
-    /// When the commit is reverted or erased (after compaction/snapshot), the CommitBody is deleted, creating a dangling reference
+    /// When the commit is reverted or erased (before compaction/snapshot), the CommitBody is deleted, creating a dangling reference
     pub body: ObjectRef,
 }
 

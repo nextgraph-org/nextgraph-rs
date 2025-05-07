@@ -24,7 +24,7 @@ And our community forum where you can ask questions is here [https://forum.nextg
 
 Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/).
 
-You need to create a Wallet for yourself, on one of our Public Broker Service Provider. Alternativey, you can do everything locally, as [described below](#local-development)
+You need to create a Wallet for yourself, on one of our Public Broker Service Provider. Alternatively, you can do everything locally, as [described below](#local-development)
 
 ```
 npm i nextgraphweb
