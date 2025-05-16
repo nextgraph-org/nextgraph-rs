@@ -28,7 +28,7 @@ npm install -g pnpm
 cd ng-sdk-js
 cargo run-script app
 cd ..
-cd helpers/wasm-helpers
+cd helpers/wasm-tools
 cargo run-script app
 cd ../..
 pnpm -C ./ng-app install
