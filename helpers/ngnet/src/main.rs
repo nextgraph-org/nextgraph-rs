@@ -125,7 +125,7 @@ async fn main() -> anyhow::Result<()> {
         .map(|reply, p: HashMap<String, String>| match p.get("o") {
             Some(obj) => {
                 let decoded = obj.trim();
-                if BSP_DETAILS.get(decoded).is_none() {
+                if BSP_DETAILS.get(decoded).is_none() && decoded != "http://localhost:14400" && decoded != "http://localhost:1421" {
                     // rejected (BSP not listed)
                     warp::http::StatusCode::UNAUTHORIZED.into_response()
                 } else {
@@ -182,9 +182,11 @@ async fn main() -> anyhow::Result<()> {
     {
         cors = cors.allow_origin(NG_NET_URL);
         cors = cors.allow_origin(NG_APP_URL);
+        cors = cors.allow_origin("http://localhost:14400");
+        cors = cors.allow_origin("http://localhost:1421");
         // TODO when there will be an API again, we will call it from any BSPs.
         // we should add the list of all BSPs origin's here
-        log::info!("Starting server on http://localhost:3033");
+        log::info!("Starting production server on http://localhost:3033");
         warp::serve(static_files.or(static_files_auth.or(static_files_bootstrap)).with(cors).with(incoming_log))
             .run(([127, 0, 0, 1], 3033))
             .await;

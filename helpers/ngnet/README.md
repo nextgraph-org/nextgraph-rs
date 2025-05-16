@@ -28,7 +28,7 @@ pnpm run dev --host
 cargo watch -c -w src -x run
 ```
 
-> Currently, the ngnet server api is listening on http://127.0.0.1:3033 only which might cause you trouble with Android emulator (hardcoded in `main.rs`).
+> Currently, the ngnet server api is listening on http://127.0.0.1:3033 only, which might cause you trouble with Android emulator (hardcoded in `main.rs`).
 > If you need to test from a (virtual) android device, you can use adb to tunnel the connection like: [`adb reverse tcp:3033 tcp:3033`](https://justinchips.medium.com/proxying-adb-client-connections-2ab495f774eb).
 
 ## Prod
