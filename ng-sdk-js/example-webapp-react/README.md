@@ -17,7 +17,7 @@ npm install
 npm run dev
 ```
 
-You will have to use a Wallet that was created on one of our public Broker Service Providers (nextgraph.eu by example).
+You will have to use a Wallet that was created on one of our public Broker Service Providers (nextgraph.eu by example) before you can actually login. We didn't implement yet the option to create a Wallet while you are using or developing a 3rd party app.
 
 ## For developing locally
 
