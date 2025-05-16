@@ -80,6 +80,10 @@ lazy_static! {
         Regex::new(r"^\[([0-9a-fA-F:]{3,39})\](\:\d{1,5})?$").unwrap();
 }
 
+pub fn decode_locator(string: &str) -> Result<Locator, NgError> {
+    unimplemented!();
+}
+
 #[doc(hidden)]
 pub fn parse_ipv4_and_port_for(
     string: String,

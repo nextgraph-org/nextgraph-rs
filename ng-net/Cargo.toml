@@ -32,6 +32,7 @@ unique_id = "0.1.5"
 noise-protocol = "0.2.0"
 noise-rust-crypto = "0.6.2"
 ed25519-dalek = "1.0.1"
+crypto_box = { version = "0.8.2", features = ["seal"] }
 url = "2.4.0"
 regex = "1.8.4"
 base64-url = "2.0.0"

@@ -16,10 +16,10 @@ if (!import.meta.env.TAURI_PLATFORM) {
   // cleaning old wallets :(
   try {
     let version = localStorage.getItem("ng_wallet_version");
-    if (!version || version != "0.1.1") {
+    if (!version || version != "0.1.2-alpha.1") {
       localStorage.clear();
       sessionStorage.clear();
-      localStorage.setItem("ng_wallet_version","0.1.1")
+      localStorage.setItem("ng_wallet_version","0.1.2-alpha.1")
     }
   }
   catch (e) {

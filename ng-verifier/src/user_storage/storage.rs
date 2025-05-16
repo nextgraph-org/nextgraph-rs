@@ -42,6 +42,8 @@ pub trait UserStorage: Send + Sync {
 
     fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError>;
 
+    fn update_inbox_cap(&self, repo_id: &RepoId, overlay: &OverlayId, priv_key: &PrivKey) -> Result<(), StorageError>;
+
     fn update_certificate(
         &self,
         repo_id: &RepoId,
@@ -49,6 +51,8 @@ pub trait UserStorage: Send + Sync {
     ) -> Result<(), StorageError>;
 
     fn get_signer_cap(&self, repo_id: &RepoId) -> Result<SignerCap, StorageError>;
+
+    fn get_inbox_cap(&self, repo_id: &RepoId) -> Result<PrivKey, StorageError>;
 
     fn branch_add_file(
         &self,
@@ -86,6 +90,7 @@ pub(crate) struct InMemoryUserStorage {
     branch_files: RwLock<HashMap<BranchId, Vec<FileName>>>,
     branch_discrete_state: RwLock<HashMap<BranchId, Vec<u8>>>,
     repo_signer_cap: RwLock<HashMap<RepoId, SignerCap>>,
+    repo_inbox_cap: RwLock<HashMap<RepoId, PrivKey>>,
 }
 
 impl InMemoryUserStorage {
@@ -94,6 +99,7 @@ impl InMemoryUserStorage {
             branch_files: RwLock::new(HashMap::new()),
             branch_discrete_state: RwLock::new(HashMap::new()),
             repo_signer_cap: RwLock::new(HashMap::new()),
+            repo_inbox_cap: RwLock::new(HashMap::new()),
         }
     }
 }
@@ -184,9 +190,20 @@ impl UserStorage for InMemoryUserStorage {
         lock.insert(signer_cap.repo, signer_cap.clone());
         Ok(())
     }
-
+    
     fn get_signer_cap(&self, repo_id: &RepoId) -> Result<SignerCap, StorageError> {
         let mut lock = self.repo_signer_cap.write().unwrap();
+        Ok(lock.remove(repo_id).ok_or(StorageError::NotFound)?)
+    }
+
+    fn update_inbox_cap(&self, repo_id: &RepoId, overlay: &OverlayId, priv_key: &PrivKey) -> Result<(), StorageError> {
+        let mut lock = self.repo_inbox_cap.write().unwrap();
+        lock.insert(*repo_id, priv_key.clone());
+        Ok(())
+    }
+
+    fn get_inbox_cap(&self, repo_id: &RepoId) -> Result<PrivKey, StorageError> {
+        let mut lock = self.repo_inbox_cap.write().unwrap();
         Ok(lock.remove(repo_id).ok_or(StorageError::NotFound)?)
     }
 

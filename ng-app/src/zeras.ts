@@ -92,6 +92,17 @@ export const official_apps = {
         "ng:w": [],
         implemented: true,
     },
+    "n:g:z:social_query_skills_programming_editor": { 
+        "ng:n": "Social Query",
+        "ng:a": "Create and View your Social Query about Programming Skills",
+        "ng:c": "app", 
+        "ng:u": "social_query",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:social_query_skills_programming_editor",
+        "ng:b": "SocialQueryDemo",
+        "ng:o": ["social:query:skills:programming"],
+        "ng:w": ["social:query:skills:programming"],
+        implemented: true,
+    },
     "n:g:z:sparql_query": {
         "ng:n": "SPARQL Query",
         "ng:a": "View, edit and invoke a Graph SPARQL query",

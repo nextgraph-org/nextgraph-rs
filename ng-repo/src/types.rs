@@ -613,6 +613,12 @@ pub enum OverlayId {
     Global,
 }
 
+impl Default for OverlayId {
+    fn default() -> Self {
+        OverlayId::Outer([0;32])
+    }
+}
+
 impl fmt::Display for OverlayId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut ser = serde_bare::to_vec(&self).unwrap();
@@ -1953,6 +1959,54 @@ pub enum RemoveLink {
     V0(RemoveLinkV0),
 }
 
+
+/// Adds an Inbox Capability (privkey) into the user branch, so that a user can share with all its device.
+///
+/// DEPS to the previous AddInboxCap commit(s) if it is an update. in this case, repo_id should match
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AddInboxCapV0 {
+    /// Repo the Inbox is opened for
+    pub repo_id: RepoId,
+
+    /// Overlay of the repo
+    pub overlay: OverlayId,
+
+    pub priv_key: PrivKey,
+
+    /// Metadata
+    #[serde(with = "serde_bytes")]
+    pub metadata: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum AddInboxCap {
+    V0(AddInboxCapV0),
+}
+
+impl AddInboxCap {
+    pub fn new_v0(repo_id: RepoId, overlay: OverlayId, priv_key: PrivKey) -> Self {
+        Self::V0(AddInboxCapV0{
+            repo_id,
+            overlay,
+            priv_key,
+            metadata: vec![]
+        })
+    }
+}
+
+impl fmt::Display for AddInboxCap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V0(v0) => {
+                writeln!(f, "V0")?;
+                writeln!(f, "repo:   {:?}", v0.repo_id)?;
+                writeln!(f, "cap:    {:?}", v0.priv_key)?;
+                Ok(())
+            }
+        }
+    }
+}
+
 /// Adds a SignerCap into the user branch,
 ///
 /// so that a user can share with all its device a new signing capability that was just created.
@@ -2636,6 +2690,7 @@ pub enum CommitBodyV0 {
     //
     AddLink(AddLink),
     RemoveLink(RemoveLink),
+    AddInboxCap(AddInboxCap),
     AddSignerCap(AddSignerCap),
     RemoveSignerCap(RemoveSignerCap),
     WalletUpdate(WalletUpdate),

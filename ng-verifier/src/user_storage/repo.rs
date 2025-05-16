@@ -46,6 +46,7 @@ impl<'a> RepoStorage<'a> {
     const CHAT_BRANCH: u8 = b'c';
     const DEFINITION: u8 = b'd';
     const STORE_BRANCH: u8 = b'e';
+    const CERTIFICATE: u8 = b'f';
     const INHERIT: u8 = b'i';
     const OVERLAY_BRANCH: u8 = b'l';
     const MAIN_BRANCH: u8 = b'm';
@@ -57,10 +58,11 @@ impl<'a> RepoStorage<'a> {
     //const SIGNER_CAP_TOTAL: u8 = b't';
     const USER_BRANCH: u8 = b'u';
     const WRITE_CAP_SECRET: u8 = b'w';
-    const CERTIFICATE: u8 = b'f';
+    const INBOX_CAP: u8 = b'x';
 
-    const ALL_PROPERTIES: [u8; 15] = [
+    const ALL_PROPERTIES: [u8; 16] = [
         Self::SIGNER_CAP,
+        Self::INBOX_CAP,
         //Self::SIGNER_CAP_PARTIAL,
         Self::CHAT_BRANCH,
         Self::DEFINITION,
@@ -107,6 +109,7 @@ impl<'a> RepoStorage<'a> {
             repo.read_cap.as_ref().unwrap(),
             repo.write_cap.as_ref(),
             repo.signer.as_ref(),
+            repo.inbox.as_ref(),
             repo.store.get_store_repo(),
             &repo.repo_def,
             &repo.branches,
@@ -156,6 +159,21 @@ impl<'a> RepoStorage<'a> {
         Ok(())
     }
 
+    pub fn update_inbox_cap(
+        repo_id: &RepoId,
+        overlay: &OverlayId,
+        priv_key: &PrivKey,
+        storage: &'a dyn KCVStorage,
+    ) -> Result<(), StorageError> {
+        storage.write_transaction(&mut |tx| {
+            let id_ser = to_vec(repo_id)?;
+            let value = to_vec(priv_key)?;
+            tx.put(Self::PREFIX, &id_ser, Some(Self::INBOX_CAP), &value, &None)?;
+            Ok(())
+        })?;
+        Ok(())
+    }
+
     pub fn update_certificate(
         id: &RepoId,
         certificate: &ObjectRef,
@@ -186,11 +204,22 @@ impl<'a> RepoStorage<'a> {
         Ok(from_slice(&ser)?)
     }
 
+    pub fn get_inbox_cap(&self) -> Result<PrivKey, StorageError> {
+        let ser = self.storage.get(
+            Self::PREFIX,
+            &to_vec(&self.id).unwrap(),
+            Some(Self::INBOX_CAP),
+            &None,
+        )?;
+        Ok(from_slice(&ser)?)
+    }
+
     pub fn create(
         id: &RepoId,
         read_cap: &ReadCap,
         write_cap: Option<&RepoWriteCapSecret>,
         signer_cap: Option<&SignerCap>,
+        inbox_cap: Option<&PrivKey>,
         store_repo: &StoreRepo,
         repo_def: &Repository,
         branches: &HashMap<BranchId, BranchInfo>,
@@ -245,6 +274,10 @@ impl<'a> RepoStorage<'a> {
             if let Some(sc) = signer_cap {
                 let value = to_vec(sc)?;
                 tx.put(Self::PREFIX, &id_ser, Some(Self::SIGNER_CAP), &value, &None)?;
+            }
+            if let Some(ic) = inbox_cap {
+                let value = to_vec(ic)?;
+                tx.put(Self::PREFIX, &id_ser, Some(Self::INBOX_CAP), &value, &None)?;
             }
             for branch in branches.keys() {
                 let mut branch_ser = to_vec(branch)?;
@@ -326,6 +359,7 @@ impl<'a> RepoStorage<'a> {
             read_cap: prop(Self::READ_CAP, &props)?,
             write_cap: prop(Self::WRITE_CAP_SECRET, &props).ok(),
             signer: prop(Self::SIGNER_CAP, &props).ok(),
+            inbox: prop(Self::INBOX_CAP, &props).ok(),
             //TODO: members
             members: HashMap::new(),
             branches,

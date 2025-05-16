@@ -19,6 +19,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use nextgraph::net::app_protocol::AppRequest;
 use ng_wallet::types::SensitiveWallet;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -40,7 +41,7 @@ use ng_repo::utils::{decode_key, decode_priv_key};
 
 use ng_net::app_protocol::*;
 use ng_net::broker::*;
-use ng_net::types::{BindAddress, ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, IP, BootstrapContentV0};
+use ng_net::types::{BindAddress, ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, IP, BootstrapContentV0, InboxPost};
 use ng_net::utils::{
     decode_invitation_string, parse_ip_and_port_for, retrieve_local_bootstrap, retrieve_local_url,
     spawn_and_log_error, Receiver, ResultSend, Sender,
@@ -599,6 +600,47 @@ pub async fn rdf_dump(session_id: JsValue) -> Result<String, String> {
     let AppResponse::V0(res) = res;
     match res {
         AppResponseV0::Text(s) => Ok(s),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+/// from_profile_nuri = did:ng:a or did:ng:b
+/// query_nuri = did:ng:o:c:k
+/// contacts = did:ng:d:c or a sparql query
+#[wasm_bindgen]
+pub async fn social_query_start(
+        session_id: JsValue,
+        from_profile_nuri: String, 
+        query_nuri: String, 
+        contacts: String, 
+        degree: JsValue,
+    ) -> Result<(), String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Invalid session_id".to_string())?;
+    let degree: u16 = serde_wasm_bindgen::from_value::<u16>(degree)
+        .map_err(|_| "Invalid degree".to_string())?;
+
+    let query = NuriV0::new_from_commit(&query_nuri).map_err(|e| format!("Invalid query_nuri {e}"))?;
+
+    let from_profile = match from_profile_nuri.as_str() {
+        "did:ng:a" => NuriV0::new_public_store_target(),
+        "did:ng:b" => NuriV0::new_protected_store_target(),
+        _ => return Err("Invalid from_profile_nuri".to_string())
+    };
+
+    if ! (contacts == "did:ng:d:c" || contacts.starts_with("SELECT")) { return Err("Invalid contacts".to_string()); }
+
+    let mut request = AppRequest::social_query_start(from_profile, query, contacts, degree);
+    request.set_session_id(session_id);
+
+    let res = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    let AppResponse::V0(res) = res;
+    match res {
+        AppResponseV0::Ok => Ok(()),
+        AppResponseV0::Error(e) => Err(e.to_string()),
         _ => Err("invalid response".to_string()),
     }
 }

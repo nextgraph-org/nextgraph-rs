@@ -553,6 +553,29 @@ impl<
         }
         Ok(res)
     }
+
+    pub fn take_first_value(&self, model: &mut Model) -> Result<Value, StorageError> {
+        model.check_exists()?;
+        let key_prefix = model.key();
+        let key_prefix_len = key_prefix.len();
+        let total_size = key_prefix_len + self.value_size()?;
+        let val = model.storage().take_first_value(
+            self.prefix,
+            total_size,
+            key_prefix.to_vec(),
+            None,
+            &None,
+        )?;
+        Ok(from_slice(&val)?)
+        // ? {
+        //     if val.0.len() == total_size + 1 {
+        //         let col: Column = from_slice(&val.0[1 + key_prefix_len..total_size + 1])?;
+        //         let val = from_slice(&val.1)?;
+        //         res.insert(col, val);
+        //     }
+        // }
+        // Ok(res)
+    }
 }
 impl<
         Model: IModel,
@@ -956,6 +979,15 @@ pub trait WriteTransaction: ReadTransaction {
         family: &Option<String>,
     ) -> Result<(), StorageError>;
 
+    fn take_first_value(
+        &self,
+        prefix: u8,
+        key_size: usize,
+        key_prefix: Vec<u8>,
+        suffix: Option<u8>,
+        family: &Option<String>,
+    ) -> Result<Vec<u8>, StorageError>;
+
     /// Delete a property from the store.
     fn del(
         &self,
@@ -1024,6 +1056,15 @@ pub trait ReadTransaction {
         properties: Vec<u8>,
         family: &Option<String>,
     ) -> Result<HashMap<u8, Vec<u8>>, StorageError>;
+
+    fn get_first_key_value(
+        &self,
+        prefix: u8,
+        key_size: usize,
+        key_prefix: Vec<u8>,
+        suffix: Option<u8>,
+        family: &Option<String>,
+    ) -> Result<(Vec<u8>,Vec<u8>), StorageError>;
 
     /// Check if a specific value exists for a property from the store.
     fn has_property_value(

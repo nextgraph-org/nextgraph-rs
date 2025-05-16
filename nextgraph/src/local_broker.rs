@@ -567,19 +567,26 @@ impl fmt::Debug for LocalBroker {
 }
 
 #[doc(hidden)]
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait ILocalBroker: Send + Sync + EActor {
     async fn deliver(&mut self, event: Event, overlay: OverlayId, user: UserId);
-
+    async fn inbox(&mut self, user_id: UserId, msg: InboxMsg, from_queue: bool);
     async fn user_disconnected(&mut self, user_id: UserId);
 }
 
-// used to deliver events to the verifier on Clients, or Core that have Verifiers attached.
-#[async_trait::async_trait]
+// used to deliver events to the verifier on Clients, or on Cores that have Verifiers attached.
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl ILocalBroker for LocalBroker {
     async fn deliver(&mut self, event: Event, overlay: OverlayId, user_id: UserId) {
         if let Some(session) = self.get_mut_session_for_user(&user_id) {
             session.verifier.deliver(event, overlay).await;
+        }
+    }
+    async fn inbox(&mut self, user_id: UserId, msg: InboxMsg, from_queue: bool) {
+        if let Some(session) = self.get_mut_session_for_user(&user_id) {
+            session.verifier.inbox(msg, from_queue).await;
         }
     }
     async fn user_disconnected(&mut self, user_id: UserId) {
@@ -629,6 +636,9 @@ async fn pump(
                 overlay,
                 user,
             } => broker.deliver(event, overlay, user).await,
+            LocalBrokerMessage::Inbox {msg, user_id, from_queue} => {
+                broker.inbox(user_id, msg, from_queue).await
+            },
             LocalBrokerMessage::Disconnected { user_id } => broker.user_disconnected(user_id).await,
         }
     }
@@ -700,7 +710,7 @@ impl LocalBroker {
             .await
             .connect(
                 Arc::new(Box::new(ConnectionWebSocket {})),
-                config.client_peer_key.as_ref().unwrap().clone(),
+                config.client_peer_key.to_owned().unwrap(),
                 config.client_peer_key.as_ref().unwrap().to_pub(),
                 config.server_peer_id,
                 StartConfig::App(AppConfig {
@@ -1074,7 +1084,7 @@ impl LocalBroker {
                     as Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync + 'static>>
             }
         };
-        let client = wallet.client().as_ref().unwrap().clone();
+        let client = wallet.client().to_owned().unwrap();
         let opened_wallet = OpenedWallet {
             wallet,
             block_storage,
@@ -2489,6 +2499,12 @@ pub async fn user_connect_with_device_info(
                                 tried.as_mut().unwrap().3 = Some(e.to_string());
                             } else {
                                 local_broker.start_pump().await;
+
+                                // try to pop inbox msg
+                                let broker = BROKER.read().await;
+                                broker
+                                    .send_client_event(&Some(*user), &Some(server_key), ClientEvent::InboxPopRequest)
+                                    .await?;
                             }
                             break;
                         } else {

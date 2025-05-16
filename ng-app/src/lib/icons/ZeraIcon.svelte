@@ -72,6 +72,7 @@
     Eye,
     Square3Stack3d,
     QueueList,
+    Lifebuoy,
   } from "svelte-heros-v2";
   import JsonIcon from "./JsonIcon.svelte";
   import JsonLdIcon from "./JsonLdIcon.svelte";
@@ -113,6 +114,7 @@
     list: ListBullet,
     grid: Squares2x2,
     view: Eye,
+    social_query: Lifebuoy,
   };
 
   const prefix_mapping = {};

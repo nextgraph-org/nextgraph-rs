@@ -272,7 +272,8 @@
     "social:channel",
     "social:scheduler",
     "social:calendar",
-    "social:live"
+    "social:live",
+    "social:query:skills:programming",
   ];
 
   const create_pro_items = [
@@ -1035,7 +1036,7 @@
           {#if createMenuOpened.social }
             {#each create_social_items as item}
               <!-- () => new_document(item) -->
-              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ undefined }>
+              <MenuItem title={get_class(item)["ng:a"]} extraClass="submenu" clickable={ get_class(item)["implemented"] ? () => new_document(item) : undefined }>
                 <DataClassIcon dataClass={item} {config}/>
                 <span class="ml-3">{get_class(item)["ng:n"]}</span>
               </MenuItem>

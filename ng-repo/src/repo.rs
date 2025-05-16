@@ -123,6 +123,8 @@ pub struct Repo {
 
     pub signer: Option<SignerCap>,
 
+    pub inbox: Option<PrivKey>,
+
     pub certificate_ref: Option<ObjectRef>,
 
     pub members: HashMap<Digest, UserInfo>,
@@ -569,6 +571,7 @@ impl Repo {
             members,
             store,
             signer: None,
+            inbox: None,
             certificate_ref: None,
             read_cap: None,
             write_cap: None,

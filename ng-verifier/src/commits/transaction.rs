@@ -248,6 +248,19 @@ impl Verifier {
         Ok(())
     }
 
+    pub(crate) fn get_triples_from_transaction(commit_body: &CommitBody) -> Result<Vec<Triple>, VerifierError> {
+        match commit_body {
+            CommitBody::V0(CommitBodyV0::AsyncTransaction(Transaction::V0(v0))) => {
+                let transac: TransactionBody = serde_bare::from_slice(v0)?;
+                if let Some(graph_transac) = transac.graph {
+                    return Ok(graph_transac.inserts);
+                }
+            },
+            _ => {}
+        }
+        Err(VerifierError::InvalidCommit)
+    }
+
     pub(crate) async fn verify_async_transaction(
         &mut self,
         transaction: &Transaction,

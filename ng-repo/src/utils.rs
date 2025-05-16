@@ -149,10 +149,10 @@ pub fn keypair_from_ed(secret: SecretKey, public: PublicKey) -> (PrivKey, PubKey
 pub fn sign(
     author_privkey: &PrivKey,
     author_pubkey: &PubKey,
-    content: &Vec<u8>,
+    content: &[u8],
 ) -> Result<Sig, NgError> {
     let keypair = pubkey_privkey_to_keypair(author_pubkey, author_privkey);
-    let sig_bytes = keypair.sign(content.as_slice()).to_bytes();
+    let sig_bytes = keypair.sign(content).to_bytes();
     // log_debug!(
     //     "XXXX SIGN {:?} {:?} {:?}",
     //     author_pubkey,
@@ -166,7 +166,7 @@ pub fn sign(
     Ok(Sig::Ed25519Sig(ss))
 }
 
-pub fn verify(content: &Vec<u8>, sig: Sig, pub_key: PubKey) -> Result<(), NgError> {
+pub fn verify(content: &[u8], sig: Sig, pub_key: PubKey) -> Result<(), NgError> {
     let pubkey = match pub_key {
         PubKey::Ed25519PubKey(pk) => pk,
         _ => panic!("cannot verify with Montgomery keys"),
@@ -205,6 +205,13 @@ pub fn now_timestamp() -> Timestamp {
         / 60)
         .try_into()
         .unwrap()
+}
+
+pub fn now_precise_timestamp() -> (u64,u32) {
+    let dur = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap();
+    (dur.as_secs(),dur.subsec_nanos())
 }
 
 /// returns a new NextGraph Timestamp equivalent to the duration after now.

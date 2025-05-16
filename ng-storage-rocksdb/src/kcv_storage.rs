@@ -74,6 +74,21 @@ impl<'a> ReadTransaction for RocksdbTransaction<'a> {
             .get_all_keys_and_values_(prefix, key_size, key_prefix, suffix, iter)
     }
 
+    fn get_first_key_value(
+        &self,
+        prefix: u8,
+        key_size: usize,
+        key_prefix: Vec<u8>,
+        suffix: Option<u8>,
+        family: &Option<String>,
+    ) -> Result<(Vec<u8>,Vec<u8>), StorageError> {
+        let property_start =
+            RocksDbKCVStorage::calc_key_start(prefix, key_size, &key_prefix, &suffix);
+        let iter = self.get_iterator(&property_start, &family)?;
+        self.store
+            .get_first_key_value_(prefix, key_size, key_prefix, suffix, iter)
+    }
+
     fn get_all_properties_of_key(
         &self,
         prefix: u8,
@@ -213,6 +228,20 @@ impl<'a> WriteTransaction for RocksdbTransaction<'a> {
         Ok(())
     }
 
+    fn take_first_value(
+        &self,
+        prefix: u8,
+        key_size: usize,
+        key_prefix: Vec<u8>,
+        suffix: Option<u8>,
+        family: &Option<String>,
+    ) -> Result<Vec<u8>, StorageError> {
+        let (key,value) = self.get_first_key_value(prefix, key_size, key_prefix, suffix, family)?;
+        let key_without_prefix = key[1..].to_vec();
+        self.del(prefix, &key_without_prefix, suffix, family)?;
+        Ok(value)
+    }
+
     /// Delete a specific value for a property from the store.
     fn del_property_value(
         &self,
@@ -342,6 +371,20 @@ impl ReadTransaction for RocksDbKCVStorage {
         self.get_all_keys_and_values_(prefix, key_size, key_prefix, suffix, iter)
     }
 
+    fn get_first_key_value(
+        &self,
+        prefix: u8,
+        key_size: usize,
+        key_prefix: Vec<u8>,
+        suffix: Option<u8>,
+        family: &Option<String>,
+    ) -> Result<(Vec<u8>,Vec<u8>), StorageError> {
+        let property_start =
+            RocksDbKCVStorage::calc_key_start(prefix, key_size, &key_prefix, &suffix);
+        let iter = self.get_iterator(&property_start, &family)?;
+        self.get_first_key_value_(prefix, key_size, key_prefix, suffix, iter)
+    }
+
     /// returns a map of found properties and their value. If `properties` is empty, then all the properties are returned.
     /// Otherwise, only the properties in the list are returned (if found in backend storage)
     fn get_all_properties_of_key(
@@ -468,6 +511,23 @@ impl WriteTransaction for RocksDbKCVStorage {
         family: &Option<String>,
     ) -> Result<(), StorageError> {
         self.write_transaction(&mut |tx| tx.del(prefix, key, suffix, family))
+    }
+
+    fn take_first_value(
+        &self,
+        prefix: u8,
+        key_size: usize,
+        key_prefix: Vec<u8>,
+        suffix: Option<u8>,
+        family: &Option<String>,
+    ) -> Result<Vec<u8>, StorageError> {
+        let mut value: Option<Vec<u8>> = None;
+        self.write_transaction(&mut |tx| {
+            let val = tx.take_first_value(prefix, key_size, key_prefix.clone(), suffix, family)?;
+            value = Some(val);
+            Ok(())
+        })?;
+        Ok(value.unwrap())
     }
 
     /// Delete a specific value for a property from the store.
@@ -610,6 +670,81 @@ impl RocksDbKCVStorage {
             }
         }
         Ok(vector)
+    }
+
+    fn get_first_key_value_(
+        &self,
+        prefix: u8,
+        key_size: usize,
+        key_prefix: Vec<u8>,
+        suffix: Option<u8>,
+        mut iter: DBIteratorWithThreadMode<'_, impl ng_rocksdb::DBAccess>,
+    ) -> Result<(Vec<u8>,Vec<u8>), StorageError> {
+        if key_prefix.len() > key_size {
+            return Err(StorageError::InvalidValue);
+        }
+
+        // let mut vec_key_start = key_prefix.clone();
+        // let mut trailing_zeros = vec![0u8; key_size - key_prefix.len()];
+        // vec_key_start.append(&mut trailing_zeros);
+
+        let mut vec_key_end = key_prefix.clone();
+        let mut trailing_max = vec![255u8; key_size - key_prefix.len()];
+        vec_key_end.append(&mut trailing_max);
+
+        // let property_start = Self::compute_property(prefix, &vec_key_start, suffix);
+        let property_end =
+            Self::compute_property(prefix, &vec_key_end, &Some(suffix.unwrap_or(255u8)));
+
+        // let mut iter = match family {
+        //     Some(cf) => self.db.iterator_cf(
+        //         self.db
+        //             .cf_handle(&cf)
+        //             .ok_or(StorageError::UnknownColumnFamily)?,
+        //         IteratorMode::From(&property_start, Direction::Forward),
+        //     ),
+        //     None => self
+        //         .db
+        //         .iterator(IteratorMode::From(&property_start, Direction::Forward)),
+        // };
+        loop {
+            let res = iter.next();
+            match res {
+                Some(Ok(val)) => {
+                    //log_info!("{:?} {:?}", val.0, val.1);
+                    match compare(&val.0, property_end.as_slice()) {
+                        std::cmp::Ordering::Less | std::cmp::Ordering::Equal => {
+                            if suffix.is_some() {
+                                if val.0.len() < key_size + 2
+                                    || val.0[1 + key_size] != suffix.unwrap()
+                                {
+                                    // log_info!(
+                                    //     "SKIPPED cause suffix {} {} {} {}",
+                                    //     val.0.len(),
+                                    //     key_size + 2,
+                                    //     val.0[1 + key_size],
+                                    //     suffix.unwrap()
+                                    // );
+                                    continue;
+                                }
+                                // } else if val.0.len() > (key_size + 1) {
+                                //     continue;
+                            }
+                            return Ok((val.0.to_vec(), val.1.to_vec()));
+                        }
+                        _ => {
+                            //log_info!("SKIPPED cause above END");
+                            break;
+                        } //,
+                    }
+                }
+                Some(Err(_e)) => return Err(StorageError::BackendError),
+                None => {
+                    break;
+                }
+            }
+        }
+        Err(StorageError::NotFound)
     }
 
     fn calc_key_start(

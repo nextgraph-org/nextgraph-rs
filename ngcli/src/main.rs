@@ -750,7 +750,7 @@ async fn main_inner() -> Result<(), NgcliError> {
                 peer_pubk,
                 config_v0.peer_id,
                 config_v0.user.as_ref().unwrap().to_pub(),
-                config_v0.user.as_ref().unwrap().clone(),
+                config_v0.user.to_owned().unwrap(),
                 BindAddress {
                     port: config_v0.port,
                     ip: (&config_v0.ip).into(),

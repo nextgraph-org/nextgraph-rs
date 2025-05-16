@@ -20,6 +20,8 @@ mod commits;
 
 mod request_processor;
 
+mod inbox_processor;
+
 #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 mod rocksdb_user_storage;
 

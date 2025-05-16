@@ -784,6 +784,25 @@ export const official_classes = {
         "ng:n": "Live",
         "ng:a": "A live session of video or audio, with optional chat",
     },
+    "social:profile:skills:programming": {
+        "ng:crdt": "Graph",
+        "ng:n": "Skills Profile",
+        "ng:a": "Define a profile of skills on programming, abd you or other users",
+    },
+    "social:query:skills:programming": {
+        "ng:crdt": "Graph",
+        "ng:n": "Find programmers",
+        "ng:a": "Social query for Skills on programming",
+        "ng:o": "n:g:z:social_query_skills_programming_editor", // default viewer
+        "ng:w": "n:g:z:social_query_skills_programming_editor", // default editor
+        "implemented": true
+    },
+    "social:query:forwarded": {
+        "ng:crdt": "Graph",
+        "ng:n": "Forwarded Social Query",
+        "ng:a": "An internal document to store the progress of a forwarded social query",
+        "implemented": true
+    },
     "prod:task": {
         "ng:crdt": "Graph",
         "ng:n": "Task",

@@ -17,3 +17,9 @@ pub mod blocks_exist;
 pub mod blocks_get;
 
 pub mod wallet_put_export;
+
+pub mod inbox_post;
+
+pub mod inbox_register;
+
+pub mod client_event;

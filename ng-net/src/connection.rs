@@ -1031,18 +1031,37 @@ impl NoiseFSM {
                         }
                         None => {
                             if let ProtocolMessage::ClientMessage(cm) = msg {
-                                if let Some((event, overlay)) = cm.forwarded_event() {
-                                    let _ = BROKER
-                                        .read()
-                                        .await
-                                        .get_local_broker()?
-                                        .send(LocalBrokerMessage::Deliver {
-                                            event,
-                                            overlay,
-                                            user: self.user_id()?,
-                                        })
-                                        .await;
-                                    return Ok(StepReply::NONE);
+                                let overlay = cm.overlay_id();
+                                match cm {
+                                    ClientMessage::V0(o) => match o.content {
+                                        ClientMessageContentV0::ForwardedEvent(event) => {
+                                            let _ = BROKER
+                                                .read()
+                                                .await
+                                                .get_local_broker()?
+                                                .send(LocalBrokerMessage::Deliver {
+                                                    event,
+                                                    overlay,
+                                                    user: self.user_id()?,
+                                                })
+                                                .await;
+                                            return Ok(StepReply::NONE);
+                                        },
+                                        ClientMessageContentV0::InboxReceive{msg, from_queue} => {
+                                            let _ = BROKER
+                                                .read()
+                                                .await
+                                                .get_local_broker()?
+                                                .send(LocalBrokerMessage::Inbox {
+                                                    msg,
+                                                    user_id: self.user_id()?,
+                                                    from_queue
+                                                })
+                                                .await;
+                                            return Ok(StepReply::NONE);
+                                        }
+                                        _ => {},
+                                    },
                                 }
                             }
                         }
@@ -1050,6 +1069,7 @@ impl NoiseFSM {
                 }
             }
         }
+        log_err!("reached end of FSM");
         Err(ProtocolError::InvalidState)
     }
 }
@@ -1301,6 +1321,14 @@ impl ConnectionBase {
         for actor in lock.drain() {
             actor.1.close_channel();
         }
+        Ok(())
+    }
+
+    pub async fn send_client_event<
+        A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
+    >(&self, msg: A) -> Result<(), NgError> {
+        let proto_msg: ProtocolMessage = msg.into();
+        self.fsm.as_ref().unwrap().lock().await.send(proto_msg).await?;
         Ok(())
     }
 

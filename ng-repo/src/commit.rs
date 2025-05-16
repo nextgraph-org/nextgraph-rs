@@ -130,7 +130,7 @@ impl CommitV0 {
         if self.id.is_some() && self.key.is_some() {
             return Ok(ObjectRef::from_id_key(
                 self.id.unwrap(),
-                self.key.as_ref().unwrap().clone(),
+                self.key.to_owned().unwrap(),
             ));
         }
         // log_debug!("{:?}", self.header);
@@ -305,6 +305,56 @@ impl Commit {
     fn empty_blocks(&mut self) {
         match self {
             Commit::V0(v0) => v0.blocks = vec![],
+        }
+    }
+
+    pub fn collect_block_ids(
+        commit_ref: ObjectRef,
+        store: &Store,
+        with_body: bool
+    ) -> Result<Vec<BlockId>, CommitLoadError> {
+        let mut block_ids : Vec<BlockId>;
+        let (id, key) = (commit_ref.id, commit_ref.key);
+        match Object::load(id, Some(key.clone()), store) {
+            Err(ObjectParseError::MissingHeaderBlocks((_, missing))) => {
+                return Err(CommitLoadError::MissingBlocks(missing));
+            },
+            Ok(obj) => {
+                let content = obj
+                    .content()
+                    .map_err(|e| CommitLoadError::ContentParseError(e))?;
+                let commit = match content {
+                    ObjectContent::V0(ObjectContentV0::Commit(c)) => c,
+                    _ => return Err(CommitLoadError::NotACommit),
+                };
+                block_ids = obj.block_ids();
+
+                if with_body {
+                    let content = commit.content_v0();
+                    let (id, key) = (content.body.id, content.body.key.clone());
+                    let obj = Object::load(id.clone(), Some(key.clone()), store).map_err(|e| match e {
+                        ObjectParseError::MissingBlocks(missing) => CommitLoadError::MissingBlocks(missing),
+                        _ => CommitLoadError::ObjectParseError,
+                    })?;
+                    let content = obj
+                        .content()
+                        .map_err(|_e| CommitLoadError::ObjectParseError)?;
+                    match content {
+                        ObjectContent::V0(ObjectContentV0::CommitBody(_)) => {
+                            block_ids.append(&mut obj.block_ids());
+                        }
+                        _ => return Err(CommitLoadError::NotACommitBody),
+                    }
+                }
+                Ok(block_ids)
+            }
+            Err(ObjectParseError::MissingBlocks(missing)) => {
+                Err(CommitLoadError::MissingBlocks(missing))
+            }
+            Err(_e) => {
+                log_err!("{:?}", _e);
+                Err(CommitLoadError::ObjectParseError)
+            }
         }
     }
 
@@ -991,6 +1041,7 @@ impl CommitBody {
                 CommitBodyV0::RemoveLink(_) => true,
                 CommitBodyV0::AddSignerCap(_) => true,
                 CommitBodyV0::RemoveSignerCap(_) => true,
+                CommitBodyV0::AddInboxCap(_) => true,
                 CommitBodyV0::WalletUpdate(_) => true,
                 CommitBodyV0::StoreUpdate(_) => true,
                 _ => false,
@@ -1128,6 +1179,7 @@ impl CommitBody {
                 | CommitBodyV0::RemoveLink(_)
                 | CommitBodyV0::AddSignerCap(_)
                 | CommitBodyV0::RemoveSignerCap(_)
+                | CommitBodyV0::AddInboxCap(_)
                 | CommitBodyV0::WalletUpdate(_)
                 | CommitBodyV0::StoreUpdate(_) => vec![],
             },
@@ -1526,9 +1578,10 @@ impl fmt::Display for CommitBody {
                     //CommitBodyV0::RemoveRepo(b) => write!(f, "RemoveRepo {}", b),
                     CommitBodyV0::AddSignerCap(b) => write!(f, "AddSignerCap {}", b),
                     CommitBodyV0::StoreUpdate(b) => write!(f, "StoreUpdate {}", b),
+                    CommitBodyV0::AddInboxCap(b) => write!(f, "AddInboxCap {}", b),
+                    
                     /*    AddLink(AddLink),
                     RemoveLink(RemoveLink),
-                    AddSignerCap(AddSignerCap),
                     RemoveSignerCap(RemoveSignerCap),
                     WalletUpdate(WalletUpdate),
                     StoreUpdate(StoreUpdate), */

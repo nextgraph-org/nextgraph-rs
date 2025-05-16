@@ -189,7 +189,7 @@ impl ReadFile for RandomAccessFile {
 
         recurse_tree(
             &self.store,
-            self.content_block.as_ref().unwrap().clone(),
+            self.content_block.to_owned().unwrap(),
             &mut res,
             self.meta.depth(),
         )?;
@@ -230,7 +230,7 @@ impl ReadFile for RandomAccessFile {
                 return Err(FileError::EndOfFile);
             }
             size = min(total - pos, size);
-            let mut current_block_id_key = self.content_block.as_ref().unwrap().clone();
+            let mut current_block_id_key = self.content_block.to_owned().unwrap();
 
             let depth = self.meta.depth();
             let arity = self.meta.arity();
@@ -663,7 +663,7 @@ impl RandomAccessFile {
         if self.key.is_some() && self.id.is_some() {
             Some(ObjectRef::from_id_key(
                 self.id.unwrap(),
-                self.key.as_ref().unwrap().clone(),
+                self.key.to_owned().unwrap(),
             ))
         } else {
             None
@@ -813,7 +813,7 @@ mod test {
         .expect("new_from_slice");
         log_debug!("{}", file);
 
-        let id = file.id.as_ref().unwrap().clone();
+        let id = file.id.to_owned().unwrap();
 
         let file_size = file.size();
         log_debug!("file size to save : {}", file_size);
@@ -887,7 +887,7 @@ mod test {
         .expect("new_from_slice");
         log_debug!("{}", file);
 
-        let _id = file.id.as_ref().unwrap().clone();
+        let _id = file.id.to_owned().unwrap();
 
         log_debug!("data size: {}", data_size);
 
@@ -1493,7 +1493,7 @@ mod test {
 
         let file = File::open(
             file.id().unwrap(),
-            file.key().as_ref().unwrap().clone(),
+            file.key().to_owned().unwrap(),
             store,
         )
         .expect("open");

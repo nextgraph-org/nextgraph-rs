@@ -62,6 +62,8 @@ pub enum NgError {
     StoreNotFound,
     UserNotFound,
     TopicNotFound,
+    InboxNotFound,
+    CommitNotFound,
     NotConnected,
     ActorError,
     ProtocolError(ProtocolError),
@@ -91,6 +93,8 @@ pub enum NgError {
     InvalidClass,
     KeyShareNotFound,
     BrokerNotFound,
+    SparqlError(String),
+    ContactNotFound,
 }
 
 impl Error for NgError {}
@@ -186,6 +190,7 @@ impl From<VerifierError> for NgError {
             VerifierError::RepoNotFound => NgError::RepoNotFound,
             VerifierError::StoreNotFound => NgError::StoreNotFound,
             VerifierError::BranchNotFound => NgError::BranchNotFound,
+            VerifierError::SparqlError(s) => NgError::SparqlError(s),
             _ => NgError::VerifierError(e),
         }
     }
@@ -381,6 +386,10 @@ pub enum VerifierError {
     InvalidNuri,
     InvalidJson,
     NothingToSign,
+    InvalidSocialQuery,
+    InvalidResponse,
+    SparqlError(String),
+    InboxError(String),
 }
 
 impl Error for VerifierError {}

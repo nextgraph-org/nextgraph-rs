@@ -124,6 +124,11 @@ pub enum LocalBrokerMessage {
     Disconnected {
         user_id: UserId,
     },
+    Inbox{
+        user_id: UserId,
+        msg: InboxMsg,
+        from_queue: bool,
+    },
 }
 
 pub static BROKER: Lazy<Arc<RwLock<Broker>>> = Lazy::new(|| Arc::new(RwLock::new(Broker::new())));
@@ -1092,6 +1097,25 @@ impl Broker {
         Ok(())
     }
 
+    pub async fn send_client_event<
+        A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
+    >(
+        &self,
+        user: &Option<UserId>,
+        remote_peer_id: &Option<DirectPeerId>, // None means local
+        msg: A,
+    ) -> Result<(), NgError> {
+        let bpi = self
+            .peers
+            .get(&(*user, remote_peer_id.map(|rpi| rpi.to_dh_slice())))
+            .ok_or(NgError::ConnectionNotFound)?;
+        match &bpi.connected {
+            PeerConnection::Client(cnx) => cnx.send_client_event(msg).await,
+            PeerConnection::Local(lt) => lt.client_cnx.send_client_event(msg).await,
+            _ => Err(NgError::BrokerError),
+        }
+    }
+
     pub async fn request<
         A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
         B: TryFrom<ProtocolMessage, Error = ProtocolError> + std::fmt::Debug + Sync + Send + 'static,
@@ -1186,6 +1210,43 @@ impl Broker {
         }
 
         Ok(clients_to_remove)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn dispatch_inbox_msg(
+        &self,
+        users: &HashSet<UserId>,
+        msg: InboxMsg,
+    ) -> Result<Option<InboxMsg>, ServerError> {
+
+        for user in users.iter() {
+            if let Some(peers) = self.users_peers.get(user) {
+                for peer in peers.iter() {
+                    if peer.is_some() {
+                        if let Some(BrokerPeerInfo {
+                            connected: PeerConnection::Client(ConnectionBase { fsm: Some(fsm), .. }),
+                            ..
+                        }) = self.peers.get(&(None, Some(peer.to_owned().unwrap())))
+                        {
+                            //let fsm = Arc::clone(fsm);
+                            let _ = fsm
+                                .lock()
+                                .await
+                                .send(ProtocolMessage::ClientMessage(ClientMessage::V0(
+                                    ClientMessageV0 {
+                                        overlay: msg.body.to_overlay.clone(),
+                                        padding: vec![],
+                                        content: ClientMessageContentV0::InboxReceive{msg, from_queue: false},
+                                    },
+                                )))
+                                .await;
+                            return Ok(None);
+                        } 
+                    }
+                }
+            }
+        }
+        Ok(Some(msg))
     }
 
     #[doc(hidden)]

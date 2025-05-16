@@ -21,11 +21,11 @@ edit your `.env` file as follow
 `NG_ACCOUNT_LOCAL_PEER_KEY` is given as an example. You can generate a random one by using the command `ngcli gen-key` and use the private key.
 
 ```
-NG_ACCOUNT_DOMAIN=test.com
-NG_ACCOUNT_ADMIN=[YOUR_USER_PRIV_KEY]
-NG_ACCOUNT_LOCAL_PEER_KEY=kbz34OFqaWu59xYaqViP0esME2MmcroS94pc4lEEsEsA
-NG_ACCOUNT_SERVER=127.0.0.1,14400,[YOUR_NGD_PEER_ID]
-RUST_LOG=debug
+export NG_ACCOUNT_DOMAIN=test.com
+export NG_ACCOUNT_ADMIN=[YOUR_USER_PRIV_KEY]
+export NG_ACCOUNT_LOCAL_PEER_KEY=kbz34OFqaWu59xYaqViP0esME2MmcroS94pc4lEEsEsA
+export NG_ACCOUNT_SERVER=127.0.0.1,14400,[YOUR_NGD_PEER_ID]
+export RUST_LOG=debug
 ```
 
 

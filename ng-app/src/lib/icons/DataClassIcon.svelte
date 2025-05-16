@@ -75,6 +75,9 @@
     Variable,
     Language,
     QueueList,
+    Rss,
+    Lifebuoy,
+    Star
   } from "svelte-heros-v2";
 
   import PdfIcon from "./PdfIcon.svelte";
@@ -135,6 +138,9 @@
     "social:reaction": Heart,
     "social:chatroom": ChatBubbleLeftRight,
     "social:live": Fire,
+    "social:query:forwarded": Rss,
+    "social:query:skills:programming": Lifebuoy,
+    "social:profile:skills:programming": Star,
     "prod:task": Stop,
     "prod:project": Flag,
     "prod:issue": HandRaised,

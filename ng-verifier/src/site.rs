@@ -123,6 +123,11 @@ impl SiteV0 {
         let public_store_update: StoreUpdate = public_repo.store.as_ref().into();
         signer_caps.push(public_repo.signer.to_owned().unwrap());
 
+        // Creating the Inbox commit body about public store.
+        let public_store_inbox_commit_body =
+        CommitBody::V0(CommitBodyV0::AddInboxCap(
+            AddInboxCap::new_v0(public_repo.id, public_repo.store.outer_overlay(), public_repo.inbox.to_owned().unwrap())));
+
         let protected_repo = verifier
             .new_store_default(
                 &site_pubkey,
@@ -135,6 +140,11 @@ impl SiteV0 {
 
         let protected_store_update: StoreUpdate = protected_repo.store.as_ref().into();
         signer_caps.push(protected_repo.signer.to_owned().unwrap());
+
+        // Creating the Inbox commit body about protected store.
+        let protected_store_inbox_commit_body =
+        CommitBody::V0(CommitBodyV0::AddInboxCap(
+            AddInboxCap::new_v0(protected_repo.id, protected_repo.store.outer_overlay(),protected_repo.inbox.to_owned().unwrap())));
 
         let private_repo = verifier
             .new_store_default(
@@ -179,16 +189,42 @@ impl SiteV0 {
             &private_repo.store,
         )?;
 
-        let mut current_head = protected_store_update_commit.reference().unwrap();
+        // Creating the Inbox commit about public store.
+        let public_store_inbox_commit = Commit::new_with_body_acks_deps_and_save(
+            &user_priv_key,
+            &site_pubkey,
+            user_branch.id,
+            QuorumType::NoSigning,
+            vec![],
+            vec![protected_store_update_commit.reference().unwrap()],
+            public_store_inbox_commit_body,
+            &private_repo.store,
+        )?;
+
+        // Creating the Inbox commit about protected store.
+        let protected_store_inbox_commit = Commit::new_with_body_acks_deps_and_save(
+            &user_priv_key,
+            &site_pubkey,
+            user_branch.id,
+            QuorumType::NoSigning,
+            vec![],
+            vec![public_store_inbox_commit.reference().unwrap()],
+            protected_store_inbox_commit_body,
+            &private_repo.store,
+        )?;
+
+        let mut current_head = protected_store_inbox_commit.reference().unwrap();
 
         let private_repo_id = private_repo.id;
         let private_store_repo = private_repo.store.get_store_repo().clone();
         let private_repo_read_cap = private_repo.read_cap.to_owned().unwrap();
 
         // Creating the AddSignerCap for each store
-        let mut commits = Vec::with_capacity(5);
+        let mut commits = Vec::with_capacity(7);
         commits.push((public_store_update_commit, vec![]));
         commits.push((protected_store_update_commit, vec![]));
+        commits.push((public_store_inbox_commit, vec![]));
+        commits.push((protected_store_inbox_commit, vec![]));
 
         for cap in signer_caps {
             let add_signer_cap_commit_body = CommitBody::V0(CommitBodyV0::AddSignerCap(

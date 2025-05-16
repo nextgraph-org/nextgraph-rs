@@ -128,10 +128,14 @@ impl CommitVerifier for RootBranch {
                 let signer = verifier
                     .user_storage()
                     .and_then(|storage| storage.get_signer_cap(&id).ok());
+                let inbox = verifier
+                    .user_storage()
+                    .and_then(|storage| storage.get_inbox_cap(&id).ok());
                 let repo = Repo {
                     id,
                     repo_def: repository.clone(),
                     signer,
+                    inbox,
                     members: HashMap::new(),
                     store: Arc::clone(&store),
                     read_cap: Some(reference),
@@ -309,6 +313,21 @@ impl CommitVerifier for StoreUpdate {
         _store: Arc<Store>,
     ) -> Result<(), VerifierError> {
         verifier.new_store_from_update(self)
+    }
+}
+#[async_trait::async_trait]
+impl CommitVerifier for AddInboxCap {
+    async fn verify(
+        &self,
+        _commit: &Commit,
+        verifier: &mut Verifier,
+        _branch_id: &BranchId,
+        _repo_id: &RepoId,
+        _store: Arc<Store>,
+    ) -> Result<(), VerifierError> {
+        match self {
+            AddInboxCap::V0(v0) => verifier.update_inbox_cap_v0(&v0),
+        }
     }
 }
 #[async_trait::async_trait]

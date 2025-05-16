@@ -9,8 +9,6 @@
 
 //! App Protocol (between LocalBroker and Verifier)
 
-use lazy_static::lazy_static;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use ng_repo::errors::NgError;
@@ -22,31 +20,6 @@ use ng_repo::utils::{decode_digest, decode_key, decode_sym_key};
 use ng_repo::utils::{decode_overlayid, display_timestamp_local};
 
 use crate::types::*;
-
-lazy_static! {
-    #[doc(hidden)]
-    static ref RE_FILE_READ_CAP: Regex =
-        Regex::new(r"^did:ng:j:([A-Za-z0-9-_]*):k:([A-Za-z0-9-_]*)$").unwrap();
-    #[doc(hidden)]
-    static ref RE_REPO_O: Regex =
-        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*)$").unwrap();
-    #[doc(hidden)]
-    static ref RE_REPO: Regex =
-        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*):v:([A-Za-z0-9-_]*)$").unwrap();
-    #[doc(hidden)]
-    static ref RE_BRANCH: Regex =
-        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*):v:([A-Za-z0-9-_]*):b:([A-Za-z0-9-_]*)$").unwrap();
-    #[doc(hidden)]
-    static ref RE_NAMED_BRANCH_OR_COMMIT: Regex =
-        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]*):v:([A-Za-z0-9-_]*):a:([A-Za-z0-9-_%]*)$").unwrap(); //TODO: allow international chars. disallow digit as first char
-    #[doc(hidden)]
-    static ref RE_OBJECTS: Regex =
-        Regex::new(r"^did:ng(?::o:([A-Za-z0-9-_]{44}))?:v:([A-Za-z0-9-_]{44})((?::[cj]:[A-Za-z0-9-_]{44}:k:[A-Za-z0-9-_]{44})+)(?::s:([A-Za-z0-9-_]{44}):k:([A-Za-z0-9-_]{44}))?:l:([A-Za-z0-9-_]*)$").unwrap();
-    #[doc(hidden)]
-    static ref RE_OBJECT_READ_CAPS: Regex =
-        Regex::new(r":[cj]:([A-Za-z0-9-_]{44}):k:([A-Za-z0-9-_]{44})").unwrap();
-
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AppFetchContentV0 {
@@ -81,7 +54,8 @@ pub enum NgAccessV0 {
     #[serde(with = "serde_bytes")]
     ExtRequest(Vec<u8>),
     Key(BlockKey),
-    Inbox(PubKey),
+    Inbox(PrivKey),
+    Topic(PrivKey),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -122,8 +96,12 @@ impl TargetBranchV0 {
 pub enum NuriTargetV0 {
     UserSite, // targets the whole data set of the user
 
-    PublicStore,
-    ProtectedStore,
+    PublicProfile,
+    PublicStore(RepoId),
+    ProtectedProfile,
+    ProtectedStore(RepoId),
+    GroupStore(RepoId),
+    DialogStore(RepoId),
     PrivateStore,
     AllDialogs,
     Dialog(String), // shortname of a Dialog
@@ -131,6 +109,7 @@ pub enum NuriTargetV0 {
     Group(String), // shortname of a Group
 
     Repo(RepoId),
+    Inbox(PubKey),
 
     None,
 }
@@ -238,6 +217,18 @@ impl NuriV0 {
         format!("{DID_PREFIX}:c:{commit_base64}:v:{overlay_id}")
     }
 
+    pub fn get_first_commit_ref(&self) -> Result<ObjectRef, NgError> {
+        let commit_id = match &self.branch {
+            Some(TargetBranchV0::Commits(commits)) => commits.get(0).ok_or(NgError::CommitNotFound)?,
+            _ => return Err(NgError::InvalidNuri)
+        };
+        let commit_key = match self.access.get(0) {
+            Some(NgAccessV0::Key(key)) => key,
+            _ => return Err(NgError::InvalidNuri)
+        };
+        Ok(ObjectRef::from_id_key(*commit_id, commit_key.clone()))
+    }
+
     pub fn from_store_repo(store_repo: &StoreRepo) -> Self {
         NuriV0 {
             identity: None,
@@ -326,6 +317,42 @@ impl NuriV0 {
         format!("{DID_PREFIX}:o:{repo_id}:c:{commit_id}")
     }
 
+    pub fn inbox(inbox_id: &PubKey) -> String {
+        format!("{DID_PREFIX}:d:{inbox_id}")
+    }
+
+    pub fn from_store_repo_string(store_repo: &StoreRepo) -> String {
+        match store_repo {
+            StoreRepo::V0(v0) => match v0 {
+                StoreRepoV0::PublicStore(id) => NuriV0::public_profile(id),
+                StoreRepoV0::ProtectedStore(id) => NuriV0::protected_profile(id),
+                StoreRepoV0::PrivateStore(id) => NuriV0::private_store(id),
+                StoreRepoV0::Group(id) => NuriV0::group_store(id),
+                StoreRepoV0::Dialog((id,_)) => NuriV0::dialog_store(id),
+            },
+        }
+    }
+
+    pub fn public_profile(store_id: &PubKey) -> String {
+        format!("{DID_PREFIX}:a:{store_id}")
+    }
+
+    pub fn protected_profile(store_id: &PubKey) -> String {
+        format!("{DID_PREFIX}:b:{store_id}")
+    }
+
+    pub fn private_store(store_id: &PubKey) -> String {
+        format!("{DID_PREFIX}:c:{store_id}")
+    }
+
+    pub fn group_store(store_id: &PubKey) -> String {
+        format!("{DID_PREFIX}:g:{store_id}")
+    }
+
+    pub fn dialog_store(store_id: &PubKey) -> String {
+        format!("{DID_PREFIX}:d:{store_id}")
+    }
+
     pub fn locator(locator: &Locator) -> String {
         format!("l:{locator}")
     }
@@ -380,6 +407,11 @@ impl NuriV0 {
             locator: None,
         })
     }
+    pub fn new_repo_target_from_id(repo_id: &RepoId) -> Self {
+        let mut n = Self::new_empty();
+        n.target = NuriTargetV0::Repo(*repo_id);
+        n
+    }
 
     pub fn new_from_obj_ref(obj_ref: &ObjectRef) -> Self {
         Self {
@@ -397,32 +429,27 @@ impl NuriV0 {
     }
 
     pub fn new_private_store_target() -> Self {
-        Self {
-            identity: None,
-            target: NuriTargetV0::PrivateStore,
-            entire_store: false,
-            objects: vec![],
-            signature: None,
-            branch: None,
-            overlay: None,
-            access: vec![],
-            topic: None,
-            locator: None,
-        }
+        let mut n = Self::new_empty();
+        n.target = NuriTargetV0::PrivateStore;
+        n
     }
+
+    pub fn new_protected_store_target() -> Self {
+        let mut n = Self::new_empty();
+        n.target = NuriTargetV0::ProtectedProfile;
+        n
+    }
+
+    pub fn new_public_store_target() -> Self {
+        let mut n = Self::new_empty();
+        n.target = NuriTargetV0::PublicProfile;
+        n
+    }
+
     pub fn new_entire_user_site() -> Self {
-        Self {
-            identity: None,
-            target: NuriTargetV0::UserSite,
-            entire_store: false,
-            objects: vec![],
-            signature: None,
-            branch: None,
-            overlay: None,
-            access: vec![],
-            topic: None,
-            locator: None,
-        }
+        let mut n = Self::new_empty();
+        n.target = NuriTargetV0::UserSite;
+        n
     }
     pub fn new_for_readcaps(from: &str) -> Result<Self, NgError> {
         let c = RE_OBJECTS.captures(from);
@@ -480,6 +507,98 @@ impl NuriV0 {
         }
     }
 
+    pub fn from_inbox_into_id(from: &String) -> Result<PubKey,NgError> {
+        let c = RE_INBOX.captures(&from);
+        if c.is_some()
+            && c.as_ref().unwrap().get(1).is_some()
+        {
+            let cap = c.unwrap();
+            let d = cap.get(1).unwrap().as_str();
+            let to_inbox = decode_key(d)?;
+            return Ok(to_inbox);
+        }
+        Err(NgError::InvalidNuri)
+    }
+
+    pub fn from_profile_into_overlay_id(from: &String) -> Result<OverlayId, NgError> {
+        let c = RE_PROFILE.captures(&from);
+        if c.is_some()
+            && c.as_ref().unwrap().get(1).is_some()
+        {
+            let cap = c.unwrap();
+            let o = cap.get(1).unwrap().as_str();
+            let to_profile_id = decode_key(o)?;
+            let to_overlay = OverlayId::outer(&to_profile_id);
+            return Ok(to_overlay);
+        }
+        Err(NgError::InvalidNuri)
+    }
+
+    pub fn new_from_repo_graph(from: &String) -> Result<Self, NgError> {
+        let c = RE_REPO.captures(from);
+
+        if c.is_some()
+            && c.as_ref().unwrap().get(1).is_some()
+            && c.as_ref().unwrap().get(2).is_some()
+        {
+            let cap = c.unwrap();
+            let o = cap.get(1).unwrap().as_str();
+            let v = cap.get(2).unwrap().as_str();
+            let repo_id = decode_key(o)?;
+            let overlay_id = decode_overlayid(v)?;
+
+            let mut n = Self::new_empty();
+            n.target = NuriTargetV0::Repo(repo_id);
+            n.overlay = Some(overlay_id.into());
+            return Ok(n);
+        }
+        Err(NgError::InvalidNuri)
+    }
+
+    pub fn new_from_commit(from: &String) -> Result<Self, NgError> {
+
+        let c = RE_COMMIT.captures(&from);
+        if c.is_some()
+            && c.as_ref().unwrap().get(1).is_some()
+            && c.as_ref().unwrap().get(2).is_some()
+            && c.as_ref().unwrap().get(3).is_some()
+        {
+            let cap = c.unwrap();
+            let o = cap.get(1).unwrap().as_str();
+            let c = cap.get(2).unwrap().as_str();
+            let k = cap.get(3).unwrap().as_str();
+            let repo_id = decode_key(o)?;
+            let commit_id = decode_digest(c)?;
+            let commit_key = decode_sym_key(k)?;
+            return Ok(Self {
+                identity: None,
+                target: NuriTargetV0::Repo(repo_id),
+                entire_store: false,
+                objects: vec![],
+                signature: None,
+                branch: Some(TargetBranchV0::Commits(vec![commit_id])),
+                overlay: None,
+                access: vec![NgAccessV0::Key(commit_key)],
+                topic: None,
+                locator: None,
+            });
+        }
+        Err(NgError::InvalidNuri)
+    }
+
+    pub fn from_repo_nuri_to_id(from: &String) -> Result<RepoId, NgError> {
+        let c = RE_REPO_O.captures(from);
+
+        if c.is_some() && c.as_ref().unwrap().get(1).is_some() {
+            let cap = c.unwrap();
+            let o = cap.get(1).unwrap().as_str();
+
+            let repo_id = decode_key(o)?;
+            return Ok(repo_id);
+        }
+        Err(NgError::InvalidNuri)
+    }
+
     pub fn new_from(from: &String) -> Result<Self, NgError> {
         let c = RE_REPO_O.captures(from);
 
@@ -524,30 +643,9 @@ impl NuriV0 {
                     locator: None,
                 })
             } else {
-                let c = RE_REPO.captures(from);
-
-                if c.is_some()
-                    && c.as_ref().unwrap().get(1).is_some()
-                    && c.as_ref().unwrap().get(2).is_some()
-                {
-                    let cap = c.unwrap();
-                    let o = cap.get(1).unwrap().as_str();
-
-                    let v = cap.get(2).unwrap().as_str();
-                    let repo_id = decode_key(o)?;
-                    let overlay_id = decode_overlayid(v)?;
-                    Ok(Self {
-                        identity: None,
-                        target: NuriTargetV0::Repo(repo_id),
-                        entire_store: false,
-                        objects: vec![],
-                        signature: None,
-                        branch: None,
-                        overlay: Some(overlay_id.into()),
-                        access: vec![],
-                        topic: None,
-                        locator: None,
-                    })
+                
+                if let Ok(n) = NuriV0::new_from_repo_graph(from) {
+                    Ok(n)
                 } else {
                     let c = RE_BRANCH.captures(from);
 
@@ -594,19 +692,16 @@ pub enum AppRequestCommandV0 {
     FileGet, // needs the Nuri of branch/doc/store AND ObjectId
     FilePut, // needs the Nuri of branch/doc/store
     Header,
+    InboxPost,
+    SocialQueryStart,
+    SocialQueryCancel,
 }
 
 impl AppRequestCommandV0 {
     pub fn is_stream(&self) -> bool {
         match self {
             Self::Fetch(AppFetchContentV0::Subscribe) | Self::FileGet => true,
-            Self::FilePut
-            | Self::Create
-            | Self::Delete
-            | Self::UnPin
-            | Self::Pin
-            | Self::Header
-            | Self::Fetch(_) => false,
+            _ => false,
         }
     }
     pub fn new_read_query() -> Self {
@@ -687,6 +782,41 @@ impl AppRequest {
             payload,
             session_id: 0,
         })
+    }
+
+    pub fn inbox_post(post: InboxPost) -> Self {
+        AppRequest::new(
+            AppRequestCommandV0::InboxPost,
+            NuriV0::new_empty(),
+            Some(AppRequestPayload::V0(AppRequestPayloadV0::InboxPost(post))),
+        )
+    }
+
+    pub fn social_query_start(
+        from_profile: NuriV0, 
+        query: NuriV0, 
+        contacts: String, 
+        degree: u16,
+    ) -> Self {
+        AppRequest::new(
+            AppRequestCommandV0::SocialQueryStart,
+            query,
+            Some(AppRequestPayload::V0(AppRequestPayloadV0::SocialQueryStart{
+                from_profile,
+                contacts,
+                degree
+            })),
+        )
+    }
+
+    pub fn social_query_cancel(
+        query: NuriV0, 
+    ) -> Self {
+        AppRequest::new(
+            AppRequestCommandV0::SocialQueryCancel,
+            query,
+            None
+        )
     }
 
     pub fn doc_fetch_repo_subscribe(repo_o: String) -> Result<Self, NgError> {
@@ -876,6 +1006,13 @@ pub enum AppRequestPayloadV0 {
     RandomAccessFilePutChunk((u32, serde_bytes::ByteBuf)), // end the upload with an empty vec
 
     Header(DocHeader),
+
+    InboxPost(InboxPost),
+    SocialQueryStart {
+        from_profile: NuriV0, 
+        contacts: String, 
+        degree: u16,
+    },
     //RemoveFile
     //Invoke(InvokeArguments),
 }

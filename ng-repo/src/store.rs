@@ -634,8 +634,8 @@ impl Store {
                 creator,
                 *branch_id,
                 QuorumType::IamTheSignature,
-                vec![branch_info.read_cap.as_ref().unwrap().clone()],
-                vec![branch_info.read_cap.as_ref().unwrap().clone()],
+                vec![branch_info.read_cap.to_owned().unwrap()],
+                vec![branch_info.read_cap.to_owned().unwrap()],
                 sync_sig_commit_body.clone(),
                 &self,
             )?;
@@ -681,6 +681,7 @@ impl Store {
             id: repo_pub_key,
             repo_def: repository,
             signer: Some(signer_cap),
+            inbox: None,
             members: HashMap::new(),
             store: Arc::clone(&self),
             read_cap: Some(root_branch_readcap),

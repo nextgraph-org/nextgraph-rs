@@ -98,6 +98,7 @@ pub struct Verifier {
     inner_to_outer: HashMap<OverlayId, OverlayId>,
     pub(crate) outer: String,
     pub(crate) repos: HashMap<RepoId, Repo>,
+    inboxes: HashMap<PubKey, RepoId>,
     // TODO: deal with collided repo_ids. self.repos should be a HashMap<RepoId,Collision> enum Collision {Yes, No(Repo)}
     // add a collided_repos: HashMap<(OverlayId, RepoId), Repo>
     // only use get_repo() everywhere in the code (always passing the overlay) so that collisions can be handled.
@@ -509,6 +510,7 @@ impl Verifier {
             last_reservation: SystemTime::UNIX_EPOCH,
             stores: HashMap::new(),
             repos: HashMap::new(),
+            inboxes: HashMap::new(),
             topics: HashMap::new(),
             in_memory_outbox: vec![],
             inner_to_outer: HashMap::new(),
@@ -1280,6 +1282,27 @@ impl Verifier {
             // );
             // discarding error.
         }
+
+        // registering inbox for protected and public store. (FIXME: this should be done instead in the 1st connection during wallet creation)
+        let remote = self.connected_broker.connected_or_err()?;
+        let mut done = false;
+        for (_,store) in self.stores.iter() {
+            if store.id() == self.protected_store_id() || store.id() == self.public_store_id() {
+                let repo = self.get_repo( store.id(), &store.get_store_repo())?;
+                let inbox = repo.inbox.to_owned().unwrap();
+                // sending InboxRegister
+                let msg = InboxRegister::new(inbox, store.outer_overlay())?;
+                broker
+                    .request::<InboxRegister, ()>(&Some(user), &remote, msg)
+                    .await?;
+                if !done {
+                    done = true;
+                } else {
+                    break;
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -1543,10 +1566,51 @@ impl Verifier {
         Ok(())
     }
 
+    pub async fn inbox(&mut self, msg: InboxMsg, from_queue: bool) {
+        
+        log_info!("RECEIVED INBOX MSG {:?}", msg);
+
+        match self.inboxes.get(&msg.body.to_inbox) {
+            Some(repo_id) => {
+                match self.repos.get(repo_id) {
+                    Some(repo) => {
+                        if let Some(privkey) = &repo.inbox {
+                            match msg.get_content(privkey) {
+                                Ok(content) => {
+                                    log_info!("received msg content {:?}", content);
+                                    let res = self.process_inbox(msg, content).await;
+                                    if let Err(e) = res {
+                                        log_err!("Error during process_inbox {e}");
+                                    }
+                                },
+                                Err(e) => {
+                                    log_err!("cannot unseal inbox msg {e}");
+                                }
+                            }
+                        }
+                    },
+                    None => {}
+                }
+            },
+            None => {}
+        }
+
+        if from_queue && self.connected_broker.is_some(){
+            log_info!("try to pop one more inbox msg");
+            // try to pop inbox msg
+            let connected_broker = self.connected_broker.clone();
+            let broker = BROKER.read().await;
+            let user = self.user_id().clone();
+            let _ = broker
+                .send_client_event(&Some(user), &connected_broker.into(), ClientEvent::InboxPopRequest)
+                .await;
+        }
+    }
+
     pub async fn deliver(&mut self, event: Event, overlay: OverlayId) {
-        let event_str = event.to_string();
+        //let event_str = event.to_string();
         if let Err(e) = self.deliver_(event, overlay).await {
-            log_err!("DELIVERY ERROR {} {}", e, event_str);
+            log_err!("DELIVERY ERROR {}", e);
         }
     }
 
@@ -1624,6 +1688,7 @@ impl Verifier {
                 CommitBodyV0::SyncSignature(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::AddBranch(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::StoreUpdate(a) => a.verify(commit, self, branch_id, repo_id, store),
+                CommitBodyV0::AddInboxCap(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::AddSignerCap(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::AddFile(a) => a.verify(commit, self, branch_id, repo_id, store),
                 CommitBodyV0::AddRepo(a) => a.verify(commit, self, branch_id, repo_id, store),
@@ -1720,6 +1785,26 @@ impl Verifier {
             let repo = self.get_repo(repo_id, store_repo)?;
             user_storage.add_branch(repo_id, repo.branch(branch_id)?)?;
         }
+        Ok(())
+    }
+
+    pub(crate) fn update_inbox_cap_v0(
+        &mut self,
+        inbox_cap: &AddInboxCapV0,
+    ) -> Result<(), VerifierError> {
+        let storage = match self.repos.get_mut(&inbox_cap.repo_id) {
+            Some(repo) => {
+                repo.inbox = Some(inbox_cap.priv_key.clone());
+                log_info!("INBOX for {} : {}", inbox_cap.repo_id.to_string(), inbox_cap.priv_key.to_pub().to_string());
+                self.inboxes.insert(inbox_cap.priv_key.to_pub(), repo.id);
+                self.user_storage_if_persistent()
+            }
+            None => self.user_storage(),
+        };
+        if let Some(user_storage) = storage {
+            user_storage.update_inbox_cap(&inbox_cap.repo_id, &inbox_cap.overlay, &inbox_cap.priv_key)?;
+        }
+
         Ok(())
     }
 
@@ -2599,6 +2684,7 @@ impl Verifier {
             last_seq_num: 0,
             stores: HashMap::new(),
             repos: HashMap::new(),
+            inboxes: HashMap::new(),
             topics: HashMap::new(),
             in_memory_outbox: vec![],
             inner_to_outer: HashMap::new(),
@@ -2660,6 +2746,10 @@ impl Verifier {
     fn add_repo_(&mut self, repo: Repo) -> &Repo {
         //self.populate_topics(&repo);
         let _ = self.add_doc(&repo.id, &repo.store.overlay_id);
+        if repo.inbox.is_some() {
+            log_info!("INBOX for {} : {}", repo.id.to_string(), repo.inbox.as_ref().unwrap().to_pub().to_string());
+            _ = self.inboxes.insert(repo.inbox.as_ref().unwrap().to_pub(), repo.id);
+        }
         let repo_ref = self.repos.entry(repo.id).or_insert(repo);
         repo_ref
     }
@@ -2731,7 +2821,7 @@ impl Verifier {
         };
         let overlay_id = store_repo.overlay_id_for_storage_purpose();
         let block_storage = self.get_arc_block_storage()?;
-        let store = self.stores.entry(overlay_id).or_insert_with(|| {
+        let store: &mut Arc<Store> = self.stores.entry(overlay_id).or_insert_with(|| {
             let store_readcap = ReadCap::nil();
             // temporarily set the store_overlay_branch_readcap to an objectRef that has an empty id, and a key = to the repo_write_cap_secret
             let store_overlay_branch_readcap =
@@ -2744,7 +2834,7 @@ impl Verifier {
             );
             Arc::new(store)
         });
-        let (repo, proto_events) = Arc::clone(store).create_repo_with_keys(
+        let (mut repo, proto_events) = Arc::clone(store).create_repo_with_keys(
             creator,
             creator_priv_key,
             priv_key,
@@ -2753,6 +2843,9 @@ impl Verifier {
             None,
             private,
         )?;
+        if !private {
+            repo.inbox = Some(PrivKey::random_ed());
+        }
         let repo = self.complete_site_store(store_repo, repo)?;
         self.populate_topics(&repo);
         self.new_events_with_repo(proto_events, &repo).await?;
@@ -2782,7 +2875,7 @@ impl Verifier {
             // send AddSignerCap to User branch of private store
             let add_signer_cap_commit_body = CommitBody::V0(CommitBodyV0::AddSignerCap(
                 AddSignerCap::V0(AddSignerCapV0 {
-                    cap: repo.signer.as_ref().unwrap().clone(),
+                    cap: repo.signer.to_owned().unwrap(),
                     metadata: vec![],
                 }),
             ));

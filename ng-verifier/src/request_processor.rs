@@ -15,8 +15,12 @@ use std::sync::Arc;
 use futures::channel::mpsc;
 use futures::SinkExt;
 use futures::StreamExt;
+use ng_net::actor::SoS;
+use ng_net::types::InboxPost;
+use ng_oxigraph::oxigraph::sparql::EvaluationError;
 use ng_oxigraph::oxigraph::sparql::{results::*, Query, QueryResults};
 use ng_oxigraph::oxrdf::{Literal, NamedNode, Quad, Term};
+use ng_oxigraph::oxsdatatypes::DateTime;
 
 use ng_repo::errors::*;
 use ng_repo::file::{RandomAccessFile, ReadFile};
@@ -543,6 +547,107 @@ impl Verifier {
         Ok(res)
     }
 
+    pub(crate) async fn doc_create_with_store_repo(
+        &mut self,
+        crdt: String,
+        class_name: String,
+        destination: String,
+        store_repo: Option<StoreRepo>,
+    ) -> Result<String, NgError> {
+    
+        let class = BranchCrdt::from(crdt, class_name)?;
+    
+        let nuri = if store_repo.is_none() {
+            NuriV0::new_private_store_target()
+        } else {
+            NuriV0::from_store_repo(&store_repo.unwrap())
+        };
+    
+        let destination = DocCreateDestination::from(destination)?;
+    
+        self.doc_create(nuri, DocCreate {
+            class,
+            destination,
+        }).await
+    }
+
+    pub(crate) async fn sparql_query(&self, nuri: &NuriV0, sparql: String, base: Option<String>) -> Result<QueryResults, VerifierError>  {
+        //log_debug!("query={}", query);
+        let store = self.graph_dataset.as_ref().unwrap();
+        let mut parsed = Query::parse(&sparql, base.as_deref())
+            .map_err(|e| VerifierError::SparqlError(e.to_string()))?;
+        let dataset = parsed.dataset_mut();
+        //log_debug!("DEFAULTS {:?}", dataset.default_graph_graphs());
+        if dataset.has_no_default_dataset() {
+            //log_info!("DEFAULT GRAPH AS UNION");
+            dataset.set_default_graph_as_union();
+        }
+        store
+            .query(parsed, self.resolve_target_for_sparql(&nuri.target, false)?)
+                .map_err(|e| VerifierError::SparqlError(e.to_string()))
+    }
+
+    pub(crate) async fn doc_create(
+        &mut self,
+        nuri: NuriV0,
+        doc_create: DocCreate
+    ) -> Result<String, NgError> {
+        //TODO: deal with doc_create.destination
+
+        let user_id = self.user_id().clone();
+        let user_priv_key = self.user_privkey().clone();
+        let primary_class = doc_create.class.class().clone();
+        let (_,_,store) = self.resolve_target(&nuri.target)?;
+        let repo_id = self
+            .new_repo_default(
+                &user_id,
+                &user_priv_key,
+                &store,
+                doc_create.class,
+            )
+            .await?;
+
+        let header_branch_id = {
+            let repo = self.get_repo(&repo_id, &store)?;
+            repo.header_branch().ok_or(NgError::BranchNotFound)?.id
+        };
+
+        // adding an AddRepo commit to the Store branch of store.
+        self.send_add_repo_to_store(&repo_id, &store)
+            .await?;
+
+        // adding an ldp:contains triple to the store main branch
+        let overlay_id = store.outer_overlay();
+        let nuri = NuriV0::repo_id(&repo_id);
+        let nuri_result = NuriV0::repo_graph_name(&repo_id, &overlay_id);
+        let store_nuri = NuriV0::from_store_repo(&store);
+        let store_nuri_string = NuriV0::repo_id(store.repo_id());
+        let query = format!("INSERT DATA {{ <{store_nuri_string}> <http://www.w3.org/ns/ldp#contains> <{nuri}>. }}");
+
+        let ret = self
+            .process_sparql_update(&store_nuri, &query, &None, vec![])
+            .await;
+        if let Err(e) = ret {
+            return Err(NgError::SparqlError(e));
+        }
+
+        self.add_doc(&repo_id, &overlay_id)?;
+
+        // adding the class triple to the header branch
+        let header_branch_nuri = format!("{nuri_result}:b:{}", header_branch_id);
+        let quad = Quad {
+            subject: NamedNode::new_unchecked(&nuri).into(),
+            predicate: NG_ONTOLOGY_CLASS_NAME.clone().into(),
+            object: Literal::new_simple_literal(primary_class).into(),
+            graph_name: NamedNode::new_unchecked(&header_branch_nuri).into(),
+        };
+        let ret = self.prepare_sparql_update(vec![quad], vec![], vec![]).await;
+        if let Err(e) = ret {
+            return Err(NgError::SparqlError(e.to_string()));
+        }
+        Ok(nuri_result)
+    }
+
     pub(crate) async fn process(
         &mut self,
         command: &AppRequestCommandV0,
@@ -550,6 +655,128 @@ impl Verifier {
         payload: Option<AppRequestPayload>,
     ) -> Result<AppResponse, NgError> {
         match command {
+            AppRequestCommandV0::SocialQueryStart => {
+                let (from_profile, contacts_string, degree) = if let Some(AppRequestPayload::V0(AppRequestPayloadV0::SocialQueryStart{
+                    from_profile, contacts, degree
+                })) =
+                    payload
+                { (from_profile, contacts, degree) }
+                else {
+                    return Err(NgError::InvalidPayload);
+                };
+
+                // TODO: search for contacts (all stores, one store, a sparql query, etc..)
+                // (profile_nuri, inbox_nuri)
+                let contacts = if contacts_string.as_str() == "did:ng:d:c" {
+                    let mut res = vec![];
+                    res.push(("did:ng:a:rjoQTS4LMBDcuh8CEjmTYrgALeApBg2cgKqyPEuQDUgA".to_string(),"did:ng:d:KMFdOcGjdFBQgA9QNEDWcgEErQ1isbvDe7d_xndNOUMA".to_string()));
+                    res
+                } else {
+                    unimplemented!();
+                };
+
+                // if no contact found, return here with an AppResponse::error
+                if contacts.is_empty() {
+                    return Ok(AppResponse::error(NgError::ContactNotFound.to_string()));
+                }
+
+                //resolve from_profile
+                let from_profile_id = match from_profile.target {
+                    NuriTargetV0::ProtectedProfile => {
+                        self.config.protected_store_id.unwrap()
+                    }
+                    NuriTargetV0::PublicProfile => {
+                        self.config.public_store_id.unwrap()
+                    },
+                    _ => return Err(NgError::InvalidNuri)
+                };
+                let store = {
+                    let repo = self.repos.get(&from_profile_id).ok_or(NgError::RepoNotFound)?;
+                    repo.store.clone()
+                };
+                let query_id = nuri.target.repo_id();
+                let definition_commit_body_ref = nuri.get_first_commit_ref()?;
+                let block_ids = Commit::collect_block_ids(definition_commit_body_ref.clone(), &store, true)?;
+                let mut blocks= Vec::with_capacity(block_ids.len());
+                //log_info!("blocks nbr {}",block_ids.len());
+                for bid in block_ids.iter() {
+                    blocks.push(store.get(bid)?);
+                }
+
+                // creating the ForwardedSocialQuery in the private store
+                let forwarder = self.doc_create_with_store_repo(
+                    "Graph".to_string(), "social:query:forwarded".to_string(),
+                    "store".to_string(), None // meaning in private store
+                ).await?;
+                let forwarder_nuri = NuriV0::new_from_repo_graph(&forwarder)?;
+                let forwarder_id = forwarder_nuri.target.repo_id().clone();
+                let forwarder_nuri_string = NuriV0::repo_id(&forwarder_id);
+
+                // adding triples in social_query doc : ng:social_query_forwarder
+                let social_query_doc_nuri_string = NuriV0::repo_id(query_id);
+                let sparql_update = format!("INSERT DATA {{ <{social_query_doc_nuri_string}> <did:ng:x:ng#social_query_forwarder> <{forwarder_nuri_string}>. }}");
+                let ret = self
+                    .process_sparql_update(&nuri, &sparql_update, &None, vec![])
+                    .await;
+                if let Err(e) = ret {
+                    return Err(NgError::SparqlError(e));
+                }
+
+                // adding triples in forwarder doc : ng:social_query_id and ng:social_query_started
+                let sparql_update = format!("INSERT DATA {{ <> <did:ng:x:ng#social_query_id> <{social_query_doc_nuri_string}> .
+                                                                    <> <did:ng:x:ng#social_query_started> \"{}\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . }}",DateTime::now());
+                let ret = self
+                    .process_sparql_update(&forwarder_nuri, &sparql_update, &Some(forwarder_nuri_string), vec![])
+                    .await;
+                if let Err(e) = ret {
+                    log_err!("{sparql_update}");
+                    return Err(NgError::SparqlError(e));
+                }
+
+                let from_profiles = self.get_2_profiles()?;
+
+                for (to_profile_nuri, to_inbox_nuri) in contacts {
+
+                    match self.social_query_dispatch(
+                        &to_profile_nuri, 
+                        &to_inbox_nuri, 
+                        &forwarder_nuri, 
+                        &forwarder_id, 
+                        &from_profiles,
+                        query_id, 
+                        &definition_commit_body_ref, 
+                        &blocks, 
+                        degree
+                    ).await {
+                        Ok(_) => {}
+                        Err(e) => return Ok(AppResponse::error(e.to_string())),
+                    }
+                }
+
+                return Ok(AppResponse::ok());
+
+                // // FOR THE SAKE OF TESTING
+                // let to_profile_nuri = NuriV0::public_profile(&from_profile_id);
+                // let to_inbox_nuri: String = NuriV0::inbox(&from_inbox.to_pub());
+                // let post = InboxPost::new_social_query_request(
+                //     store.get_store_repo().clone(),
+                //     from_inbox,
+                //     forwarder_id,
+                //     to_profile_nuri,
+                //     to_inbox_nuri,
+                //     None,
+                //     *query_id,
+                //     definition_commit_body_ref,
+                //     blocks,
+                //     degree,
+                // )?;
+                // return match self.client_request::<_,()>(post).await
+                // {
+                //     Err(e) => Ok(AppResponse::error(e.to_string())),
+                //     Ok(SoS::Stream(_)) => Ok(AppResponse::error(NgError::InvalidResponse.to_string())),
+                //     Ok(SoS::Single(_)) => Ok(AppResponse::ok()),
+                // };
+            }
             AppRequestCommandV0::Header => {
                 if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Header(doc_header))) =
                     payload
@@ -625,67 +852,17 @@ impl Verifier {
                 }
             }
             AppRequestCommandV0::Create => {
-                if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(doc_create))) =
+                return if let Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(doc_create))) =
                     payload
                 {
-                    //TODO: deal with doc_create.destination
-
-                    let user_id = self.user_id().clone();
-                    let user_priv_key = self.user_privkey().clone();
-                    let primary_class = doc_create.class.class().clone();
-                    let (_,_,store) = self.resolve_target(&nuri.target)?;
-                    let repo_id = self
-                        .new_repo_default(
-                            &user_id,
-                            &user_priv_key,
-                            &store,
-                            doc_create.class,
-                        )
-                        .await?;
-
-                    let header_branch_id = {
-                        let repo = self.get_repo(&repo_id, &store)?;
-                        repo.header_branch().ok_or(NgError::BranchNotFound)?.id
-                    };
-
-                    // adding an AddRepo commit to the Store branch of store.
-                    self.send_add_repo_to_store(&repo_id, &store)
-                        .await?;
-
-                    // adding an ldp:contains triple to the store main branch
-                    let overlay_id = store.outer_overlay();
-                    let nuri = NuriV0::repo_id(&repo_id);
-                    let nuri_result = NuriV0::repo_graph_name(&repo_id, &overlay_id);
-                    let store_nuri = NuriV0::from_store_repo(&store);
-                    let store_nuri_string = NuriV0::repo_id(store.repo_id());
-                    let query = format!("INSERT DATA {{ <{store_nuri_string}> <http://www.w3.org/ns/ldp#contains> <{nuri}>. }}");
-
-                    let ret = self
-                        .process_sparql_update(&store_nuri, &query, &None, vec![])
-                        .await;
-                    if let Err(e) = ret {
-                        return Ok(AppResponse::error(e));
+                    match self.doc_create(nuri, doc_create).await {
+                        Err(NgError::SparqlError(e)) => Ok(AppResponse::error(e)),
+                        Err(e) => Err(e),
+                        Ok(nuri_result) => Ok(AppResponse::V0(AppResponseV0::Nuri(nuri_result)))
                     }
-
-                    self.add_doc(&repo_id, &overlay_id)?;
-
-                    // adding the class triple to the header branch
-                    let header_branch_nuri = format!("{nuri_result}:b:{}", header_branch_id);
-                    let quad = Quad {
-                        subject: NamedNode::new_unchecked(&nuri).into(),
-                        predicate: NG_ONTOLOGY_CLASS_NAME.clone().into(),
-                        object: Literal::new_simple_literal(primary_class).into(),
-                        graph_name: NamedNode::new_unchecked(&header_branch_nuri).into(),
-                    };
-                    let ret = self.prepare_sparql_update(vec![quad], vec![], vec![]).await;
-                    if let Err(e) = ret {
-                        return Ok(AppResponse::error(e.to_string()));
-                    }
-
-                    return Ok(AppResponse::V0(AppResponseV0::Nuri(nuri_result)));
                 } else {
-                    return Err(NgError::InvalidPayload);
-                }
+                    Err(NgError::InvalidPayload)
+                };
             }
             AppRequestCommandV0::Fetch(fetch) => match fetch {
                 AppFetchContentV0::Header => {
@@ -742,22 +919,9 @@ impl Verifier {
                         base,
                     }))) = payload
                     {
-                        //log_debug!("query={}", query);
-                        let store = self.graph_dataset.as_ref().unwrap();
-                        let parsed = Query::parse(&sparql, base.as_deref());
-                        if parsed.is_err() {
-                            return Ok(AppResponse::error(parsed.unwrap_err().to_string()));
-                        }
-                        let mut parsed = parsed.unwrap();
-                        let dataset = parsed.dataset_mut();
-                        //log_debug!("DEFAULTS {:?}", dataset.default_graph_graphs());
-                        if dataset.has_no_default_dataset() {
-                            //log_info!("DEFAULT GRAPH AS UNION");
-                            dataset.set_default_graph_as_union();
-                        }
-                        let results = store
-                            .query(parsed, self.resolve_target_for_sparql(&nuri.target, false)?);
+                        let results = self.sparql_query(&nuri, sparql, base).await;
                         return Ok(match results {
+                            Err(VerifierError::SparqlError(s)) => AppResponse::error(s),
                             Err(e) => AppResponse::error(e.to_string()),
                             Ok(qr) => {
                                 let res = Self::handle_query_results(qr);

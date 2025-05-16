@@ -13,6 +13,7 @@
 
 use core::fmt;
 use std::collections::HashSet;
+use std::sync::Arc;
 use std::{
     any::{Any, TypeId},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -25,15 +26,57 @@ use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::store::Store;
 use ng_repo::types::*;
-use ng_repo::utils::{sign, verify};
+use ng_repo::utils::{random_key, sign, verify, decode_digest, decode_key, decode_sym_key, decode_priv_key, decode_overlayid};
 
 use crate::app_protocol::*;
 use crate::utils::{
     get_domain_without_port_443, is_ipv4_private, is_ipv6_private, is_private_ip, is_public_ip,
-    is_public_ipv4, is_public_ipv6,
+    is_public_ipv4, is_public_ipv6, decode_locator
 };
 use crate::WS_PORT_ALTERNATE;
 use crate::{actor::EActor, actors::admin::*, actors::*};
+
+use lazy_static::lazy_static;
+use regex::Regex;
+
+lazy_static! {
+    #[doc(hidden)]
+    pub(crate) static ref RE_FILE_READ_CAP: Regex =
+        Regex::new(r"^did:ng:j:([A-Za-z0-9-_]{44}):k:([A-Za-z0-9-_]{44})$").unwrap();
+    #[doc(hidden)]
+    pub(crate) static ref RE_REPO_O: Regex =
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]{44})$").unwrap();
+    #[doc(hidden)]
+    pub(crate) static ref RE_REPO: Regex =
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]{44}):v:([A-Za-z0-9-_]{44})$").unwrap();
+    #[doc(hidden)]
+    pub(crate) static ref RE_BRANCH: Regex =
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]{44}):v:([A-Za-z0-9-_]{44}):b:([A-Za-z0-9-_]{44})$").unwrap();
+    #[doc(hidden)]
+    pub(crate) static ref RE_NAMED_BRANCH_OR_COMMIT: Regex =
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]{44}):v:([A-Za-z0-9-_]{44}):a:([A-Za-z0-9-_%]*)$").unwrap(); //TODO: allow international chars. disallow digit as first char
+    #[doc(hidden)]
+    pub(crate) static ref RE_OBJECTS: Regex =
+        Regex::new(r"^did:ng(?::o:([A-Za-z0-9-_]{44}))?:v:([A-Za-z0-9-_]{44})((?::[cj]:[A-Za-z0-9-_]{44}:k:[A-Za-z0-9-_]{44})+)(?::s:([A-Za-z0-9-_]{44}):k:([A-Za-z0-9-_]{44}))?:l:([A-Za-z0-9-_]*)$").unwrap();
+    #[doc(hidden)]
+    pub(crate) static ref RE_OBJECT_READ_CAPS: Regex =
+        Regex::new(r":[cj]:([A-Za-z0-9-_]{44}):k:([A-Za-z0-9-_]{44})").unwrap();
+    #[doc(hidden)]
+    pub(crate) static ref RE_FROM_PUBLIC_PROFILE_INBOX: Regex =
+        Regex::new(r"^did:ng:a:([A-Za-z0-9-_]{44}):p:([A-Za-z0-9-_]{44})$").unwrap();
+    #[doc(hidden)]
+    pub(crate) static ref RE_COMMIT: Regex =
+        Regex::new(r"^did:ng:o:([A-Za-z0-9-_]{44}):c:([A-Za-z0-9-_]{44}):k:([A-Za-z0-9-_]{44})$").unwrap();
+    #[doc(hidden)]
+    pub(crate) static ref RE_INBOX_OVERLAY: Regex =
+        Regex::new(r"^did:ng:d:([A-Za-z0-9-_]{44}):v:([A-Za-z0-9-_]{44})(:l:([A-Za-z0-9-_]*))?$").unwrap();
+    #[doc(hidden)]
+    pub(crate) static ref RE_INBOX: Regex =
+        Regex::new(r"^did:ng:d:([A-Za-z0-9-_]{44})$").unwrap();
+    #[doc(hidden)]
+    pub(crate) static ref RE_PROFILE: Regex =
+        Regex::new(r"^did:ng:[ab]:([A-Za-z0-9-_]{44})$").unwrap();
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 /// used to initiate a session at a local broker V0
@@ -2136,8 +2179,8 @@ pub enum InnerOverlayMessageContentV0 {
     SubMarker(SubMarker),
     UnsubReq(UnsubReq),
     Event(Event),
-    //PostInboxRequest(PostInboxRequest),
-    //PostInboxResponse(PostInboxResponse),
+    //InboxPostRequest(InboxPostRequest),
+    //InboxPostResponse(InboxPostResponse),
 }
 
 /// Inner Overlay message payload V0
@@ -2371,7 +2414,7 @@ pub enum CoreDirectMessageContentV0 {
     ReturnPathTimingAdvert(ReturnPathTimingAdvert),
     BlocksGet(CoreBlocksGet),
     BlockResult(CoreBlockResult),
-    //PostInbox,
+    //InboxPost,
     //PartialSignature,
     //ClientDirectMessage //for messages between forwarded or direct peers
 }
@@ -2451,7 +2494,7 @@ pub enum OuterOverlayResponseContentV0 {
     EmptyResponse(()),
     Block(Block),
     TopicSyncRes(TopicSyncRes),
-    //PostInboxResponse(PostInboxResponse),
+    //InboxPostResponse(InboxPostResponse),
 }
 
 /// Content of OuterOverlayRequest V0
@@ -2462,7 +2505,7 @@ pub enum OuterOverlayRequestContentV0 {
     TopicSub(PubKey),
     TopicUnsub(PubKey),
     BlocksGet(BlocksGet),
-    //PostInboxRequest(PostInboxRequest),
+    //InboxPostRequest(InboxPostRequest),
 }
 
 /// OuterOverlayRequestV0 V0
@@ -3588,6 +3631,139 @@ impl ObjectDel {
     }
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct InboxRegister {
+    pub inbox_id: PubKey,
+    pub overlay: OverlayId,
+    // TODO: obtain challenge from Broker
+    pub challenge: [u8; 32],
+    // signature of challenge by inbox privkey
+    pub sig: Sig 
+}
+
+impl InboxRegister {
+    pub fn new(inbox: PrivKey, overlay: OverlayId) -> Result<Self,NgError> {
+        let challenge = random_key();
+        let inbox_id = inbox.to_pub();
+        let sig = sign(&inbox,&inbox_id, &challenge)?;
+        Ok(Self {
+            inbox_id,
+            overlay,
+            challenge,
+            sig
+        })
+    }
+}
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InboxPost {
+    pub msg: InboxMsg,
+    /// optional Locator for destination inbox, in case broker doesn't know where to find inbox
+    pub to_broker: Option<Locator>,
+}
+
+impl InboxPost {
+    pub fn new(
+        to_overlay: OverlayId,
+        to_inbox: PubKey,
+        from: Option<(OverlayId,PrivKey)>,
+        content:&InboxMsgContent,
+        blocks: Vec<Block>,
+        to_broker: Option<Locator>
+    ) -> Result<Self,NgError> 
+    {
+        Ok(Self {
+            msg: InboxMsg::new(to_overlay,to_inbox,from,content,blocks)?,
+            to_broker
+        })
+    }
+
+    pub fn new_social_query_response(
+        to_overlay: OverlayId,
+        to_inbox: PubKey,
+        from: Option<(OverlayId,PrivKey)>,
+        query_id: RepoId,
+        forwarder_id: RepoId,
+        content: SocialQueryResponseContent
+    ) -> Result<Self,NgError> {
+        let content = InboxMsgContent::SocialQuery(SocialQuery::Response(SocialQueryResponse { query_id, forwarder_id, content }));
+        Self::new(to_overlay, to_inbox, from, &content, vec![], None)
+    }
+
+    pub fn new_social_query_response_replying_to(
+        msg: &InboxMsgBody,
+        request: &SocialQueryRequest,
+        content: SocialQueryResponseContent,
+        inbox_privkey: PrivKey,
+    ) -> Result<Self,NgError> {
+        let to_overlay = msg.from_overlay.ok_or(NgError::InvalidArgument)?;
+        let to_inbox = msg.from_inbox.ok_or(NgError::InvalidArgument)?;
+        if msg.to_inbox != inbox_privkey.to_pub() { return Err(NgError::InvalidArgument); }
+        let from = Some((msg.to_overlay, inbox_privkey));
+        let query_id = request.query_id;
+        let forwarder_id = request.forwarder_id;
+        let content = InboxMsgContent::SocialQuery(SocialQuery::Response(SocialQueryResponse { query_id, forwarder_id, content }));
+        Self::new(to_overlay, to_inbox, from, &content, vec![], None)
+    }
+
+    /// to_profile_nuri = did:ng:[ab]
+    /// to_inbox_nuri = did:ng:d
+    pub fn new_social_query_request(
+        from_profile_store_repo: StoreRepo, 
+        from_inbox: PrivKey, 
+        forwarder_id: RepoId,
+        to_profile_nuri: String,
+        to_inbox_nuri: String,
+        to_broker: Option<Locator>,
+        query_id: RepoId,
+        definition_commit_body_ref: ObjectRef, 
+        blocks: Vec<Block>,
+        degree: u16,
+    ) -> Result<Self, NgError> {
+
+        // processing to_profile_nuri
+        let c = RE_PROFILE.captures(&to_profile_nuri);
+        if c.is_some()
+            && c.as_ref().unwrap().get(1).is_some()
+        {
+            let cap = c.unwrap();
+            let o = cap.get(1).unwrap().as_str();
+            let to_profile_id = decode_key(o)?;
+            let to_overlay = OverlayId::outer(&to_profile_id);
+
+            // processing to_inbox_nuri
+            let c = RE_INBOX.captures(&to_inbox_nuri);
+            if c.is_some()
+                && c.as_ref().unwrap().get(1).is_some()
+            {
+                let cap = c.unwrap();
+                let d = cap.get(1).unwrap().as_str();
+                let to_inbox = decode_key(d)?;
+                let from_overlay = from_profile_store_repo.outer_overlay();
+                let content = InboxMsgContent::SocialQuery(SocialQuery::Request(SocialQueryRequest{
+                    query_id,
+                    forwarder_id,
+                    from_profile_store_repo,
+                    degree,
+                    definition_commit_body_ref,
+                }));
+
+                return Ok(InboxPost::new(
+                    to_overlay,
+                    to_inbox,
+                    Some((from_overlay,from_inbox)),
+                    &content,
+                    blocks,
+                    to_broker
+                )?);
+            }
+        }
+        Err(NgError::InvalidNuri) 
+    }
+    
+}
+
 /// Request to publish an event in pubsub
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PublishEvent(pub Event, #[serde(skip)] pub Option<OverlayId>);
@@ -3619,6 +3795,9 @@ pub enum ClientRequestContentV0 {
     PublishEvent(PublishEvent),
 
     WalletPutExport(WalletPutExport),
+
+    InboxRegister(InboxRegister),
+    InboxPost(InboxPost),
 }
 
 impl ClientRequestContentV0 {
@@ -3627,6 +3806,8 @@ impl ClientRequestContentV0 {
             ClientRequestContentV0::RepoPinStatusReq(a) => a.set_overlay(overlay),
             ClientRequestContentV0::TopicSub(a) => a.set_overlay(overlay),
             ClientRequestContentV0::PinRepo(_a) => {}
+            ClientRequestContentV0::InboxRegister(_a) => {}
+            ClientRequestContentV0::InboxPost(_a) => {}
             ClientRequestContentV0::PublishEvent(a) => a.set_overlay(overlay),
             ClientRequestContentV0::CommitGet(a) => a.set_overlay(overlay),
             ClientRequestContentV0::TopicSyncReq(a) => a.set_overlay(overlay),
@@ -3686,6 +3867,8 @@ impl ClientRequest {
                 ClientRequestContentV0::BlocksExist(r) => r.get_actor(self.id()),
                 ClientRequestContentV0::BlocksGet(r) => r.get_actor(self.id()),
                 ClientRequestContentV0::WalletPutExport(r) => r.get_actor(self.id()),
+                ClientRequestContentV0::InboxRegister(r) => r.get_actor(self.id()),
+                ClientRequestContentV0::InboxPost(r) => r.get_actor(self.id()),
                 _ => unimplemented!(),
             },
         }
@@ -3956,6 +4139,156 @@ impl TryFrom<ProtocolMessage> for ClientResponseContentV0 {
     }
 }
 
+/// Starts a new Social Query
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SocialQueryRequest {
+    /// Query ID
+    pub query_id: RepoId,
+
+    /// Forwarder ID
+    pub forwarder_id: RepoId,
+
+    /// Profile ID (must match the from_overlay)
+    pub from_profile_store_repo: StoreRepo,
+
+    /// degree of forwarding in the social network
+    /// gets decremented at every hop
+    /// 0 means unlimited
+    /// 1 means stop here (after processing locally, do not forward)
+    pub degree: u16,
+
+    /// Definition in RDF. the blocks are added in InboxMsg.blocks
+    pub definition_commit_body_ref: ObjectRef,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum SocialQueryResponseContent {
+    True,
+    False,
+    Graph(Vec<u8>),
+    QueryResult(Vec<u8>),
+    EndOfReplies,
+    AlreadyRequested,
+    Error(u16),
+}
+
+/// Response to a `SocialQueryRequest`
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SocialQueryResponse {
+    /// Query ID
+    pub query_id: RepoId,
+
+    /// Forwarder ID
+    pub forwarder_id: RepoId,
+
+    /// Response content
+    pub content: SocialQueryResponseContent,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum SocialQuery {
+    Request(SocialQueryRequest),
+    Response(SocialQueryResponse),
+    Cancel(RepoId),
+    Delete(RepoId),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum InboxMsgContent {
+    ContactDetails,
+    DialogRequest,
+    Link,
+    Patch,
+    ServiceRequest,
+    ExtRequest,
+    RemoteQuery,
+    SocialQuery(SocialQuery),
+    //Transaction
+    //Comment
+    //BackLink
+}
+
+/// InboxMsgBody
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq)]
+pub struct InboxMsgBody {
+
+    pub to_overlay: OverlayId,
+    pub to_inbox: PubKey,
+
+    pub from_overlay: Option<OverlayId>,
+    pub from_inbox: Option<PubKey>,
+
+    /// crypto_box_sealed of InboxMsgContent serialization, encrypted to the to_inbox pub key
+    #[serde(with = "serde_bytes")]
+    pub msg: Vec<u8>,
+}
+
+/// InboxMsg
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct InboxMsg {
+
+    pub body: InboxMsgBody,
+
+    /// optional signature by sender (from_inbox pubkey), over body
+    pub sig: Option<Sig>,
+
+    /// optional blocks that should be sent with the message
+    pub blocks: Vec<Block>,
+}
+
+impl InboxMsg {
+    pub fn new(
+        to_overlay: OverlayId,
+        to_inbox: PubKey,
+        from: Option<(OverlayId,PrivKey)>,
+        content:&InboxMsgContent,
+        blocks: Vec<Block>
+    ) -> Result<Self,NgError> {
+        let ser = serde_bare::to_vec(content).unwrap();
+        let mut rng = crypto_box::aead::OsRng {};
+        let msg = crypto_box::seal(&mut rng, &to_inbox.to_dh_slice().into(), &ser)
+            .map_err(|_| NgError::EncryptionError)?;
+        let body = InboxMsgBody {
+            to_overlay,
+            to_inbox,
+            from_overlay: from.as_ref().map(|(o,_)|o.clone()),
+            from_inbox: from.as_ref().map(|(_,i)|i.to_pub()),
+            msg
+        };
+        let sig = match from {
+            Some((_,inbox)) => {
+                let ser = serde_bare::to_vec(&body).unwrap();
+                Some(sign(
+                    &inbox,
+                    body.from_inbox.as_ref().unwrap(),
+                    &ser,
+                )?)},
+                None=>None
+            };
+        Ok(
+            Self {
+                body,
+                sig,
+                blocks
+            }
+        )
+    }
+
+    pub fn get_content(&self, inbox_sk: &PrivKey) -> Result<InboxMsgContent, NgError> {
+        let ser = crypto_box::seal_open(&(*inbox_sk.to_dh().slice()).into(), &self.body.msg)
+            .map_err(|_| NgError::DecryptionError)?;
+        let content: InboxMsgContent =
+            serde_bare::from_slice(&ser).map_err(|_| NgError::SerializationError)?;
+        Ok(content)
+    }
+}
+
+/// Content of `ClientEvent`
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum ClientEvent {
+    InboxPopRequest,
+}
+
 /// Content of `ClientMessageV0`
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientMessageContentV0 {
@@ -3963,6 +4296,8 @@ pub enum ClientMessageContentV0 {
     ClientResponse(ClientResponse),
     ForwardedEvent(Event),
     ForwardedBlock(Block),
+    InboxReceive{ msg: InboxMsg, from_queue: bool },
+    ClientEvent(ClientEvent),
 }
 impl ClientMessageContentV0 {
     pub fn is_block(&self) -> bool {
@@ -4006,9 +4341,7 @@ impl IStreamable for ClientMessage {
         match self {
             ClientMessage::V0(o) => match &o.content {
                 ClientMessageContentV0::ClientResponse(r) => r.result(),
-                ClientMessageContentV0::ClientRequest(_)
-                | ClientMessageContentV0::ForwardedEvent(_)
-                | ClientMessageContentV0::ForwardedBlock(_) => {
+                _ => {
                     panic!("it is not a response");
                 }
             },
@@ -4018,9 +4351,7 @@ impl IStreamable for ClientMessage {
         match self {
             ClientMessage::V0(o) => match &mut o.content {
                 ClientMessageContentV0::ClientResponse(r) => r.set_result(result),
-                ClientMessageContentV0::ClientRequest(_)
-                | ClientMessageContentV0::ForwardedEvent(_)
-                | ClientMessageContentV0::ForwardedBlock(_) => {
+                _ => {
                     panic!("it is not a response");
                 }
             },
@@ -4043,15 +4374,6 @@ impl ClientMessage {
         }
     }
 
-    pub fn forwarded_event(self) -> Option<(Event, OverlayId)> {
-        let overlay = self.overlay_id();
-        match self {
-            ClientMessage::V0(o) => match o.content {
-                ClientMessageContentV0::ForwardedEvent(e) => Some((e, overlay)),
-                _ => None,
-            },
-        }
-    }
     pub fn overlay_id(&self) -> OverlayId {
         match self {
             ClientMessage::V0(o) => o.overlay,
@@ -4076,8 +4398,8 @@ impl ClientMessage {
             ClientMessage::V0(o) => match &o.content {
                 ClientMessageContentV0::ClientResponse(r) => Some(r.id()),
                 ClientMessageContentV0::ClientRequest(r) => Some(r.id()),
-                ClientMessageContentV0::ForwardedEvent(_)
-                | ClientMessageContentV0::ForwardedBlock(_) => None,
+                ClientMessageContentV0::ClientEvent(r) => Some(1),
+                _ => None,
             },
         }
     }
@@ -4086,8 +4408,7 @@ impl ClientMessage {
             ClientMessage::V0(o) => match &mut o.content {
                 ClientMessageContentV0::ClientResponse(ref mut r) => r.set_id(id),
                 ClientMessageContentV0::ClientRequest(ref mut r) => r.set_id(id),
-                ClientMessageContentV0::ForwardedEvent(_)
-                | ClientMessageContentV0::ForwardedBlock(_) => {
+                _ => {
                     panic!("it is an event")
                 }
             },
@@ -4098,9 +4419,7 @@ impl ClientMessage {
         match self {
             ClientMessage::V0(o) => match &o.content {
                 ClientMessageContentV0::ClientResponse(r) => r.block(),
-                ClientMessageContentV0::ClientRequest(_)
-                | ClientMessageContentV0::ForwardedEvent(_)
-                | ClientMessageContentV0::ForwardedBlock(_) => {
+                _ => {
                     panic!("it is not a response");
                 }
             },
@@ -4111,9 +4430,8 @@ impl ClientMessage {
         match self {
             ClientMessage::V0(o) => match &o.content {
                 ClientMessageContentV0::ClientRequest(req) => req.get_actor(),
-                ClientMessageContentV0::ClientResponse(_)
-                | ClientMessageContentV0::ForwardedEvent(_)
-                | ClientMessageContentV0::ForwardedBlock(_) => {
+                ClientMessageContentV0::ClientEvent(req) => req.get_actor(1),
+                _ => {
                     panic!("it is not a request");
                 }
             },
@@ -4857,7 +5175,7 @@ pub enum NgLink {
     V0(NgLinkV0),
 }
 
-// TODO: PermaLinks and PostInbox (and ExtRequests)
+// TODO: PermaLinks and InboxPost (and ExtRequests)
 
 #[cfg(test)]
 mod test {
