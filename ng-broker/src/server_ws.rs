@@ -274,9 +274,9 @@ fn upgrade_ws_or_serve_app(
             return Err(res);
         } else if uri.path() == "/auth/" {
             log_debug!("Serving auth app");
-            if referer.is_none() || referer.unwrap().to_str().is_err() || referer.unwrap().to_str().unwrap() != "https://nextgraph.net/" {
-                return Err(make_error(StatusCode::FORBIDDEN));
-            }
+            // if referer.is_none() || referer.unwrap().to_str().is_err() || referer.unwrap().to_str().unwrap() != "https://nextgraph.net/" {
+            //     return Err(make_error(StatusCode::FORBIDDEN));
+            // }
             let webapp_origin = match uri.query() {
                 Some(query) => {
                     if query.starts_with("o=") {
