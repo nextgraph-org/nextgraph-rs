@@ -23,11 +23,14 @@ You will have to use a Wallet that was created on one of our public Broker Servi
 
 you need to have a running local ngd server. See those [instructions first](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/DEV.md#first-run).
 
-Then compile the nextgraphweb package in dev mode:
+If you are running a local devenv for the frontend of nextGraph on http://localhost:1421 , then (and only then) you need to compile the nextgraphweb package in dev mode:
 
 ```
 pnpm run -C ../../helpers/nextgraphweb builddev
 ```
+Due to the way `npm link`  works, you will have to run this command again, after each time you use `npm install`.
+
+Otherwise, if you are using http://localhost:14400 in your browser, just skip the line above, and continue with those:
 
 ```
 npm install
@@ -35,7 +38,7 @@ npm link ../../helpers/nextgraphweb
 npm run dev
 ```
 
-Due to the way `npm link`  works, you will have to run this command again, after each time you use `npm install`.
+
 
 Open this URL in browser : [http://localhost:5173](http://localhost:5173)
 
