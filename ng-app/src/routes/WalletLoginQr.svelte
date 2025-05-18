@@ -24,7 +24,7 @@
   import { wallet_from_import, scanned_qr_code, display_error, check_has_camera } from "../store";
   import ng from "../api";
 
-  // <a href="/wallet/scanqr" use:link>
+  // <a href="/scanqr" use:link>
 
   let top: HTMLElement;
 
@@ -44,7 +44,7 @@
   let rendezvous_code;
 
   const open_scanner = () => {
-    push("#/wallet/scanqr");
+    push("#/scanqr");
   };
 
 

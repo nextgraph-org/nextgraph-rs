@@ -1479,36 +1479,3 @@ pub struct ShuffledPazzle {
     pub emoji_indices: Vec<Vec<u8>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NgQRCodeWalletTransferV0 {
-    pub broker: BrokerServerV0,
-    pub rendezvous: SymKey, // Rendez-vous ID
-    pub secret_key: SymKey,
-    pub is_rendezvous: bool,
-}
-
-#[derive(Clone, Debug, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
-pub struct NgQRCodeWalletRecoveryV0 {
-    #[zeroize(skip)]
-    pub wallet: WalletContentV0, //of which security_img is emptied
-    pub pazzle: Vec<u8>,
-    pub mnemonic: [u16; 12],
-    pub pin: [u8; 4],
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum NgQRCode {
-    WalletTransferV0(NgQRCodeWalletTransferV0),
-    WalletRecoveryV0(NgQRCodeWalletRecoveryV0),
-}
-
-impl NgQRCode {
-    pub fn from_code(code: String) -> Result<Self, NgError> {
-        let decoded = base64_url::decode(&code).map_err(|_| NgError::SerializationError)?;
-        Ok(serde_bare::from_slice(&decoded)?)
-    }
-    pub fn to_code(&self) -> String {
-        let ser = serde_bare::to_vec(self).unwrap();
-        base64_url::encode(&ser)
-    }
-}

@@ -1053,6 +1053,70 @@ pub async fn wallet_import(
     Ok(serde_wasm_bindgen::to_value(&client).unwrap())
 }
 
+
+#[wasm_bindgen]
+pub async fn import_contact_from_qrcode(
+    session_id: JsValue,
+    doc_nuri: String,
+    qrcode: String,
+) -> Result<(), String> {
+
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::QrCodeProfileImport,
+        NuriV0::new_from_repo_nuri(&doc_nuri).map_err(|e| e.to_string())?,
+        Some(AppRequestPayload::V0(AppRequestPayloadV0::QrCodeProfileImport(qrcode))),
+    );
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    match response {
+        AppResponse::V0(AppResponseV0::Ok) => Ok(()),
+        AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[wasm_bindgen]
+pub async fn get_qrcode_for_profile(
+    session_id: JsValue,
+    public: bool,
+    size: JsValue,
+) -> Result<String, String> {
+    let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
+        .map_err(|_| "Deserialization error of session_id".to_string())?;
+    let size: u32 = serde_wasm_bindgen::from_value::<u32>(size)
+        .map_err(|_| "Deserialization error of size".to_string())?;
+
+    let nuri = if public {
+        NuriV0::new_public_store_target()
+    } else {
+        NuriV0::new_protected_store_target()
+    };
+
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::QrCodeProfile,
+        nuri,
+        Some(AppRequestPayload::V0(AppRequestPayloadV0::QrCodeProfile(size))),
+    );
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    match response {
+        AppResponse::V0(AppResponseV0::Text(qrcode)) => Ok(qrcode),
+        AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
 #[cfg(wasmpack_target = "nodejs")]
 #[wasm_bindgen(module = "/js/node.js")]
 extern "C" {

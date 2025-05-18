@@ -29,6 +29,8 @@ use ng_oxigraph::oxigraph::sparql::Query;
 use ng_oxigraph::oxigraph::sparql::QueryResults;
 use ng_oxigraph::oxrdf::Term;
 use ng_repo::utils::derive_key;
+use qrcode::render::svg;
+use qrcode::QrCode;
 use sbbf_rs_safe::Filter;
 use serde::{Deserialize, Serialize};
 use web_time::SystemTime;
@@ -285,11 +287,9 @@ impl Verifier {
             let base = NuriV0::repo_id(&repo.id);
             let parsed = Query::parse(&format!("SELECT ?title ?about WHERE {{ OPTIONAL {{ <> <{NG_ONTOLOGY_ABOUT}> ?about }} OPTIONAL {{ <> <{NG_ONTOLOGY_TITLE}> ?title }} }}"), 
                 Some(&base)).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
-
             let results = oxistore
                 .query(parsed, Some(header_graph))
                 .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
-
             match results {
                 QueryResults::Solutions(mut sol) => {
                     if let Some(Ok(s)) = sol.next() {
@@ -1564,6 +1564,84 @@ impl Verifier {
             .await?;
 
         Ok(())
+    }
+
+    pub async fn get_qrcode_for_profile(&self, public: bool, size: u32) -> Result<String, VerifierError> {
+
+        let profile_id = if public {
+            self.public_store_id()
+        } else {
+            self.protected_store_id()
+        };
+
+        let repo = self.repos.get(&profile_id).ok_or(NgError::RepoNotFound)?;
+        let inbox = repo.inbox.to_owned().ok_or(NgError::InboxNotFound)?.to_pub();
+        let profile = repo.store.get_store_repo().clone();
+
+        let sparql = format!("
+                    PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
+                    SELECT ?name ?email WHERE 
+                    {{ <> vcard:fn ?name .
+                       <> vcard:hasEmail ?email .
+                    }}");
+        //log_info!("{sparql}");
+        let (mut name, mut email) = match self.sparql_query(
+            &NuriV0::new_repo_target_from_id(profile_id),
+            sparql, Some(NuriV0::repo_id(profile_id))).await? 
+        {
+            QueryResults::Solutions(mut sols) => { 
+                match sols.next() {
+                    None => {
+                        //log_info!("name or email not found");
+                        (None, None)
+                    }
+                    Some(Err(e)) => {
+                        return Err(VerifierError::SparqlError(e.to_string()));
+                    }
+                    Some(Ok(sol)) => {
+                        let name = if let Some(Term::Literal(l)) = sol.get("name") {
+                            Some(l.value().to_string())
+                        } else {
+                            None
+                        };
+                        let email = if let Some(Term::Literal(l)) = sol.get("email") {
+                            Some(l.value().to_string())
+                        } else {
+                            None
+                        };
+                        (name, email)
+                    }
+                }       
+            }
+            _ => return Err(VerifierError::SparqlError(NgError::InvalidResponse.to_string())),
+        };
+        if name.is_none() {
+            //return Err(VerifierError::InvalidProfile);
+            name = Some("no name".to_string());
+            email = Some("fake@email.com".to_string());
+        }
+        let profile_sharing = NgQRCode::ProfileSharingV0(NgQRCodeProfileSharingV0 { 
+            inbox, 
+            profile, 
+            name: name.unwrap(), 
+            email
+        });
+
+        let ser = serde_bare::to_vec(&profile_sharing)?;
+        let encoded = base64_url::encode(&ser);
+        log_info!("qrcode= {encoded}");
+        match QrCode::with_error_correction_level(encoded.as_bytes(), qrcode::EcLevel::M) {
+            Ok(qr) => {
+                Ok(qr
+                    .render()
+                    .max_dimensions(size, size)
+                    .dark_color(svg::Color("#000000"))
+                    .light_color(svg::Color("#ffffff"))
+                    .build()
+                )
+            }
+            Err(e) => Err(VerifierError::QrCode(e.to_string())),
+        }
     }
 
     pub async fn inbox(&mut self, msg: InboxMsg, from_queue: bool) {

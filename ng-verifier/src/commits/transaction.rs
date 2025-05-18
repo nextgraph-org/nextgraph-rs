@@ -551,7 +551,6 @@ impl Verifier {
                         let commit_name =
                             NuriV0::commit_graph_name(&update.commit_id, &update.overlay_id);
                         let commit_encoded = numeric_encoder::StrHash::new(&commit_name);
-
                         let cv_graphname = NamedNode::new_unchecked(commit_name);
                         let cv_graphname_ref = GraphNameRef::NamedNode((&cv_graphname).into());
                         let ov_main = if branch_is_main {

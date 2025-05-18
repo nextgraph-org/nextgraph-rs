@@ -21,6 +21,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use web_time::SystemTime;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use ng_repo::errors::*;
 use ng_repo::log::*;
@@ -5174,6 +5175,50 @@ pub enum NgLinkV0 {
 pub enum NgLink {
     V0(NgLinkV0),
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NgQRCodeWalletTransferV0 {
+    pub broker: BrokerServerV0,
+    pub rendezvous: SymKey, // Rendez-vous ID
+    pub secret_key: SymKey,
+    pub is_rendezvous: bool,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NgQRCodeProfileSharingV0 {
+    pub inbox: PubKey,
+    pub profile: StoreRepo,
+    pub name: String,
+    pub email: Option<String>,
+}
+
+#[derive(Clone, Debug, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
+pub struct NgQRCodeWalletRecoveryV0 {
+    #[zeroize(skip)]
+    #[serde(with = "serde_bytes")]
+    pub wallet: Vec<u8>, // a serialized WalletContentV0, //of which security_img and security_text are emptied
+    pub pazzle: Vec<u8>,
+    pub mnemonic: [u16; 12],
+    pub pin: [u8; 4],
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum NgQRCode {
+    WalletTransferV0(NgQRCodeWalletTransferV0),
+    WalletRecoveryV0(NgQRCodeWalletRecoveryV0),
+    ProfileSharingV0(NgQRCodeProfileSharingV0),
+}
+
+impl NgQRCode {
+    pub fn from_code(code: String) -> Result<Self, NgError> {
+        let decoded = base64_url::decode(&code).map_err(|_| NgError::SerializationError)?;
+        Ok(serde_bare::from_slice(&decoded)?)
+    }
+    pub fn to_code(&self) -> String {
+        let ser = serde_bare::to_vec(self).unwrap();
+        base64_url::encode(&ser)
+    }
+}
+
 
 // TODO: PermaLinks and InboxPost (and ExtRequests)
 

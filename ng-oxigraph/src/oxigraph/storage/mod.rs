@@ -628,7 +628,6 @@ impl NgCommitQuadIterator {
         self.current_is_added = false;
         self.current_add_is_removed = None;
         self.current = None;
-
         ret
     }
 
@@ -689,6 +688,7 @@ impl NgCommitQuadIterator {
                             return Err(false);
                         }
                     } else {
+                        self.iter.next();
                         return Err(false);
                     }
                 }
@@ -707,6 +707,9 @@ impl Iterator for NgCommitQuadIterator {
             if let Ok(found) = res {
                 return found;
             }
+            // if res.err().unwrap() {
+            //     return None;
+            // }
         }
     }
 }

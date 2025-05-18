@@ -369,7 +369,7 @@ impl Verifier {
                 if msg.body.from_inbox.is_none() {
                     // TODO log error
                     // we do nothing as this is invalid msg. it must have a from.
-                    return Ok(())
+                    return Err(VerifierError::InvalidSocialQuery)
                 }
 
                 // TODO: first we open the response.forwarder_id (because in webapp, it might not be loaded yet)
@@ -544,12 +544,6 @@ impl Verifier {
 
                             let quads = triples.into_iter().map(|t| t.in_graph(graph_name.clone()) ).collect();
 
-                            // let quad = Quad {
-                            //     subject: NamedNode::new_unchecked(&nuri).into(),
-                            //     predicate: NG_ONTOLOGY_CLASS_NAME.clone().into(),
-                            //     object: Literal::new_simple_literal(primary_class).into(),
-                            //     graph_name: NamedNode::new_unchecked(&header_branch_nuri).into(),
-                            // };
                             let commits = self.prepare_sparql_update(quads, vec![], vec![]).await?;
                             
 

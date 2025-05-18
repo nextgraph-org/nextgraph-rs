@@ -220,9 +220,11 @@ export const check_has_camera = async () => {
       else {
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
+            console.log(devices);
             has_camera =
             devices.filter((device) => device.kind === "videoinput").length > 0;
-        } catch {
+        } catch(e) {
+            console.log(e);
             has_camera = false;
         }
       }

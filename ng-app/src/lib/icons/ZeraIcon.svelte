@@ -43,7 +43,7 @@
     Ticket,
     CursorArrowRays,
     Megaphone,
-    User,
+    UserCircle,
     Clock,
     CalendarDays,
     Calendar,
@@ -73,6 +73,8 @@
     Square3Stack3d,
     QueueList,
     Lifebuoy,
+    QrCode,
+    User,
   } from "svelte-heros-v2";
   import JsonIcon from "./JsonIcon.svelte";
   import JsonLdIcon from "./JsonLdIcon.svelte";
@@ -115,6 +117,9 @@
     grid: Squares2x2,
     view: Eye,
     social_query: Lifebuoy,
+    profile: UserCircle,
+    qrcode: QrCode,
+    contact: User,
   };
 
   const prefix_mapping = {};

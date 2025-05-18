@@ -555,6 +555,15 @@ impl NuriV0 {
         Err(NgError::InvalidNuri)
     }
 
+    
+    pub fn new_from_repo_nuri(from: &String) -> Result<Self, NgError> {
+        let repo_id = Self::from_repo_nuri_to_id(from)?;
+        let mut n = Self::new_empty();
+        n.target = NuriTargetV0::Repo(repo_id);
+        return Ok(n);
+    }
+
+
     pub fn new_from_commit(from: &String) -> Result<Self, NgError> {
 
         let c = RE_COMMIT.captures(&from);
@@ -695,6 +704,8 @@ pub enum AppRequestCommandV0 {
     InboxPost,
     SocialQueryStart,
     SocialQueryCancel,
+    QrCodeProfile,
+    QrCodeProfileImport,
 }
 
 impl AppRequestCommandV0 {
@@ -733,6 +744,12 @@ impl AppRequestCommandV0 {
     }
     pub fn new_header() -> Self {
         AppRequestCommandV0::Header
+    }
+    pub fn new_qrcode_for_profile() -> Self {
+        AppRequestCommandV0::QrCodeProfile
+    }
+    pub fn new_qrcode_profile_import() -> Self {
+        AppRequestCommandV0::QrCodeProfileImport
     }
     pub fn new_fetch_header() -> Self {
         AppRequestCommandV0::Fetch(AppFetchContentV0::Header)
@@ -1015,6 +1032,8 @@ pub enum AppRequestPayloadV0 {
     },
     //RemoveFile
     //Invoke(InvokeArguments),
+    QrCodeProfile(u32),
+    QrCodeProfileImport(String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1280,5 +1299,8 @@ impl AppResponse {
     }
     pub fn commits(commits: Vec<String>) -> Self {
         AppResponse::V0(AppResponseV0::Commits(commits))
+    }
+    pub fn text(text: String) -> Self {
+        AppResponse::V0(AppResponseV0::Text(text))
     }
 }

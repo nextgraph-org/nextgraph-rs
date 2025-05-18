@@ -129,6 +129,13 @@ const class_to_viewers_editors = (class_name: string) => {
     if (!has_discrete) {
         if (class_def["ng:o"]) graph_viewers.push(class_def["ng:o"]);
         if (class_def["ng:w"]) graph_editors.push(class_def["ng:w"]);
+
+        for (const additional_v of find_viewers_for_class(class_name)){
+            if (!graph_viewers.includes(additional_v)) graph_viewers.push(additional_v);
+        }
+        for (const additional_e of find_editors_for_class(class_name)){
+            if (!graph_editors.includes(additional_e)) graph_editors.push(additional_e);
+        }
     }
     for (const additional_g_v of find_viewers_for_class("data:graph")){
         if (!graph_viewers.includes(additional_g_v)) graph_viewers.push(additional_g_v);

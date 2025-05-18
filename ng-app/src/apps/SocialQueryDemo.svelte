@@ -15,7 +15,9 @@
       sparql_update,
       toast_error,
       toast_success,
-      active_session
+      active_session,
+      display_error,
+      online
     } from "../store";
     import ng from "../api";
     import { 
@@ -42,19 +44,25 @@
 
     const openQuery = async () => {
       
-      await sparql_update("INSERT DATA { <> <did:ng:x:ng#social_query_sparql> \"CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }\".}");
-      let commit_id = commits.heads[0];
-      let commit_key = commits.head_keys[0];
-      let session = $active_session;
-      if (!session) return;
-      let request_nuri = "did:ng:"+$cur_tab.doc.nuri+":c:"+commit_id+":k:"+commit_key;
-      await ng.social_query_start(
-        session.session_id,
-        "did:ng:a", 
-        request_nuri,
-        "did:ng:d:c", 
-        2,
-      );
+      //TODO : return now if already processing (when LDO for svelte is ready)
+      // and even disable the button in that case
+      try {
+        await sparql_update("INSERT DATA { <> <did:ng:x:ng#social_query_sparql> \"CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }\".}");
+        let commit_id = commits.heads[0];
+        let commit_key = commits.head_keys[0];
+        let session = $active_session;
+        if (!session) return;
+        let request_nuri = "did:ng:"+$cur_tab.doc.nuri+":c:"+commit_id+":k:"+commit_key;
+        await ng.social_query_start(
+          session.session_id,
+          "did:ng:a", 
+          request_nuri,
+          "did:ng:d:c", 
+          2,
+        );
+      } catch (e) {
+        toast_error(display_error(e));
+      }
     }
 
     onMount(()=>{
@@ -62,7 +70,6 @@
     });
 
     const info = () => {
-      
     }
   
   </script>
@@ -78,14 +85,15 @@
     >
       info
     </button>
-    <button
+    <Button
       on:click={openQuery}
       on:keypress={openQuery}
+      disabled={!$online}      
       class="select-none ml-2 mt-2 mb-2 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
     >
       <Lifebuoy tabindex="-1" class="mr-2 focus:outline-none" />
       Start query
-    </button>
+    </Button>
 
     {#if source}
       <Highlight {language} code={source} class="mb-10"  let:highlighted >

@@ -655,9 +655,12 @@
     "WsError": "WebSocket error",
     "cannot_load_this_file": "Cannot load this file",
     "graph_not_found": "Graph not found",
+    "SocialQueryAlreadyStarted": "Social Query already started",
+    "ContactAlreadyExists": "Contact already added to your account",
+    "ContactNotFound": "You don't have any contact. We cannot start the Social Query",
     "no_wasm_on_old_safari": "Your Safari browser is too old (version before 14.1). As a result we cannot load Automerge, needed for this document. Please upgrade your macOS or iOS system",
     "BrowserTooOld": "Your browser is too old. Please upgrade it, use another browser, or install our native app. If you are using jshelter or another javascript protection mechanism, please deactivate it as we need access to the WebWorker facility of your browser.",
-    "NoLocalStorage": "You have disabled local storage in your browser. Please allow the current website (and https://nextgraph.net website) to store data in this browser as otherwise we cannot proceed with Wallet creation. After allowing storage, please refresh the current page." 
+    "NoLocalStorage": "You have disabled local storage in your browser. Please allow the current website (and https://nextgraph.net website) to store data in this browser as otherwise we cannot proceed with Wallet creation. After allowing storage, please refresh the current page. You might need to all third-party cookies too." 
   },
   "connectivity": {
     "stopped": "Stopped",

@@ -3376,6 +3376,7 @@ dependencies = [
  "unique_id",
  "url",
  "web-time",
+ "zeroize",
 ]
 
 [[package]]
@@ -3532,6 +3533,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "automerge",
+ "base64-url",
  "either",
  "futures",
  "getrandom 0.2.10",
@@ -3540,6 +3542,7 @@ dependencies = [
  "ng-oxigraph",
  "ng-repo",
  "ng-storage-rocksdb",
+ "qrcode",
  "rand 0.7.3",
  "sbbf-rs-safe",
  "serde",

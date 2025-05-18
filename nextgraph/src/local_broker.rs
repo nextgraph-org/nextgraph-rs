@@ -1683,8 +1683,9 @@ pub fn wallet_to_wallet_recovery(
         Wallet::V0(v0) => {
             let mut content = v0.content.clone();
             content.security_img = vec![];
+            content.security_txt = String::new();
             NgQRCodeWalletRecoveryV0 {
-                wallet: content,
+                wallet: serde_bare::to_vec(&content).unwrap(),
                 pazzle,
                 mnemonic,
                 pin,

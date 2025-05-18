@@ -29,9 +29,11 @@ either = "1.8.1"
 futures = "0.3.24"
 lazy_static = "1.4.0"
 async-trait = "0.1.64"
+base64-url = "2.0.0"
 async-std = { version = "1.12.0", features = [ "attributes", "unstable" ] }
 automerge = "0.5.11"
 yrs = "0.19.2"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 sbbf-rs-safe = "0.3.2"
 ng-repo = { path = "../ng-repo", version = "0.1.1-alpha.2" }
 ng-net = { path = "../ng-net", version = "0.1.1-alpha.2" }

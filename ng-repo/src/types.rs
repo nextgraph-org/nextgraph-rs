@@ -888,6 +888,13 @@ impl StoreRepo {
         }
     }
 
+    pub fn is_public(&self) -> bool {
+        match self {
+            Self::V0(StoreRepoV0::PublicStore(_)) => true,
+            _ => false,
+        }
+    }
+
     // pub fn overlay_id_for_storage_purpose(
     //     &self,
     //     store_overlay_branch_readcap_secret: Option<ReadCapSecret>,

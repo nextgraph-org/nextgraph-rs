@@ -95,6 +95,7 @@ pub enum NgError {
     BrokerNotFound,
     SparqlError(String),
     ContactNotFound,
+    SocialQueryAlreadyStarted,
 }
 
 impl Error for NgError {}
@@ -191,6 +192,7 @@ impl From<VerifierError> for NgError {
             VerifierError::StoreNotFound => NgError::StoreNotFound,
             VerifierError::BranchNotFound => NgError::BranchNotFound,
             VerifierError::SparqlError(s) => NgError::SparqlError(s),
+            VerifierError::InternalError => NgError::InternalError,
             _ => NgError::VerifierError(e),
         }
     }
@@ -390,6 +392,10 @@ pub enum VerifierError {
     InvalidResponse,
     SparqlError(String),
     InboxError(String),
+    QrCode(String),
+    InvalidProfile,
+    ContactAlreadyExists,
+    InternalError,
 }
 
 impl Error for VerifierError {}

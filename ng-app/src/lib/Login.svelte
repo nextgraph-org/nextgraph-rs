@@ -430,7 +430,7 @@
           <Alert color="orange" class="">
             Access to local storage is denied. <br/>You won't be able to save your wallet in this browser.<br/>
             If you wanted to save it, please allow storing local data<br/> for the websites {location.origin} <br/>
-            and https://nextgraph.net and then reload the page.
+            and https://nextgraph.net and then reload the page. <br/> You might need to all third-party cookies too.
           </Alert>
         </div>
         {:else}

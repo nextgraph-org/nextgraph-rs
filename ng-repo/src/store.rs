@@ -293,7 +293,13 @@ impl Store {
     ) -> Result<(Repo, Vec<(Commit, Vec<Digest>)>), NgError> {
         let is_store = branch_crdt.is_none();
         if is_store {
-            branch_crdt = Some(BranchCrdt::Graph("data:container".to_string()));
+            branch_crdt = Some(BranchCrdt::Graph(
+                if is_private_store {
+                    "data:container"
+                } else {
+                    "social:profile"
+                }.to_string()
+            ));
         }
 
         let mut events = Vec::with_capacity(9);

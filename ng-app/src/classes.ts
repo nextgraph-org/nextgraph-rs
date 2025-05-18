@@ -728,9 +728,12 @@ export const official_classes = {
         "ng:crdt": "Graph",
         "ng:n": "Contact", 
         "ng:a": "Contact: an Individual, Organization or Group",
+        "ng:o": "n:g:z:contact_editor",
+        "implemented": true,
         "ng:x": {
             "vcard":true,
             "foaf": true,
+            "schema": true,
         },
         "ng:include": ["data:graph"],
         "ng:compat": ["foaf:Person","foaf:Agent","vcard:Individual", "vcard:Organization", "vcard:Group", "file:iana:text:vcard", "file:iana:application:vcard+json", "file:iana:application:vcard+xml" ],
@@ -783,6 +786,20 @@ export const official_classes = {
         "ng:crdt": "Graph",
         "ng:n": "Live",
         "ng:a": "A live session of video or audio, with optional chat",
+    },
+    "social:profile": {
+        "ng:crdt": "Graph",
+        "ng:n": "Social Profile",
+        "ng:a": "The profile your share to others",
+        "ng:o": "n:g:z:profile",
+        "ng:w": "n:g:z:profile_editor",
+        "ng:x": {
+            "rdf": true,
+            "rdfs": true,
+            "ldp": true,
+        },
+        "ng:include": "data:container",
+        "implemented": true
     },
     "social:profile:skills:programming": {
         "ng:crdt": "Graph",

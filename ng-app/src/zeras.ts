@@ -519,6 +519,46 @@ export const official_apps = {
         "ng:o": ["data:collection","data:container"],
         "ng:w": ["data:collection","data:container"],
     },
+    "n:g:z:profile": {
+        "ng:n": "Profile",
+        "ng:a": "See the profile of a user of group",
+        "ng:c": "app", 
+        "ng:u": "profile",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:profile", 
+        "ng:b": "ProfileView",
+        implemented: true,
+        "ng:o": ["social:profile"],
+    },
+    "n:g:z:profile_qrcode": {
+        "ng:n": "QR Code",
+        "ng:a": "Share your profile with others via QR Code",
+        "ng:c": "app", 
+        "ng:u": "qrcode",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:profile_qrcode", 
+        "ng:b": "ProfileQrCode",
+        implemented: true,
+        "ng:o": ["social:profile"],
+    },
+    "n:g:z:profile_editor": {
+        "ng:n": "Profile Editor",
+        "ng:a": "Edit your profile",
+        "ng:c": "app", 
+        "ng:u": "profile",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:profile_editor", 
+        "ng:b": "ProfileEditor",
+        implemented: true,
+        "ng:w": ["social:profile"],
+    },
+    "n:g:z:contact_editor": {
+        "ng:n": "Contact",
+        "ng:a": "Add, View, and Edit a Contact",
+        "ng:c": "app", 
+        "ng:u": "contact",//favicon. can be a did:ng:j 
+        "ng:g": "n:g:z:contact_editor", 
+        "ng:b": "ContactEditor",
+        implemented: true,
+        "ng:o": ["social:contact"],
+    },
     "n:g:z:grid": {
         "ng:n": "Grid",
         "ng:a": "See the content of document as a grid",

@@ -59,7 +59,7 @@
   routes.set("/user/registered", UserRegistered);
   routes.set("/wallet", WalletInfo);
   routes.set("/user/accounts", AccountInfo);
-  routes.set("/wallet/scanqr", ScanQR);
+  routes.set("/scanqr", ScanQR);
   if (import.meta.env.NG_APP_WEB) routes.set("/install", Install);
   routes.set("/shared", Shared);
   routes.set("/site", Site);
