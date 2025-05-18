@@ -153,7 +153,7 @@ impl Verifier {
         }
     }
 
-    async fn update_header(&mut self, target: &NuriTargetV0, title: Option<String>, about: Option<String>) -> Result<(), VerifierError> {
+    pub(crate) async fn update_header(&mut self, target: &NuriTargetV0, title: Option<String>, about: Option<String>) -> Result<(), VerifierError> {
 
         let (repo_id, branch_id, store_repo) = self.resolve_header_branch(target)?;
         let graph_name = NuriV0::branch_repo_graph_name(
@@ -713,24 +713,68 @@ impl Verifier {
         Ok(nuri_result)
     }
 
+    fn get_profile_for_inbox_post(&self, public: bool) -> Result<(StoreRepo, PrivKey),NgError> {
+
+        let from_profile_id = if !public {
+            self.config.protected_store_id.unwrap()
+        } else {
+            self.config.public_store_id.unwrap()
+        };
+        
+        let repo = self.repos.get(&from_profile_id).ok_or(NgError::RepoNotFound)?;
+        let inbox = repo.inbox.to_owned().ok_or(NgError::InboxNotFound)?;
+        let store_repo = repo.store.get_store_repo();
+
+        Ok( (store_repo.clone(), inbox.clone()) )
+    }
+
     async fn import_contact_from_qrcode(&mut self, repo_id: RepoId, contact: NgQRCodeProfileSharingV0) -> Result<(), VerifierError> {
 
         let inbox_nuri_string: String = NuriV0::inbox(&contact.inbox);
         let profile_nuri_string: String = NuriV0::from_store_repo_string(&contact.profile);
-        let a_or_b = if contact.profile.is_public() { "a" } else { "b" };
+        let a_or_b = if contact.profile.is_public() { "site" } else { "protected" };
 
         // checking if this contact has already been added
-
         match self.sparql_query(
             &NuriV0::new_entire_user_site(),
-            format!("ASK {{ ?s <did:ng:x:ng#d> <{inbox_nuri_string}> . ?s <did:ng:x:ng#{}> <{profile_nuri_string}> }}", 
-                a_or_b ), None).await? 
+            format!("ASK {{ ?s <did:ng:x:ng#{a_or_b}_inbox> <{inbox_nuri_string}> . ?s <did:ng:x:ng#{a_or_b}> <{profile_nuri_string}> }}"), None).await? 
         {
             QueryResults::Boolean(true) => {
                 return Err(VerifierError::ContactAlreadyExists);
                 }
             _ => {}
         }
+
+        // getting the privkey of the inbox and ovelray because we will need it here below to send responses.
+        let (from_profile, from_inbox) = self.get_profile_for_inbox_post(contact.profile.is_public())?;
+
+        // get the name and optional email address of the profile we will respond with.
+        // if we don't have a name, we fail
+        let from_profile_nuri = NuriV0::repo_id(from_profile.repo_id());
+
+        let (name,email) = match self.sparql_query(
+            &NuriV0::from_store_repo(&from_profile),
+            format!("PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
+                            SELECT ?name ?email WHERE {{ <> vcard:fn ?name . <> vcard:hasEmail ?email }}"), Some(from_profile_nuri)).await? 
+        {
+            QueryResults::Solutions(mut sol) => {
+                let mut name = None;
+                let mut email = None;
+                if let Some(Ok(s)) = sol.next() {
+                    if let Some(Term::Literal(l)) = s.get("name") {
+                        name = Some(l.value().to_string());
+                    }
+                    if let Some(Term::Literal(l)) = s.get("email") {
+                        email = Some(l.value().to_string());
+                    }
+                }
+                if name.is_none() {
+                    return Err(VerifierError::InvalidProfile)
+                }
+                (name.unwrap(),email)
+            }
+            _ => return Err(VerifierError::InvalidResponse),
+        };
 
         let contact_doc_nuri_string = NuriV0::repo_id(&repo_id);
         let contact_doc_nuri = NuriV0::new_repo_target_from_id(&repo_id);
@@ -739,7 +783,7 @@ impl Verifier {
         let sparql_update = format!(" PREFIX ng: <did:ng:x:ng#>
             PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
             INSERT DATA {{  <> ng:{a_or_b} <{profile_nuri_string}>.
-                            <> ng:d <{inbox_nuri_string}>.
+                            <> ng:{a_or_b}_inbox <{inbox_nuri_string}>.
                             <> a vcard:Individual .
                             <> vcard:fn \"{}\".
                             {has_email} }}", contact.name);
@@ -752,8 +796,60 @@ impl Verifier {
 
         self.update_header(&contact_doc_nuri.target, Some(contact.name), None).await?;
 
+        self.post_to_inbox(InboxPost::new_contact_details(
+            from_profile, 
+            from_inbox,
+            contact.profile.outer_overlay(),
+            contact.inbox,
+            None,
+            false,
+            name,
+            email,
+        )?).await?;
+
         Ok(())
     }
+
+    pub(crate) async fn search_for_contacts(&self, excluding_profile_id_nuri: Option<String>) -> Result<Vec<(String,String)>, VerifierError> {
+        let extra_conditions = if let Some(s) = excluding_profile_id_nuri {
+            format!("&& NOT EXISTS {{ ?c ng:site <{s}> }} && NOT EXISTS {{ ?c ng:protected <{s}> }}")
+        } else {
+            String::new()
+        };
+        let sparql = format!("PREFIX ng: <did:ng:x:ng#>
+            SELECT ?profile_id ?inbox_id WHERE 
+                {{ ?c a <http://www.w3.org/2006/vcard/ns#Individual> .
+                    OPTIONAL {{ ?c ng:site ?profile_id . ?c ng:site_inbox ?inbox_id }}
+                    OPTIONAL {{ ?c ng:protected ?profile_id . ?c ng:protected_inbox ?inbox_id }}
+                    FILTER ( bound(?profile_id) {extra_conditions} )
+                }}");
+        log_info!("{sparql}");
+        let sols = match self.sparql_query(
+            &NuriV0::new_entire_user_site(),
+            sparql, None).await? 
+        {
+            QueryResults::Solutions(sols) => { sols }
+            _ => return Err(VerifierError::SparqlError(NgError::InvalidResponse.to_string())),
+        };
+
+        let mut res = vec![];
+        for sol in sols {
+            match sol {
+                Err(e) => return Err(VerifierError::SparqlError(e.to_string())),
+                Ok(s) => {
+                    if let Some(Term::NamedNode(profile_id)) = s.get("profile_id") {
+                        let profile_nuri = profile_id.as_string();
+                        if let Some(Term::NamedNode(inbox_id)) = s.get("inbox_id") {
+                            let inbox_nuri = inbox_id.as_string();
+                            res.push((profile_nuri.clone(), inbox_nuri.clone()));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(res)
+
+}
 
     pub(crate) async fn process(
         &mut self,
@@ -790,12 +886,13 @@ impl Verifier {
                     return Err(NgError::NotConnected);
                 }
 
-                // TODO: search for contacts (all stores, one store, a sparql query, etc..)
+                // searching for contacts (all stores, one store, a sparql query, etc..)
                 // (profile_nuri, inbox_nuri)
                 let contacts = if contacts_string.as_str() == "did:ng:d:c" {
-                    let mut res = vec![];
-                    res.push(("did:ng:a:rjoQTS4LMBDcuh8CEjmTYrgALeApBg2cgKqyPEuQDUgA".to_string(),"did:ng:d:KMFdOcGjdFBQgA9QNEDWcgEErQ1isbvDe7d_xndNOUMA".to_string()));
-                    res
+                    self.search_for_contacts(None).await?
+                    // let mut res = vec![];
+                    // res.push(("did:ng:a:rjoQTS4LMBDcuh8CEjmTYrgALeApBg2cgKqyPEuQDUgA".to_string(),"did:ng:d:KMFdOcGjdFBQgA9QNEDWcgEErQ1isbvDe7d_xndNOUMA".to_string()));
+                    // res
                 } else {
                     return Ok(AppResponse::error(NgError::NotImplemented.to_string()));
                 };

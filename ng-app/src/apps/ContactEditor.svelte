@@ -30,6 +30,7 @@
         check_has_camera,
         toast_error,
         display_error,
+        online
     } from "../store";
     import { onDestroy, onMount, tick } from "svelte";
 
@@ -95,21 +96,25 @@
     }
 
   </script>
-  <div class="flex-col p-5" bind:this={container}>
+  <div class="flex-col p-5"bind:this={container}>
+    <h1 class="font-bold text-xl text-blue-700">Contact</h1>
       {#if !has_camera && !has_name}
-        <Alert class="m-2" color="red">No camera available. You cannot import with QR-code</Alert>
+        <Alert class="m-2" color="red" style="word-break: break-word;" >No camera available. You cannot import with QR-code</Alert>
       {/if}
-      {#if !has_name}
+      {#if !has_name && has_camera}
         <Button
-            on:click={test}
-            on:keypress={open_scanner}     
+            on:click={open_scanner}
+            on:keypress={open_scanner}
+            disabled={!$online} 
             class="select-none ml-2 mt-2 mb-2 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
         >
             <QrCode tabindex="-1" class="mr-2 focus:outline-none" />
             Import with QR-code
         </Button><br/>
       {/if}
-      Name: {has_name || ""}<br/>
+      {#if has_name}
+      Name: {has_name}<br/>
+      {/if}
       {#if has_email}
       Email: {has_email}<br/>
       {/if}

@@ -15,7 +15,7 @@
     import { link, push } from "svelte-spa-router";
     import { onDestroy, onMount, tick } from "svelte";
     import { Button, Progressbar, Spinner, Alert } from "flowbite-svelte";
-    import{ PlusCircle, ArrowLeft } from "svelte-heros-v2";
+    import{ PlusCircle, ArrowLeft, PencilSquare } from "svelte-heros-v2";
 
     import { t } from "svelte-i18n";
     import { 
@@ -24,7 +24,8 @@
     import {
         openModalCreate,
         sparql_query,
-        active_session
+        active_session,
+        display_error,
     } from "../store";
 
 
@@ -34,6 +35,7 @@
     let generation_state: "before_start" | "loading" | "generated" =
     "before_start";
     let generated_qr: string | undefined = undefined;
+    let error = undefined;
 
     async function scrollToTop() {
         await tick();
@@ -51,21 +53,41 @@
 
     async function generate_qr_code() {
         generation_state = "loading";
-        console.log(container.clientWidth);
-        generated_qr = await ng.get_qrcode_for_profile(
-            $active_session.session_id,
-            $cur_tab.store.store_type == "public", // are we public or protected?
-            Math.min(container.clientWidth, 800)
-        );
-        generation_state = "generated";
+        try {
+          generated_qr = await ng.get_qrcode_for_profile(
+              $active_session.session_id,
+              $cur_tab.store.store_type == "public", // are we public or protected?
+              Math.min(container.clientWidth, 800)
+          );
+          generation_state = "generated";
+        } catch (e) {
+          error = e;
+        }
     }
 
     function back_to_profile_viewer() {
         set_viewer("n:g:z:profile");
     }
+
+    function edit() {
+        set_editor("n:g:z:profile_editor");
+        set_view_or_edit(false);
+    }
   
   </script>
   <div class="flex-col" bind:this={container}>
+    {#if error}
+      <Alert class="m-2" color="red" style="word-break: break-word;">{display_error(error)}</Alert>
+      <button
+        on:click={edit}
+        on:keypress={edit}
+        class="select-none mx-6 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+        ><PencilSquare
+          tabindex="-1"
+          class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
+        />Edit profile</button
+      >
+    {/if}
     {#if generation_state == "generated"}
       <div class="mx-auto">
         {@html generated_qr}

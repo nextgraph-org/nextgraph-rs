@@ -23,66 +23,87 @@
     import {
         openModalCreate,
         sparql_query,
-        active_session
+        active_session,
+        toast_error,
+        display_error,
+        toast_success,
     } from "../store";
     import {
-        Clipboard
+        CheckCircle,
+        ArrowLeft
     } from "svelte-heros-v2";
 
     export let commits;
 
+    let name = "";
+    let email = "";
+    let readonly = false;
+
+    $: valid = name.trim().length > 1 && email.trim().length > 6 && email.indexOf("@") >= 0 && email.indexOf("\"") < 0;
+  
     function contained(graph) {
-        let ret = [];
         for (const g of graph) {
-            if (g.substring(57,90) === "http://www.w3.org/ns/ldp#contains") {
-                let nuri = g.substring(93,146);
-                let repo = nuri;
-                nuri = nuri + ":" + $cur_tab.store.overlay;
-                let hash = nuri.substring(9,16);
-                ret.push({nuri,hash,repo});
+            if (g.substring(57,91) === "http://www.w3.org/2006/vcard/ns#fn") {
+                name = g.substring(94, g.length-1);
+                readonly = true;
+            } else if (g.substring(57,97) === "http://www.w3.org/2006/vcard/ns#hasEmail") {
+                email = g.substring(100, g.length-1);
+                readonly = true;
             }
         }
-        ret.sort((a, b) => a.hash.localeCompare(b.hash));
-        return ret;
     }
 
-    async function fetch_header(repo) {
+    $: if (commits) { contained(commits.graph) }
+
+    async function save() {
         try {
-            let res = await ng.fetch_header($active_session.session_id, repo);
-            return res;
-        }catch(e){
-            console.error(e);
-            return {};
+            console.log($cur_tab.doc.nuri);
+            //TODO: more sanitation on the input here!
+            await ng.sparql_update($active_session.session_id, "PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>"
+                            +"INSERT DATA { <> a vcard:Individual . <> vcard:fn \""+name.replace('"',"\\\"")+"\". <> vcard:hasEmail \""+email+"\" }", "did:ng:"+$cur_tab.doc.nuri );
+            toast_success("Your profile was edited successfully!");
+            set_view_or_edit(true);
+        } catch (e) {
+            toast_error(display_error(e));
         }
     }
 
-    const create = () => {
-        openModalCreate();
+    function cancel() {
+        set_view_or_edit(true);
     }
-    const config = {
-        class: "mr-2 w-6 h-6 shrink-0 focus:outline-none"
-    }
-  
   </script>
   <div class="flex-col p-5">
-      {#each contained(commits.graph) as doc}
-          {#await fetch_header(doc.repo)}
-          <div class="flex"> <Clipboard tabindex="-1" class="mr-2 w-6 h-6 shrink-0 focus:outline-none"/><div class="flex font-mono mb-3"> <a use:link href="/{doc.nuri}">{doc.hash}</a> </div> </div>
-          {:then header}
-          <div class="flex" title="{header.about || ''}"> {#if header.class}<DataClassIcon {config} dataClass={header.class}/>{:else}<Clipboard tabindex="-1" class="mr-2 w-6 h-6 shrink-0 focus:outline-none"/>{/if}<div class="flex font-mono mb-3"> <a use:link href="/{doc.nuri}">{header.title || doc.hash}</a> </div></div>
-          {/await}
-      {/each}
-      {#if commits.graph.length == 0 || contained(commits.graph).length == 0} 
-        <p>{$t("doc.empty_container")}</p>
-        {#if $cur_tab_doc_can_edit}
-            <button
-                on:click={create}
-                on:keypress={create}
-                class="select-none ml-0 mt-2 mb-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            >
-                <PlusCircle tabindex="-1" class="mr-2 focus:outline-none" />
-                {$t("doc.create")}
-            </button>
-        {/if}
-      {/if}
+    <h2>Editing your profile</h2>
+    <input
+        class="mt-5"
+        id="name"
+        placeholder="Enter your name"
+        bind:value={name}
+        disabled={readonly}
+    />
+    <br/>
+    <input
+        class="mt-5"
+        id="name"
+        placeholder="Enter your email address"
+        bind:value={email}
+        disabled={readonly}
+    />
+    <br/>
+    <Button
+            on:click={save}
+            disabled={!valid || readonly} 
+            class="select-none mt-5 mb-2 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+        >
+        <CheckCircle tabindex="-1" class="mr-2 focus:outline-none" />
+            Save
+    </Button>
+    <button
+            on:click={cancel}
+            class="mt-5 mb-2 text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 ounded-lg text-base p-2  text-center inline-flex items-center dark:focus:ring-primary-700/55"
+            ><ArrowLeft
+              tabindex="-1"
+              class="mr-2 focus:outline-none"
+            />Cancel</button
+          >
   </div>

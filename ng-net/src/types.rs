@@ -3763,6 +3763,35 @@ impl InboxPost {
         Err(NgError::InvalidNuri) 
     }
     
+    pub fn new_contact_details(
+        from_profile_store_repo: StoreRepo, 
+        from_inbox: PrivKey, 
+        to_overlay: OverlayId,
+        to_inbox: PubKey,
+        to_broker: Option<Locator>,
+        with_readcap: bool,
+        name: String,
+        email: Option<String>
+    ) -> Result<Self, NgError> {
+
+        let from_overlay = from_profile_store_repo.outer_overlay();
+        let content = InboxMsgContent::ContactDetails(ContactDetails{
+            profile: from_profile_store_repo,
+            read_cap: if with_readcap {unimplemented!();} else {None},
+            name,
+            email
+        });
+
+        return Ok(InboxPost::new(
+            to_overlay,
+            to_inbox,
+            Some((from_overlay,from_inbox)),
+            &content,
+            vec![],
+            to_broker
+        )?);
+    }
+
 }
 
 /// Request to publish an event in pubsub
@@ -4186,6 +4215,20 @@ pub struct SocialQueryResponse {
     pub content: SocialQueryResponseContent,
 }
 
+/// ContactDetails sent in reply to scanning a QRcode of a profile
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ContactDetails {
+    /// Profile Nuri
+    pub profile: StoreRepo,
+
+    /// optional readcap on the profile, if user wants to share the content of profile
+    pub read_cap: Option<ReadCap>,
+
+    pub name: String,
+
+    pub email: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum SocialQuery {
     Request(SocialQueryRequest),
@@ -4196,7 +4239,7 @@ pub enum SocialQuery {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum InboxMsgContent {
-    ContactDetails,
+    ContactDetails(ContactDetails),
     DialogRequest,
     Link,
     Patch,

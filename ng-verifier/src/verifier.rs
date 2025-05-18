@@ -1585,7 +1585,7 @@ impl Verifier {
                        <> vcard:hasEmail ?email .
                     }}");
         //log_info!("{sparql}");
-        let (mut name, mut email) = match self.sparql_query(
+        let (name, email) = match self.sparql_query(
             &NuriV0::new_repo_target_from_id(profile_id),
             sparql, Some(NuriV0::repo_id(profile_id))).await? 
         {
@@ -1616,9 +1616,7 @@ impl Verifier {
             _ => return Err(VerifierError::SparqlError(NgError::InvalidResponse.to_string())),
         };
         if name.is_none() {
-            //return Err(VerifierError::InvalidProfile);
-            name = Some("no name".to_string());
-            email = Some("fake@email.com".to_string());
+            return Err(VerifierError::InvalidProfile);
         }
         let profile_sharing = NgQRCode::ProfileSharingV0(NgQRCodeProfileSharingV0 { 
             inbox, 

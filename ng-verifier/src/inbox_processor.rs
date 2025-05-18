@@ -24,7 +24,7 @@ use crate::verifier::*;
 
 impl Verifier {
 
-    async fn post_to_inbox(&self, post: InboxPost) -> Result<(), VerifierError> {
+    pub(crate) async fn post_to_inbox(&self, post: InboxPost) -> Result<(), VerifierError> {
         match self.client_request::<_,()>(post).await
         {
             Err(e) => Err(VerifierError::InboxError(e.to_string())),
@@ -79,17 +79,16 @@ impl Verifier {
         Ok(())
     }
 
-    fn get_privkey_of_inbox(&self, this_overlay: &OverlayId) -> Result<PrivKey, VerifierError> {
+    pub(crate) fn get_privkey_of_inbox(&self, this_overlay: &OverlayId) -> Result<PrivKey, VerifierError> {
         let store = self.get_store_by_overlay_id(this_overlay)?;
         let repo = self.repos.get(&store.id()).ok_or(NgError::RepoNotFound)?;
         let from_inbox = repo.inbox.to_owned().ok_or(NgError::InboxNotFound)?;
         Ok(from_inbox)
     }
 
-    pub(crate) fn get_profile_replying_to(&self, forwarded_from_profile: &String) -> Result< 
-        (OverlayId, PrivKey) ,NgError> {
+    fn get_profile_replying_to(&self, from_profile: &String) -> Result<(OverlayId, PrivKey) ,NgError> {
 
-        let from_profile_id = if forwarded_from_profile.starts_with("did:ng:b") {
+        let from_profile_id = if from_profile.starts_with("did:ng:b") {
             self.config.protected_store_id.unwrap()
         } else {
             self.config.public_store_id.unwrap()
@@ -571,12 +570,62 @@ impl Verifier {
                     }
                     SocialQueryResponseContent::QueryResult(_) | SocialQueryResponseContent::False | SocialQueryResponseContent::True => {
                         // not implemented yet
-                        unimplemented!();
+                        return Err(VerifierError::NotImplemented)
                     }
                 }
 
             }
-            _ => unimplemented!()
+            InboxMsgContent::ContactDetails(details) => {
+                if msg.body.from_inbox.is_none() {
+                    // TODO log error
+                    // we do nothing as this is invalid msg. it must have a from.
+                    return Err(VerifierError::InvalidInboxPost);
+                }
+
+                let inbox_nuri_string: String = NuriV0::inbox(&msg.body.from_inbox.unwrap());
+                let profile_nuri_string: String = NuriV0::from_store_repo_string(&details.profile);
+                let a_or_b = if details.profile.is_public() { "site" } else { "protected" };
+
+                // checking if this contact has already been added
+                match self.sparql_query(
+                    &NuriV0::new_entire_user_site(),
+                    format!("ASK {{ ?s <did:ng:x:ng#{a_or_b}_inbox> <{inbox_nuri_string}> . ?s <did:ng:x:ng#{a_or_b}> <{profile_nuri_string}> }}"), None).await? 
+                {
+                    QueryResults::Boolean(true) => {
+                        return Err(VerifierError::ContactAlreadyExists);
+                        }
+                    _ => {}
+                }
+
+                let contact = self.doc_create_with_store_repo(
+                    "Graph".to_string(), "social:contact".to_string(),
+                    "store".to_string(), None // meaning in private store
+                ).await?;
+                let contact_nuri = NuriV0::new_from_repo_graph(&contact)?;
+                let contact_id = contact_nuri.target.repo_id().clone();
+                let contact_nuri_string = NuriV0::repo_id(&contact_id);
+                let has_email = details.email.map_or("".to_string(), |email| format!("<> vcard:hasEmail \"{email}\"."));
+
+                // adding triples in contact doc
+                let sparql_update = format!(" PREFIX ng: <did:ng:x:ng#>
+                    PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
+                    INSERT DATA {{  <> ng:{a_or_b} <{profile_nuri_string}>.
+                                    <> ng:{a_or_b}_inbox <{inbox_nuri_string}>.
+                                    <> a vcard:Individual .
+                                    <> vcard:fn \"{}\".
+                                    {has_email} }}", details.name);
+                                    
+                let ret = self
+                    .process_sparql_update(&contact_nuri, &sparql_update, &Some(contact_nuri_string), vec![])
+                    .await;
+                if let Err(e) = ret {
+                    return Err(VerifierError::SparqlError(e));
+                }
+
+                self.update_header(&contact_nuri.target, Some(details.name), None).await?;
+            
+            }
+            _ => return Err(VerifierError::NotImplemented)
         }
         Ok(())
     }

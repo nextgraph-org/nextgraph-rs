@@ -396,6 +396,7 @@ pub enum VerifierError {
     InvalidProfile,
     ContactAlreadyExists,
     InternalError,
+    InvalidInboxPost,
 }
 
 impl Error for VerifierError {}
