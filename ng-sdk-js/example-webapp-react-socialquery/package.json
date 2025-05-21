@@ -1,16 +1,17 @@
 {
-  "name": "example-webapp-react",
+  "name": "example-webapp-react-socialquery",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build:ldo": "ldo build --input src/.shapes --output src/.ldo"
+    "build:ldo": "../../../ldo/packages/cli/dist/index.js build --input src/.shapes --output src/.ldo"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@ldo/connected-nextgraph": "^1.0.0-alpha.11",
     "@ldo/ldo": "^1.0.0-alpha.11",
     "@ldo/react": "^1.0.0-alpha.11",

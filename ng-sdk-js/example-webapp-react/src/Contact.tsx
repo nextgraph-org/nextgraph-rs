@@ -1,13 +1,13 @@
 import { FunctionComponent } from "react";
 import { useNextGraphAuth } from "./reactMethods";
-import { NGSocialContactShapeType } from "./.ldo/contact.shapeTypes.ts";
+import { SocialContactShapeType } from "./.ldo/contact.shapeTypes.ts";
 import { useSubscribeToResource, useResource, useSubject } from "./reactMethods.ts";
 
 export const Contact: FunctionComponent = ({nuri}) => {
   const { session } = useNextGraphAuth();
 
   useResource(session.sessionId && nuri ? nuri : undefined, { subscribe: true });
-  let contact = useSubject(NGSocialContactShapeType, session.sessionId && nuri ? nuri.substring(0,53) : undefined);
+  let contact = useSubject(SocialContactShapeType, session.sessionId && nuri ? nuri.substring(0,53) : undefined);
  
   if (!session.sessionId || !nuri) return <></>;
   

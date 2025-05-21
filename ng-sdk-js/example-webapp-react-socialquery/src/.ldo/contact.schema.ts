@@ -9,7 +9,7 @@ export const contactSchema: Schema = {
   type: "Schema",
   shapes: [
     {
-      id: "did:ng:n:g:x:social:contact#SocialContact",
+      id: "did:ng:x:class#SocialContact",
       type: "ShapeDecl",
       shapeExpr: {
         type: "Shape",
@@ -74,8 +74,6 @@ export const contactSchema: Schema = {
                 type: "NodeConstraint",
                 datatype: "http://www.w3.org/2001/XMLSchema#string",
               },
-              min: 0,
-              max: 1,
               annotations: [
                 {
                   type: "Annotation",
@@ -106,9 +104,62 @@ export const contactSchema: Schema = {
                 },
               ],
             },
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:skills#hasRating",
+              valueExpr: "did:ng:x:class#HasRating",
+              min: 0,
+              max: -1,
+            },
           ],
         },
         extra: ["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"],
+      },
+    },
+    {
+      id: "did:ng:x:class#HasRating",
+      type: "ShapeDecl",
+      shapeExpr: {
+        type: "Shape",
+        expression: {
+          type: "EachOf",
+          expressions: [
+            {
+              type: "TripleConstraint",
+              predicate: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+              valueExpr: {
+                type: "NodeConstraint",
+                values: ["did:ng:x:skills#Rating"],
+              },
+            },
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:skills#rated",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#integer",
+              },
+            },
+            {
+              type: "TripleConstraint",
+              predicate: "did:ng:x:skills#skill",
+              valueExpr: {
+                type: "NodeConstraint",
+                values: [
+                  "did:ng:k:skills:programming:svelte",
+                  "did:ng:k:skills:programming:nextjs",
+                  "did:ng:k:skills:programming:react",
+                  "did:ng:k:skills:programming:vuejs",
+                  "did:ng:k:skills:programming:tailwind",
+                  "did:ng:k:skills:programming:rdf",
+                  "did:ng:k:skills:programming:rust",
+                  "did:ng:k:skills:programming:yjs",
+                  "did:ng:k:skills:programming:automerge",
+                ],
+              },
+            },
+          ],
+        },
       },
     },
   ],

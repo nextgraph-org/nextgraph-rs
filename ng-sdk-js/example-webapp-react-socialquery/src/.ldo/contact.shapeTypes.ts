@@ -1,7 +1,7 @@
 import { ShapeType } from "@ldo/ldo";
 import { contactSchema } from "./contact.schema";
 import { contactContext } from "./contact.context";
-import { SocialContact } from "./contact.typings";
+import { SocialContact, HasRating } from "./contact.typings";
 
 /**
  * =============================================================================
@@ -14,6 +14,15 @@ import { SocialContact } from "./contact.typings";
  */
 export const SocialContactShapeType: ShapeType<SocialContact> = {
   schema: contactSchema,
-  shape: "did:ng:n:g:x:social:contact#SocialContact",
+  shape: "did:ng:x:class#SocialContact",
+  context: contactContext,
+};
+
+/**
+ * HasRating ShapeType
+ */
+export const HasRatingShapeType: ShapeType<HasRating> = {
+  schema: contactSchema,
+  shape: "did:ng:x:class#HasRating",
   context: contactContext,
 };

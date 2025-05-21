@@ -10,17 +10,26 @@ PREFIX dc: <http://purl.org/dc/terms/>
 PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
 PREFIX schem: <http://schema.org/>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-PREFIX ngx: <did:ng:n:g:x:social:contact#>
+PREFIX ngc: <did:ng:x:class#>
+PREFIX xskills: <did:ng:x:skills#>
+PREFIX ksp: <did:ng:k:skills:programming:>
 
-ngx:SocialContact EXTRA a {
-  a [vcard:Individual ]
+ngc:SocialContact EXTRA a {
+  a [ vcard:Individual ]
     // rdfs:comment  "Defines the node as an Individual (from vcard)" ;
   a [ schem:Person ]
     // rdfs:comment  "Defines the node as a Person (from Schema.org)" ;
   a [ foaf:Person ]
     // rdfs:comment  "Defines the node as a Person (from foaf)" ;
-  vcard:fn xsd:string ?
+  vcard:fn xsd:string
     // rdfs:comment  "The formatted name of a person. Example: John Smith" ;
   vcard:hasEmail xsd:string ?
     // rdfs:comment  "The person's email." ;
+  xskills:hasRating @ngc:HasRating *;
+}
+
+ngc:HasRating {
+  a [ xskills:Rating ];
+    xskills:rated xsd:integer;
+    xskills:skill [ ksp:svelte ksp:nextjs ksp:react ksp:vuejs ksp:tailwind ksp:rdf ksp:rust ksp:yjs ksp:automerge ]
 }

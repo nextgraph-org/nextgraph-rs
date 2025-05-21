@@ -2,18 +2,19 @@ import { Schema } from "shexj";
 
 /**
  * =============================================================================
- * contactSchema: ShexJ Schema for contact
+ * containerSchema: ShexJ Schema for container
  * =============================================================================
  */
-export const contactSchema: Schema = {
+export const containerSchema: Schema = {
   type: "Schema",
   shapes: [
     {
-      id: "did:ng:n:g:x:social:contact#SocialContact",
+      id: "http://www.w3.org/ns/lddps#Container",
       type: "ShapeDecl",
       shapeExpr: {
         type: "Shape",
         expression: {
+          id: "http://www.w3.org/ns/lddps#ContainerShape",
           type: "EachOf",
           expressions: [
             {
@@ -21,55 +22,26 @@ export const contactSchema: Schema = {
               predicate: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
               valueExpr: {
                 type: "NodeConstraint",
-                values: ["http://www.w3.org/2006/vcard/ns#Individual"],
+                values: [
+                  "http://www.w3.org/ns/ldp#Container",
+                  "http://www.w3.org/ns/ldp#Resource",
+                ],
               },
+              min: 0,
+              max: -1,
               annotations: [
                 {
                   type: "Annotation",
                   predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
                   object: {
-                    value: "Defines the node as an Individual (from vcard)",
+                    value: "A container",
                   },
                 },
               ],
             },
             {
               type: "TripleConstraint",
-              predicate: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-              valueExpr: {
-                type: "NodeConstraint",
-                values: ["http://schema.org/Person"],
-              },
-              annotations: [
-                {
-                  type: "Annotation",
-                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
-                  object: {
-                    value: "Defines the node as a Person (from Schema.org)",
-                  },
-                },
-              ],
-            },
-            {
-              type: "TripleConstraint",
-              predicate: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-              valueExpr: {
-                type: "NodeConstraint",
-                values: ["http://xmlns.com/foaf/0.1/Person"],
-              },
-              annotations: [
-                {
-                  type: "Annotation",
-                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
-                  object: {
-                    value: "Defines the node as a Person (from foaf)",
-                  },
-                },
-              ],
-            },
-            {
-              type: "TripleConstraint",
-              predicate: "http://www.w3.org/2006/vcard/ns#fn",
+              predicate: "http://purl.org/dc/terms/modified",
               valueExpr: {
                 type: "NodeConstraint",
                 datatype: "http://www.w3.org/2001/XMLSchema#string",
@@ -81,18 +53,36 @@ export const contactSchema: Schema = {
                   type: "Annotation",
                   predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
                   object: {
-                    value:
-                      "The formatted name of a person. Example: John Smith",
+                    value: "Date modified",
                   },
                 },
               ],
             },
             {
               type: "TripleConstraint",
-              predicate: "http://www.w3.org/2006/vcard/ns#hasEmail",
+              predicate: "http://www.w3.org/ns/ldp#contains",
               valueExpr: {
                 type: "NodeConstraint",
-                datatype: "http://www.w3.org/2001/XMLSchema#string",
+                nodeKind: "iri",
+              },
+              min: 0,
+              max: -1,
+              annotations: [
+                {
+                  type: "Annotation",
+                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
+                  object: {
+                    value: "Defines a Resource",
+                  },
+                },
+              ],
+            },
+            {
+              type: "TripleConstraint",
+              predicate: "http://www.w3.org/ns/posix/stat#mtime",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#decimal",
               },
               min: 0,
               max: 1,
@@ -101,7 +91,26 @@ export const contactSchema: Schema = {
                   type: "Annotation",
                   predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
                   object: {
-                    value: "The person's email.",
+                    value: "?",
+                  },
+                },
+              ],
+            },
+            {
+              type: "TripleConstraint",
+              predicate: "http://www.w3.org/ns/posix/stat#size",
+              valueExpr: {
+                type: "NodeConstraint",
+                datatype: "http://www.w3.org/2001/XMLSchema#integer",
+              },
+              min: 0,
+              max: 1,
+              annotations: [
+                {
+                  type: "Annotation",
+                  predicate: "http://www.w3.org/2000/01/rdf-schema#comment",
+                  object: {
+                    value: "size of this container",
                   },
                 },
               ],

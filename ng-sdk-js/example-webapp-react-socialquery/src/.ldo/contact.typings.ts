@@ -29,9 +29,50 @@ export interface SocialContact {
   /**
    * The formatted name of a person. Example: John Smith
    */
-  fn?: string;
+  fn: string;
   /**
    * The person's email.
    */
   hasEmail?: string;
+  hasRating?: LdSet<HasRating>;
+}
+
+/**
+ * HasRating Type
+ */
+export interface HasRating {
+  "@id"?: string;
+  "@context"?: LdoJsonldContext;
+  type: {
+    "@id": "Rating";
+  };
+  rated: number;
+  skill:
+    | {
+        "@id": "ng:k:skills:programming:svelte";
+      }
+    | {
+        "@id": "ng:k:skills:programming:nextjs";
+      }
+    | {
+        "@id": "ng:k:skills:programming:react";
+      }
+    | {
+        "@id": "ng:k:skills:programming:vuejs";
+      }
+    | {
+        "@id": "ng:k:skills:programming:tailwind";
+      }
+    | {
+        "@id": "ng:k:skills:programming:rdf";
+      }
+    | {
+        "@id": "ng:k:skills:programming:rust";
+      }
+    | {
+        "@id": "ng:k:skills:programming:yjs";
+      }
+    | {
+        "@id": "ng:k:skills:programming:automerge";
+      };
 }
