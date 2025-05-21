@@ -10,7 +10,7 @@ export const Contact: FunctionComponent = ({nuri}) => {
   const { createData, commitData, changeData } = useLdo();
   useResource(session.sessionId && nuri ? nuri : undefined, { subscribe: true });
   let contact = useSubject(SocialContactShapeType, session.sessionId && nuri ? nuri.substring(0,53) : undefined);
-
+  //console.log(nuri)
   const ksp = "did:ng:k:skills:programming:";
 
   const ksp_mapping = [

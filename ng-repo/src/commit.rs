@@ -10,6 +10,7 @@
 //! Commit that composes the DAG of a Branch
 
 use core::fmt;
+use std::any::Any;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
@@ -1585,7 +1586,7 @@ impl fmt::Display for CommitBody {
                     RemoveSignerCap(RemoveSignerCap),
                     WalletUpdate(WalletUpdate),
                     StoreUpdate(StoreUpdate), */
-                    _ => unimplemented!(),
+                    _ => write!(f, "!!!! CommitBody Display not implemented for {:?}", v0.type_id()),
                 }
             }
         }

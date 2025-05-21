@@ -25,12 +25,15 @@ use crate::verifier::*;
 impl Verifier {
 
     pub(crate) async fn post_to_inbox(&self, post: InboxPost) -> Result<(), VerifierError> {
-        match self.client_request::<_,()>(post).await
+        //log_info!("post_to_inbox {:?}",post);
+        let res = match self.client_request::<_,()>(post).await
         {
             Err(e) => Err(VerifierError::InboxError(e.to_string())),
             Ok(SoS::Stream(_)) => Err(VerifierError::InboxError(NgError::InvalidResponse.to_string())),
             Ok(SoS::Single(_)) => Ok(()),
-        }
+        };
+        //log_info!("res {:?}",res);
+        res
     }
 
     pub(crate) async fn create_social_query_forwarder(
@@ -537,14 +540,15 @@ impl Verifier {
                                 return Err(VerifierError::InvalidResponse);
                             }
 
+                            // for t in triples.iter() {
+                            //     log_info!("{}",t.to_string());
+                            // }
+
                             let overlay_id = self.repos.get(&response.query_id).ok_or(VerifierError::RepoNotFound)?.store.outer_overlay();
                             let nuri_ov = NuriV0::repo_graph_name(&response.query_id, &overlay_id);
                             let graph_name = NamedNode::new_unchecked(&nuri_ov);
-
                             let quads = triples.into_iter().map(|t| t.in_graph(graph_name.clone()) ).collect();
-
-                            let commits = self.prepare_sparql_update(quads, vec![], vec![]).await?;
-                            
+                            let commits = self.prepare_sparql_update(quads, vec![], self.get_peer_id_for_skolem()).await?;
 
                         } else {
 
