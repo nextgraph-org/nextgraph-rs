@@ -251,7 +251,7 @@ impl Verifier {
                 //TODO: in case of errors here below, mark the forwarder as ng:social_query_error
                 if sparql.is_none() { return Err(VerifierError::InvalidSocialQuery); }
 
-                log_info!("{}",sparql.as_ref().unwrap());
+                //log_info!("{}",sparql.as_ref().unwrap());
 
                 let res = self.sparql_query(&NuriV0::new_entire_user_site(), sparql.unwrap(), None).await?;
 
@@ -269,7 +269,7 @@ impl Verifier {
                     }
                 };
 
-                log_info!("{:?}",results);
+                //log_info!("{:?}",results);
 
                 // Do we have local results matching the request's query? If yes, we send them back to the forwarder right away
                 if !results.is_empty() {
@@ -303,13 +303,14 @@ impl Verifier {
 
                 // getting the contacts to forward to
                 let sparql = format!("PREFIX ng: <did:ng:x:ng#>
+                    PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
                     SELECT ?profile_id ?inbox_id WHERE 
-                        {{ ?c ng:c \"social:contact\" .
+                        {{ ?c a vcard:Individual .
                             OPTIONAL {{ ?c ng:site ?profile_id . ?c ng:site_inbox ?inbox_id }}
                             OPTIONAL {{ ?c ng:protected ?profile_id . ?c ng:protected_inbox ?inbox_id }}
                             FILTER ( bound(?profile_id) && NOT EXISTS {{ ?c ng:site <{profile_id_nuri}> }} && NOT EXISTS {{ ?c ng:protected <{profile_id_nuri}> }} )
                         }}");
-                log_info!("{sparql}");
+                //log_info!("{sparql}");
                 let sols = match self.sparql_query(
                     &NuriV0::new_entire_user_site(),
                     sparql, None).await? 
@@ -319,7 +320,7 @@ impl Verifier {
                 };
 
                 let degree = if req.degree == 0 { 0 } else { req.degree - 1 };
-                log_info!("new degree {degree}");
+                //log_info!("new degree {degree}");
                 let mut found_contact = false;
                 let forwarder_id = forwarder_nuri.target.repo_id().clone();
 
@@ -353,7 +354,7 @@ impl Verifier {
                     }
                 }
                 // if not found any contact, we stop here
-                log_info!("found contact {found_contact}");
+                //log_info!("found contact {found_contact}");
                 if !found_contact {
                     self.mark_social_query_forwarder(&forwarder_nuri_string, &forwarder_nuri, "social_query_ended".to_string()).await?;
                     let post = InboxPost::new_social_query_response_replying_to(
@@ -374,9 +375,11 @@ impl Verifier {
                     return Err(VerifierError::InvalidSocialQuery)
                 }
 
-                // TODO: first we open the response.forwarder_id (because in webapp, it might not be loaded yet)
-
                 let forwarder_nuri = NuriV0::new_repo_target_from_id(&response.forwarder_id);
+
+                // TODO: first we open the response.forwarder_id (because in webapp, it might not be loaded yet)
+                //self.open_for_target(&forwarder_nuri.target, false).await?;
+                
                 let forwarder_nuri_string = NuriV0::repo_id(&response.forwarder_id);
                 // checking that we do have a running ForwardedSocialQuery, and that it didnt end, otherwise it must be spam.
                 match self.sparql_query( &forwarder_nuri, format!("ASK {{ <> <did:ng:x:ng#social_query_id> <{}> }} ",
@@ -388,17 +391,17 @@ impl Verifier {
                     &forwarder_nuri,
                     "PREFIX ng: <did:ng:x:ng#>
                                     SELECT ?from_profile ?from_inbox ?from_forwarder ?ended WHERE 
-                                    {{ <> ng:social_query_from_profile ?from_profile .
-                                       <> ng:social_query_from_inbox ?from_inbox .
-                                       <> ng:social_query_forwarder ?from_forwarder .
-                                       <> ng:social_query_ended ?ended . 
+                                    {{ OPTIONAL {{ <> ng:social_query_from_profile ?from_profile . }}
+                                       OPTIONAL {{ <> ng:social_query_from_inbox ?from_inbox .}}
+                                       OPTIONAL {{ <> ng:social_query_forwarder ?from_forwarder .}}
+                                       OPTIONAL {{ <> ng:social_query_ended ?ended . }} 
                                     }}".to_string(), 
                                 Some(forwarder_nuri_string)).await? 
                 {
                     QueryResults::Solutions(mut sols) => {
                         match sols.next() {
                             None => {
-                                log_info!("at origin");
+                                //log_info!("at origin and not ended");
                                 (None, None, None)
                             }
                             Some(Err(e)) => {
@@ -442,7 +445,7 @@ impl Verifier {
                     }}",
                     NuriV0::inbox(&msg.body.from_inbox.unwrap())
                 );
-                log_info!("{spar}");
+                //log_info!("{spar}");
                 let token = match self.sparql_query(
                     &forwarder_nuri,
                     //<> ng:social_query_id <{}>  NuriV0::inbox(&msg.body.from_inbox.unwrap()), 
@@ -470,7 +473,7 @@ impl Verifier {
                     }
                     _ => return Err(VerifierError::SparqlError(NgError::InvalidResponse.to_string())),
                 };
-                log_info!("token = {token}");
+                //log_info!("token = {token}");
 
                 let at_origin = forwarded_from_profile.is_none() || forwarded_from_inbox.is_none() || from_forwarder.is_none();
 

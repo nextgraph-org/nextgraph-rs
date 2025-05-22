@@ -264,7 +264,7 @@ impl Verifier {
         }
     }
 
-    async fn open_for_target(
+    pub(crate) async fn open_for_target(
         &mut self,
         target: &NuriTargetV0,
         as_publisher: bool,
@@ -823,7 +823,7 @@ impl Verifier {
                     OPTIONAL {{ ?c ng:protected ?profile_id . ?c ng:protected_inbox ?inbox_id }}
                     FILTER ( bound(?profile_id) {extra_conditions} )
                 }}");
-        log_info!("{sparql}");
+        //log_info!("{sparql}");
         let sols = match self.sparql_query(
             &NuriV0::new_entire_user_site(),
             sparql, None).await? 

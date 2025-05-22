@@ -90,21 +90,21 @@
     }
 
     async function test() {
-        await on_qr_scanned("AgBX7NyrH_8cF47eeqkkFwtHFi-LrjrxOoRLNM0EScA1NAABANpOlaBYozbkSDVJFAUG2nSWSTXXD-wiLRG6ZUU23f8GCWFjY291bnQgNAEObmlrbzRAdHJ1ZS5jb20");
+        await on_qr_scanned("AgBWW2hNMS_1xjz5Pvscq1QQ5D405EWRjoN70kIuAgNIqwABALRXYVWKYVaz6xqNqncU7D2HyheZKlFepLoJVE-xIbywB25pa28gMTMBD2ZpcmVmb3hAcHJvLmNvbQ");
     }
 
   </script>
   <div class="flex-col p-5"bind:this={container}>
     <h1 class="font-bold text-xl text-blue-700">Contact</h1>
 
-        <Button
+        <!-- <Button
             on:click={test}
             on:keypress={test} 
             class="select-none ml-2 mt-2 mb-2 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
         >
             <QrCode tabindex="-1" class="mr-2 focus:outline-none" />
             Test
-        </Button><br/>
+        </Button><br/> -->
 
       {#if !has_camera && !has_name}
         <Alert class="m-2" color="red" style="word-break: break-word;" >No camera available. You cannot import with QR-code</Alert>

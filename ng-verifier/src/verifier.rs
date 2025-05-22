@@ -1644,7 +1644,7 @@ impl Verifier {
 
     pub async fn inbox(&mut self, msg: InboxMsg, from_queue: bool) {
         
-        log_info!("RECEIVED INBOX MSG {:?}", msg);
+        //log_info!("RECEIVED INBOX MSG {:?}", msg);
 
         match self.inboxes.get(&msg.body.to_inbox) {
             Some(repo_id) => {
@@ -1653,7 +1653,7 @@ impl Verifier {
                         if let Some(privkey) = &repo.inbox {
                             match msg.get_content(privkey) {
                                 Ok(content) => {
-                                    log_info!("received msg content {:?}", content);
+                                    //log_info!("received msg content {:?}", content);
                                     let res = self.process_inbox(msg, content).await;
                                     if let Err(e) = res {
                                         log_err!("Error during process_inbox {e}");

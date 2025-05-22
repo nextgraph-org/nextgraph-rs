@@ -39,20 +39,24 @@
       },
     };
 
-const ranking_query = `SELECT ?mail (SAMPLE(?n) as?name) (MAX(?rust_) as ?rust) (MAX(?svelte_) as ?svelte) (MAX(?tailwind_) as ?tailwind) (MAX(?rdf_) as ?rdf) (MAX(?yjs_) as ?yjs) (MAX(?automerge_) as ?automerge) (SUM(?total_) as ?total) WHERE { 
- {SELECT ?mail (SAMPLE(?name) as ?n) ?skill (AVG(?value)+1 AS ?score) WHERE {
-	?rating <http://www.w3.org/2006/vcard/ns#hasEmail> ?mail.
-    ?rating <http://www.w3.org/2006/vcard/ns#fn> ?name.
-	?rating <did:ng:x:skills#hasRating> ?hasrating.
-	?hasrating <did:ng:x:skills#rated> ?value.
-	?hasrating <did:ng:x:skills#skill> ?skill.
-} GROUP BY ?mail ?skill }
+const ranking_query = `SELECT ?mail (SAMPLE(?n) as?name) (MAX(?rust_) as ?rust) (MAX(?svelte_) as ?svelte) (MAX(?tailwind_) as ?tailwind) 
+(MAX(?rdf_) as ?rdf) (MAX(?yjs_) as ?yjs) (MAX(?automerge_) as ?automerge) (SUM(?total_) as ?total) 
+WHERE { 
+  { SELECT ?mail (SAMPLE(?name) as ?n) ?skill (AVG(?value)+1 AS ?score) 
+    WHERE {
+	    ?rating <http://www.w3.org/2006/vcard/ns#hasEmail> ?mail.
+      ?rating <http://www.w3.org/2006/vcard/ns#fn> ?name.
+	    ?rating <did:ng:x:skills#hasRating> ?hasrating.
+	      ?hasrating <did:ng:x:skills#rated> ?value.
+	      ?hasrating <did:ng:x:skills#skill> ?skill.
+    } GROUP BY ?mail ?skill 
+  }
   BIND (IF(sameTerm(?skill, <did:ng:k:skills:programming:rust>), ?score, 0) AS ?rust_)
   BIND (IF(sameTerm(?skill, <did:ng:k:skills:programming:svelte>), ?score, 0) AS ?svelte_)
   BIND (IF(sameTerm(?skill, <did:ng:k:skills:programming:tailwind>), ?score, 0) AS ?tailwind_)
   BIND (IF(sameTerm(?skill, <did:ng:k:skills:programming:rdf>), ?score, 0) AS ?rdf_)
   BIND (IF(sameTerm(?skill, <did:ng:k:skills:programming:yjs>), ?score, 0) AS ?yjs_)
-  BIND (IF(sameTerm(?skill, <did:ng:k:skills:programming:yjs>), ?score, 0) AS ?automerge_)
+  BIND (IF(sameTerm(?skill, <did:ng:k:skills:programming:automerge>), ?score, 0) AS ?automerge_)
   BIND (?tailwind_+?svelte_+?rust_+?rdf_+?yjs_+?automerge_ AS ?total_)
 } GROUP BY ?mail
 ORDER BY DESC(?total)`;
@@ -65,7 +69,7 @@ ORDER BY DESC(?total)`;
 
     $: if (commits.graph.length > 4) {
       sparql_query(ranking_query, false).then((res) => {
-        console.log(res.results?.bindings);
+        //console.log(res.results?.bindings);
         results = res.results?.bindings;
       });
     }
@@ -121,7 +125,7 @@ WHERE {
           "did:ng:a", 
           request_nuri,
           "did:ng:d:c", 
-          2,
+          0,
         );
       } catch (e) {
         toast_error(display_error(e));
@@ -165,13 +169,13 @@ WHERE {
           <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 border-gray-200">
             <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{res.mail.value}</td>
             <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{res.name.value}</td>
-            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{res.rust.value}</td>
-            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{res.svelte.value}</td>
-            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{res.tailwind.value}</td>
-            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{res.rdf.value}</td>
-            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{res.yjs.value}</td>
-            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{res.automerge.value}</td>
-            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{res.total.value}</td>
+            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{Math.round(res.rust.value * 10) / 10 }</td>
+            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{Math.round(res.svelte.value * 10) / 10 }</td>
+            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{Math.round(res.tailwind.value * 10) / 10 }</td>
+            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{Math.round(res.rdf.value * 10) / 10 }</td>
+            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{Math.round(res.yjs.value * 10) / 10 }</td>
+            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{Math.round(res.automerge.value * 10) / 10 }</td>
+            <td scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">{Math.round(res.total.value * 10) / 10 }</td>
           </tr>
           {/each}
         </tbody>
