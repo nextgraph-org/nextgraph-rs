@@ -12,16 +12,16 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
-    "@ldo/connected-nextgraph": "^1.0.0-alpha.14",
-    "@ldo/ldo": "^1.0.0-alpha.14",
-    "@ldo/react": "^1.0.0-alpha.14",
+    "@ldo/connected-nextgraph": "^1.0.0-alpha.15",
+    "@ldo/ldo": "^1.0.0-alpha.15",
+    "@ldo/react": "^1.0.0-alpha.15",
     "nextgraphweb": "^0.1.1-alpha.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
-    "@ldo/cli": "^1.0.0-alpha.14",
+    "@ldo/cli": "^1.0.0-alpha.15",
     "@types/jsonld": "^1.5.15",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
