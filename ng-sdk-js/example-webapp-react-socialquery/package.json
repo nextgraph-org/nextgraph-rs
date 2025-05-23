@@ -13,7 +13,7 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@ldo/connected-nextgraph": "^1.0.0-alpha.15",
-    "@ldo/ldo": "^1.0.0-alpha.15",
+    "@ldo/ldo": "^1.0.0-alpha.14",
     "@ldo/react": "^1.0.0-alpha.15",
     "nextgraphweb": "^0.1.1-alpha.4",
     "react": "^19.0.0",
