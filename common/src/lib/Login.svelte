@@ -423,21 +423,18 @@
             />
           {/if}
 
-          {#if !loaded}
-            {$t("pages.login.loading_pazzle")}...
-            <Spinner className="my-4 h-14 w-14 mx-auto" />
-          {:else}
-            <button
-              on:click={start_with_pazzle}
-              class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-            >
-              <PuzzlePiece
-                tabindex="-1"
-                class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-              />
-              {$t("pages.login.open_with_pazzle")}
-            </button>
-          {/if}
+          <button
+            on:click={start_with_mnemonic}
+            on:keypress={start_with_mnemonic}
+            class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+          >
+            <PuzzlePiece
+              tabindex="-1"
+              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
+            />
+            {$t("pages.login.open_with_mnemonic")}
+          </button>
+
           <button
             on:click={cancel}
             class="mt-3 mb-2 text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
@@ -446,15 +443,20 @@
               class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
             />{$t("pages.login.login_cancel")}</button
           >
-          <span
-            on:click={start_with_mnemonic}
-            on:keypress={start_with_mnemonic}
-            role="link"
-            tabindex="0"
-            class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center underline cursor-pointer"
-          >
-            {$t("pages.login.open_with_mnemonic")}
-          </span>
+          {#if !loaded}
+            {$t("pages.login.loading_pazzle")}...
+            <Spinner className="my-4 h-14 w-14 mx-auto" />
+          {:else}
+            <span
+              on:click={start_with_pazzle}
+              on:keypress={start_with_pazzle}
+              role="link"
+              tabindex="0"
+              class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center underline cursor-pointer"
+            >
+              {$t("pages.login.open_with_pazzle")}
+            </span>
+          {/if}
         </div>
       </div>
     </div>
