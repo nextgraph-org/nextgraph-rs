@@ -46,9 +46,9 @@ impl Verifier {
         from_forwarder_nuri_string: &String,
         from_profile_nuri_string: &String,
         from_inbox_nuri_string: &String,
-    ) -> Result<(String, NuriV0, ReadCap), VerifierError> {
+    ) -> Result<(String, NuriV0), VerifierError> {
         // creating the ForwardedSocialQuery in the private store
-        let (forwarder, readcap) = self.doc_create_with_store_repo(
+        let forwarder = self.doc_create_with_store_repo(
             "Graph".to_string(), "social:query:forwarded".to_string(),
             "store".to_string(), None // meaning in private store
         ).await?;
@@ -70,7 +70,7 @@ impl Verifier {
         if let Err(e) = ret {
             return Err(VerifierError::SparqlError(e));
         }
-        Ok((forwarder_nuri_string,forwarder_nuri, readcap))
+        Ok((forwarder_nuri_string,forwarder_nuri))
     }
 
     pub(crate) async fn mark_social_query_forwarder(&mut self, forwarder_nuri_string: &String, forwarder_nuri: &NuriV0, predicate: String) -> Result<(), VerifierError> {
@@ -135,7 +135,6 @@ impl Verifier {
         to_inbox_nuri: &String,
         forwarder_nuri: &NuriV0,
         forwarder_id: &RepoId,
-        forwarder_readcap: &ReadCap,
         from_profiles: &( 
             (StoreRepo, PrivKey), // public
             (StoreRepo, PrivKey) // protected
@@ -171,7 +170,6 @@ impl Verifier {
             from_profile.0, 
             from_profile.1.clone(),
             *forwarder_id,
-            forwarder_readcap.clone(),
             to_profile_nuri.clone(),
             to_inbox_nuri.clone(),
             None,
@@ -223,7 +221,7 @@ impl Verifier {
                 }
 
                 // otherwise, create the forwarder
-                let (forwarder_nuri_string, forwarder_nuri, readcap) = self.create_social_query_forwarder(
+                let (forwarder_nuri_string, forwarder_nuri) = self.create_social_query_forwarder(
                     &social_query_doc_nuri_string,
                     &NuriV0::repo_id(&req.forwarder_id),
                     &NuriV0::from_store_repo_string(&req.from_profile_store_repo),
@@ -348,7 +346,6 @@ impl Verifier {
                                         to_inbox_nuri, 
                                         &forwarder_nuri, 
                                         &forwarder_id,
-                                        &readcap,
                                         &from_profiles,
                                         &req.query_id, 
                                         &req.definition_commit_body_ref, 
@@ -388,26 +385,34 @@ impl Verifier {
                 {
                     let broker = BROKER.read().await;
                     let user = Some(self.user_id().clone());
-                    let remote = (&self.connected_broker).into();
+                    //let remote = (&self.connected_broker).into();
 
-                    let private_store = self
+                    let (user_branch_id, private_store_id) = { 
+                        let private_store = self
                         .repos
                         .get(self.private_store_id())
                         .ok_or(NgError::StoreNotFound)?;
-                    if self.repos.get(&response.forwarder_id).is_none() {
+                        
+                        (private_store.user_branch().unwrap().id, private_store.id)
+                    };
 
-                        // we need to load the forwarder
-                        self.load_repo_from_read_cap(
-                            &response.forwarder_readcap,
-                            &broker,
-                            &user,
-                            &remote,
-                            Arc::clone(&private_store.store),
-                            true,
-                        )
-                        .await?;
-                        self.open_for_target(&forwarder_nuri.target, false).await?;
-                    }
+                    // if self.repos.get(&response.forwarder_id).is_none() {
+
+                    //     // we need to load the forwarder
+                    //     self.load_repo_from_read_cap(
+                    //         &response.forwarder_readcap,
+                    //         &broker,
+                    //         &user,
+                    //         &remote,
+                    //         Arc::clone(&private_store.store),
+                    //         true,
+                    //     )
+                    //     .await?;
+                    //     self.open_for_target(&forwarder_nuri.target, false).await?;
+                    // }
+                    
+                    self.open_branch_(&private_store_id, &user_branch_id,
+                     false, &broker, &user, &self.connected_broker.clone(), true ).await?;
 
                     let main_branch_id = {
                         self.repos.get(&response.forwarder_id).unwrap().main_branch().unwrap().id
@@ -563,7 +568,6 @@ impl Verifier {
                                         Some(from),
                                         response.query_id,
                                         from_forwarder,
-                                        response.forwarder_readcap,
                                         SocialQueryResponseContent::EndOfReplies
                                     )?;
                                     self.post_to_inbox(post).await?;
@@ -607,7 +611,6 @@ impl Verifier {
                                 Some(from),
                                 response.query_id,
                                 from_forwarder,
-                                response.forwarder_readcap,
                                 SocialQueryResponseContent::Graph(graph)
                             )?;
                             self.post_to_inbox(post).await?;
@@ -643,7 +646,7 @@ impl Verifier {
                     _ => {}
                 }
 
-                let (contact, _) = self.doc_create_with_store_repo(
+                let contact = self.doc_create_with_store_repo(
                     "Graph".to_string(), "social:contact".to_string(),
                     "store".to_string(), None // meaning in private store
                 ).await?;

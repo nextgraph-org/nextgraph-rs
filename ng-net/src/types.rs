@@ -3686,10 +3686,9 @@ impl InboxPost {
         from: Option<(OverlayId,PrivKey)>,
         query_id: RepoId,
         forwarder_id: RepoId,
-        forwarder_readcap: ReadCap,
         content: SocialQueryResponseContent
     ) -> Result<Self,NgError> {
-        let content = InboxMsgContent::SocialQuery(SocialQuery::Response(SocialQueryResponse { query_id, forwarder_id, forwarder_readcap, content }));
+        let content = InboxMsgContent::SocialQuery(SocialQuery::Response(SocialQueryResponse { query_id, forwarder_id, content }));
         Self::new(to_overlay, to_inbox, from, &content, vec![], None)
     }
 
@@ -3705,8 +3704,7 @@ impl InboxPost {
         let from = Some((msg.to_overlay, inbox_privkey));
         let query_id = request.query_id;
         let forwarder_id = request.forwarder_id;
-        let forwarder_readcap = request.forwarder_readcap.clone();
-        let content = InboxMsgContent::SocialQuery(SocialQuery::Response(SocialQueryResponse { query_id, forwarder_id, forwarder_readcap, content }));
+        let content = InboxMsgContent::SocialQuery(SocialQuery::Response(SocialQueryResponse { query_id, forwarder_id, content }));
         Self::new(to_overlay, to_inbox, from, &content, vec![], None)
     }
 
@@ -3716,7 +3714,6 @@ impl InboxPost {
         from_profile_store_repo: StoreRepo, 
         from_inbox: PrivKey, 
         forwarder_id: RepoId,
-        forwarder_readcap: ReadCap,
         to_profile_nuri: String,
         to_inbox_nuri: String,
         to_broker: Option<Locator>,
@@ -3748,7 +3745,6 @@ impl InboxPost {
                 let content = InboxMsgContent::SocialQuery(SocialQuery::Request(SocialQueryRequest{
                     query_id,
                     forwarder_id,
-                    forwarder_readcap,
                     from_profile_store_repo,
                     degree,
                     definition_commit_body_ref,
@@ -4182,9 +4178,6 @@ pub struct SocialQueryRequest {
     /// Forwarder ID
     pub forwarder_id: RepoId,
 
-    /// Forwarder read cap
-    pub forwarder_readcap: ReadCap,
-
     /// Profile ID (must match the from_overlay)
     pub from_profile_store_repo: StoreRepo,
 
@@ -4217,9 +4210,6 @@ pub struct SocialQueryResponse {
 
     /// Forwarder ID
     pub forwarder_id: RepoId,
-
-    /// Forwarder read cap
-    pub forwarder_readcap: ReadCap,
 
     /// Response content
     pub content: SocialQueryResponseContent,
