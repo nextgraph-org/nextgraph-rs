@@ -912,10 +912,10 @@
               {/if}
             {/if}
             <!-- ()=> openPane("mc") -->
-            <MenuItem title={$t("doc.menu.items.mc.desc")} selected={$cur_tab_right_pane == "mc"} clickable={ undefined }>
+            <!-- <MenuItem title={$t("doc.menu.items.mc.desc")} selected={$cur_tab_right_pane == "mc"} clickable={ undefined }>
               <Icon tabindex="-1" class="w-7 h-7 text-gray-700 focus:outline-none dark:text-white" variation="outline" color="currentColor" icon={pane_items["mc"]} />
               <span class="ml-3">{$t("doc.menu.items.mc.label")}</span>
-            </MenuItem>
+            </MenuItem> -->
             <!-- ()=> openArchive() -->
             <MenuItem title={$t("doc.menu.items.archive.desc")} clickable={ undefined }>
               <ArchiveBox
@@ -1254,11 +1254,11 @@
     </main>
     <MobileBottomBar {activeUrl}>
       <MobileBottomBarItem href="#/" icon={Home} on:click={scrollToTop} >
-        <span
+        <!-- <span
           class="inline-flex justify-center items-center p-3 mt-1 -ml-2 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"
         >
           13
-        </span>
+        </span> -->
       </MobileBottomBarItem>
       <MobileBottomBarItem href="#/stream" icon={Bolt}  />
       <MobileBottomBarItem
@@ -1371,11 +1371,11 @@
                 tabindex="-1"
                 class="-rotate-45 w-7 h-7 text-black  focus:outline-none dark:text-white group-hover:text-gray-900 "
               />
-              <span
+              <!-- <span
                 class="inline-flex justify-center items-center p-3 mt-1 -ml-3 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"
               >
                 3
-              </span>
+              </span> -->
             </svelte:fragment>
           </SidebarItem>
           <SidebarItem
@@ -1389,11 +1389,11 @@
                 tabindex="-1"
                 class="w-7 h-7 text-black  focus:outline-none dark:text-white group-hover:text-gray-900 "
               />
-              <span
+              <!-- <span
                 class="inline-flex justify-center items-center p-3 mt-1 -ml-3 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"
               >
                 10
-              </span>
+              </span> -->
             </svelte:fragment>
           </SidebarItem>
         </SidebarGroup>

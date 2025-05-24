@@ -81,11 +81,11 @@
               tabindex="-1"
               class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white focus:outline-none"
             />
-            <span
+            <!-- <span
               class="inline-flex justify-center items-center p-3 mt-1 -ml-2 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"
             >
               3
-            </span>
+            </span> -->
           </a>
 
           <a href="#/notifications" class="ml-4 row items-center" >
@@ -93,11 +93,11 @@
               tabindex="-1"
               class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white focus:outline-none"
             />
-            <span
+            <!-- <span
               class="inline-flex justify-center items-center p-3 mt-1 -ml-2 w-3 h-3 text-sm font-medium text-primary-600 bg-primary-200 rounded-full dark:bg-primary-900 dark:text-primary-200"
             >
               10
-            </span>
+            </span> -->
           </a>
         </div>
       </div>
@@ -112,9 +112,9 @@
     <div class="overflow-hidden w-24 sm:ml-3 flex justify-start mr-1" role="button" tabindex="0">
       <Bookmark tabindex="-1" class="mt-1 flex-none w-7 h-7 mr-1 focus:outline-none "/><div class="text-xs xs:text-sm flex items-center"><div style="overflow-wrap: anywhere;" class="max-h-8 xs:max-h-10">{$t("doc.header.buttons.bookmarked")}</div></div>
     </div>
-    <div class="overflow-hidden w-32 sm:ml-3 flex justify-start mr-1" role="button" tabindex="0" title={$t("doc.menu.items.mc.desc")}>
+    <!-- <div class="overflow-hidden w-32 sm:ml-3 flex justify-start mr-1" role="button" tabindex="0" title={$t("doc.menu.items.mc.desc")}>
       <Sparkles tabindex="-1" class="mt-1 flex-none w-7 h-7 mr-1 focus:outline-none "/><div class="text-xs xs:text-sm flex items-center"><div style="overflow-wrap: anywhere;" class="max-h-8 xs:max-h-10">{$t("doc.menu.items.mc.label")}</div></div>
-    </div>
+    </div> -->
     <div class="overflow-hidden w-28 sm:ml-3 flex justify-start" role="button" tabindex="0">
       <Square3Stack3d tabindex="-1" class="mt-1 flex-none w-7 h-7 mr-1 focus:outline-none "/><div class="text-xs xs:text-sm flex items-center"><div style="overflow-wrap: anywhere;" class="max-h-8 xs:max-h-10">{$t("doc.header.buttons.all_docs")}</div></div>
     </div>
