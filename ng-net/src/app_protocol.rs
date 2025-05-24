@@ -34,6 +34,7 @@ pub enum AppFetchContentV0 {
     SignatureRequest,
     SignedSnapshotRequest,
     Header,
+    CurrentHeads,
     //Invoke,
 }
 
@@ -303,6 +304,10 @@ impl NuriV0 {
 
     pub fn signature_ref(obj_ref: &ObjectRef) -> String {
         format!("s:{}:k:{}", obj_ref.id, obj_ref.key)
+    }
+
+    pub fn commit_ref(commit_ref: &ObjectRef) -> String {
+        format!("c:{}:k:{}", commit_ref.id, commit_ref.key)
     }
 
     pub fn token(token: &Digest) -> String {

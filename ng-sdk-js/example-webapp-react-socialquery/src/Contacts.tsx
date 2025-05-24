@@ -4,6 +4,8 @@ import { ContainerShapeType } from "./.ldo/container.shapeTypes.ts";
 import { useSubscribeToResource, useResource, useSubject } from "./reactMethods.ts";
 import { Contact } from "./Contact";
 import { MakeContact } from "./MakeContact";
+import { Link } from "react-router";
+import { LifebuoyIcon } from '@heroicons/react/24/outline'
 
 export const Contacts: FunctionComponent = () => {
   const { session } = useNextGraphAuth();
@@ -21,8 +23,11 @@ export const Contacts: FunctionComponent = () => {
   
   return <>
     <div className="centered">
-      <div className="flex flex-wrap justify-center gap-5 mt-10 mb-10">
+      <div className="flex flex-wrap justify-center gap-5 mt-10 mb-5">
         <MakeContact/>
+      </div>
+      <div className="flex flex-wrap justify-center gap-5 mt-10 mb-10">
+        <Link to="/query"><button className="button"><LifebuoyIcon className="size-7 inline"/> Query</button> </Link>
       </div>
       <div className="flex flex-wrap justify-center gap-5 mb-10">
         { 

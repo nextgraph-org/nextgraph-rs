@@ -66,12 +66,24 @@ ORDER BY DESC(?total)`;
   $: source = commits.graph.join(" .\r\n") + (commits.graph.length ? " .":"");
 
   let results = [];
+  let already_started = false;
 
   $: if (commits.graph.length > 4) {
     sparql_query(ranking_query, false).then((res) => {
       //console.log(res.results?.bindings);
       results = res.results?.bindings;
     });
+  }
+
+  $: if (commits) { check_if_started(commits.graph) }
+
+  function check_if_started(graph) {
+    for (const g of graph) {
+      if (g.substring(57,91) === "did:ng:x:ng#social_query_forwarder") {
+        already_started = true;
+        break;
+      }
+    }
   }
 
   const query = `PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
@@ -120,6 +132,7 @@ WHERE {
       let session = $active_session;
       if (!session) return;
       let request_nuri = "did:ng:"+$cur_tab.doc.nuri+":c:"+commit_id+":k:"+commit_key;
+      console.log(request_nuri)
       await ng.social_query_start(
         session.session_id,
         "did:ng:a", 
@@ -145,7 +158,7 @@ WHERE {
   <Button
     on:click={openQuery}
     on:keypress={openQuery}
-    disabled={!$online}      
+    disabled={!$online || already_started}      
     class="select-none ml-2 mt-2 mb-2 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-500/50 rounded-lg text-base p-2 text-center inline-flex items-center dark:focus:ring-primary-700/55"
   >
     <Lifebuoy tabindex="-1" class="mr-2 focus:outline-none" />
@@ -155,15 +168,17 @@ WHERE {
   <div class="relative overflow-x-auto">
     <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400 table-auto">
       <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-        <th scope="col" class="px-6 py-3">Email</th>
-        <th scope="col" class="px-6 py-3">Name</th>
-        <th scope="col" class="px-6 py-3">Rust</th>
-        <th scope="col" class="px-6 py-3">Svelte</th>
-        <th scope="col" class="px-6 py-3">Tailwind</th>
-        <th scope="col" class="px-6 py-3">Rdf</th>
-        <th scope="col" class="px-6 py-3">Yjs</th>
-        <th scope="col" class="px-6 py-3">Automerge</th>
-        <th scope="col" class="px-6 py-3">Total</th>
+        <tr>
+          <th scope="col" class="px-6 py-3">Email</th>
+          <th scope="col" class="px-6 py-3">Name</th>
+          <th scope="col" class="px-6 py-3">Rust</th>
+          <th scope="col" class="px-6 py-3">Svelte</th>
+          <th scope="col" class="px-6 py-3">Tailwind</th>
+          <th scope="col" class="px-6 py-3">Rdf</th>
+          <th scope="col" class="px-6 py-3">Yjs</th>
+          <th scope="col" class="px-6 py-3">Automerge</th>
+          <th scope="col" class="px-6 py-3">Total</th>
+        </tr>
       </thead>
       <tbody>
         {#each results as res}

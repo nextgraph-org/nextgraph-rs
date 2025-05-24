@@ -618,7 +618,7 @@ impl Verifier {
         class_name: String,
         destination: String,
         store_repo: Option<StoreRepo>,
-    ) -> Result<String, NgError> {
+    ) -> Result<(String, ReadCap), NgError> {
     
         let class = BranchCrdt::from(crdt, class_name)?;
     
@@ -656,7 +656,7 @@ impl Verifier {
         &mut self,
         nuri: NuriV0,
         doc_create: DocCreate
-    ) -> Result<String, NgError> {
+    ) -> Result<(String, ReadCap), NgError> {
         //TODO: deal with doc_create.destination
 
         let user_id = self.user_id().clone();
@@ -672,9 +672,10 @@ impl Verifier {
             )
             .await?;
 
-        let header_branch_id = {
+        let (read_cap, header_branch_id) = {
             let repo = self.get_repo(&repo_id, &store)?;
-            repo.header_branch().ok_or(NgError::BranchNotFound)?.id
+            (repo.read_cap.to_owned().unwrap(),
+            repo.header_branch().ok_or(NgError::BranchNotFound)?.id)
         };
 
         // adding an AddRepo commit to the Store branch of store.
@@ -710,7 +711,7 @@ impl Verifier {
         if let Err(e) = ret {
             return Err(NgError::SparqlError(e.to_string()));
         }
-        Ok(nuri_result)
+        Ok((nuri_result,read_cap))
     }
 
     fn get_profile_for_inbox_post(&self, public: bool) -> Result<(StoreRepo, PrivKey),NgError> {
@@ -926,7 +927,7 @@ impl Verifier {
                 }
 
                 // creating the ForwardedSocialQuery in the private store
-                let forwarder = self.doc_create_with_store_repo(
+                let (forwarder, forwarder_readcap) = self.doc_create_with_store_repo(
                     "Graph".to_string(), "social:query:forwarded".to_string(),
                     "store".to_string(), None // meaning in private store
                 ).await?;
@@ -955,7 +956,7 @@ impl Verifier {
                     return Err(NgError::SparqlError(e));
                 }
 
-                let from_profiles = self.get_2_profiles()?;
+                let from_profiles: ((StoreRepo, PrivKey), (StoreRepo, PrivKey)) = self.get_2_profiles()?;
 
                 for (to_profile_nuri, to_inbox_nuri) in contacts {
 
@@ -963,7 +964,8 @@ impl Verifier {
                         &to_profile_nuri, 
                         &to_inbox_nuri, 
                         &forwarder_nuri, 
-                        &forwarder_id, 
+                        &forwarder_id,
+                        &forwarder_readcap, 
                         &from_profiles,
                         query_id, 
                         &definition_commit_body_ref, 
@@ -1059,7 +1061,7 @@ impl Verifier {
                     match self.doc_create(nuri, doc_create).await {
                         Err(NgError::SparqlError(e)) => Ok(AppResponse::error(e)),
                         Err(e) => Err(e),
-                        Ok(nuri_result) => Ok(AppResponse::V0(AppResponseV0::Nuri(nuri_result)))
+                        Ok((nuri_result,_)) => Ok(AppResponse::V0(AppResponseV0::Nuri(nuri_result)))
                     }
                 } else {
                     Err(NgError::InvalidPayload)
@@ -1232,6 +1234,16 @@ impl Verifier {
 
                     return Ok(AppResponse::V0(AppResponseV0::Text(vec.join("\n"))));
                 }
+                AppFetchContentV0::CurrentHeads => {
+                    
+                    if nuri.target.is_repo_id() {
+                        if let Ok(s) = self.get_main_branch_current_heads_nuri(nuri.target.repo_id()) {
+                            return Ok(AppResponse::V0(AppResponseV0::Text(s)));
+                        }
+                    }
+                    return Ok(AppResponse::error(VerifierError::InvalidNuri.to_string()));
+                }
+                
                 AppFetchContentV0::History => {
                     if !nuri.is_valid_for_sparql_update() {
                         return Err(NgError::InvalidNuri);

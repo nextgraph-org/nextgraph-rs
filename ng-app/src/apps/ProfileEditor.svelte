@@ -60,7 +60,7 @@
             console.log($cur_tab.doc.nuri);
             //TODO: more sanitation on the input here!
             await ng.sparql_update($active_session.session_id, "PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>"
-                            +"INSERT DATA { <> a vcard:Individual . <> vcard:fn \""+name.replace('"',"\\\"")+"\". <> vcard:hasEmail \""+email+"\" }", "did:ng:"+$cur_tab.doc.nuri );
+                            +"INSERT DATA { <> a vcard:Individual . <> vcard:fn \""+name.trim().replace('"',"\\\"")+"\". <> vcard:hasEmail \""+email.trim()+"\" }", "did:ng:"+$cur_tab.doc.nuri );
             toast_success("Your profile was edited successfully!");
             set_view_or_edit(true);
         } catch (e) {

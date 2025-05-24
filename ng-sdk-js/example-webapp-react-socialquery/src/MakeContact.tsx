@@ -1,7 +1,6 @@
 import { FormEvent, FunctionComponent, useCallback, useState } from "react";
-import { BrowserNGLdoProvider, useLdo, dataset } from './reactMethods';
+import { useLdo, dataset } from './reactMethods';
 import { SocialContactShapeType } from "./.ldo/contact.shapeTypes.ts";
-import { LdSet } from "@ldo/ldo";
 
 export const MakeContact: FunctionComponent = () => {
   const [name, setName] = useState("");
@@ -54,7 +53,7 @@ export const MakeContact: FunctionComponent = () => {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
-      <input type="submit" id="save" value="Save" />
+      <input type="submit" className="button" value="Add" />
     </form>
   );
 };

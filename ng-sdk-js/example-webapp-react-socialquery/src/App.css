@@ -39,7 +39,7 @@ input {
   margin: 5px;
 }
 
-#save {
+.button {
   background-color:rgb(73, 114, 165);
   color:white;
   cursor:pointer;

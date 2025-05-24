@@ -1374,7 +1374,7 @@ impl Verifier {
         }
     }
 
-    async fn open_branch_<'a>(
+    pub(crate) async fn open_branch_<'a>(
         &mut self,
         repo_id: &RepoId,
         branch: &BranchId,
@@ -1790,6 +1790,19 @@ impl Verifier {
         } else {
             res
         }
+    }
+
+    pub(crate) fn get_main_branch_current_heads_nuri(&self, repo_id: &RepoId) -> Result<String, VerifierError> {
+        if let Some(repo) = self.repos.get(repo_id) {
+            if let Some(info) = repo.main_branch() {
+                let mut res = NuriV0::repo_id(repo_id);
+                for head in info.current_heads.iter() {
+                    res = [res,NuriV0::commit_ref(head)].join(":");
+                }
+                return Ok(res);
+            }
+        }
+        Err(VerifierError::RepoNotFound)
     }
 
     fn update_branch_current_heads(

@@ -1,9 +1,8 @@
 import { default as React, FunctionComponent } from "react";
-import { useNextGraphAuth } from "./reactMethods";
-import { SocialContactShapeType, HasRatingShapeType } from "./.ldo/contact.shapeTypes.ts";
-import { useSubscribeToResource, useResource, useSubject, useLdo } from "./reactMethods.ts";
+import { SocialContactShapeType } from "./.ldo/contact.shapeTypes.ts";
+import { useSubscribeToResource, useResource, useSubject, useLdo, useNextGraphAuth } from "./reactMethods.ts";
 import { StarIcon  } from '@heroicons/react/24/solid'
-import { StarIcon as StarIconOutline, NoSymbolIcon } from '@heroicons/react/24/outline'
+import { StarIcon as StarIconOutline } from '@heroicons/react/24/outline'
 import {
   startTransaction,
   transactionChanges,
@@ -75,7 +74,7 @@ export const Contact: FunctionComponent = ({nuri}) => {
           "@id": ksp + ksp_mapping[skill]
         }
       })
-      let res = commitData(editing_contact);
+      let res = await commitData(editing_contact);
       if (res.isError) {
         console.error(res.message);
       }
@@ -111,7 +110,7 @@ export const Contact: FunctionComponent = ({nuri}) => {
             // let changes = transactionChanges(editing_contact);
             // console.log(changes.added?.toString())
             // console.log(changes.removed?.toString())
-            let res = commitData(editing_contact);
+            let res = await commitData(editing_contact);
             if (res.isError) {
               console.error(res.message);
             }
@@ -120,7 +119,7 @@ export const Contact: FunctionComponent = ({nuri}) => {
             // changes = transactionChanges(editing_rating);
             // console.log(changes.added?.toString())
             // console.log(changes.removed?.toString())
-            res = commitData(editing_rating);
+            res = await commitData(editing_rating);
             if (res.isError) {
               console.error(res.message);
             }
@@ -153,10 +152,10 @@ export const Contact: FunctionComponent = ({nuri}) => {
             if (r.skill["@id"].substring(24) === ksp_mapping[skill]) {
               let rating = changeData(r, re);
               rating.rated = nextSkills[skill]-1;
-              const changes = transactionChanges(rating);
-              console.log(changes.added?.toString())
-              console.log(changes.removed?.toString())
-              const res = commitData(rating);
+              // const changes = transactionChanges(rating);
+              // console.log(changes.added?.toString())
+              // console.log(changes.removed?.toString())
+              const res = await commitData(rating);
               if (res.isError) {
                 console.error(res.message);
               }
