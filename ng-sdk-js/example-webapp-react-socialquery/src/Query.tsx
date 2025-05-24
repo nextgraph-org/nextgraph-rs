@@ -96,10 +96,10 @@ const Query: FunctionComponent = () => {
     
     if (social_query?.socialQuerySparql) {
         if (!social_query?.socialQueryForwarder) {
-            console.log(social_query?.socialQuerySparql);
+            //console.log(social_query?.socialQuerySparql);
             start();
         } else {
-            console.log("some results arrived")
+            console.log("ready to receive results")
             dataset.on(
                 [null, null, null, namedNode(resourceUri)],
                 (changes: DatasetChanges<Quad>) => {
