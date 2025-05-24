@@ -1,5 +1,5 @@
 import { FormEvent, FunctionComponent, useCallback, useState } from "react";
-import { useLdo, dataset } from './reactMethods';
+import { useLdo, dataset, useNextGraphAuth } from './reactMethods';
 import { SocialContactShapeType } from "./.ldo/contact.shapeTypes.ts";
 
 export const MakeContact: FunctionComponent = () => {
@@ -7,7 +7,8 @@ export const MakeContact: FunctionComponent = () => {
   const [email, setEmail] = useState("");
 
   const { createData, commitData } = useLdo();
-
+  const { session } = useNextGraphAuth();
+  
   const onSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -16,7 +17,7 @@ export const MakeContact: FunctionComponent = () => {
       if (new_name.trim().length > 2 && new_email.trim().length > 6 && new_email.indexOf("@") >= 0) { 
         setName("");
         setEmail("");
-        const resource = await dataset.createResource("nextgraph");
+        const resource = await dataset.createResource("nextgraph", { primaryClass: "social:contact" });
         if (!resource.isError) {
           //console.log("Created resource:", resource.uri);
 
@@ -33,6 +34,7 @@ export const MakeContact: FunctionComponent = () => {
           if (result.isError) {
               console.error(result.message);
           }
+          await session.ng.update_header(session.sessionId, resource.uri.substring(0,53), new_name);
         }
       }
     },

@@ -1,6 +1,6 @@
 import { nextGraphConnectedPlugin } from "@ldo/connected-nextgraph";
 import { createLdoReactMethods } from "@ldo/react";
-import { createBrowserNGReactMethods } from "./createBrowserNGReactMethods";
+import { createBrowserNGReactMethods } from "nextgraph-react";
 
 export const {
   dataset,

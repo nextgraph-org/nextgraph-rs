@@ -1,0 +1,1 @@
+{"version":3,"file":"NextGraphAuthContext.js","sourceRoot":"","sources":["../../src/NextGraphAuthContext.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,aAAa,EAAE,UAAU,EAAE,MAAM,OAAO,CAAC;AAYlD,+EAA+E;AAC/E,6DAA6D;AAC7D,aAAa;AACb,MAAM,CAAC,MAAM,oBAAoB,GAAG,aAAa,CAAwB,SAAS,CAAC,CAAC;AAEpF,MAAM,UAAU,gBAAgB;IAC5B,OAAO,UAAU,CAAC,oBAAoB,CAAC,CAAC;AAC5C,CAAC"}

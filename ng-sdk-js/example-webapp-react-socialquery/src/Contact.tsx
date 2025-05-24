@@ -45,7 +45,6 @@ export const Contact: FunctionComponent = ({nuri}) => {
   const [skills, setSkills] = React.useState([ 0, 0, 0, 0, 0, 0, 0, 0, 0 ]);
 
   React.useEffect(() => {
-    //contact.hasRating?.map((r)=> {if (r.skill) console.log(r.rated,r.skill["@id"].substring(24))});
     let nextSkills = skills.map((s) => {
       return 0;
     });

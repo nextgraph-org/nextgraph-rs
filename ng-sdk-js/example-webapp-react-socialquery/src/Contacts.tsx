@@ -14,7 +14,6 @@ export const Contacts: FunctionComponent = () => {
 
   useResource(session.sessionId ? "did:ng:"+session.privateStoreId : undefined, { subscribe: true });
   let myContainer = useSubject(ContainerShapeType, session.sessionId ? "did:ng:"+(session.privateStoreId.substring(0,46)) : undefined);
-  //console.log(myContainer.contains?.toJSON())
   if (session.sessionId) {
     container_overlay = session.privateStoreId.substring(46) as string;
   }
