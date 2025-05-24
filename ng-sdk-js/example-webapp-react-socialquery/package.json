@@ -18,6 +18,7 @@
     "@rdfjs/data-model": "^1.2.0",
     "@rdfjs/types": "^1.0.1",
     "nextgraphweb": "^0.1.1-alpha.4",
+    "nextgraph-react": "^0.1.1-alpha.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router": "^7.6.0"
