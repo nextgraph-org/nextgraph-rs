@@ -97,7 +97,6 @@ CONSTRUCT { [
     ng:site ?public_profile;
     ng:protected ?protected_profile;
     xskills:hasRating [
-      a xskills:Rating ;
       xskills:rated ?level;
       xskills:skill ?skill
     ]
