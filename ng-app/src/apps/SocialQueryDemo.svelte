@@ -97,6 +97,7 @@ CONSTRUCT { [
     ng:site ?public_profile;
     ng:protected ?protected_profile;
     xskills:hasRating [
+      a xskills:Rating ;
       xskills:rated ?level;
       xskills:skill ?skill
     ]
@@ -109,7 +110,6 @@ WHERE {
   OPTIONAL { ?contact ng:site ?public_profile . ?contact ng:site_inbox ?public_inbox }
   OPTIONAL { ?contact ng:protected ?protected_profile . ?contact ng:protected_inbox ?prot_inbox }
   ?contact xskills:hasRating [
-    a xskills:Rating ;
     xskills:rated ?level;
     xskills:skill ?skill
   ].
