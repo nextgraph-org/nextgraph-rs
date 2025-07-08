@@ -16,7 +16,7 @@
 // "media:image", "media:reel", "media:album", "media:video", "media:audio", "media:song", "media:subtitle", "media:overlay",
 // "social:channel", "social:stream", "social:contact", "social:event", "social:calendar", "social:scheduler", "social:reaction", "social:chatroom",
 // "prod:task", "prod:project", "prod:issue", "prod:form", "prod:filling", "prod:cad", "prod:slides", "prod:question", "prod:answer", "prod:poll", "prod:vote"
-// "file", "file:iana:*", "file:gimp", "file:inkscape", "file:kdenlive", "file:blender", "file:openscad", "file:lyx", "file:scribus", "file:libreoffice", "file:audacity", "file:godot", "file:obsstudio", "file:ardor", "file:krita"
+// "file", "file:iana:*", "file:gimp", "file:inkscape", "file:kdenlive", "file:blender", "file:openscad", "file:freecad", "file:lyx", "file:scribus", "file:libreoffice", "file:audacity", "file:godot", "file:obsstudio", "file:ardor", "file:krita"
 
 
 // application/vnd.api+json
@@ -36,6 +36,17 @@ export const official_classes = {
         "ng:crdt": "YXml",
         "ng:n": "Post - Rich Text", // editor: y-ProseMirror, viewer: https://www.npmjs.com/package/prosemirror-to-html-js or https://prosemirror.net/docs/ref/version/0.4.0.html#toDOM https://prosemirror.net/docs/ref/version/0.4.0.html#toHTML
         "ng:a": "A Post with Rich Text, including images, links, formatted text, and embeds of other content",
+        "ng:o": "n:g:z:post:rich",
+        "ng:w": "n:g:z:post_rich_editor",
+        "ng:x": {
+            "as":true,
+        },
+        "ng:compat": ["as:Article"],
+    },
+    "post:blocknote": {
+        "ng:crdt": "YXml",
+        "ng:n": "Post - BlockNote", 
+        "ng:a": "A Post based on BlockNote Editor",
         "ng:o": "n:g:z:post:rich",
         "ng:w": "n:g:z:post_rich_editor",
         "ng:x": {
