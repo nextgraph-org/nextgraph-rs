@@ -1,0 +1,44 @@
+[workspace]
+resolver = "2"
+members = [
+  "nextgraph",
+  "ng-repo",
+  "ng-net",
+  "ng-broker",
+  "ng-client-ws",
+  "ng-verifier",
+  "ng-wallet",
+  "ng-storage-rocksdb",
+  "sdk/ng-sdk-js",
+  "ng-oxigraph",
+]
+default-members = [ "nextgraph" ]
+
+[workspace.package]
+version = "0.1.2"
+edition = "2021"
+rust-version = "1.81.0"
+license = "MIT/Apache-2.0"
+authors = ["Niko PLP <niko@nextgraph.org>"]
+repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
+homepage = "https://nextgraph.org"
+keywords = [
+"crdt","dapp","decentralized","e2ee","local-first","p2p","semantic-web","eventual-consistency","json-ld","markdown",
+"ocap","vc","offline-first","p2p-network","collaboration","privacy-protection","rdf","rich-text-editor","self-hosted",
+"sparql","byzantine-fault-tolerance",
+"web3", "graph-database", "database","triplestore"
+]
+documentation = "https://docs.nextgraph.org/"
+
+[profile.release]
+lto = true
+opt-level = 's'
+
+[profile.dev]
+opt-level = 2
+
+[patch.crates-io]
+# tauri = { git = "https://github.com/simonhyll/tauri.git",  branch="fix/ipc-mixup"}
+# tauri = { git = "https://git.nextgraph.org/NextGraph/tauri.git", branch="alpha.11-nextgraph", features = ["no-ipc-custom-protocol"] }
+
+[workspace.dependencies]

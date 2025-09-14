@@ -1,0 +1,8 @@
+packages:
+  - sdk/ng-sdk-js/pkg
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - '@swc/core'
+  - es5-ext
+  - esbuild
+  - svelte-preprocess

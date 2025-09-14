@@ -1,0 +1,23 @@
+[package]
+name = "ng-storage-rocksdb"
+version = "0.1.2"
+description = "Stores based on RocksDB for NextGraph"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["crdt","e2ee","local-first","p2p","database"]
+documentation.workspace = true
+rust-version.workspace = true
+build = "build.rs"
+
+[dependencies]
+serde_bare = "0.5.0"
+ng-repo = { path = "../ng-repo", version = "0.1.2" }
+
+[target.'cfg(all(not(target_arch = "wasm32"),not(docsrs)))'.dependencies.ng-rocksdb]
+git = "https://git.nextgraph.org/NextGraph/rust-rocksdb.git"
+branch = "master"
+features = [  ]
+version = "0.21.0-ngpreview.7"

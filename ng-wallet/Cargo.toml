@@ -1,0 +1,45 @@
+[package]
+name = "ng-wallet"
+version = "0.1.2"
+description = "Wallet library of NextGraph. keeps the secret keys of all identities of the user in a safe wallet. NextGraph is a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
+categories = ["authentication"]
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["crdt","e2ee","local-first","p2p","privacy-protection"]
+documentation.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { version = "1.0.142", features = ["derive"] }
+serde_bare = "0.5.0"
+serde_bytes = "0.11.7"
+serde-big-array = "0.5.1"
+lazy_static = "1.4.0"
+safe-transmute = "0.11.2"
+async-std = {  version = "1.12.0", features = ["attributes","unstable"] }
+getrandom = { version = "0.3.3" }
+rand =  { version = "0.7", features = ["getrandom"] }
+aes-gcm-siv = {version = "0.11.1", features = ["aes","heapless","getrandom","std"] }
+zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
+crypto_box = { version = "0.8.2", features = ["seal"] }
+base64-url = "2.0.0"
+blake3 = "1.3.1"
+argon2 = "0.5.0"
+chacha20poly1305 = "0.10.1"
+#{version = "0.10.1", features = ["heapless","getrandom"] }
+image = "0.24.6"
+web-time = "0.2.0"
+ng-repo = { path = "../ng-repo", version = "0.1.2" }
+ng-net = { path = "../ng-net", version = "0.1.2" }
+ng-verifier = { path = "../ng-verifier", version = "0.1.2" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.getrandom]
+version = "0.3.3"
+features = ["wasm_js"]
+
+[dev-dependencies]
+ng-repo = { path = "../ng-repo", version = "0.1.2", features = ["testing"] }
+ng-verifier = { path = "../ng-verifier", version = "0.1.2", features = ["testing"] }

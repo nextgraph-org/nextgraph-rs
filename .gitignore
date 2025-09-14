@@ -1,0 +1,17 @@
+*~
+*.tar.gz
+.ng
+.direnv
+!.github
+\#*
+/target
+/result*
+.DS_Store
+node_modules
+*/tests/*.ng
+*/tests/*.ngw
+*/tests/*.pazzle
+*/tests/*.mnemonic
+*/ng-example/*
+.vscode/settings.json
+.env.local

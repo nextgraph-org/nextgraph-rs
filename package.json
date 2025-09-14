@@ -1,0 +1,15 @@
+{
+  "name": "nextgraph-monorepo",
+  "private": true,
+  "version": "0.1.2",
+  "pnpm": {
+    "peerDependencyRules": {
+      "ignoreMissing": [
+        "rollup",
+        "svelte"
+      ]
+    }
+  },
+  "devDependencies": {
+  }
+}
