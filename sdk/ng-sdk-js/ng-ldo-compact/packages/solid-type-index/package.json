@@ -1,0 +1,58 @@
+{
+  "name": "@ldo/solid-type-index",
+  "version": "1.0.0-alpha.33",
+  "description": "Solid Type Index support for LDO",
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "rimraf dist && npm run build:cjs && npm run build:esm",
+    "build:cjs": "tsc --project tsconfig.cjs.json && node ../../scripts/rename-to-cjs.js",
+    "build:esm": "tsc --project tsconfig.esm.json",
+    "test": "vitest run --coverage",
+    "prepublishOnly": " npm run build",
+    "build:ldo": "ldo build --input src/.shapes --output src/.ldo",
+    "lint": "eslint src/** --fix --no-error-on-unmatched-pattern",
+    "remove-dist": "rimraf dist/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/o-development/ldo.git"
+  },
+  "author": "Jackson Morgan",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/o-development/ldo/issues"
+  },
+  "homepage": "https://github.com/o-development/ldo/tree/main/packages/solid-react#readme",
+  "devDependencies": {
+    "@ldo/rdf-utils": "^1.0.0-alpha.30",
+    "@ldo/test-solid-server": "^1.0.0-alpha.28",
+    "@rdfjs/types": "^1.0.1",
+    "@testing-library/react": "^14.1.2",
+    "jest-environment-jsdom": "^29.7.0",
+    "start-server-and-test": "^2.0.3",
+    "ts-node": "^10.9.2"
+  },
+  "dependencies": {
+    "@ldo/connected-solid": "^1.0.0-alpha.32",
+    "@ldo/solid-react": "^1.0.0-alpha.33"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "gitHead": "840910c56ec3f61416f031cc76771a5673af6757"
+}

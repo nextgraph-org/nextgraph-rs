@@ -1,5 +1,9 @@
 packages:
   - sdk/ng-sdk-js/pkg
+  - sdk/ng-sdk-js/ng-signals
+  - sdk/ng-sdk-js/ng-alien-deepsignals
+  - sdk/ng-sdk-js/ng-ldo-compact
+  - sdk/ng-sdk-js/examples/multi-framework-signals
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - '@swc/core'

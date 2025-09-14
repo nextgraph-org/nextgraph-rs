@@ -1,0 +1,43 @@
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+PREFIX ldps: <http://www.w3.org/ns/lddps#>
+PREFIX dct: <http://purl.org/dc/terms/>
+PREFIX stat: <http://www.w3.org/ns/posix/stat#>
+PREFIX tur: <http://www.w3.org/ns/iana/media-types/text/turtle#>
+PREFIX pim: <http://www.w3.org/ns/pim/space#>
+
+ldps:Container EXTRA a {
+  $ldps:ContainerShape (
+    a [ ldp:Container ldp:Resource ]*
+      // rdfs:comment "A container on a Solid server";
+    dct:modified xsd:string?
+      // rdfs:comment "Date modified";
+    ldp:contains @ldps:Resource*
+      // rdfs:comment "Defines a Solid Resource";
+    stat:mtime xsd:decimal?
+      // rdfs:comment "?";
+    stat:size xsd:integer?
+      // rdfs:comment "size of this container";
+  )
+}
+
+ldps:Resource EXTRA a {
+  $ldps:ResourceShape (
+    a [ ldp:Resource tur:Resource ]*
+      // rdfs:comment "Any resource on a Solid server";
+    dct:modified xsd:string?
+      // rdfs:comment "Date modified";
+    stat:mtime xsd:decimal?
+      // rdfs:comment "?";
+    stat:size xsd:integer?
+      // rdfs:comment "size of this container";
+  )
+}
+
+ldps:ProfileWithStorage EXTRA a {
+  $ldps:ProfileWithStorageShape (
+    pim:storage IRI *;
+  )
+}

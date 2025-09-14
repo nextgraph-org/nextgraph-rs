@@ -1,0 +1,9 @@
+{
+  "entryPoints": ["src/index.ts"],
+  "out": "docs",
+  "tsconfig": "tsconfig.build.json",
+  "allReflectionsHaveOwnDocument": true,
+  "hideInPageTOC": true,
+  "hideBreadcrumbs": true,
+  "excludeExternals": true,
+}

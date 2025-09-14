@@ -1,0 +1,43 @@
+---
+const { react, svelte, vue, astro } = Astro.props;
+
+const frameworkName = Object.keys(Astro.props)[0];
+---
+
+<div class:list={["box", { react, svelte, vue, astro }]}>
+  <p class="title">{frameworkName}</p>
+  <div class="wrap">
+    <slot />
+  </div>
+</div>
+
+<style>
+  .box {
+    border: 2px solid rgb(88, 88, 81);
+    border-radius: 1em;
+
+    padding: 1em;
+    margin-top: 1em;
+
+    margin-left: auto;
+    margin-right: auto;
+
+    min-width: 60%;
+  }
+  .wrap {
+    padding: 10px;
+  }
+  .title {
+    background: var(--highlightColor);
+    padding: 0 10px;
+  }
+  .vue {
+    background-color: rgb(255, 212, 255);
+  }
+  .react {
+    background-color: rgb(189, 216, 255);
+  }
+  .svelte {
+    background-color: rgb(255, 216, 189);
+  }
+</style>

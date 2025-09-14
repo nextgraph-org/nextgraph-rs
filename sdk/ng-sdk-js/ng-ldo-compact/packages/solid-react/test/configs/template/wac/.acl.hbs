@@ -1,0 +1,13 @@
+@prefix : <#>.
+@prefix acl: <http://www.w3.org/ns/auth/acl#>.
+@prefix foaf: <http://xmlns.com/foaf/0.1/>.
+@prefix eve: <./>.
+@prefix c: <./profile/card#>.
+
+:ControlReadWrite
+    a acl:Authorization;
+    acl:accessTo eve:;
+    acl:agent c:me, <mailto:info@o.team>;
+    acl:agentClass foaf:Agent;
+    acl:default eve:;
+    acl:mode acl:Control, acl:Read, acl:Write.

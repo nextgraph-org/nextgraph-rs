@@ -1,0 +1,14 @@
+PREFIX ex: <http://example.org/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+ex:Person {
+  a ["Person"] ;
+  ex:name xsd:string ;
+  ex:address {
+    ex:street xsd:string ;
+    ex:houseNumber xsd:string
+  } ;
+  ex:hasChildren xsd:boolean ;
+  ex:numberOfHouses xsd:integer ;
+}
+

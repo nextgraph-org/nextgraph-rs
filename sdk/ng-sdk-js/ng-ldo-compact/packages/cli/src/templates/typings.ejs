@@ -1,0 +1,18 @@
+<% if (format==='ldo' ) { -%>
+  import { LdoJsonldContext, LdSet } from "@ldo/ldo";
+  <% } else { -%>
+    export type IRI = string;
+    <% } -%>
+
+      /**
+      * =============================================================================
+      * Typescript Typings for <%- fileName %>
+        * =============================================================================
+        */
+
+        <% typings.forEach((typing)=> { -%>
+          /**
+          * <%- typing.dts.name %> Type
+            */
+            export <%- typing.typingString -%>
+              <% }); -%>

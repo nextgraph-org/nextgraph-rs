@@ -1,0 +1,121 @@
+PREFIX srs: <https://shaperepo.com/schemas/solidProfile#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX schem: <http://schema.org/>
+PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX acl: <http://www.w3.org/ns/auth/acl#>
+PREFIX cert:  <http://www.w3.org/ns/auth/cert#>
+PREFIX ldp: <http://www.w3.org/ns/ldp#>
+PREFIX sp: <http://www.w3.org/ns/pim/space#>
+PREFIX solid: <http://www.w3.org/ns/solid/terms#>
+
+srs:SolidProfileShape EXTRA a {
+  a [ schem:Person ]
+    // rdfs:comment  "Defines the node as a Person (from Schema.org)" ;
+  a [ foaf:Person ]
+    // rdfs:comment  "Defines the node as a Person (from foaf)" ;
+  vcard:fn xsd:string ?
+    // rdfs:comment  "The formatted name of a person. Example: John Smith" ;
+  foaf:name xsd:string ?
+    // rdfs:comment  "An alternate way to define a person's name." ;
+  vcard:hasAddress @srs:AddressShape *
+    // rdfs:comment  "The person's street address." ;
+  vcard:hasEmail @srs:EmailShape *
+    // rdfs:comment  "The person's email." ;
+  vcard:hasPhoto IRI ?
+    // rdfs:comment  "A link to the person's photo" ;
+  foaf:img xsd:string ?
+    // rdfs:comment  "Photo link but in string form" ;
+  vcard:hasTelephone @srs:PhoneNumberShape *
+    // rdfs:comment  "Person's telephone number" ;
+  vcard:phone xsd:string ?
+    // rdfs:comment  "An alternative way to define a person's telephone number using a string" ;
+  vcard:organization-name xsd:string ?
+    // rdfs:comment  "The name of the organization with which the person is affiliated" ;
+  vcard:role xsd:string ?
+    // rdfs:comment  "The name of the person's role in their organization" ;
+  acl:trustedApp @srs:TrustedAppShape *
+    // rdfs:comment  "A list of app origins that are trusted by this user" ;
+  cert:key @srs:RSAPublicKeyShape *
+    // rdfs:comment  "A list of RSA public keys that are associated with private keys the user holds." ;
+  ldp:inbox IRI
+    // rdfs:comment  "The user's LDP inbox to which apps can post notifications" ;
+  sp:preferencesFile IRI ?
+    // rdfs:comment  "The user's preferences" ;
+  sp:storage IRI *
+    // rdfs:comment  "The location of a Solid storage server related to this WebId" ;
+  solid:account IRI ?
+    // rdfs:comment  "The user's account" ;
+  solid:privateTypeIndex IRI *
+    // rdfs:comment  "A registry of all types used on the user's Pod (for private access only)" ;
+  solid:publicTypeIndex IRI *
+    // rdfs:comment  "A registry of all types used on the user's Pod (for public access)" ;
+  foaf:knows @srs:SolidProfileShape *
+    // rdfs:comment  "A list of WebIds for all the people this user knows." ;
+}
+
+srs:AddressShape {
+  vcard:country-name xsd:string ?
+    // rdfs:comment  "The name of the user's country of residence" ;
+  vcard:locality xsd:string ?
+    // rdfs:comment  "The name of the user's locality (City, Town etc.) of residence" ;
+  vcard:postal-code xsd:string ?
+    // rdfs:comment  "The user's postal code" ;
+  vcard:region xsd:string ?
+    // rdfs:comment  "The name of the user's region (State, Province etc.) of residence" ;
+  vcard:street-address xsd:string ?
+    // rdfs:comment  "The user's street address" ;
+}
+
+srs:EmailShape EXTRA a {
+  a [
+    vcard:Dom
+    vcard:Home
+    vcard:ISDN
+    vcard:Internet
+    vcard:Intl
+    vcard:Label
+    vcard:Parcel
+    vcard:Postal
+    vcard:Pref
+    vcard:Work
+    vcard:X400
+  ] ?
+    // rdfs:comment  "The type of email." ;
+  vcard:value IRI
+    // rdfs:comment  "The value of an email as a mailto link (Example <mailto:jane@example.com>)" ;
+}
+
+srs:PhoneNumberShape EXTRA a {
+  a [
+    vcard:Dom
+    vcard:Home
+    vcard:ISDN
+    vcard:Internet
+    vcard:Intl
+    vcard:Label
+    vcard:Parcel
+    vcard:Postal
+    vcard:Pref
+    vcard:Work
+    vcard:X400
+  ] ?
+    // rdfs:comment  "They type of Phone Number" ;
+  vcard:value IRI
+    // rdfs:comment  "The value of a phone number as a tel link (Example <tel:555-555-5555>)" ;
+}
+
+srs:TrustedAppShape {
+  acl:mode [acl:Append acl:Control acl:Read acl:Write] +
+    // rdfs:comment  "The level of access provided to this origin" ;
+  acl:origin IRI
+    // rdfs:comment "The app origin the user trusts"
+}
+
+srs:RSAPublicKeyShape {
+  cert:modulus xsd:string
+    // rdfs:comment  "RSA Modulus" ;
+  cert:exponent xsd:integer
+    // rdfs:comment  "RSA Exponent" ;
+}

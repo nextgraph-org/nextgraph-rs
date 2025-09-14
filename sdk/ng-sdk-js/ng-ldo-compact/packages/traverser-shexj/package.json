@@ -1,0 +1,47 @@
+{
+  "name": "@ldo/traverser-shexj",
+  "version": "1.0.0-alpha.28",
+  "description": "A type-traverser for ShexJ",
+  "type": "module",
+  "main": "./dist/cjs/index.cjs",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "rimraf dist && npm run build:cjs && npm run build:esm",
+    "build:cjs": "tsc --project tsconfig.cjs.json && node ../../scripts/rename-to-cjs.js",
+    "build:esm": "tsc --project tsconfig.esm.json",
+    "test": "jest --coverage",
+    "prepublishOnly": " npm run build",
+    "lint": "eslint src/** --fix --no-error-on-unmatched-pattern",
+    "remove-dist": "rimraf dist/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/o-development/ldo.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/o-development/ldo/issues"
+  },
+  "homepage": "https://github.com/o-development/ldo/tree/main/packages/traverser-shexj#readme",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "dependencies": {
+    "@ldo/type-traverser": "^1.0.0-alpha.28"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "gitHead": "840910c56ec3f61416f031cc76771a5673af6757"
+}

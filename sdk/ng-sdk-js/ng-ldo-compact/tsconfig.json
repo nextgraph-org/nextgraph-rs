@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@ldo/*": [
+        "packages/*/src"
+      ]
+    },
+    "allowJs": true
+  }
+}

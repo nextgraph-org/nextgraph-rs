@@ -1,0 +1,73 @@
+export type IRI = string;
+
+/**
+ * =============================================================================
+ * Typescript Typings for testShape
+ * =============================================================================
+ */
+
+/**
+ * TestObject Type
+ */
+export interface TestObject {
+  id: IRI;
+  /**
+   * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
+   */
+  type: "TestObject";
+  /**
+   * Original IRI: http://example.org/stringValue
+   */
+  stringValue: string;
+  /**
+   * Original IRI: http://example.org/numValue
+   */
+  numValue: number;
+  /**
+   * Original IRI: http://example.org/boolValue
+   */
+  boolValue: boolean;
+  /**
+   * Original IRI: http://example.org/arrayValue
+   */
+  arrayValue?: Set<number>;
+  /**
+   * Original IRI: http://example.org/objectValue
+   */
+  objectValue: {
+    id: IRI;
+    /**
+     * Original IRI: http://example.org/nestedString
+     */
+    nestedString: string;
+    /**
+     * Original IRI: http://example.org/nestedNum
+     */
+    nestedNum: number;
+    /**
+     * Original IRI: http://example.org/nestedArray
+     */
+    nestedArray?: Set<number>;
+  };
+  /**
+   * Original IRI: http://example.org/anotherObject
+   */
+  anotherObject?: Record<
+    IRI,
+    {
+      id: IRI;
+      /**
+       * Original IRI: http://example.org/prop1
+       */
+      prop1: string;
+      /**
+       * Original IRI: http://example.org/prop2
+       */
+      prop2: number;
+    }
+  >;
+  /**
+   * Original IRI: http://example.org/numOrStr
+   */
+  numOrStr: string;
+}

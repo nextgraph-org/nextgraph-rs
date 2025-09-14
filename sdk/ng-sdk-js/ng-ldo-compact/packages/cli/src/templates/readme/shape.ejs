@@ -1,0 +1,27 @@
+## <%= shape.name %>
+
+### Usage with LDO
+
+```typescript
+import { createLdoDataset } from "@ldo/ldo";
+import { <%= shape.types.map((type) => type.shapeTypeName).join(", ") %> } from "<%= projectName %>";
+import type { <%= shape.types.map((type) => type.typeName).join(", ") %> } from "<%= projectName %>";
+const ldoDataset = createLdoDataset();
+<% shape.types.forEach(function(type, index) { %>
+const example<%= index %>: <%= type.typeName %> = ldoDataset
+  .usingType(<%= type.shapeTypeName %>)
+  .fromSubject("http://example.com/example<%= index %>");
+<% }); %>
+```
+
+### ShEx Typings
+
+```shex
+<%- shape.shex %>
+```
+
+### TypeScript Typings
+
+```typescript
+<%- shape.typescript %>
+```

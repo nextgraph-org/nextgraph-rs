@@ -1,0 +1,24 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Highlight from "../components/Highlight.astro";
+
+import VueRoot from "../components/VueRoot.vue";
+import ReactRoot from "../components/ReactRoot";
+import SvelteRoot from "../components/SvelteRoot.svelte";
+
+const title = "Multi-framework app";
+---
+
+<Layout title={title}>
+  <Highlight vue>
+    <VueRoot client:only />
+  </Highlight>
+
+  <Highlight react>
+    <ReactRoot client:only="react" />
+  </Highlight>
+
+  <Highlight svelte>
+    <SvelteRoot client:only />
+  </Highlight>
+</Layout>

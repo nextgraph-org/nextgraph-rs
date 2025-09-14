@@ -1,0 +1,21 @@
+---
+import Highlight from "../components/Highlight.astro";
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>Multi-Framework Signal Experiments</title>
+  </head>
+  <body>
+    <Highlight astro>
+      <header class="container">Multi-Framework Signal Experiments</header>
+
+      <main class="container">
+        <slot />
+      </main>
+    </Highlight>
+  </body>
+</html>
