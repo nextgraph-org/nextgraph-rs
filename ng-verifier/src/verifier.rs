@@ -1642,7 +1642,7 @@ impl Verifier {
         }
     }
 
-    pub async fn inbox(&mut self, msg: InboxMsg, from_queue: bool) {
+    pub async fn inbox(&mut self, msg: &InboxMsg, from_queue: bool) {
         
         //log_info!("RECEIVED INBOX MSG {:?}", msg);
 

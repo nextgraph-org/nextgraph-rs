@@ -184,7 +184,7 @@ impl Verifier {
 
     pub(crate) async fn process_inbox(
         &mut self,
-        msg: InboxMsg,
+        msg: &InboxMsg,
         content: InboxMsgContent,
     ) -> Result<(), VerifierError> {
 
