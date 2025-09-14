@@ -1,6 +1,6 @@
 # Contributors or compilation guide
 
--   [Install Rust](https://www.rust-lang.org/tools/install) minimum required MSRV 1.74.0
+-   [Install Rust](https://www.rust-lang.org/tools/install) minimum required MSRV 1.81.0
 -   [Install Nodejs](https://nodejs.org/en/download/)
 -   [Install LLVM](https://rust-lang.github.io/rust-bindgen/requirements.html)
 
