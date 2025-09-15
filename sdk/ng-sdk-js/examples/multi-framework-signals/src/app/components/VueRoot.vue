@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import HelloWorld from 'src/frontends/vue/HelloWorld.vue';
+import HelloWorld from '../../frontends/vue/HelloWorld.vue';
+
 
   //
 </script>

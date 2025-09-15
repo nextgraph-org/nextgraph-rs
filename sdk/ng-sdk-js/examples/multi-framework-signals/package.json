@@ -10,10 +10,11 @@
     "preview": "astro preview",
     "astro": "astro",
     "test": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:shapes": "ldo build --input ./src/shapes/shex --output ./src/shapes/ldo"
   },
   "dependencies": {
-    "ng-signals": "0.1.0",
+    "@nextgraph-monorepo/ng-signals": "workspace:*",
     "@astrojs/react": "4.3.0",
     "@astrojs/svelte": "7.1.0",
     "@astrojs/vue": "^5.1.0",
@@ -21,11 +22,11 @@
     "@gn8/alien-signals-solid": "^0.1.1",
     "@gn8/alien-signals-svelte": "^0.1.1",
     "@gn8/alien-signals-vue": "^0.1.1",
-    "@ldo/ldo": "^1.0.0-alpha.32",
+    "@nextgraph-monorepo/ng-alien-deepsignals": "workspace:*",
+    "@nextgraph-monorepo/ng-shex-orm": "workspace:*",
     "@types/react": "19.1.10",
     "@types/react-dom": "19.1.7",
     "@types/shexj": "^2.1.7",
-    "ng-alien-deepsignals": "^0.1.0",
     "alien-signals": "^2.0.7",
     "astro": "5.13.2",
     "install": "^0.13.0",
@@ -37,7 +38,6 @@
     "vue": "3.5.19"
   },
   "devDependencies": {
-    "@ldo/traverser-shexj": "^1.0.0-alpha.28",
     "@playwright/test": "^1.55.0",
     "@types/node": "24.3.0",
     "@types/react": "19.1.10",

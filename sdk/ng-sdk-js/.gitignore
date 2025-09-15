@@ -1,3 +1,4 @@
 pkg/*
 pkg-node/*
 web/*
+dist/

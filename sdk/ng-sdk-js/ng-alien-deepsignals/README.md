@@ -1,4 +1,4 @@
-# alien-deepsignals
+# NextGraph alien-deepsignals
 
 Deep structural reactivity for plain objects / arrays / Sets built on top of `alien-signals`.
 
@@ -19,15 +19,15 @@ Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signal
 ## Install
 
 ```bash
-pnpm add alien-deepsignals
+pnpm add @nextgraph-monorepo/ng-alien-deepsignals
 # or
-npm i alien-deepsignals
+npm i @nextgraph-monorepo/ng-alien-deepsignals
 ```
 
 ## Quick start
 
 ```ts
-import { deepSignal } from 'alien-deepsignals'
+import { deepSignal } from '@nextgraph-monorepo/ng-alien-deepsignals'
 
 const state = deepSignal({
   count: 0,
@@ -159,7 +159,7 @@ const n: number = state.$count!() // typed number
 
 ## Credits
 
-Inspired by [deepsignal](https://github.com/luisherranz/deepsignal) – thanks to @luisherranz. Re-imagined with patch batching & Set support.
+This project is a fork of https://github.com/CCherry07/alien-deepsignals.
 
 ## License
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import useShape from 'ng-signals/frontendAdapters/vue/useShape';
+import { useShape } from "@nextgraph-monorepo/ng-signals/vue";
 import flattenObject from '../utils/flattenObject';
-import { TestObjectShapeType } from 'src/shapes/ldo/testShape.shapeTypes';
+import { TestObjectShapeType } from "../../shapes/ldo/testShape.shapeTypes";
 
 // Acquire deep signal object (proxy) for a shape; scope second arg left empty string for parity
 const shapeObj = useShape(TestObjectShapeType);
@@ -20,7 +20,7 @@ const flatEntries = computed(() => flattenObject(shapeObj));
   <div class="vue">
     <p>Rendered in Vue</p>
 
-    <template v-if="shapeObj && shapeObj.type">
+    <template v-if="shapeObj && 'type' in shapeObj">
       <!-- Direct property access -->
       <input type="text" v-model="shapeObj.type" />
       <input type="text" v-model="shapeObj.objectValue.nestedString" />

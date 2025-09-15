@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { createSignalObjectForShape } from "ng-signals/connector/createSignalObjectForShape.ts";
+import { createSignalObjectForShape } from "@nextgraph-monorepo/ng-signals";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

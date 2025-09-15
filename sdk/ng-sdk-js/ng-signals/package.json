@@ -3,14 +3,40 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "./src/index.ts",
   "scripts": {
-    "dev": "astro dev",
-    "start": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "astro": "astro",
     "test": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:ts": "rm -rf dist && tsc"
+  },
+  "exports": {
+    "./react": {
+      "default": "./src/frontendAdapters/react/index.ts"
+    },
+    "./svelte": {
+      "default": "./src/frontendAdapters/svelte/index.ts"
+    },
+    "./vue": {
+      "default": "./src/frontendAdapters/vue/index.ts"
+    }
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      "./react": {
+        "types": "./dist/frontendAdapters/react/index.d.ts",
+        "default": "./dist/frontendAdapters/react/index.js"
+      },
+      "./svelte": {
+        "types": "./dist/frontendAdapters/svelte/index.d.ts",
+        "default": "./dist/frontendAdapters/svelte/index.js"
+      },
+      "./vue": {
+        "types": "./dist/frontendAdapters/vue/index.d.ts",
+        "default": "./dist/frontendAdapters/vue/index.js"
+      }
+    }
   },
   "dependencies": {
     "@astrojs/react": "4.3.0",
@@ -20,11 +46,11 @@
     "@gn8/alien-signals-solid": "^0.1.1",
     "@gn8/alien-signals-svelte": "^0.1.1",
     "@gn8/alien-signals-vue": "^0.1.1",
-    "@ldo/ldo": "^1.0.0-alpha.32",
+    "@nextgraph-monorepo/ng-shex-orm": "workspace:*",
     "@types/react": "19.1.10",
     "@types/react-dom": "19.1.7",
     "@types/shexj": "^2.1.7",
-    "ng-alien-deepsignals": "^0.1.0",
+    "@nextgraph-monorepo/ng-alien-deepsignals": "workspace:*",
     "alien-signals": "^2.0.7",
     "astro": "5.13.2",
     "install": "^0.13.0",
@@ -36,12 +62,16 @@
     "vue": "3.5.19"
   },
   "devDependencies": {
-    "@ldo/traverser-shexj": "^1.0.0-alpha.28",
     "@playwright/test": "^1.55.0",
     "@types/node": "24.3.0",
     "@types/react": "19.1.10",
     "@types/react-dom": "19.1.7",
     "vite": "7.1.3",
-    "vitest": "^3.2.4"
-  }
+    "vitest": "^3.2.4",
+    "typescript": "^5.3.0"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
 }

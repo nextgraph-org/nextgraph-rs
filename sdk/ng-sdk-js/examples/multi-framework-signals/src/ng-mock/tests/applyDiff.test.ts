@@ -1,9 +1,8 @@
 import { describe, test, expect } from "vitest";
 import {
   applyDiff,
-  applyDiffToDeepSignal,
-} from "ng-signals/connector/applyDiff";
-import type { Patch } from "ng-signals/connector/applyDiff";
+} from "@nextgraph-monorepo/ng-signals";
+import type { Patch } from "@nextgraph-monorepo/ng-signals";
 
 /**
  * Build a patch path string from segments (auto-prefix /)

@@ -1,7 +1,0 @@
-@prefix foaf: <http://xmlns.com/foaf/0.1/> .
-@prefix : <#> .
-
-:me a foaf:Person ;
-    foaf:name "Third User" ;
-    foaf:mbox <mailto:third@example.org> ;
-    foaf:knows <http://localhost:3002/example/link-query/main-profile.ttl#me> .

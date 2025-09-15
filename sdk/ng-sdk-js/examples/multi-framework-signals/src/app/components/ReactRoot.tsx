@@ -1,7 +1,7 @@
-import { HelloWorldReact } from "src/frontends/react/HelloWorld";
+import { HelloWorldReact } from "../../frontends/react/HelloWorld";
 
 const Root = () => {
-  return <HelloWorldReact />;
+    return <HelloWorldReact />;
 };
 
 export default Root;
