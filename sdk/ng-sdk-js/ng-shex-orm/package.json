@@ -9,7 +9,8 @@
   },
   "scripts": {
     "build": "pnpm run build:ts",
-    "build:ts": "rm -rf dist && tsc && pnpm run update-permission",
+    "build:ts": "rm -rf dist && tsc && pnpm run update-permission && pnpm copy-templates",
+    "copy-templates": "mkdir -p dist && rsync -qav --include=\"*/\" --include=\"*.ejs\" --exclude=\"*\" src/ dist/",
     "update-permission": "chmod +x ./dist/cli.js",
     "test": "jest --coverage",
     "prepublishOnly": " npm run build",
@@ -32,7 +33,6 @@
     "@types/jsonld": "^1.5.15",
     "@types/prompts": "^2.4.9",
     "@types/shexj": "^2.1.4",
-    "copyfiles": "^2.4.1",
     "typescript": "^5.9.2"
   },
   "dependencies": {
