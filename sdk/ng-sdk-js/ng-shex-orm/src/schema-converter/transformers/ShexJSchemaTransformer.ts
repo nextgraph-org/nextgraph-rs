@@ -1,6 +1,61 @@
 import ShexJTraverser from "@ldo/traverser-shexj";
-import { SchemaProperty, SchemaValue, Shape } from "../../types.ts";
-import { ObjectLiteral } from "../../ShexJTypes.ts";
+import type { Predicate, DataType, Shape } from "../../types.ts";
+import type { ObjectLiteral } from "../../ShexJTypes.ts";
+
+const rdfDataTypeToBasic = (dataType: string) => {
+    switch (dataType) {
+        case "http://www.w3.org/2001/XMLSchema#string":
+        case "http://www.w3.org/2001/XMLSchema#ENTITIES":
+        case "http://www.w3.org/2001/XMLSchema#ENTITY":
+        case "http://www.w3.org/2001/XMLSchema#ID":
+        case "http://www.w3.org/2001/XMLSchema#IDREF":
+        case "http://www.w3.org/2001/XMLSchema#IDREFS":
+        case "http://www.w3.org/2001/XMLSchema#language":
+        case "http://www.w3.org/2001/XMLSchema#Name":
+        case "http://www.w3.org/2001/XMLSchema#NCName":
+        case "http://www.w3.org/2001/XMLSchema#NMTOKEN":
+        case "http://www.w3.org/2001/XMLSchema#NMTOKENS":
+        case "http://www.w3.org/2001/XMLSchema#normalizedString":
+        case "http://www.w3.org/2001/XMLSchema#QName":
+        case "http://www.w3.org/2001/XMLSchema#token":
+            return "string";
+        case "http://www.w3.org/2001/XMLSchema#date":
+        case "http://www.w3.org/2001/XMLSchema#dateTime":
+        case "http://www.w3.org/2001/XMLSchema#duration":
+        case "http://www.w3.org/2001/XMLSchema#gDay":
+        case "http://www.w3.org/2001/XMLSchema#gMonth":
+        case "http://www.w3.org/2001/XMLSchema#gMonthDay":
+        case "http://www.w3.org/2001/XMLSchema#gYear":
+        case "http://www.w3.org/2001/XMLSchema#gYearMonth":
+        case "http://www.w3.org/2001/XMLSchema#time":
+            return "string";
+        case "http://www.w3.org/2001/XMLSchema#byte":
+        case "http://www.w3.org/2001/XMLSchema#decimal":
+        case "http://www.w3.org/2001/XMLSchema#double":
+        case "http://www.w3.org/2001/XMLSchema#float":
+        case "http://www.w3.org/2001/XMLSchema#int":
+        case "http://www.w3.org/2001/XMLSchema#integer":
+        case "http://www.w3.org/2001/XMLSchema#long":
+        case "http://www.w3.org/2001/XMLSchema#negativeInteger":
+        case "http://www.w3.org/2001/XMLSchema#nonNegativeInteger":
+        case "http://www.w3.org/2001/XMLSchema#nonPositiveInteger":
+        case "http://www.w3.org/2001/XMLSchema#positiveInteger":
+        case "http://www.w3.org/2001/XMLSchema#short":
+        case "http://www.w3.org/2001/XMLSchema#unsignedLong":
+        case "http://www.w3.org/2001/XMLSchema#unsignedInt":
+        case "http://www.w3.org/2001/XMLSchema#unsignedShort":
+        case "http://www.w3.org/2001/XMLSchema#unsignedByte":
+            return "number";
+        case "http://www.w3.org/2001/XMLSchema#boolean":
+            return "boolean";
+        case "http://www.w3.org/2001/XMLSchema#hexBinary":
+            return "string";
+        case "http://www.w3.org/2001/XMLSchema#anyURI":
+            return "iri";
+        default:
+            return "string";
+    }
+};
 
 export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
     {
@@ -8,9 +63,9 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
         ShapeDecl: { return: Shape };
         Shape: { return: Shape };
         EachOf: { return: Shape };
-        TripleConstraint: { return: SchemaProperty };
-        NodeConstraint: { return: SchemaValue };
-        ShapeOr: { return: (SchemaValue | Shape | string)[] };
+        TripleConstraint: { return: Predicate };
+        NodeConstraint: { return: DataType };
+        ShapeOr: { return: (DataType | Shape | string)[] };
         ShapeAnd: { return: never };
         ShapeNot: { return: never };
         ShapeExternal: { return: never };
@@ -63,7 +118,7 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                 predicates: transformedChildren.expressions.map(
                     // We disregard cases where properties are referenced (strings)
                     // or where they consist of Unions or Intersections (not supported).
-                    (expr) => expr as SchemaProperty
+                    (expr) => expr as Predicate
                 ),
             };
         },
@@ -89,9 +144,9 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                 // Reference to nested object
                 return {
                     type: "nested",
-                    nestedSchema: transformedChildren.valueExpr,
+                    nestedShape: transformedChildren.valueExpr,
                     ...commonProperties,
-                } satisfies SchemaProperty;
+                } satisfies Predicate;
             } else if (
                 transformedChildren.valueExpr &&
                 (transformedChildren.valueExpr as Shape).predicates
@@ -99,9 +154,9 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                 // Nested object
                 return {
                     type: "nested",
-                    nestedSchema: transformedChildren.valueExpr as Shape,
+                    nestedShape: transformedChildren.valueExpr as Shape,
                     ...commonProperties,
-                } satisfies SchemaProperty;
+                } satisfies Predicate;
             } else if (Array.isArray(transformedChildren.valueExpr)) {
                 return {
                     type: "eitherOf",
@@ -111,12 +166,12 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
             } else {
                 // type or literal
                 const nodeConstraint =
-                    transformedChildren.valueExpr as SchemaValue;
+                    transformedChildren.valueExpr as DataType;
                 return {
                     type: nodeConstraint.type,
                     literalValue: nodeConstraint.literals,
                     ...commonProperties,
-                } satisfies SchemaProperty;
+                } satisfies Predicate;
             }
         },
     },
@@ -124,40 +179,20 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
     NodeConstraint: {
         transformer: async (nodeConstraint) => {
             if (nodeConstraint.datatype) {
-                switch (nodeConstraint.datatype) {
-                    case "http://www.w3.org/2001/XMLSchema#boolean":
-                        return { type: "boolean" };
-                    case "http://www.w3.org/2001/XMLSchema#byte":
-                    case "http://www.w3.org/2001/XMLSchema#decimal":
-                    case "http://www.w3.org/2001/XMLSchema#double":
-                    case "http://www.w3.org/2001/XMLSchema#float":
-                    case "http://www.w3.org/2001/XMLSchema#int":
-                    case "http://www.w3.org/2001/XMLSchema#integer":
-                    case "http://www.w3.org/2001/XMLSchema#long":
-                    case "http://www.w3.org/2001/XMLSchema#negativeInteger":
-                    case "http://www.w3.org/2001/XMLSchema#nonNegativeInteger":
-                    case "http://www.w3.org/2001/XMLSchema#nonPositiveInteger":
-                    case "http://www.w3.org/2001/XMLSchema#positiveInteger":
-                    case "http://www.w3.org/2001/XMLSchema#short":
-                    case "http://www.w3.org/2001/XMLSchema#unsignedLong":
-                    case "http://www.w3.org/2001/XMLSchema#unsignedInt":
-                    case "http://www.w3.org/2001/XMLSchema#unsignedShort":
-                    case "http://www.w3.org/2001/XMLSchema#unsignedByte":
-                        return { type: "number" };
-                    default:
-                        return { type: "string" }; // treat most as string
-                }
+                return {
+                    type: rdfDataTypeToBasic(nodeConstraint.datatype),
+                };
             }
             if (nodeConstraint.nodeKind) {
                 // Something reference-like.
-                return { type: "string" };
+                return { type: "iri" };
             }
             if (nodeConstraint.values) {
                 return {
                     type: "literal",
                     literals: nodeConstraint.values.map(
                         // TODO: We do not convert them to number or boolean or lang tag.
-                        (valueRecord) => (valueRecord as ObjectLiteral).value
+                        (valueRecord) => valueRecord.value || valueRecord.id
                     ),
                 };
             }
@@ -173,12 +208,12 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
     // Transformer from ShapeOr
     ShapeOr: {
         transformer: async (shapeOr, getTransformedChildren) => {
-            const tc = await getTransformedChildren();
+            const { shapeExprs } = await getTransformedChildren();
             // Either a shape IRI, a nested shape or a node CompactSchemaValue (node constraint).
-            return (Array.isArray(tc) ? tc : [tc]) as (
+            return (Array.isArray(shapeExprs) ? shapeExprs : [shapeExprs]) as (
                 | string
                 | Shape
-                | SchemaValue
+                | DataType
             )[];
         },
     },

@@ -1,4 +1,4 @@
-import type { ShapeType, OrmBase } from "@nextgraph-monorepo/ng-shex-orm";
+import type { ShapeType, BaseType } from "@nextgraph-monorepo/ng-shex-orm";
 import type { Patch } from "@nextgraph-monorepo/ng-signals";
 
 /** The Scope of a shape request */
@@ -10,7 +10,7 @@ export type Diff = Patch[];
 export type ObjectState = object;
 
 /** A connection established between wasm-land and js-land for subscription of a shape. */
-export type WasmConnection<T extends OrmBase = OrmBase> = {
+export type WasmConnection<T extends BaseType = BaseType> = {
     id: string;
     shape: ShapeType<T>;
     state: ObjectState;

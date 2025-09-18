@@ -2,9 +2,9 @@ import { createSignalObjectForShape } from "../../connector/createSignalObjectFo
 import type { Scope } from "../../types.ts";
 import useDeepSignal from "./useDeepSignal.ts";
 import { onBeforeUnmount } from "vue";
-import type { OrmBase, ShapeType } from "@nextgraph-monorepo/ng-shex-orm";
+import type { BaseType, ShapeType } from "@nextgraph-monorepo/ng-shex-orm";
 
-export function useShape<T extends OrmBase>(
+export function useShape<T extends BaseType>(
     shape: ShapeType<T>,
     scope?: Scope
 ) {

@@ -10,9 +10,9 @@ import type {
     DeepPatch,
     DeepSignalObject,
 } from "@nextgraph-monorepo/ng-alien-deepsignals";
-import type { ShapeType, OrmBase } from "@nextgraph-monorepo/ng-shex-orm";
+import type { ShapeType, BaseType } from "@nextgraph-monorepo/ng-shex-orm";
 
-interface PoolEntry<T extends OrmBase> {
+interface PoolEntry<T extends BaseType> {
     connectionId: string;
     key: string;
     shapeType: ShapeType<T>;
@@ -37,7 +37,7 @@ interface WasmMessage {
     connectionId: string;
     diff?: Diff;
     shapeType?: ShapeType<any>;
-    initialData?: OrmBase;
+    initialData?: BaseType;
 }
 
 function canonicalScope(scope: Scope | undefined): string {
@@ -150,7 +150,7 @@ const cleanupSignalRegistry =
           })
         : null;
 
-export function createSignalObjectForShape<T extends OrmBase>(
+export function createSignalObjectForShape<T extends BaseType>(
     shapeType: ShapeType<T>,
     scope?: Scope
 ) {

@@ -2,7 +2,7 @@ PREFIX ex: <http://example.org/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 ex:TestObject EXTRA a {
-  a ["TestObject"] ;
+  a [ ex:TestObject ] ;
   ex:stringValue xsd:string ;
   ex:numValue xsd:integer ;
   ex:boolValue xsd:boolean ;
@@ -13,9 +13,9 @@ ex:TestObject EXTRA a {
     ex:nestedArray xsd:integer* ;
   } ;
   ex:anotherObject {
-    ex:prop1 xsd:string;
+    ex:prop1 xsd:string ;
     ex:prop2 xsd:integer ;
   } * ;
-  ex:numOrStr xsd:string;
-  # TODO: ShapeOr --  | ex:numOrStr xsd:integer 
+  ex:numOrStr xsd:string OR xsd:integer ;
+  ex:lit1Or2 ["lit1" "lit2"] ;
 }

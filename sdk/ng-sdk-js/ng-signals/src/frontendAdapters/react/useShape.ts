@@ -1,11 +1,11 @@
-import type { OrmBase } from "@nextgraph-monorepo/ng-shex-orm";
+import type { BaseType } from "@nextgraph-monorepo/ng-shex-orm";
 import { watch } from "@nextgraph-monorepo/ng-alien-deepsignals";
 import type { ShapeType } from "@nextgraph-monorepo/ng-shex-orm";
 import { useEffect, useRef, useState } from "react";
 import { createSignalObjectForShape } from "../../connector/createSignalObjectForShape.ts";
 import type { Scope } from "../../types.ts";
 
-const useShape = <T extends OrmBase>(
+const useShape = <T extends BaseType>(
     shape: ShapeType<T>,
     scope: Scope = ""
 ) => {

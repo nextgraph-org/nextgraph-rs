@@ -11,7 +11,7 @@ export const catShapeSchema: Schema = {
     predicates: [
       {
         type: "literal",
-        literalValue: ["Cat"],
+        literalValue: ["http://example.org/Cat"],
         maxCardinality: 1,
         minCardinality: 1,
         predicateUri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
@@ -40,7 +40,7 @@ export const catShapeSchema: Schema = {
       },
       {
         type: "nested",
-        nestedSchema: "http://example.org/Cat||http://example.org/address",
+        nestedShape: "http://example.org/Cat||http://example.org/address",
         maxCardinality: 1,
         minCardinality: 1,
         predicateUri: "http://example.org/address",

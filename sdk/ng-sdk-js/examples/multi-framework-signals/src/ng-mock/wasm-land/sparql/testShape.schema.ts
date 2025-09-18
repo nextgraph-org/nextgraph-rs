@@ -11,7 +11,7 @@ export const testShapeSchema: Schema = {
     predicates: [
       {
         type: "literal",
-        literalValue: ["http://example.org/TestObject"],
+        literalValue: ["TestObject"],
         maxCardinality: 1,
         minCardinality: 1,
         predicateUri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
@@ -78,14 +78,6 @@ export const testShapeSchema: Schema = {
         minCardinality: 1,
         predicateUri: "http://example.org/numOrStr",
         readablePredicate: "numOrStr",
-      },
-      {
-        type: "literal",
-        literalValue: ["lit1", "lit2"],
-        maxCardinality: 1,
-        minCardinality: 1,
-        predicateUri: "http://example.org/lit1Or2",
-        readablePredicate: "lit1Or2",
       },
     ],
   },

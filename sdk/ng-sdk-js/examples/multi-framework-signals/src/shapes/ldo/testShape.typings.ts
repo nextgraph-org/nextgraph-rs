@@ -14,7 +14,7 @@ export interface TestObject {
   /**
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  type: "TestObject";
+  type: string;
   /**
    * Original IRI: http://example.org/stringValue
    */
@@ -69,5 +69,9 @@ export interface TestObject {
   /**
    * Original IRI: http://example.org/numOrStr
    */
-  numOrStr: string;
+  numOrStr: string | number;
+  /**
+   * Original IRI: http://example.org/lit1Or2
+   */
+  lit1Or2: "lit1" | "lit2";
 }

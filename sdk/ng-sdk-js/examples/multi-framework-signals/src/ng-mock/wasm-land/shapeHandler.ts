@@ -1,6 +1,6 @@
 import * as shapeManager from "./shapeManager";
 import type { WasmConnection, Diff, Scope } from "./types";
-import type { ShapeType, OrmBase } from "@nextgraph-monorepo/ng-shex-orm";
+import type { ShapeType, BaseType } from "@nextgraph-monorepo/ng-shex-orm";
 import type { Person } from "../../shapes/ldo/personShape.typings";
 import type { Cat } from "../../shapes/ldo/catShape.typings";
 import type { TestObject } from "../../shapes/ldo/testShape.typings";
@@ -17,7 +17,7 @@ interface WasmMessage {
     connectionId: string;
     diff?: Diff;
     shapeType?: ShapeType<any>;
-    initialData?: OrmBase;
+    initialData?: BaseType;
 }
 
 export const mockTestObject = {
@@ -78,7 +78,7 @@ const mockShapeObject2 = {
 // Single BroadcastChannel for wasm-land side
 const communicationChannel = new BroadcastChannel("shape-manager");
 
-function getInitialObjectByShapeId<T extends OrmBase>(shapeId?: string): T {
+function getInitialObjectByShapeId<T extends BaseType>(shapeId?: string): T {
     if (shapeId?.includes("TestObject")) return mockTestObject as unknown as T;
     if (shapeId?.includes("Person")) return mockShapeObject1 as unknown as T;
     if (shapeId?.includes("Cat")) return mockShapeObject2 as unknown as T;

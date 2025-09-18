@@ -7,7 +7,7 @@ import {
     getDeepSignalRootId,
     type DeepPatch,
 } from "@nextgraph-monorepo/ng-alien-deepsignals";
-import type { OrmBase, ShapeType } from "@nextgraph-monorepo/ng-shex-orm";
+import type { BaseType, ShapeType } from "@nextgraph-monorepo/ng-shex-orm";
 
 /** Base result contract for a deepSignal-backed Svelte integration. */
 export interface UseDeepSignalResult<T = any> extends Readable<T> {
@@ -88,7 +88,7 @@ export interface UseShapeRuneResult<T = any> extends UseDeepSignalResult<T> {
 /**
  * Shape-specific rune: constructs the signal object for a shape then delegates to {@link useDeepSignal}.
  */
-export function useShapeRune<T extends OrmBase>(
+export function useShapeRune<T extends BaseType>(
     shape: ShapeType<T>,
     scope?: Scope
 ): UseShapeRuneResult<T | {}> {

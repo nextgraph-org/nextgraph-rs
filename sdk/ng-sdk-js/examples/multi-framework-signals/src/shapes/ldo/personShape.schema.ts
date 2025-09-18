@@ -11,7 +11,7 @@ export const personShapeSchema: Schema = {
     predicates: [
       {
         type: "literal",
-        literalValue: ["Person"],
+        literalValue: ["http://example.org/Person"],
         maxCardinality: 1,
         minCardinality: 1,
         predicateUri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
@@ -26,7 +26,7 @@ export const personShapeSchema: Schema = {
       },
       {
         type: "nested",
-        nestedSchema: "http://example.org/Person||http://example.org/address",
+        nestedShape: "http://example.org/Person||http://example.org/address",
         maxCardinality: 1,
         minCardinality: 1,
         predicateUri: "http://example.org/address",
