@@ -748,6 +748,11 @@ impl Verifier {
                             })),
                         )
                         .await;
+                        let graph_nuri = NuriV0::repo_graph_name(
+                            &update.repo_id,
+                            &update.overlay_id,
+                        );
+                        self.orm_update(&NuriV0::new_empty(), update.transaction.as_quads_patch(graph_nuri)).await;
                     }
                 }
                 Ok(commit_nuris)

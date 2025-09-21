@@ -18,6 +18,8 @@ mod user_storage;
 
 mod commits;
 
+pub mod orm;
+
 mod request_processor;
 
 mod inbox_processor;

@@ -43,6 +43,11 @@ pub struct GraphTransaction {
     pub removes: Vec<Triple>,
 }
 
+pub struct GraphQuadsPatch {
+    pub inserts: Vec<Quad>,
+    pub removes: Vec<Quad>,
+}
+
 const TOKENIZED_COMMIT: &str = "did:ng:_";
 
 impl GraphTransaction {
@@ -50,6 +55,12 @@ impl GraphTransaction {
         GraphPatch {
             inserts: serde_bare::to_vec(&self.inserts).unwrap(),
             removes: serde_bare::to_vec(&self.removes).unwrap(),
+        }
+    }
+    pub(crate) fn as_quads_patch(&self, graph_nuri: String) -> GraphQuadsPatch {
+        GraphQuadsPatch {
+            inserts: self.inserts.iter().map(|triple| triple.clone().in_graph(NamedNode::new(graph_nuri.clone()).unwrap())).collect(),
+            removes: self.removes.iter().map(|triple| triple.clone().in_graph(NamedNode::new(graph_nuri.clone()).unwrap())).collect(),
         }
     }
     pub(crate) fn tokenize_with_commit_id(&mut self, commit_id: ObjectId, repo_id: &RepoId) {

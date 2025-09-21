@@ -16,6 +16,8 @@ pub mod app_protocol;
 
 pub mod broker;
 
+pub mod orm;
+
 pub mod server_broker;
 
 #[doc(hidden)]

@@ -280,6 +280,8 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@24.3.0)(jiti@2.5.1)(jsdom@26.1.0)
 
+  sdk/ng-sdk-js/pkg: {}
+
 packages:
 
   '@ampproject/remapping@2.3.0':

@@ -18,7 +18,9 @@ use ng_repo::repo::CommitInfo;
 use ng_repo::types::*;
 use ng_repo::utils::{decode_digest, decode_key, decode_sym_key};
 use ng_repo::utils::{decode_overlayid, display_timestamp_local};
+use serde_json::Value;
 
+use crate::orm::{OrmDiff, OrmShapeType};
 use crate::types::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -48,7 +50,7 @@ impl AppFetchContentV0 {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum NgAccessV0 {
     ReadCap(ReadCap),
     Token(Digest),
@@ -59,7 +61,7 @@ pub enum NgAccessV0 {
     Topic(PrivKey),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum TargetBranchV0 {
     Chat,
     Stream,
@@ -93,7 +95,7 @@ impl TargetBranchV0 {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum NuriTargetV0 {
     UserSite, // targets the whole data set of the user
 
@@ -175,7 +177,7 @@ impl From<&CommitInfo> for CommitInfoJs {
 
 const DID_PREFIX: &str = "did:ng";
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct NuriV0 {
     pub identity: Option<UserId>, // None for personal identity
     pub target: NuriTargetV0,
@@ -711,12 +713,15 @@ pub enum AppRequestCommandV0 {
     SocialQueryCancel,
     QrCodeProfile,
     QrCodeProfileImport,
+    OrmStart,
+    OrmUpdate,
+    OrmStop,
 }
 
 impl AppRequestCommandV0 {
     pub fn is_stream(&self) -> bool {
         match self {
-            Self::Fetch(AppFetchContentV0::Subscribe) | Self::FileGet => true,
+            Self::Fetch(AppFetchContentV0::Subscribe) | Self::FileGet | Self::OrmStart => true,
             _ => false,
         }
     }
@@ -805,6 +810,24 @@ impl AppRequest {
             session_id: 0,
         })
     }
+    
+    pub fn new_orm_start(scope: NuriV0, shape_type: OrmShapeType) -> Self {
+        AppRequest::new(
+            AppRequestCommandV0::OrmStart,
+            scope,
+            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart(shape_type))),
+        )
+    }
+
+    pub fn new_orm_update(scope: NuriV0, shape_type_name: String, diff: OrmDiff) -> Self {
+        AppRequest::new(
+            AppRequestCommandV0::OrmUpdate,
+            scope,
+            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((diff,shape_type_name)))),
+        )
+    }
+
+    
 
     pub fn inbox_post(post: InboxPost) -> Self {
         AppRequest::new(
@@ -1039,6 +1062,9 @@ pub enum AppRequestPayloadV0 {
     //Invoke(InvokeArguments),
     QrCodeProfile(u32),
     QrCodeProfileImport(String),
+    OrmStart(OrmShapeType),
+    OrmUpdate((OrmDiff, String)), // ShapeID
+    OrmStop(String),  //ShapeID
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1288,6 +1314,9 @@ pub enum AppResponseV0 {
     Nuri(String),
     Header(AppHeader),
     Commits(Vec<String>),
+    OrmInitial(Value),
+    OrmUpdate(OrmDiff),
+    OrmError(String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

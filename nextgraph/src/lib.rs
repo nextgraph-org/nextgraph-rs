@@ -93,6 +93,9 @@ pub mod verifier {
     pub mod protocol {
         pub use ng_net::app_protocol::*;
     }
+    pub mod orm {
+        pub use ng_verifier::orm::*;
+    }
     pub use ng_verifier::prepare_app_response_for_js;
     pub use ng_verifier::read_triples_in_app_response_from_rust;
     pub use ng_verifier::triples_ser_to_json_string;

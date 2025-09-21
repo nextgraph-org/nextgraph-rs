@@ -111,6 +111,7 @@ pub struct Verifier {
     in_memory_outbox: Vec<EventOutboxStorage>,
     uploads: BTreeMap<u32, RandomAccessFile>,
     branch_subscriptions: HashMap<BranchId, Sender<AppResponse>>,
+    pub(crate) orm_subscriptions: HashMap<NuriV0, HashMap<String, HashMap<u64, Sender<AppResponse>>>>,
     pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
 }
 
@@ -516,6 +517,7 @@ impl Verifier {
             inner_to_outer: HashMap::new(),
             uploads: BTreeMap::new(),
             branch_subscriptions: HashMap::new(),
+            orm_subscriptions: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
         }
     }
@@ -2779,6 +2781,7 @@ impl Verifier {
             inner_to_outer: HashMap::new(),
             uploads: BTreeMap::new(),
             branch_subscriptions: HashMap::new(),
+            orm_subscriptions: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
         };
         // this is important as it will load the last seq from storage
@@ -2796,7 +2799,7 @@ impl Verifier {
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         match req {
             AppRequest::V0(v0) => {
-                self.process_stream(&v0.command, &v0.nuri, &v0.payload)
+                self.process_stream(&v0.command, &v0.nuri, &v0.payload, v0.session_id)
                     .await
             }
         }

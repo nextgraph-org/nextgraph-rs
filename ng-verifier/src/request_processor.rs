@@ -49,8 +49,17 @@ impl Verifier {
         command: &AppRequestCommandV0,
         nuri: &NuriV0,
         _payload: &Option<AppRequestPayload>,
+        session_id: u64
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
         match command {
+            AppRequestCommandV0::OrmStart => {
+                match _payload {
+                    Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart(shape_type))) => {
+                        self.start_orm(nuri, shape_type, session_id).await
+                    },
+                    _ => return Err(NgError::InvalidArgument)
+                }
+            },
             AppRequestCommandV0::Fetch(fetch) => match fetch {
                 AppFetchContentV0::Subscribe => {
                     let (repo_id, branch_id, store_repo) =
@@ -858,6 +867,14 @@ impl Verifier {
         payload: Option<AppRequestPayload>,
     ) -> Result<AppResponse, NgError> {
         match command {
+            AppRequestCommandV0::OrmUpdate => {
+                match payload {
+                    Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((diff,shape_id)))) => {
+                        self.frontend_update_orm(&nuri, shape_id, diff).await
+                    },
+                    _ => return Err(NgError::InvalidArgument)
+                }
+            },
             AppRequestCommandV0::SocialQueryStart => {
                 let (from_profile, contacts_string, degree) = if let Some(AppRequestPayload::V0(AppRequestPayloadV0::SocialQueryStart{
                     from_profile, contacts, degree

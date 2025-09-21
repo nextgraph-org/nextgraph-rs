@@ -1,6 +1,7 @@
 import * as shapeManager from "./shapeManager";
 import type { WasmConnection, Diff, Scope } from "./types";
 import type { ShapeType, BaseType } from "@nextgraph-monorepo/ng-shex-orm";
+import * as ng from "@nextgraph-monorepo/ng-sdk-js";
 import type { Person } from "../../shapes/ldo/personShape.typings";
 import type { Cat } from "../../shapes/ldo/catShape.typings";
 import type { TestObject } from "../../shapes/ldo/testShape.typings";
@@ -94,9 +95,29 @@ communicationChannel.addEventListener(
     "message",
     (event: MessageEvent<WasmMessage>) => {
         console.log("BACKEND: Received message", event.data);
+        // call WASM ng-sdk-js
         const { type, connectionId, shapeType } = event.data;
 
         if (type === "Request") {
+
+            /*  unsub = await ng.orm_start(scope, shapeType, session_id,
+                async (response) => {
+                    //console.log("GOT APP RESPONSE", response);
+                    if (response.V0.OrmInitial) { 
+                    
+                    } else if (response.V0.OrmUpdate) {
+                    let diff = response.V0.OrmUpdate.diff
+                    const msg: WasmMessage = {
+                                    type: "BackendUpdate",
+                                    connectionId,
+                                    diff,
+                                };
+                                communicationChannel.postMessage(msg);
+                    } else if (response.V0.OrmError) {
+                    
+                    }       
+            */
+
             const shapeId = shapeType?.shape;
             const initialData = getInitialObjectByShapeId(shapeId);
 
@@ -110,7 +131,7 @@ communicationChannel.addEventListener(
                     // Notify js-land about backend updates
                     const msg: WasmMessage = {
                         type: "BackendUpdate",
-                        connectionId: conId,
+                        connectionId,
                         diff,
                     };
                     communicationChannel.postMessage(msg);
@@ -128,6 +149,7 @@ communicationChannel.addEventListener(
 
         if (type === "Stop") {
             shapeManager.connections.delete(connectionId);
+            // await ng.app_request ( OrmStop )
             return;
         }
 
