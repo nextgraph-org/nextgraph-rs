@@ -84,7 +84,7 @@ function flattenSchema(shapes: Shape[]): ShapeSchema {
         );
 
         for (const pred of nestedSchemaPredicates) {
-            const newId = shape.iri + "||" + pred.predicateUri;
+            const newId = shape.iri + "||" + pred.iri;
 
             // Recurse
             const flattened = flattenSchema([

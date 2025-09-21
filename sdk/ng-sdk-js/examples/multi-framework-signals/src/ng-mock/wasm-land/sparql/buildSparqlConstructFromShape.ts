@@ -47,7 +47,7 @@ export const buildConstructQuery = ({
 
                 constructStatements.push({
                     s: `?${subjectVarName}`,
-                    p: `<${pred.predicateUri}>`,
+                    p: `<${pred.iri}>`,
                     o: `?${shapeVarName}`,
                     optional: pred.minCardinality < 1,
                     literals: pred.literalValue,
@@ -58,12 +58,12 @@ export const buildConstructQuery = ({
                     addTriples(schema[pred.nestedShape]);
             } else {
                 const objVarName = getVarNameFor(
-                    shapeId + "__separator__" + pred.predicateUri
+                    shapeId + "__separator__" + pred.iri
                 );
 
                 constructStatements.push({
                     s: `?${subjectVarName}`,
-                    p: `<${pred.predicateUri}>`,
+                    p: `<${pred.iri}>`,
                     o: `?${objVarName}`,
                     optional: pred.minCardinality < 1,
                     literals: pred.literalValue,

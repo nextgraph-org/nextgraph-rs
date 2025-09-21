@@ -73,7 +73,7 @@ function addConstructPattern(
     valuesBlocks: string[],
     options?: SparqlBuildOptions
 ) {
-    const p = `<${pred.predicateUri}>`;
+    const p = `<${pred.iri}>`;
     const objVar = uniqueVar(ctx, pred.readablePredicate);
 
     const triple = `${subjectVar} ${p} ${objTerm} .`;

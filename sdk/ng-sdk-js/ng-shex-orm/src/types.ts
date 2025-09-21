@@ -25,7 +25,7 @@ export interface Predicate {
     /** Type of property. */
     type: DataType["type"] | "nested" | "eitherOf";
     /** The RDF predicate URI. */
-    predicateUri: string;
+    iri: string;
     /** The alias of the `predicateUri` when serialized to a JSON object. */
     readablePredicate: string;
     /** The required literal value(s), if type is `literal`. Others are allowed, if `extra` is true. */

@@ -99,7 +99,7 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
 
             for (const extra of _shape.extra || []) {
                 const extraPredicate = compactShape.predicates.find(
-                    (p) => p.predicateUri === extra
+                    (p) => p.iri === extra
                 );
                 if (extraPredicate) extraPredicate.extra = true;
             }
