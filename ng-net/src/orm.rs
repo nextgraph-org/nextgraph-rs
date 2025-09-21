@@ -9,6 +9,8 @@
  * according to those terms.
 */
 
+#![allow(non_snake_case)]
+
 use serde::{Deserialize, Serialize};
 
 use serde_json::Value;
@@ -19,6 +21,25 @@ pub struct OrmShapeType {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OrmDiff {
-
+#[allow(non_camel_case_types)]
+pub enum OrmDiffOpType {
+    add,
+    remove,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(non_camel_case_types)]
+pub enum OrmDiffType {
+    set,
+    object,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OrmDiffOp {
+    pub op: OrmDiffOpType,
+    pub valType: Option<OrmDiffType>,
+    pub path: String,
+    pub value: Option<Value>,
+}
+
+pub type OrmDiff = Vec<OrmDiffOp>;

@@ -99,7 +99,7 @@ communicationChannel.addEventListener(
         const { type, connectionId, shapeType } = event.data;
 
         if (type === "Request") {
-
+            ng.orm_update("", "", {}, 1);
             /*  unsub = await ng.orm_start(scope, shapeType, session_id,
                 async (response) => {
                     //console.log("GOT APP RESPONSE", response);
@@ -164,3 +164,10 @@ communicationChannel.addEventListener(
         );
     }
 );
+
+ng.orm_update(
+    "",
+    "",
+    [{ op: "add", valType: "set", value: 1, path: "/foo/bar" }],
+    1
+).catch((err) => console.error(err));

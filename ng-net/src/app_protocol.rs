@@ -222,12 +222,14 @@ impl NuriV0 {
 
     pub fn get_first_commit_ref(&self) -> Result<ObjectRef, NgError> {
         let commit_id = match &self.branch {
-            Some(TargetBranchV0::Commits(commits)) => commits.get(0).ok_or(NgError::CommitNotFound)?,
-            _ => return Err(NgError::InvalidNuri)
+            Some(TargetBranchV0::Commits(commits)) => {
+                commits.get(0).ok_or(NgError::CommitNotFound)?
+            }
+            _ => return Err(NgError::InvalidNuri),
         };
         let commit_key = match self.access.get(0) {
             Some(NgAccessV0::Key(key)) => key,
-            _ => return Err(NgError::InvalidNuri)
+            _ => return Err(NgError::InvalidNuri),
         };
         Ok(ObjectRef::from_id_key(*commit_id, commit_key.clone()))
     }
@@ -335,7 +337,7 @@ impl NuriV0 {
                 StoreRepoV0::ProtectedStore(id) => NuriV0::protected_profile(id),
                 StoreRepoV0::PrivateStore(id) => NuriV0::private_store(id),
                 StoreRepoV0::Group(id) => NuriV0::group_store(id),
-                StoreRepoV0::Dialog((id,_)) => NuriV0::dialog_store(id),
+                StoreRepoV0::Dialog((id, _)) => NuriV0::dialog_store(id),
             },
         }
     }
@@ -514,11 +516,9 @@ impl NuriV0 {
         }
     }
 
-    pub fn from_inbox_into_id(from: &String) -> Result<PubKey,NgError> {
+    pub fn from_inbox_into_id(from: &String) -> Result<PubKey, NgError> {
         let c = RE_INBOX.captures(&from);
-        if c.is_some()
-            && c.as_ref().unwrap().get(1).is_some()
-        {
+        if c.is_some() && c.as_ref().unwrap().get(1).is_some() {
             let cap = c.unwrap();
             let d = cap.get(1).unwrap().as_str();
             let to_inbox = decode_key(d)?;
@@ -529,9 +529,7 @@ impl NuriV0 {
 
     pub fn from_profile_into_overlay_id(from: &String) -> Result<OverlayId, NgError> {
         let c = RE_PROFILE.captures(&from);
-        if c.is_some()
-            && c.as_ref().unwrap().get(1).is_some()
-        {
+        if c.is_some() && c.as_ref().unwrap().get(1).is_some() {
             let cap = c.unwrap();
             let o = cap.get(1).unwrap().as_str();
             let to_profile_id = decode_key(o)?;
@@ -562,7 +560,6 @@ impl NuriV0 {
         Err(NgError::InvalidNuri)
     }
 
-    
     pub fn new_from_repo_nuri(from: &String) -> Result<Self, NgError> {
         let repo_id = Self::from_repo_nuri_to_id(from)?;
         let mut n = Self::new_empty();
@@ -570,9 +567,7 @@ impl NuriV0 {
         return Ok(n);
     }
 
-
     pub fn new_from_commit(from: &String) -> Result<Self, NgError> {
-
         let c = RE_COMMIT.captures(&from);
         if c.is_some()
             && c.as_ref().unwrap().get(1).is_some()
@@ -659,7 +654,6 @@ impl NuriV0 {
                     locator: None,
                 })
             } else {
-                
                 if let Ok(n) = NuriV0::new_from_repo_graph(from) {
                     Ok(n)
                 } else {
@@ -810,12 +804,14 @@ impl AppRequest {
             session_id: 0,
         })
     }
-    
+
     pub fn new_orm_start(scope: NuriV0, shape_type: OrmShapeType) -> Self {
         AppRequest::new(
             AppRequestCommandV0::OrmStart,
             scope,
-            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart(shape_type))),
+            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart(
+                shape_type,
+            ))),
         )
     }
 
@@ -823,11 +819,12 @@ impl AppRequest {
         AppRequest::new(
             AppRequestCommandV0::OrmUpdate,
             scope,
-            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((diff,shape_type_name)))),
+            Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((
+                diff,
+                shape_type_name,
+            )))),
         )
     }
-
-    
 
     pub fn inbox_post(post: InboxPost) -> Self {
         AppRequest::new(
@@ -838,30 +835,26 @@ impl AppRequest {
     }
 
     pub fn social_query_start(
-        from_profile: NuriV0, 
-        query: NuriV0, 
-        contacts: String, 
+        from_profile: NuriV0,
+        query: NuriV0,
+        contacts: String,
         degree: u16,
     ) -> Self {
         AppRequest::new(
             AppRequestCommandV0::SocialQueryStart,
             query,
-            Some(AppRequestPayload::V0(AppRequestPayloadV0::SocialQueryStart{
-                from_profile,
-                contacts,
-                degree
-            })),
+            Some(AppRequestPayload::V0(
+                AppRequestPayloadV0::SocialQueryStart {
+                    from_profile,
+                    contacts,
+                    degree,
+                },
+            )),
         )
     }
 
-    pub fn social_query_cancel(
-        query: NuriV0, 
-    ) -> Self {
-        AppRequest::new(
-            AppRequestCommandV0::SocialQueryCancel,
-            query,
-            None
-        )
+    pub fn social_query_cancel(query: NuriV0) -> Self {
+        AppRequest::new(AppRequestCommandV0::SocialQueryCancel, query, None)
     }
 
     pub fn doc_fetch_repo_subscribe(repo_o: String) -> Result<Self, NgError> {
@@ -1054,8 +1047,8 @@ pub enum AppRequestPayloadV0 {
 
     InboxPost(InboxPost),
     SocialQueryStart {
-        from_profile: NuriV0, 
-        contacts: String, 
+        from_profile: NuriV0,
+        contacts: String,
         degree: u16,
     },
     //RemoveFile
@@ -1064,7 +1057,7 @@ pub enum AppRequestPayloadV0 {
     QrCodeProfileImport(String),
     OrmStart(OrmShapeType),
     OrmUpdate((OrmDiff, String)), // ShapeID
-    OrmStop(String),  //ShapeID
+    OrmStop(String),              //ShapeID
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

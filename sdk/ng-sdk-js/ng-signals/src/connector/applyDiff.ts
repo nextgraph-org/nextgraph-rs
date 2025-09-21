@@ -3,7 +3,7 @@ import { batch } from "@nextgraph-monorepo/ng-alien-deepsignals";
 export type Patch = {
     /** Property path (array indices, object keys, synthetic Set entry ids) from the root to the mutated location. */
     path: string;
-    type?: string & {};
+    valType?: string & {};
     value?: unknown;
 } & (
     | SetAddPatch
@@ -16,7 +16,7 @@ export type Patch = {
 export interface SetAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
-    type: "set";
+    valType: "set";
     /**
      * New value for set mutations:
      *  - A single primitive
@@ -34,7 +34,7 @@ export interface SetAddPatch {
 export interface SetRemovePatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "remove";
-    type: "set";
+    valType: "set";
     /**
      * The value(s) to be removed from the set. Either:
      *  - A single primitive / id
@@ -46,7 +46,7 @@ export interface SetRemovePatch {
 export interface ObjectAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
-    type: "object";
+    valType: "object";
 }
 
 export interface RemovePatch {
@@ -158,7 +158,7 @@ export function applyDiff(
         if (parentVal == null || typeof parentVal !== "object") continue;
 
         // Handle set additions
-        if (patch.op === "add" && patch.type === "set") {
+        if (patch.op === "add" && patch.valType === "set") {
             const existing = parentVal[key];
 
             // Normalize value
@@ -212,7 +212,7 @@ export function applyDiff(
         }
 
         // Handle set removals
-        if (patch.op === "remove" && patch.type === "set") {
+        if (patch.op === "remove" && patch.valType === "set") {
             const existing = parentVal[key];
             const raw = (patch as SetRemovePatch).value;
             if (raw == null) continue;
@@ -229,7 +229,7 @@ export function applyDiff(
         }
 
         // Add object (ensure object exists)
-        if (patch.op === "add" && patch.type === "object") {
+        if (patch.op === "add" && patch.valType === "object") {
             const cur = parentVal[key];
             if (
                 cur === undefined ||

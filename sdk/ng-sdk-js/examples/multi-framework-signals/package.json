@@ -15,7 +15,10 @@
   },
   "dependencies": {
     "@nextgraph-monorepo/ng-signals": "workspace:*",
+    "@nextgraph-monorepo/ng-sdk-js": "workspace:*",
     "@astrojs/react": "4.3.0",
+    "vite-plugin-wasm": "^3.5.0",
+    "vite-plugin-top-level-await": "^1.6.0",
     "@astrojs/svelte": "7.1.0",
     "@astrojs/vue": "^5.1.0",
     "@gn8/alien-signals-react": "^0.1.1",

@@ -12,35 +12,35 @@ use std::collections::HashMap;
 use futures::channel::mpsc;
 
 use futures::SinkExt;
-pub use ng_net::orm::OrmShapeType;
-pub use ng_net::orm::OrmDiff;
-use ng_oxigraph::oxigraph::sparql::{results::*, Query, QueryResults};
-use ng_oxigraph::oxrdf::Term;
-use ng_oxigraph::oxrdf::Triple;
-use ng_repo::log::*;
 use ng_net::app_protocol::*;
+pub use ng_net::orm::OrmDiff;
+pub use ng_net::orm::OrmShapeType;
 use ng_net::{
     connection::NoiseFSM,
     types::*,
     utils::{Receiver, Sender},
 };
+use ng_oxigraph::oxigraph::sparql::{results::*, Query, QueryResults};
+use ng_oxigraph::oxrdf::Term;
+use ng_oxigraph::oxrdf::Triple;
 use ng_repo::errors::NgError;
+use ng_repo::log::*;
 
 use crate::types::*;
 use crate::verifier::*;
 
 impl Verifier {
-
     fn sparql_construct(&self, query: String) -> Result<Vec<Triple>, NgError> {
         let oxistore = self.graph_dataset.as_ref().unwrap();
-            
+
         // let graph_nuri = NuriV0::repo_graph_name(
         //     &update.repo_id,
         //     &update.overlay_id,
         // );
 
         //let base = NuriV0::repo_id(&repo.id);
-        let parsed = Query::parse(&query, None).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+        let parsed =
+            Query::parse(&query, None).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         let results = oxistore
             .query(parsed, None)
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
@@ -49,7 +49,10 @@ impl Verifier {
                 let mut results = vec![];
                 for t in triples {
                     match t {
-                        Err(e) => { log_err!("{}",e.to_string()); return Err(NgError::SparqlError(e.to_string()))},
+                        Err(e) => {
+                            log_err!("{}", e.to_string());
+                            return Err(NgError::SparqlError(e.to_string()));
+                        }
                         Ok(triple) => results.push(triple),
                     }
                 }
@@ -61,14 +64,15 @@ impl Verifier {
 
     fn sparql_select(&self, query: String) -> Result<Vec<Vec<Option<Term>>>, NgError> {
         let oxistore = self.graph_dataset.as_ref().unwrap();
-            
+
         // let graph_nuri = NuriV0::repo_graph_name(
         //     &update.repo_id,
         //     &update.overlay_id,
         // );
 
         //let base = NuriV0::repo_id(&repo.id);
-        let parsed = Query::parse(&query, None).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+        let parsed =
+            Query::parse(&query, None).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         let results = oxistore
             .query(parsed, None)
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
@@ -77,7 +81,10 @@ impl Verifier {
                 let mut results = vec![];
                 for t in sols {
                     match t {
-                        Err(e) => { log_err!("{}",e.to_string()); return Err(NgError::SparqlError(e.to_string()))},
+                        Err(e) => {
+                            log_err!("{}", e.to_string());
+                            return Err(NgError::SparqlError(e.to_string()));
+                        }
                         Ok(querysol) => results.push(querysol.values().to_vec()),
                     }
                 }
@@ -87,15 +94,23 @@ impl Verifier {
         }
     }
 
-    pub(crate) async fn orm_update(&mut self, scope: &NuriV0, patch: GraphQuadsPatch) {
-        
+    pub(crate) async fn orm_update(&mut self, scope: &NuriV0, patch: GraphQuadsPatch) {}
+
+    pub(crate) async fn frontend_update_orm(
+        &mut self,
+        scope: &NuriV0,
+        shape_id: String,
+        diff: OrmDiff,
+    ) {
+        log_info!("frontend_update_orm {:?} {} {:?}", scope, shape_id, diff);
     }
 
-    pub(crate) async fn frontend_update_orm(&mut self, scope: &NuriV0, shape_id: String, diff: OrmDiff) {
-
-    }
-
-    pub(crate) async fn push_orm_response(&mut self, scope: &NuriV0, schema_iri: &String, response: AppResponse) {
+    pub(crate) async fn push_orm_response(
+        &mut self,
+        scope: &NuriV0,
+        schema_iri: &String,
+        response: AppResponse,
+    ) {
         log_info!(
             "push_orm_response {:?} {} {:?}",
             scope,
@@ -104,7 +119,7 @@ impl Verifier {
         );
         if let Some(shapes) = self.orm_subscriptions.get_mut(scope) {
             if let Some(sessions) = shapes.get_mut(schema_iri) {
-                let mut sessions_to_close : Vec<u64> = vec![];
+                let mut sessions_to_close: Vec<u64> = vec![];
                 for (session_id, sender) in sessions.iter_mut() {
                     if sender.is_closed() {
                         log_debug!("closed so removing session {}", session_id);
@@ -126,10 +141,15 @@ impl Verifier {
         schema: &OrmShapeType,
         session_id: u64,
     ) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
-
         let (tx, rx) = mpsc::unbounded::<AppResponse>();
 
-        self.orm_subscriptions.insert(nuri.clone(), HashMap::from([(schema.iri.clone(), HashMap::from([(session_id, tx.clone())]))]));
+        self.orm_subscriptions.insert(
+            nuri.clone(),
+            HashMap::from([(
+                schema.iri.clone(),
+                HashMap::from([(session_id, tx.clone())]),
+            )]),
+        );
 
         //self.push_orm_response().await;
 
