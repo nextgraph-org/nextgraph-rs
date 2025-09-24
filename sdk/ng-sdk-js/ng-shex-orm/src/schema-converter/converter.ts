@@ -80,7 +80,8 @@ function flattenSchema(shapes: Shape[]): ShapeSchema {
         // Find nested, unflattened (i.e. anonymous) schemas in properties.
         const nestedSchemaPredicates = shape.predicates.filter(
             (pred) =>
-                pred.type === "nested" && typeof pred.nestedShape === "object"
+                pred.valType === "nested" &&
+                typeof pred.nestedShape === "object"
         );
 
         for (const pred of nestedSchemaPredicates) {

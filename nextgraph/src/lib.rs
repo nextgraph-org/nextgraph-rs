@@ -130,7 +130,7 @@ pub fn get_device_name() -> String {
     }
     #[cfg(target_arch = "wasm32")]
     if let Ok(distro) = whoami::fallible::distro() {
-        list.push(distro.replace("Unknown ",""));
+        list.push(distro.replace("Unknown ", ""));
     }
 
     list.join(" ")
@@ -138,3 +138,6 @@ pub fn get_device_name() -> String {
 
 #[cfg(debug_assertions)]
 mod local_broker_dev_env;
+
+#[cfg(test)]
+mod tests;

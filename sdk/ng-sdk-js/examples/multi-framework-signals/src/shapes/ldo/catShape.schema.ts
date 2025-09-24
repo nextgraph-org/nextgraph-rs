@@ -10,7 +10,7 @@ export const catShapeSchema: Schema = {
         iri: "http://example.org/Cat",
         predicates: [
             {
-                type: "literal",
+                valType: "literal",
                 literalValue: ["http://example.org/Cat"],
                 maxCardinality: 1,
                 minCardinality: 1,
@@ -18,28 +18,28 @@ export const catShapeSchema: Schema = {
                 readablePredicate: "type",
             },
             {
-                type: "string",
+                valType: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/name",
                 readablePredicate: "name",
             },
             {
-                type: "number",
+                valType: "number",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/age",
                 readablePredicate: "age",
             },
             {
-                type: "number",
+                valType: "number",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/numberOfHomes",
                 readablePredicate: "numberOfHomes",
             },
             {
-                type: "nested",
+                valType: "nested",
                 nestedShape:
                     "http://example.org/Cat||http://example.org/address",
                 maxCardinality: 1,
@@ -53,21 +53,21 @@ export const catShapeSchema: Schema = {
         iri: "http://example.org/Cat||http://example.org/address",
         predicates: [
             {
-                type: "string",
+                valType: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/street",
                 readablePredicate: "street",
             },
             {
-                type: "string",
+                valType: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/houseNumber",
                 readablePredicate: "houseNumber",
             },
             {
-                type: "number",
+                valType: "number",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/floor",

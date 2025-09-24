@@ -35,7 +35,7 @@ export const buildConstructQuery = ({
         for (const pred of predicates) {
             const subjectVarName = getVarNameFor(shapeId);
 
-            if (pred.type === "nested") {
+            if (pred.valType === "nested") {
                 if (typeof pred.nestedShape !== "string")
                     throw new Error("Nested shapes must be by reference");
 

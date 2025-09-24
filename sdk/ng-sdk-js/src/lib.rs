@@ -1815,13 +1815,14 @@ pub async fn orm_start(
     session_id: JsValue,
     callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
+    let shape_type: OrmShapeType = serde_wasm_bindgen::from_value::<OrmShapeType>(shapeType)
+        .map_err(|e| format!("Deserialization error of shapeType {e}"))?;
+    log_info!("frontend_orm_start {:?}", shape_type);
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
     let scope: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(scope)
         .map_err(|_| "Deserialization error of scope".to_string())?;
-    let shapeType: OrmShapeType = serde_wasm_bindgen::from_value::<OrmShapeType>(shapeType)
-        .map_err(|e| format!("Deserialization error of shapeType {e}"))?;
-    let mut request = AppRequest::new_orm_start(scope, shapeType);
+    let mut request = AppRequest::new_orm_start(scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
 }

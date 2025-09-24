@@ -10,7 +10,7 @@ export const testShapeSchema: Schema = {
         iri: "http://example.org/TestObject",
         predicates: [
             {
-                type: "literal",
+                valType: "literal",
                 literalValue: ["TestObject"],
                 maxCardinality: 1,
                 minCardinality: 1,
@@ -19,35 +19,35 @@ export const testShapeSchema: Schema = {
                 extra: true,
             },
             {
-                type: "string",
+                valType: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/stringValue",
                 readablePredicate: "stringValue",
             },
             {
-                type: "number",
+                valType: "number",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/numValue",
                 readablePredicate: "numValue",
             },
             {
-                type: "boolean",
+                valType: "boolean",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/boolValue",
                 readablePredicate: "boolValue",
             },
             {
-                type: "number",
+                valType: "number",
                 maxCardinality: -1,
                 minCardinality: 0,
                 iri: "http://example.org/arrayValue",
                 readablePredicate: "arrayValue",
             },
             {
-                type: "nested",
+                valType: "nested",
                 nestedShape:
                     "http://example.org/TestObject||http://example.org/objectValue",
                 maxCardinality: 1,
@@ -56,7 +56,7 @@ export const testShapeSchema: Schema = {
                 readablePredicate: "objectValue",
             },
             {
-                type: "nested",
+                valType: "nested",
                 nestedShape:
                     "http://example.org/TestObject||http://example.org/anotherObject",
                 maxCardinality: -1,
@@ -65,13 +65,13 @@ export const testShapeSchema: Schema = {
                 readablePredicate: "anotherObject",
             },
             {
-                type: "eitherOf",
+                valType: "eitherOf",
                 eitherOf: [
                     {
-                        type: "string",
+                        valType: "string",
                     },
                     {
-                        type: "number",
+                        valType: "number",
                     },
                 ],
                 maxCardinality: 1,
@@ -85,21 +85,21 @@ export const testShapeSchema: Schema = {
         iri: "http://example.org/TestObject||http://example.org/objectValue",
         predicates: [
             {
-                type: "string",
+                valType: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/nestedString",
                 readablePredicate: "nestedString",
             },
             {
-                type: "number",
+                valType: "number",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/nestedNum",
                 readablePredicate: "nestedNum",
             },
             {
-                type: "number",
+                valType: "number",
                 maxCardinality: -1,
                 minCardinality: 0,
                 iri: "http://example.org/nestedArray",
@@ -111,14 +111,14 @@ export const testShapeSchema: Schema = {
         iri: "http://example.org/TestObject||http://example.org/anotherObject",
         predicates: [
             {
-                type: "string",
+                valType: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/prop1",
                 readablePredicate: "prop1",
             },
             {
-                type: "number",
+                valType: "number",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/prop2",

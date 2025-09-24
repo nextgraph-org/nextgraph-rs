@@ -89,5 +89,6 @@ pub fn prepare_app_response_for_js(mut app_response: AppResponse) -> Result<AppR
             *graph = Some(graph_patch);
         };
     }
+
     Ok(app_response)
 }

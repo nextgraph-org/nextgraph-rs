@@ -135,15 +135,15 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
             const commonProperties = {
                 maxCardinality: tripleConstraint.max ?? 1,
                 minCardinality: tripleConstraint.min ?? 1,
-                predicateUri: tripleConstraint.predicate,
+                iri: tripleConstraint.predicate,
                 // @ts-expect-error The ldo library does not have our modded readablePredicate property.
                 readablePredicate: tripleConstraint.readablePredicate,
-            };
+            } satisfies Partial<Predicate>;
             // Make property based on object type which is either a parsed schema, literal or type.
             if (typeof transformedChildren.valueExpr === "string") {
                 // Reference to nested object
                 return {
-                    type: "nested",
+                    valType: "nested",
                     nestedShape: transformedChildren.valueExpr,
                     ...commonProperties,
                 } satisfies Predicate;
@@ -153,13 +153,13 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
             ) {
                 // Nested object
                 return {
-                    type: "nested",
+                    valType: "nested",
                     nestedShape: transformedChildren.valueExpr as Shape,
                     ...commonProperties,
                 } satisfies Predicate;
             } else if (Array.isArray(transformedChildren.valueExpr)) {
                 return {
-                    type: "eitherOf",
+                    valType: "eitherOf",
                     eitherOf: transformedChildren.valueExpr,
                     ...commonProperties,
                 };
@@ -168,7 +168,7 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                 const nodeConstraint =
                     transformedChildren.valueExpr as DataType;
                 return {
-                    type: nodeConstraint.type,
+                    valType: nodeConstraint.valType,
                     literalValue: nodeConstraint.literals,
                     ...commonProperties,
                 } satisfies Predicate;
@@ -180,16 +180,16 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
         transformer: async (nodeConstraint) => {
             if (nodeConstraint.datatype) {
                 return {
-                    type: rdfDataTypeToBasic(nodeConstraint.datatype),
+                    valType: rdfDataTypeToBasic(nodeConstraint.datatype),
                 };
             }
             if (nodeConstraint.nodeKind) {
                 // Something reference-like.
-                return { type: "iri" };
+                return { valType: "iri" };
             }
             if (nodeConstraint.values) {
                 return {
-                    type: "literal",
+                    valType: "literal",
                     literals: nodeConstraint.values.map(
                         // TODO: We do not convert them to number or boolean or lang tag.
                         (valueRecord) => valueRecord.value || valueRecord.id

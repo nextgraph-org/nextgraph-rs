@@ -146,7 +146,7 @@ impl Verifier {
         self.orm_subscriptions.insert(
             nuri.clone(),
             HashMap::from([(
-                schema.iri.clone(),
+                schema.shape.clone(),
                 HashMap::from([(session_id, tx.clone())]),
             )]),
         );

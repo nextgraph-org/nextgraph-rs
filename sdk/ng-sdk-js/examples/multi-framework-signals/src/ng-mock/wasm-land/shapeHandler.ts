@@ -6,6 +6,8 @@ import type { Person } from "../../shapes/ldo/personShape.typings";
 import type { Cat } from "../../shapes/ldo/catShape.typings";
 import type { TestObject } from "../../shapes/ldo/testShape.typings";
 import updateShape from "./updateShape";
+import { testShapeSchema } from "../../shapes/ldo/testShape.schema";
+import { TestObjectShapeType } from "../../shapes/ldo/testShape.shapeTypes";
 
 // Messages exchanged over the BroadcastChannel("shape-manager")
 interface WasmMessage {
@@ -165,9 +167,6 @@ communicationChannel.addEventListener(
     }
 );
 
-ng.orm_update(
-    "",
-    "",
-    [{ op: "add", valType: "set", value: 1, path: "/foo/bar" }],
-    1
-).catch((err) => console.error(err));
+ng.orm_start("", TestObjectShapeType, 12, (...params: any) => {
+    console.log("updates received with params", params);
+}).catch((err) => console.error(err));

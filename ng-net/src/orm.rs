@@ -11,13 +11,16 @@
 
 #![allow(non_snake_case)]
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use serde_json::Value;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmShapeType {
-    pub iri: String,
+    pub schema: OrmSchema,
+    pub shape: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -43,3 +46,68 @@ pub struct OrmDiffOp {
 }
 
 pub type OrmDiff = Vec<OrmDiffOp>;
+
+type OrmSchema = HashMap<String, OrmSchemaShape>;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OrmSchemaShape {
+    pub iri: String,
+    pub predicates: Vec<OrmSchemaPredicate>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(non_camel_case_types)]
+pub enum OrmSchemaLiteralType {
+    number,
+    string,
+    boolean,
+    iri,
+    literal,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(non_camel_case_types)]
+pub enum OrmSchemaPredicateType {
+    number,
+    string,
+    boolean,
+    iri,
+    literal,
+    nested,
+    eitherOf,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrmLiterals {
+    Bool(bool),
+    NumArray(Vec<f64>),
+    StrArray(Vec<String>),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OrmSchemaDataType {
+    pub valType: OrmSchemaLiteralType,
+    pub literals: Option<OrmLiterals>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OrmSchemaPredicate {
+    pub valType: OrmSchemaPredicateType,
+    pub iri: String,
+    pub readablePredicate: String,
+    pub literalValue: Option<Value>, // Strictly speaking, no objects.
+    pub nestedShape: Option<String>, // Only by reference.
+    pub maxCardinality: i64,         // -1 for infinity
+    pub minCardinality: i64,
+    pub eitherOf: Option<Vec<OrmSchemaEitherOfOption>>, // Shape references or multi type.
+    pub extra: Option<bool>,
+}
+
+// TODO: Will this be serialized correctly?
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OrmSchemaEitherOfOption {
+    ShapeRef(String),
+    DataType(OrmSchemaDataType),
+}

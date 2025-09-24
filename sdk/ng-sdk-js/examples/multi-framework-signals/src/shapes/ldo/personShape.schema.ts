@@ -10,7 +10,7 @@ export const personShapeSchema: Schema = {
         iri: "http://example.org/Person",
         predicates: [
             {
-                type: "literal",
+                valType: "literal",
                 literalValue: ["http://example.org/Person"],
                 maxCardinality: 1,
                 minCardinality: 1,
@@ -18,14 +18,14 @@ export const personShapeSchema: Schema = {
                 readablePredicate: "type",
             },
             {
-                type: "string",
+                valType: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/name",
                 readablePredicate: "name",
             },
             {
-                type: "nested",
+                valType: "nested",
                 nestedShape:
                     "http://example.org/Person||http://example.org/address",
                 maxCardinality: 1,
@@ -34,14 +34,14 @@ export const personShapeSchema: Schema = {
                 readablePredicate: "address",
             },
             {
-                type: "boolean",
+                valType: "boolean",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/hasChildren",
                 readablePredicate: "hasChildren",
             },
             {
-                type: "number",
+                valType: "number",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/numberOfHouses",
@@ -53,14 +53,14 @@ export const personShapeSchema: Schema = {
         iri: "http://example.org/Person||http://example.org/address",
         predicates: [
             {
-                type: "string",
+                valType: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/street",
                 readablePredicate: "street",
             },
             {
-                type: "string",
+                valType: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/houseNumber",
