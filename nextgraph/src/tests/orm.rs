@@ -14,15 +14,14 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use crate::local_broker::{
-    doc_sparql_update, init_local_broker, session_start, session_stop, user_connect,
-    user_disconnect, wallet_close, wallet_create_v0, wallet_get, wallet_get_file,
+    doc_create, doc_sparql_update, init_local_broker, session_start, session_stop, user_connect,
+    user_disconnect, wallet_close, wallet_create_v0, wallet_get_file, wallet_import,
     wallet_open_with_mnemonic_words, wallet_read_file, wallet_was_opened, LocalBrokerConfig,
     SessionConfig,
 };
 use ng_net::types::BootstrapContentV0;
 use ng_repo::types::PubKey;
-use ng_wallet::display_mnemonic; // to persist mnemonic as words
-use ng_wallet::types::{CreateWalletV0, SensitiveWallet, SensitiveWalletV0};
+use ng_wallet::types::{CreateWalletV0, SensitiveWallet};
 use once_cell::sync::OnceCell;
 
 static WALLET_PIN: [u8; 4] = [2, 3, 2, 3];
@@ -34,14 +33,13 @@ fn test_base_path() -> PathBuf {
     let mut base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     base.push("src");
     base.push("tests");
-    base.push(".ng");
-    create_dir_all(&base).expect("create test base path");
     base
 }
 
 fn build_wallet_and_creds_paths() -> (PathBuf, PathBuf) {
-    let base = test_base_path();
-
+    let mut base = test_base_path();
+    base.push(".ng");
+    create_dir_all(&base).expect("create test base path");
     (base.join("test_wallet.ngw"), base.join("wallet_creds.txt"))
 }
 
@@ -83,6 +81,10 @@ async fn create_or_open_wallet() -> (SensitiveWallet, u64) {
         wallet =
             wallet_open_with_mnemonic_words(&read_wallet, &mnemonic_words, WALLET_PIN).unwrap();
 
+        let _client = wallet_import(read_wallet.clone(), wallet.clone(), true)
+            .await
+            .unwrap();
+
         let session = session_start(SessionConfig::new_in_memory(
             &wallet.personal_identity(),
             &read_wallet.name(),
@@ -96,7 +98,8 @@ async fn create_or_open_wallet() -> (SensitiveWallet, u64) {
         // Try a few known candidate locations inside the crate.
         let manifest_dir = test_base_path();
 
-        let security_img = fs::read(manifest_dir.join("1-pixel.png")).expect("read sec image file");
+        let security_img =
+            fs::read(manifest_dir.join("security-image.png")).expect("read sec image file");
 
         let peer_id_of_server_broker = PubKey::nil();
         let result = wallet_create_v0(CreateWalletV0 {
@@ -107,7 +110,7 @@ async fn create_or_open_wallet() -> (SensitiveWallet, u64) {
             send_bootstrap: false,
             send_wallet: false,
             result_with_wallet_file: false,
-            local_save: true,
+            local_save: false,
             core_bootstrap: BootstrapContentV0::new_localhost(peer_id_of_server_broker),
             core_registration: None,
             additional_bootstrap: None,
@@ -118,13 +121,18 @@ async fn create_or_open_wallet() -> (SensitiveWallet, u64) {
         .expect("wallet_create_v0");
 
         // Save wallet to file.
-        let wallet_file_bin = wallet_get_file(&result.wallet_name).await.unwrap();
+        let wallet_bin = wallet_get_file(&result.wallet_name).await.unwrap();
         let mut creds_file = File::create(creds_path).expect("create creds file");
         let mut wallet_file = File::create(wallet_path).expect("create wallet file");
 
         // Use the mnemonic_str already provided (list of words) to avoid mistakes
         let mnemonic_words: Vec<String> = result.mnemonic_str.clone();
         writeln!(creds_file, "{}", mnemonic_words.join(" ")).expect("write mnemonic to creds file");
+        creds_file.flush().expect("flush creds file");
+
+        wallet_file
+            .write_all(&wallet_bin)
+            .expect("write wallet file");
 
         wallet = wallet_open_with_mnemonic_words(&result.wallet, &mnemonic_words, WALLET_PIN)
             .expect("open wallet");
@@ -172,16 +180,30 @@ async fn test_wallet_and_sparql_insert() {
     let (wallet, session_id) = create_or_open_wallet().await;
 
     let sparql = build_insert_sparql();
-    let doc_id = "urn:ng:testShapeGraph".to_string();
-    let result = doc_sparql_update(session_id, doc_id.clone(), Some(sparql.clone())).await;
+    let doc_nuri = doc_create(
+        session_id,
+        "Graph".to_string(),
+        "test".to_string(),
+        "store".to_string(),
+        None,
+        None,
+    )
+    .await
+    .ok();
+
+    let result = doc_sparql_update(session_id, sparql.clone(), doc_nuri).await;
     assert!(result.is_ok(), "SPARQL update failed: {:?}", result.err());
 
     // Optional: a second idempotent insert should not duplicate (implementation dependent)
-    let second = doc_sparql_update(session_id, doc_id, Some(sparql)).await;
+    let second = doc_sparql_update(session_id, "doc_id".to_string(), Some(sparql)).await;
     assert!(second.is_ok());
 
-    user_disconnect(&wallet.personal_identity());
-    session_stop(&wallet.personal_identity()).await.ok();
+    user_disconnect(&wallet.personal_identity())
+        .await
+        .expect("disconnect user");
+    session_stop(&wallet.personal_identity())
+        .await
+        .expect("close session");
 
-    wallet_close(&wallet.name());
+    wallet_close(&wallet.name()).await.expect("close wallet");
 }

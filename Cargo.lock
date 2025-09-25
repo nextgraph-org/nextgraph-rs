@@ -2420,6 +2420,7 @@ dependencies = [
  "ng-oxigraph",
  "ng-repo",
  "ng-storage-rocksdb",
+ "once_cell",
  "qrcode",
  "rand 0.7.3",
  "sbbf-rs-safe",
