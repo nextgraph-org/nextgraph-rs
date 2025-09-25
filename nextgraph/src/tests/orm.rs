@@ -7,19 +7,17 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use std::env::current_dir;
-use std::error::Error;
-use std::fs::{self, create_dir_all, read, File};
+use std::fs::{self, create_dir_all, File};
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::local_broker::{
-    doc_create, doc_sparql_update, init_local_broker, session_start, session_stop, user_connect,
-    user_disconnect, wallet_close, wallet_create_v0, wallet_get_file, wallet_import,
-    wallet_open_with_mnemonic_words, wallet_read_file, wallet_was_opened, LocalBrokerConfig,
-    SessionConfig,
+    doc_create, doc_sparql_update, init_local_broker, session_start, session_stop, user_disconnect,
+    wallet_close, wallet_create_v0, wallet_get_file, wallet_import,
+    wallet_open_with_mnemonic_words, wallet_read_file, LocalBrokerConfig, SessionConfig,
 };
 use ng_net::types::BootstrapContentV0;
+use ng_repo::log_info;
 use ng_repo::types::PubKey;
 use ng_wallet::types::{CreateWalletV0, SensitiveWallet};
 use once_cell::sync::OnceCell;
@@ -61,7 +59,9 @@ async fn create_or_open_wallet() -> (SensitiveWallet, u64) {
     let session_id: u64;
 
     let (wallet_path, creds_path) = build_wallet_and_creds_paths();
-    if wallet_path.exists() {
+
+    // Don't load from file due to a bug which makes reloading wallets fail.
+    if wallet_path.exists() && false {
         // Read the wallet file from the known test base path (not the process cwd)
         let wallet_file = fs::read(&wallet_path).expect("read wallet file");
         // load stored wallet_name + mnemonic
@@ -189,9 +189,11 @@ async fn test_wallet_and_sparql_insert() {
         None,
     )
     .await
-    .ok();
+    .expect("error");
 
-    let result = doc_sparql_update(session_id, sparql.clone(), doc_nuri).await;
+    log_info!("session_id: {:?} doc nuri: {:?}", session_id, doc_nuri);
+
+    let result = doc_sparql_update(session_id, sparql.clone(), Some(doc_nuri)).await;
     assert!(result.is_ok(), "SPARQL update failed: {:?}", result.err());
 
     // Optional: a second idempotent insert should not duplicate (implementation dependent)
