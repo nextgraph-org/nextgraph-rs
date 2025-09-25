@@ -99,7 +99,7 @@ impl DatasetView {
                     .parse_graph_name(&graph_name_string, Some(*iri_id))
             }
             _ => Err(CorruptionError::msg(
-                "Invalid graph_name (not a NamedNode) in parse_graph_name",
+                format!("Invalid graph_name (not a NamedNode) in parse_graph_name {:?}", graph_name),
             )
             .into()),
         }

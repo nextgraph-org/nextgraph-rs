@@ -48,7 +48,7 @@ impl Verifier {
         let parsed =
             Query::parse(&query, nuri_str).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         let results = oxistore
-            .query(parsed, None)
+            .query(parsed, nuri)
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         match results {
             QueryResults::Graph(triples) => {
