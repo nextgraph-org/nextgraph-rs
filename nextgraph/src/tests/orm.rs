@@ -11,7 +11,7 @@ use std::env::current_dir;
 use std::error::Error;
 use std::fs::{self, create_dir_all, read, File};
 use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::local_broker::{
     doc_sparql_update, init_local_broker, session_start, session_stop, user_connect,
@@ -29,21 +29,20 @@ static WALLET_PIN: [u8; 4] = [2, 3, 2, 3];
 
 // Persistent test assets (wallet base path + stored credentials)
 fn test_base_path() -> PathBuf {
-    let mut current_path = current_dir().expect("current_dir");
-    current_path.push(".ng");
-    create_dir_all(current_path.clone()).expect("create test base path");
-    current_path
+    // Use the crate manifest dir so tests find files regardless of the
+    // process current working directory when `cargo test` runs.
+    let mut base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    base.push("src");
+    base.push("tests");
+    base.push(".ng");
+    create_dir_all(&base).expect("create test base path");
+    base
 }
 
 fn build_wallet_and_creds_paths() -> (PathBuf, PathBuf) {
-    let mut current_path = current_dir().expect("current_dir");
-    current_path.push(".ng");
-    create_dir_all(current_path.clone()).expect("create test base path");
+    let base = test_base_path();
 
-    return (
-        current_path.join("test_wallet.ngw"),
-        current_path.join("wallet_creds.txt"),
-    );
+    (base.join("test_wallet.ngw"), base.join("wallet_creds.txt"))
 }
 
 static INIT: OnceCell<()> = OnceCell::new();
@@ -65,7 +64,8 @@ async fn create_or_open_wallet() -> (SensitiveWallet, u64) {
 
     let (wallet_path, creds_path) = build_wallet_and_creds_paths();
     if wallet_path.exists() {
-        let wallet_file = read("./.ng/test-wallet.ngw").expect("read wallet file");
+        // Read the wallet file from the known test base path (not the process cwd)
+        let wallet_file = fs::read(&wallet_path).expect("read wallet file");
         // load stored wallet_name + mnemonic
         let mut s = String::new();
         File::open(creds_path)
@@ -92,10 +92,11 @@ async fn create_or_open_wallet() -> (SensitiveWallet, u64) {
         session_id = session.session_id;
     } else {
         // first run: create wallet
-        // Load a real security image from the nextgraph examples to satisfy validation
-        let security_img = read("./1-pixel.png").unwrap();
-        // .or_else(|_| read("../nextgraph/examples/wallet-security-image-white.png"))
-        // .expect("security image");
+        // Load a real security image from the crate so tests don't depend on cwd.
+        // Try a few known candidate locations inside the crate.
+        let manifest_dir = test_base_path();
+
+        let security_img = fs::read(manifest_dir.join("1-pixel.png")).expect("read sec image file");
 
         let peer_id_of_server_broker = PubKey::nil();
         let result = wallet_create_v0(CreateWalletV0 {

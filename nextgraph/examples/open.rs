@@ -34,9 +34,6 @@ async fn main() -> std::io::Result<()> {
 
     let wallet_name = "Cd4ZEobTMItCai1mQIJ__nyZ1LS0b1a1C6NATo0IDMMA".to_string();
 
-    let a = 32;
-    a = "";
-
     // as we have previously saved the wallet,
     // we can retrieve it, display the security phrase and image to the user, ask for the pazzle or mnemonic, and then open the wallet
     let wallet = wallet_get(&wallet_name).await?;
