@@ -12,8 +12,8 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use crate::local_broker::{
-    doc_create, doc_sparql_update, init_local_broker, session_start, session_stop, user_disconnect,
-    wallet_close, wallet_create_v0, wallet_get_file, wallet_import,
+    doc_create, doc_sparql_construct, doc_sparql_update, init_local_broker, session_start,
+    session_stop, user_disconnect, wallet_close, wallet_create_v0, wallet_get_file, wallet_import,
     wallet_open_with_mnemonic_words, wallet_read_file, LocalBrokerConfig, SessionConfig,
 };
 use ng_net::types::BootstrapContentV0;
@@ -91,6 +91,7 @@ async fn create_or_open_wallet() -> (SensitiveWallet, u64) {
         ))
         .await
         .unwrap();
+
         session_id = session.session_id;
     } else {
         // first run: create wallet
@@ -173,6 +174,17 @@ INSERT DATA {
     .to_string()
 }
 
+fn build_construct_sparql() -> String {
+    r#"
+CONSTRUCT {
+  ?s ?p ?o .
+} WHERE {
+  ?s ?p ?o .
+}
+"#
+    .to_string()
+}
+
 #[async_std::test]
 async fn test_wallet_and_sparql_insert() {
     let (wallet, session_id) = create_or_open_wallet().await;
@@ -191,12 +203,18 @@ async fn test_wallet_and_sparql_insert() {
 
     log_info!("session_id: {:?} doc nuri: {:?}", session_id, doc_nuri);
 
-    let result = doc_sparql_update(session_id, sparql.clone(), Some(doc_nuri.clone())).await;
-    assert!(result.is_ok(), "SPARQL update failed: {:?}", result.err());
+    let update_result = doc_sparql_update(session_id, sparql.clone(), Some(doc_nuri.clone())).await;
+    assert!(
+        update_result.is_ok(),
+        "SPARQL update failed: {:?}",
+        update_result.err()
+    );
+    log_info!("Sparql update result: {:?}", update_result.unwrap());
 
-    // Optional: a second idempotent insert should not duplicate (implementation dependent)
-    let second = doc_sparql_update(session_id, sparql, Some(doc_nuri)).await;
-    assert!(second.is_ok());
+    // Query the data.
+    let query_result =
+        doc_sparql_construct(session_id, build_construct_sparql(), Some(doc_nuri.clone())).await;
+    log_info!("Sparql construct result: {:?}", query_result.unwrap());
 
     user_disconnect(&wallet.personal_identity())
         .await

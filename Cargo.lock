@@ -2160,6 +2160,7 @@ dependencies = [
  "lazy_static",
  "ng-client-ws",
  "ng-net",
+ "ng-oxigraph",
  "ng-repo",
  "ng-storage-rocksdb",
  "ng-verifier",

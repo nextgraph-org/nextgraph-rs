@@ -30,17 +30,23 @@ use crate::types::*;
 use crate::verifier::*;
 
 impl Verifier {
-    fn sparql_construct(&self, query: String) -> Result<Vec<Triple>, NgError> {
+    pub fn sparql_construct(
+        &self,
+        query: String,
+        nuri: Option<String>,
+    ) -> Result<Vec<Triple>, NgError> {
         let oxistore = self.graph_dataset.as_ref().unwrap();
 
         // let graph_nuri = NuriV0::repo_graph_name(
         //     &update.repo_id,
         //     &update.overlay_id,
         // );
-
         //let base = NuriV0::repo_id(&repo.id);
+
+        let nuri_str = nuri.as_ref().map(|s| s.as_str());
+
         let parsed =
-            Query::parse(&query, None).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+            Query::parse(&query, nuri_str).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         let results = oxistore
             .query(parsed, None)
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
@@ -62,7 +68,11 @@ impl Verifier {
         }
     }
 
-    fn sparql_select(&self, query: String) -> Result<Vec<Vec<Option<Term>>>, NgError> {
+    pub fn sparql_select(
+        &self,
+        query: String,
+        nuri: Option<String>,
+    ) -> Result<Vec<Vec<Option<Term>>>, NgError> {
         let oxistore = self.graph_dataset.as_ref().unwrap();
 
         // let graph_nuri = NuriV0::repo_graph_name(
@@ -71,8 +81,10 @@ impl Verifier {
         // );
 
         //let base = NuriV0::repo_id(&repo.id);
+        let nuri_str = nuri.as_ref().map(|s| s.as_str());
+
         let parsed =
-            Query::parse(&query, None).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+            Query::parse(&query, nuri_str).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         let results = oxistore
             .query(parsed, None)
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;

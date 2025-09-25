@@ -1,14 +1,20 @@
 [package]
 name = "nextgraph"
 description = "NextGraph client library. Nextgraph is a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
-categories = ["asynchronous","text-editors","web-programming","development-tools","database-implementations"]
+categories = [
+    "asynchronous",
+    "text-editors",
+    "web-programming",
+    "development-tools",
+    "database-implementations",
+]
 version = "0.1.2"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
-keywords = [ "crdt","e2ee","local-first","p2p","semantic-web" ]
+keywords = ["crdt", "e2ee", "local-first", "p2p", "semantic-web"]
 documentation = "https://docs.rs/nextgraph"
 rust-version.workspace = true
 
@@ -23,7 +29,7 @@ base64-url = "2.0.0"
 once_cell = "1.17.1"
 zeroize = { version = "1.7.0", features = ["zeroize_derive"] }
 futures = "0.3.24"
-async-std = { version = "1.12.0", features = [ "attributes", "unstable" ] }
+async-std = { version = "1.12.0", features = ["attributes", "unstable"] }
 async-trait = "0.1.64"
 async-once-cell = "0.5.3"
 lazy_static = "1.4.0"
@@ -37,6 +43,7 @@ ng-net = { path = "../ng-net", version = "0.1.2" }
 ng-wallet = { path = "../ng-wallet", version = "0.1.2" }
 ng-client-ws = { path = "../ng-client-ws", version = "0.1.2" }
 ng-verifier = { path = "../ng-verifier", version = "0.1.2" }
+ng-oxigraph = { path = "../ng-oxigraph", version = "0.4.0-alpha.8-ngalpha" }
 
 [target.'cfg(all(not(target_family = "wasm"),not(docsrs)))'.dependencies]
 ng-storage-rocksdb = { path = "../ng-storage-rocksdb", version = "0.1.2" }
@@ -52,4 +59,3 @@ required-features = []
 [[example]]
 name = "open"
 required-features = []
-

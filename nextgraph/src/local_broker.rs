@@ -18,6 +18,7 @@ use async_std::sync::{Arc, Condvar, Mutex, RwLock};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use lazy_static::lazy_static;
+use ng_oxigraph::oxrdf::Triple;
 use once_cell::sync::Lazy;
 use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str};
 use qrcode::{render::svg, QrCode};
@@ -626,33 +627,43 @@ async fn pump(
                 event,
                 overlay,
                 user,
-            } => { 
+            } => {
                 let mut broker = match LOCAL_BROKER.get() {
-                    None | Some(Err(_)) => return Err(Box::new(NgError::LocalBrokerNotInitialized)),
+                    None | Some(Err(_)) => {
+                        return Err(Box::new(NgError::LocalBrokerNotInitialized))
+                    }
                     Some(Ok(broker)) => broker.write().await,
                 };
                 broker.deliver(event, overlay, user).await
-            },
-            LocalBrokerMessage::Inbox {msg, user_id, from_queue} => {
+            }
+            LocalBrokerMessage::Inbox {
+                msg,
+                user_id,
+                from_queue,
+            } => {
                 async_std::task::spawn_local(async move {
                     let mut broker = match LOCAL_BROKER.get() {
-                        None | Some(Err(_)) => return Err(Box::new(NgError::LocalBrokerNotInitialized)),
+                        None | Some(Err(_)) => {
+                            return Err(Box::new(NgError::LocalBrokerNotInitialized))
+                        }
                         Some(Ok(broker)) => broker.write().await,
                     };
                     if let Some(session) = broker.get_mut_session_for_user(&user_id) {
                         session.verifier.inbox(&msg, from_queue).await;
                     }
                     Ok(())
-                }).await?;
-                
-            },
-            LocalBrokerMessage::Disconnected { user_id } => { 
+                })
+                .await?;
+            }
+            LocalBrokerMessage::Disconnected { user_id } => {
                 let mut broker = match LOCAL_BROKER.get() {
-                    None | Some(Err(_)) => return Err(Box::new(NgError::LocalBrokerNotInitialized)),
+                    None | Some(Err(_)) => {
+                        return Err(Box::new(NgError::LocalBrokerNotInitialized))
+                    }
                     Some(Ok(broker)) => broker.write().await,
                 };
                 broker.user_disconnected(user_id).await
-            },
+            }
         }
     }
 
@@ -2517,7 +2528,11 @@ pub async fn user_connect_with_device_info(
                                 // try to pop inbox msg
                                 let broker = BROKER.read().await;
                                 broker
-                                    .send_client_event(&Some(*user), &Some(server_key), ClientEvent::InboxPopRequest)
+                                    .send_client_event(
+                                        &Some(*user),
+                                        &Some(server_key),
+                                        ClientEvent::InboxPopRequest,
+                                    )
                                     .await?;
                             }
                             break;
@@ -2561,7 +2576,9 @@ pub async fn session_stop(user_id: &UserId) -> Result<(), NgError> {
                 force_close: false,
             });
 
-            broker.send_request_headless::<_, EmptyAppResponse>(request).await?;
+            broker
+                .send_request_headless::<_, EmptyAppResponse>(request)
+                .await?;
         }
         _ => {
             // TODO implement for Remote
@@ -2606,7 +2623,9 @@ pub async fn session_headless_stop(session_id: u64, force_close: bool) -> Result
                 force_close,
             });
 
-            broker.send_request_headless::<_, EmptyAppResponse>(request).await?;
+            broker
+                .send_request_headless::<_, EmptyAppResponse>(request)
+                .await?;
         }
         _ => {
             return Err(NgError::LocalBrokerIsNotHeadless);
@@ -2723,8 +2742,26 @@ pub async fn doc_sparql_update(
     match res {
         AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
         AppResponse::V0(AppResponseV0::Commits(commits)) => Ok(commits),
-        _ => Err(NgError::InvalidResponse.to_string())
+        _ => Err(NgError::InvalidResponse.to_string()),
     }
+}
+
+async fn get_broker() -> Result<async_std::sync::RwLockWriteGuard<'static, LocalBroker>, NgError> {
+    let broker = match LOCAL_BROKER.get() {
+        None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
+        Some(Ok(broker)) => broker.write().await,
+    };
+    return Ok(broker);
+}
+
+pub async fn doc_sparql_construct(
+    session_id: u64,
+    sparql: String,
+    nuri: Option<String>,
+) -> Result<Vec<Triple>, NgError> {
+    let broker = get_broker().await?;
+    let session = broker.get_session(session_id)?;
+    session.verifier.sparql_construct(sparql, nuri)
 }
 
 pub async fn doc_create(
@@ -2735,14 +2772,16 @@ pub async fn doc_create(
     store_type: Option<String>,
     store_repo: Option<String>,
 ) -> Result<String, NgError> {
-
     let store_repo = if store_type.is_none() || store_repo.is_none() {
         None
     } else {
-        Some(StoreRepo::from_type_and_repo(&store_type.unwrap(), &store_repo.unwrap())?)
+        Some(StoreRepo::from_type_and_repo(
+            &store_type.unwrap(),
+            &store_repo.unwrap(),
+        )?)
     };
 
-    doc_create_with_store_repo(session_id,crdt,class_name,destination,store_repo).await
+    doc_create_with_store_repo(session_id, crdt, class_name, destination, store_repo).await
 }
 
 pub async fn doc_create_with_store_repo(
@@ -2752,7 +2791,6 @@ pub async fn doc_create_with_store_repo(
     destination: String,
     store_repo: Option<StoreRepo>,
 ) -> Result<String, NgError> {
-
     let class = BranchCrdt::from(crdt, class_name)?;
 
     let nuri = if store_repo.is_none() {
@@ -2768,10 +2806,7 @@ pub async fn doc_create_with_store_repo(
         command: AppRequestCommandV0::new_create(),
         nuri,
         payload: Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(
-            DocCreate {
-                class,
-                destination,
-            },
+            DocCreate { class, destination },
         ))),
     });
 
