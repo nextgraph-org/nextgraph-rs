@@ -148,7 +148,6 @@ fn build_insert_sparql() -> String {
     r#"
 PREFIX ex: <http://example.org/>
 INSERT DATA {
-  GRAPH <urn:ng:testShapeGraph> {
     <urn:test:obj1> a ex:TestObject ;
       ex:stringValue "hello world" ;
       ex:numValue 42 ;
@@ -168,7 +167,6 @@ INSERT DATA {
       ] ;
       ex:numOrStr "either" ;
       ex:lit1Or2 "lit1" .
-  }
 }
 "#
     .trim()
@@ -189,15 +187,15 @@ async fn test_wallet_and_sparql_insert() {
         None,
     )
     .await
-    .expect("error");
+    .expect("error creating doc");
 
     log_info!("session_id: {:?} doc nuri: {:?}", session_id, doc_nuri);
 
-    let result = doc_sparql_update(session_id, sparql.clone(), Some(doc_nuri)).await;
+    let result = doc_sparql_update(session_id, sparql.clone(), Some(doc_nuri.clone())).await;
     assert!(result.is_ok(), "SPARQL update failed: {:?}", result.err());
 
     // Optional: a second idempotent insert should not duplicate (implementation dependent)
-    let second = doc_sparql_update(session_id, "doc_id".to_string(), Some(sparql)).await;
+    let second = doc_sparql_update(session_id, sparql, Some(doc_nuri)).await;
     assert!(second.is_ok());
 
     user_disconnect(&wallet.personal_identity())
