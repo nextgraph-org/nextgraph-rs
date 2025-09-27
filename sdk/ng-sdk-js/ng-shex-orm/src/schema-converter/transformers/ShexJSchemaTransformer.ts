@@ -65,7 +65,7 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
         EachOf: { return: Shape };
         TripleConstraint: { return: Predicate };
         NodeConstraint: { return: DataType };
-        ShapeOr: { return: (DataType | Shape | string)[] };
+        ShapeOr: { return: DataType[] };
         ShapeAnd: { return: never };
         ShapeNot: { return: never };
         ShapeExternal: { return: never };
@@ -143,24 +143,31 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
             if (typeof transformedChildren.valueExpr === "string") {
                 // Reference to nested object
                 return {
-                    valType: "nested",
-                    nestedShape: transformedChildren.valueExpr,
+                    dataTypes: [
+                        {
+                            valType: "shape",
+                            shape: transformedChildren.valueExpr,
+                        },
+                    ],
                     ...commonProperties,
-                } satisfies Predicate;
+                };
             } else if (
                 transformedChildren.valueExpr &&
                 (transformedChildren.valueExpr as Shape).predicates
             ) {
                 // Nested object
                 return {
-                    valType: "nested",
-                    nestedShape: transformedChildren.valueExpr as Shape,
+                    dataTypes: [
+                        {
+                            valType: "shape",
+                            shape: transformedChildren.valueExpr as Shape,
+                        },
+                    ],
                     ...commonProperties,
-                } satisfies Predicate;
+                };
             } else if (Array.isArray(transformedChildren.valueExpr)) {
                 return {
-                    valType: "eitherOf",
-                    eitherOf: transformedChildren.valueExpr,
+                    dataTypes: transformedChildren.valueExpr, // DataType[]
                     ...commonProperties,
                 };
             } else {
@@ -168,10 +175,14 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                 const nodeConstraint =
                     transformedChildren.valueExpr as DataType;
                 return {
-                    valType: nodeConstraint.valType,
-                    literalValue: nodeConstraint.literals,
+                    dataTypes: [
+                        {
+                            valType: nodeConstraint.valType,
+                            literals: nodeConstraint.literals,
+                        },
+                    ],
                     ...commonProperties,
-                } satisfies Predicate;
+                };
             }
         },
     },
@@ -192,6 +203,8 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                     valType: "literal",
                     literals: nodeConstraint.values.map(
                         // TODO: We do not convert them to number or boolean or lang tag.
+                        // And we don't have an annotation of the literal's type.
+                        // @ts-expect-error
                         (valueRecord) => valueRecord.value || valueRecord.id
                     ),
                 };
@@ -210,11 +223,9 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
         transformer: async (shapeOr, getTransformedChildren) => {
             const { shapeExprs } = await getTransformedChildren();
             // Either a shape IRI, a nested shape or a node CompactSchemaValue (node constraint).
-            return (Array.isArray(shapeExprs) ? shapeExprs : [shapeExprs]) as (
-                | string
-                | Shape
-                | DataType
-            )[];
+            return (
+                Array.isArray(shapeExprs) ? shapeExprs : [shapeExprs]
+            ) as DataType[];
         },
     },
 

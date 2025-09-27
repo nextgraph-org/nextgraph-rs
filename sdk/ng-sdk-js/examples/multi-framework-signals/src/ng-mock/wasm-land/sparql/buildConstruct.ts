@@ -82,7 +82,7 @@ function addConstructPattern(
         (pred.minCardinality ?? 0) === 0 &&
         (options?.includeOptionalForMinZero ?? true);
 
-    if (pred.valType === "nested" && pred.nestedShape) {
+    if (pred.dataTypes === "nested" && pred.nestedShape) {
         template.push(triple);
         const nestedBody: string[] = [triple];
         const nestedPreds = pred.nestedShape.predicates;
@@ -108,7 +108,7 @@ function addConstructPattern(
     template.push(triple);
     const blockLines: string[] = [triple];
 
-    if (pred.valType === "literal" && pred.literalValue !== undefined) {
+    if (pred.dataTypes === "literal" && pred.literalValue !== undefined) {
         if (Array.isArray(pred.literalValue)) {
             valuesBlocks.push(valuesBlock(objVar, pred.literalValue as any[]));
         } else {

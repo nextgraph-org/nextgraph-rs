@@ -9,3 +9,6 @@
 
 #[doc(hidden)]
 pub mod orm;
+
+#[doc(hidden)]
+pub mod create_or_open_wallet;

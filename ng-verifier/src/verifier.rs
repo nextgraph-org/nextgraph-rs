@@ -25,6 +25,7 @@ use async_std::stream::StreamExt;
 use async_std::sync::{Mutex, RwLockReadGuard};
 use futures::channel::mpsc;
 use futures::SinkExt;
+use ng_net::orm::OrmShapeTypeRef;
 use ng_oxigraph::oxigraph::sparql::Query;
 use ng_oxigraph::oxigraph::sparql::QueryResults;
 use ng_oxigraph::oxrdf::Term;
@@ -111,7 +112,9 @@ pub struct Verifier {
     in_memory_outbox: Vec<EventOutboxStorage>,
     uploads: BTreeMap<u32, RandomAccessFile>,
     branch_subscriptions: HashMap<BranchId, Sender<AppResponse>>,
-    pub(crate) orm_subscriptions: HashMap<NuriV0, HashMap<String, HashMap<u64, Sender<AppResponse>>>>,
+    pub(crate) orm_subscriptions:
+        HashMap<NuriV0, HashMap<String, HashMap<u64, Sender<AppResponse>>>>,
+    pub(crate) orm_shape_types: HashMap<String, OrmShapeTypeRef>,
     pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
 }
 
@@ -518,6 +521,7 @@ impl Verifier {
             uploads: BTreeMap::new(),
             branch_subscriptions: HashMap::new(),
             orm_subscriptions: HashMap::new(),
+            orm_shape_types: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
         }
     }
@@ -1288,9 +1292,9 @@ impl Verifier {
         // registering inbox for protected and public store. (FIXME: this should be done instead in the 1st connection during wallet creation)
         let remote = self.connected_broker.connected_or_err()?;
         let mut done = false;
-        for (_,store) in self.stores.iter() {
+        for (_, store) in self.stores.iter() {
             if store.id() == self.protected_store_id() || store.id() == self.public_store_id() {
-                let repo = self.get_repo( store.id(), &store.get_store_repo())?;
+                let repo = self.get_repo(store.id(), &store.get_store_repo())?;
                 let inbox = repo.inbox.to_owned().unwrap();
                 // sending InboxRegister
                 let msg = InboxRegister::new(inbox, store.outer_overlay())?;
@@ -1568,8 +1572,11 @@ impl Verifier {
         Ok(())
     }
 
-    pub async fn get_qrcode_for_profile(&self, public: bool, size: u32) -> Result<String, VerifierError> {
-
+    pub async fn get_qrcode_for_profile(
+        &self,
+        public: bool,
+        size: u32,
+    ) -> Result<String, VerifierError> {
         let profile_id = if public {
             self.public_store_id()
         } else {
@@ -1577,21 +1584,31 @@ impl Verifier {
         };
 
         let repo = self.repos.get(&profile_id).ok_or(NgError::RepoNotFound)?;
-        let inbox = repo.inbox.to_owned().ok_or(NgError::InboxNotFound)?.to_pub();
+        let inbox = repo
+            .inbox
+            .to_owned()
+            .ok_or(NgError::InboxNotFound)?
+            .to_pub();
         let profile = repo.store.get_store_repo().clone();
 
-        let sparql = format!("
+        let sparql = format!(
+            "
                     PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
                     SELECT ?name ?email WHERE 
                     {{ <> vcard:fn ?name .
                        <> vcard:hasEmail ?email .
-                    }}");
+                    }}"
+        );
         //log_info!("{sparql}");
-        let (name, email) = match self.sparql_query(
-            &NuriV0::new_repo_target_from_id(profile_id),
-            sparql, Some(NuriV0::repo_id(profile_id))).await? 
+        let (name, email) = match self
+            .sparql_query(
+                &NuriV0::new_repo_target_from_id(profile_id),
+                sparql,
+                Some(NuriV0::repo_id(profile_id)),
+            )
+            .await?
         {
-            QueryResults::Solutions(mut sols) => { 
+            QueryResults::Solutions(mut sols) => {
                 match sols.next() {
                     None => {
                         //log_info!("name or email not found");
@@ -1613,39 +1630,39 @@ impl Verifier {
                         };
                         (name, email)
                     }
-                }       
+                }
             }
-            _ => return Err(VerifierError::SparqlError(NgError::InvalidResponse.to_string())),
+            _ => {
+                return Err(VerifierError::SparqlError(
+                    NgError::InvalidResponse.to_string(),
+                ))
+            }
         };
         if name.is_none() {
             return Err(VerifierError::InvalidProfile);
         }
-        let profile_sharing = NgQRCode::ProfileSharingV0(NgQRCodeProfileSharingV0 { 
-            inbox, 
-            profile, 
-            name: name.unwrap(), 
-            email
+        let profile_sharing = NgQRCode::ProfileSharingV0(NgQRCodeProfileSharingV0 {
+            inbox,
+            profile,
+            name: name.unwrap(),
+            email,
         });
 
         let ser = serde_bare::to_vec(&profile_sharing)?;
         let encoded = base64_url::encode(&ser);
         log_info!("qrcode= {encoded}");
         match QrCode::with_error_correction_level(encoded.as_bytes(), qrcode::EcLevel::M) {
-            Ok(qr) => {
-                Ok(qr
-                    .render()
-                    .max_dimensions(size, size)
-                    .dark_color(svg::Color("#000000"))
-                    .light_color(svg::Color("#ffffff"))
-                    .build()
-                )
-            }
+            Ok(qr) => Ok(qr
+                .render()
+                .max_dimensions(size, size)
+                .dark_color(svg::Color("#000000"))
+                .light_color(svg::Color("#ffffff"))
+                .build()),
             Err(e) => Err(VerifierError::QrCode(e.to_string())),
         }
     }
 
     pub async fn inbox(&mut self, msg: &InboxMsg, from_queue: bool) {
-        
         //log_info!("RECEIVED INBOX MSG {:?}", msg);
 
         match self.inboxes.get(&msg.body.to_inbox) {
@@ -1660,27 +1677,31 @@ impl Verifier {
                                     if let Err(e) = res {
                                         log_err!("Error during process_inbox {e}");
                                     }
-                                },
+                                }
                                 Err(e) => {
                                     log_err!("cannot unseal inbox msg {e}");
                                 }
                             }
                         }
-                    },
+                    }
                     None => {}
                 }
-            },
+            }
             None => {}
         }
 
-        if from_queue && self.connected_broker.is_some(){
+        if from_queue && self.connected_broker.is_some() {
             log_info!("try to pop one more inbox msg");
             // try to pop inbox msg
             let connected_broker = self.connected_broker.clone();
             let broker = BROKER.read().await;
             let user = self.user_id().clone();
             let _ = broker
-                .send_client_event(&Some(user), &connected_broker.into(), ClientEvent::InboxPopRequest)
+                .send_client_event(
+                    &Some(user),
+                    &connected_broker.into(),
+                    ClientEvent::InboxPopRequest,
+                )
                 .await;
         }
     }
@@ -1794,12 +1815,15 @@ impl Verifier {
         }
     }
 
-    pub(crate) fn get_main_branch_current_heads_nuri(&self, repo_id: &RepoId) -> Result<String, VerifierError> {
+    pub(crate) fn get_main_branch_current_heads_nuri(
+        &self,
+        repo_id: &RepoId,
+    ) -> Result<String, VerifierError> {
         if let Some(repo) = self.repos.get(repo_id) {
             if let Some(info) = repo.main_branch() {
                 let mut res = NuriV0::repo_id(repo_id);
                 for head in info.current_heads.iter() {
-                    res = [res,NuriV0::commit_ref(head)].join(":");
+                    res = [res, NuriV0::commit_ref(head)].join(":");
                 }
                 return Ok(res);
             }
@@ -1886,14 +1910,22 @@ impl Verifier {
         let storage = match self.repos.get_mut(&inbox_cap.repo_id) {
             Some(repo) => {
                 repo.inbox = Some(inbox_cap.priv_key.clone());
-                log_info!("INBOX for {} : {}", inbox_cap.repo_id.to_string(), inbox_cap.priv_key.to_pub().to_string());
+                log_info!(
+                    "INBOX for {} : {}",
+                    inbox_cap.repo_id.to_string(),
+                    inbox_cap.priv_key.to_pub().to_string()
+                );
                 self.inboxes.insert(inbox_cap.priv_key.to_pub(), repo.id);
                 self.user_storage_if_persistent()
             }
             None => self.user_storage(),
         };
         if let Some(user_storage) = storage {
-            user_storage.update_inbox_cap(&inbox_cap.repo_id, &inbox_cap.overlay, &inbox_cap.priv_key)?;
+            user_storage.update_inbox_cap(
+                &inbox_cap.repo_id,
+                &inbox_cap.overlay,
+                &inbox_cap.priv_key,
+            )?;
         }
 
         Ok(())
@@ -2782,6 +2814,7 @@ impl Verifier {
             uploads: BTreeMap::new(),
             branch_subscriptions: HashMap::new(),
             orm_subscriptions: HashMap::new(),
+            orm_shape_types: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
         };
         // this is important as it will load the last seq from storage
@@ -2839,8 +2872,14 @@ impl Verifier {
         //self.populate_topics(&repo);
         let _ = self.add_doc(&repo.id, &repo.store.overlay_id);
         if repo.inbox.is_some() {
-            log_info!("INBOX for {} : {}", repo.id.to_string(), repo.inbox.as_ref().unwrap().to_pub().to_string());
-            _ = self.inboxes.insert(repo.inbox.as_ref().unwrap().to_pub(), repo.id);
+            log_info!(
+                "INBOX for {} : {}",
+                repo.id.to_string(),
+                repo.inbox.as_ref().unwrap().to_pub().to_string()
+            );
+            _ = self
+                .inboxes
+                .insert(repo.inbox.as_ref().unwrap().to_pub(), repo.id);
         }
         let repo_ref = self.repos.entry(repo.id).or_insert(repo);
         repo_ref

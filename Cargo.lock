@@ -2424,6 +2424,7 @@ dependencies = [
  "once_cell",
  "qrcode",
  "rand 0.7.3",
+ "regex",
  "sbbf-rs-safe",
  "serde",
  "serde_bare",

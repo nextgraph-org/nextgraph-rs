@@ -10,7 +10,7 @@ export const testShapeSchema: Schema = {
         iri: "http://example.org/TestObject",
         predicates: [
             {
-                valType: "literal",
+                dataTypes: "literal",
                 literalValue: ["TestObject"],
                 maxCardinality: 1,
                 minCardinality: 1,
@@ -19,35 +19,35 @@ export const testShapeSchema: Schema = {
                 extra: true,
             },
             {
-                valType: "string",
+                dataTypes: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/stringValue",
                 readablePredicate: "stringValue",
             },
             {
-                valType: "number",
+                dataTypes: "number",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/numValue",
                 readablePredicate: "numValue",
             },
             {
-                valType: "boolean",
+                dataTypes: "boolean",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/boolValue",
                 readablePredicate: "boolValue",
             },
             {
-                valType: "number",
+                dataTypes: "number",
                 maxCardinality: -1,
                 minCardinality: 0,
                 iri: "http://example.org/arrayValue",
                 readablePredicate: "arrayValue",
             },
             {
-                valType: "nested",
+                dataTypes: "nested",
                 nestedShape:
                     "http://example.org/TestObject||http://example.org/objectValue",
                 maxCardinality: 1,
@@ -56,7 +56,7 @@ export const testShapeSchema: Schema = {
                 readablePredicate: "objectValue",
             },
             {
-                valType: "nested",
+                dataTypes: "nested",
                 nestedShape:
                     "http://example.org/TestObject||http://example.org/anotherObject",
                 maxCardinality: -1,
@@ -65,7 +65,7 @@ export const testShapeSchema: Schema = {
                 readablePredicate: "anotherObject",
             },
             {
-                valType: "eitherOf",
+                dataTypes: "eitherOf",
                 eitherOf: [
                     {
                         valType: "string",
@@ -85,21 +85,21 @@ export const testShapeSchema: Schema = {
         iri: "http://example.org/TestObject||http://example.org/objectValue",
         predicates: [
             {
-                valType: "string",
+                dataTypes: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/nestedString",
                 readablePredicate: "nestedString",
             },
             {
-                valType: "number",
+                dataTypes: "number",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/nestedNum",
                 readablePredicate: "nestedNum",
             },
             {
-                valType: "number",
+                dataTypes: "number",
                 maxCardinality: -1,
                 minCardinality: 0,
                 iri: "http://example.org/nestedArray",
@@ -111,14 +111,14 @@ export const testShapeSchema: Schema = {
         iri: "http://example.org/TestObject||http://example.org/anotherObject",
         predicates: [
             {
-                valType: "string",
+                dataTypes: "string",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/prop1",
                 readablePredicate: "prop1",
             },
             {
-                valType: "number",
+                dataTypes: "number",
                 maxCardinality: 1,
                 minCardinality: 1,
                 iri: "http://example.org/prop2",

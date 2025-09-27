@@ -17,27 +17,25 @@ export interface Shape {
 }
 
 export type DataType = {
+    /** The required literal value(s), if type is `literal`. Others are allowed, if `extra` is true. */
     literals?: number[] | string[] | boolean;
-    valType: "number" | "string" | "boolean" | "iri" | "literal";
+    /** If `valType` is `"shape"`, the nested shape or its reference. Use reference for serialization. */
+    shape?: string | Shape;
+    /** The type of object value for a triple constraint. */
+    valType: "number" | "string" | "boolean" | "iri" | "literal" | "shape";
 };
 
 export interface Predicate {
-    /** Type of property. */
-    valType: DataType["valType"] | "nested" | "eitherOf";
+    /** Allowed type of object. If more than one is present, either of them is allowed. */
+    dataTypes: DataType[];
     /** The RDF predicate URI. */
     iri: string;
     /** The alias of the `predicateUri` when serialized to a JSON object. */
     readablePredicate: string;
-    /** The required literal value(s), if type is `literal`. Others are allowed, if `extra` is true. */
-    literalValue?: number | string | boolean | number[] | string[]; // TODO: We could live without this and use eitherOf instead...
-    /** If type is `nested`, the shape or its IRI.  */
-    nestedShape?: string | Shape; // TODO: Only allow Shape while parsing from traverser. We flatten afterwards.
     /** Maximum allowed number of values. `-1` means infinite. */
     maxCardinality: number;
     /** Minimum required number of values */
     minCardinality: number;
-    /** If type is `eitherOf`, specifies multiple allowed types (CompactSchemaValue, shapes, or shape IRI). */
-    eitherOf?: (DataType | Shape | string)[]; // TODO: Shape is going to be by reference.
     /** If other (additional) values are permitted. Useful for literals. */
     extra?: boolean;
 }

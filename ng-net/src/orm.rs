@@ -23,6 +23,7 @@ pub struct OrmShapeType {
     pub shape: String,
 }
 
+/* == Diff Types == */
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(non_camel_case_types)]
 pub enum OrmDiffOpType {
@@ -42,12 +43,13 @@ pub struct OrmDiffOp {
     pub op: OrmDiffOpType,
     pub valType: Option<OrmDiffType>,
     pub path: String,
-    pub value: Option<Value>,
+    pub value: Option<Value>, // TODO: Improve type
 }
 
 pub type OrmDiff = Vec<OrmDiffOp>;
 
-type OrmSchema = HashMap<String, OrmSchemaShape>;
+/* == ORM Schema == */
+pub type OrmSchema = HashMap<String, OrmSchemaShape>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmSchemaShape {
@@ -55,7 +57,7 @@ pub struct OrmSchemaShape {
     pub predicates: Vec<OrmSchemaPredicate>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum OrmSchemaLiteralType {
     number,
@@ -63,23 +65,12 @@ pub enum OrmSchemaLiteralType {
     boolean,
     iri,
     literal,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[allow(non_camel_case_types)]
-pub enum OrmSchemaPredicateType {
-    number,
-    string,
-    boolean,
-    iri,
-    literal,
-    nested,
-    eitherOf,
+    shape,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrmLiterals {
+pub enum OrmSchemaLiterals {
     Bool(bool),
     NumArray(Vec<f64>),
     StrArray(Vec<String>),
@@ -88,26 +79,47 @@ pub enum OrmLiterals {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmSchemaDataType {
     pub valType: OrmSchemaLiteralType,
-    pub literals: Option<OrmLiterals>,
+    pub literals: Option<OrmSchemaLiterals>,
+    pub shape: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmSchemaPredicate {
-    pub valType: OrmSchemaPredicateType,
+    pub dataTypes: Vec<OrmSchemaDataType>,
     pub iri: String,
     pub readablePredicate: String,
-    pub literalValue: Option<Value>, // Strictly speaking, no objects.
-    pub nestedShape: Option<String>, // Only by reference.
-    pub maxCardinality: i64,         // -1 for infinity
+    /// `-1` for infinity
+    pub maxCardinality: i64,
     pub minCardinality: i64,
-    pub eitherOf: Option<Vec<OrmSchemaEitherOfOption>>, // Shape references or multi type.
     pub extra: Option<bool>,
 }
 
-// TODO: Will this be serialized correctly?
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum OrmSchemaEitherOfOption {
-    ShapeRef(String),
-    DataType(OrmSchemaDataType),
+impl Default for OrmSchemaDataType {
+    fn default() -> Self {
+        Self {
+            literals: None,
+            shape: None,
+            valType: OrmSchemaLiteralType::string,
+        }
+    }
+}
+
+impl Default for OrmSchemaPredicate {
+    fn default() -> Self {
+        Self {
+            dataTypes: Vec::new(),
+            iri: String::new(),
+            readablePredicate: String::new(),
+            maxCardinality: -1,
+            minCardinality: 0,
+            extra: None,
+        }
+    }
+}
+
+/** == Internal data types == */
+#[derive(Clone, Debug)]
+pub struct OrmShapeTypeRef {
+    ref_count: u64,
+    shape_type: OrmShapeType,
 }

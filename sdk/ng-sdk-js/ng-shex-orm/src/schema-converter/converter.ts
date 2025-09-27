@@ -77,27 +77,38 @@ function flattenSchema(shapes: Shape[]): ShapeSchema {
     for (const shape of shapes) {
         schema[shape.iri] = shape;
 
-        // Find nested, unflattened (i.e. anonymous) schemas in properties.
-        const nestedSchemaPredicates = shape.predicates.filter(
-            (pred) =>
-                pred.valType === "nested" &&
-                typeof pred.nestedShape === "object"
-        );
+        // Find nested, unflattened (i.e. anonymous) schemas in predicates' dataTypes.
+        for (const pred of shape.predicates) {
+            for (let i = 0; i < pred.dataTypes.length; i++) {
+                const dt = pred.dataTypes[i];
+                if (
+                    dt.valType === "shape" &&
+                    typeof dt.shape === "object" &&
+                    dt.shape !== null
+                ) {
+                    // create a deterministic id for the nested shape; include index if multiple shape entries exist
+                    const shapeCount = pred.dataTypes.filter(
+                        (d) => d.valType === "shape"
+                    ).length;
+                    const newId =
+                        shape.iri +
+                        "||" +
+                        pred.iri +
+                        (shapeCount > 1 ? `||${i}` : "");
 
-        for (const pred of nestedSchemaPredicates) {
-            const newId = shape.iri + "||" + pred.iri;
+                    // Recurse
+                    const flattened = flattenSchema([
+                        {
+                            ...(dt.shape as Shape),
+                            iri: newId,
+                        },
+                    ]);
+                    // Replace the nested schema with its new id.
+                    dt.shape = newId;
 
-            // Recurse
-            const flattened = flattenSchema([
-                {
-                    ...(pred.nestedShape as Shape),
-                    iri: newId,
-                },
-            ]);
-            // Replace the nested schema with its new id.
-            pred.nestedShape = newId;
-
-            schema = { ...schema, ...flattened };
+                    schema = { ...schema, ...flattened };
+                }
+            }
         }
         // Flatten / Recurse
     }

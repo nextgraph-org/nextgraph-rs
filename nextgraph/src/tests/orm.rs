@@ -7,146 +7,33 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use std::fs::{self, create_dir_all, File};
-use std::io::{Read, Write};
-use std::path::PathBuf;
-
-use crate::local_broker::{
-    doc_create, doc_sparql_construct, doc_sparql_update, init_local_broker, session_start,
-    session_stop, user_disconnect, wallet_close, wallet_create_v0, wallet_get_file, wallet_import,
-    wallet_open_with_mnemonic_words, wallet_read_file, LocalBrokerConfig, SessionConfig,
+use crate::local_broker::{doc_create, doc_sparql_construct, doc_sparql_update};
+use crate::tests::create_or_open_wallet::create_or_open_wallet;
+use ng_net::orm::{
+    OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaLiterals, OrmSchemaPredicate, OrmSchemaShape,
+    OrmShapeType,
 };
-use ng_net::types::BootstrapContentV0;
 use ng_repo::log_info;
-use ng_repo::types::PubKey;
-use ng_wallet::types::{CreateWalletV0, SensitiveWallet};
-use once_cell::sync::OnceCell;
+use ng_verifier::orm::sparql_construct_from_orm_shape_type;
+use std::collections::HashMap;
 
-static WALLET_PIN: [u8; 4] = [2, 3, 2, 3];
+#[async_std::test]
+async fn test_create_sparql_from_schema() {
+    // Setup wallet and document
+    let (_wallet, session_id) = create_or_open_wallet().await;
+    let doc_nuri = doc_create(
+        session_id,
+        "Graph".to_string(),
+        "test_orm_query".to_string(),
+        "store".to_string(),
+        None,
+        None,
+    )
+    .await
+    .expect("error creating doc");
 
-// Persistent test assets (wallet base path + stored credentials)
-fn test_base_path() -> PathBuf {
-    // Use the crate manifest dir so tests find files regardless of the
-    // process current working directory when `cargo test` runs.
-    let mut base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    base.push("src");
-    base.push("tests");
-    base
-}
-
-fn build_wallet_and_creds_paths() -> (PathBuf, PathBuf) {
-    let mut base = test_base_path();
-    base.push(".ng");
-    create_dir_all(&base).expect("create test base path");
-    (base.join("test_wallet.ngw"), base.join("wallet_creds.txt"))
-}
-
-static INIT: OnceCell<()> = OnceCell::new();
-
-async fn init_broker() {
-    if INIT.get().is_none() {
-        let base = test_base_path();
-        fs::create_dir_all(&base).expect("create base path");
-        init_local_broker(Box::new(move || LocalBrokerConfig::BasePath(base.clone()))).await;
-        let _ = INIT.set(());
-    }
-}
-
-async fn create_or_open_wallet() -> (SensitiveWallet, u64) {
-    init_broker().await;
-
-    let wallet;
-    let session_id: u64;
-
-    let (wallet_path, creds_path) = build_wallet_and_creds_paths();
-
-    // Don't load from file due to a bug which makes reloading wallets fail.
-    if wallet_path.exists() && false {
-        // Read the wallet file from the known test base path (not the process cwd)
-        let wallet_file = fs::read(&wallet_path).expect("read wallet file");
-        // load stored wallet_name + mnemonic
-        let mut s = String::new();
-        File::open(creds_path)
-            .expect("open creds")
-            .read_to_string(&mut s)
-            .expect("read creds");
-        let mut lines = s.lines();
-        let mnemonic_line = lines.next().expect("missing mnemonic").to_string();
-        let mnemonic_words: Vec<String> = mnemonic_line
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect();
-
-        let read_wallet = wallet_read_file(wallet_file).await.unwrap();
-        wallet =
-            wallet_open_with_mnemonic_words(&read_wallet, &mnemonic_words, WALLET_PIN).unwrap();
-
-        let _client = wallet_import(read_wallet.clone(), wallet.clone(), true)
-            .await
-            .unwrap();
-
-        let session = session_start(SessionConfig::new_in_memory(
-            &wallet.personal_identity(),
-            &read_wallet.name(),
-        ))
-        .await
-        .unwrap();
-
-        session_id = session.session_id;
-    } else {
-        // first run: create wallet
-        // Load a real security image from the crate so tests don't depend on cwd.
-        // Try a few known candidate locations inside the crate.
-        let manifest_dir = test_base_path();
-
-        let security_img =
-            fs::read(manifest_dir.join("security-image.png")).expect("read sec image file");
-
-        let peer_id_of_server_broker = PubKey::nil();
-        let result = wallet_create_v0(CreateWalletV0 {
-            security_img,
-            security_txt: "know yourself".to_string(),
-            pin: WALLET_PIN,
-            pazzle_length: 9,
-            send_bootstrap: false,
-            send_wallet: false,
-            result_with_wallet_file: false,
-            local_save: false,
-            core_bootstrap: BootstrapContentV0::new_localhost(peer_id_of_server_broker),
-            core_registration: None,
-            additional_bootstrap: None,
-            pdf: false,
-            device_name: "test".to_string(),
-        })
-        .await
-        .expect("wallet_create_v0");
-
-        // Save wallet to file.
-        let wallet_bin = wallet_get_file(&result.wallet_name).await.unwrap();
-        let mut creds_file = File::create(creds_path).expect("create creds file");
-        let mut wallet_file = File::create(wallet_path).expect("create wallet file");
-
-        // Use the mnemonic_str already provided (list of words) to avoid mistakes
-        let mnemonic_words: Vec<String> = result.mnemonic_str.clone();
-        writeln!(creds_file, "{}", mnemonic_words.join(" ")).expect("write mnemonic to creds file");
-        creds_file.flush().expect("flush creds file");
-
-        wallet_file
-            .write_all(&wallet_bin)
-            .expect("write wallet file");
-
-        wallet = wallet_open_with_mnemonic_words(&result.wallet, &mnemonic_words, WALLET_PIN)
-            .expect("open wallet");
-        session_id = result.session_id;
-    }
-
-    return (wallet, session_id);
-}
-
-fn build_insert_sparql() -> String {
-    // Data conforms to testShape.shex
-    // Shape requires: a ex:TestObject + required fields.
-    r#"
+    // Insert data with unrelated predicates
+    let insert_sparql = r#"
 PREFIX ex: <http://example.org/>
 INSERT DATA {
     <urn:test:obj1> a ex:TestObject ;
@@ -167,61 +54,487 @@ INSERT DATA {
         ex:prop2 2
       ] ;
       ex:numOrStr "either" ;
-      ex:lit1Or2 "lit1" .
+      ex:lit1Or2 "lit1" ;
+      ex:unrelated "some value" ;
+      ex:anotherUnrelated 4242 .
 }
 "#
-    .trim()
-    .to_string()
-}
+    .to_string();
 
-fn build_construct_sparql() -> String {
-    r#"
-CONSTRUCT {
-  ?s ?p ?o .
-} WHERE {
-  ?s ?p ?o .
-}
-"#
-    .to_string()
+    doc_sparql_update(session_id, insert_sparql, Some(doc_nuri.clone()))
+        .await
+        .expect("SPARQL update failed");
+
+    // Define the ORM schema
+    let mut schema = HashMap::new();
+
+    schema.insert(
+        "http://example.org/TestObject||http://example.org/anotherObject".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/TestObject||http://example.org/anotherObject".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/prop1".to_string(),
+                    readablePredicate: "prop1".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                },
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/prop2".to_string(),
+                    readablePredicate: "prop2".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                },
+            ],
+        },
+    );
+
+    schema.insert(
+        "http://example.org/TestObject".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/TestObject".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::literal,
+                        literals: Some(OrmSchemaLiterals::StrArray(vec![
+                            "http://example.org/TestObject".to_string(),
+                        ])),
+                        shape: None,
+                    }],
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: Some(true),
+                },
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/stringValue".to_string(),
+                    readablePredicate: "stringValue".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                },
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/numValue".to_string(),
+                    readablePredicate: "numValue".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                },
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::boolean,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/boolValue".to_string(),
+                    readablePredicate: "boolValue".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                },
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/arrayValue".to_string(),
+                    readablePredicate: "arrayValue".to_string(),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    extra: None,
+                },
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::shape,
+                        literals: None,
+                        shape: Some(
+                            "http://example.org/TestObject||http://example.org/objectValue"
+                                .to_string(),
+                        ),
+                    }],
+                    iri: "http://example.org/objectValue".to_string(),
+                    readablePredicate: "objectValue".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                },
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::shape,
+                        literals: None,
+                        shape: Some(
+                            "http://example.org/TestObject||http://example.org/anotherObject"
+                                .to_string(),
+                        ),
+                    }],
+                    iri: "http://example.org/anotherObject".to_string(),
+                    readablePredicate: "anotherObject".to_string(),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    extra: None,
+                },
+                OrmSchemaPredicate {
+                    dataTypes: vec![
+                        OrmSchemaDataType {
+                            valType: OrmSchemaLiteralType::string,
+                            literals: None,
+                            shape: None,
+                        },
+                        OrmSchemaDataType {
+                            valType: OrmSchemaLiteralType::number,
+                            literals: None,
+                            shape: None,
+                        },
+                    ],
+                    iri: "http://example.org/numOrStr".to_string(),
+                    readablePredicate: "numOrStr".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                },
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::literal,
+                        literals: Some(OrmSchemaLiterals::StrArray(vec![
+                            "lit1".to_string(),
+                            "lit2".to_string(),
+                        ])),
+                        shape: None,
+                    }],
+                    iri: "http://example.org/lit1Or2".to_string(),
+                    readablePredicate: "lit1Or2".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                },
+            ],
+        },
+    );
+
+    schema.insert(
+        "http://example.org/TestObject||http://example.org/objectValue".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/TestObject||http://example.org/objectValue".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/nestedString".to_string(),
+                    readablePredicate: "nestedString".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                },
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/nestedNum".to_string(),
+                    readablePredicate: "nestedNum".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                },
+                OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/nestedArray".to_string(),
+                    readablePredicate: "nestedArray".to_string(),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    extra: None,
+                },
+            ],
+        },
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/TestObject".to_string(),
+    };
+
+    // Generate and execute the CONSTRUCT query
+    let query = sparql_construct_from_orm_shape_type(&shape_type, Some(1)).unwrap();
+
+    let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
+        .await
+        .expect("SPARQL construct failed");
+
+    // Assert the results
+    let predicates: Vec<String> = triples
+        .iter()
+        .map(|t| t.predicate.as_str().to_string())
+        .collect();
+
+    // Expected predicates based on the schema
+    let expected_predicates = vec![
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        "http://example.org/stringValue",
+        "http://example.org/numValue",
+        "http://example.org/boolValue",
+        "http://example.org/arrayValue",
+        "http://example.org/objectValue",
+        "http://example.org/anotherObject",
+        "http://example.org/numOrStr",
+        "http://example.org/lit1Or2",
+        "http://example.org/nestedString",
+        "http://example.org/nestedNum",
+        "http://example.org/nestedArray",
+        "http://example.org/prop1",
+        "http://example.org/prop2",
+    ];
+
+    for p in expected_predicates {
+        assert!(
+            predicates.contains(&p.to_string()),
+            "Missing predicate: {}",
+            p
+        );
+    }
+
+    // Unrelated predicates should not be in the result
+    assert!(
+        !predicates.contains(&"http://example.org/unrelated".to_string()),
+        "Found unrelated predicate"
+    );
+    assert!(
+        !predicates.contains(&"http://example.org/anotherUnrelated".to_string()),
+        "Found another unrelated predicate"
+    );
 }
 
 #[async_std::test]
-async fn test_wallet_and_sparql_insert() {
-    let (wallet, session_id) = create_or_open_wallet().await;
-
-    let sparql = build_insert_sparql();
+async fn test_orm_query_partial_match_missing_required() {
+    // Setup
+    let (_wallet, session_id) = create_or_open_wallet().await;
     let doc_nuri = doc_create(
         session_id,
         "Graph".to_string(),
-        "test".to_string(),
+        "test_orm_partial_required".to_string(),
         "store".to_string(),
         None,
         None,
     )
     .await
-    .expect("error creating doc");
+    .unwrap();
 
-    log_info!("session_id: {:?} doc nuri: {:?}", session_id, doc_nuri);
+    // Insert data missing a required field (`prop2`)
+    let insert_sparql = r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:obj1> a ex:TestObject ;
+      ex:prop1 "one" .
+}
+"#
+    .to_string();
+    doc_sparql_update(session_id, insert_sparql, Some(doc_nuri.clone()))
+        .await
+        .unwrap();
 
-    let update_result = doc_sparql_update(session_id, sparql.clone(), Some(doc_nuri.clone())).await;
-    assert!(
-        update_result.is_ok(),
-        "SPARQL update failed: {:?}",
-        update_result.err()
+    // Schema with two required fields
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/TestObject".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/TestObject".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://example.org/prop1".to_string(),
+                    minCardinality: 1,
+                    ..Default::default()
+                },
+                OrmSchemaPredicate {
+                    iri: "http://example.org/prop2".to_string(),
+                    minCardinality: 1,
+                    ..Default::default()
+                },
+            ],
+        },
     );
-    log_info!("Sparql update result: {:?}", update_result.unwrap());
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/TestObject".to_string(),
+    };
 
-    // Query the data.
-    let query_result =
-        doc_sparql_construct(session_id, build_construct_sparql(), Some(doc_nuri.clone())).await;
-    log_info!("Sparql construct result: {:?}", query_result.unwrap());
-
-    user_disconnect(&wallet.personal_identity())
+    // Generate and run query
+    let query = sparql_construct_from_orm_shape_type(&shape_type, Some(1)).unwrap();
+    let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
         .await
-        .expect("disconnect user");
-    session_stop(&wallet.personal_identity())
-        .await
-        .expect("close session");
+        .unwrap();
 
-    wallet_close(&wallet.name()).await.expect("close wallet");
+    // Assert: No triples should be returned as the object is incomplete.
+    assert!(triples.is_empty());
+}
+
+#[async_std::test]
+async fn test_orm_query_partial_match_missing_optional() {
+    // Setup
+    let (_wallet, session_id) = create_or_open_wallet().await;
+    let doc_nuri = doc_create(
+        session_id,
+        "Graph".to_string(),
+        "test_orm_partial_optional".to_string(),
+        "store".to_string(),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    // Insert data missing an optional field (`prop2`)
+    let insert_sparql = r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:obj1> a ex:TestObject ;
+      ex:prop1 "one" .
+}
+"#
+    .to_string();
+    doc_sparql_update(session_id, insert_sparql, Some(doc_nuri.clone()))
+        .await
+        .unwrap();
+
+    // Schema with one required and one optional field
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/TestObject".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/TestObject".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://example.org/prop1".to_string(),
+                    minCardinality: 1,
+                    ..Default::default()
+                },
+                OrmSchemaPredicate {
+                    iri: "http://example.org/prop2".to_string(),
+                    minCardinality: 0, // Optional
+                    ..Default::default()
+                },
+            ],
+        },
+    );
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/TestObject".to_string(),
+    };
+
+    // Generate and run query
+    let query = sparql_construct_from_orm_shape_type(&shape_type, Some(1)).unwrap();
+    let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
+        .await
+        .unwrap();
+
+    // Assert: One triple for prop1 should be returned.
+    assert_eq!(triples.len(), 1);
+    assert_eq!(triples[0].predicate.as_str(), "http://example.org/prop1");
+}
+
+#[async_std::test]
+async fn test_orm_query_cyclic_schema() {
+    // Setup
+    let (_wallet, session_id) = create_or_open_wallet().await;
+    let doc_nuri = doc_create(
+        session_id,
+        "Graph".to_string(),
+        "test_orm_cyclic".to_string(),
+        "store".to_string(),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    // Insert cyclic data (two people who know each other)
+    let insert_sparql = r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:p1> a ex:Person ; ex:name "Alice" ; ex:knows <urn:p2> .
+    <urn:p2> a ex:Person ; ex:name "Bob" ; ex:knows <urn:p1> .
+}
+"#
+    .to_string();
+    doc_sparql_update(session_id, insert_sparql, Some(doc_nuri.clone()))
+        .await
+        .unwrap();
+
+    // Cyclic schema: Person has a `knows` predicate pointing to another Person
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    minCardinality: 1,
+                    ..Default::default()
+                },
+                OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    minCardinality: 1,
+                    ..Default::default()
+                },
+                OrmSchemaPredicate {
+                    iri: "http://example.org/knows".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: -1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::shape,
+                        shape: Some("http://example.org/Person".to_string()),
+                        literals: None,
+                    }],
+                    ..Default::default()
+                },
+            ],
+        },
+    );
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/Person".to_string(),
+    };
+
+    // Generate and run query. This must not infinite loop.
+    let query = sparql_construct_from_orm_shape_type(&shape_type, Some(1)).unwrap();
+    log_info!("cyclic query result:\n{}", query);
+    let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
+        .await
+        .unwrap();
+
+    // Assert: All 6 triples (3 per person) should be returned.
+    log_info!("Triples:\n{:?}", triples);
+    assert_eq!(triples.len(), 24);
 }
