@@ -104,13 +104,20 @@ pub struct OrmSubscription<'a> {
     pub tracked_objects: HashMap<String, OrmTrackedSubjectAndShape<'a>>,
 }
 
+/// A struct for recording the state of subjects and its predicates
+/// relevant to its shape.
 #[derive(Clone, Debug)]
 pub struct OrmTrackedSubjectAndShape<'a> {
+    /// The known predicates (only those relevant to the shape).
+    /// If there are no triples with a predicate, they are discarded
     pub tracked_predicates: HashMap<String, OrmTrackedPredicate<'a>>,
-    // Parents and if they are currently tracking us.
+    /// If this is a nested subject, this records the parents
+    /// and if they are currently tracking this subject.
     pub parents: HashMap<String, (OrmTrackedSubjectAndShape<'a>, bool)>,
+    /// Validity. When untracked, triple updates are not processed here.
     pub valid: OrmTrackedSubjectValidity,
-    pub subj_iri: &'a String,
+    pub subject_iri: &'a String,
+    /// The shape for which the predicates are tracked.
     pub shape: &'a OrmSchemaShape,
 }
 
@@ -125,9 +132,14 @@ pub enum OrmTrackedSubjectValidity {
 
 #[derive(Clone, Debug)]
 pub struct OrmTrackedPredicate<'a> {
+    /// The predicate schema
     pub schema: &'a OrmSchemaPredicate,
+    /// TODO: This is not correctly implemented.
+    /// If the schema is a nested object, the children.
     pub tracked_children: Vec<Weak<OrmTrackedSubjectAndShape<'a>>>,
+    /// The count of triples for this subject and predicate.
     pub current_cardinality: i32,
+    /// If schema is of type literal, the currently present ones.
     pub current_literals: Option<Vec<BasicType>>,
 }
 
@@ -135,14 +147,16 @@ pub struct OrmTrackedPredicate<'a> {
 // in parallel to modifying the tracked objects and predicates.
 pub struct OrmTrackedSubjectChange<'a> {
     pub subject_iri: String,
+    /// Predicates that were changed.
     pub predicates: HashMap<String, OrmTrackedPredicateChanges<'a>>,
+    /// During validation, the current state of validity.
     pub valid: OrmTrackedSubjectValidity,
 }
 pub struct OrmTrackedPredicateChanges<'a> {
+    /// The tracked predicate for which those changes were recorded.
     pub tracked_predicate: &'a OrmTrackedPredicate<'a>,
     pub values_added: Vec<BasicType>,
     pub values_removed: Vec<BasicType>,
-    pub validity: OrmTrackedSubjectValidity,
 }
 
 #[derive(Clone, Debug)]

@@ -158,7 +158,7 @@ impl Verifier {
                     tracked_predicates: HashMap::new(),
                     parents: HashMap::new(),
                     valid: ng_net::orm::OrmTrackedSubjectValidity::NotEvaluated,
-                    subj_iri: subject_iri,
+                    subject_iri,
                     shape,
                 });
 
@@ -196,7 +196,6 @@ impl Verifier {
                             tracked_predicate: &tp,
                             values_added: Vec::new(),
                             values_removed: Vec::new(),
-                            validity: OrmTrackedSubjectValidity::NotEvaluated,
                         });
 
                     pred_changes.values_added.push(obj_term.clone());
@@ -434,7 +433,7 @@ impl Verifier {
                         {
                             if let Some(tc) = o.upgrade() {
                                 if tc.valid == OrmTrackedSubjectValidity::Untracked {
-                                    new_unknowns.push((tc.subj_iri, tc.shape, true));
+                                    new_unknowns.push((tc.subject_iri, tc.shape, true));
                                 }
                             }
                         }
@@ -1096,15 +1095,15 @@ fn oxrdf_term_to_orm_basic_type(term: &ng_oxigraph::oxrdf::Term) -> BasicType {
 }
 
 fn has_cycle(subject: &OrmTrackedSubjectAndShape, visited: &mut HashSet<String>) -> bool {
-    if visited.contains(subject.subj_iri) {
+    if visited.contains(subject.subject_iri) {
         return true;
     }
-    visited.insert(subject.subj_iri.clone());
+    visited.insert(subject.subject_iri.clone());
     for (_parent_iri, (parent_subject, _)) in &subject.parents {
         if has_cycle(parent_subject, visited) {
             return true;
         }
     }
-    visited.remove(subject.subj_iri);
+    visited.remove(subject.subject_iri);
     false
 }
