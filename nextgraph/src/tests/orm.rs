@@ -18,7 +18,7 @@ use ng_verifier::orm::sparql_construct_from_orm_shape_type;
 use std::collections::HashMap;
 
 #[async_std::test]
-async fn test_create_sparql_from_schema() {
+#async fn test_create_sparql_from_schema() {
     // Setup wallet and document
     let (_wallet, session_id) = create_or_open_wallet().await;
     let doc_nuri = doc_create(
@@ -536,5 +536,5 @@ INSERT DATA {
 
     // Assert: All 6 triples (3 per person) should be returned.
     log_info!("Triples:\n{:?}", triples);
-    assert_eq!(triples.len(), 24);
+    assert_eq!(triples.len(), 6);
 }

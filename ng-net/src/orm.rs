@@ -11,11 +11,14 @@
 
 #![allow(non_snake_case)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Weak};
 
 use serde::{Deserialize, Serialize};
 
 use serde_json::Value;
+
+use crate::app_protocol::AppResponse;
+use crate::utils::Sender;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmShapeType {
@@ -68,18 +71,18 @@ pub enum OrmSchemaLiteralType {
     shape,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
-pub enum OrmSchemaLiterals {
+pub enum BasicType {
     Bool(bool),
-    NumArray(Vec<f64>),
-    StrArray(Vec<String>),
+    Num(f64),
+    Str(String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmSchemaDataType {
     pub valType: OrmSchemaLiteralType,
-    pub literals: Option<OrmSchemaLiterals>,
+    pub literals: Option<Vec<BasicType>>,
     pub shape: Option<String>,
 }
 
@@ -89,9 +92,64 @@ pub struct OrmSchemaPredicate {
     pub iri: String,
     pub readablePredicate: String,
     /// `-1` for infinity
-    pub maxCardinality: i64,
-    pub minCardinality: i64,
+    pub maxCardinality: i32,
+    pub minCardinality: i32,
     pub extra: Option<bool>,
+}
+
+#[derive(Clone, Debug)]
+pub struct OrmSubscription<'a> {
+    pub sender: Sender<AppResponse>,
+    pub tracked_objects: HashMap<String, OrmTrackedSubject<'a>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct OrmTrackedSubject<'a> {
+    pub tracked_predicates: HashMap<String, OrmTrackedPredicate<'a>>,
+    // Parents and if they are currently tracking us.
+    pub parents: HashMap<String, (OrmTrackedSubject<'a>, bool)>,
+    pub valid: OrmTrackedSubjectValidity,
+    pub subj_iri: &'a String,
+    pub shape: &'a OrmSchemaShape,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum OrmTrackedSubjectValidity {
+    Valid,
+    Invalid,
+    Unknown,
+    Untracked,
+}
+
+#[derive(Clone, Debug)]
+pub struct OrmTrackedPredicate<'a> {
+    pub schema: &'a OrmSchemaPredicate,
+    pub tracked_children: Vec<Weak<OrmTrackedSubject<'a>>>,
+    pub current_cardinality: i32,
+    pub current_literals: Option<Vec<BasicType>>,
+}
+
+// Used only for tracking construction of new objects and diffs
+// in parallel to modifying the tracked objects and predicates.
+pub struct OrmTrackedSubjectChange<'a> {
+    pub subject_iri: String,
+    pub predicates: HashMap<String, OrmTrackedPredicateChanges<'a>>,
+    pub valid: OrmTrackedSubjectValidity,
+    pub tracked_subject: &'a OrmTrackedSubject<'a>,
+}
+pub struct OrmTrackedPredicateChanges<'a> {
+    pub tracked_predicate: &'a OrmTrackedPredicate<'a>,
+    pub values_added: Vec<BasicType>,
+    pub values_removed: Vec<BasicType>,
+    pub validity: OrmTrackedSubjectValidity,
+}
+
+#[derive(Clone, Debug)]
+pub enum Term {
+    Str(String),
+    Num(f64),
+    Bool(bool),
+    Ref(String),
 }
 
 impl Default for OrmSchemaDataType {
@@ -120,6 +178,6 @@ impl Default for OrmSchemaPredicate {
 /** == Internal data types == */
 #[derive(Clone, Debug)]
 pub struct OrmShapeTypeRef {
-    ref_count: u64,
-    shape_type: OrmShapeType,
+    pub ref_count: u64,
+    pub shape_type: OrmShapeType,
 }
