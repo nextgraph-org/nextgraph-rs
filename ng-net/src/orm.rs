@@ -11,6 +11,7 @@
 
 #![allow(non_snake_case)]
 
+use std::collections::HashSet;
 use std::{collections::HashMap, rc::Weak};
 
 use serde::{Deserialize, Serialize};
@@ -100,14 +101,14 @@ pub struct OrmSchemaPredicate {
 #[derive(Clone, Debug)]
 pub struct OrmSubscription<'a> {
     pub sender: Sender<AppResponse>,
-    pub tracked_objects: HashMap<String, OrmTrackedSubject<'a>>,
+    pub tracked_objects: HashMap<String, OrmTrackedSubjectAndShape<'a>>,
 }
 
 #[derive(Clone, Debug)]
-pub struct OrmTrackedSubject<'a> {
+pub struct OrmTrackedSubjectAndShape<'a> {
     pub tracked_predicates: HashMap<String, OrmTrackedPredicate<'a>>,
     // Parents and if they are currently tracking us.
-    pub parents: HashMap<String, (OrmTrackedSubject<'a>, bool)>,
+    pub parents: HashMap<String, (OrmTrackedSubjectAndShape<'a>, bool)>,
     pub valid: OrmTrackedSubjectValidity,
     pub subj_iri: &'a String,
     pub shape: &'a OrmSchemaShape,
@@ -117,14 +118,15 @@ pub struct OrmTrackedSubject<'a> {
 pub enum OrmTrackedSubjectValidity {
     Valid,
     Invalid,
-    Unknown,
+    NotEvaluated,
     Untracked,
+    NeedsFetch,
 }
 
 #[derive(Clone, Debug)]
 pub struct OrmTrackedPredicate<'a> {
     pub schema: &'a OrmSchemaPredicate,
-    pub tracked_children: Vec<Weak<OrmTrackedSubject<'a>>>,
+    pub tracked_children: Vec<Weak<OrmTrackedSubjectAndShape<'a>>>,
     pub current_cardinality: i32,
     pub current_literals: Option<Vec<BasicType>>,
 }
@@ -135,7 +137,6 @@ pub struct OrmTrackedSubjectChange<'a> {
     pub subject_iri: String,
     pub predicates: HashMap<String, OrmTrackedPredicateChanges<'a>>,
     pub valid: OrmTrackedSubjectValidity,
-    pub tracked_subject: &'a OrmTrackedSubject<'a>,
 }
 pub struct OrmTrackedPredicateChanges<'a> {
     pub tracked_predicate: &'a OrmTrackedPredicate<'a>,
