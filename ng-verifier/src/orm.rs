@@ -43,6 +43,7 @@ use ng_repo::errors::NgError;
 use ng_repo::errors::VerifierError;
 use ng_repo::log::*;
 use regex::Regex;
+use serde::de::IntoDeserializer;
 use serde_json::json;
 use serde_json::Value;
 
@@ -599,23 +600,105 @@ impl Verifier {
         shape: &OrmSchemaShape,
         triples: &Vec<Triple>,
     ) -> Result<Value, NgError> {
-        let changes = self.apply_changes_from_triples(scope, schema, shape, triples, vec![]);
+        let changes = self.apply_changes_from_triples(scope, schema, shape, triples, &vec![]);
 
-        let root_changes = changes.get(shape.iri).unwrap().values();
+        let root_changes = changes.get(&shape.iri).unwrap().values();
         let valid_roots = root_changes.filter(|v| v.valid == OrmTrackedSubjectValidity::Valid);
 
         let mut return_vals: Value = Value::Array(vec![]);
-        for root_change in root_changes {
-            let new_val = json!({"id": root_change.subject_iri});
-            for (pred_iri, pred_change) in root_change.predicates {
-                // Add the readable predicate name
-                let property_name = pred_change.tracked_predicate.schema.readablePredicate;
+        let return_val_vec = return_vals.as_array_mut().unwrap();
 
-                // For basic values, add value.
-                // For arrays of basic values, add array.
-                // For single nested object, add object.
-                // For multiple nested objects, create object with iri keys.
+        fn create_value_from_change(
+            change: &OrmTrackedSubjectChange,
+            changes: &HashMap<String, HashMap<String, OrmTrackedSubjectChange<'_>>>,
+            shape: &OrmSchemaShape,
+            schema: &OrmSchema,
+        ) -> Value {
+            let mut new_val = json!({"id": change.subject_iri});
+            let new_val_map = new_val.as_object_mut().unwrap();
+            for pred_schema in &shape.predicates {
+                let property_name = pred_schema.readablePredicate.clone();
+                let is_multi = pred_schema.maxCardinality > 1;
+                let pred_change = change.predicates.get(&pred_schema.iri).unwrap();
+
+                if pred_schema
+                    .dataTypes
+                    .iter()
+                    .any(|dt| dt.valType == OrmSchemaLiteralType::shape)
+                {
+                    // Helper to create nested objects.
+                    let get_nested_value = |object_iri: &String| {
+                        let shape_iris: Vec<String> = pred_schema
+                            .dataTypes
+                            .iter()
+                            .flat_map(|dt| dt.shape.clone())
+                            .collect();
+
+                        // Find subject_change for this subject. There exists at least one (shape, subject).
+                        let nested_subject_change = shape_iris
+                            .iter()
+                            .find_map(|shape_iri| {
+                                changes
+                                    .get(shape_iri)
+                                    .and_then(|subject_changes| subject_changes.get(object_iri))
+                            })
+                            .unwrap();
+
+                        // Recurse
+                        create_value_from_change(
+                            nested_subject_change,
+                            changes,
+                            schema.get(&nested_subject_change.subject_iri).unwrap(),
+                            schema,
+                        )
+                    };
+
+                    if is_multi {
+                        // Add each value to a new object (predicate being object IRIs).
+                        let mut nested_objects = json!({"id": change.subject_iri});
+                        let nested_objects_map = nested_objects.as_object_mut().unwrap();
+
+                        for new_val in &pred_change.values_added {
+                            if let BasicType::Str(object_iri) = new_val {
+                                new_val_map
+                                    .insert(object_iri.clone(), get_nested_value(&object_iri));
+                            }
+                        }
+                    } else {
+                        if let Some(BasicType::Str(object_iri)) = pred_change.values_added.get(0) {
+                            new_val_map.insert(property_name.clone(), get_nested_value(object_iri));
+                        }
+                    }
+                } else {
+                    if is_multi {
+                        // Add values as array.
+                        new_val_map.insert(
+                            property_name,
+                            Value::Array(
+                                pred_change.values_added.iter().map(|v| json!(v)).collect(),
+                            ),
+                        );
+                    } else {
+                        // Add value as primitive, if present.
+                        if let Some(val) = pred_change.values_added.get(0) {
+                            new_val_map.insert(
+                                property_name,
+                                match val {
+                                    BasicType::Bool(b) => json!(b),
+                                    BasicType::Num(n) => json!(n),
+                                    BasicType::Str(s) => json!(s),
+                                },
+                            );
+                        }
+                    }
+                }
             }
+            return new_val;
+        }
+
+        for root_change in valid_roots {
+            let new_val = create_value_from_change(root_change, &changes, shape, schema);
+            return_val_vec.push(new_val);
         }
 
         return Ok(return_vals);
