@@ -116,7 +116,7 @@ pub struct OrmTrackedSubjectAndShape<'a> {
     pub parents: HashMap<String, (OrmTrackedSubjectAndShape<'a>, bool)>,
     /// Validity. When untracked, triple updates are not processed here.
     pub valid: OrmTrackedSubjectValidity,
-    pub subject_iri: &'a String,
+    pub subject_iri: String,
     /// The shape for which the predicates are tracked.
     pub shape: &'a OrmSchemaShape,
 }
@@ -134,7 +134,6 @@ pub enum OrmTrackedSubjectValidity {
 pub struct OrmTrackedPredicate<'a> {
     /// The predicate schema
     pub schema: &'a OrmSchemaPredicate,
-    /// TODO: This is not correctly implemented.
     /// If the schema is a nested object, the children.
     pub tracked_children: Vec<Weak<OrmTrackedSubjectAndShape<'a>>>,
     /// The count of triples for this subject and predicate.
@@ -149,7 +148,7 @@ pub struct OrmTrackedSubjectChange<'a> {
     pub subject_iri: String,
     /// Predicates that were changed.
     pub predicates: HashMap<String, OrmTrackedPredicateChanges<'a>>,
-    /// During validation, the current state of validity.
+    /// During validation, the current state of validity (can be subject to change).
     pub valid: OrmTrackedSubjectValidity,
 }
 pub struct OrmTrackedPredicateChanges<'a> {
