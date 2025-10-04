@@ -2761,7 +2761,7 @@ pub async fn doc_sparql_construct(
 ) -> Result<Vec<Triple>, NgError> {
     let broker = get_broker().await?;
     let session = broker.get_session(session_id)?;
-    session.verifier.sparql_construct(sparql, nuri)
+    session.verifier.query_sparql_construct(sparql, nuri)
 }
 
 pub async fn doc_create(

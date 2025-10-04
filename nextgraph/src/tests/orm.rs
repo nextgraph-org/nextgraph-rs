@@ -14,7 +14,7 @@ use ng_net::orm::{
     OrmShapeType,
 };
 use ng_repo::log_info;
-use ng_verifier::orm::sparql_construct_from_orm_shape_type;
+use ng_verifier::orm::shape_type_to_sparql;
 use std::collections::HashMap;
 
 #[async_std::test]
@@ -287,7 +287,7 @@ INSERT DATA {
     };
 
     // Generate and execute the CONSTRUCT query
-    let query = sparql_construct_from_orm_shape_type(&shape_type, Some(1)).unwrap();
+    let query = shape_type_to_sparql(&shape_type, Some(1)).unwrap();
 
     let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
         .await
@@ -390,7 +390,7 @@ INSERT DATA {
     };
 
     // Generate and run query
-    let query = sparql_construct_from_orm_shape_type(&shape_type, Some(1)).unwrap();
+    let query = shape_type_to_sparql(&shape_type, Some(1)).unwrap();
     let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
         .await
         .unwrap();
@@ -453,7 +453,7 @@ INSERT DATA {
     };
 
     // Generate and run query
-    let query = sparql_construct_from_orm_shape_type(&shape_type, Some(1)).unwrap();
+    let query = shape_type_to_sparql(&shape_type, Some(1)).unwrap();
     let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
         .await
         .unwrap();
@@ -528,7 +528,7 @@ INSERT DATA {
     };
 
     // Generate and run query. This must not infinite loop.
-    let query = sparql_construct_from_orm_shape_type(&shape_type, Some(1)).unwrap();
+    let query = shape_type_to_sparql(&shape_type, Some(1)).unwrap();
     log_info!("cyclic query result:\n{}", query);
     let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
         .await

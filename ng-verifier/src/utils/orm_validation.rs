@@ -58,10 +58,8 @@ pub fn group_by_subject_for_shape<'a>(
 /// Add all triples to `subject_changes`
 /// Returns predicates to nested objects that were touched and need processing.
 /// Assumes all triples have same subject.
-use std::sync::Arc;
-
 pub fn add_remove_triples_mut(
-    shape: &Arc<OrmSchemaShape>,
+    shape: &OrmSchemaShape,
     subject_iri: &str,
     triples_added: &[&Triple],
     triples_removed: &[&Triple],
@@ -90,9 +88,8 @@ pub fn add_remove_triples_mut(
     let tracked_subject = get_or_create_tracked_subject(subject_iri, &shape.iri, tracked_subjects);
 
     // Process added triples.
-    // For each triple, check matching predicates in shape.
-    // keeping track of value count (for later validations).
-    // In parallel, we keep track of the values added (tracked_changes)
+    // For each triple, check if it matches the shape.
+    // In parallel, we record the values added and removed (tracked_changes)
     for triple in triples_added {
         for predicate_schema in &shape.predicates {
             if predicate_schema.iri != triple.predicate.as_str() {
@@ -232,22 +229,17 @@ pub fn update_subject_validity<'a>(
     shape: &OrmSchemaShape,
     tracked_subjects: &HashMap<String, HashMap<String, OrmTrackedSubject<'a>>>,
     previous_validity: OrmTrackedSubjectValidity,
-) -> (
-    OrmTrackedSubjectValidity,
-    // Vec<subject_iri, shape_iri>
-    Vec<(String, String)>,
-) {
+) -> Vec<(String, String, bool)> {
     let Some(tracked_shapes) = tracked_subjects.get_mut(subject_iri) else {
-        return (previous_validity, vec![]);
+        return vec![];
     };
     let Some(tracked_subject) = tracked_shapes.get_mut(&shape.iri) else {
-        return (previous_validity, vec![]);
+        return vec![];
     };
+    // Keep track of objects that need to be validated against a shape to fetch and validate.
+    let mut need_evaluation: Vec<(String, String, bool)> = vec![];
 
-    // Check 1) Check if we need to fetch this object.
-    // If this subject has not been monitored but parents are now valid or need evaluation, we fetch.
-
-    // Check 2) If all parents are untracked, return untracked.
+    // Check 1) Check if we need to fetch this object or all parents are untracked.
     if tracked_subject.parents.len() != 0 {
         let no_parents_tracking = tracked_subject.parents.values().all(|parent| {
             parent.valid == OrmTrackedSubjectValidity::Untracked
@@ -258,19 +250,20 @@ pub fn update_subject_validity<'a>(
             // Remove tracked predicates and set untracked.
             tracked_subject.tracked_predicates = HashMap::new();
             tracked_subject.valid = OrmTrackedSubjectValidity::Untracked;
-            return (OrmTrackedSubjectValidity::Untracked, vec![]);
+            return vec![];
         } else if !no_parents_tracking && previous_validity == OrmTrackedSubjectValidity::Untracked
         {
             // We need to fetch the subject's current state:
             // We have new parents but were previously not recording changes.
 
+            return vec![(s_change.subject_iri,)];
             // TODO
         }
     }
 
     // Check 2) If there are no changes, there is nothing to do.
     if s_change.predicates.is_empty() {
-        return (previous_validity, vec![]);
+        return vec![];
     }
 
     let mut new_validity = OrmTrackedSubjectValidity::Valid;
@@ -288,11 +281,8 @@ pub fn update_subject_validity<'a>(
         // Remove tracked predicates and set invalid.
         tracked_subject.tracked_predicates = HashMap::new();
         tracked_subject.valid = OrmTrackedSubjectValidity::Invalid;
-        return (OrmTrackedSubjectValidity::Invalid, vec![]);
+        return vec![];
     }
-
-    // Keep track of objects that need to be validated against a shape to fetch and validate.
-    let mut need_evaluation: Vec<(String, String)> = vec![];
 
     // Check 4) Validate subject against each predicate in shape.
     for p_schema in shape.predicates.iter() {
@@ -484,32 +474,26 @@ pub fn update_subject_validity<'a>(
         && previous_validity != OrmTrackedSubjectValidity::Valid
     {
         // If this subject became valid, we need to refetch this subject;
-        // For that we prepend self to needs_fetch.
-        need_evaluation.insert(0, (s_change.subject_iri, shape.iri.clone()));
+        // We fetch
+        need_evaluation.insert(0, (s_change.subject_iri, shape.iri.clone(), true));
     }
 
     // If validity changed, parents need to be re-evaluated.
     if new_validity != previous_validity {
         // We return the tracking parents which need re-evaluation.
         // Remember that the last elements (i.e. children or needs_fetch) are evaluated first.
-        return (
-            new_validity,
-            // Add parents and objects in `need_evaluation`.
-            tracked_subject
-                .parents
-                .values()
-                // Inform tracking parents only.
-                .filter(|(parent, is_tracked)| *is_tracked)
-                .map(|(parent, is_tracked)| (&parent.subject_iri, parent.shape))
-                // Add `need_evaluation`.
-                .chain(need_evaluation)
-                .collect(),
-        );
+        return tracked_subject
+            .parents
+            .values()
+            .map(|parent| (&parent.subject_iri, parent.shape, false))
+            // Add `need_evaluation`.
+            .chain(need_evaluation)
+            .collect();
     }
 
     tracked_subject.valid = new_validity;
 
-    return (new_validity, need_evaluation);
+    return need_evaluation;
 }
 
 fn oxrdf_term_to_orm_basic_type(term: &ng_oxigraph::oxrdf::Term) -> BasicType {
