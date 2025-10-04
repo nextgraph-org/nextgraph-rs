@@ -54,7 +54,7 @@ impl Verifier {
         match command {
             AppRequestCommandV0::OrmStart => match _payload {
                 Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmStart(shape_type))) => {
-                    self.start_orm(nuri, shape_type, session_id).await
+                    self.start_orm(nuri, &shape_type, session_id).await
                 }
                 _ => return Err(NgError::InvalidArgument),
             },

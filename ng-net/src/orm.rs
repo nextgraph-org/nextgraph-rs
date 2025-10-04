@@ -11,14 +11,16 @@
 
 #![allow(non_snake_case)]
 
-use std::collections::HashSet;
-use std::{collections::HashMap, rc::Weak};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Weak},
+};
 
 use serde::{Deserialize, Serialize};
 
 use serde_json::Value;
 
-use crate::app_protocol::AppResponse;
+use crate::app_protocol::{AppResponse, NuriV0};
 use crate::utils::Sender;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -52,7 +54,6 @@ pub struct OrmDiffOp {
 
 pub type OrmDiff = Vec<OrmDiffOp>;
 
-/* == ORM Schema == */
 pub type OrmSchema = HashMap<String, OrmSchemaShape>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -98,44 +99,37 @@ pub struct OrmSchemaPredicate {
     pub extra: Option<bool>,
 }
 
-#[derive(Clone, Debug)]
-pub struct OrmSubscription<'a> {
-    pub sender: Sender<AppResponse>,
-    pub tracked_objects: HashMap<String, OrmTrackedSubjectAndShape<'a>>,
-}
-
 /// A struct for recording the state of subjects and its predicates
 /// relevant to its shape.
 #[derive(Clone, Debug)]
-pub struct OrmTrackedSubjectAndShape<'a> {
+pub struct OrmTrackedSubject {
     /// The known predicates (only those relevant to the shape).
     /// If there are no triples with a predicate, they are discarded
-    pub tracked_predicates: HashMap<String, OrmTrackedPredicate<'a>>,
+    pub tracked_predicates: HashMap<String, OrmTrackedPredicate>,
     /// If this is a nested subject, this records the parents
     /// and if they are currently tracking this subject.
-    pub parents: HashMap<String, (OrmTrackedSubjectAndShape<'a>, bool)>,
+    pub parents: HashMap<String, OrmTrackedSubject>,
     /// Validity. When untracked, triple updates are not processed here.
     pub valid: OrmTrackedSubjectValidity,
     pub subject_iri: String,
     /// The shape for which the predicates are tracked.
-    pub shape: &'a OrmSchemaShape,
+    pub shape: Arc<OrmSchemaShape>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OrmTrackedSubjectValidity {
     Valid,
     Invalid,
-    NotEvaluated,
+    Pending,
     Untracked,
-    NeedsFetch,
 }
 
 #[derive(Clone, Debug)]
-pub struct OrmTrackedPredicate<'a> {
+pub struct OrmTrackedPredicate {
     /// The predicate schema
-    pub schema: &'a OrmSchemaPredicate,
+    pub schema: Arc<OrmSchemaPredicate>,
     /// If the schema is a nested object, the children.
-    pub tracked_children: Vec<Weak<OrmTrackedSubjectAndShape<'a>>>,
+    pub tracked_children: Vec<Weak<OrmTrackedSubject>>,
     /// The count of triples for this subject and predicate.
     pub current_cardinality: i32,
     /// If schema is of type literal, the currently present ones.
@@ -148,12 +142,10 @@ pub struct OrmTrackedSubjectChange<'a> {
     pub subject_iri: String,
     /// Predicates that were changed.
     pub predicates: HashMap<String, OrmTrackedPredicateChanges<'a>>,
-    /// During validation, the current state of validity (can be subject to change).
-    pub valid: OrmTrackedSubjectValidity,
 }
 pub struct OrmTrackedPredicateChanges<'a> {
     /// The tracked predicate for which those changes were recorded.
-    pub tracked_predicate: &'a OrmTrackedPredicate<'a>,
+    pub tracked_predicate: &'a OrmTrackedPredicate,
     pub values_added: Vec<BasicType>,
     pub values_removed: Vec<BasicType>,
 }
@@ -165,6 +157,17 @@ pub enum Term {
     Bool(bool),
     Ref(String),
 }
+
+#[derive(Clone, Debug)]
+pub struct OrmSubscription {
+    pub shape_type: OrmShapeType,
+    pub session_id: u64,
+    pub nuri: NuriV0,
+    pub sender: Sender<AppResponse>,
+    pub tracked_subjects: HashMap<SubjectIri, HashMap<ShapeIri, OrmTrackedSubject>>,
+}
+type ShapeIri = String;
+type SubjectIri = String;
 
 impl Default for OrmSchemaDataType {
     fn default() -> Self {
@@ -187,11 +190,4 @@ impl Default for OrmSchemaPredicate {
             extra: None,
         }
     }
-}
-
-/** == Internal data types == */
-#[derive(Clone, Debug)]
-pub struct OrmShapeTypeRef {
-    pub ref_count: u64,
-    pub shape_type: OrmShapeType,
 }

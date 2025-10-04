@@ -19,15 +19,12 @@ use std::fs::create_dir_all;
 use std::fs::{read, File, OpenOptions};
 #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use std::io::Write;
-use std::rc::Weak;
 use std::{collections::HashMap, sync::Arc};
 
 use async_std::stream::StreamExt;
 use async_std::sync::{Mutex, RwLockReadGuard};
 use futures::channel::mpsc;
 use futures::SinkExt;
-use ng_net::orm::OrmSchemaPredicate;
-use ng_net::orm::OrmShapeTypeRef;
 use ng_net::orm::OrmSubscription;
 use ng_oxigraph::oxigraph::sparql::Query;
 use ng_oxigraph::oxigraph::sparql::QueryResults;
@@ -115,11 +112,11 @@ pub struct Verifier {
     in_memory_outbox: Vec<EventOutboxStorage>,
     uploads: BTreeMap<u32, RandomAccessFile>,
     branch_subscriptions: HashMap<BranchId, Sender<AppResponse>>,
-    pub(crate) orm_tracked_subjects:
-        HashMap<NuriV0, HashMap<String, HashMap<u64, OrmSubscription>>>,
-    pub(crate) orm_shape_types: HashMap<String, OrmShapeTypeRef>,
+    pub(crate) orm_subscriptions: HashMap<NuriV0, OrmSubscription>,
     pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
 }
+
+type SessionId = u64;
 
 impl fmt::Debug for Verifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -523,8 +520,7 @@ impl Verifier {
             inner_to_outer: HashMap::new(),
             uploads: BTreeMap::new(),
             branch_subscriptions: HashMap::new(),
-            orm_tracked_subjects: HashMap::new(),
-            orm_shape_types: HashMap::new(),
+            orm_subscriptions: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
         }
     }
@@ -2816,8 +2812,7 @@ impl Verifier {
             inner_to_outer: HashMap::new(),
             uploads: BTreeMap::new(),
             branch_subscriptions: HashMap::new(),
-            orm_tracked_subjects: HashMap::new(),
-            orm_shape_types: HashMap::new(),
+            orm_subscriptions: HashMap::new(),
             temporary_repo_certificates: HashMap::new(),
         };
         // this is important as it will load the last seq from storage
