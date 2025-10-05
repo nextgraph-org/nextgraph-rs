@@ -8,22 +8,16 @@
 // according to those terms.
 
 use futures::channel::mpsc;
-use ng_net::orm::OrmSubscription;
+
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use futures::SinkExt;
 use lazy_static::lazy_static;
-use ng_net::orm::BasicType;
-pub use ng_net::orm::OrmDiff;
-use ng_net::orm::OrmSchemaLiteralType;
-pub use ng_net::orm::OrmShapeType;
-use ng_net::orm::OrmTrackedSubject;
-use ng_net::orm::OrmTrackedSubjectChange;
-use ng_net::orm::OrmTrackedSubjectValidity;
-use ng_net::orm::{OrmSchemaDataType, OrmSchemaShape};
 use ng_net::utils::Receiver;
-use ng_net::{app_protocol::*, orm::OrmSchema};
+use ng_net::{app_protocol::*, orm::*};
+pub use ng_net::orm::{OrmDiff, OrmShapeType};
 use ng_oxigraph::oxigraph::sparql::{Query, QueryResults};
 use ng_oxigraph::oxrdf::Triple;
 use ng_repo::errors::NgError;
@@ -42,7 +36,7 @@ type SubjectIri = String;
 // Structure to store changes in. By shape iri > subject iri > OrmTrackedSubjectChange
 // **NOTE**: In comparison to OrmSubscription.tracked_subjects, the outer hashmap's keys are shape IRIs.
 // (shape IRI -> (subject IRI -> OrmTrackedSubjectChange))
-type OrmChanges<'a> = HashMap<ShapeIri, HashMap<SubjectIri, OrmTrackedSubjectChange<'a>>>;
+type OrmChanges = HashMap<ShapeIri, HashMap<SubjectIri, OrmTrackedSubjectChange>>;
 
 impl Verifier {
     pub fn query_sparql_construct(
@@ -83,44 +77,45 @@ impl Verifier {
         }
     }
 
-    fn process_changes_for_subscription<'a>(
+    fn process_changes_for_subscription(
         self: &mut Self,
-        orm_subscription: &'a mut OrmSubscription,
-        triples_added: &'a [Triple],
-        triples_removed: &'a [Triple],
-        nuri: &String,
-    ) -> Result<OrmChanges<'a>, NgError> {
-        let tracked_subjects = &mut orm_subscription.tracked_subjects;
+        nuri: &NuriV0,
+        triples_added: &[Triple],
+        triples_removed: &[Triple]
+    ) -> Result<OrmChanges, NgError> {
+        let orm_subscription = self.orm_subscriptions.get(nuri).unwrap();
+        //let tracked_subjects = orm_subscription.tracked_subjects;
         let schema = &orm_subscription.shape_type.schema;
         let root_shape = schema
             .get(&orm_subscription.shape_type.shape)
             .ok_or(VerifierError::InvalidOrmSchema)?;
 
-        return self.process_changes_for_subject_and_shape(
-            root_shape,
-            tracked_subjects,
-            schema,
+        let mut orm_changes = HashMap::new();
+        self.process_changes_for_subject_and_shape(
+            root_shape.clone(),
             triples_added,
             triples_removed,
             nuri,
-            None,
-        );
+            &mut orm_changes,
+        )?;
+        Ok(orm_changes)
     }
 
-    fn process_changes_for_subject_and_shape<'a>(
+    fn process_changes_for_subject_and_shape(
         self: &mut Self,
-        root_shape: &OrmSchemaShape,
-        tracked_subjects: &mut HashMap<String, HashMap<String, OrmTrackedSubject>>,
-        schema: &OrmSchema,
-        triples_added: &'a [Triple],
-        triples_removed: &'a [Triple],
-        nuri: &String,
-        mut orm_changes: Option<OrmChanges<'a>>,
-    ) -> Result<OrmChanges<'a>, NgError> {
-        let mut orm_changes: OrmChanges<'a> = orm_changes.take().unwrap_or_else(HashMap::new);
+        root_shape: Arc<OrmSchemaShape>,
+        triples_added: &[Triple],
+        triples_removed: &[Triple],
+        nuri: &NuriV0,
+        orm_changes: &mut OrmChanges,
+    ) -> Result<(), NgError> {
+        let nuri_repo = nuri.repo();
+        //let orm_subscription = self.orm_subscriptions.get(nuri).unwrap();
+        //let tracked_subjects = orm_subscription.tracked_subjects;
+        //let schema = &orm_subscription.shape_type.schema;
 
         // First in, last out stack to keep track of objects to validate (nested objects first). Strings are object IRIs.
-        let mut shape_validation_queue: Vec<(&OrmSchemaShape, Vec<String>)> = vec![];
+        let mut shape_validation_queue: Vec<(Arc<OrmSchemaShape>, Vec<String>)> = vec![];
         // Add root shape for first validation run.
         shape_validation_queue.push((root_shape, vec![]));
 
@@ -129,9 +124,9 @@ impl Verifier {
         while let Some((shape, objects_to_validate)) = shape_validation_queue.pop() {
             // Collect triples relevant for validation.
             let added_triples_by_subject =
-                group_by_subject_for_shape(shape, triples_added, &objects_to_validate);
+                group_by_subject_for_shape(&shape, triples_added, &objects_to_validate);
             let removed_triples_by_subject =
-                group_by_subject_for_shape(shape, triples_removed, &objects_to_validate);
+                group_by_subject_for_shape(&shape, triples_removed, &objects_to_validate);
             let all_modified_subjects: HashSet<&SubjectIri> = added_triples_by_subject
                 .keys()
                 .chain(removed_triples_by_subject.keys())
@@ -165,37 +160,46 @@ impl Verifier {
 
                 // Apply all triples for that subject to the tracked (shape, subject) pair.
                 // Record the changes.
-                if let Err(e) = add_remove_triples_mut(
-                    shape,
-                    subject_iri,
-                    triples_added_for_subj,
-                    triples_removed_for_subj,
-                    tracked_subjects,
-                    change,
-                ) {
-                    log_err!("apply_changes_from_triples add/remove error: {:?}", e);
-                }
+                {
+                    let orm_subscription = self.orm_subscriptions.get_mut(nuri).unwrap();
+                    if let Err(e) = add_remove_triples_mut(
+                        shape.clone(),
+                        subject_iri,
+                        triples_added_for_subj,
+                        triples_removed_for_subj,
+                        &mut orm_subscription.tracked_subjects,
+                        change,
+                    ) {
+                        log_err!("apply_changes_from_triples add/remove error: {:?}", e);
+                    }
+                
+                
+                    let validity = {
+                        let tracked_subject_opt = orm_subscription.tracked_subjects
+                            .get(subject_iri)
+                            .and_then(|m| m.get(&shape.iri));
+                        let Some(tracked_subject) = tracked_subject_opt else {
+                            continue;
+                        }; // skip if missing
+                        tracked_subject.valid.clone()
+                    };
+                    // Validate the subject.
+                    let need_eval =
+                        update_subject_validity(change, &shape, &mut orm_subscription.tracked_subjects, validity);
 
-                let tracked_subject_opt = tracked_subjects
-                    .get_mut(subject_iri)
-                    .and_then(|m| m.get_mut(&shape.iri));
-                let Some(tracked_subject) = tracked_subject_opt else {
-                    continue;
-                }; // skip if missing
-
-                // Validate the subject.
-                let need_eval =
-                    update_subject_validity(change, shape, tracked_subjects, tracked_subject.valid);
-
-                // We add the need_eval to be processed next after loop.
-                for (iri, schema_shape, needs_refetch) in need_eval {
-                    // Add to nested_objects_to_validate.
-                    nested_objects_to_eval
-                        .entry(schema_shape)
-                        .or_insert_with(Vec::new)
-                        .push((iri.clone(), needs_refetch));
+                    // We add the need_eval to be processed next after loop.
+                    for (iri, schema_shape, needs_refetch) in need_eval {
+                        // Add to nested_objects_to_validate.
+                        nested_objects_to_eval
+                            .entry(schema_shape)
+                            .or_insert_with(Vec::new)
+                            .push((iri.clone(), needs_refetch));
+                    }
                 }
             }
+
+            let orm_subscription = self.orm_subscriptions.get(nuri).unwrap();
+            let schema = &orm_subscription.shape_type.schema;
 
             // Now, we fetch all un-fetched subjects for re-evaluation.
             for (shape_iri, objects_to_eval) in &nested_objects_to_eval {
@@ -211,16 +215,14 @@ impl Verifier {
                 // Create sparql query
                 let shape_query =
                     shape_type_to_sparql(&schema, &shape_iri, Some(objects_to_fetch))?;
-                let new_triples = self.query_sparql_construct(shape_query, Some(nuri.clone()))?;
-                orm_changes = self.process_changes_for_subject_and_shape(
-                    shape,
-                    tracked_subjects,
-                    schema,
-                    new_triples,
-                    &vec![],
-                    nuri,
-                    Some(orm_changes),
-                )?;
+                let new_triples = self.query_sparql_construct(shape_query, Some(nuri_repo.clone()))?;
+                // self.process_changes_for_subject_and_shape(
+                //     shape.clone(),
+                //     &new_triples,
+                //     &vec![],
+                //     nuri,
+                //     orm_changes,
+                // )?;
             }
             // Now, add all subjects to the queue that did not need a fetch.
             for (shape_iri, objects_to_eval) in &nested_objects_to_eval {
@@ -233,33 +235,32 @@ impl Verifier {
                     .get(shape_iri)
                     .ok_or(VerifierError::InvalidOrmSchema)?;
 
-                shape_validation_queue.push((shape, objects_to_fetch));
+                shape_validation_queue.push((shape.clone(), objects_to_fetch));
             }
         }
 
-        Ok(orm_changes)
+        Ok(())
     }
 
-    fn apply_triple_changes<'a>(
-        &'a mut self,
-        triples_added: &'a [Triple],
-        triples_removed: &'a [Triple],
+    fn apply_triple_changes(
+        &mut self,
+        triples_added: &[Triple],
+        triples_removed: &[Triple],
         only_for_nuri: Option<&NuriV0>,
         only_for_session_id: Option<u64>,
-    ) -> Result<OrmChanges<'a>, NgError> {
+    ) -> Result<OrmChanges, NgError> {
         // If we have a specific session, handle only that subscription.
         if let Some(session_id) = only_for_session_id {
             if let Some((nuri, sub)) = self
                 .orm_subscriptions
-                .iter_mut()
+                .iter()
                 .find(|(_, s)| s.session_id == session_id)
             {
                 // TODO: Is repo correct?
                 return self.process_changes_for_subscription(
-                    sub,
+                    &nuri.clone(),
                     triples_added,
-                    triples_removed,
-                    &nuri.repo(),
+                    triples_removed
                 );
             } else {
                 return Ok(HashMap::new());
@@ -268,17 +269,19 @@ impl Verifier {
 
         // Otherwise, iterate all (optionally filter by nuri) and merge.
         let mut merged: OrmChanges = HashMap::new();
-        for (nuri, sub) in self.orm_subscriptions.iter_mut() {
+        for nuri in self.orm_subscriptions.iter().filter(|(nuri,_)|{
             if let Some(filter_nuri) = only_for_nuri {
-                if nuri != filter_nuri {
-                    continue;
+                if *nuri != filter_nuri {
+                    return false;
                 }
             }
+            true
+        }).map(|(nuri,_)| nuri.clone()).collect::<Vec<_>>() {
+            
             let changes = self.process_changes_for_subscription(
-                sub,
+                &nuri,
                 triples_added,
                 triples_removed,
-                &nuri.repo(), // TODO: Is this correct?
             )?;
             for (shape_iri, subj_map) in changes {
                 merged
@@ -294,7 +297,7 @@ impl Verifier {
         change: &OrmTrackedSubjectChange,
         changes: &OrmChanges,
         shape: &OrmSchemaShape,
-        tracked_subjects: &HashMap<String, HashMap<String, OrmTrackedSubject>>,
+        tracked_subjects: &HashMap<String, HashMap<String, Arc<OrmTrackedSubject>>>,
     ) -> Value {
         let mut orm_obj = json!({"id": change.subject_iri});
         let orm_obj_map = orm_obj.as_object_mut().unwrap();
@@ -413,17 +416,22 @@ impl Verifier {
 
     fn create_orm_from_triples(
         &mut self,
-        orm_subscription: &OrmSubscription,
+        nuri: &NuriV0,
         triples: &[Triple],
     ) -> Result<Value, NgError> {
+        let session_id = {
+            let orm_subscription = self.orm_subscriptions.get(nuri).unwrap();
+            orm_subscription.session_id
+        };
+        let changes: OrmChanges =
+            self.apply_triple_changes(triples, &[], None, Some(session_id))?;
+
+        let orm_subscription = self.orm_subscriptions.get(nuri).unwrap();
         let root_shape_iri = &orm_subscription.shape_type.shape;
         let schema = &orm_subscription.shape_type.schema;
         let root_shape = schema
             .get(root_shape_iri)
             .ok_or(VerifierError::InvalidOrmSchema)?;
-        let changes: OrmChanges =
-            self.apply_triple_changes(triples, &[], None, Some(orm_subscription.session_id))?;
-
         let Some(_root_changes) = changes.get(&root_shape.iri).map(|s| s.values()) else {
             return Ok(Value::Array(vec![]));
         };
@@ -455,7 +463,7 @@ impl Verifier {
         return Ok(return_vals);
     }
 
-    pub(crate) async fn orm_update(&mut self, scope: &NuriV0, patch: GraphTransaction) {}
+    pub(crate) async fn orm_update(&mut self, scope: &NuriV0, patch: GraphQuadsPatch) {}
 
     pub(crate) async fn orm_frontend_update(
         &mut self,
@@ -487,14 +495,10 @@ impl Verifier {
     }
 
     pub(crate) fn clean_orm_subscriptions(&mut self) {
-        let subscriptions = self.orm_subscriptions;
 
-        // TODO: Ownership issues.
-        // for (nuri, subscription) in subscriptions {
-        //     if subscription.sender.is_closed() {
-        //         subscriptions.remove(nuri);
-        //     }
-        // }
+        self.orm_subscriptions.retain(|_,subscription|
+            !subscription.sender.is_closed()
+        ); 
     }
 
     pub(crate) async fn start_orm(
@@ -526,8 +530,7 @@ impl Verifier {
         let shape_triples = self.query_sparql_construct(shape_query, Some(nuri.repo()))?;
 
         // Create objects from queried triples.
-        let subscription_ref = self.orm_subscriptions.get(nuri).unwrap();
-        let _orm_objects = self.create_orm_from_triples(subscription_ref, &shape_triples)?;
+        let _orm_objects = self.create_orm_from_triples(nuri, &shape_triples)?;
 
         // TODO integrate response
 

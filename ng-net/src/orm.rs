@@ -54,12 +54,12 @@ pub struct OrmDiffOp {
 
 pub type OrmDiff = Vec<OrmDiffOp>;
 
-pub type OrmSchema = HashMap<String, OrmSchemaShape>;
+pub type OrmSchema = HashMap<String, Arc<OrmSchemaShape>>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmSchemaShape {
     pub iri: String,
-    pub predicates: Vec<OrmSchemaPredicate>,
+    pub predicates: Vec<Arc<OrmSchemaPredicate>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -105,10 +105,10 @@ pub struct OrmSchemaPredicate {
 pub struct OrmTrackedSubject {
     /// The known predicates (only those relevant to the shape).
     /// If there are no triples with a predicate, they are discarded
-    pub tracked_predicates: HashMap<String, OrmTrackedPredicate>,
+    pub tracked_predicates: HashMap<String, Arc<OrmTrackedPredicate>>,
     /// If this is a nested subject, this records the parents
     /// and if they are currently tracking this subject.
-    pub parents: HashMap<String, OrmTrackedSubject>,
+    pub parents: HashMap<String, Weak<OrmTrackedSubject>>,
     /// Validity. When untracked, triple updates are not processed here.
     pub valid: OrmTrackedSubjectValidity,
     pub subject_iri: String,
@@ -138,14 +138,14 @@ pub struct OrmTrackedPredicate {
 
 // Used only for tracking construction of new objects and diffs
 // in parallel to modifying the tracked objects and predicates.
-pub struct OrmTrackedSubjectChange<'a> {
+pub struct OrmTrackedSubjectChange {
     pub subject_iri: String,
     /// Predicates that were changed.
-    pub predicates: HashMap<String, OrmTrackedPredicateChanges<'a>>,
+    pub predicates: HashMap<String, OrmTrackedPredicateChanges>,
 }
-pub struct OrmTrackedPredicateChanges<'a> {
+pub struct OrmTrackedPredicateChanges {
     /// The tracked predicate for which those changes were recorded.
-    pub tracked_predicate: &'a OrmTrackedPredicate,
+    pub tracked_predicate: Weak<OrmTrackedPredicate>,
     pub values_added: Vec<BasicType>,
     pub values_removed: Vec<BasicType>,
 }
@@ -164,7 +164,7 @@ pub struct OrmSubscription {
     pub session_id: u64,
     pub nuri: NuriV0,
     pub sender: Sender<AppResponse>,
-    pub tracked_subjects: HashMap<SubjectIri, HashMap<ShapeIri, OrmTrackedSubject>>,
+    pub tracked_subjects: HashMap<SubjectIri, HashMap<ShapeIri, Arc<OrmTrackedSubject>>>,
 }
 type ShapeIri = String;
 type SubjectIri = String;

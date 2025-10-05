@@ -10,15 +10,15 @@
 use crate::local_broker::{doc_create, doc_sparql_construct, doc_sparql_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use ng_net::orm::{
-    OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaLiterals, OrmSchemaPredicate, OrmSchemaShape,
-    OrmShapeType,
+    BasicType, OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaPredicate, OrmSchemaShape, OrmShapeType
 };
 use ng_repo::log_info;
 use ng_verifier::orm::shape_type_to_sparql;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[async_std::test]
-#async fn test_create_sparql_from_schema() {
+async fn test_create_sparql_from_schema() {
     // Setup wallet and document
     let (_wallet, session_id) = create_or_open_wallet().await;
     let doc_nuri = doc_create(
@@ -70,10 +70,10 @@ INSERT DATA {
 
     schema.insert(
         "http://example.org/TestObject||http://example.org/anotherObject".to_string(),
-        OrmSchemaShape {
+        Arc::new(OrmSchemaShape {
             iri: "http://example.org/TestObject||http://example.org/anotherObject".to_string(),
             predicates: vec![
-                OrmSchemaPredicate {
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::string,
                         literals: None,
@@ -84,8 +84,8 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     extra: None,
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::number,
                         literals: None,
@@ -96,22 +96,22 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     extra: None,
-                },
+                }),
             ],
-        },
+        }),
     );
 
     schema.insert(
         "http://example.org/TestObject".to_string(),
-        OrmSchemaShape {
+        Arc::new(OrmSchemaShape {
             iri: "http://example.org/TestObject".to_string(),
             predicates: vec![
-                OrmSchemaPredicate {
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::literal,
-                        literals: Some(OrmSchemaLiterals::StrArray(vec![
-                            "http://example.org/TestObject".to_string(),
-                        ])),
+                        literals: Some(vec![
+                            BasicType::Str("http://example.org/TestObject".to_string()),
+                        ]),
                         shape: None,
                     }],
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
@@ -119,8 +119,8 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     extra: Some(true),
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::string,
                         literals: None,
@@ -131,8 +131,8 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     extra: None,
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::number,
                         literals: None,
@@ -143,8 +143,8 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     extra: None,
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::boolean,
                         literals: None,
@@ -155,8 +155,8 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     extra: None,
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::number,
                         literals: None,
@@ -167,8 +167,8 @@ INSERT DATA {
                     maxCardinality: -1,
                     minCardinality: 0,
                     extra: None,
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::shape,
                         literals: None,
@@ -182,8 +182,8 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     extra: None,
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::shape,
                         literals: None,
@@ -197,8 +197,8 @@ INSERT DATA {
                     maxCardinality: -1,
                     minCardinality: 0,
                     extra: None,
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![
                         OrmSchemaDataType {
                             valType: OrmSchemaLiteralType::string,
@@ -216,14 +216,14 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     extra: None,
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::literal,
-                        literals: Some(OrmSchemaLiterals::StrArray(vec![
-                            "lit1".to_string(),
-                            "lit2".to_string(),
-                        ])),
+                        literals: Some(vec![
+                            BasicType::Str("lit1".to_string()),
+                            BasicType::Str("lit2".to_string()),
+                        ]),
                         shape: None,
                     }],
                     iri: "http://example.org/lit1Or2".to_string(),
@@ -231,17 +231,17 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     extra: None,
-                },
+                }),
             ],
-        },
+        }),
     );
 
     schema.insert(
         "http://example.org/TestObject||http://example.org/objectValue".to_string(),
-        OrmSchemaShape {
+        Arc::new(OrmSchemaShape {
             iri: "http://example.org/TestObject||http://example.org/objectValue".to_string(),
             predicates: vec![
-                OrmSchemaPredicate {
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::string,
                         literals: None,
@@ -252,8 +252,8 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     extra: None,
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::number,
                         literals: None,
@@ -264,8 +264,8 @@ INSERT DATA {
                     maxCardinality: 1,
                     minCardinality: 1,
                     extra: None,
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::number,
                         literals: None,
@@ -276,9 +276,9 @@ INSERT DATA {
                     maxCardinality: -1,
                     minCardinality: 0,
                     extra: None,
-                },
+                }),
             ],
-        },
+        }),
     );
 
     let shape_type = OrmShapeType {
@@ -368,21 +368,21 @@ INSERT DATA {
     let mut schema = HashMap::new();
     schema.insert(
         "http://example.org/TestObject".to_string(),
-        OrmSchemaShape {
+        Arc::new(OrmSchemaShape {
             iri: "http://example.org/TestObject".to_string(),
             predicates: vec![
-                OrmSchemaPredicate {
+                Arc::new(OrmSchemaPredicate {
                     iri: "http://example.org/prop1".to_string(),
                     minCardinality: 1,
                     ..Default::default()
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     iri: "http://example.org/prop2".to_string(),
                     minCardinality: 1,
                     ..Default::default()
-                },
+                }),
             ],
-        },
+        }),
     );
     let shape_type = OrmShapeType {
         schema,
@@ -431,21 +431,21 @@ INSERT DATA {
     let mut schema = HashMap::new();
     schema.insert(
         "http://example.org/TestObject".to_string(),
-        OrmSchemaShape {
+        Arc::new(OrmSchemaShape {
             iri: "http://example.org/TestObject".to_string(),
             predicates: vec![
-                OrmSchemaPredicate {
+                Arc::new(OrmSchemaPredicate {
                     iri: "http://example.org/prop1".to_string(),
                     minCardinality: 1,
                     ..Default::default()
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     iri: "http://example.org/prop2".to_string(),
                     minCardinality: 0, // Optional
                     ..Default::default()
-                },
+                }),
             ],
-        },
+        }),
     );
     let shape_type = OrmShapeType {
         schema,
@@ -495,20 +495,20 @@ INSERT DATA {
     let mut schema = HashMap::new();
     schema.insert(
         "http://example.org/Person".to_string(),
-        OrmSchemaShape {
+        Arc::new(OrmSchemaShape {
             iri: "http://example.org/Person".to_string(),
             predicates: vec![
-                OrmSchemaPredicate {
+                Arc::new(OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
                     minCardinality: 1,
                     ..Default::default()
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     iri: "http://example.org/name".to_string(),
                     minCardinality: 1,
                     ..Default::default()
-                },
-                OrmSchemaPredicate {
+                }),
+                Arc::new(OrmSchemaPredicate {
                     iri: "http://example.org/knows".to_string(),
                     minCardinality: 0,
                     maxCardinality: -1,
@@ -518,9 +518,9 @@ INSERT DATA {
                         literals: None,
                     }],
                     ..Default::default()
-                },
+                }),
             ],
-        },
+        }),
     );
     let shape_type = OrmShapeType {
         schema,

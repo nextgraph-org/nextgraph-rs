@@ -29,7 +29,7 @@ use ng_net::app_protocol::*;
 
 use crate::verifier::Verifier;
 
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 pub trait CommitVerifier {
     async fn verify(
         &self,
@@ -288,7 +288,7 @@ impl CommitVerifier for AddBranch {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for Repository {
     async fn verify(
         &self,
@@ -302,7 +302,7 @@ impl CommitVerifier for Repository {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for StoreUpdate {
     async fn verify(
         &self,
@@ -315,7 +315,7 @@ impl CommitVerifier for StoreUpdate {
         verifier.new_store_from_update(self)
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for AddInboxCap {
     async fn verify(
         &self,
@@ -330,7 +330,7 @@ impl CommitVerifier for AddInboxCap {
         }
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for AddSignerCap {
     async fn verify(
         &self,
@@ -345,7 +345,7 @@ impl CommitVerifier for AddSignerCap {
         }
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for AddMember {
     #[allow(unused_variables)]
     async fn verify(
@@ -359,7 +359,7 @@ impl CommitVerifier for AddMember {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for RemoveMember {
     #[allow(unused_variables)]
     async fn verify(
@@ -373,7 +373,7 @@ impl CommitVerifier for RemoveMember {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for AddPermission {
     #[allow(unused_variables)]
     async fn verify(
@@ -387,7 +387,7 @@ impl CommitVerifier for AddPermission {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for RemovePermission {
     #[allow(unused_variables)]
     async fn verify(
@@ -401,7 +401,7 @@ impl CommitVerifier for RemovePermission {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for RemoveBranch {
     #[allow(unused_variables)]
     async fn verify(
@@ -415,7 +415,7 @@ impl CommitVerifier for RemoveBranch {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for AddName {
     #[allow(unused_variables)]
     async fn verify(
@@ -429,7 +429,7 @@ impl CommitVerifier for AddName {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for RemoveName {
     #[allow(unused_variables)]
     async fn verify(
@@ -443,7 +443,7 @@ impl CommitVerifier for RemoveName {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for () {
     #[allow(unused_variables)]
     async fn verify(
@@ -457,7 +457,7 @@ impl CommitVerifier for () {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for Snapshot {
     #[allow(unused_variables)]
     async fn verify(
@@ -484,7 +484,7 @@ impl CommitVerifier for Snapshot {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for AddFile {
     #[allow(unused_variables)]
     async fn verify(
@@ -529,7 +529,7 @@ impl CommitVerifier for AddFile {
         }
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for RemoveFile {
     #[allow(unused_variables)]
     async fn verify(
@@ -543,7 +543,7 @@ impl CommitVerifier for RemoveFile {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for Compact {
     #[allow(unused_variables)]
     async fn verify(
@@ -557,7 +557,7 @@ impl CommitVerifier for Compact {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for AsyncSignature {
     #[allow(unused_variables)]
     async fn verify(
@@ -605,7 +605,7 @@ impl CommitVerifier for AsyncSignature {
         }
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for RootCapRefresh {
     #[allow(unused_variables)]
     async fn verify(
@@ -619,7 +619,7 @@ impl CommitVerifier for RootCapRefresh {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for BranchCapRefresh {
     #[allow(unused_variables)]
     async fn verify(
@@ -633,7 +633,7 @@ impl CommitVerifier for BranchCapRefresh {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for AddRepo {
     #[allow(unused_variables)]
     async fn verify(
@@ -656,7 +656,7 @@ impl CommitVerifier for AddRepo {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for RemoveRepo {
     #[allow(unused_variables)]
     async fn verify(
@@ -670,7 +670,7 @@ impl CommitVerifier for RemoveRepo {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for AddLink {
     #[allow(unused_variables)]
     async fn verify(
@@ -684,7 +684,7 @@ impl CommitVerifier for AddLink {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for RemoveLink {
     #[allow(unused_variables)]
     async fn verify(
@@ -698,7 +698,7 @@ impl CommitVerifier for RemoveLink {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for RemoveSignerCap {
     #[allow(unused_variables)]
     async fn verify(
@@ -712,7 +712,7 @@ impl CommitVerifier for RemoveSignerCap {
         Ok(())
     }
 }
-#[async_trait::async_trait(?Send)]
+#[async_trait::async_trait]
 impl CommitVerifier for WalletUpdate {
     #[allow(unused_variables)]
     async fn verify(
