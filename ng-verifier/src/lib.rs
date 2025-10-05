@@ -18,7 +18,7 @@ mod user_storage;
 
 mod commits;
 
-pub(crate) mod orm;
+pub mod orm;
 
 mod request_processor;
 
