@@ -18,6 +18,7 @@ use async_std::sync::{Arc, Condvar, Mutex, RwLock};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use lazy_static::lazy_static;
+use ng_net::orm::OrmShapeType;
 use ng_oxigraph::oxrdf::Triple;
 use once_cell::sync::Lazy;
 use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str};
@@ -2752,6 +2753,16 @@ async fn get_broker() -> Result<async_std::sync::RwLockWriteGuard<'static, Local
         Some(Ok(broker)) => broker.write().await,
     };
     return Ok(broker);
+}
+
+pub async fn orm_start(
+    scope: NuriV0,
+    shape_type: OrmShapeType,
+    session_id: u64,
+) -> Result<(Receiver<AppResponse>, CancelFn), NgError> {
+    let mut request = AppRequest::new_orm_start(scope, shape_type);
+    request.set_session_id(session_id);
+    app_request_stream(request).await
 }
 
 pub async fn doc_sparql_construct(
