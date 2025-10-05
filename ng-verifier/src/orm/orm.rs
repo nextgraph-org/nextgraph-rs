@@ -8,7 +8,7 @@
 // according to those terms.
 
 use futures::channel::mpsc;
-use ng_net::actors::app::session;
+use ng_oxigraph::oxrdf::Subject;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -29,8 +29,8 @@ use regex::Regex;
 use serde_json::json;
 use serde_json::Value;
 
+use crate::orm::orm_add_remove_triples::add_remove_triples;
 use crate::types::*;
-use crate::utils::orm_validation::*;
 use crate::verifier::*;
 
 type ShapeIri = String;
@@ -129,9 +129,6 @@ impl Verifier {
         orm_changes: &mut OrmChanges,
     ) -> Result<(), NgError> {
         let nuri_repo = nuri.repo();
-        //let orm_subscription = self.orm_subscriptions.get(nuri).unwrap();
-        //let tracked_subjects = orm_subscription.tracked_subjects;
-        //let schema = &orm_subscription.shape_type.schema;
 
         // First in, last out stack to keep track of objects to validate (nested objects first). Strings are object IRIs.
         let mut shape_validation_queue: Vec<(Arc<OrmSchemaShape>, Vec<String>)> = vec![];
@@ -180,23 +177,25 @@ impl Verifier {
                 // Apply all triples for that subject to the tracked (shape, subject) pair.
                 // Record the changes.
                 {
-                    let orm_subscription = self
+                    let mut orm_subscription = self
                         .orm_subscriptions
                         .get_mut(nuri)
                         .unwrap()
-                        .iter()
+                        .iter_mut()
                         .find(|s| s.session_id == session_id && s.shape_type.shape == shape.iri)
-                        .unwrap();
+                        .unwrap()
+                        .clone();
 
-                    if let Err(e) = add_remove_triples_mut(
+                    if let Err(e) = add_remove_triples(
                         shape.clone(),
                         subject_iri,
                         triples_added_for_subj,
                         triples_removed_for_subj,
-                        &mut orm_subscription.tracked_subjects,
+                        &mut orm_subscription,
                         change,
                     ) {
                         log_err!("apply_changes_from_triples add/remove error: {:?}", e);
+                        panic!();
                     }
 
                     let validity = {
@@ -211,10 +210,10 @@ impl Verifier {
                     };
 
                     // Validate the subject.
-                    let need_eval = update_subject_validity(
+                    let need_eval = Self::update_subject_validity(
                         change,
                         &shape,
-                        &mut orm_subscription.tracked_subjects,
+                        &mut orm_subscription,
                         validity,
                     );
 
@@ -237,16 +236,13 @@ impl Verifier {
                     .map(|(s, _)| s.clone())
                     .collect();
 
-                let orm_subscription = self
-                    .get_orm_subscriptions_for(nuri, Some(&shape.iri), Some(&session_id))
-                    .get(0)
-                    .unwrap();
+                let orm_subscriptions_vec =
+                    self.get_orm_subscriptions_for(nuri, Some(&shape.iri), Some(&session_id));
+                let orm_subscription = orm_subscriptions_vec.get(0).unwrap();
 
-                let schema = &orm_subscription.shape_type.schema;
-
-                let shape: &Arc<OrmSchemaShape> = schema
-                    .get(shape_iri)
-                    .ok_or(VerifierError::InvalidOrmSchema)?;
+                // Extract schema and shape Arc before mutable borrow
+                let schema = orm_subscription.shape_type.schema.clone();
+                let shape_arc = schema.get(shape_iri).unwrap().clone();
 
                 // Create sparql query
                 let shape_query =
@@ -256,24 +252,19 @@ impl Verifier {
 
                 self.process_changes_for_shape_and_session(
                     nuri,
-                    shape.clone(),
+                    shape_arc.clone(),
                     session_id,
                     &new_triples,
                     &vec![],
                     orm_changes,
                 )?;
 
-                // @Niko, if I put this in the same loop, I get borrow conflicts
                 let objects_not_to_fetch = objects_to_eval
                     .iter()
                     .filter(|(_iri, needs_fetch)| !*needs_fetch)
                     .map(|(s, _)| s.clone())
                     .collect();
-                let shape = schema
-                    .get(shape_iri)
-                    .ok_or(VerifierError::InvalidOrmSchema)?;
-
-                shape_validation_queue.push((shape.clone(), objects_not_to_fetch));
+                shape_validation_queue.push((shape_arc, objects_not_to_fetch));
             }
         }
 
@@ -281,12 +272,12 @@ impl Verifier {
     }
 
     /// Helper to get orm subscriptions for nuri, shapes and sessions.
-    fn get_orm_subscriptions_for(
+    pub fn get_orm_subscriptions_for(
         &self,
         nuri: &NuriV0,
         shape: Option<&ShapeIri>,
         session_id: Option<&u64>,
-    ) -> Vec<&OrmSubscription> {
+    ) -> Vec<&Arc<OrmSubscription>> {
         self.orm_subscriptions.get(nuri).unwrap().
         // Filter shapes, if present.
         iter().filter(|s| match shape {
@@ -484,15 +475,12 @@ impl Verifier {
         let changes: OrmChanges =
             self.apply_triple_changes(&shape_triples, &[], nuri, Some(session_id.clone()))?;
 
-        let orm_subscription = *self
-            .get_orm_subscriptions_for(nuri, Some(&shape_type.shape), Some(&session_id))
-            .get(0)
-            .unwrap();
+        let orm_subscriptions_vec =
+            self.get_orm_subscriptions_for(nuri, Some(&shape_type.shape), Some(&session_id));
+        let orm_subscription = orm_subscriptions_vec.get(0).unwrap();
 
         let schema = &orm_subscription.shape_type.schema;
-        let root_shape = schema
-            .get(&shape_type.shape)
-            .ok_or(VerifierError::InvalidOrmSchema)?;
+        let root_shape = schema.get(&shape_type.shape).unwrap();
         let Some(_root_changes) = changes.get(&root_shape.iri).map(|s| s.values()) else {
             return Ok(Value::Array(vec![]));
         };
@@ -524,7 +512,7 @@ impl Verifier {
         return Ok(return_vals);
     }
 
-    pub(crate) async fn orm_update(&mut self, scope: &NuriV0, patch: GraphTransaction) {}
+    pub(crate) async fn orm_update(&mut self, scope: &NuriV0, patch: GraphQuadsPatch) {}
 
     pub(crate) async fn orm_frontend_update(
         &mut self,
@@ -537,7 +525,7 @@ impl Verifier {
 
     pub(crate) async fn push_orm_response(
         &mut self,
-        subscription: &OrmSubscription,
+        subscription: &Arc<OrmSubscription>,
         response: AppResponse,
     ) {
         log_debug!(
@@ -577,19 +565,19 @@ impl Verifier {
         // All referenced shapes must be available.
 
         // Create new subscription and add to self.orm_subscriptions
-        let orm_subscription = OrmSubscription {
+        let orm_subscription = Arc::new(OrmSubscription {
             shape_type: shape_type.clone(),
             session_id: session_id,
             sender: tx.clone(),
             tracked_subjects: HashMap::new(),
             nuri: nuri.clone(),
-        };
+        });
         self.orm_subscriptions
             .entry(nuri.clone())
             .or_insert(vec![])
             .push(orm_subscription);
 
-        let orm_objects = self.create_orm_object_for_shape(nuri, session_id, &shape_type);
+        let _orm_objects = self.create_orm_object_for_shape(nuri, session_id, &shape_type);
 
         // TODO integrate response
 
@@ -690,35 +678,34 @@ pub fn shape_type_to_sparql(
                     // (already in SPARQL-format, e.g. `"a astring"`, `<http:ex.co/>`, `true`, or `42`).
                     allowed_literals.extend(literal_to_sparql_str(datatype.clone()));
                 } else if datatype.valType == OrmSchemaLiteralType::shape {
-                    if let Some(shape_id) = &datatype.shape {
-                        if let Some(nested_shape) = schema.get(shape_id) {
-                            // For the current acceptable shape, add CONSTRUCT, WHERE, and recurse.
+                    let shape_iri = &datatype.shape.clone().unwrap();
+                    let nested_shape = schema.get(shape_iri).unwrap();
 
-                            // Each shape option gets its own var.
-                            let obj_var_name = get_new_var_name(var_counter);
+                    // For the current acceptable shape, add CONSTRUCT, WHERE, and recurse.
 
-                            construct_statements.push(format!(
-                                "  ?{} <{}> ?{}",
-                                subject_var_name, predicate.iri, obj_var_name
-                            ));
-                            // Those are later added to a UNION, if there is more than one shape.
-                            union_branches.push(format!(
-                                "  ?{} <{}> ?{}",
-                                subject_var_name, predicate.iri, obj_var_name
-                            ));
+                    // Each shape option gets its own var.
+                    let obj_var_name = get_new_var_name(var_counter);
 
-                            // Recurse to add statements for nested object.
-                            process_shape(
-                                schema,
-                                nested_shape,
-                                &obj_var_name,
-                                construct_statements,
-                                where_statements,
-                                var_counter,
-                                visited_shapes,
-                            );
-                        }
-                    }
+                    construct_statements.push(format!(
+                        "  ?{} <{}> ?{}",
+                        subject_var_name, predicate.iri, obj_var_name
+                    ));
+                    // Those are later added to a UNION, if there is more than one shape.
+                    union_branches.push(format!(
+                        "  ?{} <{}> ?{}",
+                        subject_var_name, predicate.iri, obj_var_name
+                    ));
+
+                    // Recurse to add statements for nested object.
+                    process_shape(
+                        schema,
+                        nested_shape,
+                        &obj_var_name,
+                        construct_statements,
+                        where_statements,
+                        var_counter,
+                        visited_shapes,
+                    );
                 }
             }
 
@@ -828,4 +815,35 @@ fn escape_literal(lit: &str) -> String {
         }
     }
     return out;
+}
+
+pub fn group_by_subject_for_shape<'a>(
+    shape: &OrmSchemaShape,
+    triples: &'a [Triple],
+    allowed_subjects: &[String],
+) -> HashMap<String, Vec<&'a Triple>> {
+    let mut triples_by_subject: HashMap<String, Vec<&Triple>> = HashMap::new();
+    let allowed_preds_set: HashSet<&str> =
+        shape.predicates.iter().map(|p| p.iri.as_str()).collect();
+    let allowed_subject_set: HashSet<&str> = allowed_subjects.iter().map(|s| s.as_str()).collect();
+    for triple in triples {
+        // triple.subject must be in allowed_subjects (or allowed_subjects empty)
+        // and triple.predicate must be in allowed_preds.
+        if allowed_preds_set.contains(triple.predicate.as_str()) {
+            // filter subjects if list provided
+            let subj = match &triple.subject {
+                Subject::NamedNode(n) => n.as_ref(),
+                _ => continue,
+            };
+            // Subject must be in allowed subjects (or allowed_subjects is empty).
+            if allowed_subject_set.is_empty() || allowed_subject_set.contains(subj.as_str()) {
+                triples_by_subject
+                    .entry(subj.to_string())
+                    .or_insert_with(Vec::new)
+                    .push(triple);
+            }
+        }
+    }
+
+    return triples_by_subject;
 }

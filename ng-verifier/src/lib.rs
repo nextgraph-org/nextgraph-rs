@@ -18,7 +18,7 @@ mod user_storage;
 
 mod commits;
 
-pub mod orm;
+pub(crate) mod orm;
 
 mod request_processor;
 
@@ -26,7 +26,6 @@ mod inbox_processor;
 
 #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 mod rocksdb_user_storage;
-pub(crate) mod utils;
 
 use ng_net::app_protocol::*;
 use ng_oxigraph::oxrdf::Triple;

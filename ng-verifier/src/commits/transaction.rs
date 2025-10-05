@@ -248,14 +248,16 @@ impl Verifier {
         Ok(())
     }
 
-    pub(crate) fn get_triples_from_transaction(commit_body: &CommitBody) -> Result<Vec<Triple>, VerifierError> {
+    pub(crate) fn get_triples_from_transaction(
+        commit_body: &CommitBody,
+    ) -> Result<Vec<Triple>, VerifierError> {
         match commit_body {
             CommitBody::V0(CommitBodyV0::AsyncTransaction(Transaction::V0(v0))) => {
                 let transac: TransactionBody = serde_bare::from_slice(v0)?;
                 if let Some(graph_transac) = transac.graph {
                     return Ok(graph_transac.inserts);
                 }
-            },
+            }
             _ => {}
         }
         Err(VerifierError::InvalidCommit)
@@ -705,7 +707,9 @@ impl Verifier {
                         let mut tab_doc_info = AppTabDocInfo::new();
                         for removed in update.transaction.removes {
                             match removed.predicate.as_str() {
-                                NG_ONTOLOGY_ABOUT => tab_doc_info.description = Some("".to_string()),
+                                NG_ONTOLOGY_ABOUT => {
+                                    tab_doc_info.description = Some("".to_string())
+                                }
                                 NG_ONTOLOGY_TITLE => tab_doc_info.title = Some("".to_string()),
                                 _ => {}
                             }
@@ -748,16 +752,18 @@ impl Verifier {
                             })),
                         )
                         .await;
-                        let graph_nuri = NuriV0::repo_graph_name(
-                            &update.repo_id,
-                            &update.overlay_id,
-                        );
-                        self.orm_update(&NuriV0::new_empty(), update.transaction.as_quads_patch(graph_nuri)).await;
+                        let graph_nuri =
+                            NuriV0::repo_graph_name(&update.repo_id, &update.overlay_id);
+                        self.orm_update(
+                            &NuriV0::new_empty(),
+                            update.transaction.as_quads_patch(graph_nuri),
+                        )
+                        .await;
                     }
                 }
                 Ok(commit_nuris)
-            },
-            Err(e) => Err(e)
+            }
+            Err(e) => Err(e),
         }
     }
 
