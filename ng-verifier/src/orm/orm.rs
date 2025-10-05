@@ -30,6 +30,7 @@ use serde_json::json;
 use serde_json::Value;
 
 use crate::orm::orm_add_remove_triples::add_remove_triples;
+use crate::orm::types::*;
 use crate::types::*;
 use crate::verifier::*;
 

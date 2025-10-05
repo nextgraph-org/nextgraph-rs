@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Weak;
 
+use crate::orm::types::*;
 use ng_net::orm::*;
 
 /// Add all triples to `subject_changes`
@@ -42,7 +43,7 @@ pub fn add_remove_triples(
                 Arc::new(OrmTrackedSubject {
                     tracked_predicates: HashMap::new(),
                     parents: HashMap::new(),
-                    valid: ng_net::orm::OrmTrackedSubjectValidity::Pending,
+                    valid: OrmTrackedSubjectValidity::Pending,
                     subject_iri: subject_iri.to_string(),
                     shape: shape.clone(),
                 })
@@ -236,33 +237,27 @@ pub fn add_remove_triples(
 
 fn oxrdf_term_to_orm_basic_type(term: &ng_oxigraph::oxrdf::Term) -> BasicType {
     match oxrdf_term_to_orm_term(term) {
-        ng_net::orm::Term::Str(s) => BasicType::Str(s),
-        ng_net::orm::Term::Num(n) => BasicType::Num(n),
-        ng_net::orm::Term::Bool(b) => BasicType::Bool(b),
-        ng_net::orm::Term::Ref(b) => BasicType::Str(b), // Treat IRIs as strings
+        Term::Str(s) => BasicType::Str(s),
+        Term::Num(n) => BasicType::Num(n),
+        Term::Bool(b) => BasicType::Bool(b),
+        Term::Ref(b) => BasicType::Str(b), // Treat IRIs as strings
     }
 }
 
 /// Converts an oxrdf::Term to an orm::Term
-fn oxrdf_term_to_orm_term(term: &ng_oxigraph::oxrdf::Term) -> ng_net::orm::Term {
+fn oxrdf_term_to_orm_term(term: &ng_oxigraph::oxrdf::Term) -> Term {
     match term {
-        ng_oxigraph::oxrdf::Term::NamedNode(node) => {
-            ng_net::orm::Term::Ref(node.as_str().to_string())
-        }
-        ng_oxigraph::oxrdf::Term::BlankNode(node) => {
-            ng_net::orm::Term::Ref(node.as_str().to_string())
-        }
+        ng_oxigraph::oxrdf::Term::NamedNode(node) => Term::Ref(node.as_str().to_string()),
+        ng_oxigraph::oxrdf::Term::BlankNode(node) => Term::Ref(node.as_str().to_string()),
         ng_oxigraph::oxrdf::Term::Literal(literal) => {
             // Check the datatype to determine how to convert
             match literal.datatype().as_str() {
                 // Check for string first, this is the most common.
-                "http://www.w3.org/2001/XMLSchema#string" => {
-                    ng_net::orm::Term::Str(literal.value().to_string())
-                }
+                "http://www.w3.org/2001/XMLSchema#string" => Term::Str(literal.value().to_string()),
                 "http://www.w3.org/2001/XMLSchema#boolean" => {
                     match literal.value().parse::<bool>() {
-                        Ok(b) => ng_net::orm::Term::Bool(b),
-                        Err(_) => ng_net::orm::Term::Str(literal.value().to_string()),
+                        Ok(b) => Term::Bool(b),
+                        Err(_) => Term::Str(literal.value().to_string()),
                     }
                 }
                 "http://www.w3.org/2001/XMLSchema#integer"
@@ -278,16 +273,16 @@ fn oxrdf_term_to_orm_term(term: &ng_oxigraph::oxrdf::Term) -> ng_net::orm::Term 
                 | "http://www.w3.org/2001/XMLSchema#unsignedShort"
                 | "http://www.w3.org/2001/XMLSchema#unsignedByte" => {
                     match literal.value().parse::<f64>() {
-                        Ok(n) => ng_net::orm::Term::Num(n),
-                        Err(_) => ng_net::orm::Term::Str(literal.value().to_string()),
+                        Ok(n) => Term::Num(n),
+                        Err(_) => Term::Str(literal.value().to_string()),
                     }
                 }
-                _ => ng_net::orm::Term::Str(literal.value().to_string()),
+                _ => Term::Str(literal.value().to_string()),
             }
         }
         ng_oxigraph::oxrdf::Term::Triple(triple) => {
             // For RDF-star triples, convert to string representation
-            ng_net::orm::Term::Str(triple.to_string())
+            Term::Str(triple.to_string())
         }
     }
 }

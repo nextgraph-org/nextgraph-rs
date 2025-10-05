@@ -25,7 +25,6 @@ use async_std::stream::StreamExt;
 use async_std::sync::{Mutex, RwLockReadGuard};
 use futures::channel::mpsc;
 use futures::SinkExt;
-use ng_net::orm::OrmSubscription;
 use ng_oxigraph::oxigraph::sparql::Query;
 use ng_oxigraph::oxigraph::sparql::QueryResults;
 use ng_oxigraph::oxrdf::Term;
@@ -67,6 +66,7 @@ use ng_net::{
 };
 
 use crate::commits::*;
+use crate::orm::types::OrmSubscription;
 #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
 use crate::rocksdb_user_storage::RocksDbUserStorage;
 use crate::types::*;

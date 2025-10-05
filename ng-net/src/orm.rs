@@ -11,17 +11,11 @@
 
 #![allow(non_snake_case)]
 
-use std::{
-    collections::HashMap,
-    sync::{Arc, Weak},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
 use serde_json::Value;
-
-use crate::app_protocol::{AppResponse, NuriV0};
-use crate::utils::Sender;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmShapeType {
@@ -98,76 +92,6 @@ pub struct OrmSchemaPredicate {
     pub minCardinality: i32,
     pub extra: Option<bool>,
 }
-
-/// A struct for recording the state of subjects and its predicates
-/// relevant to its shape.
-#[derive(Clone, Debug)]
-pub struct OrmTrackedSubject {
-    /// The known predicates (only those relevant to the shape).
-    /// If there are no triples with a predicate, they are discarded
-    pub tracked_predicates: HashMap<String, Arc<OrmTrackedPredicate>>,
-    /// If this is a nested subject, this records the parents
-    /// and if they are currently tracking this subject.
-    pub parents: HashMap<String, Weak<OrmTrackedSubject>>,
-    /// Validity. When untracked, triple updates are not processed here.
-    pub valid: OrmTrackedSubjectValidity,
-    pub subject_iri: String,
-    /// The shape for which the predicates are tracked.
-    pub shape: Arc<OrmSchemaShape>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum OrmTrackedSubjectValidity {
-    Valid,
-    Invalid,
-    Pending,
-    Untracked,
-}
-
-#[derive(Clone, Debug)]
-pub struct OrmTrackedPredicate {
-    /// The predicate schema
-    pub schema: Arc<OrmSchemaPredicate>,
-    /// If the schema is a nested object, the children.
-    pub tracked_children: Vec<Weak<OrmTrackedSubject>>,
-    /// The count of triples for this subject and predicate.
-    pub current_cardinality: i32,
-    /// If schema is of type literal, the currently present ones.
-    pub current_literals: Option<Vec<BasicType>>,
-}
-
-// Used only for tracking construction of new objects and diffs
-// in parallel to modifying the tracked objects and predicates.
-pub struct OrmTrackedSubjectChange {
-    pub subject_iri: String,
-    /// Predicates that were changed.
-    pub predicates: HashMap<String, OrmTrackedPredicateChanges>,
-}
-pub struct OrmTrackedPredicateChanges {
-    /// The tracked predicate for which those changes were recorded.
-    pub tracked_predicate: Weak<OrmTrackedPredicate>,
-    pub values_added: Vec<BasicType>,
-    pub values_removed: Vec<BasicType>,
-}
-
-#[derive(Clone, Debug)]
-pub enum Term {
-    Str(String),
-    Num(f64),
-    Bool(bool),
-    Ref(String),
-}
-
-#[derive(Clone, Debug)]
-pub struct OrmSubscription {
-    pub shape_type: OrmShapeType,
-    pub session_id: u64,
-    pub nuri: NuriV0,
-    pub sender: Sender<AppResponse>,
-    pub tracked_subjects: HashMap<SubjectIri, HashMap<ShapeIri, Arc<OrmTrackedSubject>>>,
-}
-type ShapeIri = String;
-type SubjectIri = String;
 
 impl Default for OrmSchemaDataType {
     fn default() -> Self {

@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use crate::orm::types::*;
 use crate::verifier::*;
 use ng_net::orm::*;
 
