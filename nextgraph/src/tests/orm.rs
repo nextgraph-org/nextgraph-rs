@@ -13,8 +13,9 @@ use ng_net::orm::{
     BasicType, OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaPredicate, OrmSchemaShape,
     OrmShapeType,
 };
+use ng_verifier::orm::orm::shape_type_to_sparql;
+
 use ng_repo::log_info;
-use ng_verifier::orm::shape_type_to_sparql;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -538,4 +539,277 @@ INSERT DATA {
     // Assert: All 6 triples (3 per person) should be returned.
     log_info!("Triples:\n{:?}", triples);
     assert_eq!(triples.len(), 6);
+}
+
+#[async_std::test]
+async fn test_orm_creation() {
+    // Setup wallet and document
+    let (_wallet, session_id) = create_or_open_wallet().await;
+    let doc_nuri = doc_create(
+        session_id,
+        "Graph".to_string(),
+        "test_orm_query".to_string(),
+        "store".to_string(),
+        None,
+        None,
+    )
+    .await
+    .expect("error creating doc");
+
+    // Insert data with unrelated predicates
+    let insert_sparql = r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:obj1> a ex:TestObject ;
+      ex:stringValue "hello world" ;
+      ex:numValue 42 ;
+      ex:boolValue true ;
+      ex:arrayValue 1,2,3 ;
+      ex:objectValue [
+        ex:nestedString "nested" ;
+        ex:nestedNum 7 ;
+        ex:nestedArray 5,6
+      ] ;
+      ex:anotherObject [
+        ex:prop1 "one" ;
+        ex:prop2 1
+      ], [
+        ex:prop1 "two" ;
+        ex:prop2 2
+      ] ;
+      ex:numOrStr "either" ;
+      ex:lit1Or2 "lit1" ;
+      ex:unrelated "some value" ;
+      ex:anotherUnrelated 4242 .
+}
+"#
+    .to_string();
+
+    doc_sparql_update(session_id, insert_sparql, Some(doc_nuri.clone()))
+        .await
+        .expect("SPARQL update failed");
+
+    // Define the ORM schema
+    let mut schema = HashMap::new();
+
+    schema.insert(
+        "http://example.org/TestObject||http://example.org/anotherObject".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/TestObject||http://example.org/anotherObject".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/prop1".to_string(),
+                    readablePredicate: "prop1".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/prop2".to_string(),
+                    readablePredicate: "prop2".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+            ],
+        }),
+    );
+
+    schema.insert(
+        "http://example.org/TestObject".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/TestObject".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/TestObject".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    readablePredicate: "type".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: Some(true),
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/stringValue".to_string(),
+                    readablePredicate: "stringValue".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/numValue".to_string(),
+                    readablePredicate: "numValue".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::boolean,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/boolValue".to_string(),
+                    readablePredicate: "boolValue".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/arrayValue".to_string(),
+                    readablePredicate: "arrayValue".to_string(),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::shape,
+                        literals: None,
+                        shape: Some(
+                            "http://example.org/TestObject||http://example.org/objectValue"
+                                .to_string(),
+                        ),
+                    }],
+                    iri: "http://example.org/objectValue".to_string(),
+                    readablePredicate: "objectValue".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::shape,
+                        literals: None,
+                        shape: Some(
+                            "http://example.org/TestObject||http://example.org/anotherObject"
+                                .to_string(),
+                        ),
+                    }],
+                    iri: "http://example.org/anotherObject".to_string(),
+                    readablePredicate: "anotherObject".to_string(),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![
+                        OrmSchemaDataType {
+                            valType: OrmSchemaLiteralType::string,
+                            literals: None,
+                            shape: None,
+                        },
+                        OrmSchemaDataType {
+                            valType: OrmSchemaLiteralType::number,
+                            literals: None,
+                            shape: None,
+                        },
+                    ],
+                    iri: "http://example.org/numOrStr".to_string(),
+                    readablePredicate: "numOrStr".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::literal,
+                        literals: Some(vec![
+                            BasicType::Str("lit1".to_string()),
+                            BasicType::Str("lit2".to_string()),
+                        ]),
+                        shape: None,
+                    }],
+                    iri: "http://example.org/lit1Or2".to_string(),
+                    readablePredicate: "lit1Or2".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+            ],
+        }),
+    );
+
+    schema.insert(
+        "http://example.org/TestObject||http://example.org/objectValue".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/TestObject||http://example.org/objectValue".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/nestedString".to_string(),
+                    readablePredicate: "nestedString".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/nestedNum".to_string(),
+                    readablePredicate: "nestedNum".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    extra: None,
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                    iri: "http://example.org/nestedArray".to_string(),
+                    readablePredicate: "nestedArray".to_string(),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    extra: None,
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/TestObject".to_string(),
+    };
+
+    //
+    //
 }

@@ -116,8 +116,6 @@ pub struct Verifier {
     pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
 }
 
-type SessionId = u64;
-
 impl fmt::Debug for Verifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Verifier\nconfig: {:?}", self.config)?;
