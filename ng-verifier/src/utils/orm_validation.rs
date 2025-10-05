@@ -9,8 +9,8 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Weak;
 use std::sync::Arc;
+use std::sync::Weak;
 
 use ng_net::orm::*;
 use ng_oxigraph::oxrdf::Subject;
@@ -23,11 +23,8 @@ pub fn group_by_subject_for_shape<'a>(
     allowed_subjects: &[String],
 ) -> HashMap<String, Vec<&'a Triple>> {
     let mut triples_by_subject: HashMap<String, Vec<&Triple>> = HashMap::new();
-    let allowed_preds_set: HashSet<&str> = shape
-        .predicates
-        .iter()
-        .map(|p| p.iri.as_str())
-        .collect();
+    let allowed_preds_set: HashSet<&str> =
+        shape.predicates.iter().map(|p| p.iri.as_str()).collect();
     let allowed_subject_set: HashSet<&str> = allowed_subjects.iter().map(|s| s.as_str()).collect();
     for triple in triples {
         // triple.subject must be in allowed_subjects (or allowed_subjects empty)
@@ -62,30 +59,32 @@ pub fn add_remove_triples_mut(
     tracked_subjects: &mut HashMap<String, HashMap<String, Arc<OrmTrackedSubject>>>,
     subject_changes: &mut OrmTrackedSubjectChange,
 ) -> Result<(), NgError> {
-    fn get_or_create_tracked_subject<'a> (
+    fn get_or_create_tracked_subject<'a>(
         subject_iri: &str,
         shape: &Arc<OrmSchemaShape>,
-        tracked_subjects: &'a mut HashMap<String, HashMap<String, Arc<OrmTrackedSubject>>>) 
-    -> (&'a mut OrmTrackedSubject, Weak<OrmTrackedSubject>) 
-    {
+        tracked_subjects: &'a mut HashMap<String, HashMap<String, Arc<OrmTrackedSubject>>>,
+    ) -> (&'a mut OrmTrackedSubject, Weak<OrmTrackedSubject>) {
         let tracked_shapes_for_subject = tracked_subjects
             .entry(subject_iri.to_string())
             .or_insert_with(HashMap::new);
 
         let subject = tracked_shapes_for_subject
             .entry(shape.iri.clone())
-            .or_insert_with(|| Arc::new(OrmTrackedSubject {
-                tracked_predicates: HashMap::new(),
-                parents: HashMap::new(),
-                valid: ng_net::orm::OrmTrackedSubjectValidity::Pending,
-                subject_iri: subject_iri.to_string(),
-                shape: shape.clone(),
-            }));
+            .or_insert_with(|| {
+                Arc::new(OrmTrackedSubject {
+                    tracked_predicates: HashMap::new(),
+                    parents: HashMap::new(),
+                    valid: ng_net::orm::OrmTrackedSubjectValidity::Pending,
+                    subject_iri: subject_iri.to_string(),
+                    shape: shape.clone(),
+                })
+            });
         let weak = Arc::downgrade(&subject);
         (Arc::get_mut(subject).unwrap(), weak)
     }
 
-    let (_, tracked_subject_weak) = get_or_create_tracked_subject(subject_iri, &shape, tracked_subjects);
+    let (_, tracked_subject_weak) =
+        get_or_create_tracked_subject(subject_iri, &shape, tracked_subjects);
 
     // Process added triples.
     // For each triple, check if it matches the shape.
@@ -101,17 +100,19 @@ pub fn add_remove_triples_mut(
             let mut upgraded = tracked_subject_weak.upgrade().unwrap();
             let tracked_subject = Arc::get_mut(&mut upgraded).unwrap();
             // Add tracked predicate or increase cardinality
-            let _tracked_predicate = tracked_subject
+            let tracked_predicate_ = tracked_subject
                 .tracked_predicates
                 .entry(predicate_schema.iri.to_string())
-                .or_insert_with(|| Arc::new(OrmTrackedPredicate {
-                    current_cardinality: 0,
-                    schema: predicate_schema.clone(),
-                    tracked_children: Vec::new(),
-                    current_literals: None,
-                }));
-            let tracked_predicate_weak = Arc::downgrade(&_tracked_predicate);
-            let tracked_predicate = Arc::get_mut(_tracked_predicate).unwrap();
+                .or_insert_with(|| {
+                    Arc::new(OrmTrackedPredicate {
+                        current_cardinality: 0,
+                        schema: predicate_schema.clone(),
+                        tracked_children: Vec::new(),
+                        current_literals: None,
+                    })
+                });
+            let tracked_predicate_weak = Arc::downgrade(&tracked_predicate_);
+            let tracked_predicate = Arc::get_mut(tracked_predicate_).unwrap();
             tracked_predicate.current_cardinality += 1;
 
             let obj_term = oxrdf_term_to_orm_basic_type(&triple.object);
@@ -146,25 +147,30 @@ pub fn add_remove_triples_mut(
             // If predicate is of type shape, register (parent -> child) links so that
             // nested subjects can later be (lazily) fetched / validated.
             // FIXME : shape_iri is never used
-            for shape_iri in predicate_schema
-                .dataTypes
-                .iter()
-                .filter_map(|dt| if dt.valType == OrmSchemaLiteralType::shape {dt.shape.clone()} else {None} )
-            {
+            for shape_iri in predicate_schema.dataTypes.iter().filter_map(|dt| {
+                if dt.valType == OrmSchemaLiteralType::shape {
+                    dt.shape.clone()
+                } else {
+                    None
+                }
+            }) {
                 if let BasicType::Str(obj_iri) = &obj_term {
                     // Get or create object's tracked subject struct.
-                    let (tracked_child, tracked_child_weak) =
-                        get_or_create_tracked_subject(triple.predicate.as_string(), &shape, tracked_subjects);
+                    let (tracked_child, tracked_child_weak) = get_or_create_tracked_subject(
+                        triple.predicate.as_string(),
+                        &shape,
+                        tracked_subjects,
+                    );
 
                     // Add self to parent (set tracked to true, preliminary).
-                    tracked_child.parents.insert(obj_iri.clone(), tracked_child_weak.clone());
+                    tracked_child
+                        .parents
+                        .insert(obj_iri.clone(), tracked_child_weak.clone());
 
                     // Add link to children
                     let mut upgraded = tracked_predicate_weak.upgrade().unwrap();
                     let tracked_predicate = Arc::get_mut(&mut upgraded).unwrap();
-                    tracked_predicate
-                        .tracked_children
-                        .push(tracked_child_weak);
+                    tracked_predicate.tracked_children.push(tracked_child_weak);
                 }
             }
         }
@@ -177,7 +183,12 @@ pub fn add_remove_triples_mut(
         let tracked_predicate_opt = tracked_subjects
             .get_mut(subject_iri)
             .and_then(|tss| tss.get_mut(&shape.iri))
-            .and_then(|ts| Arc::get_mut(ts).unwrap().tracked_predicates.get_mut(pred_iri));
+            .and_then(|ts| {
+                Arc::get_mut(ts)
+                    .unwrap()
+                    .tracked_predicates
+                    .get_mut(pred_iri)
+            });
         let Some(tracked_predicate_arc) = tracked_predicate_opt else {
             continue;
         };
@@ -214,12 +225,13 @@ pub fn add_remove_triples_mut(
             .any(|dt| dt.valType == OrmSchemaLiteralType::shape)
         {
             // Remove parent from child and child from tracked children.
-            for shape_iri in tracked_predicate
-                .schema
-                .dataTypes
-                .iter()
-                .filter_map(|dt| if dt.valType == OrmSchemaLiteralType::shape {dt.shape.clone()} else {None} )
-            {
+            for shape_iri in tracked_predicate.schema.dataTypes.iter().filter_map(|dt| {
+                if dt.valType == OrmSchemaLiteralType::shape {
+                    dt.shape.clone()
+                } else {
+                    None
+                }
+            }) {
                 // Nested shape removal logic disabled (see note above).
             }
         }
@@ -248,14 +260,17 @@ pub fn update_subject_validity(
 
     // Check 1) Check if we need to fetch this object or all parents are untracked.
     if tracked_subject.parents.len() != 0 {
-        let no_parents_tracking = tracked_subject.parents.values().all(|parent| {
-            match parent.upgrade() {
-                Some(subject) => 
-                    subject.valid == OrmTrackedSubjectValidity::Untracked
-                        || subject.valid == OrmTrackedSubjectValidity::Invalid,
-                None => true
-            }
-        });
+        let no_parents_tracking =
+            tracked_subject
+                .parents
+                .values()
+                .all(|parent| match parent.upgrade() {
+                    Some(subject) => {
+                        subject.valid == OrmTrackedSubjectValidity::Untracked
+                            || subject.valid == OrmTrackedSubjectValidity::Invalid
+                    }
+                    None => true,
+                });
 
         if no_parents_tracking {
             // Remove tracked predicates and set untracked.
@@ -300,8 +315,9 @@ pub fn update_subject_validity(
         let p_change = s_change.predicates.get(&p_schema.iri);
         let tracked_pred = p_change.and_then(|pc| pc.tracked_predicate.upgrade());
 
-        let count =
-            tracked_pred.as_ref().map_or_else(|| 0, |tp| tp.current_cardinality);
+        let count = tracked_pred
+            .as_ref()
+            .map_or_else(|| 0, |tp| tp.current_cardinality);
 
         // Check 4.1) Cardinality
         if count < p_schema.minCardinality {
@@ -345,10 +361,11 @@ pub fn update_subject_validity(
                         // Check that each required literal is present.
                         for required_literal in required_literals {
                             // Is tracked predicate present?
-                            if !tracked_pred.as_ref().map_or(false, 
-                                |t|t.current_literals.as_ref().map_or(false, 
-                                    |tt|tt.iter().any(|literal| *literal == *required_literal)))
-                            {
+                            if !tracked_pred.as_ref().map_or(false, |t| {
+                                t.current_literals.as_ref().map_or(false, |tt| {
+                                    tt.iter().any(|literal| *literal == *required_literal)
+                                })
+                            }) {
                                 return false;
                             }
                         }
@@ -365,12 +382,17 @@ pub fn update_subject_validity(
             .any(|dt| dt.valType == OrmSchemaLiteralType::shape)
         {
             // If we have a nested shape, we need to check if the nested objects are tracked and valid.
-            let tracked_children = tracked_pred.as_ref().map(|tp|
-                tp.tracked_children.iter().filter_map(|weak_tc| weak_tc.upgrade()).collect::<Vec<_>>()
-            );
+            let tracked_children = tracked_pred.as_ref().map(|tp| {
+                tp.tracked_children
+                    .iter()
+                    .filter_map(|weak_tc| weak_tc.upgrade())
+                    .collect::<Vec<_>>()
+            });
             // First, Count valid, invalid, unknowns, and untracked
-            let counts = tracked_children.as_ref()
-                .map_or((0,0,0,0),|children| children.iter().map(|tc| {
+            let counts = tracked_children.as_ref().map_or((0, 0, 0, 0), |children| {
+                children
+                    .iter()
+                    .map(|tc| {
                         if tc.valid == OrmTrackedSubjectValidity::Valid {
                             (1, 0, 0, 0)
                         } else if tc.valid == OrmTrackedSubjectValidity::Invalid {
@@ -383,9 +405,10 @@ pub fn update_subject_validity(
                             (0, 0, 0, 0)
                         }
                     })
-                .fold((0, 0, 0, 0), |(v1, i1, u1, ut1), o| {
-                    (v1 + o.0, i1 + o.1, u1 + o.2, ut1 + o.3)
-                }));
+                    .fold((0, 0, 0, 0), |(v1, i1, u1, ut1), o| {
+                        (v1 + o.0, i1 + o.1, u1 + o.2, ut1 + o.3)
+                    })
+            });
 
             if counts.1 > 0 && p_schema.extra != Some(true) {
                 // If we have at least one invalid nested object and no extra allowed, invalid.
@@ -401,8 +424,8 @@ pub fn update_subject_validity(
                 // After that we need to reevaluate this (subject,shape) again.
                 need_evaluation.push((s_change.subject_iri.to_string(), shape.iri.clone(), false));
                 // Also schedule untracked children for fetching and validation.
-                tracked_children.as_ref().map(|children|
-                    for child in children {  
+                tracked_children.as_ref().map(|children| {
+                    for child in children {
                         if child.valid == OrmTrackedSubjectValidity::Untracked {
                             need_evaluation.push((
                                 child.subject_iri.clone(),
@@ -411,13 +434,13 @@ pub fn update_subject_validity(
                             ));
                         }
                     }
-                );
+                });
             } else if counts.2 > 0 {
                 // If we have unknown nested objects, we need to wait for their evaluation.
                 set_validity(&mut new_validity, OrmTrackedSubjectValidity::Pending);
                 // Schedule unknown children (NotEvaluated) for re-evaluation without fetch.
-                tracked_children.as_ref().map(|children|
-                    for child in children {  
+                tracked_children.as_ref().map(|children| {
+                    for child in children {
                         if child.valid == OrmTrackedSubjectValidity::Pending {
                             need_evaluation.push((
                                 child.subject_iri.clone(),
@@ -426,7 +449,7 @@ pub fn update_subject_validity(
                             ));
                         }
                     }
-                );
+                });
             } else {
                 // All nested objects are valid and cardinality is correct.
                 // We are valid with this predicate.
@@ -487,7 +510,11 @@ pub fn update_subject_validity(
         return tracked_subject
             .parents
             .values()
-            .filter_map(|parent| parent.upgrade().map(|parent| {(parent.subject_iri.clone(), parent.shape.iri.clone(), false)}) )
+            .filter_map(|parent| {
+                parent
+                    .upgrade()
+                    .map(|parent| (parent.subject_iri.clone(), parent.shape.iri.clone(), false))
+            })
             // Add `need_evaluation`.
             .chain(need_evaluation)
             .collect();
