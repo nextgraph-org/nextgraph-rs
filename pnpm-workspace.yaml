@@ -2,11 +2,6 @@ packages:
     - sdk/ng-sdk-js/pkg
     - sdk/ng-sdk-js/ng-signals
     - sdk/ng-sdk-js/ng-alien-deepsignals
-    - sdk/ng-sdk-js/ng-ldo-compact
-    - sdk/ng-sdk-js/ng-ldo-compact/packages/cli
-    - sdk/ng-sdk-js/ng-ldo-compact/packages/ldo
-    - sdk/ng-sdk-js/ng-ldo-compact/packages/schema-converter-shex
-    - sdk/ng-sdk-js/ng-ldo-compact/packages/traverser-shexj
     - sdk/ng-sdk-js/ng-shex-orm
     - sdk/ng-sdk-js/examples/multi-framework-signals
 onlyBuiltDependencies:
