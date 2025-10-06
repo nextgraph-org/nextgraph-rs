@@ -156,6 +156,14 @@ impl Verifier {
                 .chain(removed_triples_by_subject.keys())
                 .collect();
 
+            let mut orm_subscription = self
+                .orm_subscriptions
+                .get_mut(nuri)
+                .unwrap()
+                .iter_mut()
+                .find(|sub| sub.session_id == session_id && sub.shape_type.shape == shape.iri)
+                .unwrap();
+
             // Variable to collect nested objects that need validation.
             let mut nested_objects_to_eval: HashMap<ShapeIri, Vec<(SubjectIri, bool)>> =
                 HashMap::new();
@@ -189,16 +197,6 @@ impl Verifier {
                 // Apply all triples for that subject to the tracked (shape, subject) pair.
                 // Record the changes.
                 {
-                    let mut orm_subscription = self
-                        .orm_subscriptions
-                        .get_mut(nuri)
-                        .unwrap()
-                        .iter_mut()
-                        .find(|sub| {
-                            sub.session_id == session_id && sub.shape_type.shape == shape.iri
-                        })
-                        .unwrap();
-
                     log_debug!("add_remove_triples for subject {subject_iri}");
                     if let Err(e) = add_remove_triples(
                         shape.clone(),
