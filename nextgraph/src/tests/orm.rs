@@ -818,6 +818,11 @@ INSERT DATA {
 
     log_info!("orm_start called");
 
+    // TODO: remove this call to cancel_fn()
+    cancel_fn();
+
+    // TODO : change the data with sparql_query
+
     while let Some(app_response) = receiver.next().await {
         let orm_json = match app_response {
             AppResponse::V0(v) => match v {
@@ -828,6 +833,8 @@ INSERT DATA {
         .unwrap();
 
         log_info!("ORM JSON arrived\n: {:?}", orm_json);
+
+        // TODO: after we got what we wanted, call cancel_fn, otherwise the test never ends.
     }
     //
 }

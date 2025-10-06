@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Arc;
 
 use crate::orm::types::*;
 use crate::verifier::*;
@@ -22,35 +21,28 @@ impl Verifier {
     pub fn update_subject_validity(
         s_change: &OrmTrackedSubjectChange,
         shape: &OrmSchemaShape,
-        orm_subscription: &mut Arc<OrmSubscription>,
+        orm_subscription: &mut OrmSubscription,
         previous_validity: OrmTrackedSubjectValidity,
     ) -> Vec<(String, String, bool)> {
-        let orm_sub = Arc::get_mut(orm_subscription).unwrap();
-        let tracked_subjects = &mut orm_sub.tracked_subjects;
+        let tracked_subjects = &mut orm_subscription.tracked_subjects;
 
-        let Some(tracked_shapes) = tracked_subjects.get_mut(&s_change.subject_iri) else {
+        let Some(tracked_shapes) = tracked_subjects.get(&s_change.subject_iri) else {
             return vec![];
         };
-        let Some(tracked_subject) = tracked_shapes.get_mut(&shape.iri) else {
+        let Some(tracked_subject) = tracked_shapes.get(&shape.iri) else {
             return vec![];
         };
-        let tracked_subject = Arc::get_mut(tracked_subject).unwrap();
+        let mut tracked_subject = tracked_subject.write().unwrap();
         // Keep track of objects that need to be validated against a shape to fetch and validate.
         let mut need_evaluation: Vec<(String, String, bool)> = vec![];
 
         // Check 1) Check if we need to fetch this object or all parents are untracked.
         if tracked_subject.parents.len() != 0 {
-            let no_parents_tracking =
-                tracked_subject
-                    .parents
-                    .values()
-                    .all(|parent| match parent.upgrade() {
-                        Some(subject) => {
-                            subject.valid == OrmTrackedSubjectValidity::Untracked
-                                || subject.valid == OrmTrackedSubjectValidity::Invalid
-                        }
-                        None => true,
-                    });
+            let no_parents_tracking = tracked_subject.parents.values().all(|parent| {
+                let subject = parent.read().unwrap();
+                subject.valid == OrmTrackedSubjectValidity::Untracked
+                    || subject.valid == OrmTrackedSubjectValidity::Invalid
+            });
 
             if no_parents_tracking {
                 // Remove tracked predicates and set untracked.
@@ -87,7 +79,7 @@ impl Verifier {
 
         // Check 3) If there is an infinite loop of parents pointing back to us, return invalid.
         // Create a set of visited parents to detect cycles.
-        if has_cycle(tracked_subject, &mut HashSet::new()) {
+        if has_cycle(&tracked_subject, &mut HashSet::new()) {
             // Remove tracked predicates and set invalid.
             tracked_subject.tracked_predicates = HashMap::new();
             tracked_subject.valid = OrmTrackedSubjectValidity::Invalid;
@@ -97,7 +89,7 @@ impl Verifier {
         // Check 4) Validate subject against each predicate in shape.
         for p_schema in shape.predicates.iter() {
             let p_change = s_change.predicates.get(&p_schema.iri);
-            let tracked_pred = p_change.and_then(|pc| pc.tracked_predicate.upgrade());
+            let tracked_pred = p_change.map(|pc| pc.tracked_predicate.read().unwrap());
 
             let count = tracked_pred
                 .as_ref()
@@ -166,7 +158,7 @@ impl Verifier {
                 let tracked_children = tracked_pred.as_ref().map(|tp| {
                     tp.tracked_children
                         .iter()
-                        .filter_map(|weak_tc| weak_tc.upgrade())
+                        .map(|tc| tc.read().unwrap())
                         .collect::<Vec<_>>()
                 });
                 // First, Count valid, invalid, unknowns, and untracked
@@ -295,10 +287,9 @@ impl Verifier {
             return tracked_subject
                 .parents
                 .values()
-                .filter_map(|parent| {
-                    parent
-                        .upgrade()
-                        .map(|parent| (parent.subject_iri.clone(), parent.shape.iri.clone(), false))
+                .map(|parent| {
+                    let p = parent.read().unwrap();
+                    (p.subject_iri.clone(), p.shape.iri.clone(), false)
                 })
                 // Add `need_evaluation`.
                 .chain(need_evaluation)
@@ -317,10 +308,8 @@ fn has_cycle(subject: &OrmTrackedSubject, visited: &mut HashSet<String>) -> bool
     }
     visited.insert(subject.subject_iri.clone());
     for (_parent_iri, parent_subject) in &subject.parents {
-        if let Some(parent_subject) = parent_subject.upgrade() {
-            if has_cycle(&parent_subject, visited) {
-                return true;
-            }
+        if has_cycle(&parent_subject.read().unwrap(), visited) {
+            return true;
         }
     }
     visited.remove(&subject.subject_iri);

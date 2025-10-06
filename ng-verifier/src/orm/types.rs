@@ -7,13 +7,11 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use std::{
-    collections::HashMap,
-    sync::{Arc, Weak},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use ng_net::app_protocol::{AppResponse, NuriV0};
 use ng_net::{orm::*, utils::Sender};
+use std::sync::RwLock;
 
 /// A struct for recording the state of subjects and its predicates
 /// relevant to its shape.
@@ -21,10 +19,10 @@ use ng_net::{orm::*, utils::Sender};
 pub struct OrmTrackedSubject {
     /// The known predicates (only those relevant to the shape).
     /// If there are no triples with a predicate, they are discarded
-    pub tracked_predicates: HashMap<String, Arc<OrmTrackedPredicate>>,
+    pub tracked_predicates: HashMap<String, Arc<RwLock<OrmTrackedPredicate>>>,
     /// If this is a nested subject, this records the parents
     /// and if they are currently tracking this subject.
-    pub parents: HashMap<String, Weak<OrmTrackedSubject>>,
+    pub parents: HashMap<String, Arc<RwLock<OrmTrackedSubject>>>,
     /// Validity. When untracked, triple updates are not processed here.
     pub valid: OrmTrackedSubjectValidity,
     pub subject_iri: String,
@@ -45,7 +43,7 @@ pub struct OrmTrackedPredicate {
     /// The predicate schema
     pub schema: Arc<OrmSchemaPredicate>,
     /// If the schema is a nested object, the children.
-    pub tracked_children: Vec<Weak<OrmTrackedSubject>>,
+    pub tracked_children: Vec<Arc<RwLock<OrmTrackedSubject>>>,
     /// The count of triples for this subject and predicate.
     pub current_cardinality: i32,
     /// If schema is of type literal, the currently present ones.
@@ -54,14 +52,16 @@ pub struct OrmTrackedPredicate {
 
 // Used only for tracking construction of new objects and diffs
 // in parallel to modifying the tracked objects and predicates.
+#[derive(Debug)]
 pub struct OrmTrackedSubjectChange {
     pub subject_iri: String,
     /// Predicates that were changed.
     pub predicates: HashMap<String, OrmTrackedPredicateChanges>,
 }
+#[derive(Debug)]
 pub struct OrmTrackedPredicateChanges {
     /// The tracked predicate for which those changes were recorded.
-    pub tracked_predicate: Weak<OrmTrackedPredicate>,
+    pub tracked_predicate: Arc<RwLock<OrmTrackedPredicate>>,
     pub values_added: Vec<BasicType>,
     pub values_removed: Vec<BasicType>,
 }
@@ -74,13 +74,13 @@ pub enum Term {
     Ref(String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct OrmSubscription {
     pub shape_type: OrmShapeType,
     pub session_id: u64,
     pub nuri: NuriV0,
     pub sender: Sender<AppResponse>,
-    pub tracked_subjects: HashMap<SubjectIri, HashMap<ShapeIri, Arc<OrmTrackedSubject>>>,
+    pub tracked_subjects: HashMap<SubjectIri, HashMap<ShapeIri, Arc<RwLock<OrmTrackedSubject>>>>,
 }
 type ShapeIri = String;
 type SubjectIri = String;

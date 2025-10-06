@@ -399,6 +399,7 @@ pub enum VerifierError {
     InvalidInboxPost,
     InvalidOrmSchema,
     OrmSubjectNotFound,
+    OrmPredicateNotFound,
 }
 
 impl Error for VerifierError {}

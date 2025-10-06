@@ -8,11 +8,9 @@
 // according to those terms.
 
 use ng_oxigraph::oxrdf::Triple;
-use ng_repo::errors::NgError;
 use ng_repo::errors::VerifierError;
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::Weak;
+use std::sync::{Arc, RwLock};
 
 use crate::orm::types::*;
 use ng_net::orm::*;
@@ -26,29 +24,36 @@ pub fn add_remove_triples(
     subject_iri: &str,
     triples_added: &[&Triple],
     triples_removed: &[&Triple],
-    orm_subscription: &mut Arc<OrmSubscription>,
+    orm_subscription: &mut OrmSubscription,
     subject_changes: &mut OrmTrackedSubjectChange,
 ) -> Result<(), VerifierError> {
-    fn get_tracked_subject(
-        subject_iri: &str,
-        shape: &Arc<OrmSchemaShape>,
-        tracked_subjects: &HashMap<String, HashMap<String, Arc<OrmTrackedSubject>>>,
-    ) -> Result<Weak<OrmTrackedSubject>, VerifierError> {
-        let tracked_shapes_for_subject = tracked_subjects
-            .get(&subject_iri.to_string())
-            .ok_or(VerifierError::OrmSubjectNotFound)?;
-        let subject = tracked_shapes_for_subject
-            .get(&shape.iri)
-            .ok_or(VerifierError::OrmSubjectNotFound)?;
-        Ok(Arc::<OrmTrackedSubject>::downgrade(&subject))
-    }
+    // fn get_tracked_predicate<'a>(
+    //     subject_iri: &str,
+    //     shape: &Arc<OrmSchemaShape>,
+    //     predicate_schema_iri: &String,
+    //     tracked_subjects: &'a mut HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
+    // ) -> Result<Arc<RwLock<OrmTrackedPredicate>>, VerifierError> {
+    //     let tracked_shapes_for_subject = tracked_subjects
+    //         .get_mut(&subject_iri.to_string())
+    //         .ok_or(VerifierError::OrmSubjectNotFound)?;
+    //     let subject = tracked_shapes_for_subject
+    //         .get_mut(&shape.iri)
+    //         .ok_or(VerifierError::OrmSubjectNotFound)?;
+    //     Ok(subject
+    //         .read()
+    //         .unwrap()
+    //         .tracked_predicates
+    //         .get(predicate_schema_iri)
+    //         .ok_or(VerifierError::OrmPredicateNotFound)?
+    //         .clone())
+    // }
 
     // Helper to get/create tracked subjects
     fn get_or_create_tracked_subject<'a>(
         subject_iri: &str,
         shape: &Arc<OrmSchemaShape>,
-        tracked_subjects: &'a mut HashMap<String, HashMap<String, Arc<OrmTrackedSubject>>>,
-    ) -> &'a mut Arc<OrmTrackedSubject> {
+        tracked_subjects: &'a mut HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
+    ) -> Arc<RwLock<OrmTrackedSubject>> {
         let tracked_shapes_for_subject = tracked_subjects
             .entry(subject_iri.to_string())
             .or_insert_with(HashMap::new);
@@ -56,94 +61,80 @@ pub fn add_remove_triples(
         let subject = tracked_shapes_for_subject
             .entry(shape.iri.clone())
             .or_insert_with(|| {
-                Arc::new(OrmTrackedSubject {
+                Arc::new(RwLock::new(OrmTrackedSubject {
                     tracked_predicates: HashMap::new(),
                     parents: HashMap::new(),
                     valid: OrmTrackedSubjectValidity::Pending,
                     subject_iri: subject_iri.to_string(),
                     shape: shape.clone(),
-                })
+                }))
             });
-        //let strong = Arc::get_mut(subject).unwrap();
-        // log_info!(
-        //     "strong {} weak {}",
-        //     Arc::<OrmTrackedSubject>::strong_count(&subject),
-        //     Arc::<OrmTrackedSubject>::weak_count(&subject)
-        // );
-        subject
+        subject.clone()
     }
 
-    // Destructure to get separate references and avoid borrowing conflicts
-    let orm_sub = Arc::get_mut(orm_subscription).unwrap();
-    let schema = &orm_sub.shape_type.schema;
-    let tracked_subjects = &mut orm_sub.tracked_subjects;
-
-    // log_info!(
-    //     "strong {} weak {}",
-    //     Arc::<OrmTrackedSubject>::strong_count(&tracked_subject_strong),
-    //     Arc::<OrmTrackedSubject>::weak_count(&tracked_subject_strong)
-    // );
-    // let tracked_subject_weak = Arc::<OrmTrackedSubject>::downgrade(&tracked_subject_strong);
+    let schema = &orm_subscription.shape_type.schema;
+    let tracked_subjects = &mut orm_subscription.tracked_subjects;
 
     // Process added triples.
     // For each triple, check if it matches the shape.
     // In parallel, we record the values added and removed (tracked_changes)
     for triple in triples_added {
+        let obj_term = oxrdf_term_to_orm_basic_type(&triple.object);
+        log_debug!("processing triple {triple}");
         for predicate_schema in &shape.predicates {
             if predicate_schema.iri != triple.predicate.as_str() {
                 // Triple does not match predicate.
                 continue;
             }
             // Predicate schema constraint matches this triple.
-
-            let mut tracked_subject_upgraded =
+            let tracked_subject_lock =
                 get_or_create_tracked_subject(subject_iri, &shape, tracked_subjects);
-            let tracked_subject = Arc::get_mut(&mut tracked_subject_upgraded).unwrap();
+            let mut tracked_subject = tracked_subject_lock.write().unwrap();
+            log_debug!("lock acquired on tracked_subject");
             // Add tracked predicate or increase cardinality
-            let tracked_predicate_ = tracked_subject
+            let tracked_predicate_lock = tracked_subject
                 .tracked_predicates
-                .entry(predicate_schema.iri.to_string())
+                .entry(predicate_schema.iri.clone())
                 .or_insert_with(|| {
-                    Arc::new(OrmTrackedPredicate {
+                    Arc::new(RwLock::new(OrmTrackedPredicate {
                         current_cardinality: 0,
                         schema: predicate_schema.clone(),
                         tracked_children: Vec::new(),
                         current_literals: None,
-                    })
+                    }))
                 });
-            let tracked_predicate_weak = Arc::downgrade(&tracked_predicate_);
-            let tracked_predicate = Arc::get_mut(tracked_predicate_).unwrap();
-            tracked_predicate.current_cardinality += 1;
-
-            let obj_term = oxrdf_term_to_orm_basic_type(&triple.object);
-
-            // Keep track of the changed values too.
-            let pred_changes: &mut OrmTrackedPredicateChanges = subject_changes
-                .predicates
-                .entry(predicate_schema.iri.clone())
-                .or_insert_with(|| OrmTrackedPredicateChanges {
-                    tracked_predicate: tracked_predicate_weak.clone(), // reference remains inside lifetime of this call
-                    values_added: Vec::new(),
-                    values_removed: Vec::new(),
-                });
-
-            pred_changes.values_added.push(obj_term.clone());
-
-            // If value type is literal, we need to add the current value to the tracked predicate.
-            if tracked_predicate
-                .schema
-                .dataTypes
-                .iter()
-                .any(|dt| dt.valType == OrmSchemaLiteralType::literal)
             {
-                match &mut tracked_predicate.current_literals {
-                    Some(lits) => lits.push(obj_term.clone()),
-                    None => {
-                        tracked_predicate.current_literals = Some(vec![obj_term.clone()]);
+                let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
+                log_debug!("lock acquired on tracked_predicate");
+                tracked_predicate.current_cardinality += 1;
+
+                // Keep track of the changed values too.
+                let pred_changes: &mut OrmTrackedPredicateChanges = subject_changes
+                    .predicates
+                    .entry(predicate_schema.iri.clone())
+                    .or_insert_with(|| OrmTrackedPredicateChanges {
+                        tracked_predicate: tracked_predicate_lock.clone(),
+                        values_added: Vec::new(),
+                        values_removed: Vec::new(),
+                    });
+
+                pred_changes.values_added.push(obj_term.clone());
+
+                // If value type is literal, we need to add the current value to the tracked predicate.
+                if tracked_predicate
+                    .schema
+                    .dataTypes
+                    .iter()
+                    .any(|dt| dt.valType == OrmSchemaLiteralType::literal)
+                {
+                    match &mut tracked_predicate.current_literals {
+                        Some(lits) => lits.push(obj_term.clone()),
+                        None => {
+                            tracked_predicate.current_literals = Some(vec![obj_term.clone()]);
+                        }
                     }
                 }
             }
-
             // If predicate is of type shape, register
             // "parent (predicate) -> child subject" and `child_subject.parents`.
             for shape_iri in predicate_schema.dataTypes.iter().filter_map(|dt| {
@@ -153,30 +144,39 @@ pub fn add_remove_triples(
                     None
                 }
             }) {
+                log_debug!("dealing with nesting for {shape_iri}");
                 if let BasicType::Str(obj_iri) = &obj_term {
-                    // Get or create object's tracked subject struct.
-                    let child_shape = schema.get(&shape_iri).unwrap();
-                    // find the parent
-                    let parent = get_tracked_subject(subject_iri, &shape, tracked_subjects)?;
+                    let tracked_child_arc = {
+                        // Get or create object's tracked subject struct.
+                        let child_shape = schema.get(&shape_iri).unwrap();
+                        // find the parent
+                        let parent =
+                            get_or_create_tracked_subject(subject_iri, &shape, tracked_subjects);
 
-                    // If this actually created a new tracked subject, that's fine and will be removed during validation.
-                    let tracked_child =
-                        get_or_create_tracked_subject(obj_iri, child_shape, tracked_subjects);
+                        // If this actually created a new tracked subject, that's fine and will be removed during validation.
+                        let tracked_child =
+                            get_or_create_tracked_subject(obj_iri, child_shape, tracked_subjects);
 
-                    // Add self to parent.
-                    Arc::get_mut(tracked_child)
-                        .unwrap()
-                        .parents
-                        .insert(subject_iri.to_string(), parent);
+                        // Add self to parent.
+                        tracked_child
+                            .write()
+                            .unwrap()
+                            .parents
+                            .insert(subject_iri.to_string(), parent);
+                        log_debug!("lock acquired on tracked_child {obj_iri}");
+                        tracked_child
+                    };
 
                     // Add link to children
-                    let mut upgraded = tracked_predicate_weak.upgrade().unwrap();
-                    let tracked_predicate = Arc::get_mut(&mut upgraded).unwrap();
-                    tracked_predicate
-                        .tracked_children
-                        .push(Arc::<OrmTrackedSubject>::downgrade(&tracked_child));
+                    let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
+                    log_debug!(
+                        "for children, lock acquired on tracked_predicate {}",
+                        predicate_schema.iri
+                    );
+                    tracked_predicate.tracked_children.push(tracked_child_arc);
                 }
             }
+            log_debug!("end of dealing with nesting");
         }
     }
     // Process removed triples.
@@ -185,18 +185,13 @@ pub fn add_remove_triples(
 
         // Only adjust if we had tracked state.
         let tracked_predicate_opt = tracked_subjects
-            .get_mut(subject_iri)
-            .and_then(|tss| tss.get_mut(&shape.iri))
-            .and_then(|ts| {
-                Arc::get_mut(ts)
-                    .unwrap()
-                    .tracked_predicates
-                    .get_mut(pred_iri)
-            });
-        let Some(tracked_predicate_arc) = tracked_predicate_opt else {
+            .get(subject_iri)
+            .and_then(|tss| tss.get(&shape.iri))
+            .and_then(|ts| ts.read().unwrap().tracked_predicates.get(pred_iri).cloned());
+        let Some(tracked_predicate_rc) = tracked_predicate_opt else {
             continue;
         };
-        let tracked_predicate = Arc::get_mut(tracked_predicate_arc).unwrap();
+        let mut tracked_predicate = tracked_predicate_rc.write().unwrap();
 
         // The cardinality might become -1 or 0. We will remove them from the tracked predicates during validation.
         tracked_predicate.current_cardinality =
@@ -248,21 +243,18 @@ pub fn add_remove_triples(
                 // Remove link to children
                 tracked_predicate
                     .tracked_children
-                    .retain(|c| *obj_iri != c.upgrade().unwrap().subject_iri);
+                    .retain(|c| *obj_iri != c.read().unwrap().subject_iri);
 
                 for shape_iri in shapes_to_process {
                     // Get or create object's tracked subject struct.
                     let child_shape = schema.get(&shape_iri).unwrap();
 
-                    let tracked_child = Arc::get_mut(get_or_create_tracked_subject(
-                        &obj_iri,
-                        child_shape,
-                        tracked_subjects,
-                    ))
-                    .unwrap();
-
                     // Remove self from parent
-                    tracked_child.parents.remove(obj_iri);
+                    get_or_create_tracked_subject(&obj_iri, child_shape, tracked_subjects)
+                        .write()
+                        .unwrap()
+                        .parents
+                        .remove(obj_iri);
                 }
             }
         }

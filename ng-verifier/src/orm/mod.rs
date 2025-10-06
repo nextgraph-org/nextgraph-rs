@@ -18,6 +18,7 @@ use ng_repo::types::OverlayId;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
+use std::sync::RwLock;
 use std::u64;
 
 use futures::SinkExt;
@@ -102,15 +103,16 @@ impl Verifier {
             .get(nuri)
             .unwrap()
             .iter()
-            .map(|s| {
-                s.shape_type
+            .map(|sub| {
+                sub.shape_type
                     .schema
-                    .get(&s.shape_type.shape)
+                    .get(&sub.shape_type.shape)
                     .unwrap()
                     .clone()
             })
             .collect();
 
+        log_debug!("process_changes_for_nuri_and_session {:?}", shapes);
         for root_shape in shapes {
             self.process_changes_for_shape_and_session(
                 nuri,
@@ -158,6 +160,10 @@ impl Verifier {
             let mut nested_objects_to_eval: HashMap<ShapeIri, Vec<(SubjectIri, bool)>> =
                 HashMap::new();
 
+            log_debug!(
+                "processing_changes_for_shape_and_session for shape {:?}",
+                shape
+            );
             // For each subject, add/remove triples and validate.
 
             for subject_iri in all_modified_subjects {
@@ -188,9 +194,12 @@ impl Verifier {
                         .get_mut(nuri)
                         .unwrap()
                         .iter_mut()
-                        .find(|s| s.session_id == session_id && s.shape_type.shape == shape.iri)
+                        .find(|sub| {
+                            sub.session_id == session_id && sub.shape_type.shape == shape.iri
+                        })
                         .unwrap();
 
+                    log_debug!("add_remove_triples for subject {subject_iri}");
                     if let Err(e) = add_remove_triples(
                         shape.clone(),
                         subject_iri,
@@ -211,7 +220,7 @@ impl Verifier {
                         let Some(tracked_subject) = tracked_subject_opt else {
                             continue;
                         }; // skip if missing
-                        tracked_subject.valid.clone()
+                        tracked_subject.read().unwrap().valid.clone()
                     };
 
                     // Validate the subject.
@@ -281,7 +290,7 @@ impl Verifier {
         nuri: &NuriV0,
         shape: Option<&ShapeIri>,
         session_id: Option<&u64>,
-    ) -> Vec<&Arc<OrmSubscription>> {
+    ) -> Vec<&OrmSubscription> {
         self.orm_subscriptions.get(nuri).unwrap().
         // Filter shapes, if present.
         iter().filter(|s| match shape {
@@ -299,7 +308,7 @@ impl Verifier {
         nuri: &NuriV0,
         shape: Option<&ShapeIri>,
         session_id: Option<&u64>,
-    ) -> &Arc<OrmSubscription> {
+    ) -> &OrmSubscription {
         self.orm_subscriptions.get(nuri).unwrap().
         // Filter shapes, if present.
         iter().filter(|s| match shape {
@@ -321,6 +330,7 @@ impl Verifier {
         nuri: &NuriV0,
         only_for_session_id: Option<u64>,
     ) -> Result<OrmChanges, NgError> {
+        log_debug!("apply_triple_changes {:?}", only_for_session_id);
         // If we have a specific session, handle only that subscription.
         if let Some(session_id) = only_for_session_id {
             return self.process_changes_for_nuri_and_session(
@@ -365,7 +375,7 @@ impl Verifier {
         change: &OrmTrackedSubjectChange,
         changes: &OrmChanges,
         shape: &OrmSchemaShape,
-        tracked_subjects: &HashMap<String, HashMap<String, Arc<OrmTrackedSubject>>>,
+        tracked_subjects: &HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
     ) -> Value {
         let mut orm_obj = json!({"id": change.subject_iri});
         let orm_obj_map = orm_obj.as_object_mut().unwrap();
@@ -408,6 +418,7 @@ impl Verifier {
                                 shape_to_tracked_orm.get(matched_shape_iri)
                             })
                         {
+                            let nested_tracked_subject = nested_tracked_subject.read().unwrap();
                             if nested_tracked_subject.valid == OrmTrackedSubjectValidity::Valid {
                                 // Recurse
                                 return Some(Self::materialize_orm_object(
@@ -489,17 +500,19 @@ impl Verifier {
         session_id: u64,
         shape_type: &OrmShapeType,
     ) -> Result<Value, NgError> {
+        log_debug!("create_orm_object_for_shape {:?}", shape_type);
         // Query triples for this shape
         let shape_query = shape_type_to_sparql(&shape_type.schema, &shape_type.shape, None)?;
         let shape_triples = self.query_sparql_construct(shape_query, Some(nuri_to_string(nuri)))?;
-
+        log_debug!("query_sparql_construct done {:?}", shape_triples);
         let changes: OrmChanges =
             self.apply_triple_changes(&shape_triples, &[], nuri, Some(session_id.clone()))?;
+        log_debug!("apply_triple_changes done {:?}", changes);
 
         let orm_subscription =
             self.get_first_orm_subscription_for(nuri, Some(&shape_type.shape), Some(&session_id));
 
-        let schema = &orm_subscription.shape_type.schema;
+        let schema: &HashMap<String, Arc<OrmSchemaShape>> = &orm_subscription.shape_type.schema;
         let root_shape = schema.get(&shape_type.shape).unwrap();
         let Some(_root_changes) = changes.get(&root_shape.iri).map(|s| s.values()) else {
             return Ok(Value::Array(vec![]));
@@ -512,7 +525,7 @@ impl Verifier {
         // The way we get the changes from the tracked subjects is a bit hacky, sorry.
         for (subject_iri, tracked_subjects_by_shape) in &orm_subscription.tracked_subjects {
             if let Some(tracked_subject) = tracked_subjects_by_shape.get(&shape_type.shape) {
-                if tracked_subject.valid == OrmTrackedSubjectValidity::Valid {
+                if tracked_subject.read().unwrap().valid == OrmTrackedSubjectValidity::Valid {
                     if let Some(change) = changes
                         .get(&shape_type.shape)
                         .and_then(|subject_iri_to_ts| subject_iri_to_ts.get(subject_iri).clone())
@@ -585,20 +598,20 @@ impl Verifier {
         // All referenced shapes must be available.
 
         // Create new subscription and add to self.orm_subscriptions
-        let orm_subscription = Arc::new(OrmSubscription {
+        let orm_subscription = OrmSubscription {
             shape_type: shape_type.clone(),
             session_id: session_id,
             sender: tx.clone(),
             tracked_subjects: HashMap::new(),
             nuri: nuri.clone(),
-        });
+        };
         self.orm_subscriptions
             .entry(nuri.clone())
             .or_insert(vec![])
             .push(orm_subscription);
 
         let _orm_objects = self.create_orm_object_for_shape(nuri, session_id, &shape_type);
-
+        log_debug!("create_orm_object_for_shape return {:?}", _orm_objects);
         // TODO integrate response
 
         //self.push_orm_response().await; (only for requester, not all sessions)

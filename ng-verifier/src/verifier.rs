@@ -112,7 +112,7 @@ pub struct Verifier {
     in_memory_outbox: Vec<EventOutboxStorage>,
     uploads: BTreeMap<u32, RandomAccessFile>,
     branch_subscriptions: HashMap<BranchId, Sender<AppResponse>>,
-    pub(crate) orm_subscriptions: HashMap<NuriV0, Vec<Arc<OrmSubscription>>>,
+    pub(crate) orm_subscriptions: HashMap<NuriV0, Vec<OrmSubscription>>,
     pub(crate) temporary_repo_certificates: HashMap<RepoId, ObjectRef>,
 }
 
