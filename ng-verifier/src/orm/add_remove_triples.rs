@@ -9,12 +9,14 @@
 
 use ng_oxigraph::oxrdf::Triple;
 use ng_repo::errors::NgError;
+use ng_repo::errors::VerifierError;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Weak;
 
 use crate::orm::types::*;
 use ng_net::orm::*;
+use ng_repo::log::*;
 
 /// Add all triples to `subject_changes`
 /// Returns predicates to nested objects that were touched and need processing.
@@ -26,13 +28,27 @@ pub fn add_remove_triples(
     triples_removed: &[&Triple],
     orm_subscription: &mut Arc<OrmSubscription>,
     subject_changes: &mut OrmTrackedSubjectChange,
-) -> Result<(), NgError> {
+) -> Result<(), VerifierError> {
+    fn get_tracked_subject(
+        subject_iri: &str,
+        shape: &Arc<OrmSchemaShape>,
+        tracked_subjects: &HashMap<String, HashMap<String, Arc<OrmTrackedSubject>>>,
+    ) -> Result<Weak<OrmTrackedSubject>, VerifierError> {
+        let tracked_shapes_for_subject = tracked_subjects
+            .get(&subject_iri.to_string())
+            .ok_or(VerifierError::OrmSubjectNotFound)?;
+        let subject = tracked_shapes_for_subject
+            .get(&shape.iri)
+            .ok_or(VerifierError::OrmSubjectNotFound)?;
+        Ok(Arc::<OrmTrackedSubject>::downgrade(&subject))
+    }
+
     // Helper to get/create tracked subjects
     fn get_or_create_tracked_subject<'a>(
         subject_iri: &str,
         shape: &Arc<OrmSchemaShape>,
         tracked_subjects: &'a mut HashMap<String, HashMap<String, Arc<OrmTrackedSubject>>>,
-    ) -> (&'a mut OrmTrackedSubject, Weak<OrmTrackedSubject>) {
+    ) -> &'a mut Arc<OrmTrackedSubject> {
         let tracked_shapes_for_subject = tracked_subjects
             .entry(subject_iri.to_string())
             .or_insert_with(HashMap::new);
@@ -48,8 +64,13 @@ pub fn add_remove_triples(
                     shape: shape.clone(),
                 })
             });
-        let weak = Arc::downgrade(&subject);
-        (Arc::get_mut(subject).unwrap(), weak)
+        //let strong = Arc::get_mut(subject).unwrap();
+        // log_info!(
+        //     "strong {} weak {}",
+        //     Arc::<OrmTrackedSubject>::strong_count(&subject),
+        //     Arc::<OrmTrackedSubject>::weak_count(&subject)
+        // );
+        subject
     }
 
     // Destructure to get separate references and avoid borrowing conflicts
@@ -57,8 +78,12 @@ pub fn add_remove_triples(
     let schema = &orm_sub.shape_type.schema;
     let tracked_subjects = &mut orm_sub.tracked_subjects;
 
-    let (_, tracked_subject_weak) =
-        get_or_create_tracked_subject(subject_iri, &shape, tracked_subjects);
+    // log_info!(
+    //     "strong {} weak {}",
+    //     Arc::<OrmTrackedSubject>::strong_count(&tracked_subject_strong),
+    //     Arc::<OrmTrackedSubject>::weak_count(&tracked_subject_strong)
+    // );
+    // let tracked_subject_weak = Arc::<OrmTrackedSubject>::downgrade(&tracked_subject_strong);
 
     // Process added triples.
     // For each triple, check if it matches the shape.
@@ -71,7 +96,8 @@ pub fn add_remove_triples(
             }
             // Predicate schema constraint matches this triple.
 
-            let mut tracked_subject_upgraded = tracked_subject_weak.upgrade().unwrap();
+            let mut tracked_subject_upgraded =
+                get_or_create_tracked_subject(subject_iri, &shape, tracked_subjects);
             let tracked_subject = Arc::get_mut(&mut tracked_subject_upgraded).unwrap();
             // Add tracked predicate or increase cardinality
             let tracked_predicate_ = tracked_subject
@@ -130,20 +156,25 @@ pub fn add_remove_triples(
                 if let BasicType::Str(obj_iri) = &obj_term {
                     // Get or create object's tracked subject struct.
                     let child_shape = schema.get(&shape_iri).unwrap();
+                    // find the parent
+                    let parent = get_tracked_subject(subject_iri, &shape, tracked_subjects)?;
 
                     // If this actually created a new tracked subject, that's fine and will be removed during validation.
-                    let (tracked_child, tracked_child_weak) =
+                    let tracked_child =
                         get_or_create_tracked_subject(obj_iri, child_shape, tracked_subjects);
 
                     // Add self to parent.
-                    tracked_child
+                    Arc::get_mut(tracked_child)
+                        .unwrap()
                         .parents
-                        .insert(obj_iri.clone(), tracked_child_weak.clone());
+                        .insert(subject_iri.to_string(), parent);
 
                     // Add link to children
                     let mut upgraded = tracked_predicate_weak.upgrade().unwrap();
                     let tracked_predicate = Arc::get_mut(&mut upgraded).unwrap();
-                    tracked_predicate.tracked_children.push(tracked_child_weak);
+                    tracked_predicate
+                        .tracked_children
+                        .push(Arc::<OrmTrackedSubject>::downgrade(&tracked_child));
                 }
             }
         }
@@ -223,8 +254,12 @@ pub fn add_remove_triples(
                     // Get or create object's tracked subject struct.
                     let child_shape = schema.get(&shape_iri).unwrap();
 
-                    let (tracked_child, _) =
-                        get_or_create_tracked_subject(&obj_iri, child_shape, tracked_subjects);
+                    let tracked_child = Arc::get_mut(get_or_create_tracked_subject(
+                        &obj_iri,
+                        child_shape,
+                        tracked_subjects,
+                    ))
+                    .unwrap();
 
                     // Remove self from parent
                     tracked_child.parents.remove(obj_iri);
