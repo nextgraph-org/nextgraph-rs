@@ -13,6 +13,7 @@ pub mod validation;
 
 use futures::channel::mpsc;
 use ng_oxigraph::oxrdf::Subject;
+use ng_repo::types::OverlayId;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -58,6 +59,8 @@ impl Verifier {
         //     &update.overlay_id,
         // );
         //let base = NuriV0::repo_id(&repo.id);
+
+        log_debug!("querying construct\n{}\n\n", query);
 
         let nuri_str = nuri.as_ref().map(|s| s.as_str());
 
@@ -133,8 +136,6 @@ impl Verifier {
         triples_removed: &[Triple],
         orm_changes: &mut OrmChanges,
     ) -> Result<(), NgError> {
-        let nuri_repo = nuri.repo();
-
         // First in, last out stack to keep track of objects to validate (nested objects first). Strings are object IRIs.
         let mut shape_validation_queue: Vec<(Arc<OrmSchemaShape>, Vec<String>)> = vec![];
         // Add root shape for first validation run.
@@ -188,8 +189,7 @@ impl Verifier {
                         .unwrap()
                         .iter_mut()
                         .find(|s| s.session_id == session_id && s.shape_type.shape == shape.iri)
-                        .unwrap()
-                        .clone();
+                        .unwrap();
 
                     if let Err(e) = add_remove_triples(
                         shape.clone(),
@@ -252,7 +252,7 @@ impl Verifier {
                 let shape_query =
                     shape_type_to_sparql(&schema, &shape_iri, Some(objects_to_fetch))?;
                 let new_triples =
-                    self.query_sparql_construct(shape_query, Some(nuri_repo.clone()))?;
+                    self.query_sparql_construct(shape_query, Some(nuri_to_string(nuri)))?;
 
                 self.process_changes_for_shape_and_session(
                     nuri,
@@ -491,8 +491,7 @@ impl Verifier {
     ) -> Result<Value, NgError> {
         // Query triples for this shape
         let shape_query = shape_type_to_sparql(&shape_type.schema, &shape_type.shape, None)?;
-        // TODO: How to stringify nuri correctly?
-        let shape_triples = self.query_sparql_construct(shape_query, Some(nuri.repo()))?;
+        let shape_triples = self.query_sparql_construct(shape_query, Some(nuri_to_string(nuri)))?;
 
         let changes: OrmChanges =
             self.apply_triple_changes(&shape_triples, &[], nuri, Some(session_id.clone()))?;
@@ -867,4 +866,17 @@ pub fn group_by_subject_for_shape<'a>(
     }
 
     return triples_by_subject;
+}
+
+fn nuri_to_string(nuri: &NuriV0) -> String {
+    // Get repo_id and overlay_id from the nuri
+    let repo_id = nuri.target.repo_id();
+    let overlay_id = if let Some(overlay_link) = &nuri.overlay {
+        overlay_link.clone().try_into().unwrap()
+    } else {
+        // Default overlay for the repo
+        OverlayId::outer(repo_id)
+    };
+    let graph_name = NuriV0::repo_graph_name(repo_id, &overlay_id);
+    graph_name
 }

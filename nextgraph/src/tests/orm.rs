@@ -7,13 +7,15 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use crate::local_broker::{doc_create, doc_sparql_construct, doc_sparql_update};
+use crate::local_broker::{doc_create, doc_sparql_construct, doc_sparql_update, orm_start};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
+use async_std::stream::{IntoStream, StreamExt};
+use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
     BasicType, OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaPredicate, OrmSchemaShape,
     OrmShapeType,
 };
-use ng_verifier::orm::orm::shape_type_to_sparql;
+use ng_verifier::orm::shape_type_to_sparql;
 
 use ng_repo::log_info;
 use std::collections::HashMap;
@@ -531,13 +533,11 @@ INSERT DATA {
 
     // Generate and run query. This must not infinite loop.
     let query = shape_type_to_sparql(&shape_type.schema, &shape_type.shape, None).unwrap();
-    log_info!("cyclic query result:\n{}", query);
     let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
         .await
         .unwrap();
 
     // Assert: All 6 triples (3 per person) should be returned.
-    log_info!("Triples:\n{:?}", triples);
     assert_eq!(triples.len(), 6);
 }
 
@@ -810,6 +810,24 @@ INSERT DATA {
         shape: "http://example.org/TestObject".to_string(),
     };
 
-    //
+    log_info!("starting orm test");
+    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+        .await
+        .expect("orm_start");
+
+    log_info!("orm_start called");
+
+    while let Some(app_response) = receiver.next().await {
+        let orm_json = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmInitial(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        log_info!("ORM JSON arrived\n: {:?}", orm_json);
+    }
     //
 }
