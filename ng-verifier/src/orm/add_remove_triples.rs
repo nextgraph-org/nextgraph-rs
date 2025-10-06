@@ -144,8 +144,8 @@ pub fn add_remove_triples(
                 }
             }
 
-            // If predicate is of type shape, register (parent -> child) links so that
-            // nested subjects can later be (lazily) fetched / validated.
+            // If predicate is of type shape, register
+            // "parent (predicate) -> child subject" and `child_subject.parents`.
             for shape_iri in predicate_schema.dataTypes.iter().filter_map(|dt| {
                 if dt.valType == OrmSchemaLiteralType::shape {
                     dt.shape.clone()
