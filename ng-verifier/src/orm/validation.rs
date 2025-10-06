@@ -193,14 +193,15 @@ impl Verifier {
                     break;
                 } else if counts.3 > 0 {
                     // If we have untracked nested objects, we need to fetch them and validate.
+
+                    // Set our own validity to pending and add it to need_evaluation for later.
                     set_validity(&mut new_validity, OrmTrackedSubjectValidity::Pending);
-                    // After that we need to reevaluate this (subject,shape) again.
                     need_evaluation.push((
                         s_change.subject_iri.to_string(),
                         shape.iri.clone(),
                         false,
                     ));
-                    // Also schedule untracked children for fetching and validation.
+                    // Schedule untracked children for fetching and validation.
                     tracked_children.as_ref().map(|children| {
                         for child in children {
                             if child.valid == OrmTrackedSubjectValidity::Untracked {
@@ -213,9 +214,9 @@ impl Verifier {
                         }
                     });
                 } else if counts.2 > 0 {
-                    // If we have unknown nested objects, we need to wait for their evaluation.
+                    // If we have pending nested objects, we need to wait for their evaluation.
                     set_validity(&mut new_validity, OrmTrackedSubjectValidity::Pending);
-                    // Schedule unknown children (NotEvaluated) for re-evaluation without fetch.
+                    // Schedule pending children for re-evaluation without fetch.
                     tracked_children.as_ref().map(|children| {
                         for child in children {
                             if child.valid == OrmTrackedSubjectValidity::Pending {
