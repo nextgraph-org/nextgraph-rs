@@ -258,7 +258,7 @@ impl Verifier {
                     let shape_query =
                         shape_type_to_sparql(&schema, &shape_iri, Some(objects_to_fetch))?;
                     let new_triples =
-                        self.query_sparql_construct(shape_query, Some(nuri.repo()))?;
+                        self.query_sparql_construct(shape_query, Some(nuri_to_string(nuri)))?;
 
                     // Recursively process nested objects.
                     self.process_changes_for_shape_and_session(
@@ -509,7 +509,7 @@ impl Verifier {
     ) -> Result<Value, NgError> {
         // Query triples for this shape
         let shape_query = shape_type_to_sparql(&shape_type.schema, &shape_type.shape, None)?;
-        let shape_triples = self.query_sparql_construct(shape_query, Some(nuri.repo()))?;
+        let shape_triples = self.query_sparql_construct(shape_query, Some(nuri_to_string(nuri)))?;
 
         let changes: OrmChanges =
             self.apply_triple_changes(&shape_triples, &[], nuri, Some(session_id.clone()), true)?;
