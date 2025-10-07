@@ -78,6 +78,7 @@ pub fn add_remove_triples(
     // Process added triples.
     // For each triple, check if it matches the shape.
     // In parallel, we record the values added and removed (tracked_changes)
+    log_debug!("Processing # triples: {}", triples_added.len());
     for triple in triples_added {
         let obj_term = oxrdf_term_to_orm_basic_type(&triple.object);
         log_debug!("processing triple {triple}");
@@ -175,8 +176,8 @@ pub fn add_remove_triples(
                     );
                     tracked_predicate.tracked_children.push(tracked_child_arc);
                 }
+                log_debug!("end of dealing with nesting");
             }
-            log_debug!("end of dealing with nesting");
         }
     }
     // Process removed triples.

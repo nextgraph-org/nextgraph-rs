@@ -82,5 +82,5 @@ pub struct OrmSubscription {
     pub sender: Sender<AppResponse>,
     pub tracked_subjects: HashMap<SubjectIri, HashMap<ShapeIri, Arc<RwLock<OrmTrackedSubject>>>>,
 }
-type ShapeIri = String;
-type SubjectIri = String;
+pub type ShapeIri = String;
+pub type SubjectIri = String;

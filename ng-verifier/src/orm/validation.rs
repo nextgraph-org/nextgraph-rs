@@ -262,11 +262,14 @@ impl Verifier {
             };
         }
 
+        tracked_subject.valid = new_validity.clone();
+
         if new_validity == OrmTrackedSubjectValidity::Invalid {
             // If we are invalid, we can discard new unknowns again - they won't be kept in memory.
-            // We need to remove ourself from child objects parents field and
+            // We need to remove ourself from child objects' parents field and
             // remove them if no other is tracking.
-            // Child relationship cleanup disabled (nested tracking disabled in this refactor step)
+
+            // TODO: Child relationship cleanup disabled (nested tracking disabled in this refactor step)
 
             // Remove tracked predicates and set untracked.
             tracked_subject.tracked_predicates = HashMap::new();
@@ -276,8 +279,8 @@ impl Verifier {
         } else if new_validity == OrmTrackedSubjectValidity::Valid
             && previous_validity != OrmTrackedSubjectValidity::Valid
         {
-            // If this subject became valid, we need to refetch this subject;
-            // We fetch
+            // If this subject became valid, we need to refetch this subject.
+            // If the data has already been fetched, the parent function will prevent the fetch.
             need_evaluation.insert(0, (s_change.subject_iri.clone(), shape.iri.clone(), true));
         }
 
@@ -296,8 +299,6 @@ impl Verifier {
                 .chain(need_evaluation)
                 .collect();
         }
-
-        tracked_subject.valid = new_validity;
 
         return need_evaluation;
     }

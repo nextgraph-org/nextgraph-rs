@@ -9,13 +9,13 @@
 
 use crate::local_broker::{doc_create, doc_sparql_construct, doc_sparql_update, orm_start};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
-use async_std::stream::{IntoStream, StreamExt};
+use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
     BasicType, OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaPredicate, OrmSchemaShape,
     OrmShapeType,
 };
-use ng_verifier::orm::shape_type_to_sparql;
+use ng_verifier::orm::utils::shape_type_to_sparql;
 
 use ng_repo::log_info;
 use std::collections::HashMap;
@@ -593,39 +593,6 @@ INSERT DATA {
     let mut schema = HashMap::new();
 
     schema.insert(
-        "http://example.org/TestObject||http://example.org/anotherObject".to_string(),
-        Arc::new(OrmSchemaShape {
-            iri: "http://example.org/TestObject||http://example.org/anotherObject".to_string(),
-            predicates: vec![
-                Arc::new(OrmSchemaPredicate {
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                    iri: "http://example.org/prop1".to_string(),
-                    readablePredicate: "prop1".to_string(),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    extra: None,
-                }),
-                Arc::new(OrmSchemaPredicate {
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::number,
-                        literals: None,
-                        shape: None,
-                    }],
-                    iri: "http://example.org/prop2".to_string(),
-                    readablePredicate: "prop2".to_string(),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    extra: None,
-                }),
-            ],
-        }),
-    );
-
-    schema.insert(
         "http://example.org/TestObject".to_string(),
         Arc::new(OrmSchemaShape {
             iri: "http://example.org/TestObject".to_string(),
@@ -693,36 +660,6 @@ INSERT DATA {
                     extra: None,
                 }),
                 Arc::new(OrmSchemaPredicate {
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::shape,
-                        literals: None,
-                        shape: Some(
-                            "http://example.org/TestObject||http://example.org/objectValue"
-                                .to_string(),
-                        ),
-                    }],
-                    iri: "http://example.org/objectValue".to_string(),
-                    readablePredicate: "objectValue".to_string(),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    extra: None,
-                }),
-                Arc::new(OrmSchemaPredicate {
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::shape,
-                        literals: None,
-                        shape: Some(
-                            "http://example.org/TestObject||http://example.org/anotherObject"
-                                .to_string(),
-                        ),
-                    }],
-                    iri: "http://example.org/anotherObject".to_string(),
-                    readablePredicate: "anotherObject".to_string(),
-                    maxCardinality: -1,
-                    minCardinality: 0,
-                    extra: None,
-                }),
-                Arc::new(OrmSchemaPredicate {
                     dataTypes: vec![
                         OrmSchemaDataType {
                             valType: OrmSchemaLiteralType::string,
@@ -754,51 +691,6 @@ INSERT DATA {
                     readablePredicate: "lit1Or2".to_string(),
                     maxCardinality: 1,
                     minCardinality: 1,
-                    extra: None,
-                }),
-            ],
-        }),
-    );
-
-    schema.insert(
-        "http://example.org/TestObject||http://example.org/objectValue".to_string(),
-        Arc::new(OrmSchemaShape {
-            iri: "http://example.org/TestObject||http://example.org/objectValue".to_string(),
-            predicates: vec![
-                Arc::new(OrmSchemaPredicate {
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                    iri: "http://example.org/nestedString".to_string(),
-                    readablePredicate: "nestedString".to_string(),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    extra: None,
-                }),
-                Arc::new(OrmSchemaPredicate {
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::number,
-                        literals: None,
-                        shape: None,
-                    }],
-                    iri: "http://example.org/nestedNum".to_string(),
-                    readablePredicate: "nestedNum".to_string(),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    extra: None,
-                }),
-                Arc::new(OrmSchemaPredicate {
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::number,
-                        literals: None,
-                        shape: None,
-                    }],
-                    iri: "http://example.org/nestedArray".to_string(),
-                    readablePredicate: "nestedArray".to_string(),
-                    maxCardinality: -1,
-                    minCardinality: 0,
                     extra: None,
                 }),
             ],
