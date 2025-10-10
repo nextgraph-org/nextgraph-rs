@@ -58,7 +58,7 @@ impl Verifier {
         //let base = NuriV0::repo_id(&repo.id);
 
         let nuri_str = nuri.as_ref().map(|s| s.as_str());
-        log_debug!("querying construct\n{}\n{}\n\n", nuri_str.unwrap(), query);
+        log_debug!("querying construct\n{}\n{}\n", nuri_str.unwrap(), query);
 
         let parsed =
             Query::parse(&query, nuri_str).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
@@ -67,17 +67,19 @@ impl Verifier {
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         match results {
             QueryResults::Graph(triples) => {
-                let mut results = vec![];
+                let mut result_triples: Vec<Triple> = vec![];
                 for t in triples {
                     match t {
                         Err(e) => {
                             log_err!("{}", e.to_string());
                             return Err(NgError::SparqlError(e.to_string()));
                         }
-                        Ok(triple) => results.push(triple),
+                        Ok(triple) => {
+                            result_triples.push(triple);
+                        }
                     }
                 }
-                Ok(results)
+                Ok(result_triples)
             }
             _ => return Err(NgError::InvalidResponse),
         }
@@ -138,21 +140,18 @@ impl Verifier {
         // First in, last out stack to keep track of objects to validate (nested objects first). Strings are object IRIs.
         let mut shape_validation_queue: Vec<(Arc<OrmSchemaShape>, Vec<String>)> = vec![];
         // Add root shape for first validation run.
+        let root_shape_iri = root_shape.iri.clone();
         shape_validation_queue.push((root_shape, vec![]));
 
         // Process queue of shapes and subjects to validate.
         // For a given shape, we evaluate every subject against that shape.
         while let Some((shape, objects_to_validate)) = shape_validation_queue.pop() {
             // Collect triples relevant for validation.
-            log_debug!(
-                "process_changes_for_shape_and_session triples_added: {:?}",
-                triples_added
-            );
             let added_triples_by_subject =
                 group_by_subject_for_shape(&shape, triples_added, &objects_to_validate);
             let removed_triples_by_subject =
                 group_by_subject_for_shape(&shape, triples_removed, &objects_to_validate);
-            let all_modified_subjects: HashSet<&SubjectIri> = added_triples_by_subject
+            let modified_subject_iris: HashSet<&SubjectIri> = added_triples_by_subject
                 .keys()
                 .chain(removed_triples_by_subject.keys())
                 .collect();
@@ -162,7 +161,7 @@ impl Verifier {
                 .get_mut(nuri)
                 .unwrap()
                 .iter_mut()
-                .find(|sub| sub.session_id == session_id && sub.shape_type.shape == shape.iri)
+                .find(|sub| sub.session_id == session_id && sub.shape_type.shape == root_shape_iri)
                 .unwrap();
 
             // Variable to collect nested objects that need validation.
@@ -170,9 +169,9 @@ impl Verifier {
                 HashMap::new();
 
             // For each subject, add/remove triples and validate.
-            log_debug!("all_modified_subjects: {:?}", all_modified_subjects);
+            log_debug!("all_modified_subjects: {:?}", modified_subject_iris);
 
-            for subject_iri in all_modified_subjects {
+            for subject_iri in modified_subject_iris {
                 let triples_added_for_subj = added_triples_by_subject
                     .get(subject_iri)
                     .map(|v| v.as_slice())
@@ -190,22 +189,31 @@ impl Verifier {
                     .or_insert_with(|| OrmTrackedSubjectChange {
                         subject_iri: subject_iri.clone(),
                         predicates: HashMap::new(),
+                        data_applied: false,
                     });
 
                 // Apply all triples for that subject to the tracked (shape, subject) pair.
                 // Record the changes.
                 {
-                    log_debug!("add_remove_triples for subject {subject_iri}");
-                    if let Err(e) = add_remove_triples(
-                        shape.clone(),
-                        subject_iri,
-                        triples_added_for_subj,
-                        triples_removed_for_subj,
-                        &mut orm_subscription,
-                        change,
-                    ) {
-                        log_err!("apply_changes_from_triples add/remove error: {:?}", e);
-                        panic!();
+                    if !change.data_applied {
+                        log_debug!(
+                            "Adding triples to change tracker for subject {}",
+                            subject_iri
+                        );
+                        if let Err(e) = add_remove_triples(
+                            shape.clone(),
+                            subject_iri,
+                            triples_added_for_subj,
+                            triples_removed_for_subj,
+                            &mut orm_subscription,
+                            change,
+                        ) {
+                            log_err!("apply_changes_from_triples add/remove error: {:?}", e);
+                            panic!();
+                        }
+                        change.data_applied = true;
+                    } else {
+                        log_debug!("not applying triples again for subject {subject_iri}");
                     }
 
                     let validity = {
@@ -240,8 +248,11 @@ impl Verifier {
 
             // Now, we queue all non-evaluated objects
             for (shape_iri, objects_to_eval) in &nested_objects_to_eval {
-                let orm_subscription =
-                    self.get_first_orm_subscription_for(nuri, Some(&shape.iri), Some(&session_id));
+                let orm_subscription = self.get_first_orm_subscription_for(
+                    nuri,
+                    Some(&root_shape_iri),
+                    Some(&session_id),
+                );
                 // Extract schema and shape Arc before mutable borrow
                 let schema = orm_subscription.shape_type.schema.clone();
                 let shape_arc = schema.get(shape_iri).unwrap().clone();
@@ -526,16 +537,18 @@ impl Verifier {
         let mut return_vals: Value = Value::Array(vec![]);
         let return_val_vec = return_vals.as_array_mut().unwrap();
 
-        log_debug!(
-            "Tracked subjects:\n{:?}\n",
-            orm_subscription.tracked_subjects,
-        );
+        // log_debug!(
+        //     "Tracked subjects:\n{:?}\n",
+        //     orm_subscription.tracked_subjects,
+        // );
         // For each valid change struct, we build an orm object.
         // The way we get the changes from the tracked subjects is a bit hacky, sorry.
         for (subject_iri, tracked_subjects_by_shape) in &orm_subscription.tracked_subjects {
             if let Some(tracked_subject) = tracked_subjects_by_shape.get(&shape_type.shape) {
-                log_info!("changes for : {:?}\n{:?}", tracked_subject, changes);
-                if tracked_subject.read().unwrap().valid == OrmTrackedSubjectValidity::Valid {
+                let ts = tracked_subject.read().unwrap();
+                log_info!("changes for: {:?} valid: {:?}\n", ts.subject_iri, ts.valid);
+
+                if ts.valid == OrmTrackedSubjectValidity::Valid {
                     if let Some(change) = changes
                         .get(&shape_type.shape)
                         .and_then(|subject_iri_to_ts| subject_iri_to_ts.get(subject_iri).clone())
@@ -546,7 +559,8 @@ impl Verifier {
                             root_shape,
                             &orm_subscription.tracked_subjects,
                         );
-                        log_debug!("Materialized change:\n{:?}\ninto:\n{:?}", change, new_val);
+                        // TODO: For some reason, this log statement causes a panic.
+                        // log_debug!("Materialized change:\n{:?}\ninto:\n{:?}", change, new_val);
                         return_val_vec.push(new_val);
                     }
                 }

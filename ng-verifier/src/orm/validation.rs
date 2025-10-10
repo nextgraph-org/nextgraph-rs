@@ -13,6 +13,7 @@ use std::collections::HashSet;
 use crate::orm::types::*;
 use crate::verifier::*;
 use ng_net::orm::*;
+use ng_repo::log::*;
 
 impl Verifier {
     /// Check the validity of a subject and update affecting tracked subjects' validity.
@@ -54,9 +55,8 @@ impl Verifier {
             {
                 // We need to fetch the subject's current state:
                 // We have new parents but were previously not recording changes.
-
+                // Return the subject_iri with `needs_fetch` set to true.
                 return vec![(s_change.subject_iri.clone(), shape.iri.clone(), true)];
-                // TODO
             }
         }
 
@@ -97,6 +97,14 @@ impl Verifier {
 
             // Check 4.1) Cardinality
             if count < p_schema.minCardinality {
+                log_debug!(
+                    "[VALIDATION] Invalid: minCardinality not met | predicate: {:?} | count: {} | min: {} | schema: {:?} | changed: {:?}",
+                    p_schema.iri,
+                    count,
+                    p_schema.minCardinality,
+                    shape.iri,
+                    p_change
+                );
                 set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
                 if count <= 0 {
                     // If cardinality is 0, we can remove the tracked predicate.
@@ -108,6 +116,14 @@ impl Verifier {
                 && p_schema.maxCardinality != -1
                 && p_schema.extra != Some(true)
             {
+                log_debug!(
+                    "[VALIDATION] Invalid: maxCardinality exceeded | predicate: {:?} | count: {} | max: {} | schema: {:?} | changed: {:?}",
+                    p_schema.iri,
+                    count,
+                    p_schema.maxCardinality,
+                    shape.iri,
+                    p_change
+                );
                 // If cardinality is too high and no extra allowed, invalid.
                 set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
                 break;
@@ -146,6 +162,12 @@ impl Verifier {
                     },
                 );
                 if !some_valid {
+                    log_debug!(
+                        "[VALIDATION] Invalid: required literals missing | predicate: {:?} | schema: {:?} | changed: {:?}",
+                        p_schema.iri,
+                        shape.iri,
+                        p_change
+                    );
                     set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
                 }
             // Check 4.4) Nested shape correct.
@@ -184,11 +206,36 @@ impl Verifier {
                 });
 
                 if counts.1 > 0 && p_schema.extra != Some(true) {
-                    // If we have at least one invalid nested object and no extra allowed, invalid.
+                    log_debug!(
+                        "[VALIDATION] Invalid: nested invalid child | predicate: {:?} | schema: {:?} | changed: {:?}",
+                        p_schema.iri,
+                        shape.iri,
+                        p_change
+                    );
+                    // If we have at least one invalid nested object
+                    // and no extra (in this case this means invalid) allowed, invalid.
                     set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
                     break;
-                } else if counts.0 < p_schema.minCardinality {
-                    // If we have not enough valid nested objects, invalid.
+                } else if counts.0 > p_schema.maxCardinality && p_schema.maxCardinality != -1 {
+                    log_debug!(
+                        "[VALIDATION] Too many valid children: | predicate: {:?} | schema: {:?} | changed: {:?}",
+                        p_schema.iri,
+                        shape.iri,
+                        p_change
+                    );
+                    // If there are more valid children than what's allowed, break.
+                    set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
+                    break;
+                } else if counts.0 + counts.2 + counts.3 < p_schema.minCardinality {
+                    log_debug!(
+                        "[VALIDATION] Invalid: not enough nested children | predicate: {:?} | valid_count: {} | min: {} | schema: {:?} | changed: {:?}",
+                        p_schema.iri,
+                        counts.0,
+                        p_schema.minCardinality,
+                        shape.iri,
+                        p_change
+                    );
+                    // If we don't have enough nested objects, invalid.
                     set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
                     break;
                 } else if counts.3 > 0 {
@@ -251,6 +298,14 @@ impl Verifier {
                         }),
                     };
                     if !matches {
+                        log_debug!(
+                            "[VALIDATION] Invalid: value type mismatch | predicate: {:?} | value: {:?} | allowed_types: {:?} | schema: {:?} | changed: {:?}",
+                            p_schema.iri,
+                            val_added,
+                            allowed_types,
+                            shape.iri,
+                            p_change
+                        );
                         set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
                         break;
                     }

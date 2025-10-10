@@ -12,7 +12,7 @@ members = [
   "sdk/ng-sdk-js",
   "ng-oxigraph",
 ]
-default-members = [ "nextgraph" ]
+default-members = ["nextgraph"]
 
 [workspace.package]
 version = "0.1.2"
@@ -23,10 +23,31 @@ authors = ["Niko PLP <niko@nextgraph.org>"]
 repository = "https://git.nextgraph.org/NextGraph/nextgraph-rs"
 homepage = "https://nextgraph.org"
 keywords = [
-"crdt","dapp","decentralized","e2ee","local-first","p2p","semantic-web","eventual-consistency","json-ld","markdown",
-"ocap","vc","offline-first","p2p-network","collaboration","privacy-protection","rdf","rich-text-editor","self-hosted",
-"sparql","byzantine-fault-tolerance",
-"web3", "graph-database", "database","triplestore"
+  "crdt",
+  "dapp",
+  "decentralized",
+  "e2ee",
+  "local-first",
+  "p2p",
+  "semantic-web",
+  "eventual-consistency",
+  "json-ld",
+  "markdown",
+  "ocap",
+  "vc",
+  "offline-first",
+  "p2p-network",
+  "collaboration",
+  "privacy-protection",
+  "rdf",
+  "rich-text-editor",
+  "self-hosted",
+  "sparql",
+  "byzantine-fault-tolerance",
+  "web3",
+  "graph-database",
+  "database",
+  "triplestore",
 ]
 documentation = "https://docs.nextgraph.org/"
 
@@ -35,7 +56,7 @@ lto = true
 opt-level = 's'
 
 [profile.dev]
-opt-level = 2
+opt-level = 1
 
 [patch.crates-io]
 # tauri = { git = "https://github.com/simonhyll/tauri.git",  branch="fix/ipc-mixup"}

@@ -57,6 +57,10 @@ pub struct OrmTrackedSubjectChange {
     pub subject_iri: String,
     /// Predicates that were changed.
     pub predicates: HashMap<String, OrmTrackedPredicateChanges>,
+    /// If the new triples have been added to the tracked predicates
+    /// (values_added / values_removed) already. This is to prevent
+    /// double-application.
+    pub data_applied: bool,
 }
 #[derive(Debug)]
 pub struct OrmTrackedPredicateChanges {

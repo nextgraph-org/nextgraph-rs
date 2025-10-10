@@ -27,27 +27,6 @@ pub fn add_remove_triples(
     orm_subscription: &mut OrmSubscription,
     subject_changes: &mut OrmTrackedSubjectChange,
 ) -> Result<(), VerifierError> {
-    // fn get_tracked_predicate<'a>(
-    //     subject_iri: &str,
-    //     shape: &Arc<OrmSchemaShape>,
-    //     predicate_schema_iri: &String,
-    //     tracked_subjects: &'a mut HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
-    // ) -> Result<Arc<RwLock<OrmTrackedPredicate>>, VerifierError> {
-    //     let tracked_shapes_for_subject = tracked_subjects
-    //         .get_mut(&subject_iri.to_string())
-    //         .ok_or(VerifierError::OrmSubjectNotFound)?;
-    //     let subject = tracked_shapes_for_subject
-    //         .get_mut(&shape.iri)
-    //         .ok_or(VerifierError::OrmSubjectNotFound)?;
-    //     Ok(subject
-    //         .read()
-    //         .unwrap()
-    //         .tracked_predicates
-    //         .get(predicate_schema_iri)
-    //         .ok_or(VerifierError::OrmPredicateNotFound)?
-    //         .clone())
-    // }
-
     // Helper to get/create tracked subjects
     fn get_or_create_tracked_subject<'a>(
         subject_iri: &str,
@@ -91,8 +70,8 @@ pub fn add_remove_triples(
             let tracked_subject_lock =
                 get_or_create_tracked_subject(subject_iri, &shape, tracked_subjects);
             let mut tracked_subject = tracked_subject_lock.write().unwrap();
-            log_debug!("lock acquired on tracked_subject");
-            // Add tracked predicate or increase cardinality
+            // log_debug!("lock acquired on tracked_subject");
+            // Add get tracked predicate.
             let tracked_predicate_lock = tracked_subject
                 .tracked_predicates
                 .entry(predicate_schema.iri.clone())
@@ -106,7 +85,7 @@ pub fn add_remove_triples(
                 });
             {
                 let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
-                log_debug!("lock acquired on tracked_predicate");
+                // log_debug!("lock acquired on tracked_predicate");
                 tracked_predicate.current_cardinality += 1;
 
                 // Keep track of the changed values too.
@@ -216,7 +195,7 @@ pub fn add_remove_triples(
                 // Remove obj_val from current_literals in-place
                 current_literals.retain(|val| *val != val_removed);
             } else {
-                tracked_predicate.current_literals = Some(vec![val_removed]);
+                panic!("tracked_predicate.current_literals must not be None.");
             }
         } else if tracked_predicate
             .schema
@@ -244,7 +223,7 @@ pub fn add_remove_triples(
                 // Remove link to children
                 tracked_predicate
                     .tracked_children
-                    .retain(|c| *obj_iri != c.read().unwrap().subject_iri);
+                    .retain(|ts| *obj_iri != ts.read().unwrap().subject_iri);
 
                 for shape_iri in shapes_to_process {
                     // Get or create object's tracked subject struct.
@@ -255,7 +234,7 @@ pub fn add_remove_triples(
                         .write()
                         .unwrap()
                         .parents
-                        .remove(obj_iri);
+                        .remove(subject_iri);
                 }
             }
         }
