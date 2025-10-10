@@ -127,6 +127,8 @@ impl Verifier {
 
     /// Add and remove the triples from the tracked subjects,
     /// re-validate, and update `changes` containing the updated data.
+    /// Works by queuing changes by shape and subjects on a stack.
+    /// Nested objects are added to the stack
     fn process_changes_for_shape_and_session(
         self: &mut Self,
         nuri: &NuriV0,
@@ -138,14 +140,16 @@ impl Verifier {
         data_already_fetched: bool,
     ) -> Result<(), NgError> {
         // First in, last out stack to keep track of objects to validate (nested objects first). Strings are object IRIs.
-        let mut shape_validation_queue: Vec<(Arc<OrmSchemaShape>, Vec<String>)> = vec![];
+        let mut shape_validation_stack: Vec<(Arc<OrmSchemaShape>, Vec<String>)> = vec![];
+        // Track (shape_iri, subject_iri) pairs currently being validated to prevent cycles and double evaluation.
+        let mut currently_validating: HashSet<(String, String)> = HashSet::new();
         // Add root shape for first validation run.
         let root_shape_iri = root_shape.iri.clone();
-        shape_validation_queue.push((root_shape, vec![]));
+        shape_validation_stack.push((root_shape, vec![]));
 
         // Process queue of shapes and subjects to validate.
         // For a given shape, we evaluate every subject against that shape.
-        while let Some((shape, objects_to_validate)) = shape_validation_queue.pop() {
+        while let Some((shape, objects_to_validate)) = shape_validation_stack.pop() {
             // Collect triples relevant for validation.
             let added_triples_by_subject =
                 group_by_subject_for_shape(&shape, triples_added, &objects_to_validate);
@@ -172,6 +176,31 @@ impl Verifier {
             log_debug!("all_modified_subjects: {:?}", modified_subject_iris);
 
             for subject_iri in modified_subject_iris {
+                let validation_key = (shape.iri.clone(), subject_iri.to_string());
+
+                // Cycle detection: Check if this (shape, subject) pair is already being validated
+                if currently_validating.contains(&validation_key) {
+                    log_warn!(
+                        "Cycle detected: subject '{}' with shape '{}' is already being validated. Marking as invalid.",
+                        subject_iri,
+                        shape.iri
+                    );
+                    // Mark as invalid due to cycle
+                    // TODO: We could handle this by handling nested references as IRIs.
+                    if let Some(tracked_shapes) = orm_subscription.tracked_subjects.get(subject_iri)
+                    {
+                        if let Some(tracked_subject) = tracked_shapes.get(&shape.iri) {
+                            let mut ts = tracked_subject.write().unwrap();
+                            ts.valid = OrmTrackedSubjectValidity::Invalid;
+                            ts.tracked_predicates.clear();
+                        }
+                    }
+                    continue;
+                }
+
+                // Mark as currently validating
+                currently_validating.insert(validation_key.clone());
+
                 let triples_added_for_subj = added_triples_by_subject
                     .get(subject_iri)
                     .map(|v| v.as_slice())
@@ -236,14 +265,21 @@ impl Verifier {
                     );
 
                     // We add the need_eval to be processed next after loop.
+                    // Filter out subjects already in the validation stack to prevent double evaluation.
                     for (iri, schema_shape, needs_refetch) in need_eval {
-                        // Add to nested_objects_to_validate.
-                        nested_objects_to_eval
-                            .entry(schema_shape)
-                            .or_insert_with(Vec::new)
-                            .push((iri.clone(), needs_refetch));
+                        let eval_key = (schema_shape.clone(), iri.clone());
+                        if !currently_validating.contains(&eval_key) {
+                            // Only add if not currently being validated
+                            nested_objects_to_eval
+                                .entry(schema_shape)
+                                .or_insert_with(Vec::new)
+                                .push((iri.clone(), needs_refetch));
+                        }
                     }
                 }
+
+                // Remove from validation stack after processing this subject
+                currently_validating.remove(&validation_key);
             }
 
             // Now, we queue all non-evaluated objects
@@ -291,7 +327,7 @@ impl Verifier {
                     .collect();
                 if objects_not_to_fetch.len() > 0 {
                     // Queue all objects that don't need fetching.
-                    shape_validation_queue.push((shape_arc, objects_not_to_fetch));
+                    shape_validation_stack.push((shape_arc, objects_not_to_fetch));
                 }
             }
         }

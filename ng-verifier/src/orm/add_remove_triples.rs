@@ -124,7 +124,7 @@ pub fn add_remove_triples(
                     None
                 }
             }) {
-                log_debug!("dealing with nesting for {shape_iri}");
+                // log_debug!("dealing with nesting for {shape_iri}");
                 if let BasicType::Str(obj_iri) = &obj_term {
                     let tracked_child_arc = {
                         // Get or create object's tracked subject struct.
@@ -143,19 +143,19 @@ pub fn add_remove_triples(
                             .unwrap()
                             .parents
                             .insert(subject_iri.to_string(), parent);
-                        log_debug!("lock acquired on tracked_child {obj_iri}");
+                        // log_debug!("lock acquired on tracked_child {obj_iri}");
                         tracked_child
                     };
 
                     // Add link to children
                     let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
-                    log_debug!(
-                        "for children, lock acquired on tracked_predicate {}",
-                        predicate_schema.iri
-                    );
+                    // log_debug!(
+                    //     "for children, lock acquired on tracked_predicate {}",
+                    //     predicate_schema.iri
+                    // );
                     tracked_predicate.tracked_children.push(tracked_child_arc);
                 }
-                log_debug!("end of dealing with nesting");
+                // log_debug!("end of dealing with nesting");
             }
         }
     }
