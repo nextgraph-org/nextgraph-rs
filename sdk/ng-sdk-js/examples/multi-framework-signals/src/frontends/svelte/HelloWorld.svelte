@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { TestObjectShapeType } from "../../shapes/ldo/testShape.shapeTypes";
+  import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
   import { useShape } from "@nextgraph-monorepo/ng-signals/svelte";
   import flattenObject from "../utils/flattenObject";
 

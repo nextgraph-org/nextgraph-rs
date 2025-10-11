@@ -23,9 +23,6 @@
     "Jackson Morgan"
   ],
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/o-development/ldo/issues"
-  },
   "devDependencies": {
     "@types/child-process-promise": "^2.2.2",
     "@types/ejs": "^3.1.1",
