@@ -16,7 +16,7 @@ program
     .option(
         "-b, --baseIRI <baseIri>",
         "The base IRI for anonymous shapes",
-        "https://nextgraph.org/"
+        "https://nextgraph.org/shapes#"
     )
     .action(build);
 

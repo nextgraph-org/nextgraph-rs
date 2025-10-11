@@ -24,7 +24,7 @@ interface BuildOptions {
 export async function build({
     input: inputFile,
     output: outputFile,
-    baseIRI = "https://nextgraph.org/",
+    baseIRI = "https://nextgraph.org/shapes#",
 }: BuildOptions) {
     const load = loading("Preparing Environment");
     load.start();
