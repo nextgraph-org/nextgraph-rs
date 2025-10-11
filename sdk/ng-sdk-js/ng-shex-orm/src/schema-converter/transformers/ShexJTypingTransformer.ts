@@ -678,7 +678,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
         transformer: async (_shapeOr, getTransformedChildren) => {
             const tc = await getTransformedChildren();
 
-            return dom.create.union(tc.shapeExprs);
+            return dom.create.union(tc.shapeExprs as dom.Type[]);
         },
     },
 
