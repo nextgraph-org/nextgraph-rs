@@ -5,7 +5,7 @@
   "type": "module",
   "main": "src/index.ts",
   "bin": {
-    "ldo": "./src/cli.ts"
+    "rdf-orm": "./src/cli.ts"
   },
   "scripts": {
     "build": "pnpm run build:ts",
@@ -60,7 +60,7 @@
   ],
   "publishConfig": {
     "bin": {
-      "ldo": "./dist/cli.js"
+      "rdf-orm": "./dist/cli.js"
     },
     "access": "public",
     "main": "./dist/index.js",

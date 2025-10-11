@@ -1,7 +1,7 @@
 import React from "react";
 import { useShape } from "@nextgraph-monorepo/ng-signals/react";
 import flattenObject from "../utils/flattenObject";
-import { TestObjectShapeType } from "../../shapes/ldo/testShape.shapeTypes";
+import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 
 export function HelloWorldReact() {
     const state = useShape(TestObjectShapeType);

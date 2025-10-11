@@ -538,7 +538,7 @@ export interface TripleConstraint extends tripleExprBase {
      */
     valueExpr?: shapeExprOrRef | undefined;
     /**
-     * A human-readable predicate name used for creating compact ldo objects.
+     * The property name used for creating the JSON object.
      */
     readablePredicate: string;
 }

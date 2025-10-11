@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { useShape } from "@nextgraph-monorepo/ng-signals/vue";
 import flattenObject from '../utils/flattenObject';
-import { TestObjectShapeType } from "../../shapes/ldo/testShape.shapeTypes";
+import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 
 // Acquire deep signal object (proxy) for a shape; scope second arg left empty string for parity
 const shapeObj = useShape(TestObjectShapeType);

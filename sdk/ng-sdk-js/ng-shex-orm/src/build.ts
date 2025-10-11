@@ -39,7 +39,7 @@ export async function build({
     // Pre-annotate schema with readablePredicate to unify naming across outputs
     fileTemplates.push("schema", "typings", "shapeTypes");
 
-    load.text = "Generating LDO Documents";
+    load.text = "Generating Schema Documents";
     await forAllShapes(inputFile, async (fileName, shexC) => {
         // Convert to ShexJ
         let schema: Schema;
