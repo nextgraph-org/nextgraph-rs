@@ -330,6 +330,29 @@ INSERT DATA {
 async fn test_orm_creation() {
     // Setup wallet and document
     let (_wallet, session_id) = create_or_open_wallet().await;
+
+    // Tests below all in this test, to prevent waiting times through wallet creation.
+
+    // ===
+    test_orm_big_object(session_id).await;
+
+    // ===
+    test_orm_root_array(session_id).await;
+
+    // ===
+    test_orm_with_optional(session_id).await;
+
+    // ===
+    test_orm_literal(session_id).await;
+
+    // ===
+    test_orm_multi_type(session_id).await;
+
+    // ===
+    test_orm_nested(session_id).await;
+}
+
+async fn test_orm_big_object(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
@@ -413,16 +436,6 @@ INSERT DATA {
         }
     }
     cancel_fn();
-    //
-
-    // ===
-    test_orm_root_array(session_id).await;
-
-    // ===
-    test_orm_with_optional(session_id).await;
-
-    // ===
-    test_orm_literal(session_id).await;
 }
 
 async fn test_orm_root_array(session_id: u64) {
@@ -655,9 +668,6 @@ INSERT DATA {
         .into(),
     );
 
-    // TODO =======
-    // obj3 valid even though it should not.
-
     let shape_type = OrmShapeType {
         schema,
         shape: "http://example.org/OptionShape".to_string(),
@@ -683,6 +693,274 @@ INSERT DATA {
     }
     cancel_fn();
 }
+
+async fn test_orm_multi_type(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:oj1> 
+        ex:strOrNum "a string" ;
+        ex:strOrNum "another string" ;
+        ex:strOrNum 2 .
+
+    # Invalid because false is not string or number.
+    <urn:test:obj2> 
+        ex:strOrNum "a string2" ;
+        ex:strOrNum 2 ;
+        ex:strOrNum false .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define the ORM schema
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/MultiTypeShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/MultiTypeShape".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "http://example.org/strOrNum".to_string(),
+                extra: Some(true),
+                maxCardinality: -1,
+                minCardinality: 1,
+                readablePredicate: "strOrNum".to_string(),
+                dataTypes: vec![
+                    OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    },
+                    OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    },
+                ],
+            }
+            .into()],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/MultiTypeShape".to_string(),
+    };
+
+    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+        .await
+        .expect("orm_start");
+
+    while let Some(app_response) = receiver.next().await {
+        let orm_json = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmInitial(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        log_info!("ORM JSON arrived for multi type test\n: {:?}", orm_json);
+
+        break;
+    }
+    cancel_fn();
+}
+
+async fn test_orm_nested(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    # Valid
+    <urn:test:oj1> 
+        ex:str "obj1 str" ;
+        ex:nestedWithExtra [
+            ex:nestedStr "obj1 nested with extra valid" ;
+            ex:nestedNum 2
+        ] , [
+            # Invalid, nestedNum is missing but okay because extra.
+            ex:nestedStr "obj1 nested with extra invalid"
+        ] ;
+        ex:nestedWithoutExtra [
+            ex:nestedStr "obj1 nested without extra valid" ;
+            ex:nestedNum 2
+        ] .
+
+    # Invalid because nestedWithoutExtra has an invalid child.
+    <urn:test:oj2> 
+        ex:str "obj2 str" ;
+        ex:nestedWithExtra [
+            ex:nestedStr "obj2: a nested string valid" ;
+            ex:nestedNum 2
+        ] ;
+        ex:nestedWithoutExtra [
+            ex:nestedStr "obj2 nested without extra valid" ;
+            ex:nestedNum 2
+        ] ,
+        # Invalid because nestedNum is missing.
+        [
+            ex:nestedStr "obj2 nested without extra invalid"
+        ] .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define the ORM schema
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/RootShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/RootShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://example.org/str".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "str".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/nestedWithExtra".to_string(),
+                    extra: Some(true),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "nestedWithExtra".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::shape,
+                        literals: None,
+                        shape: Some("http://example.org/NestedShapeWithExtra".to_string()),
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/nestedWithoutExtra".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "nestedWithoutExtra".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::shape,
+                        literals: None,
+                        shape: Some("http://example.org/NestedShapeWithoutExtra".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "http://example.org/NestedShapeWithExtra".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/NestedShapeWithExtra".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://example.org/nestedStr".to_string(),
+                    extra: None,
+                    readablePredicate: "nestedStr".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/nestedNum".to_string(),
+                    extra: None,
+                    readablePredicate: "nestedNum".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "http://example.org/NestedShapeWithoutExtra".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/NestedShapeWithoutExtra".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://example.org/nestedStr".to_string(),
+                    extra: None,
+                    readablePredicate: "nestedStr".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/nestedNum".to_string(),
+                    extra: None,
+                    readablePredicate: "nestedNum".to_string(),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/RootShape".to_string(),
+    };
+
+    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+        .await
+        .expect("orm_start");
+
+    while let Some(app_response) = receiver.next().await {
+        let orm_json = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmInitial(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        log_info!("ORM JSON arrived for nested test\n: {:?}", orm_json);
+
+        break;
+    }
+    cancel_fn();
+}
+
 //
 // Helpers
 fn create_big_schema() -> OrmSchema {
