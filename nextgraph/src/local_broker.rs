@@ -13,7 +13,6 @@ use std::fs::{read, remove_file, write};
 use std::path::PathBuf;
 
 use async_once_cell::OnceCell;
-use async_std::prelude::FutureExt;
 use async_std::sync::{Arc, Condvar, Mutex, RwLock};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};

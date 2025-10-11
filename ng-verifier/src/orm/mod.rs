@@ -282,6 +282,9 @@ impl Verifier {
                 currently_validating.remove(&validation_key);
             }
 
+            // TODO: Currently, all shape <-> nested subject combinations are queued for re-evaluation.
+            // Is that okay?
+
             // Now, we queue all non-evaluated objects
             for (shape_iri, objects_to_eval) in &nested_objects_to_eval {
                 let orm_subscription = self.get_first_orm_subscription_for(
@@ -434,11 +437,19 @@ impl Verifier {
         let mut orm_obj = json!({"id": change.subject_iri});
         let orm_obj_map = orm_obj.as_object_mut().unwrap();
         for pred_schema in &shape.predicates {
-            let Some(pred_change) = change.predicates.get(&pred_schema.iri) else {
-                continue;
-            };
             let property_name = &pred_schema.readablePredicate;
             let is_multi = pred_schema.maxCardinality > 1 || pred_schema.maxCardinality == -1;
+
+            let Some(pred_change) = change.predicates.get(&pred_schema.iri) else {
+                // No triples for this property.
+
+                if pred_schema.minCardinality == 0 && is_multi {
+                    // If this predicate schema is an array though, insert empty array.
+                    orm_obj_map.insert(property_name.clone(), Value::Array(vec![]));
+                }
+
+                continue;
+            };
 
             if pred_schema
                 .dataTypes
@@ -624,18 +635,14 @@ impl Verifier {
         sender: UnboundedSender<AppResponse>,
         response: AppResponse,
     ) {
-        log_debug!(
-            "sending orm response for session {}:\n{:?}",
-            session_id,
-            &response
-        );
+        log_debug!("sending orm response for session {}:", session_id);
 
         if sender.is_closed() {
             log_debug!("closed so removing session {}", session_id);
 
             self.orm_subscriptions.remove(&nuri);
         } else {
-            sender.clone().send(response);
+            let _ = sender.clone().send(response).await;
         }
     }
 
@@ -675,7 +682,7 @@ impl Verifier {
             .push(orm_subscription);
 
         let _orm_objects = self.create_orm_object_for_shape(nuri, session_id, &shape_type)?;
-        log_debug!("create_orm_object_for_shape return {:?}", _orm_objects);
+        // log_debug!("create_orm_object_for_shape return {:?}", _orm_objects);
 
         self.push_orm_response(
             &nuri.clone(),
@@ -686,7 +693,7 @@ impl Verifier {
         .await;
 
         let close = Box::new(move || {
-            //log_debug!("CLOSE_CHANNEL of subscription for branch {}", branch_id);
+            log_debug!("CLOSE_CHANNEL of subscription");
             if !tx.is_closed() {
                 tx.close_channel();
             }
