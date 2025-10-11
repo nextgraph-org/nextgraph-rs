@@ -3,9 +3,6 @@ import { useShape } from "@nextgraph-monorepo/ng-signals/react";
 import flattenObject from "../utils/flattenObject";
 import { TestObjectShapeType } from "../../shapes/ldo/testShape.shapeTypes";
 
-// Hack to get mock backend started
-import { mockTestObject } from "../../ng-mock/wasm-land/shapeHandler";
-
 export function HelloWorldReact() {
     const state = useShape(TestObjectShapeType);
 
