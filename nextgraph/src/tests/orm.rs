@@ -12,12 +12,14 @@ use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
-    BasicType, OrmSchema, OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaPredicate,
+    self, BasicType, OrmSchema, OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaPredicate,
     OrmSchemaShape, OrmShapeType,
 };
 use ng_verifier::orm::utils::shape_type_to_sparql;
 
-use ng_repo::log_info;
+use ng_repo::{log_err, log_info};
+use serde_json::json;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -349,7 +351,16 @@ async fn test_orm_creation() {
     test_orm_multi_type(session_id).await;
 
     // ===
-    test_orm_nested(session_id).await;
+    test_orm_nested_1(session_id).await;
+
+    // // ===
+    // test_orm_nested_2(session_id).await;
+
+    // // ===
+    // test_orm_nested_3(session_id).await;
+
+    // ===
+    test_orm_nested_4(session_id).await;
 }
 
 async fn test_orm_big_object(session_id: u64) {
@@ -363,45 +374,50 @@ INSERT DATA {
       ex:numValue 42 ;
       ex:boolValue true ;
       ex:arrayValue 1,2,3 ;
-      ex:objectValue [
-        ex:nestedString "nested" ;
-        ex:nestedNum 7 ;
-        ex:nestedArray 5,6
-      ] ;
-      ex:anotherObject [
-        ex:prop1 "one" ;
-        ex:prop2 1
-      ], [
-        ex:prop1 "two" ;
-        ex:prop2 2
-      ] ;
+      ex:objectValue <urn:test:id3> ;
+      ex:anotherObject <urn:test:id1>, <urn:test:id2> ;
       ex:numOrStr "either" ;
       ex:lit1Or2 "lit1" ;
       ex:unrelated "some value" ;
       ex:anotherUnrelated 4242 .
 
+    <urn:test:id3>
+        ex:nestedString "nested" ;
+        ex:nestedNum 7 ;
+        ex:nestedArray 5,6 .
+
+    <urn:test:id1>
+        ex:prop1 "one" ;
+        ex:prop2 1 .
+
+    <urn:test:id2>
+        ex:prop1 "two" ;
+        ex:prop2 2 .
 
     <urn:test:obj2> a ex:TestObject ;
       ex:stringValue "hello world #2" ;
       ex:numValue 422 ;
       ex:boolValue false ;
       ex:arrayValue 4,5,6 ;
-      ex:objectValue [
-        ex:nestedString "nested2" ;
-        ex:nestedNum 72 ;
-        ex:nestedArray 7,8,9
-      ] ;
-      ex:anotherObject [
-        ex:prop1 "one2" ;
-        ex:prop2 12
-      ], [
-        ex:prop1 "two2" ;
-        ex:prop2 22
-      ] ;
+      ex:objectValue <urn:test:id6> ;
+      ex:anotherObject <urn:test:id4>, <urn:test:id5> ;
       ex:numOrStr 4 ;
       ex:lit1Or2 "lit2" ;
       ex:unrelated "some value2" ;
       ex:anotherUnrelated 42422 .
+
+    <urn:test:id6>
+        ex:nestedString "nested2" ;
+        ex:nestedNum 72 ;
+        ex:nestedArray 7,8,9 .
+
+    <urn:test:id4>
+        ex:prop1 "one2" ;
+        ex:prop2 12 .
+
+    <urn:test:id5>
+        ex:prop1 "two2" ;
+        ex:prop2 22 .
 }
 "#
         .to_string(),
@@ -416,24 +432,77 @@ INSERT DATA {
         shape: "http://example.org/TestObject".to_string(),
     };
 
-    log_info!("starting orm test");
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
     let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
         .await
         .expect("orm_start");
 
-    log_info!("orm_start call ended");
-
     while let Some(app_response) = receiver.next().await {
-        match app_response {
+        let orm_json = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => {
-                    log_info!("ORM JSON arrived\n: {:?}", json);
-                    break;
-                }
-                _ => (),
+                AppResponseV0::OrmInitial(json) => Some(json),
+                _ => None,
             },
         }
+        .unwrap();
+
+        let mut expected = json!([{
+            "type":"http://example.org/TestObject",
+            "id":"urn:test:obj1",
+            "anotherObject":{
+                "urn:test:id1":{
+                    "prop1":"one",
+                    "prop2":1.0
+                },
+                "urn:test:id2":{
+                    "prop1":"two",
+                    "prop2":2.0
+                }
+            },
+            "arrayValue":[3.0,2.0,1.0],
+            "boolValue":true,
+            "lit1Or2":"lit1",
+            "numOrStr":"either",
+            "numValue":42.0,
+            "objectValue":{
+                "id":"urn:test:id3",
+                "nestedArray":[5.0,6.0],
+                "nestedNum":7.0,
+                "nestedString":"nested"
+            },
+            "stringValue": "hello world",
+        },
+        {
+            "id":"urn:test:obj2",
+            "type":"http://example.org/TestObject",
+            "anotherObject": {
+                "urn:test:id4":{
+                    "prop1":"one2",
+                    "prop2":12.0
+                },
+                "urn:test:id5":{
+                    "prop1":"two2",
+                    "prop2":22.0
+                }
+            },
+            "arrayValue":[6.0,5.0,4.0],
+            "boolValue":false,
+            "lit1Or2":"lit2",
+            "numOrStr":4.0,
+            "numValue":422.0,
+            "objectValue":{
+                "id":"urn:test:id6",
+                "nestedArray": [7.0,8.0,9.0],
+                "nestedNum":72.0,
+                "nestedString":"nested2"
+            },
+            "stringValue":"hello world #2",
+        }]);
+
+        let mut actual_mut = orm_json.clone();
+        assert_json_eq(&mut expected, &mut actual_mut);
+
+        break;
     }
     cancel_fn();
 }
@@ -531,7 +600,26 @@ INSERT DATA {
         }
         .unwrap();
 
-        log_info!("ORM JSON arrived\n: {:?}", orm_json);
+        let mut expected = json!([
+            {
+                "id": "urn:test:numArrayObj1",
+                "type": "http://example.org/TestObject",
+                "numArray": [1.0, 2.0, 3.0]
+            },
+            {
+                "id": "urn:test:numArrayObj2",
+                "type": "http://example.org/TestObject",
+                "numArray": []
+            },
+            {
+                "id": "urn:test:numArrayObj3",
+                "type": "http://example.org/TestObject",
+                "numArray": [1.0, 2.0]
+            }
+        ]);
+
+        let mut actual_mut = orm_json.clone();
+        assert_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -548,6 +636,7 @@ INSERT DATA {
         ex:opt true ;
         ex:str "s1" .
 
+    # Contains no matching data
     <urn:test:oj2> 
         ex:str "s2" .
 }
@@ -598,7 +687,15 @@ INSERT DATA {
         }
         .unwrap();
 
-        log_info!("ORM JSON arrived for optional test\n: {:?}", orm_json);
+        let mut expected = json!([
+            {
+                "id": "urn:test:oj1",
+                "opt": true
+            }
+        ]);
+
+        let mut actual_mut = orm_json.clone();
+        assert_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -687,7 +784,21 @@ INSERT DATA {
         }
         .unwrap();
 
-        log_info!("ORM JSON arrived for literal test\n: {:?}", orm_json);
+        let mut expected = json!([
+            {
+                "id": "urn:test:oj1",
+                "lit1": ["lit 1"],
+                "lit2": "lit 2"
+            },
+            {
+                "id": "urn:test:obj2",
+                "lit1": ["lit 1", "lit 1 extra"],
+                "lit2": "lit 2"
+            }
+        ]);
+
+        let mut actual_mut = orm_json.clone();
+        assert_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -765,14 +876,22 @@ INSERT DATA {
         }
         .unwrap();
 
-        log_info!("ORM JSON arrived for multi type test\n: {:?}", orm_json);
+        let mut expected = json!([
+            {
+                "id": "urn:test:oj1",
+                "strOrNum": ["a string", "another string", 2.0]
+            }
+        ]);
+
+        let mut actual_mut = orm_json.clone();
+        assert_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
     cancel_fn();
 }
 
-async fn test_orm_nested(session_id: u64) {
+async fn test_orm_nested_1(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
@@ -781,33 +900,37 @@ INSERT DATA {
     # Valid
     <urn:test:oj1> 
         ex:str "obj1 str" ;
-        ex:nestedWithExtra [
-            ex:nestedStr "obj1 nested with extra valid" ;
-            ex:nestedNum 2
-        ] , [
-            # Invalid, nestedNum is missing but okay because extra.
-            ex:nestedStr "obj1 nested with extra invalid"
-        ] ;
-        ex:nestedWithoutExtra [
-            ex:nestedStr "obj1 nested without extra valid" ;
-            ex:nestedNum 2
-        ] .
+        ex:nestedWithExtra <urn:test:nested1>, <urn:test:nested2> ;
+        ex:nestedWithoutExtra <urn:test:nested3> .
+
+    <urn:test:nested1>
+        ex:nestedStr "obj1 nested with extra valid" ;
+        ex:nestedNum 2 .
+
+    <urn:test:nested2>
+        ex:nestedStr "obj1 nested with extra invalid" .
+
+    <urn:test:nested3>
+        ex:nestedStr "obj1 nested without extra valid" ;
+        ex:nestedNum 2 .
 
     # Invalid because nestedWithoutExtra has an invalid child.
     <urn:test:oj2> 
         ex:str "obj2 str" ;
-        ex:nestedWithExtra [
-            ex:nestedStr "obj2: a nested string valid" ;
-            ex:nestedNum 2
-        ] ;
-        ex:nestedWithoutExtra [
-            ex:nestedStr "obj2 nested without extra valid" ;
-            ex:nestedNum 2
-        ] ,
-        # Invalid because nestedNum is missing.
-        [
-            ex:nestedStr "obj2 nested without extra invalid"
-        ] .
+        ex:nestedWithExtra <urn:test:nested4> ;
+        ex:nestedWithoutExtra <urn:test:nested5>, <urn:test:nested6> .
+
+    <urn:test:nested4>
+        ex:nestedStr "obj2: a nested string valid" ;
+        ex:nestedNum 2 .
+
+    <urn:test:nested5>
+        ex:nestedStr "obj2 nested without extra valid" ;
+        ex:nestedNum 2 .
+
+    # Invalid because nestedNum is missing.
+    <urn:test:nested6>
+        ex:nestedStr "obj2 nested without extra invalid" .
 }
 "#
         .to_string(),
@@ -954,7 +1077,483 @@ INSERT DATA {
         }
         .unwrap();
 
-        log_info!("ORM JSON arrived for nested test\n: {:?}", orm_json);
+        let mut expected = json!([
+            {
+                "id": "urn:test:oj1",
+                "str": "obj1 str",
+                "nestedWithExtra": {
+                    "nestedStr": "obj1 nested with extra valid",
+                    "nestedNum": 2.0
+                },
+                "nestedWithoutExtra": {
+                    "nestedStr": "obj1 nested without extra valid",
+                    "nestedNum": 2.0
+                }
+            }
+        ]);
+
+        let mut actual_mut = orm_json.clone();
+        assert_json_eq(&mut expected, &mut actual_mut);
+
+        break;
+    }
+    cancel_fn();
+}
+
+async fn test_orm_nested_2(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    # Valid
+    <urn:test:alice> 
+        ex:knows <urn:test:bob>, <urn:test:claire> ;
+        ex:name "Alice" .
+    <urn:test:bob>
+        ex:knows <urn:test:claire> ;
+        ex:name "Bob" .
+    <urn:test:claire>
+        ex:name "Claire" .
+
+    # Invalid because claire2 is invalid
+    <urn:test:alice2> 
+        ex:knows <urn:test:bob2>, <urn:test:claire2> ;
+        ex:name "Alice" .
+    # Invalid because claire2 is invalid
+    <urn:test:bob2>
+        ex:knows <urn:test:claire2> ;
+        ex:name "Bob" .
+    # Invalid because name is missing.
+    <urn:test:claire2>
+        ex:missingName "Claire missing" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define the ORM schema
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/PersonShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/PersonShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "name".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/knows".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "knows".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::shape,
+                        literals: None,
+                        shape: Some("http://example.org/PersonShape".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/PersonShape".to_string(),
+    };
+
+    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+        .await
+        .expect("orm_start");
+
+    while let Some(app_response) = receiver.next().await {
+        let orm_json = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmInitial(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        log_info!(
+            "ORM JSON arrived for nested2 (person) test\n: {:?}",
+            orm_json
+        );
+
+        // Expected: alice and bob with their nested knows relationships
+        // claire2 is invalid (missing name), so alice2's knows chain is incomplete
+        let mut expected = json!([
+            {
+                "id": "urn:test:alice",
+                "name": "Alice",
+                "knows": {
+                    "urn:test:bob": {
+                        "name": "Bob",
+                        "knows": {
+                            "urn:test:claire": {
+                                "name": "Claire",
+                                "knows": {}
+                            }
+                        }
+                    },
+                    "urn:test:claire": {
+                        "name": "Claire",
+                        "knows": {}
+                    }
+                }
+            },
+            {
+                "id": "urn:test:bob",
+                "name": "Bob",
+                "knows": {
+                    "urn:test:claire": {
+                        "name": "Claire",
+                        "knows": {}
+                    }
+                }
+            },
+            {
+                "id": "urn:test:claire",
+                "name": "Claire",
+                "knows": {}
+            }
+        ]);
+
+        let mut actual_mut = orm_json.clone();
+        log_info!(
+            "JSON for nested2\n{}",
+            serde_json::to_string(&actual_mut).unwrap()
+        );
+        assert_json_eq(&mut expected, &mut actual_mut);
+
+        break;
+    }
+    cancel_fn();
+}
+
+async fn test_orm_nested_3(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    # Valid
+    <urn:test:alice> 
+        a ex:Alice ;
+        ex:knows <urn:test:bob>, <urn:test:claire> .
+    <urn:test:bob>
+        a ex:Bob ;
+        ex:knows <urn:test:claire> .
+    <urn:test:claire>
+        a ex:Claire .
+
+    # Invalid because claire is invalid
+    <urn:test:alice2> 
+        a ex:Alice ;
+        ex:knows <urn:test:bob2>, <urn:test:claire2> .
+    # Invalid because claire is invalid
+    <urn:test:bob2>
+        a ex:Bob ;
+        ex:knows <urn:test:claire2> .
+    # Invalid, wrong type.
+    <urn:test:claire2>
+        a ex:Claire2 .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define the ORM schema
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/AliceShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/AliceShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Alice".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/knows".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "knows".to_string(),
+                    dataTypes: vec![
+                        OrmSchemaDataType {
+                            valType: OrmSchemaLiteralType::shape,
+                            literals: None,
+                            shape: Some("http://example.org/BobShape".to_string()),
+                        },
+                        OrmSchemaDataType {
+                            valType: OrmSchemaLiteralType::shape,
+                            literals: None,
+                            shape: Some("http://example.org/ClaireShape".to_string()),
+                        },
+                    ],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "http://example.org/BobShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/BobShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(true),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::literal,
+                        literals: Some(vec![BasicType::Str("http://example.org/Bob".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/knows".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "knows".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::shape,
+                        literals: None,
+                        shape: Some("http://example.org/ClaireShape".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "http://example.org/ClaireShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/ClaireShape".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                extra: None,
+                maxCardinality: 1,
+                minCardinality: 1,
+                readablePredicate: "type".to_string(),
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaLiteralType::literal,
+                    literals: Some(vec![BasicType::Str(
+                        "http://example.org/Claire".to_string(),
+                    )]),
+                    shape: None,
+                }],
+            }
+            .into()],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/AliceShape".to_string(),
+    };
+
+    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+        .await
+        .expect("orm_start");
+
+    while let Some(app_response) = receiver.next().await {
+        let orm_json = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmInitial(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        log_info!(
+            "ORM JSON arrived for nested3 (person) test\n: {:?}",
+            serde_json::to_string(&orm_json).unwrap()
+        );
+
+        // Expected: alice with knows relationships to bob and claire
+        // alice2 is incomplete because claire2 has wrong type
+        let mut expected = json!([
+            {
+                "id": "urn:test:alice",
+                "type": "http://example.org/Alice",
+                "knows": {
+                    "urn:test:bob": {
+                        "type": "http://example.org/Bob",
+                        "knows": {
+                            "urn:test:claire": {
+                                "type": "http://example.org/Claire"
+                            }
+                        }
+                    },
+                    "urn:test:claire": {
+                        "type": "http://example.org/Claire"
+                    }
+                }
+            }
+        ]);
+
+        let mut actual_mut = orm_json.clone();
+        assert_json_eq(&mut expected, &mut actual_mut);
+
+        break;
+    }
+    cancel_fn();
+}
+
+async fn test_orm_nested_4(session_id: u64) {
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    # Valid
+    <urn:test:alice>
+        a ex:Person ;
+        ex:hasCat <urn:test:kitten1>, <urn:test:kitten2> .
+    <urn:test:kitten1>
+        a ex:Cat .
+    <urn:test:kitten2>
+        a ex:Cat .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define the ORM schema
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/PersonShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/PersonShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/hasCat".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "cats".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::shape,
+                        literals: None,
+                        shape: Some("http://example.org/CatShape".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+    schema.insert(
+        "http://example.org/CatShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/CatShape".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                extra: Some(true),
+                maxCardinality: 1,
+                minCardinality: 1,
+                readablePredicate: "type".to_string(),
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaLiteralType::literal,
+                    literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
+                    shape: None,
+                }],
+            }
+            .into()],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/PersonShape".to_string(),
+    };
+
+    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+        .await
+        .expect("orm_start");
+
+    while let Some(app_response) = receiver.next().await {
+        let orm_json = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmInitial(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        let mut expected = json!([
+            {
+                "id": "urn:test:alice",
+                "type": "http://example.org/Person",
+                "cats": {
+                    "urn:test:kitten1": {
+                        "type": "http://example.org/Cat"
+                    },
+                    "urn:test:kitten2": {
+                        "type": "http://example.org/Cat"
+                    }
+                },
+            }
+        ]);
+
+        let mut actual_mut = orm_json.clone();
+
+        assert_json_eq(&mut expected, &mut actual_mut);
 
         break;
     }
@@ -1208,4 +1807,68 @@ async fn create_doc_with_data(session_id: u64, sparql_insert: String) -> String 
         .expect("SPARQL update failed");
 
     return doc_nuri;
+}
+
+fn assert_json_eq(expected: &mut Value, actual: &mut Value) {
+    remove_id_fields(expected);
+    remove_id_fields(actual);
+
+    sort_arrays(expected);
+    sort_arrays(actual);
+
+    let diff = serde_json_diff::values(expected.clone(), actual.clone());
+    if let Some(diff_) = diff {
+        log_err!("Expected and actual ORM JSON mismatch.\nDiff: {:?}", diff_);
+        assert!(false);
+    }
+}
+
+/// Helper to recursively sort all arrays in nested objects into a stable ordering.
+/// Arrays are sorted by their JSON string representation.
+fn sort_arrays(value: &mut Value) {
+    match value {
+        Value::Object(map) => {
+            for v in map.values_mut() {
+                sort_arrays(v);
+            }
+        }
+        Value::Array(arr) => {
+            // First, recursively sort nested structures
+            for v in arr.iter_mut() {
+                sort_arrays(v);
+            }
+            // Then sort the array itself by JSON string representation
+            arr.sort_by(|a, b| {
+                let a_str = canonical_json::ser::to_string(a).unwrap_or_default();
+                let b_str = canonical_json::ser::to_string(b).unwrap_or_default();
+                a_str.cmp(&b_str)
+            });
+        }
+        _ => {}
+    }
+}
+
+/// Helper to recursively remove nested "id" fields from nested objects,
+/// but only if they are not at the root level.
+fn remove_id_fields(value: &mut Value) {
+    fn remove_id_fields_inner(value: &mut Value, is_root: bool) {
+        match value {
+            Value::Object(map) => {
+                if !is_root {
+                    map.remove("id");
+                }
+                for v in map.values_mut() {
+                    remove_id_fields_inner(v, false);
+                }
+            }
+            Value::Array(arr) => {
+                for v in arr {
+                    remove_id_fields_inner(v, false);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    remove_id_fields_inner(value, true);
 }

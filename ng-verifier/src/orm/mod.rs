@@ -75,6 +75,7 @@ impl Verifier {
                             return Err(NgError::SparqlError(e.to_string()));
                         }
                         Ok(triple) => {
+                            log_debug!("Triple fetched: {:?}", triple);
                             result_triples.push(triple);
                         }
                     }
@@ -173,9 +174,13 @@ impl Verifier {
                 HashMap::new();
 
             // For each subject, add/remove triples and validate.
-            log_debug!("all_modified_subjects: {:?}", modified_subject_iris);
+            log_debug!(
+                "processing modified subjects: {:?} against shape: {}",
+                modified_subject_iris,
+                shape.iri
+            );
 
-            for subject_iri in modified_subject_iris {
+            for subject_iri in &modified_subject_iris {
                 let validation_key = (shape.iri.clone(), subject_iri.to_string());
 
                 // Cycle detection: Check if this (shape, subject) pair is already being validated
@@ -187,7 +192,8 @@ impl Verifier {
                     );
                     // Mark as invalid due to cycle
                     // TODO: We could handle this by handling nested references as IRIs.
-                    if let Some(tracked_shapes) = orm_subscription.tracked_subjects.get(subject_iri)
+                    if let Some(tracked_shapes) =
+                        orm_subscription.tracked_subjects.get(*subject_iri)
                     {
                         if let Some(tracked_subject) = tracked_shapes.get(&shape.iri) {
                             let mut ts = tracked_subject.write().unwrap();
@@ -201,12 +207,13 @@ impl Verifier {
                 // Mark as currently validating
                 currently_validating.insert(validation_key.clone());
 
+                // Get triples of subject (added & removed).
                 let triples_added_for_subj = added_triples_by_subject
-                    .get(subject_iri)
+                    .get(*subject_iri)
                     .map(|v| v.as_slice())
                     .unwrap_or(&[]);
                 let triples_removed_for_subj = removed_triples_by_subject
-                    .get(subject_iri)
+                    .get(*subject_iri)
                     .map(|v| v.as_slice())
                     .unwrap_or(&[]);
 
@@ -214,9 +221,9 @@ impl Verifier {
                 let change = orm_changes
                     .entry(shape.iri.clone())
                     .or_insert_with(HashMap::new)
-                    .entry(subject_iri.clone())
+                    .entry((*subject_iri).clone())
                     .or_insert_with(|| OrmTrackedSubjectChange {
-                        subject_iri: subject_iri.clone(),
+                        subject_iri: (*subject_iri).clone(),
                         predicates: HashMap::new(),
                         data_applied: false,
                     });
@@ -248,7 +255,7 @@ impl Verifier {
                     let validity = {
                         let tracked_subject_opt = orm_subscription
                             .tracked_subjects
-                            .get(subject_iri)
+                            .get(*subject_iri)
                             .and_then(|m| m.get(&shape.iri));
                         let Some(tracked_subject) = tracked_subject_opt else {
                             continue;
@@ -277,13 +284,7 @@ impl Verifier {
                         }
                     }
                 }
-
-                // Remove from validation stack after processing this subject
-                currently_validating.remove(&validation_key);
             }
-
-            // TODO: Currently, all shape <-> nested subject combinations are queued for re-evaluation.
-            // Is that okay?
 
             // Now, we queue all non-evaluated objects
             for (shape_iri, objects_to_eval) in &nested_objects_to_eval {
@@ -332,6 +333,10 @@ impl Verifier {
                     // Queue all objects that don't need fetching.
                     shape_validation_stack.push((shape_arc, objects_not_to_fetch));
                 }
+            }
+            for subject_iri in modified_subject_iris {
+                let validation_key = (shape.iri.clone(), subject_iri.to_string());
+                currently_validating.remove(&validation_key);
             }
         }
 

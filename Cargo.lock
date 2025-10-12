@@ -597,6 +597,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "canonical_json"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f89083fd014d71c47a718d7f4ac050864dac8587668dbe90baf9e261064c5710"
+dependencies = [
+ "hex",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2156,6 +2169,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "base64-url",
+ "canonical_json",
  "futures",
  "lazy_static",
  "ng-client-ws",
@@ -2171,6 +2185,7 @@ dependencies = [
  "serde_bare",
  "serde_bytes",
  "serde_json",
+ "serde_json_diff",
  "svg2pdf",
  "web-time",
  "whoami",
@@ -3495,6 +3510,16 @@ dependencies = [
  "ryu",
  "serde",
  "serde_core",
+]
+
+[[package]]
+name = "serde_json_diff"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eac615f2de9556d78ec9d5924abae441d1764f833fbd6db24bb56d2b6b5200ed"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

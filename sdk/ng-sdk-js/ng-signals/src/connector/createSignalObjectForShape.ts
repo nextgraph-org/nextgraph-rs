@@ -1,6 +1,8 @@
 import type { Diff, Scope } from "../types.ts";
 import { applyDiff } from "./applyDiff.ts";
 
+import ng from "@nextgraph-monorepo/ng-sdk-js";
+
 import {
     deepSignal,
     watch,
@@ -111,7 +113,7 @@ const setUpConnection = (entry: PoolEntry<any>, wasmMessage: WasmMessage) => {
 };
 
 // Handler for messages from wasm land.
-const onWasmMessage = (event: MessageEvent<WasmMessage>) => {
+const onMessage = (event: MessageEvent<WasmMessage>) => {
     console.debug("[JsLand] onWasmMessage", event);
     const { diff, connectionId, type } = event.data;
 
@@ -121,7 +123,12 @@ const onWasmMessage = (event: MessageEvent<WasmMessage>) => {
 
     // And only process messages that are addressed to js-land.
     if (type === "FrontendUpdate") return;
-    if (type === "Request") return;
+    if (type === "Request") {
+        // TODO: Handle message from wasm land and js land
+        // in different functions
+
+        return;
+    }
     if (type === "Stop") return;
 
     if (type === "InitialResponse") {
@@ -137,7 +144,7 @@ const keyToEntry = new Map<string, PoolEntry<any>>();
 const connectionIdToEntry = new Map<string, PoolEntry<any>>();
 
 const communicationChannel = new BroadcastChannel("shape-manager");
-communicationChannel.addEventListener("message", onWasmMessage);
+communicationChannel.addEventListener("message", onMessage);
 
 // FinalizationRegistry to clean up connections when signal objects are GC'd.
 const cleanupSignalRegistry =
@@ -210,16 +217,11 @@ export function createSignalObjectForShape<T extends BaseType>(
     keyToEntry.set(key, entry);
     connectionIdToEntry.set(entry.connectionId, entry);
 
-    // TODO: Just a hack since the channel is not set up in mock-mode
-    setTimeout(
-        () =>
-            communicationChannel.postMessage({
-                type: "Request",
-                connectionId: entry.connectionId,
-                shapeType,
-            } as WasmMessage),
-        100
-    );
+    communicationChannel.postMessage({
+        type: "Request",
+        connectionId: entry.connectionId,
+        shapeType,
+    } as WasmMessage);
 
     function buildReturn(entry: PoolEntry<T>) {
         return {

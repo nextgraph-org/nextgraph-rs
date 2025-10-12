@@ -80,6 +80,7 @@ pub fn shape_type_to_sparql(
     let mut visited_shapes: HashSet<ShapeIri> = HashSet::new();
 
     // Recursive function to call for (nested) shapes.
+    // Returns nested WHERE statements that should be included with this shape's binding.
     fn process_shape(
         schema: &OrmSchema,
         shape: &OrmSchemaShape,
@@ -89,11 +90,11 @@ pub fn shape_type_to_sparql(
         var_counter: &mut i32,
         visited_shapes: &mut HashSet<String>,
         in_recursion: bool,
-    ) {
+    ) -> Vec<String> {
         // Prevent infinite recursion on cyclic schemas.
         // TODO: We could handle this as IRI string reference.
         if visited_shapes.contains(&shape.iri) {
-            return;
+            return vec![];
         }
 
         let mut new_where_statements: Vec<String> = vec![];
@@ -102,8 +103,12 @@ pub fn shape_type_to_sparql(
         visited_shapes.insert(shape.iri.clone());
 
         // Add statements for each predicate.
+        // If we are in recursion, we want to get all triples.
+        // That's why we add a "<subject> ?p ?o" statement afterwards
+        // and the extra construct statements are skipped.
         for predicate in &shape.predicates {
             let mut union_branches = Vec::new();
+            let mut nested_where_statements = Vec::new();
 
             // Predicate constraints might have more than one acceptable nested shape. Traverse each.
             for datatype in &predicate.dataTypes {
@@ -116,10 +121,12 @@ pub fn shape_type_to_sparql(
                     // Each shape option gets its own var.
                     let obj_var_name = get_new_var_name(var_counter);
 
-                    new_construct_statements.push(format!(
-                        "  ?{} <{}> ?{}",
-                        subject_var_name, predicate.iri, obj_var_name
-                    ));
+                    if !in_recursion {
+                        new_construct_statements.push(format!(
+                            "  ?{} <{}> ?{}",
+                            subject_var_name, predicate.iri, obj_var_name
+                        ));
+                    }
                     // Those are later added to a UNION, if there is more than one shape.
                     union_branches.push(format!(
                         "  ?{} <{}> ?{}",
@@ -127,7 +134,8 @@ pub fn shape_type_to_sparql(
                     ));
 
                     // Recurse to add statements for nested object.
-                    process_shape(
+                    // Collect nested WHERE statements to include within this predicate's scope.
+                    let nested_stmts = process_shape(
                         schema,
                         nested_shape,
                         &obj_var_name,
@@ -137,6 +145,7 @@ pub fn shape_type_to_sparql(
                         visited_shapes,
                         true,
                     );
+                    nested_where_statements.extend(nested_stmts);
                 }
             }
 
@@ -145,21 +154,32 @@ pub fn shape_type_to_sparql(
 
             if !union_branches.is_empty() {
                 // We have nested shape(s) which were already added to CONSTRUCT above.
-                // Join them with UNION.
+                // Join them with UNION and include nested WHERE statements.
 
-                where_body = union_branches
+                let union_body = union_branches
                     .into_iter()
                     .map(|b| format!("{{\n{}\n}}", b))
                     .collect::<Vec<_>>()
                     .join(" UNION ");
+
+                // Combine the parent binding with nested statements
+                if !nested_where_statements.is_empty() {
+                    let nested_joined = nested_where_statements.join(" .\n");
+                    where_body = format!("{} .\n{}", union_body, nested_joined);
+                } else {
+                    where_body = union_body;
+                }
             } else {
                 // Regular predicate data type. Just add basic CONSTRUCT and WHERE statements.
 
                 let obj_var_name = get_new_var_name(var_counter);
-                new_construct_statements.push(format!(
-                    "  ?{} <{}> ?{}",
-                    subject_var_name, predicate.iri, obj_var_name
-                ));
+                if !in_recursion {
+                    // Only add construct, if we don't have catch-all statement already.
+                    new_construct_statements.push(format!(
+                        "  ?{} <{}> ?{}",
+                        subject_var_name, predicate.iri, obj_var_name
+                    ));
+                }
                 where_body = format!(
                     "  ?{} <{}> ?{}",
                     subject_var_name, predicate.iri, obj_var_name
@@ -181,7 +201,7 @@ pub fn shape_type_to_sparql(
             let pred_var_name = get_new_var_name(var_counter);
             let obj_var_name = get_new_var_name(var_counter);
 
-            // The "catch any triple in subject" where statement
+            // The "catch any triple in subject" construct statement
             construct_statements.push(format!(
                 "  ?{} ?{} ?{}",
                 subject_var_name, pred_var_name, obj_var_name
@@ -189,17 +209,20 @@ pub fn shape_type_to_sparql(
 
             let joined_where_statements = new_where_statements.join(" .\n");
 
-            // We do a join of the where statements (which will take care of querying further nested objects)
-            // and the "catch any triple in subject" where statement.
-            where_statements.push(format!(
-                "  {{?{} ?{} ?{}}}\n  UNION {{\n  {}\n  }}",
+            // Return nested statements to be included in parent's scope
+            // Combine catch-all with specific predicates in a UNION
+            let nested_block = format!(
+                "  {{\n    {{?{} ?{} ?{}}}\n    UNION {{\n    {}\n    }}\n  }}",
                 subject_var_name, pred_var_name, obj_var_name, joined_where_statements
-            ));
+            );
+            visited_shapes.remove(&shape.iri);
+            return vec![nested_block];
         } else {
             where_statements.append(&mut new_where_statements);
             construct_statements.append(&mut new_construct_statements);
         }
         visited_shapes.remove(&shape.iri);
+        vec![]
     }
 
     let root_shape = schema.get(shape).ok_or(VerifierError::InvalidOrmSchema)?;
@@ -239,7 +262,6 @@ pub fn shape_type_to_sparql(
         construct_body, where_body
     ))
 }
-
 /// SPARQL literal escape: backslash, quotes, newlines, tabs.
 fn escape_literal(lit: &str) -> String {
     let mut out = String::with_capacity(lit.len() + 4);
