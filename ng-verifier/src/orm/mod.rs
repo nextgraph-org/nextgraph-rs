@@ -811,7 +811,7 @@ impl Verifier {
         let _ = tx.send(AppResponse::V0(AppResponseV0::OrmInitial(orm_objects))).await;
 
         let close = Box::new(move || {
-            log_debug!("CLOSE_CHANNEL of subscription");
+            log_debug!("closing ORM subscription");
             if !tx.is_closed() {
                 tx.close_channel();
             }
