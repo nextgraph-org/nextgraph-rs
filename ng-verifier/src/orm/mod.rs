@@ -622,7 +622,28 @@ impl Verifier {
         return Ok(return_vals);
     }
 
-    pub(crate) async fn orm_update(&mut self, scope: &NuriV0, patch: GraphQuadsPatch) {}
+    pub(crate) async fn orm_update(
+        &mut self,
+        scope: &NuriV0,
+        commit_nuri: String,
+        patch: GraphQuadsPatch,
+    ) {
+        if let Some(subs) = self.orm_subscriptions.get(scope) {
+            for sub in subs {
+
+                // //TODO fix this
+                // let orm_diff = ??;
+
+                // self.push_orm_response(
+                //     scope,
+                //     sub.session_id,
+                //     sub.sender.clone(),
+                //     AppResponse::V0(AppResponseV0::OrmUpdate(orm_diff)),
+                // )
+                // .await;
+            }
+        }
+    }
 
     pub(crate) async fn orm_frontend_update(
         &mut self,
@@ -686,14 +707,14 @@ impl Verifier {
             .or_insert(vec![])
             .push(orm_subscription);
 
-        let _orm_objects = self.create_orm_object_for_shape(nuri, session_id, &shape_type)?;
-        // log_debug!("create_orm_object_for_shape return {:?}", _orm_objects);
+        let orm_objects = self.create_orm_object_for_shape(nuri, session_id, &shape_type)?;
+        // log_debug!("create_orm_object_for_shape return {:?}", orm_objects);
 
         self.push_orm_response(
             &nuri.clone(),
             session_id,
             tx.clone(),
-            AppResponse::V0(AppResponseV0::OrmInitial(_orm_objects)),
+            AppResponse::V0(AppResponseV0::OrmInitial(orm_objects)),
         )
         .await;
 

@@ -740,7 +740,8 @@ impl Verifier {
                         .await;
                     } else {
                         let graph_patch = update.transaction.as_patch();
-                        commit_nuris.push(NuriV0::commit(&update.repo_id, &update.commit_id));
+                        let nuri = NuriV0::commit(&update.repo_id, &update.commit_id);
+                        commit_nuris.push(nuri.clone());
                         self.push_app_response(
                             &update.branch_id,
                             AppResponse::V0(AppResponseV0::Patch(AppPatch {
@@ -756,6 +757,7 @@ impl Verifier {
                             NuriV0::repo_graph_name(&update.repo_id, &update.overlay_id);
                         self.orm_update(
                             &NuriV0::new_empty(),
+                            nuri,
                             update.transaction.as_quads_patch(graph_nuri),
                         )
                         .await;
