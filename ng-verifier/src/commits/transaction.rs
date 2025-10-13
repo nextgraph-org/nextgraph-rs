@@ -295,7 +295,7 @@ impl Verifier {
                 transaction,
                 commit_info,
             };
-            self.update_graph(vec![info]).await?;
+            self.update_graph(vec![info], 0).await?;
         } else
         //TODO: change the logic here. transaction commits can have both a discrete and graph update. Only one AppResponse should be sent in this case, containing both updates.
         if body.discrete.is_some() {
@@ -393,14 +393,16 @@ impl Verifier {
                     // TODO: implement TargetBranchV0::Named
                     _ => unimplemented!(),
                 };
-                let _ = branches.entry(branch_id).or_insert((
-                    store.get_store_repo().clone(),
-                    repo.id,
-                    branch_type,
-                    topic_id,
-                    token,
-                    store.overlay_id,
-                ));
+                if is_publisher {
+                    let _ = branches.entry(branch_id).or_insert((
+                        store.get_store_repo().clone(),
+                        repo.id,
+                        branch_type,
+                        topic_id,
+                        token,
+                        store.overlay_id,
+                    ));
+                }
                 let _ = nuri_branches.entry(graph_name.clone()).or_insert((
                     repo.id,
                     branch_id,
@@ -412,17 +414,26 @@ impl Verifier {
         }
     }
 
+    /// returns
+    /// - list of commit Nuris
+    /// - optional list of revert_inserts
+    /// - optional list of revert_removes
+    /// - optional list of skolemnized_blank_nodes
     pub(crate) async fn prepare_sparql_update(
         &mut self,
         inserts: Vec<Quad>,
         removes: Vec<Quad>,
         peer_id: Vec<u8>,
-    ) -> Result<Vec<String>, VerifierError> {
+        session_id: u64,
+    ) -> Result<(Vec<String>, Vec<Quad>, Vec<Quad>, Vec<Quad>), VerifierError> {
         // options when not a publisher on the repo:
         // - skip
         // - TODO: abort (the whole transaction)
         // - TODO: inbox (sent to inbox of document for a suggested update)
         // for now we just do skip, without giving option to user
+        let mut revert_inserts: Vec<Quad> = vec![];
+        let mut revert_removes: Vec<Quad> = vec![];
+        let mut skolemnized_blank_nodes: Vec<Quad> = vec![];
         let mut inserts_map: HashMap<BranchId, HashSet<Triple>> = HashMap::with_capacity(1);
         let mut removes_map: HashMap<BranchId, HashSet<Triple>> = HashMap::with_capacity(1);
         let mut branches: HashMap<
@@ -437,6 +448,7 @@ impl Verifier {
             let (repo_id, branch_id, is_publisher) =
                 self.find_branch_and_repo_for_quad(&insert, &mut branches, &mut nuri_branches)?;
             if !is_publisher {
+                revert_inserts.push(insert);
                 continue;
             }
             let set = inserts_map.entry(branch_id).or_insert_with(|| {
@@ -462,6 +474,7 @@ impl Verifier {
                     let iri =
                         NuriV0::repo_skolem(&repo_id, &peer_id, b.as_ref().unique_id().unwrap())?;
                     insert.object = Term::NamedNode(NamedNode::new_unchecked(iri));
+                    skolemnized_blank_nodes.push(insert.clone());
                 }
             }
             // TODO deal with triples in subject and object (RDF-STAR)
@@ -472,6 +485,7 @@ impl Verifier {
             let (repo_id, branch_id, is_publisher) =
                 self.find_branch_and_repo_for_quad(&remove, &mut branches, &mut nuri_branches)?;
             if !is_publisher {
+                revert_removes.push(remove);
                 continue;
             }
             let set = removes_map.entry(branch_id).or_insert_with(|| {
@@ -531,12 +545,21 @@ impl Verifier {
             };
             updates.push(info);
         }
-        self.update_graph(updates).await
+        match self.update_graph(updates, session_id).await {
+            Ok(commits) => Ok((
+                commits,
+                revert_inserts,
+                revert_removes,
+                skolemnized_blank_nodes,
+            )),
+            Err(e) => Err(e),
+        }
     }
 
     async fn update_graph(
         &mut self,
         mut updates: Vec<BranchUpdateInfo>,
+        session_id: u64,
     ) -> Result<Vec<String>, VerifierError> {
         let updates_ref = &mut updates;
         let res = self
@@ -740,7 +763,8 @@ impl Verifier {
                         .await;
                     } else {
                         let graph_patch = update.transaction.as_patch();
-                        commit_nuris.push(NuriV0::commit(&update.repo_id, &update.commit_id));
+                        let nuri = NuriV0::commit(&update.repo_id, &update.commit_id);
+                        commit_nuris.push(nuri);
                         self.push_app_response(
                             &update.branch_id,
                             AppResponse::V0(AppResponseV0::Patch(AppPatch {
@@ -755,7 +779,9 @@ impl Verifier {
                         let graph_nuri =
                             NuriV0::repo_graph_name(&update.repo_id, &update.overlay_id);
                         self.orm_update(
-                            &NuriV0::new_empty(),
+                            session_id,
+                            update.repo_id.clone(),
+                            update.overlay_id,
                             update.transaction.as_quads_patch(graph_nuri),
                         )
                         .await;
@@ -773,7 +799,8 @@ impl Verifier {
         query: &String,
         base: &Option<String>,
         peer_id: Vec<u8>,
-    ) -> Result<Vec<String>, String> {
+        session_id: u64,
+    ) -> Result<(Vec<String>, Vec<Quad>, Vec<Quad>, Vec<Quad>), String> {
         let store = self.graph_dataset.as_ref().unwrap();
 
         let update = ng_oxigraph::oxigraph::sparql::Update::parse(query, base.as_deref())
@@ -788,12 +815,13 @@ impl Verifier {
             Err(e) => Err(e.to_string()),
             Ok((inserts, removes)) => {
                 if inserts.is_empty() && removes.is_empty() {
-                    Ok(vec![])
+                    Ok((vec![], vec![], vec![], vec![]))
                 } else {
                     self.prepare_sparql_update(
                         Vec::from_iter(inserts),
                         Vec::from_iter(removes),
                         peer_id,
+                        session_id,
                     )
                     .await
                     .map_err(|e| e.to_string())

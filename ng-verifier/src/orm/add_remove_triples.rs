@@ -57,15 +57,18 @@ pub fn add_remove_triples(
     // Process added triples.
     // For each triple, check if it matches the shape.
     // In parallel, we record the values added and removed (tracked_changes)
-    log_debug!("Processing # triples: {}", triples_added.len());
     for triple in triples_added {
         let obj_term = oxrdf_term_to_orm_basic_type(&triple.object);
-        log_debug!("processing triple {triple}");
+        log_debug!("  - processing triple {triple}");
         for predicate_schema in &shape.predicates {
             if predicate_schema.iri != triple.predicate.as_str() {
                 // Triple does not match predicate.
                 continue;
             }
+            log_debug!(
+                "    - Matched triple for datatypes {:?}",
+                predicate_schema.dataTypes
+            );
             // Predicate schema constraint matches this triple.
             let tracked_subject_lock =
                 get_or_create_tracked_subject(subject_iri, &shape, tracked_subjects);
@@ -124,7 +127,7 @@ pub fn add_remove_triples(
                     None
                 }
             }) {
-                // log_debug!("dealing with nesting for {shape_iri}");
+                log_debug!("      - dealing with nested type {shape_iri}");
                 if let BasicType::Str(obj_iri) = &obj_term {
                     let tracked_child_arc = {
                         // Get or create object's tracked subject struct.

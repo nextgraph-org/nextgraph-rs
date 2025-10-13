@@ -400,6 +400,7 @@ pub enum VerifierError {
     InvalidOrmSchema,
     OrmSubjectNotFound,
     OrmPredicateNotFound,
+    OrmSubscriptionNotFound,
 }
 
 impl Error for VerifierError {}

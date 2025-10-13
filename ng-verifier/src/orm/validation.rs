@@ -36,6 +36,12 @@ impl Verifier {
         // Keep track of objects that need to be validated against a shape to fetch and validate.
         let mut need_evaluation: Vec<(String, String, bool)> = vec![];
 
+        log_debug!(
+            "[Validation] for shape {} and subject {}",
+            shape.iri,
+            s_change.subject_iri
+        );
+
         // Check 1) Check if this object is untracked and we need to remove children and ourselves.
         if previous_validity == OrmTrackedSubjectValidity::Untracked {
             // 1.1) Schedule children for deletion
@@ -106,7 +112,7 @@ impl Verifier {
             // Check 3.1) Cardinality
             if count < p_schema.minCardinality {
                 log_debug!(
-                    "[VALIDATION] Invalid: minCardinality not met | predicate: {:?} | count: {} | min: {} | schema: {:?} | changed: {:?}",
+                    "  - Invalid: minCardinality not met | predicate: {:?} | count: {} | min: {} | schema: {:?} | changed: {:?}",
                     p_schema.iri,
                     count,
                     p_schema.minCardinality,
@@ -125,7 +131,7 @@ impl Verifier {
                 && p_schema.extra != Some(true)
             {
                 log_debug!(
-                    "[VALIDATION] Invalid: maxCardinality exceeded | predicate: {:?} | count: {} | max: {} | schema: {:?} | changed: {:?}",
+                    "  - Invalid: maxCardinality exceeded | predicate: {:?} | count: {} | max: {} | schema: {:?} | changed: {:?}",
                     p_schema.iri,
                     count,
                     p_schema.maxCardinality,
@@ -171,12 +177,13 @@ impl Verifier {
                 );
                 if !some_valid {
                     log_debug!(
-                        "[VALIDATION] Invalid: required literals missing | predicate: {:?} | schema: {:?} | changed: {:?}",
+                        "  - Invalid: required literals missing | predicate: {:?} | schema: {:?} | changed: {:?}",
                         p_schema.iri,
                         shape.iri,
                         p_change
                     );
                     set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
+                    break;
                 }
             // Check 3.4) Nested shape correct.
             } else if p_schema
@@ -191,6 +198,7 @@ impl Verifier {
                         .map(|tc| tc.read().unwrap())
                         .collect::<Vec<_>>()
                 });
+
                 // First, Count valid, invalid, unknowns, and untracked
                 let counts = tracked_children.as_ref().map_or((0, 0, 0, 0), |children| {
                     children
@@ -213,9 +221,11 @@ impl Verifier {
                         })
                 });
 
+                log_debug!("  - checking nested - Counts: {:?}", counts);
+
                 if counts.1 > 0 && p_schema.extra != Some(true) {
                     log_debug!(
-                        "[VALIDATION] Invalid: nested invalid child | predicate: {:?} | schema: {:?} | changed: {:?}",
+                        "  - Invalid: nested invalid child | predicate: {:?} | schema: {:?} | changed: {:?}",
                         p_schema.iri,
                         shape.iri,
                         p_change
@@ -226,7 +236,7 @@ impl Verifier {
                     break;
                 } else if counts.0 > p_schema.maxCardinality && p_schema.maxCardinality != -1 {
                     log_debug!(
-                        "[VALIDATION] Too many valid children: | predicate: {:?} | schema: {:?} | changed: {:?}",
+                        "  - Invalid: Too many valid children: | predicate: {:?} | schema: {:?} | changed: {:?}",
                         p_schema.iri,
                         shape.iri,
                         p_change
@@ -236,7 +246,7 @@ impl Verifier {
                     break;
                 } else if counts.0 + counts.2 + counts.3 < p_schema.minCardinality {
                     log_debug!(
-                        "[VALIDATION] Invalid: not enough nested children | predicate: {:?} | valid_count: {} | min: {} | schema: {:?} | changed: {:?}",
+                        "  - Invalid: not enough nested children | predicate: {:?} | valid_count: {} | min: {} | schema: {:?} | changed: {:?}",
                         p_schema.iri,
                         counts.0,
                         p_schema.minCardinality,
@@ -269,7 +279,7 @@ impl Verifier {
                         }
                     });
                 } else if counts.2 > 0 {
-                    // If we have pending nested objects, we need to wait for their evaluation.
+                    // If we have pending children, we need to wait for their evaluation.
                     set_validity(&mut new_validity, OrmTrackedSubjectValidity::Pending);
                     // Schedule pending children for re-evaluation without fetch.
                     tracked_children.as_ref().map(|children| {
@@ -307,7 +317,7 @@ impl Verifier {
                     };
                     if !matches {
                         log_debug!(
-                            "[VALIDATION] Invalid: value type mismatch | predicate: {:?} | value: {:?} | allowed_types: {:?} | schema: {:?} | changed: {:?}",
+                            "  - Invalid: value type mismatch | predicate: {:?} | value: {:?} | allowed_types: {:?} | schema: {:?} | changed: {:?}",
                             p_schema.iri,
                             val_added,
                             allowed_types,
