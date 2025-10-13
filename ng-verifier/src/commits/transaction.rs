@@ -393,14 +393,16 @@ impl Verifier {
                     // TODO: implement TargetBranchV0::Named
                     _ => unimplemented!(),
                 };
-                let _ = branches.entry(branch_id).or_insert((
-                    store.get_store_repo().clone(),
-                    repo.id,
-                    branch_type,
-                    topic_id,
-                    token,
-                    store.overlay_id,
-                ));
+                if is_publisher {
+                    let _ = branches.entry(branch_id).or_insert((
+                        store.get_store_repo().clone(),
+                        repo.id,
+                        branch_type,
+                        topic_id,
+                        token,
+                        store.overlay_id,
+                    ));
+                }
                 let _ = nuri_branches.entry(graph_name.clone()).or_insert((
                     repo.id,
                     branch_id,
@@ -424,6 +426,9 @@ impl Verifier {
         // - TODO: abort (the whole transaction)
         // - TODO: inbox (sent to inbox of document for a suggested update)
         // for now we just do skip, without giving option to user
+        let mut revert_inserts: Vec<Quad> = vec![];
+        let mut revert_removes: Vec<Quad> = vec![];
+        let mut skolemnized_blank_nodes: Vec<Quad> = vec![];
         let mut inserts_map: HashMap<BranchId, HashSet<Triple>> = HashMap::with_capacity(1);
         let mut removes_map: HashMap<BranchId, HashSet<Triple>> = HashMap::with_capacity(1);
         let mut branches: HashMap<
@@ -438,6 +443,7 @@ impl Verifier {
             let (repo_id, branch_id, is_publisher) =
                 self.find_branch_and_repo_for_quad(&insert, &mut branches, &mut nuri_branches)?;
             if !is_publisher {
+                revert_inserts.push(insert);
                 continue;
             }
             let set = inserts_map.entry(branch_id).or_insert_with(|| {
@@ -463,6 +469,7 @@ impl Verifier {
                     let iri =
                         NuriV0::repo_skolem(&repo_id, &peer_id, b.as_ref().unique_id().unwrap())?;
                     insert.object = Term::NamedNode(NamedNode::new_unchecked(iri));
+                    skolemnized_blank_nodes.push(insert.clone());
                 }
             }
             // TODO deal with triples in subject and object (RDF-STAR)
@@ -473,6 +480,7 @@ impl Verifier {
             let (repo_id, branch_id, is_publisher) =
                 self.find_branch_and_repo_for_quad(&remove, &mut branches, &mut nuri_branches)?;
             if !is_publisher {
+                revert_removes.push(remove);
                 continue;
             }
             let set = removes_map.entry(branch_id).or_insert_with(|| {
@@ -532,7 +540,22 @@ impl Verifier {
             };
             updates.push(info);
         }
-        self.update_graph(updates, session_id).await
+        match self.update_graph(updates, session_id).await {
+            Ok(commits) => {
+                if session_id != 0 {
+                    self.orm_update_self(
+                        &NuriV0::new_empty(),
+                        session_id,
+                        skolemnized_blank_nodes,
+                        revert_inserts,
+                        revert_removes,
+                    )
+                    .await;
+                }
+                Ok(commits)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     async fn update_graph(
@@ -743,7 +766,7 @@ impl Verifier {
                     } else {
                         let graph_patch = update.transaction.as_patch();
                         let nuri = NuriV0::commit(&update.repo_id, &update.commit_id);
-                        commit_nuris.push(nuri.clone());
+                        commit_nuris.push(nuri);
                         self.push_app_response(
                             &update.branch_id,
                             AppResponse::V0(AppResponseV0::Patch(AppPatch {
@@ -759,7 +782,6 @@ impl Verifier {
                             NuriV0::repo_graph_name(&update.repo_id, &update.overlay_id);
                         self.orm_update(
                             &NuriV0::new_empty(),
-                            nuri,
                             session_id,
                             update.transaction.as_quads_patch(graph_nuri),
                         )

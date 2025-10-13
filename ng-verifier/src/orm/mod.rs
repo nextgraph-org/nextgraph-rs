@@ -14,6 +14,7 @@ pub mod validation;
 
 use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
+use ng_oxigraph::oxrdf::Quad;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -625,33 +626,57 @@ impl Verifier {
     pub(crate) async fn orm_update(
         &mut self,
         scope: &NuriV0,
-        commit_nuri: String,
         session_id: u64,
         patch: GraphQuadsPatch,
     ) {
         let mut responses = Vec::with_capacity(1);
         if let Some(subs) = self.orm_subscriptions.get(scope) {
-            let mut orm_diff: Option<OrmDiff> = None;
+            // TODO: implement this, generate orm_diff using the patch
+            let orm_diff: OrmDiff = vec![];
             for sub in subs {
-                if sub.session_id == session_id {
-                    //TODO prepare OrmUpdateBlankNodeIds
-                    let orm_bnids = vec![];
-
+                if sub.session_id != session_id {
                     responses.push((
                         sub.session_id,
+                        sub.sender.clone(),
+                        AppResponseV0::OrmUpdate(orm_diff.to_vec()),
+                    ));
+                }
+            }
+        }
+        for (session_id, sender, res) in responses {
+            self.push_orm_response(scope, session_id, sender, AppResponse::V0(res))
+                .await;
+        }
+    }
+
+    pub(crate) async fn orm_update_self(
+        &mut self,
+        scope: &NuriV0,
+        session_id: u64,
+        skolemnized_blank_nodes: Vec<Quad>,
+        revert_inserts: Vec<Quad>,
+        revert_removes: Vec<Quad>,
+    ) {
+        let mut responses = Vec::with_capacity(1);
+        if let Some(subs) = self.orm_subscriptions.get(scope) {
+            for sub in subs {
+                if sub.session_id == session_id {
+                    // TODO prepare OrmUpdateBlankNodeIds with skolemnized_blank_nodes
+                    // note(niko): I think skolemnized blank nodes can still be many, in case of multi-level nested sub-objects.
+                    let orm_bnids = vec![];
+                    responses.push((
+                        session_id,
                         sub.sender.clone(),
                         AppResponseV0::OrmUpdateBlankNodeIds(orm_bnids),
                     ));
-                } else {
-                    if orm_diff.is_none() {
-                        //orm_diff = Some(??)
-                        //TODO implement this
-                    }
-                    responses.push((
-                        sub.session_id,
-                        sub.sender.clone(),
-                        AppResponseV0::OrmUpdate(orm_diff.as_ref().unwrap().to_vec()),
-                    ));
+                    // TODO (later) revert the inserts and removes
+                    // let orm_diff = vec![];
+                    // responses.push((
+                    //     session_id,
+                    //     sub.sender.clone(),
+                    //     AppResponseV0::OrmUpdate(orm_diff),
+                    // ));
+                    break;
                 }
             }
         }
@@ -672,7 +697,7 @@ impl Verifier {
 
     pub(crate) async fn push_orm_response(
         &mut self,
-        nuri: &NuriV0,
+        scope: &NuriV0,
         session_id: u64,
         sender: UnboundedSender<AppResponse>,
         response: AppResponse,
@@ -682,7 +707,9 @@ impl Verifier {
         if sender.is_closed() {
             log_debug!("closed so removing session {}", session_id);
 
-            self.orm_subscriptions.remove(&nuri);
+            if let Some(subs) = self.orm_subscriptions.get_mut(&scope) {
+                subs.retain(|sub| sub.session_id != session_id);
+            }
         } else {
             let _ = sender.clone().send(response).await;
         }
