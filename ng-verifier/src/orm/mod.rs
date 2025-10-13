@@ -626,22 +626,38 @@ impl Verifier {
         &mut self,
         scope: &NuriV0,
         commit_nuri: String,
+        session_id: u64,
         patch: GraphQuadsPatch,
     ) {
+        let mut responses = Vec::with_capacity(1);
         if let Some(subs) = self.orm_subscriptions.get(scope) {
+            let mut orm_diff: Option<OrmDiff> = None;
             for sub in subs {
+                if sub.session_id == session_id {
+                    //TODO prepare OrmUpdateBlankNodeIds
+                    let orm_bnids = vec![];
 
-                // //TODO fix this
-                // let orm_diff = ??;
-
-                // self.push_orm_response(
-                //     scope,
-                //     sub.session_id,
-                //     sub.sender.clone(),
-                //     AppResponse::V0(AppResponseV0::OrmUpdate(orm_diff)),
-                // )
-                // .await;
+                    responses.push((
+                        sub.session_id,
+                        sub.sender.clone(),
+                        AppResponseV0::OrmUpdateBlankNodeIds(orm_bnids),
+                    ));
+                } else {
+                    if orm_diff.is_none() {
+                        //orm_diff = Some(??)
+                        //TODO implement this
+                    }
+                    responses.push((
+                        sub.session_id,
+                        sub.sender.clone(),
+                        AppResponseV0::OrmUpdate(orm_diff.as_ref().unwrap().to_vec()),
+                    ));
+                }
             }
+        }
+        for (session_id, sender, res) in responses {
+            self.push_orm_response(scope, session_id, sender, AppResponse::V0(res))
+                .await;
         }
     }
 

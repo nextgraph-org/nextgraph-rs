@@ -216,6 +216,7 @@ impl Verifier {
                         Vec::from_iter(inserts),
                         Vec::from_iter(removes),
                         self.get_peer_id_for_skolem(),
+                        0,
                     )
                     .await?;
                     Ok(())
@@ -696,7 +697,7 @@ impl Verifier {
         );
 
         let ret = self
-            .process_sparql_update(&store_nuri, &query, &None, vec![])
+            .process_sparql_update(&store_nuri, &query, &None, vec![], 0)
             .await;
         if let Err(e) = ret {
             return Err(NgError::SparqlError(e));
@@ -712,7 +713,9 @@ impl Verifier {
             object: Literal::new_simple_literal(primary_class).into(),
             graph_name: NamedNode::new_unchecked(&header_branch_nuri).into(),
         };
-        let ret = self.prepare_sparql_update(vec![quad], vec![], vec![]).await;
+        let ret = self
+            .prepare_sparql_update(vec![quad], vec![], vec![], 0)
+            .await;
         if let Err(e) = ret {
             return Err(NgError::SparqlError(e.to_string()));
         }
@@ -814,6 +817,7 @@ impl Verifier {
                 &sparql_update,
                 &Some(contact_doc_nuri_string),
                 vec![],
+                0,
             )
             .await;
         if let Err(e) = ret {
@@ -894,6 +898,7 @@ impl Verifier {
         command: &AppRequestCommandV0,
         nuri: NuriV0,
         payload: Option<AppRequestPayload>,
+        session_id: u64,
     ) -> Result<AppResponse, NgError> {
         match command {
             AppRequestCommandV0::OrmUpdate => match payload {
@@ -993,7 +998,7 @@ impl Verifier {
                 let social_query_doc_nuri_string = NuriV0::repo_id(query_id);
                 let sparql_update = format!("INSERT DATA {{ <{social_query_doc_nuri_string}> <did:ng:x:ng#social_query_forwarder> <{forwarder_nuri_string}>. }}");
                 let ret = self
-                    .process_sparql_update(&nuri, &sparql_update, &None, vec![])
+                    .process_sparql_update(&nuri, &sparql_update, &None, vec![], 0)
                     .await;
                 if let Err(e) = ret {
                     return Err(NgError::SparqlError(e));
@@ -1008,6 +1013,7 @@ impl Verifier {
                         &sparql_update,
                         &Some(forwarder_nuri_string),
                         vec![],
+                        0,
                     )
                     .await;
                 if let Err(e) = ret {
@@ -1217,6 +1223,7 @@ impl Verifier {
                                     &sparql,
                                     &base,
                                     self.get_peer_id_for_skolem(),
+                                    session_id,
                                 )
                                 .await
                             {

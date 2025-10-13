@@ -2836,7 +2836,10 @@ impl Verifier {
 
     pub async fn app_request(&mut self, req: AppRequest) -> Result<AppResponse, NgError> {
         match req {
-            AppRequest::V0(v0) => self.process(&v0.command, v0.nuri, v0.payload).await,
+            AppRequest::V0(v0) => {
+                self.process(&v0.command, v0.nuri, v0.payload, v0.session_id)
+                    .await
+            }
         }
     }
 

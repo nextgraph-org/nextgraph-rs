@@ -295,7 +295,7 @@ impl Verifier {
                 transaction,
                 commit_info,
             };
-            self.update_graph(vec![info]).await?;
+            self.update_graph(vec![info], 0).await?;
         } else
         //TODO: change the logic here. transaction commits can have both a discrete and graph update. Only one AppResponse should be sent in this case, containing both updates.
         if body.discrete.is_some() {
@@ -417,6 +417,7 @@ impl Verifier {
         inserts: Vec<Quad>,
         removes: Vec<Quad>,
         peer_id: Vec<u8>,
+        session_id: u64,
     ) -> Result<Vec<String>, VerifierError> {
         // options when not a publisher on the repo:
         // - skip
@@ -531,12 +532,13 @@ impl Verifier {
             };
             updates.push(info);
         }
-        self.update_graph(updates).await
+        self.update_graph(updates, session_id).await
     }
 
     async fn update_graph(
         &mut self,
         mut updates: Vec<BranchUpdateInfo>,
+        session_id: u64,
     ) -> Result<Vec<String>, VerifierError> {
         let updates_ref = &mut updates;
         let res = self
@@ -758,6 +760,7 @@ impl Verifier {
                         self.orm_update(
                             &NuriV0::new_empty(),
                             nuri,
+                            session_id,
                             update.transaction.as_quads_patch(graph_nuri),
                         )
                         .await;
@@ -775,6 +778,7 @@ impl Verifier {
         query: &String,
         base: &Option<String>,
         peer_id: Vec<u8>,
+        session_id: u64,
     ) -> Result<Vec<String>, String> {
         let store = self.graph_dataset.as_ref().unwrap();
 
@@ -796,6 +800,7 @@ impl Verifier {
                         Vec::from_iter(inserts),
                         Vec::from_iter(removes),
                         peer_id,
+                        session_id,
                     )
                     .await
                     .map_err(|e| e.to_string())

@@ -65,7 +65,7 @@ impl Verifier {
                             <> ng:social_query_from_profile <{from_profile_nuri_string}>.
                             <> ng:social_query_started \"{}\"^^xsd:dateTime . }}",DateTime::now());
         let ret = self
-            .process_sparql_update(&forwarder_nuri, &sparql_update, &Some(forwarder_nuri_string.clone()), vec![])
+            .process_sparql_update(&forwarder_nuri, &sparql_update, &Some(forwarder_nuri_string.clone()), vec![],0)
             .await;
         if let Err(e) = ret {
             return Err(VerifierError::SparqlError(e));
@@ -78,7 +78,7 @@ impl Verifier {
         // adding triples in forwarder doc : ng:social_query_id
         let sparql_update = format!("INSERT DATA {{ <{forwarder_nuri_string}> <did:ng:x:ng#{predicate}> \"{}\"^^<http://www.w3.org/2001/XMLSchema#dateTime> . }}",DateTime::now());
         let ret = self
-            .process_sparql_update(forwarder_nuri, &sparql_update, &None, vec![])
+            .process_sparql_update(forwarder_nuri, &sparql_update, &None, vec![],0)
             .await;
         if let Err(e) = ret {
             return Err(VerifierError::SparqlError(e));
@@ -153,7 +153,7 @@ impl Verifier {
                 <did:ng:_> ng:social_query_forwarded_to_inbox <{to_inbox_nuri}> .
             }}");
         let ret = self
-            .process_sparql_update(&forwarder_nuri, &sparql_update, &None, vec![])
+            .process_sparql_update(&forwarder_nuri, &sparql_update, &None, vec![],0)
             .await;
         if let Err(e) = ret {
             return Err(VerifierError::SparqlError(e));
@@ -593,7 +593,7 @@ impl Verifier {
                             let nuri_ov = NuriV0::repo_graph_name(&response.query_id, &overlay_id);
                             let graph_name = NamedNode::new_unchecked(&nuri_ov);
                             let quads = triples.into_iter().map(|t| t.in_graph(graph_name.clone()) ).collect();
-                            let commits = self.prepare_sparql_update(quads, vec![], self.get_peer_id_for_skolem()).await?;
+                            let commits = self.prepare_sparql_update(quads, vec![], self.get_peer_id_for_skolem(), 0).await?;
 
                         } else {
 
@@ -665,7 +665,7 @@ impl Verifier {
                                     {has_email} }}", details.name);
                                     
                 let ret = self
-                    .process_sparql_update(&contact_nuri, &sparql_update, &Some(contact_nuri_string), vec![])
+                    .process_sparql_update(&contact_nuri, &sparql_update, &Some(contact_nuri_string), vec![],0)
                     .await;
                 if let Err(e) = ret {
                     return Err(VerifierError::SparqlError(e));

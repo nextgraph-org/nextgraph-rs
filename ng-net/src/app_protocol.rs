@@ -20,7 +20,7 @@ use ng_repo::utils::{decode_digest, decode_key, decode_sym_key};
 use ng_repo::utils::{decode_overlayid, display_timestamp_local};
 use serde_json::Value;
 
-use crate::orm::{OrmDiff, OrmShapeType};
+use crate::orm::{OrmDiff, OrmShapeType, OrmUpdateBlankNodeIds};
 use crate::types::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1309,6 +1309,7 @@ pub enum AppResponseV0 {
     Commits(Vec<String>),
     OrmInitial(Value),
     OrmUpdate(OrmDiff),
+    OrmUpdateBlankNodeIds(OrmUpdateBlankNodeIds),
     OrmError(String),
 }
 
