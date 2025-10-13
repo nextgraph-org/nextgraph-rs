@@ -212,13 +212,14 @@ impl Verifier {
                 if inserts.is_empty() && removes.is_empty() {
                     Ok(())
                 } else {
-                    self.prepare_sparql_update(
-                        Vec::from_iter(inserts),
-                        Vec::from_iter(removes),
-                        self.get_peer_id_for_skolem(),
-                        0,
-                    )
-                    .await?;
+                    let _ = self
+                        .prepare_sparql_update(
+                            Vec::from_iter(inserts),
+                            Vec::from_iter(removes),
+                            self.get_peer_id_for_skolem(),
+                            0,
+                        )
+                        .await?;
                     Ok(())
                 }
             }
@@ -903,7 +904,13 @@ impl Verifier {
         match command {
             AppRequestCommandV0::OrmUpdate => match payload {
                 Some(AppRequestPayload::V0(AppRequestPayloadV0::OrmUpdate((diff, shape_id)))) => {
-                    self.orm_frontend_update(&nuri, shape_id, diff).await
+                    return match self
+                        .orm_frontend_update(session_id, &nuri, shape_id, diff)
+                        .await
+                    {
+                        Err(e) => Ok(AppResponse::error(e)),
+                        Ok(()) => Ok(AppResponse::ok()),
+                    }
                 }
                 _ => return Err(NgError::InvalidArgument),
             },
@@ -1228,7 +1235,7 @@ impl Verifier {
                                 .await
                             {
                                 Err(e) => AppResponse::error(e),
-                                Ok(commits) => AppResponse::commits(commits),
+                                Ok((commits, ..)) => AppResponse::commits(commits),
                             },
                         )
                     } else {

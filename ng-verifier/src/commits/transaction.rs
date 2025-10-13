@@ -414,13 +414,18 @@ impl Verifier {
         }
     }
 
+    /// returns
+    /// - list of commit Nuris
+    /// - optional list of revert_inserts
+    /// - optional list of revert_removes
+    /// - optional list of skolemnized_blank_nodes
     pub(crate) async fn prepare_sparql_update(
         &mut self,
         inserts: Vec<Quad>,
         removes: Vec<Quad>,
         peer_id: Vec<u8>,
         session_id: u64,
-    ) -> Result<Vec<String>, VerifierError> {
+    ) -> Result<(Vec<String>, Vec<Quad>, Vec<Quad>, Vec<Quad>), VerifierError> {
         // options when not a publisher on the repo:
         // - skip
         // - TODO: abort (the whole transaction)
@@ -541,19 +546,12 @@ impl Verifier {
             updates.push(info);
         }
         match self.update_graph(updates, session_id).await {
-            Ok(commits) => {
-                if session_id != 0 {
-                    self.orm_update_self(
-                        &NuriV0::new_empty(),
-                        session_id,
-                        skolemnized_blank_nodes,
-                        revert_inserts,
-                        revert_removes,
-                    )
-                    .await;
-                }
-                Ok(commits)
-            }
+            Ok(commits) => Ok((
+                commits,
+                revert_inserts,
+                revert_removes,
+                skolemnized_blank_nodes,
+            )),
             Err(e) => Err(e),
         }
     }
@@ -781,8 +779,9 @@ impl Verifier {
                         let graph_nuri =
                             NuriV0::repo_graph_name(&update.repo_id, &update.overlay_id);
                         self.orm_update(
-                            &NuriV0::new_empty(),
                             session_id,
+                            update.repo_id.clone(),
+                            update.overlay_id,
                             update.transaction.as_quads_patch(graph_nuri),
                         )
                         .await;
@@ -801,7 +800,7 @@ impl Verifier {
         base: &Option<String>,
         peer_id: Vec<u8>,
         session_id: u64,
-    ) -> Result<Vec<String>, String> {
+    ) -> Result<(Vec<String>, Vec<Quad>, Vec<Quad>, Vec<Quad>), String> {
         let store = self.graph_dataset.as_ref().unwrap();
 
         let update = ng_oxigraph::oxigraph::sparql::Update::parse(query, base.as_deref())
@@ -816,7 +815,7 @@ impl Verifier {
             Err(e) => Err(e.to_string()),
             Ok((inserts, removes)) => {
                 if inserts.is_empty() && removes.is_empty() {
-                    Ok(vec![])
+                    Ok((vec![], vec![], vec![], vec![]))
                 } else {
                     self.prepare_sparql_update(
                         Vec::from_iter(inserts),

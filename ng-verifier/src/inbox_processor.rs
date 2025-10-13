@@ -593,7 +593,7 @@ impl Verifier {
                             let nuri_ov = NuriV0::repo_graph_name(&response.query_id, &overlay_id);
                             let graph_name = NamedNode::new_unchecked(&nuri_ov);
                             let quads = triples.into_iter().map(|t| t.in_graph(graph_name.clone()) ).collect();
-                            let commits = self.prepare_sparql_update(quads, vec![], self.get_peer_id_for_skolem(), 0).await?;
+                            let _ = self.prepare_sparql_update(quads, vec![], self.get_peer_id_for_skolem(), 0).await?;
 
                         } else {
 
