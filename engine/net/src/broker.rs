@@ -124,7 +124,7 @@ pub enum LocalBrokerMessage {
     Disconnected {
         user_id: UserId,
     },
-    Inbox{
+    Inbox {
         user_id: UserId,
         msg: InboxMsg,
         from_queue: bool,
@@ -1218,7 +1218,6 @@ impl Broker {
         users: &HashSet<UserId>,
         msg: InboxMsg,
     ) -> Result<Option<InboxMsg>, ServerError> {
-
         for user in users.iter() {
             if let Some(peers) = self.users_peers.get(user) {
                 for peer in peers.iter() {
@@ -1236,12 +1235,15 @@ impl Broker {
                                     ClientMessageV0 {
                                         overlay: msg.body.to_overlay.clone(),
                                         padding: vec![],
-                                        content: ClientMessageContentV0::InboxReceive{msg, from_queue: false},
+                                        content: ClientMessageContentV0::InboxReceive {
+                                            msg,
+                                            from_queue: false,
+                                        },
                                     },
                                 )))
                                 .await;
                             return Ok(None);
-                        } 
+                        }
                     }
                 }
             }

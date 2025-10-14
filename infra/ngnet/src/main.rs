@@ -30,11 +30,11 @@ use ng_repo::types::*;
 use ng_repo::utils::timestamp_after;
 
 use ng_net::actors::admin::add_invitation::*;
-use ng_net::bsps::BSP_DETAILS;
 use ng_net::broker::BROKER;
+use ng_net::bsps::BSP_DETAILS;
 use ng_net::types::{
     AdminResponseContentV0, BindAddress, CreateAccountBSP, Invitation, InvitationCode,
-    APP_ACCOUNT_REGISTERED_SUFFIX, NG_APP_URL, NG_NET_URL
+    APP_ACCOUNT_REGISTERED_SUFFIX, NG_APP_URL, NG_NET_URL,
 };
 
 use ng_client_ws::remote_ws::ConnectionWebSocket;
@@ -51,9 +51,7 @@ struct AuthStatic;
 #[folder = "../net-bootstrap/dist"]
 struct BootstrapStatic;
 
-struct Server {
-
-}
+struct Server {}
 
 // impl Server {
 //     pub async fn register(self: Arc<Self>, ca: String) -> Result<Response, Infallible> {
@@ -98,9 +96,7 @@ async fn main() -> anyhow::Result<()> {
     }
     env_logger::init();
 
-    let server = Arc::new(Server {
-
-    });
+    let server = Arc::new(Server {});
 
     // GET /api/v1/register/ca with the same ?ca= query param => 201 CREATED
     // let register_api = warp::get()
@@ -125,14 +121,25 @@ async fn main() -> anyhow::Result<()> {
         .map(|reply, p: HashMap<String, String>| match p.get("o") {
             Some(obj) => {
                 let decoded = obj.trim();
-                if BSP_DETAILS.get(decoded).is_none() && decoded != "http://localhost:14400" && decoded != "http://localhost:1421" {
+                if BSP_DETAILS.get(decoded).is_none()
+                    && decoded != "http://localhost:14400"
+                    && decoded != "http://localhost:1421"
+                {
                     // rejected (BSP not listed)
                     warp::http::StatusCode::UNAUTHORIZED.into_response()
                 } else {
-                    let reply = warp::reply::with_header(reply, "Content-Security-Policy", 
-                    HeaderValue::from_str(&format!("frame-ancestors 'self' {decoded};")).unwrap());
-                    warp::reply::with_header(reply, "X-Frame-Options", 
-                    HeaderValue::from_str(&format!("ALLOW-FROM {decoded}")).unwrap()).into_response()
+                    let reply = warp::reply::with_header(
+                        reply,
+                        "Content-Security-Policy",
+                        HeaderValue::from_str(&format!("frame-ancestors 'self' {decoded};"))
+                            .unwrap(),
+                    );
+                    warp::reply::with_header(
+                        reply,
+                        "X-Frame-Options",
+                        HeaderValue::from_str(&format!("ALLOW-FROM {decoded}")).unwrap(),
+                    )
+                    .into_response()
                 }
             }
             None => warp::http::StatusCode::BAD_REQUEST.into_response(),
@@ -146,13 +153,24 @@ async fn main() -> anyhow::Result<()> {
         .map(|reply, p: HashMap<String, String>| match p.get("o") {
             Some(obj) => {
                 let decoded = obj.trim();
-                if decoded.eq("*") || (!decoded.starts_with("http://") && !decoded.starts_with("https://")) || decoded.len() < 11 {
+                if decoded.eq("*")
+                    || (!decoded.starts_with("http://") && !decoded.starts_with("https://"))
+                    || decoded.len() < 11
+                {
                     warp::http::StatusCode::BAD_REQUEST.into_response()
                 } else {
-                    let reply = warp::reply::with_header(reply, "Content-Security-Policy", 
-                    HeaderValue::from_str(&format!("frame-ancestors 'self' {decoded};")).unwrap());
-                    warp::reply::with_header(reply, "X-Frame-Options", 
-                    HeaderValue::from_str(&format!("ALLOW-FROM {decoded}")).unwrap()).into_response()
+                    let reply = warp::reply::with_header(
+                        reply,
+                        "Content-Security-Policy",
+                        HeaderValue::from_str(&format!("frame-ancestors 'self' {decoded};"))
+                            .unwrap(),
+                    );
+                    warp::reply::with_header(
+                        reply,
+                        "X-Frame-Options",
+                        HeaderValue::from_str(&format!("ALLOW-FROM {decoded}")).unwrap(),
+                    )
+                    .into_response()
                 }
             }
             None => warp::http::StatusCode::BAD_REQUEST.into_response(),
@@ -187,19 +205,29 @@ async fn main() -> anyhow::Result<()> {
         // TODO when there will be an API again, we will call it from any BSPs.
         // we should add the list of all BSPs origin's here
         log::info!("Starting production server on http://localhost:3033");
-        warp::serve(static_files.or(static_files_auth.or(static_files_bootstrap)).with(cors).with(incoming_log))
-            .run(([127, 0, 0, 1], 3033))
-            .await;
+        warp::serve(
+            static_files
+                .or(static_files_auth.or(static_files_bootstrap))
+                .with(cors)
+                .with(incoming_log),
+        )
+        .run(([127, 0, 0, 1], 3033))
+        .await;
     }
     #[cfg(debug_assertions)]
     {
         log_debug!("CORS: any origin");
         cors = cors.allow_any_origin();
         log::info!("Starting server on http://localhost:3033");
-        warp::serve(static_files.or(static_files_auth.or(static_files_bootstrap)).with(cors).with(incoming_log))
-            // TODO: Change this to local network ip?
-            .run(([127, 0, 0, 1], 3033))
-            .await;
+        warp::serve(
+            static_files
+                .or(static_files_auth.or(static_files_bootstrap))
+                .with(cors)
+                .with(incoming_log),
+        )
+        // TODO: Change this to local network ip?
+        .run(([127, 0, 0, 1], 3033))
+        .await;
     }
 
     Ok(())

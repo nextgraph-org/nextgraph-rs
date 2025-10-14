@@ -485,11 +485,17 @@ pub enum SensitiveWallet {
 }
 
 impl SensitiveWallet {
-    pub fn get_bootstrap_iframe_msgs(brokers: HashMap<String, Vec<BrokerInfoV0>>) -> Vec<BootstrapIframeMsg> {
-        brokers.values().flatten().filter_map(|broker_info| match broker_info {
-            BrokerInfoV0::CoreV0(_) => None,
-            BrokerInfoV0::ServerV0(s) => Some(s.to_iframe_msg())
-        }).collect::<Vec<BootstrapIframeMsg>>()
+    pub fn get_bootstrap_iframe_msgs(
+        brokers: HashMap<String, Vec<BrokerInfoV0>>,
+    ) -> Vec<BootstrapIframeMsg> {
+        brokers
+            .values()
+            .flatten()
+            .filter_map(|broker_info| match broker_info {
+                BrokerInfoV0::CoreV0(_) => None,
+                BrokerInfoV0::ServerV0(s) => Some(s.to_iframe_msg()),
+            })
+            .collect::<Vec<BootstrapIframeMsg>>()
     }
     pub fn privkey(&self) -> PrivKey {
         match self {
@@ -1478,4 +1484,3 @@ pub struct ShuffledPazzle {
     pub category_indices: Vec<u8>,
     pub emoji_indices: Vec<Vec<u8>>,
 }
-

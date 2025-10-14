@@ -81,7 +81,7 @@ impl<'a> ReadTransaction for RocksdbTransaction<'a> {
         key_prefix: Vec<u8>,
         suffix: Option<u8>,
         family: &Option<String>,
-    ) -> Result<(Vec<u8>,Vec<u8>), StorageError> {
+    ) -> Result<(Vec<u8>, Vec<u8>), StorageError> {
         let property_start =
             RocksDbKCVStorage::calc_key_start(prefix, key_size, &key_prefix, &suffix);
         let iter = self.get_iterator(&property_start, &family)?;
@@ -236,7 +236,8 @@ impl<'a> WriteTransaction for RocksdbTransaction<'a> {
         suffix: Option<u8>,
         family: &Option<String>,
     ) -> Result<Vec<u8>, StorageError> {
-        let (key,value) = self.get_first_key_value(prefix, key_size, key_prefix, suffix, family)?;
+        let (key, value) =
+            self.get_first_key_value(prefix, key_size, key_prefix, suffix, family)?;
         let key_without_prefix = key[1..].to_vec();
         self.del(prefix, &key_without_prefix, suffix, family)?;
         Ok(value)
@@ -378,7 +379,7 @@ impl ReadTransaction for RocksDbKCVStorage {
         key_prefix: Vec<u8>,
         suffix: Option<u8>,
         family: &Option<String>,
-    ) -> Result<(Vec<u8>,Vec<u8>), StorageError> {
+    ) -> Result<(Vec<u8>, Vec<u8>), StorageError> {
         let property_start =
             RocksDbKCVStorage::calc_key_start(prefix, key_size, &key_prefix, &suffix);
         let iter = self.get_iterator(&property_start, &family)?;
@@ -679,7 +680,7 @@ impl RocksDbKCVStorage {
         key_prefix: Vec<u8>,
         suffix: Option<u8>,
         mut iter: DBIteratorWithThreadMode<'_, impl ng_rocksdb::DBAccess>,
-    ) -> Result<(Vec<u8>,Vec<u8>), StorageError> {
+    ) -> Result<(Vec<u8>, Vec<u8>), StorageError> {
         if key_prefix.len() > key_size {
             return Err(StorageError::InvalidValue);
         }

@@ -41,7 +41,7 @@ impl<'a> IModel for AccountStorage<'a> {
 }
 
 impl<'a> AccountStorage<'a> {
-    // User <-> Inboxes : list of inboxes a user has registered as reader. 
+    // User <-> Inboxes : list of inboxes a user has registered as reader.
     // FIXME: this should be in accounts storage, but because it doesn't implement the ORM yet, it is quicker to implement it here.
     pub const INBOXES: MultiValueColumn<Self, (PubKey, OverlayId)> = MultiValueColumn::new(b'k');
 
@@ -82,7 +82,7 @@ impl<'a> AccountStorage<'a> {
         storage: &'a dyn KCVStorage,
     ) -> Result<(), StorageError> {
         let mut opening = Self::new(user, storage);
-        Self::INBOXES.add(&mut opening, &(inbox,overlay))
+        Self::INBOXES.add(&mut opening, &(inbox, overlay))
     }
 
     pub fn create(

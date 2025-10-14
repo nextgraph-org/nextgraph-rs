@@ -808,11 +808,10 @@ impl StorageReader {
                     // TODO: check that all the commits are from the same branch
                     // TODO: if commits are exactly like current heads of branch, set at_current_heads = true (or if it is the main branch, use MatchBy::Repos)
                     MatchBy::Commits {
-                        heads: HashSet::from_iter(
-                            commits
-                                .into_iter()
-                                .map(|c| { let s = format!("{DID_PREFIX}{c}:v:{overlay}"); StrHash::new(&s) }),
-                        ),
+                        heads: HashSet::from_iter(commits.into_iter().map(|c| {
+                            let s = format!("{DID_PREFIX}{c}:v:{overlay}");
+                            StrHash::new(&s)
+                        })),
                         at_current_heads: false,
                         original_graph_name,
                     }

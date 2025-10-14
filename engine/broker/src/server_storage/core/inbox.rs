@@ -102,11 +102,11 @@ impl<'a> InboxStorage<'a> {
     }
 
     pub fn enqueue_msg(&mut self, msg: &InboxMsg) -> Result<(), StorageError> {
-        let (sec,nano) = now_precise_timestamp();
+        let (sec, nano) = now_precise_timestamp();
         let mut hasher = DefaultHasher::new();
         msg.body.hash(&mut hasher);
-        let key = (sec,nano, hasher.finish());
-        Self::MSGS.add(self, &key,msg)
+        let key = (sec, nano, hasher.finish());
+        Self::MSGS.add(self, &key, msg)
     }
 
     pub fn create(

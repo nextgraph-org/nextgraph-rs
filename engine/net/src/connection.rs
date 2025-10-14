@@ -1046,8 +1046,11 @@ impl NoiseFSM {
                                                 })
                                                 .await;
                                             return Ok(StepReply::NONE);
-                                        },
-                                        ClientMessageContentV0::InboxReceive{msg, from_queue} => {
+                                        }
+                                        ClientMessageContentV0::InboxReceive {
+                                            msg,
+                                            from_queue,
+                                        } => {
                                             let _ = BROKER
                                                 .read()
                                                 .await
@@ -1055,12 +1058,12 @@ impl NoiseFSM {
                                                 .send(LocalBrokerMessage::Inbox {
                                                     msg,
                                                     user_id: self.user_id()?,
-                                                    from_queue
+                                                    from_queue,
                                                 })
                                                 .await;
                                             return Ok(StepReply::NONE);
                                         }
-                                        _ => {},
+                                        _ => {}
                                     },
                                 }
                             }
@@ -1326,9 +1329,18 @@ impl ConnectionBase {
 
     pub async fn send_client_event<
         A: Into<ProtocolMessage> + std::fmt::Debug + Sync + Send + 'static,
-    >(&self, msg: A) -> Result<(), NgError> {
+    >(
+        &self,
+        msg: A,
+    ) -> Result<(), NgError> {
         let proto_msg: ProtocolMessage = msg.into();
-        self.fsm.as_ref().unwrap().lock().await.send(proto_msg).await?;
+        self.fsm
+            .as_ref()
+            .unwrap()
+            .lock()
+            .await
+            .send(proto_msg)
+            .await?;
         Ok(())
     }
 

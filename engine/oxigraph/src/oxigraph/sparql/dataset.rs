@@ -80,12 +80,16 @@ impl DatasetView {
                 })
             });
         }
-        query_dataset
-                .available_named_graphs()
-                .map(|graphs| for nob in graphs { match nob {
-                    NamedOrBlankNode::NamedNode(nn) => { res.encode_term(NamedNodeRef::new_unchecked(nn.as_str())); }
-                    ,_=>{} 
-                } });
+        query_dataset.available_named_graphs().map(|graphs| {
+            for nob in graphs {
+                match nob {
+                    NamedOrBlankNode::NamedNode(nn) => {
+                        res.encode_term(NamedNodeRef::new_unchecked(nn.as_str()));
+                    }
+                    _ => {}
+                }
+            }
+        });
         res
     }
 
@@ -98,9 +102,10 @@ impl DatasetView {
                 self.reader
                     .parse_graph_name(&graph_name_string, Some(*iri_id))
             }
-            _ => Err(CorruptionError::msg(
-                format!("Invalid graph_name (not a NamedNode) in parse_graph_name {:?}", graph_name),
-            )
+            _ => Err(CorruptionError::msg(format!(
+                "Invalid graph_name (not a NamedNode) in parse_graph_name {:?}",
+                graph_name
+            ))
             .into()),
         }
     }

@@ -66,9 +66,12 @@ impl EActor for Actor<'_, InboxRegister, ()> {
         if verify(&req.challenge, req.sig, req.inbox_id).is_err() {
             fsm.lock()
                 .await
-                .send_in_reply_to(Result::<(), _>::Err(ServerError::InvalidSignature).into(), self.id())
+                .send_in_reply_to(
+                    Result::<(), _>::Err(ServerError::InvalidSignature).into(),
+                    self.id(),
+                )
                 .await?;
-            return Ok(())
+            return Ok(());
         }
 
         let sb = { BROKER.read().await.get_server_broker()? };
@@ -78,9 +81,7 @@ impl EActor for Actor<'_, InboxRegister, ()> {
             fsm.user_id()?
         };
 
-        let res: Result<(), ServerError> = sb
-            .read()
-            .await.inbox_register(user_id, req);
+        let res: Result<(), ServerError> = sb.read().await.inbox_register(user_id, req);
 
         fsm.lock()
             .await

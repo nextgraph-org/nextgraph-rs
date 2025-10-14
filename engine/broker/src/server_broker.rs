@@ -823,39 +823,40 @@ impl IServerBroker for ServerBroker {
     }
 
     async fn inbox_post(&self, post: InboxPost) -> Result<(), ServerError> {
-
         // TODO: deal with Inbox that is not local to the broker (use Core protocol to dispatch it)
 
-        let users = self.storage.get_readers_for_inbox(&post.msg.body.to_inbox, &post.msg.body.to_overlay)?;
+        let users = self
+            .storage
+            .get_readers_for_inbox(&post.msg.body.to_inbox, &post.msg.body.to_overlay)?;
         if users.is_empty() {
             self.storage.enqueue_inbox_msg(&post.msg)?;
-            return Ok(())
+            return Ok(());
         }
 
         let broker = BROKER.read().await;
-        let not_dispatched = broker
-            .dispatch_inbox_msg(&users, post.msg)
-            .await?;
+        let not_dispatched = broker.dispatch_inbox_msg(&users, post.msg).await?;
         if let Some(msg) = not_dispatched {
             self.storage.enqueue_inbox_msg(&msg)?;
         }
         Ok(())
     }
 
-    fn inbox_register(&self, user_id: UserId, registration: InboxRegister) -> Result<(), ServerError> {
-
-        self.storage.register_inbox_reader(user_id, registration.inbox_id, registration.overlay)?;
+    fn inbox_register(
+        &self,
+        user_id: UserId,
+        registration: InboxRegister,
+    ) -> Result<(), ServerError> {
+        self.storage
+            .register_inbox_reader(user_id, registration.inbox_id, registration.overlay)?;
         Ok(())
     }
 
-    async fn inbox_pop_for_user(&self, user: UserId ) -> Result<InboxMsg, ServerError> {
+    async fn inbox_pop_for_user(&self, user: UserId) -> Result<InboxMsg, ServerError> {
         let inboxes = self.storage.get_inboxes_for_readers(&user)?;
 
-        for (inbox,overlay) in inboxes {
+        for (inbox, overlay) in inboxes {
             match self.storage.take_first_msg_from_inbox(&inbox, &overlay) {
-                Ok(msg) => {
-                    return Ok(msg)
-                },
+                Ok(msg) => return Ok(msg),
                 Err(_) => {}
             }
         }

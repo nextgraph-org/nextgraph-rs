@@ -278,14 +278,17 @@ impl RocksDbServerStorage {
         inv.del()?;
         Ok(())
     }
-    pub(crate) fn get_inboxes_for_readers(&self, user: &UserId) -> Result<HashSet<(PubKey, OverlayId)>,StorageError> {
+    pub(crate) fn get_inboxes_for_readers(
+        &self,
+        user: &UserId,
+    ) -> Result<HashSet<(PubKey, OverlayId)>, StorageError> {
         AccountStorage::load_inboxes(user, &self.core_storage)
     }
 
     pub(crate) fn take_first_msg_from_inbox(
         &self,
         inbox: &PubKey,
-        overlay: &OverlayId
+        overlay: &OverlayId,
     ) -> Result<InboxMsg, StorageError> {
         InboxStorage::take_first_msg(inbox, overlay, &self.core_storage)
     }
@@ -293,21 +296,24 @@ impl RocksDbServerStorage {
     pub(crate) fn get_readers_for_inbox(
         &self,
         inbox: &PubKey,
-        overlay: &OverlayId
+        overlay: &OverlayId,
     ) -> Result<HashSet<UserId>, StorageError> {
         InboxStorage::load_readers(inbox, overlay, &self.core_storage)
     }
 
-    pub(crate) fn register_inbox_reader(&self, user_id: UserId, inbox_id: PubKey, overlay: OverlayId) -> Result<(), StorageError> {
+    pub(crate) fn register_inbox_reader(
+        &self,
+        user_id: UserId,
+        inbox_id: PubKey,
+        overlay: OverlayId,
+    ) -> Result<(), StorageError> {
         InboxStorage::register_reader(&inbox_id, &overlay, &user_id, &self.core_storage)?;
         AccountStorage::add_inbox(&user_id, inbox_id, overlay, &self.core_storage)
     }
 
-    pub(crate) fn enqueue_inbox_msg(
-        &self,
-        msg: &InboxMsg
-    ) -> Result<(), StorageError> {
-        InboxStorage::open(&msg.body.to_inbox, &msg.body.to_overlay, &self.core_storage)?.enqueue_msg(msg)
+    pub(crate) fn enqueue_inbox_msg(&self, msg: &InboxMsg) -> Result<(), StorageError> {
+        InboxStorage::open(&msg.body.to_inbox, &msg.body.to_overlay, &self.core_storage)?
+            .enqueue_msg(msg)
     }
 
     pub(crate) fn get_repo_pin_status(

@@ -52,10 +52,10 @@ pub struct AccessRequestV0 {
     pub mode: AccessMode,
 
     /// allowed types for this access mode. Usually a PrimaryClass. can be "any".
-    /// for Runs: name of the service 
+    /// for Runs: name of the service
     /// for Queries: Nuri of the Sparql, Fragment, ShapeTree or GraphQL
     /// for Cron: the time interval
-    /// for Share: Stream, e:mail, e:xxx, Contact, Document 
+    /// for Share: Stream, e:mail, e:xxx, Contact, Document
     /// for DeviceCapability: camera, microphone, location, receiveSMS, scanQR, internet
     pub types: Vec<String>,
 
@@ -66,7 +66,7 @@ pub struct AccessRequestV0 {
     pub optional: bool,
 
     /// request depends on another request (only if optional)
-    pub depends_on: Option<String>
+    pub depends_on: Option<String>,
 }
 
 impl AccessRequestV0 {
@@ -98,7 +98,7 @@ pub struct AppComponentV0 {
     /// Name of the component, can be an official component of the for n:g:z, or custom ones n:xxx:z:yyy or o:xxx
     pub name: String,
 
-    pub component_type: AppComponentType
+    pub component_type: AppComponentType,
 }
 
 /// Primary Class Install Version 0
@@ -107,7 +107,7 @@ pub struct PrimaryClassInstallV0 {
     /// Primary Class name, can be an official name or a custom name of the form app:n... or app:o:...
     pub primary_class: String,
 
-    pub components: Vec<AppComponentV0>
+    pub components: Vec<AppComponentV0>,
 }
 
 /// App Manifest Version 0
@@ -127,7 +127,7 @@ pub struct AppManifestV0 {
 
     /// installs: list of Viewers, Editors, Services and Models, by PrimaryClass, that will be installed by this app
     pub installs: HashMap<String, PrimaryClassInstallV0>,
-     
+
     /// dependencies: list of other apps (Nuri) that needs to be installed before this app can be installed
     pub dependencies: Vec<String>,
 
@@ -157,38 +157,34 @@ pub enum AppManifest {
 
 impl AppManifest {
     pub fn new_for_origin_all_access_v0(origin: String) -> Self {
-        AppManifest::V0(
-            AppManifestV0 {
-                nuri: None,
-                origin: Some(origin),
-                singleton: true,
-                access_requests: vec![AccessRequestV0::new_access_all()],
-                installs: HashMap::new(),
-                dependencies: vec![],
-                name: None,
-                title: None,
-                description: None,
-                icon: vec![],
-                image: vec![]
-            }
-        )
+        AppManifest::V0(AppManifestV0 {
+            nuri: None,
+            origin: Some(origin),
+            singleton: true,
+            access_requests: vec![AccessRequestV0::new_access_all()],
+            installs: HashMap::new(),
+            dependencies: vec![],
+            name: None,
+            title: None,
+            description: None,
+            icon: vec![],
+            image: vec![],
+        })
     }
     pub fn new_v0(origin: String, singleton: bool, access_requests: Vec<AccessRequestV0>) -> Self {
-        AppManifest::V0(
-            AppManifestV0 {
-                nuri: None,
-                origin: Some(origin),
-                singleton,
-                access_requests,
-                installs: HashMap::new(),
-                dependencies: vec![],
-                name: None,
-                title: None,
-                description: None,
-                icon: vec![],
-                image: vec![]
-            }
-        )
+        AppManifest::V0(AppManifestV0 {
+            nuri: None,
+            origin: Some(origin),
+            singleton,
+            access_requests,
+            installs: HashMap::new(),
+            dependencies: vec![],
+            name: None,
+            title: None,
+            description: None,
+            icon: vec![],
+            image: vec![],
+        })
     }
     pub fn to_url_param(&self) -> String {
         let ser = serde_bare::to_vec(self).unwrap();
@@ -208,10 +204,10 @@ pub struct AccessGrantV0 {
     pub mode: AccessMode,
 
     /// Usually a PrimaryClass.
-    /// for Runs: name of the service 
+    /// for Runs: name of the service
     /// for Queries: Nuri of the Sparql, Fragment, ShapeTree or GraphQL
     /// for Cron: the time interval
-    /// for Share: Stream, e:mail, e:xxx, Contact, Document 
+    /// for Share: Stream, e:mail, e:xxx, Contact, Document
     /// for DeviceCapability: camera, microphone, location, receiveSMS, scanQR, internet
     pub access_type: String,
 
@@ -224,9 +220,5 @@ pub struct AccessGrantV0 {
     pub grantee: UserId,
 
     /// grant depends on another grant
-    pub depends_on: Option<String>
+    pub depends_on: Option<String>,
 }
-
-
-
-

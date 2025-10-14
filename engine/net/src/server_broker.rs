@@ -41,8 +41,12 @@ pub trait IServerBroker: Send + Sync {
         rendezvous: SymKey,
     ) -> Receiver<Result<ExportedWallet, ServerError>>;
     async fn inbox_post(&self, post: InboxPost) -> Result<(), ServerError>;
-    fn inbox_register(&self, user_id: UserId, registration: InboxRegister) -> Result<(), ServerError>;
-    async fn inbox_pop_for_user(&self, user: UserId ) -> Result<InboxMsg, ServerError>;
+    fn inbox_register(
+        &self,
+        user_id: UserId,
+        registration: InboxRegister,
+    ) -> Result<(), ServerError>;
+    async fn inbox_pop_for_user(&self, user: UserId) -> Result<InboxMsg, ServerError>;
     fn get_path_users(&self) -> PathBuf;
     fn get_block_storage(&self) -> Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>;
     fn put_block(&self, overlay_id: &OverlayId, block: Block) -> Result<(), ServerError>;

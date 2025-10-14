@@ -207,11 +207,9 @@ pub fn now_timestamp() -> Timestamp {
         .unwrap()
 }
 
-pub fn now_precise_timestamp() -> (u64,u32) {
-    let dur = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap();
-    (dur.as_secs(),dur.subsec_nanos())
+pub fn now_precise_timestamp() -> (u64, u32) {
+    let dur = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+    (dur.as_secs(), dur.subsec_nanos())
 }
 
 /// returns a new NextGraph Timestamp equivalent to the duration after now.

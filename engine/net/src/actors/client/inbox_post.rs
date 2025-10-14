@@ -61,9 +61,7 @@ impl EActor for Actor<'_, InboxPost, ()> {
     ) -> Result<(), ProtocolError> {
         let req = InboxPost::try_from(msg)?;
         let sb = { BROKER.read().await.get_server_broker()? };
-        let res: Result<(), ServerError> = sb
-            .read()
-            .await.inbox_post(req).await;
+        let res: Result<(), ServerError> = sb.read().await.inbox_post(req).await;
 
         fsm.lock()
             .await

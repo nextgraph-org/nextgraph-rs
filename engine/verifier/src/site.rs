@@ -125,8 +125,11 @@ impl SiteV0 {
 
         // Creating the Inbox commit body about public store.
         let public_store_inbox_commit_body =
-        CommitBody::V0(CommitBodyV0::AddInboxCap(
-            AddInboxCap::new_v0(public_repo.id, public_repo.store.outer_overlay(), public_repo.inbox.to_owned().unwrap())));
+            CommitBody::V0(CommitBodyV0::AddInboxCap(AddInboxCap::new_v0(
+                public_repo.id,
+                public_repo.store.outer_overlay(),
+                public_repo.inbox.to_owned().unwrap(),
+            )));
 
         let protected_repo = verifier
             .new_store_default(
@@ -143,8 +146,11 @@ impl SiteV0 {
 
         // Creating the Inbox commit body about protected store.
         let protected_store_inbox_commit_body =
-        CommitBody::V0(CommitBodyV0::AddInboxCap(
-            AddInboxCap::new_v0(protected_repo.id, protected_repo.store.outer_overlay(),protected_repo.inbox.to_owned().unwrap())));
+            CommitBody::V0(CommitBodyV0::AddInboxCap(AddInboxCap::new_v0(
+                protected_repo.id,
+                protected_repo.store.outer_overlay(),
+                protected_repo.inbox.to_owned().unwrap(),
+            )));
 
         let private_repo = verifier
             .new_store_default(

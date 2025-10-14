@@ -80,7 +80,12 @@ impl UserStorage for RocksDbUserStorage {
         RepoStorage::update_signer_cap(signer_cap, &self.user_storage)
     }
 
-    fn update_inbox_cap(&self, repo_id: &RepoId, overlay: &OverlayId, priv_key: &PrivKey) -> Result<(), StorageError> {
+    fn update_inbox_cap(
+        &self,
+        repo_id: &RepoId,
+        overlay: &OverlayId,
+        priv_key: &PrivKey,
+    ) -> Result<(), StorageError> {
         RepoStorage::update_inbox_cap(repo_id, overlay, priv_key, &self.user_storage)
     }
 

@@ -31,7 +31,6 @@ impl ClientEvent {
 impl TryFrom<ProtocolMessage> for ClientEvent {
     type Error = ProtocolError;
     fn try_from(msg: ProtocolMessage) -> Result<Self, Self::Error> {
-
         if let ProtocolMessage::ClientMessage(ClientMessage::V0(ClientMessageV0 {
             content: ClientMessageContentV0::ClientEvent(e),
             ..
@@ -49,8 +48,8 @@ impl From<ClientEvent> for ProtocolMessage {
     fn from(e: ClientEvent) -> ProtocolMessage {
         ProtocolMessage::ClientMessage(ClientMessage::V0(ClientMessageV0 {
             content: ClientMessageContentV0::ClientEvent(e),
-            overlay:  OverlayId::nil(),
-            padding: vec![]
+            overlay: OverlayId::nil(),
+            padding: vec![],
         }))
     }
 }
@@ -68,27 +67,29 @@ impl EActor for Actor<'_, ClientEvent, ()> {
         match req {
             ClientEvent::InboxPopRequest => {
                 let sb = { BROKER.read().await.get_server_broker()? };
-                let user = {fsm.lock().await.user_id()?};
-                let res: Result<InboxMsg, ServerError> = {
-                    sb.read().await.inbox_pop_for_user(user).await
-                };
+                let user = { fsm.lock().await.user_id()? };
+                let res: Result<InboxMsg, ServerError> =
+                    { sb.read().await.inbox_pop_for_user(user).await };
 
                 if let Ok(msg) = res {
                     let _ = fsm
-                    .lock()
-                    .await
-                    .send(ProtocolMessage::ClientMessage(ClientMessage::V0(
-                        ClientMessageV0 {
-                            overlay: msg.body.to_overlay.clone(),
-                            padding: vec![],
-                            content: ClientMessageContentV0::InboxReceive{msg, from_queue: true},
-                        },
-                    )))
-                    .await;
+                        .lock()
+                        .await
+                        .send(ProtocolMessage::ClientMessage(ClientMessage::V0(
+                            ClientMessageV0 {
+                                overlay: msg.body.to_overlay.clone(),
+                                padding: vec![],
+                                content: ClientMessageContentV0::InboxReceive {
+                                    msg,
+                                    from_queue: true,
+                                },
+                            },
+                        )))
+                        .await;
                 }
             }
         }
-        
+
         Ok(())
     }
 }

@@ -16,11 +16,11 @@ use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+use ng_threshold_crypto::serde_impl::SerdeSecret;
+use ng_threshold_crypto::SignatureShare;
 use once_cell::sync::OnceCell;
 use sbbf_rs_safe::Filter;
 use serde::{Deserialize, Serialize};
-use ng_threshold_crypto::serde_impl::SerdeSecret;
-use ng_threshold_crypto::SignatureShare;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::errors::NgError;
@@ -615,7 +615,7 @@ pub enum OverlayId {
 
 impl Default for OverlayId {
     fn default() -> Self {
-        OverlayId::Outer([0;32])
+        OverlayId::Outer([0; 32])
     }
 }
 
@@ -1545,7 +1545,7 @@ pub enum BranchType {
     BackLinks,
     Context,
     Transactional, // this could have been called OtherTransactional, but for the sake of simplicity, we use Transactional for any branch that is not the Main one.
-    Root, // only used for BranchInfo
+    Root,          // only used for BranchInfo
     //Unknown, // only used temporarily when loading a branch info from commits (Branch commit, then AddBranch commit)
     Header,
 }
@@ -1966,7 +1966,6 @@ pub enum RemoveLink {
     V0(RemoveLinkV0),
 }
 
-
 /// Adds an Inbox Capability (privkey) into the user branch, so that a user can share with all its device.
 ///
 /// DEPS to the previous AddInboxCap commit(s) if it is an update. in this case, repo_id should match
@@ -1992,11 +1991,11 @@ pub enum AddInboxCap {
 
 impl AddInboxCap {
     pub fn new_v0(repo_id: RepoId, overlay: OverlayId, priv_key: PrivKey) -> Self {
-        Self::V0(AddInboxCapV0{
+        Self::V0(AddInboxCapV0 {
             repo_id,
             overlay,
             priv_key,
-            metadata: vec![]
+            metadata: vec![],
         })
     }
 }

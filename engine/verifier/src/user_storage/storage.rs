@@ -42,7 +42,12 @@ pub trait UserStorage: Send + Sync {
 
     fn update_signer_cap(&self, signer_cap: &SignerCap) -> Result<(), StorageError>;
 
-    fn update_inbox_cap(&self, repo_id: &RepoId, overlay: &OverlayId, priv_key: &PrivKey) -> Result<(), StorageError>;
+    fn update_inbox_cap(
+        &self,
+        repo_id: &RepoId,
+        overlay: &OverlayId,
+        priv_key: &PrivKey,
+    ) -> Result<(), StorageError>;
 
     fn update_certificate(
         &self,
@@ -190,13 +195,18 @@ impl UserStorage for InMemoryUserStorage {
         lock.insert(signer_cap.repo, signer_cap.clone());
         Ok(())
     }
-    
+
     fn get_signer_cap(&self, repo_id: &RepoId) -> Result<SignerCap, StorageError> {
         let mut lock = self.repo_signer_cap.write().unwrap();
         Ok(lock.remove(repo_id).ok_or(StorageError::NotFound)?)
     }
 
-    fn update_inbox_cap(&self, repo_id: &RepoId, overlay: &OverlayId, priv_key: &PrivKey) -> Result<(), StorageError> {
+    fn update_inbox_cap(
+        &self,
+        repo_id: &RepoId,
+        overlay: &OverlayId,
+        priv_key: &PrivKey,
+    ) -> Result<(), StorageError> {
         let mut lock = self.repo_inbox_cap.write().unwrap();
         lock.insert(*repo_id, priv_key.clone());
         Ok(())

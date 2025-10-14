@@ -1064,7 +1064,7 @@ pub trait ReadTransaction {
         key_prefix: Vec<u8>,
         suffix: Option<u8>,
         family: &Option<String>,
-    ) -> Result<(Vec<u8>,Vec<u8>), StorageError>;
+    ) -> Result<(Vec<u8>, Vec<u8>), StorageError>;
 
     /// Check if a specific value exists for a property from the store.
     fn has_property_value(

@@ -27,12 +27,15 @@ use ng_repo::errors::*;
 use ng_repo::log::*;
 use ng_repo::store::Store;
 use ng_repo::types::*;
-use ng_repo::utils::{random_key, sign, verify, decode_digest, decode_key, decode_sym_key, decode_priv_key, decode_overlayid};
+use ng_repo::utils::{
+    decode_digest, decode_key, decode_overlayid, decode_priv_key, decode_sym_key, random_key, sign,
+    verify,
+};
 
 use crate::app_protocol::*;
 use crate::utils::{
-    get_domain_without_port_443, is_ipv4_private, is_ipv6_private, is_private_ip, is_public_ip,
-    is_public_ipv4, is_public_ipv6, decode_locator
+    decode_locator, get_domain_without_port_443, is_ipv4_private, is_ipv6_private, is_private_ip,
+    is_public_ip, is_public_ipv4, is_public_ipv6,
 };
 use crate::WS_PORT_ALTERNATE;
 use crate::{actor::EActor, actors::admin::*, actors::*};
@@ -483,12 +486,7 @@ impl BrokerServerV0 {
     pub async fn get_url_for_ngnet(&self, ipv4: bool, ipv6: bool) -> Option<String> {
         match &self.server_type {
             BrokerServerTypeV0::Public(addrs) => {
-                Self::ng_app_bootstrap_url_with_first_ipv6_or_ipv4(
-                    ipv4,
-                    ipv6,
-                    addrs,
-                    self.peer_id,
-                )
+                Self::ng_app_bootstrap_url_with_first_ipv6_or_ipv4(ipv4, ipv6, addrs, self.peer_id)
             }
             BrokerServerTypeV0::BoxPublicDyn(addrs) => {
                 // let resp = reqwest::get(api_dyn_peer_url(&self.peer_id)).await;
@@ -656,19 +654,21 @@ impl BrokerServerV0 {
     }
 
     pub fn to_iframe_msg(&self) -> BootstrapIframeMsg {
-
         match &self.server_type {
             BrokerServerTypeV0::Domain(domain) => BootstrapIframeMsg::domain(domain.clone()),
             BrokerServerTypeV0::Localhost(port) => BootstrapIframeMsg::local(*port, self.peer_id),
-            BrokerServerTypeV0::BoxPrivate(addrs) => BootstrapIframeMsg::private(addrs.to_vec(), self.peer_id),
-            BrokerServerTypeV0::Public(_) | BrokerServerTypeV0::BoxPublicDyn(_) => BootstrapIframeMsg::ngbox(),
+            BrokerServerTypeV0::BoxPrivate(addrs) => {
+                BootstrapIframeMsg::private(addrs.to_vec(), self.peer_id)
+            }
+            BrokerServerTypeV0::Public(_) | BrokerServerTypeV0::BoxPublicDyn(_) => {
+                BootstrapIframeMsg::ngbox()
+            }
         }
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BootstrapIframeMsg {
-
     pub peer_id: Option<String>,
 
     pub private: Option<Vec<BindAddress>>,
@@ -678,17 +678,16 @@ pub struct BootstrapIframeMsg {
     pub domain: Option<String>,
 
     pub localhost: Option<u16>,
-
 }
 
 impl BootstrapIframeMsg {
     fn new() -> Self {
         Self {
-            peer_id:None,
-            private:None,
-            ngbox:None,
-            domain:None,
-            localhost:None
+            peer_id: None,
+            private: None,
+            ngbox: None,
+            domain: None,
+            localhost: None,
         }
     }
 
@@ -759,7 +758,10 @@ impl BootstrapContentV0 {
     }
 
     pub fn to_iframe_msgs(&self) -> Vec<BootstrapIframeMsg> {
-        self.servers.iter().map(|server| server.to_iframe_msg()).collect()
+        self.servers
+            .iter()
+            .map(|server| server.to_iframe_msg())
+            .collect()
     }
 }
 
@@ -3639,23 +3641,22 @@ pub struct InboxRegister {
     // TODO: obtain challenge from Broker
     pub challenge: [u8; 32],
     // signature of challenge by inbox privkey
-    pub sig: Sig 
+    pub sig: Sig,
 }
 
 impl InboxRegister {
-    pub fn new(inbox: PrivKey, overlay: OverlayId) -> Result<Self,NgError> {
+    pub fn new(inbox: PrivKey, overlay: OverlayId) -> Result<Self, NgError> {
         let challenge = random_key();
         let inbox_id = inbox.to_pub();
-        let sig = sign(&inbox,&inbox_id, &challenge)?;
+        let sig = sign(&inbox, &inbox_id, &challenge)?;
         Ok(Self {
             inbox_id,
             overlay,
             challenge,
-            sig
+            sig,
         })
     }
 }
-
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InboxPost {
@@ -3668,27 +3669,30 @@ impl InboxPost {
     pub fn new(
         to_overlay: OverlayId,
         to_inbox: PubKey,
-        from: Option<(OverlayId,PrivKey)>,
-        content:&InboxMsgContent,
+        from: Option<(OverlayId, PrivKey)>,
+        content: &InboxMsgContent,
         blocks: Vec<Block>,
-        to_broker: Option<Locator>
-    ) -> Result<Self,NgError> 
-    {
+        to_broker: Option<Locator>,
+    ) -> Result<Self, NgError> {
         Ok(Self {
-            msg: InboxMsg::new(to_overlay,to_inbox,from,content,blocks)?,
-            to_broker
+            msg: InboxMsg::new(to_overlay, to_inbox, from, content, blocks)?,
+            to_broker,
         })
     }
 
     pub fn new_social_query_response(
         to_overlay: OverlayId,
         to_inbox: PubKey,
-        from: Option<(OverlayId,PrivKey)>,
+        from: Option<(OverlayId, PrivKey)>,
         query_id: RepoId,
         forwarder_id: RepoId,
-        content: SocialQueryResponseContent
-    ) -> Result<Self,NgError> {
-        let content = InboxMsgContent::SocialQuery(SocialQuery::Response(SocialQueryResponse { query_id, forwarder_id, content }));
+        content: SocialQueryResponseContent,
+    ) -> Result<Self, NgError> {
+        let content = InboxMsgContent::SocialQuery(SocialQuery::Response(SocialQueryResponse {
+            query_id,
+            forwarder_id,
+            content,
+        }));
         Self::new(to_overlay, to_inbox, from, &content, vec![], None)
     }
 
@@ -3697,37 +3701,40 @@ impl InboxPost {
         request: &SocialQueryRequest,
         content: SocialQueryResponseContent,
         inbox_privkey: PrivKey,
-    ) -> Result<Self,NgError> {
+    ) -> Result<Self, NgError> {
         let to_overlay = msg.from_overlay.ok_or(NgError::InvalidArgument)?;
         let to_inbox = msg.from_inbox.ok_or(NgError::InvalidArgument)?;
-        if msg.to_inbox != inbox_privkey.to_pub() { return Err(NgError::InvalidArgument); }
+        if msg.to_inbox != inbox_privkey.to_pub() {
+            return Err(NgError::InvalidArgument);
+        }
         let from = Some((msg.to_overlay, inbox_privkey));
         let query_id = request.query_id;
         let forwarder_id = request.forwarder_id;
-        let content = InboxMsgContent::SocialQuery(SocialQuery::Response(SocialQueryResponse { query_id, forwarder_id, content }));
+        let content = InboxMsgContent::SocialQuery(SocialQuery::Response(SocialQueryResponse {
+            query_id,
+            forwarder_id,
+            content,
+        }));
         Self::new(to_overlay, to_inbox, from, &content, vec![], None)
     }
 
     /// to_profile_nuri = did:ng:[ab]
     /// to_inbox_nuri = did:ng:d
     pub fn new_social_query_request(
-        from_profile_store_repo: StoreRepo, 
-        from_inbox: PrivKey, 
+        from_profile_store_repo: StoreRepo,
+        from_inbox: PrivKey,
         forwarder_id: RepoId,
         to_profile_nuri: String,
         to_inbox_nuri: String,
         to_broker: Option<Locator>,
         query_id: RepoId,
-        definition_commit_body_ref: ObjectRef, 
+        definition_commit_body_ref: ObjectRef,
         blocks: Vec<Block>,
         degree: u16,
     ) -> Result<Self, NgError> {
-
         // processing to_profile_nuri
         let c = RE_PROFILE.captures(&to_profile_nuri);
-        if c.is_some()
-            && c.as_ref().unwrap().get(1).is_some()
-        {
+        if c.is_some() && c.as_ref().unwrap().get(1).is_some() {
             let cap = c.unwrap();
             let o = cap.get(1).unwrap().as_str();
             let to_profile_id = decode_key(o)?;
@@ -3735,63 +3742,64 @@ impl InboxPost {
 
             // processing to_inbox_nuri
             let c = RE_INBOX.captures(&to_inbox_nuri);
-            if c.is_some()
-                && c.as_ref().unwrap().get(1).is_some()
-            {
+            if c.is_some() && c.as_ref().unwrap().get(1).is_some() {
                 let cap = c.unwrap();
                 let d = cap.get(1).unwrap().as_str();
                 let to_inbox = decode_key(d)?;
                 let from_overlay = from_profile_store_repo.outer_overlay();
-                let content = InboxMsgContent::SocialQuery(SocialQuery::Request(SocialQueryRequest{
-                    query_id,
-                    forwarder_id,
-                    from_profile_store_repo,
-                    degree,
-                    definition_commit_body_ref,
-                }));
+                let content =
+                    InboxMsgContent::SocialQuery(SocialQuery::Request(SocialQueryRequest {
+                        query_id,
+                        forwarder_id,
+                        from_profile_store_repo,
+                        degree,
+                        definition_commit_body_ref,
+                    }));
 
                 return Ok(InboxPost::new(
                     to_overlay,
                     to_inbox,
-                    Some((from_overlay,from_inbox)),
+                    Some((from_overlay, from_inbox)),
                     &content,
                     blocks,
-                    to_broker
+                    to_broker,
                 )?);
             }
         }
-        Err(NgError::InvalidNuri) 
+        Err(NgError::InvalidNuri)
     }
-    
+
     pub fn new_contact_details(
-        from_profile_store_repo: StoreRepo, 
-        from_inbox: PrivKey, 
+        from_profile_store_repo: StoreRepo,
+        from_inbox: PrivKey,
         to_overlay: OverlayId,
         to_inbox: PubKey,
         to_broker: Option<Locator>,
         with_readcap: bool,
         name: String,
-        email: Option<String>
+        email: Option<String>,
     ) -> Result<Self, NgError> {
-
         let from_overlay = from_profile_store_repo.outer_overlay();
-        let content = InboxMsgContent::ContactDetails(ContactDetails{
+        let content = InboxMsgContent::ContactDetails(ContactDetails {
             profile: from_profile_store_repo,
-            read_cap: if with_readcap {unimplemented!();} else {None},
+            read_cap: if with_readcap {
+                unimplemented!();
+            } else {
+                None
+            },
             name,
-            email
+            email,
         });
 
         return Ok(InboxPost::new(
             to_overlay,
             to_inbox,
-            Some((from_overlay,from_inbox)),
+            Some((from_overlay, from_inbox)),
             &content,
             vec![],
-            to_broker
+            to_broker,
         )?);
     }
-
 }
 
 /// Request to publish an event in pubsub
@@ -4255,7 +4263,6 @@ pub enum InboxMsgContent {
 /// InboxMsgBody
 #[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq)]
 pub struct InboxMsgBody {
-
     pub to_overlay: OverlayId,
     pub to_inbox: PubKey,
 
@@ -4270,7 +4277,6 @@ pub struct InboxMsgBody {
 /// InboxMsg
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct InboxMsg {
-
     pub body: InboxMsgBody,
 
     /// optional signature by sender (from_inbox pubkey), over body
@@ -4284,10 +4290,10 @@ impl InboxMsg {
     pub fn new(
         to_overlay: OverlayId,
         to_inbox: PubKey,
-        from: Option<(OverlayId,PrivKey)>,
-        content:&InboxMsgContent,
-        blocks: Vec<Block>
-    ) -> Result<Self,NgError> {
+        from: Option<(OverlayId, PrivKey)>,
+        content: &InboxMsgContent,
+        blocks: Vec<Block>,
+    ) -> Result<Self, NgError> {
         let ser = serde_bare::to_vec(content).unwrap();
         let mut rng = crypto_box::aead::OsRng {};
         let msg = crypto_box::seal(&mut rng, &to_inbox.to_dh_slice().into(), &ser)
@@ -4295,27 +4301,18 @@ impl InboxMsg {
         let body = InboxMsgBody {
             to_overlay,
             to_inbox,
-            from_overlay: from.as_ref().map(|(o,_)|o.clone()),
-            from_inbox: from.as_ref().map(|(_,i)|i.to_pub()),
-            msg
+            from_overlay: from.as_ref().map(|(o, _)| o.clone()),
+            from_inbox: from.as_ref().map(|(_, i)| i.to_pub()),
+            msg,
         };
         let sig = match from {
-            Some((_,inbox)) => {
+            Some((_, inbox)) => {
                 let ser = serde_bare::to_vec(&body).unwrap();
-                Some(sign(
-                    &inbox,
-                    body.from_inbox.as_ref().unwrap(),
-                    &ser,
-                )?)},
-                None=>None
-            };
-        Ok(
-            Self {
-                body,
-                sig,
-                blocks
+                Some(sign(&inbox, body.from_inbox.as_ref().unwrap(), &ser)?)
             }
-        )
+            None => None,
+        };
+        Ok(Self { body, sig, blocks })
     }
 
     pub fn get_content(&self, inbox_sk: &PrivKey) -> Result<InboxMsgContent, NgError> {
@@ -4340,7 +4337,7 @@ pub enum ClientMessageContentV0 {
     ClientResponse(ClientResponse),
     ForwardedEvent(Event),
     ForwardedBlock(Block),
-    InboxReceive{ msg: InboxMsg, from_queue: bool },
+    InboxReceive { msg: InboxMsg, from_queue: bool },
     ClientEvent(ClientEvent),
 }
 impl ClientMessageContentV0 {
@@ -5261,7 +5258,6 @@ impl NgQRCode {
         base64_url::encode(&ser)
     }
 }
-
 
 // TODO: PermaLinks and InboxPost (and ExtRequests)
 

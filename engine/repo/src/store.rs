@@ -298,7 +298,8 @@ impl Store {
                     "data:container"
                 } else {
                     "social:profile"
-                }.to_string()
+                }
+                .to_string(),
             ));
         }
 

@@ -312,14 +312,14 @@ impl Commit {
     pub fn collect_block_ids(
         commit_ref: ObjectRef,
         store: &Store,
-        with_body: bool
+        with_body: bool,
     ) -> Result<Vec<BlockId>, CommitLoadError> {
-        let mut block_ids : Vec<BlockId>;
+        let mut block_ids: Vec<BlockId>;
         let (id, key) = (commit_ref.id, commit_ref.key);
         match Object::load(id, Some(key.clone()), store) {
             Err(ObjectParseError::MissingHeaderBlocks((_, missing))) => {
                 return Err(CommitLoadError::MissingBlocks(missing));
-            },
+            }
             Ok(obj) => {
                 let content = obj
                     .content()
@@ -333,10 +333,15 @@ impl Commit {
                 if with_body {
                     let content = commit.content_v0();
                     let (id, key) = (content.body.id, content.body.key.clone());
-                    let obj = Object::load(id.clone(), Some(key.clone()), store).map_err(|e| match e {
-                        ObjectParseError::MissingBlocks(missing) => CommitLoadError::MissingBlocks(missing),
-                        _ => CommitLoadError::ObjectParseError,
-                    })?;
+                    let obj =
+                        Object::load(id.clone(), Some(key.clone()), store).map_err(
+                            |e| match e {
+                                ObjectParseError::MissingBlocks(missing) => {
+                                    CommitLoadError::MissingBlocks(missing)
+                                }
+                                _ => CommitLoadError::ObjectParseError,
+                            },
+                        )?;
                     let content = obj
                         .content()
                         .map_err(|_e| CommitLoadError::ObjectParseError)?;
@@ -1580,13 +1585,17 @@ impl fmt::Display for CommitBody {
                     CommitBodyV0::AddSignerCap(b) => write!(f, "AddSignerCap {}", b),
                     CommitBodyV0::StoreUpdate(b) => write!(f, "StoreUpdate {}", b),
                     CommitBodyV0::AddInboxCap(b) => write!(f, "AddInboxCap {}", b),
-                    
+
                     /*    AddLink(AddLink),
                     RemoveLink(RemoveLink),
                     RemoveSignerCap(RemoveSignerCap),
                     WalletUpdate(WalletUpdate),
                     StoreUpdate(StoreUpdate), */
-                    _ => write!(f, "!!!! CommitBody Display not implemented for {:?}", v0.type_id()),
+                    _ => write!(
+                        f,
+                        "!!!! CommitBody Display not implemented for {:?}",
+                        v0.type_id()
+                    ),
                 }
             }
         }

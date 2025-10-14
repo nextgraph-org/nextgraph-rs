@@ -1491,12 +1491,8 @@ mod test {
 
         log_debug!("{}", file);
 
-        let file = File::open(
-            file.id().unwrap(),
-            file.key().to_owned().unwrap(),
-            store,
-        )
-        .expect("open");
+        let file =
+            File::open(file.id().unwrap(), file.key().to_owned().unwrap(), store).expect("open");
 
         // this only works because we chose a big block size (1MB) so the small JPG file fits in one block.
         // if not, we would have to call read repeatedly and append the results into a buffer, in order to get the full file
