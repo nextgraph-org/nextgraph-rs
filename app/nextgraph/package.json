@@ -8,22 +8,25 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "lint": "prettier --write ."
+    "format": "prettier --write .",
+    "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.14",
+    "@dvcol/svelte-simple-router": "^2.7.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@tailwindcss/typography": "^0.5.19",
+    "@tailwindcss/vite": "^4.1.14",
     "@tauri-apps/cli": "^2.8.4",
     "@tsconfig/svelte": "^5.0.5",
     "daisyui": "^5.3.1",
     "prettier": "^3.6.2",
     "prettier-plugin-svelte": "^3.4.0",
     "svelte": "^5.39.13",
+    "svelte-check": "^4.3.3",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.6.2",
     "vite": "^7.1.7"
