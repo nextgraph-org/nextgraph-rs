@@ -706,6 +706,10 @@ impl Verifier {
             scopes.push((scope.clone(), shapes));
         }
 
+        log_debug!(
+            "[orm_backend_update], creating patch objects for scopes:\n{}",
+            scopes.len()
+        );
         for (scope, shapes) in scopes {
             let mut orm_changes: OrmChanges = HashMap::new();
 
@@ -725,9 +729,14 @@ impl Verifier {
             let subs = self.orm_subscriptions.get(&scope).unwrap();
             for sub in subs.iter() {
                 // TODO: This if-condition is wrong (intended to not re-apply changes coming from the same subscription).
-                if sub.session_id == session_id {
-                    continue;
-                }
+                // if sub.session_id == session_id {
+                //     continue;
+                log_debug!(
+                    "Applying changes to subscription with nuri {} and shape {}",
+                    sub.nuri.repo(),
+                    sub.shape_type.shape
+                );
+                // }
                 // Create diff from changes & subscription.
 
                 fn create_patches_for_nested_object(

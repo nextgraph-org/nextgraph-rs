@@ -67,6 +67,7 @@ function isPrimitive(v: unknown): v is string | number | boolean {
     );
 }
 
+// TODO: Escape slashes and tildes (~1, ~0)
 /**
  * Apply a diff to an object.
  *
