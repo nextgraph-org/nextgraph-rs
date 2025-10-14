@@ -10,6 +10,7 @@
 use ng_oxigraph::oxrdf::Subject;
 use ng_repo::log::*;
 use ng_repo::types::OverlayId;
+use yrs::types::PathSegment;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -320,4 +321,12 @@ pub fn nuri_to_string(nuri: &NuriV0) -> String {
     };
     let graph_name = NuriV0::repo_graph_name(repo_id, &overlay_id);
     graph_name
+}
+
+pub fn escape_json_pointer(path_segment: &String) -> String {
+    path_segment.replace("~", "~0").replace("/", "~1")
+}
+
+pub fn decode_join_pointer(path: &String) -> String {
+    path.replace("~1", "/").replace("~0", "~")
 }
