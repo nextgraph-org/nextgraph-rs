@@ -44,6 +44,7 @@ pub fn add_remove_triples(
                     tracked_predicates: HashMap::new(),
                     parents: HashMap::new(),
                     valid: OrmTrackedSubjectValidity::Pending,
+                    prev_valid: OrmTrackedSubjectValidity::Pending,
                     subject_iri: subject_iri.to_string(),
                     shape: shape.clone(),
                 }))

@@ -257,24 +257,9 @@ impl Verifier {
                         log_debug!("not applying triples again for subject {subject_iri}");
                     }
 
-                    let validity = {
-                        let tracked_subject_opt = orm_subscription
-                            .tracked_subjects
-                            .get(*subject_iri)
-                            .and_then(|m| m.get(&shape.iri));
-                        let Some(tracked_subject) = tracked_subject_opt else {
-                            continue;
-                        }; // skip if missing
-                        tracked_subject.read().unwrap().valid.clone()
-                    };
-
                     // Validate the subject.
-                    let need_eval = Self::update_subject_validity(
-                        change,
-                        &shape,
-                        &mut orm_subscription,
-                        validity,
-                    );
+                    let need_eval =
+                        Self::update_subject_validity(change, &shape, &mut orm_subscription);
 
                     // We add the need_eval to be processed next after loop.
                     // Filter out subjects already in the validation stack to prevent double evaluation.
