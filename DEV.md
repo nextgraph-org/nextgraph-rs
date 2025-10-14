@@ -15,7 +15,7 @@ cargo install wasm-pack --git https://git.nextgraph.org/NextGraph/wasm-pack.git 
 On Debian distros
 
 ```
-sudo apt install pkg-config gcc build-essential libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev
+sudo apt install pkg-config gcc build-essential libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev gcc-multilib curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 ```
 
 ```
