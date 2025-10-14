@@ -778,7 +778,7 @@ impl Verifier {
                         .await;
                         let graph_nuri =
                             NuriV0::repo_graph_name(&update.repo_id, &update.overlay_id);
-                        self.orm_update(
+                        self.orm_backend_update(
                             session_id,
                             update.repo_id.clone(),
                             update.overlay_id,
