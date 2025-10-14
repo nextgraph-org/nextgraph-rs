@@ -1,0 +1,13 @@
+{
+  "name": "@ng-org/api-web",
+  "private": true,
+  "version": "0.1.2",
+  "type": "module",
+  "main": "main.ts",
+  "dependencies": {
+    "async-proxy": "^0.4.1",
+    "@ng-org/lib-wasm": "workspace:*"
+  },
+  "devDependencies": {
+  }
+}

@@ -1,0 +1,30 @@
+[package]
+name = "ngapp"
+# version = "0.1.0"
+description = "nextgraph.app server. used to serve the app for self-hosted and NGboxes"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde_bare = "0.5.0"
+serde_json = "1.0.96"
+tokio = { version = "1.27", features = ["full"] }
+bytes = "1.0"
+warp = "0.3"
+warp-embed = "0.4"
+rust-embed = "6"
+log = "0.4"
+env_logger = "0.10"
+base64-url = "2.0.0"
+ng-repo = { path = "../../engine/repo", features = ["server_log_output"] }
+ng-net = { path = "../../engine/net" }
+ng-wallet = { path = "../../engine/wallet" }
+ng-storage-rocksdb = { path = "../../engine/storage-rocksdb" }

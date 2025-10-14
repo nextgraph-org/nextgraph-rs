@@ -1,0 +1,28 @@
+[package]
+name = "ngaccount"
+# version = "0.1.0"
+description = "account manager for NextGraph Broker Service Provider"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+documentation.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { version = "1.0.142", features = ["derive"] }
+tokio = { version = "1.27", features = ["full"] }
+warp = "0.3"
+warp-embed = "0.4"
+rust-embed = "6"
+log = "0.4"
+env_logger = "0.10"
+anyhow = "1.0.71"
+duration-str = "0.7.1"
+ng-repo = { path = "../../engine/repo", version = "0.1.2", features = ["server_log_output"] }
+ng-net = { path = "../../engine/net", version = "0.1.2" }
+ng-client-ws = { path = "../../engine/client-ws", version = "0.1.2" }

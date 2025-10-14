@@ -1,9 +1,17 @@
 packages:
-    - sdk/ng-sdk-js/pkg
-    - sdk/ng-sdk-js/ng-signals
-    - sdk/ng-sdk-js/ng-alien-deepsignals
-    - sdk/ng-sdk-js/ng-shex-orm
-    - sdk/ng-sdk-js/examples/multi-framework-signals
+    - sdk/js/lib-wasm/pkg
+    - sdk/js/api-web
+    - sdk/js/signals
+    - sdk/js/alien-deepsignals
+    - sdk/js/shex-orm
+    - sdk/js/examples/multi-framework-signals
+    - app/ui-common
+    - app/nextgraph
+    - engine/broker/auth
+    - infra/ngaccount/web
+    - infra/ngapp/web
+    - infra/ngnet/bootstrap
+    - infra/ngnet/redir
 onlyBuiltDependencies:
     - "@parcel/watcher"
     - "@swc/core"

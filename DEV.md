@@ -1,8 +1,8 @@
 # Contributors or compilation guide
 
--   [Install Rust](https://www.rust-lang.org/tools/install) minimum required MSRV 1.81.0
--   [Install Nodejs](https://nodejs.org/en/download/)
--   [Install LLVM](https://rust-lang.github.io/rust-bindgen/requirements.html)
+- [Install Rust](https://www.rust-lang.org/tools/install) minimum required MSRV 1.81.0
+- [Install Nodejs](https://nodejs.org/en/download/)
+- [Install LLVM](https://rust-lang.github.io/rust-bindgen/requirements.html)
 
 On OpenBSD, for LLVM you need to choose llvm-17.
 
@@ -13,6 +13,7 @@ cargo install wasm-pack --git https://git.nextgraph.org/NextGraph/wasm-pack.git 
 ```
 
 On Debian distros
+
 ```
 sudo apt install pkg-config gcc build-essential libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev
 ```
@@ -25,7 +26,7 @@ git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
 // or if you don't have a git account with us: git clone https://git.nextgraph.org/NextGraph/nextgraph-rs.git
 cd nextgraph-rs
 npm install -g pnpm
-cd sdk/ng-sdk-js
+cd sdk/lib-wasm
 cargo run-script app
 cd ../..
 cd helpers/wasm-tools
@@ -86,7 +87,7 @@ cargo run -p ngcli -- --save-key --save-config -s 127.0.0.1,14400,<PEER_ID_OF_SE
 
 In your dev env, if you want to create more wallets and accounts, you have 2 options:
 
--   creating an invitation link from the admin account
+- creating an invitation link from the admin account
 
 ```
 cargo run -p ngcli -- -s 127.0.0.1,14400,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED> admin add-invitation --notos
@@ -94,7 +95,7 @@ cargo run -p ngcli -- -s 127.0.0.1,14400,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY
 
 and then open the link after replacing the port number from `14400` to `1421` (if you are running the front-end in development mode).
 
--   run a local instance of `ngaccount`. this is useful if you want to test or develop the ngaccount part of the flow..
+- run a local instance of `ngaccount`. this is useful if you want to test or develop the ngaccount part of the flow..
 
 See the [README of ngaccount here](ngaccount/README.md).
 
@@ -108,21 +109,21 @@ Then you need to stop your ngd and start it again with the additional option :
 
 The crates are organized as follow :
 
--   [nextgraph](nextgraph/README.md) : Client library. Use this crate to embed NextGraph client in your Rust application
--   [ngcli](ngcli/README.md) : CLI tool to manipulate the local documents and repos and administrate the server
--   [ngd](ngd/README.md) : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
--   [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the official web app.
--   [ng-sdk-js](ng-sdk-js/DEV.md) : contains the JS SDK, with example for: web app, react app, or node service.
--   [ng-sdk-python](ng-sdk-python/README.md) : contains the Python SDK.
--   ng-repo : Repositories common library
--   ng-net : Network common library
--   ng-oxigraph : Fork of OxiGraph. contains our CRDT of RDF
--   ng-verifier : Verifier library, that exposes the document API to the app
--   ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
--   ng-broker : Core and Server Broker library
--   ng-client-ws : Websocket client library
--   ng-storage-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
--   helpers : all kind of servers and front end code needed for our infrastructure.
+- [nextgraph](nextgraph/README.md) : Client library. Use this crate to embed NextGraph client in your Rust application
+- [ngcli](ngcli/README.md) : CLI tool to manipulate the local documents and repos and administrate the server
+- [ngd](ngd/README.md) : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
+- [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the official web app.
+- [lib-wasm](lib-wasm/DEV.md) : contains the JS SDK, with example for: web app, react app, or node service.
+- [ng-sdk-python](ng-sdk-python/README.md) : contains the Python SDK.
+- ng-repo : Repositories common library
+- ng-net : Network common library
+- ng-oxigraph : Fork of OxiGraph. contains our CRDT of RDF
+- ng-verifier : Verifier library, that exposes the document API to the app
+- ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
+- ng-broker : Core and Server Broker library
+- ng-client-ws : Websocket client library
+- ng-storage-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
+- helpers : all kind of servers and front end code needed for our infrastructure.
 
 ### Test
 
@@ -140,7 +141,7 @@ Test a single crate:
 cargo test --package ng-repo --lib --  --show-output --nocapture
 cargo test --package ng-wallet --lib --  --show-output --nocapture
 cargo test --package ng-verifier --lib --  --show-output --nocapture
-cargo test --package ng-sdk-js --lib --  --show-output --nocapture
+cargo test --package lib-wasm --lib --  --show-output --nocapture
 cargo test --package ng-broker --lib --  --show-output --nocapture
 cargo test --package ng-client-ws --lib --  --show-output --nocapture
 ```
@@ -154,7 +155,7 @@ https://googlechromelabs.github.io/chrome-for-testing/
 then:
 
 ```
-cd ng-sdk-js
+cd lib-wasm
 wasm-pack test --chrome --headless
 ```
 
@@ -172,7 +173,7 @@ You need to freshly built it from source, following those instructions:
 ```
 cargo install cargo-run-script
 npm install -g pnpm
-cd ng-sdk-js
+cd lib-wasm
 cargo run-script app
 cd ..
 pnpm -C ./ng-app install

@@ -1,0 +1,23 @@
+{
+  "name": "@ng-org/net-bootstrap",
+  "private": true,
+  "version": "0.1.2",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --base=./",
+    "builddev": "cross-env NG_DEV=1 vite build --base=./ && shx mkdir -p ../../../app/nextgraph/public_dev && cp ./dist/index.html ../../../app/nextgraph/public_dev/bootstrap.html",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "private-ip": "^3.0.2",
+    "remote-web-streams": "^0.2.0"
+  },
+  "devDependencies": {
+    "shx": "^0.3.4",
+    "cross-env": "^7.0.3",
+    "vite": "^4.3.9",
+    "autoprefixer": "^10.4.14",
+    "vite-plugin-singlefile": "0.13.5"
+  }
+}

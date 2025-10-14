@@ -1,0 +1,34 @@
+[package]
+name = "ngcli"
+description = "CLI command-line interpreter of NextGraph, a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
+categories = ["command-line-interface"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = [
+"crdt","decentralized","cli","local-first","p2p"
+]
+documentation.workspace = true
+rust-version.workspace = true
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+async-std = {  version = "1.12.0", features = ["attributes"] }
+zeroize = { version = "1.7.0" }
+getrandom = "0.2.7"
+blake3 = "1.3.1"
+duration-str = "0.7.1"
+clap = { version = "4.3.5", features = ["env","string","cargo"] }
+log = "0.4"
+env_logger = "0.10"
+ng-repo = { path = "../../engine/repo", version = "0.1.2", features = ["server_log_output"] }
+ng-net = { path = "../../engine/net", version = "0.1.2" }
+ng-client-ws = { path = "../../engine/client-ws", version = "0.1.2" }
+ng-async-tungstenite = { version = "0.22.2", git = "https://git.nextgraph.org/NextGraph/async-tungstenite.git", branch = "nextgraph",  features = ["async-std-runtime", "async-native-tls"] }

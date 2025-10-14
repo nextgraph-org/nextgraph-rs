@@ -1,0 +1,47 @@
+# Use ubuntu 22.04 as base image
+FROM ubuntu:22.04
+
+SHELL ["/bin/bash", "-c"]
+
+# Set the environment variable to ensure cargo is available in the PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install the required packages and Rust
+RUN apt update && \
+    apt upgrade -y && \
+    apt install -y git llvm-dev libclang-dev clang libssl-dev perl libappindicator3-dev libwebkit2gtk-4.0-dev librsvg2-dev curl wget pkg-config libudev-dev build-essential && \
+    rm -rf /var/cache/apt && \
+    # Rust
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    # Node.js
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash && \
+    export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" && \
+    nvm install 22 && \
+    npm install -g pnpm && \
+    # Install Rust and Node.js tools
+    cargo install cargo-watch && \
+    cargo install wasm-pack --git https://github.com/rustwasm/wasm-pack.git --rev c2b663f25abe50631a236d57a8c6d7fd806413b2 && \
+    cargo install tauri-cli --version "2.0.0-alpha.11" --locked && \
+    npm install -g pnpm && \
+    # Clone the nextgraph-rs repository (TODO: It might be better to put this into a seperate RUN command to avoid rebuilding the image if the repository changes)
+    git clone https://git.nextgraph.org/NextGraph/nextgraph-rs.git && \
+    # Build sdk and ng-app web version
+    cd /nextgraph-rs/ng-sdk-js && wasm-pack build --target bundler && npm install --no-save pkg && \
+    cd /nextgraph-rs/ng-app && \
+    pnpm install && pnpm webfilebuild
+
+# Build the nextgraph-rs project and its subprojects
+WORKDIR /nextgraph-rs
+RUN cargo build -r && \
+    cargo build -r -p ngd && \
+    cargo build -r -p ngcli
+
+
+# TODO: Build the platform-specific ng-app versions
+# WORKDIR /nextgraph-rs/ng-app
+# RUN cargo tauri build --target x86_64-unknown-linux-gnu
+
+# TODO: To remove the image size, remove ~/.cargo, ~/.rustup, and the build dependencies
+
+# To build the image, run:
+# docker build -t nextgraph-rs:ubuntu -f docker/Dockerfile.ubuntu .

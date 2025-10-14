@@ -1,18 +1,24 @@
 [workspace]
 resolver = "2"
 members = [
-  "nextgraph",
-  "ng-repo",
-  "ng-net",
-  "ng-broker",
-  "ng-client-ws",
-  "ng-verifier",
-  "ng-wallet",
-  "ng-storage-rocksdb",
-  "sdk/ng-sdk-js",
-  "ng-oxigraph",
+  "engine/repo",
+  "engine/net",
+  "engine/broker",
+  "engine/client-ws",
+  "engine/verifier",
+  "engine/wallet",
+  "engine/storage-rocksdb",
+  "engine/oxigraph",
+  "sdk/rust",
+  "sdk/js/lib-wasm",
+  "bin/ngd",
+  "bin/ngcli",
+  "infra/ngaccount",
+  "infra/ngapp",
+  "infra/ngnet",
+  "app/nextgraph/src-tauri"
 ]
-default-members = ["nextgraph"]
+default-members = ["sdk/rust"]
 
 [workspace.package]
 version = "0.1.2"

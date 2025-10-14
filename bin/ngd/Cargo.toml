@@ -1,0 +1,41 @@
+[package]
+name = "ngd"
+# version = "0.1.0"
+description = "Daemon of NextGraph, a decentralized, secure and local-first web 3.0 ecosystem based on Semantic Web and CRDTs"
+categories = ["network-programming"]
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = [
+"crdt","decentralized","broker","local-first","p2p"
+]
+documentation.workspace = true
+rust-version.workspace = true
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+serde_bare = "0.5.0"
+serde_json = "1.0"
+async-std = {  version = "1.12.0", features = ["attributes"] }
+zeroize = { version = "1.7.0" }
+addr = "0.15.6"
+getrandom = "0.2.7"
+regex = "1.8.4"
+lazy_static = "1.4.0"
+log = "0.4"
+env_logger = "0.10"
+clap = { version = "4.3.21", features = ["derive","env","string"] }
+ng-repo = { path = "../../engine/repo", version = "0.1.2", features = ["server_log_output"] }
+ng-net = { path = "../../engine/net", version = "0.1.2" }
+ng-broker = { path = "../../engine/broker", version = "0.1.2" }
+
+
+
+
+
+
