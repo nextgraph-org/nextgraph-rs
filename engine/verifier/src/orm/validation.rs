@@ -22,7 +22,6 @@ impl Verifier {
         s_change: &OrmTrackedSubjectChange,
         shape: &OrmSchemaShape,
         orm_subscription: &mut OrmSubscription,
-        previous_validity: OrmTrackedSubjectValidity,
     ) -> Vec<(SubjectIri, ShapeIri, NeedsFetchBool)> {
         let tracked_subjects = &mut orm_subscription.tracked_subjects;
 
@@ -33,6 +32,9 @@ impl Verifier {
             return vec![];
         };
         let mut tracked_subject = tracked_subject.write().unwrap();
+        let previous_validity = tracked_subject.prev_valid.clone();
+        tracked_subject.prev_valid = tracked_subject.valid.clone();
+
         // Keep track of objects that need to be validated against a shape to fetch and validate.
         let mut need_evaluation: Vec<(String, String, bool)> = vec![];
 

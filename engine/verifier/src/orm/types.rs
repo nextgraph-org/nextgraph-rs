@@ -23,8 +23,11 @@ pub struct OrmTrackedSubject {
     /// If this is a nested subject, this records the parents
     /// and if they are currently tracking this subject.
     pub parents: HashMap<String, Arc<RwLock<OrmTrackedSubject>>>,
-    /// Validity. When untracked, triple updates are not processed here.
+    /// Validity. When untracked, triple updates are not processed for this tracked subject.
     pub valid: OrmTrackedSubjectValidity,
+    /// Previous validity. Used for validation and creating JSON Patch diffs from changes.
+    pub prev_valid: OrmTrackedSubjectValidity,
+    /// Subject IRI
     pub subject_iri: String,
     /// The shape for which the predicates are tracked.
     pub shape: Arc<OrmSchemaShape>,
