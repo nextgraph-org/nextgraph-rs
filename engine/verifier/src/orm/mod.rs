@@ -737,6 +737,10 @@ impl Verifier {
                         subject_iri: &String,
                         sub: &OrmSubscription,
                         path: &mut Vec<String>,
+                        tracked_subjects: &HashMap<
+                            SubjectIri,
+                            HashMap<ShapeIri, Arc<RwLock<OrmTrackedSubject>>>,
+                        >,
                     ) {
                         let change = orm_changes
                             .get(shape_iri)
@@ -744,6 +748,49 @@ impl Verifier {
                             .get(subject_iri)
                             .unwrap();
                         let subject_shape = sub.shape_type.schema.get(shape_iri).unwrap();
+
+                        // @Niko, is it safe to do this?
+                        let tracked_subject = tracked_subjects
+                            .get(subject_iri)
+                            .unwrap()
+                            .get(shape_iri)
+                            .unwrap()
+                            .read()
+                            .unwrap();
+
+                        // Check validity changes
+                        if tracked_subject.prev_valid == OrmTrackedSubjectValidity::Invalid
+                            && tracked_subject.valid == OrmTrackedSubjectValidity::Invalid
+                        {
+                            // Is the subject invalid and was it before? There is nothing we need to inform about.
+                            return;
+                        } else if tracked_subject.prev_valid == OrmTrackedSubjectValidity::Valid
+                            && tracked_subject.valid == OrmTrackedSubjectValidity::Invalid
+                            || tracked_subject.valid == OrmTrackedSubjectValidity::Untracked
+                        {
+                            // Has the subject become invalid or untracked?
+                            // We add a patch, deleting the object at its root.
+                            patches.push(OrmDiffOp {
+                                op: OrmDiffOpType::remove,
+                                valType: Some(OrmDiffType::object),
+                                path: path.join("/"),
+                                value: None,
+                            });
+                            return;
+                        } else {
+                            // The subject is valid or has become valid.
+                            // In both cases, all information necessary to send patches are available in the orm_changes.
+
+                            // In case the subject was not valid before, we create the object at the current path as an empty object though.
+                            if tracked_subject.prev_valid != OrmTrackedSubjectValidity::Valid {
+                                patches.push(OrmDiffOp {
+                                    op: OrmDiffOpType::add,
+                                    valType: Some(OrmDiffType::object),
+                                    path: path.join("/"),
+                                    value: None,
+                                })
+                            }
+                        }
 
                         // Iterate over every predicate change and create patches
                         for (pred_iri, pred_change) in change.predicates.iter() {
@@ -761,7 +808,8 @@ impl Verifier {
                             path.push(pred_name);
                             let path_str = path.join("/");
 
-                            // Depending on the predicate type, add the respective diff operation.
+                            // Depending on the predicate type (multi / single, object / not object),
+                            // add the respective diff operation.
 
                             // Single primitive value
                             if !is_multi && !is_object {
@@ -799,88 +847,134 @@ impl Verifier {
                                         value: Some(json!(pred_change.values_removed)),
                                     });
                                 }
-                            } else if !is_multi && is_object {
-                                // Single object.
-                                if pred_change.values_added.len() > 0 {
+                            } else if is_object {
+                                fn create_patches_for_nested_object(
+                                    object_iri: &String,
+                                    pred_shape: &OrmSchemaPredicate,
+                                    tracked_subjects: &HashMap<
+                                        String,
+                                        HashMap<String, Arc<RwLock<OrmTrackedSubject>>>,
+                                    >,
+                                    patches: &mut Vec<OrmDiffOp>,
+                                    path: &mut Vec<String>,
+                                    pred_change: &OrmTrackedPredicateChanges,
+                                    orm_changes: &mut OrmChanges,
+                                    sub: &OrmSubscription,
+                                ) {
                                     // Object was added. That means, we need to add a basic object with no value,
                                     // Then add further predicates to it in a recursive call.
                                     patches.push(OrmDiffOp {
                                         op: OrmDiffOpType::add,
                                         valType: Some(OrmDiffType::object),
-                                        path: path_str.clone(),
+                                        path: path.join("/"),
                                         value: None,
                                     });
+
+                                    let object_iri = match &pred_change.values_added[0] {
+                                        BasicType::Str(iri) => iri,
+                                        _ => panic!("object not an IRI"),
+                                    };
+
+                                    /// Get the shape IRI for a nested object that is valid.
+                                    let object_shape_iri = {
+                                        // Get the tracked subject for this object IRI
+                                        let tracked_subjects_for_obj = tracked_subjects
+                                            .get(object_iri)
+                                            .expect("Object should be tracked");
+
+                                        // Find the first valid shape for this object from the allowed shapes
+                                        let allowed_shape_iris: Vec<&String> = pred_shape
+                                            .dataTypes
+                                            .iter()
+                                            .filter_map(|dt| dt.shape.as_ref())
+                                            .collect();
+
+                                        allowed_shape_iris
+                                            .iter()
+                                            .find(|shape_iri| {
+                                                tracked_subjects_for_obj
+                                                    .get(**shape_iri)
+                                                    .map(|ts| {
+                                                        ts.read().unwrap().valid
+                                                            == OrmTrackedSubjectValidity::Valid
+                                                    })
+                                                    .unwrap_or(false)
+                                            })
+                                            .unwrap()
+                                            .to_string()
+                                    };
+
                                     // Apply changes for nested object.
                                     create_patches_for_changed_subj(
                                         orm_changes,
                                         patches,
-                                        &pred_shape.dataTypes[0].shape.as_ref().unwrap(), // TODO: We need to get to the information which of the object types was validated successfully.
-                                        match &pred_change.values_added[0] {
-                                            BasicType::Str(str) => &str,
-                                            _ => panic!("Nested object should be a string."),
-                                        },
+                                        &object_shape_iri,
+                                        &object_iri,
                                         sub,
                                         path,
+                                        tracked_subjects,
                                     );
-                                } else {
-                                    // Object is removed.
-                                    patches.push(OrmDiffOp {
-                                        op: OrmDiffOpType::remove,
-                                        valType: Some(OrmDiffType::object),
-                                        path: path_str,
-                                        value: None,
-                                    });
-                                }
-                            } else if is_multi && is_object {
-                                // Add every object added.
-                                for object_iri_added in pred_change.values_added.iter() {
-                                    // TODO: As with single object, just that we add the IRI to the path.
-                                    // We also need to check if the object existed before.
                                 }
 
-                                let tracked_predicate =
-                                    pred_change.tracked_predicate.read().unwrap();
-                                // Delete every object removed.
-                                if tracked_predicate.tracked_children.len() == 0 {
-                                    // Or the whole thing if no children remain
-                                    patches.push(OrmDiffOp {
-                                        op: OrmDiffOpType::remove,
-                                        valType: Some(OrmDiffType::object),
-                                        path: path_str,
-                                        value: None,
-                                    });
-                                } else {
-                                    for object_iri_removed in pred_change.values_removed.iter() {
+                                if !is_multi {
+                                    // Single object.
+                                    if pred_change.values_added.len() > 0 {
+                                    } else {
+                                        // Object is removed.
                                         patches.push(OrmDiffOp {
                                             op: OrmDiffOpType::remove,
                                             valType: Some(OrmDiffType::object),
-                                            path: format!(
-                                                "{}/{}",
-                                                path_str,
-                                                match object_iri_removed {
-                                                    BasicType::Str(iri) => iri,
-                                                    _ => panic!("Object IRI must be string"),
-                                                }
-                                            ),
+                                            path: path_str,
                                             value: None,
                                         });
                                     }
+                                } else {
+                                    // is_multi && is_object
+
+                                    // Add every new object.
+                                    for object_iri_added in pred_change.values_added.iter() {
+                                        // If object did not exist before, we create a root patch.
+
+                                        // We also need to check if the object existed before.
+                                    }
+
+                                    // Delete every object removed.
+                                    // If there are no more predicates, delete the whole object.
+                                    if pred_change
+                                        .tracked_predicate
+                                        .read()
+                                        .unwrap()
+                                        .tracked_children
+                                        .len()
+                                        == 0
+                                    {
+                                        // Or the whole thing if no children remain
+                                        patches.push(OrmDiffOp {
+                                            op: OrmDiffOpType::remove,
+                                            valType: Some(OrmDiffType::object),
+                                            path: path_str,
+                                            value: None,
+                                        });
+                                    } else {
+                                        for object_iri_removed in pred_change.values_removed.iter()
+                                        {
+                                            patches.push(OrmDiffOp {
+                                                op: OrmDiffOpType::remove,
+                                                valType: Some(OrmDiffType::object),
+                                                path: format!(
+                                                    "{}/{}",
+                                                    path_str,
+                                                    match object_iri_removed {
+                                                        BasicType::Str(iri) => iri,
+                                                        _ => panic!("Object IRI must be string"),
+                                                    }
+                                                ),
+                                                value: None,
+                                            });
+                                        }
+                                    }
                                 }
                             }
-
-                            // Is the tracked subject valid and was it before?
-                            // Just regular patch for each predicate.
-                            // If the predicate is a nested object...
-                            //    We need to recurse. Do the same as here but append to the path.
-
-                            // Is the tracked subject invalid and was valid before?
-                            // Delete of root
-
-                            // Did the subject become valid but was invalid before?
-                            // We need to compose a orm object (based on the data we luckily have already).
-
-                            // Was the subject invalid and is still invalid?
-                            // Nothing to do.
 
                             // Remove to this predicate name from the path again.
                             path.pop();
@@ -888,7 +982,10 @@ impl Verifier {
                     }
 
                     // For each tracked subject that has the subscription's shape, call fn above
-                    for subject_iri in sub.tracked_subjects.iter() { // TODO
+                    for subject_iri in sub.tracked_subjects.iter() {
+                        // Path.push
+                        // Create changes
+                        // path.pop
                     }
                     //
 
