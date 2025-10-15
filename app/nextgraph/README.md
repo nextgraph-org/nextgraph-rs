@@ -18,13 +18,10 @@ pnpm install @tauri-apps/cli
 
 ## Web
 
-prerequisites: compile the local SDK
+prerequisites: compile the local JS/WASM SDK
 
 ```
-cd ../ng-sdk-js
-cargo install cargo-run-script
-cargo run-script app
-cd ../ng-app
+pnpm libwasm
 ```
 
 #### Dev
@@ -32,8 +29,7 @@ cd ../ng-app
 First time:
 
 ```
-pnpm -C ../helpers/net-auth builddev
-pnpm -C ../helpers/net-bootstrap builddev
+pnpm buildfrontdev
 ```
 
 Then run your local front-end:
@@ -45,21 +41,10 @@ pnpm webdev
 
 #### Prod
 
-this will produce a single html file embedding all the resources. this is what you need for production
-
-```
-pnpm webfilebuild
-// single file is available in dist-file/index.html
-
-```
-
-alternatively, to obtain a regular dist folder with all resources in separate files (we dont use it anymore):
+this will produce a single html file embedding all the resources. this is what ngd broker needs for production
 
 ```
 pnpm webbuild
-// then the application is available in dist-web folder
-// can be served with:
-cd dist-web ; python3 -m http.server
 ```
 
 ## Desktop

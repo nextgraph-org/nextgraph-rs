@@ -1,14 +1,16 @@
 <p align="center">
-    <img src="../.github/header.png" alt="nextgraph-header" />
+    <img src="https://git.nextgraph.org/NextGraph/nextgraph-rs/raw/branch/master/nextgraph/.static/header.png" alt="nextgraph-header" />
 </p>
 
-# ngd
+# nextgraphpy
 
 ![MSRV][rustc-image]
 [![Apache 2.0 Licensed][license-image]][license-link]
 [![MIT Licensed][license-image2]][license-link2]
+[![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
+[![PyPI - Version](https://img.shields.io/pypi/v/nextgraphpy)](https://pypi.org/project/nextgraphpy/)
 
-Daemon of NextGraph
+Python package for NextGraph, implemented in Rust
 
 This repository is in active development at [https://git.nextgraph.org/NextGraph/nextgraph-rs](https://git.nextgraph.org/NextGraph/nextgraph-rs), a Gitea instance. For bug reports, issues, merge requests, and in order to join the dev team, please visit the link above and create an account (you can do so with a github account). The [github repo](https://github.com/nextgraph-org/nextgraph-rs) is just a read-only mirror that does not accept issues.
 
@@ -26,66 +28,29 @@ Documentation can be found here [https://docs.nextgraph.org](https://docs.nextgr
 
 And our community forum where you can ask questions is here [https://forum.nextgraph.org](https://forum.nextgraph.org)
 
-## Status
+[![Mastodon](https://img.shields.io/badge/-MASTODON-%232B90D9?style=for-the-badge&logo=mastodon&logoColor=white)](https://fosstodon.org/@nextgraph)
 
-NextGraph is not ready yet. You can subscribe to [our newsletter](https://list.nextgraph.org/subscription/form) to get updates, and support us with a [donation](https://nextgraph.org/donate/).
+## How to use NextGraph App & Platform
 
-## Building
+NextGraph is in alpha release!
 
-See [Build release binaries](../DEV.md#build-release-binaries) in the main README.
+You can try it online or by installing the apps. Please follow our [Getting started](https://docs.nextgraph.org/en/getting-started/) guide .
 
-## Usage
+You can also subscribe to [our newsletter](https://list.nextgraph.org/subscription/form) to get updates, and support us with a [donation](https://nextgraph.org/donate/).
 
-### The first start of ngd will create an invitation for the admin, so you can create your wallet
+## NextGraph is also a Framework for App developers
 
-```
-ngd --save-key -l 1440 --save-config
-```
-
-Note that for development, we use port 14400 while in production, port 1440 is used.
-
-In the logs/output, you will see a link that you should open in your web browser. If there are many links, choose the one that starts with `http://localhost:`.
-
-The computer you use to open the link should have direct access to the ngd server on localhost. In most of the cases, it will work, as you are running ngd on localhost. If you are running ngd in a docker container, then you need to give access to the container to the local network of the host by using `docker run --network="host"`. see more here https://docs.docker.com/network/drivers/host/
-
-Follow the steps on the screen to create your wallet :)
-
-for the next start of ngd :
-
-```
-ngd
-```
-
-### Using ngcli with the account you just created
-
-The current directory will be used to save all the config, keys and storage data.
-If you prefer to change the base directory, use the argument `--base [PATH]` when using `ngd` and/or `ngcli`.
-
-`PEER_ID_OF_SERVER` is displayed when you first start `ngd`, with a line starting with `INFO  ngd] PeerId of node:`.
-
-`THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED` can be found in the app, after you opened your wallet, click on the logo of NextGraph, and you will see the User Panel. Click on `Accounts` and you will find the User Private Key.
-
-By example, to list all the admin users :
-
-```
-ngcli --save-key --save-config -s 127.0.0.1,1440,<PEER_ID_OF_SERVER> -u <THE_PRIVATE_KEY_OF_THE_USER_YOU_JUST_CREATED> admin list-users -a
-```
+Read our [getting started guide for developers](https://docs.nextgraph.org/en/framework/getting-started/).
 
 ## License
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-  at your option.
+-   Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+-   MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+    at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
-
-### Contributions license
-
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you shall be dual licensed as below, without any
-additional terms or conditions.
 
 ---
 

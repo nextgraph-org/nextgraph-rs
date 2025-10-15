@@ -1,10 +1,10 @@
-# lib-wasm
+# JS SDK of NextGraph
 
 [![Apache 2.0 Licensed][license-image]][license-link]
 [![MIT Licensed][license-image2]][license-link2]
 [![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://forum.nextgraph.org)
 
-JavaScript/WASM package containing the SDK of NextGraph
+JavaScript package containing the SDK of NextGraph
 
 ## NextGraph
 
@@ -25,7 +25,7 @@ And our community forum where you can ask questions is here [https://forum.nextg
 Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/).
 
 ```
-npm i lib-wasm
+npm i @ng-org/web
 ```
 
 The API is divided in 4 parts:

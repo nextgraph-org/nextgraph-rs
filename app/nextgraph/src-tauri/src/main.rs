@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    nextgraph_lib::run()
+    nextgraph_lib::AppBuilder::new().run();
 }

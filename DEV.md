@@ -26,16 +26,7 @@ git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
 // or if you don't have a git account with us: git clone https://git.nextgraph.org/NextGraph/nextgraph-rs.git
 cd nextgraph-rs
 npm install -g pnpm
-cd sdk/lib-wasm
-cargo run-script app
-cd ../..
-cd helpers/wasm-tools
-cargo run-script app
-cd ../..
-pnpm -C ./ng-app install
-pnpm -C ./ng-app webfilebuild
-pnpm -C ./helpers/app-auth install
-pnpm -C ./helpers/app-auth build
+pnpm buildfront
 ```
 
 For building the native apps, see the [ng-app/README](ng-app/README.md)
@@ -50,23 +41,29 @@ If you prefer to change the base directory, use the argument `--base [PATH]` whe
 cargo run -p ngd -- -vv --save-key -l 14400
 ```
 
-If you are developing also the front-end, you should run it with this command in a separate terminal:
-
-```
-cd ng-app
-pnpm -C ../helpers/net-auth builddev
-pnpm -C ../helpers/app-auth builddev
-pnpm -C ../helpers/net-bootstrap builddev
-pnpm webdev
-```
-
 In the logs/output of ngd, you will see an invitation link that you should open in your web browser. If there are many links, choose the one that starts with `http://localhost:`, and if you run a local front-end, replace the prefix `http://localhost:14400/` with `http://localhost:1421/` before you open the link in your browser.
 
 The computer you use to open the link should have direct access to the ngd server on localhost. In most of the cases, it will work, as you are running ngd on localhost. If you are running ngd in a docker container, then you need to give access to the container to the local network of the host by using `docker run --network="host"`. see more here https://docs.docker.com/network/drivers/host/
 
 Follow the steps on the screen to create your wallet :)
 
-Once your ngd server will run in your dev env, replace the string in `nextgraph/src/local_broker_dev_env.rs` with the actual PEER ID of your ngd server that is displayed when you first start `ngd`, with a line starting with `INFO  ngd] PeerId of node:`.
+Once your ngd server will run in your dev env, replace the string in `sdk/rust/src/local_broker_dev_env.rs` with the actual PEER ID of your ngd server that is displayed when you first start `ngd`, with a line starting with `INFO  ngd] PeerId of node:`. This step is needed if you want to test or develop the import of wallet with QRCode.
+
+More details about usage of ngd [here](bin/ngd/README.md).
+
+### If you are developing the front-end too
+
+If you are also developing the front-end of NextGraph app, you should run it with this command in a separate terminal:
+
+```
+// run this only once, from root folder:
+pnpm buildfrontdev
+// to start the front-end for development
+cd app/nextgraph
+pnpm webdev
+```
+
+more details about developing the front-end [here](app/nextgraph/README.md).
 
 ### Using ngcli with the account you just created
 
@@ -107,23 +104,37 @@ Then you need to stop your ngd and start it again with the additional option :
 
 ### Packages
 
-The crates are organized as follow :
+The crates and packages are organized as follow :
 
-- [nextgraph](nextgraph/README.md) : Client library. Use this crate to embed NextGraph client in your Rust application
-- [ngcli](ngcli/README.md) : CLI tool to manipulate the local documents and repos and administrate the server
-- [ngd](ngd/README.md) : binary executable of the daemon (that can run a broker, verifier and/or Rust services)
-- [ng-app](ng-app/README.md) : all the native apps, based on Tauri, and the official web app.
-- [lib-wasm](lib-wasm/DEV.md) : contains the JS SDK, with example for: web app, react app, or node service.
-- [ng-sdk-python](ng-sdk-python/README.md) : contains the Python SDK.
-- ng-repo : Repositories common library
-- ng-net : Network common library
-- ng-oxigraph : Fork of OxiGraph. contains our CRDT of RDF
-- ng-verifier : Verifier library, that exposes the document API to the app
-- ng-wallet : keeps the secret keys of all identities of the user in a safe wallet
-- ng-broker : Core and Server Broker library
-- ng-client-ws : Websocket client library
-- ng-storage-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
-- helpers : all kind of servers and front end code needed for our infrastructure.
+- app : the main application of NextGraph
+    - ui-common : common UI elements
+    - [nextgraph](app/nextgraph/README.md)
+        - src-tauri : the Tauri based native apps
+        - src : the Web-based app
+- bin : the binaries
+    - [ngcli](bin/ngcli/README.md) : CLI tool to manipulate the local documents and repos and administrate the server
+    - [ngd](bin/ngd/README.md) : binary executable of the daemon (that runs a broker, the verifier and additional Rust services)
+- engine : the core engine including NGproto
+    - repo : Repositories common library
+    - net : Network common library
+    - oxigraph : Fork of OxiGraph. contains our CRDT of RDF
+    - verifier : Verifier library, that exposes the document API to the app
+    - wallet : keeps the secret keys of all identities of the user in a safe wallet
+    - broker : Core and Server Broker library
+    - client-ws : Websocket client library
+    - storage-rocksdb : RocksDB backed stores. see also dependency [repo here](https://git.nextgraph.org/NextGraph/rust-rocksdb)
+- infra : tools and binaries for infrastructure of the platform
+    - ngaccount : broker service provider (BSP) account manager
+    - ngapp : server of the web app used by self-hosters on the public web
+    - ngnet : server of nextgraph.net that shelps with authentication of third-party web apps.
+- sdk
+    - [js](sdk/js/README.md)
+        - api-web : the web version of the API
+        - [lib-wasm](sdk/js/lib-wasm/DEV.md) : the WASM library used by api-web
+        - [examples](sdk/js/DEV.md) : example for: web app, React/Svelte app, or node service
+        - alien-deepsignals, shex-orm and signals : used by the ORM mechanism
+    - [rust](sdk/rust/README.md) : Client library. Use this crate to embed NextGraph client in your Rust application
+    - [python](sdk/python/README.md) : contains the Python SDK.
 
 ### Test
 
@@ -173,13 +184,8 @@ You need to freshly built it from source, following those instructions:
 ```
 cargo install cargo-run-script
 npm install -g pnpm
-cd lib-wasm
-cargo run-script app
-cd ..
-pnpm -C ./ng-app install
-pnpm -C ./ng-app webfilebuild
-pnpm -C ./helpers/app-auth install
-pnpm -C ./helpers/app-auth build
+cargo run-script libwasm
+pnpm buildfront
 ```
 
 then build the ngd daemon
@@ -198,9 +204,9 @@ cargo build -r -p ngcli
 
 you can then use the binary `target/release/ngcli`
 
-For usage, see the documentation [here](ngd/README.md).
+For usage, see the documentation [here](bin/ngd/README.md).
 
-For building the apps, see this [documentation](ng-app/README.md).
+For building the native apps, see this [documentation](app/nextgraph/README.md).
 
 #### OpenBSD
 
@@ -239,3 +245,17 @@ The generated documentation can be found in `target/doc/nextgraph`.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you shall be dual licensed as below, without any
 additional terms or conditions.
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+  at your option.
+
+`SPDX-License-Identifier: Apache-2.0 OR MIT`
+
+---
+
+NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure) and the [NGI Zero Commons Fund](https://nlnet.nl/commonsfund/), both funds established by [NLnet](https://nlnet.nl/) Foundation with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreements No 957073 and No 101092990, respectively.

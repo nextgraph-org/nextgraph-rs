@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "NextGraph",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "identifier": "org.nextgraph.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
   },
@@ -14,8 +14,8 @@
     "windows": [
       {
         "title": "NextGraph",
-        "width": 1024,
-        "height": 600
+        "width": 1280,
+        "height": 960
       }
     ],
     "security": {

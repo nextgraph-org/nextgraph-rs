@@ -36,7 +36,7 @@ And our community forum where you can ask questions is here [https://forum.nextg
 
 ## How to use NextGraph App & Platform
 
-NextGraph is in alpha release!
+NextGraph is in alpha release.
 
 You can try it online or by installing the apps. Please follow our [Getting started](https://docs.nextgraph.org/en/getting-started/) guide .
 
@@ -54,9 +54,9 @@ See our [contributor's guide](DEV.md)
 
 Licensed under either of
 
--   Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
--   MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-    at your option.
+- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+  at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
 

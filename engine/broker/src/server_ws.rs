@@ -193,13 +193,13 @@ fn prepare_urls_from_private_addrs(addrs: &Vec<BindAddress>, port: u16) -> Vec<S
 }
 
 #[derive(RustEmbed)]
-#[folder = "../../app/nextgraph/dist-file/"]
+#[folder = "../../app/nextgraph/dist-web/"]
 #[include = "*.sha256"]
 #[include = "*.gzip"]
 struct App;
 
 #[derive(RustEmbed)]
-#[folder = "../auth/dist/"]
+#[folder = "./auth/dist/"]
 #[include = "*.sha256"]
 #[include = "*.gzip"]
 

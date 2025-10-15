@@ -1,7 +1,7 @@
 {
   "name": "ng-account-web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "cross-env NG_ACCOUNT_DOMAIN=example.com vite",

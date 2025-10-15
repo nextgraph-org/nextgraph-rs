@@ -1,22 +1,32 @@
+<!--
+// Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// Licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice may not be copied, modified, or distributed except
+// according to those terms.
+-->
+
 <script lang="ts">
+    import ng from "@ng-org/ui-common/api";
+    import Logo from "./assets/logo.svg?component";
+    console.log(await ng.locales());
+    let info = await ng.client_info();
+    console.log(info.V0.details);
+    window.ng_spa_loaded = true;
+    if (window.ng_supported) {
+        console.log("READY");
+        window.everything_ready();
+    }
 </script>
 
-<div role="alert" class="alert alert-info">
-    <p class="text-3xl font-bold underline">Hello world!</p>
+<div class="grid h-screen place-items-center">
+    <div style="height:144px;">
+        <Logo class="w-25"/>
+    </div>
 </div>
-
-<article class="prose lg:prose-xl">
-    <h1>Garlic bread with cheese: What the science tells us</h1>
-    <p>
-        For years parents have espoused the health benefits of eating garlic bread with cheese to
-        their children, with the food earning such an iconic status in our culture that kids will
-        often dress up as warm, cheesy loaf for Halloween.
-    </p>
-    <p>
-        But a recent study shows that the celebrated appetizer may be linked to a series of rabies
-        cases springing up around the country.
-    </p>
-</article>
 
 <style>
 

@@ -8,7 +8,7 @@
 // according to those terms.
 
 import "./app.postcss";
-import "../../../common/src/styles.css";
+import "../../../../app/ui-common/src/styles.css";
 import App from "./App.svelte";
 import { fromWritablePort } from 'remote-web-streams';
 import web_api from "@ng-org/api-web";

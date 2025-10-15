@@ -27,7 +27,7 @@ This library is in active development at [https://git.nextgraph.org/NextGraph/ne
 
 ## Support
 
-This crate has official documentation at [docs.rs](https://docs.rs/nextgraph/0.1.0/nextgraph/)
+This crate has official documentation at [docs.rs](https://docs.rs/nextgraph/0.1.2/nextgraph/)
 
 Documentation can be found here [https://docs.nextgraph.org](https://docs.nextgraph.org)
 
@@ -44,7 +44,7 @@ A tokio-based version (as a feature) might be available in the future.
 
 ```toml
 [dependencies]
-nextgraph = "0.1.1-alpha.2"
+nextgraph = "0.1.2"
 async-std = "1.12.0"
 ```
 
@@ -52,16 +52,16 @@ async-std = "1.12.0"
 
 You can find some examples on how to use the library:
 
--   [in_memory](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples)
--   [persistent](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples)
+- [in_memory](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples)
+- [persistent](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/nextgraph/examples)
 
 ## License
 
 Licensed under either of
 
--   Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
--   MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-    at your option.
+- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+  at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
 
@@ -74,7 +74,6 @@ additional terms or conditions.
 ---
 
 NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure) and the [NGI Zero Commons Fund](https://nlnet.nl/commonsfund/), both funds established by [NLnet](https://nlnet.nl/) Foundation with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreements No 957073 and No 101092990, respectively.
-
 
 [rustc-image]: https://img.shields.io/badge/rustc-1.81+-blue.svg
 [license-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg

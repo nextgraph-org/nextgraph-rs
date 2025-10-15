@@ -1,4 +1,4 @@
-# WASM module
+# JS SDK of NextGraph
 
 ## NextGraph
 
@@ -8,46 +8,61 @@
 >
 > More info here [https://nextgraph.org](https://nextgraph.org)
 
-## For contributors
+## WASM module
 
-First of all, run:
+The [lib-wasm](../lib-wasm/README.md) crate contains the WASM module.
 
-```
-cargo install cargo-run-script
-```
+## Examples
 
-Please note that the dev and prod builds share the same output folder, they thus override each other.
-When building the app, be sure to have the production build of the SDK in the output folder.
+- an example of web app using the vite bundler `example-webapp-vite`
+- an example of React web app `app-react`
+- an example of node-js app `app-node`
+- `index.html` an example of vanilla JS usage of the SDK
 
-```
-// for the app sdk (browser)
-cargo run-script appdev
+## Support
 
-// for the nodejs sdk
-cargo run-script nodedev
-```
+Documentation can be found here [https://docs.nextgraph.org](https://docs.nextgraph.org)
 
-For testing in vanilla JS
+And our community forum where you can ask questions is here [https://forum.nextgraph.org](https://forum.nextgraph.org)
 
-```
-cargo run-script webdev
-python3 -m http.server
-// open http://localhost:8000
+## For developers
+
+Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/).
 
 ```
+// for nodejs
+npm i nextgraph
+// or for browser
+npm i nextgraphweb
+```
 
-Or automated testing with headless chrome:
+## Publishing to npm
 
 ```
-wasm-pack test --chrome --headless
-```
-
-## Production build
-
-```
-cargo run-script app
 cargo run-script node
-cargo run-script web
+cd pkg-node
+npm login --auth-type legacy
+npm publish --auth-type legacy
+```
+
+### Example Plain JS web app (with Vite)
+
+see [README here](example-webapp-vite/README.md)
+
+### Example React web app
+
+```
+cd ../app-react
+npm run dev
+```
+
+This URL will open automatically in browser : [http://localhost:8080](http://localhost:8080)
+
+### Example NodeJS app
+
+```
+cd ../app-node
+npm run start
 ```
 
 ### Contributions license
