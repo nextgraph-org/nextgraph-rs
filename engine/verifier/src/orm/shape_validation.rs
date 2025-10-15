@@ -105,7 +105,10 @@ impl Verifier {
         // Check 3) Validate subject against each predicate in shape.
         for p_schema in shape.predicates.iter() {
             let p_change = s_change.predicates.get(&p_schema.iri);
-            let tracked_pred = p_change.map(|pc| pc.tracked_predicate.read().unwrap());
+            let tracked_pred = tracked_subject
+                .tracked_predicates
+                .get(&p_schema.iri)
+                .map(|tp_write_lock| tp_write_lock.read().unwrap());
 
             let count = tracked_pred
                 .as_ref()
@@ -124,6 +127,8 @@ impl Verifier {
                 set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
                 if count <= 0 {
                     // If cardinality is 0, we can remove the tracked predicate.
+                    // Drop the guard to release the immutable borrow
+                    drop(tracked_pred);
                     tracked_subject.tracked_predicates.remove(&p_schema.iri);
                 }
                 break;
