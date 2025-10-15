@@ -91,3 +91,8 @@ pub struct OrmSubscription {
 }
 pub type ShapeIri = String;
 pub type SubjectIri = String;
+
+// Structure to store changes in. By shape iri > subject iri > OrmTrackedSubjectChange
+// **NOTE**: In comparison to OrmSubscription.tracked_subjects, the outer hashmap's keys are shape IRIs.
+// (shape IRI -> (subject IRI -> OrmTrackedSubjectChange))
+pub type OrmChanges = HashMap<ShapeIri, HashMap<SubjectIri, OrmTrackedSubjectChange>>;

@@ -13,17 +13,14 @@ use crate::tests::{assert_json_eq, create_doc_with_data};
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
-    self, BasicType, OrmSchema, OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaPredicate,
-    OrmSchemaShape, OrmShapeType,
+    BasicType, OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaPredicate, OrmSchemaShape,
+    OrmShapeType,
 };
-use ng_verifier::orm::utils::shape_type_to_sparql;
 
-use ng_repo::{log_debug, log_info};
+use ng_repo::log_info;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::Arc;
-use svg2pdf::usvg::tiny_skia_path::SCALAR_NEARLY_ZERO;
 
 #[async_std::test]
 async fn test_orm_path_creation() {
@@ -199,6 +196,7 @@ INSERT DATA {
                 "value": [3.0],
                 "path": "/urn:test:numArrayObj3/numArray",
             },
+            // TODO: The two below are not added.
             {
                 "op": "add",
                 "valType": "object",
