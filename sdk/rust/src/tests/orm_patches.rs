@@ -23,6 +23,7 @@ use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
+use svg2pdf::usvg::tiny_skia_path::SCALAR_NEARLY_ZERO;
 
 #[async_std::test]
 async fn test_orm_path_creation() {
@@ -32,7 +33,8 @@ async fn test_orm_path_creation() {
     // Tests below all in this test, to prevent waiting times through wallet creation.
 
     // ===
-    test_orm_root_array(session_id).await;
+    test_patch_add_array(session_id).await;
+    test_patch_remove_array(session_id).await;
 
     // // ===
     // test_orm_with_optional(session_id).await;
@@ -56,7 +58,7 @@ async fn test_orm_path_creation() {
     // test_orm_nested_4(session_id).await;
 }
 
-async fn test_orm_root_array(session_id: u64) {
+async fn test_patch_add_array(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
@@ -148,10 +150,13 @@ INSERT DATA {
         ex:arr 4 .
 
     <urn:test:numArrayObj2>
-        ex:arr 1 .
+        ex:arr 1, 2 .
 
     <urn:test:numArrayObj3>
         ex:arr 3 .
+
+    <urn:test:numArrayObj4>
+        ex:arr 0 .
 }
 "#
         .to_string(),
@@ -160,7 +165,6 @@ INSERT DATA {
     .await
     .expect("2nd SPARQL update failed");
 
-    cancel_fn();
     while let Some(app_response) = receiver.next().await {
         let patches = match app_response {
             AppResponse::V0(v) => match v {
@@ -177,51 +181,65 @@ INSERT DATA {
 
         let mut expected = json!([
             {
-                "id": "urn:test:numArrayObj1",
-                "type": "http://example.org/TestObject",
-                "numArray": [1.0, 2.0, 3.0]
+                "op": "add",
+                "valType": "set",
+                "value": [4.0],
+                "path": "/urn:test:numArrayObj1/numArray",
+
             },
             {
-                "id": "urn:test:numArrayObj2",
-                "type": "http://example.org/TestObject",
-                "numArray": []
+                "op": "add",
+                "valType": "set",
+                "value": [1.0,2.0],
+                "path": "/urn:test:numArrayObj2/numArray",
             },
             {
-                "id": "urn:test:numArrayObj3",
-                "type": "http://example.org/TestObject",
-                "numArray": [1.0, 2.0]
-            }
+                "op": "add",
+                "valType": "set",
+                "value": [3.0],
+                "path": "/urn:test:numArrayObj3/numArray",
+            },
+            {
+                "op": "add",
+                "valType": "object",
+                "path": "/urn:test:numArrayObj4",
+                "value": Value::Null
+            },
+            {
+                "op": "add",
+                "value": "urn:test:numArrayObj4",
+                "path": "/urn:test:numArrayObj4/id",
+                "valType": Value::Null,
+            },
+            {
+                "op": "add",
+                "valType": "set",
+                "value": [0.0],
+                "path": "/urn:test:numArrayObj4/numArray",
+            },
         ]);
 
-        let mut actual_mut = patches.clone();
-        // assert_json_eq(&mut expected, actual_mut);
+        let mut actual = json!(patches);
+        assert_json_eq(&mut expected, &mut actual);
 
         break;
     }
 }
 
-/*
-
-
-
-
-
-
-*/
-//
-async fn test_orm_with_optional(session_id: u64) {
+async fn test_patch_remove_array(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
 PREFIX ex: <http://example.org/>
 INSERT DATA {
-    <urn:test:oj1> 
-        ex:opt true ;
-        ex:str "s1" .
+    <urn:test:numArrayObj1> a ex:TestObject ;
+        ex:arr 1, 2, 3 .
 
-    # Contains no matching data
-    <urn:test:oj2> 
-        ex:str "s2" .
+    <urn:test:numArrayObj2> a ex:TestObject .
+
+    <urn:test:numArrayObj3> a ex:TestObject ;
+        ex:unrelated ex:TestObject ;
+        ex:arr 1, 2 .
 }
 "#
         .to_string(),
@@ -231,116 +249,36 @@ INSERT DATA {
     // Define the ORM schema
     let mut schema = HashMap::new();
     schema.insert(
-        "http://example.org/OptionShape".to_string(),
+        "http://example.org/TestShape".to_string(),
         OrmSchemaShape {
-            iri: "http://example.org/OptionShape".to_string(),
-            predicates: vec![OrmSchemaPredicate {
-                iri: "http://example.org/opt".to_string(),
-                extra: Some(false),
-                maxCardinality: 1,
-                minCardinality: 1,
-                readablePredicate: "opt".to_string(),
-                dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaLiteralType::boolean,
-                    literals: None,
-                    shape: None,
-                }],
-            }
-            .into()],
-        }
-        .into(),
-    );
-
-    let shape_type = OrmShapeType {
-        schema,
-        shape: "http://example.org/OptionShape".to_string(),
-    };
-
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
-        .await
-        .expect("orm_start");
-
-    while let Some(app_response) = receiver.next().await {
-        let orm_json = match app_response {
-            AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
-                _ => None,
-            },
-        }
-        .unwrap();
-
-        let mut expected = json!([
-            {
-                "id": "urn:test:oj1",
-                "opt": true
-            }
-        ]);
-
-        let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
-
-        break;
-    }
-    cancel_fn();
-}
-
-async fn test_orm_literal(session_id: u64) {
-    let doc_nuri = create_doc_with_data(
-        session_id,
-        r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:oj1> 
-        ex:lit1 "lit 1" ;
-        ex:lit2 "lit 2" .   
-
-    # Valid because ex:lit1 allows extra.
-    <urn:test:obj2> 
-        ex:lit1 "lit 1", "lit 1 extra" ;
-        ex:lit2 "lit 2" .
-
-    # Invalid because ex:lit2 does not allow extra.
-    <urn:test:obj3> 
-        ex:lit1 "lit 1" ;
-        ex:lit2 "lit 2", "lit 2 extra" .
-}
-"#
-        .to_string(),
-    )
-    .await;
-
-    // Define the ORM schema
-    let mut schema = HashMap::new();
-    schema.insert(
-        "http://example.org/OptionShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/OptionShape".to_string(),
+            iri: "http://example.org/TestShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
-                    iri: "http://example.org/lit1".to_string(),
-                    extra: Some(true),
-                    maxCardinality: -1,
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
                     minCardinality: 1,
-                    readablePredicate: "lit1".to_string(),
+                    readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::literal,
-                        literals: Some(vec![BasicType::Str("lit 1".to_string())]),
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/TestObject".to_string(),
+                        )]),
                         shape: None,
                     }],
                 }
                 .into(),
                 OrmSchemaPredicate {
-                    iri: "http://example.org/lit2".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "lit2".to_string(),
+                    iri: "http://example.org/arr".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::literal,
-                        literals: Some(vec![BasicType::Str("lit 2".to_string())]),
+                        valType: OrmSchemaLiteralType::number,
+                        literals: None,
                         shape: None,
                     }],
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "numArray".to_string(),
                 }
                 .into(),
             ],
@@ -350,7 +288,7 @@ INSERT DATA {
 
     let shape_type = OrmShapeType {
         schema,
-        shape: "http://example.org/OptionShape".to_string(),
+        shape: "http://example.org/TestShape".to_string(),
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
@@ -359,7 +297,7 @@ INSERT DATA {
         .expect("orm_start");
 
     while let Some(app_response) = receiver.next().await {
-        let orm_json = match app_response {
+        let _ = match app_response {
             AppResponse::V0(v) => match v {
                 AppResponseV0::OrmInitial(json) => Some(json),
                 _ => None,
@@ -367,153 +305,74 @@ INSERT DATA {
         }
         .unwrap();
 
-        let mut expected = json!([
-            {
-                "id": "urn:test:oj1",
-                "lit1": ["lit 1"],
-                "lit2": "lit 2"
-            },
-            {
-                "id": "urn:test:obj2",
-                "lit1": ["lit 1", "lit 1 extra"],
-                "lit2": "lit 2"
-            }
-        ]);
-
-        let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
-
         break;
     }
-    cancel_fn();
-}
 
-async fn test_orm_multi_type(session_id: u64) {
-    let doc_nuri = create_doc_with_data(
+    // Add more data, remove some
+    doc_sparql_update(
         session_id,
         r#"
 PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:oj1> 
-        ex:strOrNum "a string" ;
-        ex:strOrNum "another string" ;
-        ex:strOrNum 2 .
-
-    # Invalid because false is not string or number.
-    <urn:test:obj2> 
-        ex:strOrNum "a string2" ;
-        ex:strOrNum 2 ;
-        ex:strOrNum false .
+DELETE DATA {
+    <urn:test:numArrayObj1>
+        ex:arr 1 .
 }
 "#
         .to_string(),
+        Some(doc_nuri.clone()),
     )
-    .await;
-
-    // Define the ORM schema
-    let mut schema = HashMap::new();
-    schema.insert(
-        "http://example.org/MultiTypeShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/MultiTypeShape".to_string(),
-            predicates: vec![OrmSchemaPredicate {
-                iri: "http://example.org/strOrNum".to_string(),
-                extra: Some(true),
-                maxCardinality: -1,
-                minCardinality: 1,
-                readablePredicate: "strOrNum".to_string(),
-                dataTypes: vec![
-                    OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::string,
-                        literals: None,
-                        shape: None,
-                    },
-                    OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::number,
-                        literals: None,
-                        shape: None,
-                    },
-                ],
-            }
-            .into()],
-        }
-        .into(),
-    );
-
-    let shape_type = OrmShapeType {
-        schema,
-        shape: "http://example.org/MultiTypeShape".to_string(),
-    };
-
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
-        .await
-        .expect("orm_start");
+    .await
+    .expect("2nd SPARQL update failed");
 
     while let Some(app_response) = receiver.next().await {
-        let orm_json = match app_response {
+        let patches = match app_response {
             AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
+                AppResponseV0::OrmUpdate(json) => Some(json),
                 _ => None,
             },
         }
         .unwrap();
 
+        log_info!("Diff ops arrived:\n");
+        for patch in patches.iter() {
+            log_info!("{:?}", patch);
+        }
+
         let mut expected = json!([
             {
-                "id": "urn:test:oj1",
-                "strOrNum": ["a string", "another string", 2.0]
+                "op": "remove",
+                "valType": "set",
+                "value": [1.0],
+                "path": "/urn:test:numArrayObj1/numArray",
+
             }
         ]);
 
-        let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        let mut actual = json!(patches);
+        assert_json_eq(&mut expected, &mut actual);
 
         break;
     }
-    cancel_fn();
 }
 
-async fn test_orm_nested_1(session_id: u64) {
+async fn test_patch_add_nested_1(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
 PREFIX ex: <http://example.org/>
 INSERT DATA {
-    # Valid
     <urn:test:oj1> 
-        ex:str "obj1 str" ;
-        ex:nestedWithExtra <urn:test:nested1>, <urn:test:nested2> ;
-        ex:nestedWithoutExtra <urn:test:nested3> .
+        ex:multiNest <urn:test:multiNested1>, <urn:test:multiNested2> ;
+        ex:singleNest <urn:test:nested3> .
 
-    <urn:test:nested1>
-        ex:nestedStr "obj1 nested with extra valid" ;
-        ex:nestedNum 2 .
+    <urn:test:multiNested1>
+        ex:multiNest1Str "a multi 1 string" .
 
-    <urn:test:nested2>
-        ex:nestedStr "obj1 nested with extra invalid" .
+    <urn:test:multiNested2>
+        ex:multiNest2Str "a multi 2 string" .
 
     <urn:test:nested3>
-        ex:nestedStr "obj1 nested without extra valid" ;
-        ex:nestedNum 2 .
-
-    # Invalid because nestedWithoutExtra has an invalid child.
-    <urn:test:oj2> 
-        ex:str "obj2 str" ;
-        ex:nestedWithExtra <urn:test:nested4> ;
-        ex:nestedWithoutExtra <urn:test:nested5>, <urn:test:nested6> .
-
-    <urn:test:nested4>
-        ex:nestedStr "obj2: a nested string valid" ;
-        ex:nestedNum 2 .
-
-    <urn:test:nested5>
-        ex:nestedStr "obj2 nested without extra valid" ;
-        ex:nestedNum 2 .
-
-    # Invalid because nestedNum is missing.
-    <urn:test:nested6>
-        ex:nestedStr "obj2 nested without extra invalid" .
+        ex:singleNestStr "a single nest string" .
 }
 "#
         .to_string(),
@@ -528,41 +387,35 @@ INSERT DATA {
             iri: "http://example.org/RootShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
-                    iri: "http://example.org/str".to_string(),
+                    iri: "http://example.org/multiNest".to_string(),
                     extra: None,
-                    maxCardinality: 1,
+                    maxCardinality: 6,
                     minCardinality: 1,
-                    readablePredicate: "str".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::string,
-                        literals: None,
-                        shape: None,
-                    }],
+                    readablePredicate: "multiNest".to_string(),
+                    dataTypes: vec![
+                        OrmSchemaDataType {
+                            valType: OrmSchemaLiteralType::shape,
+                            literals: None,
+                            shape: Some("http://example.org/MultiNestShape1".to_string()),
+                        },
+                        OrmSchemaDataType {
+                            valType: OrmSchemaLiteralType::shape,
+                            literals: None,
+                            shape: Some("http://example.org/MultiNestShape2".to_string()),
+                        },
+                    ],
                 }
                 .into(),
                 OrmSchemaPredicate {
-                    iri: "http://example.org/nestedWithExtra".to_string(),
+                    iri: "http://example.org/singleNest".to_string(),
                     extra: Some(true),
                     maxCardinality: 1,
                     minCardinality: 1,
-                    readablePredicate: "nestedWithExtra".to_string(),
+                    readablePredicate: "singleNest".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::shape,
                         literals: None,
-                        shape: Some("http://example.org/NestedShapeWithExtra".to_string()),
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/nestedWithoutExtra".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "nestedWithoutExtra".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::shape,
-                        literals: None,
-                        shape: Some("http://example.org/NestedShapeWithoutExtra".to_string()),
+                        shape: Some("http://example.org/SingleNestShape".to_string()),
                     }],
                 }
                 .into(),
@@ -571,72 +424,62 @@ INSERT DATA {
         .into(),
     );
     schema.insert(
-        "http://example.org/NestedShapeWithExtra".to_string(),
+        "http://example.org/SingleNestShape".to_string(),
         OrmSchemaShape {
-            iri: "http://example.org/NestedShapeWithExtra".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://example.org/nestedStr".to_string(),
-                    extra: None,
-                    readablePredicate: "nestedStr".to_string(),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/nestedNum".to_string(),
-                    extra: None,
-                    readablePredicate: "nestedNum".to_string(),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::number,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-            ],
+            iri: "http://example.org/SingleNestShape".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "http://example.org/singleNestStr".to_string(),
+                extra: None,
+                readablePredicate: "str".to_string(),
+                maxCardinality: 1,
+                minCardinality: 1,
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaLiteralType::string,
+                    literals: None,
+                    shape: None,
+                }],
+            }
+            .into()],
         }
         .into(),
     );
     schema.insert(
-        "http://example.org/NestedShapeWithoutExtra".to_string(),
+        "http://example.org/MultiNestShape1".to_string(),
         OrmSchemaShape {
-            iri: "http://example.org/NestedShapeWithoutExtra".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://example.org/nestedStr".to_string(),
-                    extra: None,
-                    readablePredicate: "nestedStr".to_string(),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/nestedNum".to_string(),
-                    extra: None,
-                    readablePredicate: "nestedNum".to_string(),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::number,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-            ],
+            iri: "http://example.org/MultiNestShape1".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "http://example.org/multiNest1Str".to_string(),
+                extra: None,
+                readablePredicate: "string1".to_string(),
+                maxCardinality: 1,
+                minCardinality: 1,
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaLiteralType::string,
+                    literals: None,
+                    shape: None,
+                }],
+            }
+            .into()],
+        }
+        .into(),
+    );
+    schema.insert(
+        "http://example.org/MultiNestShape2".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/MultiNestShape2".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "http://example.org/multiNest2Str".to_string(),
+                extra: None,
+                readablePredicate: "string2".to_string(),
+                maxCardinality: 1,
+                minCardinality: 1,
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaLiteralType::string,
+                    literals: None,
+                    shape: None,
+                }],
+            }
+            .into()],
         }
         .into(),
     );
@@ -660,29 +503,103 @@ INSERT DATA {
         }
         .unwrap();
 
+        break;
+    }
+
+    // Add more data, remove some
+    doc_sparql_update(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:multiNested2>
+        ex:multiNest1Str "replacing object shape view" .
+
+    <urn:test:multiNested4>
+        ex:multiNest2Str "multi 4 added" .
+
+    <urn:test:nested3>
+        ex:singleNestStr "Different nested val" .
+}
+"#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("2nd SPARQL update failed");
+
+    while let Some(app_response) = receiver.next().await {
+        let patches = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmUpdate(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        log_info!("Diff ops arrived:\n");
+        for patch in patches.iter() {
+            log_info!("{:?}", patch);
+        }
+
         let mut expected = json!([
             {
-                "id": "urn:test:oj1",
-                "str": "obj1 str",
-                "nestedWithExtra": {
-                    "nestedStr": "obj1 nested with extra valid",
-                    "nestedNum": 2.0
-                },
-                "nestedWithoutExtra": {
-                    "nestedStr": "obj1 nested without extra valid",
-                    "nestedNum": 2.0
-                }
-            }
+                "op": "remove",
+                "path": "/urn:test:oj1/multiNest/urn:test:multiNested2/string2",
+                // "valType": None,
+                // "value": None,
+            },
+            {
+                "op": "add",
+                // "valType": None,
+                "value": "replacing object shape view",
+                "path": "/urn:test:oj1/multiNest/urn:test:multiNested2/string1",
+            },
+            {
+                "op": "add",
+                "valType": "object",
+                // "value": None,
+                "path": "/urn:test:oj1/multiNest/urn:test:multiNested4",
+            },
+            {
+                "op": "add",
+                // "valType": None,
+                "value": "urn:test:multiNested4",
+                "path": "/urn:test:oj1/multiNest/urn:test:multiNested4/id",
+            },
+            {
+                "op": "add",
+                // "valType": None,
+                "value": "multi 4 added",
+                "path": "/urn:test:oj1/multiNest/urn:test:multiNested4/string2",
+            },
+            {
+                "op": "remove",
+                // "valType": None,
+                // "value": None,
+                "path": "/urn:test:oj1/singleNest/str",
+            },
+            {
+                "op": "add",
+                // "valType": None,
+                "value": "Different nested val",
+                "path": "/urn:test:oj1/singleNest/str",
+            },
         ]);
 
-        let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
+        let mut actual = json!(patches);
+        assert_json_eq(&mut expected, &mut actual);
 
         break;
     }
-    cancel_fn();
 }
 
+/*
+
+
+Old things
+
+*/
 async fn test_orm_nested_2(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
