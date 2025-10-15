@@ -53,7 +53,7 @@ export default defineConfig((): UserConfig => {
                 ? {
                     protocol: "ws",
                     host,
-                    port: process.env.NG_ENV_WEB ? 5184 : 5183,
+                    port: process.env.NG_ENV_WEB ? 1421 : 1420,
                 }
                 : undefined,
             watch: {
