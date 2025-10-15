@@ -16,11 +16,10 @@ use ng_net::orm::{
     BasicType, OrmSchema, OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaPredicate,
     OrmSchemaShape, OrmShapeType,
 };
-use ng_verifier::orm::utils::shape_type_to_sparql;
 
-use ng_repo::{log_err, log_info};
+use ng_repo::log_info;
+use ng_verifier::orm::query::shape_type_to_sparql;
 use serde_json::json;
-use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 
