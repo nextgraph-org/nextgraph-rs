@@ -18,7 +18,6 @@ pub mod types;
 pub mod utils;
 
 pub use ng_net::orm::{OrmDiff, OrmShapeType};
-use std::collections::HashMap;
 
 use crate::orm::types::*;
 use crate::verifier::*;
@@ -31,5 +30,3 @@ impl Verifier {
         });
     }
 }
-
-// Btw, orm/mod.rs is exceeding 1200 lines again. Is that a good practice? I have the feeling, we could separate a couple of things..

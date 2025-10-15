@@ -537,8 +537,8 @@ impl Verifier {
                                        OPTIONAL {{ <> ng:social_query_forwarder ?from_forwarder .}}
                                        OPTIONAL {{ <> ng:social_query_ended ?ended . }} 
                                     }}".to_string(), 
-                                Some(forwarder_nuri_string)).await? 
-                {
+                                Some(forwarder_nuri_string)
+                    ).await? {
                     QueryResults::Solutions(mut sols) => {
                         match sols.next() {
                             None => {
@@ -570,11 +570,10 @@ impl Verifier {
                                 } else {
                                     None
                                 };
-                                
                                 (from_profile, from_inbox, from_forwarder)
                             }
-                        }                           
-                    }
+                        }
+                    },
                     _ => return Err(VerifierError::SparqlError(NgError::InvalidResponse.to_string())),
                 };
 

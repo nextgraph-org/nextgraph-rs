@@ -17,7 +17,7 @@ rust-version.workspace = true
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive","rc"] }
 serde_bare = "0.5.0"
 serde_bytes = "0.11.7"
 serde_json = "1.0"

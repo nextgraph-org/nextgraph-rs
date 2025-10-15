@@ -25,7 +25,7 @@ use ::nextgraph::net::app_protocol::*;
 use ::nextgraph::net::types::BootstrapContentV0;
 use ::nextgraph::repo::errors::NgError;
 use ::nextgraph::repo::log::*;
-use ::nextgraph::repo::types::{BranchCrdt, StoreRepo, PubKey};
+use ::nextgraph::repo::types::{BranchCrdt, PubKey, StoreRepo};
 use ::nextgraph::wallet::types::{CreateWalletV0, SessionInfo};
 use ::nextgraph::wallet::{display_mnemonic, emojis::display_pazzle};
 use async_std::stream::StreamExt;
@@ -149,11 +149,16 @@ fn doc_create(
     store_repo: Option<String>,
 ) -> PyResult<Bound<PyAny>> {
     pyo3_async_runtimes::async_std::future_into_py(py, async move {
-
-        Ok(nextgraph::local_broker::doc_create(session_id, crdt, class_name, destination, store_type, store_repo)
-            .await
-            .map_err(|e| Into::<PyNgError>::into(e))?
+        Ok(nextgraph::local_broker::doc_create(
+            session_id,
+            crdt,
+            class_name,
+            destination,
+            store_type,
+            store_repo,
         )
+        .await
+        .map_err(|e| Into::<PyNgError>::into(e))?)
     })
 }
 

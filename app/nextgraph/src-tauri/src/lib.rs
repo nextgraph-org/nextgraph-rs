@@ -34,11 +34,6 @@ use ng_wallet::*;
 
 use nextgraph::local_broker::*;
 
-#[cfg(mobile)]
-mod mobile;
-#[cfg(mobile)]
-pub use mobile::*;
-
 pub type SetupHook = Box<dyn FnOnce(&mut App) -> Result<(), Box<dyn std::error::Error>> + Send>;
 
 #[tauri::command(rename_all = "snake_case")]
