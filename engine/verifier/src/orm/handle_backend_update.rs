@@ -109,8 +109,10 @@ impl Verifier {
 
             // Apply the changes to tracked subjects.
             for shape_arc in shapes {
+                let shape_iri = shape_arc.iri.clone();
                 let _ = self.process_changes_for_shape_and_session(
                     &scope,
+                    &shape_iri,
                     shape_arc,
                     session_id,
                     &triple_inserts,
@@ -352,7 +354,7 @@ fn check_should_create_parent_predicate_object(
 
             if is_child {
                 let is_multi = pred_arc.maxCardinality > 1 || pred_arc.maxCardinality == -1;
-                
+
                 if is_multi {
                     // Check if any siblings were previously valid
                     let any_sibling_was_valid = tp.tracked_children.iter().any(|child| {
