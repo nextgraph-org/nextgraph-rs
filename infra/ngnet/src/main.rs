@@ -31,7 +31,7 @@ use ng_repo::utils::timestamp_after;
 
 use ng_net::actors::admin::add_invitation::*;
 use ng_net::broker::BROKER;
-use ng_net::bsps::BSP_DETAILS;
+use ng_net::bsps::{BSP_DETAILS, BSP_ORIGINS};
 use ng_net::types::{
     AdminResponseContentV0, BindAddress, CreateAccountBSP, Invitation, InvitationCode,
     APP_ACCOUNT_REGISTERED_SUFFIX, NG_APP_URL, NG_NET_URL,
@@ -44,11 +44,15 @@ use ng_client_ws::remote_ws::ConnectionWebSocket;
 struct Static;
 
 #[derive(RustEmbed)]
-#[folder = "../net-auth/dist"]
+#[folder = "auth/dist"]
 struct AuthStatic;
 
 #[derive(RustEmbed)]
-#[folder = "../net-bootstrap/dist"]
+#[folder = "redir/dist"]
+struct RedirStatic;
+
+#[derive(RustEmbed)]
+#[folder = "bootstrap/dist"]
 struct BootstrapStatic;
 
 struct Server {}
@@ -108,6 +112,11 @@ async fn main() -> anyhow::Result<()> {
 
     let static_files = warp::get()
         .and(warp_embed::embed(&Static))
+        //.with(warp::reply::with::headers(headers))
+        .boxed();
+
+    let static_files_redir = warp::get()
+        .and(warp_embed::embed(&RedirStatic))
         //.with(warp::reply::with::headers(headers))
         .boxed();
 
@@ -202,11 +211,13 @@ async fn main() -> anyhow::Result<()> {
         cors = cors.allow_origin(NG_APP_URL);
         cors = cors.allow_origin("http://localhost:14400");
         cors = cors.allow_origin("http://localhost:1421");
-        // TODO when there will be an API again, we will call it from any BSPs.
-        // we should add the list of all BSPs origin's here
+        for bsp in BSP_ORIGINS {
+            cors = cors.allow_origin(bsp);
+        }
         log::info!("Starting production server on http://localhost:3033");
         warp::serve(
             static_files
+                .or(static_files_redir)
                 .or(static_files_auth.or(static_files_bootstrap))
                 .with(cors)
                 .with(incoming_log),
@@ -221,6 +232,7 @@ async fn main() -> anyhow::Result<()> {
         log::info!("Starting server on http://localhost:3033");
         warp::serve(
             static_files
+                .or(static_files_redir)
                 .or(static_files_auth.or(static_files_bootstrap))
                 .with(cors)
                 .with(incoming_log),

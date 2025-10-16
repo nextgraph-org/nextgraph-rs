@@ -1,6 +1,7 @@
 packages:
     - sdk/js/lib-wasm/pkg
     - sdk/js/api-web
+    - sdk/js/web
     - sdk/js/signals
     - sdk/js/alien-deepsignals
     - sdk/js/shex-orm
@@ -12,6 +13,8 @@ packages:
     - infra/ngapp/web
     - infra/ngnet/bootstrap
     - infra/ngnet/redir
+    - infra/ngnet/web
+    - infra/ngnet/auth
 onlyBuiltDependencies:
     - "@parcel/watcher"
     - "@swc/core"

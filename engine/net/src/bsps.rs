@@ -51,5 +51,5 @@ lazy_static! {
 
         d
     };
-    pub static ref BSP_ORIGINS: Vec<&'static str> = { BSP_DETAILS.keys().cloned().collect() };
+    pub static ref BSP_ORIGINS: Vec<&'static str> = BSP_DETAILS.keys().cloned().collect();
 }
