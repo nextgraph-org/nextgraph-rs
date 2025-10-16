@@ -92,7 +92,7 @@ pub fn add_remove_triples(
                 // log_debug!("lock acquired on tracked_predicate");
                 tracked_predicate.current_cardinality += 1;
 
-                // Keep track of the changed values too.
+                // Keep track of the added values here.
                 let pred_changes: &mut OrmTrackedPredicateChanges = subject_changes
                     .predicates
                     .entry(predicate_schema.iri.clone())
@@ -163,6 +163,7 @@ pub fn add_remove_triples(
             }
         }
     }
+
     // Process removed triples.
     for triple in triples_removed {
         let pred_iri = triple.predicate.as_str();
@@ -181,9 +182,15 @@ pub fn add_remove_triples(
         tracked_predicate.current_cardinality =
             tracked_predicate.current_cardinality.saturating_sub(1);
 
-        let Some(pred_changes) = subject_changes.predicates.get_mut(pred_iri) else {
-            continue;
-        };
+        // Keep track of removed values here.
+        let pred_changes: &mut OrmTrackedPredicateChanges = subject_changes
+            .predicates
+            .entry(tracked_predicate.schema.iri.clone())
+            .or_insert_with(|| OrmTrackedPredicateChanges {
+                tracked_predicate: tracked_predicate_rc.clone(),
+                values_added: Vec::new(),
+                values_removed: Vec::new(),
+            });
 
         let val_removed = oxrdf_term_to_orm_basic_type(&triple.object);
         pred_changes.values_removed.push(val_removed.clone());

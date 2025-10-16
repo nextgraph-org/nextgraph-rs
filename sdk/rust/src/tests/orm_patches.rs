@@ -23,7 +23,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 #[async_std::test]
-async fn test_orm_path_creation() {
+async fn test_orm_patch_creation() {
     // Setup wallet and document
     let (_wallet, session_id) = create_or_open_wallet().await;
 
@@ -34,7 +34,10 @@ async fn test_orm_path_creation() {
     test_patch_remove_array(session_id).await;
 
     // // ===
-    // test_orm_with_optional(session_id).await;
+    // test_patch_add_nested_1(session_id).await;
+
+    // ===
+    test_patch_nested_house_inhabitants(session_id).await;
 
     // // ===
     // test_orm_literal(session_id).await;
@@ -153,6 +156,7 @@ INSERT DATA {
         ex:arr 3 .
 
     <urn:test:numArrayObj4>
+        a ex:TestObject ;
         ex:arr 0 .
 }
 "#
@@ -196,7 +200,6 @@ INSERT DATA {
                 "value": [3.0],
                 "path": "/urn:test:numArrayObj3/numArray",
             },
-            // TODO: The two below are not added.
             {
                 "op": "add",
                 "valType": "object",
@@ -207,6 +210,12 @@ INSERT DATA {
                 "op": "add",
                 "value": "urn:test:numArrayObj4",
                 "path": "/urn:test:numArrayObj4/id",
+                "valType": Value::Null,
+            },
+            {
+                "op": "add",
+                "value": "http://example.org/TestObject",
+                "path": "/urn:test:numArrayObj4/type",
                 "valType": Value::Null,
             },
             {
@@ -353,6 +362,9 @@ DELETE DATA {
     }
 }
 
+/// Tests edge case that is an open TODO about a modified nested object
+/// that changes so that another allowed shape becomes valid.
+/// See handle_backend_update's TODO comment.
 async fn test_patch_add_nested_1(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
@@ -592,39 +604,32 @@ INSERT DATA {
     }
 }
 
-/*
+// Temporary file - content to be appended to orm_patches.rs
 
-
-Old things
-
-*/
-async fn test_orm_nested_2(session_id: u64) {
+/// Test nested modifications with House -> Person -> Cat hierarchy
+async fn test_patch_nested_house_inhabitants(session_id: u64) {
     let doc_nuri = create_doc_with_data(
         session_id,
         r#"
 PREFIX ex: <http://example.org/>
 INSERT DATA {
-    # Valid
-    <urn:test:alice> 
-        ex:knows <urn:test:bob>, <urn:test:claire> ;
-        ex:name "Alice" .
-    <urn:test:bob>
-        ex:knows <urn:test:claire> ;
-        ex:name "Bob" .
-    <urn:test:claire>
-        ex:name "Claire" .
+    <urn:test:house1> 
+        a ex:House ;
+        ex:rootColor "blue" ;
+        ex:inhabitants <urn:test:person1>, <urn:test:person2> .
 
-    # Invalid because claire2 is invalid
-    <urn:test:alice2> 
-        ex:knows <urn:test:bob2>, <urn:test:claire2> ;
-        ex:name "Alice" .
-    # Invalid because claire2 is invalid
-    <urn:test:bob2>
-        ex:knows <urn:test:claire2> ;
+    <urn:test:person1>
+        a ex:Person ;
+        ex:name "Alice" ;
+        ex:hasCat <urn:test:cat1> .
+
+    <urn:test:person2>
+        a ex:Person ;
         ex:name "Bob" .
-    # Invalid because name is missing.
-    <urn:test:claire2>
-        ex:missingName "Claire missing" .
+
+    <urn:test:cat1>
+        a ex:Cat ;
+        ex:catName "Whiskers" .
 }
 "#
         .to_string(),
@@ -633,17 +638,34 @@ INSERT DATA {
 
     // Define the ORM schema
     let mut schema = HashMap::new();
+
+    // House shape
     schema.insert(
-        "http://example.org/PersonShape".to_string(),
+        "http://example.org/HouseShape".to_string(),
         OrmSchemaShape {
-            iri: "http://example.org/PersonShape".to_string(),
+            iri: "http://example.org/HouseShape".to_string(),
             predicates: vec![
                 OrmSchemaPredicate {
-                    iri: "http://example.org/name".to_string(),
-                    extra: None,
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
                     maxCardinality: 1,
                     minCardinality: 1,
-                    readablePredicate: "name".to_string(),
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/House".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/rootColor".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 0,
+                    readablePredicate: "rootColor".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::string,
                         literals: None,
@@ -652,11 +674,11 @@ INSERT DATA {
                 }
                 .into(),
                 OrmSchemaPredicate {
-                    iri: "http://example.org/knows".to_string(),
+                    iri: "http://example.org/inhabitants".to_string(),
                     extra: Some(false),
                     maxCardinality: -1,
-                    minCardinality: 0,
-                    readablePredicate: "knows".to_string(),
+                    minCardinality: 1,
+                    readablePredicate: "inhabitants".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::shape,
                         literals: None,
@@ -669,294 +691,7 @@ INSERT DATA {
         .into(),
     );
 
-    let shape_type = OrmShapeType {
-        schema,
-        shape: "http://example.org/PersonShape".to_string(),
-    };
-
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
-        .await
-        .expect("orm_start");
-
-    while let Some(app_response) = receiver.next().await {
-        let orm_json = match app_response {
-            AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
-                _ => None,
-            },
-        }
-        .unwrap();
-
-        log_info!(
-            "ORM JSON arrived for nested2 (person) test\n: {:?}",
-            orm_json
-        );
-
-        // Expected: alice and bob with their nested knows relationships
-        // claire2 is invalid (missing name), so alice2's knows chain is incomplete
-        let mut expected = json!([
-            {
-                "id": "urn:test:alice",
-                "name": "Alice",
-                "knows": {
-                    "urn:test:bob": {
-                        "name": "Bob",
-                        "knows": {
-                            "urn:test:claire": {
-                                "name": "Claire",
-                                "knows": {}
-                            }
-                        }
-                    },
-                    "urn:test:claire": {
-                        "name": "Claire",
-                        "knows": {}
-                    }
-                }
-            },
-            {
-                "id": "urn:test:bob",
-                "name": "Bob",
-                "knows": {
-                    "urn:test:claire": {
-                        "name": "Claire",
-                        "knows": {}
-                    }
-                }
-            },
-            {
-                "id": "urn:test:claire",
-                "name": "Claire",
-                "knows": {}
-            }
-        ]);
-
-        let mut actual_mut = orm_json.clone();
-        log_info!(
-            "JSON for nested2\n{}",
-            serde_json::to_string(&actual_mut).unwrap()
-        );
-        assert_json_eq(&mut expected, &mut actual_mut);
-
-        break;
-    }
-    cancel_fn();
-}
-
-async fn test_orm_nested_3(session_id: u64) {
-    let doc_nuri = create_doc_with_data(
-        session_id,
-        r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    # Valid
-    <urn:test:alice> 
-        a ex:Alice ;
-        ex:knows <urn:test:bob>, <urn:test:claire> .
-    <urn:test:bob>
-        a ex:Bob ;
-        ex:knows <urn:test:claire> .
-    <urn:test:claire>
-        a ex:Claire .
-
-    # Invalid because claire is invalid
-    <urn:test:alice2> 
-        a ex:Alice ;
-        ex:knows <urn:test:bob2>, <urn:test:claire2> .
-    # Invalid because claire is invalid
-    <urn:test:bob2>
-        a ex:Bob ;
-        ex:knows <urn:test:claire2> .
-    # Invalid, wrong type.
-    <urn:test:claire2>
-        a ex:Claire2 .
-}
-"#
-        .to_string(),
-    )
-    .await;
-
-    // Define the ORM schema
-    let mut schema = HashMap::new();
-    schema.insert(
-        "http://example.org/AliceShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/AliceShape".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: None,
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "type".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::literal,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Alice".to_string(),
-                        )]),
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/knows".to_string(),
-                    extra: Some(false),
-                    maxCardinality: -1,
-                    minCardinality: 0,
-                    readablePredicate: "knows".to_string(),
-                    dataTypes: vec![
-                        OrmSchemaDataType {
-                            valType: OrmSchemaLiteralType::shape,
-                            literals: None,
-                            shape: Some("http://example.org/BobShape".to_string()),
-                        },
-                        OrmSchemaDataType {
-                            valType: OrmSchemaLiteralType::shape,
-                            literals: None,
-                            shape: Some("http://example.org/ClaireShape".to_string()),
-                        },
-                    ],
-                }
-                .into(),
-            ],
-        }
-        .into(),
-    );
-    schema.insert(
-        "http://example.org/BobShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/BobShape".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: Some(true),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "type".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::literal,
-                        literals: Some(vec![BasicType::Str("http://example.org/Bob".to_string())]),
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/knows".to_string(),
-                    extra: Some(false),
-                    maxCardinality: -1,
-                    minCardinality: 0,
-                    readablePredicate: "knows".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::shape,
-                        literals: None,
-                        shape: Some("http://example.org/ClaireShape".to_string()),
-                    }],
-                }
-                .into(),
-            ],
-        }
-        .into(),
-    );
-    schema.insert(
-        "http://example.org/ClaireShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/ClaireShape".to_string(),
-            predicates: vec![OrmSchemaPredicate {
-                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                extra: None,
-                maxCardinality: 1,
-                minCardinality: 1,
-                readablePredicate: "type".to_string(),
-                dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaLiteralType::literal,
-                    literals: Some(vec![BasicType::Str(
-                        "http://example.org/Claire".to_string(),
-                    )]),
-                    shape: None,
-                }],
-            }
-            .into()],
-        }
-        .into(),
-    );
-
-    let shape_type = OrmShapeType {
-        schema,
-        shape: "http://example.org/AliceShape".to_string(),
-    };
-
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
-        .await
-        .expect("orm_start");
-
-    while let Some(app_response) = receiver.next().await {
-        let orm_json = match app_response {
-            AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
-                _ => None,
-            },
-        }
-        .unwrap();
-
-        log_info!(
-            "ORM JSON arrived for nested3 (person) test\n: {:?}",
-            serde_json::to_string(&orm_json).unwrap()
-        );
-
-        // Expected: alice with knows relationships to bob and claire
-        // alice2 is incomplete because claire2 has wrong type
-        let mut expected = json!([
-            {
-                "id": "urn:test:alice",
-                "type": "http://example.org/Alice",
-                "knows": {
-                    "urn:test:bob": {
-                        "type": "http://example.org/Bob",
-                        "knows": {
-                            "urn:test:claire": {
-                                "type": "http://example.org/Claire"
-                            }
-                        }
-                    },
-                    "urn:test:claire": {
-                        "type": "http://example.org/Claire"
-                    }
-                }
-            }
-        ]);
-
-        let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
-
-        break;
-    }
-    cancel_fn();
-}
-
-async fn test_orm_nested_4(session_id: u64) {
-    let doc_nuri = create_doc_with_data(
-        session_id,
-        r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    # Valid
-    <urn:test:alice>
-        a ex:Person ;
-        ex:hasCat <urn:test:kitten1>, <urn:test:kitten2> .
-    <urn:test:kitten1>
-        a ex:Cat .
-    <urn:test:kitten2>
-        a ex:Cat .
-}
-"#
-        .to_string(),
-    )
-    .await;
-
-    // Define the ORM schema
-    let mut schema = HashMap::new();
+    // Person shape
     schema.insert(
         "http://example.org/PersonShape".to_string(),
         OrmSchemaShape {
@@ -964,7 +699,7 @@ INSERT DATA {
             predicates: vec![
                 OrmSchemaPredicate {
                     iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: None,
+                    extra: Some(false),
                     maxCardinality: 1,
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
@@ -978,11 +713,24 @@ INSERT DATA {
                 }
                 .into(),
                 OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "name".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
                     iri: "http://example.org/hasCat".to_string(),
                     extra: Some(false),
-                    maxCardinality: -1,
+                    maxCardinality: 1,
                     minCardinality: 0,
-                    readablePredicate: "cats".to_string(),
+                    readablePredicate: "cat".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
                         valType: OrmSchemaLiteralType::shape,
                         literals: None,
@@ -994,30 +742,47 @@ INSERT DATA {
         }
         .into(),
     );
+
+    // Cat shape
     schema.insert(
         "http://example.org/CatShape".to_string(),
         OrmSchemaShape {
             iri: "http://example.org/CatShape".to_string(),
-            predicates: vec![OrmSchemaPredicate {
-                iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                extra: Some(true),
-                maxCardinality: 1,
-                minCardinality: 1,
-                readablePredicate: "type".to_string(),
-                dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaLiteralType::literal,
-                    literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
-                    shape: None,
-                }],
-            }
-            .into()],
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::literal,
+                        literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/catName".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "name".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaLiteralType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
         }
         .into(),
     );
 
     let shape_type = OrmShapeType {
         schema,
-        shape: "http://example.org/PersonShape".to_string(),
+        shape: "http://example.org/HouseShape".to_string(),
     };
 
     let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
@@ -1025,8 +790,9 @@ INSERT DATA {
         .await
         .expect("orm_start");
 
+    // Get initial state
     while let Some(app_response) = receiver.next().await {
-        let orm_json = match app_response {
+        let _ = match app_response {
             AppResponse::V0(v) => match v {
                 AppResponseV0::OrmInitial(json) => Some(json),
                 _ => None,
@@ -1034,26 +800,249 @@ INSERT DATA {
         }
         .unwrap();
 
+        break;
+    }
+
+    log_info!(
+        "\n=== TEST 1: INSERT - Adding new person with cat, modifying existing properties ===\n"
+    );
+
+    // INSERT: Add a new person with a cat, modify house color, modify existing person's name, add cat to Bob
+    doc_sparql_update(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+DELETE DATA {
+    <urn:test:house1> ex:rootColor "blue" .
+    <urn:test:person1> ex:name "Alice" .
+}
+;
+INSERT DATA {
+    <urn:test:house1> 
+        ex:rootColor "red" ;
+        ex:inhabitants <urn:test:person3> .
+
+    <urn:test:person1>
+        ex:name "Alicia" .
+
+    <urn:test:person2>
+        ex:hasCat <urn:test:cat2> .
+
+    <urn:test:person3>
+        a ex:Person ;
+        ex:name "Charlie" ;
+        ex:hasCat <urn:test:cat3> .
+
+    <urn:test:cat2>
+        a ex:Cat ;
+        ex:catName "Mittens" .
+
+    <urn:test:cat3>
+        a ex:Cat ;
+        ex:catName "Fluffy" .
+}
+"#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("INSERT SPARQL update failed");
+
+    while let Some(app_response) = receiver.next().await {
+        let patches = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmUpdate(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        log_info!("INSERT patches arrived:\n");
+        for patch in patches.iter() {
+            log_info!("{:?}", patch);
+        }
+
         let mut expected = json!([
+            // Modified house color
             {
-                "id": "urn:test:alice",
-                "type": "http://example.org/Person",
-                "cats": {
-                    "urn:test:kitten1": {
-                        "type": "http://example.org/Cat"
-                    },
-                    "urn:test:kitten2": {
-                        "type": "http://example.org/Cat"
-                    }
-                },
-            }
+                "op": "remove",
+                "path": "/urn:test:house1/rootColor",
+            },
+            {
+                "op": "add",
+                "value": "red",
+                "path": "/urn:test:house1/rootColor",
+            },
+            // Modified Alice's name
+            {
+                "op": "remove",
+                "path": "/urn:test:house1/inhabitants/urn:test:person1/name",
+            },
+            {
+                "op": "add",
+                "value": "Alicia",
+                "path": "/urn:test:house1/inhabitants/urn:test:person1/name",
+            },
+            // Bob gets a cat
+            {
+                "op": "add",
+                "valType": "object",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat",
+            },
+            {
+                "op": "add",
+                "value": "urn:test:cat2",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/id",
+            },
+            {
+                "op": "add",
+                "value": "http://example.org/Cat",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/type",
+            },
+            {
+                "op": "add",
+                "value": "Mittens",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/name",
+            },
+            // New person Charlie with cat
+            {
+                "op": "add",
+                "valType": "object",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3",
+            },
+            {
+                "op": "add",
+                "value": "urn:test:person3",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/id",
+            },
+            {
+                "op": "add",
+                "value": "http://example.org/Person",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/type",
+            },
+            {
+                "op": "add",
+                "value": "Charlie",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/name",
+            },
+            {
+                "op": "add",
+                "valType": "object",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat",
+            },
+            {
+                "op": "add",
+                "value": "urn:test:cat3",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/id",
+            },
+            {
+                "op": "add",
+                "value": "http://example.org/Cat",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/type",
+            },
+            {
+                "op": "add",
+                "value": "Fluffy",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/name",
+            },
         ]);
 
-        let mut actual_mut = orm_json.clone();
-
-        assert_json_eq(&mut expected, &mut actual_mut);
+        let mut actual = json!(patches);
+        assert_json_eq(&mut expected, &mut actual);
 
         break;
     }
-    cancel_fn();
+
+    log_info!("\n=== TEST 2: DELETE - Removing cat, person, and modifying properties ===\n");
+
+    // DELETE: Remove Whiskers, remove Charlie and his cat, modify cat name, remove house color
+    doc_sparql_update(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+DELETE DATA {
+    <urn:test:house1> 
+        ex:rootColor "red" ;
+        ex:inhabitants <urn:test:person3> .
+
+    <urn:test:person1>
+        ex:hasCat <urn:test:cat1> .
+
+    <urn:test:person3>
+        a ex:Person ;
+        ex:name "Charlie" ;
+        ex:hasCat <urn:test:cat3> .
+
+    <urn:test:cat1>
+        a ex:Cat ;
+        ex:catName "Whiskers" .
+
+    <urn:test:cat2>
+        ex:catName "Mittens" .
+
+    <urn:test:cat3>
+        a ex:Cat ;
+        ex:catName "Fluffy" .
+}
+;
+INSERT DATA {
+    <urn:test:cat2>
+        ex:catName "Mr. Mittens" .
+}
+"#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("DELETE SPARQL update failed");
+
+    while let Some(app_response) = receiver.next().await {
+        let patches = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmUpdate(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        log_info!("DELETE patches arrived:\n");
+        for patch in patches.iter() {
+            log_info!("{:?}", patch);
+        }
+
+        let mut expected = json!([
+            // Remove house color
+            {
+                "op": "remove",
+                "path": "/urn:test:house1/rootColor",
+            },
+            // Alice loses her cat
+            {
+                "op": "remove",
+                "valType": "object",
+                "path": "/urn:test:house1/inhabitants/urn:test:person1/cat",
+            },
+            // Bob's cat name changes
+            {
+                "op": "remove",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/name",
+            },
+            {
+                "op": "add",
+                "value": "Mr. Mittens",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/name",
+            },
+            // Charlie and his cat are removed
+            {
+                "op": "remove",
+                "valType": "object",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3",
+            },
+        ]);
+
+        let mut actual = json!(patches);
+        assert_json_eq(&mut expected, &mut actual);
+
+        break;
+    }
 }

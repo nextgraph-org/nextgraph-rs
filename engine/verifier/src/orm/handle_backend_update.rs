@@ -101,7 +101,7 @@ impl Verifier {
         }
 
         log_debug!(
-            "[orm_backend_update], creating patch objects for scopes:\n{}",
+            "[orm_backend_update], creating patch objects for #scopes {}",
             scopes.len()
         );
         for (scope, shapes) in scopes {
@@ -131,9 +131,9 @@ impl Verifier {
                 // The JSON patches to send to JS land.
                 let mut patches: Vec<OrmDiffOp> = vec![];
 
-                // Keep track of created objects by path and if they need an id.
-                // Later we created patches from them to ensure the objects exist.
-                let mut paths_of_objects_to_create: HashSet<(Vec<String>, Option<SubjectIri>)> =
+                // Keep track of objects to create: (path, Option<IRI>)
+                // The IRI is Some for real subjects, None for intermediate objects (e.g., multi-valued predicate containers)
+                let mut objects_to_create: HashSet<(Vec<String>, Option<SubjectIri>)> =
                     HashSet::new();
 
                 // We construct object patches from a change (which is associated with a shape type). {op: add, valType: object, value: Null, path: ...}
@@ -193,7 +193,7 @@ impl Verifier {
                                 &mut path,
                                 (OrmDiffOpType::remove, Some(OrmDiffType::object), None, None),
                                 &mut patches,
-                                &mut paths_of_objects_to_create,
+                                &mut objects_to_create,
                             );
                         } else {
                             // The subject is valid or has become valid.
@@ -218,7 +218,7 @@ impl Verifier {
                                         &mut path,
                                         diff_op,
                                         &mut patches,
-                                        &mut paths_of_objects_to_create,
+                                        &mut objects_to_create,
                                     );
                                 }
                             }
@@ -229,26 +229,29 @@ impl Verifier {
                 // Create patches for objects that need to be created
                 // These are patches with {op: add, valType: object, value: Null, path: ...}
                 // Sort by path length (shorter first) to ensure parent objects are created before children
-                let mut sorted_object_paths: Vec<_> = paths_of_objects_to_create.iter().collect();
-                sorted_object_paths.sort_by_key(|(path_segments, _)| path_segments.len());
+                let mut sorted_objects: Vec<_> = objects_to_create.iter().collect();
+                sorted_objects.sort_by_key(|(path_segments, _)| path_segments.len());
 
-                for (path_segments, maybe_iri) in sorted_object_paths {
+                for (path_segments, maybe_iri) in sorted_objects {
                     let escaped_path: Vec<String> = path_segments
                         .iter()
                         .map(|seg| escape_json_pointer(seg))
                         .collect();
                     let json_pointer = format!("/{}", escaped_path.join("/"));
 
+                    // Always create the object itself
                     patches.push(OrmDiffOp {
                         op: OrmDiffOpType::add,
                         valType: Some(OrmDiffType::object),
                         path: json_pointer.clone(),
                         value: None,
                     });
+
+                    // If this object has an IRI (it's a real subject), add the id field
                     if let Some(iri) = maybe_iri {
                         patches.push(OrmDiffOp {
                             op: OrmDiffOpType::add,
-                            valType: Some(OrmDiffType::object),
+                            valType: None,
                             path: format!("{}/id", json_pointer),
                             value: Some(json!(iri)),
                         });
@@ -264,6 +267,108 @@ impl Verifier {
             }
         }
     }
+}
+
+/// Queue patches for a newly valid tracked subject.
+/// This handles creating object patches and id field patches for subjects that have become valid.
+fn queue_patches_for_newly_valid_subject(
+    tracked_subject: &OrmTrackedSubject,
+    tracked_subjects: &HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
+    root_shape: &String,
+    path: &[String],
+    patches: &mut Vec<OrmDiffOp>,
+    objects_to_create: &mut HashSet<(Vec<String>, Option<SubjectIri>)>,
+) {
+    // Check if we're at a root subject or need to traverse to parents
+    if tracked_subject.parents.is_empty() || tracked_subject.shape.iri == *root_shape {
+        // Register object for creation.
+        // Path to object consists of this subject's iri and the path except for the last element.
+        let mut path_to_subject = vec![tracked_subject.subject_iri.clone()];
+        if path.len() > 0 {
+            path_to_subject.extend_from_slice(&path[1..]);
+        }
+
+        log_debug!("Queuing object creation for path: {:?}", path_to_subject);
+
+        // Always create the object itself with its IRI
+        objects_to_create.insert((
+            path_to_subject.clone(),
+            Some(tracked_subject.subject_iri.clone()),
+        ));
+    } else {
+        // Not at root: traverse to parents and create object patches along the way
+        for (_parent_iri, parent_tracked_subject) in tracked_subject.parents.iter() {
+            let parent_ts = parent_tracked_subject.read().unwrap();
+
+            if let Some(new_path) = build_path_segment_for_parent(tracked_subject, &parent_ts, path)
+            {
+                // Check if the parent's predicate is multi-valued and if no siblings were previously valid
+                let should_create_parent_predicate_object =
+                    check_should_create_parent_predicate_object(tracked_subject, &parent_ts);
+
+                if should_create_parent_predicate_object {
+                    // Need to create an intermediate object for the multi-valued predicate
+                    // This is the case for Person -> hasAddress -> (object) -> AddressIri -> AddressObject
+                    // The intermediate (object) doesn't have an IRI
+                    let mut intermediate_path = new_path.clone();
+                    intermediate_path.pop(); // Remove the subject IRI that was added for multi predicates
+                    objects_to_create.insert((intermediate_path, None));
+                }
+
+                // Recurse to the parent first
+                queue_patches_for_newly_valid_subject(
+                    &parent_ts,
+                    tracked_subjects,
+                    root_shape,
+                    &new_path,
+                    patches,
+                    objects_to_create,
+                );
+
+                // Register this object for creation with its IRI
+                objects_to_create
+                    .insert((new_path.clone(), Some(tracked_subject.subject_iri.clone())));
+            }
+        }
+    }
+}
+
+/// Check if we should create an intermediate object for a multi-valued predicate.
+/// Returns true if the parent's predicate is multi-valued and no siblings were previously valid.
+fn check_should_create_parent_predicate_object(
+    tracked_subject: &OrmTrackedSubject,
+    parent_ts: &OrmTrackedSubject,
+) -> bool {
+    // Find the predicate schema linking parent to this subject
+    for pred_arc in &parent_ts.shape.predicates {
+        if let Some(tracked_pred) = parent_ts.tracked_predicates.get(&pred_arc.iri) {
+            let tp = tracked_pred.read().unwrap();
+
+            // Check if this tracked subject is a child of this predicate
+            let is_child = tp.tracked_children.iter().any(|child| {
+                let child_read = child.read().unwrap();
+                child_read.subject_iri == tracked_subject.subject_iri
+            });
+
+            if is_child {
+                let is_multi = pred_arc.maxCardinality > 1 || pred_arc.maxCardinality == -1;
+                
+                if is_multi {
+                    // Check if any siblings were previously valid
+                    let any_sibling_was_valid = tp.tracked_children.iter().any(|child| {
+                        let child_read = child.read().unwrap();
+                        child_read.subject_iri != tracked_subject.subject_iri
+                            && child_read.prev_valid == OrmTrackedSubjectValidity::Valid
+                    });
+
+                    return !any_sibling_was_valid;
+                }
+
+                return false;
+            }
+        }
+    }
+    false
 }
 
 /// Find the predicate schema linking a parent to a child tracked subject and build the path segment.
@@ -321,7 +426,7 @@ fn build_path_to_root_and_create_patches(
         Option<String>, // The IRI, if change is an added / removed object.
     ),
     patches: &mut Vec<OrmDiffOp>,
-    paths_of_objects_to_create: &mut HashSet<(Vec<String>, Option<SubjectIri>)>,
+    objects_to_create: &mut HashSet<(Vec<String>, Option<SubjectIri>)>,
 ) {
     // If the tracked subject is not valid, we don't create patches for it
     if tracked_subject.valid != OrmTrackedSubjectValidity::Valid {
@@ -331,53 +436,14 @@ fn build_path_to_root_and_create_patches(
     // If the tracked subject is newly valid (was not valid before but is now),
     // we need to ensure the object is created with an "add object" patch
     if tracked_subject.prev_valid != OrmTrackedSubjectValidity::Valid {
-        // Check if we're at a root subject or need to traverse to parents
-        if tracked_subject.parents.is_empty() || tracked_subject.shape.iri == *root_shape {
-            // At root: build the path with the subject IRI
-            let escaped_path: Vec<String> =
-                path.iter().map(|seg| escape_json_pointer(seg)).collect();
-            let json_pointer = format!(
-                "/{}/{}",
-                escape_json_pointer(&tracked_subject.subject_iri),
-                escaped_path.join("/")
-            );
-
-            // Create an "add object" patch to ensure the object exists
-            patches.push(OrmDiffOp {
-                op: OrmDiffOpType::add,
-                valType: Some(OrmDiffType::object),
-                path: json_pointer.clone(),
-                value: None,
-            });
-
-            // Also add the id field for the object
-            patches.push(OrmDiffOp {
-                op: OrmDiffOpType::add,
-                valType: None,
-                path: format!("{}/id", json_pointer),
-                value: Some(json!(tracked_subject.subject_iri)),
-            });
-        } else {
-            // Not at root: traverse to parents and create object patches along the way
-            for (_parent_iri, parent_tracked_subject) in tracked_subject.parents.iter() {
-                let parent_ts = parent_tracked_subject.read().unwrap();
-
-                if let Some(new_path) =
-                    build_path_segment_for_parent(tracked_subject, &parent_ts, path)
-                {
-                    // Recurse to the parent first
-                    build_path_to_root_and_create_patches(
-                        &parent_ts,
-                        tracked_subjects,
-                        root_shape,
-                        &mut new_path.clone(),
-                        (OrmDiffOpType::add, Some(OrmDiffType::object), None, None),
-                        patches,
-                        paths_of_objects_to_create,
-                    );
-                }
-            }
-        }
+        queue_patches_for_newly_valid_subject(
+            tracked_subject,
+            tracked_subjects,
+            root_shape,
+            path,
+            patches,
+            objects_to_create,
+        );
     }
 
     // If this subject has no parents or its shape matches the root shape, we've reached the root
@@ -399,16 +465,6 @@ fn build_path_to_root_and_create_patches(
             value: diff_op.2.clone(),
         });
 
-        // // If a new object is created on a predicate where multiple ones are allowed, create IRI path too.
-        // if let Some(added_obj_iri) = diff_op.3 {
-        //     patches.push(OrmDiffOp {
-        //         op: diff_op.0.clone(),
-        //         valType: diff_op.1.clone(),
-        //         path: format!("{}/{}", json_pointer, escape_json_pointer(&added_obj_iri)),
-        //         value: diff_op.2.clone(),
-        //     });
-        // }
-
         return;
     }
 
@@ -426,7 +482,7 @@ fn build_path_to_root_and_create_patches(
                 &mut new_path.clone(),
                 diff_op.clone(),
                 patches,
-                paths_of_objects_to_create,
+                objects_to_create,
             );
         }
     }
