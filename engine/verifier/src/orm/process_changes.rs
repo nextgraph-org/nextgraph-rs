@@ -89,7 +89,7 @@ impl Verifier {
         &mut self,
         nuri: &NuriV0,
         root_shape_iri: &String,
-        shape: Arc<OrmSchemaShape>,
+        shapes: Vec<Arc<OrmSchemaShape>>,
         session_id: u64,
         triples_added: &[Triple],
         triples_removed: &[Triple],
@@ -101,7 +101,9 @@ impl Verifier {
         // Track (shape_iri, subject_iri) pairs currently being validated to prevent cycles and double evaluation.
         let mut currently_validating: HashSet<(String, String)> = HashSet::new();
         // Add root shape for first validation run.
-        shape_validation_stack.push((shape, vec![]));
+        for shape in shapes {
+            shape_validation_stack.push((shape, vec![]));
+        }
 
         // Process queue of shapes and subjects to validate.
         // For a given shape, we evaluate every subject against that shape.
@@ -127,6 +129,7 @@ impl Verifier {
                 shape.iri
             );
 
+            // For each modified subject, apply changes to tracked subjects and validate.
             for subject_iri in &modified_subject_iris {
                 let validation_key = (shape.iri.clone(), subject_iri.to_string());
 
@@ -248,6 +251,8 @@ impl Verifier {
                     }
 
                     // Validate the subject.
+                    // need_eval contains elements in reverse priority (last element to be validated first)
+                    // TODO: Improve order by distinguishing between parents, children and self to be re-evaluated.
                     let need_eval = Self::update_subject_validity(change, &shape, orm_subscription);
 
                     // We add the need_eval to be processed next after loop.
@@ -296,7 +301,7 @@ impl Verifier {
                     self.process_changes_for_shape_and_session(
                         nuri,
                         &root_shape_iri,
-                        shape_arc.clone(),
+                        [shape_arc.clone()].to_vec(),
                         session_id,
                         &new_triples,
                         &vec![],
@@ -356,7 +361,7 @@ impl Verifier {
             self.process_changes_for_shape_and_session(
                 nuri,
                 &shape_iri,
-                root_shape,
+                [root_shape].to_vec(),
                 session_id,
                 triples_added,
                 triples_removed,

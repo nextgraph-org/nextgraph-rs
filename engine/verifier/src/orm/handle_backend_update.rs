@@ -68,8 +68,6 @@ impl Verifier {
             })
             .collect();
 
-        // let mut updates = Vec::new();
-
         let mut scopes = vec![];
         for (scope, subs) in self.orm_subscriptions.iter_mut() {
             // Remove old subscriptions
@@ -86,34 +84,37 @@ impl Verifier {
             }
 
             // prepare to apply updates to tracked subjects and record the changes.
-            let root_shapes = subs
+            let root_shapes_and_tracked_subjects = subs
                 .iter()
                 .map(|sub| {
-                    sub.shape_type
-                        .schema
-                        .get(&sub.shape_type.shape)
-                        .unwrap()
-                        .clone()
+                    (
+                        sub.shape_type
+                            .schema
+                            .get(&sub.shape_type.shape)
+                            .unwrap()
+                            .clone(),
+                        shapes_in_tracked_subjects(&sub.tracked_subjects),
+                    )
                 })
                 .collect::<Vec<_>>();
 
-            scopes.push((scope.clone(), root_shapes));
+            scopes.push((scope.clone(), root_shapes_and_tracked_subjects));
         }
 
         log_debug!(
             "[orm_backend_update], creating patch objects for #scopes {}",
             scopes.len()
         );
-        for (scope, shapes) in scopes {
+        for (scope, shapes_zip) in scopes {
             let mut orm_changes: OrmChanges = HashMap::new();
 
             // Apply the changes to tracked subjects.
-            for shape_arc in shapes {
-                let shape_iri = shape_arc.iri.clone();
+            for (root_shape_arc, all_shapes) in shapes_zip {
+                let shape_iri = root_shape_arc.iri.clone();
                 let _ = self.process_changes_for_shape_and_session(
                     &scope,
                     &shape_iri,
-                    shape_arc,
+                    all_shapes,
                     session_id,
                     &triple_inserts,
                     &triple_removes,
@@ -159,6 +160,11 @@ impl Verifier {
                 // Iterate over all changes and create patches
                 for (shape_iri, subject_changes) in &orm_changes {
                     for (subject_iri, change) in subject_changes {
+                        log_debug!(
+                            "Patch creating for subject change {}. #changed preds: {}",
+                            subject_iri,
+                            change.predicates.len()
+                        );
                         // Get the tracked subject for this (subject, shape) pair
                         let tracked_subject = sub
                             .tracked_subjects
@@ -201,6 +207,13 @@ impl Verifier {
                             // The subject is valid or has become valid.
                             // Process each predicate change
                             for (_pred_iri, pred_change) in &change.predicates {
+                                log_debug!(
+                                    "  - Predicate changes: {}; #Adds: {}; #Removes {}",
+                                    _pred_iri,
+                                    pred_change.values_added.len(),
+                                    pred_change.values_removed.len()
+                                );
+
                                 let tracked_predicate =
                                     pred_change.tracked_predicate.read().unwrap();
                                 let pred_name = tracked_predicate.schema.readablePredicate.clone();
@@ -430,22 +443,14 @@ fn build_path_to_root_and_create_patches(
     patches: &mut Vec<OrmDiffOp>,
     objects_to_create: &mut HashSet<(Vec<String>, Option<SubjectIri>)>,
 ) {
+    log_debug!(
+        "  - build path, ts: {}, path {:?}",
+        tracked_subject.subject_iri,
+        path
+    );
     // If the tracked subject is not valid, we don't create patches for it
     if tracked_subject.valid != OrmTrackedSubjectValidity::Valid {
         return;
-    }
-
-    // If the tracked subject is newly valid (was not valid before but is now),
-    // we need to ensure the object is created with an "add object" patch
-    if tracked_subject.prev_valid != OrmTrackedSubjectValidity::Valid {
-        queue_patches_for_newly_valid_subject(
-            tracked_subject,
-            tracked_subjects,
-            root_shape,
-            path,
-            patches,
-            objects_to_create,
-        );
     }
 
     // If this subject has no parents or its shape matches the root shape, we've reached the root
@@ -459,13 +464,27 @@ fn build_path_to_root_and_create_patches(
             escaped_path.join("/")
         );
 
-        // Create the patch
+        // Create the patch for the actual value change
         patches.push(OrmDiffOp {
             op: diff_op.0.clone(),
             valType: diff_op.1.clone(),
             path: json_pointer.clone(),
             value: diff_op.2.clone(),
         });
+
+        // If the subject is newly valid, now we have the full path to queue its creation.
+        if tracked_subject.prev_valid != OrmTrackedSubjectValidity::Valid {
+            let mut final_path = vec![tracked_subject.subject_iri.clone()];
+            final_path.extend_from_slice(path);
+            queue_patches_for_newly_valid_subject(
+                tracked_subject,
+                tracked_subjects,
+                root_shape,
+                &final_path,
+                patches,
+                objects_to_create,
+            );
+        }
 
         return;
     }
@@ -475,13 +494,14 @@ fn build_path_to_root_and_create_patches(
         let parent_ts = parent_tracked_subject.read().unwrap();
 
         // Build the path segment for this parent
-        if let Some(new_path) = build_path_segment_for_parent(tracked_subject, &parent_ts, path) {
+        if let Some(mut new_path) = build_path_segment_for_parent(tracked_subject, &parent_ts, path)
+        {
             // Recurse to the parent
             build_path_to_root_and_create_patches(
                 &parent_ts,
                 tracked_subjects,
                 root_shape,
-                &mut new_path.clone(),
+                &mut new_path,
                 diff_op.clone(),
                 patches,
                 objects_to_create,
@@ -583,4 +603,16 @@ fn create_diff_ops_from_predicate_change(
     //     }
     // }
     return ops;
+}
+
+fn shapes_in_tracked_subjects(
+    tracked_subjects: &HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
+) -> Vec<Arc<OrmSchemaShape>> {
+    let mut shapes = vec![];
+    for (_subject_iri, tss) in tracked_subjects.iter() {
+        for (_shape_iri, ts) in tss.iter() {
+            shapes.push(ts.read().unwrap().shape.clone());
+        }
+    }
+    shapes
 }

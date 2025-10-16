@@ -51,7 +51,7 @@ pub(crate) fn assert_json_eq(expected: &mut Value, actual: &mut Value) {
     let diff = serde_json_diff::values(expected.clone(), actual.clone());
     if let Some(diff_) = diff {
         log_err!(
-            "Expected and actual ORM JSON mismatch.\nDiff: {:?}\nExpected: {}\nActual: {}",
+            "Expected and actual JSON mismatch.\nDiff: {:?}\nExpected: {}\nActual: {}",
             diff_,
             expected,
             actual

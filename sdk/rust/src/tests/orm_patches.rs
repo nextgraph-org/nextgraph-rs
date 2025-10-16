@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use crate::local_broker::{doc_create, doc_sparql_construct, doc_sparql_update, orm_start};
+use crate::local_broker::{doc_sparql_update, orm_start};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{assert_json_eq, create_doc_with_data};
 use async_std::stream::StreamExt;
@@ -865,19 +865,11 @@ INSERT DATA {
         let mut expected = json!([
             // Modified house color
             {
-                "op": "remove",
-                "path": "/urn:test:house1/rootColor",
-            },
-            {
                 "op": "add",
                 "value": "red",
                 "path": "/urn:test:house1/rootColor",
             },
             // Modified Alice's name
-            {
-                "op": "remove",
-                "path": "/urn:test:house1/inhabitants/urn:test:person1/name",
-            },
             {
                 "op": "add",
                 "value": "Alicia",
