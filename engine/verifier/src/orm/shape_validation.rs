@@ -33,7 +33,6 @@ impl Verifier {
         };
         let mut tracked_subject = tracked_subject.write().unwrap();
         let previous_validity = tracked_subject.prev_valid.clone();
-        tracked_subject.prev_valid = tracked_subject.valid.clone();
 
         // Keep track of objects that need to be validated against a shape to fetch and validate.
         let mut need_evaluation: Vec<(String, String, bool)> = vec![];
@@ -45,7 +44,10 @@ impl Verifier {
         );
 
         // Check 1) Check if this object is untracked and we need to remove children and ourselves.
-        if previous_validity == OrmTrackedSubjectValidity::Untracked {
+        if previous_validity == OrmTrackedSubjectValidity::Untracked
+        //   If .valid is pending, this part was executed before in this validation round.
+            && tracked_subject.valid != OrmTrackedSubjectValidity::Pending
+        {
             // 1.1) Schedule children for deletion
             // 1.1.1) Set all children to `untracked` that don't have other parents.
             for tracked_predicate in tracked_subject.tracked_predicates.values() {
@@ -341,6 +343,8 @@ impl Verifier {
                 }
             };
         }
+
+        // == End of validation part. Next, process side-effects ==
 
         tracked_subject.valid = new_validity.clone();
 

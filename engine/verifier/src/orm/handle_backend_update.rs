@@ -286,11 +286,11 @@ fn queue_patches_for_newly_valid_subject(
         // Register object for creation.
         // Path to object consists of this subject's iri and the path except for the last element.
         let mut path_to_subject = vec![tracked_subject.subject_iri.clone()];
-        if path.len() > 0 {
-            path_to_subject.extend_from_slice(&path[1..]);
+        if path.len() > 1 {
+            path_to_subject.extend_from_slice(&path[..path.len() - 1]);
         }
 
-        log_debug!("Queuing object creation for path: {:?}", path_to_subject);
+        // log_debug!("Queuing object creation for path: {:?}", path_to_subject);
 
         // Always create the object itself with its IRI
         objects_to_create.insert((

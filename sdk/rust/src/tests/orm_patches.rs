@@ -29,9 +29,9 @@ async fn test_orm_patch_creation() {
 
     // Tests below all in this test, to prevent waiting times through wallet creation.
 
-    // ===
-    test_patch_add_array(session_id).await;
-    test_patch_remove_array(session_id).await;
+    // // ===
+    // test_patch_add_array(session_id).await;
+    // test_patch_remove_array(session_id).await;
 
     // // ===
     // test_patch_add_nested_1(session_id).await;

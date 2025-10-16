@@ -183,21 +183,22 @@ impl Verifier {
                 // Apply all triples for that subject to the tracked (shape, subject) pair.
                 // Record the changes.
                 {
+                    let orm_subscription = self
+                        .orm_subscriptions
+                        .get_mut(nuri)
+                        .unwrap()
+                        .iter_mut()
+                        .find(|sub| {
+                            sub.shape_type.shape == *root_shape_iri && sub.session_id == session_id
+                        })
+                        .unwrap();
+
+                    // Update tracked subjects and modify change objects.
                     if !change.data_applied {
                         log_debug!(
                             "Adding triples to change tracker for subject {}",
                             subject_iri
                         );
-
-                        let orm_subscription = self
-                            .orm_subscriptions
-                            .get_mut(nuri)
-                            .unwrap()
-                            .iter_mut()
-                            .find(|sub| {
-                                sub.shape_type.shape == shape.iri && sub.session_id == session_id
-                            })
-                            .unwrap();
 
                         if let Err(e) = add_remove_triples(
                             shape.clone(),
@@ -211,19 +212,40 @@ impl Verifier {
                             panic!();
                         }
                         change.data_applied = true;
-                    } else {
-                        log_debug!("not applying triples again for subject {subject_iri}");
                     }
 
-                    let orm_subscription = self
-                        .orm_subscriptions
-                        .get_mut(nuri)
-                        .unwrap()
-                        .iter_mut()
-                        .find(|sub| {
-                            sub.shape_type.shape == shape.iri && sub.session_id == session_id
-                        })
-                        .unwrap();
+                    // Check if this is the first evaluation round - In that case, set old validity to new one.
+                    // if the object was already validated, don't do so again.
+                    {
+                        let tracked_subject = &mut orm_subscription
+                            .tracked_subjects
+                            .get(*subject_iri)
+                            .unwrap()
+                            .get(&shape.iri)
+                            .unwrap()
+                            .write()
+                            .unwrap();
+
+                        // First run
+                        if !change.data_applied
+                            && tracked_subject.valid != OrmTrackedSubjectValidity::Pending
+                        {
+                            tracked_subject.prev_valid = tracked_subject.valid.clone();
+                        }
+
+                        if change.data_applied {
+                            log_debug!("not applying triples again for subject {subject_iri}");
+
+                            // Has this subject already been validated?
+                            if change.data_applied
+                                && tracked_subject.valid != OrmTrackedSubjectValidity::Pending
+                            {
+                                log_debug!("Not evaluating subject again {subject_iri}");
+
+                                continue;
+                            }
+                        }
+                    }
 
                     // Validate the subject.
                     let need_eval = Self::update_subject_validity(change, &shape, orm_subscription);
