@@ -7,15 +7,14 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use lazy_static::lazy_static;
 use ng_repo::errors::VerifierError;
-use regex::Regex;
 
 use std::collections::HashSet;
 
 pub use ng_net::orm::{OrmDiff, OrmShapeType};
 
 use crate::orm::types::*;
+use crate::orm::utils::{escape_literal, is_iri};
 use crate::verifier::*;
 use ng_net::orm::*;
 use ng_oxigraph::oxigraph::sparql::{Query, QueryResults};
@@ -65,15 +64,6 @@ impl Verifier {
             _ => return Err(NgError::InvalidResponse),
         }
     }
-}
-
-/// Heuristic:
-/// Consider a string an IRI if it contains alphanumeric characters and then a colon within the first 13 characters
-pub fn is_iri(s: &str) -> bool {
-    lazy_static! {
-        static ref IRI_REGEX: Regex = Regex::new(r"^[A-Za-z][A-Za-z0-9+\.\-]{1,12}:").unwrap();
-    }
-    IRI_REGEX.is_match(s)
 }
 
 pub fn literal_to_sparql_str(var: OrmSchemaDataType) -> Vec<String> {
@@ -155,7 +145,7 @@ pub fn shape_type_to_sparql(
 
             // Predicate constraints might have more than one acceptable nested shape. Traverse each.
             for datatype in &predicate.dataTypes {
-                if datatype.valType == OrmSchemaLiteralType::shape {
+                if datatype.valType == OrmSchemaValType::shape {
                     let shape_iri = &datatype.shape.clone().unwrap();
                     let nested_shape = schema.get(shape_iri).unwrap();
 
@@ -304,19 +294,4 @@ pub fn shape_type_to_sparql(
         "CONSTRUCT {{\n{}\n}}\nWHERE {{\n{}\n}}",
         construct_body, where_body
     ))
-}
-/// SPARQL literal escape: backslash, quotes, newlines, tabs.
-fn escape_literal(lit: &str) -> String {
-    let mut out = String::with_capacity(lit.len() + 4);
-    for c in lit.chars() {
-        match c {
-            '\\' => out.push_str("\\\\"),
-            '\"' => out.push_str("\\\""),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            _ => out.push(c),
-        }
-    }
-    return out;
 }

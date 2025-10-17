@@ -13,6 +13,9 @@ use ng_repo::types::OverlayId;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use lazy_static::lazy_static;
+use regex::Regex;
+
 pub use ng_net::orm::{OrmDiff, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
 use ng_oxigraph::oxrdf::Triple;
@@ -65,6 +68,51 @@ pub fn escape_json_pointer(path_segment: &String) -> String {
     path_segment.replace("~", "~0").replace("/", "~1")
 }
 
-pub fn decode_join_pointer(path: &String) -> String {
+pub fn decode_json_pointer(path: &String) -> String {
     path.replace("~1", "/").replace("~0", "~")
+}
+
+/// SPARQL literal escape: backslash, quotes, newlines, tabs.
+pub fn escape_literal(lit: &str) -> String {
+    let mut out = String::with_capacity(lit.len() + 4);
+    for c in lit.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '\"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            _ => out.push(c),
+        }
+    }
+    return out;
+}
+
+pub fn json_to_sparql_val(json: &serde_json::Value) -> String {
+    match json {
+        serde_json::Value::Array(arr) => arr
+            .iter()
+            .map(|val| json_to_sparql_val(val))
+            .collect::<Vec<String>>()
+            .join(", "),
+        serde_json::Value::Bool(bool) => match bool {
+            true => "true".to_string(),
+            false => "false".to_string(),
+        },
+        serde_json::Value::Number(num) => num.to_string(),
+        serde_json::Value::String(str) => match is_iri(str) {
+            true => format!("<{}>", str),
+            false => format!("\"{}\"", str),
+        },
+        _ => panic!(),
+    }
+}
+
+/// Heuristic:
+/// Consider a string an IRI if it contains alphanumeric characters and then a colon within the first 13 characters
+pub fn is_iri(s: &str) -> bool {
+    lazy_static! {
+        static ref IRI_REGEX: Regex = Regex::new(r"^[A-Za-z][A-Za-z0-9+\.\-]{1,12}:").unwrap();
+    }
+    IRI_REGEX.is_match(s)
 }

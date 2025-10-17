@@ -161,7 +161,7 @@ pub(crate) fn materialize_orm_object(
         if pred_schema
             .dataTypes
             .iter()
-            .any(|dt| dt.valType == OrmSchemaLiteralType::shape)
+            .any(|dt| dt.valType == OrmSchemaValType::shape)
         {
             // We have a nested type.
 

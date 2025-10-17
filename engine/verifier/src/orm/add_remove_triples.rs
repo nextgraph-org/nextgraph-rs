@@ -109,7 +109,7 @@ pub fn add_remove_triples(
                     .schema
                     .dataTypes
                     .iter()
-                    .any(|dt| dt.valType == OrmSchemaLiteralType::literal)
+                    .any(|dt| dt.valType == OrmSchemaValType::literal)
                 {
                     match &mut tracked_predicate.current_literals {
                         Some(lits) => lits.push(obj_term.clone()),
@@ -122,7 +122,7 @@ pub fn add_remove_triples(
             // If predicate is of type shape, register
             // "parent (predicate) -> child subject" and `child_subject.parents`.
             for shape_iri in predicate_schema.dataTypes.iter().filter_map(|dt| {
-                if dt.valType == OrmSchemaLiteralType::shape {
+                if dt.valType == OrmSchemaValType::shape {
                     dt.shape.clone()
                 } else {
                     None
@@ -200,7 +200,7 @@ pub fn add_remove_triples(
             .schema
             .dataTypes
             .iter()
-            .any(|dt| dt.valType == OrmSchemaLiteralType::literal)
+            .any(|dt| dt.valType == OrmSchemaValType::literal)
         {
             if let Some(current_literals) = &mut tracked_predicate.current_literals {
                 // Remove obj_val from current_literals in-place
@@ -212,7 +212,7 @@ pub fn add_remove_triples(
             .schema
             .dataTypes
             .iter()
-            .any(|dt| dt.valType == OrmSchemaLiteralType::shape)
+            .any(|dt| dt.valType == OrmSchemaValType::shape)
         {
             // Remove parent from child and child from tracked children.
             // If predicate is of type shape, register (parent -> child) links so that
@@ -222,7 +222,7 @@ pub fn add_remove_triples(
                 .dataTypes
                 .iter()
                 .filter_map(|dt| {
-                    if dt.valType == OrmSchemaLiteralType::shape {
+                    if dt.valType == OrmSchemaValType::shape {
                         dt.shape.clone()
                     } else {
                         None

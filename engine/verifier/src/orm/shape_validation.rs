@@ -154,7 +154,7 @@ impl Verifier {
             } else if p_schema
                 .dataTypes
                 .iter()
-                .any(|dt| dt.valType == OrmSchemaLiteralType::literal)
+                .any(|dt| dt.valType == OrmSchemaValType::literal)
             {
                 // If we have literals, check if all required literals are present.
                 // At least one datatype must match.
@@ -198,7 +198,7 @@ impl Verifier {
             } else if p_schema
                 .dataTypes
                 .iter()
-                .any(|dt| dt.valType == OrmSchemaLiteralType::shape)
+                .any(|dt| dt.valType == OrmSchemaValType::shape)
             {
                 // If we have a nested shape, we need to check if the nested objects are tracked and valid.
                 let tracked_children = tracked_pred.as_ref().map(|tp| {
@@ -309,19 +309,19 @@ impl Verifier {
             // Check 3.5) Data types correct.
             } else {
                 // Check if the data type is correct.
-                let allowed_types: Vec<&OrmSchemaLiteralType> =
+                let allowed_types: Vec<&OrmSchemaValType> =
                     p_schema.dataTypes.iter().map(|dt| &dt.valType).collect();
                 // For each new value, check that data type is in allowed_types.
                 for val_added in p_change.iter().map(|pc| &pc.values_added).flatten() {
                     let matches = match val_added {
                         BasicType::Bool(_) => allowed_types
                             .iter()
-                            .any(|t| **t == OrmSchemaLiteralType::boolean),
+                            .any(|t| **t == OrmSchemaValType::boolean),
                         BasicType::Num(_) => allowed_types
                             .iter()
-                            .any(|t| **t == OrmSchemaLiteralType::number),
+                            .any(|t| **t == OrmSchemaValType::number),
                         BasicType::Str(_) => allowed_types.iter().any(|t| {
-                            **t == OrmSchemaLiteralType::string || **t == OrmSchemaLiteralType::iri
+                            **t == OrmSchemaValType::string || **t == OrmSchemaValType::iri
                         }),
                     };
                     if !matches {

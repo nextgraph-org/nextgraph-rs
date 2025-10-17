@@ -13,7 +13,7 @@ use crate::tests::{assert_json_eq, create_doc_with_data};
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
-    BasicType, OrmSchemaDataType, OrmSchemaLiteralType, OrmSchemaPredicate, OrmSchemaShape,
+    BasicType, OrmSchemaDataType, OrmSchemaValType, OrmSchemaPredicate, OrmSchemaShape,
     OrmShapeType,
 };
 
@@ -92,7 +92,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::literal,
+                        valType: OrmSchemaValType::literal,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/TestObject".to_string(),
                         )]),
@@ -103,7 +103,7 @@ INSERT DATA {
                 OrmSchemaPredicate {
                     iri: "http://example.org/arr".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::number,
+                        valType: OrmSchemaValType::number,
                         literals: None,
                         shape: None,
                     }],
@@ -267,7 +267,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::literal,
+                        valType: OrmSchemaValType::literal,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/TestObject".to_string(),
                         )]),
@@ -278,7 +278,7 @@ INSERT DATA {
                 OrmSchemaPredicate {
                     iri: "http://example.org/arr".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::number,
+                        valType: OrmSchemaValType::number,
                         literals: None,
                         shape: None,
                     }],
@@ -404,12 +404,12 @@ INSERT DATA {
                     readablePredicate: "multiNest".to_string(),
                     dataTypes: vec![
                         OrmSchemaDataType {
-                            valType: OrmSchemaLiteralType::shape,
+                            valType: OrmSchemaValType::shape,
                             literals: None,
                             shape: Some("http://example.org/MultiNestShape1".to_string()),
                         },
                         OrmSchemaDataType {
-                            valType: OrmSchemaLiteralType::shape,
+                            valType: OrmSchemaValType::shape,
                             literals: None,
                             shape: Some("http://example.org/MultiNestShape2".to_string()),
                         },
@@ -423,7 +423,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "singleNest".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::shape,
+                        valType: OrmSchemaValType::shape,
                         literals: None,
                         shape: Some("http://example.org/SingleNestShape".to_string()),
                     }],
@@ -444,7 +444,7 @@ INSERT DATA {
                 maxCardinality: 1,
                 minCardinality: 1,
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaLiteralType::string,
+                    valType: OrmSchemaValType::string,
                     literals: None,
                     shape: None,
                 }],
@@ -464,7 +464,7 @@ INSERT DATA {
                 maxCardinality: 1,
                 minCardinality: 1,
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaLiteralType::string,
+                    valType: OrmSchemaValType::string,
                     literals: None,
                     shape: None,
                 }],
@@ -484,7 +484,7 @@ INSERT DATA {
                 maxCardinality: 1,
                 minCardinality: 1,
                 dataTypes: vec![OrmSchemaDataType {
-                    valType: OrmSchemaLiteralType::string,
+                    valType: OrmSchemaValType::string,
                     literals: None,
                     shape: None,
                 }],
@@ -652,7 +652,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::literal,
+                        valType: OrmSchemaValType::literal,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/House".to_string(),
                         )]),
@@ -667,7 +667,7 @@ INSERT DATA {
                     minCardinality: 0,
                     readablePredicate: "rootColor".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::string,
+                        valType: OrmSchemaValType::string,
                         literals: None,
                         shape: None,
                     }],
@@ -680,7 +680,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "inhabitants".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::shape,
+                        valType: OrmSchemaValType::shape,
                         literals: None,
                         shape: Some("http://example.org/PersonShape".to_string()),
                     }],
@@ -704,7 +704,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::literal,
+                        valType: OrmSchemaValType::literal,
                         literals: Some(vec![BasicType::Str(
                             "http://example.org/Person".to_string(),
                         )]),
@@ -719,7 +719,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "name".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::string,
+                        valType: OrmSchemaValType::string,
                         literals: None,
                         shape: None,
                     }],
@@ -732,7 +732,7 @@ INSERT DATA {
                     minCardinality: 0,
                     readablePredicate: "cat".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::shape,
+                        valType: OrmSchemaValType::shape,
                         literals: None,
                         shape: Some("http://example.org/CatShape".to_string()),
                     }],
@@ -756,7 +756,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "type".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::literal,
+                        valType: OrmSchemaValType::literal,
                         literals: Some(vec![BasicType::Str("http://example.org/Cat".to_string())]),
                         shape: None,
                     }],
@@ -769,7 +769,7 @@ INSERT DATA {
                     minCardinality: 1,
                     readablePredicate: "name".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaLiteralType::string,
+                        valType: OrmSchemaValType::string,
                         literals: None,
                         shape: None,
                     }],
