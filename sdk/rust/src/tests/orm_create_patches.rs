@@ -13,7 +13,7 @@ use crate::tests::{assert_json_eq, create_doc_with_data};
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
-    BasicType, OrmSchemaDataType, OrmSchemaValType, OrmSchemaPredicate, OrmSchemaShape,
+    BasicType, OrmSchemaDataType, OrmSchemaPredicate, OrmSchemaShape, OrmSchemaValType,
     OrmShapeType,
 };
 
@@ -604,8 +604,6 @@ INSERT DATA {
     }
 }
 
-// Temporary file - content to be appended to orm_patches.rs
-
 /// Test nested modifications with House -> Person -> Cat hierarchy
 async fn test_patch_nested_house_inhabitants(session_id: u64) {
     let doc_nuri = create_doc_with_data(
@@ -804,7 +802,7 @@ INSERT DATA {
     }
 
     log_info!(
-        "\n=== TEST 1: INSERT - Adding new person with cat, modifying existing properties ===\n"
+        "\n\n=== TEST 1: INSERT - Adding new person with cat, modifying existing properties ===\n"
     );
 
     // INSERT: Add a new person with a cat, modify house color, modify existing person's name, add cat to Bob
@@ -945,7 +943,7 @@ INSERT DATA {
         break;
     }
 
-    log_info!("\n=== TEST 2: DELETE - Removing cat, person, and modifying properties ===\n");
+    log_info!("\n\n=== TEST 2: DELETE - Removing cat, person, and modifying properties ===\n");
 
     // DELETE: Remove Whiskers, remove Charlie and his cat, modify cat name, remove house color
     doc_sparql_update(

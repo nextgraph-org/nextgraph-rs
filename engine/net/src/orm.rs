@@ -31,7 +31,7 @@ pub enum OrmDiffOpType {
     remove,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum OrmDiffType {
     set,

@@ -15,8 +15,9 @@ use crate::local_broker::{doc_create, doc_sparql_update};
 #[doc(hidden)]
 pub mod orm_creation;
 
+pub mod orm_apply_patches;
 #[doc(hidden)]
-pub mod orm_patches;
+pub mod orm_create_patches;
 
 #[doc(hidden)]
 pub mod create_or_open_wallet;
