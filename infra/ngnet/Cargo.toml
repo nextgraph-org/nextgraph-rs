@@ -18,7 +18,7 @@ serde = { version = "1.0.142", features = ["derive"] }
 tokio = { version = "1.27", features = ["full"] }
 warp = "0.3"
 warp-embed = "0.4"
-rust-embed = "6"
+rust-embed = { version = "6.7.0", features = ["include-exclude","debug-embed"] }
 log = "0.4"
 env_logger = "0.10"
 anyhow = "1.0.71"
