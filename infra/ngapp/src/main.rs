@@ -35,7 +35,7 @@ use crate::store::wallet_record::*;
 use crate::types::*;
 
 #[derive(RustEmbed)]
-#[folder = "../../app/nextgraph/dist-file"]
+#[folder = "../../app/nextgraph/dist-web"]
 struct Static;
 
 #[tokio::main]
@@ -57,7 +57,7 @@ async fn main() {
             .allow_origin(NG_NET_URL)
             .allow_origin(NG_APP_URL)
             .allow_origin("https://nextgraph.eu")
-            .allow_origin("https://nextgraph.net");
+            .allow_origin("https://nextgraph.one");
     }
     #[cfg(debug_assertions)]
     {

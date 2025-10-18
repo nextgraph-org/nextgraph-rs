@@ -3,8 +3,8 @@
   "private": true,
   "version": "0.1.2",
   "scripts": {
-    "buildfront": "cargo run-script libwasm && pnpm -C ./app/nextgraph install && pnpm -C ./app/nextgraph webbuild && pnpm -C ./engine/broker/auth install && pnpm -C ./engine/broker/auth build",
-    "buildfrontdev": "pnpm -C ./engine/broker/auth builddev && pnpm -C ./infra/ngnet/bootstrap builddev && pnpm -C ./infra/ngnet/auth builddev && pnpm -C ./infra/ngnet/redir builddev"
+    "buildfront": "cargo run-script libwasm && pnpm -C ./app/nextgraph install && pnpm -C ./app/nextgraph webbuild && pnpm -C ./sdk/js/web build && pnpm -C ./engine/broker/auth install && pnpm -C ./engine/broker/auth build",
+    "buildfrontdev": "pnpm -C ./engine/broker/auth builddev && pnpm -C ./infra/ngnet/bootstrap builddev && pnpm -C ./infra/ngnet/auth builddev && pnpm -C ./infra/ngnet/redir builddev && pnpm -C ./sdk/js/web builddev"
   },
   "pnpm": {
     "peerDependencyRules": {

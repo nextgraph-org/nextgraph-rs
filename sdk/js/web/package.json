@@ -28,14 +28,13 @@
     }
   },
   "scripts": {
-    "dev": "vite",
     "build": "tsc && vite build",
-    "builddev": "tsc && cross-env NG_DEV=1 vite build",
+    "builddevlocal": "tsc && cross-env NG_DEV=1 vite build",
+    "builddev": "tsc && cross-env NG_DEV_LOCAL_BROKER=1 vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "async-proxy": "^0.4.1",
-    "remote-web-streams": "^0.2.0"
+    "async-proxy": "^0.4.1"
   },
   "devDependencies": {
     "@types/node": "^18.7.10",

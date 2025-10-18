@@ -27,7 +27,7 @@ Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/)
 You need to create a Wallet for yourself, on one of our Public Broker Service Provider. Alternatively, you can do everything locally, as [described below](#local-development)
 
 ```
-npm i nextgraphweb
+npm i @ng-org/web
 ```
 
 Additionally, you can use [LDO (Linked Data Object) library](https://ldo.js.org/latest/guides/nextgraph/) to help you with RDF handling in the client side.
@@ -68,10 +68,10 @@ You will need to create an admin wallet on the local ngd instance, as explained 
 
 Then you can use that wallet to log in inside your webapp.
 
-Then compile the nextgraphweb package in dev mode:
+Then compile the @ng-org/web package in dev mode:
 
 ```
-pnpm run -C ../../helpers/nextgraphweb builddev
+pnpm run -C ../../web builddev
 ```
 
 Then create your app, by example, with the command:
@@ -83,9 +83,8 @@ npm create vite@latest
 change directory to where our app is located. and install dependencies, then run the dev server.
 
 ```
-npm install
-npm link ../../helpers/nextgraphweb
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Due to the way `npm link` works, you will have to run this command again, after every time you use `npm install`.
@@ -97,7 +96,7 @@ See the example code in [src/main.js](./src/main.js)
 call :
 
 ```javascript
-import { default as ng, init } from "nextgraphweb";
+import { ng, init } from "@ng-org/web";
 
 await init(
     (event) => {
@@ -108,15 +107,12 @@ await init(
     true, // singleton: boolean (will your app create many docs in the system, or should it be launched as a unique instance)
     []
 ); //list of AccessRequests (for now, leave this empty)
-
-await ng.login(); // this will return false at the first attempt. but it will open the wallet login page so the user can login.
-// if you call it again later once the user has logged in already, it will return true, and nothing more will happen
 ```
 
 You can alternatively wrap the callback inside a Promise in order to wait for the "loggedin" event.
 
 ```javascript
-import {default as ng, init} from "nextgraphweb";
+import {default as ng, init} from "@ng-org/web";
 
 let loggedin = new Promise( async (resolve) => {
     await init( (event) => {

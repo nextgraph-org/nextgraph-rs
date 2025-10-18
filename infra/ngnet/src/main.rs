@@ -126,33 +126,6 @@ async fn main() -> anyhow::Result<()> {
     let static_files_bootstrap = warp::get()
         .and(warp::path!("bootstrap" / ..))
         .and(warp_embed::embed(&BootstrapStatic))
-        .and(warp::query::<HashMap<String, String>>())
-        .map(|reply, p: HashMap<String, String>| match p.get("o") {
-            Some(obj) => {
-                let decoded = obj.trim();
-                if BSP_DETAILS.get(decoded).is_none()
-                    && decoded != "http://localhost:14400"
-                    && decoded != "http://localhost:1421"
-                {
-                    // rejected (BSP not listed)
-                    warp::http::StatusCode::UNAUTHORIZED.into_response()
-                } else {
-                    let reply = warp::reply::with_header(
-                        reply,
-                        "Content-Security-Policy",
-                        HeaderValue::from_str(&format!("frame-ancestors 'self' {decoded};"))
-                            .unwrap(),
-                    );
-                    warp::reply::with_header(
-                        reply,
-                        "X-Frame-Options",
-                        HeaderValue::from_str(&format!("ALLOW-FROM {decoded}")).unwrap(),
-                    )
-                    .into_response()
-                }
-            }
-            None => warp::http::StatusCode::BAD_REQUEST.into_response(),
-        })
         .boxed();
 
     let static_files_auth = warp::get()
@@ -162,9 +135,12 @@ async fn main() -> anyhow::Result<()> {
         .map(|reply, p: HashMap<String, String>| match p.get("o") {
             Some(obj) => {
                 let decoded = obj.trim();
-                if decoded.eq("*")
-                    || (!decoded.starts_with("http://") && !decoded.starts_with("https://"))
-                    || decoded.len() < 11
+                if BSP_DETAILS.get(decoded).is_none()
+                    && decoded != "http://localhost:14400"
+                    && decoded != "http://localhost:1421"
+                // if decoded.eq("*")
+                //     || (!decoded.starts_with("http://") && !decoded.starts_with("https://"))
+                //     || decoded.len() < 11
                 {
                     warp::http::StatusCode::BAD_REQUEST.into_response()
                 } else {
@@ -211,8 +187,8 @@ async fn main() -> anyhow::Result<()> {
         cors = cors.allow_origin(NG_APP_URL);
         cors = cors.allow_origin("http://localhost:14400");
         cors = cors.allow_origin("http://localhost:1421");
-        for bsp in BSP_ORIGINS {
-            cors = cors.allow_origin(bsp);
+        for bsp in BSP_ORIGINS.iter() {
+            cors = cors.allow_origin(*bsp);
         }
         log::info!("Starting production server on http://localhost:3033");
         warp::serve(

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build --base=./ && shx rm -rf ./dist/assets",
-    "builddev": "cross-env NG_DEV=1 vite build --base=./ && shx rm -rf ./dist/assets && shx mkdir -p ../../../app/nextgraph/public_dev && cp ./dist/index.html ../../../app/nextrgaph/public_dev/redir.html",
+    "builddev": "cross-env NG_DEV=1 vite build --base=./ && shx rm -rf ./dist/assets && shx mkdir -p ../../../app/nextgraph/public_dev && cp ./dist/index.html ../../../app/nextgraph/public_dev/redir.html",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -15,9 +15,7 @@
     "svelte-spa-router": "^3.3.0",
     "@tailwindcss/typography": "^0.5.13",
     "svelte-i18n": "^4.0.0",
-    "@ng-org/ui-common": "workspace:*",
-    "async-proxy": "^0.4.1",
-    "remote-web-streams": "^0.2.0"
+    "@ng-org/ui-common": "workspace:*"
   },
   "devDependencies": {
     "shx": "^0.3.4",

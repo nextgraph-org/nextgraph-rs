@@ -20,6 +20,8 @@
   import { link } from "svelte-spa-router";
   import CenteredLayout from "./CenteredLayout.svelte";
   import { t } from "svelte-i18n";
+
+  export let without_create = false;
 </script>
 
 <CenteredLayout displayFooter={true}>
@@ -30,8 +32,14 @@
     <h1 class="text-2xl text-center mb-10">{$t("pages.no_wallet.welcome")}</h1>
 
     <p class="max-w-sm">
-      {@html $t("pages.no_wallet.description")}
+      {@html $t("pages.no_wallet.description")}<br />
+      {@html $t("pages.no_wallet.instructions_login")}{#if !without_create}{@html $t("pages.no_wallet.instructions_create")}
+      {:else}
+        {@html $t("pages.no_wallet.instructions_nocreate")}
+      {/if}
+       
     </p>
+    {#if !without_create}
     <div class="row mt-5">
       <a href="/wallet/create" use:link>
         <button
@@ -57,6 +65,7 @@
         </button>
       </a>
     </div>
+    {/if}
     <div class="row mt-5">
       <a href="/wallet/login" use:link>
         <button

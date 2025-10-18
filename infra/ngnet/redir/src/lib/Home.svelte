@@ -9,10 +9,11 @@
 // according to those terms.
 -->
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { t, locale } from "svelte-i18n";
   import { CenteredLayout } from "@ng-org/ui-common/lib";
   import { LogoSimple } from "@ng-org/ui-common/components";
+  import { push, default as Router, querystring } from "svelte-spa-router";
   import {
     Sidebar,
     SidebarGroup,
@@ -25,19 +26,23 @@
     ServerStack
   } from "svelte-heros-v2";
 
-  import { web_origin, brokers_info, selected_broker } from '../store';
-  import { fromWritablePort, RemoteReadableStream } from 'remote-web-streams';
+  import { web_origin, host, brokers_info, selected_broker } from '../store';
 
   let top;
   let nonActiveClass =
     "flex items-center p-2 text-base font-normal text-gray-900 rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700";
 
-  const AUTH_HOME = "#/";
+  let redirecting = false;
+  let broker_name = "";
 
-  function select(broker: Object) {
-
+  async function select(broker_info) {
+    let broker = broker_info[1];
+    broker_name = broker_info[0];
     let url;
-    if (import.meta.env.NG_DEV && broker.localhost === 14400) {
+    if (import.meta.env.DEV && broker.localhost === 1421) {
+      // dev mode
+      url = "http://localhost:14401/";
+    } else if (import.meta.env.NG_DEV && broker.localhost === 14400) {
       // dev mode
       url = "http://localhost:1421/appauth.html";
     } else if (broker.localhost) {
@@ -52,52 +57,45 @@
     } else return;
 
     selected_broker.set(broker);
-    let iframe = window.document.getElementById("nextgraph-app-auth-iframe");
-    iframe?.classList.add('nextgraph-app-auth-iframe--active');
-    window.document.getElementById("app").style["display"] = "none";
 
-    (<any>window).ng_iframe_origin = new URL(url).origin;
-
-    iframe.addEventListener("load",  function() {
-      
-      (<any>window).ng_broker_selected = this.contentWindow;
-      const ready_handler = async function(m) {
-        if (m.data.ready && m.origin === (<any>window).ng_iframe_origin) {
-          //console.log("got ready message",m);
-          //remove this listener
-          window.removeEventListener("message",ready_handler);
-          const { readable, writablePort } = new RemoteReadableStream();
-          //console.log("sending init message to app-auth");
-          (<any>window).ng_broker_selected.postMessage({ method: "init", manifest:window.ng_manifest, port: writablePort }, (<any>window).ng_iframe_origin, [writablePort]);
-          const reader = readable.getReader();
-          for (var msg; msg = await reader.read(); ) {
-            if (msg.done) {
-              (<any>window).ng_status_callback.close();
-              break;
-            } else {
-              //console.log("forwarding upstream",msg.value);
-              (<any>window).ng_status_callback.write(msg.value);
-            }
-          }
-        }
-      };
-      window.addEventListener("message",ready_handler);
-    });
-
-    iframe.src = url+"?o="+location.search.substring(3)+AUTH_HOME;
+    redirecting = true;
+    await tick();
+    let encoded_origin = encodeURIComponent($web_origin);
+    window.location.href = url+"#/?o="+encoded_origin;
   }
 
   onMount(() => {
     if (Object.keys($brokers_info).length == 1) {
-      select(Object.values($brokers_info)[0]);
+      select(Object.entries($brokers_info)[0]);
     }
   });
 </script>
 
+{#if redirecting}
+  <div class="text-center max-w-6xl lg:px-8 mx-auto px-4 text-primary-700">
+    {@html $t("pages.login.redirecting")} your Broker at {broker_name},<br/>for logging in to {$host} ...
+    <svg
+      class="my-10 h-16 w-16 mx-auto"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"
+      />
+    </svg>
+  </div>
+{:else}
+
 {#if Object.keys($brokers_info).length > 1}
 <CenteredLayout>
   <div class="container3" bind:this={top}>
-    <div class="row">
+    <div class="row mb-5">
       <LogoSimple/>
     </div>
     <div class="row mb-20">
@@ -107,15 +105,15 @@
         >
           <SidebarGroup ulClass="space-y-2" role="menu">
             <li>
-              <h2 class="text-xl mb-6">{@html $t("auth.select_broker", {values: { origin:$web_origin }})}</h2>
+              <h2 class="text-xl mb-6">{@html $t("auth.select_broker", {values: { origin:$host }})}</h2>
             </li>
             {#each Object.entries($brokers_info) as broker}
               <li
                 tabindex="0"
                 role="menuitem"
                 class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-                on:keypress={()=>select(broker[1])}
-                on:click={()=>select(broker[1])}
+                on:keypress={()=>select(broker)}
+                on:click={()=>select(broker)}
               >
                 {#if broker[1].localhost}
                   <ComputerDesktop tabindex="-1"
@@ -157,4 +155,6 @@
     </div>
   </div>
 </CenteredLayout>
+{/if}
+
 {/if}

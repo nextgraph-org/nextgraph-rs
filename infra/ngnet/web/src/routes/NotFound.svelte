@@ -11,7 +11,6 @@
 
 <script>
   import { Alert } from "flowbite-svelte";
-  export let params;
 </script>
 
 <div class="p-8">

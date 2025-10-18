@@ -6,6 +6,7 @@ packages:
     - sdk/js/alien-deepsignals
     - sdk/js/shex-orm
     - sdk/js/examples/multi-framework-signals
+    - sdk/js/examples/react-ldo
     - app/ui-common
     - app/nextgraph
     - engine/broker/auth

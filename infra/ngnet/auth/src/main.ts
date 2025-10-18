@@ -7,114 +7,63 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-import "./app.postcss";
-import "../../../../app/ui-common/src/styles.css";
-import { link, push } from "svelte-spa-router";
-import App from "./App.svelte";
-import { fromWritablePort, RemoteReadableStream } from 'remote-web-streams';
-import { web_origin } from './store';
+const searchParams = new URLSearchParams(window.location.search);
+let o = searchParams.get("o");
 
-import { select_default_lang } from "@ng-org/ui-common/lang";
-select_default_lang(()=>{return window.navigator.languages;}).then(() => {});
+let web_origin;
+let web_redirect;
+let wallet_port;
+let web_origin_host;
+let session;
 
-//let status_callback : WritableStreamDefaultWriter<any> | undefined = undefined;
+async function rpc( method:string, port: MessagePort, args?: any) : Promise<any> {
 
-const origin = decodeURIComponent(location.search.substring(3));
+  wallet_port.postMessage({ method, args, port: port }, [port]);
 
-document.getElementById("banner").innerText = "Opening Wallet for "+ new URL(origin).host;
-
-async function rpc( method:string, args?: any) : Promise<any> {
-  const { readable, writablePort } = new RemoteReadableStream();
-  (<any>window).ng_broker_selected.postMessage({ method, args, port: writablePort }, (<any>window).ng_iframe_origin, [writablePort]);
-  const reader = readable.getReader();
-  let ret = await reader.read();
-  await reader.read(); // the close
-  return ret.value;
 }
-
-async function rpc_stream( method:string, args: any, writer:WritableStreamDefaultWriter<any>) {
-  const { readable, writablePort } = new RemoteReadableStream();
-  (<any>window).ng_broker_selected.postMessage({ method, args, port: writablePort }, (<any>window).ng_iframe_origin, [writablePort]);
-  const reader = readable.getReader();
-  for (var msg; msg = await reader.read(); ) {
-    if (msg.done) {
-      writer.close();
-      break;
-    }
-    if (msg.value.error) {
-      writer.write(msg.value);
-      writer.close();
-      break;
-    } else if (msg.value.stream) {
-      writer.write(msg.value);
-    }
-    // TODO: deal with end of stream
-  }
-}
-
-const AUTH_HOME = "#/";
-// const AUTH_USER_PANEL = "#/user";
-// const AUTH_USER_ACCOUNTS = "#/user/accounts";
-// const AUTH_WALLET = "#/wallet";
 
 window.addEventListener("message", async (event)=>{
-  if (event.data.ready) return;
+  //console.log("ngnet auth got msg from", event.origin, event.data);
   const { method, port } = event.data;
-  const writable = fromWritablePort(port);
-  const writer = writable.getWriter();
-  if (event.origin !== origin) {
-    console.error("invalid origin",event.origin,origin)
-    writer.write({status:'error', error:'invalid origin'});
-    writer.close();
-  } else if ( method === "init" ) {
-    
-    (<any>window).ng_status_callback = writer;
-    web_origin.set(new URL(origin).host);
+  if (event.origin === o) {
+    if (event.data.ready) return;
+    if ( method === "init" ) {
+      web_redirect = event.data.manifest.origin;
+      let url = new URL(web_redirect);
+      web_origin = url.origin;
+      web_origin_host = url.host;
+      session = event.data.session;
+      port.onclose = () => {
+        console.error("BSP parent window closed its port with nextgraph.net");
+      };
+      wallet_port = port;
 
-    // make API call with origin, event.data.singleton and event.data.access_requests
-    // in order to get full manifest (including security info)
-
-    (<any>window).ng_manifest = {
-      origin: origin,
-      singleton: event.data.singleton,
-      access_request: event.data.access_requests,
-      name: "",
-      title: "",
-      description: "", // etc...
-      security_info: {}
-    };
-
-  } else if ( method === "login" ) {
-
-    if (!(<any>window).ng_broker_selected) {
-      push(AUTH_HOME);
-      writer.write({ok:true, ret: false});
-      writer.close();
-    } else {
-      writer.write(await rpc("login"));
-      writer.close();
+      let iframe = window.document.getElementById("nextgraph-app-iframe");
+      iframe.src = web_redirect;
     }
-  } else if ( method === "doc_subscribe" ) {
+  } else if (event.origin === web_origin) {
 
-    //console.log("net forward doc_subscribe to app", method, event.data.args)
-    await rpc_stream(method, event.data.args, writer);
+    if ( method === "init" ) {
+      //console.log("sending back session", session);
+      port.postMessage({ok:true, ret:session});
+      port.close();
+    } else if ( method === "close" ) {
+      wallet_port.postMessage({done:true});
+      wallet_port.close();
+      port.close();
+    } else {
+      //console.log("ngnet forward to Broker", method, event.data.args)
+      // forward to app auth window
+      await rpc(method, port, event.data.args);
+    }
 
-  } else {
-    //console.log("net forward to app", method, event.data.args)
-    // forward to app auth iframe
-    writer.write(await rpc(method, event.data.args));
-    writer.close();
-
+  }
+  else {
+    console.error("invalid origin",event.origin,o, web_origin)
+    port.postMessage({status:'error', error:'invalid origin'});
+    port.close();
   }
 
 }, false);
 
-/// for test purposes only, when testing with http://localhost:14402/?o=http://localhost:14402
-// const { readable, writablePort } = new RemoteReadableStream();
-// window.postMessage({method:"init", port: writablePort }, location.origin, [writablePort]);
-
-const app = new App({
-  target: document.getElementById("app"),
-});
-
-export default app;
+parent.postMessage({ready:true},o);

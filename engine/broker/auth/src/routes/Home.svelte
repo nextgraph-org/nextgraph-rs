@@ -48,7 +48,7 @@
 </script>
 
 {#if display_login_create}
-  <NoWallet />
+  <NoWallet without_create={true}/>
 {:else}
   <Home />
 {/if}

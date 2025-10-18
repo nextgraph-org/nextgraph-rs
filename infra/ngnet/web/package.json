@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build --base=./",
+    "buildfront": "pnpm -C ./web build && pnpm -C ./bootstrap build && pnpm -C ./auth builddev && pnpm -C ./redir builddev",
     "preview": "vite preview"
   },
   "dependencies": {

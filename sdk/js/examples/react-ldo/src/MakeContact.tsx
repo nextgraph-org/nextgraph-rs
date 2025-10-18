@@ -1,0 +1,60 @@
+import { FormEvent, FunctionComponent, useCallback, useState } from "react";
+import { BrowserNGLdoProvider, useLdo, dataset } from './reactMethods';
+import { SocialContactShapeType } from "./.ldo/contact.shapeTypes.ts";
+import { LdSet } from "@ldo/ldo";
+
+export const MakeContact: FunctionComponent = () => {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+
+  const { createData, commitData } = useLdo();
+
+  const onSubmit = useCallback(
+    async (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      const new_name = name.trim();
+      const new_email = email.trim();
+      if (new_name.trim().length > 2 && new_email.trim().length > 6 && new_email.indexOf("@") >= 0) { 
+        setName("");
+        setEmail("");
+        const resource = await dataset.createResource("nextgraph");
+        if (!resource.isError) {
+          //console.log("Created resource:", resource.uri);
+
+          const contact = createData(
+              SocialContactShapeType,
+              resource.uri.substring(0,53),
+              resource
+            );
+
+          contact.type = { "@id": "Individual" };
+          contact.fn = new_name;
+          contact.hasEmail = new_email;
+          const result = await commitData(contact);
+          if (result.isError) {
+              console.error(result.message);
+          }
+        }
+      }
+    },
+    [name, email]
+  );
+
+  return (
+    <form onSubmit={onSubmit}>
+      <input
+        type="text"
+        placeholder="Enter name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <input
+        type="text"
+        placeholder="Enter email address"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <input type="submit" id="save" value="Save" />
+    </form>
+  );
+};

@@ -33,7 +33,7 @@ Read our [getting started guide](https://docs.nextgraph.org/en/getting-started/)
 // for nodejs
 npm i nextgraph
 // or for browser
-npm i nextgraphweb
+npm i @ng-org/web
 ```
 
 ## Publishing to npm

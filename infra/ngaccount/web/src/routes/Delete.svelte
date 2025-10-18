@@ -115,8 +115,8 @@
               to use NextGraph. You have other options to select a new broker,
               like hosting it yourself, or buying an NG Box. Please visit <a
                 target="_blank"
-                href="https://nextgraph.net/#/account/register"
-                >https://nextgraph.net/#/account/register</a
+                href="https://nextgraph.eu/#/account/register"
+                >https://nextgraph.eu/#/account/register</a
               > in order to choose a new broker.
             </span>
           </li>

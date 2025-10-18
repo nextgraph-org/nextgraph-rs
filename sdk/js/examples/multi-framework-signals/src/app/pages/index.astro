@@ -5,12 +5,31 @@ import Highlight from "../components/Highlight.astro";
 import VueRoot from "../components/VueRoot.vue";
 import ReactRoot from "../components/ReactRoot";
 import SvelteRoot from "../components/SvelteRoot.svelte";
+
 // Hack to get mock backend started
 //import { mockTestObject } from "../../ng-mock/wasm-land/shapeHandler";
 
 const title = "Multi-framework app";
 ---
 
+<script>
+    import { ng, init } from "@ng-org/web";
+    await init(
+        (event: {
+            status: string;
+            session: {
+                session_id: unknown;
+                protected_store_id: unknown;
+                private_store_id: unknown;
+                public_store_id: unknown;
+            };
+        }) => {
+            console.log(event.status, event.session.session_id);
+        },
+        true,
+        []
+    );
+</script>
 <Layout title={title}>
     <Highlight vue>
         <VueRoot client:only />

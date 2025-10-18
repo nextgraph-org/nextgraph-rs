@@ -13,7 +13,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NextGraph Auth</title>
+    <title>NextGraph.net Auth Redirect</title>
     <style>
       .splashing {
         height: 95vh;
@@ -25,41 +25,10 @@
       .noshow {
         display: none !important;
       }
-      .nextgraph-app-auth-iframe {
-        visibility: hidden;
-      }
-      .nextgraph-app-auth-iframe.nextgraph-app-auth-iframe--active {
-        visibility: visible;
-      }
-      #banner {
-        padding-right: 36px !important;
-        width: 100%; position: fixed; left:0; top:0; min-height:36px; background-color: rgb(73, 114, 165); color: white; text-align:center ;z-index:10; padding:3px; font-size: 1.25rem;
-    line-height: 1.75rem; overflow-wrap: break-word; 
-      }
-      #close-auth {
-        position: fixed; right:0; top:0; width: 36px; height: 36px; background-color: rgb(73, 114, 165);z-index:11;
-        cursor:pointer;
-      }
     </style>
   </head>
 
   <body>
-      <iframe id="nextgraph-app-auth-iframe" class="nextgraph-app-auth-iframe" scrolling="auto" frameborder="0"
-        style="position: fixed; left: 0; top: 0; height: 100%; width: 100%; overflow:auto;">
-      </iframe>
-    <div id="banner">
-      
-    </div>
-    <div id="close-auth">
-      <svg data-slot="icon" fill="none" stroke-width="1.5" stroke="white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"></path>
-      </svg>
-    </div>
-    <script>
-      document.getElementById("close-auth").onclick = (e)=> {
-        window.ng_status_callback.write({status:"cancelled"});
-      };
-    </script>
     <div id="splash" class="splashing">
       <div style="flex-direction: column;justify-content: center;color:#4972a5;width:100%;text-align:center;font-family: Inter, Avenir, Helvetica, Arial, sans-serif;">
         <svg

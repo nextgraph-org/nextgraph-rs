@@ -16,7 +16,6 @@
   import {
     ArrowLeft,
   } from "svelte-heros-v2";
-  export let params;
 </script>
 
 <CenteredLayout displayFooter={true}>

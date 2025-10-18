@@ -16,8 +16,7 @@
     "@tailwindcss/typography": "^0.5.13",
     "svelte-i18n": "^4.0.0",
     "@ng-org/ui-common": "workspace:*",
-    "@ng-org/api-web": "workspace:*",
-    "remote-web-streams": "^0.2.0"
+    "@ng-org/api-web": "workspace:*"
   },
   "devDependencies": {
     "shx": "^0.3.4",

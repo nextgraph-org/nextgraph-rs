@@ -13,11 +13,12 @@ pnpm install
 
 ## Dev
 
-compile the 2 helpers, in dev mode
+compile the 3 front-ends, in dev mode
 
 ```
-pnpm -C ../net-auth builddev
-pnpm -C ../net-bootstrap builddev
+pnpm -C ./auth builddev
+pnpm -C ./bootstrap builddev
+pnpm -C ./redir builddev
 ```
 
 ```bash
@@ -34,9 +35,7 @@ cargo watch -c -w src -x run
 ## Prod
 
 ```
-pnpm -C ../net-auth build
-pnpm -C ../net-bootstrap build
-pnpm -C ./web build
+pnpm buildfront
 cargo build -r
 ```
 

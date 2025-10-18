@@ -30,11 +30,11 @@
   import { LockOpen, FingerPrint, ExclamationTriangle } from "svelte-heros-v2";
   import {
     NG_EU_BSP,
-    NG_NET_BSP,
+    NG_ONE_BSP,
     LINK_NG_BOX,
     LINK_SELF_HOST,
     NG_EU_BSP_REGISTER,
-    NG_NET_BSP_REGISTER,
+    NG_ONE_BSP_REGISTER,
     APP_WALLET_CREATE_SUFFIX,
     default as ng,
   } from "../api";
@@ -450,8 +450,8 @@
   const selectEU = async (event) => {
     await select_bsp(NG_EU_BSP_REGISTER, "nextgraph.eu");
   };
-  const selectNET = async (event) => {
-    await select_bsp(NG_NET_BSP_REGISTER, "nextgraph.net");
+  const selectONE = async (event) => {
+    await select_bsp(NG_ONE_BSP_REGISTER, "nextgraph.one");
   };
   const enterINVITE = (event) => {};
   const enterQRcode = (event) => {};

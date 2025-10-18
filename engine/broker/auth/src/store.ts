@@ -9,17 +9,10 @@
 
 import {
     writable,
-    readable,
-    readonly,
-    derived,
-    get,
     type Writable,
 } from "svelte/store";
 
-import { createAsyncProxy } from "async-proxy";
-import { RemoteReadableStream } from 'remote-web-streams';
-
 export const manifest = writable<undefined | Object>( undefined );
 
-// import worker_ from "./worker.js?worker&inline";
-// const worker = new worker_();
+export const origin = writable<undefined | string>( undefined );
+
