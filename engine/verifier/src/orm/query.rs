@@ -11,7 +11,7 @@ use ng_repo::errors::VerifierError;
 
 use std::collections::HashSet;
 
-pub use ng_net::orm::{OrmDiff, OrmShapeType};
+pub use ng_net::orm::{OrmPatches, OrmShapeType};
 
 use crate::orm::types::*;
 use crate::orm::utils::{escape_literal, is_iri};

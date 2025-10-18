@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::u64;
 
 use futures::SinkExt;
-pub use ng_net::orm::{OrmDiff, OrmShapeType};
+pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
 use ng_repo::log::*;
 
@@ -132,7 +132,7 @@ impl Verifier {
                 );
 
                 // The JSON patches to send to JS land.
-                let mut patches: Vec<OrmDiffOp> = vec![];
+                let mut patches: Vec<OrmPatch> = vec![];
 
                 // Keep track of objects to create: (path, Option<IRI>)
                 // The IRI is Some for real subjects, None for intermediate objects (e.g., multi-valued predicate containers)
@@ -199,7 +199,7 @@ impl Verifier {
                                 &sub.tracked_subjects,
                                 &sub.shape_type.shape,
                                 &mut path,
-                                (OrmDiffOpType::remove, Some(OrmDiffType::object), None, None),
+                                (OrmPatchOp::remove, Some(OrmPatchType::object), None, None),
                                 &mut patches,
                                 &mut objects_to_create,
                             );
@@ -255,17 +255,17 @@ impl Verifier {
                     let json_pointer = format!("/{}", escaped_path.join("/"));
 
                     // Always create the object itself
-                    patches.push(OrmDiffOp {
-                        op: OrmDiffOpType::add,
-                        valType: Some(OrmDiffType::object),
+                    patches.push(OrmPatch {
+                        op: OrmPatchOp::add,
+                        valType: Some(OrmPatchType::object),
                         path: json_pointer.clone(),
                         value: None,
                     });
 
                     // If this object has an IRI (it's a real subject), add the id field
                     if let Some(iri) = maybe_iri {
-                        patches.push(OrmDiffOp {
-                            op: OrmDiffOpType::add,
+                        patches.push(OrmPatch {
+                            op: OrmPatchOp::add,
                             valType: None,
                             path: format!("{}/@id", json_pointer),
                             value: Some(json!(iri)),
@@ -291,7 +291,7 @@ fn queue_patches_for_newly_valid_subject(
     tracked_subjects: &HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
     root_shape: &String,
     path: &[String],
-    patches: &mut Vec<OrmDiffOp>,
+    patches: &mut Vec<OrmPatch>,
     objects_to_create: &mut HashSet<(Vec<String>, Option<SubjectIri>)>,
 ) {
     // Check if we're at a root subject or need to traverse to parents
@@ -435,12 +435,12 @@ fn build_path_to_root_and_create_patches(
     root_shape: &String,
     path: &mut Vec<String>,
     diff_op: (
-        OrmDiffOpType,
-        Option<OrmDiffType>,
+        OrmPatchOp,
+        Option<OrmPatchType>,
         Option<Value>,  // The value added / removed
         Option<String>, // The IRI, if change is an added / removed object.
     ),
-    patches: &mut Vec<OrmDiffOp>,
+    patches: &mut Vec<OrmPatch>,
     objects_to_create: &mut HashSet<(Vec<String>, Option<SubjectIri>)>,
 ) {
     log_debug!(
@@ -465,7 +465,7 @@ fn build_path_to_root_and_create_patches(
         );
 
         // Create the patch for the actual value change
-        patches.push(OrmDiffOp {
+        patches.push(OrmPatch {
             op: diff_op.0.clone(),
             valType: diff_op.1.clone(),
             path: json_pointer.clone(),
@@ -515,8 +515,8 @@ fn build_path_to_root_and_create_patches(
 fn create_diff_ops_from_predicate_change(
     pred_change: &OrmTrackedPredicateChanges,
 ) -> Vec<(
-    OrmDiffOpType,
-    Option<OrmDiffType>,
+    OrmPatchOp,
+    Option<OrmPatchType>,
     Option<Value>,  // The value added / removed
     Option<String>, // The IRI, if change is an added / removed object.
 )> {
@@ -537,7 +537,7 @@ fn create_diff_ops_from_predicate_change(
             // A value was added. Another one might have been removed
             // but the add patch overwrite previous values.
             return [(
-                OrmDiffOpType::add,
+                OrmPatchOp::add,
                 None,
                 Some(json!(pred_change.values_added[0])),
                 None,
@@ -545,21 +545,21 @@ fn create_diff_ops_from_predicate_change(
             .to_vec();
         } else {
             // Since there is only one possible value, removing the path is enough.
-            return [(OrmDiffOpType::remove, None, None, None)].to_vec();
+            return [(OrmPatchOp::remove, None, None, None)].to_vec();
         }
     } else if is_multi && !is_object {
         if pred_change.values_added.len() > 0 {
             ops.push((
-                OrmDiffOpType::add,
-                Some(OrmDiffType::set),
+                OrmPatchOp::add,
+                Some(OrmPatchType::set),
                 Some(json!(pred_change.values_added)),
                 None,
             ));
         }
         if pred_change.values_removed.len() > 0 {
             ops.push((
-                OrmDiffOpType::remove,
-                Some(OrmDiffType::set),
+                OrmPatchOp::remove,
+                Some(OrmPatchType::set),
                 Some(json!(pred_change.values_removed)),
                 None,
             ));

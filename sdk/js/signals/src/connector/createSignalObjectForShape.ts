@@ -1,17 +1,10 @@
 import type { Diff, Scope } from "../types.js";
 import { applyDiff } from "./applyDiff.js";
 
-import ng from "@ng-org/lib-wasm";
+import type * as NG from "@ng-org/lib-wasm";
 
-import {
-    deepSignal,
-    watch,
-    batch,
-} from "@ng-org/alien-deepsignals";
-import type {
-    DeepPatch,
-    DeepSignalObject,
-} from "@ng-org/alien-deepsignals";
+import { deepSignal, watch, batch } from "@ng-org/alien-deepsignals";
+import type { DeepPatch, DeepSignalObject } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
 
 interface PoolEntry<T extends BaseType> {

@@ -58,7 +58,7 @@ use ng_wallet::types::*;
 use ng_wallet::*;
 
 use nextgraph::local_broker::*;
-use nextgraph::verifier::orm::{OrmDiff, OrmShapeType};
+use nextgraph::verifier::orm::{OrmPatches, OrmShapeType};
 use nextgraph::verifier::CancelFn;
 
 use crate::model::*;

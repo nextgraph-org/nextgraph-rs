@@ -23,30 +23,30 @@ pub struct OrmShapeType {
     pub shape: String,
 }
 
-/* == Diff Types == */
+/* == Patch Types == */
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[allow(non_camel_case_types)]
-pub enum OrmDiffOpType {
+pub enum OrmPatchOp {
     add,
     remove,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[allow(non_camel_case_types)]
-pub enum OrmDiffType {
+pub enum OrmPatchType {
     set,
     object,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OrmDiffOp {
-    pub op: OrmDiffOpType,
-    pub valType: Option<OrmDiffType>,
+pub struct OrmPatch {
+    pub op: OrmPatchOp,
+    pub valType: Option<OrmPatchType>,
     pub path: String,
     pub value: Option<Value>, // TODO: Improve type
 }
 
-pub type OrmDiff = Vec<OrmDiffOp>;
+pub type OrmPatches = Vec<OrmPatch>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmUpdateBlankNodeId {

@@ -13,7 +13,7 @@ use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
-    BasicType, OrmDiffOp, OrmDiffOpType, OrmDiffType, OrmSchemaDataType, OrmSchemaPredicate,
+    BasicType, OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaDataType, OrmSchemaPredicate,
     OrmSchemaShape, OrmSchemaValType, OrmShapeType,
 };
 
@@ -44,11 +44,17 @@ async fn test_orm_apply_patches() {
     // Test 5: Remove from multi-value literal array
     test_patch_remove_from_array(session_id).await;
 
-    // // Test 6: Nested object - modify nested literal
+    // Test 6: Nested object - modify nested literal
     test_patch_nested_literal(session_id).await;
 
     // Test 7: Multi-level nesting
     test_patch_multilevel_nested(session_id).await;
+
+    // Test 8: Root object creation
+    test_patch_create_root_object(session_id).await;
+
+    // Test 9: Nested object creation
+    test_patch_create_nested_object(session_id).await;
 }
 
 /// Test adding a single literal value via ORM patch
@@ -122,8 +128,8 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Add name
-    let diff = vec![OrmDiffOp {
-        op: OrmDiffOpType::add,
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
         path: "urn:test:person1/name".to_string(),
         valType: None,
         value: Some(json!("Alice")),
@@ -221,8 +227,8 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Remove name
-    let diff = vec![OrmDiffOp {
-        op: OrmDiffOpType::remove,
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
         path: "urn:test:person2/name".to_string(),
         valType: None,
         value: Some(json!("Bob")),
@@ -327,8 +333,8 @@ INSERT DATA {
         //     valType: None,
         //     value: Some(json!("Charlie")),
         // },
-        OrmDiffOp {
-            op: OrmDiffOpType::add,
+        OrmPatch {
+            op: OrmPatchOp::add,
             path: "urn:test:person3/name".to_string(),
             valType: None,
             value: Some(json!("Charles")),
@@ -434,9 +440,9 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Add hobby
-    let diff = vec![OrmDiffOp {
-        op: OrmDiffOpType::add,
-        valType: Some(OrmDiffType::set),
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        valType: Some(OrmPatchType::set),
         path: "urn:test:person4/hobby".to_string(),
         value: Some(json!("Swimming")),
     }];
@@ -535,8 +541,8 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Remove hobby
-    let diff = vec![OrmDiffOp {
-        op: OrmDiffOpType::remove,
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::remove,
         path: "urn:test:person5/hobby".to_string(),
         valType: None,
         value: Some(json!("Swimming")),
@@ -704,8 +710,8 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Change city in nested address
-    let diff = vec![OrmDiffOp {
-        op: OrmDiffOpType::add,
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
         path: "urn:test:person6/address/city".to_string(),
         valType: None,
         value: Some(json!("Shelbyville")),
@@ -923,8 +929,8 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Change street in company's headquarter address (3 levels deep)
-    let diff = vec![OrmDiffOp {
-        op: OrmDiffOpType::add,
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
         path: "urn:test:person7/company/urn:test:company1/headquarter/street".to_string(),
         valType: None,
         value: Some(json!("Rich Street")),
@@ -956,4 +962,305 @@ INSERT DATA {
     assert!(has_new_street, "New street should be added");
 
     log_info!("✓ Test passed: Multi-level nested modification");
+}
+
+/// Test multi-level nested object modifications via ORM patch
+async fn test_patch_create_root_object(session_id: u64) {
+    log_info!("\n\n=== TEST: Creation of root object ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:person7> a ex:Person ;
+        ex:name "Eve" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/PersonShape".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/PersonShape".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "name".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/PersonShape".to_string(),
+        schema,
+    };
+
+    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .expect("orm_start failed");
+
+    // Get initial state
+    while let Some(app_response) = receiver.next().await {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+            break;
+        }
+    }
+
+    // Apply ORM patch: Create a new object
+    let diff = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "urn:test:person8".to_string(),
+            valType: Some(OrmPatchType::object),
+            value: None,
+        },
+        OrmPatch {
+            // This does nothing as it does not represent a triple.
+            // A subject is created when inserting data.
+            op: OrmPatchOp::add,
+            path: "urn:test:person8/@id".to_string(),
+            valType: Some(OrmPatchType::object),
+            value: None,
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "urn:test:person8/type".to_string(),
+            valType: None,
+            value: Some(json!("http://example.org/Person")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "urn:test:person8/name".to_string(),
+            valType: None,
+            value: Some(json!("Alice")),
+        },
+    ];
+
+    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+        .await
+        .expect("orm_update failed");
+
+    // Verify the change was applied
+    let triples = doc_sparql_construct(
+        session_id,
+        "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL query failed");
+
+    let has_name = triples.iter().any(|t| {
+        t.to_string() == "urn:test:person8"
+            && t.predicate.as_str() == "http://example.org/name"
+            && t.object.to_string().contains("Alice")
+    });
+    let has_type = triples.iter().any(|t| {
+        t.predicate.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+            && t.object.to_string().contains("http://example.org/Person")
+    });
+
+    assert!(!has_name, "New person has name");
+    assert!(has_type, "New person has type");
+
+    log_info!("✓ Test passed: Creation of root object");
+}
+
+/// Test adding a second address object.
+async fn test_patch_create_nested_object(session_id: u64) {
+    log_info!("\n\n=== TEST: Nested object creation ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:person9> a ex:Person ;
+        ex:name "Dave" ;
+        ex:address <urn:test:address1> .
+    
+    <urn:test:address1> a ex:Address ;
+        ex:street "Main St" ;
+        ex:city "Springfield" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    readablePredicate: "name".to_string(),
+                    extra: Some(false),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/address".to_string(),
+                    readablePredicate: "address".to_string(),
+                    extra: Some(false),
+                    minCardinality: 0,
+                    maxCardinality: 2,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        shape: Some("http://example.org/Address".to_string()),
+                        literals: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    schema.insert(
+        "http://example.org/Address".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Address".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Address".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/street".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "street".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+
+    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .expect("orm_start failed");
+
+    // Get initial state
+    while let Some(app_response) = receiver.next().await {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+            break;
+        }
+    }
+
+    // Apply ORM patch: Add a second address.
+    let diff = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "urn:test:person9/address/http:~1~1example.org~1exampleAddress/type".to_string(),
+            valType: None,
+            value: Some(json!("http://example.org/Address")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: "urn:test:person9/address/http:~1~1example.org~1exampleAddress/street"
+                .to_string(),
+            valType: None,
+            value: Some(json!("Heaven Avenue")),
+        },
+    ];
+
+    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+        .await
+        .expect("orm_update failed");
+
+    // Verify the change was applied
+    let triples = doc_sparql_construct(
+        session_id,
+        "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL query failed");
+
+    let has_new_address_type = triples.iter().any(|t| {
+        t.subject
+            .to_string()
+            .contains("http://example.org/exampleAddress")
+            && t.predicate.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+            && t.object.to_string().contains("http://example.org/Address")
+    });
+    let has_new_address_street = triples.iter().any(|t| {
+        t.subject
+            .to_string()
+            .contains("http://example.org/exampleAddress")
+            && t.predicate.as_str() == "http://example.org/street"
+            && t.object.to_string().contains("Heaven Avenue")
+    });
+
+    assert!(has_new_address_type, "New address type should be added");
+    assert!(has_new_address_street, "New street should be added");
+
+    log_info!("✓ Test passed: Nested object creation");
 }

@@ -17,13 +17,13 @@ pub mod shape_validation;
 pub mod types;
 pub mod utils;
 
-pub use ng_net::orm::{OrmDiff, OrmShapeType};
+pub use ng_net::orm::{OrmPatches, OrmShapeType};
 
 use crate::orm::types::*;
 use crate::verifier::*;
 
 impl Verifier {
-    pub(crate) fn clean_orm_subscriptions(&mut self) {
+    pub(crate) fn _clean_orm_subscriptions(&mut self) {
         self.orm_subscriptions.retain(|_, subscriptions| {
             subscriptions.retain(|sub| !sub.sender.is_closed());
             !subscriptions.is_empty()
