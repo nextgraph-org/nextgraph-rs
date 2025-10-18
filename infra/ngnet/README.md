@@ -35,7 +35,7 @@ cargo watch -c -w src -x run
 ## Prod
 
 ```
-pnpm buildfront
+cargo run-script buildfront
 cargo build -r
 ```
 

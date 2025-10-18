@@ -80,6 +80,7 @@
   try {
     url = new URL(decodeURIComponent(param.get("ab")));
     msgs = JSON.parse(base64UrlDecode(param.get("b")));
+    console.log(JSON.stringify(msgs));
     if (!method)
       throw new Error("InvalidValue");
   }
@@ -118,7 +119,7 @@
 
       let key;
 
-      //console.log("ng_bootstrap received msg",JSON.stringify(data), is_ng_box, is_domain,is_lan,is_local,new URL(origin_url).hostname, new URL(origin_url).hostname === data.domain, data.domain && is_domain && new URL(origin_url).hostname === data.domain  )
+      console.log("ng_bootstrap received msg",JSON.stringify(data), is_ng_box, is_domain,is_lan,is_local,new URL(origin_url).hostname, new URL(origin_url).hostname === data.domain, data.domain && is_domain && new URL(origin_url).hostname === data.domain  )
 
       if (data.ngbox && (is_ng_box || is_lan || is_local || is_domain)) {
         key = "Self-hosted / NGbox";
@@ -161,6 +162,7 @@
           //console.log("removed",key);
         }
       }
+      console.log(JSON.stringify(bootstraps));
       localStorage.setItem("ng_bootstrap",JSON.stringify(bootstraps));
     } catch (e) {
       abort("NoLocalStorage");

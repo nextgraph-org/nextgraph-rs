@@ -89,9 +89,10 @@
   //   let walls = await ng.get_wallets();
   //   wallets.set(walls);
   // };
+  const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
   const iframe_config = import.meta.env.DEV ? {src:"http://localhost:14404/?o=", origin: "http://localhost:14404"} :
     import.meta.env.NG_DEV ? {src:"http://localhost:1421/auth.html?o=", origin: "http://localhost:1421"} :
-                             {src:"https://nextgraph.net/auth/?o=", origin: "https://nextgraph.net"} ;
+                             {src:`https://${redirect_server}/auth/?o=`, origin: `https://${redirect_server}`} ;
   // to test ngnet
   //const iframe_config = {src:"http://127.0.0.1:3033/auth/?o=", origin: "http://127.0.0.1:3033"}; 
 

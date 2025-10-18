@@ -28,5 +28,5 @@
    * Use global.d.ts instead of compilerOptions.types
    * to avoid limiting type declarations.
    */
-  "include": ["../../helpers/ngaccount/web/src/**/*.d.ts", "../../helpers/ngaccount/web/src/**/*.js", "../../helpers/ngaccount/web/src/**/*.svelte"]
+  "include": ["src/**/*.d.ts", "src/**/*.js", "src/**/*.svelte"]
 }

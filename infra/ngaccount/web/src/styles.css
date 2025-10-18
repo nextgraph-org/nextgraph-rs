@@ -1,0 +1,368 @@
+/*
+// Copyright (c) 2022-2025 Niko Bonnieure, Par le Peuple, NextGraph.org developers
+// All rights reserved.
+// Licensed under the Apache License, Version 2.0
+// <LICENSE-APACHE2 or http://www.apache.org/licenses/LICENSE-2.0>
+// or the MIT license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
+// at your option. All files in the project carrying such
+// notice may not be copied, modified, or distributed except
+// according to those terms.
+*/
+
+td.hljs {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/** To format paths, like Settings > Wallet > Generate Wallet QR */
+.path {
+    font-family: monospace;
+    background-color: rgba(73, 114, 165, 0.1);
+}
+/* .splash-loaded {
+    display: none;
+} */
+
+.split-editor {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: 1fr;
+}
+
+.split-editor:has(.milkdown-split-editor.hidden) {
+    grid-template-columns: repeat(1, 1fr);
+}
+
+.milkdown-split-editor.hidden {
+    display: none;
+}
+
+.ProseMirror.editor_empty::before {
+    position: absolute;
+    content: attr(data-placeholder);
+    pointer-events: none;
+    color: rgb(170, 170, 170);
+}
+
+.prosemirror-editor,
+.prosemirror-editor .milkdown,
+.prosemirror-editor .milkdown .ProseMirror {
+    height: 100%;
+    overflow-wrap: anywhere !important;
+}
+.prosemirror-editor:focus {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+}
+
+.post-rich-text em,
+.prose em {
+    font-style: italic;
+    font-family: Verdana, Arial, sans-serif;
+}
+/*
+.post-rich-text h1 {
+    font-size: 2.5rem;
+    line-height: 4rem;
+}
+
+.post-rich-text h2 {
+    font-size: 2rem;
+    line-height: 3rem;
+}
+
+.post-rich-text h3 {
+    font-size: 1.5rem;
+    line-height: 2.5rem;
+}
+
+.post-rich-text h4 {
+    font-size: 1.25rem;
+    line-height: 2rem;
+    font-weight: 700;
+}
+
+.post-rich-text h5 {
+    font-size: 1.125rem;
+    line-height: 2rem;
+} */
+.prose {
+    max-width: 100%;
+}
+
+.prose .emoji {
+    width: 25px;
+}
+
+.prose li p,
+.prose dd p {
+    margin: 0;
+}
+
+.prose table {
+    width: calc(100% - 32px) !important;
+}
+
+@media (max-width: 400px) {
+    .popup-bg-modal + div {
+        padding: 0 !important;
+    }
+}
+
+.menu-bg-modal + div {
+    padding: 0 !important;
+    height: 100%;
+}
+.menu-bg-modal + div > div {
+    width: 320px !important;
+    height: 100%;
+}
+.menu-modal {
+    border-radius: 0;
+}
+.menu-modal div {
+    padding: 0;
+}
+.menu-modal div.commit {
+    padding: 8px;
+}
+.menu-modal > button {
+    display: none;
+}
+.menu-modal li {
+    margin: 5px;
+}
+.menu-modal li.submenu {
+    padding-left: 30px;
+}
+.toggle * {
+    cursor: pointer;
+}
+
+.error-popover h3 {
+    text-align: center;
+    color: rgb(200 30 30);
+}
+.error-popover > div:first-child {
+    background-color: rgb(200 30 30);
+}
+.error-popover > div:first-child > h3 {
+    color: white;
+}
+
+/*
+#scanner-div {
+    border: none !important;
+}
+/* #scanner-div * {
+    display: none;
+} 
+#scanner-div__scan_region {
+    display: block;
+}
+#scanner-div__scan_region * {
+    display: block;
+}
+#html5-qrcode-button-camera-permission {
+    display: none !important;
+}
+/* #scanner-div__dashboard_section_csr {
+    display: none !important;
+} 
+#html5-qrcode-anchor-scan-type-change {
+    display: none !important;
+}
+[alt="Camera based scan"] {
+    display: none !important;
+}
+[alt="Info icon"] {
+    display: none !important;
+}*/
+
+.logo {
+    padding: 1.5em;
+    will-change: filter;
+    transition: 0.75s;
+    padding-bottom: 1em;
+}
+
+@keyframes pulse-logo-color {
+    0%,
+    100% {
+        fill: rgb(73, 114, 165);
+        stroke: rgb(73, 114, 165);
+    }
+    50% {
+        /* Mid-transition color */
+        stroke: #bbb;
+        fill: #bbb;
+    }
+}
+
+.logo-pulse path {
+    animation: pulse-logo-color 2s infinite;
+    animation-timing-function: cubic-bezier(0.65, 0.01, 0.59, 0.83);
+}
+
+.logo-gray path {
+    fill: #bbb;
+    stroke: #bbb;
+}
+
+.logo-blue path {
+    fill: rgb(73, 114, 165);
+    stroke: rgb(73, 114, 165);
+}
+
+.jse-absolute-popup-content {
+    left: 0 !important;
+}
+
+.container3 {
+    margin: 0;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+}
+
+.container3 aside {
+    width: 20rem !important;
+}
+
+div[role="alert"] div {
+    display: block;
+}
+
+.spinner-overlay button {
+    display: none;
+}
+
+.choice-button {
+    min-width: 305px;
+}
+
+.clickable {
+    cursor: pointer;
+}
+
+.row {
+    display: flex;
+    justify-content: center;
+}
+
+.deactivated-menu > svg {
+    color: rgb(156 163 175) !important;
+}
+
+:root {
+    font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
+
+    color: #0f0f0f;
+    background-color: white;
+
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    display: flex;
+    place-items: center;
+    min-width: 305px;
+    min-height: 100vh;
+}
+
+#app {
+    width: 100%;
+}
+/* #app {
+  /*max-width: 1280px;
+  margin: 0 auto;
+  padding: 0rem;
+  text-align: center;
+} */
+
+/* .container2 {
+  padding-top: 10vh;
+} */
+
+a {
+    font-weight: 500;
+    color: #646cff;
+    text-decoration: inherit;
+}
+
+a:hover {
+    color: #535bf2;
+}
+
+.toast {
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 49;
+    cursor: pointer;
+}
+
+input,
+button {
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    font-weight: 500;
+    font-family: inherit;
+    color: #0f0f0f;
+    background-color: #ffffff;
+    transition: border-color 0.25s;
+    box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+}
+
+button {
+    cursor: pointer;
+}
+
+button:hover {
+    border-color: #396cd8;
+}
+button:active {
+    border-color: #396cd8;
+    background-color: #e8e8e8;
+}
+
+/* input,
+button {
+  outline: none;
+} */
+
+button:focus,
+button:focus-visible {
+    outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* @media (prefers-color-scheme: dark) {
+    :root {
+        color: #f6f6f6;
+        background-color: #2f2f2f;
+    }
+
+    a:hover {
+        color: #24c8db;
+    }
+
+    input,
+    button {
+        color: #ffffff;
+        background-color: #0f0f0f98;
+    }
+    button:active {
+        background-color: #0f0f0f69;
+    }
+} */

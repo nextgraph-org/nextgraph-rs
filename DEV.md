@@ -6,7 +6,7 @@
 
 On OpenBSD, for LLVM you need to choose llvm-17.
 
-Until this [PR](https://github.com/rustwasm/wasm-pack/pull/1271) is accepted, will have to install wasm-pack this way:
+On all platforms, we have to install wasm-pack this way:
 
 ```
 cargo install wasm-pack --git https://git.nextgraph.org/NextGraph/wasm-pack.git --branch master

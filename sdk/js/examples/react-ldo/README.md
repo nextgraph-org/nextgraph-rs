@@ -1,4 +1,4 @@
-# example-webapp-react
+# example-webapp-react-ldo
 
 Example of a Web app made with NextGraph, using React and LDO, and Vite
 
@@ -13,23 +13,28 @@ Example of a Web app made with NextGraph, using React and LDO, and Vite
 ## For developing against a public Broker
 
 ```
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
-You will have to use a Wallet that was created on one of our public Broker Service Providers (nextgraph.eu by example) before you can actually login. We didn't implement yet the option to create a Wallet while you are using or developing a 3rd party app.
+You will have to use a Wallet that was created on one of our public Broker Service Providers (nextgraph.eu by example) before you can actually login. We didn't implement yet the option to create a Wallet while you are using or developing a 3rd party app, so you have to create the account before using the webapp.
+
+If you need to connect via the staging server, run these commands before starting your webapp:
+
+```
+export NG_REDIR_SERVER=staging.nextgraph.net
+pnpm run -C ../../web build
+```
 
 ## For developing locally
 
 you need to have a running local ngd server. See those [instructions first](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/DEV.md#first-run).
 
-If you are running a local devenv for the frontend of nextGraph on http://localhost:1421 , then (and only then) you need to compile the @ng-org/web package in dev mode:
+If you are running a local dev env for the frontend of NextGraph on http://localhost:1421 , then (and only then) you need to compile the @ng-org/web package in dev mode:
 
 ```
 pnpm run -C ../../web builddev
 ```
-
-Due to the way `npm link` works, you will have to run this command again, after each time you use `npm install`.
 
 Otherwise, if you are using http://localhost:14400 in your browser, just skip the line above, and continue with those:
 

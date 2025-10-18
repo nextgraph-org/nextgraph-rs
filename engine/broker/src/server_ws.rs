@@ -277,19 +277,19 @@ fn upgrade_ws_or_serve_app(
             // if referer.is_none() || referer.unwrap().to_str().is_err() || referer.unwrap().to_str().unwrap() != "https://nextgraph.net/" {
             //     return Err(make_error(StatusCode::FORBIDDEN));
             // }
-            let webapp_origin = match uri.query() {
-                Some(query) => {
-                    if query.starts_with("o=") {
-                        match decode(&query.chars().skip(2).collect::<String>()) {
-                            Err(_) => return Err(make_error(StatusCode::BAD_REQUEST)),
-                            Ok(cow) => cow.into_owned(),
-                        }
-                    } else {
-                        return Err(make_error(StatusCode::BAD_REQUEST));
-                    }
-                }
-                None => return Err(make_error(StatusCode::BAD_REQUEST)),
-            };
+            // let webapp_origin = match uri.query() {
+            //     Some(query) => {
+            //         if query.starts_with("o=") {
+            //             match decode(&query.chars().skip(2).collect::<String>()) {
+            //                 Err(_) => return Err(make_error(StatusCode::BAD_REQUEST)),
+            //                 Ok(cow) => cow.into_owned(),
+            //             }
+            //         } else {
+            //             return Err(make_error(StatusCode::BAD_REQUEST));
+            //         }
+            //     }
+            //     None => return Err(make_error(StatusCode::BAD_REQUEST)),
+            // };
             let sha_file = AppAuth::get("index.sha256").unwrap();
             let sha = format!(
                 "\"{}\"",

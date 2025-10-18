@@ -13,6 +13,9 @@ keywords.workspace = true
 documentation.workspace = true
 rust-version.workspace = true
 
+[package.metadata.scripts]
+buildfront = "pnpm -C ./web build && pnpm -C ./bootstrap build && pnpm -C ./auth build && pnpm -C ./redir build"
+
 [dependencies]
 serde = { version = "1.0.142", features = ["derive"] }
 tokio = { version = "1.27", features = ["full"] }

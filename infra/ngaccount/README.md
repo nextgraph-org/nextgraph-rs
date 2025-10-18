@@ -7,7 +7,7 @@ This server is used internally by NextGraph to handle the creation of accounts a
 ```
 cd web
 npm install -g pnpm
-pnpm --ignore-workspace install
+pnpm install
 ```
 
 ## Dev
@@ -27,7 +27,6 @@ export NG_ACCOUNT_LOCAL_PEER_KEY=kbz34OFqaWu59xYaqViP0esME2MmcroS94pc4lEEsEsA
 export NG_ACCOUNT_SERVER=127.0.0.1,14400,[YOUR_NGD_PEER_ID]
 export RUST_LOG=debug
 ```
-
 
 ```bash
 cd web
