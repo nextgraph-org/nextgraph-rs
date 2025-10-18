@@ -24,14 +24,14 @@ pub struct OrmShapeType {
 }
 
 /* == Diff Types == */
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum OrmDiffOpType {
     add,
     remove,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum OrmDiffType {
     set,
@@ -66,7 +66,7 @@ pub struct OrmSchemaShape {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 #[allow(non_camel_case_types)]
-pub enum OrmSchemaLiteralType {
+pub enum OrmSchemaValType {
     number,
     string,
     boolean,
@@ -85,7 +85,7 @@ pub enum BasicType {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmSchemaDataType {
-    pub valType: OrmSchemaLiteralType,
+    pub valType: OrmSchemaValType,
     pub literals: Option<Vec<BasicType>>,
     pub shape: Option<String>,
 }
@@ -100,13 +100,23 @@ pub struct OrmSchemaPredicate {
     pub minCardinality: i32,
     pub extra: Option<bool>,
 }
+impl OrmSchemaPredicate {
+    pub fn is_multi(&self) -> bool {
+        self.maxCardinality > 1 || self.maxCardinality == -1
+    }
+    pub fn is_object(&self) -> bool {
+        self.dataTypes
+            .iter()
+            .any(|dt| dt.valType == OrmSchemaValType::shape)
+    }
+}
 
 impl Default for OrmSchemaDataType {
     fn default() -> Self {
         Self {
             literals: None,
             shape: None,
-            valType: OrmSchemaLiteralType::string,
+            valType: OrmSchemaValType::string,
         }
     }
 }

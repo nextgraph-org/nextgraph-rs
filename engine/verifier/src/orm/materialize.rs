@@ -103,16 +103,13 @@ impl Verifier {
         let mut return_vals: Value = Value::Array(vec![]);
         let return_val_vec = return_vals.as_array_mut().unwrap();
 
-        // log_debug!(
-        //     "Tracked subjects:\n{:?}\n",
-        //     orm_subscription.tracked_subjects,
-        // );
+        log_debug!("\nMaterializing: {}", shape_type.shape);
         // For each valid change struct, we build an orm object.
         // The way we get the changes from the tracked subjects is a bit hacky, sorry.
         for (subject_iri, tracked_subjects_by_shape) in &orm_subscription.tracked_subjects {
             if let Some(tracked_subject) = tracked_subjects_by_shape.get(&shape_type.shape) {
                 let ts = tracked_subject.read().unwrap();
-                log_info!("changes for: {:?} valid: {:?}\n", ts.subject_iri, ts.valid);
+                log_info!(" - changes for: {:?} valid: {:?}", ts.subject_iri, ts.valid);
 
                 if ts.valid == OrmTrackedSubjectValidity::Valid {
                     if let Some(change) = changes
@@ -164,7 +161,7 @@ pub(crate) fn materialize_orm_object(
         if pred_schema
             .dataTypes
             .iter()
-            .any(|dt| dt.valType == OrmSchemaLiteralType::shape)
+            .any(|dt| dt.valType == OrmSchemaValType::shape)
         {
             // We have a nested type.
 

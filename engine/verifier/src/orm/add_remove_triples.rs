@@ -92,7 +92,7 @@ pub fn add_remove_triples(
                 // log_debug!("lock acquired on tracked_predicate");
                 tracked_predicate.current_cardinality += 1;
 
-                // Keep track of the changed values too.
+                // Keep track of the added values here.
                 let pred_changes: &mut OrmTrackedPredicateChanges = subject_changes
                     .predicates
                     .entry(predicate_schema.iri.clone())
@@ -109,7 +109,7 @@ pub fn add_remove_triples(
                     .schema
                     .dataTypes
                     .iter()
-                    .any(|dt| dt.valType == OrmSchemaLiteralType::literal)
+                    .any(|dt| dt.valType == OrmSchemaValType::literal)
                 {
                     match &mut tracked_predicate.current_literals {
                         Some(lits) => lits.push(obj_term.clone()),
@@ -122,7 +122,7 @@ pub fn add_remove_triples(
             // If predicate is of type shape, register
             // "parent (predicate) -> child subject" and `child_subject.parents`.
             for shape_iri in predicate_schema.dataTypes.iter().filter_map(|dt| {
-                if dt.valType == OrmSchemaLiteralType::shape {
+                if dt.valType == OrmSchemaValType::shape {
                     dt.shape.clone()
                 } else {
                     None
@@ -163,6 +163,7 @@ pub fn add_remove_triples(
             }
         }
     }
+
     // Process removed triples.
     for triple in triples_removed {
         let pred_iri = triple.predicate.as_str();
@@ -181,9 +182,15 @@ pub fn add_remove_triples(
         tracked_predicate.current_cardinality =
             tracked_predicate.current_cardinality.saturating_sub(1);
 
-        let Some(pred_changes) = subject_changes.predicates.get_mut(pred_iri) else {
-            continue;
-        };
+        // Keep track of removed values here.
+        let pred_changes: &mut OrmTrackedPredicateChanges = subject_changes
+            .predicates
+            .entry(tracked_predicate.schema.iri.clone())
+            .or_insert_with(|| OrmTrackedPredicateChanges {
+                tracked_predicate: tracked_predicate_rc.clone(),
+                values_added: Vec::new(),
+                values_removed: Vec::new(),
+            });
 
         let val_removed = oxrdf_term_to_orm_basic_type(&triple.object);
         pred_changes.values_removed.push(val_removed.clone());
@@ -193,7 +200,7 @@ pub fn add_remove_triples(
             .schema
             .dataTypes
             .iter()
-            .any(|dt| dt.valType == OrmSchemaLiteralType::literal)
+            .any(|dt| dt.valType == OrmSchemaValType::literal)
         {
             if let Some(current_literals) = &mut tracked_predicate.current_literals {
                 // Remove obj_val from current_literals in-place
@@ -205,7 +212,7 @@ pub fn add_remove_triples(
             .schema
             .dataTypes
             .iter()
-            .any(|dt| dt.valType == OrmSchemaLiteralType::shape)
+            .any(|dt| dt.valType == OrmSchemaValType::shape)
         {
             // Remove parent from child and child from tracked children.
             // If predicate is of type shape, register (parent -> child) links so that
@@ -215,7 +222,7 @@ pub fn add_remove_triples(
                 .dataTypes
                 .iter()
                 .filter_map(|dt| {
-                    if dt.valType == OrmSchemaLiteralType::shape {
+                    if dt.valType == OrmSchemaValType::shape {
                         dt.shape.clone()
                     } else {
                         None
