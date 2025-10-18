@@ -16,7 +16,7 @@ use std::collections::HashSet;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-pub use ng_net::orm::{OrmDiff, OrmShapeType};
+pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
 use ng_oxigraph::oxrdf::Triple;
 

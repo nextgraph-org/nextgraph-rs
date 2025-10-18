@@ -9,7 +9,7 @@
 
 use futures::SinkExt;
 use ng_net::orm::*;
-pub use ng_net::orm::{OrmDiff, OrmShapeType};
+pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::utils::Receiver;
 use serde_json::json;
 use serde_json::Value;
@@ -141,7 +141,7 @@ pub(crate) fn materialize_orm_object(
     shape: &OrmSchemaShape,
     tracked_subjects: &HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
 ) -> Value {
-    let mut orm_obj = json!({"id": change.subject_iri});
+    let mut orm_obj = json!({"@id": change.subject_iri});
     let orm_obj_map = orm_obj.as_object_mut().unwrap();
     for pred_schema in &shape.predicates {
         let property_name = &pred_schema.readablePredicate;

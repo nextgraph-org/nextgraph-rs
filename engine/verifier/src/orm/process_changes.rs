@@ -15,7 +15,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::u64;
 
-pub use ng_net::orm::{OrmDiff, OrmShapeType};
+pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
 use ng_oxigraph::oxrdf::Triple;
 use ng_repo::errors::NgError;

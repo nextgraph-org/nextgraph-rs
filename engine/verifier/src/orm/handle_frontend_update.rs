@@ -7,20 +7,20 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use ng_net::orm::{OrmDiffOp, OrmDiffOpType, OrmDiffType, OrmSchemaPredicate, OrmSchemaShape};
+use ng_net::orm::{OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaPredicate, OrmSchemaShape};
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::VerifierError;
 
 use std::sync::{Arc, RwLock};
 use std::u64;
 
-use futures::SinkExt;
 use ng_net::app_protocol::*;
-pub use ng_net::orm::{OrmDiff, OrmShapeType};
+pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_repo::log::*;
 
 use crate::orm::types::*;
 use crate::orm::utils::{decode_json_pointer, json_to_sparql_val};
+use crate::types::GraphQuadsPatch;
 use crate::verifier::*;
 
 impl Verifier {
@@ -34,25 +34,22 @@ impl Verifier {
         shape_iri: ShapeIri,
         session_id: u64,
         _skolemnized_blank_nodes: Vec<Quad>,
-        _revert_inserts: Vec<Quad>,
-        _revert_removes: Vec<Quad>,
+        revert_inserts: Vec<Quad>,
+        revert_removes: Vec<Quad>,
     ) -> Result<(), VerifierError> {
         let (mut sender, _orm_subscription) =
             self.get_first_orm_subscription_sender_for(scope, Some(&shape_iri), Some(&session_id))?;
 
-        // TODO prepare OrmUpdateBlankNodeIds with skolemnized_blank_nodes
-        // use orm_subscription if needed
-        // note(niko): I think skolemnized blank nodes can still be many, in case of multi-level nested sub-objects.
-        let orm_bnids = vec![];
-        let _ = sender
-            .send(AppResponse::V0(AppResponseV0::OrmUpdateBlankNodeIds(
-                orm_bnids,
-            )))
-            .await;
+        // Revert changes, if there.
+        if revert_inserts.len() > 0 || revert_removes.len() > 0 {
+            let revert_changes = GraphQuadsPatch {
+                inserts: revert_removes,
+                removes: revert_inserts,
+            };
 
-        // TODO (later) revert the inserts and removes
-        // let orm_diff = vec![];
-        // let _ = sender.send(AppResponse::V0(AppResponseV0::OrmUpdate(orm_diff))).await;
+            // TODO: Call with correct params.
+            // self.orm_backend_update(session_id, scope, "", revert_changes)
+        }
 
         Ok(())
     }
@@ -63,7 +60,7 @@ impl Verifier {
         session_id: u64,
         scope: &NuriV0,
         shape_iri: ShapeIri,
-        diff: OrmDiff,
+        diff: OrmPatches,
     ) -> Result<(), String> {
         log_info!(
             "frontend_update_orm session={} shape={} diff={:?}",
@@ -118,21 +115,21 @@ impl Verifier {
 
 fn create_sparql_update_query_for_diff(
     orm_subscription: &OrmSubscription,
-    diff: OrmDiff,
+    diff: OrmPatches,
 ) -> String {
     // First sort patches.
     // - Process delete patches first.
     // - Process object creation add operations before rest, to ensure potential blank nodes are created.
     let delete_patches: Vec<_> = diff
         .iter()
-        .filter(|patch| patch.op == OrmDiffOpType::remove)
+        .filter(|patch| patch.op == OrmPatchOp::remove)
         .collect();
     let add_object_patches: Vec<_> = diff
         .iter()
         .filter(|patch| {
-            patch.op == OrmDiffOpType::add
+            patch.op == OrmPatchOp::add
                 && match &patch.valType {
-                    Some(vt) => *vt == OrmDiffType::object,
+                    Some(vt) => *vt == OrmPatchType::object,
                     _ => false,
                 }
         })
@@ -140,9 +137,9 @@ fn create_sparql_update_query_for_diff(
     let add_literal_patches: Vec<_> = diff
         .iter()
         .filter(|patch| {
-            patch.op == OrmDiffOpType::add
+            patch.op == OrmPatchOp::add
                 && match &patch.valType {
-                    Some(vt) => *vt != OrmDiffType::object,
+                    Some(vt) => *vt != OrmPatchType::object,
                     _ => true,
                 }
         })
@@ -289,7 +286,7 @@ fn find_pred_schema_by_name(
 ///  - The Option subject, predicate, Option<Object> of the path's ending (to be used for DELETE)
 ///  - The Option predicate schema of the tail of the target property.
 fn create_where_statements_for_patch(
-    patch: &OrmDiffOp,
+    patch: &OrmPatch,
     var_counter: &mut i32,
     orm_subscription: &OrmSubscription,
 ) -> (
@@ -334,6 +331,7 @@ fn create_where_statements_for_patch(
         let pred_name = path.remove(0);
         let pred_schema = find_pred_schema_by_name(&pred_name, &current_subj_schema);
 
+        // Case: We arrived at a leaf value.
         if path.len() == 0 {
             return (
                 where_statements,
@@ -341,6 +339,8 @@ fn create_where_statements_for_patch(
                 Some(pred_schema),
             );
         }
+
+        // Else, we have a nested object.
 
         where_statements.push(format!(
             "{} <{}> ?o{}",
@@ -369,7 +369,7 @@ fn create_where_statements_for_patch(
             }
 
             current_subj_schema =
-                get_first_valid_child_schema(&object_iri, &pred_schema, &orm_subscription);
+                get_first_child_schema(Some(&object_iri), &pred_schema, &orm_subscription);
 
             // Since we have new IRI that we can use as root, we replace the current one with it.
             subject_ref = format!("<{object_iri}>");
@@ -379,15 +379,18 @@ fn create_where_statements_for_patch(
             // Set to child subject schema.
             // TODO: Actually, we should get the tracked subject and check for the correct shape there.
             // As long as there is only one allowed shape or the first one is valid, this is fine.
-            current_subj_schema = get_first_child_schema(&pred_schema, &orm_subscription);
+            current_subj_schema = get_first_child_schema(None, &pred_schema, &orm_subscription);
         }
     }
     // Can't happen.
     panic!();
 }
 
-fn get_first_valid_child_schema(
-    subject_iri: &String,
+/// Get the schema for a given subject and predicate schema.
+/// It will return the first schema of which the tracked subject is valid.
+/// If there is no subject found, return the first subject schema of the predicate schema.
+fn get_first_child_schema(
+    subject_iri: Option<&String>,
     pred_schema: &OrmSchemaPredicate,
     orm_subscription: &OrmSubscription,
 ) -> Arc<OrmSchemaShape> {
@@ -396,34 +399,35 @@ fn get_first_valid_child_schema(
             continue;
         };
 
-        let tracked_subject = orm_subscription
-            .tracked_subjects
-            .get(subject_iri)
-            .unwrap()
-            .get(schema_shape)
-            .unwrap();
+        let tracked_subject_opt = subject_iri
+            .and_then(|iri| orm_subscription.tracked_subjects.get(iri))
+            .and_then(|ts_shapes| ts_shapes.get(schema_shape));
 
-        if tracked_subject.read().unwrap().valid == OrmTrackedSubjectValidity::Valid {
-            return orm_subscription
-                .shape_type
-                .schema
-                .get(schema_shape)
+        if let Some(tracked_subject) = tracked_subject_opt {
+            // The subject is already being tracked (it's not new).
+            if tracked_subject.read().unwrap().valid == OrmTrackedSubjectValidity::Valid {
+                return orm_subscription
+                    .shape_type
+                    .schema
+                    .get(schema_shape)
+                    .unwrap()
+                    .clone();
+            }
+        } else {
+            // New subject, we need to guess the schema, take the first one.
+            // TODO: We could do that by looking at a distinct property, e.g. @type which must be non-overlapping.
+            return pred_schema
+                .dataTypes
+                .iter()
+                .find_map(|dt| {
+                    dt.shape
+                        .as_ref()
+                        .and_then(|shape_str| orm_subscription.shape_type.schema.get(shape_str))
+                })
                 .unwrap()
                 .clone();
         }
     }
     // TODO: Panicking might be too aggressive.
     panic!("No valid child schema found.");
-}
-
-fn get_first_child_schema(
-    pred_schema: &OrmSchemaPredicate,
-    orm_subscription: &OrmSubscription,
-) -> Arc<OrmSchemaShape> {
-    return orm_subscription
-        .shape_type
-        .schema
-        .get(pred_schema.dataTypes[0].shape.as_ref().unwrap())
-        .unwrap()
-        .clone();
 }

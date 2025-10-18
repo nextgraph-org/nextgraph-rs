@@ -17,7 +17,7 @@ use async_std::sync::{Arc, Condvar, Mutex, RwLock};
 use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use lazy_static::lazy_static;
-use ng_net::orm::{OrmDiff, OrmShapeType};
+use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_oxigraph::oxrdf::Triple;
 use once_cell::sync::Lazy;
 use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str};
@@ -2767,7 +2767,7 @@ pub async fn orm_start(
 pub async fn orm_update(
     scope: NuriV0,
     shape_type_name: String,
-    diff: OrmDiff,
+    diff: OrmPatches,
     session_id: u64,
 ) -> Result<(), NgError> {
     let mut request = AppRequest::new_orm_update(scope, shape_type_name, diff);

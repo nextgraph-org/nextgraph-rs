@@ -20,7 +20,7 @@ use ng_repo::utils::{decode_digest, decode_key, decode_sym_key};
 use ng_repo::utils::{decode_overlayid, display_timestamp_local};
 use serde_json::Value;
 
-use crate::orm::{OrmDiff, OrmShapeType, OrmUpdateBlankNodeIds};
+use crate::orm::{OrmPatches, OrmShapeType, OrmUpdateBlankNodeIds};
 use crate::types::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -815,7 +815,7 @@ impl AppRequest {
         )
     }
 
-    pub fn new_orm_update(scope: NuriV0, shape_type_name: String, diff: OrmDiff) -> Self {
+    pub fn new_orm_update(scope: NuriV0, shape_type_name: String, diff: OrmPatches) -> Self {
         AppRequest::new(
             AppRequestCommandV0::OrmUpdate,
             scope,
@@ -1056,8 +1056,8 @@ pub enum AppRequestPayloadV0 {
     QrCodeProfile(u32),
     QrCodeProfileImport(String),
     OrmStart(OrmShapeType),
-    OrmUpdate((OrmDiff, String)), // ShapeID
-    OrmStop(String),              //ShapeID
+    OrmUpdate((OrmPatches, String)), // ShapeID
+    OrmStop(String),                 //ShapeID
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1308,7 +1308,7 @@ pub enum AppResponseV0 {
     Header(AppHeader),
     Commits(Vec<String>),
     OrmInitial(Value),
-    OrmUpdate(OrmDiff),
+    OrmUpdate(OrmPatches),
     OrmUpdateBlankNodeIds(OrmUpdateBlankNodeIds),
     OrmError(String),
 }

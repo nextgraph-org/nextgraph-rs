@@ -448,7 +448,7 @@ INSERT DATA {
 
         let mut expected = json!([{
             "type":"http://example.org/TestObject",
-            "id":"urn:test:obj1",
+            "@id":"urn:test:obj1",
             "anotherObject":{
                 "urn:test:id1":{
                     "prop1":"one",
@@ -465,7 +465,7 @@ INSERT DATA {
             "numOrStr":"either",
             "numValue":42.0,
             "objectValue":{
-                "id":"urn:test:id3",
+                "@id":"urn:test:id3",
                 "nestedArray":[5.0,6.0],
                 "nestedNum":7.0,
                 "nestedString":"nested"
@@ -473,7 +473,7 @@ INSERT DATA {
             "stringValue": "hello world",
         },
         {
-            "id":"urn:test:obj2",
+            "@id":"urn:test:obj2",
             "type":"http://example.org/TestObject",
             "anotherObject": {
                 "urn:test:id4":{
@@ -491,7 +491,7 @@ INSERT DATA {
             "numOrStr":4.0,
             "numValue":422.0,
             "objectValue":{
-                "id":"urn:test:id6",
+                "@id":"urn:test:id6",
                 "nestedArray": [7.0,8.0,9.0],
                 "nestedNum":72.0,
                 "nestedString":"nested2"
@@ -602,17 +602,17 @@ INSERT DATA {
 
         let mut expected = json!([
             {
-                "id": "urn:test:numArrayObj1",
+                "@id": "urn:test:numArrayObj1",
                 "type": "http://example.org/TestObject",
                 "numArray": [1.0, 2.0, 3.0]
             },
             {
-                "id": "urn:test:numArrayObj2",
+                "@id": "urn:test:numArrayObj2",
                 "type": "http://example.org/TestObject",
                 "numArray": []
             },
             {
-                "id": "urn:test:numArrayObj3",
+                "@id": "urn:test:numArrayObj3",
                 "type": "http://example.org/TestObject",
                 "numArray": [1.0, 2.0]
             }
@@ -689,7 +689,7 @@ INSERT DATA {
 
         let mut expected = json!([
             {
-                "id": "urn:test:oj1",
+                "@id": "urn:test:oj1",
                 "opt": true
             }
         ]);
@@ -786,12 +786,12 @@ INSERT DATA {
 
         let mut expected = json!([
             {
-                "id": "urn:test:oj1",
+                "@id": "urn:test:oj1",
                 "lit1": ["lit 1"],
                 "lit2": "lit 2"
             },
             {
-                "id": "urn:test:obj2",
+                "@id": "urn:test:obj2",
                 "lit1": ["lit 1", "lit 1 extra"],
                 "lit2": "lit 2"
             }
@@ -878,7 +878,7 @@ INSERT DATA {
 
         let mut expected = json!([
             {
-                "id": "urn:test:oj1",
+                "@id": "urn:test:oj1",
                 "strOrNum": ["a string", "another string", 2.0]
             }
         ]);
@@ -1079,7 +1079,7 @@ INSERT DATA {
 
         let mut expected = json!([
             {
-                "id": "urn:test:oj1",
+                "@id": "urn:test:oj1",
                 "str": "obj1 str",
                 "nestedWithExtra": {
                     "nestedStr": "obj1 nested with extra valid",
@@ -1199,7 +1199,7 @@ INSERT DATA {
         // claire2 is invalid (missing name), so alice2's knows chain is incomplete
         let mut expected = json!([
             {
-                "id": "urn:test:alice",
+                "@id": "urn:test:alice",
                 "name": "Alice",
                 "knows": {
                     "urn:test:bob": {
@@ -1218,7 +1218,7 @@ INSERT DATA {
                 }
             },
             {
-                "id": "urn:test:bob",
+                "@id": "urn:test:bob",
                 "name": "Bob",
                 "knows": {
                     "urn:test:claire": {
@@ -1228,7 +1228,7 @@ INSERT DATA {
                 }
             },
             {
-                "id": "urn:test:claire",
+                "@id": "urn:test:claire",
                 "name": "Claire",
                 "knows": {}
             }
@@ -1411,7 +1411,7 @@ INSERT DATA {
         // alice2 is incomplete because claire2 has wrong type
         let mut expected = json!([
             {
-                "id": "urn:test:alice",
+                "@id": "urn:test:alice",
                 "type": "http://example.org/Alice",
                 "knows": {
                     "urn:test:bob": {
@@ -1538,7 +1538,7 @@ INSERT DATA {
 
         let mut expected = json!([
             {
-                "id": "urn:test:alice",
+                "@id": "urn:test:alice",
                 "type": "http://example.org/Person",
                 "cats": {
                     "urn:test:kitten1": {
