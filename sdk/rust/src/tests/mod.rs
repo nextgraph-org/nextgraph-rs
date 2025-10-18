@@ -86,14 +86,14 @@ fn sort_arrays(value: &mut Value) {
     }
 }
 
-/// Helper to recursively remove nested "id" fields from nested objects,
+/// Helper to recursively remove nested "@id" fields from nested objects,
 /// but only if they are not at the root level.
 fn remove_id_fields(value: &mut Value) {
     fn remove_id_fields_inner(value: &mut Value, is_root: bool) {
         match value {
             Value::Object(map) => {
                 if !is_root {
-                    map.remove("id");
+                    map.remove("@id");
                 }
                 for v in map.values_mut() {
                     remove_id_fields_inner(v, false);

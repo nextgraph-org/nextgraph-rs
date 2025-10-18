@@ -209,7 +209,7 @@ INSERT DATA {
             {
                 "op": "add",
                 "value": "urn:test:numArrayObj4",
-                "path": "/urn:test:numArrayObj4/id",
+                "path": "/urn:test:numArrayObj4/@id",
                 "valType": Value::Null,
             },
             {
@@ -575,7 +575,7 @@ INSERT DATA {
                 "op": "add",
                 // "valType": None,
                 "value": "urn:test:multiNested4",
-                "path": "/urn:test:oj1/multiNest/urn:test:multiNested4/id",
+                "path": "/urn:test:oj1/multiNest/urn:test:multiNested4/@id",
             },
             {
                 "op": "add",
@@ -882,7 +882,7 @@ INSERT DATA {
             {
                 "op": "add",
                 "value": "urn:test:cat2",
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/id",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/@id",
             },
             {
                 "op": "add",
@@ -903,7 +903,7 @@ INSERT DATA {
             {
                 "op": "add",
                 "value": "urn:test:person3",
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/id",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/@id",
             },
             {
                 "op": "add",
@@ -923,7 +923,7 @@ INSERT DATA {
             {
                 "op": "add",
                 "value": "urn:test:cat3",
-                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/id",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/@id",
             },
             {
                 "op": "add",

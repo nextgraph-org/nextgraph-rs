@@ -267,7 +267,7 @@ impl Verifier {
                         patches.push(OrmDiffOp {
                             op: OrmDiffOpType::add,
                             valType: None,
-                            path: format!("{}/id", json_pointer),
+                            path: format!("{}/@id", json_pointer),
                             value: Some(json!(iri)),
                         });
                     }

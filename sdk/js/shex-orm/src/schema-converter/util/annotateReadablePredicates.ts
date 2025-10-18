@@ -33,25 +33,40 @@ export default function annotateReadablePredicates(schema: Schema): void {
 
         if (tcs.length > 0) {
             // Group by local token (last segment of IRI) and set a base readablePredicate for all
-            const groups = new Map<string, TCwReadable[]>();
-            for (const tc of tcs) {
-                const tokens = splitIriTokens(tc.predicate);
-                const local = tokens.length
-                    ? tokens[tokens.length - 1]
-                    : tc.predicate;
+            const readableNameToPredicatesMap = new Map<
+                string,
+                TCwReadable[]
+            >();
+            for (const tripleConstraint of tcs) {
+                // Use the name based on the IRI ending.
+                let readableName: string;
+                // Special case rdfs:type => @type
+                if (
+                    tripleConstraint.predicate ===
+                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+                ) {
+                    readableName = "@type";
+                } else {
+                    const tokens = splitIriTokens(tripleConstraint.predicate);
+                    readableName = tokens.length
+                        ? tokens[tokens.length - 1]
+                        : tripleConstraint.predicate;
+                }
                 // default base name for non-colliders
-                tc.readablePredicate = local;
-                const arr = groups.get(local) ?? [];
-                arr.push(tc);
-                groups.set(local, arr);
+                tripleConstraint.readablePredicate = readableName;
+                const groupMembers =
+                    readableNameToPredicatesMap.get(readableName) ?? [];
+                groupMembers.push(tripleConstraint);
+                readableNameToPredicatesMap.set(readableName, groupMembers);
             }
             // Resolve each group (rename all in collisions)
-            for (const [, arr] of groups) {
-                if (arr.length <= 1) continue;
+            for (const [, groupMembers] of readableNameToPredicatesMap) {
+                if (groupMembers.length <= 1) continue;
                 const used = new Set<string>();
                 const local =
-                    splitIriTokens(arr[0].predicate).slice(-1)[0] ?? "";
-                for (const tc of arr) {
+                    splitIriTokens(groupMembers[0].predicate).slice(-1)[0] ??
+                    "";
+                for (const tc of groupMembers) {
                     const tokens = splitIriTokens(tc.predicate);
                     let localIdx = tokens.lastIndexOf(local);
                     if (localIdx === -1)
