@@ -529,7 +529,7 @@
     await select_bsp(NG_EU_BSP_REGISTER, "nextgraph.eu");
   };
   const selectONE = async (event) => {
-    await select_bsp(NG_NET_BSP_REGISTER, "nextgraph.one");
+    await select_bsp(NG_ONE_BSP_REGISTER, "nextgraph.one");
   };
   const enterINVITE = (event) => {};
   const enterQRcode = (event) => {};
@@ -1120,7 +1120,7 @@
           {:else}
             <div class="row mt-5">
               <button
-                on:click|once={selectEU}
+                on:click|once={selectONE}
                 class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
               >
                 <EULogo

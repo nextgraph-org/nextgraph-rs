@@ -334,7 +334,7 @@
       download_name = "wallet-" + ready.wallet_name + ".ngw";
       pdf_name = "wallet-" + ready.wallet_name + ".pdf";
       if (options.cloud) {
-        cloud_link = "https://nextgraph.one/#/w/" + ready.wallet_name;
+        cloud_link = "https://nextgraph.net/#/w/" + ready.wallet_name;
       }
       if (ready.wallet_file.length) {
         const blob = new Blob([ready.wallet_file], {
