@@ -36,7 +36,6 @@
     wallet_from_import,
     redirect_after_login,
     redirect_if_wallet_is,
-    register_bootstrap,
   } from "../store";
   import {
     CheckBadge,

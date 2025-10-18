@@ -59,10 +59,9 @@
     reconnect,
     display_error,
   } from "../store";
- 
+
   import {
     NG_EU_BSP,
-    NG_NET_BSP,
     APP_ACCOUNT_REGISTERED_SUFFIX,
     default as ng,
   } from "../api";
@@ -88,7 +87,6 @@
   });
 
   async function logout() {
-    
     await close_active_wallet();
   }
 
@@ -385,7 +383,6 @@
 </CenteredLayout>
 
 <style>
-
   .site-cnx-details {
     @apply mt-0 !important;
   }

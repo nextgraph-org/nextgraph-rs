@@ -301,11 +301,11 @@ fn upgrade_ws_or_serve_app(
                     .status(StatusCode::NOT_MODIFIED)
                     .header("Cache-Control", "max-age=31536000, must-revalidate")
                     .header("ETag", sha)
-                    .header(
-                        "Content-Security-Policy",
-                        format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"),
-                    )
-                    .header("X-Frame-Options", format!("ALLOW-FROM {webapp_origin}"))
+                    // .header(
+                    //     "Content-Security-Policy",
+                    //     format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"),
+                    // )
+                    // .header("X-Frame-Options", format!("ALLOW-FROM {webapp_origin}"))
                     .body(None)
                     .unwrap();
                 return Err(res);
@@ -313,11 +313,11 @@ fn upgrade_ws_or_serve_app(
             let file = AppAuth::get("index.gzip").unwrap();
             let res = Response::builder()
                 .status(StatusCode::OK)
-                .header(
-                    "Content-Security-Policy",
-                    format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"),
-                )
-                .header("X-Frame-Options", format!("ALLOW-FROM {webapp_origin}"))
+                // .header(
+                //     "Content-Security-Policy",
+                //     format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"),
+                // )
+                // .header("X-Frame-Options", format!("ALLOW-FROM {webapp_origin}"))
                 .header("Content-Type", "text/html")
                 .header("Cache-Control", "max-age=31536000, must-revalidate")
                 .header("Content-Encoding", "gzip")

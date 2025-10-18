@@ -21,7 +21,6 @@
     close_active_session,
     disconnections_subscribe,
     select_default_lang,
-    NG_BOOTSTRAP_IFRAME_ORIGIN
   } from "./store";
 
   import Home from "./routes/Home.svelte";
@@ -77,13 +76,12 @@
   // };
 
   onMount(async () => {
-
     //console.log("hide splash", window.supported);
     if (window.supported) {
-      window.document.getElementById("splash").className="noshow";
-      window.document.getElementById("app").className="";
+      window.document.getElementById("splash").className = "noshow";
+      window.document.getElementById("app").className = "";
     }
-    
+
     //window.document.getElementById("splash").className="splash-loaded";
     try {
       await disconnections_subscribe();
@@ -283,7 +281,6 @@
         }
       });
     }
-    
   });
 
   onDestroy(() => {

@@ -30,11 +30,11 @@
   import { LockOpen, FingerPrint, ExclamationTriangle } from "svelte-heros-v2";
   import {
     NG_EU_BSP,
-    NG_NET_BSP,
+    NG_ONE_BSP,
     LINK_NG_BOX,
     LINK_SELF_HOST,
     NG_EU_BSP_REGISTER,
-    NG_NET_BSP_REGISTER,
+    NG_ONE_BSP_REGISTER,
     APP_WALLET_CREATE_SUFFIX,
     default as ng,
   } from "../api";
@@ -45,12 +45,7 @@
   } from "../wallet_emojis";
 
   import { onMount, onDestroy, tick } from "svelte";
-  import {
-    wallets,
-    has_wallets,
-    display_error,
-    register_bootstrap,
-  } from "../store";
+  import { wallets, has_wallets, display_error } from "../store";
   import Spinner from "../lib/components/Spinner.svelte";
 
   const param = new URLSearchParams($querystring);
@@ -210,11 +205,12 @@
     ? "api/v1/"
     : "http://localhost:3030/api/v1/";
 
+  const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
   const bootstrap_redirect = import.meta.env.DEV
     ? "http://localhost:14403/#/?b="
     : import.meta.env.NG_DEV
       ? "http://localhost:1421/bootstrap.html#/?b="
-      : "https://nextgraph.net/bootstrap/#/?b=";
+      : `https://${redirect_server}/bootstrap/#/?b=`;
   // to test ngnet
   //const bootstrap_redirect = "http://127.0.0.1:3033/bootstrap/#/?b=";
 
@@ -532,8 +528,8 @@
   const selectEU = async (event) => {
     await select_bsp(NG_EU_BSP_REGISTER, "nextgraph.eu");
   };
-  const selectNET = async (event) => {
-    await select_bsp(NG_NET_BSP_REGISTER, "nextgraph.net");
+  const selectONE = async (event) => {
+    await select_bsp(NG_NET_BSP_REGISTER, "nextgraph.one");
   };
   const enterINVITE = (event) => {};
   const enterQRcode = (event) => {};

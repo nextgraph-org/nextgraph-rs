@@ -29,12 +29,9 @@
   import Logo from "../assets/nextgraph.svg?component";
   import { LockOpen, FingerPrint, ExclamationTriangle } from "svelte-heros-v2";
   import {
-    NG_EU_BSP,
-    NG_NET_BSP,
     LINK_NG_BOX,
     LINK_SELF_HOST,
     NG_EU_BSP_REGISTER,
-    NG_NET_BSP_REGISTER,
     APP_WALLET_CREATE_SUFFIX,
     default as ng,
   } from "../api";
@@ -149,29 +146,28 @@
 
   function validate_pin() {
     // check for same digit doesnt appear 3 times
-    if ((pin[0] == pin[1] && pin[0] == pin[2])
-        || (pin[0] == pin[1] && pin[0] == pin[3])
-        || (pin[0] == pin[2] && pin[0] == pin[3])
-        || (pin[1] == pin[2] && pin[1] == pin[3]))
-    {
-        return false;
+    if (
+      (pin[0] == pin[1] && pin[0] == pin[2]) ||
+      (pin[0] == pin[1] && pin[0] == pin[3]) ||
+      (pin[0] == pin[2] && pin[0] == pin[3]) ||
+      (pin[1] == pin[2] && pin[1] == pin[3])
+    ) {
+      return false;
     }
 
     // check for ascending series
-    if (pin[1] == pin[0] + 1
-        && pin[2] == pin[1] + 1
-        && pin[3] == pin[2] + 1)
-    {
-        return false;
+    if (pin[1] == pin[0] + 1 && pin[2] == pin[1] + 1 && pin[3] == pin[2] + 1) {
+      return false;
     }
 
     // check for descending series
-    if (pin[3] >= 3
-        && pin[2] == pin[3] - 1
-        && pin[1] == pin[2] - 1
-        && pin[0] == pin[1] - 1)
-    {
-        return false;
+    if (
+      pin[3] >= 3 &&
+      pin[2] == pin[3] - 1 &&
+      pin[1] == pin[2] - 1 &&
+      pin[0] == pin[1] - 1
+    ) {
+      return false;
     }
     return true;
   }
@@ -199,10 +195,8 @@
     : "http://localhost:3030/api/v1/";
 
   async function bootstrap() {
-    
     //console.log(await ng.client_info());
     if (!tauri_platform || tauri_platform == "android") {
-
       if (!tauri_platform) {
         try {
           sessionStorage.getItem("test");
@@ -315,7 +309,7 @@
       core_registration,
       additional_bootstrap,
       device_name,
-      pdf: options.pdf
+      pdf: options.pdf,
     };
     //console.log("do wallet with params", params);
     try {
@@ -376,8 +370,7 @@
 
   ready = false;
 
-  let unsub_register = () => {
-  };
+  let unsub_register = () => {};
 
   onDestroy(async () => {
     if (unsub_register) unsub_register();
@@ -442,17 +435,14 @@
             intro = true;
             unsub_register = undefined;
           }
-        } 
+        }
       );
-      
     }
   };
   const selectEU = async (event) => {
     await select_bsp(NG_EU_BSP_REGISTER, "nextgraph.eu");
   };
-  const selectNET = async (event) => {
-    await select_bsp(NG_NET_BSP_REGISTER, "nextgraph.net");
-  };
+
   const enterINVITE = (event) => {};
   const enterQRcode = (event) => {};
 
@@ -701,12 +691,24 @@
                   <span>{@html $t("pages.wallet_create.wallet_about.2")}</span>
                 </li>
                 <li class="flex space-x-3">
-                  <LockOpen class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"></LockOpen>
-                  <span>{@html $t("pages.wallet_create.wallet_about.password")}</span>
+                  <LockOpen
+                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+                  ></LockOpen>
+                  <span
+                    >{@html $t(
+                      "pages.wallet_create.wallet_about.password"
+                    )}</span
+                  >
                 </li>
                 <li class="flex space-x-3">
-                  <FingerPrint class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"></FingerPrint>
-                  <span>{@html $t("pages.wallet_create.wallet_about.mnemonic")}</span>
+                  <FingerPrint
+                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+                  ></FingerPrint>
+                  <span
+                    >{@html $t(
+                      "pages.wallet_create.wallet_about.mnemonic"
+                    )}</span
+                  >
                 </li>
                 <li class="flex space-x-3">
                   <!-- Icon -->
@@ -725,7 +727,9 @@
                       d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.39 48.39 0 01-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 01-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 00-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 01-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 00.657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 01-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 005.427-.63 48.05 48.05 0 00.582-4.717.532.532 0 00-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 00.658-.663 48.422 48.422 0 00-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 01-.61-.58v0z"
                     />
                   </svg>
-                  <span>{@html $t("pages.wallet_create.wallet_about.pazzle")}</span>
+                  <span
+                    >{@html $t("pages.wallet_create.wallet_about.pazzle")}</span
+                  >
                 </li>
                 <li class="flex space-x-3">
                   <!-- Icon -->
@@ -824,7 +828,9 @@
                   <span>{@html $t("pages.wallet_create.wallet_about.8")}</span>
                 </li>
                 <li class="flex space-x-3">
-                  <ExclamationTriangle class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"></ExclamationTriangle>
+                  <ExclamationTriangle
+                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+                  ></ExclamationTriangle>
                   <span>{@html $t("pages.wallet_create.wallet_about.9")}</span>
                 </li>
               </ul>
@@ -866,9 +872,7 @@
               <h2 class="pb-5 text-xl">
                 {$t("pages.wallet_create.broker_about.title")}<span
                   class="text-sm"
-                  >&nbsp{@html $t(
-                    "pages.wallet_create.please_read"
-                  )}</span
+                  >&nbsp{@html $t("pages.wallet_create.please_read")}</span
                 >
               </h2>
               <ul
@@ -1018,7 +1022,11 @@
                   />
                 </svg>
                 {$t("pages.wallet_create.register_with_broker", {
-                  values: { broker: pre_invitation.V0.name || $t("pages.wallet_create.this_broker") },
+                  values: {
+                    broker:
+                      pre_invitation.V0.name ||
+                      $t("pages.wallet_create.this_broker"),
+                  },
                 })}
               </button>
             </div>
@@ -1141,100 +1149,117 @@
             </button>
           </div> -->
           {#if !tauri_platform}
-
-          <div class="flex space-x-3 px-4 pt-3 lg:px-8 lg:pt-10 max-w-xl text-left text-gray-500 dark:text-gray-400">
-            <svg class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"  fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 1 0 9.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1 1 14.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"></path>
-            </svg>
-            
-            <span>
-              {@html $t("pages.wallet_create.broker_about.8")}
-            </span>
-          </div>
-          <div class="row mt-5">
-            
-            <a href="/install" use:link>
-              <button
-                tabindex="-1"
-                class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
+            <div
+              class="flex space-x-3 px-4 pt-3 lg:px-8 lg:pt-10 max-w-xl text-left text-gray-500 dark:text-gray-400"
+            >
+              <svg
+                class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
+                fill="none"
+                stroke-width="1.5"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
               >
-                <svg
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                  class=" block h-10 w-10"
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M21 11.25v8.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 1 0 9.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1 1 14.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"
+                ></path>
+              </svg>
+
+              <span>
+                {@html $t("pages.wallet_create.broker_about.8")}
+              </span>
+            </div>
+            <div class="row mt-5">
+              <a href="/install" use:link>
+                <button
+                  tabindex="-1"
+                  class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"
-                  />
-                </svg>
-                or
-        
-                <svg
-                  class="mr-4 ml-2 block h-10 w-10"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  viewBox="0 0 64 50"
-                  version="1.1"
-                  xmlns="http://www.w3.org/2000/svg"
-                  xmlns:xlink="http://www.w3.org/1999/xlink"
-                >
-                  <defs />
-                  <g id="Page-1" stroke-width="1" fill="none" fill-rule="evenodd">
+                  <svg
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                    class=" block h-10 w-10"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"
+                    />
+                  </svg>
+                  or
+
+                  <svg
+                    class="mr-4 ml-2 block h-10 w-10"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    viewBox="0 0 64 50"
+                    version="1.1"
+                    xmlns="http://www.w3.org/2000/svg"
+                    xmlns:xlink="http://www.w3.org/1999/xlink"
+                  >
+                    <defs />
                     <g
-                      id="Laptop"
-                      transform="translate(1.000000, 1.000000)"
-                      stroke-width="2"
+                      id="Page-1"
+                      stroke-width="1"
+                      fill="none"
+                      fill-rule="evenodd"
                     >
-                      <path
-                        d="M56,27 C56,28.1 55.1,29 54,29 L8,29 C6.9,29 6,28.1 6,27 L6,2 C6,0.9 6.9,0 8,0 L54,0 C55.1,0 56,0.9 56,2 L56,26.5 L56,27 L56,27 Z"
-                        id="Shape"
-                      />
-                      <path
-                        d="M57,31 C57,29.9 56.1,29 55,29 L7,29 C5.9,29 5,29.9 5,31 L0,46 C0,47.1 0.9,48 2,48 L60,48 C61.1,48 62,47.1 62,46 L57,31 L57,31 Z"
-                        id="Shape"
-                      />
-                      <path d="M2,42.9 L61,42.9" id="Shape" />
-                      <path
-                        d="M52.1,24 C52.1,25.1 51.2,26 50.1,26 L12,26 C10.9,26 10,25.1 10,24 L10,6 C10,4.9 10.9,4 12,4 L50,4 C51.1,4 52,4.9 52,6 L52.1,24 L52.1,24 Z"
-                        id="Shape"
-                      />
-                      <path d="M22,39 L40,39" id="Shape" />
-                      <path d="M17.2,39 L20,39" id="Shape" />
-                      <path d="M12.1,39 L15,39" id="Shape" />
-                      <path d="M7,39 L10,39" id="Shape" />
-                      <path d="M9.2,35 L12,35" id="Shape" />
-                      <path d="M14,35 L17,35" id="Shape" />
-                      <path d="M19,35 L22,35" id="Shape" />
-                      <path d="M24,35 L27,35" id="Shape" />
-                      <path d="M29,35 L32,35" id="Shape" />
-                      <path d="M34,35 L37,35" id="Shape" />
-                      <path d="M39,35 L42,35" id="Shape" />
-                      <path d="M45,35 L48,35" id="Shape" />
-                      <path d="M50,35 L53,35" id="Shape" />
-                      <path d="M47,32 L50,32" id="Shape" />
-                      <path d="M42,32 L45,32" id="Shape" />
-                      <path d="M37,32 L40,32" id="Shape" />
-                      <path d="M32,32 L35,32" id="Shape" />
-                      <path d="M27,32 L30,32" id="Shape" />
-                      <path d="M22,32 L25,32" id="Shape" />
-                      <path d="M17.1,32 L20,32" id="Shape" />
-                      <path d="M12,32 L15,32" id="Shape" />
-                      <path d="M42,39 L44.8,39" id="Shape" />
-                      <path d="M47,39 L49.9,39" id="Shape" />
-                      <path d="M52,39 L55,39" id="Shape" />
+                      <g
+                        id="Laptop"
+                        transform="translate(1.000000, 1.000000)"
+                        stroke-width="2"
+                      >
+                        <path
+                          d="M56,27 C56,28.1 55.1,29 54,29 L8,29 C6.9,29 6,28.1 6,27 L6,2 C6,0.9 6.9,0 8,0 L54,0 C55.1,0 56,0.9 56,2 L56,26.5 L56,27 L56,27 Z"
+                          id="Shape"
+                        />
+                        <path
+                          d="M57,31 C57,29.9 56.1,29 55,29 L7,29 C5.9,29 5,29.9 5,31 L0,46 C0,47.1 0.9,48 2,48 L60,48 C61.1,48 62,47.1 62,46 L57,31 L57,31 Z"
+                          id="Shape"
+                        />
+                        <path d="M2,42.9 L61,42.9" id="Shape" />
+                        <path
+                          d="M52.1,24 C52.1,25.1 51.2,26 50.1,26 L12,26 C10.9,26 10,25.1 10,24 L10,6 C10,4.9 10.9,4 12,4 L50,4 C51.1,4 52,4.9 52,6 L52.1,24 L52.1,24 Z"
+                          id="Shape"
+                        />
+                        <path d="M22,39 L40,39" id="Shape" />
+                        <path d="M17.2,39 L20,39" id="Shape" />
+                        <path d="M12.1,39 L15,39" id="Shape" />
+                        <path d="M7,39 L10,39" id="Shape" />
+                        <path d="M9.2,35 L12,35" id="Shape" />
+                        <path d="M14,35 L17,35" id="Shape" />
+                        <path d="M19,35 L22,35" id="Shape" />
+                        <path d="M24,35 L27,35" id="Shape" />
+                        <path d="M29,35 L32,35" id="Shape" />
+                        <path d="M34,35 L37,35" id="Shape" />
+                        <path d="M39,35 L42,35" id="Shape" />
+                        <path d="M45,35 L48,35" id="Shape" />
+                        <path d="M50,35 L53,35" id="Shape" />
+                        <path d="M47,32 L50,32" id="Shape" />
+                        <path d="M42,32 L45,32" id="Shape" />
+                        <path d="M37,32 L40,32" id="Shape" />
+                        <path d="M32,32 L35,32" id="Shape" />
+                        <path d="M27,32 L30,32" id="Shape" />
+                        <path d="M22,32 L25,32" id="Shape" />
+                        <path d="M17.1,32 L20,32" id="Shape" />
+                        <path d="M12,32 L15,32" id="Shape" />
+                        <path d="M42,39 L44.8,39" id="Shape" />
+                        <path d="M47,39 L49.9,39" id="Shape" />
+                        <path d="M52,39 L55,39" id="Shape" />
+                      </g>
                     </g>
-                  </g>
-                </svg>
-                {$t("pages.wallet_create.install_app")}
-              </button>
-            </a>
-          </div>
+                  </svg>
+                  {$t("pages.wallet_create.install_app")}
+                </button>
+              </a>
+            </div>
           {/if}
           <!-- <div class="row mt-5 mb-12">
             <button
@@ -1460,7 +1485,7 @@
                   )}
                 </li>
               </ul>
-              
+
               <input
                 bind:this={phrase}
                 class="mt-10 mr-0"
@@ -1500,9 +1525,7 @@
               {/if}
               {#if security_phrase_error}
                 <Alert color="red" class="mt-5">
-                  {@html $t(
-                    "pages.wallet_create.security_phrase_invalid"
-                  )}
+                  {@html $t("pages.wallet_create.security_phrase_invalid")}
                 </Alert>
               {/if}
               <Dropzone
@@ -1585,7 +1608,11 @@
               {#if !tauri_platform}{@html $t(
                   "pages.login.trust_device_allow_cookies"
                 )}{/if}<br /><br />
-              <Toggle bind:checked={options.trusted} on:change={()=> {if (!options.trusted) options.pdf=false;}}
+              <Toggle
+                bind:checked={options.trusted}
+                on:change={() => {
+                  if (!options.trusted) options.pdf = false;
+                }}
                 >{@html $t(
                   "pages.wallet_create.save_wallet_options.trust_toggle"
                 )}</Toggle
@@ -1786,14 +1813,9 @@
                   })}
                 {/if}
                 {#if pdf_link}
-                  {@html $t(
-                    "pages.wallet_create.download_pdf_description"
-                  )}<br />
-                  <a
-                    href={pdf_link}
-                    target="_blank"
-                    download={pdf_name}
-                  >
+                  {@html $t("pages.wallet_create.download_pdf_description")}<br
+                  />
+                  <a href={pdf_link} target="_blank" download={pdf_name}>
                     <button
                       tabindex="-1"
                       class:animate-bounce={animatePdf}
