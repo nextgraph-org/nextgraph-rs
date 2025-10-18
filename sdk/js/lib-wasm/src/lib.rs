@@ -20,6 +20,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use nextgraph::net::app_protocol::AppRequest;
+use ng_net::orm::OrmPatch;
 use ng_wallet::types::SensitiveWallet;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -1834,7 +1835,7 @@ pub async fn orm_update(
     diff: JsValue,
     session_id: JsValue,
 ) -> Result<(), String> {
-    let diff: OrmDiff = serde_wasm_bindgen::from_value::<OrmDiff>(diff)
+    let diff: OrmPatches = serde_wasm_bindgen::from_value::<OrmPatches>(diff)
         .map_err(|e| format!("Deserialization error of diff {e}"))?;
     log_info!("frontend_update_orm {:?}", diff);
 
