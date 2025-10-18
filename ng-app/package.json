@@ -47,6 +47,7 @@
     "@milkdown/theme-nord": "7.4.0",
     "@milkdown/transformer": "7.2.0",
     "@milkdown/utils": "7.4.0",
+    "@nextgraph-monorepo/ng-sdk-js": "workspace:*",
     "@popperjs/core": "^2.11.8",
     "@replit/codemirror-lang-svelte": "^6.0.0",
     "@sindresorhus/is": "4.6.0",
@@ -67,12 +68,12 @@
     "immutable-json-patch": "^6.0.1",
     "katex": "^0.16.11",
     "lodash.debounce": "4.0.8",
-    "@nextgraph-monorepo/ng-sdk-js": "workspace:*",
     "prism-themes": "^1.9.0",
     "prosemirror-model": "^1.7.1",
     "prosemirror-state": "^1.2.3",
     "prosemirror-svelte": "^0.2.4",
     "prosemirror-view": "^1.9.10",
+    "remote-web-streams": "^0.2.0",
     "skin-tone": "2.0.0",
     "style-mod": "^4.1.2",
     "svelte-codemirror-editor": "^1.4.0",
@@ -85,8 +86,7 @@
     "y-codemirror.next": "^0.3.5",
     "y-prosemirror": "^1.2.10",
     "y-protocols": "^1.0.1",
-    "yjs": "^13.6.18",
-    "remote-web-streams": "^0.2.0"
+    "yjs": "^13.6.18"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "2.0.0",

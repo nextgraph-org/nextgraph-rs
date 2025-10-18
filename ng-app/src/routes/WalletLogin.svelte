@@ -36,10 +36,14 @@
     wallet_from_import,
     redirect_after_login,
     redirect_if_wallet_is,
-    NG_BOOTSTRAP_IFRAME_SRC,
-    register_bootstrap
+    register_bootstrap,
   } from "../store";
-  import { CheckBadge, ExclamationTriangle, QrCode, Cloud } from "svelte-heros-v2";
+  import {
+    CheckBadge,
+    ExclamationTriangle,
+    QrCode,
+    Cloud,
+  } from "svelte-heros-v2";
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
 
@@ -108,21 +112,23 @@
       wallet = $wallet_from_import;
       importing = true;
     }
-
   });
 
   async function loggedin() {
     step = "loggedin";
-    
+
     if ($redirect_after_login) {
-      if (!$redirect_if_wallet_is || $redirect_if_wallet_is == $active_wallet?.id) {
-        let redir=$redirect_after_login; 
-        $redirect_after_login=undefined; 
-        $redirect_if_wallet_is=undefined;
-        push("#"+redir);
+      if (
+        !$redirect_if_wallet_is ||
+        $redirect_if_wallet_is == $active_wallet?.id
+      ) {
+        let redir = $redirect_after_login;
+        $redirect_after_login = undefined;
+        $redirect_if_wallet_is = undefined;
+        push("#" + redir);
       } else {
-        $redirect_after_login=undefined; 
-        $redirect_if_wallet_is=undefined;
+        $redirect_after_login = undefined;
+        $redirect_if_wallet_is = undefined;
         push("#/");
       }
     } else {
@@ -150,17 +156,24 @@
     try {
       if (importing) {
         step = "loggedin";
-        $redirect_after_login=undefined; 
-        $redirect_if_wallet_is=undefined;
+        $redirect_after_login = undefined;
+        $redirect_if_wallet_is = undefined;
         let in_memory = !event.detail.trusted;
         //console.log("IMPORTING", in_memory, event.detail.wallet, wallet);
-        if (!in_memory && !tauri_platform && (await ng.get_bowser())!=="Safari") {
-          let bootstrap_iframe_msgs = await ng.get_bootstrap_iframe_msgs_for_brokers(event.detail.wallet.V0.brokers);
-          let res = await register_bootstrap(bootstrap_iframe_msgs);
-          if (res !== true) {
-            throw new Error("We could not save your bootstrap information at nextgraph.net. This is needed for links and third-party webapps to work properly. so we are stopping here. Reason: " + res);
-          }
-        }
+        // TODO : register bootstrap when importing
+        // if (!in_memory && !tauri_platform) {
+        //   let bootstrap_iframe_msgs =
+        //     await ng.get_bootstrap_iframe_msgs_for_brokers(
+        //       event.detail.wallet.V0.brokers
+        //     );
+        //   let res = await register_bootstrap(bootstrap_iframe_msgs);
+        //   if (res !== true) {
+        //     throw new Error(
+        //       "We could not save your bootstrap information at nextgraph.net. This is needed for links and third-party webapps to work properly. so we are stopping here. Reason: " +
+        //         res
+        //     );
+        //   }
+        // }
         let client = await ng.wallet_import(
           wallet,
           event.detail.wallet,
@@ -197,11 +210,13 @@
         event.detail.wallet.V0.client = client;
       }
     } catch (e) {
-        if (importing) {wallet = undefined;}
-        importing = false;
-        error = e;
-        step = "open";
-        return;
+      if (importing) {
+        wallet = undefined;
+      }
+      importing = false;
+      error = e;
+      step = "open";
+      return;
     }
     //await tick();
     active_wallet.set(event.detail);
@@ -244,11 +259,6 @@
   onMount(() => scrollToTop());
 </script>
 
-{#if NG_BOOTSTRAP_IFRAME_SRC}
-  <iframe title="bootstrap" id="nextgraph-bootstrap-iframe" scrolling="no" frameborder="0"
-      style="width:0; height:0; visibility: hidden;"
-  ></iframe>
-{/if}
 <div bind:this={top}>
   <CenteredLayout displayFooter={!wallet && !selected}>
     {#if error}
@@ -332,7 +342,7 @@
 
       <div>
         <button
-          class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2" 
+          class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
           on:click={start_login_from_import}
         >
           {$t("buttons.login")}
@@ -383,7 +393,7 @@
               tabindex="-1"
               class="mt-2.5 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
             >
-              <Cloud class="w-8 h-8 mr-2 -ml-1" tabindex="-1"/>
+              <Cloud class="w-8 h-8 mr-2 -ml-1" tabindex="-1" />
               {$t("pages.wallet_login.with_username")}
             </button>
           </a>
@@ -422,7 +432,7 @@
               tabindex="-1"
               class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
             >
-              <QrCode class="w-8 h-8 mr-2 -ml-1" tabindex="-1"/>
+              <QrCode class="w-8 h-8 mr-2 -ml-1" tabindex="-1" />
               {$t("pages.wallet_login.import_qr")}
             </button>
           </a>

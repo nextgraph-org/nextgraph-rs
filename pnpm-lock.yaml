@@ -703,7 +703,7 @@ importers:
         version: 3.3.0
       vite-plugin-top-level-await:
         specifier: 1.3.1
-        version: 1.3.1(rollup@3.29.5)(vite@4.2.1(@types/node@18.19.76)(sass@1.85.0))
+        version: 1.3.1(rollup@4.39.0)(vite@4.2.1(@types/node@18.19.76)(sass@1.85.0))
       xml-beautifier:
         specifier: ^0.5.0
         version: 0.5.0
@@ -800,7 +800,7 @@ importers:
         version: 4.2.1(@types/node@18.19.76)(sass@1.85.0)
       vite-plugin-singlefile:
         specifier: 0.13.5
-        version: 0.13.5(rollup@3.29.5)(vite@4.2.1(@types/node@18.19.76)(sass@1.85.0))
+        version: 0.13.5(rollup@4.39.0)(vite@4.2.1(@types/node@18.19.76)(sass@1.85.0))
       vite-plugin-svelte-svg:
         specifier: 2.2.1
         version: 2.2.1(svelte@3.59.2)(vite@4.2.1(@types/node@18.19.76)(sass@1.85.0))
@@ -7002,10 +7002,6 @@ snapshots:
       '@lezer/javascript': 1.4.21
       '@lezer/lr': 1.4.2
 
-  '@rollup/plugin-virtual@3.0.2(rollup@3.29.5)':
-    optionalDependencies:
-      rollup: 3.29.5
-
   '@rollup/plugin-virtual@3.0.2(rollup@4.39.0)':
     optionalDependencies:
       rollup: 4.39.0
@@ -10371,10 +10367,10 @@ snapshots:
       - rollup
       - supports-color
 
-  vite-plugin-singlefile@0.13.5(rollup@3.29.5)(vite@4.2.1(@types/node@18.19.76)(sass@1.85.0)):
+  vite-plugin-singlefile@0.13.5(rollup@4.39.0)(vite@4.2.1(@types/node@18.19.76)(sass@1.85.0)):
     dependencies:
       micromatch: 4.0.8
-      rollup: 3.29.5
+      rollup: 4.39.0
       vite: 4.2.1(@types/node@18.19.76)(sass@1.85.0)
 
   vite-plugin-singlefile@0.13.5(rollup@4.39.0)(vite@4.5.9(@types/node@18.19.76)(sass@1.85.0)):
@@ -10394,16 +10390,6 @@ snapshots:
       svelte: 3.59.2
       svgo: 3.3.2
       vite: 4.5.9(@types/node@18.19.76)(sass@1.85.0)
-
-  vite-plugin-top-level-await@1.3.1(rollup@3.29.5)(vite@4.2.1(@types/node@18.19.76)(sass@1.85.0)):
-    dependencies:
-      '@rollup/plugin-virtual': 3.0.2(rollup@3.29.5)
-      '@swc/core': 1.6.13
-      uuid: 9.0.1
-      vite: 4.2.1(@types/node@18.19.76)(sass@1.85.0)
-    transitivePeerDependencies:
-      - '@swc/helpers'
-      - rollup
 
   vite-plugin-top-level-await@1.3.1(rollup@4.39.0)(vite@4.2.1(@types/node@18.19.76)(sass@1.85.0)):
     dependencies:

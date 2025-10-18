@@ -32,7 +32,7 @@
   } from "svelte-heros-v2";
   import PasswordInput from "./components/PasswordInput.svelte";
   import Spinner from "./components/Spinner.svelte";
-  import { display_error, test_bootstrap, NG_BOOTSTRAP_IFRAME_SRC } from "../store";
+  import { display_error } from "../store";
   //import Worker from "../worker.js?worker&inline";
   export let wallet;
   export let for_import = false;
@@ -45,24 +45,6 @@
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
 
   const dispatch = createEventDispatcher();
-
-  async function test_local_storage() {
-    if (!tauri_platform) {
-      if ((await ng.get_bowser())=="Safari") return;
-      await tick();
-      let iframe: HTMLIFrameElement = <HTMLIFrameElement>window.document.getElementById('nextgraph-bootstrap-iframe');
-      return new Promise(async (resolve) => {
-        iframe.addEventListener("load", async function() {
-          if (!await test_bootstrap()){
-            trusted = false;
-            no_local_storage = true;
-          }
-          resolve(null);
-        });
-        iframe.src=NG_BOOTSTRAP_IFRAME_SRC as string;
-      });
-    }
-  }
 
   onMount(async () => {
     loaded = false;
@@ -79,9 +61,8 @@
       } catch (e) {
         trusted = false;
         no_local_storage = true;
-        console.log("no access to localStorage")
+        console.log("no access to localStorage");
       }
-      await test_local_storage();
     }
   });
 
@@ -285,7 +266,11 @@
       }
     } catch (e) {
       console.error(e);
-      if (e.message && e.message.includes("constructor") || (typeof e === "string" && e.includes("constructor") )) e = "BrowserTooOld";
+      if (
+        (e.message && e.message.includes("constructor")) ||
+        (typeof e === "string" && e.includes("constructor"))
+      )
+        e = "BrowserTooOld";
       error = e;
       step = "end";
       dispatch("error", { error: e });
@@ -301,7 +286,10 @@
   async function on_pin_key(val) {
     pin_code = [...pin_code, val];
     if (pin_code.length == 4) {
-      setTimeout(()=>window.document.getElementById("confirm_pin_btn").focus(),50);
+      setTimeout(
+        () => window.document.getElementById("confirm_pin_btn").focus(),
+        50
+      );
     }
   }
 
@@ -372,12 +360,6 @@
   }
 </script>
 
-{#if NG_BOOTSTRAP_IFRAME_SRC}
-  <iframe title="bootstrap" id="nextgraph-bootstrap-iframe" scrolling="no" frameborder="0"
-      style="width:0; height:0; visibility: hidden;"
-  ></iframe>
-{/if}
-
 <div
   class="flex-col justify-center md:max-w-2xl py-4 sm:px-8"
   class:h-screen={step !== "load" && height > 640}
@@ -426,29 +408,32 @@
       <!-- Save wallet? -->
       {#if for_import}
         {#if no_local_storage}
-        <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
-          <Alert color="orange" class="">
-            Access to local storage is denied. <br/>You won't be able to save your wallet in this browser.<br/>
-            If you wanted to save it, please allow storing local data<br/> for the websites {location.origin} <br/>
-            and https://nextgraph.net and then reload the page. <br/> You might need to all third-party cookies too.
-          </Alert>
-        </div>
-        {:else}
-        <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
-          <span class="text-xl"
-            >{$t("pages.wallet_create.save_wallet_options.trust")}
-          </span> <br />
-          <p class="text-sm">
-            {$t("pages.wallet_create.save_wallet_options.trust_description")}
-            {#if !tauri_platform}
-              {$t("pages.login.trust_device_allow_cookies")}{/if}<br />
-          </p>
-          <div class="flex justify-center items-center my-4">
-            <Toggle class="" bind:checked={trusted}
-              >{$t("pages.login.trust_device_yes")}</Toggle
-            >
+          <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
+            <Alert color="orange" class="">
+              Access to local storage is denied. <br />You won't be able to save
+              your wallet in this browser.<br />
+              If you wanted to save it, please allow storing local data<br />
+              for the websites {location.origin} <br />
+              and https://nextgraph.net and then reload the page. <br /> You might
+              need to all third-party cookies too.
+            </Alert>
           </div>
-        </div>
+        {:else}
+          <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
+            <span class="text-xl"
+              >{$t("pages.wallet_create.save_wallet_options.trust")}
+            </span> <br />
+            <p class="text-sm">
+              {$t("pages.wallet_create.save_wallet_options.trust_description")}
+              {#if !tauri_platform}
+                {$t("pages.login.trust_device_allow_cookies")}{/if}<br />
+            </p>
+            <div class="flex justify-center items-center my-4">
+              <Toggle class="" bind:checked={trusted}
+                >{$t("pages.login.trust_device_yes")}</Toggle
+              >
+            </div>
+          </div>
         {/if}
       {/if}
 
@@ -635,7 +620,10 @@
                   class:h-[160px]={!mobile}
                   class:h-[93px]={mobile}
                   class:text-8xl={!mobile}
-                  on:click={async () => {window.document.activeElement.blur(); await on_pin_key(num)}}
+                  on:click={async () => {
+                    window.document.activeElement.blur();
+                    await on_pin_key(num);
+                  }}
                   disabled={pin_code.length >= 4}
                 >
                   <span>{num}</span>
@@ -651,7 +639,10 @@
               class:h-[160px]={!mobile}
               class:h-[93px]={mobile}
               class:text-8xl={!mobile}
-              on:click={async () => {window.document.activeElement.blur();await on_pin_key(shuffle_pin[9])}}
+              on:click={async () => {
+                window.document.activeElement.blur();
+                await on_pin_key(shuffle_pin[9]);
+              }}
               disabled={pin_code.length >= 4}
             >
               <span>{shuffle_pin[9]}</span>

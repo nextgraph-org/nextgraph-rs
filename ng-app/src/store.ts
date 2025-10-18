@@ -39,21 +39,9 @@ export const register_bootstrap = async function (bootstrap_iframe_msgs) {
     return ret.value.error
   }
 
-export const test_bootstrap = async function () {
-    let iframe = (<HTMLIFrameElement>window.document.getElementById('nextgraph-bootstrap-iframe'))?.contentWindow;
-    if (!iframe) return false;
-    const { readable, writablePort } = new RemoteReadableStream();
-    iframe.postMessage({method:"test", port:writablePort}, NG_BOOTSTRAP_IFRAME_ORIGIN, [writablePort]);
-    const reader = readable.getReader();
-    let ret = await reader.read();
-    await reader.read(); // the close
-    if (ret.value.status=="ok") return true;
-    else return false;
-  }
-
 export const NG_BOOTSTRAP_IFRAME_SRC = import.meta.env.TAURI_PLATFORM ? false : import.meta.env.PROD
-    ? "https://nextgraph.net/bootstrap/?o=" + encodeURIComponent(location.origin)
-    : "/bootstrap.html?o=" + encodeURIComponent(location.origin);
+    ? "https://nextgraph.net/bootstrap/#/?o=" + encodeURIComponent(location.origin)
+    : "/bootstrap.html#/?o=" + encodeURIComponent(location.origin);
 
 export const NG_BOOTSTRAP_IFRAME_ORIGIN = import.meta.env.TAURI_PLATFORM ? "" : import.meta.env.PROD
     ? "https://nextgraph.net"

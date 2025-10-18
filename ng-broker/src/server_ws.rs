@@ -282,15 +282,13 @@ fn upgrade_ws_or_serve_app(
                     if query.starts_with("o=") {
                         match decode(&query.chars().skip(2).collect::<String>()) {
                             Err(_) => return Err(make_error(StatusCode::BAD_REQUEST)),
-                            Ok(cow) => {
-                                cow.into_owned()
-                            }
+                            Ok(cow) => cow.into_owned(),
                         }
                     } else {
-                        return Err(make_error(StatusCode::BAD_REQUEST))
+                        return Err(make_error(StatusCode::BAD_REQUEST));
                     }
-                },
-                None => {return Err(make_error(StatusCode::BAD_REQUEST))}
+                }
+                None => return Err(make_error(StatusCode::BAD_REQUEST)),
             };
             let sha_file = AppAuth::get("index.sha256").unwrap();
             let sha = format!(
@@ -303,15 +301,22 @@ fn upgrade_ws_or_serve_app(
                     .status(StatusCode::NOT_MODIFIED)
                     .header("Cache-Control", "max-age=31536000, must-revalidate")
                     .header("ETag", sha)
-                    .header("Content-Security-Policy", format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"))
+                    .header(
+                        "Content-Security-Policy",
+                        format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"),
+                    )
                     .header("X-Frame-Options", format!("ALLOW-FROM {webapp_origin}"))
                     .body(None)
                     .unwrap();
                 return Err(res);
             }
             let file = AppAuth::get("index.gzip").unwrap();
-            let res = Response::builder().status(StatusCode::OK)
-                .header("Content-Security-Policy", format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"))
+            let res = Response::builder()
+                .status(StatusCode::OK)
+                .header(
+                    "Content-Security-Policy",
+                    format!("frame-ancestors 'self' https://nextgraph.net {webapp_origin};"),
+                )
                 .header("X-Frame-Options", format!("ALLOW-FROM {webapp_origin}"))
                 .header("Content-Type", "text/html")
                 .header("Cache-Control", "max-age=31536000, must-revalidate")
@@ -438,7 +443,7 @@ impl Callback for SecurityCallback {
                     uri,
                     last_etag,
                     None,
-                    referer
+                    referer,
                 );
             }
             InterfaceType::Loopback => {
@@ -474,7 +479,7 @@ impl Callback for SecurityCallback {
                                 Some(val)
                             }
                         }),
-                        referer
+                        referer,
                     );
                 } else if listener.config.accept_forward_for.is_private_domain() {
                     let (hosts_str, urls_str) =
@@ -490,7 +495,7 @@ impl Callback for SecurityCallback {
                         uri,
                         last_etag,
                         origin.map(|or| or.to_str().unwrap()),
-                        referer
+                        referer,
                     );
                 } else if listener.config.accept_forward_for == AcceptForwardForV0::No {
                     check_host(host, local_hosts)?;
@@ -505,7 +510,7 @@ impl Callback for SecurityCallback {
                         uri,
                         last_etag,
                         origin.map(|or| or.to_str().unwrap()),
-                        referer
+                        referer,
                     );
                 }
             }
@@ -548,7 +553,7 @@ impl Callback for SecurityCallback {
                         uri,
                         last_etag,
                         origin.map(|or| or.to_str().unwrap()),
-                        referer
+                        referer,
                     );
                 } else if listener.config.accept_forward_for.is_public_domain() {
                     if !remote.is_private() {
@@ -588,7 +593,7 @@ impl Callback for SecurityCallback {
                                 Some(val)
                             }
                         }),
-                        referer
+                        referer,
                     );
                 } else if listener.config.accept_forward_for == AcceptForwardForV0::No {
                     if !remote.is_private() {
@@ -609,7 +614,7 @@ impl Callback for SecurityCallback {
                         uri,
                         last_etag,
                         origin.map(|or| or.to_str().unwrap()),
-                        referer
+                        referer,
                     );
                 }
             }
