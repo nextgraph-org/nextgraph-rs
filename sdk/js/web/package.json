@@ -31,6 +31,7 @@
     "build": "tsc && vite build",
     "builddevlocal": "tsc && cross-env NG_DEV=1 vite build",
     "builddev": "tsc && cross-env NG_DEV_LOCAL_BROKER=1 vite build",
+    "builddev3": "tsc && cross-env NG_DEV3=1 vite build",
     "preview": "vite preview"
   },
   "dependencies": {

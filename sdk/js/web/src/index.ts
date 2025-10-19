@@ -12,11 +12,11 @@ import { createAsyncProxy } from "async-proxy";
 let initialized = false;
 
 const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
-const config = import.meta.env.NG_DEV ? {redirect:"http://localhost:14402/#/?o=", origin: "http://localhost:14404"} :
+const config = 
+      import.meta.env.NG_DEV3 ? {redirect:"http://127.0.0.1:3033/redir/#/?o=", origin: "http://127.0.0.1:3033"} :
+      import.meta.env.NG_DEV ? {redirect:"http://localhost:14402/#/?o=", origin: "http://localhost:14404"} :
       import.meta.env.NG_DEV_LOCAL_BROKER ? {redirect:"http://localhost:1421/redir.html#/?o=", origin: "http://localhost:1421"} : 
                                 {redirect:`https://${redirect_server}/redir/#/?o=`, origin: `https://${redirect_server}`} ;
-// to test ngnet
-//const config = {redirect:"http://127.0.0.1:3033/auth/#/?o=", origin: "http://127.0.0.1:3033"}; 
 
 export const init = async function(callback:Function | null, singleton:boolean, access_requests:any) {
   if (!window) throw new Error("init(callback,..) can only be called from a browser's window");

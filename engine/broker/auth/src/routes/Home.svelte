@@ -25,6 +25,7 @@
     derived,
     cannot_load_offline,
   } from "@ng-org/ui-common/store";
+  import { origin } from "../store";
 
   let display_login_create = !$has_wallets || !$active_wallet;
   let unsubscribe;
@@ -40,6 +41,9 @@
         push("#/wallet/login");
       }
     });
+    if (import.meta.env.NG_DEV3 && $origin) {
+      push("#/?o="+encodeURIComponent($origin));
+    }
   });
 
   onDestroy(() => {

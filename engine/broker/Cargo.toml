@@ -26,6 +26,7 @@ async-trait = "0.1.64"
 rust-embed = { version = "6.7.0", features = ["include-exclude","debug-embed"] }
 urlencoding = "2.1.3"
 blake3 = "1.3.1"
+reqwest = { version = "0.11.18", features = ["blocking", "native-tls-vendored"] } 
 ng-async-tungstenite = { version = "0.22.2", git = "https://git.nextgraph.org/NextGraph/async-tungstenite.git", branch = "nextgraph", features = [
     "async-std-runtime",
 ] }

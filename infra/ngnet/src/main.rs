@@ -136,13 +136,19 @@ async fn main() -> anyhow::Result<()> {
         .map(|reply, p: HashMap<String, String>| match p.get("o") {
             Some(obj) => {
                 let decoded = obj.trim();
-                if BSP_DETAILS.get(decoded).is_none()
-                    && decoded != "http://localhost:14400"
-                    && decoded != "http://localhost:1421"
-                // if decoded.eq("*")
-                //     || (!decoded.starts_with("http://") && !decoded.starts_with("https://"))
-                //     || decoded.len() < 11
+                let mut allowed = false;
+                #[cfg(debug_assertions)]
                 {
+                    if decoded == "http://localhost:14401" {
+                        allowed = true;
+                    }
+                }
+                allowed = allowed
+                    || BSP_DETAILS.get(decoded).is_some()
+                    || decoded == "http://localhost:14400"
+                    || decoded == "http://localhost:1421";
+
+                if !allowed {
                     warp::http::StatusCode::BAD_REQUEST.into_response()
                 } else {
                     let reply = warp::reply::with_header(

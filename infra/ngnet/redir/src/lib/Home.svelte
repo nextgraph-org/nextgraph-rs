@@ -39,8 +39,8 @@
     let broker = broker_info[1];
     broker_name = broker_info[0];
     let url;
-    if (import.meta.env.DEV && broker.localhost === 1421) {
-      // dev mode
+    if ( import.meta.env.DEV && broker.localhost === 1421 ) {
+      // dev mode 
       url = "http://localhost:14401/";
     } else if (import.meta.env.NG_DEV && broker.localhost === 14400) {
       // dev mode

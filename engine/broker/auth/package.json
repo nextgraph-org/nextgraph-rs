@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build --base=./ && node prepare-app-file.cjs && shx rm -rf ./dist/assets",
+    "dev3": "cross-env NG_DEV3=1 vite",
     "builddev": "cross-env NG_DEV=1 vite build --base=./ && shx rm -rf ./dist/assets && shx mkdir -p ../../../app/nextgraph/public_dev && cp ./dist/index.html ../../../app/nextgraph/public_dev/appauth.html",
     "preview": "vite preview"
   },

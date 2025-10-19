@@ -36,7 +36,7 @@
   const bsp_list = [
     "https://nextgraph.eu",
     "https://nextgraph.one",
-    "https://stage1.nextgraph.eu",
+    "https://stage1.nextgraph.eu"
   ];
 
   let channel;

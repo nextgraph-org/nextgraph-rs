@@ -3691,6 +3691,7 @@ dependencies = [
  "ng-storage-rocksdb",
  "ng-verifier",
  "once_cell",
+ "reqwest 0.11.27",
  "rust-embed",
  "serde",
  "serde_bare",

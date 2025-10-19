@@ -13,6 +13,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::io::Read;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -245,6 +246,7 @@ fn upgrade_ws_or_serve_app(
     }
 
     if serve_app && (remote.is_private() || remote.is_loopback()) {
+        log_debug!("GET {}", uri.path_and_query().unwrap().as_str());
         if uri == "/" {
             log_debug!("Serving the app");
             let sha_file = App::get("index.sha256").unwrap();
@@ -272,8 +274,7 @@ fn upgrade_ws_or_serve_app(
                 .body(Some(file.data.to_vec()))
                 .unwrap();
             return Err(res);
-        } else if uri.path() == "/auth/" {
-            log_debug!("Serving auth app");
+        } else if std::env::var("NG_DEV3").is_ok() && uri.path().starts_with("/auth") {
             // if referer.is_none() || referer.unwrap().to_str().is_err() || referer.unwrap().to_str().unwrap() != "https://nextgraph.net/" {
             //     return Err(make_error(StatusCode::FORBIDDEN));
             // }
@@ -290,6 +291,32 @@ fn upgrade_ws_or_serve_app(
             //     }
             //     None => return Err(make_error(StatusCode::BAD_REQUEST)),
             // };
+            let path = format!(
+                "http://localhost:14401{}",
+                uri.path_and_query()
+                    .unwrap()
+                    .as_str()
+                    .get(5..)
+                    .unwrap_or("")
+            );
+            log_debug!("SERVING AUTH APP from {path}");
+
+            match reqwest::blocking::get(path) {
+                Err(e) => return Err(make_error(StatusCode::NOT_FOUND)),
+                Ok(mut res) => {
+                    use std::io::{Cursor, Write};
+                    let mut builder = Response::builder().status(res.status());
+                    for (name, value) in res.headers().into_iter() {
+                        builder = builder.header(name, value);
+                    }
+                    let mut buffer: Vec<u8> = vec![];
+                    let mut cursor = Cursor::new(&mut buffer);
+                    res.copy_to(&mut cursor);
+                    return Err(builder.body(Some(buffer)).unwrap());
+                }
+            }
+        } else if uri == "/auth/" {
+            log_debug!("Serving auth app");
             let sha_file = AppAuth::get("index.sha256").unwrap();
             let sha = format!(
                 "\"{}\"",

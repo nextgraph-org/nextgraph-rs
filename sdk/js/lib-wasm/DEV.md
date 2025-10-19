@@ -42,6 +42,48 @@ Or automated testing with headless chrome:
 wasm-pack test --chrome --headless
 ```
 
+## Developing against a third party webapp
+
+in a separate terminal, from the root of the mono-repo :
+
+```
+pnpm buildfrontdev3
+cd engine/broker/auth
+pnpm dev3
+```
+
+in a separate terminal, from the root of the mono-repo :
+
+```
+cd infra/ngnet
+cargo run-script buildfrontdev3
+cargo run
+```
+
+start your local ngd
+
+```
+export NG_DEV3=1; cargo run -r -p ngd -- -vv --save-key -l 14400
+// then log in to your account by opening
+http://localhost:14400
+```
+
+finally, start your local third party webapp you will use to test the WASM SDK
+
+```
+// this is up to you. by example :
+cd sdk/js/examples/multi-framework-signals
+pnpm dev
+// then open that app in your browser
+```
+
+every time you modify the SDK, re-run (at the root of momo-repo) :
+
+```
+cargo run-script libwasmdev
+// or in the sdk/js/lib-wasm folder run cargo run-script appdev
+```
+
 ## Production build
 
 ```

@@ -9,11 +9,12 @@
 
 const searchParams = new URLSearchParams(window.location.search);
 let o = searchParams.get("o");
+let parent_origin = (new URL(o)).origin;
 
 let web_origin;
 let web_redirect;
 let wallet_port;
-let web_origin_host;
+//let web_origin_host;
 let session;
 
 async function rpc( method:string, port: MessagePort, args?: any) : Promise<any> {
@@ -25,16 +26,16 @@ async function rpc( method:string, port: MessagePort, args?: any) : Promise<any>
 window.addEventListener("message", async (event)=>{
   //console.log("ngnet auth got msg from", event.origin, event.data);
   const { method, port } = event.data;
-  if (event.origin === o) {
+  if (event.origin === parent_origin) {
     if (event.data.ready) return;
     if ( method === "init" ) {
       web_redirect = event.data.manifest.origin;
       let url = new URL(web_redirect);
       web_origin = url.origin;
-      web_origin_host = url.host;
+      //web_origin_host = url.host;
       session = event.data.session;
       port.onclose = () => {
-        console.error("BSP parent window closed its port with nextgraph.net");
+        console.error("BSP parent window closed its port with us, te redirecting server");
       };
       wallet_port = port;
 

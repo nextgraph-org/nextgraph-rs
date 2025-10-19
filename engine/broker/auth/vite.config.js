@@ -23,7 +23,7 @@ const jsToBottom = () => {
 export default defineConfig({
   envPrefix: ["VITE_", "NG_"],
   server: {
-    port: 14401
+    port: 14401,
   },
   worker: {
       format: 'es',
