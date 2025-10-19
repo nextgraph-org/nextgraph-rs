@@ -59,7 +59,7 @@ export type DeepPatchSubscriber = (patches: DeepPatch[]) => void;
 /** Options for configuring deepSignal behavior. */
 export interface DeepSignalOptions {
     /** Custom function to generate synthetic IDs for objects without @id. */
-    idGenerator?: () => string | number;
+    idGenerator?: (pathToObject: (string | number)[]) => string | number;
     /** If true, add @id property to all objects in the tree. */
     addIdToObjects?: boolean;
 }
@@ -156,7 +156,7 @@ function queueDeepPatches(
     ) {
         let syntheticId: string | number;
         if (options.idGenerator) {
-            syntheticId = options.idGenerator();
+            syntheticId = options.idGenerator(basePath);
         } else {
             syntheticId = assignBlankNodeId(val);
         }
@@ -516,6 +516,7 @@ function getFromSet(
     };
     // Pre-pass to ensure any existing non-proxied object entries are proxied (enables deep patches after iteration)
     if (meta) raw.forEach(ensureEntryProxy);
+
     if (key === "add" || key === "delete" || key === "clear") {
         const fn: Function = (raw as any)[key];
         return function (this: any, ...args: any[]) {
@@ -545,7 +546,8 @@ function getFromSet(
                         ) {
                             let syntheticId: string | number;
                             if (metaNow.options.idGenerator) {
-                                syntheticId = metaNow.options.idGenerator();
+                                syntheticId =
+                                    metaNow.options.idGenerator(containerPath);
                             } else {
                                 syntheticId = assignBlankNodeId(entry);
                             }

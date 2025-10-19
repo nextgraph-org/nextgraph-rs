@@ -53,7 +53,7 @@ console.log(state.$count!()); // read via signal function
 
 ```ts
 type DeepSignalOptions = {
-    idGenerator?: () => string | number; // Custom ID generator function
+    idGenerator?: (pathToObject: (string | number)[]) => string | number; // Custom ID generator function
     addIdToObjects?: boolean; // Automatically add @id to plain objects
 };
 ```
@@ -84,7 +84,7 @@ When `addIdToObjects: true`, plain objects automatically receive a readonly, enu
 const state = deepSignal(
     { data: {} },
     { 
-        idGenerator: () => `urn:uuid:${crypto.randomUUID()}`,
+        idGenerator: (_path) => `urn:uuid:${crypto.randomUUID()}`,
         addIdToObjects: true 
     }
 );
@@ -191,7 +191,7 @@ import { addWithId, setSetEntrySyntheticId } from "@ng-org/alien-deepsignals";
 const state = deepSignal(
     { items: new Set() },
     { 
-        idGenerator: () => `urn:uuid:${crypto.randomUUID()}`,
+        idGenerator: (_path) => `urn:uuid:${crypto.randomUUID()}`,
         addIdToObjects: true 
     }
 );
@@ -250,7 +250,7 @@ state.s.add({ data: "test" });
 const state = deepSignal(
     { users: new Set() }, 
     { 
-        idGenerator: () => `urn:user:${crypto.randomUUID()}`,
+        idGenerator: (path) => `urn:user:${path.join("-")}:${crypto.randomUUID()}`,
         addIdToObjects: true 
     }
 );
