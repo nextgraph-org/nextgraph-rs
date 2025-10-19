@@ -306,6 +306,7 @@ fn upgrade_ws_or_serve_app(
                 Ok(mut res) => {
                     use std::io::{Cursor, Write};
                     let mut builder = Response::builder().status(res.status());
+                    //builder = builder.header("Access-Control-Allow-Origin", "http://127.0.0.1:3033");
                     for (name, value) in res.headers().into_iter() {
                         builder = builder.header(name, value);
                     }
@@ -327,6 +328,8 @@ fn upgrade_ws_or_serve_app(
                 let res = Response::builder()
                     .status(StatusCode::NOT_MODIFIED)
                     .header("Cache-Control", "max-age=31536000, must-revalidate")
+                    //.header("Access-Control-Allow-Origin", "https://nextgraph.net")
+                    //.header("Access-Control-Allow-Origin", "https://staging.nextgraph.net")
                     .header("ETag", sha)
                     // .header(
                     //     "Content-Security-Policy",
@@ -348,6 +351,8 @@ fn upgrade_ws_or_serve_app(
                 .header("Content-Type", "text/html")
                 .header("Cache-Control", "max-age=31536000, must-revalidate")
                 .header("Content-Encoding", "gzip")
+                //.header("Access-Control-Allow-Origin", "https://nextgraph.net")
+                //.header("Access-Control-Allow-Origin", "https://staging.nextgraph.net")
                 .header("ETag", sha)
                 .body(Some(file.data.to_vec()))
                 .unwrap();
