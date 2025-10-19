@@ -17,7 +17,6 @@
     "svelte-i18n": "^4.0.0",
     "@nextgraph-monorepo/common": "workspace:*",
     "@nextgraph-monorepo/app-api-web": "workspace:*",
-    "@nextgraph-monorepo/wasm-tools-auth": "workspace:*",
     "remote-web-streams": "^0.2.0"
   },
   "devDependencies": {
