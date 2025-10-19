@@ -74,8 +74,17 @@ export class OrmConnection<T extends BaseType> {
             this.resolveReady = resolve;
         });
 
-        // Establish connection to wasm land.
-        ng.orm_start(scope, shapeType, this.sessionId, this.onBackendMessage);
+        new Promise(async () => {
+            // Establish connection to wasm land.
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            ng.orm_start(
+                scope,
+                shapeType,
+                this.sessionId,
+                this.onBackendMessage
+            );
+        });
     }
 
     /**
@@ -89,7 +98,7 @@ export class OrmConnection<T extends BaseType> {
         shapeType: ShapeType<T>,
         scope: Scope
     ): OrmConnection<T> {
-        if (!ng) throw new Error("initNg was not called yet.");
+        // if (!ng) throw new Error("initNg was not called yet.");
 
         const scopeKey = canonicalScope(scope);
 

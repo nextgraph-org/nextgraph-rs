@@ -24,7 +24,7 @@ const title = "Multi-framework app";
             };
         }) => {
             console.log("ng web initialized. event.status, session_id:", event.status, event.session.session_id);
-            initNg(ng);
+            initNg(ng, session);
         },
         true,
         []
