@@ -877,9 +877,6 @@ importers:
       '@ng-org/alien-deepsignals':
         specifier: workspace:*
         version: link:../alien-deepsignals
-      '@ng-org/lib-wasm':
-        specifier: workspace:*
-        version: link:../lib-wasm/pkg
       '@ng-org/shex-orm':
         specifier: workspace:*
         version: link:../shex-orm
@@ -920,6 +917,9 @@ importers:
         specifier: 3.5.19
         version: 3.5.19(typescript@5.9.2)
     devDependencies:
+      '@ng-org/lib-wasm':
+        specifier: workspace:*
+        version: link:../lib-wasm/pkg
       '@playwright/test':
         specifier: ^1.55.0
         version: 1.55.0

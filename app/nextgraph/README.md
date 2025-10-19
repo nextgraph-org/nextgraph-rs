@@ -9,7 +9,6 @@ The native apps are using the Tauri framework with an embedded WebView to render
 ```
 npm install -g pnpm
 pnpm install
-pnpm install @tauri-apps/cli
 ```
 
 ## Recommended IDE Setup
