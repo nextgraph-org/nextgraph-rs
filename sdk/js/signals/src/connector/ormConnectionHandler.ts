@@ -1,7 +1,7 @@
 import type { Diff as Patches, Scope } from "../types.ts";
 import { applyDiff } from "./applyDiff.ts";
 
-import * as NG from "@ng-org/lib-wasm";
+import { ng } from "./initNg.ts";
 
 import {
     deepSignal,
@@ -20,7 +20,6 @@ export class OrmConnection<T extends BaseType> {
     // TODO: WeakMaps?
     private static idToEntry = new Map<string, OrmConnection<any>>();
 
-    private ng: typeof NG;
     readonly shapeType: ShapeType<T>;
     readonly scope: Scope;
     readonly signalObject: DeepSignalObject<T | {}>;
@@ -45,10 +44,9 @@ export class OrmConnection<T extends BaseType> {
               })
             : null;
 
-    private constructor(shapeType: ShapeType<T>, scope: Scope, ng: typeof NG) {
+    private constructor(shapeType: ShapeType<T>, scope: Scope) {
         this.shapeType = shapeType;
         this.scope = scope;
-        this.ng = ng;
         this.refCount = 0;
         this.ready = false;
         this.suspendDeepWatcher = false;
@@ -89,9 +87,10 @@ export class OrmConnection<T extends BaseType> {
      */
     public static getConnection<T extends BaseType>(
         shapeType: ShapeType<T>,
-        scope: Scope,
-        ng: typeof NG
+        scope: Scope
     ): OrmConnection<T> {
+        if (!ng) throw new Error("initNg was not called yet.");
+
         const scopeKey = canonicalScope(scope);
 
         // Unique identifier for a given shape type and scope.
@@ -102,7 +101,7 @@ export class OrmConnection<T extends BaseType> {
         // Otherwise, create new one.
         const connection =
             OrmConnection.idToEntry.get(identifier) ??
-            new OrmConnection(shapeType, scope, ng);
+            new OrmConnection(shapeType, scope);
 
         connection.refCount += 1;
 
@@ -123,7 +122,7 @@ export class OrmConnection<T extends BaseType> {
 
         const ormPatches = deepPatchesToDiff(patches);
 
-        this.ng.orm_update(
+        ng.orm_update(
             this.scope,
             this.shapeType.shape,
             ormPatches,
@@ -139,7 +138,7 @@ export class OrmConnection<T extends BaseType> {
         console.log("RESPONSE FROM BACKEND", param);
 
         // TODO: This will break, just provisionary.
-        const wasmMessage: WasmMessage = param;
+        const wasmMessage: any = param;
         const { initialData } = wasmMessage;
 
         // Assign initial data to empty signal object without triggering watcher at first.

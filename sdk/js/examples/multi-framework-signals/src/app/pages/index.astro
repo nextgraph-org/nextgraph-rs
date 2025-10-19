@@ -5,12 +5,14 @@ import Highlight from "../components/Highlight.astro";
 import VueRoot from "../components/VueRoot.vue";
 import ReactRoot from "../components/ReactRoot";
 import SvelteRoot from "../components/SvelteRoot.svelte";
-
+import { initNg } from "@ng-org/signals"
 const title = "Multi-framework app";
 ---
 
 <script>
     import { ng, init } from "@ng-org/web";
+    import { initNg } from "@ng-org/signals";
+
     await init(
         async (event: {
             status: string;
@@ -21,10 +23,11 @@ const title = "Multi-framework app";
                 public_store_id: unknown;
             };
         }) => {
-            console.log(event.status, event.session.session_id);
+            console.log("ng web initialized. event.status, session_id:", event.status, event.session.session_id);
             console.log(await ng.locales());
             let info = await ng.client_info();
             console.log(info.V0.details);
+            initNg(ng);
         },
         true,
         []

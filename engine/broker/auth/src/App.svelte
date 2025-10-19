@@ -272,11 +272,11 @@
 
           const init = () => {
             if (net_auth_iframe && port)
-            net_auth_iframe.postMessage({ method: "init", session:value, manifest:{origin:origin_url}, port: port }, iframe_config.origin, [port]);
+            iframe.postMessage({ method: "init", session:value, manifest:{origin:origin_url}, port: port }, iframe_config.origin, [port]);
           };
 
           iframe.addEventListener("load",  function() {
-            net_auth_iframe = this.contentWindow;
+            net_auth_iframe = true;//this.contentWindow;
             //console.log(net_auth_iframe);
             init();
           });
