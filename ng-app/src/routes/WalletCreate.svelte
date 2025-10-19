@@ -210,9 +210,9 @@
     ? "http://localhost:14403/#/?b="
     : import.meta.env.NG_DEV
       ? "http://localhost:1421/bootstrap.html#/?b="
-      : `https://${redirect_server}/bootstrap/#/?b=`;
-  // to test ngnet
-  //const bootstrap_redirect = "http://127.0.0.1:3033/bootstrap/#/?b=";
+      : import.meta.env.NG_DEV3
+        ? "http://127.0.0.1:3033/bootstrap/#/?b="
+        : `https://${redirect_server}/bootstrap/#/?b=`;
 
   async function bootstrap() {
     //console.log(await ng.client_info());
