@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.2",
   "scripts": { 
-    "buildfrontdev3": "cargo run-script libwasmdev && pnpm -C ./sdk/js/web builddev3 && pnpm -C ./engine/broker/auth build",
+    "buildfrontdev3": "cargo run-script libwasmdev3 && pnpm -C ./sdk/js/web builddev3 && pnpm -C ./engine/broker/auth build",
     "buildfront": "cargo run-script libwasm && pnpm -C ./app/nextgraph install && pnpm -C ./app/nextgraph webbuild && pnpm -C ./sdk/js/web build && pnpm -C ./engine/broker/auth install && pnpm -C ./engine/broker/auth build",
     "buildfrontdev": "pnpm -C ./engine/broker/auth builddev && pnpm -C ./infra/ngnet/bootstrap builddev && pnpm -C ./infra/ngnet/auth builddev && pnpm -C ./infra/ngnet/redir builddev && pnpm -C ./sdk/js/web builddev"
   },
