@@ -225,7 +225,7 @@ function dedupeCompactProperties(
     return merged;
 }
 
-// Helpers to add id: IRI to anonymous object(-union) types
+// Helpers to add @id: IRI to anonymous object(-union) types
 function ensureIdOnMembers(members?: any[]): void {
     if (!members) return;
     const props = (members.filter?.((m: any) => m?.kind === "property") ||
@@ -233,9 +233,9 @@ function ensureIdOnMembers(members?: any[]): void {
     if (!props.some((m) => m.name === "id")) {
         members.unshift(
             dom.create.property(
-                "id",
+                "@id",
                 dom.create.namedTypeReference("IRI"),
-                dom.DeclarationFlags.None
+                dom.DeclarationFlags.ReadOnly
             )
         );
     }
@@ -322,15 +322,15 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                 shapeInterface.shapeId = shapeDecl.id;
                 if (
                     !shapeInterface.members.find(
-                        (m) => m.kind === "property" && m.name === "id"
+                        (m) => m.kind === "property" && m.name === "@id"
                     )
                 ) {
                     shapeInterface.members.unshift(
                         dom.create.property(
-                            "id",
+                            "@id",
                             dom.create.namedTypeReference("IRI"),
-                            // Root interfaces should have mandatory id
-                            dom.DeclarationFlags.None
+                            // Root interfaces should have mandatory @id
+                            dom.DeclarationFlags.ReadOnly
                         )
                     );
                 }
@@ -380,7 +380,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                         const merged = [
                             ...extInt.members.filter(
                                 (m) =>
-                                    !(m.kind === "property" && m.name === "id")
+                                    !(m.kind === "property" && m.name === "@id")
                             ),
                             ...newInterface.members,
                         ].filter(
@@ -394,7 +394,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
             // Final pass: ensure only a single id property
             const idSeen = new Set<number>();
             newInterface.members = newInterface.members.filter((m, idx) => {
-                if (m.kind !== "property" || m.name !== "id") return true;
+                if (m.kind !== "property" || m.name !== "@id") return true;
                 if (idSeen.size === 0) {
                     idSeen.add(idx);
                     // normalize id type to IRI

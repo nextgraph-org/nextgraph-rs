@@ -4,7 +4,7 @@ export interface ShapeType<T extends BaseType> {
 }
 
 export interface BaseType extends Record<string, any> {
-    id: string;
+    "@id": string;
 }
 
 export type Schema = {
