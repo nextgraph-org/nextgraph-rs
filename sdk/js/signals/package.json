@@ -10,6 +10,9 @@
     "build:ts": "rm -rf dist && tsc"
   },
   "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
     "./react": {
       "default": "./src/frontendAdapters/react/index.ts"
     },
@@ -24,6 +27,10 @@
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
       "./react": {
         "types": "./dist/frontendAdapters/react/index.d.ts",
         "default": "./dist/frontendAdapters/react/index.js"
