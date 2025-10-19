@@ -328,8 +328,13 @@ describe("watch (patch mode)", () => {
             );
             st.s.clear();
             await Promise.resolve();
-            const all = batches.flat().map((p) => p.path.join("."));
-            expect(all).toEqual(["s"]);
+            // clear() emits a single structural patch for the Set itself (op: "add", value: [])
+            const structuralPatches = batches
+                .flat()
+                .filter((p) => p.path.length === 1 && p.path[0] === "s");
+            expect(structuralPatches.length).toBe(1);
+            expect(structuralPatches[0].op).toBe("add");
+            expect((structuralPatches[0] as any).value).toEqual([]);
             stop();
         });
         it("emits delete patch for object entry", async () => {
@@ -453,10 +458,17 @@ describe("watch (patch mode)", () => {
             st.s.add(a1);
             st.s.add(a2);
             await Promise.resolve();
-            const keys = patches
+            // Filter for Set structural patches only (path length 2: ['s', syntheticId])
+            const setAddPatches = patches
                 .flat()
-                .filter((p) => p.op === "add")
-                .map((p) => p.path.slice(-1)[0]);
+                .filter(
+                    (p) =>
+                        p.op === "add" &&
+                        p.path.length === 2 &&
+                        p.path[0] === "s"
+                );
+            const keys = setAddPatches.map((p) => p.path.slice(-1)[0]);
+            // Both objects should have unique synthetic IDs despite id collision
             expect(new Set(keys).size).toBe(2);
             stop();
         });

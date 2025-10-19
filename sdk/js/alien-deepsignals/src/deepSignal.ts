@@ -56,6 +56,14 @@ export interface DeepLiteralAddPatch {
 /** Callback signature for subscribeDeepMutations. */
 export type DeepPatchSubscriber = (patches: DeepPatch[]) => void;
 
+/** Options for configuring deepSignal behavior. */
+export interface DeepSignalOptions {
+    /** Custom function to generate synthetic IDs for objects without @id. */
+    idGenerator?: () => string | number;
+    /** If true, add @id property to all objects in the tree. */
+    addIdToObjects?: boolean;
+}
+
 /** Minimal per-proxy metadata for path reconstruction. */
 interface ProxyMeta {
     /** Parent proxy in the object graph (undefined for root). */
@@ -64,10 +72,14 @@ interface ProxyMeta {
     key?: string | number;
     /** Stable root id symbol shared by the entire deepSignal tree. */
     root: symbol;
+    /** Options inherited from root. */
+    options?: DeepSignalOptions;
 }
 
 // Proxy -> metadata
 const proxyMeta = new WeakMap<object, ProxyMeta>();
+// Root symbol -> options
+const rootOptions = new Map<symbol, DeepSignalOptions>();
 // Root symbol -> subscribers
 const mutationSubscribers = new Map<symbol, Set<DeepPatchSubscriber>>();
 // Pending patches grouped per root (flushed once per microtask)
@@ -122,7 +134,8 @@ function queuePatch(patch: DeepPatch) {
 function queueDeepPatches(
     val: any,
     rootId: symbol,
-    basePath: (string | number)[]
+    basePath: (string | number)[],
+    options?: DeepSignalOptions
 ) {
     if (!val || typeof val !== "object") {
         // Emit patch for primitive leaf
@@ -135,6 +148,28 @@ function queueDeepPatches(
         return;
     }
 
+    // Add @id to object if options specify it
+    if (
+        options?.addIdToObjects &&
+        val.constructor === Object &&
+        !("@id" in val)
+    ) {
+        let syntheticId: string | number;
+        if (options.idGenerator) {
+            syntheticId = options.idGenerator();
+        } else {
+            syntheticId = assignBlankNodeId(val);
+        }
+
+        // Define @id on the raw object before proxying
+        Object.defineProperty(val, "@id", {
+            value: syntheticId,
+            writable: false,
+            enumerable: true,
+            configurable: false,
+        });
+    }
+
     // Emit patch for the object/array/Set itself
     queuePatch({
         root: rootId,
@@ -143,20 +178,33 @@ function queueDeepPatches(
         type: "object",
     });
 
+    // Emit patch for @id if it exists
+    if ("@id" in val) {
+        queuePatch({
+            root: rootId,
+            path: [...basePath, "@id"],
+            op: "add",
+            value: (val as any)["@id"],
+        });
+    }
+
     // Recursively process nested properties
     if (Array.isArray(val)) {
         for (let i = 0; i < val.length; i++) {
-            queueDeepPatches(val[i], rootId, [...basePath, i]);
+            queueDeepPatches(val[i], rootId, [...basePath, i], options);
         }
     } else if (val instanceof Set) {
         for (const entry of val) {
             const key = getSetEntryKey(entry);
-            queueDeepPatches(entry, rootId, [...basePath, key]);
+            queueDeepPatches(entry, rootId, [...basePath, key], options);
         }
     } else if (val.constructor === Object) {
         for (const key in val) {
-            if (Object.prototype.hasOwnProperty.call(val, key)) {
-                queueDeepPatches(val[key], rootId, [...basePath, key]);
+            if (
+                Object.prototype.hasOwnProperty.call(val, key) &&
+                key !== "@id"
+            ) {
+                queueDeepPatches(val[key], rootId, [...basePath, key], options);
             }
         }
     }
@@ -319,17 +367,21 @@ export function setSetEntrySyntheticId(obj: object, id: string | number) {
 }
 const getSetEntryKey = (val: any): string | number => {
     if (val && typeof val === "object") {
+        // First check for explicitly assigned synthetic ID
         if (setObjectIds.has(val)) return setObjectIds.get(val)!;
-        if (
-            typeof (val as any).id === "string" ||
-            typeof (val as any).id === "number"
-        )
-            return (val as any).id;
+        // Then check for @id property (primary identifier)
         if (
             typeof (val as any)["@id"] === "string" ||
             typeof (val as any)["@id"] === "number"
         )
             return (val as any)["@id"];
+        // Then check for id property (backward compatibility)
+        if (
+            typeof (val as any).id === "string" ||
+            typeof (val as any).id === "number"
+        )
+            return (val as any).id;
+        // Fall back to generating a blank node ID
         return assignBlankNodeId(val);
     }
     return val as any;
@@ -360,16 +412,28 @@ export const isShallow = (source: any) => {
 };
 
 /** Create (or reuse) a deep reactive proxy for an object / array / Set. */
-export const deepSignal = <T extends object>(obj: T): DeepSignal<T> => {
+export const deepSignal = <T extends object>(
+    obj: T,
+    options?: DeepSignalOptions
+): DeepSignal<T> => {
     if (!shouldProxy(obj)) throw new Error("This object can't be observed.");
     if (!objToProxy.has(obj)) {
         // Create a unique root id symbol to identify this deep signal tree in patches.
         const rootId = Symbol("deepSignalRoot");
-        const proxy = createProxy(obj, objectHandlers, rootId) as DeepSignal<T>;
+        if (options) {
+            rootOptions.set(rootId, options);
+        }
+        const proxy = createProxy(
+            obj,
+            objectHandlers,
+            rootId,
+            options
+        ) as DeepSignal<T>;
         const meta = proxyMeta.get(proxy)!;
         meta.parent = undefined; // root has no parent
         meta.key = undefined; // root not addressed by a key
         meta.root = rootId; // ensure root id stored (explicit)
+        meta.options = options; // store options in metadata
         // Pre-register an empty signals map so isDeepSignal() is true before any property access.
         if (!proxyToSignals.has(proxy)) proxyToSignals.set(proxy, new Map());
         objToProxy.set(obj, proxy);
@@ -403,7 +467,8 @@ export function shallow<T extends object>(obj: T): Shallow<T> {
 const createProxy = (
     target: object,
     handlers: ProxyHandler<object>,
-    rootId?: symbol
+    rootId?: symbol,
+    options?: DeepSignalOptions
 ) => {
     const proxy = new Proxy(target, handlers);
     ignore.add(proxy);
@@ -411,8 +476,10 @@ const createProxy = (
     if (!proxyMeta.has(proxy)) {
         proxyMeta.set(proxy, {
             root: rootId || Symbol("deepSignalDetachedRoot"),
+            options: options || rootOptions.get(rootId!),
         });
     }
+
     return proxy;
 };
 
@@ -432,7 +499,12 @@ function getFromSet(
             !objToProxy.has(entry)
         ) {
             const synthetic = getSetEntryKey(entry);
-            const childProxy = createProxy(entry, objectHandlers, meta!.root);
+            const childProxy = createProxy(
+                entry,
+                objectHandlers,
+                meta!.root,
+                meta!.options
+            );
             const childMeta = proxyMeta.get(childProxy)!;
             childMeta.parent = receiver;
             childMeta.key = synthetic;
@@ -462,6 +534,30 @@ function getFromSet(
                     );
                     if (key === "add") {
                         const entry = args[0];
+
+                        // Add @id to object entries if options specify it
+                        if (
+                            entry &&
+                            typeof entry === "object" &&
+                            metaNow.options?.addIdToObjects &&
+                            entry.constructor === Object &&
+                            !("@id" in entry)
+                        ) {
+                            let syntheticId: string | number;
+                            if (metaNow.options.idGenerator) {
+                                syntheticId = metaNow.options.idGenerator();
+                            } else {
+                                syntheticId = assignBlankNodeId(entry);
+                            }
+
+                            Object.defineProperty(entry, "@id", {
+                                value: syntheticId,
+                                writable: false,
+                                enumerable: true,
+                                configurable: false,
+                            });
+                        }
+
                         let synthetic = getSetEntryKey(entry);
                         if (entry && typeof entry === "object") {
                             for (const existing of raw.values()) {
@@ -482,7 +578,8 @@ function getFromSet(
                             const childProxy = createProxy(
                                 entryVal,
                                 objectHandlers,
-                                metaNow.root
+                                metaNow.root,
+                                metaNow.options
                             );
                             const childMeta = proxyMeta.get(childProxy)!;
                             childMeta.parent = receiver;
@@ -492,13 +589,13 @@ function getFromSet(
                         }
                         // Set entry add: emit object vs primitive variant.
                         if (entryVal && typeof entryVal === "object") {
-                            // Object entry: path includes synthetic id
-                            queuePatch({
-                                root: metaNow.root,
-                                path: [...containerPath, synthetic],
-                                op: "add",
-                                type: "object",
-                            });
+                            // Object entry: path includes synthetic id, and emit deep patches for nested properties
+                            queueDeepPatches(
+                                entry,
+                                metaNow.root,
+                                [...containerPath, synthetic],
+                                metaNow.options
+                            );
                         } else {
                             // Primitive entry: path is just the Set, value contains the primitive
                             queuePatch({
@@ -645,7 +742,12 @@ function ensureChildProxy(value: any, parent: object, key: string | number) {
     if (!shouldProxy(value)) return value;
     if (!objToProxy.has(value)) {
         const parentMeta = proxyMeta.get(parent)!;
-        const childProxy = createProxy(value, objectHandlers, parentMeta.root);
+        const childProxy = createProxy(
+            value,
+            objectHandlers,
+            parentMeta.root,
+            parentMeta.options
+        );
         const childMeta = proxyMeta.get(childProxy)!;
         childMeta.parent = parent;
         childMeta.key = key as string;
@@ -666,12 +768,14 @@ function normalizeKey(
         if (fullKey === "$") {
             // Provide $ meta proxy for array index signals
             if (!arrayToArrayOfSignals.has(target)) {
+                const receiverMeta = proxyMeta.get(receiver);
                 arrayToArrayOfSignals.set(
                     target,
                     createProxy(
                         target,
                         arrayHandlers,
-                        proxyMeta.get(receiver)?.root
+                        receiverMeta?.root,
+                        receiverMeta?.options
                     )
                 );
             }
@@ -732,6 +836,10 @@ const get =
 const objectHandlers = {
     get: get(false),
     set(target: object, fullKey: string, val: any, receiver: object): boolean {
+        // Prevent modification of @id property
+        if (fullKey === "@id") {
+            throw new Error("Cannot modify readonly property '@id'");
+        }
         // Respect original getter/setter semantics
         if (typeof descriptor(target, fullKey)?.set === "function")
             return Reflect.set(target, fullKey, val, receiver);
@@ -763,7 +871,8 @@ const objectHandlers = {
                     const childProxy = createProxy(
                         val,
                         objectHandlers,
-                        parentMeta!.root
+                        parentMeta!.root,
+                        parentMeta!.options
                     );
                     const childMeta = proxyMeta.get(childProxy)!;
                     childMeta.parent = receiver;
@@ -790,7 +899,12 @@ const objectHandlers = {
             const meta = proxyMeta.get(receiver);
             if (meta) {
                 // Recursively emit patches for all nested properties of newly attached objects
-                queueDeepPatches(val, meta.root, buildPath(receiver, fullKey));
+                queueDeepPatches(
+                    val,
+                    meta.root,
+                    buildPath(receiver, fullKey),
+                    meta.options
+                );
             }
             return result;
         }
