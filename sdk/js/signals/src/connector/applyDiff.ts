@@ -21,14 +21,8 @@ export interface SetAddPatch {
      * New value for set mutations:
      *  - A single primitive
      *  - An array of primitives
-     *  - An object (id -> object) for object "set" additions
      */
-    value:
-        | number
-        | string
-        | boolean
-        | (number | string | boolean)[]
-        | { [id: string]: object };
+    value: number | string | boolean | (number | string | boolean)[];
 }
 
 export interface SetRemovePatch {
@@ -37,8 +31,8 @@ export interface SetRemovePatch {
     valType: "set";
     /**
      * The value(s) to be removed from the set. Either:
-     *  - A single primitive / id
-     *  - An array of primitives / ids
+     *  - A single primitive
+     *  - An array of primitives
      */
     value: number | string | boolean | (number | string | boolean)[];
 }
@@ -67,57 +61,113 @@ function isPrimitive(v: unknown): v is string | number | boolean {
     );
 }
 
-// TODO: Escape slashes and tildes (~1, ~0)
+/**
+ * Find an object in a Set by its @id property.
+ * Returns the object if found, otherwise undefined.
+ */
+function findInSetById(set: Set<any>, id: string): any | undefined {
+    // TODO: We could optimize that by leveraging the key @id to object mapping in sets of deepSignals.
+
+    for (const item of set) {
+        if (typeof item === "object" && item !== null && item["@id"] === id) {
+            return item;
+        }
+    }
+    return undefined;
+}
+
 /**
  * Apply a diff to an object.
  *
- *  * The syntax is inspired by RFC 6902 but it is not compatible.
+ * The syntax is inspired by RFC 6902 but it is not compatible.
  *
- * It supports sets:
- *   - Primitive values are added as sets,
- *   - Sets of objects are represented as objects with their id being the key.
+ * It supports Sets for multi-valued properties:
+ *   - Primitive values are added as Sets (Set<string | number | boolean>)
+ *   - Multi-valued objects are stored in Sets, accessed by their @id property
+ *   - Single objects are plain objects with an @id property
+ *
+ * Path traversal:
+ *   - When traversing through a Set, the path segment is treated as an @id to find the object
+ *   - When traversing through a plain object, the path segment is a property name
+ *
  * @example operations
  *   ```jsonc
- *     // Add one or more objects to a set.
- *     { "op": "add", "type": "set", "path": "/address", "value": { "ID1": {...}, "ID2": {...} } },
- *     // Remove one or more objects from a set.
- *     { "op": "remove", "type": "set", "path": "/address", "value": ["ID1","ID2"] }
- *     // Add primitive types to a sets (URIs are treated just like strings)
- *     { "op": "add", "type": "set", "path": "/address", "value": [1,2,3] }
- *     // Remove primitive types from a set.
- *     { "op": "remove", "type": "set", "path": "/address", "value": [1,2] }
+ *     // === SINGLE OBJECT ===
+ *     // Creating a single object (has @id at same level)
+ *     { "op": "add", "path": "/urn:example:person1/address", "valType": "object" }
+ *     { "op": "add", "path": "/urn:example:person1/address/@id", "value": "urn:test:address1" }
+ *     // Adding primitives to single object
+ *     { "op": "add", "path": "/urn:example:person1/address/street", "value": "1st street" }
+ *     { "op": "add", "path": "/urn:example:person1/address/country", "value": "Greece" }
+ *     // Remove a primitive from object
+ *     { "op": "remove", "path": "/urn:example:person1/address/street" }
+ *     // Remove the entire object
+ *     { "op": "remove", "path": "/urn:example:person1/address" }
  *
- *     // Creating an object.
- *     { "op": "add", "path": "/address", "type": "object" }
- *     // Adding primitives.
- *     { "op": "add", "path": "/address/street", value: "1st street" }
- *     { "op": "add", "path": "/address/country", value: "Greece" }
- *     // Remove a primitive.
- *     { "op": "remove", "path": "/address/street" }
- *     // Remove an object
- *     { "op": "remove", "path": "/address" }
+ *     // === MULTI-VALUED OBJECTS (Set) ===
+ *     // Creating a multi-object container (NO @id at this level -> creates Set)
+ *     { "op": "add", "path": "/urn:example:person1/children", "valType": "object" }
+ *     // Adding an object to the Set (path includes object's @id)
+ *     { "op": "add", "path": "/urn:example:person1/children/urn:example:child1", "valType": "object" }
+ *     { "op": "add", "path": "/urn:example:person1/children/urn:example:child1/@id", "value": "urn:example:child1" }
+ *     // Adding properties to object in Set
+ *     { "op": "add", "path": "/urn:example:person1/children/urn:example:child1/name", "value": "Alice" }
+ *     // Remove an object from Set
+ *     { "op": "remove", "path": "/urn:example:person1/children/urn:example:child1" }
+ *     // Remove all objects (the Set itself)
+ *     { "op": "remove", "path": "/urn:example:person1/children" }
+ *
+ *     // === PRIMITIVE SETS ===
+ *     // Add primitive types to Sets
+ *     { "op": "add", "valType": "set", "path": "/urn:example:person1/tags", "value": [1,2,3] }
+ *     // Remove primitive types from a Set
+ *     { "op": "remove", "valType": "set", "path": "/urn:example:person1/tags", "value": [1,2] }
  * ```
  *
  * @param currentState The object before the patch
- * @param diff An array of patches to apply to the object.
+ * @param patches An array of patches to apply to the object.
  * @param ensurePathExists If true, create nested objects along the path if the path does not exist.
  */
 export function applyDiff(
     currentState: Record<string, any>,
-    diff: Patch[],
+    patches: Patch[],
     ensurePathExists: boolean = false
 ) {
-    for (const patch of diff) {
+    for (let patchIndex = 0; patchIndex < patches.length; patchIndex++) {
+        const patch = patches[patchIndex];
         if (!patch.path.startsWith("/")) continue;
-        const pathParts = patch.path.slice(1).split("/").filter(Boolean);
+        const pathParts = patch.path
+            .slice(1)
+            .split("/")
+            .filter(Boolean)
+            .map(decodePathSegment);
 
         if (pathParts.length === 0) continue; // root not supported
         const lastKey = pathParts[pathParts.length - 1];
         let parentVal: any = currentState;
         let parentMissing = false;
-        // Traverse only intermediate segments
+        // Traverse only intermediate segments (to leaf object at path)
         for (let i = 0; i < pathParts.length - 1; i++) {
             const seg = pathParts[i];
+
+            // Handle Sets: if parentVal is a Set, find object by @id
+            if (parentVal instanceof Set) {
+                const foundObj = findInSetById(parentVal, seg);
+                if (foundObj) {
+                    parentVal = foundObj;
+                } else if (ensurePathExists) {
+                    // Create new object in the set with this @id
+                    const newObj = { "@id": seg };
+                    parentVal.add(newObj);
+                    parentVal = newObj;
+                } else {
+                    parentMissing = true;
+                    break;
+                }
+                continue;
+            }
+
+            // Handle regular objects
             if (
                 parentVal != null &&
                 typeof parentVal === "object" &&
@@ -147,46 +197,71 @@ export function applyDiff(
             continue;
         }
 
-        // parentVal now should be an object into which we apply lastKey
-        if (parentVal == null || typeof parentVal !== "object") {
+        // parentVal now should be an object or Set into which we apply lastKey
+        if (
+            parentVal == null ||
+            (typeof parentVal !== "object" && !(parentVal instanceof Set))
+        ) {
             console.warn(
-                `[applyDiff] Skipping patch because parent is not an object: ${patch.path}`
+                `[applyDiff] Skipping patch because parent is not an object or Set: ${patch.path}`
             );
             continue;
         }
         const key = lastKey;
-        // If parent does not exist and we cannot create it, skip this patch
-        if (parentVal == null || typeof parentVal !== "object") continue;
 
-        // Handle set additions
-        if (patch.op === "add" && patch.valType === "set") {
-            const existing = parentVal[key];
+        // Special handling when parent is a Set
+        if (parentVal instanceof Set) {
+            // The key represents the @id of an object within the Set
+            const targetObj = findInSetById(parentVal, key);
 
-            // Normalize value
-            const raw = (patch as SetAddPatch).value;
-            if (raw == null) continue;
-
-            // Object-set (id -> object)
-            if (
-                typeof raw === "object" &&
-                !Array.isArray(raw) &&
-                !isPrimitive(raw)
-            ) {
-                if (
-                    existing &&
-                    (existing instanceof Set || Array.isArray(existing))
-                ) {
-                    // Replace incompatible representation
-                    parentVal[key] = {};
+            // Handle object creation in a Set
+            if (patch.op === "add" && patch.valType === "object") {
+                if (!targetObj) {
+                    // Determine if this will be a single object or nested Set
+                    const hasId = patches
+                        .at(patchIndex + 1)
+                        ?.path.endsWith("@id");
+                    const newObj: any = hasId ? {} : new Set();
+                    // Pre-assign the @id so subsequent patches can find this object
+                    if (hasId) {
+                        newObj["@id"] = key;
+                    }
+                    parentVal.add(newObj);
                 }
-                if (!parentVal[key] || typeof parentVal[key] !== "object") {
-                    parentVal[key] = {};
-                }
-                Object.assign(parentVal[key], raw);
                 continue;
             }
 
-            // Set primitive(s)
+            // Handle remove from Set
+            if (patch.op === "remove" && !patch.valType) {
+                if (targetObj) {
+                    parentVal.delete(targetObj);
+                }
+                continue;
+            }
+
+            // All other operations require the target object to exist
+            if (!targetObj) {
+                console.warn(
+                    `[applyDiff] Target object with @id=${key} not found in Set for path: ${patch.path}`
+                );
+                continue;
+            }
+
+            // This shouldn't happen - we handle all intermediate segments in the traversal loop
+            console.warn(
+                `[applyDiff] Unexpected: reached end of path with Set as parent: ${patch.path}`
+            );
+            continue;
+        }
+
+        // Regular object handling (parentVal is a plain object, not a Set)
+        // Handle primitive set additions
+        if (patch.op === "add" && patch.valType === "set") {
+            const existing = parentVal[key];
+            const raw = (patch as SetAddPatch).value;
+            if (raw == null) continue;
+
+            // Normalize to array of primitives
             const toAdd: (string | number | boolean)[] = Array.isArray(raw)
                 ? raw.filter(isPrimitive)
                 : isPrimitive(raw)
@@ -195,51 +270,48 @@ export function applyDiff(
 
             if (!toAdd.length) continue;
 
+            // Ensure we have a Set, create or add to existing
             if (existing instanceof Set) {
                 for (const v of toAdd) existing.add(v);
-            } else if (
-                existing &&
-                typeof existing === "object" &&
-                !Array.isArray(existing) &&
-                !(existing instanceof Set)
-            ) {
-                // Existing is object-set (objects); adding primitives -> replace with Set
-                parentVal[key] = new Set(toAdd);
             } else {
-                // No existing or incompatible -> create a Set
+                // Create new Set (replaces any incompatible existing value)
                 parentVal[key] = new Set(toAdd);
             }
             continue;
         }
 
-        // Handle set removals
+        // Handle primitive set removals
         if (patch.op === "remove" && patch.valType === "set") {
             const existing = parentVal[key];
             const raw = (patch as SetRemovePatch).value;
             if (raw == null) continue;
+
             const toRemove: (string | number | boolean)[] = Array.isArray(raw)
                 ? raw
                 : [raw];
 
             if (existing instanceof Set) {
                 for (const v of toRemove) existing.delete(v);
-            } else if (existing && typeof existing === "object") {
-                for (const v of toRemove) delete existing[v as any];
             }
             continue;
         }
 
-        // Add object (ensure object exists)
+        // Add object (if it does not exist yet).
+        // Distinguish between single objects and multi-object containers:
+        // - If an @id patch follows for this path, it's a single object -> create {}
+        // - If no @id patch follows, it's a container for multi-valued objects -> create set.
         if (patch.op === "add" && patch.valType === "object") {
-            const cur = parentVal[key];
-            if (
-                cur === undefined ||
-                cur === null ||
-                typeof cur !== "object" ||
-                cur instanceof Set
-            ) {
+            const leafVal = parentVal[key];
+            const hasId = patches.at(patchIndex + 1)?.path.endsWith("@id");
+
+            // If the leafVal does not exist and it should be a set, create.
+            if (!hasId && !leafVal) {
+                parentVal[key] = new Set();
+            } else if (!(typeof leafVal === "object")) {
+                // If the leave does not exist yet (as object), create it.
                 parentVal[key] = {};
             }
+
             continue;
         }
 
@@ -266,4 +338,8 @@ export function applyDiffToDeepSignal(currentState: object, diff: Patch[]) {
     batch(() => {
         applyDiff(currentState as Record<string, any>, diff);
     });
+}
+
+function decodePathSegment(segment: string): string {
+    return segment.replace("~1", "/").replace("~0", "~");
 }
