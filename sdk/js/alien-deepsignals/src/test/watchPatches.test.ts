@@ -95,7 +95,16 @@ describe("watch (patch mode)", () => {
         await Promise.resolve();
         expect(batches.length >= 1).toBe(true);
         const allPaths = batches.flatMap((b) => b.map((p) => p.path.join(".")));
-        expect(allPaths.some((p) => p.startsWith("s."))).toBe(true);
+        // For primitives, the path should be just "s" (the Set itself)
+        expect(allPaths.every((p) => p === "s")).toBe(true);
+        // Check the values
+        const patches = batches.flat();
+        const addPatches = patches.filter((p) => p.op === "add");
+        const deletePatches = patches.filter((p) => p.op === "remove");
+        expect(addPatches.length).toBe(1);
+        expect(deletePatches.length).toBe(1);
+        expect((addPatches[0] as any).value[0]).toBe(3);
+        expect((deletePatches[0] as any).value).toBe(1);
         stop();
     });
 
@@ -226,6 +235,89 @@ describe("watch (patch mode)", () => {
     });
 
     describe("Set", () => {
+        it("emits patches for primitive adds", async () => {
+            const st = deepSignal({ s: new Set<any>() });
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(st, ({ patches }) =>
+                batches.push(patches)
+            );
+            st.s.add(true);
+            st.s.add(2);
+            st.s.add("3");
+            await Promise.resolve();
+
+            expect(batches.length).toBe(1);
+            const patches = batches[0];
+            expect(patches.length).toBe(3);
+
+            // All patches should have the same path (the Set itself)
+            patches.forEach((p) => {
+                expect(p.path.join(".")).toBe("s");
+                expect(p.op).toBe("add");
+                expect((p as any).type).toBe("set");
+            });
+
+            // Check that values are in the value field, not in path
+            const values = patches.map((p: any) => p.value[0]);
+            expect(values).toContain(true);
+            expect(values).toContain(2);
+            expect(values).toContain("3");
+            stop();
+        });
+        it("emits patches for primitive deletes", async () => {
+            const st = deepSignal({ s: new Set<any>([true, 2, "3"]) });
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(st, ({ patches }) =>
+                batches.push(patches)
+            );
+            st.s.delete(true);
+            st.s.delete(2);
+            await Promise.resolve();
+
+            expect(batches.length).toBe(1);
+            const patches = batches[0];
+            expect(patches.length).toBe(2);
+
+            // All patches should have the same path (the Set itself)
+            patches.forEach((p) => {
+                expect(p.path.join(".")).toBe("s");
+                expect(p.op).toBe("remove");
+                expect((p as any).type).toBe("set");
+            });
+
+            // Check that values are in the value field
+            const values = patches.map((p: any) => p.value);
+            expect(values).toContain(true);
+            expect(values).toContain(2);
+            stop();
+        });
+        it("does not emit patches for non-existent primitives", async () => {
+            const st = deepSignal({ s: new Set<any>([1, 2]) });
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(st, ({ patches }) =>
+                batches.push(patches)
+            );
+            st.s.delete("nonexistent");
+            st.s.delete(999);
+            await Promise.resolve();
+
+            expect(batches.length).toBe(0);
+            stop();
+        });
+        it("does not emit patches for already added primitive", async () => {
+            const st = deepSignal({ s: new Set<any>([1, "test", true]) });
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(st, ({ patches }) =>
+                batches.push(patches)
+            );
+            st.s.add(1);
+            st.s.add("test");
+            st.s.add(true);
+            await Promise.resolve();
+
+            expect(batches.length).toBe(0);
+            stop();
+        });
         it("emits single structural patch on Set.clear()", async () => {
             const st = deepSignal({ s: new Set<any>() });
             addWithId(st.s as any, { id: "a", x: 1 }, "a");
@@ -288,8 +380,11 @@ describe("watch (patch mode)", () => {
             const ret = addWithId(st.s as any, 5, "ignored");
             expect(ret).toBe(5);
             await Promise.resolve();
+            // For primitives, path should be just "s" and value should be in the value field
             const paths = patches.flat().map((p) => p.path.join("."));
-            expect(paths).toContain("s.5");
+            expect(paths).toContain("s");
+            const values = patches.flat().map((p: any) => p.value?.[0]);
+            expect(values).toContain(5);
             stop();
         });
         it("setSetEntrySyntheticId applies custom id without helper", async () => {

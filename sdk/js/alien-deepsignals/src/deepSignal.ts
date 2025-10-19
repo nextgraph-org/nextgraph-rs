@@ -490,8 +490,9 @@ function getFromSet(
                             objToProxy.set(entryVal, childProxy);
                             entryVal = childProxy;
                         }
-                        // Set entry add: emit object vs literal variant.
+                        // Set entry add: emit object vs primitive variant.
                         if (entryVal && typeof entryVal === "object") {
+                            // Object entry: path includes synthetic id
                             queuePatch({
                                 root: metaNow.root,
                                 path: [...containerPath, synthetic],
@@ -499,21 +500,36 @@ function getFromSet(
                                 type: "object",
                             });
                         } else {
+                            // Primitive entry: path is just the Set, value contains the primitive
                             queuePatch({
                                 root: metaNow.root,
-                                path: [...containerPath, synthetic],
+                                path: containerPath,
                                 op: "add",
-                                value: entryVal,
+                                type: "set",
+                                value: [entryVal],
                             });
                         }
                     } else if (key === "delete") {
                         const entry = args[0];
                         const synthetic = getSetEntryKey(entry);
-                        queuePatch({
-                            root: metaNow.root,
-                            path: [...containerPath, synthetic],
-                            op: "remove",
-                        });
+                        // Check if entry is primitive or object
+                        if (entry && typeof entry === "object") {
+                            // Object entry: path includes synthetic id
+                            queuePatch({
+                                root: metaNow.root,
+                                path: [...containerPath, synthetic],
+                                op: "remove",
+                            });
+                        } else {
+                            // Primitive entry: path is just the Set, value contains the primitive
+                            queuePatch({
+                                root: metaNow.root,
+                                path: containerPath,
+                                op: "remove",
+                                type: "set",
+                                value: entry,
+                            });
+                        }
                     } else if (key === "clear") {
                         // Structural clear: remove prior entry-level patches for this Set this tick.
                         if (pendingPatches) {
