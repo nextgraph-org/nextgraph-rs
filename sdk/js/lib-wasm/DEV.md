@@ -60,7 +60,7 @@ cargo run-script buildfrontdev3
 cargo run
 ```
 
-start your local ngd
+in a separate terminal, from the root of the mono-repo, start your local ngd
 
 ```
 export NG_DEV3=1; cargo run -r -p ngd -- -vv --save-key -l 14400
@@ -68,7 +68,8 @@ export NG_DEV3=1; cargo run -r -p ngd -- -vv --save-key -l 14400
 http://localhost:14400
 ```
 
-finally, start your local third party webapp you will use to test the WASM SDK
+finally, start your local third party webapp you will use to test the WASM SDK.
+in a separate terminal, from the root of the mono-repo,
 
 ```
 // this is up to you. by example :
@@ -77,11 +78,11 @@ pnpm dev
 // then open that app in your browser
 ```
 
-every time you modify the SDK, re-run (at the root of momo-repo) :
+every time you modify the SDK, re-run (at the root of mono-repo) :
 
 ```
-cargo run-script libwasmdev
-// or in the sdk/js/lib-wasm folder run cargo run-script appdev
+cargo run-script libwasmdev3
+// or in the sdk/js/lib-wasm folder run cargo run-script appdev3
 ```
 
 ## Production build

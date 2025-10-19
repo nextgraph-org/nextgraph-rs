@@ -18,6 +18,7 @@ wasm-opt = false
 
 [package.metadata.scripts]
 appdev = "wasm-pack build --dev --target bundler && node prepare-web.js"
+appdev3 = "wasm-pack build --target bundler && node prepare-web.js"
 app = "rm -rf pkg/snippets && wasm-pack build --target bundler && node prepare-web.js"
 nodedev = "rm -rf pkg-node/snippets && wasm-pack build --dev -t nodejs -d pkg-node && node prepare-node.js"
 node = "rm -rf pkg-node/snippets && wasm-pack build -t nodejs -d pkg-node && node prepare-node.js"

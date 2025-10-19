@@ -78,4 +78,4 @@ opt-level = 2
 
 [workspace.metadata.scripts]
 libwasm = "cd sdk/js/lib-wasm && cargo run-script app && cd ../../.."
-libwasmdev = "cd sdk/js/lib-wasm && cargo run-script appdev && cd ../../.."
+libwasmdev3 = "cd sdk/js/lib-wasm && cargo run-script appdev3 && cd ../../.."

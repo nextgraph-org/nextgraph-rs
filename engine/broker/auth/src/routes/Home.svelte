@@ -17,7 +17,7 @@
 <script>
   import Home from "../lib/Home.svelte";
   import { NoWallet } from "@ng-org/ui-common/lib";
-  import { push } from "svelte-spa-router";
+  import { push, location} from "svelte-spa-router";
   import { onMount, onDestroy } from "svelte";
   import {
     active_wallet,
@@ -39,11 +39,14 @@
       //console.log(value);
       if (!value[0] && value[1]) {
         push("#/wallet/login");
+      } else if (import.meta.env.NG_DEV3 && $origin) {
+        let r = `${$location}?o=`+encodeURIComponent($origin);
+        push(r);
       }
     });
-    if (import.meta.env.NG_DEV3 && $origin) {
-      push("#/?o="+encodeURIComponent($origin));
-    }
+    // if (import.meta.env.NG_DEV3 && $origin) {
+    //   push("#/?o="+encodeURIComponent($origin));
+    // }
   });
 
   onDestroy(() => {

@@ -66,5 +66,24 @@ export default defineConfig({
     }),
     viteSingleFile(),
     jsToBottom(),
+    {
+      name: 'inject-web-script',
+      transformIndexHtml: {
+          order: 'pre', // Tells Vite to run this before other processes
+          handler: function transform(html) {
+            if (!process.env.NG_DEV3) return html;
+            else
+              return [
+              {
+                  tag: "base",
+                  attrs: {
+                    "href": "http://localhost:14401"
+                  },
+                  injectTo: "head-prepend"
+              }]
+          }
+      }
+    }
+    
   ]
 })

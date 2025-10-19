@@ -268,63 +268,74 @@
           window.document.getElementById("app").style["display"] = "none";
           let origin = window.location.origin;
           let encoded_origin = encodeURIComponent(origin);
+          let port;
+
+          const init = () => {
+            if (net_auth_iframe && port)
+            net_auth_iframe.postMessage({ method: "init", session:value, manifest:{origin:origin_url}, port: port }, iframe_config.origin, [port]);
+          };
 
           iframe.addEventListener("load",  function() {
             net_auth_iframe = this.contentWindow;
-            const ready_handler = async function(m) {
-              if (m.data.ready && m.origin === iframe_config.origin) {
-                //console.log("got ready message from", m.origin);
-                //remove this listener
-                window.removeEventListener("message",ready_handler);
-                const { port1, port2 } = new MessageChannel();
-                port1.onmessage = async (e) => {
-                  if (e.data.done) {
-                    // end of session
-                    window.location.href = origin_url;
+            //console.log(net_auth_iframe);
+            init();
+          });
+
+          const ready_handler = async function(m) {
+            //console.log("got message from", m.origin, m.data, iframe_config.origin);
+            if (m.data.ready && m.origin === iframe_config.origin) {
+              //remove this listener
+              window.removeEventListener("message",ready_handler);
+              const { port1, port2 } = new MessageChannel();
+              port1.onmessage = async (e) => {
+                if (e.data.done) {
+                  // end of session
+                  window.location.href = origin_url;
+                } else {
+                  const method = e.data.method;
+                  const args = e.data.args;
+                  const port = e.data.port;
+                  // TODO: add other stream RPC methods
+                  if ( method === "doc_subscribe" ) {
+                    //console.log("processing streamed request ...",method, args);
+                    args.push((callbacked)=> {
+                      port.postMessage({stream:true, ret:callbacked});
+                    });
+                    try {
+                      let cancel_function = () => {};
+                      port.onclose = () => {
+                        cancel_function();
+                      };
+                      cancel_function = await Reflect.apply(ng[method], null, args);
+                    } catch (e) {
+                      port.postMessage({ok:false, ret:e});
+                      port.close();
+                    }
                   } else {
-                    const method = e.data.method;
-                    const args = e.data.args;
-                    const port = e.data.port;
-                    // TODO: add other stream RPC methods
-                    if ( method === "doc_subscribe" ) {
-                      //console.log("processing streamed request ...",method, args);
-                      args.push((callbacked)=> {
-                        port.postMessage({stream:true, ret:callbacked});
-                      });
-                      try {
-                        let cancel_function = () => {};
-                        port.onclose = () => {
-                          cancel_function();
-                        };
-                        cancel_function = await Reflect.apply(ng[method], null, args);
-                      } catch (e) {
-                        port.postMessage({ok:false, ret:e});
-                        port.close();
-                      }
-                    } else {
-                      // forwarding to ng
-                      //console.log("processing...",method, args);
-                      try {
-                        let res = await Reflect.apply(ng[method], null, args);
-                        //console.log("got res=",res)
-                        port.postMessage({ok:true, ret:res});
-                        port.close();
-                      } catch (e) {
-                        port.postMessage({ok:false, ret:e});
-                        port.close();
-                      }
+                    // forwarding to ng
+                    //console.log("processing...",method, args);
+                    try {
+                      let res = await Reflect.apply(ng[method], null, args);
+                      //console.log("got res=",res)
+                      port.postMessage({ok:true, ret:res});
+                      port.close();
+                    } catch (e) {
+                      port.postMessage({ok:false, ret:e});
+                      port.close();
                     }
                   }
-                };
-                //console.log("sending init message to app-auth");
-                net_auth_iframe.postMessage({ method: "init", session:value, manifest:{origin:origin_url}, port: port2 }, iframe_config.origin, [port2]);
-              } else if (m.data.status == "error" && m.origin === iframe_config.origin) {
-                console.error(m.data.error);
-                window.location.href = origin_url;
-              }
-            };
-            window.addEventListener("message",ready_handler);
-          });
+                }
+              };
+              port = port2;
+              init();
+              //console.log("sending init message to app-auth");
+            } else if (m.data.status == "error" && m.origin === iframe_config.origin) {
+              console.error(m.data.error);
+              window.location.href = origin_url;
+            }
+          };
+          
+          window.addEventListener("message",ready_handler);
           iframe.src = `${iframe_config.src}${encoded_origin}`;
         } else if (logged_in) {
           // we redirect to the unauthenticated origin
