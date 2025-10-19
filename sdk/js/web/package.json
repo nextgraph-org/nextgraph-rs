@@ -70,5 +70,8 @@
     "database",
     "triplestore"
   ],
-  "homepage": "https://nextgraph.org"
+  "homepage": "https://nextgraph.org",
+  "publishConfig": {
+    "access": "public"
+  }
 }
