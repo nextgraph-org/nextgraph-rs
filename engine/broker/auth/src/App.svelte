@@ -282,12 +282,13 @@
           });
 
           const ready_handler = async function(m) {
-            //console.log("got message from", m.origin, m.data, iframe_config.origin);
+            //console.log("in 14400/auth got message from", m.origin, m.data, iframe_config.origin);
             if (m.data.ready && m.origin === iframe_config.origin) {
               //remove this listener
               window.removeEventListener("message",ready_handler);
               const { port1, port2 } = new MessageChannel();
               port1.onmessage = async (e) => {
+                console.log("in broker auth got port message", e.data);
                 if (e.data.done) {
                   // end of session
                   window.location.href = origin_url;

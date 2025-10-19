@@ -14,4 +14,7 @@ export default defineConfig({
     vite: {
         plugins: [topLevelAwait(), wasm()],
     },
+    devToolbar: {
+        enabled: false
+    }
 });

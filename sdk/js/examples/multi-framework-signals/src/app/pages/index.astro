@@ -12,7 +12,7 @@ const title = "Multi-framework app";
 <script>
     import { ng, init } from "@ng-org/web";
     await init(
-        (event: {
+        async (event: {
             status: string;
             session: {
                 session_id: unknown;
@@ -22,6 +22,9 @@ const title = "Multi-framework app";
             };
         }) => {
             console.log(event.status, event.session.session_id);
+            console.log(await ng.locales());
+            let info = await ng.client_info();
+            console.log(info.V0.details);
         },
         true,
         []
