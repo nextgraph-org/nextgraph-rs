@@ -19,7 +19,7 @@ export const personShapeSchema: Schema = {
         maxCardinality: 1,
         minCardinality: 1,
         iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-        readablePredicate: "type",
+        readablePredicate: "@type",
       },
       {
         dataTypes: [

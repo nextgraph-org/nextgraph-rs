@@ -10,11 +10,11 @@ export type IRI = string;
  * Cat Type
  */
 export interface Cat {
-  id: IRI;
+  readonly "@id": IRI;
   /**
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  type: string;
+  "@type": string;
   /**
    * Original IRI: http://example.org/name
    */
@@ -31,7 +31,7 @@ export interface Cat {
    * Original IRI: http://example.org/address
    */
   address: {
-    id: IRI;
+    readonly "@id": IRI;
     /**
      * Original IRI: http://example.org/street
      */

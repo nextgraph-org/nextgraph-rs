@@ -8,40 +8,40 @@ import { watch } from "../watch";
 // times traverse() executes under each strategy.
 
 describe("watch patch-only simplified performance placeholder", () => {
-  let store: any;
-  const build = (breadth = 3, depth = 3) => {
-    const make = (d: number): any => {
-      if (d === 0) return { v: 0 };
-      const obj: any = {};
-      for (let i = 0; i < breadth; i++) obj["k" + i] = make(d - 1);
-      return obj;
+    let store: any;
+    const build = (breadth = 3, depth = 3) => {
+        const make = (d: number): any => {
+            if (d === 0) return { v: 0 };
+            const obj: any = {};
+            for (let i = 0; i < breadth; i++) obj["k" + i] = make(d - 1);
+            return obj;
+        };
+        return make(depth);
     };
-    return make(depth);
-  };
 
-  beforeEach(() => {
-    store = deepSignal(build());
-  });
-
-  function mutateAll(breadth = 3, depth = 3) {
-    const visit = (node: any, d: number) => {
-      if (d === 0) {
-        node.v++;
-        return;
-      }
-      for (let i = 0; i < breadth; i++) visit(node["k" + i], d - 1);
-    };
-    visit(store, depth);
-  }
-
-  it("receives a single batch of patches after deep mutations", async () => {
-    let batches = 0;
-    const { stopListening: stop } = watch(store, ({ patches }) => {
-      if (patches.length) batches++;
+    beforeEach(() => {
+        store = deepSignal(build());
     });
-    mutateAll();
-    await Promise.resolve();
-    expect(batches).toBe(1);
-    stop();
-  });
+
+    function mutateAll(breadth = 3, depth = 3) {
+        const visit = (node: any, d: number) => {
+            if (d === 0) {
+                node.v++;
+                return;
+            }
+            for (let i = 0; i < breadth; i++) visit(node["k" + i], d - 1);
+        };
+        visit(store, depth);
+    }
+
+    it("receives a single batch of patches after deep mutations", async () => {
+        let batches = 0;
+        const { stopListening: stop } = watch(store, ({ patches }) => {
+            if (patches.length) batches++;
+        });
+        mutateAll();
+        await Promise.resolve();
+        expect(batches).toBe(1);
+        stop();
+    });
 });

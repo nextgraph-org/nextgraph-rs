@@ -1,7 +1,7 @@
 import type { Diff, Scope } from "../types.js";
 import { applyDiff } from "./applyDiff.js";
 
-import type * as NG from "@ng-org/lib-wasm";
+import * as NG from "@ng-org/lib-wasm";
 
 import { deepSignal, watch, batch } from "@ng-org/alien-deepsignals";
 import type { DeepPatch, DeepSignalObject } from "@ng-org/alien-deepsignals";
@@ -42,9 +42,19 @@ function canonicalScope(scope: Scope | undefined): string {
         : String(scope);
 }
 
+function decodePathSegment(segment: string): string {
+    return segment.replace("~1", "/").replace("~0", "~");
+}
+
+function escapePathSegment(segment: string): string {
+    return segment.replace("~", "~0").replace("/", "~1");
+}
+
 export function deepPatchesToDiff(patches: DeepPatch[]): Diff {
     return patches.map((patch) => {
-        const path = "/" + patch.path.join("/");
+        const path =
+            "/" +
+            patch.path.map((el) => escapePathSegment(el.toString())).join("/");
         return { ...patch, path };
     }) as Diff;
 }
@@ -62,7 +72,10 @@ const recurseArrayToSet = (obj: any): any => {
     }
 };
 
-const setUpConnection = (entry: PoolEntry<any>, wasmMessage: WasmMessage) => {
+const handleInitialResponse = (
+    entry: PoolEntry<any>,
+    wasmMessage: WasmMessage
+) => {
     const { connectionId, initialData } = wasmMessage;
 
     const { signalObject } = entry;
@@ -125,7 +138,7 @@ const onMessage = (event: MessageEvent<WasmMessage>) => {
     if (type === "Stop") return;
 
     if (type === "InitialResponse") {
-        setUpConnection(entry, event.data);
+        handleInitialResponse(entry, event.data);
     } else if (type === "BackendUpdate" && diff) {
         applyDiff(entry.signalObject, diff);
     } else {
@@ -133,6 +146,7 @@ const onMessage = (event: MessageEvent<WasmMessage>) => {
     }
 };
 
+// TODO: Should those be WeekMaps?
 const keyToEntry = new Map<string, PoolEntry<any>>();
 const connectionIdToEntry = new Map<string, PoolEntry<any>>();
 
@@ -150,8 +164,15 @@ const cleanupSignalRegistry =
           })
         : null;
 
+/**
+ *
+ * @param shapeType
+ * @param scope
+ * @returns
+ */
 export function createSignalObjectForShape<T extends BaseType>(
     shapeType: ShapeType<T>,
+    ng: typeof NG,
     scope?: Scope
 ) {
     const scopeKey = canonicalScope(scope);
@@ -168,11 +189,13 @@ export function createSignalObjectForShape<T extends BaseType>(
     }
 
     // Otherwise, create a new signal object and an entry for it.
-    const signalObject = deepSignal<T | {}>({});
+    const signalObject = deepSignal<T | {}>(new Set());
 
+    // Create entry to keep track of the connection with the backend.
     const entry: PoolEntry<T> = {
         key,
         // The id for future communication between wasm and js land.
+        // TODO
         connectionId: `${key}_${new Date().toISOString()}`,
         shapeType,
         scopeKey,
@@ -184,7 +207,7 @@ export function createSignalObjectForShape<T extends BaseType>(
         readyPromise: Promise.resolve(),
         resolveReady: () => {},
         // Function to manually release the connection.
-        // Only releases if no more references exist.
+        // Only releases if refCount is 0.
         release: () => {
             if (entry.refCount > 0) entry.refCount--;
             if (entry.refCount === 0) {
