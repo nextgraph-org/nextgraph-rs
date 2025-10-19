@@ -1,7 +1,7 @@
 import type { Diff as Patches, Scope } from "../types.ts";
 import { applyDiff } from "./applyDiff.ts";
 
-import { ng } from "./initNg.ts";
+import { ngSession } from "./initNg.ts";
 
 import {
     deepSignal,
@@ -11,7 +11,6 @@ import {
 import type {
     DeepPatch,
     DeepSignalObject,
-    WatchPatchCallback,
     WatchPatchEvent,
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
@@ -27,7 +26,6 @@ export class OrmConnection<T extends BaseType> {
     /*** Identifier as a combination of shape type and scope. Prevents duplications. */
     private identifier: string;
     ready: boolean;
-    sessionId: number;
     suspendDeepWatcher: boolean;
     readyPromise: Promise<void>;
     // Promise that resolves once initial data has been applied.
@@ -56,9 +54,6 @@ export class OrmConnection<T extends BaseType> {
             idGenerator: this.generateSubjectIri,
         });
 
-        // TODO:
-        this.sessionId = 1;
-
         // Schedule cleanup of the connection when the signal object is GC'd.
         OrmConnection.cleanupSignalRegistry?.register(
             this.signalObject,
@@ -74,14 +69,11 @@ export class OrmConnection<T extends BaseType> {
             this.resolveReady = resolve;
         });
 
-        new Promise(async () => {
-            // Establish connection to wasm land.
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
+        ngSession.then(({ ng, session }) => {
             ng.orm_start(
                 scope,
                 shapeType,
-                this.sessionId,
+                session.session_id,
                 this.onBackendMessage
             );
         });
@@ -98,8 +90,6 @@ export class OrmConnection<T extends BaseType> {
         shapeType: ShapeType<T>,
         scope: Scope
     ): OrmConnection<T> {
-        // if (!ng) throw new Error("initNg was not called yet.");
-
         const scopeKey = canonicalScope(scope);
 
         // Unique identifier for a given shape type and scope.
@@ -108,13 +98,15 @@ export class OrmConnection<T extends BaseType> {
         // If we already have an object for this shape+scope,
         // return it and just increase the reference count.
         // Otherwise, create new one.
-        const connection =
-            OrmConnection.idToEntry.get(identifier) ??
-            new OrmConnection(shapeType, scope);
-
-        connection.refCount += 1;
-
-        return connection;
+        const existingConnection = OrmConnection.idToEntry.get(identifier);
+        if (existingConnection) {
+            existingConnection.refCount += 1;
+            return existingConnection;
+        } else {
+            const newConnection = new OrmConnection(shapeType, scope);
+            OrmConnection.idToEntry.set(identifier, newConnection);
+            return newConnection;
+        }
     }
 
     public release() {
@@ -131,12 +123,14 @@ export class OrmConnection<T extends BaseType> {
 
         const ormPatches = deepPatchesToDiff(patches);
 
-        ng.orm_update(
-            this.scope,
-            this.shapeType.shape,
-            ormPatches,
-            this.sessionId
-        );
+        ngSession.then(({ ng, session }) => {
+            ng.orm_update(
+                this.scope,
+                this.shapeType.shape,
+                ormPatches,
+                session.session_id
+            );
+        });
     }
 
     private onBackendMessage(...message: any) {
