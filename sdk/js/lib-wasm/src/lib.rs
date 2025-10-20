@@ -1811,7 +1811,7 @@ pub async fn doc_subscribe(
 
 #[wasm_bindgen]
 pub async fn orm_start(
-    scope: JsValue,
+    scope: String,
     shapeType: JsValue,
     session_id: JsValue,
     callback: &js_sys::Function,
@@ -1821,8 +1821,7 @@ pub async fn orm_start(
     log_info!("frontend_orm_start {:?}", shape_type);
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
-    let scope: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(scope)
-        .map_err(|_| "Deserialization error of scope".to_string())?;
+    let scope = NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?;
     let mut request = AppRequest::new_orm_start(scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
