@@ -3285,7 +3285,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
- "windows-targets 0.53.3",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -3820,8 +3820,8 @@ dependencies = [
 
 [[package]]
 name = "ng-rocksdb"
-version = "0.21.0-ngpreview.7"
-source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#0861351ab34188cb2ed71ee865f463d80019b165"
+version = "0.21.0-ngpreview.8"
+source = "git+https://git.nextgraph.org/NextGraph/rust-rocksdb.git?branch=master#d21a1b4ae64f7025d2b8be7f70f4e1a2562113c2"
 dependencies = [
  "bindgen",
  "bzip2-sys",
