@@ -21,7 +21,7 @@ export class OrmConnection<T extends BaseType> {
 
     readonly shapeType: ShapeType<T>;
     readonly scope: Scope;
-    readonly signalObject: DeepSignalObject<T | {}>;
+    readonly signalObject: DeepSignalObject<Set<T>>;
     private refCount: number;
     /*** Identifier as a combination of shape type and scope. Prevents duplications. */
     private identifier: string;
@@ -49,7 +49,7 @@ export class OrmConnection<T extends BaseType> {
         this.ready = false;
         this.suspendDeepWatcher = false;
         this.identifier = `${shapeType.shape}::${canonicalScope(scope)}`;
-        this.signalObject = deepSignal<T | {}>(new Set(), {
+        this.signalObject = deepSignal<Set<T>>(new Set(), {
             addIdToObjects: true,
             idGenerator: this.generateSubjectIri,
         });
@@ -62,7 +62,7 @@ export class OrmConnection<T extends BaseType> {
         );
 
         // Add listener to deep signal object to report changes back to wasm land.
-        watchDeepSignal(this.signalObject as T, this.onSignalObjectUpdate);
+        watchDeepSignal<Set<T>>(this.signalObject, this.onSignalObjectUpdate);
 
         // Initialize per-entry readiness promise that resolves in setUpConnection
         this.readyPromise = new Promise<void>((resolve) => {
@@ -79,7 +79,7 @@ export class OrmConnection<T extends BaseType> {
                     this.onBackendMessage
                 );
             } catch (e) {
-                console.error(e)
+                console.error(e);
             }
         });
     }
@@ -123,7 +123,7 @@ export class OrmConnection<T extends BaseType> {
         }
     }
 
-    private onSignalObjectUpdate({ patches }: WatchPatchEvent<T>) {
+    private onSignalObjectUpdate({ patches }: WatchPatchEvent<Set<T>>) {
         if (this.suspendDeepWatcher || !this.ready || !patches.length) return;
 
         const ormPatches = deepPatchesToDiff(patches);
@@ -153,7 +153,9 @@ export class OrmConnection<T extends BaseType> {
         this.suspendDeepWatcher = true;
         batch(() => {
             // Convert arrays to sets and apply to signalObject (we only have sets but can only transport arrays).
-            Object.assign(this.signalObject, recurseArrayToSet(initialData)!);
+            for (const newItem of recurseArrayToSet(initialData)) {
+                this.signalObject.add(newItem);
+            }
         });
 
         queueMicrotask(() => {

@@ -20,7 +20,9 @@
     cur[keys[keys.length - 1]] = value;
   }
   const flatEntries = $derived(
-    $shapeObject ? flattenObject($shapeObject as any) : []
+    $shapeObject
+      ? flattenObject($shapeObject.entries().next() || ({} as any))
+      : []
   );
   $effect(() => {
     (window as any).svelteState = $shapeObject;

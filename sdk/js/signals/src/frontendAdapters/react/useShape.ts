@@ -31,7 +31,7 @@ const useShape = <T extends BaseType>(
         };
     }, []);
 
-    if ("id" in shapeSignalRef.current.signalObject)
+    if ("@id" in shapeSignalRef.current.signalObject)
         return shapeSignalRef.current.signalObject;
     else return null;
 };
