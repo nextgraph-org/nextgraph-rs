@@ -22,7 +22,7 @@
     }
 </script>
 
-<div class="grid h-screen place-items-center">
+<div class="grid place-items-center" style="height: 100dvh;">
     <div style="height:144px;">
         <Logo class="w-25"/>
     </div>
