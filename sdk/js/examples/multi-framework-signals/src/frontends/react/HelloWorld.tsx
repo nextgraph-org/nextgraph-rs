@@ -4,7 +4,7 @@ import flattenObject from "../utils/flattenObject";
 import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 
 export function HelloWorldReact() {
-    const state = useShape(TestObjectShapeType);
+    const state = useShape(TestObjectShapeType)?.entries().next();
 
     // @ts-expect-error
     window.reactState = state;

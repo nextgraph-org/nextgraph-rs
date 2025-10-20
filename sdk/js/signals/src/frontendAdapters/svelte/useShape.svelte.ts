@@ -91,7 +91,7 @@ export interface UseShapeRuneResult<T = any> extends UseDeepSignalResult<T> {
 export function useShapeRune<T extends BaseType>(
     shape: ShapeType<T>,
     scope?: Scope
-): UseShapeRuneResult<T | {}> {
+): UseShapeRuneResult<Set<T>> {
     const { signalObject: rootSignal, stop } = createSignalObjectForShape(
         shape,
         scope
@@ -101,8 +101,8 @@ export function useShapeRune<T extends BaseType>(
     onDestroy(stop);
 
     // rootSignal is already a deepSignal proxy root (object returned by createSignalObjectForShape)
-    const ds = useDeepSignal<T>(rootSignal as T);
-    return { root: rootSignal, ...ds } as UseShapeRuneResult<T>;
+    const ds = useDeepSignal<Set<T>>(rootSignal as Set<T>);
+    return { root: rootSignal, ...ds } as UseShapeRuneResult<Set<T>>;
 }
 
 export default useShapeRune;
