@@ -71,6 +71,7 @@ export class OrmConnection<T extends BaseType> {
 
         ngSession.then(({ ng, session }) => {
             try {
+                console.log("SCOPE=",scope);
                 ng.orm_start(
                     scope,
                     shapeType,

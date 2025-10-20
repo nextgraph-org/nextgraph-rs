@@ -1821,7 +1821,11 @@ pub async fn orm_start(
     log_info!("frontend_orm_start {:?}", shape_type);
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
-    let scope = NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?;
+    let scope = if scope.is_empty() {
+        NuriV0::new_entire_user_site()
+    } else {
+        NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
+    };
     let mut request = AppRequest::new_orm_start(scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
