@@ -53,15 +53,20 @@ pub fn group_by_subject_for_shape<'a>(
 
 pub fn nuri_to_string(nuri: &NuriV0) -> String {
     // Get repo_id and overlay_id from the nuri
-    let repo_id = nuri.target.repo_id();
-    let overlay_id = if let Some(overlay_link) = &nuri.overlay {
-        overlay_link.clone().try_into().unwrap()
-    } else {
-        // Default overlay for the repo
-        OverlayId::outer(repo_id)
-    };
-    let graph_name = NuriV0::repo_graph_name(repo_id, &overlay_id);
-    graph_name
+    match nuri.target {
+        NuriTargetV0::UserSite => "did:ng:i".to_string(),
+        _ => {
+            let repo_id = nuri.target.repo_id();
+            let overlay_id = if let Some(overlay_link) = &nuri.overlay {
+                overlay_link.clone().try_into().unwrap()
+            } else {
+                // Default overlay for the repo
+                OverlayId::outer(repo_id)
+            };
+            let graph_name = NuriV0::repo_graph_name(repo_id, &overlay_id);
+            graph_name
+        }
+    }
 }
 
 pub fn escape_json_pointer(path_segment: &String) -> String {
