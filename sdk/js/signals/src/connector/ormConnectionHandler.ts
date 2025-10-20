@@ -78,12 +78,16 @@ export class OrmConnection<T extends BaseType> {
             // Establish connection to wasm land.
             await new Promise((resolve) => setTimeout(resolve, 100));
 
-            ng.orm_start(
-                scope,
-                shapeType,
-                this.sessionId,
-                this.onBackendMessage
-            );
+            try {
+                ng.orm_start(
+                    scope,
+                    shapeType,
+                    this.sessionId,
+                    this.onBackendMessage
+                );
+            } catch (e) {
+                console.error(e)
+            }
         });
     }
 

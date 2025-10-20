@@ -38,25 +38,41 @@ export const init = async function(callback:Function | null, singleton:boolean, 
   }
 }
 
+const streamed_api: Record<string,number> = {
+  "doc_subscribe": 2,
+  "orm_start": 3
+};
+
 function rpc( method:string, args?: any) : Promise<any> {
   const { port1, port2 } = new MessageChannel();
   //console.log("POSTING",method, args);
-  if (method==="doc_subscribe") { //TODO: add all the streamed functions
-    let callback = args[2];
-    let new_args = [args[0],args[1]];
+  let callback_idx = streamed_api[method];
+  if (callback_idx) { //TODO: add all the streamed functions
+    let callback = args[callback_idx];
+    let new_args = args.slice(0, -1);
     parent.postMessage({ method, args:new_args, port: port2 }, config.origin, [port2]);
-    let unsub = new Promise(async (resolve)=> {
-      resolve(()=>{ 
-        port1.close();
-      });
+    let unsub = new Promise(async (resolve, reject)=> {
+      let resolved = false;
+      port1.onmessage = async (m) => {
+        if (m.data.stream) {
+          if (!resolved) {
+            resolve(()=>{ 
+              port1.close();
+            });
+            resolved = true;
+          }
+          await (callback)(m.data.ret);
+        } else if (!m.data.ok) {
+          if (!resolved) {
+            reject(new Error(m.data.ret));
+            resolved= true;
+          } else {
+            throw new Error(m.data.ret);
+          }
+        } 
+      };    
     });
-    port1.onmessage = async (m) => {
-      if (m.data.stream) {
-        await (callback)(m.data.ret);
-      } else if (!m.data.ok) {
-        throw new Error(m.data.ret);
-      } 
-    };
+    
     //port2.onclose = ()
     return unsub;
 
