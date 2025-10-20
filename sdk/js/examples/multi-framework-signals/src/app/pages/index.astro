@@ -27,7 +27,7 @@ const title = "Multi-framework app";
             console.log(await ng.locales());
             let info = await ng.client_info();
             console.log(info.V0.details);
-            initNg(ng);
+            initNg(ng, event.session);
         },
         true,
         []

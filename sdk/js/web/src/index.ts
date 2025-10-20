@@ -51,9 +51,9 @@ function rpc( method:string, args?: any) : Promise<any> {
     let callback = args[callback_idx];
     let new_args = args.slice(0, -1);
     parent.postMessage({ method, args:new_args, port: port2 }, config.origin, [port2]);
-    let unsub = new Promise(async (resolve, reject)=> {
+    let unsub = new Promise((resolve, reject)=> {
       let resolved = false;
-      port1.onmessage = async (m) => {
+      port1.onmessage = (m) => {
         if (m.data.stream) {
           if (!resolved) {
             resolve(()=>{ 
@@ -61,10 +61,10 @@ function rpc( method:string, args?: any) : Promise<any> {
             });
             resolved = true;
           }
-          await (callback)(m.data.ret);
+          (callback)(m.data.ret);
         } else if (!m.data.ok) {
           if (!resolved) {
-            reject(new Error(m.data.ret));
+            reject(m.data.ret);
             resolved= true;
           } else {
             throw new Error(m.data.ret);

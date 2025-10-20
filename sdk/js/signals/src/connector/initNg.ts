@@ -1,15 +1,20 @@
 import * as NG from "@ng-org/lib-wasm";
 
-export let ng: typeof NG;
+type Session = {
+    session_id: unknown;
+    protected_store_id: unknown;
+    private_store_id: unknown;
+    public_store_id: unknown;
+};
 
-export function initNg(
-    ngImpl: typeof NG,
-    session: {
-        session_id: unknown;
-        protected_store_id: unknown;
-        private_store_id: unknown;
-        public_store_id: unknown;
+let resolveNgSession: (value: { ng: typeof NG; session: Session }) => void;
+
+export const ngSession = new Promise<{ ng: typeof NG; session: Session }>(
+    (resolve) => {
+        resolveNgSession = resolve;
     }
-) {
-    ng = ngImpl;
+);
+
+export function initNg(ngImpl: typeof NG, session: Session) {
+    resolveNgSession({ ng: ngImpl, session });
 }
