@@ -12,14 +12,14 @@
 
 First of all, run:
 
-```
+```bash
 cargo install cargo-run-script
 ```
 
 Please note that the dev and prod builds share the same output folder, they thus override each other.
 When building the app, be sure to have the production build of the SDK in the output folder.
 
-```
+```bash
 // for the app sdk (browser)
 cargo run-script appdev
 
@@ -29,16 +29,16 @@ cargo run-script nodedev
 
 For testing in vanilla JS
 
-```
+```bash
 cargo run-script webdev
 python3 -m http.server
-// open http://localhost:8000
+# open http://localhost:8000
 
 ```
 
 Or automated testing with headless chrome:
 
-```
+```bash
 wasm-pack test --chrome --headless
 ```
 
@@ -46,7 +46,7 @@ wasm-pack test --chrome --headless
 
 in a separate terminal, from the root of the mono-repo :
 
-```
+```bash
 pnpm buildfrontdev3
 cd engine/broker/auth
 pnpm dev3
@@ -54,7 +54,7 @@ pnpm dev3
 
 in a separate terminal, from the root of the mono-repo :
 
-```
+```bash
 cd infra/ngnet
 cargo run-script buildfrontdev3
 cargo run
@@ -62,32 +62,32 @@ cargo run
 
 in a separate terminal, from the root of the mono-repo, start your local ngd
 
-```
+```bash
 export NG_DEV3=1; cargo run -r -p ngd -- -vv --save-key -l 14400
-// then log in to your account by opening
-http://localhost:14400
+# Then log in to your account by opening
+# http://localhost:14400
 ```
 
 finally, start your local third party webapp you will use to test the WASM SDK.
 in a separate terminal, from the root of the mono-repo,
 
-```
-// this is up to you. by example :
+```bash
+# This is up to you. By example :
 cd sdk/js/examples/multi-framework-signals
 pnpm dev
-// then open that app in your browser
+# Then open that app in your browser
 ```
 
 every time you modify the SDK, re-run (at the root of mono-repo) :
 
-```
+```bash
 cargo run-script libwasmdev3
-// or in the sdk/js/lib-wasm folder run cargo run-script appdev3
+# Or in the sdk/js/lib-wasm folder run cargo run-script appdev3
 ```
 
 ## Production build
 
-```
+```bash
 cargo run-script app
 cargo run-script node
 cargo run-script web

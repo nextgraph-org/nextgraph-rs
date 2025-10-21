@@ -10,7 +10,7 @@
 pub mod add_remove_triples;
 pub mod handle_backend_update;
 pub mod handle_frontend_update;
-pub mod materialize;
+pub mod initialize;
 pub mod process_changes;
 pub mod query;
 pub mod shape_validation;

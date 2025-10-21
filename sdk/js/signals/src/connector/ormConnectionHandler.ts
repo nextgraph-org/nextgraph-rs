@@ -70,10 +70,16 @@ export class OrmConnection<T extends BaseType> {
         });
 
         ngSession.then(({ ng, session }) => {
+            console.log("ng and session", ng, session);
             try {
-                console.log("SCOPE=",scope);
+                const sc = ("did:ng:" + session.private_store_id).substring(
+                    0,
+                    53
+                );
+                console.log("calling orm_start with nuri", sc);
+
                 ng.orm_start(
-                    scope,
+                    sc,
                     shapeType,
                     session.session_id,
                     this.onBackendMessage
@@ -130,7 +136,7 @@ export class OrmConnection<T extends BaseType> {
 
         ngSession.then(({ ng, session }) => {
             ng.orm_update(
-                this.scope,
+                ("did:ng:" + session.private_store_id).substring(0, 53),
                 this.shapeType.shape,
                 ormPatches,
                 session.session_id
