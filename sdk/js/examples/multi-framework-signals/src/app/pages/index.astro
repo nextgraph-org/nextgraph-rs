@@ -29,7 +29,8 @@ const title = "Multi-framework app";
             console.log(info.V0.details);
             initNg(ng, event.session);
 
-            window.ng = ng;            
+            window.ng = ng;
+            window.session = event.session;            
         },
         true,
         []
@@ -37,15 +38,15 @@ const title = "Multi-framework app";
     
 </script>
 <Layout title={title}>
-    <!-- <Highlight vue>
+    <Highlight vue>
         <VueRoot client:only />
-    </Highlight> -->
+    </Highlight>
 
     <Highlight react>
         <ReactRoot client:only="react" />
     </Highlight>
-<!-- 
+
     <Highlight svelte>
         <SvelteRoot client:only />
-    </Highlight> -->
+    </Highlight>
 </Layout>

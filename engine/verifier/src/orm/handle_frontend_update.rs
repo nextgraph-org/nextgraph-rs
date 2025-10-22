@@ -302,10 +302,7 @@ fn create_sparql_update_query_for_diff(
                     remove_statement,
                     wheres.join(" .\n  ")
                 ));
-                log_info!(
-                    "[create_sparql_update_query_for_diff] Added delete query #{}",
-                    sparql_sub_queries.len()
-                );
+                log_info!("[create_sparql_update_query_for_diff] Added delete query.");
                 // var_counter += 1; // Not necessary because not used afterwards.
             }
             // The actual INSERT.
@@ -315,10 +312,7 @@ fn create_sparql_update_query_for_diff(
                 add_statement,
                 where_statements.join(". \n  ")
             ));
-            log_info!(
-                "[create_sparql_update_query_for_diff] Added insert query #{}",
-                sparql_sub_queries.len()
-            );
+            log_info!("[create_sparql_update_query_for_diff] Added insert query.");
         }
     }
 

@@ -19,9 +19,9 @@
     }
     cur[keys[keys.length - 1]] = value;
   }
-  const flatEntries = $derived(
+  const flattenedObjects = $derived(
     $shapeObject
-      ? $shapeObject.entries().map((o) => flattenObject(o)[0] || ({} as any))
+      ? $shapeObject.values().map((o) => flattenObject(o)[0] || ({} as any))
       : []
   );
   $effect(() => {
@@ -32,92 +32,95 @@
 {#if $shapeObject}
   <div>
     <p>Rendered in Svelte</p>
-    <table border="1" cellpadding="5">
-      <thead>
-        <tr>
-          <th>Key</th>
-          <th>Value</th>
-          <th>Edit</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each flatEntries as [key, value] (key)}
+
+    {#each flattenedObjects as flatEntries}
+      <table border="1" cellpadding="5">
+        <thead>
           <tr>
-            <td style="white-space:nowrap;">{key}</td>
-            <td>
-              {#if value instanceof Set}
-                {Array.from(value).join(", ")}
-              {:else if Array.isArray(value)}
-                [{value.join(", ")}]
-              {:else}
-                {JSON.stringify(value)}
-              {/if}
-            </td>
-            <td>
-              {#if typeof value === "string"}
-                <input
-                  type="text"
-                  {value}
-                  oninput={(e: any) =>
-                    setNestedValue($shapeObject, key, e.target.value)}
-                />
-              {:else if typeof value === "number"}
-                <input
-                  type="number"
-                  {value}
-                  oninput={(e: any) =>
-                    setNestedValue($shapeObject, key, Number(e.target.value))}
-                />
-              {:else if typeof value === "boolean"}
-                <input
-                  type="checkbox"
-                  checked={value}
-                  onchange={(e: any) =>
-                    setNestedValue($shapeObject, key, e.target.checked)}
-                />
-              {:else if Array.isArray(value)}
-                <div style="display:flex; gap:.5rem;">
-                  <button
-                    onclick={() => {
-                      const cur = getNestedValue($shapeObject, key) || [];
-                      setNestedValue($shapeObject, key, [
-                        ...cur,
-                        cur.length + 1,
-                      ]);
-                    }}>Add</button
-                  >
-                  <button
-                    onclick={() => {
-                      const cur = getNestedValue($shapeObject, key) || [];
-                      if (cur.length)
-                        setNestedValue($shapeObject, key, cur.slice(0, -1));
-                    }}>Remove</button
-                  >
-                </div>
-              {:else if value instanceof Set}
-                <div style="display:flex; gap:.5rem;">
-                  <button
-                    onclick={() => {
-                      const cur: Set<any> = getNestedValue($shapeObject, key);
-                      cur.add(`item${cur.size + 1}`);
-                    }}>Add</button
-                  >
-                  <button
-                    onclick={() => {
-                      const cur: Set<any> = getNestedValue($shapeObject, key);
-                      const last = Array.from(cur).pop();
-                      if (last !== undefined) cur.delete(last);
-                    }}>Remove</button
-                  >
-                </div>
-              {:else}
-                N/A
-              {/if}
-            </td>
+            <th>Key</th>
+            <th>Value</th>
+            <th>Edit</th>
           </tr>
-        {/each}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {#each flatEntries as [key, value] (key)}
+            <tr>
+              <td style="white-space:nowrap;">{key}</td>
+              <td>
+                {#if value instanceof Set}
+                  {Array.from(value).join(", ")}
+                {:else if Array.isArray(value)}
+                  [{value.join(", ")}]
+                {:else}
+                  {JSON.stringify(value)}
+                {/if}
+              </td>
+              <td>
+                {#if typeof value === "string"}
+                  <input
+                    type="text"
+                    {value}
+                    oninput={(e: any) =>
+                      setNestedValue($shapeObject, key, e.target.value)}
+                  />
+                {:else if typeof value === "number"}
+                  <input
+                    type="number"
+                    {value}
+                    oninput={(e: any) =>
+                      setNestedValue($shapeObject, key, Number(e.target.value))}
+                  />
+                {:else if typeof value === "boolean"}
+                  <input
+                    type="checkbox"
+                    checked={value}
+                    onchange={(e: any) =>
+                      setNestedValue($shapeObject, key, e.target.checked)}
+                  />
+                {:else if Array.isArray(value)}
+                  <div style="display:flex; gap:.5rem;">
+                    <button
+                      onclick={() => {
+                        const cur = getNestedValue($shapeObject, key) || [];
+                        setNestedValue($shapeObject, key, [
+                          ...cur,
+                          cur.length + 1,
+                        ]);
+                      }}>Add</button
+                    >
+                    <button
+                      onclick={() => {
+                        const cur = getNestedValue($shapeObject, key) || [];
+                        if (cur.length)
+                          setNestedValue($shapeObject, key, cur.slice(0, -1));
+                      }}>Remove</button
+                    >
+                  </div>
+                {:else if value instanceof Set}
+                  <div style="display:flex; gap:.5rem;">
+                    <button
+                      onclick={() => {
+                        const cur: Set<any> = getNestedValue($shapeObject, key);
+                        cur.add(`item${cur.size + 1}`);
+                      }}>Add</button
+                    >
+                    <button
+                      onclick={() => {
+                        const cur: Set<any> = getNestedValue($shapeObject, key);
+                        const last = Array.from(cur).pop();
+                        if (last !== undefined) cur.delete(last);
+                      }}>Remove</button
+                    >
+                  </div>
+                {:else}
+                  N/A
+                {/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/each}
   </div>
 {:else}
   <p>Loading state</p>

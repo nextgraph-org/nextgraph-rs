@@ -62,7 +62,6 @@ impl Verifier {
             .push(orm_subscription);
 
         let orm_objects = self.create_orm_object_for_shape(nuri, session_id, &shape_type)?;
-        // log_debug!("create_orm_object_for_shape return {:?}", orm_objects);
 
         let _ = tx
             .send(AppResponse::V0(AppResponseV0::OrmInitial(orm_objects)))
