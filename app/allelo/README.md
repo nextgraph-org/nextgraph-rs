@@ -1,5 +1,8 @@
 # Allelo Personal Network Manager (PNM) Prototype
 
+```
+curl -fsSL https://bun.sh/install | bash
+```
 
 ## Recommended IDE Setup
 
