@@ -678,21 +678,24 @@ function getFromSet(
     const makeIterator = (pair: boolean) => {
         return function thisIter(this: any) {
             const iterable = raw.values();
-            return {
-                [Symbol.iterator]() {
+            // Create an Iterator that inherits Iterator.prototype methods (map, filter, etc.)
+            // Wrap the iterator to proxy entries on-demand
+            const wrappedIterator = {
+                next() {
+                    const n = iterable.next();
+                    if (n.done) return n;
+                    const entry = ensureEntryProxy(n.value);
                     return {
-                        next() {
-                            const n = iterable.next();
-                            if (n.done) return n;
-                            const entry = ensureEntryProxy(n.value);
-                            return {
-                                value: pair ? [entry, entry] : entry,
-                                done: false,
-                            };
-                        },
+                        value: pair ? [entry, entry] : entry,
+                        done: false,
                     };
                 },
-            } as Iterable<any>;
+            };
+            // Set the prototype to Iterator.prototype if available (ES2023+ Iterator Helpers)
+            if (typeof Iterator !== "undefined" && Iterator.prototype) {
+                Object.setPrototypeOf(wrappedIterator, Iterator.prototype);
+            }
+            return wrappedIterator;
         };
     };
     if (key === "values" || key === "keys") return makeIterator(false);
