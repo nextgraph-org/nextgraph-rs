@@ -1,0 +1,1 @@
+export { VouchesAndPraises } from './VouchesAndPraises';

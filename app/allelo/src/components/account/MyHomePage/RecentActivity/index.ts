@@ -1,0 +1,1 @@
+export { RecentActivity } from './RecentActivity';

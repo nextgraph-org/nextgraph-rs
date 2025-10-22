@@ -1,0 +1,3 @@
+[allow-import-contacts]
+description = "Enables the import_contacts command"
+commands.allow = ["import_contacts"]

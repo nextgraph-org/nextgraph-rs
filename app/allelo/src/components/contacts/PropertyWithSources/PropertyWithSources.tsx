@@ -1,0 +1,350 @@
+import {useState, useCallback, useEffect, useMemo} from 'react';
+import {
+  Typography,
+  Box,
+  IconButton,
+  Menu,
+  MenuItem,
+  TextField,
+} from '@mui/material';
+import {
+  MoreVert,
+} from '@mui/icons-material';
+import type {Contact} from '@/types/contact';
+import {
+  ContactKeysWithSelected,
+  setUpdatedTime,
+  updatePropertyFlag,
+  resolveFrom
+} from '@/utils/socialContact/contactUtils.ts';
+import {getSourceIcon, getSourceLabel} from "@/components/contacts/sourcesHelper";
+import {dataset, useLdo} from "@/lib/nextgraph";
+import {isNextGraphEnabled} from "@/utils/featureFlags";
+import {useFieldValidation, ValidationType} from "@/hooks/useFieldValidation";
+
+type ResolvableKey = ContactKeysWithSelected;
+
+interface PropertyWithSourcesProps<K extends ResolvableKey> {
+  label?: string;
+  icon?: React.ReactNode;
+  contact: Contact | undefined;
+  propertyKey: K;
+  subKey?: string;
+  // Display customization
+  variant?: 'default' | 'header' | 'inline';
+  textVariant?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'body1' | 'body2';
+  hideLabel?: boolean;
+  hideIcon?: boolean;
+  // Edit mode
+  isEditing?: boolean;
+  placeholder?: string;
+  validateType?: ValidationType;
+  required?: boolean;
+  validateParent?: (valid: boolean) => void;
+}
+
+export const PropertyWithSources = <K extends ResolvableKey>({
+                                                               label,
+                                                               icon,
+                                                               contact,
+                                                               propertyKey,
+                                                               subKey = "value",
+                                                               variant = 'default',
+                                                               textVariant = 'body1',
+                                                               hideLabel = false,
+                                                               hideIcon = false,
+                                                               isEditing = false,
+                                                               placeholder,
+                                                               validateType = "text",
+                                                               required,
+                                                               validateParent
+                                                             }: PropertyWithSourcesProps<K>) => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const {commitData, changeData} = useLdo();
+
+  const isNextgraph = useMemo(() => isNextGraphEnabled(), []);
+
+  const [currentValue, setCurrentValue] = useState<string>();
+  const [localValue, setLocalValue] = useState<string>("");
+  const [currentItemId, setCurrentItemId] = useState<string>();
+
+  const handleChange = useCallback(() => {
+    const currentItem = ((contact && resolveFrom(contact, propertyKey)) ?? {}) as Record<string, string>;
+    setCurrentItemId(currentItem["@id"]);
+    const value = currentItem[subKey] ?? "";
+    setCurrentValue(value);
+    setLocalValue(value);
+  }, [contact, propertyKey, subKey]);
+
+  useEffect(() => {
+    handleChange();
+  }, [handleChange]);
+
+  const fieldValidation = useFieldValidation(localValue, validateType, {validateOn: "change", required: required});
+
+  const persistFieldChange = useCallback(() => {
+    if (!contact || currentValue === localValue) return;
+    setCurrentValue(localValue);
+
+    const editPropertyWithUserSource = (contactObj: Contact, addId?: boolean) => {
+      const fieldSet = contactObj[propertyKey];
+      if (!fieldSet) return;
+
+      let existingUserEntry = null;
+      for (const item of fieldSet) {
+        if (item.source === "user" && item["@id"]) {
+          existingUserEntry = item;
+          break;
+        }
+      }
+
+      if (existingUserEntry) {
+        // @ts-expect-error narrow later
+        existingUserEntry[subKey] = localValue;
+
+        for (const item of fieldSet) {
+          item.selected = item.source === "user";
+        }
+      } else {
+        for (const item of fieldSet) {
+          item.selected = false;
+        }
+
+        const newEntry = {
+          [subKey]: localValue,
+          source: "user",
+          selected: true
+        };
+        if (addId) {
+          newEntry["@id"] = Math.random().toExponential(32);
+        }
+
+        // @ts-expect-error TODO: we will need more field types handlers later: Date, number, boolean(?)
+        fieldSet.add(newEntry);
+      }
+
+      setUpdatedTime(contactObj);
+
+      return contactObj;
+    }
+
+    if (isNextgraph && !contact.isDraft) {
+      const resource = dataset.getResource(contact["@id"]!);
+      if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
+        const changedContactObj = changeData(contact, resource);
+
+        editPropertyWithUserSource(changedContactObj);
+
+        commitData(changedContactObj);
+      }
+    } else {
+      editPropertyWithUserSource(contact, true);
+      handleChange();
+    }
+  }, [changeData, commitData, contact, isNextgraph, localValue, propertyKey, subKey, currentValue, handleChange]);
+
+  // Handle page navigation/unload to persist any unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (isEditing && localValue !== currentValue && contact) {
+        persistFieldChange();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [contact, currentValue, isEditing, localValue, persistFieldChange]);
+
+  const open = Boolean(anchorEl);
+
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleSourceSelect = useCallback((item: any) => {
+    if (!contact) {
+      return;
+    }
+
+    if (isNextgraph) {
+      const resource = dataset.getResource(contact["@id"]!);
+      if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
+        const changedContactObj = changeData(contact, resource);
+        updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "selected");
+        commitData(changedContactObj);
+      }
+    } else {
+      updatePropertyFlag(contact, propertyKey, item["@id"], "selected");
+    }
+
+    handleClose();
+    handleChange();
+  }, [changeData, commitData, contact, handleChange, isNextgraph, propertyKey]);
+
+  const [isValid, setIsValid] = useState(true);
+
+  const validate = useCallback((valid: boolean) => {
+    if (validateParent) validateParent(valid);
+    setIsValid(valid);
+  }, [validateParent]);
+
+  const triggerValidation = useCallback((value: string) => {
+    fieldValidation.setFieldValue(value);
+    fieldValidation.triggerField().then((valid) => validate(valid));
+  }, [fieldValidation, validate]);
+
+
+  const handleInputChange = useCallback((newValue: string) => {
+    setLocalValue(newValue);
+    triggerValidation(newValue);
+  }, [triggerValidation]);
+
+  const handleBlur = useCallback(async () => {
+    if (isValid) {
+      persistFieldChange();
+    }
+  }, [persistFieldChange, isValid]);
+
+  if (!contact) {
+    return null;
+  }
+
+  // Get all available sources for the menu
+  const allSources = contact[propertyKey]?.toArray().filter(el => el["@id"]);
+
+  if (!allSources) return null;
+
+  const getSourceSelectors = () => {
+    //TODO: size is unreliable, use toArray().length
+    const showSourceSelector = allSources.length > 1;
+    if (showSourceSelector) {
+      return (
+        <>
+          <IconButton
+            size="small"
+            onClick={handleClick}
+            sx={{ml: 1}}
+          >
+            <MoreVert fontSize="small"/>
+          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            open={open}
+            onClose={handleClose}
+            PaperProps={{
+              sx: {minWidth: 150}
+            }}
+          >
+            {allSources.map((item) => {
+              const selected = currentItemId === item["@id"];
+              return (
+                <MenuItem
+                  key={item["@id"]}
+                  onClick={() => handleSourceSelect(item)}
+                  selected={selected}
+                >
+                  <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
+                    {getSourceIcon(item.source!)}
+                    <Box>
+                      <Typography variant="body2">
+                        {getSourceLabel(item.source!)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {(item as any)[subKey]}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </MenuItem>
+              )
+            })}
+          </Menu>
+        </>
+      )
+    }
+    return <></>
+  }
+
+  if (isEditing) {
+    return (
+      <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 1}}>
+        <TextField
+          fullWidth
+          value={localValue}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onBlur={handleBlur}
+          variant="outlined"
+          label={label}
+          size="small"
+          placeholder={placeholder}
+          error={fieldValidation.error}
+          helperText={fieldValidation.error ? fieldValidation.errorMessage : ''}
+          slotProps={{inputLabel: {shrink: true}}}
+          required={required}
+          sx={{
+            '& .MuiOutlinedInput-input': {
+              fontSize: '1rem',
+              fontWeight: 'normal',
+            }
+          }}
+        />
+      </Box>
+    );
+  }
+
+  if (allSources.length === 0) return null;
+
+  // Different layouts based on variant
+  if (variant === 'header') {
+    return (
+      <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 1}}>
+        <Typography variant={textVariant} component="h1" gutterBottom={false}>
+          {currentValue}
+        </Typography>
+        {getSourceSelectors()}
+      </Box>
+    );
+  }
+
+  if (variant === 'inline') {
+    return (
+      <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
+        <Typography variant={textVariant}>
+          {currentValue}
+        </Typography>
+        {getSourceSelectors()}
+      </Box>
+    );
+  }
+
+  // Default layout
+  return (
+    <Box sx={{display: 'flex', alignItems: 'center', mb: 2}}>
+      {!hideIcon && icon && (
+        <Box sx={{mr: 2, color: 'text.secondary'}}>
+          {icon}
+        </Box>
+      )}
+      <Box sx={{flex: 1}}>
+        {!hideLabel && label && (
+          <Box sx={{alignItems: 'center', gap: 1}}>
+            <Typography variant="body2" color="text.secondary">
+              {label}
+            </Typography>
+          </Box>
+        )}
+        <Box sx={{alignItems: 'center', gap: 1}}>
+          <Typography variant={textVariant}>
+            {currentValue}
+          </Typography>
+          {getSourceSelectors()}
+        </Box>
+      </Box>
+    </Box>
+  );
+};

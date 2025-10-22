@@ -1,0 +1,1 @@
+export { ContactGrid } from './ContactGrid';

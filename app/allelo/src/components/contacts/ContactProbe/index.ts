@@ -1,0 +1,1 @@
+export { ContactProbe } from './ContactProbe.tsx';

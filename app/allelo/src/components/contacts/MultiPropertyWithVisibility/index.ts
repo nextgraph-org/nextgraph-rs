@@ -1,0 +1,1 @@
+export { MultiPropertyWithVisibility } from './MultiPropertyWithVisibility';

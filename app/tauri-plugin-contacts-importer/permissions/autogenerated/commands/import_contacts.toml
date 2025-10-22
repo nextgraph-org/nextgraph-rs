@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-import-contacts"
+description = "Enables the import_contacts command without any pre-configured scope."
+commands.allow = ["import_contacts"]
+
+[[permission]]
+identifier = "deny-import-contacts"
+description = "Denies the import_contacts command without any pre-configured scope."
+commands.deny = ["import_contacts"]

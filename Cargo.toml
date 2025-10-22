@@ -19,6 +19,7 @@ members = [
   "infra/ngnet",
   "app/nextgraph/src-tauri",
   "app/allelo/src-tauri",
+  "app/tauri-plugin-contacts-importer",
 ]
 default-members = ["sdk/rust"]
 

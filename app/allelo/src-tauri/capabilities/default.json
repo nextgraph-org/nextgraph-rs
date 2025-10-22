@@ -5,6 +5,10 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "contacts-importer:allow-import-contacts",
+    "contacts-importer:allow-check-permissions",
+    "contacts-importer:allow-request-permissions",
+    "log:default",
     "opener:default"
   ]
 }
