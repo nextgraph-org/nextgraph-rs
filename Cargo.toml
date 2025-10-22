@@ -17,7 +17,8 @@ members = [
   "infra/ngaccount",
   "infra/ngapp",
   "infra/ngnet",
-  "app/nextgraph/src-tauri"
+  "app/nextgraph/src-tauri",
+  "app/allelo/src-tauri",
 ]
 default-members = ["sdk/rust"]
 
