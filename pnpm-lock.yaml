@@ -348,23 +348,23 @@ importers:
   helpers/nextgraph-react:
     dependencies:
       '@ldo/connected':
-        specifier: ^1.0.0-alpha.15
-        version: 1.0.0-alpha.28
+        specifier: 1.0.0-alpha.15
+        version: 1.0.0-alpha.15
       '@ldo/connected-nextgraph':
-        specifier: ^1.0.0-alpha.15
-        version: 1.0.0-alpha.28
+        specifier: 1.0.0-alpha.15
+        version: 1.0.0-alpha.15
       '@ldo/react':
-        specifier: ^1.0.0-alpha.15
-        version: 1.0.0-alpha.28
+        specifier: 1.0.0-alpha.15
+        version: 1.0.0-alpha.15
+      '@ng-org/web':
+        specifier: 0.1.2-alpha.1
+        version: 0.1.2-alpha.1
       '@rdfjs/data-model':
         specifier: ^1.2.0
         version: 1.3.4
       cross-fetch:
         specifier: ^3.1.6
         version: 3.2.0
-      nextgraphweb:
-        specifier: ^0.1.1-alpha.4
-        version: 0.1.1-alpha.4
     devDependencies:
       '@babel/core':
         specifier: ^7.26.10
@@ -2021,11 +2021,11 @@ packages:
   '@jridgewell/trace-mapping@0.3.29':
     resolution: {integrity: sha512-uw6guiW/gcAGPDhLmd77/6lW8QLeiV5RUTsAX46Db6oLhGaVj4lhnPwb184s1bkc8kdVg/+h988dro8GRDpmYQ==}
 
-  '@ldo/connected-nextgraph@1.0.0-alpha.28':
-    resolution: {integrity: sha512-EFkm944rL9gFY3NJ5RBR2a9F1WF87A/zK9j8Q40nVF4qU6Mi4svy26GjElGZdMZmpc4Q0eTBqOmuCuf9wQzbNQ==}
+  '@ldo/connected-nextgraph@1.0.0-alpha.15':
+    resolution: {integrity: sha512-NBnUqk7l5BbsVx1kb/rWRcLx4xpstpRFJIV6BLMDTL7Rv+t3MQRwzGQvdvGPgUgQa1TKkcY3rPpochsNzH+cYg==}
 
-  '@ldo/connected@1.0.0-alpha.28':
-    resolution: {integrity: sha512-T7gRGtf+pb5uV0dv0zL0S84TjOJALcMnJ23kt9MZe49CP6ZpO44gzgjEOkDvuTQf9T6R/NS1JFVDGazaN48q+g==}
+  '@ldo/connected@1.0.0-alpha.15':
+    resolution: {integrity: sha512-B+L8HDozIiuufmqWBrOGwJOkpsrhtPUuibaEhFjM8kO9NHP0hJxxPBMdRYxGVgL5AOla0YOVfUk075KKtVhIjA==}
 
   '@ldo/dataset@1.0.0-alpha.28':
     resolution: {integrity: sha512-pxhAig41HczKyjnfnT+wgBhVBFqTHVVhv0ijWSuUEortYDrnXDTGWKZp+KV9ORrIUQ1AObfbOhl8cH4fncJfVw==}
@@ -2039,8 +2039,8 @@ packages:
   '@ldo/rdf-utils@1.0.0-alpha.28':
     resolution: {integrity: sha512-qNhUeVdX0GSGd0sl3PDLiWsZufmJgy3PcGhYna96BmU7S/b9A/82vDeHWJ+hTMV+2s6ywdwyUY4xIoG8ODN36w==}
 
-  '@ldo/react@1.0.0-alpha.28':
-    resolution: {integrity: sha512-yawM3/m6kK1WRtAQSP9Yn5tC2zNUtFKojucgVdlF0jvwPhhXymgIBXNUBf0VpMAv6MkkCt4AwLOU51XMmrZhyA==}
+  '@ldo/react@1.0.0-alpha.15':
+    resolution: {integrity: sha512-KPruUI4zTLWtmwNjzeeRbQD+qA8RojGEVyFbGa+RH1dfrVXnOpUkGHXvJJiVWqiL4DS9y5c3m12uyVTS3GAcuA==}
 
   '@ldo/subscribable-dataset@1.0.0-alpha.28':
     resolution: {integrity: sha512-QFZbSOEXSgQt4bj5piCSoeJbMXhmeFAqA6CDoMPZgHmnA3pU5AlunznHt4iBs3w6SJj0ue2lynQn7b7ZXgh7Lg==}
@@ -2197,6 +2197,9 @@ packages:
       '@milkdown/ctx': ^7.2.0
       '@milkdown/prose': ^7.2.0
       '@milkdown/transformer': ^7.2.0
+
+  '@ng-org/web@0.1.2-alpha.1':
+    resolution: {integrity: sha512-V2OSaEvuGFJZMAF1Yof6Rr45mQ/Ezhq6A9oea+v7RVsTmvQHHObK7JAf4LS/JWiXDD6GX0NOTRtfSQZYLgIHAw==}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -4210,9 +4213,6 @@ packages:
 
   next-tick@1.1.0:
     resolution: {integrity: sha512-CXdUiJembsNjuToQvxayPZF9Vqht7hewsvy2sOWafLvi2awflj9mOC6bHIg50orX8IJvWKY9wYQ/zB2kogPslQ==}
-
-  nextgraphweb@0.1.1-alpha.4:
-    resolution: {integrity: sha512-2vX7+VAx7pp+iJG/KrzWJhzwgur04WdZegkjAOQHCSpVa5Q+3CYN+Jyo3A+BHjpXJmr/jWyVZRJr/K/lRXhnfg==}
 
   node-addon-api@7.1.1:
     resolution: {integrity: sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==}
@@ -6528,21 +6528,22 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  '@ldo/connected-nextgraph@1.0.0-alpha.28':
+  '@ldo/connected-nextgraph@1.0.0-alpha.15':
     dependencies:
-      '@ldo/connected': 1.0.0-alpha.28
+      '@ldo/connected': 1.0.0-alpha.15
       '@ldo/dataset': 1.0.0-alpha.28
       '@ldo/ldo': 1.0.0-alpha.28
       '@ldo/rdf-utils': 1.0.0-alpha.28
       '@solid-notifications/subscription': 0.1.2
       cross-fetch: 3.2.0
+      http-link-header: 1.1.3
       ws: 8.18.3
     transitivePeerDependencies:
       - bufferutil
       - encoding
       - utf-8-validate
 
-  '@ldo/connected@1.0.0-alpha.28':
+  '@ldo/connected@1.0.0-alpha.15':
     dependencies:
       '@ldo/dataset': 1.0.0-alpha.28
       '@ldo/ldo': 1.0.0-alpha.28
@@ -6581,13 +6582,14 @@ snapshots:
       n3: 1.26.0
       rdf-string: 1.6.3
 
-  '@ldo/react@1.0.0-alpha.28':
+  '@ldo/react@1.0.0-alpha.15':
     dependencies:
-      '@ldo/connected': 1.0.0-alpha.28
+      '@ldo/connected': 1.0.0-alpha.15
       '@ldo/jsonld-dataset-proxy': 1.0.0-alpha.28
       '@ldo/ldo': 1.0.0-alpha.28
       '@ldo/rdf-utils': 1.0.0-alpha.28
       '@ldo/subscribable-dataset': 1.0.0-alpha.28
+      '@rdfjs/data-model': 1.3.4
       cross-fetch: 3.2.0
     transitivePeerDependencies:
       - encoding
@@ -6891,6 +6893,10 @@ snapshots:
       '@milkdown/transformer': 7.2.0(@milkdown/prose@7.2.0)
       nanoid: 5.1.0
       tslib: 2.8.1
+
+  '@ng-org/web@0.1.2-alpha.1':
+    dependencies:
+      async-proxy: 0.4.1
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
@@ -9211,11 +9217,6 @@ snapshots:
   netmask@2.0.2: {}
 
   next-tick@1.1.0: {}
-
-  nextgraphweb@0.1.1-alpha.4:
-    dependencies:
-      async-proxy: 0.4.1
-      remote-web-streams: 0.2.0
 
   node-addon-api@7.1.1:
     optional: true

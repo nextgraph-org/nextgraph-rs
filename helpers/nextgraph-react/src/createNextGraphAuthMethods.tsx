@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { FunctionComponent, PropsWithChildren } from "react";
 import { NextGraphAuthContext, useNextGraphAuth } from "./NextGraphAuthContext.js";
 import type { NextGraphConnectedContext } from "@ldo/connected-nextgraph";
-import {default as ng, init} from "nextgraphweb";
+import {ng, init} from "@ng-org/web";
 
 /**
  * Creates special react methods specific to the NextGraph Auth

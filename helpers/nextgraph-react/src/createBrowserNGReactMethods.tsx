@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { FunctionComponent, PropsWithChildren } from "react";
 import { NextGraphAuthContext, useNextGraphAuth } from "./NextGraphAuthContext.js";
 
-import {default as ng, init} from "nextgraphweb";
+import {ng, init} from "@ng-org/web";
 
 import type { ConnectedLdoDataset, ConnectedPlugin } from "@ldo/connected";
 import type { NextGraphConnectedPlugin, NextGraphConnectedContext } from "@ldo/connected-nextgraph";

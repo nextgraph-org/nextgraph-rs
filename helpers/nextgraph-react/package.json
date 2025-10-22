@@ -1,7 +1,7 @@
 {
-  "name": "nextgraph-react",
-  "version": "0.1.1-alpha.3",
-  "description": "A React library for LDO and NextGraph",
+  "name": "@ng-org/auth-react",
+  "version": "0.1.2-alpha.1",
+  "description": "React Auth library for LDO and NextGraph",
   "type": "module",
   "module": "./dist/esm/index.js",
   "types": "./dist/types/index.d.ts",
@@ -42,10 +42,10 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@ldo/connected": "^1.0.0-alpha.15",
-    "@ldo/connected-nextgraph": "^1.0.0-alpha.15",
-    "nextgraphweb": "^0.1.1-alpha.4",
-    "@ldo/react": "^1.0.0-alpha.15",
+    "@ldo/connected": "1.0.0-alpha.15",
+    "@ldo/connected-nextgraph": "1.0.0-alpha.15",
+    "@ng-org/web": "0.1.2-alpha.1",
+    "@ldo/react": "1.0.0-alpha.15",
     "@rdfjs/data-model": "^1.2.0",
     "cross-fetch": "^3.1.6"
   },
