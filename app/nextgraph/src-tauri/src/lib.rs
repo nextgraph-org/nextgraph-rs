@@ -349,7 +349,7 @@ async fn open_window(
     config.label = label;
     config.url = tauri::WebviewUrl::External(url.parse().unwrap());
     config.title = title;
-    let _register_window = tauri::WindowBuilder::from_config(&app, &config)
+    let _register_window = tauri::WebviewWindowBuilder::from_config(&app, &config)
         .unwrap()
         .build()
         .unwrap();
