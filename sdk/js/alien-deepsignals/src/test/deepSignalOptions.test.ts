@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { deepSignal, DeepPatch, DeepSignalOptions } from "../deepSignal";
+import {
+    deepSignal,
+    DeepPatchInternal,
+    DeepSignalOptions,
+} from "../deepSignal";
 import { watch } from "../watch";
 
 describe("deepSignal options", () => {
@@ -12,7 +16,7 @@ describe("deepSignal options", () => {
             };
 
             const state = deepSignal({ data: {} as any }, options);
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(state, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -51,7 +55,7 @@ describe("deepSignal options", () => {
             };
 
             const state = deepSignal({ s: new Set<any>() }, options);
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(state, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -76,7 +80,7 @@ describe("deepSignal options", () => {
             };
 
             const state = deepSignal({ root: {} as any }, options);
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(state, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -119,7 +123,7 @@ describe("deepSignal options", () => {
             };
 
             const state = deepSignal({ items: [] as any[] }, options);
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(state, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -148,7 +152,7 @@ describe("deepSignal options", () => {
             };
 
             const state = deepSignal({ s: new Set<any>() }, options);
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(state, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -210,7 +214,7 @@ describe("deepSignal options", () => {
             };
 
             const state = deepSignal({ container: {} as any }, options);
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(state, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -283,7 +287,7 @@ describe("deepSignal options", () => {
     describe("backward compatibility", () => {
         it("still works without options", async () => {
             const state = deepSignal({ data: { value: 1 } });
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(state, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -298,7 +302,7 @@ describe("deepSignal options", () => {
         // TODO: Delete duplicate logic for `id`. Only accept @id.
         it("objects with id property still work for Sets", async () => {
             const state = deepSignal({ s: new Set<any>() });
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(state, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -315,7 +319,7 @@ describe("deepSignal options", () => {
 
         it("@id takes precedence over id property", async () => {
             const state = deepSignal({ s: new Set<any>() });
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(state, ({ patches: batch }) =>
                 patches.push(batch)
             );

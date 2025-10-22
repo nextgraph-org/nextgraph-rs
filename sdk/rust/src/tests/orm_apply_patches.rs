@@ -130,7 +130,7 @@ INSERT DATA {
     // Apply ORM patch: Add name
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
-        path: "urn:test:person1/name".to_string(),
+        path: "/urn:test:person1/name".to_string(),
         valType: None,
         value: Some(json!("Alice")),
     }];
@@ -229,7 +229,7 @@ INSERT DATA {
     // Apply ORM patch: Remove name
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
-        path: "urn:test:person2/name".to_string(),
+        path: "/urn:test:person2/name".to_string(),
         valType: None,
         value: Some(json!("Bob")),
     }];
@@ -329,13 +329,13 @@ INSERT DATA {
     let diff = vec![
         // OrmDiffOp {
         //     op: OrmDiffOpType::remove,
-        //     path: "urn:test:person3/name".to_string(),
+        //     path: "/urn:test:person3/name".to_string(),
         //     valType: None,
         //     value: Some(json!("Charlie")),
         // },
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "urn:test:person3/name".to_string(),
+            path: "/urn:test:person3/name".to_string(),
             valType: None,
             value: Some(json!("Charles")),
         },
@@ -443,7 +443,7 @@ INSERT DATA {
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
         valType: Some(OrmPatchType::set),
-        path: "urn:test:person4/hobby".to_string(),
+        path: "/urn:test:person4/hobby".to_string(),
         value: Some(json!("Swimming")),
     }];
 
@@ -543,7 +543,7 @@ INSERT DATA {
     // Apply ORM patch: Remove hobby
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
-        path: "urn:test:person5/hobby".to_string(),
+        path: "/urn:test:person5/hobby".to_string(),
         valType: None,
         value: Some(json!("Swimming")),
     }];
@@ -712,7 +712,7 @@ INSERT DATA {
     // Apply ORM patch: Change city in nested address
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
-        path: "urn:test:person6/address/city".to_string(),
+        path: "/urn:test:person6/address/city".to_string(),
         valType: None,
         value: Some(json!("Shelbyville")),
     }];
@@ -931,7 +931,7 @@ INSERT DATA {
     // Apply ORM patch: Change street in company's headquarter address (3 levels deep)
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
-        path: "urn:test:person7/company/urn:test:company1/headquarter/street".to_string(),
+        path: "/urn:test:person7/company/urn:test:company1/headquarter/street".to_string(),
         valType: None,
         value: Some(json!("Rich Street")),
     }];
@@ -1038,7 +1038,7 @@ INSERT DATA {
     let diff = vec![
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "urn:test:person8".to_string(),
+            path: "/urn:test:person8".to_string(),
             valType: Some(OrmPatchType::object),
             value: None,
         },
@@ -1046,19 +1046,19 @@ INSERT DATA {
             // This does nothing as it does not represent a triple.
             // A subject is created when inserting data.
             op: OrmPatchOp::add,
-            path: "urn:test:person8/@id".to_string(),
+            path: "/urn:test:person8/@id".to_string(),
             valType: Some(OrmPatchType::object),
             value: None,
         },
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "urn:test:person8/type".to_string(),
+            path: "/urn:test:person8/type".to_string(),
             valType: None,
             value: Some(json!("http://example.org/Person")),
         },
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "urn:test:person8/name".to_string(),
+            path: "/urn:test:person8/name".to_string(),
             valType: None,
             value: Some(json!("Alice")),
         },
@@ -1218,13 +1218,13 @@ INSERT DATA {
     let diff = vec![
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "urn:test:person9/address/http:~1~1example.org~1exampleAddress/type".to_string(),
+            path: "/urn:test:person9/address/http:~1~1example.org~1exampleAddress/type".to_string(),
             valType: None,
             value: Some(json!("http://example.org/Address")),
         },
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "urn:test:person9/address/http:~1~1example.org~1exampleAddress/street"
+            path: "/urn:test:person9/address/http:~1~1example.org~1exampleAddress/street"
                 .to_string(),
             valType: None,
             value: Some(json!("Heaven Avenue")),

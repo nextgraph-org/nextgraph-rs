@@ -21,7 +21,7 @@
   }
   const flatEntries = $derived(
     $shapeObject
-      ? flattenObject($shapeObject.entries().next() || ({} as any))
+      ? $shapeObject.entries().map((o) => flattenObject(o)[0] || ({} as any))
       : []
   );
   $effect(() => {

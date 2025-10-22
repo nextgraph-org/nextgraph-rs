@@ -11,6 +11,16 @@ import { computed, signal, isSignal } from "./core";
 
 /** A batched deep mutation (set/add/remove) from a deepSignal root. */
 export type DeepPatch = {
+    /** Property path (array indices, object keys, synthetic Set entry ids) from the root to the mutated location. */
+    path: (string | number)[];
+} & (
+    | DeepSetAddPatch
+    | DeepSetRemovePatch
+    | DeepObjectAddPatch
+    | DeepRemovePatch
+    | DeepLiteralAddPatch
+);
+export type DeepPatchInternal = {
     /** Unique identifier for the deep signal root which produced this patch. */
     root: symbol;
     /** Property path (array indices, object keys, synthetic Set entry ids) from the root to the mutated location. */
@@ -22,6 +32,7 @@ export type DeepPatch = {
     | DeepRemovePatch
     | DeepLiteralAddPatch
 );
+
 export interface DeepSetAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
@@ -105,7 +116,7 @@ function buildPath(
     return path;
 }
 
-function queuePatch(patch: DeepPatch) {
+function queuePatch(patch: DeepPatchInternal) {
     if (!pendingPatches) pendingPatches = new Map();
     const root = patch.root;
     let list = pendingPatches.get(root);
@@ -113,6 +124,9 @@ function queuePatch(patch: DeepPatch) {
         list = [];
         pendingPatches.set(root, list);
     }
+    // Remove root, we do not send that back.
+    // @ts-ignore
+    delete patch.root;
     list.push(patch);
     if (!microtaskScheduled) {
         microtaskScheduled = true;
@@ -124,7 +138,7 @@ function queuePatch(patch: DeepPatch) {
             for (const [rootId, patches] of groups) {
                 if (!patches.length) continue;
                 const subs = mutationSubscribers.get(rootId);
-                if (subs) subs.forEach((cb) => cb(patches));
+                if (subs) subs.forEach((callback) => callback(patches));
             }
         });
     }

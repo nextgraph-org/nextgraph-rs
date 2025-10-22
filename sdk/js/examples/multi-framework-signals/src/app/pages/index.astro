@@ -28,21 +28,24 @@ const title = "Multi-framework app";
             let info = await ng.client_info();
             console.log(info.V0.details);
             initNg(ng, event.session);
+
+            window.ng = ng;            
         },
         true,
         []
     );
+    
 </script>
 <Layout title={title}>
-    <Highlight vue>
+    <!-- <Highlight vue>
         <VueRoot client:only />
-    </Highlight>
+    </Highlight> -->
 
     <Highlight react>
         <ReactRoot client:only="react" />
     </Highlight>
-
+<!-- 
     <Highlight svelte>
         <SvelteRoot client:only />
-    </Highlight>
+    </Highlight> -->
 </Layout>

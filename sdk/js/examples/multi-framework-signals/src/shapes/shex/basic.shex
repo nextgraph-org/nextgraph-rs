@@ -1,0 +1,8 @@
+PREFIX ex: <http://example.org/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+ex:Basic {
+  a [ ex:Basic ] ;
+  ex:basicString xsd:string ;
+}
+

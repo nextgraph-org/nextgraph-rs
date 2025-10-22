@@ -2,9 +2,10 @@ import React from "react";
 import { useShape } from "@ng-org/signals/react";
 import flattenObject from "../utils/flattenObject";
 import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
+import { BasicShapeType } from "../../shapes/orm/basic.shapeTypes";
 
 export function HelloWorldReact() {
-    const state = useShape(TestObjectShapeType)?.entries().next();
+    const state = [...(useShape(BasicShapeType)?.entries() || [])][0];
 
     // @ts-expect-error
     window.reactState = state;
@@ -17,14 +18,14 @@ export function HelloWorldReact() {
         <div>
             <p>Rendered in React</p>
 
-            <button
+            {/* <button
                 onClick={() => {
                     state.boolValue = !state.boolValue;
                     state.numValue += 2;
                 }}
             >
                 click me to change multiple props
-            </button>
+            </button> */}
 
             <table border={1} cellPadding={5}>
                 <thead>

@@ -3,14 +3,14 @@ import {
     deepSignal,
     setSetEntrySyntheticId,
     addWithId,
-    DeepPatch,
+    DeepPatchInternal,
 } from "../deepSignal";
 import { watch, observe } from "../watch";
 
 describe("watch (patch mode)", () => {
     it("emits set patches with correct paths and batching", async () => {
         const state = deepSignal({ a: { b: 1 }, arr: [1, { x: 2 }] });
-        const received: DeepPatch[][] = [];
+        const received: DeepPatchInternal[][] = [];
         const { stopListening: stop } = watch(state, ({ patches }) => {
             received.push(patches);
         });
@@ -34,7 +34,7 @@ describe("watch (patch mode)", () => {
             a: { b: 1 },
             c: 2,
         });
-        const out: DeepPatch[][] = [];
+        const out: DeepPatchInternal[][] = [];
         const { stopListening: stop } = watch(state, ({ patches }) =>
             out.push(patches)
         );
@@ -52,8 +52,8 @@ describe("watch (patch mode)", () => {
 
     it("observe patch mode mirrors watch patch mode", async () => {
         const state = deepSignal({ a: 1 });
-        const wp: DeepPatch[][] = [];
-        const ob: DeepPatch[][] = [];
+        const wp: DeepPatchInternal[][] = [];
+        const ob: DeepPatchInternal[][] = [];
         const { stopListening: stop1 } = watch(state, ({ patches }) =>
             wp.push(patches)
         );
@@ -72,7 +72,7 @@ describe("watch (patch mode)", () => {
     it("filters out patches from other roots", async () => {
         const a = deepSignal({ x: 1 });
         const b = deepSignal({ y: 2 });
-        const out: DeepPatch[][] = [];
+        const out: DeepPatchInternal[][] = [];
         const { stopListening: stop } = watch(a, ({ patches }) =>
             out.push(patches)
         );
@@ -86,7 +86,7 @@ describe("watch (patch mode)", () => {
 
     it("emits patches for Set structural mutations (add/delete)", async () => {
         const state = deepSignal<{ s: Set<number> }>({ s: new Set([1, 2]) });
-        const batches: DeepPatch[][] = [];
+        const batches: DeepPatchInternal[][] = [];
         const { stopListening: stop } = watch(state, ({ patches }) =>
             batches.push(patches)
         );
@@ -110,7 +110,7 @@ describe("watch (patch mode)", () => {
 
     it("emits patches for nested objects added after initialization", async () => {
         const state = deepSignal<{ root: any }>({ root: {} });
-        const patches: DeepPatch[][] = [];
+        const patches: DeepPatchInternal[][] = [];
         const { stopListening: stop } = watch(state, ({ patches: batch }) =>
             patches.push(batch)
         );
@@ -124,7 +124,7 @@ describe("watch (patch mode)", () => {
 
     it("emits patches for deeply nested arrays and objects", async () => {
         const state = deepSignal<{ data: any }>({ data: null });
-        const patches: DeepPatch[][] = [];
+        const patches: DeepPatchInternal[][] = [];
         const { stopListening: stop } = watch(state, ({ patches: batch }) =>
             patches.push(batch)
         );
@@ -161,7 +161,7 @@ describe("watch (patch mode)", () => {
 
     it("emits patches for Set with nested objects added as one operation", async () => {
         const state = deepSignal<{ container: any }>({ container: {} });
-        const patches: DeepPatch[][] = [];
+        const patches: DeepPatchInternal[][] = [];
         const { stopListening: stop } = watch(state, ({ patches: batch }) =>
             patches.push(batch)
         );
@@ -188,7 +188,7 @@ describe("watch (patch mode)", () => {
         const innerA = new Set<any>([{ id: "node1", x: 1 }]);
         const s = new Set<any>([innerA]);
         const state = deepSignal<{ graph: Set<any> }>({ graph: s });
-        const batches: DeepPatch[][] = [];
+        const batches: DeepPatchInternal[][] = [];
         const { stopListening: stop } = watch(state, ({ patches }) =>
             batches.push(patches)
         );
@@ -204,7 +204,7 @@ describe("watch (patch mode)", () => {
     it("tracks deep nested object mutation inside a Set entry after iteration", async () => {
         const rawEntry = { id: "n1", data: { val: 1 } };
         const st = deepSignal({ bag: new Set<any>([rawEntry]) });
-        const collected: DeepPatch[][] = [];
+        const collected: DeepPatchInternal[][] = [];
         const { stopListening: stop } = watch(st, ({ patches }) =>
             collected.push(patches)
         );
@@ -215,7 +215,9 @@ describe("watch (patch mode)", () => {
         }
         proxied.data.val = 2;
         await Promise.resolve();
-        const flat = collected.flat().map((p: DeepPatch) => p.path.join("."));
+        const flat = collected
+            .flat()
+            .map((p: DeepPatchInternal) => p.path.join("."));
         expect(flat.some((p: string) => p.endsWith("n1.data.val"))).toBe(true);
         stop();
     });
@@ -223,13 +225,15 @@ describe("watch (patch mode)", () => {
     it("allows custom synthetic id for Set entry", async () => {
         const node = { name: "x" };
         const state = deepSignal({ s: new Set<any>() });
-        const collected2: DeepPatch[][] = [];
+        const collected2: DeepPatchInternal[][] = [];
         const { stopListening: stop } = watch(state, ({ patches }) =>
             collected2.push(patches)
         );
         addWithId(state.s as any, node, "custom123");
         await Promise.resolve();
-        const flat = collected2.flat().map((p: DeepPatch) => p.path.join("."));
+        const flat = collected2
+            .flat()
+            .map((p: DeepPatchInternal) => p.path.join("."));
         expect(flat.some((p: string) => p === "s.custom123")).toBe(true);
         stop();
     });
@@ -237,7 +241,7 @@ describe("watch (patch mode)", () => {
     describe("Set", () => {
         it("emits patches for primitive adds", async () => {
             const st = deepSignal({ s: new Set<any>() });
-            const batches: DeepPatch[][] = [];
+            const batches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
             );
@@ -266,7 +270,7 @@ describe("watch (patch mode)", () => {
         });
         it("emits patches for primitive deletes", async () => {
             const st = deepSignal({ s: new Set<any>([true, 2, "3"]) });
-            const batches: DeepPatch[][] = [];
+            const batches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
             );
@@ -293,7 +297,7 @@ describe("watch (patch mode)", () => {
         });
         it("does not emit patches for non-existent primitives", async () => {
             const st = deepSignal({ s: new Set<any>([1, 2]) });
-            const batches: DeepPatch[][] = [];
+            const batches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
             );
@@ -306,7 +310,7 @@ describe("watch (patch mode)", () => {
         });
         it("does not emit patches for already added primitive", async () => {
             const st = deepSignal({ s: new Set<any>([1, "test", true]) });
-            const batches: DeepPatch[][] = [];
+            const batches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
             );
@@ -322,7 +326,7 @@ describe("watch (patch mode)", () => {
             const st = deepSignal({ s: new Set<any>() });
             addWithId(st.s as any, { id: "a", x: 1 }, "a");
             addWithId(st.s as any, { id: "b", x: 2 }, "b");
-            const batches: DeepPatch[][] = [];
+            const batches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
             );
@@ -340,7 +344,7 @@ describe("watch (patch mode)", () => {
         it("emits delete patch for object entry", async () => {
             const st = deepSignal({ s: new Set<any>() });
             const obj = { id: "n1", x: 1 };
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -356,7 +360,7 @@ describe("watch (patch mode)", () => {
         });
         it("does not emit patch for duplicate add", async () => {
             const st = deepSignal({ s: new Set<number>([1]) });
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -367,7 +371,7 @@ describe("watch (patch mode)", () => {
         });
         it("does not emit patch deleting non-existent entry", async () => {
             const st = deepSignal({ s: new Set<number>([1]) });
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -378,7 +382,7 @@ describe("watch (patch mode)", () => {
         });
         it("addWithId primitive returns primitive and emits patch with primitive key", async () => {
             const st = deepSignal({ s: new Set<any>() });
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -396,7 +400,7 @@ describe("watch (patch mode)", () => {
             const st = deepSignal({ s: new Set<any>() });
             const obj = { name: "x" };
             setSetEntrySyntheticId(obj, "customX");
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -413,7 +417,7 @@ describe("watch (patch mode)", () => {
                 { id: "e1", inner: { v: 1 } },
                 "e1"
             );
-            const batches: DeepPatch[][] = [];
+            const batches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
             );
@@ -429,7 +433,7 @@ describe("watch (patch mode)", () => {
         it("raw reference mutation produces no deep patch while proxied does", async () => {
             const raw = { id: "id1", data: { x: 1 } };
             const st = deepSignal({ s: new Set<any>([raw]) });
-            const batches: DeepPatch[][] = [];
+            const batches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
             );
@@ -451,7 +455,7 @@ describe("watch (patch mode)", () => {
             const st = deepSignal({ s: new Set<any>() });
             const a1 = { id: "dup", v: 1 };
             const a2 = { id: "dup", v: 2 };
-            const patches: DeepPatch[][] = [];
+            const patches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches: batch }) =>
                 patches.push(batch)
             );
@@ -483,7 +487,7 @@ describe("watch (patch mode)", () => {
             expect(arr[0].inner.v).toBe(1);
             const spread = [...st.s];
             expect(spread[0].inner.v).toBe(1);
-            const batches: DeepPatch[][] = [];
+            const batches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
             );
@@ -498,7 +502,7 @@ describe("watch (patch mode)", () => {
     describe("Arrays & mixed batch", () => {
         it("emits patches for splice/unshift/shift in single batch", async () => {
             const st = deepSignal({ arr: [1, 2, 3] });
-            const batches: DeepPatch[][] = [];
+            const batches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
             );
@@ -512,7 +516,7 @@ describe("watch (patch mode)", () => {
         });
         it("mixed object/array/Set mutations batch together", async () => {
             const st = deepSignal({ o: { a: 1 }, arr: [1], s: new Set<any>() });
-            const batches: DeepPatch[][] = [];
+            const batches: DeepPatchInternal[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
             );

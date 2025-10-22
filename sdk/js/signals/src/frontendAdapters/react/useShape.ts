@@ -9,14 +9,16 @@ const useShape = <T extends BaseType>(
     shape: ShapeType<T>,
     scope: Scope = ""
 ) => {
-    const shapeSignalRef = useRef<
-        ReturnType<typeof createSignalObjectForShape<T>>
-    >(createSignalObjectForShape(shape, scope));
+    const shapeSignalRef = useRef<ReturnType<
+        typeof createSignalObjectForShape<T>
+    > | null>(null);
     const [, setTick] = useState(0);
 
     useEffect(() => {
+        shapeSignalRef.current = createSignalObjectForShape(shape, scope);
         const handle = shapeSignalRef.current;
         const deepSignalObj = handle.signalObject;
+
         const { stopListening } = watch(deepSignalObj, () => {
             // trigger a React re-render when the deep signal updates
             setTick((t) => t + 1);
@@ -31,9 +33,7 @@ const useShape = <T extends BaseType>(
         };
     }, []);
 
-    if ("@id" in shapeSignalRef.current.signalObject)
-        return shapeSignalRef.current.signalObject;
-    else return null;
+    return shapeSignalRef.current?.signalObject;
 };
 
 export default useShape;
