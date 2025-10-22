@@ -66,6 +66,11 @@ opt-level = 's'
 opt-level = 1
 debug = "full"
 
+[profile.profiling]
+inherits = "dev"
+opt-level = 1
+debug = "full"
+
 [profile.dev]
 opt-level = 2
 

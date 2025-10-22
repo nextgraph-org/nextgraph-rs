@@ -13,12 +13,12 @@ keywords.workspace = true
 documentation.workspace = true
 rust-version.workspace = true
 
-[package.metadata.wasm-pack.profile.release]
+[package.metadata.wasm-pack.profile.profiling]
 wasm-opt = false
 
 [package.metadata.scripts]
 appdev = "wasm-pack build --dev --target bundler && node prepare-web.js"
-appdev3 = "wasm-pack build --target bundler && node prepare-web.js"
+appdev3 = "wasm-pack build --profiling --target bundler && node prepare-web.js"
 app = "rm -rf pkg/snippets & rmdir pkg\\snippets /s /q & wasm-pack build --target bundler && node prepare-web.js"
 nodedev = "rm -rf pkg-node/snippets & rmdir pkg\\snippets /s /q & wasm-pack build --dev -t nodejs -d pkg-node && node prepare-node.js"
 node = "rm -rf pkg-node/snippets & rmdir pkg\\snippets /s /q & wasm-pack build -t nodejs -d pkg-node && node prepare-node.js"
