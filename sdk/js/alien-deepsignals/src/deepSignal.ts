@@ -538,15 +538,13 @@ function getFromSet(
             const result = fn.apply(raw, args);
             if (raw.size !== sizeBefore) {
                 const metaNow = proxyMeta.get(receiver);
-                if (
-                    metaNow &&
-                    metaNow.parent !== undefined &&
-                    metaNow.key !== undefined
-                ) {
-                    const containerPath = buildPath(
-                        metaNow.parent,
-                        metaNow.key
-                    );
+                if (metaNow) {
+                    // For root Set, containerPath is empty; for nested Set, build path from parent
+                    const containerPath =
+                        metaNow.parent !== undefined &&
+                        metaNow.key !== undefined
+                            ? buildPath(metaNow.parent, metaNow.key)
+                            : [];
                     if (key === "add") {
                         const entry = args[0];
 
