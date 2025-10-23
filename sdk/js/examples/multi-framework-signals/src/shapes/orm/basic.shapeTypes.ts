@@ -5,5 +5,5 @@ import type { Basic } from "./basic.typings";
 // ShapeTypes for basic
 export const BasicShapeType: ShapeType<Basic> = {
   schema: basicSchema,
-  shape: "http://example.org/Basic",
+  shape: "http://example.org/BasicShape",
 };

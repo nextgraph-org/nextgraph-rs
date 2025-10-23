@@ -162,7 +162,7 @@ impl Verifier {
                 // Mark as currently validating
                 currently_validating.insert(validation_key.clone());
 
-                // Get triples of subject (added & removed).
+                // Get triple changes for subject (added & removed).
                 let triples_added_for_subj = added_triples_by_subject
                     .get(*subject_iri)
                     .map(|v| v.as_slice())
@@ -177,14 +177,58 @@ impl Verifier {
                     .entry(shape.iri.clone())
                     .or_insert_with(HashMap::new)
                     .entry((*subject_iri).clone())
-                    .or_insert_with(|| OrmTrackedSubjectChange {
-                        subject_iri: (*subject_iri).clone(),
-                        predicates: HashMap::new(),
-                        data_applied: false,
+                    .or_insert_with(|| {
+                        // Create a new change record.
+                        // This includes the previous validity and triple changes.
+                        let orm_subscription = self
+                            .orm_subscriptions
+                            .get_mut(nuri)
+                            .unwrap()
+                            .iter_mut()
+                            .find(|sub| {
+                                sub.shape_type.shape == *root_shape_iri
+                                    && sub.session_id == session_id
+                            })
+                            .unwrap();
+
+                        log_debug!("[process_changes_for_shape_and_session] Creating change object for {}, {}", subject_iri, shape.iri);
+                        let prev_valid = match orm_subscription
+                            .tracked_subjects
+                            .get(*subject_iri)
+                            .and_then(|shapes| shapes.get(&shape.iri))
+                        {
+                            Some(tracked_subject) => tracked_subject.read().unwrap().valid.clone(),
+                            None => OrmTrackedSubjectValidity::Pending,
+                        };
+
+                        let mut change = OrmTrackedSubjectChange {
+                            subject_iri: (*subject_iri).clone(),
+                            predicates: HashMap::new(),
+                            is_validated: false,
+                            prev_valid,
+                        };
+
+                        if let Err(e) = add_remove_triples(
+                            shape.clone(),
+                            subject_iri,
+                            triples_added_for_subj,
+                            triples_removed_for_subj,
+                            orm_subscription,
+                            &mut change,
+                        ) {
+                            log_err!("apply_changes_from_triples add/remove error: {:?}", e);
+                            panic!();
+                        }
+
+                        change
                     });
 
-                // Apply all triples for that subject to the tracked (shape, subject) pair.
-                // Record the changes.
+                // If validation took place already, there's nothing more to do...
+                if change.is_validated {
+                    continue;
+                }
+
+                // Run validation and record objects that need to be re-evaluated.
                 {
                     let orm_subscription = self
                         .orm_subscriptions
@@ -195,60 +239,6 @@ impl Verifier {
                             sub.shape_type.shape == *root_shape_iri && sub.session_id == session_id
                         })
                         .unwrap();
-
-                    // Update tracked subjects and modify change objects.
-                    if !change.data_applied {
-                        log_debug!(
-                            "Adding triples to change tracker for subject {}",
-                            subject_iri
-                        );
-
-                        if let Err(e) = add_remove_triples(
-                            shape.clone(),
-                            subject_iri,
-                            triples_added_for_subj,
-                            triples_removed_for_subj,
-                            orm_subscription,
-                            change,
-                        ) {
-                            log_err!("apply_changes_from_triples add/remove error: {:?}", e);
-                            panic!();
-                        }
-                        change.data_applied = true;
-                    }
-
-                    // Check if this is the first evaluation round - In that case, set old validity to new one.
-                    // if the object was already validated, don't do so again.
-                    {
-                        let tracked_subject = &mut orm_subscription
-                            .tracked_subjects
-                            .get(*subject_iri)
-                            .unwrap()
-                            .get(&shape.iri)
-                            .unwrap()
-                            .write()
-                            .unwrap();
-
-                        // First run
-                        if !change.data_applied
-                            && tracked_subject.valid != OrmTrackedSubjectValidity::Pending
-                        {
-                            tracked_subject.prev_valid = tracked_subject.valid.clone();
-                        }
-
-                        if change.data_applied {
-                            log_debug!("not applying triples again for subject {subject_iri}");
-
-                            // Has this subject already been validated?
-                            if change.data_applied
-                                && tracked_subject.valid != OrmTrackedSubjectValidity::Pending
-                            {
-                                log_debug!("Not evaluating subject again {subject_iri}");
-
-                                continue;
-                            }
-                        }
-                    }
 
                     // Validate the subject.
                     // need_eval contains elements in reverse priority (last element to be validated first)
@@ -413,6 +403,90 @@ impl Verifier {
         {
             None => Err(VerifierError::OrmSubscriptionNotFound),
             Some(subscription) => Ok((subscription.sender.clone(), subscription)),
+        }
+    }
+
+    pub fn cleanup_tracked_subjects(orm_subscription: &mut OrmSubscription) {
+        let tracked_subjects = &mut orm_subscription.tracked_subjects;
+
+        // First pass: Clean up relationships for subjects being deleted
+        for (subject_iri, subjects_for_shape) in tracked_subjects.iter() {
+            for (_shape_iri, tracked_subject_lock) in subjects_for_shape.iter() {
+                let tracked_subject = tracked_subject_lock.read().unwrap();
+
+                // Only process subjects that are marked for deletion
+                if tracked_subject.valid != OrmTrackedSubjectValidity::ToDelete {
+                    continue;
+                }
+
+                let has_parents = !tracked_subject.parents.is_empty();
+
+                // Set all children to `untracked` that don't have other parents
+                for tracked_predicate in tracked_subject.tracked_predicates.values() {
+                    let tracked_pred_read = tracked_predicate.read().unwrap();
+                    for child in &tracked_pred_read.tracked_children {
+                        let mut tracked_child = child.write().unwrap();
+                        if tracked_child.parents.is_empty()
+                            || (tracked_child.parents.len() == 1
+                                && tracked_child
+                                    .parents
+                                    .contains_key(&tracked_subject.subject_iri))
+                        {
+                            if tracked_child.valid != OrmTrackedSubjectValidity::ToDelete {
+                                tracked_child.valid = OrmTrackedSubjectValidity::Untracked;
+                            }
+                        }
+                    }
+                }
+
+                // Remove this subject from its children's parent lists
+                // (Only if this is not a root subject - root subjects keep child relationships)
+                if has_parents {
+                    for tracked_pred in tracked_subject.tracked_predicates.values() {
+                        let tracked_pred_read = tracked_pred.read().unwrap();
+                        for child in &tracked_pred_read.tracked_children {
+                            child.write().unwrap().parents.remove(subject_iri);
+                        }
+                    }
+                }
+
+                // Also remove this subject from its parents' children lists
+                for (_parent_iri, parent_tracked_subject) in &tracked_subject.parents {
+                    let mut parent_ts = parent_tracked_subject.write().unwrap();
+                    for tracked_pred in parent_ts.tracked_predicates.values_mut() {
+                        let mut tracked_pred_mut = tracked_pred.write().unwrap();
+                        tracked_pred_mut
+                            .tracked_children
+                            .retain(|child| child.read().unwrap().subject_iri != *subject_iri);
+                    }
+                }
+            }
+        }
+
+        // Second pass: Collect subjects to remove (we can't remove while iterating)
+        let mut subjects_to_remove: Vec<(String, String)> = vec![];
+
+        for (subject_iri, subjects_for_shape) in tracked_subjects.iter() {
+            for (shape_iri, tracked_subject) in subjects_for_shape.iter() {
+                let tracked_subject = tracked_subject.read().unwrap();
+
+                // Only cleanup subjects that are marked for deletion
+                if tracked_subject.valid == OrmTrackedSubjectValidity::ToDelete {
+                    subjects_to_remove.push((subject_iri.clone(), shape_iri.clone()));
+                }
+            }
+        }
+
+        // Third pass: Remove the subjects marked for deletion
+        for (subject_iri, shape_iri) in subjects_to_remove {
+            if let Some(shapes_map) = tracked_subjects.get_mut(&subject_iri) {
+                shapes_map.remove(&shape_iri);
+
+                // If this was the last shape for this subject, remove the subject entry entirely
+                if shapes_map.is_empty() {
+                    tracked_subjects.remove(&subject_iri);
+                }
+            }
         }
     }
 }

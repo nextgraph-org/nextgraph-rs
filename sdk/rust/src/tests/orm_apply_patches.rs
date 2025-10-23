@@ -8,8 +8,8 @@
 // according to those terms.
 
 use crate::local_broker::{doc_sparql_construct, orm_start, orm_update};
-use crate::tests::create_doc_with_data;
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
+use crate::tests::{assert_json_eq, create_doc_with_data};
 use async_std::stream::StreamExt;
 use ng_net::app_protocol::{AppResponse, AppResponseV0, NuriV0};
 use ng_net::orm::{
@@ -55,6 +55,9 @@ async fn test_orm_apply_patches() {
 
     // Test 9: Nested object creation
     test_patch_create_nested_object(session_id).await;
+
+    // Test 10: Object deleted after invalidating patch.
+    test_patch_invalidating_object(session_id).await
 }
 
 /// Test adding a single literal value via ORM patch
@@ -1263,4 +1266,118 @@ INSERT DATA {
     assert!(has_new_address_street, "New street should be added");
 
     log_info!("✓ Test passed: Nested object creation");
+}
+
+/// Test replacing object's type invalidating it.
+async fn test_patch_invalidating_object(session_id: u64) {
+    log_info!("\n\n=== TEST: Remove Single Literal ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:person2> a ex:Person ;
+        ex:name "Bob" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "name".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+
+    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .expect("orm_start failed");
+
+    // Get initial state (person without name)
+    while let Some(app_response) = receiver.next().await {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(initial)) = app_response {
+            break;
+        }
+    }
+
+    // Apply ORM patch: Change type to something invalid by schema.
+    let patch = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: "/urn:test:person2/type".to_string(),
+        valType: None,
+        value: Some(json!("InvalidType")),
+    }];
+
+    orm_update(nuri.clone(), shape_type.shape.clone(), patch, session_id)
+        .await
+        .expect("orm_update failed");
+
+    // Expect delete patch for root object
+    while let Some(app_response) = receiver.next().await {
+        let patches = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmUpdate(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        log_info!("Patches arrived:\n");
+        for patch in patches.iter() {
+            log_info!("{:?}", patch);
+        }
+
+        let mut expected = json!([
+            {
+                "op": "remove",
+                "valType": "object",
+                "path": "/urn:test:person2",
+            },
+        ]);
+
+        let mut actual = json!(patches);
+        assert_json_eq(&mut expected, &mut actual);
+
+        break;
+    }
+
+    log_info!("✓ Test passed: Received object remove patch after patch makes object invalid.");
 }

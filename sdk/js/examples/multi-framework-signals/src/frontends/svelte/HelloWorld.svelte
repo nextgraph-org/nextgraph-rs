@@ -2,8 +2,9 @@
   import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
   import { useShape } from "@ng-org/signals/svelte";
   import flattenObject from "../utils/flattenObject";
+  import { BasicShapeType } from "../../shapes/orm/basic.shapeTypes";
 
-  const shapeObject = useShape(TestObjectShapeType);
+  const shapeObjects = useShape(BasicShapeType);
 
   function getNestedValue(obj: any, path: string) {
     return path
@@ -20,16 +21,16 @@
     cur[keys[keys.length - 1]] = value;
   }
   const flattenedObjects = $derived(
-    $shapeObject
-      ? $shapeObject.values().map((o) => flattenObject(o)[0] || ({} as any))
+    $shapeObjects
+      ? $shapeObjects.values().map((o) => flattenObject(o)[0] || ({} as any))
       : []
   );
   $effect(() => {
-    (window as any).svelteState = $shapeObject;
+    (window as any).svelteState = $shapeObjects;
   });
 </script>
 
-{#if $shapeObject}
+{#if $shapeObjects}
   <div>
     <p>Rendered in Svelte</p>
 
@@ -61,28 +62,32 @@
                     type="text"
                     {value}
                     oninput={(e: any) =>
-                      setNestedValue($shapeObject, key, e.target.value)}
+                      setNestedValue($shapeObjects, key, e.target.value)}
                   />
                 {:else if typeof value === "number"}
                   <input
                     type="number"
                     {value}
                     oninput={(e: any) =>
-                      setNestedValue($shapeObject, key, Number(e.target.value))}
+                      setNestedValue(
+                        $shapeObjects,
+                        key,
+                        Number(e.target.value)
+                      )}
                   />
                 {:else if typeof value === "boolean"}
                   <input
                     type="checkbox"
                     checked={value}
                     onchange={(e: any) =>
-                      setNestedValue($shapeObject, key, e.target.checked)}
+                      setNestedValue($shapeObjects, key, e.target.checked)}
                   />
                 {:else if Array.isArray(value)}
                   <div style="display:flex; gap:.5rem;">
                     <button
                       onclick={() => {
-                        const cur = getNestedValue($shapeObject, key) || [];
-                        setNestedValue($shapeObject, key, [
+                        const cur = getNestedValue($shapeObjects, key) || [];
+                        setNestedValue($shapeObjects, key, [
                           ...cur,
                           cur.length + 1,
                         ]);
@@ -90,9 +95,9 @@
                     >
                     <button
                       onclick={() => {
-                        const cur = getNestedValue($shapeObject, key) || [];
+                        const cur = getNestedValue($shapeObjects, key) || [];
                         if (cur.length)
-                          setNestedValue($shapeObject, key, cur.slice(0, -1));
+                          setNestedValue($shapeObjects, key, cur.slice(0, -1));
                       }}>Remove</button
                     >
                   </div>
@@ -100,13 +105,19 @@
                   <div style="display:flex; gap:.5rem;">
                     <button
                       onclick={() => {
-                        const cur: Set<any> = getNestedValue($shapeObject, key);
+                        const cur: Set<any> = getNestedValue(
+                          $shapeObjects,
+                          key
+                        );
                         cur.add(`item${cur.size + 1}`);
                       }}>Add</button
                     >
                     <button
                       onclick={() => {
-                        const cur: Set<any> = getNestedValue($shapeObject, key);
+                        const cur: Set<any> = getNestedValue(
+                          $shapeObjects,
+                          key
+                        );
                         const last = Array.from(cur).pop();
                         if (last !== undefined) cur.delete(last);
                       }}>Remove</button

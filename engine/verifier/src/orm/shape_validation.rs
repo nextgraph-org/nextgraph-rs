@@ -19,7 +19,7 @@ impl Verifier {
     /// Might return nested objects that need to be validated.
     /// Assumes all triples to be of same subject.
     pub fn update_subject_validity(
-        s_change: &OrmTrackedSubjectChange,
+        s_change: &mut OrmTrackedSubjectChange,
         shape: &OrmSchemaShape,
         orm_subscription: &mut OrmSubscription,
     ) -> Vec<(SubjectIri, ShapeIri, NeedsFetchBool)> {
@@ -32,7 +32,7 @@ impl Verifier {
             return vec![];
         };
         let mut tracked_subject = tracked_subject.write().unwrap();
-        let previous_validity = tracked_subject.prev_valid.clone();
+        let previous_validity = s_change.prev_valid.clone();
 
         // Keep track of objects that need to be validated against a shape to fetch and validate.
         let mut need_evaluation: Vec<(String, String, bool)> = vec![];
@@ -348,42 +348,14 @@ impl Verifier {
 
         tracked_subject.valid = new_validity.clone();
 
+        // First, if we have a definite decision, we set is_validated to true.
+        if new_validity != OrmTrackedSubjectValidity::Pending {
+            s_change.is_validated = true;
+        }
+
         if new_validity == OrmTrackedSubjectValidity::Invalid {
-            // For invalid subjects, we need to to cleanup.
-
-            let has_parents = !tracked_subject.parents.is_empty();
-            if has_parents {
-                // This object is not a root object. Tracked child objects can be dropped.
-                // We therefore delete the child -> parent links.
-                // Untracked objects (with no parents) will be deleted in the subsequent child validation.
-                for tracked_predicate in tracked_subject.tracked_predicates.values() {
-                    for child in &tracked_predicate.write().unwrap().tracked_children {
-                        child
-                            .write()
-                            .unwrap()
-                            .parents
-                            .remove(&tracked_subject.subject_iri);
-                    }
-                }
-            } else {
-                // This is a root objects, we will set the children to untracked
-                // but don't delete the child > parent relationship.
-            }
-
-            // Set all children to `untracked` that don't have other parents.
-            for tracked_predicate in tracked_subject.tracked_predicates.values() {
-                for child in &tracked_predicate.write().unwrap().tracked_children {
-                    let mut tracked_child = child.write().unwrap();
-                    if tracked_child.parents.is_empty()
-                        || (tracked_child.parents.len() == 1
-                            && tracked_child
-                                .parents
-                                .contains_key(&tracked_subject.subject_iri))
-                    {
-                        tracked_child.valid = OrmTrackedSubjectValidity::Untracked;
-                    }
-                }
-            }
+            // For invalid subjects, we schedule cleanup.
+            tracked_subject.valid = OrmTrackedSubjectValidity::ToDelete;
 
             // Add all children to need_evaluation for their cleanup.
             for tracked_predicate in tracked_subject.tracked_predicates.values() {
@@ -396,9 +368,6 @@ impl Verifier {
                     ));
                 }
             }
-
-            // Remove all tracked_predicates.
-            tracked_subject.tracked_predicates.clear();
         } else if new_validity == OrmTrackedSubjectValidity::Valid
             && previous_validity != OrmTrackedSubjectValidity::Valid
         {

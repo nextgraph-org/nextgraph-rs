@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useShape } from "@ng-org/signals/react";
 import flattenObject from "../utils/flattenObject";
 import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 import { BasicShapeType } from "../../shapes/orm/basic.shapeTypes";
 import type { ShapeType } from "@ng-org/shex-orm";
 import type { Basic } from "../../shapes/orm/basic.typings";
+import { deepSignal, watch } from "@ng-org/alien-deepsignals";
 
 const sparqlExampleData = `
 PREFIX ex: <http://example.org/>
@@ -72,10 +73,10 @@ INSERT DATA {
 
 export function HelloWorldReact() {
     const state = useShape(BasicShapeType);
+    const objects = [...(state || [])];
 
     // @ts-expect-error
     window.reactState = state;
-    console.log("react state", state);
 
     if (!state) return <div>Loading...</div>;
     // Create a table from the state object: One column for keys, one for values, one with an input to change the value.
@@ -97,7 +98,7 @@ export function HelloWorldReact() {
             </button>
 
             <div>
-                {state.values()?.map((ormObj) => (
+                {objects.map((ormObj) => (
                     <table border={1} cellPadding={5} key={ormObj["@id"]}>
                         <thead>
                             <tr>
@@ -155,7 +156,7 @@ export function HelloWorldReact() {
                                                         value={value}
                                                         onChange={(e) => {
                                                             setNestedValue(
-                                                                state,
+                                                                ormObj,
                                                                 key,
                                                                 e.target.value
                                                             );
@@ -168,7 +169,7 @@ export function HelloWorldReact() {
                                                         value={value}
                                                         onChange={(e) => {
                                                             setNestedValue(
-                                                                state,
+                                                                ormObj,
                                                                 key,
                                                                 Number(
                                                                     e.target
@@ -184,7 +185,7 @@ export function HelloWorldReact() {
                                                         checked={value}
                                                         onChange={(e) => {
                                                             setNestedValue(
-                                                                state,
+                                                                ormObj,
                                                                 key,
                                                                 e.target.checked
                                                             );
@@ -196,11 +197,11 @@ export function HelloWorldReact() {
                                                             onClick={() => {
                                                                 const currentArray =
                                                                     getNestedValue(
-                                                                        state,
+                                                                        ormObj,
                                                                         key
                                                                     );
                                                                 setNestedValue(
-                                                                    state,
+                                                                    ormObj,
                                                                     key,
                                                                     [
                                                                         ...currentArray,
@@ -216,7 +217,7 @@ export function HelloWorldReact() {
                                                             onClick={() => {
                                                                 const currentArray =
                                                                     getNestedValue(
-                                                                        state,
+                                                                        ormObj,
                                                                         key
                                                                     );
                                                                 if (
@@ -224,7 +225,7 @@ export function HelloWorldReact() {
                                                                     0
                                                                 ) {
                                                                     setNestedValue(
-                                                                        state,
+                                                                        ormObj,
                                                                         key,
                                                                         currentArray.slice(
                                                                             0,
@@ -243,7 +244,7 @@ export function HelloWorldReact() {
                                                             onClick={() => {
                                                                 const currentSet =
                                                                     getNestedValue(
-                                                                        state,
+                                                                        ormObj,
                                                                         key
                                                                     );
                                                                 currentSet.add(
@@ -257,7 +258,7 @@ export function HelloWorldReact() {
                                                             onClick={() => {
                                                                 const currentSet =
                                                                     getNestedValue(
-                                                                        state,
+                                                                        ormObj,
                                                                         key
                                                                     );
                                                                 const lastItem =

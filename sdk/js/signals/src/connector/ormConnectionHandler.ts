@@ -1,5 +1,5 @@
 import type { Diff as Patches, Scope } from "../types.ts";
-import { applyDiff } from "./applyDiff.ts";
+import { applyDiff, applyDiffToDeepSignal, Patch } from "./applyDiff.ts";
 
 import { ngSession } from "./initNg.ts";
 
@@ -145,6 +145,10 @@ export class OrmConnection<T extends BaseType> {
     private onBackendMessage = ({ V0: data }: any) => {
         if (data.OrmInitial) {
             this.handleInitialResponse(data.OrmInitial);
+        } else if (data.OrmUpdate) {
+            this.onBackendUpdate(data.OrmUpdate);
+        } else {
+            console.warn("Received unknown ORM message from backend", data);
         }
     };
 
@@ -169,8 +173,8 @@ export class OrmConnection<T extends BaseType> {
 
         this.ready = true;
     };
-    private onBackendUpdate = (...params: any) => {
-        // Apply diff
+    private onBackendUpdate = (patches: Patch[]) => {
+        applyDiffToDeepSignal(this.signalObject, patches);
     };
 
     /** Function to create random subject IRIs for newly created nested objects. */

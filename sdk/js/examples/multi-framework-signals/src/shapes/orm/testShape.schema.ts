@@ -6,8 +6,8 @@ import type { Schema } from "@ng-org/shex-orm";
  * =============================================================================
  */
 export const testShapeSchema: Schema = {
-  "http://example.org/TestObject": {
-    iri: "http://example.org/TestObject",
+  "http://example.org/TestObjectShape": {
+    iri: "http://example.org/TestObjectShape",
     predicates: [
       {
         dataTypes: [
@@ -71,7 +71,7 @@ export const testShapeSchema: Schema = {
           {
             valType: "shape",
             shape:
-              "http://example.org/TestObject||http://example.org/objectValue",
+              "http://example.org/TestObjectShape||http://example.org/objectValue",
           },
         ],
         maxCardinality: 1,
@@ -84,7 +84,7 @@ export const testShapeSchema: Schema = {
           {
             valType: "shape",
             shape:
-              "http://example.org/TestObject||http://example.org/anotherObject",
+              "http://example.org/TestObjectShape||http://example.org/anotherObject",
           },
         ],
         maxCardinality: -1,
@@ -120,8 +120,8 @@ export const testShapeSchema: Schema = {
       },
     ],
   },
-  "http://example.org/TestObject||http://example.org/objectValue": {
-    iri: "http://example.org/TestObject||http://example.org/objectValue",
+  "http://example.org/TestObjectShape||http://example.org/objectValue": {
+    iri: "http://example.org/TestObjectShape||http://example.org/objectValue",
     predicates: [
       {
         dataTypes: [
@@ -158,8 +158,8 @@ export const testShapeSchema: Schema = {
       },
     ],
   },
-  "http://example.org/TestObject||http://example.org/anotherObject": {
-    iri: "http://example.org/TestObject||http://example.org/anotherObject",
+  "http://example.org/TestObjectShape||http://example.org/anotherObject": {
+    iri: "http://example.org/TestObjectShape||http://example.org/anotherObject",
     predicates: [
       {
         dataTypes: [

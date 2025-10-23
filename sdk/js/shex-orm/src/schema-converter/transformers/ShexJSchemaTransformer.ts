@@ -204,8 +204,30 @@ export const ShexJSchemaTransformerCompact = ShexJTraverser.createTransformer<
                     literals: nodeConstraint.values.map(
                         // TODO: We do not convert them to number or boolean or lang tag.
                         // And we don't have an annotation of the literal's type.
-                        // @ts-expect-error
-                        (valueRecord) => valueRecord.value || valueRecord.id
+                        (valueRecord) => {
+                            // If valueRecord is a string (IRIREF), return it directly
+                            if (typeof valueRecord === "string") {
+                                return valueRecord;
+                            }
+                            // Handle ObjectLiteral (has .value property)
+                            if ("value" in valueRecord) {
+                                return valueRecord.value;
+                            }
+                            // Handle other types with .id property (if any)
+                            if ("id" in valueRecord) {
+                                return (valueRecord as any).id;
+                            }
+                            // Handle Language type (has .languageTag)
+                            if ("languageTag" in valueRecord) {
+                                return valueRecord.languageTag;
+                            }
+                            // Handle stem-based types (IriStem, LiteralStem, LanguageStem)
+                            if ("stem" in valueRecord) {
+                                return valueRecord.stem as string;
+                            }
+                            // Fallback - should not happen in well-formed ShEx
+                            return undefined;
+                        }
                     ),
                 };
             }

@@ -1,7 +1,7 @@
 PREFIX ex: <http://example.org/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-ex:TestObject EXTRA a {
+ex:TestObjectShape EXTRA a {
   a [ ex:TestObject ] ;
   ex:stringValue xsd:string ;
   ex:numValue xsd:integer ;

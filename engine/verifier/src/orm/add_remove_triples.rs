@@ -44,7 +44,6 @@ pub fn add_remove_triples(
                     tracked_predicates: HashMap::new(),
                     parents: HashMap::new(),
                     valid: OrmTrackedSubjectValidity::Pending,
-                    prev_valid: OrmTrackedSubjectValidity::Pending,
                     subject_iri: subject_iri.to_string(),
                     shape: shape.clone(),
                 }))
@@ -208,47 +207,8 @@ pub fn add_remove_triples(
             } else {
                 panic!("tracked_predicate.current_literals must not be None.");
             }
-        } else if tracked_predicate
-            .schema
-            .dataTypes
-            .iter()
-            .any(|dt| dt.valType == OrmSchemaValType::shape)
-        {
-            // Remove parent from child and child from tracked children.
-            // If predicate is of type shape, register (parent -> child) links so that
-            // nested subjects can later be (lazily) fetched / validated.
-            let shapes_to_process: Vec<_> = tracked_predicate
-                .schema
-                .dataTypes
-                .iter()
-                .filter_map(|dt| {
-                    if dt.valType == OrmSchemaValType::shape {
-                        dt.shape.clone()
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            if let BasicType::Str(obj_iri) = &val_removed {
-                // Remove link to children
-                tracked_predicate
-                    .tracked_children
-                    .retain(|ts| *obj_iri != ts.read().unwrap().subject_iri);
-
-                for shape_iri in shapes_to_process {
-                    // Get or create object's tracked subject struct.
-                    let child_shape = schema.get(&shape_iri).unwrap();
-
-                    // Remove self from parent
-                    get_or_create_tracked_subject(&obj_iri, child_shape, tracked_subjects)
-                        .write()
-                        .unwrap()
-                        .parents
-                        .remove(subject_iri);
-                }
-            }
         }
+        // Parent-child link removal is handled during cleanup since we need to keep them for creating patches.
     }
     Ok(())
 }

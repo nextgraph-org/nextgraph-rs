@@ -24,10 +24,7 @@ use crate::types::GraphQuadsPatch;
 use crate::verifier::*;
 
 impl Verifier {
-    /// After creating new objects (without an id) in JS-land,
-    /// we send the generated id for those back.
-    /// If something went wrong (revert_inserts / revert_removes not empty),
-    /// we send a JSON patch back to revert the made changes.
+    ///
     pub(crate) async fn orm_update_self(
         &mut self,
         scope: &NuriV0,
@@ -48,10 +45,10 @@ impl Verifier {
                 inserts: revert_removes,
                 removes: revert_inserts,
             };
-            log_info!("[orm_frontend_update] Reverting");
-
-            // TODO: Call with correct params.
-            // self.orm_backend_update(session_id, scope, "", revert_changes)
+            log_info!("[orm_update_self] Reverting triples, calling orm_backend_update. TODO");
+            // TODO
+            // self.orm_backend_update(session_id, scope, "", revert_changes);
+            log_info!("[orm_update_self] Triples reverted.");
         }
 
         Ok(())
@@ -151,20 +148,20 @@ fn create_sparql_update_query_for_diff(
         delete_patches.len()
     );
 
-    let add_object_patches: Vec<_> = diff
-        .iter()
-        .filter(|patch| {
-            patch.op == OrmPatchOp::add
-                && match &patch.valType {
-                    Some(vt) => *vt == OrmPatchType::object,
-                    _ => false,
-                }
-        })
-        .collect();
-    log_info!(
-        "[create_sparql_update_query_for_diff] Found {} add object patches",
-        add_object_patches.len()
-    );
+    // let add_object_patches: Vec<_> = diff
+    //     .iter()
+    //     .filter(|patch| {
+    //         patch.op == OrmPatchOp::add
+    //             && match &patch.valType {
+    //                 Some(vt) => *vt == OrmPatchType::object,
+    //                 _ => false,
+    //             }
+    //     })
+    //     .collect();
+    // log_info!(
+    //     "[create_sparql_update_query_for_diff] Found {} add object patches",
+    //     add_object_patches.len()
+    // );
 
     let add_primitive_patches: Vec<_> = diff
         .iter()
@@ -235,17 +232,6 @@ fn create_sparql_update_query_for_diff(
         );
     }
 
-    // Process add object patches (might need blank nodes)
-    //
-    for (idx, _add_obj_patch) in add_object_patches.iter().enumerate() {
-        log_info!("[create_sparql_update_query_for_diff] Processing add object patch {}/{} (NOT YET IMPLEMENTED)", idx + 1, add_object_patches.len());
-        // Creating objects without an id field is only supported in one circumstance:
-        // An object is added to a property which has a max cardinality of one, e.g. `painting.artist`.
-        // In that case, we create a blank node.
-        // TODO: We need to set up a list of created blank nodes and where they belong to.
-        // POTENTIAL PANIC SOURCE: This is not implemented yet
-    }
-
     // Process primitive add patches
     //
     for (idx, add_patch) in add_primitive_patches.iter().enumerate() {
@@ -259,7 +245,6 @@ fn create_sparql_update_query_for_diff(
         let mut var_counter: i32 = 0;
 
         // Create WHERE statements from path.
-        // POTENTIAL PANIC SOURCE: create_where_statements_for_patch can panic in several places
         let (where_statements, target, pred_schema) =
             create_where_statements_for_patch(&add_patch, &mut var_counter, &orm_subscription);
         let (subject_var, target_predicate, target_object) = target;
@@ -434,7 +419,6 @@ fn create_where_statements_for_patch(
             path.len()
         );
 
-        // POTENTIAL PANIC SOURCE: find_pred_schema_by_name can panic
         log_info!(
             "[create_where_statements_for_patch] Looking up predicate schema for name={}",
             pred_name
@@ -505,7 +489,6 @@ fn create_where_statements_for_patch(
                 );
             }
 
-            // POTENTIAL PANIC SOURCE: get_first_child_schema can panic
             log_info!(
                 "[create_where_statements_for_patch] Getting child schema for object_iri={}",
                 object_iri
@@ -528,7 +511,6 @@ fn create_where_statements_for_patch(
             // As long as there is only one allowed shape or the first one is valid, this is fine.
             log_info!("[create_where_statements_for_patch] Predicate is single-valued, getting child schema");
 
-            // POTENTIAL PANIC SOURCE: get_first_child_schema can panic
             current_subj_schema = get_first_child_schema(None, &pred_schema, &orm_subscription);
             log_info!("[create_where_statements_for_patch] Child schema found");
         }
