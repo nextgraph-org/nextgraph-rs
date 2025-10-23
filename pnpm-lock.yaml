@@ -170,9 +170,6 @@ importers:
       '@nextgraph-monorepo/common':
         specifier: workspace:*
         version: link:../../common
-      '@nextgraph-monorepo/wasm-tools-auth':
-        specifier: workspace:*
-        version: link:../wasm-tools/pkg
       '@tailwindcss/typography':
         specifier: ^0.5.13
         version: 0.5.16(tailwindcss@3.4.17)
@@ -246,9 +243,6 @@ importers:
       '@nextgraph-monorepo/common':
         specifier: workspace:*
         version: link:../../common
-      '@nextgraph-monorepo/wasm-tools-auth':
-        specifier: workspace:*
-        version: link:../wasm-tools/pkg
       '@tailwindcss/typography':
         specifier: ^0.5.13
         version: 0.5.16(tailwindcss@3.4.17)
@@ -501,8 +495,6 @@ importers:
       vite-plugin-svelte-svg:
         specifier: ^2.2.1
         version: 2.2.1(svelte@3.59.2)(vite@4.5.9(@types/node@18.19.76)(sass@1.85.0))
-
-  helpers/wasm-tools/pkg: {}
 
   ng-app:
     dependencies:
