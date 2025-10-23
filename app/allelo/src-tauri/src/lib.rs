@@ -1009,13 +1009,13 @@ impl AppBuilder {
             //             .add_plugins(["window", "event"]),
             //     );
             // }
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            // if cfg!(debug_assertions) {
+            //     app.handle().plugin(
+            //         tauri_plugin_log::Builder::default()
+            //             .level(log::LevelFilter::Info)
+            //             .build(),
+            //     )?;
+            // }
             Ok(())
         });
         builder = builder.plugin(tauri_plugin_opener::init());
