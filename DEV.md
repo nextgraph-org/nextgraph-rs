@@ -96,7 +96,7 @@ and then open the link after replacing the port number from `14400` to `1421` (i
 
 -   run a local instance of `ngaccount`. this is useful if you want to test or develop the ngaccount part of the flow..
 
-See the [README of ngaccount here](ngaccount/README.md).
+See the [README of ngaccount here](helpers/ngaccount/README.md).
 
 Then you need to stop your ngd and start it again with the additional option :
 

@@ -344,7 +344,7 @@ export const NG_EU_BSP_REGISTER = import.meta.env.PROD
 export const NG_ONE_BSP = "https://nextgraph.one";
 export const NG_ONE_BSP_REGISTER = import.meta.env.PROD
 ? "https://account.nextgraph.one/#/create"
-: "http://account-dev.nextgraph.one:5173/#/create";
+: "http://account-dev.nextgraph.eu:5173/#/create";
 
 export const APP_ACCOUNT_REGISTERED_SUFFIX = "/#/user/registered";
 export const APP_WALLET_CREATE_SUFFIX = "/#/wallet/create";

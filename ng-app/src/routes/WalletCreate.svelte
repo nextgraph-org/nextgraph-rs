@@ -206,10 +206,10 @@
     : "http://localhost:3030/api/v1/";
 
   const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
-  const bootstrap_redirect = import.meta.env.DEV
-    ? "http://localhost:14403/#/?b="
-    : import.meta.env.NG_DEV
-      ? "http://localhost:1421/bootstrap.html#/?b="
+  const bootstrap_redirect = import.meta.env.NG_DEV
+    ? "http://localhost:1421/bootstrap.html#/?b="
+    : import.meta.env.DEV
+      ? "http://localhost:14403/#/?b="
       : import.meta.env.NG_DEV3
         ? "http://127.0.0.1:3033/bootstrap/#/?b="
         : `https://${redirect_server}/bootstrap/#/?b=`;
@@ -249,7 +249,8 @@
       } else if (
         (param.get("rs") || param.get("i")) &&
         !tauri_platform &&
-        !param.get("ab")
+        !param.get("ab") &&
+        !import.meta.env.NG_NO_REDIRECT
       ) {
         registration_success = param.get("rs");
 
