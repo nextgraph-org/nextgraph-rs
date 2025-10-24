@@ -355,7 +355,11 @@ impl Verifier {
 
         if new_validity == OrmTrackedSubjectValidity::Invalid {
             // For invalid subjects, we schedule cleanup.
-            tracked_subject.valid = OrmTrackedSubjectValidity::ToDelete;
+            if tracked_subject.parents.len() == 0 {
+                tracked_subject.valid = OrmTrackedSubjectValidity::Invalid;
+            } else {
+                tracked_subject.valid = OrmTrackedSubjectValidity::ToDelete;
+            }
 
             // Add all children to need_evaluation for their cleanup.
             for tracked_predicate in tracked_subject.tracked_predicates.values() {
