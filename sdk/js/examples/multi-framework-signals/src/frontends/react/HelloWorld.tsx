@@ -94,6 +94,17 @@ export function HelloWorldReact() {
             >
                 Add example data
             </button>
+            <button
+                onClick={() => {
+                    window.ng.sparql_update(
+                        window.session.session_id,
+                        `DELETE WHERE { ?s ?p ?o .};`,
+                        "did:ng:" + window.session.private_store_id
+                    );
+                }}
+            >
+                Remove all data
+            </button>
 
             {!state ? (
                 <div>Loading...</div>
