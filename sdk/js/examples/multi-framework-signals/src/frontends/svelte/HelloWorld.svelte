@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
   import { useShape } from "@ng-org/signals/svelte";
   import flattenObject from "../utils/flattenObject";
   import { BasicShapeType } from "../../shapes/orm/basic.shapeTypes";
@@ -22,12 +21,10 @@
   }
   const flattenedObjects = $derived(
     $shapeObjects
-      ? $shapeObjects.values().map((o) => flattenObject(o)[0] || ({} as any))
+      ? Array.from($shapeObjects.values()).map((o) => flattenObject(o))
       : []
   );
-  $effect(() => {
-    (window as any).svelteState = $shapeObjects;
-  });
+  (window as any).svelteState = $shapeObjects;
 </script>
 
 {#if $shapeObjects}
@@ -44,7 +41,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each flatEntries as [key, value] (key)}
+          {#each flatEntries as [key, value]}
             <tr>
               <td style="white-space:nowrap;">{key}</td>
               <td>
