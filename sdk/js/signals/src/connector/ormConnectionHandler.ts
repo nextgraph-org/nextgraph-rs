@@ -72,6 +72,7 @@ export class OrmConnection<T extends BaseType> {
         ngSession.then(async ({ ng, session }) => {
             console.log("Creating orm connection. ng and session", ng, session);
             try {
+                await new Promise((resolve) => setTimeout(resolve, 4_000));
                 ng.orm_start(
                     (scope.length == 0
                         ? "did:ng:" + session.private_store_id
@@ -182,6 +183,11 @@ export class OrmConnection<T extends BaseType> {
         this.ready = true;
     };
     private onBackendUpdate = (patches: Patch[]) => {
+        console.log(
+            "connectionHandler: onBackendUpdate. Got patches:",
+            patches
+        );
+
         applyDiffToDeepSignal(this.signalObject, patches);
     };
 

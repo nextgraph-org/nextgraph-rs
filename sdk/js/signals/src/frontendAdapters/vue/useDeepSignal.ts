@@ -5,6 +5,8 @@ import { watch } from "@ng-org/alien-deepsignals";
  * Bridge a deepSignal root into Vue with reactivity.
  * Uses a single version counter that increments on any deep mutation,
  * causing Vue to re-render when the deepSignal changes.
+ *
+ * TODO: Check performance and potentially improve.
  */
 export function useDeepSignal<T>(deepProxy: T): T {
     const version = ref(0);

@@ -127,6 +127,18 @@ describe("applyDiff - multi-valued objects (Set-based)", () => {
         expect(remaining["@id"]).toBe("urn:child2");
     });
 
+    test.only("remove object from root set", () => {
+        const obj1 = { "@id": "urn:child1", name: "Alice" };
+        const obj2 = { "@id": "urn:child2", name: "Bob" };
+        const state = new Set([
+            { "@id": "urn:person1", children: [obj1] },
+            { "@id": "urn:person2", children: [obj2] },
+        ]);
+        const diff: Patch[] = [{ op: "remove", path: p("urn:person1") }];
+        applyDiff(state, diff);
+        expect(state.size).toBe(1);
+    });
+
     test("create nested Set (multi-valued property within object in Set)", () => {
         const parent: any = { "@id": "urn:parent1" };
         const state: any = { root: { parents: new Set([parent]) } };

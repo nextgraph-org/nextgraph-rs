@@ -68,10 +68,29 @@ impl Verifier {
             })
             .collect();
 
+        log_info!(
+            "[orm_backend_update] called with #adds, #removes: {}, {}",
+            triple_inserts.len(),
+            triple_removes.len()
+        );
+
+        log_info!(
+            "[orm_backend_update] Total subscriptions scopes: {}",
+            self.orm_subscriptions.len()
+        );
+
         let mut scopes = vec![];
         for (scope, subs) in self.orm_subscriptions.iter_mut() {
             // Remove old subscriptions
+            let initial_sub_count = subs.len();
             subs.retain(|sub| !sub.sender.is_closed());
+            let retained_sub_count = subs.len();
+            log_info!(
+                "[orm_backend_update] Scope {:?}: {} subs ({} retained after cleanup)",
+                scope,
+                initial_sub_count,
+                retained_sub_count
+            );
 
             if !(scope.target == NuriTargetV0::UserSite
                 || scope
@@ -80,8 +99,19 @@ impl Verifier {
                     .map_or(false, |ol| overlaylink == *ol)
                 || scope.target == NuriTargetV0::Repo(repo_id))
             {
+                log_info!(
+                    "[orm_backend_update] SKIPPING scope {:?} - does not match repo_id={:?} or overlay={:?}",
+                    scope,
+                    repo_id,
+                    overlay_id
+                );
                 continue;
             }
+
+            log_info!(
+                "[orm_backend_update] PROCESSING scope {:?} - matches criteria",
+                scope
+            );
 
             // prepare to apply updates to tracked subjects and record the changes.
             let root_shapes_and_tracked_subjects = subs
@@ -105,12 +135,29 @@ impl Verifier {
             "[orm_backend_update], creating patch objects for #scopes {}",
             scopes.len()
         );
+
+        if scopes.is_empty() {
+            log_info!("[orm_backend_update] NO SCOPES MATCHED - returning early without patches");
+            return;
+        }
+
         for (scope, shapes_zip) in scopes {
             let mut orm_changes: OrmChanges = HashMap::new();
+
+            log_info!(
+                "[orm_backend_update] Processing scope {:?} with {} shape types",
+                scope,
+                shapes_zip.len()
+            );
 
             // Apply the changes to tracked subjects.
             for (root_shape_arc, all_shapes) in shapes_zip {
                 let shape_iri = root_shape_arc.iri.clone();
+                log_info!(
+                    "[orm_backend_update] Calling process_changes_for_shape_and_session for shape={}, session={}",
+                    shape_iri,
+                    session_id
+                );
                 let _ = self.process_changes_for_shape_and_session(
                     &scope,
                     &shape_iri,
@@ -121,9 +168,30 @@ impl Verifier {
                     &mut orm_changes,
                     false,
                 );
+                log_info!(
+                    "[orm_backend_update] After process_changes_for_shape_and_session: orm_changes has {} shapes",
+                    orm_changes.len()
+                );
+            }
+
+            log_info!(
+                "[orm_backend_update] Total orm_changes for scope: {} shapes with changes",
+                orm_changes.len()
+            );
+            for (shape_iri, subject_changes) in &orm_changes {
+                log_info!(
+                    "[orm_backend_update]   Shape {}: {} subjects changed",
+                    shape_iri,
+                    subject_changes.len()
+                );
             }
 
             let subs = self.orm_subscriptions.get_mut(&scope).unwrap();
+            log_info!(
+                "[orm_backend_update] Processing {} subscriptions for this scope",
+                subs.len()
+            );
+
             for sub in subs.iter_mut() {
                 log_debug!(
                     "Applying changes to subscription with nuri {} and shape {}",
@@ -158,7 +226,18 @@ impl Verifier {
 
                 // Process changes for this subscription
                 // Iterate over all changes and create patches
+                log_info!(
+                    "[orm_backend_update] Iterating over {} shapes in orm_changes",
+                    orm_changes.len()
+                );
+
                 for (shape_iri, subject_changes) in &orm_changes {
+                    log_info!(
+                        "[orm_backend_update] Processing shape {}: {} subject changes",
+                        shape_iri,
+                        subject_changes.len()
+                    );
+
                     for (subject_iri, change) in subject_changes {
                         log_debug!(
                             "Patch creating for subject change x shape {} x {}. #changed preds: {}",
@@ -174,6 +253,11 @@ impl Verifier {
                             .map(|ts| ts.read().unwrap())
                         else {
                             // We might not be tracking this subject x shape combination. Then, there is nothing to do.
+                            log_info!(
+                                "[orm_backend_update] SKIPPING subject {} x shape {} - not tracked in this subscription",
+                                subject_iri,
+                                shape_iri
+                            );
                             continue;
                         };
 
@@ -189,10 +273,21 @@ impl Verifier {
                             && tracked_subject.valid == OrmTrackedSubjectValidity::Invalid
                         {
                             // Is the subject invalid and was it before? There is nothing we need to inform about.
+                            log_info!(
+                                "[orm_backend_update] SKIPPING subject {} - was and still is Invalid",
+                                subject_iri
+                            );
                             continue;
                         } else if change.prev_valid == OrmTrackedSubjectValidity::Valid
                             && tracked_subject.valid != OrmTrackedSubjectValidity::Valid
                         {
+                            log_info!(
+                                "[orm_backend_update] Subject {} became invalid or untracked (prev={:?}, now={:?})",
+                                subject_iri,
+                                change.prev_valid,
+                                tracked_subject.valid
+                            );
+
                             // Has the subject become invalid or untracked?
                             // Check if any parent is also being deleted - if so, skip this deletion patch
                             // because the parent deletion will implicitly delete the children
@@ -201,6 +296,11 @@ impl Verifier {
                                     let parent_ts = parent_arc.read().unwrap();
                                     parent_ts.valid == OrmTrackedSubjectValidity::ToDelete
                                 });
+
+                            log_info!(
+                                "[orm_backend_update] has_parent_being_deleted={}",
+                                has_parent_being_deleted
+                            );
 
                             if !has_parent_being_deleted {
                                 // We add a patch, deleting the object at its root.
@@ -221,6 +321,14 @@ impl Verifier {
                                 );
                             }
                         } else {
+                            log_info!(
+                                "[orm_backend_update] Subject {} is valid or became valid (prev={:?}, now={:?}), processing {} predicate changes",
+                                subject_iri,
+                                change.prev_valid,
+                                tracked_subject.valid,
+                                change.predicates.len()
+                            );
+
                             // The subject is valid or has become valid.
                             // Process each predicate change
                             for (_pred_iri, pred_change) in &change.predicates {
@@ -237,6 +345,12 @@ impl Verifier {
 
                                 // Get the diff operations for this predicate change
                                 let diff_ops = create_diff_ops_from_predicate_change(pred_change);
+
+                                log_info!(
+                                    "[orm_backend_update] Created {} diff_ops for predicate {}",
+                                    diff_ops.len(),
+                                    _pred_iri
+                                );
 
                                 // For each diff operation, traverse up to the root to build the path
                                 for diff_op in diff_ops {
@@ -260,6 +374,12 @@ impl Verifier {
                         }
                     }
                 }
+
+                log_info!(
+                    "[orm_backend_update] Finished iterating shapes. Created {} patches, {} objects_to_create",
+                    patches.len(),
+                    objects_to_create.len()
+                );
 
                 // Create patches for objects that need to be created
                 // These are patches with {op: add, valType: object, value: Null, path: ...}
@@ -293,6 +413,20 @@ impl Verifier {
                     }
                 }
 
+                log_info!(
+                    "[orm_backend_update] Created {} object_create_patches",
+                    object_create_patches.len()
+                );
+
+                let total_patches = object_create_patches.len() + patches.len();
+                log_info!(
+                    "[orm_backend_update] SENDING {} total patches to frontend (session={}, nuri={}, shape={})",
+                    total_patches,
+                    session_id,
+                    sub.nuri.repo(),
+                    sub.shape_type.shape
+                );
+
                 // Send response with patches.
                 let _ = sub
                     .sender
@@ -302,10 +436,19 @@ impl Verifier {
                     )))
                     .await;
 
+                log_info!("[orm_backend_update] Patches sent successfully");
+
                 // Cleanup (remove tracked subjects to be deleted).
                 Verifier::cleanup_tracked_subjects(sub);
             }
+
+            log_info!(
+                "[orm_backend_update] Finished processing all subscriptions for scope {:?}",
+                scope
+            );
         }
+
+        log_info!("[orm_backend_update] COMPLETE - processed all scopes");
     }
 }
 

@@ -10,18 +10,18 @@
       .split(".")
       .reduce((cur, k) => (cur == null ? cur : cur[k]), obj);
   }
-  function setNestedValue(obj: any, path: string, value: any) {
-    const keys = path.split(".");
-    let cur = obj;
-    for (let i = 0; i < keys.length - 1; i++) {
-      cur = cur[keys[i]];
-      if (cur == null) return;
-    }
-    cur[keys[keys.length - 1]] = value;
+  function setNestedValue(targetObj: any, lastKey: string, value: any) {
+    // targetObj is the direct parent object containing the property
+    // lastKey is the property name to set
+    targetObj[lastKey] = value;
   }
   const flattenedObjects = $derived(
     $shapeObjects
-      ? Array.from($shapeObjects.values()).map((o) => flattenObject(o))
+      ? Array.from($shapeObjects.values()).map((o) => {
+          const flattened = flattenObject(o);
+          (window as any).svelteFlattened = flattened;
+          return { entries: flattened, rootObj: o };
+        })
       : []
   );
   (window as any).svelteState = $shapeObjects;
@@ -31,7 +31,7 @@
   <div>
     <p>Rendered in Svelte</p>
 
-    {#each flattenedObjects as flatEntries}
+    {#each flattenedObjects as { entries: flatEntries, rootObj }}
       <table border="1" cellpadding="5">
         <thead>
           <tr>
@@ -41,7 +41,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each flatEntries as [key, value]}
+          {#each flatEntries as [key, value, lastKey, parentObj]}
             <tr>
               <td style="white-space:nowrap;">{key}</td>
               <td>
@@ -59,7 +59,7 @@
                     type="text"
                     {value}
                     oninput={(e: any) =>
-                      setNestedValue($shapeObjects, key, e.target.value)}
+                      setNestedValue(parentObj, lastKey, e.target.value)}
                   />
                 {:else if typeof value === "number"}
                   <input
@@ -67,8 +67,8 @@
                     {value}
                     oninput={(e: any) =>
                       setNestedValue(
-                        $shapeObjects,
-                        key,
+                        parentObj,
+                        lastKey,
                         Number(e.target.value)
                       )}
                   />
@@ -77,24 +77,26 @@
                     type="checkbox"
                     checked={value}
                     onchange={(e: any) =>
-                      setNestedValue($shapeObjects, key, e.target.checked)}
+                      setNestedValue(parentObj, lastKey, e.target.checked)}
                   />
                 {:else if Array.isArray(value)}
                   <div style="display:flex; gap:.5rem;">
                     <button
                       onclick={() => {
-                        const cur = getNestedValue($shapeObjects, key) || [];
-                        setNestedValue($shapeObjects, key, [
-                          ...cur,
-                          cur.length + 1,
+                        setNestedValue(parentObj, lastKey, [
+                          ...value,
+                          value.length + 1,
                         ]);
                       }}>Add</button
                     >
                     <button
                       onclick={() => {
-                        const cur = getNestedValue($shapeObjects, key) || [];
-                        if (cur.length)
-                          setNestedValue($shapeObjects, key, cur.slice(0, -1));
+                        if (value.length)
+                          setNestedValue(
+                            parentObj,
+                            lastKey,
+                            value.slice(0, -1)
+                          );
                       }}>Remove</button
                     >
                   </div>
@@ -102,21 +104,19 @@
                   <div style="display:flex; gap:.5rem;">
                     <button
                       onclick={() => {
-                        const cur: Set<any> = getNestedValue(
-                          $shapeObjects,
-                          key
-                        );
-                        cur.add(`item${cur.size + 1}`);
+                        const newSet = new Set(value);
+                        newSet.add(`item${newSet.size + 1}`);
+                        setNestedValue(parentObj, lastKey, newSet);
                       }}>Add</button
                     >
                     <button
                       onclick={() => {
-                        const cur: Set<any> = getNestedValue(
-                          $shapeObjects,
-                          key
-                        );
-                        const last = Array.from(cur).pop();
-                        if (last !== undefined) cur.delete(last);
+                        const arr = Array.from(value);
+                        const last = arr.pop();
+                        if (last !== undefined) {
+                          const newSet = new Set(arr);
+                          setNestedValue(parentObj, lastKey, newSet);
+                        }
                       }}>Remove</button
                     >
                   </div>

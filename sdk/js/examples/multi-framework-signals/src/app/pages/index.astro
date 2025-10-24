@@ -5,7 +5,6 @@ import Highlight from "../components/Highlight.astro";
 import VueRoot from "../components/VueRoot.vue";
 import ReactRoot from "../components/ReactRoot";
 import SvelteRoot from "../components/SvelteRoot.svelte";
-import { initNg } from "@ng-org/signals"
 const title = "Multi-framework app";
 ---
 
@@ -46,7 +45,8 @@ const title = "Multi-framework app";
         <ReactRoot client:only="react" />
     </Highlight>
 
-    <!-- <Highlight svelte>
+    <Highlight svelte>
         <SvelteRoot client:only />
-    </Highlight> -->
+    </Highlight>
+
 </Layout>
