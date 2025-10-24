@@ -69,8 +69,9 @@ export class OrmConnection<T extends BaseType> {
             this.resolveReady = resolve;
         });
 
-        ngSession.then(({ ng, session }) => {
-            console.log("ng and session", ng, session);
+        ngSession.then(async ({ ng, session }) => {
+            console.log("Creating orm connection. ng and session", ng, session);
+            await new Promise((resolve) => setTimeout(resolve, 2000));
             try {
                 ng.orm_start(
                     (scope.length == 0
@@ -153,6 +154,11 @@ export class OrmConnection<T extends BaseType> {
     };
 
     private handleInitialResponse = (initialData: any) => {
+        console.debug(
+            "[handleInitialResponse] handleInitialResponse called with",
+            initialData
+        );
+
         // Assign initial data to empty signal object without triggering watcher at first.
         this.suspendDeepWatcher = true;
         batch(() => {
@@ -162,7 +168,10 @@ export class OrmConnection<T extends BaseType> {
             for (const newItem of recurseArrayToSet(initialData)) {
                 this.signalObject.add(newItem);
             }
-            console.log("data received", this.signalObject);
+            console.log(
+                "[handleInitialResponse] signal object:",
+                this.signalObject
+            );
         });
 
         queueMicrotask(() => {
