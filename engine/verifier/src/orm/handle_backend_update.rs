@@ -114,7 +114,7 @@ impl Verifier {
             );
 
             // prepare to apply updates to tracked subjects and record the changes.
-            let root_shapes_and_tracked_subjects = subs
+            let root_shapes_and_tracked_shapes = subs
                 .iter()
                 .map(|sub| {
                     (
@@ -128,7 +128,7 @@ impl Verifier {
                 })
                 .collect::<Vec<_>>();
 
-            scopes.push((scope.clone(), root_shapes_and_tracked_subjects));
+            scopes.push((scope.clone(), root_shapes_and_tracked_shapes));
         }
 
         log_debug!(
@@ -151,7 +151,7 @@ impl Verifier {
             );
 
             // Apply the changes to tracked subjects.
-            for (root_shape_arc, all_shapes) in shapes_zip {
+            for (root_shape_arc, all_tracked_shapes) in shapes_zip {
                 let shape_iri = root_shape_arc.iri.clone();
                 log_info!(
                     "[orm_backend_update] Calling process_changes_for_shape_and_session for shape={}, session={}",
@@ -161,7 +161,12 @@ impl Verifier {
                 let _ = self.process_changes_for_shape_and_session(
                     &scope,
                     &shape_iri,
-                    all_shapes,
+                    if all_tracked_shapes.len() > 0 {
+                        all_tracked_shapes
+                    } else {
+                        // If all tracked subjects are empty, wee need to add the root shape manually.
+                        vec![root_shape_arc]
+                    },
                     session_id,
                     &triple_inserts,
                     &triple_removes,

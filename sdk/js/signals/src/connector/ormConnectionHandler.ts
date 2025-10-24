@@ -128,6 +128,7 @@ export class OrmConnection<T extends BaseType> {
 
     private onSignalObjectUpdate = ({ patches }: WatchPatchEvent<Set<T>>) => {
         if (this.suspendDeepWatcher || !this.ready || !patches.length) return;
+        console.debug("[onSignalObjectUpdate] got changes:", patches);
 
         const ormPatches = deepPatchesToDiff(patches);
 
@@ -188,7 +189,12 @@ export class OrmConnection<T extends BaseType> {
             patches
         );
 
+        this.suspendDeepWatcher = true;
         applyDiffToDeepSignal(this.signalObject, patches);
+        // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
+        queueMicrotask(() => {
+            this.suspendDeepWatcher = false;
+        });
     };
 
     /** Function to create random subject IRIs for newly created nested objects. */

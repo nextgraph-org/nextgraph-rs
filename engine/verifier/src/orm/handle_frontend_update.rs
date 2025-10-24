@@ -203,10 +203,7 @@ fn create_sparql_update_query_for_diff(
         let delete_statement;
         if let Some(target_object) = target_object {
             // Delete the link to exactly one object (IRI referenced in path, i.e. target_object)
-            delete_statement = format!(
-                "  {} <{}> <{}> .",
-                subject_var, target_predicate, target_object
-            )
+            delete_statement = format!("  {} {} {} .", subject_var, target_predicate, target_object)
         } else {
             // Delete object or literal referenced by property name.
             let delete_val = match &del_patch.value {
@@ -218,7 +215,7 @@ fn create_sparql_update_query_for_diff(
                 // Delete the specific values only.
                 Some(val) => json_to_sparql_val(&val), // Can be one or more (joined with ", ").
             };
-            delete_statement = format!("  {} <{}> {} .", subject_var, target_predicate, delete_val);
+            delete_statement = format!("  {} {} {} .", subject_var, target_predicate, delete_val);
         }
 
         sparql_sub_queries.push(format!(
@@ -277,7 +274,7 @@ fn create_sparql_update_query_for_diff(
             if !pred_schema.unwrap().is_multi() {
                 log_info!("[create_sparql_update_query_for_diff] Single-value predicate, adding DELETE before INSERT");
                 let remove_statement =
-                    format!("  {} <{}> ?o{}", subject_var, target_predicate, var_counter);
+                    format!("  {} {} ?o{}", subject_var, target_predicate, var_counter);
 
                 let mut wheres = where_statements.clone();
                 wheres.push(remove_statement.clone());
@@ -291,7 +288,7 @@ fn create_sparql_update_query_for_diff(
                 // var_counter += 1; // Not necessary because not used afterwards.
             }
             // The actual INSERT.
-            let add_statement = format!("  {} <{}> {} .", subject_var, target_predicate, add_val);
+            let add_statement = format!("  {} {} {} .", subject_var, target_predicate, add_val);
             sparql_sub_queries.push(format!(
                 "INSERT {{\n{}\n}} WHERE {{\n  {}\n}}",
                 add_statement,
@@ -440,7 +437,7 @@ fn create_where_statements_for_patch(
             );
             return (
                 where_statements,
-                (subject_ref, pred_schema.iri.clone(), None),
+                (subject_ref, format!("<{}>", pred_schema.iri.clone()), None),
                 Some(pred_schema),
             );
         }
@@ -484,7 +481,11 @@ fn create_where_statements_for_patch(
                 );
                 return (
                     where_statements,
-                    (subject_ref, pred_schema.iri.clone(), Some(object_iri)),
+                    (
+                        subject_ref,
+                        format!("<{}>", pred_schema.iri.clone()),
+                        Some(format!("<{}>", object_iri)),
+                    ),
                     Some(pred_schema),
                 );
             }

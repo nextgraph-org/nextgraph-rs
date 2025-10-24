@@ -877,9 +877,9 @@ const objectHandlers = {
     get: get(false),
     set(target: object, fullKey: string, val: any, receiver: object): boolean {
         // Prevent modification of @id property
-        if (fullKey === "@id") {
-            throw new Error("Cannot modify readonly property '@id'");
-        }
+        // if (fullKey === "@id") {
+        //     throw new Error("Cannot modify readonly property '@id'");
+        // }
         // Respect original getter/setter semantics
         if (typeof descriptor(target, fullKey)?.set === "function")
             return Reflect.set(target, fullKey, val, receiver);
