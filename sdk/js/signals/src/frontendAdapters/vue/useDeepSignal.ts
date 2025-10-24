@@ -2,97 +2,41 @@ import { ref, onBeforeUnmount } from "vue";
 import { watch } from "@ng-org/alien-deepsignals";
 
 /**
- * Bridge a deepSignal root into Vue with per top-level property granularity.
+ * Bridge a deepSignal root into Vue with reactivity.
+ * Uses a single version counter that increments on any deep mutation,
+ * causing Vue to re-render when the deepSignal changes.
  */
-export function useDeepSignal<T extends Record<string | number | symbol, any>>(
-    deepProxy: T
-): T {
-    // Version per top-level key
-    const versionRefs = new Map<PropertyKey, ReturnType<typeof ref<number>>>();
-    // Version for the set of top-level keys (enumeration/in-operator)
-    const keysVersion = ref(0);
+export function useDeepSignal<T>(deepProxy: T): T {
+    const version = ref(0);
 
-    const ensureVersion = (key: PropertyKey) => {
-        if (!versionRefs.has(key)) versionRefs.set(key, ref(0));
-        return versionRefs.get(key)!;
-    };
-
-    const bump = (key: PropertyKey) => {
-        const vr = ensureVersion(key);
-        vr.value = (vr.value || 0) + 1;
-    };
-
-    const bumpAllTopKeys = () => {
-        for (const k of Reflect.ownKeys(deepProxy as object)) bump(k);
-    };
-
-    // Seed existing string keys (symbols will be created on demand)
-    for (const k of Object.keys(deepProxy as object)) ensureVersion(k);
-
-    // Normalize first path element to a JS property key compatible with Proxy traps
-    const normalizeTopKey = (k: unknown): PropertyKey =>
-        typeof k === "number" ? String(k) : (k as PropertyKey);
-
-    // Subscribe to deep patches (coalesced per batch to avoid redundant triggers)
     const stopHandle = watch(deepProxy, ({ patches }) => {
-        let sawRoot = false;
-        let keysChanged = false;
-        const touched = new Set<PropertyKey>();
-
-        for (const p of patches) {
-            if (!p || !Array.isArray(p.path)) continue;
-
-            if (p.path.length === 0) {
-                sawRoot = true;
-                break; // full invalidation; no need to examine the rest
-            }
-
-            touched.add(normalizeTopKey(p.path[0]));
-
-            const op = p.op as string | undefined;
-            if (p.path.length === 1 && (op === "add" || op === "remove")) {
-                keysChanged = true;
-            }
+        if (patches.length > 0) {
+            version.value++;
         }
-
-        if (sawRoot) {
-            keysVersion.value++;
-            bumpAllTopKeys();
-            return;
-        }
-
-        if (keysChanged) keysVersion.value++;
-        for (const k of touched) bump(k);
     });
 
-    const proxy = new Proxy({} as T, {
-        get(_t, key: PropertyKey) {
-            if (key === "__raw") return deepProxy;
-            // Track per-key dependence
-            ensureVersion(key).value;
-            return deepProxy[key];
+    // Proxy that creates Vue dependency on version for any access
+    const proxy = new Proxy(deepProxy as any, {
+        get(target, key: PropertyKey) {
+            if (key === "__raw") return target;
+            // Track version to create reactive dependency
+            version.value;
+            const value = target[key];
+            // Bind methods to maintain correct `this` context
+            return typeof value === "function" ? value.bind(target) : value;
         },
-        set(_t, key: PropertyKey, value: any) {
-            deepProxy[key] = value;
-            return true;
+        has(target, key: PropertyKey) {
+            version.value;
+            return key in target;
         },
-        deleteProperty(_t, key: PropertyKey) {
-            return delete deepProxy[key];
+        ownKeys(target) {
+            version.value;
+            return Reflect.ownKeys(target);
         },
-        has(_t, key: PropertyKey) {
-            // Make `'foo' in proxy` reactive to key set changes
-            keysVersion.value;
-            return key in deepProxy;
-        },
-        ownKeys() {
-            // Make Object.keys/for...in/v-for over keys reactive
-            keysVersion.value;
-            return Reflect.ownKeys(deepProxy as object);
-        },
-        getOwnPropertyDescriptor(_t, key: PropertyKey) {
-            // Keep enumeration reactive; report a configurable, enumerable prop
-            keysVersion.value;
-            return { configurable: true, enumerable: true };
+        getOwnPropertyDescriptor(target, key: PropertyKey) {
+            version.value;
+            const desc = Object.getOwnPropertyDescriptor(target, key);
+            return desc ? { ...desc, configurable: true } : undefined;
         },
     });
 
@@ -102,10 +46,9 @@ export function useDeepSignal<T extends Record<string | number | symbol, any>>(
         } catch {
             // ignore
         }
-        versionRefs.clear();
     });
 
-    return proxy;
+    return proxy as T;
 }
 
 export default useDeepSignal;
