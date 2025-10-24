@@ -258,6 +258,8 @@ export function getDeepSignalRootId(obj: any): symbol | undefined {
 const proxyToSignals = new WeakMap();
 // Raw object/array/Set -> stable proxy
 const objToProxy = new WeakMap();
+// Proxy -> raw object/array/Set (reverse lookup)
+const proxyToRaw = new WeakMap();
 // Raw array -> `$` meta proxy with index signals
 const arrayToArrayOfSignals = new WeakMap();
 // Objects already proxied or marked shallow
@@ -381,22 +383,25 @@ export function setSetEntrySyntheticId(obj: object, id: string | number) {
 }
 const getSetEntryKey = (val: any): string | number => {
     if (val && typeof val === "object") {
+        // If val is a proxy, get the raw object first
+        const rawVal = proxyToRaw.get(val) || val;
+
         // First check for explicitly assigned synthetic ID
-        if (setObjectIds.has(val)) return setObjectIds.get(val)!;
+        if (setObjectIds.has(rawVal)) return setObjectIds.get(rawVal)!;
         // Then check for @id property (primary identifier)
         if (
-            typeof (val as any)["@id"] === "string" ||
-            typeof (val as any)["@id"] === "number"
+            typeof (rawVal as any)["@id"] === "string" ||
+            typeof (rawVal as any)["@id"] === "number"
         )
-            return (val as any)["@id"];
+            return (rawVal as any)["@id"];
         // Then check for id property (backward compatibility)
         if (
-            typeof (val as any).id === "string" ||
-            typeof (val as any).id === "number"
+            typeof (rawVal as any).id === "string" ||
+            typeof (rawVal as any).id === "number"
         )
-            return (val as any).id;
+            return (rawVal as any).id;
         // Fall back to generating a blank node ID
-        return assignBlankNodeId(val);
+        return assignBlankNodeId(rawVal);
     }
     return val as any;
 };
@@ -451,6 +456,7 @@ export const deepSignal = <T extends object>(
         // Pre-register an empty signals map so isDeepSignal() is true before any property access.
         if (!proxyToSignals.has(proxy)) proxyToSignals.set(proxy, new Map());
         objToProxy.set(obj, proxy);
+        proxyToRaw.set(proxy, obj);
     }
     return objToProxy.get(obj);
 };
@@ -523,6 +529,7 @@ function getFromSet(
             childMeta.parent = receiver;
             childMeta.key = synthetic;
             objToProxy.set(entry, childProxy);
+            proxyToRaw.set(childProxy, entry);
             return childProxy;
         }
         if (objToProxy.has(entry)) return objToProxy.get(entry);
@@ -534,6 +541,16 @@ function getFromSet(
     if (key === "add" || key === "delete" || key === "clear") {
         const fn: Function = (raw as any)[key];
         return function (this: any, ...args: any[]) {
+            // For delete, keep track of the original entry for patch emission
+            const originalEntry = key === "delete" ? args[0] : undefined;
+
+            // For delete, if the argument is a proxy, get the raw object for the actual Set operation
+            if (key === "delete" && args[0] && typeof args[0] === "object") {
+                const rawArg = proxyToRaw.get(args[0]);
+                if (rawArg) {
+                    args = [rawArg];
+                }
+            }
             const sizeBefore = raw.size;
             const result = fn.apply(raw, args);
             if (raw.size !== sizeBefore) {
@@ -599,6 +616,7 @@ function getFromSet(
                             childMeta.parent = receiver;
                             childMeta.key = synthetic;
                             objToProxy.set(entryVal, childProxy);
+                            proxyToRaw.set(childProxy, entryVal);
                             entryVal = childProxy;
                         }
                         // Set entry add: emit object vs primitive variant.
@@ -621,7 +639,8 @@ function getFromSet(
                             });
                         }
                     } else if (key === "delete") {
-                        const entry = args[0];
+                        // Use the original entry (before proxy-to-raw conversion) for getting the synthetic key
+                        const entry = originalEntry;
                         const synthetic = getSetEntryKey(entry);
                         // Check if entry is primitive or object
                         if (entry && typeof entry === "object") {
@@ -827,6 +846,10 @@ const get =
         // Set handling delegated completely.
         if (target instanceof Set) {
             return getFromSet(target as Set<any>, fullKey as any, receiver);
+        }
+        // Special case: accessing `$` on a non-array object returns the raw target
+        if (fullKey === "$" && !Array.isArray(target)) {
+            return target;
         }
         const norm = normalizeKey(target, fullKey, isArrayMeta, receiver);
         if ((norm as any).shortCircuit) return (norm as any).shortCircuit; // returned meta proxy
