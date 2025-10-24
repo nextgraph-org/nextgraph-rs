@@ -166,7 +166,7 @@ export class OrmConnection<T extends BaseType> {
             // Do this in case the there was any (incorrect) data added before initialization.
             this.signalObject.clear();
             // Convert arrays to sets and apply to signalObject (we only have sets but can only transport arrays).
-            for (const newItem of recurseArrayToSet(initialData)) {
+            for (const newItem of parseOrmInitialObject(initialData)) {
                 this.signalObject.add(newItem);
             }
             console.log(
@@ -199,10 +199,17 @@ export class OrmConnection<T extends BaseType> {
 
     /** Function to create random subject IRIs for newly created nested objects. */
     private generateSubjectIri = (path: (string | number)[]): string => {
-        // Generate random string.
-        let b = Buffer.alloc(33);
+        console.debug("Generating new random id for path", path);
+        // Generate 33 random bytes using Web Crypto API
+        const b = new Uint8Array(33);
         crypto.getRandomValues(b);
-        const randomString = b.toString("base64url");
+        // Convert to base64url
+        const base64url = (bytes: Uint8Array) =>
+            btoa(String.fromCharCode(...bytes))
+                .replace(/\+/g, "-")
+                .replace(/\//g, "_")
+                .replace(/=+$/, "");
+        const randomString = base64url(b);
 
         if (path.length > 0 && path[0].toString().startsWith("did:ng:o:")) {
             // If the root is a nuri, use that as a base IRI.
@@ -232,14 +239,19 @@ export function deepPatchesToDiff(patches: DeepPatch[]): Patches {
     }) as Patches;
 }
 
-const recurseArrayToSet = (obj: any): any => {
+const parseOrmInitialObject = (obj: any): any => {
+    // Regular arrays become sets.
     if (Array.isArray(obj)) {
-        return new Set(obj.map(recurseArrayToSet));
-    } else if (obj && typeof obj === "object" && obj instanceof Map) {
-        return Object.fromEntries(obj.entries());
+        return new Set(obj.map(parseOrmInitialObject));
     } else if (obj && typeof obj === "object") {
-        for (const key of Object.keys(obj)) {
-            obj[key] = recurseArrayToSet(obj[key]);
+        if ("@id" in obj) {
+            // Regular object.
+            for (const key of Object.keys(obj)) {
+                obj[key] = parseOrmInitialObject(obj[key]);
+            }
+        } else {
+            // Object does not have @id, that means it's a set of objects.
+            return new Set(Object.values(obj));
         }
         return obj;
     } else {

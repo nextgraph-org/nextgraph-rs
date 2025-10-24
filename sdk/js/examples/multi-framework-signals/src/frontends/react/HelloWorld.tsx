@@ -122,38 +122,17 @@ export function HelloWorldReact() {
                             <tbody>
                                 {(() => {
                                     const setNestedValue = (
-                                        obj: any,
-                                        path: string,
+                                        targetObj: any,
+                                        lastKey: string,
                                         value: any
                                     ) => {
-                                        const keys = path.split(".");
-                                        let current = obj;
-
-                                        for (
-                                            let i = 0;
-                                            i < keys.length - 1;
-                                            i++
-                                        ) {
-                                            current = current[keys[i]];
-                                        }
-
-                                        current[keys[keys.length - 1]] = value;
-                                    };
-
-                                    const getNestedValue = (
-                                        obj: any,
-                                        path: string
-                                    ) => {
-                                        return path
-                                            .split(".")
-                                            .reduce(
-                                                (current, key) => current[key],
-                                                obj
-                                            );
+                                        // targetObj is the direct parent object containing the property
+                                        // lastKey is the property name to set
+                                        targetObj[lastKey] = value;
                                     };
 
                                     return flattenObject(ormObj).map(
-                                        ([key, value]) => (
+                                        ([key, value, lastKey, parentObj]) => (
                                             <tr key={key}>
                                                 <td>{key}</td>
                                                 <td>
@@ -175,8 +154,8 @@ export function HelloWorldReact() {
                                                             value={value}
                                                             onChange={(e) => {
                                                                 setNestedValue(
-                                                                    ormObj,
-                                                                    key,
+                                                                    parentObj,
+                                                                    lastKey,
                                                                     e.target
                                                                         .value
                                                                 );
@@ -189,8 +168,8 @@ export function HelloWorldReact() {
                                                             value={value}
                                                             onChange={(e) => {
                                                                 setNestedValue(
-                                                                    ormObj,
-                                                                    key,
+                                                                    parentObj,
+                                                                    lastKey,
                                                                     Number(
                                                                         e.target
                                                                             .value
@@ -205,8 +184,8 @@ export function HelloWorldReact() {
                                                             checked={value}
                                                             onChange={(e) => {
                                                                 setNestedValue(
-                                                                    ormObj,
-                                                                    key,
+                                                                    parentObj,
+                                                                    lastKey,
                                                                     e.target
                                                                         .checked
                                                                 );
@@ -216,17 +195,12 @@ export function HelloWorldReact() {
                                                         <div>
                                                             <button
                                                                 onClick={() => {
-                                                                    const currentArray =
-                                                                        getNestedValue(
-                                                                            ormObj,
-                                                                            key
-                                                                        );
                                                                     setNestedValue(
-                                                                        ormObj,
-                                                                        key,
+                                                                        parentObj,
+                                                                        lastKey,
                                                                         [
-                                                                            ...currentArray,
-                                                                            currentArray.length +
+                                                                            ...value,
+                                                                            value.length +
                                                                                 1,
                                                                         ]
                                                                     );
@@ -236,19 +210,14 @@ export function HelloWorldReact() {
                                                             </button>
                                                             <button
                                                                 onClick={() => {
-                                                                    const currentArray =
-                                                                        getNestedValue(
-                                                                            ormObj,
-                                                                            key
-                                                                        );
                                                                     if (
-                                                                        currentArray.length >
+                                                                        value.length >
                                                                         0
                                                                     ) {
                                                                         setNestedValue(
-                                                                            ormObj,
-                                                                            key,
-                                                                            currentArray.slice(
+                                                                            parentObj,
+                                                                            lastKey,
+                                                                            value.slice(
                                                                                 0,
                                                                                 -1
                                                                             )
@@ -263,13 +232,17 @@ export function HelloWorldReact() {
                                                         <div>
                                                             <button
                                                                 onClick={() => {
-                                                                    const currentSet =
-                                                                        getNestedValue(
-                                                                            ormObj,
-                                                                            key
+                                                                    const newSet =
+                                                                        new Set(
+                                                                            value
                                                                         );
-                                                                    currentSet.add(
-                                                                        `item${currentSet.size + 1}`
+                                                                    newSet.add(
+                                                                        `item${newSet.size + 1}`
+                                                                    );
+                                                                    setNestedValue(
+                                                                        parentObj,
+                                                                        lastKey,
+                                                                        newSet
                                                                     );
                                                                 }}
                                                             >
@@ -277,20 +250,24 @@ export function HelloWorldReact() {
                                                             </button>
                                                             <button
                                                                 onClick={() => {
-                                                                    const currentSet =
-                                                                        getNestedValue(
-                                                                            ormObj,
-                                                                            key
+                                                                    const arr =
+                                                                        Array.from(
+                                                                            value
                                                                         );
                                                                     const lastItem =
-                                                                        Array.from(
-                                                                            currentSet
-                                                                        ).pop();
+                                                                        arr.pop();
                                                                     if (
-                                                                        lastItem
+                                                                        lastItem !==
+                                                                        undefined
                                                                     ) {
-                                                                        currentSet.delete(
-                                                                            lastItem
+                                                                        const newSet =
+                                                                            new Set(
+                                                                                arr
+                                                                            );
+                                                                        setNestedValue(
+                                                                            parentObj,
+                                                                            lastKey,
+                                                                            newSet
                                                                         );
                                                                     }
                                                                 }}
