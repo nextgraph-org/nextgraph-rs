@@ -73,5 +73,5 @@ export interface TestObject {
   /**
    * Original IRI: http://example.org/lit1Or2
    */
-  lit1Or2: "lit1" | "lit2";
+  lit1Or2: string | string;
 }

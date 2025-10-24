@@ -6,7 +6,7 @@ import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 import { BasicShapeType } from "../../shapes/orm/basic.shapeTypes";
 
 // Acquire deep signal object (proxy) for a shape; scope second arg left empty string for parity
-const shapeObjects = useShape(BasicShapeType);
+const shapeObjects = useShape(TestObjectShapeType);
 
 // Expose for devtools exploration
 // @ts-ignore

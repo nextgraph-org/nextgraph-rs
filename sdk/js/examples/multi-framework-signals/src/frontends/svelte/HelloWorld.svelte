@@ -2,8 +2,9 @@
   import { useShape } from "@ng-org/signals/svelte";
   import flattenObject from "../utils/flattenObject";
   import { BasicShapeType } from "../../shapes/orm/basic.shapeTypes";
+  import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
 
-  const shapeObjects = useShape(BasicShapeType);
+  const shapeObjects = useShape(TestObjectShapeType);
 
   function getNestedValue(obj: any, path: string) {
     return path

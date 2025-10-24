@@ -110,7 +110,11 @@ export const testShapeSchema: Schema = {
         dataTypes: [
           {
             valType: "literal",
-            literals: ["lit1", "lit2"],
+            literals: ["lit1"],
+          },
+          {
+            valType: "literal",
+            literals: ["lit2"],
           },
         ],
         maxCardinality: 1,

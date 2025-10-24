@@ -72,7 +72,7 @@ INSERT DATA {
         `;
 
 export function HelloWorldReact() {
-    const state = useShape(BasicShapeType);
+    const state = useShape(TestObjectShapeType);
     const objects = [...(state || [])];
 
     // @ts-expect-error
