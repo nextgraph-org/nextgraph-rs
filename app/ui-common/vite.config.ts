@@ -1,5 +1,4 @@
 import { defineConfig } from "vite";
-import { internalIpV4 } from 'internal-ip'
 import { svelte, vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import sveltePreprocess from "svelte-preprocess";
 import { viteSingleFile } from "vite-plugin-singlefile"
@@ -23,7 +22,6 @@ const jsToBottom = () => {
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => {
-  const host = await internalIpV4()
   const config = {
   worker: {
     format: 'es',
