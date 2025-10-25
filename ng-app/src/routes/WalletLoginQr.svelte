@@ -21,16 +21,24 @@
   import { onDestroy, onMount } from "svelte";
   import { push } from "svelte-spa-router";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
-  import { wallet_from_import, scanned_qr_code, display_error, check_has_camera } from "../store";
+  import {
+    wallet_from_import,
+    scanned_qr_code,
+    display_error,
+    check_has_camera,
+  } from "../store";
   import ng from "../api";
 
   // <a href="/scanqr" use:link>
 
   let top: HTMLElement;
 
-  const set_online = () => { connected = true; };
-  const set_offline = () => { connected = false; };
-
+  const set_online = () => {
+    connected = true;
+  };
+  const set_offline = () => {
+    connected = false;
+  };
 
   let login_method: "scan" | "gen" | undefined = undefined;
 
@@ -46,8 +54,6 @@
   const open_scanner = () => {
     push("#/scanqr");
   };
-
-
 
   async function on_qr_scanned(code) {
     login_method = "scan";
@@ -94,7 +100,7 @@
       scanned_qr_code.set("");
     } else {
       // Or check, if a camera exists and offer scanner or QR generator, respectively.
-      login_method = await check_has_camera() ? "scan" : "gen";
+      login_method = (await check_has_camera()) ? "scan" : "gen";
     }
     scrollToTop();
   });
