@@ -626,33 +626,43 @@ async fn pump(
                 event,
                 overlay,
                 user,
-            } => { 
+            } => {
                 let mut broker = match LOCAL_BROKER.get() {
-                    None | Some(Err(_)) => return Err(Box::new(NgError::LocalBrokerNotInitialized)),
+                    None | Some(Err(_)) => {
+                        return Err(Box::new(NgError::LocalBrokerNotInitialized))
+                    }
                     Some(Ok(broker)) => broker.write().await,
                 };
                 broker.deliver(event, overlay, user).await
-            },
-            LocalBrokerMessage::Inbox {msg, user_id, from_queue} => {
+            }
+            LocalBrokerMessage::Inbox {
+                msg,
+                user_id,
+                from_queue,
+            } => {
                 async_std::task::spawn_local(async move {
                     let mut broker = match LOCAL_BROKER.get() {
-                        None | Some(Err(_)) => return Err(Box::new(NgError::LocalBrokerNotInitialized)),
+                        None | Some(Err(_)) => {
+                            return Err(Box::new(NgError::LocalBrokerNotInitialized))
+                        }
                         Some(Ok(broker)) => broker.write().await,
                     };
                     if let Some(session) = broker.get_mut_session_for_user(&user_id) {
                         session.verifier.inbox(&msg, from_queue).await;
                     }
                     Ok(())
-                }).await?;
-                
-            },
-            LocalBrokerMessage::Disconnected { user_id } => { 
+                })
+                .await?;
+            }
+            LocalBrokerMessage::Disconnected { user_id } => {
                 let mut broker = match LOCAL_BROKER.get() {
-                    None | Some(Err(_)) => return Err(Box::new(NgError::LocalBrokerNotInitialized)),
+                    None | Some(Err(_)) => {
+                        return Err(Box::new(NgError::LocalBrokerNotInitialized))
+                    }
                     Some(Ok(broker)) => broker.write().await,
                 };
                 broker.user_disconnected(user_id).await
-            },
+            }
         }
     }
 
@@ -1578,6 +1588,8 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
         return Err(NgError::CannotSaveWhenInMemoryConfig);
     }
     let in_memory = !params.local_save;
+    let has_pazzle = params.pazzle_length > 0;
+    let has_mnemonic = params.mnemonic;
 
     let intermediate = create_wallet_first_step_v0(params)?;
     let lws: LocalWalletStorageV0 = (&intermediate).into();
@@ -1608,9 +1620,13 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
     let (mut res, site, brokers) =
         create_wallet_second_step_v0(intermediate, &mut session.verifier).await?;
 
-    if with_pdf {
-        let wallet_recovery =
-            wallet_to_wallet_recovery(&res.wallet, res.pazzle.clone(), res.mnemonic, pin);
+    if with_pdf && pin.is_some() && has_mnemonic && has_pazzle {
+        let wallet_recovery = wallet_to_wallet_recovery(
+            &res.wallet,
+            res.pazzle.clone().unwrap(),
+            res.mnemonic.clone().unwrap(),
+            pin.unwrap(),
+        );
 
         if let Ok(pdf_buffer) = wallet_recovery_pdf(wallet_recovery, 600).await {
             res.pdf_file = pdf_buffer;
@@ -1695,7 +1711,7 @@ pub fn wallet_to_wallet_recovery(
     match wallet {
         Wallet::V0(v0) => {
             let mut content = v0.content.clone();
-            content.security_img = vec![];
+            content.security_img = None;
             content.security_txt = String::new();
             NgQRCodeWalletRecoveryV0 {
                 wallet: serde_bare::to_vec(&content).unwrap(),
@@ -2135,6 +2151,16 @@ pub async fn wallet_get_file(wallet_name: &String) -> Result<Vec<u8>, NgError> {
 }
 
 #[doc(hidden)]
+pub fn wallet_open_with_password(
+    wallet: &Wallet,
+    password: String,
+) -> Result<SensitiveWallet, NgError> {
+    let opened_wallet = ng_wallet::open_wallet_with_password(wallet, password)?;
+
+    Ok(opened_wallet)
+}
+
+#[doc(hidden)]
 /// This is a bit hard to use as the pazzle words are encoded in unsigned bytes.
 /// prefer the function wallet_open_with_pazzle_words
 pub fn wallet_open_with_pazzle(
@@ -2517,7 +2543,11 @@ pub async fn user_connect_with_device_info(
                                 // try to pop inbox msg
                                 let broker = BROKER.read().await;
                                 broker
-                                    .send_client_event(&Some(*user), &Some(server_key), ClientEvent::InboxPopRequest)
+                                    .send_client_event(
+                                        &Some(*user),
+                                        &Some(server_key),
+                                        ClientEvent::InboxPopRequest,
+                                    )
                                     .await?;
                             }
                             break;
@@ -2561,7 +2591,9 @@ pub async fn session_stop(user_id: &UserId) -> Result<(), NgError> {
                 force_close: false,
             });
 
-            broker.send_request_headless::<_, EmptyAppResponse>(request).await?;
+            broker
+                .send_request_headless::<_, EmptyAppResponse>(request)
+                .await?;
         }
         _ => {
             // TODO implement for Remote
@@ -2606,7 +2638,9 @@ pub async fn session_headless_stop(session_id: u64, force_close: bool) -> Result
                 force_close,
             });
 
-            broker.send_request_headless::<_, EmptyAppResponse>(request).await?;
+            broker
+                .send_request_headless::<_, EmptyAppResponse>(request)
+                .await?;
         }
         _ => {
             return Err(NgError::LocalBrokerIsNotHeadless);
@@ -2723,7 +2757,7 @@ pub async fn doc_sparql_update(
     match res {
         AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
         AppResponse::V0(AppResponseV0::Commits(commits)) => Ok(commits),
-        _ => Err(NgError::InvalidResponse.to_string())
+        _ => Err(NgError::InvalidResponse.to_string()),
     }
 }
 
@@ -2735,14 +2769,16 @@ pub async fn doc_create(
     store_type: Option<String>,
     store_repo: Option<String>,
 ) -> Result<String, NgError> {
-
     let store_repo = if store_type.is_none() || store_repo.is_none() {
         None
     } else {
-        Some(StoreRepo::from_type_and_repo(&store_type.unwrap(), &store_repo.unwrap())?)
+        Some(StoreRepo::from_type_and_repo(
+            &store_type.unwrap(),
+            &store_repo.unwrap(),
+        )?)
     };
 
-    doc_create_with_store_repo(session_id,crdt,class_name,destination,store_repo).await
+    doc_create_with_store_repo(session_id, crdt, class_name, destination, store_repo).await
 }
 
 pub async fn doc_create_with_store_repo(
@@ -2752,7 +2788,6 @@ pub async fn doc_create_with_store_repo(
     destination: String,
     store_repo: Option<StoreRepo>,
 ) -> Result<String, NgError> {
-
     let class = BranchCrdt::from(crdt, class_name)?;
 
     let nuri = if store_repo.is_none() {
@@ -2768,10 +2803,7 @@ pub async fn doc_create_with_store_repo(
         command: AppRequestCommandV0::new_create(),
         nuri,
         payload: Some(AppRequestPayload::V0(AppRequestPayloadV0::Create(
-            DocCreate {
-                class,
-                destination,
-            },
+            DocCreate { class, destination },
         ))),
     });
 
@@ -2988,10 +3020,12 @@ mod test {
         let peer_id_of_server_broker = PubKey::nil();
 
         let wallet_result = wallet_create_v0(CreateWalletV0 {
-            security_img,
+            security_img: Some(security_img),
             security_txt: "know yourself".to_string(),
-            pin: [1, 2, 1, 2],
+            pin: Some([1, 2, 1, 2]),
             pazzle_length: 9,
+            password: None,
+            mnemonic: true,
             send_bootstrap: false,
             send_wallet: false,
             result_with_wallet_file: true,
@@ -3006,9 +3040,10 @@ mod test {
         .await
         .expect("wallet_create_v0");
 
-        let pazzle = display_pazzle(&wallet_result.pazzle);
+        let pazzle_vec = wallet_result.pazzle.clone().unwrap();
+        let pazzle = display_pazzle(&pazzle_vec);
         let mut pazzle_words = vec![];
-        println!("Your pazzle is: {:?}", wallet_result.pazzle);
+        println!("Your pazzle is: {:?}", pazzle_vec);
         for emoji in pazzle {
             println!("    {}:\t{}", emoji.0, emoji.1);
             pazzle_words.push(emoji.1.to_string());
@@ -3023,7 +3058,7 @@ mod test {
         println!("Your mnemonic is:");
 
         let mut mnemonic_words = vec![];
-        display_mnemonic(&wallet_result.mnemonic)
+        display_mnemonic(&wallet_result.mnemonic.unwrap())
             .iter()
             .for_each(|word| {
                 mnemonic_words.push(word.clone());

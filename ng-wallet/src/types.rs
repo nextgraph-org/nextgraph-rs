@@ -485,11 +485,17 @@ pub enum SensitiveWallet {
 }
 
 impl SensitiveWallet {
-    pub fn get_bootstrap_iframe_msgs(brokers: HashMap<String, Vec<BrokerInfoV0>>) -> Vec<BootstrapIframeMsg> {
-        brokers.values().flatten().filter_map(|broker_info| match broker_info {
-            BrokerInfoV0::CoreV0(_) => None,
-            BrokerInfoV0::ServerV0(s) => Some(s.to_iframe_msg())
-        }).collect::<Vec<BootstrapIframeMsg>>()
+    pub fn get_bootstrap_iframe_msgs(
+        brokers: HashMap<String, Vec<BrokerInfoV0>>,
+    ) -> Vec<BootstrapIframeMsg> {
+        brokers
+            .values()
+            .flatten()
+            .filter_map(|broker_info| match broker_info {
+                BrokerInfoV0::CoreV0(_) => None,
+                BrokerInfoV0::ServerV0(s) => Some(s.to_iframe_msg()),
+            })
+            .collect::<Vec<BootstrapIframeMsg>>()
     }
     pub fn privkey(&self) -> PrivKey {
         match self {
@@ -654,27 +660,32 @@ impl SensitiveWalletV0 {
     }
 }
 
+/// Login method
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LoginMethod {
+    pub salt: [u8; 16],
+
+    // encrypted master keys.
+    // AD = wallet_id
+    #[serde(with = "BigArray")]
+    pub enc_master_key: [u8; 48],
+}
+
 /// Wallet content Version 0
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WalletContentV0 {
-    #[serde(with = "serde_bytes")]
-    pub security_img: Vec<u8>,
+    pub security_img: Option<serde_bytes::ByteBuf>,
 
     pub security_txt: String,
 
-    /// can be 9, 12 or 15 (or 0, in this case salt_pazzle and enc_master_key_pazzle are filled with zeros and should not be used)
+    /// can be 9, 12 or 15 (or 0, if pazzle is deactivated)
     pub pazzle_length: u8,
 
-    pub salt_pazzle: [u8; 16],
+    pub pazzle: Option<LoginMethod>,
 
-    pub salt_mnemonic: [u8; 16],
+    pub mnemonic: Option<LoginMethod>,
 
-    // encrypted master keys. first is encrypted with pazzle, second is encrypted with mnemonic
-    // AD = wallet_id
-    #[serde(with = "BigArray")]
-    pub enc_master_key_pazzle: [u8; 48],
-    #[serde(with = "BigArray")]
-    pub enc_master_key_mnemonic: [u8; 48],
+    pub password: Option<LoginMethod>,
 
     // nonce for the encryption of masterkey
     // incremented only if the masterkey changes
@@ -1237,7 +1248,7 @@ pub struct CreateWalletV0 {
     /// Please be aware that other users who are sharing the same device, will be able to see this image.
     #[zeroize(skip)]
     #[serde(with = "serde_bytes")]
-    pub security_img: Vec<u8>,
+    pub security_img: Option<Vec<u8>>,
     /// A string of characters of minimum length 10.
     /// This phrase will be presented to the user every time they are about to enter their pazzle and PIN in order to unlock their wallet.
     /// It should be something the user will remember, but not something too personal.
@@ -1250,10 +1261,15 @@ pub struct CreateWalletV0 {
     /// The PIN and the rest of the Wallet will never be sent to NextGraph or any other third party (check the source code if you don't believe us).
     /// It cannot be a series like 1234 or 8765. The same digit cannot repeat more than once. By example 4484 is invalid.
     /// Try to avoid birth date, last digits of phone number, or zip code for privacy concern
-    pub pin: [u8; 4],
+    pub pin: Option<[u8; 4]>,
     /// For now, only 9 is supported. 12 and 15 are planned.
     /// A value of 0 will deactivate the pazzle mechanism on this Wallet, and only the mnemonic could be used to open it.
     pub pazzle_length: u8,
+
+    pub password: Option<String>,
+
+    pub mnemonic: bool,
+
     #[zeroize(skip)]
     /// Not implemented yet. Will send the bootstrap to our cloud servers, if needed
     pub send_bootstrap: bool,
@@ -1288,10 +1304,12 @@ pub struct CreateWalletV0 {
 
 impl CreateWalletV0 {
     pub fn new(
-        security_img: Vec<u8>,
+        security_img: Option<Vec<u8>>,
         security_txt: String,
-        pin: [u8; 4],
+        pin: Option<[u8; 4]>,
         pazzle_length: u8,
+        password: Option<String>,
+        mnemonic: bool,
         send_bootstrap: bool,
         send_wallet: bool,
         core_bootstrap: BootstrapContentV0,
@@ -1307,6 +1325,8 @@ impl CreateWalletV0 {
             security_txt,
             pin,
             pazzle_length,
+            password,
+            mnemonic,
             send_bootstrap,
             send_wallet,
             core_bootstrap,
@@ -1345,10 +1365,10 @@ pub struct CreateWalletResultV0 {
     /// The binary file that can be saved to disk and given to the user
     pub wallet_file: Vec<u8>,
     /// randomly generated pazzle
-    pub pazzle: Vec<u8>,
+    pub pazzle: Option<Vec<u8>>,
     /// randomly generated mnemonic. It is an alternate way to open the wallet.
     /// A BIP39 list of 12 words. We argue that the Pazzle is easier to remember than this.
-    pub mnemonic: [u16; 12],
+    pub mnemonic: Option<[u16; 12]>,
     /// The words of the mnemonic, in a human readable form.
     pub mnemonic_str: Vec<String>,
     #[zeroize(skip)]
@@ -1394,13 +1414,17 @@ pub struct CreateWalletIntermediaryV0 {
     pub in_memory: bool,
 
     #[zeroize(skip)]
-    pub security_img: Vec<u8>,
+    pub security_img: Option<Vec<u8>>,
 
     pub security_txt: String,
 
     pub pazzle_length: u8,
 
-    pub pin: [u8; 4],
+    pub mnemonic: bool,
+
+    pub password: Option<String>,
+
+    pub pin: Option<[u8; 4]>,
 
     #[zeroize(skip)]
     pub send_bootstrap: bool,
@@ -1433,6 +1457,9 @@ pub enum NgWalletError {
     NoCreateWalletPresent,
     InvalidBootstrap,
     SerializationError,
+    MnemonicOrPazzleNeedAPin,
+    NoLoginMethod,
+    LoginMethodNotSupported,
 }
 
 impl From<NgWalletError> for NgError {
@@ -1478,4 +1505,3 @@ pub struct ShuffledPazzle {
     pub category_indices: Vec<u8>,
     pub emoji_indices: Vec<Vec<u8>>,
 }
-

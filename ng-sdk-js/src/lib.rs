@@ -41,7 +41,10 @@ use ng_repo::utils::{decode_key, decode_priv_key};
 
 use ng_net::app_protocol::*;
 use ng_net::broker::*;
-use ng_net::types::{BindAddress, ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP, IP, BootstrapContentV0, InboxPost};
+use ng_net::types::{
+    BindAddress, BootstrapContentV0, ClientInfo, ClientInfoV0, ClientType, CreateAccountBSP,
+    InboxPost, IP,
+};
 use ng_net::utils::{
     decode_invitation_string, parse_ip_and_port_for, retrieve_local_bootstrap, retrieve_local_url,
     spawn_and_log_error, Receiver, ResultSend, Sender,
@@ -57,7 +60,6 @@ use ng_wallet::*;
 use nextgraph::local_broker::*;
 use nextgraph::verifier::CancelFn;
 
-
 use crate::model::*;
 
 #[wasm_bindgen]
@@ -72,8 +74,9 @@ pub async fn get_device_name() -> Result<JsValue, JsValue> {
 
 #[wasm_bindgen]
 pub async fn bootstrap_to_iframe_msgs(bootstrap: JsValue) -> Result<JsValue, JsValue> {
-    let content: BootstrapContentV0 = serde_wasm_bindgen::from_value::<BootstrapContentV0>(bootstrap)
-        .map_err(|_| "Invalid BootstrapContentV0".to_string())?;
+    let content: BootstrapContentV0 =
+        serde_wasm_bindgen::from_value::<BootstrapContentV0>(bootstrap)
+            .map_err(|_| "Invalid BootstrapContentV0".to_string())?;
     let iframe_msg = content.to_iframe_msgs();
     Ok(serde_wasm_bindgen::to_value(&iframe_msg).unwrap())
 }
@@ -167,6 +170,19 @@ pub fn privkey_to_string(privkey: JsValue) -> Result<String, JsValue> {
     let p = serde_wasm_bindgen::from_value::<PrivKey>(privkey)
         .map_err(|_| "Deserialization error of privkey")?;
     Ok(format!("{p}"))
+}
+
+#[wasm_bindgen]
+pub fn wallet_open_with_password(wallet: JsValue, password: String) -> Result<JsValue, JsValue> {
+    let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(wallet)
+        .map_err(|_| "Deserialization error of wallet")?;
+    let res = nextgraph::local_broker::wallet_open_with_password(&encrypted_wallet, password);
+    match res {
+        Ok(r) => Ok(r
+            .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+            .unwrap()),
+        Err(e) => Err(e.to_string().into()),
+    }
 }
 
 #[wasm_bindgen]
@@ -452,8 +468,10 @@ pub async fn sparql_update(
         .map_err(|e: NgError| e.to_string())?;
     match res {
         AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
-        AppResponse::V0(AppResponseV0::Commits(commits)) => Ok(serde_wasm_bindgen::to_value(&commits).unwrap()),
-        _ => Err(NgError::InvalidResponse.to_string())
+        AppResponse::V0(AppResponseV0::Commits(commits)) => {
+            Ok(serde_wasm_bindgen::to_value(&commits).unwrap())
+        }
+        _ => Err(NgError::InvalidResponse.to_string()),
     }
 }
 
@@ -609,26 +627,29 @@ pub async fn rdf_dump(session_id: JsValue) -> Result<String, String> {
 /// contacts = did:ng:d:c or a sparql query
 #[wasm_bindgen]
 pub async fn social_query_start(
-        session_id: JsValue,
-        from_profile_nuri: String, 
-        query_nuri: String, 
-        contacts: String, 
-        degree: JsValue,
-    ) -> Result<(), String> {
+    session_id: JsValue,
+    from_profile_nuri: String,
+    query_nuri: String,
+    contacts: String,
+    degree: JsValue,
+) -> Result<(), String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Invalid session_id".to_string())?;
-    let degree: u16 = serde_wasm_bindgen::from_value::<u16>(degree)
-        .map_err(|_| "Invalid degree".to_string())?;
+    let degree: u16 =
+        serde_wasm_bindgen::from_value::<u16>(degree).map_err(|_| "Invalid degree".to_string())?;
 
-    let query = NuriV0::new_from_commit(&query_nuri).map_err(|e| format!("Invalid query_nuri {e}"))?;
+    let query =
+        NuriV0::new_from_commit(&query_nuri).map_err(|e| format!("Invalid query_nuri {e}"))?;
 
     let from_profile = match from_profile_nuri.as_str() {
         "did:ng:a" => NuriV0::new_public_store_target(),
         "did:ng:b" => NuriV0::new_protected_store_target(),
-        _ => return Err("Invalid from_profile_nuri".to_string())
+        _ => return Err("Invalid from_profile_nuri".to_string()),
     };
 
-    if ! (contacts == "did:ng:d:c" || contacts.starts_with("SELECT")) { return Err("Invalid contacts".to_string()); }
+    if !(contacts == "did:ng:d:c" || contacts.starts_with("SELECT")) {
+        return Err("Invalid contacts".to_string());
+    }
 
     let mut request = AppRequest::social_query_start(from_profile, query, contacts, degree);
     request.set_session_id(session_id);
@@ -913,7 +934,7 @@ static INIT_LOCAL_BROKER: Lazy<Box<ConfigInitFn>> = Lazy::new(|| {
 pub async fn wallet_create(params: JsValue) -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
     let mut params = serde_wasm_bindgen::from_value::<CreateWalletV0>(params)
-        .map_err(|_| "Deserialization error of args")?;
+        .map_err(|e| format!("Deserialization error of args {e}"))?;
     params.result_with_wallet_file = true;
     let res = nextgraph::local_broker::wallet_create_v0(params).await;
     match res {
@@ -1053,21 +1074,21 @@ pub async fn wallet_import(
     Ok(serde_wasm_bindgen::to_value(&client).unwrap())
 }
 
-
 #[wasm_bindgen]
 pub async fn import_contact_from_qrcode(
     session_id: JsValue,
     doc_nuri: String,
     qrcode: String,
 ) -> Result<(), String> {
-
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
 
     let mut request = AppRequest::new(
         AppRequestCommandV0::QrCodeProfileImport,
         NuriV0::new_from_repo_nuri(&doc_nuri).map_err(|e| e.to_string())?,
-        Some(AppRequestPayload::V0(AppRequestPayloadV0::QrCodeProfileImport(qrcode))),
+        Some(AppRequestPayload::V0(
+            AppRequestPayloadV0::QrCodeProfileImport(qrcode),
+        )),
     );
     request.set_session_id(session_id);
 
@@ -1102,7 +1123,9 @@ pub async fn get_qrcode_for_profile(
     let mut request = AppRequest::new(
         AppRequestCommandV0::QrCodeProfile,
         nuri,
-        Some(AppRequestPayload::V0(AppRequestPayloadV0::QrCodeProfile(size))),
+        Some(AppRequestPayload::V0(AppRequestPayloadV0::QrCodeProfile(
+            size,
+        ))),
     );
     request.set_session_id(session_id);
 
@@ -1454,9 +1477,16 @@ pub async fn doc_create(
     let store_repo = serde_wasm_bindgen::from_value::<Option<StoreRepo>>(store_repo)
         .map_err(|_| "Deserialization error of store_repo".to_string())?;
 
-    nextgraph::local_broker::doc_create_with_store_repo(session_id, crdt, class_name, destination, store_repo)
-        .await
-        .map_err(|e| e.to_string()).map(|nuri| serde_wasm_bindgen::to_value(&nuri).unwrap())
+    nextgraph::local_broker::doc_create_with_store_repo(
+        session_id,
+        crdt,
+        class_name,
+        destination,
+        store_repo,
+    )
+    .await
+    .map_err(|e| e.to_string())
+    .map(|nuri| serde_wasm_bindgen::to_value(&nuri).unwrap())
 }
 
 #[cfg(wasmpack_target = "nodejs")]
@@ -1478,9 +1508,17 @@ pub async fn doc_create(
     let store_repo = serde_wasm_bindgen::from_value::<Option<String>>(store_repo)
         .map_err(|_| "Deserialization error of store_repo".to_string())?;
 
-    nextgraph::local_broker::doc_create(session_id, crdt, class_name, destination, store_type, store_repo)
-        .await
-        .map_err(|e| e.to_string()).map(|nuri| serde_wasm_bindgen::to_value(&nuri).unwrap())
+    nextgraph::local_broker::doc_create(
+        session_id,
+        crdt,
+        class_name,
+        destination,
+        store_type,
+        store_repo,
+    )
+    .await
+    .map_err(|e| e.to_string())
+    .map(|nuri| serde_wasm_bindgen::to_value(&nuri).unwrap())
 }
 
 #[wasm_bindgen]
@@ -2034,20 +2072,43 @@ pub async fn user_connect(
         .unwrap())
 }
 
-const EMPTY_IMG: [u8;437] = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 150, 0, 0, 0, 150, 8, 6, 0, 0, 0, 60, 1, 113, 226, 0, 0, 0, 4, 103, 65, 77, 65, 0, 0, 177, 143, 11, 252, 97, 5, 0, 0, 0, 1, 115, 82, 71, 66, 1, 217, 201, 44, 127, 0, 0, 0, 32, 99, 72, 82, 77, 0, 0, 122, 38, 0, 0, 128, 132, 0, 0, 250, 0, 0, 0, 128, 232, 0, 0, 117, 48, 0, 0, 234, 96, 0, 0, 58, 152, 0, 0, 23, 112, 156, 186, 81, 60, 0, 0, 0, 9, 112, 72, 89, 115, 0, 0, 3, 0, 0, 0, 3, 0, 1, 217, 203, 178, 96, 0, 0, 1, 30, 73, 68, 65, 84, 120, 218, 237, 210, 49, 17, 0, 0, 8, 196, 48, 192, 191, 231, 199, 0, 35, 99, 34, 161, 215, 78, 146, 130, 103, 35, 1, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 193, 109, 1, 34, 65, 5, 40, 46, 151, 166, 52, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130];
+const EMPTY_IMG: [u8; 437] = [
+    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 150, 0, 0, 0, 150, 8, 6,
+    0, 0, 0, 60, 1, 113, 226, 0, 0, 0, 4, 103, 65, 77, 65, 0, 0, 177, 143, 11, 252, 97, 5, 0, 0, 0,
+    1, 115, 82, 71, 66, 1, 217, 201, 44, 127, 0, 0, 0, 32, 99, 72, 82, 77, 0, 0, 122, 38, 0, 0,
+    128, 132, 0, 0, 250, 0, 0, 0, 128, 232, 0, 0, 117, 48, 0, 0, 234, 96, 0, 0, 58, 152, 0, 0, 23,
+    112, 156, 186, 81, 60, 0, 0, 0, 9, 112, 72, 89, 115, 0, 0, 3, 0, 0, 0, 3, 0, 1, 217, 203, 178,
+    96, 0, 0, 1, 30, 73, 68, 65, 84, 120, 218, 237, 210, 49, 17, 0, 0, 8, 196, 48, 192, 191, 231,
+    199, 0, 35, 99, 34, 161, 215, 78, 146, 130, 103, 35, 1, 198, 194, 88, 24, 11, 140, 133, 177,
+    48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99,
+    129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24,
+    11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48,
+    22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97,
+    44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2,
+    99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22,
+    198, 194, 88, 96, 44, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44,
+    140, 133, 177, 192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88,
+    24, 11, 140, 133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177,
+    192, 88, 24, 11, 99, 129, 177, 48, 22, 198, 2, 99, 97, 44, 140, 5, 198, 194, 88, 24, 11, 140,
+    133, 177, 48, 22, 24, 11, 99, 97, 44, 48, 22, 198, 194, 88, 96, 44, 140, 133, 177, 192, 88, 24,
+    11, 99, 193, 109, 1, 34, 65, 5, 40, 46, 151, 166, 52, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96,
+    130,
+];
 
 #[wasm_bindgen]
-pub async fn gen_wallet_for_test(ngd_peer_id: String)-> Result<JsValue, String>  {
+pub async fn gen_wallet_for_test(ngd_peer_id: String) -> Result<JsValue, String> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
     //init_local_broker(Box::new(|| LocalBrokerConfig::InMemory)).await;
 
     let peer_id_of_server_broker = decode_key(&ngd_peer_id).map_err(|e: NgError| e.to_string())?;
 
     let wallet_result = wallet_create_v0(CreateWalletV0 {
-        security_img: Vec::from(EMPTY_IMG),
+        security_img: None,
         security_txt: "testsecurityphrase".to_string(),
-        pin: [1, 2, 1, 2],
+        pin: Some([1, 2, 1, 2]),
         pazzle_length: 9,
+        mnemonic: true,
+        password: None,
         send_bootstrap: false,
         send_wallet: false,
         result_with_wallet_file: false,
@@ -2062,15 +2123,14 @@ pub async fn gen_wallet_for_test(ngd_peer_id: String)-> Result<JsValue, String> 
     .expect("wallet_create_v0");
 
     let mut mnemonic_words = Vec::with_capacity(12);
-    display_mnemonic(&wallet_result.mnemonic)
+    display_mnemonic(&wallet_result.mnemonic.unwrap())
         .iter()
         .for_each(|word| {
             mnemonic_words.push(word.clone());
         });
 
-    let res = (wallet_result,mnemonic_words);
+    let res = (wallet_result, mnemonic_words);
     Ok(serde_wasm_bindgen::to_value(&res).unwrap())
-
 }
 
 #[cfg(test)]

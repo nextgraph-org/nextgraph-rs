@@ -23,6 +23,11 @@ onmessage = (e) => {
             e.data.pazzle,
             e.data.pin_code
         );
+      } else if (e.data.password) {
+         secret_wallet = await ng.wallet_open_with_password(
+          e.data.wallet,
+          e.data.password
+        );
       } else if (e.data.mnemonic_words) {
          secret_wallet = await ng.wallet_open_with_mnemonic_words(
           e.data.wallet,

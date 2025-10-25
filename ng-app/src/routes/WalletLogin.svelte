@@ -42,9 +42,11 @@
     ExclamationTriangle,
     QrCode,
     Cloud,
+    ArrowRightEndOnRectangle,
   } from "svelte-heros-v2";
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let mobile = tauri_platform == "android" || tauri_platform == "ios";
 
   let wallet;
   let selected;
@@ -56,6 +58,8 @@
   let wallets_unsub;
   let opened_wallets_unsub;
   let active_wallet_unsub;
+
+  export let without_create = false;
 
   function convert_img_to_url(buffer) {
     var blob = new Blob([buffer], {
@@ -373,16 +377,38 @@
               select(wallet_entry[0]);
             }}
           >
-            <span class="securitytxt"
-              >{wallet_entry[1].wallet.V0.content.security_txt}
-            </span>
-            <img
-              alt={wallet_entry[1].wallet.V0.content.security_txt}
-              class="securityimg"
-              src={convert_img_to_url(
-                wallet_entry[1].wallet.V0.content.security_img
-              )}
-            />
+            {#if wallet_entry[1].wallet.V0.content.password}
+              <div class="pt-5">
+                <ArrowRightEndOnRectangle
+                  class="w-16 h-16"
+                  style="display:inline;"
+                />
+                <div>
+                  {#if mobile}Tap{:else}Click{/if} here to login with your wallet
+                </div>
+              </div>
+
+              <div class="p-5">
+                <button
+                  tabindex="-1"
+                  style="overflow-wrap: anywhere;"
+                  class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+                >
+                  {wallet_entry[1].wallet.V0.content.security_txt}
+                </button>
+              </div>
+            {:else}
+              <span class="securitytxt"
+                >{wallet_entry[1].wallet.V0.content.security_txt}
+              </span>
+              <img
+                alt={wallet_entry[1].wallet.V0.content.security_txt}
+                class="securityimg"
+                src={convert_img_to_url(
+                  wallet_entry[1].wallet.V0.content.security_img
+                )}
+              />
+            {/if}
           </div>
         {/each}
         <div class="wallet-box">
@@ -390,7 +416,9 @@
             <button
               style="justify-content: left;"
               tabindex="-1"
-              class="mt-2.5 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
+              class:mt-10={without_create}
+              class:mt-2.5={!without_create}
+              class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
             >
               <Cloud class="w-8 h-8 mr-2 -ml-1" tabindex="-1" />
               {$t("pages.wallet_login.with_username")}
@@ -459,29 +487,31 @@
               {$t("pages.wallet_login.import_link")}
             </button>
           </a>
-          <a href="/wallet/create" use:link>
-            <button
-              tabindex="-1"
-              class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-            >
-              <svg
-                class="w-8 h-8 mr-2 -ml-1"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
+          {#if !without_create}
+            <a href="/wallet/create" use:link>
+              <button
+                tabindex="-1"
+                class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
-                />
-              </svg>
-              {$t("pages.wallet_login.new_wallet")}
-            </button>
-          </a>
+                <svg
+                  class="w-8 h-8 mr-2 -ml-1"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
+                  />
+                </svg>
+                {$t("pages.wallet_login.new_wallet")}
+              </button>
+            </a>
+          {/if}
         </div>
       </div>
     {/if}

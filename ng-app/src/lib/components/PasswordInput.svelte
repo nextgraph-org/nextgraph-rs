@@ -18,8 +18,8 @@
   export let auto_complete: string | undefined = undefined;
   import { createEventDispatcher } from "svelte";
   export let show: boolean = false;
-
-  let input;
+  export let autofocus = false;
+  export let input = undefined;
 
   let type: "password" | "text" = "password";
   $: type = show ? "text" : "password";
@@ -44,7 +44,7 @@
     if (e.key == "Enter" || e.keyCode == 13) {
       dispatch("enter");
     }
-  }
+  };
 </script>
 
 <div class="relative">
@@ -55,7 +55,7 @@
     {placeholder}
     {id}
     {type}
-    autofocus
+    {autofocus}
     on:input={handleInput}
     class={`${className} pr-12 text-md block`}
     autocomplete={auto_complete}
@@ -63,7 +63,7 @@
   />
 
   <div
-    class={`${classNameToggle} absolute inset-y-0 pr-3 flex items-center text-sm leading-5`}
+    class={`${classNameToggle} clickable absolute inset-y-0 pr-3 flex items-center text-sm leading-5`}
   >
     <svg
       fill="none"

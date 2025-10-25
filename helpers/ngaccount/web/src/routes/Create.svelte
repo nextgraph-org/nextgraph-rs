@@ -75,7 +75,7 @@
         window.location.href = result.url;
       } else {
         wait = true;
-        window.history.go(-1);
+        window.location.href = document.referrer;
       }
     }
   }
@@ -210,8 +210,8 @@
                   />
                 </svg>
                 <span
-                  >Our servers are located in Germany, and comply with the
-                  GDPR and DSA regulations, to the extent that they concern us.</span
+                  >Our servers are located in Germany, and comply with the GDPR
+                  and DSA regulations, to the extent that they concern us.</span
                 >
               </li>
               <li class="flex space-x-3">
@@ -230,10 +230,24 @@
                     d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0118 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3l1.5 1.5 3-3.75"
                   />
                 </svg>
-                <span>As we do not store any personal information about you, GDPR is not directly applicable, but we do abide by GDPR regulations.<br/>
-                  This broker only hosts encrypted data that is never published on the internet in any way. We therefor have no control over moderation and cannot be held liable for the plain-text version of the messages exchanged on this broker.<br/>  
-                  For any matter related to GDPR or DSA, please see our <a href="https://nextgraph.org/contact/" target="_blank">contact details here</a>. You can contact us in english, french, german and spanish.<br/>
-                  We reserve the right to terminate service at any moment, without any given reason, as this service is in alpha version, and we do not have contractual relation with you. We do not know who you are and cannot contact you.</span>
+                <span
+                  >As we do not store any personal information about you, GDPR
+                  is not directly applicable, but we do abide by GDPR
+                  regulations.<br />
+                  This broker only hosts encrypted data that is never published on
+                  the internet in any way. We therefor have no control over moderation
+                  and cannot be held liable for the plain-text version of the messages
+                  exchanged on this broker.<br />
+                  For any matter related to GDPR or DSA, please see our
+                  <a href="https://nextgraph.org/contact/" target="_blank"
+                    >contact details here</a
+                  >. You can contact us in english, french, german and spanish.<br
+                  />
+                  We reserve the right to terminate service at any moment, without
+                  any given reason, as this service is in alpha version, and we do
+                  not have contractual relation with you. We do not know who you
+                  are and cannot contact you.</span
+                >
               </li>
             {/if}
             <li class="flex space-x-3">
@@ -277,15 +291,17 @@
               </svg>
               <span
                 >We do not log any private information about you (nor IP, nor
-                country, nor statistics of any kind). Only your randomly generated UserId is kept,
-                together with the list of devices (ClientId) you use to connect
-                to the broker. We store your RecoveryKit on our server. 
-                It is encrypted and we cannot read it. If you opted for unlocking your wallet with the username/password method,
-                we also store your wallet on our server, in an encrypted form so we cannot read it nor use it.
-                We collect general purpose information about your
-                device (OS version, browser version, and if you use the app, the
-                version and date of last update). We do not have access to any
-                unique tracking identifier of your device (like Android MAID/AAID or
+                country, nor statistics of any kind). Only your randomly
+                generated UserId is kept, together with the list of devices
+                (ClientId) you use to connect to the broker. We store your
+                RecoveryKit on our server. It is encrypted and we cannot read
+                it. If you opted for unlocking your wallet with the
+                username/password method, we also store your wallet on our
+                server, in an encrypted form so we cannot read it nor use it. We
+                collect general purpose information about your device (OS
+                version, browser version, and if you use the app, the version
+                and date of last update). We do not have access to any unique
+                tracking identifier of your device (like Android MAID/AAID or
                 iPhone IDFA). We could nevertheless be asked by law enforcement
                 authorities, depending on the jurisdiction of the server, to log
                 the IP you use when connecting to the broker, and/or to provide
@@ -311,20 +327,40 @@
                 />
               </svg>
               <span>
-                You can delete your account with us at any time by opening your NextGraph application, logging in, 
-                and entering in the User Panel, then Accounts, then under Brokers "delete registration". Before deleting your account with us, make sure you register to another broker before, otherwise you will not be able to sync or share your data with any other users or devices</span
+                You can delete your account with us at any time by opening your
+                NextGraph application, logging in, and entering in the User
+                Panel, then Accounts, then under Brokers "delete registration".
+                Before deleting your account with us, make sure you register to
+                another broker before, otherwise you will not be able to sync or
+                share your data with any other users or devices</span
               >
             </li>
             <li class="flex space-x-3">
               <svg
                 class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"></path>
+                fill="none"
+                stroke-width="1.5"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"
+                ></path>
               </svg>
               <span>
-                Q: I heard that with NextGraph there will be no more ToS to accept. Why then are there some ToS here? <br/> A: You are right that with NextGraph we can do without ToS, when the user is connecting to a self-hosted broker. As this option is
-                 not available yet, we only offer you to connect to our public Broker Service Provider for now, which needs some ToS to be accepted. Very soon more options will be available, but some users might still prefer using our brokers.
-                 In any case, the ToS here are minimal and with end-to-end encryption, your data is unreadable to us anyway.</span
+                Q: I heard that with NextGraph there will be no more ToS to
+                accept. Why then are there some ToS here? <br /> A: You are right
+                that with NextGraph we can do without ToS, when the user is connecting
+                to a self-hosted broker. As this option is not available yet, we
+                only offer you to connect to our public Broker Service Provider for
+                now, which needs some ToS to be accepted. Very soon more options
+                will be available, but some users might still prefer using our brokers.
+                In any case, the ToS here are minimal and with end-to-end encryption,
+                your data is unreadable to us anyway.</span
               >
             </li>
             <li class="flex space-x-3">
@@ -377,10 +413,12 @@
 
                 <span
                   >By agreeing to those terms, you allow this software to store
-                  some personal data locally on this device, in localStorage. 
-                  It only stays on this device or any other device where you will import your wallet.
-                  If you delete this data without keeping a copy of
-                  your wallet somewhere else or having selected the "Wallet Recovery" option, then access to your wallet and all its documents will be permanently lost.
+                  some personal data locally on this device, in localStorage. It
+                  only stays on this device or any other device where you will
+                  import your wallet. If you delete this data without keeping a
+                  copy of your wallet somewhere else or having selected the
+                  "Wallet Recovery" option, then access to your wallet and all
+                  its documents will be permanently lost.
                 </span>
               </li>
             {/if}

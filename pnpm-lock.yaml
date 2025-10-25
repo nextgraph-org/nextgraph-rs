@@ -114,8 +114,8 @@ importers:
         specifier: ^3.0.0
         version: 3.8.6(@babel/core@7.28.0)(postcss-load-config@4.0.2(postcss@8.5.3))(postcss@8.5.3)(sass@1.85.0)(svelte@3.59.2)
       svelte-heros-v2:
-        specifier: ^0.10.12
-        version: 0.10.12(svelte@3.59.2)
+        specifier: ^1.3.0
+        version: 1.3.0(svelte@3.59.2)
       svelte-preprocess:
         specifier: ^5.0.3
         version: 5.1.4(@babel/core@7.28.0)(postcss-load-config@4.0.2(postcss@8.5.3))(postcss@8.5.3)(sass@1.85.0)(svelte@3.59.2)(typescript@4.9.5)
@@ -496,6 +496,8 @@ importers:
         specifier: ^2.2.1
         version: 2.2.1(svelte@3.59.2)(vite@4.5.9(@types/node@18.19.76)(sass@1.85.0))
 
+  helpers/wasm-tools/pkg: {}
+
   ng-app:
     dependencies:
       '@automerge/automerge':
@@ -767,8 +769,8 @@ importers:
         specifier: ^3.0.0
         version: 3.8.6(@babel/core@7.28.0)(postcss-load-config@4.0.2(postcss@8.5.3))(postcss@8.5.3)(sass@1.85.0)(svelte@3.59.2)
       svelte-heros-v2:
-        specifier: ^0.10.12
-        version: 0.10.12(svelte@3.59.2)
+        specifier: ^1.3.0
+        version: 1.3.0(svelte@3.59.2)
       svelte-highlight:
         specifier: ^7.7.0
         version: 7.8.2
@@ -4845,6 +4847,11 @@ packages:
     resolution: {integrity: sha512-0wspy0z9UFS9f/iPKQQ1JDHlNY6e7h+LVW+wJ0qJnuWDpvsJllmoCX2g0frYbMPDWZJEwh2pkO25Dp3lDGCxGQ==}
     peerDependencies:
       svelte: ^3.54.0 || ^4.0.0
+
+  svelte-heros-v2@1.3.0:
+    resolution: {integrity: sha512-H+s2Z907WU8sLG/dOYGfiIq7mxtACm6LM+A8jdcDCWtjyyoOmtL2waZEKKXsLrcwO5g5/D6i0TqSs0UJuchRoA==}
+    peerDependencies:
+      svelte: ^3.54.0 || ^4.0.0 || ^5.0.0
 
   svelte-highlight@7.8.2:
     resolution: {integrity: sha512-fJZOQtI71CIAOzv43h/cHVDABB3YfWFERGxZx4RisBVHjEuJXfnrrEOhPS0iE2uZUFyQKDWZyzPlcYyBAkH2iA==}
@@ -9980,6 +9987,10 @@ snapshots:
       '@floating-ui/dom': 1.6.13
 
   svelte-heros-v2@0.10.12(svelte@3.59.2):
+    dependencies:
+      svelte: 3.59.2
+
+  svelte-heros-v2@1.3.0(svelte@3.59.2):
     dependencies:
       svelte: 3.59.2
 

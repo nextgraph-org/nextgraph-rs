@@ -369,8 +369,10 @@
       "open_with_pazzle": "Open With Pazzle instead",
       "login_cancel": "Cancel Login",
       "open_with_mnemonic": "Open with Mnemonic",
+      "open": "Open my wallet",
       "enter_mnemonic": "Enter your 12 words mnemonic",
       "mnemonic_placeholder": "12 words separated by spaces",
+      "enter_password": "Enter your password",
       "select_emoji": "Select your image for category:<br />{category}",
       "order_emojis": "Select each image in the correct order",
       "enter_pin": "Enter your PIN code",
@@ -435,7 +437,13 @@
       "self_hosted_broker": "Self-hosted broker",
       "ng_box": "NG Box (owned or invited)",
       "install_app": "Install the app",
-      "registration_success": "You have been successfully registered to {broker}",
+      "registration_success": "You are creating an account at {broker}",
+      "choose_username": {
+        "title": "Now choose your username and password",
+        "warning": "Please note that we do not offer password recovery mechanism for now.<br/> We won't be able to help you if you forget your password."
+      },
+      "type_username_placeholder": "Type in your username",
+      "type_password_placeholder": "Type in your password",
       "choose_pin": {
         "title": "Let's start creating your wallet by choosing a PIN code",
         "description": "We recommend you to choose a PIN code that you already know very well. <br />We at NextGraph will never see your PIN.",
@@ -587,7 +595,7 @@
     "InvalidSignature": "The signature is invalid.",
     "IncompleteSignature": "The signature is incomplete.",
     "SerializationError": "The data could not be serialized.",
-    "EncryptionError": "Your wallet could not be opened. You probably did a mistake.",
+    "EncryptionError": "Your wallet could not be opened. You probably did a mistake when entering your credentials.",
     "DecryptionError": "Error with decryption.",
     "InvalidValue": "The value is invalid.",
     "ConnectionNotFound": "The connection was not found.",
@@ -661,7 +669,11 @@
     "InvalidProfile": "Your profile is incomplete. You should add a name before you can share your profile with others",
     "no_wasm_on_old_safari": "Your Safari browser is too old (version before 14.1). As a result we cannot load Automerge, needed for this document. Please upgrade your macOS or iOS system",
     "BrowserTooOld": "Your browser is too old. Please upgrade it, use another browser, or install our native app. If you are using jshelter or another javascript protection mechanism, please deactivate it as we need access to the WebWorker facility of your browser.",
-    "NoLocalStorage": "You have disabled local storage in your browser. Please allow the current website (and also https://nextgraph.net website) to store data in this browser as otherwise we cannot proceed with Wallet creation. After allowing storage, please refresh the current page." 
+    "NoLocalStorage": "You have disabled local storage in your browser. Please allow the current website (and also https://nextgraph.net website) to store data in this browser as otherwise we cannot proceed with Wallet creation. After allowing storage, please refresh the current page."
+  },
+  "auth":{
+    "select_broker":"<b>{origin}</b><br/>wants to access your wallet<br/><br/>Please select your broker in the list below:",
+    "unexpected_error":"An error occurred during the auth process"
   },
   "connectivity": {
     "stopped": "Stopped",

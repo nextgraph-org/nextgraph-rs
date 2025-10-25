@@ -16,6 +16,7 @@ const mapping = {
     "wallet_gen_shuffle_for_pazzle_opening": ["pazzle_length"],
     "wallet_gen_shuffle_for_pin": [],
     "wallet_open_with_pazzle": ["wallet","pazzle","pin"],
+    "wallet_open_with_password": ["wallet","password"],
     "wallet_open_with_mnemonic_words": ["wallet","mnemonic_words","pin"],
     "wallet_open_with_mnemonic": ["wallet","mnemonic","pin"],
     "wallet_was_opened": ["opened_wallet"],
@@ -336,9 +337,9 @@ const handler = {
   
 const api = createAsyncProxy({}, handler);
 
-export const NG_EU_BSP = "https://nextgraph.eu";
+export const NG_EU_BSP = "https://pnm.allelo.eco";
 export const NG_EU_BSP_REGISTER = import.meta.env.PROD
-? "https://account.nextgraph.eu/#/create"
+? "https://account.allelo.eco/#/create"
 : "http://account-dev.nextgraph.eu:5173/#/create";
 
 export const NG_ONE_BSP = "https://nextgraph.one";
