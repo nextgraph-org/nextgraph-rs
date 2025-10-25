@@ -23,6 +23,31 @@ use ng_repo::errors::NgError;
 use ng_repo::log::*;
 
 impl Verifier {
+    pub fn query_quads_for_shape_type(
+        &self,
+        nuri: Option<String>,
+        schema: &OrmSchema,
+        shape: &ShapeIri,
+        filter_subjects: Option<Vec<String>>,
+    ) -> Result<Vec<Triple>, NgError> {
+        // If nuri is present and it is not the whole graph (did:ng:i), use limit_to_graph.
+        let limit_to_graph = match nuri {
+            Some(nuri) => {
+                if nuri == "did:ng:i" {
+                    None
+                } else {
+                    Some(nuri)
+                }
+            }
+            None => None,
+        };
+
+        let select_query =
+            shape_type_to_sparql_select(schema, shape, filter_subjects, limit_to_graph)?;
+
+        return self.query_sparql_select(select_query, None);
+    }
+
     pub fn query_sparql_select(
         &self,
         query: String,
@@ -30,11 +55,12 @@ impl Verifier {
     ) -> Result<Vec<Triple>, NgError> {
         let oxistore = self.graph_dataset.as_ref().unwrap();
 
-        let nuri_str = nuri.as_ref().map(|s| s.as_str());
-        log_debug!("querying select\n{}\n{}\n", nuri_str.unwrap(), query);
+        // Log base IRI safely even when None
+        let nuri_dbg = nuri.as_deref().unwrap_or("");
+        log_debug!("querying select\n{}\n{}\n", nuri_dbg, query);
 
-        let parsed =
-            Query::parse(&query, nuri_str).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+        let parsed = Query::parse(&query, nuri.as_deref())
+            .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         let results = oxistore
             .query(parsed, nuri)
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
@@ -353,7 +379,43 @@ pub fn shape_type_to_sparql_select(
     schema: &OrmSchema,
     shape: &ShapeIri,
     filter_subjects: Option<Vec<String>>,
+    limit_to_graph: Option<String>,
 ) -> Result<String, NgError> {
+    // NOTE FOR MAINTAINERS
+    // This function generates a SELECT query that mirrors the WHERE semantics of
+    // `shape_type_to_sparql_construct`, but instead of returning a graph it projects
+    // triples as rows binding the following variables:
+    // - ?s: subject
+    // - ?p: predicate
+    // - ?o: object
+    // - ?g: graph name (bound per recursion "layer")
+    //
+    // Key ideas:
+    // - Each shape layer is wrapped in a GRAPH block with its own graph variable (?gN).
+    //   We attribute triples to the layer in which they logically belong by binding ?g
+    //   to that layer’s graph variable when projecting rows.
+    // - We preserve OPTIONAL, UNION, and the recursive catch-all pattern from the
+    //   CONSTRUCT builder so that validation logic downstream sees the same data surface.
+    // - We generate two kinds of WHERE content:
+    //   1) Constraint blocks per layer (GRAPH ?gN { ... }) that ensure the shape matches.
+    //   2) Projection branches (a UNION of small blocks) that BIND ?s/?p/?o/?g for each
+    //      triple to return. This keeps the constraints readable and separates them from
+    //      the output mapping.
+    //
+    // Variable conventions:
+    // - Term vars:  ?v0, ?v1, ... (opaque; used for intermediate subjects/objects)
+    // - Graph vars: ?g0, ?g1, ... (one per recursion layer, used to bind ?g)
+    //
+    // Recursion and cycles:
+    // - We track visited shapes by IRI to avoid infinite recursion on cyclic schemas.
+    // - Nested shapes get their own graph var (?gX). We also add a "catch-all" branch
+    //   within that nested layer so that all triples for the nested subject are returned
+    //   for later validation (even if some predicates are optional or missing).
+    //
+    // Readability:
+    // - The generated SPARQL includes comments that "guide through" the query structure
+    //   to make manual inspection and debugging easier.
+
     // Use a counter to generate unique variable names.
     let mut var_counter = 0;
     fn get_new_var_name(counter: &mut i32) -> String {
@@ -366,6 +428,16 @@ pub fn shape_type_to_sparql_select(
         *counter += 1;
         name
     }
+    // Small helper to indent multi-line strings by n spaces for cleaner output.
+    fn indent(s: &str, n: usize) -> String {
+        let pad = " ".repeat(n);
+        s.lines()
+            .map(|l| format!("{}{}", pad, l))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    // no-op: graph token computed within process_shape where needed
 
     // Collect SELECT branches (each produces bindings for ?s ?p ?o ?g) and shared WHERE constraints.
     let mut select_branches: Vec<String> = Vec::new();
@@ -393,7 +465,16 @@ pub fn shape_type_to_sparql_select(
         var_counter: &mut i32,
         visited_shapes: &mut HashSet<String>,
         in_recursion: bool,
+        limit_to_graph: Option<&str>,
     ) -> Vec<String> {
+        // Helper to render a graph token: either a variable (?gN) or a fixed graph IRI <...>
+        let graph_token = |graph_var: &str| -> String {
+            if let Some(g) = limit_to_graph {
+                format!("<{}>", g)
+            } else {
+                format!("?{}", graph_var)
+            }
+        };
         // Prevent infinite recursion on cyclic schemas.
         // TODO: We could handle this as IRI string reference.
         if visited_shapes.contains(&shape.iri) {
@@ -428,13 +509,14 @@ pub fn shape_type_to_sparql_select(
                     // Output branch for the parent link triple itself (belongs to current layer) when not in recursive catch-all
                     if !in_recursion {
                         let branch = format!(
-                            "  GRAPH ?{} {{\n{}\n  }}\n  BIND(?{} AS ?s)\n  BIND(<{}> AS ?p)\n  BIND(?{} AS ?o)\n  BIND(?{} AS ?g)",
-                            current_graph_var_name,
+                            "  # Output: parent link triple at layer graph {}\n  GRAPH {} {{\n{}\n  }}\n  # Bind row variables\n  BIND(?{} AS ?s)\n  BIND(<{}> AS ?p)\n  BIND(?{} AS ?o)\n  BIND({} AS ?g)",
+                            graph_token(current_graph_var_name).as_str(),
+                            graph_token(current_graph_var_name).as_str(),
                             triple,
                             subject_var_name,
                             predicate.iri,
                             obj_var_name,
-                            current_graph_var_name
+                            graph_token(current_graph_var_name).as_str()
                         );
                         select_branches.push(format!("{{\n{}\n}}", branch));
                     }
@@ -457,6 +539,7 @@ pub fn shape_type_to_sparql_select(
                         var_counter,
                         visited_shapes,
                         true,
+                        limit_to_graph,
                     );
                     nested_where_blocks.extend(nested_blocks);
                 }
@@ -473,9 +556,15 @@ pub fn shape_type_to_sparql_select(
 
                 if !nested_where_blocks.is_empty() {
                     let nested_joined = nested_where_blocks.join(" .\n");
-                    where_body = format!("{} .\n{}", union_body, nested_joined);
+                    where_body = format!(
+                        "# Predicate <{}> with nested shapes in shape <{}>\n{} .\n{}",
+                        predicate.iri, shape.iri, union_body, nested_joined
+                    );
                 } else {
-                    where_body = union_body;
+                    where_body = format!(
+                        "# Predicate <{}> in shape <{}>\n{}",
+                        predicate.iri, shape.iri, union_body
+                    );
                 }
             } else {
                 // Value predicate (non-shape)
@@ -484,18 +573,22 @@ pub fn shape_type_to_sparql_select(
                     "  ?{} <{}> ?{}",
                     subject_var_name, predicate.iri, obj_var_name
                 );
-                where_body = triple.clone();
+                where_body = format!(
+                    "# Value predicate <{}> in shape <{}>\n{}",
+                    predicate.iri, shape.iri, triple
+                );
 
                 // Output branch for this value triple in current graph layer
                 if !in_recursion {
                     let branch = format!(
-                        "  GRAPH ?{} {{\n{}\n  }}\n  BIND(?{} AS ?s)\n  BIND(<{}> AS ?p)\n  BIND(?{} AS ?o)\n  BIND(?{} AS ?g)",
-                        current_graph_var_name,
+                        "  # Output: value triple at layer graph {}\n  GRAPH {} {{\n{}\n  }}\n  # Bind row variables\n  BIND(?{} AS ?s)\n  BIND(<{}> AS ?p)\n  BIND(?{} AS ?o)\n  BIND({} AS ?g)",
+                        graph_token(current_graph_var_name).as_str(),
+                        graph_token(current_graph_var_name).as_str(),
                         triple,
                         subject_var_name,
                         predicate.iri,
                         obj_var_name,
-                        current_graph_var_name
+                        graph_token(current_graph_var_name).as_str()
                     );
                     select_branches.push(format!("{{\n{}\n}}", branch));
                 }
@@ -503,7 +596,10 @@ pub fn shape_type_to_sparql_select(
 
             // Optional wrapper, if needed
             if predicate.minCardinality < 1 {
-                new_where_statements.push(format!("  OPTIONAL {{\n{}\n  }}", where_body));
+                new_where_statements.push(format!(
+                    "  # OPTIONAL predicate <{}>\n  OPTIONAL {{\n{}\n  }}",
+                    predicate.iri, where_body
+                ));
             } else {
                 new_where_statements.push(where_body);
             }
@@ -521,33 +617,39 @@ pub fn shape_type_to_sparql_select(
             // Output branch for nested triples: include the parent link triple to bind nested subject even when optional
             if let Some((parent_subj, parent_pred, parent_graph, this_subj)) = link_from_parent {
                 let parent_link = format!(
-                    "  GRAPH ?{} {{\n    ?{} <{}> ?{}\n  }}",
-                    parent_graph, parent_subj, parent_pred, this_subj
+                    "  # Bind nested subject via parent link (optional-safe)\n  GRAPH {} {{\n    ?{} <{}> ?{}\n  }}",
+                    graph_token(parent_graph).as_str(),
+                    parent_subj,
+                    parent_pred,
+                    this_subj
                 );
                 let nested_graph_block = format!(
-                    "  GRAPH ?{} {{\n{}\n  }}",
-                    current_graph_var_name, catch_all
+                    "  # Nested layer catch-all in graph {}\n  GRAPH {} {{\n{}\n  }}",
+                    graph_token(current_graph_var_name).as_str(),
+                    graph_token(current_graph_var_name).as_str(),
+                    catch_all
                 );
                 let branch = format!(
-                    "{}\n{}\n  BIND(?{} AS ?s)\n  BIND(?{} AS ?p)\n  BIND(?{} AS ?o)\n  BIND(?{} AS ?g)",
+                    "{}\n{}\n  # Bind row variables\n  BIND(?{} AS ?s)\n  BIND(?{} AS ?p)\n  BIND(?{} AS ?o)\n  BIND({} AS ?g)",
                     parent_link,
                     nested_graph_block,
                     subject_var_name,
                     pred_var_name,
                     obj_var_name,
-                    current_graph_var_name
+                    graph_token(current_graph_var_name).as_str()
                 );
                 select_branches.push(format!("{{\n{}\n}}", branch));
             } else {
                 // Fallback: no explicit parent link (shouldn't happen for nested shapes), still output within graph
                 let branch = format!(
-                    "  GRAPH ?{} {{\n{}\n  }}\n  BIND(?{} AS ?s)\n  BIND(?{} AS ?p)\n  BIND(?{} AS ?o)\n  BIND(?{} AS ?g)",
-                    current_graph_var_name,
+                    "  # Nested layer catch-all in graph {}\n  GRAPH {} {{\n{}\n  }}\n  # Bind row variables\n  BIND(?{} AS ?s)\n  BIND(?{} AS ?p)\n  BIND(?{} AS ?o)\n  BIND({} AS ?g)",
+                    graph_token(current_graph_var_name).as_str(),
+                    graph_token(current_graph_var_name).as_str(),
                     catch_all,
                     subject_var_name,
                     pred_var_name,
                     obj_var_name,
-                    current_graph_var_name
+                    graph_token(current_graph_var_name).as_str()
                 );
                 select_branches.push(format!("{{\n{}\n}}", branch));
             }
@@ -555,16 +657,20 @@ pub fn shape_type_to_sparql_select(
             // Combine catch-all with specific predicates of this nested shape inside its graph
             let joined_where_statements = new_where_statements.join(" .\n");
             let inner_union = if joined_where_statements.is_empty() {
-                format!("{{{}}}", catch_all)
+                format!("{{\n{}\n  }}", catch_all)
             } else {
                 format!(
-                    "{{{}}}    UNION {{\n    {}\n    }}",
-                    catch_all, joined_where_statements
+                    "{{\n{}\n  }} UNION {{\n{}\n  }}",
+                    catch_all,
+                    indent(&joined_where_statements, 2)
                 )
             };
             let nested_block = format!(
-                "  GRAPH ?{} {{\n    {}\n  }}",
-                current_graph_var_name, inner_union
+                "  # Nested shape <{}> constraints in graph {}\n  GRAPH {} {{\n    {}\n  }}",
+                shape.iri,
+                graph_token(current_graph_var_name).as_str(),
+                graph_token(current_graph_var_name).as_str(),
+                inner_union
             );
             visited_shapes.remove(&shape.iri);
             return vec![nested_block];
@@ -573,8 +679,11 @@ pub fn shape_type_to_sparql_select(
             if !new_where_statements.is_empty() {
                 let body = new_where_statements.join(" .\n");
                 where_statements.push(format!(
-                    "  GRAPH ?{} {{\n{}\n  }}",
-                    current_graph_var_name, body
+                    "  # Shape <{}> constraints in graph {}\n  GRAPH {} {{\n{}\n  }}",
+                    shape.iri,
+                    graph_token(current_graph_var_name).as_str(),
+                    graph_token(current_graph_var_name).as_str(),
+                    body
                 ));
             }
         }
@@ -600,6 +709,7 @@ pub fn shape_type_to_sparql_select(
         &mut var_counter,
         &mut visited_shapes,
         false,
+        limit_to_graph.as_deref(),
     );
 
     // Filter subjects, if present (applies to the root subject var)
@@ -609,21 +719,42 @@ pub fn shape_type_to_sparql_select(
             .map(|s| format!("<{}>", s))
             .collect::<Vec<_>>()
             .join(", ");
-        where_statements.push(format!("    FILTER(?v0 IN ({}))", subjects_str));
+        where_statements.push(format!(
+            "  # Root subject filter\n  FILTER(?v0 IN ({}))",
+            subjects_str
+        ));
     }
 
-    // Assemble final query
-    let mut where_parts: Vec<String> = Vec::new();
+    // Assemble final query body with a guided walkthrough as comments
+    let mut where_body = String::new();
     if !where_statements.is_empty() {
-        where_parts.push(where_statements.join(" .\n"));
+        where_body.push_str("  # 1) Shape constraints per layer (wrapped in GRAPH ?gN)\n");
+        where_body.push_str(&where_statements.join(" .\n"));
+        where_body.push_str("\n\n");
     }
     if !select_branches.is_empty() {
-        let union_body = select_branches.join(" UNION ");
-        where_parts.push(union_body);
+        where_body.push_str(
+            "  # 2) Output projection: one UNION branch per triple (binds ?s ?p ?o ?g)\n",
+        );
+        where_body.push_str(&select_branches.join(" UNION "));
+        where_body.push_str("\n");
     }
 
+    // Header comments providing context for the generated query
+    let header = if let Some(ref g) = limit_to_graph {
+        format!(
+            "# NextGraph ORM auto-generated SELECT over shape <{}>\n# Returns (?s ?p ?o) with per-layer graph binding (?g)\n# Limited to graph <{}>\n",
+            shape, g
+        )
+    } else {
+        format!(
+            "# NextGraph ORM auto-generated SELECT over shape <{}>\n# Returns (?s ?p ?o) with per-layer graph binding (?g)\n",
+            shape
+        )
+    };
+
     Ok(format!(
-        "SELECT DISTINCT ?s ?p ?o ?g\nWHERE {{\n{}\n}}",
-        where_parts.join(" .\n")
+        "{}SELECT DISTINCT ?s ?p ?o ?g\nWHERE {{\n{}\n}}",
+        header, where_body
     ))
 }

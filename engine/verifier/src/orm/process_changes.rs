@@ -357,6 +357,7 @@ impl Verifier {
                             &schema,
                             &shape_iri,
                             Some(objects_to_fetch),
+                            None,
                         )?;
                         let new_triples =
                             self.query_sparql_select(shape_query, Some(nuri_to_string(nuri)))?;

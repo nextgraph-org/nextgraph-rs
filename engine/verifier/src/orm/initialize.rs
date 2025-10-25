@@ -84,8 +84,12 @@ impl Verifier {
         shape_type: &OrmShapeType,
     ) -> Result<Value, NgError> {
         // Query triples for this shape
-        let shape_query = shape_type_to_sparql_select(&shape_type.schema, &shape_type.shape, None)?;
-        let shape_triples = self.query_sparql_select(shape_query, Some(nuri_to_string(nuri)))?;
+        let shape_triples = self.query_quads_for_shape_type(
+            Some(nuri_to_string(nuri)),
+            &shape_type.schema,
+            &shape_type.shape,
+            None,
+        )?;
 
         let changes: OrmChanges =
             self.apply_triple_changes(&shape_triples, &[], nuri, Some(session_id.clone()), true)?;
@@ -220,9 +224,15 @@ pub(crate) fn materialize_orm_object(
                 }
                 orm_obj_map.insert(property_name.clone(), Value::Object(nested_objects_map));
             } else {
-                if let Some(BasicType::Str(object_iri)) = pred_change.values_added.get(0) {
-                    if let Some(nested_orm_obj) = get_nested_orm_obj(object_iri) {
-                        orm_obj_map.insert(property_name.clone(), nested_orm_obj);
+                // Pick the first valid nested object among the added values.
+                // There may be multiple values (extras), but for single-cardinality
+                // predicates we materialize just one valid nested object.
+                for val in &pred_change.values_added {
+                    if let BasicType::Str(object_iri) = val {
+                        if let Some(nested_orm_obj) = get_nested_orm_obj(object_iri) {
+                            orm_obj_map.insert(property_name.clone(), nested_orm_obj);
+                            break;
+                        }
                     }
                 }
             }

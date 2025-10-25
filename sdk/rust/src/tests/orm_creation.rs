@@ -7,7 +7,9 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use crate::local_broker::{doc_create, doc_sparql_construct, doc_sparql_update, orm_start};
+use crate::local_broker::{
+    doc_create, doc_query_quads_for_shape_type, doc_sparql_update, get_broker, orm_start,
+};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{assert_json_eq, create_doc_with_data};
 use async_std::stream::StreamExt;
@@ -18,7 +20,7 @@ use ng_net::orm::{
 };
 
 use ng_repo::{log_debug, log_info};
-use ng_verifier::orm::query::shape_type_to_sparql_select;
+// use ng_verifier::orm::query::shape_type_to_sparql_select; // replaced by query_quads_for_shape_type
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -77,12 +79,16 @@ INSERT DATA {
         shape: "http://example.org/TestObject".to_string(),
     };
 
-    // Generate and execute the CONSTRUCT query
-    let query = shape_type_to_sparql_select(&shape_type.schema, &shape_type.shape, None).unwrap();
-
-    let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
-        .await
-        .expect("SPARQL construct failed");
+    // Query triples using the new helper
+    let triples = doc_query_quads_for_shape_type(
+        session_id,
+        Some(doc_nuri.clone()),
+        &shape_type.schema,
+        &shape_type.shape,
+        None,
+    )
+    .await
+    .expect("shape query failed");
 
     // Assert the results
     let predicates: Vec<String> = triples
@@ -181,10 +187,15 @@ INSERT DATA {
     };
 
     // Generate and run query
-    let query = shape_type_to_sparql_select(&shape_type.schema, &shape_type.shape, None).unwrap();
-    let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
-        .await
-        .unwrap();
+    let triples = doc_query_quads_for_shape_type(
+        session_id,
+        Some(doc_nuri.clone()),
+        &shape_type.schema,
+        &shape_type.shape,
+        None,
+    )
+    .await
+    .unwrap();
 
     // Assert: No triples should be returned as the object is incomplete.
     assert!(triples.is_empty());
@@ -244,10 +255,15 @@ INSERT DATA {
     };
 
     // Generate and run query
-    let query = shape_type_to_sparql_select(&shape_type.schema, &shape_type.shape, None).unwrap();
-    let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
-        .await
-        .unwrap();
+    let triples = doc_query_quads_for_shape_type(
+        session_id,
+        Some(doc_nuri.clone()),
+        &shape_type.schema,
+        &shape_type.shape,
+        None,
+    )
+    .await
+    .unwrap();
 
     // Assert: One triple for prop1 should be returned.
     assert_eq!(triples.len(), 1);
@@ -319,10 +335,15 @@ INSERT DATA {
     };
 
     // Generate and run query. This must not infinite loop.
-    let query = shape_type_to_sparql_select(&shape_type.schema, &shape_type.shape, None).unwrap();
-    let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
-        .await
-        .unwrap();
+    let triples = doc_query_quads_for_shape_type(
+        session_id,
+        Some(doc_nuri.clone()),
+        &shape_type.schema,
+        &shape_type.shape,
+        None,
+    )
+    .await
+    .unwrap();
 
     // Assert: All 6 triples (3 per person) should be returned.
     assert_eq!(triples.len(), 6);
