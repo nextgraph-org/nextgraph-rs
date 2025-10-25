@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use crate::orm::query::shape_type_to_sparql;
+use crate::orm::query::shape_type_to_sparql_select;
 use crate::orm::types::*;
 use crate::orm::utils::nuri_to_string;
 use crate::types::CancelFn;
@@ -84,8 +84,8 @@ impl Verifier {
         shape_type: &OrmShapeType,
     ) -> Result<Value, NgError> {
         // Query triples for this shape
-        let shape_query = shape_type_to_sparql(&shape_type.schema, &shape_type.shape, None)?;
-        let shape_triples = self.query_sparql_construct(shape_query, Some(nuri_to_string(nuri)))?;
+        let shape_query = shape_type_to_sparql_select(&shape_type.schema, &shape_type.shape, None)?;
+        let shape_triples = self.query_sparql_select(shape_query, Some(nuri_to_string(nuri)))?;
 
         let changes: OrmChanges =
             self.apply_triple_changes(&shape_triples, &[], nuri, Some(session_id.clone()), true)?;

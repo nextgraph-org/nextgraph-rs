@@ -18,11 +18,64 @@ use crate::orm::utils::{escape_literal, is_iri};
 use crate::verifier::*;
 use ng_net::orm::*;
 use ng_oxigraph::oxigraph::sparql::{Query, QueryResults};
-use ng_oxigraph::oxrdf::Triple;
+use ng_oxigraph::oxrdf::{NamedNode, Triple};
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
 
 impl Verifier {
+    pub fn query_sparql_select(
+        &self,
+        query: String,
+        nuri: Option<String>,
+    ) -> Result<Vec<Triple>, NgError> {
+        let oxistore = self.graph_dataset.as_ref().unwrap();
+
+        let nuri_str = nuri.as_ref().map(|s| s.as_str());
+        log_debug!("querying select\n{}\n{}\n", nuri_str.unwrap(), query);
+
+        let parsed =
+            Query::parse(&query, nuri_str).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+        let results = oxistore
+            .query(parsed, nuri)
+            .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+        match results {
+            QueryResults::Solutions(solutions) => {
+                let mut result_triples: HashSet<Triple> = HashSet::new();
+                for s in solutions {
+                    match s {
+                        Err(e) => {
+                            log_err!("{}", e.to_string());
+                            return Err(NgError::SparqlError(e.to_string()));
+                        }
+                        Ok(solution) => {
+                            let s = solution.get("s").unwrap();
+                            let p = solution.get("p").unwrap();
+                            let o = solution.get("o").unwrap();
+                            // let g = solution.get("g"); // Optional
+                            let triple = Triple {
+                                subject: match s {
+                                    ng_oxigraph::oxrdf::Term::NamedNode(n) => {
+                                        ng_oxigraph::oxrdf::Subject::NamedNode(n.clone())
+                                    }
+                                    _ => panic!("Expected NamedNode for subject"),
+                                },
+                                predicate: match p {
+                                    ng_oxigraph::oxrdf::Term::NamedNode(n) => n.clone(),
+                                    _ => panic!(),
+                                },
+                                object: o.clone(),
+                            };
+                            log_debug!("triple fetched: {:?}", triple);
+                            result_triples.insert(triple);
+                        }
+                    }
+                }
+                Ok(Vec::from_iter(result_triples))
+            }
+            _ => return Err(NgError::InvalidResponse),
+        }
+    }
+
     pub fn query_sparql_construct(
         &self,
         query: String,
@@ -92,7 +145,7 @@ pub fn literal_to_sparql_str(var: OrmSchemaDataType) -> Vec<String> {
     }
 }
 
-pub fn shape_type_to_sparql(
+pub fn shape_type_to_sparql_construct(
     schema: &OrmSchema,
     shape: &ShapeIri,
     filter_subjects: Option<Vec<String>>,
@@ -293,5 +346,284 @@ pub fn shape_type_to_sparql(
     Ok(format!(
         "CONSTRUCT {{\n{}\n}}\nWHERE {{\n{}\n}}",
         construct_body, where_body
+    ))
+}
+
+pub fn shape_type_to_sparql_select(
+    schema: &OrmSchema,
+    shape: &ShapeIri,
+    filter_subjects: Option<Vec<String>>,
+) -> Result<String, NgError> {
+    // Use a counter to generate unique variable names.
+    let mut var_counter = 0;
+    fn get_new_var_name(counter: &mut i32) -> String {
+        let name = format!("v{}", counter);
+        *counter += 1;
+        name
+    }
+    fn get_new_graph_var_name(counter: &mut i32) -> String {
+        let name = format!("g{}", counter);
+        *counter += 1;
+        name
+    }
+
+    // Collect SELECT branches (each produces bindings for ?s ?p ?o ?g) and shared WHERE constraints.
+    let mut select_branches: Vec<String> = Vec::new();
+    let mut where_statements: Vec<String> = Vec::new();
+
+    // Keep track of visited shapes while recursing to prevent infinite loops.
+    let mut visited_shapes: HashSet<ShapeIri> = HashSet::new();
+
+    // Recursive function to build constraints and output branches per shape layer.
+    // Returns nested WHERE blocks (already wrapped in appropriate GRAPH clauses) to be included at the parent scope.
+    fn process_shape(
+        schema: &OrmSchema,
+        shape: &OrmSchemaShape,
+        subject_var_name: &str,
+        current_graph_var_name: &str,
+        // If this shape is reached via a parent predicate, we pass the link to bind nested subject even when optional
+        link_from_parent: Option<(
+            &str, /* parent subj var */
+            &str, /* predicate IRI */
+            &str, /* parent graph var */
+            &str, /* this subj var */
+        )>,
+        select_branches: &mut Vec<String>,
+        where_statements: &mut Vec<String>,
+        var_counter: &mut i32,
+        visited_shapes: &mut HashSet<String>,
+        in_recursion: bool,
+    ) -> Vec<String> {
+        // Prevent infinite recursion on cyclic schemas.
+        // TODO: We could handle this as IRI string reference.
+        if visited_shapes.contains(&shape.iri) {
+            return vec![];
+        }
+
+        let mut new_where_statements: Vec<String> = vec![];
+
+        visited_shapes.insert(shape.iri.clone());
+
+        // Add statements for each predicate of the current shape layer.
+        for predicate in &shape.predicates {
+            let mut union_triples: Vec<String> = Vec::new();
+            let mut nested_where_blocks: Vec<String> = Vec::new();
+
+            // Traverse acceptable nested shapes, if any.
+            for datatype in &predicate.dataTypes {
+                if datatype.valType == OrmSchemaValType::shape {
+                    let shape_iri = &datatype.shape.clone().unwrap();
+                    let nested_shape = schema.get(shape_iri).unwrap();
+
+                    // Var for object at this branch
+                    let obj_var_name = get_new_var_name(var_counter);
+
+                    // This triple binds the nested subject for this branch (in current layer's graph)
+                    let triple = format!(
+                        "  ?{} <{}> ?{}",
+                        subject_var_name, predicate.iri, obj_var_name
+                    );
+                    union_triples.push(triple.clone());
+
+                    // Output branch for the parent link triple itself (belongs to current layer) when not in recursive catch-all
+                    if !in_recursion {
+                        let branch = format!(
+                            "  GRAPH ?{} {{\n{}\n  }}\n  BIND(?{} AS ?s)\n  BIND(<{}> AS ?p)\n  BIND(?{} AS ?o)\n  BIND(?{} AS ?g)",
+                            current_graph_var_name,
+                            triple,
+                            subject_var_name,
+                            predicate.iri,
+                            obj_var_name,
+                            current_graph_var_name
+                        );
+                        select_branches.push(format!("{{\n{}\n}}", branch));
+                    }
+
+                    // Recurse for nested shape: it has its own graph layer
+                    let nested_graph_var = get_new_graph_var_name(var_counter);
+                    let nested_blocks = process_shape(
+                        schema,
+                        nested_shape,
+                        &obj_var_name,
+                        &nested_graph_var,
+                        Some((
+                            subject_var_name,
+                            &predicate.iri,
+                            current_graph_var_name,
+                            &obj_var_name,
+                        )),
+                        select_branches,
+                        where_statements,
+                        var_counter,
+                        visited_shapes,
+                        true,
+                    );
+                    nested_where_blocks.extend(nested_blocks);
+                }
+            }
+
+            // Build the WHERE part for this predicate in the current layer
+            let where_body: String;
+            if !union_triples.is_empty() {
+                let union_body = union_triples
+                    .iter()
+                    .map(|b| format!("{{\n{}\n}}", b))
+                    .collect::<Vec<_>>()
+                    .join(" UNION ");
+
+                if !nested_where_blocks.is_empty() {
+                    let nested_joined = nested_where_blocks.join(" .\n");
+                    where_body = format!("{} .\n{}", union_body, nested_joined);
+                } else {
+                    where_body = union_body;
+                }
+            } else {
+                // Value predicate (non-shape)
+                let obj_var_name = get_new_var_name(var_counter);
+                let triple = format!(
+                    "  ?{} <{}> ?{}",
+                    subject_var_name, predicate.iri, obj_var_name
+                );
+                where_body = triple.clone();
+
+                // Output branch for this value triple in current graph layer
+                if !in_recursion {
+                    let branch = format!(
+                        "  GRAPH ?{} {{\n{}\n  }}\n  BIND(?{} AS ?s)\n  BIND(<{}> AS ?p)\n  BIND(?{} AS ?o)\n  BIND(?{} AS ?g)",
+                        current_graph_var_name,
+                        triple,
+                        subject_var_name,
+                        predicate.iri,
+                        obj_var_name,
+                        current_graph_var_name
+                    );
+                    select_branches.push(format!("{{\n{}\n}}", branch));
+                }
+            }
+
+            // Optional wrapper, if needed
+            if predicate.minCardinality < 1 {
+                new_where_statements.push(format!("  OPTIONAL {{\n{}\n  }}", where_body));
+            } else {
+                new_where_statements.push(where_body);
+            }
+        }
+
+        if in_recursion {
+            // In recursion, add a catch-all triple for this nested subject within its graph layer
+            let pred_var_name = get_new_var_name(var_counter);
+            let obj_var_name = get_new_var_name(var_counter);
+            let catch_all = format!(
+                "  ?{} ?{} ?{}",
+                subject_var_name, pred_var_name, obj_var_name
+            );
+
+            // Output branch for nested triples: include the parent link triple to bind nested subject even when optional
+            if let Some((parent_subj, parent_pred, parent_graph, this_subj)) = link_from_parent {
+                let parent_link = format!(
+                    "  GRAPH ?{} {{\n    ?{} <{}> ?{}\n  }}",
+                    parent_graph, parent_subj, parent_pred, this_subj
+                );
+                let nested_graph_block = format!(
+                    "  GRAPH ?{} {{\n{}\n  }}",
+                    current_graph_var_name, catch_all
+                );
+                let branch = format!(
+                    "{}\n{}\n  BIND(?{} AS ?s)\n  BIND(?{} AS ?p)\n  BIND(?{} AS ?o)\n  BIND(?{} AS ?g)",
+                    parent_link,
+                    nested_graph_block,
+                    subject_var_name,
+                    pred_var_name,
+                    obj_var_name,
+                    current_graph_var_name
+                );
+                select_branches.push(format!("{{\n{}\n}}", branch));
+            } else {
+                // Fallback: no explicit parent link (shouldn't happen for nested shapes), still output within graph
+                let branch = format!(
+                    "  GRAPH ?{} {{\n{}\n  }}\n  BIND(?{} AS ?s)\n  BIND(?{} AS ?p)\n  BIND(?{} AS ?o)\n  BIND(?{} AS ?g)",
+                    current_graph_var_name,
+                    catch_all,
+                    subject_var_name,
+                    pred_var_name,
+                    obj_var_name,
+                    current_graph_var_name
+                );
+                select_branches.push(format!("{{\n{}\n}}", branch));
+            }
+
+            // Combine catch-all with specific predicates of this nested shape inside its graph
+            let joined_where_statements = new_where_statements.join(" .\n");
+            let inner_union = if joined_where_statements.is_empty() {
+                format!("{{{}}}", catch_all)
+            } else {
+                format!(
+                    "{{{}}}    UNION {{\n    {}\n    }}",
+                    catch_all, joined_where_statements
+                )
+            };
+            let nested_block = format!(
+                "  GRAPH ?{} {{\n    {}\n  }}",
+                current_graph_var_name, inner_union
+            );
+            visited_shapes.remove(&shape.iri);
+            return vec![nested_block];
+        } else {
+            // Add current layer constraints wrapped in its graph
+            if !new_where_statements.is_empty() {
+                let body = new_where_statements.join(" .\n");
+                where_statements.push(format!(
+                    "  GRAPH ?{} {{\n{}\n  }}",
+                    current_graph_var_name, body
+                ));
+            }
+        }
+
+        visited_shapes.remove(&shape.iri);
+        vec![]
+    }
+
+    let root_shape = schema.get(shape).ok_or(VerifierError::InvalidOrmSchema)?;
+
+    // Root subject and graph variable names
+    let root_var_name = get_new_var_name(&mut var_counter);
+    let root_graph_var = get_new_graph_var_name(&mut var_counter);
+
+    process_shape(
+        schema,
+        root_shape,
+        &root_var_name,
+        &root_graph_var,
+        None,
+        &mut select_branches,
+        &mut where_statements,
+        &mut var_counter,
+        &mut visited_shapes,
+        false,
+    );
+
+    // Filter subjects, if present (applies to the root subject var)
+    if let Some(subjects) = filter_subjects {
+        let subjects_str = subjects
+            .iter()
+            .map(|s| format!("<{}>", s))
+            .collect::<Vec<_>>()
+            .join(", ");
+        where_statements.push(format!("    FILTER(?v0 IN ({}))", subjects_str));
+    }
+
+    // Assemble final query
+    let mut where_parts: Vec<String> = Vec::new();
+    if !where_statements.is_empty() {
+        where_parts.push(where_statements.join(" .\n"));
+    }
+    if !select_branches.is_empty() {
+        let union_body = select_branches.join(" UNION ");
+        where_parts.push(union_body);
+    }
+
+    Ok(format!(
+        "SELECT DISTINCT ?s ?p ?o ?g\nWHERE {{\n{}\n}}",
+        where_parts.join(" .\n")
     ))
 }

@@ -17,8 +17,8 @@ use ng_net::orm::{
     OrmShapeType,
 };
 
-use ng_repo::log_info;
-use ng_verifier::orm::query::shape_type_to_sparql;
+use ng_repo::{log_debug, log_info};
+use ng_verifier::orm::query::shape_type_to_sparql_select;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -78,7 +78,7 @@ INSERT DATA {
     };
 
     // Generate and execute the CONSTRUCT query
-    let query = shape_type_to_sparql(&shape_type.schema, &shape_type.shape, None).unwrap();
+    let query = shape_type_to_sparql_select(&shape_type.schema, &shape_type.shape, None).unwrap();
 
     let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
         .await
@@ -181,7 +181,7 @@ INSERT DATA {
     };
 
     // Generate and run query
-    let query = shape_type_to_sparql(&shape_type.schema, &shape_type.shape, None).unwrap();
+    let query = shape_type_to_sparql_select(&shape_type.schema, &shape_type.shape, None).unwrap();
     let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
         .await
         .unwrap();
@@ -244,7 +244,7 @@ INSERT DATA {
     };
 
     // Generate and run query
-    let query = shape_type_to_sparql(&shape_type.schema, &shape_type.shape, None).unwrap();
+    let query = shape_type_to_sparql_select(&shape_type.schema, &shape_type.shape, None).unwrap();
     let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
         .await
         .unwrap();
@@ -319,7 +319,7 @@ INSERT DATA {
     };
 
     // Generate and run query. This must not infinite loop.
-    let query = shape_type_to_sparql(&shape_type.schema, &shape_type.shape, None).unwrap();
+    let query = shape_type_to_sparql_select(&shape_type.schema, &shape_type.shape, None).unwrap();
     let triples = doc_sparql_construct(session_id, query, Some(doc_nuri.clone()))
         .await
         .unwrap();
@@ -619,6 +619,7 @@ INSERT DATA {
         ]);
 
         let mut actual_mut = orm_json.clone();
+        log_info!("actual data for orm_root_array:\n{:?}", actual_mut);
         assert_json_eq(&mut expected, &mut actual_mut);
 
         break;
