@@ -17,18 +17,21 @@ type NeedsFetchBool = bool;
 impl Verifier {
     /// Check the validity of a subject and update affecting tracked subjects' validity.
     /// Might return nested objects that need to be validated.
-    /// Assumes all triples to be of same subject.
+    /// Assumes all quads to have same subject and graph.
     pub fn update_subject_validity(
-        s_change: &mut OrmTrackedSubjectChange,
+        s_change: &mut TrackedOrmObjectChange,
         shape: &OrmSchemaShape,
         orm_subscription: &mut OrmSubscription,
     ) -> Vec<(SubjectIri, ShapeIri, NeedsFetchBool)> {
-        let tracked_subjects = &mut orm_subscription.tracked_subjects;
-
-        let Some(tracked_shapes) = tracked_subjects.get(&s_change.subject_iri) else {
-            return vec![];
-        };
-        let Some(tracked_subject) = tracked_shapes.get(&shape.iri) else {
+        let subject_iri = s_change
+            .tracked_orm_object
+            .read()
+            .unwrap()
+            .subject_iri
+            .clone();
+        let Some(tracked_subject) = orm_subscription
+            .get_tracked_object_any_graph(&subject_iri, &shape.iri)
+        else {
             return vec![];
         };
         let mut tracked_subject = tracked_subject.write().unwrap();
@@ -40,13 +43,13 @@ impl Verifier {
         log_debug!(
             "[Validation] for shape {} and subject {}",
             shape.iri,
-            s_change.subject_iri
+            subject_iri
         );
 
         // Check 1) Check if this object is untracked and we need to remove children and ourselves.
-        if previous_validity == OrmTrackedSubjectValidity::Untracked
+        if previous_validity == TrackedOrmObjectValidity::Untracked
         //   If .valid is pending, this part was executed before in this validation round.
-            && tracked_subject.valid != OrmTrackedSubjectValidity::Pending
+            && tracked_subject.valid != TrackedOrmObjectValidity::Pending
         {
             // 1.1) Schedule children for deletion
             // 1.1.1) Set all children to `untracked` that don't have other parents.
@@ -59,7 +62,7 @@ impl Verifier {
                                 .parents
                                 .contains_key(&tracked_subject.subject_iri))
                     {
-                        tracked_child.valid = OrmTrackedSubjectValidity::Untracked;
+                        tracked_child.valid = TrackedOrmObjectValidity::Untracked;
                     }
                 }
             }
@@ -81,7 +84,7 @@ impl Verifier {
                 // Drop the guard to release the immutable borrow
                 drop(tracked_subject);
 
-                tracked_subjects.remove(&s_change.subject_iri);
+                orm_subscription.remove_subject_everywhere(&subject_iri);
             }
 
             return need_evaluation;
@@ -92,13 +95,10 @@ impl Verifier {
             return vec![];
         }
 
-        let mut new_validity = OrmTrackedSubjectValidity::Valid;
-        fn set_validity(
-            current: &mut OrmTrackedSubjectValidity,
-            new_val: OrmTrackedSubjectValidity,
-        ) {
-            if new_val == OrmTrackedSubjectValidity::Invalid {
-                *current = OrmTrackedSubjectValidity::Invalid;
+        let mut new_validity = TrackedOrmObjectValidity::Valid;
+        fn set_validity(current: &mut TrackedOrmObjectValidity, new_val: TrackedOrmObjectValidity) {
+            if new_val == TrackedOrmObjectValidity::Invalid {
+                *current = TrackedOrmObjectValidity::Invalid;
             } else {
                 *current = new_val;
             }
@@ -126,7 +126,7 @@ impl Verifier {
                     shape.iri,
                     p_change
                 );
-                set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
+                set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                 if count <= 0 {
                     // If cardinality is 0, we can remove the tracked predicate.
                     // Drop the guard to release the immutable borrow
@@ -148,7 +148,7 @@ impl Verifier {
                     p_change
                 );
                 // If cardinality is too high and no extra allowed, invalid.
-                set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
+                set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                 break;
             // Check 3.3) Required literals present.
             } else if p_schema
@@ -191,7 +191,7 @@ impl Verifier {
                         shape.iri,
                         p_change
                     );
-                    set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
+                    set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                     break;
                 }
             // Check 3.4) Nested shape correct.
@@ -213,13 +213,13 @@ impl Verifier {
                     children
                         .iter()
                         .map(|tc| {
-                            if tc.valid == OrmTrackedSubjectValidity::Valid {
+                            if tc.valid == TrackedOrmObjectValidity::Valid {
                                 (1, 0, 0, 0)
-                            } else if tc.valid == OrmTrackedSubjectValidity::Invalid {
+                            } else if tc.valid == TrackedOrmObjectValidity::Invalid {
                                 (0, 1, 0, 0)
-                            } else if tc.valid == OrmTrackedSubjectValidity::Pending {
+                            } else if tc.valid == TrackedOrmObjectValidity::Pending {
                                 (0, 0, 1, 0)
-                            } else if tc.valid == OrmTrackedSubjectValidity::Untracked {
+                            } else if tc.valid == TrackedOrmObjectValidity::Untracked {
                                 (0, 0, 0, 1)
                             } else {
                                 (0, 0, 0, 0)
@@ -241,7 +241,7 @@ impl Verifier {
                     );
                     // If we have at least one invalid nested object
                     // and no extra (in this case this means invalid) allowed, invalid.
-                    set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
+                    set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                     break;
                 } else if counts.0 > p_schema.maxCardinality && p_schema.maxCardinality != -1 {
                     log_debug!(
@@ -251,7 +251,7 @@ impl Verifier {
                         p_change
                     );
                     // If there are more valid children than what's allowed, break.
-                    set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
+                    set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                     break;
                 } else if counts.0 + counts.2 + counts.3 < p_schema.minCardinality {
                     log_debug!(
@@ -263,22 +263,22 @@ impl Verifier {
                         p_change
                     );
                     // If we don't have enough nested objects, invalid.
-                    set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
+                    set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                     break;
                 } else if counts.3 > 0 {
                     // If we have untracked nested objects, we need to fetch them and validate.
 
                     // Set our own validity to pending and add it to need_evaluation for later.
-                    set_validity(&mut new_validity, OrmTrackedSubjectValidity::Pending);
+                    set_validity(&mut new_validity, TrackedOrmObjectValidity::Pending);
                     need_evaluation.push((
-                        s_change.subject_iri.to_string(),
+                        subject_iri.clone(),
                         shape.iri.clone(),
                         false,
                     ));
                     // Schedule untracked children for fetching and validation.
                     tracked_children.as_ref().map(|children| {
                         for child in children {
-                            if child.valid == OrmTrackedSubjectValidity::Untracked {
+                            if child.valid == TrackedOrmObjectValidity::Untracked {
                                 need_evaluation.push((
                                     child.subject_iri.clone(),
                                     child.shape.iri.clone(),
@@ -289,11 +289,11 @@ impl Verifier {
                     });
                 } else if counts.2 > 0 {
                     // If we have pending children, we need to wait for their evaluation.
-                    set_validity(&mut new_validity, OrmTrackedSubjectValidity::Pending);
+                    set_validity(&mut new_validity, TrackedOrmObjectValidity::Pending);
                     // Schedule pending children for re-evaluation without fetch.
                     tracked_children.as_ref().map(|children| {
                         for child in children {
-                            if child.valid == OrmTrackedSubjectValidity::Pending {
+                            if child.valid == TrackedOrmObjectValidity::Pending {
                                 need_evaluation.push((
                                     child.subject_iri.clone(),
                                     child.shape.iri.clone(),
@@ -333,12 +333,12 @@ impl Verifier {
                             shape.iri,
                             p_change
                         );
-                        set_validity(&mut new_validity, OrmTrackedSubjectValidity::Invalid);
+                        set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                         break;
                     }
                 }
                 // Break again if validity has become invalid.
-                if new_validity == OrmTrackedSubjectValidity::Invalid {
+                if new_validity == TrackedOrmObjectValidity::Invalid {
                     break;
                 }
             };
@@ -349,16 +349,16 @@ impl Verifier {
         tracked_subject.valid = new_validity.clone();
 
         // First, if we have a definite decision, we set is_validated to true.
-        if new_validity != OrmTrackedSubjectValidity::Pending {
+        if new_validity != TrackedOrmObjectValidity::Pending {
             s_change.is_validated = true;
         }
 
-        if new_validity == OrmTrackedSubjectValidity::Invalid {
+        if new_validity == TrackedOrmObjectValidity::Invalid {
             // For invalid subjects, we schedule cleanup.
             if tracked_subject.parents.len() == 0 {
-                tracked_subject.valid = OrmTrackedSubjectValidity::Invalid;
+                tracked_subject.valid = TrackedOrmObjectValidity::Invalid;
             } else {
-                tracked_subject.valid = OrmTrackedSubjectValidity::ToDelete;
+                tracked_subject.valid = TrackedOrmObjectValidity::ToDelete;
             }
 
             // Add all children to need_evaluation for their cleanup.
@@ -372,12 +372,12 @@ impl Verifier {
                     ));
                 }
             }
-        } else if new_validity == OrmTrackedSubjectValidity::Valid
-            && previous_validity != OrmTrackedSubjectValidity::Valid
+        } else if new_validity == TrackedOrmObjectValidity::Valid
+            && previous_validity != TrackedOrmObjectValidity::Valid
         {
             // If this subject became valid, we need to refetch this subject.
             // If the data has already been fetched, the parent function will prevent the refetch.
-            need_evaluation.insert(0, (s_change.subject_iri.clone(), shape.iri.clone(), true));
+            need_evaluation.insert(0, (subject_iri.clone(), shape.iri.clone(), true));
         }
 
         // If validity changed, parents need to be re-evaluated.

@@ -21,17 +21,17 @@ use crate::orm::OrmChanges;
 use crate::types::*;
 use crate::verifier::*;
 use ng_net::types::OverlayLink;
-use ng_oxigraph::oxrdf::Triple;
 use ng_repo::types::OverlayId;
 use ng_repo::types::RepoId;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::sync::RwLock;
+// use std::sync::RwLock;
 
 impl Verifier {
-    /// Generate and send JSON patches from GraphQuadsPatch (quad inserts and removes) to JS-land.
+    /// Applies quad patches and
+    /// generates and sends JSON patches to JS-land.
     pub(crate) async fn orm_backend_update(
         &mut self,
         session_id: u64,
@@ -45,33 +45,12 @@ impl Verifier {
         // That updates the tracked subjects, validates them, and returns a set of changes structured
         // by the respective schema.
 
-        let triple_inserts: Vec<Triple> = patch
-            .inserts
-            .iter()
-            .map(|quad| {
-                Triple::new(
-                    quad.subject.clone(),
-                    quad.predicate.clone(),
-                    quad.object.clone(),
-                )
-            })
-            .collect();
-        let triple_removes: Vec<Triple> = patch
-            .removes
-            .iter()
-            .map(|quad| {
-                Triple::new(
-                    quad.subject.clone(),
-                    quad.predicate.clone(),
-                    quad.object.clone(),
-                )
-            })
-            .collect();
-
+        let inserts = patch.inserts;
+        let removes = patch.removes;
         log_info!(
             "[orm_backend_update] called with #adds, #removes: {}, {}",
-            triple_inserts.len(),
-            triple_removes.len()
+            inserts.len(),
+            removes.len()
         );
 
         log_info!(
@@ -79,29 +58,34 @@ impl Verifier {
             self.orm_subscriptions.len()
         );
 
-        let mut scopes = vec![];
-        for (scope, subs) in self.orm_subscriptions.iter_mut() {
-            // Remove old subscriptions
+        // Apply changes to all orm subscriptions (and their tracked subjects).
+        // In this first loop, collect all shapes that are being tracked.
+        let mut scopes: Vec<(String, Vec<(Arc<OrmSchemaShape>, Vec<Arc<OrmSchemaShape>>)>)> = vec![];
+        for (scope_str, subs) in self.orm_subscriptions.iter_mut() {
+            // First: Clean up and remove old subscriptions
             let initial_sub_count = subs.len();
             subs.retain(|sub| !sub.sender.is_closed());
             let retained_sub_count = subs.len();
             log_info!(
                 "[orm_backend_update] Scope {:?}: {} subs ({} retained after cleanup)",
-                scope,
+                scope_str,
                 initial_sub_count,
                 retained_sub_count
             );
 
-            if !(scope.target == NuriTargetV0::UserSite
-                || scope
+            // Do not process scopes that are not affected by this backend update.
+            // Build a NuriV0 from the scope_str to compare scope
+            let scope_nuri = NuriV0::new_from(scope_str).unwrap_or_else(|_| NuriV0::new_empty());
+            if !(scope_nuri.target == NuriTargetV0::UserSite
+                || scope_nuri
                     .overlay
                     .as_ref()
                     .map_or(false, |ol| overlaylink == *ol)
-                || scope.target == NuriTargetV0::Repo(repo_id))
+                || scope_nuri.target == NuriTargetV0::Repo(repo_id))
             {
                 log_info!(
                     "[orm_backend_update] SKIPPING scope {:?} - does not match repo_id={:?} or overlay={:?}",
-                    scope,
+                    scope_str,
                     repo_id,
                     overlay_id
                 );
@@ -110,25 +94,25 @@ impl Verifier {
 
             log_info!(
                 "[orm_backend_update] PROCESSING scope {:?} - matches criteria",
-                scope
+                scope_str
             );
 
-            // prepare to apply updates to tracked subjects and record the changes.
-            let root_shapes_and_tracked_shapes = subs
+            // Prepare to apply updates to tracked subjects and record the changes.
+            let root_shapes_and_tracked_shapes: Vec<(Arc<OrmSchemaShape>, Vec<Arc<OrmSchemaShape>>)> = subs
                 .iter()
                 .map(|sub| {
-                    (
-                        sub.shape_type
-                            .schema
-                            .get(&sub.shape_type.shape)
-                            .unwrap()
-                            .clone(),
-                        shapes_in_tracked_subjects(&sub.tracked_subjects),
-                    )
+                    let root_shape = sub
+                        .shape_type
+                        .schema
+                        .get(&sub.shape_type.shape)
+                        .unwrap()
+                        .clone();
+                    let tracked_shapes = shapes_in_tracked_subjects(sub);
+                    (root_shape, tracked_shapes)
                 })
                 .collect::<Vec<_>>();
 
-            scopes.push((scope.clone(), root_shapes_and_tracked_shapes));
+            scopes.push((scope_str.clone(), root_shapes_and_tracked_shapes));
         }
 
         log_debug!(
@@ -137,17 +121,17 @@ impl Verifier {
         );
 
         if scopes.is_empty() {
-            log_info!("[orm_backend_update] NO SCOPES MATCHED - returning early without patches");
             return;
         }
 
-        for (scope, shapes_zip) in scopes {
+        // Iterate over all scopes again to apply changes to all tracked subjects.
+    for (scope_str, shapes_zip) in scopes {
             let mut orm_changes: OrmChanges = HashMap::new();
 
             log_info!(
-                "[orm_backend_update] Processing scope {:?} with {} shape types",
-                scope,
-                shapes_zip.len()
+        "[orm_backend_update] Applying changes for scope {} with {} shape entries",
+        scope_str,
+        shapes_zip.len()
             );
 
             // Apply the changes to tracked subjects.
@@ -158,8 +142,12 @@ impl Verifier {
                     shape_iri,
                     session_id
                 );
+
+                //
+                // The actual work is done here:
+                //
                 let _ = self.process_changes_for_shape_and_session(
-                    &scope,
+                    &NuriV0::new_from(&scope_str).unwrap_or_else(|_| NuriV0::new_empty()),
                     &shape_iri,
                     if all_tracked_shapes.len() > 0 {
                         all_tracked_shapes
@@ -168,8 +156,8 @@ impl Verifier {
                         vec![root_shape_arc]
                     },
                     session_id,
-                    &triple_inserts,
-                    &triple_removes,
+                    &inserts,
+                    &removes,
                     &mut orm_changes,
                     false,
                 );
@@ -179,6 +167,7 @@ impl Verifier {
                 );
             }
 
+            // Just logs below.
             log_info!(
                 "[orm_backend_update] Total orm_changes for scope: {} shapes with changes",
                 orm_changes.len()
@@ -191,12 +180,16 @@ impl Verifier {
                 );
             }
 
-            let subs = self.orm_subscriptions.get_mut(&scope).unwrap();
+            let subs = self.orm_subscriptions.get_mut(&scope_str).unwrap();
             log_info!(
                 "[orm_backend_update] Processing {} subscriptions for this scope",
                 subs.len()
             );
 
+            //
+            // Construct patches from the changes generated while applying the triples.
+            // TODO: This should be a separate function.
+            //
             for sub in subs.iter_mut() {
                 log_debug!(
                     "Applying changes to subscription with nuri {} and shape {}",
@@ -207,7 +200,7 @@ impl Verifier {
                 // The JSON patches to send to JS land.
                 let mut patches: Vec<OrmPatch> = vec![];
 
-                // Keep track of objects to create: (path, Option<IRI>)
+                // Keep track of object patches to create: (path, Option<IRI>)
                 // The IRI is Some for real subjects, None for intermediate objects (e.g., multi-valued predicate containers)
                 let mut objects_to_create: HashSet<(Vec<String>, Option<SubjectIri>)> =
                     HashSet::new();
@@ -216,7 +209,7 @@ impl Verifier {
                 // For each change that has a subject tracked in this subscription,
                 //   - Get change operation (calling diff_op_from_pred_change).
                 //      - case not object, single --> either add or remove (must be one of each at max)
-                //      - case not object, multi  --> just add and or set patch
+                        // removed stray line from previous broken edit
                 //      - case object, multi --> create object patch + nested object patch (will be handled when recursing paths to add primitive values)
                 //      - case object, single --> just object patch (will be handled when recursing paths to add primitive values)
                 //   - Add patches for each change operation for the path of the change in the schema.
@@ -227,7 +220,7 @@ impl Verifier {
                 //   are valid or invalid. The first valid (subject, shape) pair must used for materialization.
                 //     - if a higher-priority shape became invalid but a lower priority shape is valid, delete and new add.
                 //     - if a higher-priority shape became valid, delete and add new valid.
-                //   Problem: We might not have the triples present to materialize the newly valid object so we need to fetch them.
+                //   Problem: We might not have the quads present to materialize the newly valid object so we need to fetch them.
 
                 // Process changes for this subscription
                 // Iterate over all changes and create patches
@@ -236,6 +229,7 @@ impl Verifier {
                     orm_changes.len()
                 );
 
+                // Iterate over each change object
                 for (shape_iri, subject_changes) in &orm_changes {
                     log_info!(
                         "[orm_backend_update] Processing shape {}: {} subject changes",
@@ -251,11 +245,8 @@ impl Verifier {
                             change.predicates.len()
                         );
                         // Get the tracked subject for this (subject, shape) pair
-                        let Some(tracked_subject) = sub
-                            .tracked_subjects
-                            .get(subject_iri)
-                            .and_then(|shapes| shapes.get(shape_iri))
-                            .map(|ts| ts.read().unwrap())
+                        let Some(tracked_subject_arc) =
+                            sub.get_tracked_object_any_graph(subject_iri, shape_iri)
                         else {
                             // We might not be tracking this subject x shape combination. Then, there is nothing to do.
                             log_info!(
@@ -265,6 +256,7 @@ impl Verifier {
                             );
                             continue;
                         };
+                        let tracked_subject = tracked_subject_arc.read().unwrap();
 
                         log_debug!(
                             "  - Validity check: prev_valid={:?}, valid={:?}",
@@ -274,8 +266,8 @@ impl Verifier {
 
                         // Now we have the tracked predicate (containing the shape) and the change.
                         // Check validity changes
-                        if change.prev_valid == OrmTrackedSubjectValidity::Invalid
-                            && tracked_subject.valid == OrmTrackedSubjectValidity::Invalid
+                        if change.prev_valid == TrackedOrmObjectValidity::Invalid
+                            && tracked_subject.valid == TrackedOrmObjectValidity::Invalid
                         {
                             // Is the subject invalid and was it before? There is nothing we need to inform about.
                             log_info!(
@@ -283,8 +275,8 @@ impl Verifier {
                                 subject_iri
                             );
                             continue;
-                        } else if change.prev_valid == OrmTrackedSubjectValidity::Valid
-                            && tracked_subject.valid != OrmTrackedSubjectValidity::Valid
+                        } else if change.prev_valid == TrackedOrmObjectValidity::Valid
+                            && tracked_subject.valid != TrackedOrmObjectValidity::Valid
                         {
                             log_info!(
                                 "[orm_backend_update] Subject {} became invalid or untracked (prev={:?}, now={:?})",
@@ -299,7 +291,7 @@ impl Verifier {
                             let has_parent_being_deleted =
                                 tracked_subject.parents.values().any(|parent_arc| {
                                     let parent_ts = parent_arc.read().unwrap();
-                                    parent_ts.valid == OrmTrackedSubjectValidity::ToDelete
+                                    parent_ts.valid == TrackedOrmObjectValidity::ToDelete
                                 });
 
                             log_info!(
@@ -314,7 +306,6 @@ impl Verifier {
 
                                 build_path_to_root_and_create_patches(
                                     &tracked_subject,
-                                    &sub.tracked_subjects,
                                     &sub.shape_type.shape,
                                     &mut path,
                                     (OrmPatchOp::remove, Some(OrmPatchType::object), None, None),
@@ -364,7 +355,6 @@ impl Verifier {
                                     // Start recursion from this tracked subject
                                     build_path_to_root_and_create_patches(
                                         &tracked_subject,
-                                        &sub.tracked_subjects,
                                         &sub.shape_type.shape,
                                         &mut path,
                                         diff_op,
@@ -444,12 +434,12 @@ impl Verifier {
                 log_info!("[orm_backend_update] Patches sent successfully");
 
                 // Cleanup (remove tracked subjects to be deleted).
-                Verifier::cleanup_tracked_subjects(sub);
+                sub.cleanup_tracked_subjects();
             }
 
             log_info!(
                 "[orm_backend_update] Finished processing all subscriptions for scope {:?}",
-                scope
+                scope_str
             );
         }
 
@@ -460,8 +450,7 @@ impl Verifier {
 /// Queue patches for a newly valid tracked subject.
 /// This handles creating object patches and id field patches for subjects that have become valid.
 fn queue_objects_to_create(
-    current_ts: &OrmTrackedSubject,
-    tracked_subjects: &HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
+    current_ts: &TrackedOrmObject,
     root_shape: &String,
     path: &[String],
     objects_to_create: &mut HashSet<(Vec<String>, Option<SubjectIri>)>,
@@ -498,7 +487,6 @@ fn queue_objects_to_create(
                 // Recurse to the parent first
                 queue_objects_to_create(
                     &parent_ts,
-                    tracked_subjects,
                     root_shape,
                     &new_path,
                     objects_to_create,
@@ -516,8 +504,8 @@ fn queue_objects_to_create(
 /// Check if we should create an intermediate object for a multi-valued predicate.
 /// Returns true if the parent's predicate is multi-valued and no siblings were previously valid.
 fn check_should_create_parent_predicate_object(
-    tracked_subject: &OrmTrackedSubject,
-    parent_ts: &OrmTrackedSubject,
+    tracked_subject: &TrackedOrmObject,
+    parent_ts: &TrackedOrmObject,
     orm_changes: &OrmChanges,
 ) -> bool {
     // Find the predicate schema linking parent to this subject
@@ -548,9 +536,9 @@ fn check_should_create_parent_predicate_object(
                             .get(&child_read.shape.iri)
                             .and_then(|subjects| subjects.get(&child_read.subject_iri))
                             .map(|change| &change.prev_valid)
-                            .unwrap_or(&OrmTrackedSubjectValidity::Valid);
+                            .unwrap_or(&TrackedOrmObjectValidity::Valid);
 
-                        *prev_valid == OrmTrackedSubjectValidity::Valid
+                        *prev_valid == TrackedOrmObjectValidity::Valid
                     });
 
                     return !any_sibling_was_valid;
@@ -566,8 +554,8 @@ fn check_should_create_parent_predicate_object(
 /// Find the predicate schema linking a parent to a child tracked subject and build the path segment.
 /// Returns the updated path if a linking predicate is found.
 fn build_path_segment_for_parent(
-    tracked_subject: &OrmTrackedSubject,
-    parent_ts: &OrmTrackedSubject,
+    tracked_subject: &TrackedOrmObject,
+    parent_ts: &TrackedOrmObject,
     base_path: &[String],
 ) -> Option<Vec<String>> {
     // Find the predicate schema linking parent to this tracked subject
@@ -607,8 +595,7 @@ fn build_path_segment_for_parent(
 /// The function recurses from child to parents down to a root tracked subject.
 /// If multiple parents exist, it adds separate patches for each.
 fn build_path_to_root_and_create_patches(
-    tracked_subject: &OrmTrackedSubject,
-    tracked_subjects: &HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
+    tracked_subject: &TrackedOrmObject,
     root_shape: &String,
     path: &mut Vec<String>,
     diff_op: (
@@ -619,7 +606,7 @@ fn build_path_to_root_and_create_patches(
     ),
     patches: &mut Vec<OrmPatch>,
     objects_to_create: &mut HashSet<(Vec<String>, Option<SubjectIri>)>,
-    prev_valid: &OrmTrackedSubjectValidity,
+    prev_valid: &TrackedOrmObjectValidity,
     orm_changes: &OrmChanges,
     child_iri: &String,
 ) {
@@ -633,7 +620,7 @@ fn build_path_to_root_and_create_patches(
     // If the tracked subject is not valid, we don't create patches for it
     // EXCEPT when we're removing the object itself (indicated by op == remove and valType == object)
     let is_delete_op = diff_op.0 == OrmPatchOp::remove && diff_op.1 == Some(OrmPatchType::object);
-    if tracked_subject.valid != OrmTrackedSubjectValidity::Valid && !is_delete_op {
+    if tracked_subject.valid != TrackedOrmObjectValidity::Valid && !is_delete_op {
         return;
     }
 
@@ -664,12 +651,11 @@ fn build_path_to_root_and_create_patches(
         });
 
         // If the subject is newly valid, now we have the full path to queue its creation.
-        if *prev_valid != OrmTrackedSubjectValidity::Valid {
+        if *prev_valid != TrackedOrmObjectValidity::Valid {
             let mut final_path = vec![tracked_subject.subject_iri.clone()];
             final_path.extend_from_slice(path);
             queue_objects_to_create(
                 tracked_subject,
-                tracked_subjects,
                 root_shape,
                 &final_path,
                 objects_to_create,
@@ -691,7 +677,6 @@ fn build_path_to_root_and_create_patches(
             // Recurse to the parent
             build_path_to_root_and_create_patches(
                 &parent_ts,
-                tracked_subjects,
                 root_shape,
                 &mut new_path,
                 diff_op.clone(),
@@ -714,7 +699,7 @@ fn build_path_to_root_and_create_patches(
 /// Create diff operations from a predicate change.
 /// Returns a list of (op_type, value_type, value, iri) tuples.
 fn create_diff_ops_from_predicate_change(
-    pred_change: &OrmTrackedPredicateChanges,
+    pred_change: &TrackedOrmPredicateChanges,
 ) -> Vec<(
     OrmPatchOp,
     Option<OrmPatchType>,
@@ -806,14 +791,6 @@ fn create_diff_ops_from_predicate_change(
     return ops;
 }
 
-fn shapes_in_tracked_subjects(
-    tracked_subjects: &HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
-) -> Vec<Arc<OrmSchemaShape>> {
-    let mut shapes = vec![];
-    for (_subject_iri, tss) in tracked_subjects.iter() {
-        for (_shape_iri, ts) in tss.iter() {
-            shapes.push(ts.read().unwrap().shape.clone());
-        }
-    }
-    shapes
+fn shapes_in_tracked_subjects(sub: &OrmSubscription) -> Vec<Arc<OrmSchemaShape>> {
+    sub.shapes_being_tracked()
 }

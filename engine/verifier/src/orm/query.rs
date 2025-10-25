@@ -18,7 +18,7 @@ use crate::orm::utils::{escape_literal, is_iri};
 use crate::verifier::*;
 use ng_net::orm::*;
 use ng_oxigraph::oxigraph::sparql::{Query, QueryResults};
-use ng_oxigraph::oxrdf::{NamedNode, Triple};
+use ng_oxigraph::oxrdf::{NamedNode, Quad, Term, Triple};
 use ng_repo::errors::NgError;
 use ng_repo::log::*;
 
@@ -29,7 +29,7 @@ impl Verifier {
         schema: &OrmSchema,
         shape: &ShapeIri,
         filter_subjects: Option<Vec<String>>,
-    ) -> Result<Vec<Triple>, NgError> {
+    ) -> Result<Vec<Quad>, NgError> {
         // If nuri is present and it is not the whole graph (did:ng:i), use limit_to_graph.
         let limit_to_graph = match nuri {
             Some(nuri) => {
@@ -48,11 +48,13 @@ impl Verifier {
         return self.query_sparql_select(select_query, None);
     }
 
+    /// Expects the select to have return 4 variables only: s, p, o, g
+    /// Returns quads
     pub fn query_sparql_select(
         &self,
         query: String,
         nuri: Option<String>,
-    ) -> Result<Vec<Triple>, NgError> {
+    ) -> Result<Vec<Quad>, NgError> {
         let oxistore = self.graph_dataset.as_ref().unwrap();
 
         // Log base IRI safely even when None
@@ -66,7 +68,7 @@ impl Verifier {
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         match results {
             QueryResults::Solutions(solutions) => {
-                let mut result_triples: HashSet<Triple> = HashSet::new();
+                let mut result_quads: Vec<Quad> = vec![];
                 for s in solutions {
                     match s {
                         Err(e) => {
@@ -77,26 +79,34 @@ impl Verifier {
                             let s = solution.get("s").unwrap();
                             let p = solution.get("p").unwrap();
                             let o = solution.get("o").unwrap();
-                            // let g = solution.get("g"); // Optional
-                            let triple = Triple {
+                            let g = solution.get("g");
+
+                            let quad = Quad {
                                 subject: match s {
-                                    ng_oxigraph::oxrdf::Term::NamedNode(n) => {
+                                    Term::NamedNode(n) => {
                                         ng_oxigraph::oxrdf::Subject::NamedNode(n.clone())
                                     }
                                     _ => panic!("Expected NamedNode for subject"),
                                 },
                                 predicate: match p {
-                                    ng_oxigraph::oxrdf::Term::NamedNode(n) => n.clone(),
+                                    Term::NamedNode(n) => n.clone(),
                                     _ => panic!(),
                                 },
                                 object: o.clone(),
+                                graph_name: match g {
+                                    Some(Term::NamedNode(n)) => {
+                                        ng_oxigraph::oxrdf::GraphName::NamedNode(n.clone())
+                                    }
+                                    _ => panic!("Expected NamedNode for subject"),
+                                },
                             };
-                            log_debug!("triple fetched: {:?}", triple);
-                            result_triples.insert(triple);
+
+                            log_debug!("quad fetched: {:?}", quad);
+                            result_quads.push(quad);
                         }
                     }
                 }
-                Ok(Vec::from_iter(result_triples))
+                Ok(Vec::from_iter(result_quads))
             }
             _ => return Err(NgError::InvalidResponse),
         }

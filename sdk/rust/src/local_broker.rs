@@ -19,6 +19,7 @@ use futures::{SinkExt, StreamExt};
 use lazy_static::lazy_static;
 use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_oxigraph::oxrdf::Triple;
+use ng_oxigraph::oxrdf::{Term, Quad};
 use once_cell::sync::Lazy;
 use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str};
 use qrcode::{render::svg, QrCode};
@@ -2795,7 +2796,7 @@ pub async fn doc_query_quads_for_shape_type(
     schema: &ng_net::orm::OrmSchema,
     shape: &ShapeIri,
     filter_subjects: Option<Vec<String>>,
-) -> Result<Vec<Triple>, NgError> {
+) -> Result<Vec<Quad>, NgError> {
     let broker = get_broker().await?;
     let session = broker.get_session(session_id)?;
     session

@@ -15,7 +15,6 @@ use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::RwLock;
 
 use crate::orm::query::shape_type_to_sparql_select;
 use crate::orm::types::*;
@@ -30,7 +29,7 @@ use std::u64;
 
 use futures::channel::mpsc;
 
-use crate::orm::{types::OrmTrackedSubjectChange, OrmChanges};
+use crate::orm::{types::TrackedOrmObjectChange, OrmChanges};
 
 impl Verifier {
     /// Entry point to create a new orm subscription.
@@ -48,16 +47,15 @@ impl Verifier {
         // All referenced shapes must be available.
 
         // Create new subscription and add to self.orm_subscriptions
-        let orm_subscription = OrmSubscription {
-            shape_type: shape_type.clone(),
-            session_id: session_id,
-            sender: tx.clone(),
-            tracked_subjects: HashMap::new(),
-            nuri: nuri.clone(),
-        };
+        let orm_subscription = OrmSubscription::new(
+            shape_type.clone(),
+            session_id,
+            nuri.clone(),
+            tx.clone(),
+        );
 
         self.orm_subscriptions
-            .entry(nuri.clone())
+            .entry(nuri_to_string(nuri))
             .or_insert(vec![])
             .push(orm_subscription);
 
@@ -84,7 +82,7 @@ impl Verifier {
         shape_type: &OrmShapeType,
     ) -> Result<Value, NgError> {
         // Query triples for this shape
-        let shape_triples = self.query_quads_for_shape_type(
+        let shape_quads = self.query_quads_for_shape_type(
             Some(nuri_to_string(nuri)),
             &shape_type.schema,
             &shape_type.shape,
@@ -92,7 +90,7 @@ impl Verifier {
         )?;
 
         let changes: OrmChanges =
-            self.apply_triple_changes(&shape_triples, &[], nuri, Some(session_id.clone()), true)?;
+            self.apply_quads_changes(&shape_quads, &[], nuri, Some(session_id.clone()), true)?;
 
         let orm_subscription =
             self.get_first_orm_subscription_for(nuri, Some(&shape_type.shape), Some(&session_id));
@@ -108,43 +106,42 @@ impl Verifier {
 
         log_debug!("\nMaterializing: {}", shape_type.shape);
         // For each valid change struct, we build an orm object.
-        // The way we get the changes from the tracked subjects is a bit hacky, sorry.
-        for (subject_iri, tracked_subjects_by_shape) in &orm_subscription.tracked_subjects {
-            if let Some(tracked_subject) = tracked_subjects_by_shape.get(&shape_type.shape) {
-                let ts = tracked_subject.read().unwrap();
-                log_info!(" - changes for: {:?} valid: {:?}", ts.subject_iri, ts.valid);
+        for (_graph_iri, subject_iri, tracked_subject) in
+            orm_subscription.iter_objects_by_shape(&shape_type.shape)
+        {
+            let ts = tracked_subject.read().unwrap();
+            log_info!(" - changes for: {:?} valid: {:?}", ts.subject_iri, ts.valid);
 
-                if ts.valid == OrmTrackedSubjectValidity::Valid {
-                    if let Some(change) = changes
-                        .get(&shape_type.shape)
-                        .and_then(|subject_iri_to_ts| subject_iri_to_ts.get(subject_iri).clone())
-                    {
-                        let new_val = materialize_orm_object(
-                            change,
-                            &changes,
-                            root_shape,
-                            &orm_subscription.tracked_subjects,
-                        );
-                        // TODO: For some reason, this log statement causes a panic.
-                        // log_debug!("Materialized change:\n{:?}\ninto:\n{:?}", change, new_val);
-                        return_val_vec.push(new_val);
-                    }
+            if ts.valid == TrackedOrmObjectValidity::Valid {
+                if let Some(change_ref) = changes
+                    .get(&shape_type.shape)
+                    .and_then(|subject_iri_to_ts| subject_iri_to_ts.get(&subject_iri))
+                {
+                    let new_val =
+                        materialize_orm_object(change_ref, &changes, root_shape, orm_subscription);
+                    return_val_vec.push(new_val);
                 }
             }
         }
 
-        return Ok(return_vals);
+        Ok(return_vals)
     }
 }
 
 /// Create ORM JSON object from OrmTrackedSubjectChange and shape.
 pub(crate) fn materialize_orm_object(
-    change: &OrmTrackedSubjectChange,
+    change: &TrackedOrmObjectChange,
     changes: &OrmChanges,
     shape: &OrmSchemaShape,
-    tracked_subjects: &HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
+    orm_subscription: &OrmSubscription,
 ) -> Value {
-    let mut orm_obj = json!({"@id": change.subject_iri});
+    let subject_iri = change
+        .tracked_orm_object
+        .read()
+        .unwrap()
+        .subject_iri
+        .clone();
+    let mut orm_obj = json!({"@id": subject_iri});
     let orm_obj_map = orm_obj.as_object_mut().unwrap();
     for pred_schema in &shape.predicates {
         let property_name = &pred_schema.readablePredicate;
@@ -187,20 +184,24 @@ pub(crate) fn materialize_orm_object(
                 });
 
                 if let Some((matched_shape_iri, nested_subject_change)) = nested {
-                    if let Some(nested_tracked_subject) = tracked_subjects
-                        .get(&nested_subject_change.subject_iri)
-                        .and_then(|shape_to_tracked_orm| {
-                            shape_to_tracked_orm.get(matched_shape_iri)
-                        })
+                    if let Some(nested_tracked_subject) = orm_subscription
+                        .get_tracked_object_any_graph(
+                            &nested_subject_change
+                                .tracked_orm_object
+                                .read()
+                                .unwrap()
+                                .subject_iri,
+                            matched_shape_iri,
+                        )
                     {
                         let nested_tracked_subject = nested_tracked_subject.read().unwrap();
-                        if nested_tracked_subject.valid == OrmTrackedSubjectValidity::Valid {
+                        if nested_tracked_subject.valid == TrackedOrmObjectValidity::Valid {
                             // Recurse
                             return Some(materialize_orm_object(
                                 nested_subject_change,
                                 changes,
                                 &nested_tracked_subject.shape,
-                                tracked_subjects,
+                                orm_subscription,
                             ));
                         }
                     }

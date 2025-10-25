@@ -9,7 +9,6 @@
 
 use ng_oxigraph::oxrdf::Triple;
 use ng_repo::errors::VerifierError;
-use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use crate::orm::types::*;
@@ -18,41 +17,16 @@ use ng_repo::log::*;
 
 /// Add all triples to `subject_changes`
 /// Returns predicates to nested objects that were touched and need processing.
-/// Assumes all triples have same subject.
-pub fn add_remove_triples(
+/// Assumes all triples have same subject and graph.
+pub fn add_remove_quads(
     shape: Arc<OrmSchemaShape>,
     subject_iri: &str,
     triples_added: &[&Triple],
     triples_removed: &[&Triple],
     orm_subscription: &mut OrmSubscription,
-    subject_changes: &mut OrmTrackedSubjectChange,
+    subject_changes: &mut TrackedOrmObjectChange,
 ) -> Result<(), VerifierError> {
-    // Helper to get/create tracked subjects
-    fn get_or_create_tracked_subject<'a>(
-        subject_iri: &str,
-        shape: &Arc<OrmSchemaShape>,
-        tracked_subjects: &'a mut HashMap<String, HashMap<String, Arc<RwLock<OrmTrackedSubject>>>>,
-    ) -> Arc<RwLock<OrmTrackedSubject>> {
-        let tracked_shapes_for_subject = tracked_subjects
-            .entry(subject_iri.to_string())
-            .or_insert_with(HashMap::new);
-
-        let subject = tracked_shapes_for_subject
-            .entry(shape.iri.clone())
-            .or_insert_with(|| {
-                Arc::new(RwLock::new(OrmTrackedSubject {
-                    tracked_predicates: HashMap::new(),
-                    parents: HashMap::new(),
-                    valid: OrmTrackedSubjectValidity::Pending,
-                    subject_iri: subject_iri.to_string(),
-                    shape: shape.clone(),
-                }))
-            });
-        subject.clone()
-    }
-
-    let schema = &orm_subscription.shape_type.schema;
-    let tracked_subjects = &mut orm_subscription.tracked_subjects;
+    let schema = orm_subscription.shape_type.schema.clone();
 
     // Process added triples.
     // For each triple, check if it matches the shape.
@@ -70,8 +44,10 @@ pub fn add_remove_triples(
                 predicate_schema.dataTypes
             );
             // Predicate schema constraint matches this triple.
-            let tracked_subject_lock =
-                get_or_create_tracked_subject(subject_iri, &shape, tracked_subjects);
+            let tracked_subject_lock = orm_subscription.get_or_create_tracked_subject(
+                subject_iri,
+                &shape,
+            );
             let mut tracked_subject = tracked_subject_lock.write().unwrap();
             // log_debug!("lock acquired on tracked_subject");
             // Add get tracked predicate.
@@ -79,7 +55,7 @@ pub fn add_remove_triples(
                 .tracked_predicates
                 .entry(predicate_schema.iri.clone())
                 .or_insert_with(|| {
-                    Arc::new(RwLock::new(OrmTrackedPredicate {
+                    Arc::new(RwLock::new(TrackedOrmPredicate {
                         current_cardinality: 0,
                         schema: predicate_schema.clone(),
                         tracked_children: Vec::new(),
@@ -92,10 +68,10 @@ pub fn add_remove_triples(
                 tracked_predicate.current_cardinality += 1;
 
                 // Keep track of the added values here.
-                let pred_changes: &mut OrmTrackedPredicateChanges = subject_changes
+                let pred_changes: &mut TrackedOrmPredicateChanges = subject_changes
                     .predicates
                     .entry(predicate_schema.iri.clone())
-                    .or_insert_with(|| OrmTrackedPredicateChanges {
+                    .or_insert_with(|| TrackedOrmPredicateChanges {
                         tracked_predicate: tracked_predicate_lock.clone(),
                         values_added: Vec::new(),
                         values_removed: Vec::new(),
@@ -133,12 +109,12 @@ pub fn add_remove_triples(
                         // Get or create object's tracked subject struct.
                         let child_shape = schema.get(&shape_iri).unwrap();
                         // find the parent
-                        let parent =
-                            get_or_create_tracked_subject(subject_iri, &shape, tracked_subjects);
+                        let parent = orm_subscription
+                            .get_or_create_tracked_subject(subject_iri, &shape);
 
                         // If this actually created a new tracked subject, that's fine and will be removed during validation.
-                        let tracked_child =
-                            get_or_create_tracked_subject(obj_iri, child_shape, tracked_subjects);
+                        let tracked_child = orm_subscription
+                            .get_or_create_tracked_subject(obj_iri, child_shape);
 
                         // Add self to parent.
                         tracked_child
@@ -168,10 +144,12 @@ pub fn add_remove_triples(
         let pred_iri = triple.predicate.as_str();
 
         // Only adjust if we had tracked state.
-        let tracked_predicate_opt = tracked_subjects
-            .get(subject_iri)
-            .and_then(|tss| tss.get(&shape.iri))
-            .and_then(|ts| ts.read().unwrap().tracked_predicates.get(pred_iri).cloned());
+        let tracked_predicate_opt = orm_subscription
+            .get_tracked_object_any_graph(subject_iri, &shape.iri)
+            .and_then(|ts| {
+                let guard = ts.read().ok()?;
+                guard.tracked_predicates.get(pred_iri).cloned()
+            });
         let Some(tracked_predicate_rc) = tracked_predicate_opt else {
             continue;
         };
@@ -182,10 +160,10 @@ pub fn add_remove_triples(
             tracked_predicate.current_cardinality.saturating_sub(1);
 
         // Keep track of removed values here.
-        let pred_changes: &mut OrmTrackedPredicateChanges = subject_changes
+        let pred_changes: &mut TrackedOrmPredicateChanges = subject_changes
             .predicates
             .entry(tracked_predicate.schema.iri.clone())
-            .or_insert_with(|| OrmTrackedPredicateChanges {
+            .or_insert_with(|| TrackedOrmPredicateChanges {
                 tracked_predicate: tracked_predicate_rc.clone(),
                 values_added: Vec::new(),
                 values_removed: Vec::new(),

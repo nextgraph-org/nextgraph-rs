@@ -308,12 +308,9 @@ fn create_sparql_update_query_for_diff(
 fn _get_tracked_subject_from_diff_op(
     subject_iri: &String,
     orm_subscription: &OrmSubscription,
-) -> Arc<RwLock<OrmTrackedSubject>> {
+) -> Arc<RwLock<TrackedOrmObject>> {
     let tracked_subject = orm_subscription
-        .tracked_subjects
-        .get(subject_iri)
-        .unwrap()
-        .get(&orm_subscription.shape_type.shape)
+        .get_tracked_object_any_graph(subject_iri, &orm_subscription.shape_type.shape)
         .unwrap();
 
     return tracked_subject.clone();
@@ -535,12 +532,11 @@ fn get_first_child_schema(
         };
 
         let tracked_subject_opt = subject_iri
-            .and_then(|iri| orm_subscription.tracked_subjects.get(iri))
-            .and_then(|ts_shapes| ts_shapes.get(schema_shape));
+            .and_then(|iri| orm_subscription.get_tracked_object_any_graph(iri, schema_shape));
 
         if let Some(tracked_subject) = tracked_subject_opt {
             // The subject is already being tracked (it's not new).
-            if tracked_subject.read().unwrap().valid == OrmTrackedSubjectValidity::Valid {
+            if tracked_subject.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
                 return orm_subscription
                     .shape_type
                     .schema
