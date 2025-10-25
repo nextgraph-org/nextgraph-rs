@@ -41,8 +41,10 @@ pub enum OrmPatchType {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OrmPatch {
     pub op: OrmPatchOp,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub valType: Option<OrmPatchType>,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<Value>, // TODO: Improve type
 }
 

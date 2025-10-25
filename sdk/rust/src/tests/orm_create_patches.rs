@@ -27,35 +27,13 @@ async fn test_orm_patch_creation() {
     // Setup wallet and document
     let (_wallet, session_id) = create_or_open_wallet().await;
 
-    // Tests below all in this test, to prevent waiting times through wallet creation.
-
-    // // ===
-    // test_patch_add_array(session_id).await;
-    // test_patch_remove_array(session_id).await;
-
-    // // ===
-    // test_patch_add_nested_1(session_id).await;
-
-    // ===
     test_patch_nested_house_inhabitants(session_id).await;
 
-    // // ===
-    // test_orm_literal(session_id).await;
+    test_patch_add_array(session_id).await;
 
-    // // ===
-    // test_orm_multi_type(session_id).await;
+    test_patch_remove_array(session_id).await;
 
-    // // ===
-    // test_orm_nested_1(session_id).await;
-
-    // // // ===
-    // // test_orm_nested_2(session_id).await;
-
-    // // // ===
-    // // test_orm_nested_3(session_id).await;
-
-    // // ===
-    // test_orm_nested_4(session_id).await;
+    // test_patch_add_nested_1(session_id).await;  // TODO: Edge case not yet fully implemented
 }
 
 async fn test_patch_add_array(session_id: u64) {
@@ -204,25 +182,22 @@ INSERT DATA {
                 "op": "add",
                 "valType": "object",
                 "path": "/urn:test:numArrayObj4",
-                "value": Value::Null
             },
             {
                 "op": "add",
                 "value": "urn:test:numArrayObj4",
                 "path": "/urn:test:numArrayObj4/@id",
-                "valType": Value::Null,
-            },
-            {
-                "op": "add",
-                "value": "http://example.org/TestObject",
-                "path": "/urn:test:numArrayObj4/type",
-                "valType": Value::Null,
             },
             {
                 "op": "add",
                 "valType": "set",
                 "value": [0.0],
                 "path": "/urn:test:numArrayObj4/numArray",
+            },
+            {
+                "op": "add",
+                "value": "http://example.org/TestObject",
+                "path": "/urn:test:numArrayObj4/type",
             },
         ]);
 
@@ -556,42 +531,29 @@ INSERT DATA {
             {
                 "op": "remove",
                 "path": "/urn:test:oj1/multiNest/urn:test:multiNested2/string2",
-                // "valType": None,
-                // "value": None,
             },
             {
                 "op": "add",
-                // "valType": None,
                 "value": "replacing object shape view",
                 "path": "/urn:test:oj1/multiNest/urn:test:multiNested2/string1",
             },
             {
                 "op": "add",
                 "valType": "object",
-                // "value": None,
                 "path": "/urn:test:oj1/multiNest/urn:test:multiNested4",
             },
             {
                 "op": "add",
-                // "valType": None,
                 "value": "urn:test:multiNested4",
                 "path": "/urn:test:oj1/multiNest/urn:test:multiNested4/@id",
             },
             {
                 "op": "add",
-                // "valType": None,
                 "value": "multi 4 added",
                 "path": "/urn:test:oj1/multiNest/urn:test:multiNested4/string2",
             },
             {
-                "op": "remove",
-                // "valType": None,
-                // "value": None,
-                "path": "/urn:test:oj1/singleNest/str",
-            },
-            {
                 "op": "add",
-                // "valType": None,
                 "value": "Different nested val",
                 "path": "/urn:test:oj1/singleNest/str",
             },
@@ -1013,10 +975,6 @@ INSERT DATA {
                 "path": "/urn:test:house1/inhabitants/urn:test:person1/cat",
             },
             // Bob's cat name changes
-            {
-                "op": "remove",
-                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/name",
-            },
             {
                 "op": "add",
                 "value": "Mr. Mittens",

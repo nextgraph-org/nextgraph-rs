@@ -336,5 +336,99 @@ describe("deepSignal options", () => {
 
             stop();
         });
+
+        it("emits delete patch when removing objects with @id from Sets", async () => {
+            const options: DeepSignalOptions = {
+                addIdToObjects: true,
+            };
+
+            const state = deepSignal({ s: new Set<any>() }, options);
+            const patches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(state, ({ patches: batch }) =>
+                patches.push(batch)
+            );
+
+            // Add objects with @id
+            const obj1 = { "@id": "obj-1", value: 1 };
+            const obj2 = { "@id": "obj-2", value: 2 };
+            const obj3 = { "@id": "obj-3", value: 3 };
+
+            state.s.add(obj1);
+            state.s.add(obj2);
+            state.s.add(obj3);
+            await Promise.resolve();
+
+            // Get the proxied objects from the Set
+            const proxiedObjs = Array.from(state.s);
+            const proxiedObj2 = proxiedObjs.find(
+                (o: any) => o["@id"] === "obj-2"
+            );
+
+            // Clear patches from additions
+            patches.length = 0;
+
+            // Delete one object using the proxied object
+            state.s.delete(proxiedObj2);
+            await Promise.resolve();
+
+            // Check that delete patch was emitted with correct path
+            const deletePaths = patches
+                .flat()
+                .filter((p) => p.op === "remove")
+                .map((p) => p.path.join("."));
+
+            expect(deletePaths).toContain("s.obj-2");
+            expect(deletePaths).not.toContain("s.obj-1");
+            expect(deletePaths).not.toContain("s.obj-3");
+
+            stop();
+        });
+
+        it("emits delete patches when removing objects without explicit @id from Sets", async () => {
+            const options: DeepSignalOptions = {
+                idGenerator: () =>
+                    `gen-${Math.random().toString(36).substr(2, 9)}`,
+                addIdToObjects: true,
+            };
+
+            const state = deepSignal({ s: new Set<any>() }, options);
+
+            // Add objects without @id - they should get generated IDs
+            const obj1 = { value: 1 };
+            const obj2 = { value: 2 };
+
+            state.s.add(obj1);
+            state.s.add(obj2);
+
+            // Get the proxied objects and their generated IDs
+            const proxiedObjs = Array.from(state.s);
+            const proxiedObj1 = proxiedObjs[0];
+            const proxiedObj2 = proxiedObjs[1];
+            const id1 = (proxiedObj1 as any)["@id"];
+            const id2 = (proxiedObj2 as any)["@id"];
+
+            expect(id1).toBeDefined();
+            expect(id2).toBeDefined();
+
+            const patches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(state, ({ patches: batch }) =>
+                patches.push(batch)
+            );
+
+            // Delete one object using the proxied object
+            state.s.delete(proxiedObj1);
+            await Promise.resolve();
+
+            // Check that delete patch was emitted with the generated ID
+            const deletePaths = patches
+                .flat()
+                .filter((p) => p.op === "remove")
+                .map((p) => p.path.join("."));
+
+            expect(deletePaths).toContain(`s.${id1}`);
+            expect(deletePaths).not.toContain(`s.${id2}`);
+
+            stop();
+        });
     });
 });

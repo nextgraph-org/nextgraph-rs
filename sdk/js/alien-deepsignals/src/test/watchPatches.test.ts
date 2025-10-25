@@ -493,6 +493,84 @@ describe("watch (patch mode)", () => {
             expect(flat.some((p) => p.endsWith("eIter.inner.v"))).toBe(true);
             stop();
         });
+
+        it("generates correct patches when root is a Set (primitive entries)", async () => {
+            const rootSet = deepSignal(new Set<any>());
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(rootSet, ({ patches }) =>
+                batches.push(patches)
+            );
+            rootSet.add(1);
+            rootSet.add("test");
+            rootSet.add(true);
+            await Promise.resolve();
+
+            expect(batches.length).toBe(1);
+            const patches = batches[0];
+            expect(patches.length).toBe(3);
+
+            // When root is a Set, path should be empty array for primitive adds
+            patches.forEach((p) => {
+                expect(p.path).toEqual([]);
+                expect(p.op).toBe("add");
+                expect((p as any).type).toBe("set");
+            });
+
+            const values = patches.map((p: any) => p.value[0]);
+            expect(values).toContain(1);
+            expect(values).toContain("test");
+            expect(values).toContain(true);
+            stop();
+        });
+
+        it("generates correct patches when root is a Set (object entries)", async () => {
+            const rootSet = deepSignal(new Set<any>());
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(rootSet, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            const obj1 = { "@id": "obj1", value: 1 };
+            const obj2 = { "@id": "obj2", value: 2 };
+            rootSet.add(obj1);
+            rootSet.add(obj2);
+            await Promise.resolve();
+
+            const flat = batches.flat().map((p) => p.path.join("."));
+
+            // When root is a Set, first element of path should be synthetic id
+            expect(flat).toContain("obj1");
+            expect(flat).toContain("obj1.@id");
+            expect(flat).toContain("obj1.value");
+            expect(flat).toContain("obj2");
+            expect(flat).toContain("obj2.@id");
+            expect(flat).toContain("obj2.value");
+            stop();
+        });
+
+        it("tracks nested mutations when root is a Set", async () => {
+            const rootSet = deepSignal(new Set<any>());
+            const obj = { id: "nested", data: { x: 1 } };
+            rootSet.add(obj);
+
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(rootSet, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            // Get the proxied entry
+            let proxied: any;
+            for (const e of rootSet.values()) {
+                proxied = e;
+            }
+
+            proxied.data.x = 2;
+            await Promise.resolve();
+
+            const flat = batches.flat().map((p) => p.path.join("."));
+            expect(flat.some((p) => p === "nested.data.x")).toBe(true);
+            stop();
+        });
     });
 
     describe("Arrays & mixed batch", () => {

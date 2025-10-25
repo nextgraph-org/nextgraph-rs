@@ -1,7 +1,7 @@
 PREFIX ex: <http://example.org/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-ex:TestObject EXTRA a {
+ex:TestObjectShape EXTRA a {
   a [ ex:TestObject ] ;
   ex:stringValue xsd:string ;
   ex:numValue xsd:integer ;
@@ -17,5 +17,5 @@ ex:TestObject EXTRA a {
     ex:prop2 xsd:integer ;
   } * ;
   ex:numOrStr xsd:string OR xsd:integer ;
-  ex:lit1Or2 ["lit1" "lit2"] ;
+  ex:lit1Or2 ["lit1"] OR ["lit2"] ;
 }

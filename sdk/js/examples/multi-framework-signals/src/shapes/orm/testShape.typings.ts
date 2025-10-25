@@ -14,7 +14,7 @@ export interface TestObject {
   /**
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  "@type": string;
+  "@type": "http://example.org/TestObject";
   /**
    * Original IRI: http://example.org/stringValue
    */
@@ -73,5 +73,5 @@ export interface TestObject {
   /**
    * Original IRI: http://example.org/lit1Or2
    */
-  lit1Or2: "lit1" | "lit2";
+  lit1Or2: string | string;
 }
