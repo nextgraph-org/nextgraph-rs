@@ -6,8 +6,8 @@ import type { Schema } from "@ng-org/shex-orm";
  * =============================================================================
  */
 export const catShapeSchema: Schema = {
-  "http://example.org/Cat": {
-    iri: "http://example.org/Cat",
+  "http://example.org/CatShape": {
+    iri: "http://example.org/CatShape",
     predicates: [
       {
         dataTypes: [
@@ -58,7 +58,7 @@ export const catShapeSchema: Schema = {
         dataTypes: [
           {
             valType: "shape",
-            shape: "http://example.org/Cat||http://example.org/address",
+            shape: "http://example.org/CatShape||http://example.org/address",
           },
         ],
         maxCardinality: 1,
@@ -68,8 +68,8 @@ export const catShapeSchema: Schema = {
       },
     ],
   },
-  "http://example.org/Cat||http://example.org/address": {
-    iri: "http://example.org/Cat||http://example.org/address",
+  "http://example.org/CatShape||http://example.org/address": {
+    iri: "http://example.org/CatShape||http://example.org/address",
     predicates: [
       {
         dataTypes: [

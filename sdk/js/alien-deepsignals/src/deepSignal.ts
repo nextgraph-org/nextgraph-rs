@@ -11,6 +11,16 @@ import { computed, signal, isSignal } from "./core";
 
 /** A batched deep mutation (set/add/remove) from a deepSignal root. */
 export type DeepPatch = {
+    /** Property path (array indices, object keys, synthetic Set entry ids) from the root to the mutated location. */
+    path: (string | number)[];
+} & (
+    | DeepSetAddPatch
+    | DeepSetRemovePatch
+    | DeepObjectAddPatch
+    | DeepRemovePatch
+    | DeepLiteralAddPatch
+);
+export type DeepPatchInternal = {
     /** Unique identifier for the deep signal root which produced this patch. */
     root: symbol;
     /** Property path (array indices, object keys, synthetic Set entry ids) from the root to the mutated location. */
@@ -22,6 +32,7 @@ export type DeepPatch = {
     | DeepRemovePatch
     | DeepLiteralAddPatch
 );
+
 export interface DeepSetAddPatch {
     /** Mutation kind applied at the resolved `path`. */
     op: "add";
@@ -105,7 +116,7 @@ function buildPath(
     return path;
 }
 
-function queuePatch(patch: DeepPatch) {
+function queuePatch(patch: DeepPatchInternal) {
     if (!pendingPatches) pendingPatches = new Map();
     const root = patch.root;
     let list = pendingPatches.get(root);
@@ -113,6 +124,9 @@ function queuePatch(patch: DeepPatch) {
         list = [];
         pendingPatches.set(root, list);
     }
+    // Remove root, we do not send that back.
+    // @ts-ignore
+    delete patch.root;
     list.push(patch);
     if (!microtaskScheduled) {
         microtaskScheduled = true;
@@ -124,7 +138,7 @@ function queuePatch(patch: DeepPatch) {
             for (const [rootId, patches] of groups) {
                 if (!patches.length) continue;
                 const subs = mutationSubscribers.get(rootId);
-                if (subs) subs.forEach((cb) => cb(patches));
+                if (subs) subs.forEach((callback) => callback(patches));
             }
         });
     }
@@ -244,6 +258,8 @@ export function getDeepSignalRootId(obj: any): symbol | undefined {
 const proxyToSignals = new WeakMap();
 // Raw object/array/Set -> stable proxy
 const objToProxy = new WeakMap();
+// Proxy -> raw object/array/Set (reverse lookup)
+const proxyToRaw = new WeakMap();
 // Raw array -> `$` meta proxy with index signals
 const arrayToArrayOfSignals = new WeakMap();
 // Objects already proxied or marked shallow
@@ -367,22 +383,25 @@ export function setSetEntrySyntheticId(obj: object, id: string | number) {
 }
 const getSetEntryKey = (val: any): string | number => {
     if (val && typeof val === "object") {
+        // If val is a proxy, get the raw object first
+        const rawVal = proxyToRaw.get(val) || val;
+
         // First check for explicitly assigned synthetic ID
-        if (setObjectIds.has(val)) return setObjectIds.get(val)!;
+        if (setObjectIds.has(rawVal)) return setObjectIds.get(rawVal)!;
         // Then check for @id property (primary identifier)
         if (
-            typeof (val as any)["@id"] === "string" ||
-            typeof (val as any)["@id"] === "number"
+            typeof (rawVal as any)["@id"] === "string" ||
+            typeof (rawVal as any)["@id"] === "number"
         )
-            return (val as any)["@id"];
+            return (rawVal as any)["@id"];
         // Then check for id property (backward compatibility)
         if (
-            typeof (val as any).id === "string" ||
-            typeof (val as any).id === "number"
+            typeof (rawVal as any).id === "string" ||
+            typeof (rawVal as any).id === "number"
         )
-            return (val as any).id;
+            return (rawVal as any).id;
         // Fall back to generating a blank node ID
-        return assignBlankNodeId(val);
+        return assignBlankNodeId(rawVal);
     }
     return val as any;
 };
@@ -437,6 +456,7 @@ export const deepSignal = <T extends object>(
         // Pre-register an empty signals map so isDeepSignal() is true before any property access.
         if (!proxyToSignals.has(proxy)) proxyToSignals.set(proxy, new Map());
         objToProxy.set(obj, proxy);
+        proxyToRaw.set(proxy, obj);
     }
     return objToProxy.get(obj);
 };
@@ -509,6 +529,7 @@ function getFromSet(
             childMeta.parent = receiver;
             childMeta.key = synthetic;
             objToProxy.set(entry, childProxy);
+            proxyToRaw.set(childProxy, entry);
             return childProxy;
         }
         if (objToProxy.has(entry)) return objToProxy.get(entry);
@@ -520,19 +541,27 @@ function getFromSet(
     if (key === "add" || key === "delete" || key === "clear") {
         const fn: Function = (raw as any)[key];
         return function (this: any, ...args: any[]) {
+            // For delete, keep track of the original entry for patch emission
+            const originalEntry = key === "delete" ? args[0] : undefined;
+
+            // For delete, if the argument is a proxy, get the raw object for the actual Set operation
+            if (key === "delete" && args[0] && typeof args[0] === "object") {
+                const rawArg = proxyToRaw.get(args[0]);
+                if (rawArg) {
+                    args = [rawArg];
+                }
+            }
             const sizeBefore = raw.size;
             const result = fn.apply(raw, args);
             if (raw.size !== sizeBefore) {
                 const metaNow = proxyMeta.get(receiver);
-                if (
-                    metaNow &&
-                    metaNow.parent !== undefined &&
-                    metaNow.key !== undefined
-                ) {
-                    const containerPath = buildPath(
-                        metaNow.parent,
-                        metaNow.key
-                    );
+                if (metaNow) {
+                    // For root Set, containerPath is empty; for nested Set, build path from parent
+                    const containerPath =
+                        metaNow.parent !== undefined &&
+                        metaNow.key !== undefined
+                            ? buildPath(metaNow.parent, metaNow.key)
+                            : [];
                     if (key === "add") {
                         const entry = args[0];
 
@@ -587,6 +616,7 @@ function getFromSet(
                             childMeta.parent = receiver;
                             childMeta.key = synthetic;
                             objToProxy.set(entryVal, childProxy);
+                            proxyToRaw.set(childProxy, entryVal);
                             entryVal = childProxy;
                         }
                         // Set entry add: emit object vs primitive variant.
@@ -609,7 +639,8 @@ function getFromSet(
                             });
                         }
                     } else if (key === "delete") {
-                        const entry = args[0];
+                        // Use the original entry (before proxy-to-raw conversion) for getting the synthetic key
+                        const entry = originalEntry;
                         const synthetic = getSetEntryKey(entry);
                         // Check if entry is primitive or object
                         if (entry && typeof entry === "object") {
@@ -664,21 +695,24 @@ function getFromSet(
     const makeIterator = (pair: boolean) => {
         return function thisIter(this: any) {
             const iterable = raw.values();
-            return {
-                [Symbol.iterator]() {
+            // Create an Iterator that inherits Iterator.prototype methods (map, filter, etc.)
+            // Wrap the iterator to proxy entries on-demand
+            const wrappedIterator = {
+                next() {
+                    const n = iterable.next();
+                    if (n.done) return n;
+                    const entry = ensureEntryProxy(n.value);
                     return {
-                        next() {
-                            const n = iterable.next();
-                            if (n.done) return n;
-                            const entry = ensureEntryProxy(n.value);
-                            return {
-                                value: pair ? [entry, entry] : entry,
-                                done: false,
-                            };
-                        },
+                        value: pair ? [entry, entry] : entry,
+                        done: false,
                     };
                 },
-            } as Iterable<any>;
+            };
+            // Set the prototype to Iterator.prototype if available (ES2023+ Iterator Helpers)
+            if (typeof Iterator !== "undefined" && Iterator.prototype) {
+                Object.setPrototypeOf(wrappedIterator, Iterator.prototype);
+            }
+            return wrappedIterator;
         };
     };
     if (key === "values" || key === "keys") return makeIterator(false);
@@ -813,6 +847,10 @@ const get =
         if (target instanceof Set) {
             return getFromSet(target as Set<any>, fullKey as any, receiver);
         }
+        // Special case: accessing `$` on a non-array object returns the raw target
+        if (fullKey === "$" && !Array.isArray(target)) {
+            return target;
+        }
         const norm = normalizeKey(target, fullKey, isArrayMeta, receiver);
         if ((norm as any).shortCircuit) return (norm as any).shortCircuit; // returned meta proxy
         const { key, returnSignal } = norm as {
@@ -839,9 +877,9 @@ const objectHandlers = {
     get: get(false),
     set(target: object, fullKey: string, val: any, receiver: object): boolean {
         // Prevent modification of @id property
-        if (fullKey === "@id") {
-            throw new Error("Cannot modify readonly property '@id'");
-        }
+        // if (fullKey === "@id") {
+        //     throw new Error("Cannot modify readonly property '@id'");
+        // }
         // Respect original getter/setter semantics
         if (typeof descriptor(target, fullKey)?.set === "function")
             return Reflect.set(target, fullKey, val, receiver);

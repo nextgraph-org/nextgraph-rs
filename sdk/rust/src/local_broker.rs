@@ -1589,6 +1589,8 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
         return Err(NgError::CannotSaveWhenInMemoryConfig);
     }
     let in_memory = !params.local_save;
+    let has_pazzle = params.pazzle_length > 0;
+    let has_mnemonic = params.mnemonic;
 
     let intermediate = create_wallet_first_step_v0(params)?;
     let lws: LocalWalletStorageV0 = (&intermediate).into();
@@ -1619,9 +1621,13 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
     let (mut res, site, brokers) =
         create_wallet_second_step_v0(intermediate, &mut session.verifier).await?;
 
-    if with_pdf {
-        let wallet_recovery =
-            wallet_to_wallet_recovery(&res.wallet, res.pazzle.clone(), res.mnemonic, pin);
+    if with_pdf && pin.is_some() && has_mnemonic && has_pazzle {
+        let wallet_recovery = wallet_to_wallet_recovery(
+            &res.wallet,
+            res.pazzle.clone().unwrap(),
+            res.mnemonic.clone().unwrap(),
+            pin.unwrap(),
+        );
 
         if let Ok(pdf_buffer) = wallet_recovery_pdf(wallet_recovery, 600).await {
             res.pdf_file = pdf_buffer;
@@ -1706,7 +1712,7 @@ pub fn wallet_to_wallet_recovery(
     match wallet {
         Wallet::V0(v0) => {
             let mut content = v0.content.clone();
-            content.security_img = vec![];
+            content.security_img = None;
             content.security_txt = String::new();
             NgQRCodeWalletRecoveryV0 {
                 wallet: serde_bare::to_vec(&content).unwrap(),
@@ -1850,12 +1856,14 @@ lazy_static! {
 
 #[cfg(not(debug_assertions))]
 lazy_static! {
+    static ref DOMAIN: &'static str = option_env!("NG_ENV_ALT").unwrap_or("nextgraph.eu");
+    static ref PEERID: &'static str =
+        option_env!("NG_ENV_ALT_PEERID").unwrap_or("LZn-rQD_NUNxrWT_hBXeHk6cjI6WAy-knRVOdovIjwsA");
     static ref NEXTGRAPH_EU: BrokerServerV0 = BrokerServerV0 {
-        server_type: BrokerServerTypeV0::Domain("nextgraph.eu".to_string()),
+        server_type: BrokerServerTypeV0::Domain(DOMAIN.to_string()),
         can_verify: false,
         can_forward: false,
-        peer_id: ng_repo::utils::decode_key("LZn-rQD_NUNxrWT_hBXeHk6cjI6WAy-knRVOdovIjwsA")
-            .unwrap(),
+        peer_id: ng_repo::utils::decode_key(&PEERID).unwrap(),
     };
 }
 
@@ -2143,6 +2151,16 @@ pub async fn wallet_get_file(wallet_name: &String) -> Result<Vec<u8>, NgError> {
         None => Err(NgError::WalletNotFound),
         Some(lws) => Ok(to_vec(&NgFile::V0(NgFileV0::Wallet(lws.wallet.clone()))).unwrap()),
     }
+}
+
+#[doc(hidden)]
+pub fn wallet_open_with_password(
+    wallet: &Wallet,
+    password: String,
+) -> Result<SensitiveWallet, NgError> {
+    let opened_wallet = ng_wallet::open_wallet_with_password(wallet, password)?;
+
+    Ok(opened_wallet)
 }
 
 #[doc(hidden)]
@@ -3045,10 +3063,12 @@ mod test {
         let peer_id_of_server_broker = PubKey::nil();
 
         let wallet_result = wallet_create_v0(CreateWalletV0 {
-            security_img,
+            security_img: Some(security_img),
             security_txt: "know yourself".to_string(),
-            pin: [1, 2, 1, 2],
+            pin: Some([1, 2, 1, 2]),
             pazzle_length: 9,
+            password: None,
+            mnemonic: true,
             send_bootstrap: false,
             send_wallet: false,
             result_with_wallet_file: true,
@@ -3063,9 +3083,10 @@ mod test {
         .await
         .expect("wallet_create_v0");
 
-        let pazzle = display_pazzle(&wallet_result.pazzle);
+        let pazzle_vec = wallet_result.pazzle.clone().unwrap();
+        let pazzle = display_pazzle(&pazzle_vec);
         let mut pazzle_words = vec![];
-        println!("Your pazzle is: {:?}", wallet_result.pazzle);
+        println!("Your pazzle is: {:?}", pazzle_vec);
         for emoji in pazzle {
             println!("    {}:\t{}", emoji.0, emoji.1);
             pazzle_words.push(emoji.1.to_string());
@@ -3080,7 +3101,7 @@ mod test {
         println!("Your mnemonic is:");
 
         let mut mnemonic_words = vec![];
-        display_mnemonic(&wallet_result.mnemonic)
+        display_mnemonic(&wallet_result.mnemonic.unwrap())
             .iter()
             .for_each(|word| {
                 mnemonic_words.push(word.clone());

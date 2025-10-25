@@ -7,7 +7,7 @@ import svelteSVG from "vite-plugin-svelte-svg";
 export default defineConfig({
   envPrefix: ["VITE_", "NG_"],
   server: {
-    allowedHosts: ["account-dev.nextgraph.eu","account-dev.nextgraph.one"]
+    allowedHosts: ["account-dev.nextgraph.eu"]
   },
     plugins: [svelte({
     preprocess: [

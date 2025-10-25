@@ -28,7 +28,7 @@
   const api_url = import.meta.env.PROD
     ? "api/v1/"
     : "http://127.0.0.1:3031/api/v1/";
-
+    
   async function register() {
     wait = true;
     const opts = {
@@ -75,7 +75,7 @@
         window.location.href = result.url;
       } else {
         wait = true;
-        window.history.go(-1);
+        window.location.href = document.referrer;
       }
     }
   }

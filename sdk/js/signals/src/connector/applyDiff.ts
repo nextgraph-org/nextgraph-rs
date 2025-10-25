@@ -232,7 +232,7 @@ export function applyDiff(
             }
 
             // Handle remove from Set
-            if (patch.op === "remove" && !patch.valType) {
+            if (patch.op === "remove" && patch.valType !== "set") {
                 if (targetObj) {
                     parentVal.delete(targetObj);
                 }

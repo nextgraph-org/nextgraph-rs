@@ -18,6 +18,7 @@ const mapping = {
     "wallet_gen_shuffle_for_pazzle_opening": ["pazzle_length"],
     "wallet_gen_shuffle_for_pin": [],
     "wallet_open_with_pazzle": ["wallet","pazzle","pin"],
+    "wallet_open_with_password": ["wallet","password"],
     "wallet_open_with_mnemonic_words": ["wallet","mnemonic_words","pin"],
     "wallet_open_with_mnemonic": ["wallet","mnemonic","pin"],
     "wallet_was_opened": ["opened_wallet"],

@@ -35,15 +35,14 @@ impl Verifier {
         //     &update.overlay_id,
         // );
         //let base = NuriV0::repo_id(&repo.id);
-        let binding = nuri.unwrap();
-        let nuri = binding.split_at(53).0;
 
-        log_info!("querying construct\n{}\n{}\n", nuri, query);
+        let nuri_str = nuri.as_ref().map(|s| s.as_str());
+        log_debug!("querying construct\n{}\n{}\n", nuri_str.unwrap(), query);
 
-        let parsed = Query::parse(&query, Some(nuri.clone()))
-            .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
+        let parsed =
+            Query::parse(&query, nuri_str).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         let results = oxistore
-            .query(parsed, Some(nuri.to_string()))
+            .query(parsed, nuri)
             .map_err(|e| NgError::OxiGraphError(e.to_string()))?;
         match results {
             QueryResults::Graph(triples) => {
@@ -51,8 +50,7 @@ impl Verifier {
                 for t in triples {
                     match t {
                         Err(e) => {
-                            log_info!("Error: {:?}n", e);
-
+                            log_err!("{}", e.to_string());
                             return Err(NgError::SparqlError(e.to_string()));
                         }
                         Ok(triple) => {

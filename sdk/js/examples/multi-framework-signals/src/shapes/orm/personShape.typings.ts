@@ -14,7 +14,7 @@ export interface Person {
   /**
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  "@type": string;
+  "@type": "http://example.org/Person";
   /**
    * Original IRI: http://example.org/name
    */

@@ -6,8 +6,8 @@ import type { Schema } from "@ng-org/shex-orm";
  * =============================================================================
  */
 export const personShapeSchema: Schema = {
-  "http://example.org/Person": {
-    iri: "http://example.org/Person",
+  "http://example.org/PersonShape": {
+    iri: "http://example.org/PersonShape",
     predicates: [
       {
         dataTypes: [
@@ -36,7 +36,7 @@ export const personShapeSchema: Schema = {
         dataTypes: [
           {
             valType: "shape",
-            shape: "http://example.org/Person||http://example.org/address",
+            shape: "http://example.org/PersonShape||http://example.org/address",
           },
         ],
         maxCardinality: 1,
@@ -68,8 +68,8 @@ export const personShapeSchema: Schema = {
       },
     ],
   },
-  "http://example.org/Person||http://example.org/address": {
-    iri: "http://example.org/Person||http://example.org/address",
+  "http://example.org/PersonShape||http://example.org/address": {
+    iri: "http://example.org/PersonShape||http://example.org/address",
     predicates: [
       {
         dataTypes: [

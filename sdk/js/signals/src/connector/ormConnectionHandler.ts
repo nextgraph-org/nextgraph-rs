@@ -1,5 +1,5 @@
 import type { Diff as Patches, Scope } from "../types.ts";
-import { applyDiff } from "./applyDiff.ts";
+import { applyDiff, applyDiffToDeepSignal, Patch } from "./applyDiff.ts";
 
 import { ngSession } from "./initNg.ts";
 
@@ -69,17 +69,14 @@ export class OrmConnection<T extends BaseType> {
             this.resolveReady = resolve;
         });
 
-        ngSession.then(({ ng, session }) => {
-            console.log("ng and session", ng, session);
+        ngSession.then(async ({ ng, session }) => {
+            console.log("Creating orm connection. ng and session", ng, session);
             try {
-                const sc = ("did:ng:" + session.private_store_id).substring(
-                    0,
-                    53
-                );
-                console.log("calling orm_start with nuri", sc);
-
+                await new Promise((resolve) => setTimeout(resolve, 4_000));
                 ng.orm_start(
-                    sc,
+                    (scope.length == 0
+                        ? "did:ng:" + session.private_store_id
+                        : scope) as string,
                     shapeType,
                     session.session_id,
                     this.onBackendMessage
@@ -97,10 +94,10 @@ export class OrmConnection<T extends BaseType> {
      * @param ng
      * @returns
      */
-    public static getConnection<T extends BaseType>(
+    public static getConnection = <T extends BaseType>(
         shapeType: ShapeType<T>,
         scope: Scope
-    ): OrmConnection<T> {
+    ): OrmConnection<T> => {
         const scopeKey = canonicalScope(scope);
 
         // Unique identifier for a given shape type and scope.
@@ -118,50 +115,64 @@ export class OrmConnection<T extends BaseType> {
             OrmConnection.idToEntry.set(identifier, newConnection);
             return newConnection;
         }
-    }
+    };
 
-    public release() {
+    public release = () => {
         if (this.refCount > 0) this.refCount--;
         if (this.refCount === 0) {
             OrmConnection.idToEntry.delete(this.identifier);
 
             OrmConnection.cleanupSignalRegistry?.unregister(this.signalObject);
         }
-    }
+    };
 
-    private onSignalObjectUpdate({ patches }: WatchPatchEvent<Set<T>>) {
+    private onSignalObjectUpdate = ({ patches }: WatchPatchEvent<Set<T>>) => {
         if (this.suspendDeepWatcher || !this.ready || !patches.length) return;
+        console.debug("[onSignalObjectUpdate] got changes:", patches);
 
         const ormPatches = deepPatchesToDiff(patches);
 
         ngSession.then(({ ng, session }) => {
             ng.orm_update(
-                ("did:ng:" + session.private_store_id).substring(0, 53),
+                (this.scope.length == 0
+                    ? "did:ng:" + session.private_store_id
+                    : this.scope) as string,
                 this.shapeType.shape,
                 ormPatches,
                 session.session_id
             );
         });
-    }
+    };
 
-    private onBackendMessage(...message: any) {
-        this.handleInitialResponse(message);
-    }
+    private onBackendMessage = ({ V0: data }: any) => {
+        if (data.OrmInitial) {
+            this.handleInitialResponse(data.OrmInitial);
+        } else if (data.OrmUpdate) {
+            this.onBackendUpdate(data.OrmUpdate);
+        } else {
+            console.warn("Received unknown ORM message from backend", data);
+        }
+    };
 
-    private handleInitialResponse(...param: any) {
-        console.log("RESPONSE FROM BACKEND", param);
-
-        // TODO: This will break, just provisionary.
-        const wasmMessage: any = param;
-        const { initialData } = wasmMessage;
+    private handleInitialResponse = (initialData: any) => {
+        console.debug(
+            "[handleInitialResponse] handleInitialResponse called with",
+            initialData
+        );
 
         // Assign initial data to empty signal object without triggering watcher at first.
         this.suspendDeepWatcher = true;
         batch(() => {
+            // Do this in case the there was any (incorrect) data added before initialization.
+            this.signalObject.clear();
             // Convert arrays to sets and apply to signalObject (we only have sets but can only transport arrays).
-            for (const newItem of recurseArrayToSet(initialData)) {
+            for (const newItem of parseOrmInitialObject(initialData)) {
                 this.signalObject.add(newItem);
             }
+            console.log(
+                "[handleInitialResponse] signal object:",
+                this.signalObject
+            );
         });
 
         queueMicrotask(() => {
@@ -171,17 +182,34 @@ export class OrmConnection<T extends BaseType> {
         });
 
         this.ready = true;
-    }
-    private onBackendUpdate(...params: any) {
-        // Apply diff
-    }
+    };
+    private onBackendUpdate = (patches: Patch[]) => {
+        console.log(
+            "connectionHandler: onBackendUpdate. Got patches:",
+            patches
+        );
+
+        this.suspendDeepWatcher = true;
+        applyDiffToDeepSignal(this.signalObject, patches);
+        // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
+        queueMicrotask(() => {
+            this.suspendDeepWatcher = false;
+        });
+    };
 
     /** Function to create random subject IRIs for newly created nested objects. */
-    private generateSubjectIri(path: (string | number)[]): string {
-        // Generate random string.
-        let b = Buffer.alloc(33);
+    private generateSubjectIri = (path: (string | number)[]): string => {
+        console.debug("Generating new random id for path", path);
+        // Generate 33 random bytes using Web Crypto API
+        const b = new Uint8Array(33);
         crypto.getRandomValues(b);
-        const randomString = b.toString("base64url");
+        // Convert to base64url
+        const base64url = (bytes: Uint8Array) =>
+            btoa(String.fromCharCode(...bytes))
+                .replace(/\+/g, "-")
+                .replace(/\//g, "_")
+                .replace(/=+$/, "");
+        const randomString = base64url(b);
 
         if (path.length > 0 && path[0].toString().startsWith("did:ng:o:")) {
             // If the root is a nuri, use that as a base IRI.
@@ -192,7 +220,7 @@ export class OrmConnection<T extends BaseType> {
             // Else, just generate a random IRI.
             return "did:ng:q:" + randomString;
         }
-    }
+    };
 }
 
 //
@@ -211,12 +239,19 @@ export function deepPatchesToDiff(patches: DeepPatch[]): Patches {
     }) as Patches;
 }
 
-const recurseArrayToSet = (obj: any): any => {
+const parseOrmInitialObject = (obj: any): any => {
+    // Regular arrays become sets.
     if (Array.isArray(obj)) {
-        return new Set(obj.map(recurseArrayToSet));
+        return new Set(obj.map(parseOrmInitialObject));
     } else if (obj && typeof obj === "object") {
-        for (const key of Object.keys(obj)) {
-            obj[key] = recurseArrayToSet(obj[key]);
+        if ("@id" in obj) {
+            // Regular object.
+            for (const key of Object.keys(obj)) {
+                obj[key] = parseOrmInitialObject(obj[key]);
+            }
+        } else {
+            // Object does not have @id, that means it's a set of objects.
+            return new Set(Object.values(obj));
         }
         return obj;
     } else {

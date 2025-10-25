@@ -21,6 +21,7 @@ use std::sync::Arc;
 
 use nextgraph::net::app_protocol::AppRequest;
 use ng_net::orm::OrmPatch;
+use ng_repo::log_info;
 use ng_wallet::types::SensitiveWallet;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -172,6 +173,18 @@ pub fn privkey_to_string(privkey: JsValue) -> Result<String, JsValue> {
     let p = serde_wasm_bindgen::from_value::<PrivKey>(privkey)
         .map_err(|_| "Deserialization error of privkey")?;
     Ok(format!("{p}"))
+}
+
+pub fn wallet_open_with_password(wallet: JsValue, password: String) -> Result<JsValue, JsValue> {
+    let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(wallet)
+        .map_err(|_| "Deserialization error of wallet")?;
+    let res = nextgraph::local_broker::wallet_open_with_password(&encrypted_wallet, password);
+    match res {
+        Ok(r) => Ok(r
+            .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+            .unwrap()),
+        Err(e) => Err(e.to_string().into()),
+    }
 }
 
 #[wasm_bindgen]
@@ -923,7 +936,7 @@ static INIT_LOCAL_BROKER: Lazy<Box<ConfigInitFn>> = Lazy::new(|| {
 pub async fn wallet_create(params: JsValue) -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
     let mut params = serde_wasm_bindgen::from_value::<CreateWalletV0>(params)
-        .map_err(|_| "Deserialization error of args")?;
+        .map_err(|e| format!("Deserialization error of args {e}"))?;
     params.result_with_wallet_file = true;
     let res = nextgraph::local_broker::wallet_create_v0(params).await;
     match res {
@@ -1314,7 +1327,9 @@ async fn app_request_stream_(
             //         list.
             //     };
             // };
-            let response_js = serde_wasm_bindgen::to_value(&app_response).unwrap();
+            let response_js = app_response
+                .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+                .unwrap();
             // if let Some(graph_triples) = graph_triples_js {
             //     let response: Object = response_js.try_into().map_err(|_| {
             //         "Error while adding triples to AppResponse.V0.State".to_string()
@@ -1818,7 +1833,6 @@ pub async fn orm_start(
 ) -> Result<JsValue, String> {
     let shape_type: OrmShapeType = serde_wasm_bindgen::from_value::<OrmShapeType>(shapeType)
         .map_err(|e| format!("Deserialization error of shapeType {e}"))?;
-    log_info!("frontend_orm_start {:?}", shape_type);
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
     let scope = if scope.is_empty() {
@@ -1826,6 +1840,7 @@ pub async fn orm_start(
     } else {
         NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
     };
+    log_info!("[orm_start] parameters parsed, calling new_orm_start");
     let mut request = AppRequest::new_orm_start(scope, shape_type);
     request.set_session_id(session_id);
     app_request_stream_(request, callback).await
@@ -1833,21 +1848,24 @@ pub async fn orm_start(
 
 #[wasm_bindgen]
 pub async fn orm_update(
-    scope: JsValue,
+    scope: String,
     shapeTypeName: String,
     diff: JsValue,
     session_id: JsValue,
 ) -> Result<(), String> {
     let diff: OrmPatches = serde_wasm_bindgen::from_value::<OrmPatches>(diff)
         .map_err(|e| format!("Deserialization error of diff {e}"))?;
-    log_info!("frontend_update_orm {:?}", diff);
 
-    let scope: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(scope)
-        .map_err(|_| "Deserialization error of scope".to_string())?;
+    let scope = if scope.is_empty() {
+        NuriV0::new_entire_user_site()
+    } else {
+        NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
+    };
     let mut request = AppRequest::new_orm_update(scope, shapeTypeName, diff);
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
     request.set_session_id(session_id);
+    log_info!("[orm_update] calling orm_update");
     let response = nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e: NgError| e.to_string())?;
@@ -2137,10 +2155,12 @@ pub async fn gen_wallet_for_test(ngd_peer_id: String) -> Result<JsValue, String>
     let peer_id_of_server_broker = decode_key(&ngd_peer_id).map_err(|e: NgError| e.to_string())?;
 
     let wallet_result = wallet_create_v0(CreateWalletV0 {
-        security_img: Vec::from(EMPTY_IMG),
+        security_img: None,
         security_txt: "testsecurityphrase".to_string(),
-        pin: [1, 2, 1, 2],
+        pin: Some([1, 2, 1, 2]),
         pazzle_length: 9,
+        mnemonic: true,
+        password: None,
         send_bootstrap: false,
         send_wallet: false,
         result_with_wallet_file: false,
@@ -2155,7 +2175,7 @@ pub async fn gen_wallet_for_test(ngd_peer_id: String) -> Result<JsValue, String>
     .expect("wallet_create_v0");
 
     let mut mnemonic_words = Vec::with_capacity(12);
-    display_mnemonic(&wallet_result.mnemonic)
+    display_mnemonic(&wallet_result.mnemonic.unwrap())
         .iter()
         .for_each(|word| {
             mnemonic_words.push(word.clone());

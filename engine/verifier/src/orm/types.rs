@@ -25,8 +25,6 @@ pub struct OrmTrackedSubject {
     pub parents: HashMap<String, Arc<RwLock<OrmTrackedSubject>>>,
     /// Validity. When untracked, triple updates are not processed for this tracked subject.
     pub valid: OrmTrackedSubjectValidity,
-    /// Previous validity. Used for validation and creating JSON Patch diffs from changes.
-    pub prev_valid: OrmTrackedSubjectValidity,
     /// Subject IRI
     pub subject_iri: String,
     /// The shape for which the predicates are tracked.
@@ -39,6 +37,7 @@ pub enum OrmTrackedSubjectValidity {
     Invalid,
     Pending,
     Untracked,
+    ToDelete,
 }
 
 #[derive(Clone, Debug)]
@@ -60,10 +59,10 @@ pub struct OrmTrackedSubjectChange {
     pub subject_iri: String,
     /// Predicates that were changed.
     pub predicates: HashMap<String, OrmTrackedPredicateChanges>,
-    /// If the new triples have been added to the tracked predicates
-    /// (values_added / values_removed) already. This is to prevent
-    /// double-application.
-    pub data_applied: bool,
+    /// If the validation has taken place
+    pub is_validated: bool,
+    /// The validity before the new validation.
+    pub prev_valid: OrmTrackedSubjectValidity,
 }
 #[derive(Debug)]
 pub struct OrmTrackedPredicateChanges {
