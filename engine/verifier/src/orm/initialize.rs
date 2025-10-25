@@ -16,7 +16,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::orm::query::shape_type_to_sparql_select;
 use crate::orm::types::*;
 use crate::orm::utils::nuri_to_string;
 use crate::types::CancelFn;
@@ -47,12 +46,8 @@ impl Verifier {
         // All referenced shapes must be available.
 
         // Create new subscription and add to self.orm_subscriptions
-        let orm_subscription = OrmSubscription::new(
-            shape_type.clone(),
-            session_id,
-            nuri.clone(),
-            tx.clone(),
-        );
+        let orm_subscription =
+            OrmSubscription::new(shape_type.clone(), session_id, nuri.clone(), tx.clone());
 
         self.orm_subscriptions
             .entry(nuri_to_string(nuri))

@@ -60,7 +60,8 @@ impl Verifier {
 
         // Apply changes to all orm subscriptions (and their tracked subjects).
         // In this first loop, collect all shapes that are being tracked.
-        let mut scopes: Vec<(String, Vec<(Arc<OrmSchemaShape>, Vec<Arc<OrmSchemaShape>>)>)> = vec![];
+        let mut scopes: Vec<(String, Vec<(Arc<OrmSchemaShape>, Vec<Arc<OrmSchemaShape>>)>)> =
+            vec![];
         for (scope_str, subs) in self.orm_subscriptions.iter_mut() {
             // First: Clean up and remove old subscriptions
             let initial_sub_count = subs.len();
@@ -98,7 +99,10 @@ impl Verifier {
             );
 
             // Prepare to apply updates to tracked subjects and record the changes.
-            let root_shapes_and_tracked_shapes: Vec<(Arc<OrmSchemaShape>, Vec<Arc<OrmSchemaShape>>)> = subs
+            let root_shapes_and_tracked_shapes: Vec<(
+                Arc<OrmSchemaShape>,
+                Vec<Arc<OrmSchemaShape>>,
+            )> = subs
                 .iter()
                 .map(|sub| {
                     let root_shape = sub
@@ -125,13 +129,13 @@ impl Verifier {
         }
 
         // Iterate over all scopes again to apply changes to all tracked subjects.
-    for (scope_str, shapes_zip) in scopes {
+        for (scope_str, shapes_zip) in scopes {
             let mut orm_changes: OrmChanges = HashMap::new();
 
             log_info!(
-        "[orm_backend_update] Applying changes for scope {} with {} shape entries",
-        scope_str,
-        shapes_zip.len()
+                "[orm_backend_update] Applying changes for scope {} with {} shape entries",
+                scope_str,
+                shapes_zip.len()
             );
 
             // Apply the changes to tracked subjects.
@@ -209,7 +213,7 @@ impl Verifier {
                 // For each change that has a subject tracked in this subscription,
                 //   - Get change operation (calling diff_op_from_pred_change).
                 //      - case not object, single --> either add or remove (must be one of each at max)
-                        // removed stray line from previous broken edit
+                // removed stray line from previous broken edit
                 //      - case object, multi --> create object patch + nested object patch (will be handled when recursing paths to add primitive values)
                 //      - case object, single --> just object patch (will be handled when recursing paths to add primitive values)
                 //   - Add patches for each change operation for the path of the change in the schema.
@@ -289,7 +293,7 @@ impl Verifier {
                             // Check if any parent is also being deleted - if so, skip this deletion patch
                             // because the parent deletion will implicitly delete the children
                             let has_parent_being_deleted =
-                                tracked_subject.parents.values().any(|parent_arc| {
+                                tracked_subject.parents.iter().any(|parent_arc| {
                                     let parent_ts = parent_arc.read().unwrap();
                                     parent_ts.valid == TrackedOrmObjectValidity::ToDelete
                                 });
@@ -463,7 +467,7 @@ fn queue_objects_to_create(
         objects_to_create.insert((path[..path.len() - 1].to_vec(), Some(child_iri.clone())));
     } else {
         // Not at root: traverse to parents and create object patches along the way
-        for (_parent_iri, parent_tracked_subject) in current_ts.parents.iter() {
+        for parent_tracked_subject in current_ts.parents.iter() {
             let parent_ts = parent_tracked_subject.read().unwrap();
 
             if let Some(new_path) = build_path_segment_for_parent(current_ts, &parent_ts, path) {
@@ -668,7 +672,7 @@ fn build_path_to_root_and_create_patches(
     }
 
     // Recurse to parents
-    for (_parent_iri, parent_tracked_subject) in tracked_subject.parents.iter() {
+    for parent_tracked_subject in tracked_subject.parents.iter() {
         let parent_ts = parent_tracked_subject.read().unwrap();
 
         // Build the path segment for this parent

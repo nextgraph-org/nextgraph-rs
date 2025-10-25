@@ -22,7 +22,9 @@ pub struct TrackedOrmObject {
     pub tracked_predicates: HashMap<String, Arc<RwLock<TrackedOrmPredicate>>>,
     /// If this is a nested subject, this records the parents
     /// and if they are currently tracking this subject.
-    pub parents: HashMap<String, Arc<RwLock<TrackedOrmObject>>>,
+    /// Note: We keep a list of parent tracked objects. Multiple parents
+    /// may point to the same child (across different graphs).
+    pub parents: Vec<Arc<RwLock<TrackedOrmObject>>>,
     /// Validity. When untracked, triple updates are not processed for this tracked subject.
     pub valid: TrackedOrmObjectValidity,
     /// Subject IRI
@@ -119,13 +121,6 @@ impl OrmSubscription {
         }
     }
 
-    /// Return a stable graph key bucket for this subscription. For now we scope to the document NURI.
-    #[inline]
-    pub fn default_graph_key(&self) -> GraphIri {
-        // Use the repository/doc nuri as graph bucket
-        self.nuri.repo().to_string()
-    }
-
     /// Iterate lazily over all tracked ORM objects across all graphs, subjects, and shapes.
     /// Returns cloned Arcs for convenient usage without lifetime constraints.
     pub fn iter_all_objects(&self) -> impl Iterator<Item = Arc<RwLock<TrackedOrmObject>>> + '_ {
@@ -208,7 +203,7 @@ impl OrmSubscription {
             .or_insert_with(|| {
                 Arc::new(RwLock::new(TrackedOrmObject {
                     tracked_predicates: HashMap::new(),
-                    parents: HashMap::new(),
+                    parents: Vec::new(),
                     valid: TrackedOrmObjectValidity::Pending,
                     subject_iri: subject_iri.to_string(),
                     graph_iri: graph_iri.to_string(),
@@ -216,16 +211,6 @@ impl OrmSubscription {
                 }))
             })
             .clone()
-    }
-
-    /// Convenience: use the default graph bucket for this subscription.
-    pub fn get_or_create_tracked_subject(
-        &mut self,
-        subject_iri: &str,
-        shape: &Arc<OrmSchemaShape>,
-    ) -> Arc<RwLock<TrackedOrmObject>> {
-        let graph_key = self.default_graph_key();
-        self.get_or_create_tracked_subject_with_graph(&graph_key, subject_iri, shape)
     }
 
     /// Remove a subject (all of its shapes) across all graphs. Returns true if any removal occurred.
@@ -296,10 +281,12 @@ impl OrmSubscription {
                         for child in &tracked_pred_read.tracked_children {
                             let mut tracked_child = child.write().unwrap();
                             if tracked_child.parents.is_empty()
-                                || (tracked_child.parents.len() == 1
-                                    && tracked_child
-                                        .parents
-                                        .contains_key(&tracked_subject.subject_iri))
+                                || (tracked_child.parents.len() == 1 && {
+                                    let p = &tracked_child.parents[0];
+                                    let p = p.read().unwrap();
+                                    p.subject_iri == tracked_subject.subject_iri
+                                        && p.graph_iri == tracked_subject.graph_iri
+                                })
                             {
                                 if tracked_child.valid != TrackedOrmObjectValidity::ToDelete {
                                     tracked_child.valid = TrackedOrmObjectValidity::Untracked;
@@ -314,19 +301,26 @@ impl OrmSubscription {
                         for tracked_pred in tracked_subject.tracked_predicates.values() {
                             let tracked_pred_read = tracked_pred.read().unwrap();
                             for child in &tracked_pred_read.tracked_children {
-                                child.write().unwrap().parents.remove(subject_iri);
+                                let mut child_w = child.write().unwrap();
+                                child_w.parents.retain(|p| {
+                                    let pr = p.read().unwrap();
+                                    !(pr.subject_iri == *subject_iri
+                                        && pr.graph_iri == tracked_subject.graph_iri)
+                                });
                             }
                         }
                     }
 
                     // Also remove this subject from its parents' children lists
-                    for (_parent_iri, parent_tracked_subject) in &tracked_subject.parents {
+                    for parent_tracked_subject in &tracked_subject.parents {
                         let mut parent_ts = parent_tracked_subject.write().unwrap();
                         for tracked_pred in parent_ts.tracked_predicates.values_mut() {
                             let mut tracked_pred_mut = tracked_pred.write().unwrap();
-                            tracked_pred_mut
-                                .tracked_children
-                                .retain(|child| child.read().unwrap().subject_iri != *subject_iri);
+                            tracked_pred_mut.tracked_children.retain(|child| {
+                                let cr = child.read().unwrap();
+                                !(cr.subject_iri == *subject_iri
+                                    && cr.graph_iri == tracked_subject.graph_iri)
+                            });
                         }
                     }
                 }

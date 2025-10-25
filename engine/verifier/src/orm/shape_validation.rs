@@ -29,12 +29,7 @@ impl Verifier {
             .unwrap()
             .subject_iri
             .clone();
-        let Some(tracked_subject) = orm_subscription
-            .get_tracked_object_any_graph(&subject_iri, &shape.iri)
-        else {
-            return vec![];
-        };
-        let mut tracked_subject = tracked_subject.write().unwrap();
+        let mut tracked_subject = s_change.tracked_orm_object.write().unwrap();
         let previous_validity = s_change.prev_valid.clone();
 
         // Keep track of objects that need to be validated against a shape to fetch and validate.
@@ -57,10 +52,12 @@ impl Verifier {
                 for child in &tracked_predicate.write().unwrap().tracked_children {
                     let mut tracked_child = child.write().unwrap();
                     if tracked_child.parents.is_empty()
-                        || (tracked_child.parents.len() == 1
-                            && tracked_child
-                                .parents
-                                .contains_key(&tracked_subject.subject_iri))
+                        || (tracked_child.parents.len() == 1 && {
+                            let p = &tracked_child.parents[0];
+                            let p = p.read().unwrap();
+                            p.subject_iri == tracked_subject.subject_iri
+                                && p.graph_iri == tracked_subject.graph_iri
+                        })
                     {
                         tracked_child.valid = TrackedOrmObjectValidity::Untracked;
                     }
@@ -270,11 +267,7 @@ impl Verifier {
 
                     // Set our own validity to pending and add it to need_evaluation for later.
                     set_validity(&mut new_validity, TrackedOrmObjectValidity::Pending);
-                    need_evaluation.push((
-                        subject_iri.clone(),
-                        shape.iri.clone(),
-                        false,
-                    ));
+                    need_evaluation.push((subject_iri.clone(), shape.iri.clone(), false));
                     // Schedule untracked children for fetching and validation.
                     tracked_children.as_ref().map(|children| {
                         for child in children {
@@ -290,6 +283,10 @@ impl Verifier {
                 } else if counts.2 > 0 {
                     // If we have pending children, we need to wait for their evaluation.
                     set_validity(&mut new_validity, TrackedOrmObjectValidity::Pending);
+                    // Also schedule self for re-evaluation once children settle,
+                    // otherwise parents can remain stuck in Pending and never
+                    // transition to Valid after children become Valid.
+                    need_evaluation.push((subject_iri.clone(), shape.iri.clone(), false));
                     // Schedule pending children for re-evaluation without fetch.
                     tracked_children.as_ref().map(|children| {
                         for child in children {
@@ -386,7 +383,7 @@ impl Verifier {
             // Remember that the last elements are evaluated first.
             return tracked_subject
                 .parents
-                .values()
+                .iter()
                 .map(|parent| {
                     let p = parent.read().unwrap();
                     (p.subject_iri.clone(), p.shape.iri.clone(), false)

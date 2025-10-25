@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use ng_oxigraph::oxrdf::Subject;
+use ng_oxigraph::oxrdf::{GraphName, Quad, Subject};
 use ng_repo::types::OverlayId;
 
 use std::collections::HashMap;
@@ -18,37 +18,40 @@ use regex::Regex;
 
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
-use ng_oxigraph::oxrdf::Triple;
+// use ng_oxigraph::oxrdf::Triple;
 
-pub fn group_by_subject_for_shape<'a>(
+pub type GraphSubjectKey = (String, String);
+
+pub fn group_quads_by_graph_subject_for_shape<'a>(
     shape: &OrmSchemaShape,
-    triples: &'a [Triple],
-    allowed_subjects: &[String],
-) -> HashMap<String, Vec<&'a Triple>> {
-    let mut triples_by_subject: HashMap<String, Vec<&Triple>> = HashMap::new();
+    quads: &'a [Quad],
+    allowed: &[GraphSubjectKey],
+) -> HashMap<GraphSubjectKey, Vec<&'a Quad>> {
+    let mut quads_by_key: HashMap<GraphSubjectKey, Vec<&Quad>> = HashMap::new();
     let allowed_preds_set: HashSet<&str> =
         shape.predicates.iter().map(|p| p.iri.as_str()).collect();
-    let allowed_subject_set: HashSet<&str> = allowed_subjects.iter().map(|s| s.as_str()).collect();
-    for triple in triples {
-        // triple.subject must be in allowed_subjects (or allowed_subjects empty)
-        // and triple.predicate must be in allowed_preds.
-        if allowed_preds_set.contains(triple.predicate.as_str()) {
-            // filter subjects if list provided
-            let subj = match &triple.subject {
-                Subject::NamedNode(n) => n.clone().into_string(),
-                _ => continue,
-            };
-            // Subject must be in allowed subjects (or allowed_subjects is empty).
-            if allowed_subject_set.is_empty() || allowed_subject_set.contains(&subj.as_str()) {
-                triples_by_subject
-                    .entry(subj)
-                    .or_insert_with(Vec::new)
-                    .push(triple);
-            }
+    let allowed_set: HashSet<GraphSubjectKey> = allowed.iter().cloned().collect();
+    for quad in quads {
+        if !allowed_preds_set.contains(quad.predicate.as_str()) {
+            continue;
+        }
+        let subj = match &quad.subject {
+            Subject::NamedNode(n) => n.clone().into_string(),
+            _ => continue,
+        };
+        let graph = match &quad.graph_name {
+            GraphName::NamedNode(n) => n.clone().into_string(),
+            _ => continue,
+        };
+        if allowed_set.is_empty() || allowed_set.contains(&(graph.clone(), subj.clone())) {
+            quads_by_key
+                .entry((graph, subj))
+                .or_insert_with(Vec::new)
+                .push(quad);
         }
     }
 
-    return triples_by_subject;
+    return quads_by_key;
 }
 
 pub fn nuri_to_string(nuri: &NuriV0) -> String {

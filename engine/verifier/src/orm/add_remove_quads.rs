@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use ng_oxigraph::oxrdf::Triple;
+use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::VerifierError;
 use std::sync::{Arc, RwLock};
 
@@ -15,27 +15,40 @@ use crate::orm::types::*;
 use ng_net::orm::*;
 use ng_repo::log::*;
 
-/// Add all triples to `subject_changes`
-/// Returns predicates to nested objects that were touched and need processing.
-/// Assumes all triples have same subject and graph.
+/// Add/remove quads to `subject_changes` for a single (graph,subject) and shape.
+/// Assumes all quads have the same subject and graph in a call.
 pub fn add_remove_quads(
     shape: Arc<OrmSchemaShape>,
+    graph_iri: &str,
     subject_iri: &str,
-    triples_added: &[&Triple],
-    triples_removed: &[&Triple],
+    quads_added: &[&Quad],
+    quads_removed: &[&Quad],
     orm_subscription: &mut OrmSubscription,
-    subject_changes: &mut TrackedOrmObjectChange,
+    orm_object_changes: &mut TrackedOrmObjectChange,
 ) -> Result<(), VerifierError> {
     let schema = orm_subscription.shape_type.schema.clone();
+    // Ensure the parent tracked subject exists for this (graph, subject, shape)
+    let parent_arc =
+        orm_subscription.get_or_create_tracked_subject_with_graph(graph_iri, subject_iri, &shape);
 
-    // Process added triples.
-    // For each triple, check if it matches the shape.
+    // We'll collect deferred links for nested shape predicates here and resolve them
+    // after all added quads have been processed. This allows us to link children that
+    // may already exist in any graph, only creating a new tracked child in the current
+    // graph if none exist yet.
+    let mut deferred_shape_links: Vec<(
+        Arc<RwLock<TrackedOrmPredicate>>, // predicate to attach child to
+        String,                           // child subject IRI (object IRI)
+        Arc<OrmSchemaShape>,              // child shape
+    )> = Vec::new();
+
+    // Process added quads.
+    // For each quad, check if it matches the shape.
     // In parallel, we record the values added and removed (tracked_changes)
-    for triple in triples_added {
-        let obj_term = oxrdf_term_to_orm_basic_type(&triple.object);
-        log_debug!("  - processing triple {triple}");
+    for quad in quads_added {
+        let obj_term = oxrdf_term_to_orm_basic_type(&quad.object);
+        log_debug!("  - processing quad {quad}");
         for predicate_schema in &shape.predicates {
-            if predicate_schema.iri != triple.predicate.as_str() {
+            if predicate_schema.iri != quad.predicate.as_str() {
                 // Triple does not match predicate.
                 continue;
             }
@@ -43,12 +56,9 @@ pub fn add_remove_quads(
                 "    - Matched triple for datatypes {:?}",
                 predicate_schema.dataTypes
             );
-            // Predicate schema constraint matches this triple.
-            let tracked_subject_lock = orm_subscription.get_or_create_tracked_subject(
-                subject_iri,
-                &shape,
-            );
-            let mut tracked_subject = tracked_subject_lock.write().unwrap();
+            // Predicate schema constraint matches this quad.
+            // Get or create the tracked predicate on the parent.
+            let mut tracked_subject = parent_arc.write().unwrap();
             // log_debug!("lock acquired on tracked_subject");
             // Add get tracked predicate.
             let tracked_predicate_lock = tracked_subject
@@ -61,14 +71,15 @@ pub fn add_remove_quads(
                         tracked_children: Vec::new(),
                         current_literals: None,
                     }))
-                });
+                })
+                .clone();
             {
                 let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
                 // log_debug!("lock acquired on tracked_predicate");
                 tracked_predicate.current_cardinality += 1;
 
                 // Keep track of the added values here.
-                let pred_changes: &mut TrackedOrmPredicateChanges = subject_changes
+                let pred_changes: &mut TrackedOrmPredicateChanges = orm_object_changes
                     .predicates
                     .entry(predicate_schema.iri.clone())
                     .or_insert_with(|| TrackedOrmPredicateChanges {
@@ -94,8 +105,8 @@ pub fn add_remove_quads(
                     }
                 }
             }
-            // If predicate is of type shape, register
-            // "parent (predicate) -> child subject" and `child_subject.parents`.
+            // If predicate is of type shape, register a deferred link
+            // "parent (predicate) -> child subject" to be resolved after all quads are processed.
             for shape_iri in predicate_schema.dataTypes.iter().filter_map(|dt| {
                 if dt.valType == OrmSchemaValType::shape {
                     dt.shape.clone()
@@ -105,47 +116,54 @@ pub fn add_remove_quads(
             }) {
                 log_debug!("      - dealing with nested type {shape_iri}");
                 if let BasicType::Str(obj_iri) = &obj_term {
-                    let tracked_child_arc = {
-                        // Get or create object's tracked subject struct.
-                        let child_shape = schema.get(&shape_iri).unwrap();
-                        // find the parent
-                        let parent = orm_subscription
-                            .get_or_create_tracked_subject(subject_iri, &shape);
-
-                        // If this actually created a new tracked subject, that's fine and will be removed during validation.
-                        let tracked_child = orm_subscription
-                            .get_or_create_tracked_subject(obj_iri, child_shape);
-
-                        // Add self to parent.
-                        tracked_child
-                            .write()
-                            .unwrap()
-                            .parents
-                            .insert(subject_iri.to_string(), parent);
-                        // log_debug!("lock acquired on tracked_child {obj_iri}");
-                        tracked_child
-                    };
-
-                    // Add link to children
-                    let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
-                    // log_debug!(
-                    //     "for children, lock acquired on tracked_predicate {}",
-                    //     predicate_schema.iri
-                    // );
-                    tracked_predicate.tracked_children.push(tracked_child_arc);
+                    // Get child's shape
+                    let child_shape = schema.get(&shape_iri).unwrap().clone();
+                    // Defer linking: store the predicate, child IRI and shape
+                    deferred_shape_links.push((
+                        tracked_predicate_lock.clone(),
+                        obj_iri.clone(),
+                        child_shape,
+                    ));
                 }
                 // log_debug!("end of dealing with nesting");
             }
         }
     }
 
-    // Process removed triples.
-    for triple in triples_removed {
-        let pred_iri = triple.predicate.as_str();
+    // Resolve deferred shape links now that all added quads have been processed.
+    for (tracked_predicate_lock, obj_iri, child_shape) in deferred_shape_links {
+        // Try to find an existing tracked child in any graph for this (subject, shape)
+        let tracked_child =
+            match orm_subscription.get_tracked_object_any_graph(&obj_iri, &child_shape.iri) {
+                Some(existing) => existing,
+                None => continue,
+            };
+
+        // Add parent link on the child
+        {
+            let mut child_w = tracked_child.write().unwrap();
+            // Avoid duplicate parent entries
+            let has_parent = child_w.parents.iter().any(|p| {
+                let pr = p.read().unwrap();
+                pr.subject_iri == subject_iri && pr.graph_iri == graph_iri
+            });
+            if !has_parent {
+                child_w.parents.push(parent_arc.clone());
+            }
+        }
+
+        // Attach the child to the predicate's tracked children
+        let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
+        tracked_predicate.tracked_children.push(tracked_child);
+    }
+
+    // Process removed quads.
+    for quad in quads_removed {
+        let pred_iri = quad.predicate.as_str();
 
         // Only adjust if we had tracked state.
         let tracked_predicate_opt = orm_subscription
-            .get_tracked_object_any_graph(subject_iri, &shape.iri)
+            .get_tracked_object(graph_iri, subject_iri, &shape.iri)
             .and_then(|ts| {
                 let guard = ts.read().ok()?;
                 guard.tracked_predicates.get(pred_iri).cloned()
@@ -160,7 +178,7 @@ pub fn add_remove_quads(
             tracked_predicate.current_cardinality.saturating_sub(1);
 
         // Keep track of removed values here.
-        let pred_changes: &mut TrackedOrmPredicateChanges = subject_changes
+        let pred_changes: &mut TrackedOrmPredicateChanges = orm_object_changes
             .predicates
             .entry(tracked_predicate.schema.iri.clone())
             .or_insert_with(|| TrackedOrmPredicateChanges {
@@ -169,7 +187,7 @@ pub fn add_remove_quads(
                 values_removed: Vec::new(),
             });
 
-        let val_removed = oxrdf_term_to_orm_basic_type(&triple.object);
+        let val_removed = oxrdf_term_to_orm_basic_type(&quad.object);
         pred_changes.values_removed.push(val_removed.clone());
 
         // If value type is literal, we need to remove the current value from the tracked predicate.
