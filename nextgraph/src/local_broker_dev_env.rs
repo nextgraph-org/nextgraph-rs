@@ -1,1 +1,1 @@
-pub const PEER_ID: &str = "FtdzuDYGewfXWdoPuXIPb0wnd0SAg1WoA2B14S7jW3MA";
+pub const PEER_ID: &str = "oq8uTm94O0b8TB3ZUim7iElaus_LBOnydnSnOosJZuwA";

@@ -67,6 +67,7 @@ const handler = {
         
         if (import.meta.env.NG_APP_WEB) {
             let sdk = await import("@nextgraph-monorepo/ng-sdk-js")
+            //console.log("calling",path, args, sdk, sdk[path])
             if (path[0] === "get_bowser") {
                 let info = Bowser.parse(window.navigator.userAgent);
                 return info.browser.name;
@@ -75,6 +76,8 @@ const handler = {
                 client_info.V0.version=version;
                 //console.log(client_info);
                 return client_info;
+            } else if (path[0] === "get_worker") {
+                return await import("./worker.js?worker&inline"); 
             } else if (path[0] === "get_wallets") {
                 let wallets = await Reflect.apply(sdk[path], caller, args);
                 return Object.fromEntries(wallets || []);
@@ -337,9 +340,9 @@ const handler = {
   
 const api = createAsyncProxy({}, handler);
 
-export const NG_EU_BSP = "https://pnm.allelo.eco";
+export const NG_EU_BSP = import.meta.env.NG_ENV_ALT ? "https://"+import.meta.env.NG_ENV_ALT : "https://nextgraph.eu";
 export const NG_EU_BSP_REGISTER = import.meta.env.PROD
-? "https://account.allelo.eco/#/create"
+? import.meta.env.NG_ENV_ALT_ACCOUNT ? import.meta.env.NG_ENV_ALT_ACCOUNT : "https://account.nextgraph.eu/#/create"
 : "http://account-dev.nextgraph.eu:5173/#/create";
 
 export const NG_ONE_BSP = "https://nextgraph.one";

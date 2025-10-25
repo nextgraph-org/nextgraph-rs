@@ -1855,12 +1855,14 @@ lazy_static! {
 
 #[cfg(not(debug_assertions))]
 lazy_static! {
+    static ref DOMAIN: &'static str = option_env!("NG_ENV_ALT").unwrap_or("nextgraph.eu");
+    static ref PEERID: &'static str =
+        option_env!("NG_ENV_ALT_PEERID").unwrap_or("LZn-rQD_NUNxrWT_hBXeHk6cjI6WAy-knRVOdovIjwsA");
     static ref NEXTGRAPH_EU: BrokerServerV0 = BrokerServerV0 {
-        server_type: BrokerServerTypeV0::Domain("nextgraph.eu".to_string()),
+        server_type: BrokerServerTypeV0::Domain(DOMAIN.to_string()),
         can_verify: false,
         can_forward: false,
-        peer_id: ng_repo::utils::decode_key("LZn-rQD_NUNxrWT_hBXeHk6cjI6WAy-knRVOdovIjwsA")
-            .unwrap(),
+        peer_id: ng_repo::utils::decode_key(&PEERID).unwrap(),
     };
 }
 
@@ -1878,6 +1880,7 @@ pub async fn wallet_import_from_code(code: String) -> Result<Wallet, NgError> {
             secret_key,
             is_rendezvous,
         }) => {
+            log_info!("do_Ext_call {}", broker.peer_id.to_string());
             let wallet: ExportedWallet = do_ext_call(
                 &broker,
                 ExtWalletGetExportV0 {

@@ -23,6 +23,7 @@
   import { t } from "svelte-i18n";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import PasswordInput from "../lib/components/PasswordInput.svelte";
+  import { redirect_server, bootstrap_redirect } from "./index";
 
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
@@ -79,15 +80,6 @@
   function scrollToTop() {
     top.scrollIntoView();
   }
-
-  const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
-  const bootstrap_redirect = import.meta.env.NG_DEV
-    ? "http://localhost:1421/bootstrap.html#/?b="
-    : import.meta.env.DEV
-      ? "http://localhost:14403/#/?b="
-      : import.meta.env.NG_DEV3
-        ? "http://127.0.0.1:3033/bootstrap/#/?b="
-        : `https://${redirect_server}/bootstrap/#/?b=`;
 
   async function bootstrap() {
     //console.log(await ng.client_info());
@@ -236,10 +228,6 @@
     unsub_register = undefined;
   });
 
-  onDestroy(async () => {
-    unsub_register();
-  });
-
   const select_bsp = async (bsp_url, bsp_name) => {
     if (!tauri_platform || tauri_platform == "android") {
       let redirect_url;
@@ -306,7 +294,7 @@
   const selectEU = async (event) => {
     await select_bsp(
       NG_EU_BSP_REGISTER,
-      import.meta.env.NG_ENV_ALT ? "pnm.allelo.eco" : "nextgraph.eu"
+      import.meta.env.NG_ENV_ALT ? import.meta.env.NG_ENV_ALT : "nextgraph.eu"
     );
   };
 </script>
