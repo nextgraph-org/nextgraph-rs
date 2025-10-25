@@ -421,7 +421,7 @@ impl ClientV0 {
     }
 }
 
-/// Save to nextgraph.one
+/// Save to nextgraph.net
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum SaveToNGOne {
     No,

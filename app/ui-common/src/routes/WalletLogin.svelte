@@ -23,6 +23,11 @@
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import ng from "../api";
   import { Fileupload, Button } from "flowbite-svelte";
+  import {
+    redirect_server,
+    bootstrap_redirect,
+    base64UrlEncode,
+  } from "./index";
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
   import {
@@ -162,21 +167,22 @@
         $redirect_after_login = undefined;
         $redirect_if_wallet_is = undefined;
         let in_memory = !event.detail.trusted;
-        //console.log("IMPORTING", in_memory, event.detail.wallet, wallet);
-        // TODO : register bootstrap when importing
-        // if (!in_memory && !tauri_platform) {
-        //   let bootstrap_iframe_msgs =
-        //     await ng.get_bootstrap_iframe_msgs_for_brokers(
-        //       event.detail.wallet.V0.brokers
-        //     );
-        //   let res = await register_bootstrap(bootstrap_iframe_msgs);
-        //   if (res !== true) {
-        //     throw new Error(
-        //       "We could not save your bootstrap information at nextgraph.net. This is needed for links and third-party webapps to work properly. so we are stopping here. Reason: " +
-        //         res
-        //     );
-        //   }
-        // }
+        console.log("IMPORTING", in_memory, event.detail.wallet, wallet);
+        //register bootstrap when importing
+        if (!in_memory && !tauri_platform) {
+          let bootstrap_iframe_msgs =
+            await ng.get_bootstrap_iframe_msgs_for_brokers(
+              event.detail.wallet.V0.brokers
+            );
+          let encoded = base64UrlEncode(JSON.stringify(bootstrap_iframe_msgs));
+          let register_bootstrap_url =
+            bootstrap_redirect +
+            encoded +
+            "&close=1&m=add&ab=" +
+            encodeURIComponent(window.location.href);
+          console.log(register_bootstrap_url);
+          window.open(register_bootstrap_url, "_blank");
+        }
         let client = await ng.wallet_import(
           wallet,
           event.detail.wallet,
@@ -328,14 +334,38 @@
         on:click={start_login_from_import}
         on:keypress={start_login_from_import}
       >
-        <span class="securitytxt"
-          >{$wallet_from_import.V0.content.security_txt}
-        </span>
-        <img
-          alt={$wallet_from_import.V0.content.security_txt}
-          class="securityimg"
-          src={convert_img_to_url($wallet_from_import.V0.content.security_img)}
-        />
+        {#if $wallet_from_import.V0.content.password}
+          <div class="pt-5">
+            <ArrowRightEndOnRectangle
+              class="w-16 h-16"
+              style="display:inline;"
+            />
+            <div>
+              {#if mobile}Tap{:else}Click{/if} here to login with your wallet
+            </div>
+          </div>
+
+          <div class="p-5">
+            <button
+              tabindex="-1"
+              style="overflow-wrap: anywhere;"
+              class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+            >
+              {$wallet_from_import.V0.content.security_txt}
+            </button>
+          </div>
+        {:else}
+          <span class="securitytxt"
+            >{$wallet_from_import.V0.content.security_txt}
+          </span>
+          <img
+            alt={$wallet_from_import.V0.content.security_txt}
+            class="securityimg"
+            src={convert_img_to_url(
+              $wallet_from_import.V0.content.security_img
+            )}
+          />
+        {/if}
       </div>
 
       <!-- Login to finish import instructions-->
@@ -361,7 +391,9 @@
       />
     {:else if !$active_wallet && !selected}
       <div class="row">
-        <Logo class="logo block h-40" alt="NextGraph Logo" />
+        <a href="#/">
+          <Logo class="logo block h-40" alt="NextGraph Logo" />
+        </a>
       </div>
       <h2 class="pb-5 text-xl">{$t("pages.wallet_login.select_wallet")}</h2>
       <div class="flex flex-wrap justify-center gap-5 mb-10">

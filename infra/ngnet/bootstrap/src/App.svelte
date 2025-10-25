@@ -33,11 +33,15 @@
   routes.set("*", NotFound);
 
   // TODO: take this list from local API
-  const bsp_list = [
+  let bsp_list = [
     "https://nextgraph.eu",
     "https://nextgraph.one",
     "https://stage1.nextgraph.eu"
   ];
+
+  if (import.meta.env.NG_ENV_ALT) {
+    bsp_list.push("https://"+import.meta.env.NG_ENV_ALT);
+  }
 
   let channel;
   try {
@@ -172,7 +176,11 @@
     // url.searchParams.set('i', param.get("i"));
     // url.searchParams.set('rs', param.get("rs"));
     // url.searchParams.set('ab', "1");
-    window.location.href = u + "&ab=1";
+    if (param.get("close")) {
+      window.close();
+    } else {
+      window.location.href = u + "&ab=1";
+    }
   }catch {}
 });
 

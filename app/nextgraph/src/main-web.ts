@@ -11,7 +11,7 @@ import * as web_api from "@ng-org/lib-wasm";
 import {init_api} from "@ng-org/ui-common/api";
 init_api(web_api);
 
-const NEW_VERSION = "0.1.2-alpha.1";
+const NEW_VERSION = "0.1.2-alpha.2";
 
 // cleaning old wallets :(
 try {

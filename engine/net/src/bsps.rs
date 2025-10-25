@@ -37,6 +37,26 @@ lazy_static! {
             },
         );
 
+        if let Some(alt) = option_env!("NG_ENV_ALT") {
+            let s: &'static str = Box::leak(format!("https://{alt}").into_boxed_str());
+            assert!(d
+                .insert(
+                    s,
+                    BSPDetail {
+                        domain: alt,
+                        country: "us",
+                        sysadmin: "team@nextgraph.org",
+                        owned: false,
+                        since: Date::from_calendar_date(2025, Month::November, 1).unwrap(),
+                        has_free: true,
+                        has_paid: false,
+                        official: true,
+                        description: "Alternative BSP"
+                    }
+                )
+                .is_none());
+        }
+
         assert!(d.insert("https://nextgraph.one", BSPDetail {
             domain: "nextgraph.one",
             country: "de",

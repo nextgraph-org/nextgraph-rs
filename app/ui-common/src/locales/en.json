@@ -342,7 +342,7 @@
     },
     "no_wallet": {
       "welcome": "Welcome to NextGraph",
-      "description": "We could not find a wallet saved on this device.",
+      "description": "We could not find a wallet on this device.",
       "instructions_login": "If you already have a wallet, select \"Login\"",
       "instructions_create": ", otherwise, select \"Create Wallet\" here below.",
       "instructions_nocreate": ". Creation of a Wallet is not possible while<br/> logging-in to a third-party app.",
