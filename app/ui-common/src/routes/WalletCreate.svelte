@@ -18,191 +18,80 @@
 -->
 
 <script lang="ts">
-  import { Button, Alert, Dropzone, Toggle, Modal } from "flowbite-svelte";
-  import { link, querystring } from "svelte-spa-router";
+  import { Button, Alert } from "flowbite-svelte";
+  import { link, querystring, push } from "svelte-spa-router";
   import { t } from "svelte-i18n";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
-  import CopyToClipboard from "../lib/components/CopyToClipboard.svelte";
-  // @ts-ignore
-  import EULogo from "../assets/EU.svg?component";
+  import PasswordInput from "../lib/components/PasswordInput.svelte";
+
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
-  import { LockOpen, FingerPrint, ExclamationTriangle } from "svelte-heros-v2";
   import {
-    NG_EU_BSP,
-    NG_ONE_BSP,
-    LINK_NG_BOX,
-    LINK_SELF_HOST,
     NG_EU_BSP_REGISTER,
     NG_ONE_BSP_REGISTER,
     APP_WALLET_CREATE_SUFFIX,
     default as ng,
   } from "../api";
-  import {
-    display_pazzle,
-    emojis_from_pazzle_ids,
-    load_svg,
-  } from "../wallet_emojis";
 
   import { onMount, onDestroy, tick } from "svelte";
-  import { wallets, has_wallets, display_error } from "../store";
+  import { wallets, display_error } from "../store";
   import Spinner from "../lib/components/Spinner.svelte";
 
   const param = new URLSearchParams($querystring);
 
+  function base64UrlEncode(str) {
+    const base64 = btoa(str); // Standard Base64 encoding
+    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
-  let mobile = tauri_platform == "android" || tauri_platform == "ios";
-  let is_touch_device =
-    "ontouchstart" in window ||
-    navigator.maxTouchPoints > 0 ||
-    // @ts-ignore
-    navigator?.msMaxTouchPoints > 0;
 
-  const onFileSelected = (image) => {
-    animate_bounce = false;
-    if (!security_txt) phrase.focus();
-    let reader = new FileReader();
-    reader.readAsArrayBuffer(image);
-    reader.onload = async (e) => {
-      security_img = e.target.result;
-      //console.log(security_img);
-      var blob = new Blob([security_img], {
-        type: image.type,
-      });
-      image_url = URL.createObjectURL(blob);
-      phrase.scrollIntoView();
-      if (security_txt) {
-        await tick();
-        validate_button.focus();
-      }
-    };
-  };
-  let security_phrase_error = false;
-  const security_phrase_ok = async (e) => {
-    security_phrase_error = false;
-    if (!e || e.key == "Enter" || e.keyCode == 13) {
-      phrase.blur();
-      if (!security_img) {
-        animate_bounce = true;
-        img_preview.scrollIntoView();
-      } else {
-        await tick();
-        validate_button.scrollIntoView();
-        validate_button.focus();
-      }
-    }
-  };
-
-  const dropHandle = (event) => {
-    event.preventDefault();
-    const files = event.dataTransfer.files;
-    if (files.length > 0) {
-      onFileSelected(files[0]);
-    }
-  };
-
-  const handleChange = (event) => {
-    const files = event.target.files;
-    if (files.length > 0) {
-      onFileSelected(files[0]);
-    }
-  };
-
-  let intro = true;
   let wait: any = false;
   let registration_error;
   let registration_success;
-  let pin = [];
-  let pin_confirm = [];
-  let security_txt = "";
-  let security_img;
   let top;
-  let img_preview;
-  let phrase;
-  let validate_button;
-  let animate_bounce;
-  let image_url =
-    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-  let info_options;
-  let options;
-  let creating = false;
   let error;
   let ready;
-  let download_link;
-  let download_name;
-  let pdf_link;
-  let pdf_name;
-  let cloud_link;
-  let animateDownload = true;
-  let animatePdf = true;
   let invitation;
   let pre_invitation;
+  let username = "";
+  let password = "";
+  let username_pass_ok = false;
+  let password_input;
+  let username_input;
 
-  /** The emojis for the newly created pazzle. */
-  let pazzle_emojis = [];
-  let confirm_modal_open = false;
-  let device_name;
+  const username_password_ok = async (e) => {
+    if (!e || e.key == "Enter" || e.keyCode == 13 || e.type == "enter") {
+      await tick();
+      if (!password) {
+        password_input.scrollIntoView();
+        password_input.focus();
+      } else if (!username) {
+        username_input.scrollIntoView();
+        username_input.focus();
+      } else {
+        username_pass_ok = true;
+        await do_wallet();
+      }
+    }
+  };
 
   function scrollToTop() {
     top.scrollIntoView();
   }
 
-  function validate_pin() {
-    // check for same digit doesnt appear 3 times
-    if ((pin[0] == pin[1] && pin[0] == pin[2])
-        || (pin[0] == pin[1] && pin[0] == pin[3])
-        || (pin[0] == pin[2] && pin[0] == pin[3])
-        || (pin[1] == pin[2] && pin[1] == pin[3]))
-    {
-        return false;
-    }
-
-    // check for ascending series
-    if (pin[1] == pin[0] + 1
-        && pin[2] == pin[1] + 1
-        && pin[3] == pin[2] + 1)
-    {
-        return false;
-    }
-
-    // check for descending series
-    if (pin[3] >= 3
-        && pin[2] == pin[3] - 1
-        && pin[1] == pin[2] - 1
-        && pin[0] == pin[1] - 1)
-    {
-        return false;
-    }
-    return true;
-  }
-
-  function sel_pin(val) {
-    if (pin.length < 4) {
-      pin.push(val);
-      pin = pin;
-    }
-  }
-
-  async function confirm_pin(val) {
-    if (pin_confirm.length < 4) {
-      pin_confirm.push(val);
-      pin_confirm = pin_confirm;
-      if (pin_confirm.length == 4) {
-        await tick();
-        scrollToTop();
-      }
-    }
-  }
-
-  const api_url = import.meta.env.PROD
-    ? "api/v1/"
-    : "http://localhost:3030/api/v1/";
+  const redirect_server = import.meta.env.NG_REDIR_SERVER || "nextgraph.net";
+  const bootstrap_redirect = import.meta.env.NG_DEV
+    ? "http://localhost:1421/bootstrap.html#/?b="
+    : import.meta.env.DEV
+      ? "http://localhost:14403/#/?b="
+      : import.meta.env.NG_DEV3
+        ? "http://127.0.0.1:3033/bootstrap/#/?b="
+        : `https://${redirect_server}/bootstrap/#/?b=`;
 
   async function bootstrap() {
-    
     //console.log(await ng.client_info());
     if (!tauri_platform || tauri_platform == "android") {
-
       if (!tauri_platform) {
         try {
           sessionStorage.getItem("test");
@@ -220,13 +109,39 @@
         }
       }
 
-      if (param.get("skipintro") || param.get("rs")) {
-        intro = false;
-      }
       if (param.get("re")) {
         registration_error = param.get("re");
-      }
-      if (param.get("rs")) {
+        console.error("registration_error", registration_error);
+      } else if (
+        (param.get("rs") || param.get("i")) &&
+        !tauri_platform &&
+        !param.get("ab") &&
+        !import.meta.env.NG_NO_REDIRECT
+      ) {
+        registration_success = param.get("rs");
+
+        // doing the bootstrap recording at nextgraph.net
+        let i = param.get("i");
+        invitation = await ng.decode_invitation(i);
+        let bootstrap_iframe_msgs = await ng.bootstrap_to_iframe_msgs(
+          invitation.V0.bootstrap
+        );
+        let local_invitation = await ng.get_local_bootstrap(location.href);
+        if (local_invitation) {
+          bootstrap_iframe_msgs.push(
+            ...(await ng.bootstrap_to_iframe_msgs(
+              local_invitation.V0.bootstrap
+            ))
+          );
+        }
+        let encoded = base64UrlEncode(JSON.stringify(bootstrap_iframe_msgs));
+        window.location.href =
+          bootstrap_redirect +
+          encoded +
+          "&m=add&ab=" +
+          encodeURIComponent(window.location.href);
+        return;
+      } else if (param.get("rs")) {
         registration_success = param.get("rs");
         invitation = await ng.decode_invitation(param.get("i"));
         window.location.replace(window.location.href.split("?")[0]);
@@ -249,6 +164,8 @@
             //let i = await ng.decode_invitation(param.get("i"));
             console.error("invalid invitation. ignoring it");
           }
+        } else {
+          registration_success = window.location.host;
         }
       } else {
         pre_invitation = await ng.get_local_bootstrap_with_public(
@@ -260,39 +177,18 @@
       }
     }
     scrollToTop();
-
-    // We need them for display later.
-    load_svg();
-  }
-
-  function create_wallet() {
-    intro = false;
-    // if (invitation && invitation.V0.url) {
-    //   // we redirect to the TOS url of the invitation.
-    //   wait = "Redirecting to TOS";
-    //   window.location.href = invitation.V0.url;
-    // }
-    scrollToTop();
-  }
-
-  async function save_security() {
-    if (security_txt.trim().length < 10) {
-      security_phrase_error = true;
-    } else if (!options) {
-      device_name = await ng.get_device_name();
-      options = {
-        trusted: true,
-        cloud: false,
-        bootstrap: false,
-        pdf: !mobile,
-      };
-      await tick();
-      scrollToTop();
+    if (!invitation) {
+      if (pre_invitation) {
+        await select_bsp(pre_invitation.V0.url, pre_invitation.V0.name);
+      } else if (!registration_error) {
+        selectEU(false);
+      }
+    } else {
+      //await do_wallet();
     }
   }
 
   async function do_wallet() {
-    creating = true;
     let local_invitation = await ng.get_local_bootstrap(location.href);
     let additional_bootstrap;
     if (local_invitation) {
@@ -303,85 +199,45 @@
       core_registration = invitation.V0.code.ChaCha20Key;
     }
     let params = {
-      security_img: security_img,
-      security_txt,
-      pin,
-      pazzle_length: 9,
+      pazzle_length: 0,
+      security_txt: username,
+      security_img: undefined,
+      password: password,
+      mnemonic: false,
       send_bootstrap: false, //options.cloud || options.bootstrap ?  : undefined,
-      send_wallet: options.cloud,
-      local_save: options.trusted,
+      send_wallet: false,
+      local_save: true,
       result_with_wallet_file: false, // this will be automatically changed to true for browser app
       core_bootstrap: invitation.V0.bootstrap,
       core_registration,
       additional_bootstrap,
-      device_name,
-      pdf: options.pdf
+      device_name: "",
+      pdf: false,
     };
     //console.log("do wallet with params", params);
     try {
       ready = await ng.wallet_create(params);
       wallets.set(await ng.get_wallets());
-      if (!options.trusted && !tauri_platform) {
-        let lws = $wallets[ready.wallet_name];
-        if (lws.in_memory) {
-          let new_in_mem = {
-            lws,
-            name: ready.wallet_name,
-            opened: false,
-            cmd: "new_in_mem",
-          };
-          window.wallet_channel.postMessage(new_in_mem, location.href);
-        }
-      }
-      // console.log("pazzle", ready.pazzle);
-      // console.log("pazzle words", display_pazzle(ready.pazzle));
-      // console.log("mnemonic", ready.mnemonic);
-      // console.log("mnemonic words", ready.mnemonic_str);
-      download_name = "wallet-" + ready.wallet_name + ".ngw";
-      pdf_name = "wallet-" + ready.wallet_name + ".pdf";
-      if (options.cloud) {
-        cloud_link = "https://nextgraph.one/#/w/" + ready.wallet_name;
-      }
-      if (ready.wallet_file.length) {
-        const blob = new Blob([ready.wallet_file], {
-          type: "application/octet-stream",
-        });
-        download_link = URL.createObjectURL(blob);
-      }
-      if (ready.pdf_file.length) {
-        const blob = new Blob([ready.pdf_file], {
-          type: "application/octet-stream",
-        });
-        pdf_link = URL.createObjectURL(blob);
-      }
+      push("#/wallet/login");
     } catch (e) {
       console.error(e);
       error = e;
     }
   }
 
-  // async function getWallet() {
-  //   const opts = {
-  //     method: "get",
-  //   };
-  //   const response = await fetch(
-  //     api_url + "bootstrap/I8tuoVE-LRH1wuWQpDBPivlSX8Wle39uHSL576BTxsk",
-  //     opts
-  //   );
-  //   const result = await response.json();
-  //   console.log("Result:", result);
-  // }
-
   onMount(async () => await bootstrap());
 
   ready = false;
 
-  let unsub_register = () => {
-  };
+  let unsub_register = () => {};
 
   onDestroy(async () => {
     if (unsub_register) unsub_register();
     unsub_register = undefined;
+  });
+
+  onDestroy(async () => {
+    unsub_register();
   });
 
   const select_bsp = async (bsp_url, bsp_name) => {
@@ -433,146 +289,27 @@
             wait = false;
             console.log("got error with payload", payload);
             if (payload) registration_error = payload.error;
-            else intro = true;
-
             unsub_register = undefined;
           } else if (result == "close") {
             console.log("onCloseRequested");
             wait = false;
-            intro = true;
+            username_pass_ok = false;
             unsub_register = undefined;
           }
-        } 
+        }
       );
-      
     }
-  };
-  const selectEU = async (event) => {
-    await select_bsp(NG_EU_BSP_REGISTER, "nextgraph.eu");
   };
   const selectONE = async (event) => {
     await select_bsp(NG_ONE_BSP_REGISTER, "nextgraph.one");
   };
-  const enterINVITE = (event) => {};
-  const enterQRcode = (event) => {};
-
-  const displayPopup = async (url, title) => {
-    if (!tauri_platform || tauri_platform == "android") {
-      window.open(url, "_blank").focus();
-    } else {
-      await ng.open_window(url, "viewer", title);
-    }
-  };
-  const displayNGbox = async (event) => {
-    await displayPopup(LINK_NG_BOX, $t("pages.wallet_create.own_your_ngbox"));
-  };
-  const displaySelfHost = async (event) => {
-    await displayPopup(
-      LINK_SELF_HOST,
-      $t("pages.wallet_create.self_host_broker")
+  const selectEU = async (event) => {
+    await select_bsp(
+      NG_EU_BSP_REGISTER,
+      import.meta.env.NG_ENV_ALT ? "pnm.allelo.eco" : "nextgraph.eu"
     );
   };
-  const tos = async () => {
-    await displayPopup(
-      "https://nextgraph.net/#/tos",
-      $t("pages.wallet_create.tos_ng_net")
-    );
-  };
-
-  const load_pazzle_emojis = async (pazzle_ids: number[]) => {
-    // We wait until the SVGs are available. If they are already, we return immediately.
-    await load_svg();
-    pazzle_emojis = emojis_from_pazzle_ids(pazzle_ids);
-  };
-  $: if (ready?.pazzle) {
-    load_pazzle_emojis(ready.pazzle);
-  }
-
-  // Loads an example wallet.
-  // const loadWallet = async () => {
-  //   options = {
-  //     trusted: true,
-  //     cloud: false,
-  //     bootstrap: false,
-  //     pdf: false,
-  //   };
-  //   creating = true;
-  //   let local_invitation = await ng.get_local_bootstrap(location.href);
-  //   let additional_bootstrap;
-  //   if (local_invitation) {
-  //     additional_bootstrap = local_invitation.V0.bootstrap;
-  //   }
-  //   let core_registration;
-  //   if (invitation?.V0.code) {
-  //     core_registration = invitation.V0.code.ChaCha20Key;
-  //   }
-  //   let params = {
-  //     security_img: security_img,
-  //     security_txt,
-  //     pin,
-  //     pazzle_length: 9,
-  //     send_bootstrap: false, //options.cloud || options.bootstrap ?  : undefined,
-  //     send_wallet: options.cloud,
-  //     local_save: options.trusted,
-  //     result_with_wallet_file: false, // this will be automatically changed to true for browser app
-  //     core_bootstrap: invitation?.V0.bootstrap,
-  //     core_registration,
-  //     additional_bootstrap,
-  //   };
-  //   try {
-  //     ready = await import("./wallet.json");
-  //     wallets.set(await ng.get_wallets());
-  //     if (!options.trusted && !tauri_platform) {
-  //       let lws = $wallets[ready.wallet_name];
-  //       if (lws.in_memory) {
-  //         let new_in_mem = {
-  //           lws,
-  //           name: ready.wallet_name,
-  //           opened: false,
-  //           cmd: "new_in_mem",
-  //         };
-  //         window.wallet_channel.postMessage(new_in_mem, location.href);
-  //       }
-  //     }
-  //     console.log("pazzle ids", ready.pazzle);
-  //     console.log("pazzle emojis", emojis_from_pazzle_ids(ready.pazzle));
-
-  //     download_name = "wallet-" + ready.wallet_name + ".ngw";
-  //     if (options.cloud) {
-  //       cloud_link = "https://nextgraph.one/#/w/" + ready.wallet_name;
-  //     }
-  //     if (ready.wallet_file.length) {
-  //       const blob = new Blob([ready.wallet_file], {
-  //         type: "application/octet-stream",
-  //       });
-  //       download_link = URL.createObjectURL(blob);
-  //     }
-  //   } catch (e) {
-  //     console.error(e);
-  //     error = e;
-  //   }
-  //   wait = false;
-  //   registration_error = false;
-  //   intro = false;
-  //   pin = [0, 8, 1, 5];
-  //   pin_confirm = [0, 8, 1, 5];
-  //   invitation = true;
-  // };
-  // loadWallet();
-
-  let width: number;
-  let height: number;
-  const breakPointWidth: number = 450;
-  const breakPointHeight: number = 500;
-  let small_screen = false;
-  $: if (width >= breakPointWidth && height >= breakPointHeight) {
-    small_screen = false;
-  } else {
-    small_screen = true;
-  }
 </script>
-
-<svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
 <CenteredLayout>
   <div class="max-w-2xl lg:px-8 mx-auto mb-20">
@@ -637,202 +374,50 @@
               </a>
             {/if}
           </div>
-        {:else if intro}
-          <div class=" max-w-6xl lg:px-8 mx-auto px-4">
-            <p class="max-w-xl text-left md:mx-auto lg:max-w-2xl">
-              {@html $t("pages.wallet_create.wallet_description")}
-            </p>
-          </div>
-          {#if $has_wallets}
-            <Alert color="yellow" class="mt-5">
-              {@html $t("pages.wallet_create.has_wallet")}
-            </Alert>
-          {/if}
-          <div
-            class="px-4 pt-5 mx-auto max-w-6xl lg:px-8 lg:pt-10 dark:bg-slate-800"
-          >
-            <div class="max-w-xl md:mx-auto sm:text-center lg:max-w-2xl">
-              <h2 class="pb-5 text-xl">
-                {$t("pages.wallet_create.wallet_about.title")}<span
-                  class="text-sm"
-                  >&nbsp
-                  {$t("pages.wallet_create.please_read")}</span
+        {:else if !username_pass_ok}
+          <div class=" max-w-6xl lg:px-8 mx-auto">
+            {#if registration_success}
+              <Alert color="green" class="mb-5">
+                <span class="font-bold text-xl"
+                  >{$t("pages.wallet_create.registration_success", {
+                    values: { broker: registration_success },
+                  })}</span
                 >
-              </h2>
-              <ul
-                class="mb-8 space-y-4 text-left text-gray-500 dark:text-gray-400"
+              </Alert>
+            {/if}
+            <p class="max-w-xl md:mx-auto lg:max-w-2xl">
+              <span class="text-xl"
+                >{$t("pages.wallet_create.choose_username.title")}</span
               >
-                <li class="flex space-x-3">
-                  <!-- Icon -->
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    stroke="currentColor"
-                    fill="none"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-                    />
-                  </svg>
-                  <span>{@html $t("pages.wallet_create.wallet_about.1")}</span>
-                </li>
-                <li class="flex space-x-3">
-                  <!-- Icon -->
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
-                    />
-                  </svg>
-                  <span>{@html $t("pages.wallet_create.wallet_about.2")}</span>
-                </li>
-                <li class="flex space-x-3">
-                  <LockOpen class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"></LockOpen>
-                  <span>{@html $t("pages.wallet_create.wallet_about.password")}</span>
-                </li>
-                <li class="flex space-x-3">
-                  <FingerPrint class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"></FingerPrint>
-                  <span>{@html $t("pages.wallet_create.wallet_about.mnemonic")}</span>
-                </li>
-                <li class="flex space-x-3">
-                  <!-- Icon -->
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.39 48.39 0 01-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 01-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 00-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 01-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 00.657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 01-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 005.427-.63 48.05 48.05 0 00.582-4.717.532.532 0 00-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 00.658-.663 48.422 48.422 0 00-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 01-.61-.58v0z"
-                    />
-                  </svg>
-                  <span>{@html $t("pages.wallet_create.wallet_about.pazzle")}</span>
-                </li>
-                <li class="flex space-x-3">
-                  <!-- Icon -->
+              <Alert color="yellow" class="mt-5">
+                {@html $t("pages.wallet_create.choose_username.warning")}
+              </Alert>
+            </p>
+            <input
+              bind:this={username_input}
+              class="mt-10 mr-0 mb-5 text-md bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+              id="username-input"
+              placeholder={$t("pages.wallet_create.type_username_placeholder")}
+              autocomplete="username"
+              autofocus
+              bind:value={username}
+              on:keypress={username_password_ok}
+            />
 
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
-                    />
-                  </svg>
-                  <span>{@html $t("pages.wallet_create.wallet_about.3")}</span>
-                </li>
-
-                <li class="flex space-x-3">
-                  <!-- Icon -->
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      d="M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 10-2.636 6.364M16.5 12V8.25"
-                    />
-                  </svg>
-                  <span>{@html $t("pages.wallet_create.wallet_about.5")}</span>
-                </li>
-                <li class="flex space-x-3">
-                  <!-- Icon -->
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
-                    />
-                  </svg>
-                  <span>{@html $t("pages.wallet_create.wallet_about.6")}</span>
-                </li>
-                <li class="flex space-x-3">
-                  <!-- Icon -->
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
-                    />
-                  </svg>
-                  <span>{@html $t("pages.wallet_create.wallet_about.7")}</span>
-                </li>
-                <li class="flex space-x-3 under">
-                  <!-- Icon -->
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"
-                    />
-                  </svg>
-                  <span>{@html $t("pages.wallet_create.wallet_about.8")}</span>
-                </li>
-                <li class="flex space-x-3">
-                  <ExclamationTriangle class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"></ExclamationTriangle>
-                  <span>{@html $t("pages.wallet_create.wallet_about.9")}</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div class="row">
-            <button
-              on:click|once={create_wallet}
+            <PasswordInput
+              bind:input={password_input}
+              id="password-input"
+              placeholder={$t("pages.wallet_create.type_password_placeholder")}
+              bind:value={password}
+              className="mb-5 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+              auto_complete="password"
+              on:enter={username_password_ok}
+            />
+            <Button
+              disabled={!username || !password}
+              on:click|once={() => {
+                username_password_ok(false);
+              }}
               class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
             >
               <svg
@@ -851,851 +436,7 @@
                 />
               </svg>
               {@html $t("pages.wallet_create.create_wallet_now")}
-            </button>
-          </div>
-        {:else if !invitation}
-          <div class=" max-w-6xl lg:px-8 mx-auto px-4">
-            <p class="max-w-xl md:mx-auto text-left lg:max-w-2xl">
-              {@html $t("pages.wallet_create.select_server")}
-            </p>
-          </div>
-          <div
-            class="px-4 pt-3 mx-auto max-w-6xl lg:px-8 lg:pt-10 dark:bg-slate-800"
-          >
-            <div class="max-w-xl md:mx-auto sm:text-center lg:max-w-2xl">
-              <h2 class="pb-5 text-xl">
-                {$t("pages.wallet_create.broker_about.title")}<span
-                  class="text-sm"
-                  >&nbsp{@html $t(
-                    "pages.wallet_create.please_read"
-                  )}</span
-                >
-              </h2>
-              <ul
-                class="mb-8 space-y-4 text-left text-gray-500 dark:text-gray-400"
-              >
-                <li class="flex space-x-3">
-                  <svg
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
-                    />
-                  </svg>
-                  <span> {@html $t("pages.wallet_create.broker_about.1")}</span>
-                </li>
-                <li class="flex space-x-3">
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
-                    />
-                  </svg>
-                  <span> {@html $t("pages.wallet_create.broker_about.2")}</span>
-                </li>
-                <li class="flex space-x-3">
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-
-                  <span> {@html $t("pages.wallet_create.broker_about.4")}</span>
-                </li>
-                <li class="flex space-x-3">
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
-                    />
-                  </svg>
-                  <span> {@html $t("pages.wallet_create.broker_about.5")}</span>
-                </li>
-                <!-- <li class="flex space-x-3">
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
-                    />
-                  </svg>
-
-                  <span> {@html $t("pages.wallet_create.broker_about.6")}</span>
-                </li> -->
-                <li class="flex space-x-3">
-                  <svg
-                    class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z"
-                    />
-                  </svg>
-
-                  <span> {@html $t("pages.wallet_create.broker_about.7")}</span>
-                </li>
-              </ul>
-              <h2 class="mt-3 text-xl">
-                {$t("pages.wallet_create.choose_broker")}
-              </h2>
-            </div>
-          </div>
-          {#if pre_invitation}
-            <div class="row mt-5">
-              <button
-                on:click|once={async () => {
-                  await select_bsp(
-                    pre_invitation.V0.url,
-                    pre_invitation.V0.name
-                  );
-                }}
-                class="choice-button text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-              >
-                <svg
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                  class="mr-4 block h-10 w-10"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
-                  />
-                </svg>
-                {$t("pages.wallet_create.register_with_broker", {
-                  values: { broker: pre_invitation.V0.name || $t("pages.wallet_create.this_broker") },
-                })}
-              </button>
-            </div>
-          {:else}
-            <div class="row mt-5">
-              <button
-                on:click|once={selectEU}
-                class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-              >
-                <EULogo
-                  class="mr-4 block h-10 w-10"
-                  alt="European Union flag"
-                />
-                {$t("pages.wallet_create.for_eu_citizens")}
-              </button>
-            </div>
-
-            <!-- <div class="row mt-5">
-              <button
-                on:click|once={selectNET}
-                class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-              >
-                <svg
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                  class="mr-4 block h-10 w-10"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
-                  />
-                </svg>
-                {$t("pages.wallet_create.for_rest")}
-              </button>
-            </div> -->
-          {/if}
-
-          <div class="row mt-5">
-            <Button
-              disabled
-              style="justify-content: left;"
-              on:click|once={enterINVITE}
-              class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4  focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-            >
-              <svg
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-                class="mr-4 block h-10 w-10"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
-                />
-              </svg>
-
-              {$t("pages.wallet_create.enter_invite_link")}
             </Button>
-          </div>
-          {#if false && mobile}
-            <div class="row mt-5">
-              <button
-                on:click|once={enterQRcode}
-                class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-                ><svg
-                  class="mr-4 block h-10 w-10"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"
-                  />
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"
-                  />
-                </svg>
-
-                {$t("pages.wallet_create.scan_invite_qr")}
-              </button>
-            </div>
-          {/if}
-          <!-- <div class="row mt-5">
-            <button
-              on:click={displaySelfHost}
-              class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-            >
-              <svg
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-                class="mr-4 block h-10 w-10"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z"
-                />
-              </svg>
-              {$t("pages.wallet_create.self_hosted_broker")}
-            </button>
-          </div> -->
-          {#if !tauri_platform}
-
-          <div class="flex space-x-3 px-4 pt-3 lg:px-8 lg:pt-10 max-w-xl text-left text-gray-500 dark:text-gray-400">
-            <svg class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"  fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 1 0 9.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1 1 14.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"></path>
-            </svg>
-            
-            <span>
-              {@html $t("pages.wallet_create.broker_about.8")}
-            </span>
-          </div>
-          <div class="row mt-5">
-            
-            <a href="/install" use:link>
-              <button
-                tabindex="-1"
-                class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-              >
-                <svg
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                  class=" block h-10 w-10"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"
-                  />
-                </svg>
-                or
-        
-                <svg
-                  class="mr-4 ml-2 block h-10 w-10"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  viewBox="0 0 64 50"
-                  version="1.1"
-                  xmlns="http://www.w3.org/2000/svg"
-                  xmlns:xlink="http://www.w3.org/1999/xlink"
-                >
-                  <defs />
-                  <g id="Page-1" stroke-width="1" fill="none" fill-rule="evenodd">
-                    <g
-                      id="Laptop"
-                      transform="translate(1.000000, 1.000000)"
-                      stroke-width="2"
-                    >
-                      <path
-                        d="M56,27 C56,28.1 55.1,29 54,29 L8,29 C6.9,29 6,28.1 6,27 L6,2 C6,0.9 6.9,0 8,0 L54,0 C55.1,0 56,0.9 56,2 L56,26.5 L56,27 L56,27 Z"
-                        id="Shape"
-                      />
-                      <path
-                        d="M57,31 C57,29.9 56.1,29 55,29 L7,29 C5.9,29 5,29.9 5,31 L0,46 C0,47.1 0.9,48 2,48 L60,48 C61.1,48 62,47.1 62,46 L57,31 L57,31 Z"
-                        id="Shape"
-                      />
-                      <path d="M2,42.9 L61,42.9" id="Shape" />
-                      <path
-                        d="M52.1,24 C52.1,25.1 51.2,26 50.1,26 L12,26 C10.9,26 10,25.1 10,24 L10,6 C10,4.9 10.9,4 12,4 L50,4 C51.1,4 52,4.9 52,6 L52.1,24 L52.1,24 Z"
-                        id="Shape"
-                      />
-                      <path d="M22,39 L40,39" id="Shape" />
-                      <path d="M17.2,39 L20,39" id="Shape" />
-                      <path d="M12.1,39 L15,39" id="Shape" />
-                      <path d="M7,39 L10,39" id="Shape" />
-                      <path d="M9.2,35 L12,35" id="Shape" />
-                      <path d="M14,35 L17,35" id="Shape" />
-                      <path d="M19,35 L22,35" id="Shape" />
-                      <path d="M24,35 L27,35" id="Shape" />
-                      <path d="M29,35 L32,35" id="Shape" />
-                      <path d="M34,35 L37,35" id="Shape" />
-                      <path d="M39,35 L42,35" id="Shape" />
-                      <path d="M45,35 L48,35" id="Shape" />
-                      <path d="M50,35 L53,35" id="Shape" />
-                      <path d="M47,32 L50,32" id="Shape" />
-                      <path d="M42,32 L45,32" id="Shape" />
-                      <path d="M37,32 L40,32" id="Shape" />
-                      <path d="M32,32 L35,32" id="Shape" />
-                      <path d="M27,32 L30,32" id="Shape" />
-                      <path d="M22,32 L25,32" id="Shape" />
-                      <path d="M17.1,32 L20,32" id="Shape" />
-                      <path d="M12,32 L15,32" id="Shape" />
-                      <path d="M42,39 L44.8,39" id="Shape" />
-                      <path d="M47,39 L49.9,39" id="Shape" />
-                      <path d="M52,39 L55,39" id="Shape" />
-                    </g>
-                  </g>
-                </svg>
-                {$t("pages.wallet_create.install_app")}
-              </button>
-            </a>
-          </div>
-          {/if}
-          <!-- <div class="row mt-5 mb-12">
-            <button
-              on:click={displayNGbox}
-              class="choice-button text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                version="1.1"
-                viewBox="0 0 225 225"
-                class="mr-4 block h-10 w-10"
-                stroke="currentColor"
-                stroke-width="12"
-                fill="none"
-              >
-                <path
-                  d="M 88.332599,179.77884 C 72.858008,177.42608 59.581081,170.564 48.8817,159.38898 36.800075,146.77026 30.396139,130.74266 30.396139,113.12381 c 0,-8.81477 1.466462,-16.772273 4.503812,-24.439156 3.697755,-9.333883 8.658122,-16.726264 15.988284,-23.827148 4.07992,-3.952299 5.699054,-5.267377 9.730928,-7.903581 10.263753,-6.710853 20.852276,-10.247623 32.861256,-10.976317 17.083161,-1.036581 33.737521,4.410501 47.100151,15.404873 1.30009,1.069669 2.35446,2.035155 2.34305,2.145524 -0.0114,0.110369 -3.32807,3.135042 -7.37038,6.721489 -4.04229,3.586437 -8.6667,7.731233 -10.27646,9.210635 -1.60975,1.479412 -3.05439,2.689839 -3.21032,2.689839 -0.15591,0 -1.2075,-0.642795 -2.33686,-1.428431 -6.49544,-4.518567 -13.79659,-6.747116 -22.104843,-6.747116 -10.982241,0 -20.054641,3.741852 -27.727158,11.435891 -5.517107,5.532575 -9.233107,12.555305 -10.782595,20.377588 -0.596045,3.00901 -0.594915,11.67153 0.0017,14.67182 3.195984,16.0665 15.801761,28.55358 31.607491,31.30987 3.592183,0.62643 10.334745,0.61437 13.792675,-0.0247 12.10383,-2.2368 22.30712,-9.80603 27.83192,-20.64689 0.66747,-1.30971 1.08703,-2.48825 0.93235,-2.61898 -0.1547,-0.13073 -5.9299,-1.01605 -12.83381,-1.96739 -8.43575,-1.16241 -12.87296,-1.9096 -13.52955,-2.27826 -1.31171,-0.73647 -2.44642,-2.49122 -2.44642,-3.78325 0,-1.012 1.74837,-13.68832 2.1486,-15.57814 0.25598,-1.20873 2.0923,-3.01339 3.3151,-3.25795 0.53677,-0.10735 7.61424,0.73799 15.7688,1.88346 8.13723,1.14303 14.89071,1.97925 15.00772,1.85826 0.11702,-0.12098 0.96445,-5.648553 1.88315,-12.283473 0.95557,-6.900944 1.90122,-12.59548 2.20977,-13.306594 0.29667,-0.683692 0.95765,-1.595052 1.46889,-2.025218 1.77972,-1.497534 2.7114,-1.539742 10.52745,-0.476938 8.31229,1.130266 9.2373,1.347581 10.59333,2.488613 1.41776,1.192951 1.96085,2.424677 1.94866,4.419342 -0.006,0.950347 -0.79507,7.156475 -1.75393,13.791395 -0.95885,6.634933 -1.70069,12.111623 -1.64854,12.170443 0.0522,0.0588 6.18174,0.95872 13.62132,1.99978 9.57969,1.34053 13.80866,2.0595 14.49353,2.46406 1.3199,0.77969 2.13943,2.28402 2.1135,3.87957 -0.0399,2.45278 -2.08103,15.63263 -2.5664,16.57122 -0.57073,1.10369 -2.24485,2.197 -3.38232,2.20889 -0.44831,0.004 -6.79249,-0.82755 -14.09817,-1.84941 -7.3057,-1.02186 -13.34942,-1.79161 -13.43049,-1.71053 -0.0811,0.0811 -1.02469,6.33285 -2.09694,13.89286 -1.24218,8.75802 -2.1547,14.1778 -2.51495,14.93697 -0.62565,1.31846 -2.38302,2.64205 -3.91461,2.94836 -0.8254,0.16509 -9.4024,-0.80047 -11.73007,-1.32049 -0.47193,-0.10544 -1.63157,0.58011 -3.8898,2.29957 -9.71515,7.39729 -20.99725,11.99799 -33.08692,13.49241 -3.79574,0.46921 -13.565667,0.37348 -17.125664,-0.16779 z"
-                />
-                <rect
-                  ry="37.596001"
-                  y="10.583322"
-                  x="14.363095"
-                  height="204.86308"
-                  width="195.79167"
-                />
-              </svg>
-              {$t("pages.wallet_create.ng_box")}
-            </button>
-          </div> -->
-        {:else if pin.length < 4}
-          <div class=" max-w-6xl lg:px-8 mx-auto">
-            {#if registration_success}
-              <Alert color="green" class="mb-5">
-                <span class="font-bold text-xl"
-                  >{$t("pages.wallet_create.registration_success", {
-                    values: { broker: registration_success },
-                  })}</span
-                >
-              </Alert>
-            {/if}
-            <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-              <span class="text-xl"
-                >{$t("pages.wallet_create.choose_pin.title")}</span
-              >
-              <Alert color="yellow" class="mt-5">
-                {@html $t("pages.wallet_create.choose_pin.description")}
-              </Alert>
-            </p>
-            <p class="text-left mt-5 px-3">
-              {$t("pages.wallet_create.choose_pin.rules")}
-            </p>
-            <ul class="text-left list-disc list-inside px-3">
-              <li>{@html $t("pages.wallet_create.choose_pin.1")}</li>
-              <li>
-                {@html $t("pages.wallet_create.choose_pin.2")}
-              </li>
-              <li>
-                {@html $t("pages.wallet_create.choose_pin.3")}
-              </li>
-            </ul>
-
-            <Alert color="blue" class="mt-5">
-              {$t("pages.wallet_create.chosen_pin")}
-              {#each pin as digit}<span class="font-bold text-xl">{digit}</span
-                >{/each}
-            </Alert>
-            <div class="w-[295px] mx-auto mb-10">
-              {#each [0, 1, 2] as row}
-                <div class="">
-                  {#each [1, 2, 3] as num}
-                    <button
-                      tabindex="0"
-                      class="m-1 select-none align-bottom text-7xl w-[90px] h-[90px] p-0"
-                      on:click={async () => sel_pin(num + row * 3)}
-                    >
-                      <span>{num + row * 3}</span>
-                    </button>
-                  {/each}
-                </div>
-              {/each}
-              <button
-                tabindex="0"
-                class="m-1 select-none mx-auto align-bottom text-7xl w-[90px] h-[90px] p-0"
-                on:click={async () => sel_pin(0)}
-              >
-                <span>0</span>
-              </button>
-            </div>
-          </div>
-        {:else if pin_confirm.length < 4}
-          {#if !validate_pin()}
-            <Alert color="red" class="mt-5">
-              {$t("pages.wallet_create.pin_invalid")}
-            </Alert>
-            <button
-              class="select-none"
-              on:click={async () => {
-                pin_confirm = [];
-                pin = [];
-              }}
-            >
-              {$t("buttons.start_over")}
-            </button>
-          {:else}
-            <div class=" max-w-6xl lg:px-8 mx-auto px-3">
-              <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-                <span class="text-red-800 text-xl"
-                  >{$t("pages.wallet_create.confirm_pin")}</span
-                >
-                {$t("pages.wallet_create.confirm_pin_description")}
-              </p>
-              <Alert color="blue" class="mt-5">
-                {$t("pages.wallet_create.chosen_pin")}: {#each pin_confirm as digit}<span
-                    class="font-bold text-xl">{digit}</span
-                  >{/each}
-              </Alert>
-              <div class="w-[295px] mx-auto">
-                {#each [0, 1, 2] as row}
-                  <div class="">
-                    {#each [1, 2, 3] as num}
-                      <button
-                        tabindex="0"
-                        class="m-1 select-none align-bottom text-7xl w-[90px] h-[90px] p-0"
-                        on:click={async () => await confirm_pin(num + row * 3)}
-                      >
-                        <span>{num + row * 3}</span>
-                      </button>
-                    {/each}
-                  </div>
-                {/each}
-                <button
-                  tabindex="0"
-                  class="m-1 select-none mx-auto align-bottom text-7xl w-[90px] h-[90px] p-0"
-                  on:click={async () => await confirm_pin(0)}
-                >
-                  <span>0</span>
-                </button>
-              </div>
-            </div>
-          {/if}
-        {:else if !options}
-          <div class=" max-w-6xl lg:px-8 mx-auto px-4">
-            {#if pin.toString() === pin_confirm.toString()}
-              <Alert color="green" class="mt-5">
-                {$t("pages.wallet_create.pin_confirmed_as")}
-                {#each pin_confirm as digit}<span class="font-bold text-xl"
-                    >{digit}</span
-                  >{/each}
-              </Alert>
-              <h2 class="text-xl my-5">
-                {@html $t(
-                  "pages.wallet_create.choose_security_phrase_and_image.title"
-                )}
-              </h2>
-              <p class="max-w-xl md:mx-auto lg:max-w-2xl text-left">
-                {@html $t(
-                  "pages.wallet_create.choose_security_phrase_and_image.description"
-                )}
-                <Alert color="red" class="mt-5">
-                  {@html $t(
-                    "pages.wallet_create.choose_security_phrase_and_image.warning"
-                  )}
-                </Alert>
-              </p>
-              <p
-                class="max-w-xl md:mx-auto lg:max-w-2xl text-left mt-5 text-sm"
-              >
-                {$t(
-                  "pages.wallet_create.choose_security_phrase_and_image.rules_title"
-                )}
-              </p>
-              <ul
-                class="max-w-xl md:mx-auto lg:max-w-2xl text-left mt-5 text-sm list-disc list-inside"
-              >
-                <li>
-                  {@html $t(
-                    "pages.wallet_create.choose_security_phrase_and_image.1"
-                  )}
-                </li>
-                <li>
-                  {@html $t(
-                    "pages.wallet_create.choose_security_phrase_and_image.2"
-                  )}
-                </li>
-                <li>
-                  {@html $t(
-                    "pages.wallet_create.choose_security_phrase_and_image.3"
-                  )}
-                </li>
-                <li>
-                  {@html $t(
-                    "pages.wallet_create.choose_security_phrase_and_image.4"
-                  )}
-                </li>
-                <li>
-                  {@html $t(
-                    "pages.wallet_create.choose_security_phrase_and_image.5"
-                  )}
-                </li>
-                <li>
-                  {@html $t(
-                    "pages.wallet_create.choose_security_phrase_and_image.6"
-                  )}
-                </li>
-                <li>
-                  {@html $t(
-                    "pages.wallet_create.choose_security_phrase_and_image.7"
-                  )}
-                </li>
-                <li>
-                  {@html $t(
-                    "pages.wallet_create.choose_security_phrase_and_image.8"
-                  )}
-                </li>
-                <li>
-                  {@html $t(
-                    "pages.wallet_create.choose_security_phrase_and_image.9"
-                  )}
-                </li>
-                <li>
-                  {@html $t(
-                    "pages.wallet_create.choose_security_phrase_and_image.10"
-                  )}
-                </li>
-              </ul>
-              
-              <input
-                bind:this={phrase}
-                class="mt-10 mr-0"
-                id="security-phrase-input"
-                placeholder={$t(
-                  "pages.wallet_create.type_security_phrase_placeholder"
-                )}
-                bind:value={security_txt}
-                on:keypress={security_phrase_ok}
-              /><button on:click={async () => await security_phrase_ok(false)}>
-                {$t("buttons.ok")}
-              </button><br />
-              {#if security_txt && security_img}
-                <button
-                  on:click={save_security}
-                  bind:this={validate_button}
-                  class="animate-bounce mt-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-                >
-                  <svg
-                    class="w-8 h-8 mr-2 -ml-1"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M6.633 10.5c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V3a.75.75 0 01.75-.75A2.25 2.25 0 0116.5 4.5c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 01-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 00-1.423-.23H5.904M14.25 9h2.25M5.904 18.75c.083.205.173.405.27.602.197.4-.078.898-.523.898h-.908c-.889 0-1.713-.518-1.972-1.368a12 12 0 01-.521-3.507c0-1.553.295-3.036.831-4.398C3.387 10.203 4.167 9.75 5 9.75h1.053c.472 0 .745.556.5.96a8.958 8.958 0 00-1.302 4.665c0 1.194.232 2.333.654 3.375z"
-                    />
-                  </svg>
-
-                  {$t("pages.wallet_create.save_security_phrase_and_image")}
-                </button>
-              {/if}
-              {#if security_phrase_error}
-                <Alert color="red" class="mt-5">
-                  {@html $t(
-                    "pages.wallet_create.security_phrase_invalid"
-                  )}
-                </Alert>
-              {/if}
-              <Dropzone
-                class="mt-10 mb-10"
-                defaultClass="flex flex-col justify-center items-center w-full h-30 bg-gray-50 rounded-lg border-2 border-gray-300 border-dashed cursor-pointer dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600"
-                id="dropzone"
-                accept=".jpg, .jpeg, .png, .gif, .webp, .pnm, .tiff, .tif, .tga, .bmp, .avif, .qoi, .exr, .ppm"
-                on:drop={dropHandle}
-                on:dragover={(event) => {
-                  event.preventDefault();
-                }}
-                on:change={handleChange}
-              >
-                <p class="mt-2 mb-5 text-gray-500 dark:text-gray-400">
-                  {#if is_touch_device}
-                    <span class="font-semibold"
-                      >{$t("pages.wallet_create.tap_to_upload")}</span
-                    >
-                  {:else}
-                    <span class="font-semibold"
-                      >{$t("pages.wallet_create.click_to_upload")}</span
-                    >
-                    {$t("pages.wallet_create.or_drag_drop")}
-                  {/if}
-                </p>
-                <svg
-                  aria-hidden="true"
-                  class="mb-3 w-20 mx-auto h-20 text-gray-400"
-                  class:animate-bounce={animate_bounce}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  ><path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  /></svg
-                >
-              </Dropzone>
-              <img
-                bind:this={img_preview}
-                class="max-w-[250px] h-[250px] mx-auto mb-10"
-                src={image_url}
-                alt="your security"
-              />
-            {:else}
-              <Alert color="red" class="mt-5">
-                {$t("pages.wallet_create.pins_no_match")}
-              </Alert>
-              <button
-                class="select-none"
-                on:click={async () => {
-                  pin_confirm = [];
-                  pin = [];
-                }}
-              >
-                {$t("buttons.start_over")}
-              </button>
-            {/if}
-          </div>
-        {:else if !creating}
-          <div class=" max-w-6xl lg:px-8 mx-auto px-4" bind:this={info_options}>
-            <p class="max-w-xl mb-10 md:mx-auto lg:max-w-2xl">
-              <span class="text-xl"
-                >{$t("pages.wallet_create.almost_done")}</span
-              ><br />
-              {@html $t("pages.wallet_create.save_wallet_options.description")}
-            </p>
-            <p class="max-w-xl md:mx-auto lg:max-w-2xl text-left">
-              <span class="text-xl"
-                >{@html $t(
-                  "pages.wallet_create.save_wallet_options.trust"
-                )}</span
-              ><br />
-              {@html $t(
-                "pages.wallet_create.save_wallet_options.trust_description"
-              )}
-              {#if !tauri_platform}{@html $t(
-                  "pages.login.trust_device_allow_cookies"
-                )}{/if}<br /><br />
-              <Toggle bind:checked={options.trusted} on:change={()=> {if (!options.trusted) options.pdf=false;}}
-                >{@html $t(
-                  "pages.wallet_create.save_wallet_options.trust_toggle"
-                )}</Toggle
-              >
-            </p>
-            <!-- Device Name -->
-            {#if options.trusted}
-              <br />
-              <p class="max-w-xl md:mx-auto lg:max-w-2xl text-left">
-                {@html $t(
-                  "pages.wallet_create.save_wallet_options.device_name_description"
-                )}
-              </p>
-              <input
-                id="device-name-input"
-                class="mt-2 bg-gray-50 border border-gray-300 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                bind:value={device_name}
-                placeholder={$t("pages.login.device_name_placeholder")}
-                type="text"
-              />
-            {/if}
-            <!-- <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
-              <span class="text-xl"
-                >{@html $t(
-                  "pages.wallet_create.save_wallet_options.cloud"
-                )}</span
-              > <br />
-              {@html $t(
-                "pages.wallet_create.save_wallet_options.cloud_description"
-              )}
-              <span
-                style="font-weight: 500;cursor: pointer; color: #646cff;"
-                tabindex="0"
-                role="link"
-                on:keypress={tos}
-                on:click={tos}
-                >{@html $t(
-                  "pages.wallet_create.save_wallet_options.cloud_tos"
-                )}</span
-              >.
-              <br /><br />
-              <Toggle disabled bind:checked={options.cloud}
-                >{@html $t(
-                  "pages.wallet_create.save_wallet_options.cloud_toggle"
-                )}</Toggle
-              >
-            </p> -->
-            <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
-              <span class="text-xl"
-                >{@html $t("pages.wallet_create.save_wallet_options.pdf")}</span
-              >
-              <br />
-              {@html $t(
-                "pages.wallet_create.save_wallet_options.pdf_description"
-              )}
-              <br /><br />
-              <Toggle bind:checked={options.pdf}
-                >{@html $t(
-                  "pages.wallet_create.save_wallet_options.pdf_toggle"
-                )}</Toggle
-              >
-            </p>
-            <!-- {#if !options.cloud}
-              <p class="max-w-xl md:mx-auto mt-10 lg:max-w-2xl text-left">
-                <span class="text-xl"
-                  >{@html $t("pages.wallet_create.save_wallet_options.link")}
-                </span> <br />
-                {@html $t(
-                  "pages.wallet_create.save_wallet_options.link_description"
-                )}
-                <span
-                  style="font-weight: 500;cursor: pointer; color: #646cff;"
-                  tabindex="0"
-                  role="link"
-                  on:keypress={tos}
-                  on:click={tos}
-                  >{@html $t(
-                    "pages.wallet_create.save_wallet_options.cloud_tos"
-                  )}</span
-                >.
-                <br /><br />
-                <Toggle disabled bind:checked={options.bootstrap}
-                  >{@html $t(
-                    "pages.wallet_create.save_wallet_options.link_toggle"
-                  )}</Toggle
-                >
-              </p>
-            {/if} -->
-            <button
-              on:click|once={do_wallet}
-              class="mt-10 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            >
-              <svg
-                class="w-8 h-8 mr-2 -ml-1"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-
-              {$t("pages.wallet_create.lets_create")}
-            </button>
           </div>
         {:else if !error}
           {#if !ready}
@@ -1743,193 +484,6 @@
                   />
                 </svg>
               </div>
-              <div class="text-center">
-                {#if download_link}
-                  {@html $t(
-                    "pages.wallet_create.download_wallet_description"
-                  )}<br />
-                  <a
-                    href={download_link}
-                    target="_blank"
-                    download={download_name}
-                  >
-                    <button
-                      tabindex="-1"
-                      class:animate-bounce={animateDownload}
-                      on:click={() => (animateDownload = false)}
-                      class="mt-10 mb-8 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-                    >
-                      <svg
-                        class="w-8 h-8 mr-2 -ml-1"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                        aria-hidden="true"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-                        />
-                      </svg>
-
-                      {@html $t("pages.wallet_create.download_wallet")}
-                    </button>
-                  </a>
-
-                  <br />
-                {:else if !options.trusted}
-                  {@html $t("pages.wallet_create.download_wallet_done", {
-                    values: { download_name },
-                  })}
-                {/if}
-                {#if pdf_link}
-                  {@html $t(
-                    "pages.wallet_create.download_pdf_description"
-                  )}<br />
-                  <a
-                    href={pdf_link}
-                    target="_blank"
-                    download={pdf_name}
-                  >
-                    <button
-                      tabindex="-1"
-                      class:animate-bounce={animatePdf}
-                      on:click={() => (animatePdf = false)}
-                      class="mt-10 mb-8 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-                    >
-                      <svg
-                        class="w-8 h-8 mr-2 -ml-1"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                        aria-hidden="true"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-                        />
-                      </svg>
-
-                      {@html $t("pages.wallet_create.download_pdf")}
-                    </button>
-                  </a>
-
-                  <br />
-                {:else if options.pdf}
-                  {@html $t("pages.wallet_create.download_pdf_done", {
-                    values: { pdf_name },
-                  })}
-                {/if}
-                <!-- Pazzle -->
-                {@html $t("pages.wallet_create.your_pazzle")}
-              </div>
-              <div
-                class="mt-2 bg-white shadow-md rounded-lg max-w-2xl w-full mx-auto"
-              >
-                {#each pazzle_emojis as emoji, index}
-                  <div
-                    class="flex w-full py-2"
-                    class:border-b={index !== pazzle_emojis.length - 1}
-                    class:justify-center={!small_screen}
-                  >
-                    <div class="flex w-[30%] justify-end">
-                      <div class="mr-4 content-center pt-1 my-auto">
-                        {index + 1}
-                      </div>
-                      <div
-                        class="flex justify-center w-[3em] h-[3em]"
-                        title={$t("emojis.codes." + emoji.code)}
-                      >
-                        <svelte:component
-                          this={emoji.svg?.default}
-                          class="w-[3em]  h-[3em] "
-                        />
-                      </div>
-                    </div>
-                    <div class="flex flex-col ml-4 w-[70%]">
-                      <div class="text-left">
-                        <span>{$t("emojis.category." + emoji.cat)}</span>
-                      </div>
-                      <div class="font-bold text-lg h-full content-center">
-                        <span>{$t("emojis.codes." + emoji.code)}</span>
-                      </div>
-                    </div>
-                  </div>
-                {/each}
-              </div>
-
-              <br />
-
-              <label for="mnemonic"
-                >{@html $t("pages.wallet_create.your_mnemonic")}</label
-              >
-              <CopyToClipboard
-                id="mnemonic"
-                value={ready.mnemonic_str.join(" ")}
-              />
-              <br />
-              {@html $t("pages.wallet_create.unlock_tips_1")}
-              <br /><br />
-              {@html $t("pages.wallet_create.unlock_tips_2")}
-              <br />
-              {@html $t("pages.wallet_create.unlock_tips_3", {
-                values: { platform: tauri_platform || "browser" },
-              })}
-              <br /><br />
-              <div class="flex flex-col items-center">
-                <button
-                  tabindex="-1"
-                  class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mr-2"
-                  on:click={() => (confirm_modal_open = true)}
-                >
-                  <svg
-                    class="w-8 h-8 mr-2 -ml-1"
-                    fill="currentColor"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                    />
-                  </svg>
-                  {$t("pages.wallet_create.continue_to_login")}
-                </button>
-              </div>
-              <Modal
-                autoclose
-                outsideclose
-                bind:open={confirm_modal_open}
-                title={$t("pages.wallet_create.continue_confirm")}
-              >
-                <span class="text-lg text-neutral-950">
-                  {@html $t("pages.wallet_create.continue_confirm_description")}
-                </span>
-                <div>
-                  <button
-                    class="m-2"
-                    on:click={() => (confirm_modal_open = false)}
-                    >{$t(
-                      "pages.wallet_create.continue_confirm_go_back"
-                    )}</button
-                  >
-                  <a href="/wallet/login" use:link>
-                    <button class="m-2 bg-primary-700 text-white"
-                      >{$t("pages.wallet_create.continue_confirm_yes")}</button
-                    >
-                  </a>
-                </div>
-              </Modal>
             </div>
           {/if}
         {:else}
@@ -1956,13 +510,7 @@
             <button
               class="mt-10 select-none"
               on:click={async () => {
-                pin_confirm = [];
-                pin = [];
-                options = undefined;
-                creating = false;
-                error = undefined;
-                animateDownload = true;
-                animatePdf = true;
+                window.location.href = window.location.origin;
               }}
             >
               {$t("buttons.start_over")}

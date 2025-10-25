@@ -175,6 +175,18 @@ pub fn privkey_to_string(privkey: JsValue) -> Result<String, JsValue> {
     Ok(format!("{p}"))
 }
 
+pub fn wallet_open_with_password(wallet: JsValue, password: String) -> Result<JsValue, JsValue> {
+    let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(wallet)
+        .map_err(|_| "Deserialization error of wallet")?;
+    let res = nextgraph::local_broker::wallet_open_with_password(&encrypted_wallet, password);
+    match res {
+        Ok(r) => Ok(r
+            .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+            .unwrap()),
+        Err(e) => Err(e.to_string().into()),
+    }
+}
+
 #[wasm_bindgen]
 pub fn wallet_open_with_pazzle(
     wallet: JsValue,
@@ -924,7 +936,7 @@ static INIT_LOCAL_BROKER: Lazy<Box<ConfigInitFn>> = Lazy::new(|| {
 pub async fn wallet_create(params: JsValue) -> Result<JsValue, JsValue> {
     init_local_broker_with_lazy(&INIT_LOCAL_BROKER).await;
     let mut params = serde_wasm_bindgen::from_value::<CreateWalletV0>(params)
-        .map_err(|_| "Deserialization error of args")?;
+        .map_err(|e| format!("Deserialization error of args {e}"))?;
     params.result_with_wallet_file = true;
     let res = nextgraph::local_broker::wallet_create_v0(params).await;
     match res {
@@ -2143,10 +2155,12 @@ pub async fn gen_wallet_for_test(ngd_peer_id: String) -> Result<JsValue, String>
     let peer_id_of_server_broker = decode_key(&ngd_peer_id).map_err(|e: NgError| e.to_string())?;
 
     let wallet_result = wallet_create_v0(CreateWalletV0 {
-        security_img: Vec::from(EMPTY_IMG),
+        security_img: None,
         security_txt: "testsecurityphrase".to_string(),
-        pin: [1, 2, 1, 2],
+        pin: Some([1, 2, 1, 2]),
         pazzle_length: 9,
+        mnemonic: true,
+        password: None,
         send_bootstrap: false,
         send_wallet: false,
         result_with_wallet_file: false,
@@ -2161,7 +2175,7 @@ pub async fn gen_wallet_for_test(ngd_peer_id: String) -> Result<JsValue, String>
     .expect("wallet_create_v0");
 
     let mut mnemonic_words = Vec::with_capacity(12);
-    display_mnemonic(&wallet_result.mnemonic)
+    display_mnemonic(&wallet_result.mnemonic.unwrap())
         .iter()
         .for_each(|word| {
             mnemonic_words.push(word.clone());

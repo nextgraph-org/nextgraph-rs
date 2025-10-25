@@ -35,11 +35,18 @@
     display_error,
     wallet_from_import,
     redirect_after_login,
-    redirect_if_wallet_is
+    redirect_if_wallet_is,
   } from "../store";
-  import { CheckBadge, ExclamationTriangle, QrCode, Cloud } from "svelte-heros-v2";
+  import {
+    CheckBadge,
+    ExclamationTriangle,
+    QrCode,
+    Cloud,
+    ArrowRightEndOnRectangle,
+  } from "svelte-heros-v2";
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let mobile = tauri_platform == "android" || tauri_platform == "ios";
 
   let wallet;
   let selected;
@@ -108,21 +115,23 @@
       wallet = $wallet_from_import;
       importing = true;
     }
-
   });
 
   async function loggedin() {
     step = "loggedin";
-    
+
     if ($redirect_after_login) {
-      if (!$redirect_if_wallet_is || $redirect_if_wallet_is == $active_wallet?.id) {
-        let redir=$redirect_after_login; 
-        $redirect_after_login=undefined; 
-        $redirect_if_wallet_is=undefined;
-        push("#"+redir);
+      if (
+        !$redirect_if_wallet_is ||
+        $redirect_if_wallet_is == $active_wallet?.id
+      ) {
+        let redir = $redirect_after_login;
+        $redirect_after_login = undefined;
+        $redirect_if_wallet_is = undefined;
+        push("#" + redir);
       } else {
-        $redirect_after_login=undefined; 
-        $redirect_if_wallet_is=undefined;
+        $redirect_after_login = undefined;
+        $redirect_if_wallet_is = undefined;
         push("#/");
       }
     } else {
@@ -150,10 +159,24 @@
     try {
       if (importing) {
         step = "loggedin";
-        $redirect_after_login=undefined; 
-        $redirect_if_wallet_is=undefined;
+        $redirect_after_login = undefined;
+        $redirect_if_wallet_is = undefined;
         let in_memory = !event.detail.trusted;
         //console.log("IMPORTING", in_memory, event.detail.wallet, wallet);
+        // TODO : register bootstrap when importing
+        // if (!in_memory && !tauri_platform) {
+        //   let bootstrap_iframe_msgs =
+        //     await ng.get_bootstrap_iframe_msgs_for_brokers(
+        //       event.detail.wallet.V0.brokers
+        //     );
+        //   let res = await register_bootstrap(bootstrap_iframe_msgs);
+        //   if (res !== true) {
+        //     throw new Error(
+        //       "We could not save your bootstrap information at nextgraph.net. This is needed for links and third-party webapps to work properly. so we are stopping here. Reason: " +
+        //         res
+        //     );
+        //   }
+        // }
         let client = await ng.wallet_import(
           wallet,
           event.detail.wallet,
@@ -190,11 +213,13 @@
         event.detail.wallet.V0.client = client;
       }
     } catch (e) {
-        if (importing) {wallet = undefined;}
-        importing = false;
-        error = e;
-        step = "open";
-        return;
+      if (importing) {
+        wallet = undefined;
+      }
+      importing = false;
+      error = e;
+      step = "open";
+      return;
     }
     //await tick();
     active_wallet.set(event.detail);
@@ -320,7 +345,7 @@
 
       <div>
         <button
-          class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2" 
+          class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
           on:click={start_login_from_import}
         >
           {$t("buttons.login")}
@@ -352,16 +377,38 @@
               select(wallet_entry[0]);
             }}
           >
-            <span class="securitytxt"
-              >{wallet_entry[1].wallet.V0.content.security_txt}
-            </span>
-            <img
-              alt={wallet_entry[1].wallet.V0.content.security_txt}
-              class="securityimg"
-              src={convert_img_to_url(
-                wallet_entry[1].wallet.V0.content.security_img
-              )}
-            />
+            {#if wallet_entry[1].wallet.V0.content.password}
+              <div class="pt-5">
+                <ArrowRightEndOnRectangle
+                  class="w-16 h-16"
+                  style="display:inline;"
+                />
+                <div>
+                  {#if mobile}Tap{:else}Click{/if} here to login with your wallet
+                </div>
+              </div>
+
+              <div class="p-5">
+                <button
+                  tabindex="-1"
+                  style="overflow-wrap: anywhere;"
+                  class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+                >
+                  {wallet_entry[1].wallet.V0.content.security_txt}
+                </button>
+              </div>
+            {:else}
+              <span class="securitytxt"
+                >{wallet_entry[1].wallet.V0.content.security_txt}
+              </span>
+              <img
+                alt={wallet_entry[1].wallet.V0.content.security_txt}
+                class="securityimg"
+                src={convert_img_to_url(
+                  wallet_entry[1].wallet.V0.content.security_img
+                )}
+              />
+            {/if}
           </div>
         {/each}
         <div class="wallet-box">
@@ -373,7 +420,7 @@
               class:mt-2.5={!without_create}
               class="text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
             >
-              <Cloud class="w-8 h-8 mr-2 -ml-1" tabindex="-1"/>
+              <Cloud class="w-8 h-8 mr-2 -ml-1" tabindex="-1" />
               {$t("pages.wallet_login.with_username")}
             </button>
           </a>
@@ -412,7 +459,7 @@
               tabindex="-1"
               class="mt-1 text-primary-700 bg-primary-100 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center justify-center dark:focus:ring-primary-100/55 mb-2"
             >
-              <QrCode class="w-8 h-8 mr-2 -ml-1" tabindex="-1"/>
+              <QrCode class="w-8 h-8 mr-2 -ml-1" tabindex="-1" />
               {$t("pages.wallet_login.import_qr")}
             </button>
           </a>
@@ -441,29 +488,29 @@
             </button>
           </a>
           {#if !without_create}
-          <a href="/wallet/create" use:link>
-            <button
-              tabindex="-1"
-              class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-            >
-              <svg
-                class="w-8 h-8 mr-2 -ml-1"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
+            <a href="/wallet/create" use:link>
+              <button
+                tabindex="-1"
+                class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-1.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
-                />
-              </svg>
-              {$t("pages.wallet_login.new_wallet")}
-            </button>
-          </a>
+                <svg
+                  class="w-8 h-8 mr-2 -ml-1"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
+                  />
+                </svg>
+                {$t("pages.wallet_login.new_wallet")}
+              </button>
+            </a>
           {/if}
         </div>
       </div>
