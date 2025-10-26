@@ -15,7 +15,8 @@
       {
         "title": "NextGraph",
         "width": 1280,
-        "height": 960
+        "height": 960,
+        "label": "main"
       }
     ],
     "security": {
