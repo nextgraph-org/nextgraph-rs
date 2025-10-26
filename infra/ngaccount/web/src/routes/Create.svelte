@@ -44,7 +44,6 @@
       } else if (response.status == 400) {
         await close(result);
       } else {
-        //console.log(result);
         await success(result);
       }
     } catch (e) {
@@ -55,18 +54,19 @@
 
   async function close(result) {
     // @ts-ignore
+    console.log("closing");
     if (window.__TAURI__) {
       go_back = false;
       if (result) {
         error = "Closing due to " + (result.error || "an error");
       }
-      let window_api = await import("@tauri-apps/plugin-window");
-      let main = window_api.Window.getByLabel("main");
+      let window_api = await import("@tauri-apps/api/window");
+      let main = await window_api.Window.getByLabel("main");
       if (main) {
         wait = true;
         await main.emit("error", result);
       } else {
-        await window_api.getCurrent().close();
+        await window_api.Window.getCurrent().close();
       }
     } else {
       if (result && result.url) {
@@ -83,19 +83,32 @@
   async function success(result) {
     // @ts-ignore
     if (window.__TAURI__) {
-      let window_api = await import("@tauri-apps/plugin-window");
-      let main = window_api.Window.getByLabel("main");
-      if (main) {
-        await main.emit("accepted", result);
+      let window_api = await import("@tauri-apps/api/window");
+      let current = window_api.Window.getCurrent();
+      if (current) {
+        await current.emitTo("main","accepted", result);
       } else {
-        await window_api.getCurrent().close();
+        await window_api.Window.getCurrent().close();
       }
     } else {
       window.location.href = result.url;
     }
   }
 
-  async function bootstrap() {}
+  async function bootstrap() {
+    // @ts-ignore
+    if (window.__TAURI__) {
+      let window_api = await import("@tauri-apps/api/window");
+      let current = window_api.getCurrentWindow();
+      console.log("close handler")
+      const unlisten = current.onCloseRequested(async (event) => {
+        console.log("closing")
+        await current.emitTo("main","close");
+        //event.preventDefault();
+        //unlisten();
+      });
+    }
+  }
   let error;
 
   onMount(() => bootstrap());

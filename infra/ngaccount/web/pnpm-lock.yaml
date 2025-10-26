@@ -11,9 +11,6 @@ importers:
       '@tauri-apps/api':
         specifier: 2.0.0-alpha.8
         version: 2.0.0-alpha.8
-      '@tauri-apps/plugin-window':
-        specifier: 2.0.0-alpha.1
-        version: 2.0.0-alpha.1
       flowbite:
         specifier: ^1.6.5
         version: 1.8.1
@@ -256,9 +253,6 @@ packages:
   '@tauri-apps/api@2.0.0-alpha.8':
     resolution: {integrity: sha512-3hZ+7EzUA11KN+O/Y4KgmjR+ldhXLdNllkw//hv/AaNsktEopCRBuKfVRLzVK3yov+Z+GzgxqFlwgJ1v6g1iKw==}
     engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
-
-  '@tauri-apps/plugin-window@2.0.0-alpha.1':
-    resolution: {integrity: sha512-dFOAgal/3Txz3SQ+LNQq0AK1EPC+acdaFlwPVB/6KXUZYmaFleIlzgxDVoJCQ+/xOhxvYrdQaFLefh0I/Kldbg==}
 
   '@trysound/sax@0.2.0':
     resolution: {integrity: sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA==}
@@ -1100,10 +1094,6 @@ snapshots:
   '@tauri-apps/api@2.0.0-alpha.6': {}
 
   '@tauri-apps/api@2.0.0-alpha.8': {}
-
-  '@tauri-apps/plugin-window@2.0.0-alpha.1':
-    dependencies:
-      '@tauri-apps/api': 2.0.0-alpha.6
 
   '@trysound/sax@0.2.0': {}
 
