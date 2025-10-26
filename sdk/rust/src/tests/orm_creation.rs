@@ -40,38 +40,53 @@ async fn test_create_sparql_from_schema() {
     .await
     .expect("error creating doc");
 
-    // Insert data with unrelated predicates
-    let insert_sparql = r#"
+    // Insert data across multiple documents (each document is its own graph)
+    let doc_nuri_root = create_doc_with_data(
+        session_id,
+        r#"
 PREFIX ex: <http://example.org/>
 INSERT DATA {
     <urn:test:obj1> a ex:TestObject ;
-      ex:stringValue "hello world" ;
-      ex:numValue 42 ;
-      ex:boolValue true ;
-      ex:arrayValue 1,2,3 ;
-      ex:objectValue [
-        ex:nestedString "nested" ;
-        ex:nestedNum 7 ;
-        ex:nestedArray 5,6
-      ] ;
-      ex:anotherObject [
-        ex:prop1 "one" ;
-        ex:prop2 1
-      ], [
-        ex:prop1 "two" ;
-        ex:prop2 2
-      ] ;
-      ex:numOrStr "either" ;
-      ex:lit1Or2 "lit1" ;
-      ex:unrelated "some value" ;
-      ex:anotherUnrelated 4242 .
+        ex:stringValue "hello world" ;
+        ex:numValue 42 ;
+        ex:boolValue true ;
+        ex:arrayValue 1,2,3 ;
+        ex:objectValue <urn:test:idObj> ;
+        ex:anotherObject <urn:test:idA>, <urn:test:idB> ;
+        ex:numOrStr "either" ;
+        ex:lit1Or2 "lit1" ;
+        ex:unrelated "some value" ;
+        ex:anotherUnrelated 4242 .
 }
 "#
-    .to_string();
+        .to_string(),
+    )
+    .await;
 
-    doc_sparql_update(session_id, insert_sparql, Some(doc_nuri.clone()))
-        .await
-        .expect("SPARQL update failed");
+    let _doc_nuri_nested1 = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:idObj> ex:nestedString "nested" ; ex:nestedNum 7 ; ex:nestedArray 5,6 .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let _doc_nuri_nested2 = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:idA> ex:prop1 "one" ; ex:prop2 1 .
+    <urn:test:idB> ex:prop1 "two" ; ex:prop2 2 .
+}
+"#
+        .to_string(),
+    )
+    .await;
 
     let schema = create_big_schema();
     let shape_type = OrmShapeType {
@@ -82,7 +97,7 @@ INSERT DATA {
     // Query triples using the new helper
     let triples = doc_query_quads_for_shape_type(
         session_id,
-        Some(doc_nuri.clone()),
+        Some(doc_nuri_root.clone()),
         &shape_type.schema,
         &shape_type.shape,
         None,
@@ -391,54 +406,56 @@ async fn test_orm_big_object(session_id: u64) {
 PREFIX ex: <http://example.org/>
 INSERT DATA {
     <urn:test:obj1> a ex:TestObject ;
-      ex:stringValue "hello world" ;
-      ex:numValue 42 ;
-      ex:boolValue true ;
-      ex:arrayValue 1,2,3 ;
-      ex:objectValue <urn:test:id3> ;
-      ex:anotherObject <urn:test:id1>, <urn:test:id2> ;
-      ex:numOrStr "either" ;
-      ex:lit1Or2 "lit1" ;
-      ex:unrelated "some value" ;
-      ex:anotherUnrelated 4242 .
-
-    <urn:test:id3>
-        ex:nestedString "nested" ;
-        ex:nestedNum 7 ;
-        ex:nestedArray 5,6 .
-
-    <urn:test:id1>
-        ex:prop1 "one" ;
-        ex:prop2 1 .
-
-    <urn:test:id2>
-        ex:prop1 "two" ;
-        ex:prop2 2 .
+        ex:stringValue "hello world" ;
+        ex:numValue 42 ;
+        ex:boolValue true ;
+        ex:arrayValue 1,2,3 ;
+        ex:objectValue <urn:test:obj1objVal> ;
+        ex:anotherObject <urn:test:obj1AnotherSub1>, <urn:test:obj1AnotherSub2> ;
+        ex:numOrStr "either" ;
+        ex:lit1Or2 "lit1" ;
+        ex:unrelated "some value" ;
+        ex:anotherUnrelated 4242 .
 
     <urn:test:obj2> a ex:TestObject ;
-      ex:stringValue "hello world #2" ;
-      ex:numValue 422 ;
-      ex:boolValue false ;
-      ex:arrayValue 4,5,6 ;
-      ex:objectValue <urn:test:id6> ;
-      ex:anotherObject <urn:test:id4>, <urn:test:id5> ;
-      ex:numOrStr 4 ;
-      ex:lit1Or2 "lit2" ;
-      ex:unrelated "some value2" ;
-      ex:anotherUnrelated 42422 .
+        ex:stringValue "hello world #2" ;
+        ex:numValue 422 ;
+        ex:boolValue false ;
+        ex:arrayValue 4,5,6 ;
+        ex:objectValue <urn:test:obj2objVal> ;
+        ex:anotherObject <urn:test:obj2AnotherSub1>, <urn:test:obj2AnotherSub2> ;
+        ex:numOrStr 4 ;
+        ex:lit1Or2 "lit2" ;
+        ex:unrelated "some value2" ;
+        ex:anotherUnrelated 42422 .
+}
+"#
+        .to_string(),
+    )
+    .await;
 
-    <urn:test:id6>
-        ex:nestedString "nested2" ;
-        ex:nestedNum 72 ;
-        ex:nestedArray 7,8,9 .
+    let _doc_nuri_a = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:obj1objVal> ex:nestedString "nested" ; ex:nestedNum 7 ; ex:nestedArray 5,6 .
+    <urn:test:obj1AnotherSub1> ex:prop1 "one" ; ex:prop2 1 .
+    <urn:test:obj1AnotherSub2> ex:prop1 "two" ; ex:prop2 2 .
+}
+"#
+        .to_string(),
+    )
+    .await;
 
-    <urn:test:id4>
-        ex:prop1 "one2" ;
-        ex:prop2 12 .
-
-    <urn:test:id5>
-        ex:prop1 "two2" ;
-        ex:prop2 22 .
+    let _doc_nuri_b = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:obj2objVal> ex:nestedString "nested2" ; ex:nestedNum 72 ; ex:nestedArray 7,8,9 .
+    <urn:test:obj2AnotherSub1> ex:prop1 "one2" ; ex:prop2 12 .
+    <urn:test:obj2AnotherSub2> ex:prop1 "two2" ; ex:prop2 22 .
 }
 "#
         .to_string(),
@@ -453,7 +470,7 @@ INSERT DATA {
         shape: "http://example.org/TestObject".to_string(),
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let nuri = NuriV0::new_entire_user_site();
     let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
         .await
         .expect("orm_start");
@@ -471,11 +488,11 @@ INSERT DATA {
             "type":"http://example.org/TestObject",
             "@id":"urn:test:obj1",
             "anotherObject":{
-                "urn:test:id1":{
+                "urn:test:obj1AnotherSub1":{
                     "prop1":"one",
                     "prop2":1.0
                 },
-                "urn:test:id2":{
+                "urn:test:obj1AnotherSub2":{
                     "prop1":"two",
                     "prop2":2.0
                 }
@@ -486,7 +503,7 @@ INSERT DATA {
             "numOrStr":"either",
             "numValue":42.0,
             "objectValue":{
-                "@id":"urn:test:id3",
+                "@id":"urn:test:obj1objVal",
                 "nestedArray":[5.0,6.0],
                 "nestedNum":7.0,
                 "nestedString":"nested"
@@ -497,11 +514,11 @@ INSERT DATA {
             "@id":"urn:test:obj2",
             "type":"http://example.org/TestObject",
             "anotherObject": {
-                "urn:test:id4":{
+                "urn:test:obj2AnotherSub1":{
                     "prop1":"one2",
                     "prop2":12.0
                 },
-                "urn:test:id5":{
+                "urn:test:obj2AnotherSub2":{
                     "prop1":"two2",
                     "prop2":22.0
                 }
@@ -512,7 +529,7 @@ INSERT DATA {
             "numOrStr":4.0,
             "numValue":422.0,
             "objectValue":{
-                "@id":"urn:test:id6",
+                "@id":"urn:test:obj2objVal",
                 "nestedArray": [7.0,8.0,9.0],
                 "nestedNum":72.0,
                 "nestedString":"nested2"
@@ -607,7 +624,7 @@ INSERT DATA {
         shape: "http://example.org/TestShape".to_string(),
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let nuri = NuriV0::new_entire_user_site();
     let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
         .await
         .expect("orm_start");
@@ -695,7 +712,7 @@ INSERT DATA {
         shape: "http://example.org/OptionShape".to_string(),
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let nuri = NuriV0::new_entire_user_site();
     let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
         .await
         .expect("orm_start");
@@ -792,7 +809,7 @@ INSERT DATA {
         shape: "http://example.org/OptionShape".to_string(),
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let nuri = NuriV0::new_entire_user_site();
     let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
         .await
         .expect("orm_start");
@@ -884,7 +901,7 @@ INSERT DATA {
         shape: "http://example.org/MultiTypeShape".to_string(),
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let nuri = NuriV0::new_entire_user_site();
     let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
         .await
         .expect("orm_start");
@@ -921,38 +938,55 @@ PREFIX ex: <http://example.org/>
 INSERT DATA {
     # Valid
     <urn:test:oj1> 
-        ex:str "obj1 str" ;
-        ex:nestedWithExtra <urn:test:nested1>, <urn:test:nested2> ;
-        ex:nestedWithoutExtra <urn:test:nested3> .
-
-    <urn:test:nested1>
-        ex:nestedStr "obj1 nested with extra valid" ;
-        ex:nestedNum 2 .
-
-    <urn:test:nested2>
-        ex:nestedStr "obj1 nested with extra invalid" .
-
-    <urn:test:nested3>
-        ex:nestedStr "obj1 nested without extra valid" ;
-        ex:nestedNum 2 .
+            ex:str "obj1 str" ;
+            ex:nestedWithExtra <urn:test:nested1>, <urn:test:nested2> ;
+            ex:nestedWithoutExtra <urn:test:nested3> .
 
     # Invalid because nestedWithoutExtra has an invalid child.
     <urn:test:oj2> 
-        ex:str "obj2 str" ;
-        ex:nestedWithExtra <urn:test:nested4> ;
-        ex:nestedWithoutExtra <urn:test:nested5>, <urn:test:nested6> .
+            ex:str "obj2 str" ;
+            ex:nestedWithExtra <urn:test:nested4> ;
+            ex:nestedWithoutExtra <urn:test:nested5>, <urn:test:nested6> .
+}
+"#
+        .to_string(),
+    )
+    .await;
 
-    <urn:test:nested4>
-        ex:nestedStr "obj2: a nested string valid" ;
-        ex:nestedNum 2 .
+    let _doc_nuri_gn1 = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:nested1> ex:nestedStr "obj1 nested with extra valid" ; ex:nestedNum 2 .
+}
+"#
+        .to_string(),
+    )
+    .await;
 
-    <urn:test:nested5>
-        ex:nestedStr "obj2 nested without extra valid" ;
-        ex:nestedNum 2 .
+    let _doc_nuri_gn2 = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:nested2> ex:nestedStr "obj1 nested with extra invalid" .
+    <urn:test:nested3> ex:nestedStr "obj1 nested without extra valid" ; ex:nestedNum 2 .
+}
+"#
+        .to_string(),
+    )
+    .await;
 
+    let _doc_nuri_gn3 = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:nested4> ex:nestedStr "obj2: a nested string valid" ; ex:nestedNum 2 .
+    <urn:test:nested5> ex:nestedStr "obj2 nested without extra valid" ; ex:nestedNum 2 .
     # Invalid because nestedNum is missing.
-    <urn:test:nested6>
-        ex:nestedStr "obj2 nested without extra invalid" .
+    <urn:test:nested6> ex:nestedStr "obj2 nested without extra invalid" .
 }
 "#
         .to_string(),
@@ -1085,7 +1119,7 @@ INSERT DATA {
         shape: "http://example.org/RootShape".to_string(),
     };
 
-    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let nuri = NuriV0::new_entire_user_site();
     let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
         .await
         .expect("orm_start");
@@ -1467,12 +1501,32 @@ PREFIX ex: <http://example.org/>
 INSERT DATA {
     # Valid
     <urn:test:alice>
-        a ex:Person ;
-        ex:hasCat <urn:test:kitten1>, <urn:test:kitten2> .
-    <urn:test:kitten1>
-        a ex:Cat .
-    <urn:test:kitten2>
-        a ex:Cat .
+            a ex:Person ;
+            ex:hasCat <urn:test:kitten1>, <urn:test:kitten2> .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let _doc_nuri_catsa = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:kitten1> a ex:Cat .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    let _doc_nuri_catsb = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:kitten2> a ex:Cat .
 }
 "#
         .to_string(),

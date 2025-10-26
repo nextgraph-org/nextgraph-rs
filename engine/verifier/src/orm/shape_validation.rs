@@ -7,39 +7,41 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+use std::sync::{Arc, RwLock};
+
 use crate::orm::types::*;
 use crate::verifier::*;
 use ng_net::orm::*;
 use ng_repo::log::*;
 
-type NeedsFetchBool = bool;
-
 impl Verifier {
     /// Check the validity of a subject and update affecting tracked subjects' validity.
-    /// Might return nested objects that need to be validated.
     /// Assumes all quads to have same subject and graph.
+    /// Returns a triple of
+    /// - children to evaluate (each with a bool indicating if the child needs to be fetched).
+    /// - parents to evaluate (after children and self)
+    /// - if the orm object needs to be re-evaluated (and perhaps fetched) after evaluation of children.
     pub fn update_subject_validity(
         s_change: &mut TrackedOrmObjectChange,
         shape: &OrmSchemaShape,
         orm_subscription: &mut OrmSubscription,
-    ) -> Vec<(SubjectIri, ShapeIri, NeedsFetchBool)> {
-        let subject_iri = s_change
-            .tracked_orm_object
-            .read()
-            .unwrap()
-            .subject_iri
-            .clone();
+    ) -> (
+        Vec<(Arc<RwLock<TrackedOrmObject>>, bool)>,
+        Vec<Arc<RwLock<TrackedOrmObject>>>,
+        NeedEvalSelf,
+    ) {
         let mut tracked_subject = s_change.tracked_orm_object.write().unwrap();
         let previous_validity = s_change.prev_valid.clone();
 
-        // Keep track of objects that need to be validated against a shape to fetch and validate.
-        let mut need_evaluation: Vec<(String, String, bool)> = vec![];
-
         log_debug!(
-            "[Validation] for shape {} and subject {}",
-            shape.iri,
-            subject_iri
+            "[Validating] {} against shape {}",
+            tracked_subject.subject_iri,
+            tracked_subject.shape.iri
         );
+
+        // Keep track of objects that need to be validated against a shape to fetch and validate.
+        let mut children_to_eval: Vec<(Arc<RwLock<TrackedOrmObject>>, bool)> = vec![];
+        let mut needs_self_reevaluation: NeedEvalSelf = NeedEvalSelf::NoReevaluate;
 
         // Check 1) Check if this object is untracked and we need to remove children and ourselves.
         if previous_validity == TrackedOrmObjectValidity::Untracked
@@ -67,29 +69,22 @@ impl Verifier {
             // 1.1.2) Add all children to need_evaluation for their cleanup.
             for tracked_predicate in tracked_subject.tracked_predicates.values() {
                 for child in &tracked_predicate.write().unwrap().tracked_children {
-                    let child = child.read().unwrap();
-                    need_evaluation.push((
-                        child.subject_iri.clone(),
-                        child.shape.iri.clone(),
-                        false,
-                    ));
+                    children_to_eval.push((child.clone(), false));
                 }
             }
 
             // 1.2) If we don't have parents, we need to remove ourself too.
             if tracked_subject.parents.is_empty() {
-                // Drop the guard to release the immutable borrow
-                drop(tracked_subject);
-
-                orm_subscription.remove_subject_everywhere(&subject_iri);
+                orm_subscription.remove_subject_everywhere(&tracked_subject.subject_iri);
             }
 
-            return need_evaluation;
+            return (children_to_eval, vec![], NeedEvalSelf::NoReevaluate);
         }
 
-        // Check 2) If there are no changes, there is nothing to do.
-        if s_change.predicates.is_empty() {
-            return vec![];
+        // Check 2) If there are no changes and this has been evaluated before, there is nothing to do.
+        if s_change.predicates.is_empty() && previous_validity != TrackedOrmObjectValidity::Pending
+        {
+            return (vec![], vec![], NeedEvalSelf::NoReevaluate);
         }
 
         let mut new_validity = TrackedOrmObjectValidity::Valid;
@@ -267,16 +262,14 @@ impl Verifier {
 
                     // Set our own validity to pending and add it to need_evaluation for later.
                     set_validity(&mut new_validity, TrackedOrmObjectValidity::Pending);
-                    need_evaluation.push((subject_iri.clone(), shape.iri.clone(), false));
+                    needs_self_reevaluation = NeedEvalSelf::Reevaluate;
                     // Schedule untracked children for fetching and validation.
                     tracked_children.as_ref().map(|children| {
-                        for child in children {
-                            if child.valid == TrackedOrmObjectValidity::Untracked {
-                                need_evaluation.push((
-                                    child.subject_iri.clone(),
-                                    child.shape.iri.clone(),
-                                    true,
-                                ));
+                        for (i, child_guard) in children.iter().enumerate() {
+                            if child_guard.valid == TrackedOrmObjectValidity::Untracked {
+                                let tp = tracked_pred.as_ref().unwrap();
+                                let child_arc = tp.tracked_children.get(i).unwrap();
+                                children_to_eval.push((child_arc.clone(), true));
                             }
                         }
                     });
@@ -286,16 +279,19 @@ impl Verifier {
                     // Also schedule self for re-evaluation once children settle,
                     // otherwise parents can remain stuck in Pending and never
                     // transition to Valid after children become Valid.
-                    need_evaluation.push((subject_iri.clone(), shape.iri.clone(), false));
+                    needs_self_reevaluation = NeedEvalSelf::Reevaluate;
                     // Schedule pending children for re-evaluation without fetch.
                     tracked_children.as_ref().map(|children| {
-                        for child in children {
-                            if child.valid == TrackedOrmObjectValidity::Pending {
-                                need_evaluation.push((
-                                    child.subject_iri.clone(),
-                                    child.shape.iri.clone(),
-                                    false,
-                                ));
+                        for (i, child_guard) in children.iter().enumerate() {
+                            if child_guard.valid == TrackedOrmObjectValidity::Pending {
+                                let tp = tracked_pred.as_ref().unwrap();
+                                let child_arc = tp.tracked_children.get(i).unwrap();
+                                log_debug!(
+                                    "  - adding subject {} with graph {} to child evaluation",
+                                    child_arc.read().unwrap().subject_iri,
+                                    child_arc.read().unwrap().graph_iri,
+                                );
+                                children_to_eval.push((child_arc.clone(), false));
                             }
                         }
                     });
@@ -341,7 +337,7 @@ impl Verifier {
             };
         }
 
-        // == End of validation part. Next, process side-effects ==
+        // === End of validation part. Next, process side-effects ===
 
         tracked_subject.valid = new_validity.clone();
 
@@ -361,12 +357,7 @@ impl Verifier {
             // Add all children to need_evaluation for their cleanup.
             for tracked_predicate in tracked_subject.tracked_predicates.values() {
                 for child in &tracked_predicate.write().unwrap().tracked_children {
-                    let child = child.read().unwrap();
-                    need_evaluation.push((
-                        child.subject_iri.clone(),
-                        child.shape.iri.clone(),
-                        false,
-                    ));
+                    children_to_eval.push((child.clone(), false));
                 }
             }
         } else if new_validity == TrackedOrmObjectValidity::Valid
@@ -374,25 +365,28 @@ impl Verifier {
         {
             // If this subject became valid, we need to refetch this subject.
             // If the data has already been fetched, the parent function will prevent the refetch.
-            need_evaluation.insert(0, (subject_iri.clone(), shape.iri.clone(), true));
+            needs_self_reevaluation = NeedEvalSelf::FetchAndReevaluate;
         }
 
         // If validity changed, parents need to be re-evaluated.
+
         if new_validity != previous_validity {
             // Parents that are not tracking this subject, don't need to be added.
-            // Remember that the last elements are evaluated first.
-            return tracked_subject
-                .parents
-                .iter()
-                .map(|parent| {
-                    let p = parent.read().unwrap();
-                    (p.subject_iri.clone(), p.shape.iri.clone(), false)
-                })
-                // Add `need_evaluation`.
-                .chain(need_evaluation)
-                .collect();
+
+            return (
+                children_to_eval,
+                tracked_subject.parents.clone(),
+                needs_self_reevaluation,
+            );
         }
 
-        return need_evaluation;
+        return (children_to_eval, vec![], needs_self_reevaluation);
     }
+}
+
+#[derive(Debug)]
+pub enum NeedEvalSelf {
+    Reevaluate,
+    FetchAndReevaluate,
+    NoReevaluate,
 }

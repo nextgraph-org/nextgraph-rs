@@ -29,7 +29,7 @@ pub fn add_remove_quads(
     let schema = orm_subscription.shape_type.schema.clone();
     // Ensure the parent tracked subject exists for this (graph, subject, shape)
     let parent_arc =
-        orm_subscription.get_or_create_tracked_subject_with_graph(graph_iri, subject_iri, &shape);
+        orm_subscription.get_or_create_tracked_orm_object(graph_iri, subject_iri, &shape);
 
     // We'll collect deferred links for nested shape predicates here and resolve them
     // after all added quads have been processed. This allows us to link children that
@@ -133,11 +133,15 @@ pub fn add_remove_quads(
     // Resolve deferred shape links now that all added quads have been processed.
     for (tracked_predicate_lock, obj_iri, child_shape) in deferred_shape_links {
         // Try to find an existing tracked child in any graph for this (subject, shape)
-        let tracked_child =
-            match orm_subscription.get_tracked_object_any_graph(&obj_iri, &child_shape.iri) {
-                Some(existing) => existing,
-                None => continue,
-            };
+        let tracked_child = match orm_subscription
+            .get_tracked_object_any_graph(&obj_iri, &child_shape.iri)
+        {
+            Some(existing) => existing,
+            None => {
+                // If none exists, create a new one in the current graph (hoping data will come later).
+                orm_subscription.get_or_create_tracked_orm_object(graph_iri, &obj_iri, &child_shape)
+            }
+        };
 
         // Add parent link on the child
         {
@@ -154,7 +158,23 @@ pub fn add_remove_quads(
 
         // Attach the child to the predicate's tracked children
         let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
+        let child_dbg = {
+            let c = tracked_child.read().unwrap();
+            (
+                c.subject_iri.clone(),
+                c.shape.iri.clone(),
+                c.graph_iri.clone(),
+            )
+        };
         tracked_predicate.tracked_children.push(tracked_child);
+        log_debug!(
+            "      - linked child to predicate {} -> child ({}, shape: {}, graph: {}), total_children now: {}",
+            tracked_predicate.schema.iri,
+            child_dbg.0,
+            child_dbg.1,
+            child_dbg.2,
+            tracked_predicate.tracked_children.len()
+        );
     }
 
     // Process removed quads.

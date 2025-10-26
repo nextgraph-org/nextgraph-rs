@@ -18,20 +18,23 @@ use regex::Regex;
 
 pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
+
+use crate::orm::types::SubjectIri;
 // use ng_oxigraph::oxrdf::Triple;
 
 pub type GraphSubjectKey = (String, String);
 
-pub fn group_quads_by_graph_subject_for_shape<'a>(
+pub fn group_filter_quads_for_shape_and_subjects<'a>(
     shape: &OrmSchemaShape,
     quads: &'a [Quad],
-    allowed: &[GraphSubjectKey],
+    allowed_subjects: &[SubjectIri],
 ) -> HashMap<GraphSubjectKey, Vec<&'a Quad>> {
     let mut quads_by_key: HashMap<GraphSubjectKey, Vec<&Quad>> = HashMap::new();
     let allowed_preds_set: HashSet<&str> =
         shape.predicates.iter().map(|p| p.iri.as_str()).collect();
-    let allowed_set: HashSet<GraphSubjectKey> = allowed.iter().cloned().collect();
+    let allowed_subjects: HashSet<SubjectIri> = allowed_subjects.iter().cloned().collect();
     for quad in quads {
+        // Predicate must be in shape.
         if !allowed_preds_set.contains(quad.predicate.as_str()) {
             continue;
         }
@@ -39,16 +42,20 @@ pub fn group_quads_by_graph_subject_for_shape<'a>(
             Subject::NamedNode(n) => n.clone().into_string(),
             _ => continue,
         };
+        // Subject must be allowed.
+        if !allowed_subjects.is_empty() && !allowed_subjects.contains(&subj) {
+            continue;
+        }
+
         let graph = match &quad.graph_name {
             GraphName::NamedNode(n) => n.clone().into_string(),
             _ => continue,
         };
-        if allowed_set.is_empty() || allowed_set.contains(&(graph.clone(), subj.clone())) {
-            quads_by_key
-                .entry((graph, subj))
-                .or_insert_with(Vec::new)
-                .push(quad);
-        }
+
+        quads_by_key
+            .entry((graph, subj))
+            .or_insert_with(Vec::new)
+            .push(quad);
     }
 
     return quads_by_key;

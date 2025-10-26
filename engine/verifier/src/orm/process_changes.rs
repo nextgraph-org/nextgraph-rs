@@ -23,6 +23,7 @@ use ng_repo::log::*;
 
 use crate::orm::add_remove_quads::add_remove_quads;
 use crate::orm::query::shape_type_to_sparql_select;
+use crate::orm::shape_validation::NeedEvalSelf;
 use crate::orm::types::*;
 use crate::orm::utils::*;
 use crate::orm::OrmChanges;
@@ -109,7 +110,7 @@ impl Verifier {
         // First in, last out stack to keep track of objects to validate (nested objects first). Strings are object IRIs.
         let mut shape_validation_stack: Vec<(Arc<OrmSchemaShape>, Vec<String>)> = vec![];
         // Track (shape_iri, subject_iri) pairs currently being validated to prevent cycles and double evaluation.
-        let mut currently_validating: HashSet<(String, String)> = HashSet::new();
+        let mut currently_validating: HashSet<(String, String, String)> = HashSet::new();
         // Add root shape for first validation run.
         for shape in shapes {
             log_info!(
@@ -119,6 +120,7 @@ impl Verifier {
             shape_validation_stack.push((shape, vec![]));
         }
 
+        let mut counter = 0;
         // Process queue of shapes and subjects to validate.
         // For a given shape, we evaluate every subject against that shape.
         while let Some((shape, objects_to_validate)) = shape_validation_stack.pop() {
@@ -129,58 +131,52 @@ impl Verifier {
                 objects_to_validate
             );
 
-            // Collect triples relevant for validation (temporary: drop graph component for grouping)
-            let added_triples: Vec<ng_oxigraph::oxrdf::Triple> = quad_added
-                .iter()
-                .map(|q| ng_oxigraph::oxrdf::Triple {
-                    subject: q.subject.clone(),
-                    predicate: q.predicate.clone(),
-                    object: q.object.clone(),
-                })
-                .collect();
-            let removed_triples: Vec<ng_oxigraph::oxrdf::Triple> = quad_removed
-                .iter()
-                .map(|q| ng_oxigraph::oxrdf::Triple {
-                    subject: q.subject.clone(),
-                    predicate: q.predicate.clone(),
-                    object: q.object.clone(),
-                })
-                .collect();
-            let added_quads_by_subject =
-                group_by_subject_for_shape(&shape, &added_triples, &objects_to_validate);
-            let removed_quads_by_subject =
-                group_by_subject_for_shape(&shape, &removed_triples, &objects_to_validate);
-            let modified_subject_iris: HashSet<&SubjectIri> = added_quads_by_subject
+            // Group quads by (graph,subject) for the given shape.
+            let added_by_gs =
+                group_filter_quads_for_shape_and_subjects(&shape, quad_added, &objects_to_validate);
+            let removed_by_gs = group_filter_quads_for_shape_and_subjects(
+                &shape,
+                quad_removed,
+                &objects_to_validate,
+            );
+            // Start with keys from actual quad diffs (owned set)
+            let modified_gs: HashSet<GraphSubjectKey> = added_by_gs
                 .keys()
-                .chain(removed_quads_by_subject.keys())
+                .cloned()
+                .chain(removed_by_gs.keys().cloned())
                 .collect();
 
             log_info!(
                 "[process_changes_for_shape_and_session] Found {} modified subjects for shape {}: {:?}",
-                modified_subject_iris.len(),
+                added_by_gs.len(),
                 shape.iri,
-                modified_subject_iris
+                modified_gs
             );
 
-            // Variable to collect nested objects that need validation.
-            let mut nested_objects_to_eval: HashMap<ShapeIri, Vec<(SubjectIri, bool)>> =
+            // Variables to collect nested objects that need validation.
+            // Children have highest priority, then SELF, then PARENTS (last).
+            let mut child_objects_to_eval: HashMap<ShapeIri, Vec<(SubjectIri, bool)>> =
+                HashMap::new();
+            let mut self_objects_to_eval: HashMap<ShapeIri, Vec<(SubjectIri, bool)>> =
+                HashMap::new();
+            let mut parent_objects_to_eval: HashMap<ShapeIri, Vec<(SubjectIri, bool)>> =
                 HashMap::new();
 
             // For each subject, add/remove quads and validate.
             log_info!(
-                "[process_changes_for_shape_and_session] processing modified subjects: {:?} against shape: {}",
-                modified_subject_iris,
+                "[process_changes_for_shape_and_session] processing modified (graph,subject) keys: {:?} against shape: {}",
+                modified_gs,
                 shape.iri
             );
 
             // For each modified subject, apply changes to tracked subjects and validate.
-            for subject_iri in &modified_subject_iris {
-                let validation_key = (shape.iri.clone(), subject_iri.to_string());
+            for (graph_iri, subject_iri) in modified_gs.iter() {
+                let validation_key = (shape.iri.clone(), graph_iri.clone(), subject_iri.clone());
 
-                // Cycle detection: Check if this (shape, subject) pair is already being validated
+                // Cycle detection: Check if this (shape, graph, subject) combination is already being validated.
                 if currently_validating.contains(&validation_key) {
                     log_warn!(
-                        "[process_changes_for_shape_and_session] Cycle detected: subject '{}' with shape '{}' is already being validated. Marking as invalid.",
+                        "[process_changes_for_shape_and_session] Cycle detected: graph '{graph_iri}' subject '{}' with shape '{}' is already being validated. Marking as invalid.",
                         subject_iri,
                         shape.iri
                     );
@@ -191,8 +187,8 @@ impl Verifier {
                         Some(&root_shape_iri),
                         Some(&session_id),
                     );
-                    if let Some(tracked_subject) = orm_subscription
-                        .get_tracked_object_any_graph(subject_iri, &shape.iri)
+                    if let Some(tracked_subject) =
+                        orm_subscription.get_tracked_object(graph_iri, subject_iri, &shape.iri)
                     {
                         let mut ts = tracked_subject.write().unwrap();
                         ts.valid = TrackedOrmObjectValidity::Invalid;
@@ -201,46 +197,41 @@ impl Verifier {
                     continue;
                 }
 
-                // Mark as currently validating
-                currently_validating.insert(validation_key.clone());
+                // Mark as currently validating this (shape, graph, subject)
+                currently_validating.insert(validation_key);
 
-                // Get quad changes for subject (added & removed).
-                let quads_added_for_subj = added_quads_by_subject
-                    .get(*subject_iri)
-                    .map(|v| v.as_slice())
-                    .unwrap_or(&[]);
-                let quads_removed_for_subj = removed_quads_by_subject
-                    .get(*subject_iri)
-                    .map(|v| v.as_slice())
-                    .unwrap_or(&[]);
+                let orm_subscription = self
+                    .orm_subscriptions
+                    .get_mut(&nuri_to_string(nuri))
+                    .unwrap()
+                    .iter_mut()
+                    .find(|sub| {
+                        sub.shape_type.shape == *root_shape_iri && sub.session_id == session_id
+                    })
+                    .unwrap();
 
-                // Get or create change object for (shape, subject) pair.
+                // Get or create change object.
                 let change = orm_changes
                     .entry(shape.iri.clone())
                     .or_insert_with(HashMap::new)
-                    .entry((*subject_iri).clone())
+                    .entry(subject_iri.clone())
                     .or_insert_with(|| {
-                        // Create a new change record.
-                        // This includes the previous validity and quad changes.
-                        let orm_subscription = self
-                            .orm_subscriptions
-                            .get_mut(&nuri_to_string(nuri))
-                            .unwrap()
-                            .iter_mut()
-                            .find(|sub| {
-                                sub.shape_type.shape == *root_shape_iri
-                                    && sub.session_id == session_id
-                            })
-                            .unwrap();
+                        // Create a new change record including previous validity
 
-                        log_info!("[process_changes_for_shape_and_session] Creating change object for {}, {}", subject_iri, shape.iri);
+                        log_info!(
+                            "[process_changes_for_shape_and_session] Creating change object."
+                        );
+
                         let prev_valid = orm_subscription
-                            .get_tracked_object_any_graph(subject_iri, &shape.iri)
+                            .get_tracked_object(graph_iri, subject_iri, &shape.iri)
                             .map(|ts| ts.read().unwrap().valid.clone())
                             .unwrap_or(TrackedOrmObjectValidity::Pending);
 
-                        let tracked_obj = orm_subscription
-                            .get_or_create_tracked_subject(subject_iri, &shape);
+                        let tracked_obj = orm_subscription.get_or_create_tracked_orm_object(
+                            graph_iri,
+                            subject_iri,
+                            &shape,
+                        );
 
                         let mut change = TrackedOrmObjectChange {
                             tracked_orm_object: tracked_obj,
@@ -249,11 +240,26 @@ impl Verifier {
                             prev_valid,
                         };
 
+                        // === Apply data to tracked subjects (filling up change object too).
+
+                        // Get relevant quad changes (affecting graph and subject).
+                        let gs_key = (graph_iri.clone(), subject_iri.clone());
+                        let quads_added_for_gs = added_by_gs
+                            .get(&gs_key)
+                            .map(|v| v.as_slice())
+                            .unwrap_or(&[]);
+                        let quads_removed_for_gs = removed_by_gs
+                            .get(&gs_key)
+                            .map(|v| v.as_slice())
+                            .unwrap_or(&[]);
+
+                        // Apply quads.
                         if let Err(e) = add_remove_quads(
                             shape.clone(),
+                            graph_iri,
                             subject_iri,
-                            quads_added_for_subj,
-                            quads_removed_for_subj,
+                            quads_added_for_gs,
+                            quads_removed_for_gs,
                             orm_subscription,
                             &mut change,
                         ) {
@@ -267,162 +273,262 @@ impl Verifier {
                 // If validation took place already, there's nothing more to do...
                 if change.is_validated {
                     log_info!(
-                        "[process_changes_for_shape_and_session] Subject {} already validated for shape {}, skipping",
+                        "[process_changes_for_shape_and_session] Subject {} already validated for shape {}: {:?}. skipping",
                         subject_iri,
-                        shape.iri
+                        shape.iri,
+                        change.tracked_orm_object.read().unwrap().valid
                     );
                     continue;
                 }
 
+                // === Validate the subject ===
+
+                // Evaluate validity -> returns children (with fetch flag), parents, and whether SELF needs (re)eval
+                let (children_to_eval, parents_to_eval, need_self_eval) =
+                    Self::update_subject_validity(change, &shape, orm_subscription);
+
+                // We add the need_eval to be processed next after loop.
+                // Filter out subjects already in the validation stack to prevent double evaluation.
                 log_info!(
-                    "[process_changes_for_shape_and_session] Running validation for subject {} against shape {}",
-                    subject_iri,
-                    shape.iri
-                );
-
-                // Run validation and record objects that need to be re-evaluated.
-                {
-                    let orm_subscription = self
-                        .orm_subscriptions
-                        .get_mut(&nuri_to_string(nuri))
-                        .unwrap()
-                        .iter_mut()
-                        .find(|sub| {
-                            sub.shape_type.shape == *root_shape_iri && sub.session_id == session_id
-                        })
-                        .unwrap();
-
-                    // Validate the subject.
-                    // need_eval contains elements in reverse priority (last element to be validated first)
-                    // TODO: Improve order by distinguishing between parents, children and self to be re-evaluated.
-                    let need_eval = Self::update_subject_validity(change, &shape, orm_subscription);
-
-                    // We add the need_eval to be processed next after loop.
-                    // Filter out subjects already in the validation stack to prevent double evaluation.
-                    log_info!(
-                        "[process_changes_for_shape_and_session] Validation returned {} objects that need evaluation",
-                        need_eval.len()
+                        "[process_changes_for_shape_and_session] Validation returned {} children, {} parents to eval and self: {:?}",
+                        children_to_eval.len(),
+                        parents_to_eval.len(),
+                        need_self_eval
                     );
-                    for (iri, schema_shape, needs_refetch) in need_eval {
-                        let eval_key = (schema_shape.clone(), iri.clone());
-                        if !currently_validating.contains(&eval_key) {
-                            log_info!(
-                                "[process_changes_for_shape_and_session] Adding nested object to eval: {} with shape {}, needs_refetch: {}",
-                                iri,
-                                schema_shape,
-                                needs_refetch
-                            );
-                            // Only add if not currently being validated
-                            nested_objects_to_eval
-                                .entry(schema_shape)
-                                .or_insert_with(Vec::new)
-                                .push((iri.clone(), needs_refetch));
-                        } else {
-                            log_info!(
-                                "[process_changes_for_shape_and_session] Skipping nested object {} with shape {} - already validating",
-                                iri,
-                                schema_shape
-                            );
-                        }
+
+                // Schedule CHILDREN (highest priority). Only queue if either no fetch is needed,
+                // or if a fetch will actually be performed in this pass (i.e., data_already_fetched == false).
+                for (child_arc, needs_fetch) in children_to_eval {
+                    let will_queue = !needs_fetch || !data_already_fetched;
+                    if !will_queue {
+                        log_info!(
+                            "[process_changes_for_shape_and_session] Skipping CHILD (needs fetch but data_already_fetched=true)"
+                        );
+                        continue;
                     }
+                    let child = child_arc.read().unwrap();
+                    let child_shape_iri = child.shape.iri.clone();
+                    let child_subject = child.subject_iri.clone();
+                    log_info!(
+                        "[process_changes_for_shape_and_session] Queueing CHILD: {} with shape {}, needs_refetch: {}",
+                        child_subject,
+                        child_shape_iri,
+                        needs_fetch
+                    );
+                    // Skip if the child is currently being validated with the same (shape,graph,subject) key
+                    let child_key = (
+                        child_shape_iri.clone(),
+                        child.graph_iri.clone(),
+                        child_subject.clone(),
+                    );
+                    if !currently_validating.contains(&child_key) {
+                        child_objects_to_eval
+                            .entry(child_shape_iri)
+                            .or_insert_with(Vec::new)
+                            .push((child_subject, needs_fetch));
+                    } else {
+                        log_info!(
+                            "[process_changes_for_shape_and_session] Skipping CHILD already in validation: {}",
+                            child_subject
+                        );
+                    }
+                }
+
+                // Schedule SELF (second priority)
+                let (self_needs_eval, self_needs_fetch) = match need_self_eval {
+                    NeedEvalSelf::NoReevaluate => (false, false),
+                    NeedEvalSelf::Reevaluate => (true, false),
+                    NeedEvalSelf::FetchAndReevaluate => (true, true),
+                };
+
+                if self_needs_eval {
+                    log_info!(
+                        "[process_changes_for_shape_and_session] Queueing SELF re-eval: {} with shape {}, needs_refetch: {}",
+                        subject_iri,
+                        shape.iri,
+                        self_needs_fetch
+                    );
+                    self_objects_to_eval
+                        .entry(shape.iri.clone())
+                        .or_insert_with(Vec::new)
+                        .push((subject_iri.clone(), self_needs_fetch));
+                }
+
+                // Schedule PARENTS (last priority)
+                for parent_arc in parents_to_eval {
+                    let parent = parent_arc.read().unwrap();
+                    let parent_shape_iri = parent.shape.iri.clone();
+                    let parent_subject = parent.subject_iri.clone();
+                    // Skip queuing parent if it is currently being validated to avoid loops
+                    let parent_key = (
+                        parent_shape_iri.clone(),
+                        parent.graph_iri.clone(),
+                        parent_subject.clone(),
+                    );
+                    if currently_validating.contains(&parent_key) {
+                        log_info!(
+                            "[process_changes_for_shape_and_session] Skipping PARENT already in validation: {}",
+                            parent_subject
+                        );
+                        continue;
+                    }
+                    log_info!(
+                        "[process_changes_for_shape_and_session] Queueing PARENT: {} with shape {}",
+                        parent_subject,
+                        parent_shape_iri
+                    );
+                    parent_objects_to_eval
+                        .entry(parent_shape_iri)
+                        .or_insert_with(Vec::new)
+                        .push((parent_subject, false));
                 }
             }
 
             // Now, we queue all non-evaluated objects
             log_info!(
-                "[process_changes_for_shape_and_session] Processing {} nested shape groups",
-                nested_objects_to_eval.len()
+                "[process_changes_for_shape_and_session] Processing queued groups: children: {} self: {} parents: {}",
+                child_objects_to_eval.len(),
+                self_objects_to_eval.len(),
+                parent_objects_to_eval.len()
             );
-            for (shape_iri, objects_to_eval) in &nested_objects_to_eval {
-                log_info!(
-                    "[process_changes_for_shape_and_session] Processing nested shape: {} with {} objects",
-                    shape_iri,
-                    objects_to_eval.len()
-                );
 
-                // Extract schema and shape Arc first (before any borrows)
-                let schema = {
-                    let orm_sub = self.get_first_orm_subscription_for(
-                        nuri,
-                        Some(&root_shape_iri),
-                        Some(&session_id),
-                    );
-                    orm_sub.shape_type.schema.clone()
+            // Process children shapes first, then SELF, then PARENTS last (by push order)
+            // Also: deduplicate subjects per shape (if any appear multiple times, keep needs_refetch=true if any entry requires it)
+
+            // Helper to build groups from a map
+            let build_groups =
+                |src: HashMap<String, Vec<(String, bool)>>| -> Vec<(String, Vec<(String, bool)>)> {
+                    let mut dedup: HashMap<String, HashMap<String, bool>> = HashMap::new();
+                    for (shape_iri, objects) in src {
+                        let inner = dedup.entry(shape_iri).or_insert_with(HashMap::new);
+                        for (subj, needs) in objects {
+                            inner
+                                .entry(subj)
+                                .and_modify(|v| *v = *v || needs)
+                                .or_insert(needs);
+                        }
+                    }
+                    dedup
+                        .into_iter()
+                        .map(|(shape_iri, subjects)| {
+                            let vec_pairs =
+                                subjects.into_iter().map(|(s, needs)| (s, needs)).collect();
+                            (shape_iri, vec_pairs)
+                        })
+                        .collect()
                 };
-                let shape_arc = schema.get(shape_iri).unwrap().clone();
 
-                // Data might need to be fetched (if it has not been during initialization or nested shape fetch).
-                if !data_already_fetched {
-                    let objects_to_fetch: Vec<String> = objects_to_eval
-                        .iter()
-                        .filter(|(_iri, needs_fetch)| *needs_fetch)
-                        .map(|(s, _)| s.clone())
-                        .collect();
+            let child_groups = build_groups(child_objects_to_eval);
+            let self_groups = build_groups(self_objects_to_eval);
+            let parent_groups = build_groups(parent_objects_to_eval);
 
-                    log_info!(
-                        "[process_changes_for_shape_and_session] Fetching data for {} objects that need refetch",
-                        objects_to_fetch.len()
+            // Helper to push groups into the stack
+            let mut push_groups =
+                |groups: Vec<(String, Vec<(String, bool)>)>| -> Result<(), NgError> {
+                    for (shape_iri, objects_to_eval) in groups {
+                        log_info!(
+                        "[process_changes_for_shape_and_session] Processing nested shape: {} with {} objects",
+                        shape_iri,
+                        objects_to_eval.len()
                     );
 
-                    if objects_to_fetch.len() > 0 {
-                        // Create sparql query
-                        let shape_query = shape_type_to_sparql_select(
-                            &schema,
-                            &shape_iri,
-                            Some(objects_to_fetch),
-                            None,
-                        )?;
-                        let new_quads =
-                            self.query_sparql_select(shape_query, Some(nuri_to_string(nuri)))?;
+                        // Extract schema and shape Arc first (before any borrows)
+                        let schema = {
+                            let orm_sub = self.get_first_orm_subscription_for(
+                                nuri,
+                                Some(&root_shape_iri),
+                                Some(&session_id),
+                            );
+                            orm_sub.shape_type.schema.clone()
+                        };
+                        let shape_arc = schema.get(&shape_iri).unwrap().clone();
 
-                        log_info!(
-                            "[process_changes_for_shape_and_session] Fetched {} quads, recursively processing nested objects",
-                            new_quads.len()
+                        // Data might need to be fetched (if it has not been during initialization or nested shape fetch).
+                        if !data_already_fetched {
+                            let objects_to_fetch: Vec<String> = objects_to_eval
+                                .iter()
+                                .filter(|(_iri, needs_fetch)| *needs_fetch)
+                                .map(|(s, _)| s.clone())
+                                .collect();
+
+                            log_info!(
+                            "[process_changes_for_shape_and_session] Fetching data for {} objects that need refetch",
+                            objects_to_fetch.len()
                         );
 
-                        // Recursively process nested objects.
-                        self.process_changes_for_shape_and_session(
-                            nuri,
-                            &root_shape_iri,
-                            [shape_arc.clone()].to_vec(),
-                            session_id,
-                            &new_quads,
-                            &vec![],
-                            orm_changes,
-                            true,
-                        )?;
-                    }
-                }
+                            if objects_to_fetch.len() > 0 {
+                                // Create sparql query
+                                let shape_query = shape_type_to_sparql_select(
+                                    &schema,
+                                    &shape_iri,
+                                    Some(objects_to_fetch),
+                                    None,
+                                )?;
+                                let new_quads = self
+                                    .query_sparql_select(shape_query, Some(nuri_to_string(nuri)))?;
 
-                // Add objects
-                let objects_not_to_fetch: Vec<String> = objects_to_eval
-                    .iter()
-                    .filter(|(_iri, needs_fetch)| !*needs_fetch)
-                    .map(|(s, _)| s.clone())
-                    .collect();
-                if objects_not_to_fetch.len() > 0 {
-                    log_info!(
-                        "[process_changes_for_shape_and_session] Queueing {} objects that don't need fetching for shape {}",
-                        objects_not_to_fetch.len(),
-                        shape_iri
-                    );
-                    // Queue all objects that don't need fetching.
-                    shape_validation_stack.push((shape_arc, objects_not_to_fetch));
-                } else {
-                    log_info!(
-                        "[process_changes_for_shape_and_session] No objects to queue for shape {} (all needed fetching)",
-                        shape_iri
-                    );
-                }
-            }
+                                log_info!(
+                                "[process_changes_for_shape_and_session] Fetched {} quads, recursively processing nested objects",
+                                new_quads.len()
+                            );
+
+                                // Recursively process nested objects.
+                                self.process_changes_for_shape_and_session(
+                                    nuri,
+                                    &root_shape_iri,
+                                    [shape_arc.clone()].to_vec(),
+                                    session_id,
+                                    &new_quads,
+                                    &vec![],
+                                    orm_changes,
+                                    true,
+                                )?;
+                            }
+                        }
+
+                        // Add objects that don't need fetching
+                        let objects_not_to_fetch: Vec<String> = objects_to_eval
+                            .iter()
+                            .filter(|(_iri, needs_fetch)| !*needs_fetch)
+                            .map(|(s, _)| s.clone())
+                            .collect();
+                        if objects_not_to_fetch.len() > 0 {
+                            log_info!(
+                            "[process_changes_for_shape_and_session] Queueing {} objects that don't need fetching for shape {}",
+                            objects_not_to_fetch.len(),
+                            shape_iri
+                        );
+                            shape_validation_stack.push((shape_arc, objects_not_to_fetch));
+                        } else {
+                            log_info!(
+                            "[process_changes_for_shape_and_session] No objects to queue for shape {} (all needed fetching)",
+                            shape_iri
+                        );
+                        }
+                    }
+                    Ok(())
+                };
+
+            // Because the stack is LIFO:
+            // To process CHILDREN first, SELF second, PARENTS last, we push in this order:
+            // 1) PARENTS first (bottom)
+            push_groups(parent_groups)?;
+            // 2) SELF next (middle)
+            push_groups(self_groups)?;
+            // 3) CHILDREN last (top) -> processed first
+            push_groups(child_groups)?;
 
             log_info!(
-                "[process_changes_for_shape_and_session] Cleaning up validation tracking for {} modified subjects",
-                modified_subject_iris.len()
+                "[process_changes_for_shape_and_session] Removing {} tormos from currently_validating",
+                modified_gs.len()
             );
-            for subject_iri in modified_subject_iris {
-                let validation_key = (shape.iri.clone(), subject_iri.to_string());
+            for (graph_iri, subject_iri) in modified_gs {
+                let validation_key = (shape.iri.clone(), graph_iri.clone(), subject_iri.clone());
                 currently_validating.remove(&validation_key);
+            }
+            counter += 1;
+            if counter > 200 {
+                panic!("DEBUG ONLY: To many cycles");
             }
         }
 
@@ -500,7 +606,10 @@ impl Verifier {
         shape: Option<&ShapeIri>,
         session_id: Option<&u64>,
     ) -> Result<(UnboundedSender<AppResponse>, &OrmSubscription), VerifierError> {
-    let subs = self.orm_subscriptions.get_mut(&nuri_to_string(nuri)).unwrap();
+        let subs = self
+            .orm_subscriptions
+            .get_mut(&nuri_to_string(nuri))
+            .unwrap();
         subs.retain(|sub| !sub.sender.is_closed());
         match subs // Filter shapes, if present.
             .iter()

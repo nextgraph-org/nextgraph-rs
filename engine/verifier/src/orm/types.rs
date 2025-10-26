@@ -183,7 +183,7 @@ impl OrmSubscription {
     }
 
     /// Get or create a tracked subject for the given (graph, subject, shape).
-    pub fn get_or_create_tracked_subject_with_graph(
+    pub fn get_or_create_tracked_orm_object(
         &mut self,
         graph_iri: &str,
         subject_iri: &str,
