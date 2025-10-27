@@ -175,6 +175,7 @@ pub fn privkey_to_string(privkey: JsValue) -> Result<String, JsValue> {
     Ok(format!("{p}"))
 }
 
+#[wasm_bindgen]
 pub fn wallet_open_with_password(wallet: JsValue, password: String) -> Result<JsValue, JsValue> {
     let encrypted_wallet = serde_wasm_bindgen::from_value::<Wallet>(wallet)
         .map_err(|_| "Deserialization error of wallet")?;

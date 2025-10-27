@@ -10,11 +10,13 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "PNM Prototype",
         "width": 1280,
-        "height": 960
+        "height": 960,
+        "label": "main"
       }
     ],
     "security": {

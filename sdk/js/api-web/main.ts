@@ -9,6 +9,7 @@
 import {createAsyncProxy} from "async-proxy";
 import {version} from './package.json';
 import * as sdk from "@ng-org/lib-wasm";
+//import * as sdk from "../lib-wasm/pkg";
 import { Bowser } from "../lib-wasm/jsland/bowser.js"; 
 
 const web_handler = {

@@ -1,5 +1,8 @@
 import { defineConfig, UserConfig, PluginOption } from "vite";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
+import svelteSVG from "@hazycora/vite-plugin-svelte-svg";
 import { resolve } from "node:path";
 import { viteSingleFile } from "vite-plugin-singlefile"
 import wasm from "vite-plugin-wasm";
@@ -13,9 +16,28 @@ export default defineConfig((): UserConfig => {
   const config = {
     worker: {
       format: 'es' as "es" | "iife",
-      
     },
-    plugins: [react()],
+    plugins: [tailwindcss(),react(),svelte(),
+    svelteSVG({
+      svgoConfig: {
+        plugins: [
+            {
+                name: 'preset-default',
+                params: {
+                  overrides: {
+                    // disable plugins
+                    removeViewBox: false,
+                  },
+                },
+            },
+            {
+              name: 'prefixIds',
+            }
+        ],
+      }, // See https://github.com/svg/svgo#configuration
+      requireSuffix: true, // Set false to accept '.svg' without the '?component'
+    })
+    ],
     base: "/",
     resolve: {
       alias: {

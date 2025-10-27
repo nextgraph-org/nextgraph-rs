@@ -5,6 +5,9 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:window:allow-get-all-windows",
     "contacts-importer:allow-import-contacts",
     "contacts-importer:allow-check-permissions",
     "contacts-importer:allow-request-permissions",

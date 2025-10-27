@@ -336,24 +336,31 @@ async fn open_window(
     label: String,
     title: String,
     app: tauri::AppHandle,
-) -> Result<(), ()> {
+) -> Result<bool, ()> {
     log_debug!("open window url {:?}", url);
-    let _already_exists = app.get_webview_window(&label);
+    let _already_exists = app.get_window(&label);
     #[cfg(desktop)]
     if _already_exists.is_some() {
-        let _ = _already_exists.unwrap().close();
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        log_info!("already exists");
+        //let _ = _already_exists.unwrap().close();
+        //std::thread::sleep(std::time::Duration::from_secs(1));
+        return Ok(true);
     }
 
     let mut config = WindowConfig::default();
     config.label = label;
     config.url = tauri::WebviewUrl::External(url.parse().unwrap());
     config.title = title;
-    let _register_window = tauri::WebviewWindowBuilder::from_config(&app, &config)
+    match tauri::WebviewWindowBuilder::from_config(&app, &config)
         .unwrap()
         .build()
-        .unwrap();
-    Ok(())
+    {
+        Ok(_) => {}
+        Err(e) => {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 #[tauri::command(rename_all = "snake_case")]

@@ -19,7 +19,7 @@ export function useUpdateProfile(): UseUpdateProfileReturn {
   const {commitData, changeData} = useLdo();
 
   const updateProfile = useCallback(async (profile: Partial<SocialContact>) => {
-    if (!session) {
+    if (!session || !session.ng) {
       const errorMsg = 'No active session available';
       setError(errorMsg);
       throw new Error(errorMsg);

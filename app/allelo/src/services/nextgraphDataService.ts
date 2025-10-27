@@ -258,7 +258,7 @@ WHERE {
     changeData: ChangeDataFunction,
     commitData: CommitDataFunction
   ) {
-    if (!session) {
+    if (!session || !session.ng) {
       throw new Error('No active session available');
     }
 
@@ -328,7 +328,7 @@ WHERE {
     resource: NextGraphResource,
     subject: SocialContact
   ) {
-    if (!session) {
+    if (!session || !session.ng) {
       throw new Error('No active session available');
     }
 
@@ -353,7 +353,7 @@ WHERE {
   };
 
   async getDuplicatedContacts(session?: NextGraphSession): Promise<string[][]> {
-    if (!session) return [];
+    if (!session || !session.ng) return [];
     const sparql = this.getDuplicatedContactsSparql();
 
     const data = await session.ng!.sparql_query(session.sessionId, sparql);
@@ -434,7 +434,7 @@ WHERE {
     commitData: CommitDataFunction,
     changeData: ChangeDataFunction,
   ) {
-    if (!session) {
+    if (!session || !session.ng) {
       throw new Error('No active session available');
     }
 

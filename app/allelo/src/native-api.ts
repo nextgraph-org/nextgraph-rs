@@ -18,6 +18,7 @@ const mapping = {
     "wallet_gen_shuffle_for_pazzle_opening": ["pazzle_length"],
     "wallet_gen_shuffle_for_pin": [],
     "wallet_open_with_pazzle": ["wallet","pazzle","pin"],
+    "wallet_open_with_password": ["wallet","password"],
     "wallet_open_with_mnemonic_words": ["wallet","mnemonic_words","pin"],
     "wallet_open_with_mnemonic": ["wallet","mnemonic","pin"],
     "wallet_was_opened": ["opened_wallet"],
@@ -65,10 +66,12 @@ let lastStreamId = 0;
     
 const tauri_handler = {
     async apply(target, path, caller, args) {
+        //console.log("CALLING", target, path, args)
             try {
                 if (path[0] === "open_window") {
                     let callback = args[3];
-                    await invoke(path[0],{url:args[0],label:args[1],title:args[2]});
+                    let already_exists = await invoke(path[0],{url:args[0],label:args[1],title:args[2]});
+                    if (already_exists) return;
 
                     let unsub_register_accepted;
                     let unsub_register_error;
@@ -86,23 +89,30 @@ const tauri_handler = {
                     unsub_register_accepted = await listen(
                         "accepted",
                         async (event) => {
+                            console.log("got event", event)
                             unsub_register();
-                            let reg_popup = Window.getByLabel("registration");
-                            await reg_popup.close();
+                            let reg_popup = await Window.getByLabel("registration");
+                            try {
+                                await reg_popup.close();
+                            } catch (e) {
+
+                            }
                             await (callback)("accepted",event.payload);
                         }
                     );
                     unsub_register_error = await listen("error", async (event) => {
+                        console.log("got error event", event)
                         unsub_register();
-                        let reg_popup = Window.getByLabel("registration");
+                        let reg_popup = await Window.getByLabel("registration");
                         await reg_popup.close();
                         await (callback)("error",event.payload);
                     });
-                    await new Promise((resolve) => setTimeout(resolve, 1000));
-                    let reg_popup = Window.getByLabel("registration");
-                    unsub_register_close = await reg_popup.onCloseRequested(async (event) => {
+
+                    unsub_register_close = await listen("close", async (event) => {
+                        console.log("got close", event)
                         unsub_register_close = undefined;
                         unsub_register();
+                        await (callback)("close");
                     });
 
                     return unsub_register;
@@ -290,7 +300,7 @@ const tauri_handler = {
             } else if (path[0] === "wallet_create") {
                 let params = args[0];
                 params.result_with_wallet_file = false;
-                params.security_img = Array.from(new Uint8Array(params.security_img));
+                //params.security_img = Array.from(new Uint8Array(params.security_img));
                 return await invoke(path[0],{params})
             } else if (path[0] === "wallet_read_file") {
                 let file = args[0];

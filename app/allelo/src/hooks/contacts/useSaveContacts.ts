@@ -50,7 +50,7 @@ export function useSaveContacts(): UseSaveContactsReturn {
   }, [session, createData, commitData, changeData, isNextGraph]);
 
   const createContact = useCallback(async (contact: Contact): Promise<Contact | undefined> => {
-    if (!session) {
+    if (!session || !session.ng) {
       const errorMsg = 'No active session available';
       setError(errorMsg);
       throw new Error(errorMsg);

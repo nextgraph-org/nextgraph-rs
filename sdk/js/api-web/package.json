@@ -4,6 +4,11 @@
   "version": "0.1.2",
   "type": "module",
   "main": "main.ts",
+  "exports": {
+    ".": {
+      "default": "./main.ts"
+    }
+  },
   "dependencies": {
     "async-proxy": "^0.4.1",
     "@ng-org/lib-wasm": "workspace:*"

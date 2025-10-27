@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import type { FunctionComponent, PropsWithChildren } from "react";
 import { NextGraphAuthContext, useNextGraphAuth } from "./NextGraphAuthContext.js";
 
-import * as ng from "./api";
+import ng from "./api";
 
 import type { ConnectedLdoDataset, ConnectedPlugin } from "@ldo/connected";
 import type { NextGraphConnectedPlugin, NextGraphConnectedContext } from "@ldo/connected-nextgraph";
@@ -15,10 +16,12 @@ import type { NextGraphConnectedPlugin, NextGraphConnectedContext } from "@ldo/c
 export function createBrowserNGReactMethods(
   dataset: ConnectedLdoDataset<(NextGraphConnectedPlugin | ConnectedPlugin)[]>,
 ) : {BrowserNGLdoProvider: React.FunctionComponent<{children?: React.ReactNode | undefined}>, useNextGraphAuth: typeof useNextGraphAuth} {
-
+  
   const BrowserNGLdoProvider: FunctionComponent<PropsWithChildren> = ({
     children,
   }) => {
+    const navigate = useNavigate();
+    const location = useLocation();
     const [session, setSession] = useState<NextGraphConnectedContext>(
       {
         ng: undefined,
@@ -33,35 +36,41 @@ export function createBrowserNGReactMethods(
       //console.log("init called");
       setRanInitialAuthCheck(true);
       // TODO: export the types for the session object coming from NG.
-    //   await init( (event: { status: string; session: { session_id: unknown; protected_store_id: unknown; private_store_id: unknown; public_store_id: unknown; }; }) => {
-    //     //console.log("called back in react", event)
-        
-    //     // callback
-    //     // once you receive event.status == "loggedin"
-    //     // you can use the full API
-    //     if (event.status == "loggedin") {
-    //       setSession({ 
-    //         ng, 
-    //         sessionId: event.session.session_id as string, //FIXME: sessionId should be a Number.
-    //         protectedStoreId: event.session.protected_store_id as string,
-    //         privateStoreId: event.session.private_store_id as string,
-    //         publicStoreId: event.session.public_store_id as string
-    //       }); // TODO: add event.session.user too
+      window.login_callback = 
+        (event: 
+          { status: string; 
+            session: { session_id: unknown; 
+                      protected_store_id: unknown; 
+                      private_store_id: unknown; 
+                      public_store_id: unknown; }; 
+          }) => {
+            console.log("called back in react", event)
+            
+            // callback
+            // once you receive event.status == "loggedin"
+            // you can use the full API
+            if (event.status == "loggedin") {
+              setSession({ 
+                ng, 
+                sessionId: event.session.session_id as string, //FIXME: sessionId should be a Number.
+                protectedStoreId: event.session.protected_store_id as string,
+                privateStoreId: event.session.private_store_id as string,
+                publicStoreId: event.session.public_store_id as string
+              }); // TODO: add event.session.user too
 
-    //       dataset.setContext("nextgraph", {
-    //         ng,
-    //         sessionId: event.session.session_id as string
-    //       });
-    //     }
-    //     else if (event.status == "cancelled" || event.status == "error" || event.status == "loggedout") {
-    //       setSession({ ng: undefined });
-    //       dataset.setContext("nextgraph", {
-    //         ng: undefined,
-    //       });
-    //     }
-    //   }
-    //   , true // singleton: boolean (will your app create many docs in the system, or should it be launched as a unique instance)
-    //   , []); //list of AccessRequests (for now, leave this empty)
+              dataset.setContext("nextgraph", {
+                ng,
+                sessionId: event.session.session_id as string
+              });
+            }
+            else if (event.status == "cancelled" || event.status == "error" || event.status == "loggedout") {
+              setSession({ ng: undefined });
+              dataset.setContext("nextgraph", {
+                ng: undefined,
+              });
+            }
+          };
+      if (location.pathname != "/wallet/create") navigate("/wallet/login")
       
     }, []);
       

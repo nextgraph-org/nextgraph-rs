@@ -266,7 +266,7 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
   }, [filters, limit]);
 
   const loadNextGraphContacts = useCallback(async (page: number): Promise<string[]> => {
-    if (!session) {
+    if (!session || !session.ng) {
       return [];
     }
 

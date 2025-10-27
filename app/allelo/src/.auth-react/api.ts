@@ -23,9 +23,9 @@ let api = createAsyncProxy({},{
 
 export default api;
 
-export const NG_EU_BSP = "https://nextgraph.eu";
+export const NG_EU_BSP = import.meta.env.NG_ENV_ALT ? "https://"+import.meta.env.NG_ENV_ALT : "https://nextgraph.eu";
 export const NG_EU_BSP_REGISTER = import.meta.env.PROD
-? "https://account.nextgraph.eu/#/create"
+? import.meta.env.NG_ENV_ALT_ACCOUNT ? import.meta.env.NG_ENV_ALT_ACCOUNT : "https://account.nextgraph.eu/#/create"
 : "http://account-dev.nextgraph.eu:5173/#/create";
 
 export const NG_ONE_BSP = "https://nextgraph.one";
