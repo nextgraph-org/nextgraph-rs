@@ -263,6 +263,7 @@
             wait = false;
             console.log("got error with payload", payload);
             if (payload) registration_error = payload.error;
+            else registration_error = "You refused the registration";
             unsub_register = undefined;
           } else if (result == "close") {
             console.log("onCloseOfRegistrationWindow");

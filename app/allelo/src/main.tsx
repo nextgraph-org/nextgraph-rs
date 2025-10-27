@@ -9,7 +9,6 @@ init_api(native_api);
 await select_default_lang();
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
     <App />
-  </StrictMode>,
+
 )
