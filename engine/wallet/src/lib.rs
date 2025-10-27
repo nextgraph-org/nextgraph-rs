@@ -493,6 +493,31 @@ pub fn gen_shuffle_for_pin() -> Vec<u8> {
     digits
 }
 
+fn check_security_img(security_img: &Vec<u8>) -> Result<Vec<u8>, NgWalletError> {
+    let decoded_img = ImageReader::new(Cursor::new(security_img))
+        .with_guessed_format()
+        .map_err(|_e| NgWalletError::InvalidSecurityImage)?
+        .decode()
+        .map_err(|_e| NgWalletError::InvalidSecurityImage)?;
+
+    if decoded_img.height() < 150 || decoded_img.width() < 150 {
+        return Err(NgWalletError::InvalidSecurityImage);
+    }
+
+    let resized_img = if decoded_img.height() == 400 && decoded_img.width() == 400 {
+        decoded_img
+    } else {
+        decoded_img.resize_to_fill(400, 400, FilterType::Triangle)
+    };
+    let buffer: Vec<u8> = Vec::with_capacity(100000);
+    let mut cursor = Cursor::new(buffer);
+    resized_img
+        .write_to(&mut cursor, ImageOutputFormat::Jpeg(72))
+        .map_err(|_e| NgWalletError::InvalidSecurityImage)?;
+
+    Ok(cursor.into_inner())
+}
+
 /// creates a Wallet from a pin, a security text and image
 /// and returns the Wallet, the pazzle and the mnemonic
 pub fn create_wallet_first_step_v0(
@@ -555,32 +580,10 @@ pub fn create_wallet_first_step_v0(
     }
 
     // check validity of image
-    let img_vec = if let Some(security_img) = &params.security_img {
-        let decoded_img = ImageReader::new(Cursor::new(security_img))
-            .with_guessed_format()
-            .map_err(|_e| NgWalletError::InvalidSecurityImage)?
-            .decode()
-            .map_err(|_e| NgWalletError::InvalidSecurityImage)?;
-
-        if decoded_img.height() < 150 || decoded_img.width() < 150 {
-            return Err(NgWalletError::InvalidSecurityImage);
-        }
-
-        let resized_img = if decoded_img.height() == 400 && decoded_img.width() == 400 {
-            decoded_img
-        } else {
-            decoded_img.resize_to_fill(400, 400, FilterType::Triangle)
-        };
-        let buffer: Vec<u8> = Vec::with_capacity(100000);
-        let mut cursor = Cursor::new(buffer);
-        resized_img
-            .write_to(&mut cursor, ImageOutputFormat::Jpeg(72))
-            .map_err(|_e| NgWalletError::InvalidSecurityImage)?;
-
-        Some(cursor.into_inner())
-    } else {
-        None
-    };
+    let img_vec = params
+        .security_img
+        .as_ref()
+        .and_then(|security_img| check_security_img(security_img).ok());
 
     // creating the wallet keys
 

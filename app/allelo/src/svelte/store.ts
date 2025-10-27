@@ -313,7 +313,7 @@ export const reconnect = async function() {
         return;
     }
     console.log("attempting to connect...");
-    if (!get(online)) connection_status.set("connecting");
+    if (!get(online) && get(connection_status)!="connecting") connection_status.set("connecting");
     try {
         let info = await ng.client_info()
         //console.log("Connecting with",get(active_session).user);
@@ -389,21 +389,23 @@ if (tauri_platform) {
         }
     }
     });
-
-    let window_api = await import("@tauri-apps/api/window");
-    let main = await window_api.Window.getByLabel("main");
-    unsub_main_close = await main.onCloseRequested(async (event) => {
-        //console.log("onCloseRequested main");
-        await main.emit("close_all", {});
-        let registration = await window_api.Window.getByLabel("registration");
-        if (registration) {
-            await registration.close();
-        }
-        let viewer = await window_api.Window.getByLabel("viewer");
-        if (viewer) {
-            await viewer.close();
-        }
-    });
+    if (tauri_platform!="android") {
+        let window_api = await import("@tauri-apps/api/window");
+        let main = await window_api.Window.getByLabel("main");
+        unsub_main_close = await main.onCloseRequested(async (event) => {
+            //console.log("onCloseRequested main");
+            await main.emit("close_all", {});
+            let registration = await window_api.Window.getByLabel("registration");
+            if (registration) {
+                await registration.close();
+            }
+            let viewer = await window_api.Window.getByLabel("viewer");
+            if (viewer) {
+                await viewer.close();
+            }
+        });
+    }
+    
 } else {
     let web_api = await import("../../../../sdk/js/api-web");
     init_api(web_api.default);

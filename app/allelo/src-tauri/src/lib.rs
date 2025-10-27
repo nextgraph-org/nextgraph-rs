@@ -103,6 +103,18 @@ async fn wallet_gen_shuffle_for_pin() -> Result<Vec<u8>, ()> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn wallet_open_with_password(
+    wallet: Wallet,
+    password: String,
+    _app: tauri::AppHandle,
+) -> Result<SensitiveWallet, String> {
+    //log_debug!("wallet_open_with_pazzle from rust {:?}", pazzle);
+    let wallet = nextgraph::local_broker::wallet_open_with_password(&wallet, password)
+        .map_err(|e| e.to_string())?;
+    Ok(wallet)
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn wallet_open_with_pazzle(
     wallet: Wallet,
     pazzle: Vec<u8>,
@@ -548,6 +560,22 @@ async fn doc_fetch_private_subscribe() -> Result<AppRequest, String> {
 #[tauri::command(rename_all = "snake_case")]
 async fn doc_fetch_repo_subscribe(repo_o: String) -> Result<AppRequest, String> {
     AppRequest::doc_fetch_repo_subscribe(repo_o).map_err(|e| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn new_orm_start(
+    scope: String,
+    shape_type: ng_net::orm::OrmShapeType,
+    session_id: u64,
+) -> Result<AppRequest, String> {
+    let scope = if scope.is_empty() {
+        NuriV0::new_entire_user_site()
+    } else {
+        NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
+    };
+    let mut req = AppRequest::new_orm_start(scope, shape_type);
+    req.set_session_id(session_id);
+    Ok(req)
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -1040,6 +1068,7 @@ impl AppBuilder {
                 privkey_to_string,
                 wallet_gen_shuffle_for_pazzle_opening,
                 wallet_gen_shuffle_for_pin,
+                wallet_open_with_password,
                 wallet_open_with_pazzle,
                 wallet_open_with_mnemonic,
                 wallet_open_with_mnemonic_words,
@@ -1071,6 +1100,7 @@ impl AppBuilder {
                 cancel_stream,
                 discrete_update,
                 app_request_stream,
+                new_orm_start,
                 file_get,
                 file_save_to_downloads,
                 app_request,

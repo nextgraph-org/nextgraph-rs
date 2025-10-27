@@ -99,7 +99,7 @@
       if (tauri_platform) {
         // TODO @niko: Add device_name as param to open_with_* APIs
         let opened_wallet =
-          await ng.wallet_open_with_password(password);
+          await ng.wallet_open_with_password(wallet, password);
         // try {
         //   let client = await ng.wallet_was_opened(opened_wallet);
         //   opened_wallet.V0.client = client;

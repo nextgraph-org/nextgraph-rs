@@ -9,7 +9,6 @@
 import {createAsyncProxy} from "async-proxy";
 import { Bowser } from "../../../sdk/js/lib-wasm/jsland/bowser.js"; 
 import {version} from '../package.json';
-import { Window } from '@tauri-apps/api/window';
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -18,7 +17,7 @@ const mapping = {
     "wallet_gen_shuffle_for_pazzle_opening": ["pazzle_length"],
     "wallet_gen_shuffle_for_pin": [],
     "wallet_open_with_pazzle": ["wallet","pazzle","pin"],
-    "wallet_open_with_password": ["wallet","password"],
+    "wallet_open_with_password": ["wallet", "password"],
     "wallet_open_with_mnemonic_words": ["wallet","mnemonic_words","pin"],
     "wallet_open_with_mnemonic": ["wallet","mnemonic","pin"],
     "wallet_was_opened": ["opened_wallet"],
@@ -66,56 +65,60 @@ let lastStreamId = 0;
     
 const tauri_handler = {
     async apply(target, path, caller, args) {
-        //console.log("CALLING", target, path, args)
+        console.log("CALLING", path[0], args)
             try {
                 if (path[0] === "open_window") {
-                    let callback = args[3];
-                    let already_exists = await invoke(path[0],{url:args[0],label:args[1],title:args[2]});
-                    if (already_exists) return;
+                    if (import.meta.env.TAURI_ENV_PLATFORM != "android") {
+                        let win = await import('@tauri-apps/api/window');
+                        let Window = win.Window;
+                        let callback = args[3];
+                        let already_exists = await invoke(path[0],{url:args[0],label:args[1],title:args[2]});
+                        if (already_exists) return;
 
-                    let unsub_register_accepted;
-                    let unsub_register_error;
-                    let unsub_register_close;
+                        let unsub_register_accepted;
+                        let unsub_register_error;
+                        let unsub_register_close;
 
-                    const unsub_register = function() {
-                        if (unsub_register_accepted) unsub_register_accepted();
-                        if (unsub_register_error) unsub_register_error();
-                        if (unsub_register_close) unsub_register_close();
-                        unsub_register_close = undefined;
-                        unsub_register_error = undefined;
-                        unsub_register_accepted = undefined;
-                    };
+                        const unsub_register = function() {
+                            if (unsub_register_accepted) unsub_register_accepted();
+                            if (unsub_register_error) unsub_register_error();
+                            if (unsub_register_close) unsub_register_close();
+                            unsub_register_close = undefined;
+                            unsub_register_error = undefined;
+                            unsub_register_accepted = undefined;
+                        };
 
-                    unsub_register_accepted = await listen(
-                        "accepted",
-                        async (event) => {
-                            console.log("got event", event)
+                        unsub_register_accepted = await listen(
+                            "accepted",
+                            async (event) => {
+                                console.log("got event", event)
+                                unsub_register();
+                                let reg_popup = await Window.getByLabel("registration");
+                                try {
+                                    await reg_popup.close();
+                                } catch (e) {
+
+                                }
+                                await (callback)("accepted",event.payload);
+                            }
+                        );
+                        unsub_register_error = await listen("error", async (event) => {
+                            console.log("got error event", event)
                             unsub_register();
                             let reg_popup = await Window.getByLabel("registration");
-                            try {
-                                await reg_popup.close();
-                            } catch (e) {
+                            await reg_popup.close();
+                            await (callback)("error",event.payload);
+                        });
 
-                            }
-                            await (callback)("accepted",event.payload);
-                        }
-                    );
-                    unsub_register_error = await listen("error", async (event) => {
-                        console.log("got error event", event)
-                        unsub_register();
-                        let reg_popup = await Window.getByLabel("registration");
-                        await reg_popup.close();
-                        await (callback)("error",event.payload);
-                    });
+                        unsub_register_close = await listen("close", async (event) => {
+                            console.log("got close", event)
+                            unsub_register_close = undefined;
+                            unsub_register();
+                            await (callback)("close");
+                        });
 
-                    unsub_register_close = await listen("close", async (event) => {
-                        console.log("got close", event)
-                        unsub_register_close = undefined;
-                        unsub_register();
-                        await (callback)("close");
-                    });
-
-                    return unsub_register;
+                        return unsub_register;
+                    } 
             } else if (path[0] === "client_info") {
                 let from_rust = await invoke("client_info_rust",{});
                 let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
@@ -215,7 +218,7 @@ const tauri_handler = {
                 } 
                 return () => {
                     unlisten();
-                    tauri.invoke("cancel_stream", {stream_id});
+                    invoke("cancel_stream", {stream_id});
                 }
                 
             } else if (path[0] === "discrete_update") {
@@ -223,38 +226,48 @@ const tauri_handler = {
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 arg.update = Array.from(new Uint8Array(arg.update));
                 return await invoke(path[0],arg)
-            } else if (path[0] === "app_request_stream") {
+            } else if (path[0] === "app_request_stream" || path[0] === "doc_subscribe" || path[0] === "orm_start") {
                 let stream_id = (lastStreamId += 1).toString();
                 //console.log("stream_id",stream_id);
                 //let session_id = args[0];
-                let request = args[0];
-                let callback = args[1];
+                let request; let callback;
+                if (path[0] === "app_request_stream") { request = args[0]; callback = args[1]; }
+                else if (path[0] === "doc_subscribe") { request = await invoke("doc_fetch_repo_subscribe", {repo_o:args[0]}); request.V0.session_id = args[1]; callback = args[2]; }
+                else if (path[0] === "orm_start") { request = await invoke("new_orm_start", {scope:args[0], shape_type:args[1], session_id:args[2] }); callback = args[3]; }
 
                 let unlisten = await Window.getCurrent().listen(stream_id, async (event) => {
                     //console.log(event.payload);
-                    if (event.payload.V0.FileBinary) {
-                        event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
-                    }
-                    if (event.payload.V0.State?.graph?.triples) {
-                        let json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.State.graph.triples));
-                        event.payload.V0.State.graph.triples = JSON.parse(json_str);
-                    } else if (event.payload.V0.Patch?.graph) {
-                        let inserts_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.inserts));
-                        event.payload.V0.Patch.graph.inserts = JSON.parse(inserts_json_str);
-                        let removes_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.removes));
-                        event.payload.V0.Patch.graph.removes = JSON.parse(removes_json_str);
-                    }
-                    if (event.payload.V0.State?.discrete) {
-                        let crdt = Object.getOwnPropertyNames(event.payload.V0.State.discrete)[0];
-                        event.payload.V0.State.discrete[crdt] = Uint8Array.from(event.payload.V0.State.discrete[crdt]);
-                    } else if (event.payload.V0.Patch?.discrete) { 
-                        let crdt = Object.getOwnPropertyNames(event.payload.V0.Patch.discrete)[0];
-                        event.payload.V0.Patch.discrete[crdt] = Uint8Array.from(event.payload.V0.Patch.discrete[crdt]);
+                    if (event.payload.V0) {
+                        if (event.payload.V0.FileBinary) {
+                            event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
+                        }
+                        // if (event.payload.V0.State?.graph?.triples) {
+                        //     let json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.State.graph.triples));
+                        //     event.payload.V0.State.graph.triples = JSON.parse(json_str);
+                        // } else if (event.payload.V0.Patch?.graph) {
+                        //     let inserts_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.inserts));
+                        //     event.payload.V0.Patch.graph.inserts = JSON.parse(inserts_json_str);
+                        //     let removes_json_str = new TextDecoder().decode(Uint8Array.from(event.payload.V0.Patch.graph.removes));
+                        //     event.payload.V0.Patch.graph.removes = JSON.parse(removes_json_str);
+                        // }
+                        if (event.payload.V0.State?.graph?.triples) {
+                            event.payload.V0.State.graph.triples = Uint8Array.from(event.payload.V0.State.graph.triples);
+                        } else if (event.payload.V0.Patch?.graph) {
+                            event.payload.V0.Patch.graph.inserts = Uint8Array.from(event.payload.V0.Patch.graph.inserts);
+                            event.payload.V0.Patch.graph.removes = Uint8Array.from(event.payload.V0.Patch.graph.removes)
+                        }
+                        if (event.payload.V0.State?.discrete) {
+                            let crdt = Object.getOwnPropertyNames(event.payload.V0.State.discrete)[0];
+                            event.payload.V0.State.discrete[crdt] = Uint8Array.from(event.payload.V0.State.discrete[crdt]);
+                        } else if (event.payload.V0.Patch?.discrete) { 
+                            let crdt = Object.getOwnPropertyNames(event.payload.V0.Patch.discrete)[0];
+                            event.payload.V0.Patch.discrete[crdt] = Uint8Array.from(event.payload.V0.Patch.discrete[crdt]);
+                        }
                     }
                     let ret = callback(event.payload);
                     if (ret === true) {
                         await invoke("cancel_stream", {stream_id});
-                    } else if (ret.then) {
+                    } else if (ret?.then) {
                         ret.then(async (val)=> { 
                             if (val === true) {
                                 await invoke("cancel_stream", {stream_id});
@@ -271,13 +284,15 @@ const tauri_handler = {
                 } 
                 return () => {
                     unlisten();
-                    tauri.invoke("cancel_stream", {stream_id});
+                    invoke("cancel_stream", {stream_id});
                 }
                 
             } else if (path[0] === "get_wallets") {
                 let res = await invoke(path[0],{});
                 if (res) for (let e of Object.entries(res)) {
-                    e[1].wallet.V0.content.security_img = Uint8Array.from(e[1].wallet.V0.content.security_img);
+                    const sec = e[1].wallet.V0.content.security_img;
+                    if (sec)
+                    e[1].wallet.V0.content.security_img = Uint8Array.from(sec);
                 }
                 return res || {};
 
@@ -300,7 +315,7 @@ const tauri_handler = {
             } else if (path[0] === "wallet_create") {
                 let params = args[0];
                 params.result_with_wallet_file = false;
-                //params.security_img = Array.from(new Uint8Array(params.security_img));
+                params.security_img = Array.from(new Uint8Array());
                 return await invoke(path[0],{params})
             } else if (path[0] === "wallet_read_file") {
                 let file = args[0];
