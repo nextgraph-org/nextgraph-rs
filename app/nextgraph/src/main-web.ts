@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-import * as web_api from "@ng-org/lib-wasm";
+import { default as web_api } from "@ng-org/api-web";
 import {init_api} from "@ng-org/ui-common/api";
 init_api(web_api);
 

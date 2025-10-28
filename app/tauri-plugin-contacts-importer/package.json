@@ -1,5 +1,5 @@
 {
-  "name": "tauri-plugin-contacts-importer",
+  "name": "@ng-org/tauri-plugin-contacts-importer",
   "version": "0.1.0",
   "author": "mkslanc@gmail.com",
   "description": "",

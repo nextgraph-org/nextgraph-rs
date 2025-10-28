@@ -18,7 +18,7 @@
   "dependencies": {
     "@ark-ui/svelte": "^5.11.0",
     "@dvcol/svelte-simple-router": "^2.7.2",
-    "@ng-org/lib-wasm": "workspace:*",
+    "@ng-org/api-web": "workspace:*",
     "@ng-org/ui-common": "workspace:*",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
