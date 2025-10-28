@@ -160,7 +160,13 @@ describe("watch (patch mode)", () => {
     });
 
     it("emits patches for Set with nested objects added as one operation", async () => {
-        const state = deepSignal<{ container: any }>({ container: {} });
+        const state = deepSignal<{ container: any }>(
+            { container: {} },
+            {
+                syntheticIdPropertyName: "id",
+                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+            }
+        );
         const patches: DeepPatch[][] = [];
         const { stopListening: stop } = watch(state, ({ patches: batch }) =>
             patches.push(batch)
@@ -203,7 +209,13 @@ describe("watch (patch mode)", () => {
 
     it("tracks deep nested object mutation inside a Set entry after iteration", async () => {
         const rawEntry = { id: "n1", data: { val: 1 } };
-        const st = deepSignal({ bag: new Set<any>([rawEntry]) });
+        const st = deepSignal(
+            { bag: new Set<any>([rawEntry]) },
+            {
+                syntheticIdPropertyName: "id",
+                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+            }
+        );
         const collected: DeepPatch[][] = [];
         const { stopListening: stop } = watch(st, ({ patches }) =>
             collected.push(patches)
@@ -338,7 +350,13 @@ describe("watch (patch mode)", () => {
             stop();
         });
         it("emits delete patch for object entry", async () => {
-            const st = deepSignal({ s: new Set<any>() });
+            const st = deepSignal(
+                { s: new Set<any>() },
+                {
+                    syntheticIdPropertyName: "id",
+                    propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                }
+            );
             const obj = { id: "n1", x: 1 };
             const patches: DeepPatch[][] = [];
             const { stopListening: stop } = watch(st, ({ patches: batch }) =>
@@ -428,7 +446,13 @@ describe("watch (patch mode)", () => {
         });
         it("raw reference mutation produces no deep patch while proxied does", async () => {
             const raw = { id: "id1", data: { x: 1 } };
-            const st = deepSignal({ s: new Set<any>([raw]) });
+            const st = deepSignal(
+                { s: new Set<any>([raw]) },
+                {
+                    syntheticIdPropertyName: "id",
+                    propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                }
+            );
             const batches: DeepPatch[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
@@ -474,9 +498,15 @@ describe("watch (patch mode)", () => {
         });
 
         it("allows Array.from() and spread on Set without brand errors and tracks nested mutation", async () => {
-            const st = deepSignal({
-                s: new Set<any>([{ id: "eIter", inner: { v: 1 } }]),
-            });
+            const st = deepSignal(
+                {
+                    s: new Set<any>([{ id: "eIter", inner: { v: 1 } }]),
+                },
+                {
+                    syntheticIdPropertyName: "id",
+                    propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                }
+            );
             // Regression: previously 'values method called on incompatible Proxy' was thrown here.
             const arr = Array.from(st.s);
             expect(arr.length).toBe(1);
@@ -524,7 +554,12 @@ describe("watch (patch mode)", () => {
         });
 
         it("generates correct patches when root is a Set (object entries)", async () => {
-            const rootSet = deepSignal(new Set<any>());
+            const rootSet = deepSignal(new Set<any>(), {
+                propGenerator: ({ object }) => ({
+                    syntheticId: object["@id"] || `fallback-${Math.random()}`,
+                }),
+                syntheticIdPropertyName: "@id",
+            });
             const batches: DeepPatch[][] = [];
             const { stopListening: stop } = watch(rootSet, ({ patches }) =>
                 batches.push(patches)
@@ -549,7 +584,10 @@ describe("watch (patch mode)", () => {
         });
 
         it("tracks nested mutations when root is a Set", async () => {
-            const rootSet = deepSignal(new Set<any>());
+            const rootSet = deepSignal(new Set<any>(), {
+                syntheticIdPropertyName: "id",
+                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+            });
             const obj = { id: "nested", data: { x: 1 } };
             rootSet.add(obj);
 

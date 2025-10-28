@@ -240,12 +240,14 @@ function addIdAndGraphProperties(t: dom.Type): dom.Type {
                 dom.create.property(
                     "@id",
                     dom.create.namedTypeReference("IRI"),
-                    dom.DeclarationFlags.Optional | dom.DeclarationFlags.ReadOnly
+                    dom.DeclarationFlags.Optional |
+                        dom.DeclarationFlags.ReadOnly
                 ),
                 dom.create.property(
                     "@graph",
                     dom.create.namedTypeReference("IRI"),
-                    dom.DeclarationFlags.Optional | dom.DeclarationFlags.ReadOnly
+                    dom.DeclarationFlags.Optional |
+                        dom.DeclarationFlags.ReadOnly
                 )
             );
         }
@@ -320,7 +322,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                 shapeInterface.name = shapeName;
                 // Preserve shape id for downstream shapeTypes generation
                 shapeInterface.shapeId = shapeDecl.id;
-                
+
                 // Ensure root-level @id and @graph are present as readonly (mandatory)
                 const hasId = shapeInterface.members.find(
                     (m) => m.kind === "property" && m.name === "@id"
@@ -328,7 +330,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                 const hasGraph = shapeInterface.members.find(
                     (m) => m.kind === "property" && m.name === "@graph"
                 );
-                
+
                 if (!hasId || !hasGraph) {
                     const propsToAdd: dom.PropertyDeclaration[] = [];
                     if (!hasGraph) {
@@ -413,7 +415,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
             const graphSeen = new Set<number>();
             newInterface.members = newInterface.members.filter((m, idx) => {
                 if (m.kind !== "property") return true;
-                
+
                 if (m.name === "@id") {
                     if (idSeen.size === 0) {
                         idSeen.add(idx);
@@ -424,7 +426,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                     }
                     return false;
                 }
-                
+
                 if (m.name === "@graph") {
                     if (graphSeen.size === 0) {
                         graphSeen.add(idx);
@@ -435,7 +437,7 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                     }
                     return false;
                 }
-                
+
                 return true;
             });
             return newInterface;
