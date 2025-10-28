@@ -1920,21 +1920,21 @@ pub async fn disconnections_subscribe(callback: &js_sys::Function) -> Result<JsV
     Ok(true.into())
 }
 
-#[wasm_bindgen]
-pub async fn probe() {
-    let _res = BROKER
-        .write()
-        .await
-        .probe(
-            Box::new(ConnectionWebSocket {}),
-            IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
-            WS_PORT,
-        )
-        .await;
-    log_debug!("broker.probe : {:?}", _res);
+// #[wasm_bindgen]
+// pub async fn probe() {
+//     let _res = BROKER
+//         .write()
+//         .await
+//         .probe(
+//             Box::new(ConnectionWebSocket {}),
+//             IP::try_from(&IpAddr::from_str("127.0.0.1").unwrap()).unwrap(),
+//             WS_PORT,
+//         )
+//         .await;
+//     log_debug!("broker.probe : {:?}", _res);
 
-    let _ = Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
-}
+//     let _ = Broker::join_shutdown_with_timeout(std::time::Duration::from_secs(5)).await;
+// }
 
 #[cfg(wasmpack_target = "nodejs")]
 #[derive(Serialize, Deserialize)]

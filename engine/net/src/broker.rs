@@ -540,6 +540,7 @@ impl Broker {
     }
 
     /// Used in tests mostly
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn join_shutdown_with_timeout(
         timeout: std::time::Duration,
     ) -> Result<(), ProtocolError> {
