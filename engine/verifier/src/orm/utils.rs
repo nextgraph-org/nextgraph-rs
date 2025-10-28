@@ -78,11 +78,11 @@ pub fn nuri_to_string(nuri: &NuriV0) -> String {
         }
     }
 }
-
-pub fn escape_json_pointer(path_segment: &String) -> String {
+/// `~` is encoded as ~0, `/` is encoded as ~1.
+pub fn escape_json_pointer_segment(path_segment: &String) -> String {
     path_segment.replace("~", "~0").replace("/", "~1")
 }
-
+/// `~` is encoded as ~0, `/` is encoded as ~1.
 pub fn decode_json_pointer(path: &String) -> String {
     path.replace("~1", "/").replace("~0", "~")
 }

@@ -138,7 +138,7 @@ fn create_sparql_update_query_for_diff(
 
     // First sort patches.
     // - Process delete patches first.
-    // - Process object creation add operations before rest, to ensure potential blank nodes are created.
+
     let delete_patches: Vec<_> = diff
         .iter()
         .filter(|patch| patch.op == OrmPatchOp::remove)
@@ -147,21 +147,6 @@ fn create_sparql_update_query_for_diff(
         "[create_sparql_update_query_for_diff] Found {} delete patches",
         delete_patches.len()
     );
-
-    // let add_object_patches: Vec<_> = diff
-    //     .iter()
-    //     .filter(|patch| {
-    //         patch.op == OrmPatchOp::add
-    //             && match &patch.valType {
-    //                 Some(vt) => *vt == OrmPatchType::object,
-    //                 _ => false,
-    //             }
-    //     })
-    //     .collect();
-    // log_info!(
-    //     "[create_sparql_update_query_for_diff] Found {} add object patches",
-    //     add_object_patches.len()
-    // );
 
     let add_primitive_patches: Vec<_> = diff
         .iter()
@@ -303,17 +288,6 @@ fn create_sparql_update_query_for_diff(
         sparql_sub_queries.len()
     );
     return sparql_sub_queries.join(";\n");
-}
-
-fn _get_tracked_subject_from_diff_op(
-    subject_iri: &String,
-    orm_subscription: &OrmSubscription,
-) -> Arc<RwLock<TrackedOrmObject>> {
-    let tracked_subject = orm_subscription
-        .get_tracked_object_any_graph(subject_iri, &orm_subscription.shape_type.shape)
-        .unwrap();
-
-    return tracked_subject.clone();
 }
 
 /// Removes the current predicate from the path stack and returns the corresponding IRI.
@@ -505,7 +479,7 @@ fn create_where_statements_for_patch(
             );
         } else {
             // Set to child subject schema.
-            // TODO: Actually, we should get the tracked subject and check for the correct shape there.
+            // TODO: Actually, we should get the tracked orm object and check for the correct shape there.
             // As long as there is only one allowed shape or the first one is valid, this is fine.
             log_info!("[create_where_statements_for_patch] Predicate is single-valued, getting child schema");
 
@@ -519,7 +493,7 @@ fn create_where_statements_for_patch(
 }
 
 /// Get the schema for a given subject and predicate schema.
-/// It will return the first schema of which the tracked subject is valid.
+/// It will return the first schema of which the tracked orm object is valid.
 /// If there is no subject found, return the first subject schema of the predicate schema.
 fn get_first_child_schema(
     subject_iri: Option<&String>,
@@ -531,12 +505,13 @@ fn get_first_child_schema(
             continue;
         };
 
-        let tracked_subject_opt = subject_iri
+        // TODO: ORM prioritization.
+        let tracked_orm_object_opt = subject_iri
             .and_then(|iri| orm_subscription.get_tracked_object_any_graph(iri, schema_shape));
 
-        if let Some(tracked_subject) = tracked_subject_opt {
+        if let Some(tracked_orm_object) = tracked_orm_object_opt {
             // The subject is already being tracked (it's not new).
-            if tracked_subject.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
+            if tracked_orm_object.read().unwrap().valid == TrackedOrmObjectValidity::Valid {
                 return orm_subscription
                     .shape_type
                     .schema

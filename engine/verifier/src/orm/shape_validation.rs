@@ -15,7 +15,7 @@ use ng_net::orm::*;
 use ng_repo::log::*;
 
 impl Verifier {
-    /// Check the validity of a subject and update affecting tracked subjects' validity.
+    /// Check the validity of a subject and update affecting tracked orm objects' validity.
     /// Assumes all quads to have same subject and graph.
     /// Returns a triple of
     /// - children to evaluate (each with a bool indicating if the child needs to be fetched).
@@ -30,13 +30,13 @@ impl Verifier {
         Vec<Arc<RwLock<TrackedOrmObject>>>,
         NeedEvalSelf,
     ) {
-        let mut tracked_subject = s_change.tracked_orm_object.write().unwrap();
+        let mut tracked_orm_object = s_change.tracked_orm_object.write().unwrap();
         let previous_validity = s_change.prev_valid.clone();
 
         log_debug!(
             "[Validating] {} against shape {}",
-            tracked_subject.subject_iri,
-            tracked_subject.shape.iri
+            tracked_orm_object.subject_iri,
+            tracked_orm_object.shape.iri
         );
 
         // Keep track of objects that need to be validated against a shape to fetch and validate.
@@ -46,19 +46,19 @@ impl Verifier {
         // Check 1) Check if this object is untracked and we need to remove children and ourselves.
         if previous_validity == TrackedOrmObjectValidity::Untracked
         //   If .valid is pending, this part was executed before in this validation round.
-            && tracked_subject.valid != TrackedOrmObjectValidity::Pending
+            && tracked_orm_object.valid != TrackedOrmObjectValidity::Pending
         {
             // 1.1) Schedule children for deletion
             // 1.1.1) Set all children to `untracked` that don't have other parents.
-            for tracked_predicate in tracked_subject.tracked_predicates.values() {
+            for tracked_predicate in tracked_orm_object.tracked_predicates.values() {
                 for child in &tracked_predicate.write().unwrap().tracked_children {
                     let mut tracked_child = child.write().unwrap();
                     if tracked_child.parents.is_empty()
                         || (tracked_child.parents.len() == 1 && {
                             let p = &tracked_child.parents[0];
                             let p = p.read().unwrap();
-                            p.subject_iri == tracked_subject.subject_iri
-                                && p.graph_iri == tracked_subject.graph_iri
+                            p.subject_iri == tracked_orm_object.subject_iri
+                                && p.graph_iri == tracked_orm_object.graph_iri
                         })
                     {
                         tracked_child.valid = TrackedOrmObjectValidity::Untracked;
@@ -67,15 +67,19 @@ impl Verifier {
             }
 
             // 1.1.2) Add all children to need_evaluation for their cleanup.
-            for tracked_predicate in tracked_subject.tracked_predicates.values() {
+            for tracked_predicate in tracked_orm_object.tracked_predicates.values() {
                 for child in &tracked_predicate.write().unwrap().tracked_children {
                     children_to_eval.push((child.clone(), false));
                 }
             }
 
             // 1.2) If we don't have parents, we need to remove ourself too.
-            if tracked_subject.parents.is_empty() {
-                orm_subscription.remove_subject_everywhere(&tracked_subject.subject_iri);
+            if tracked_orm_object.parents.is_empty() {
+                orm_subscription.remove_tracked_orm_object(
+                    &tracked_orm_object.graph_iri,
+                    &tracked_orm_object.subject_iri,
+                    &tracked_orm_object.shape.iri,
+                );
             }
 
             return (children_to_eval, vec![], NeedEvalSelf::NoReevaluate);
@@ -99,7 +103,7 @@ impl Verifier {
         // Check 3) Validate subject against each predicate in shape.
         for p_schema in shape.predicates.iter() {
             let p_change = s_change.predicates.get(&p_schema.iri);
-            let tracked_pred = tracked_subject
+            let tracked_pred = tracked_orm_object
                 .tracked_predicates
                 .get(&p_schema.iri)
                 .map(|tp_write_lock| tp_write_lock.read().unwrap());
@@ -123,7 +127,7 @@ impl Verifier {
                     // If cardinality is 0, we can remove the tracked predicate.
                     // Drop the guard to release the immutable borrow
                     drop(tracked_pred);
-                    tracked_subject.tracked_predicates.remove(&p_schema.iri);
+                    tracked_orm_object.tracked_predicates.remove(&p_schema.iri);
                 }
                 break;
             // Check 3.2) Cardinality too high and extra values not allowed.
@@ -339,7 +343,7 @@ impl Verifier {
 
         // === End of validation part. Next, process side-effects ===
 
-        tracked_subject.valid = new_validity.clone();
+        tracked_orm_object.valid = new_validity.clone();
 
         // First, if we have a definite decision, we set is_validated to true.
         if new_validity != TrackedOrmObjectValidity::Pending {
@@ -348,14 +352,14 @@ impl Verifier {
 
         if new_validity == TrackedOrmObjectValidity::Invalid {
             // For invalid subjects, we schedule cleanup.
-            if tracked_subject.parents.len() == 0 {
-                tracked_subject.valid = TrackedOrmObjectValidity::Invalid;
+            if tracked_orm_object.parents.len() == 0 {
+                tracked_orm_object.valid = TrackedOrmObjectValidity::Invalid;
             } else {
-                tracked_subject.valid = TrackedOrmObjectValidity::ToDelete;
+                tracked_orm_object.valid = TrackedOrmObjectValidity::ToDelete;
             }
 
             // Add all children to need_evaluation for their cleanup.
-            for tracked_predicate in tracked_subject.tracked_predicates.values() {
+            for tracked_predicate in tracked_orm_object.tracked_predicates.values() {
                 for child in &tracked_predicate.write().unwrap().tracked_children {
                     children_to_eval.push((child.clone(), false));
                 }
@@ -375,7 +379,7 @@ impl Verifier {
 
             return (
                 children_to_eval,
-                tracked_subject.parents.clone(),
+                tracked_orm_object.parents.clone(),
                 needs_self_reevaluation,
             );
         }

@@ -101,16 +101,21 @@ impl Verifier {
 
         log_debug!("\nMaterializing: {}", shape_type.shape);
         // For each valid change struct, we build an orm object.
-        for (_graph_iri, subject_iri, tracked_subject) in
+        for (graph_iri, subject_iri, tracked_orm_object) in
             orm_subscription.iter_objects_by_shape(&shape_type.shape)
         {
-            let ts = tracked_subject.read().unwrap();
-            log_info!(" - changes for: {:?} valid: {:?}", ts.subject_iri, ts.valid);
+            let tormo = tracked_orm_object.read().unwrap();
+            log_info!(
+                " - changes for: {:?} valid: {:?}",
+                tormo.subject_iri,
+                tormo.valid
+            );
 
-            if ts.valid == TrackedOrmObjectValidity::Valid {
+            if tormo.valid == TrackedOrmObjectValidity::Valid {
                 if let Some(change_ref) = changes
                     .get(&shape_type.shape)
-                    .and_then(|subject_iri_to_ts| subject_iri_to_ts.get(&subject_iri))
+                    .and_then(|g| g.get(&graph_iri))
+                    .and_then(|s| s.get(&subject_iri))
                 {
                     let new_val =
                         materialize_orm_object(change_ref, &changes, root_shape, orm_subscription);
@@ -169,7 +174,7 @@ pub(crate) fn materialize_orm_object(
                     .flat_map(|dt| dt.shape.clone())
                     .collect();
 
-                // Find subject_change for this subject. There exists at least one (shape, subject) pair.
+                // Find subject_change for this tracked orm object. There exists at least one (shape, subject) pair.
                 // If multiple allowed shapes exist, the first one is chosen.
                 let nested = shape_iris.iter().find_map(|shape_iri| {
                     changes
@@ -178,26 +183,21 @@ pub(crate) fn materialize_orm_object(
                         .map(|ch| (shape_iri, ch))
                 });
 
-                if let Some((matched_shape_iri, nested_subject_change)) = nested {
-                    if let Some(nested_tracked_subject) = orm_subscription
-                        .get_tracked_object_any_graph(
-                            &nested_subject_change
-                                .tracked_orm_object
-                                .read()
-                                .unwrap()
-                                .subject_iri,
-                            matched_shape_iri,
-                        )
-                    {
-                        let nested_tracked_subject = nested_tracked_subject.read().unwrap();
-                        if nested_tracked_subject.valid == TrackedOrmObjectValidity::Valid {
-                            // Recurse
-                            return Some(materialize_orm_object(
-                                nested_subject_change,
-                                changes,
-                                &nested_tracked_subject.shape,
-                                orm_subscription,
-                            ));
+                // TODO:
+                if let Some((matched_shape_iri, nested_graph_changes)) = nested {
+                    for (graph_iri, nested_change) in nested_graph_changes.iter() {
+
+                            let nested_tracked_orm_object =
+                                nested_tracked_orm_object.read().unwrap();
+                            if nested_tracked_orm_object.valid == TrackedOrmObjectValidity::Valid {
+                                // Recurse
+                                return Some(materialize_orm_object(
+                                    nested_graph_changes,
+                                    changes,
+                                    &nested_tracked_orm_object.shape,
+                                    orm_subscription,
+                                ));
+                            }
                         }
                     }
                 }
@@ -223,6 +223,8 @@ pub(crate) fn materialize_orm_object(
                 // Pick the first valid nested object among the added values.
                 // There may be multiple values (extras), but for single-cardinality
                 // predicates we materialize just one valid nested object.
+
+                // TODO: Choose in case of conflict based on IRI in graph heuristics
                 for val in &pred_change.values_added {
                     if let BasicType::Str(object_iri) = val {
                         if let Some(nested_orm_obj) = get_nested_orm_obj(object_iri) {

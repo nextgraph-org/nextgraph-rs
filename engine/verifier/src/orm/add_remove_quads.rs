@@ -27,7 +27,7 @@ pub fn add_remove_quads(
     orm_object_changes: &mut TrackedOrmObjectChange,
 ) -> Result<(), VerifierError> {
     let schema = orm_subscription.shape_type.schema.clone();
-    // Ensure the parent tracked subject exists for this (graph, subject, shape)
+    // Ensure the parent tracked orm object exists for this (graph, subject, shape)
     let parent_arc =
         orm_subscription.get_or_create_tracked_orm_object(graph_iri, subject_iri, &shape);
 
@@ -58,10 +58,10 @@ pub fn add_remove_quads(
             );
             // Predicate schema constraint matches this quad.
             // Get or create the tracked predicate on the parent.
-            let mut tracked_subject = parent_arc.write().unwrap();
-            // log_debug!("lock acquired on tracked_subject");
+            let mut tracked_orm_object = parent_arc.write().unwrap();
+            // log_debug!("lock acquired on tracked_orm_object");
             // Add get tracked predicate.
-            let tracked_predicate_lock = tracked_subject
+            let tracked_predicate_lock = tracked_orm_object
                 .tracked_predicates
                 .entry(predicate_schema.iri.clone())
                 .or_insert_with(|| {
@@ -133,15 +133,13 @@ pub fn add_remove_quads(
     // Resolve deferred shape links now that all added quads have been processed.
     for (tracked_predicate_lock, obj_iri, child_shape) in deferred_shape_links {
         // Try to find an existing tracked child in any graph for this (subject, shape)
-        let tracked_child = match orm_subscription
-            .get_tracked_object_any_graph(&obj_iri, &child_shape.iri)
-        {
-            Some(existing) => existing,
-            None => {
-                // If none exists, create a new one in the current graph (hoping data will come later).
-                orm_subscription.get_or_create_tracked_orm_object(graph_iri, &obj_iri, &child_shape)
-            }
-        };
+
+        // TODO: Use new data structure for keeping track of this.
+        let tracked_child =
+            match orm_subscription.get_tracked_object_any_graph(&obj_iri, &child_shape.iri) {
+                Some(existing) => existing,
+                None => continue,
+            };
 
         // Add parent link on the child
         {

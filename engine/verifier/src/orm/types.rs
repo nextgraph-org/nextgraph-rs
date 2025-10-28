@@ -25,7 +25,7 @@ pub struct TrackedOrmObject {
     /// Note: We keep a list of parent tracked objects. Multiple parents
     /// may point to the same child (across different graphs).
     pub parents: Vec<Arc<RwLock<TrackedOrmObject>>>,
-    /// Validity. When untracked, triple updates are not processed for this tracked subject.
+    /// Validity. When untracked, triple updates are not processed for this tracked orm object.
     pub valid: TrackedOrmObjectValidity,
     /// Subject IRI
     pub subject_iri: String,
@@ -93,16 +93,19 @@ pub struct OrmSubscription {
     // Keep private: always use the helper methods below to access/modify
     tracked_orm_objects:
         HashMap<GraphIri, HashMap<SubjectIri, HashMap<ShapeIri, Arc<RwLock<TrackedOrmObject>>>>>,
+
+    /// Nested objects refer to subject IRIs (the object in a quad). There might be multiple across graphs
+    /// This tracks all references, to know if new tracked orm objects need to be created and where to add them to.
+    pub referenced_children: HashMap<(SubjectIri, ShapeIri), Vec<Arc<RwLock<TrackedOrmPredicate>>>>,
 }
 
 pub type ShapeIri = String;
 pub type SubjectIri = String;
 pub type GraphIri = String;
 
-// Structure to store changes in. By shape iri > subject iri > OrmTrackedSubjectChange
-// **NOTE**: In comparison to OrmSubscription.tracked_subjects, the outer hashmap's keys are shape IRIs.
-// (shape IRI -> (subject IRI -> OrmTrackedSubjectChange))
-pub type OrmChanges = HashMap<ShapeIri, HashMap<SubjectIri, TrackedOrmObjectChange>>;
+// Structure to store changes in. By shape iri > graph iri > subject iri > OrmTrackedSubjectChange
+pub type OrmChanges =
+    HashMap<ShapeIri, HashMap<GraphIri, HashMap<SubjectIri, TrackedOrmObjectChange>>>;
 
 impl OrmSubscription {
     /// Constructor to create a new subscription with an empty tracked object store.
@@ -118,6 +121,7 @@ impl OrmSubscription {
             nuri,
             sender,
             tracked_orm_objects: HashMap::new(),
+            referenced_children: HashMap::new(),
         }
     }
 
@@ -170,19 +174,7 @@ impl OrmSubscription {
             .cloned()
     }
 
-    /// Helper to get a specific tracked object by (subject IRI, shape IRI) across any graph.
-    pub fn get_tracked_object_any_graph(
-        &self,
-        subject_iri: &str,
-        shape_iri: &str,
-    ) -> Option<Arc<RwLock<TrackedOrmObject>>> {
-        self.tracked_orm_objects
-            .values()
-            .filter_map(|subjects| subjects.get(subject_iri))
-            .find_map(|shapes| shapes.get(shape_iri).cloned())
-    }
-
-    /// Get or create a tracked subject for the given (graph, subject, shape).
+    /// Get or create a tracked orm object for the given (graph, subject, shape).
     pub fn get_or_create_tracked_orm_object(
         &mut self,
         graph_iri: &str,
@@ -213,42 +205,52 @@ impl OrmSubscription {
             .clone()
     }
 
-    /// Remove a subject (all of its shapes) across all graphs. Returns true if any removal occurred.
-    pub fn remove_subject_everywhere(&mut self, subject_iri: &str) -> bool {
-        let mut removed_any = false;
-        for (_graph, subjects) in self.tracked_orm_objects.iter_mut() {
-            if subjects.remove(subject_iri).is_some() {
-                removed_any = true;
-            }
-        }
-        removed_any
-    }
-
-    /// Remove a single (subject, shape) across all graphs. Returns true if any removal occurred.
-    pub fn remove_subject_shape_any_graph(&mut self, subject_iri: &str, shape_iri: &str) -> bool {
+    /// Remove a single (graph, subject shape) across all graphs. Returns true if any removal occurred.
+    pub fn remove_tracked_orm_object(
+        &mut self,
+        graph_iri: &str,
+        subject_iri: &str,
+        shape_iri: &str,
+    ) -> bool {
         let mut removed_any = false;
         // First collect which graph buckets end up with empty subject maps to avoid aliasing mutable borrows
         let mut empty_subject_in_graphs: Vec<String> = Vec::new();
 
-        for (graph, subjects) in self.tracked_orm_objects.iter_mut() {
-            if let Some(shapes) = subjects.get_mut(subject_iri) {
-                if shapes.remove(shape_iri).is_some() {
-                    removed_any = true;
-                }
-                if shapes.is_empty() {
-                    empty_subject_in_graphs.push(graph.clone());
+        let removed = self
+            .tracked_orm_objects
+            .get_mut(graph_iri)
+            .unwrap()
+            .get_mut(subject_iri)
+            .unwrap()
+            .remove(shape_iri);
+
+        // Remove parents map(s), if they are now empty.
+        if removed.is_some() {
+            if self
+                .tracked_orm_objects
+                .get_mut(graph_iri)
+                .unwrap()
+                .get_mut(subject_iri)
+                .unwrap()
+                .is_empty()
+            {
+                self.tracked_orm_objects
+                    .get_mut(graph_iri)
+                    .unwrap()
+                    .remove(subject_iri);
+
+                if self
+                    .tracked_orm_objects
+                    .get_mut(graph_iri)
+                    .unwrap()
+                    .is_empty()
+                {
+                    self.tracked_orm_objects.remove(graph_iri);
                 }
             }
         }
 
-        // Now remove the empty subject entries in a separate pass
-        for graph in empty_subject_in_graphs {
-            if let Some(subj_map) = self.tracked_orm_objects.get_mut(&graph) {
-                subj_map.remove(subject_iri);
-            }
-        }
-
-        removed_any
+        removed.is_some()
     }
 
     /// Collect all currently tracked shapes (may include duplicates)
@@ -259,24 +261,25 @@ impl OrmSubscription {
     }
 
     /// Cleanup subjects marked for deletion and adjust parent/child relationships accordingly.
-    pub fn cleanup_tracked_subjects(&mut self) {
-        let tracked_subjects = &mut self.tracked_orm_objects;
+    /// TODO: Performance could probably be improved (not iterating all tracked orm objects every time).
+    pub fn cleanup_tracked_orm_objects(&mut self) {
+        let tracked_orm_objects = &mut self.tracked_orm_objects;
 
         // First pass: Clean up relationships for subjects being deleted
-        for (_graph_iri, subjects_for_graph) in tracked_subjects.iter() {
+        for (_graph_iri, subjects_for_graph) in tracked_orm_objects.iter() {
             for (subject_iri, subjects_for_shape) in subjects_for_graph.iter() {
-                for (_shape_iri, tracked_subject_lock) in subjects_for_shape.iter() {
-                    let tracked_subject = tracked_subject_lock.read().unwrap();
+                for (_shape_iri, tracked_orm_object_lock) in subjects_for_shape.iter() {
+                    let tracked_orm_object = tracked_orm_object_lock.read().unwrap();
 
                     // Only process subjects that are marked for deletion
-                    if tracked_subject.valid != TrackedOrmObjectValidity::ToDelete {
+                    if tracked_orm_object.valid != TrackedOrmObjectValidity::ToDelete {
                         continue;
                     }
 
-                    let has_parents = !tracked_subject.parents.is_empty();
+                    let has_parents = !tracked_orm_object.parents.is_empty();
 
                     // Set all children to `untracked` that don't have other parents
-                    for tracked_predicate in tracked_subject.tracked_predicates.values() {
+                    for tracked_predicate in tracked_orm_object.tracked_predicates.values() {
                         let tracked_pred_read = tracked_predicate.read().unwrap();
                         for child in &tracked_pred_read.tracked_children {
                             let mut tracked_child = child.write().unwrap();
@@ -284,8 +287,8 @@ impl OrmSubscription {
                                 || (tracked_child.parents.len() == 1 && {
                                     let p = &tracked_child.parents[0];
                                     let p = p.read().unwrap();
-                                    p.subject_iri == tracked_subject.subject_iri
-                                        && p.graph_iri == tracked_subject.graph_iri
+                                    p.subject_iri == tracked_orm_object.subject_iri
+                                        && p.graph_iri == tracked_orm_object.graph_iri
                                 })
                             {
                                 if tracked_child.valid != TrackedOrmObjectValidity::ToDelete {
@@ -298,28 +301,28 @@ impl OrmSubscription {
                     // Remove this subject from its children's parent lists
                     // (Only if this is not a root subject - root subjects keep child relationships)
                     if has_parents {
-                        for tracked_pred in tracked_subject.tracked_predicates.values() {
+                        for tracked_pred in tracked_orm_object.tracked_predicates.values() {
                             let tracked_pred_read = tracked_pred.read().unwrap();
                             for child in &tracked_pred_read.tracked_children {
                                 let mut child_w = child.write().unwrap();
                                 child_w.parents.retain(|p| {
                                     let pr = p.read().unwrap();
                                     !(pr.subject_iri == *subject_iri
-                                        && pr.graph_iri == tracked_subject.graph_iri)
+                                        && pr.graph_iri == tracked_orm_object.graph_iri)
                                 });
                             }
                         }
                     }
 
                     // Also remove this subject from its parents' children lists
-                    for parent_tracked_subject in &tracked_subject.parents {
-                        let mut parent_ts = parent_tracked_subject.write().unwrap();
+                    for parent_tracked_orm_object in &tracked_orm_object.parents {
+                        let mut parent_ts = parent_tracked_orm_object.write().unwrap();
                         for tracked_pred in parent_ts.tracked_predicates.values_mut() {
                             let mut tracked_pred_mut = tracked_pred.write().unwrap();
                             tracked_pred_mut.tracked_children.retain(|child| {
                                 let cr = child.read().unwrap();
                                 !(cr.subject_iri == *subject_iri
-                                    && cr.graph_iri == tracked_subject.graph_iri)
+                                    && cr.graph_iri == tracked_orm_object.graph_iri)
                             });
                         }
                     }
@@ -330,13 +333,13 @@ impl OrmSubscription {
         // Second pass: Collect subjects to remove (we can't remove while iterating)
         let mut subjects_to_remove: Vec<(String, String, String)> = vec![]; // (graph, subject, shape)
 
-        for (graph_iri, subjects_for_graph) in tracked_subjects.iter() {
+        for (graph_iri, subjects_for_graph) in tracked_orm_objects.iter() {
             for (subject_iri, subjects_for_shape) in subjects_for_graph.iter() {
-                for (shape_iri, tracked_subject) in subjects_for_shape.iter() {
-                    let tracked_subject = tracked_subject.read().unwrap();
+                for (shape_iri, tracked_orm_object) in subjects_for_shape.iter() {
+                    let tracked_orm_object = tracked_orm_object.read().unwrap();
 
                     // Only cleanup subjects that are marked for deletion
-                    if tracked_subject.valid == TrackedOrmObjectValidity::ToDelete {
+                    if tracked_orm_object.valid == TrackedOrmObjectValidity::ToDelete {
                         subjects_to_remove.push((
                             graph_iri.clone(),
                             subject_iri.clone(),
@@ -349,7 +352,7 @@ impl OrmSubscription {
 
         // Third pass: Remove the subjects marked for deletion
         for (graph_iri, subject_iri, shape_iri) in subjects_to_remove {
-            if let Some(subjects_map) = tracked_subjects.get_mut(&graph_iri) {
+            if let Some(subjects_map) = tracked_orm_objects.get_mut(&graph_iri) {
                 if let Some(shapes_map) = subjects_map.get_mut(&subject_iri) {
                     shapes_map.remove(&shape_iri);
 

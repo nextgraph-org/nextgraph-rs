@@ -31,7 +31,7 @@ use crate::verifier::*;
 
 impl Verifier {
     /// Apply quads to a nuri's document.
-    /// Updates tracked_subjects in orm_subscriptions.
+    /// Updates tracked_orm_objects in orm_subscriptions.
     pub(crate) fn apply_quads_changes(
         &mut self,
         quads_added: &[Quad],
@@ -82,7 +82,7 @@ impl Verifier {
         Ok(merged)
     }
 
-    /// Add and remove the quads from the tracked subjects,
+    /// Add and remove the quads from the tracked orm objects,
     /// re-validate, and update `changes` containing the updated data.
     /// Works by queuing changes by shape and subjects on a stack.
     /// Nested objects are added to the stack
@@ -169,7 +169,7 @@ impl Verifier {
                 shape.iri
             );
 
-            // For each modified subject, apply changes to tracked subjects and validate.
+            // For each modified subject, apply changes to tracked orm objects and validate.
             for (graph_iri, subject_iri) in modified_gs.iter() {
                 let validation_key = (shape.iri.clone(), graph_iri.clone(), subject_iri.clone());
 
@@ -187,10 +187,10 @@ impl Verifier {
                         Some(&root_shape_iri),
                         Some(&session_id),
                     );
-                    if let Some(tracked_subject) =
+                    if let Some(tracked_orm_object) =
                         orm_subscription.get_tracked_object(graph_iri, subject_iri, &shape.iri)
                     {
-                        let mut ts = tracked_subject.write().unwrap();
+                        let mut ts = tracked_orm_object.write().unwrap();
                         ts.valid = TrackedOrmObjectValidity::Invalid;
                         ts.tracked_predicates.clear();
                     }
@@ -213,6 +213,8 @@ impl Verifier {
                 // Get or create change object.
                 let change = orm_changes
                     .entry(shape.iri.clone())
+                    .or_insert_with(HashMap::new)
+                    .entry(graph_iri.clone())
                     .or_insert_with(HashMap::new)
                     .entry(subject_iri.clone())
                     .or_insert_with(|| {
@@ -240,7 +242,7 @@ impl Verifier {
                             prev_valid,
                         };
 
-                        // === Apply data to tracked subjects (filling up change object too).
+                        // === Apply data to tracked orm objects (filling up change object too).
 
                         // Get relevant quad changes (affecting graph and subject).
                         let gs_key = (graph_iri.clone(), subject_iri.clone());
@@ -527,7 +529,24 @@ impl Verifier {
                 currently_validating.remove(&validation_key);
             }
             counter += 1;
-            if counter > 200 {
+            if counter > 10 {
+                for (is_validated, validity, subject_iri, shape_iri, graph_iri) in
+                    orm_changes.values().flat_map(|g| {
+                        g.values().flat_map(|s| {
+                            s.values().map(|c| {
+                                (
+                                    c.is_validated,
+                                    c.tracked_orm_object.read().unwrap().valid.clone(),
+                                    c.tracked_orm_object.read().unwrap().subject_iri.clone(),
+                                    c.tracked_orm_object.read().unwrap().shape.iri.clone(),
+                                    c.tracked_orm_object.read().unwrap().graph_iri.clone(),
+                                )
+                            })
+                        })
+                    })
+                {
+                    log_debug!("All change objects: {is_validated}, {:?}, {subject_iri}, {shape_iri}, {graph_iri}", validity);
+                }
                 panic!("DEBUG ONLY: To many cycles");
             }
         }
@@ -628,5 +647,5 @@ impl Verifier {
         }
     }
 
-    // cleanup_tracked_subjects removed: use OrmSubscription::cleanup_tracked_subjects instead
+    // cleanup_tracked_orm_objects removed: use OrmSubscription::cleanup_tracked_orm_objects instead
 }
