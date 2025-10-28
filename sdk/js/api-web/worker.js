@@ -6,10 +6,8 @@
 // at your option. All files in the project carrying such
 // notice may not be copied, modified, or distributed except
 // according to those terms.
-//import * as ng from "../lib-wasm/pkg";
-import * as ng from "@ng-org/lib-wasm";
-//import { default as ng } from "./api";
-//import ng from "./main";
+import * as ng from "../lib-wasm/pkg";
+//import * as ng from "@ng-org/lib-wasm";
 
 //console.log("loaded worker");
 
