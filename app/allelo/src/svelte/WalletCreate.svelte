@@ -176,6 +176,7 @@
     let params = {
       pazzle_length: 0,
       security_txt: username,
+      security_img: undefined,
       password: password,
       mnemonic: false,
       send_bootstrap: false, //options.cloud || options.bootstrap ?  : undefined,
