@@ -200,7 +200,7 @@ pub(crate) fn materialize_orm_object(
                             }
                         }
                     }
-                }
+                };
                 None
             };
 
