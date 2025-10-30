@@ -53,16 +53,16 @@ export function createNextGraphAuthMethod () {
     }, []);
       
 
-    const login = useCallback(
-      async () => {
-        await ng.login();
-      },
-      [],
-    );
+    // const login = useCallback(
+    //   async () => {
+    //     await ng.login();
+    //   },
+    //   [],
+    // );
 
-    const logout = useCallback(async () => {
-      await ng.logout();
-    }, []);
+    // const logout = useCallback(async () => {
+    //   await ng.logout();
+    // }, []);
 
     useEffect(() => {
       runInitialAuthCheck();
@@ -71,14 +71,10 @@ export function createNextGraphAuthMethod () {
     const nextGraphAuthFunctions = useMemo(
       () => ({
         runInitialAuthCheck,
-        login,
-        logout,
         session,
         ranInitialAuthCheck,
       }),
       [
-        login,
-        logout,
         ranInitialAuthCheck,
         runInitialAuthCheck,
         session,

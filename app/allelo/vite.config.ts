@@ -14,6 +14,11 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig((): UserConfig => {
   const worker_plugins = [];
   const config = {
+    // esbuild: {
+    //   supported: {
+    //     'top-level-await': true //browsers can handle top-level-await features
+    //   },
+    // },
     worker: {
       format: 'es' as "es" | "iife",
     },
@@ -79,7 +84,7 @@ export default defineConfig((): UserConfig => {
     },
     publicDir: process.env.NG_PUBLIC_DEV ? "public_dev" : "public",
     // Env variables starting with the item of `envPrefix` will be exposed in tauri's source code through `import.meta.env`.
-    envPrefix: ["VITE_", "TAURI_ENV_", "NG_ENV_"],
+    envPrefix: ["VITE_", "TAURI_ENV_", "NG_"],
     build: {
       outDir: process.env.NG_ENV_WEB ? "dist-web" : "dist",
       // Tauri uses Chromium on Windows and WebKit on macOS and Linux
@@ -140,6 +145,7 @@ export default defineConfig((): UserConfig => {
             }
         );
     } else {
+        //config.plugins.push(topLevelAwait());
         config.plugins.push(
             {
                 name: 'inject-native-script',

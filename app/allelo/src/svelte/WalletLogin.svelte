@@ -43,6 +43,7 @@
     wallet_from_import,
     redirect_after_login,
     redirect_if_wallet_is,
+    boot,
   } from "./store";
   import {
     CheckBadge,
@@ -276,7 +277,7 @@
   function scrollToTop() {
     top.scrollIntoView();
   }
-  onMount(() => scrollToTop());
+  onMount(async () => {await boot();scrollToTop()});
 </script>
 
 <div bind:this={top}>

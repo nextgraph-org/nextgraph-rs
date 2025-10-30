@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "build-importer": "cd ../tauri-plugin-contacts-importer && bun run build",
     "check": "tsc -p tsconfig.app.json --noEmit && eslint .",
     "build:ldo": "ldo build --input src/.shapes --output src/.ldo && bun fix-ldo-types.js",

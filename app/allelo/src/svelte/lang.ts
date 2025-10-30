@@ -9,6 +9,7 @@
 
 import { register, init, locale, format } from "svelte-i18n";
 import { default as ng } from "../.auth-react/api";
+import en_json from "./locales/en.json";
 
 // Make sure that a file named `locales/<lang>.json` exists when adding it here.
 export const available_languages = {
@@ -22,11 +23,21 @@ export const available_languages = {
     //pt: "Português",
 };
 
-export const select_default_lang = async () => {
+export const available_json:Record<string, any> = {
+    en: en_json,
+    //de: ,
+    //fr: ,
+    //ru: ,
+    //es: ,
+    //it: ,
+    //zh: ,
+    //pt: ,
+};
+
+export const select_default_lang = () => {
 
     for (const lang of Object.keys(available_languages)) {
-        let json = await import(`./locales/${lang}.json`);
-        register(lang, async ()=>{return json})
+        register(lang, async ()=>{return available_json[lang];})
     }
     
     init({
@@ -34,7 +45,8 @@ export const select_default_lang = async () => {
         initialLocale: "en",
     });
 
-    let locales = await ng.locales();
+    //let locales = await ng.locales();
+    let locales = ['en'];
     for (let lo of locales) {
         if (available_languages[lo]) {
             // exact match (if locales is a 2 chars lang code, or if we support regionalized translations)

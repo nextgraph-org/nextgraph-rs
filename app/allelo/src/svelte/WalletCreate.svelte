@@ -34,7 +34,7 @@
   import Logo from "./assets/nextgraph.svg?component";
 
   import { onMount, onDestroy, tick } from "svelte";
-  import { wallets, display_error } from "./store";
+  import { wallets, display_error, boot } from "./store";
   import Spinner from "./lib/components/Spinner.svelte";
 
   console.log("WalletCreate called")
@@ -47,7 +47,7 @@
 
   let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
 
-  let wait: any = false;
+  let wait: any = "Please wait...";
   let registration_error;
   let registration_success;
   let top;
@@ -72,16 +72,20 @@
         username_input.focus();
       } else {
         username_pass_ok = true;
+        wait = $t("pages.wallet_create.creating");
+        await tick();
         await do_wallet();
       }
     }
   };
 
   function scrollToTop() {
+    if (top)
     top.scrollIntoView();
   }
 
   async function bootstrap() {
+    await boot();
     //console.log(await ng.client_info());
     if (!tauri_platform || tauri_platform == "android") {
       if (param.get("re")) {
@@ -94,7 +98,6 @@
         !import.meta.env.NG_ENV_NO_REDIRECT
       ) {
         //registration_success = param.get("rs");
-
         // doing the bootstrap recording at nextgraph.net
         let i = param.get("i");
         invitation = await ng.decode_invitation(i);
@@ -119,6 +122,7 @@
       } else if (param.get("rs")) {
         registration_success = param.get("rs");
         invitation = await ng.decode_invitation(param.get("i"));
+        wait = false;
         //window.location.replace(window.location.href.split("?")[0]);
       } else if (param.get("i")) {
         invitation = await ng.get_local_bootstrap_with_public(
@@ -140,6 +144,7 @@
             console.error("invalid invitation. ignoring it");
           }
         } else {
+          wait = false;
           registration_success = window.location.host;
         }
       } else {
@@ -151,7 +156,6 @@
         console.log("pre_invitation", pre_invitation);
       }
     }
-    scrollToTop();
     if (!invitation) {
       if (pre_invitation) {
         await select_bsp(pre_invitation.V0.url, pre_invitation.V0.name);
@@ -160,7 +164,9 @@
       }
     } else {
       //await do_wallet();
+      wait = false;
     }
+    scrollToTop();
   }
 
   async function do_wallet() {
@@ -189,7 +195,7 @@
       device_name: "",
       pdf: false,
     };
-    //console.log("do wallet with params", params);
+    console.log("do wallet with params", params);
     try {
       ready = await ng.wallet_create(params);
       wallets.set(await ng.get_wallets());
@@ -215,6 +221,8 @@
   const select_bsp = async (bsp_url, bsp_name) => {
     console.log("select bsp")
     if (!tauri_platform || tauri_platform == "android") {
+      wait = $t("pages.wallet_create.redirecting_to_registration_page");
+      await tick();
       let redirect_url;
       if (tauri_platform) {
         redirect_url = window.location.href;
@@ -236,7 +244,6 @@
         },
       };
       let ca = await ng.encode_create_account(create);
-      wait = $t("pages.wallet_create.redirecting_to_registration_page");
       window.location.href = bsp_url + "?ca=" + ca;
       //window.open(), "_self").focus();
     } else {
@@ -292,11 +299,7 @@
   <div class="max-w-2xl lg:px-8 mx-auto mb-20">
     {#if wait}
       <div class="lg:px-8 text-primary-700">
-        {#if wait === true}
-          {$t("pages.wallet_create.please_wait")}...
-        {:else}
-          {wait}
-        {/if}
+        {wait}
         <Spinner className="mt-10 h-14 w-14 mx-auto" />
       </div>
     {:else}

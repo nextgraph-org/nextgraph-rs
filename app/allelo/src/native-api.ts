@@ -7,10 +7,11 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 import {createAsyncProxy} from "async-proxy";
-import { Bowser } from "../../../sdk/js/lib-wasm/jsland/bowser.js"; 
+import { Bowser } from "./bowser.js"; 
 import {version} from '../package.json';
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { Window, getCurrentWindow } from '@tauri-apps/api/window';
 
 const mapping = {
     "privkey_to_string": ["privkey"],
@@ -69,8 +70,6 @@ const tauri_handler = {
             try {
                 if (path[0] === "open_window") {
                     if (import.meta.env.TAURI_ENV_PLATFORM != "android") {
-                        let win = await import('@tauri-apps/api/window');
-                        let Window = win.Window;
                         let callback = args[3];
                         let already_exists = await invoke(path[0],{url:args[0],label:args[1],title:args[2]});
                         if (already_exists) return;
@@ -171,7 +170,8 @@ const tauri_handler = {
 
             } else if (path[0] === "disconnections_subscribe") {
                 let callback = args[0];
-                let unlisten = await Window.getCurrent().listen("disconnections", (event) => {
+
+                let unlisten = await getCurrentWindow().listen("disconnections", (event) => {
                     callback(event.payload).then(()=> {})
                 })
                 await invoke(path[0],{});
@@ -193,7 +193,7 @@ const tauri_handler = {
                 //let session_id = args[0];
                 let callback = args[3];
 
-                let unlisten = await Window.getCurrent().listen(stream_id, async (event) => {
+                let unlisten = await getCurrentWindow().listen(stream_id, async (event) => {
                     //console.log(event.payload);
                     if (event.payload.V0.FileBinary) {
                         event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
@@ -235,7 +235,7 @@ const tauri_handler = {
                 else if (path[0] === "doc_subscribe") { request = await invoke("doc_fetch_repo_subscribe", {repo_o:args[0]}); request.V0.session_id = args[1]; callback = args[2]; }
                 else if (path[0] === "orm_start") { request = await invoke("new_orm_start", {scope:args[0], shape_type:args[1], session_id:args[2] }); callback = args[3]; }
 
-                let unlisten = await Window.getCurrent().listen(stream_id, async (event) => {
+                let unlisten = await getCurrentWindow().listen(stream_id, async (event) => {
                     //console.log(event.payload);
                     if (event.payload.V0) {
                         if (event.payload.V0.FileBinary) {
