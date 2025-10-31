@@ -61,7 +61,7 @@
       if (result) {
         error = "Closing due to " + (result.error || "an error");
       }
-      let window_api = await import("@tauri-apps/plugin-window");
+      let window_api = await import("@tauri-apps/api/window");
       let main = window_api.Window.getByLabel("main");
       if (main) {
         wait = true;
@@ -84,7 +84,7 @@
   async function success(result) {
     // @ts-ignore
     if (!web) {
-      let window_api = await import("@tauri-apps/plugin-window");
+      let window_api = await import("@tauri-apps/api/window");
       let main = window_api.Window.getByLabel("main");
       if (main) {
         await main.emit("accepted", result);

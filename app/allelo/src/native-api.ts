@@ -69,7 +69,7 @@ const tauri_handler = {
         console.log("CALLING", path[0], args)
             try {
                 if (path[0] === "open_window") {
-                    if (import.meta.env.TAURI_ENV_PLATFORM != "android") {
+                    if (import.meta.env.TAURI_ENV_PLATFORM != "android" && import.meta.env.TAURI_ENV_PLATFORM != "ios") {
                         let callback = args[3];
                         let already_exists = await invoke(path[0],{url:args[0],label:args[1],title:args[2]});
                         if (already_exists) return;

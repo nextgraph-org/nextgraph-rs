@@ -243,11 +243,8 @@ importers:
   infra/ngaccount/web:
     dependencies:
       '@tauri-apps/api':
-        specifier: 2.0.0-alpha.8
-        version: 2.0.0-alpha.8
-      '@tauri-apps/plugin-window':
-        specifier: 2.0.0-alpha.1
-        version: 2.0.0-alpha.1
+        specifier: 2.9.0
+        version: 2.9.0
       flowbite:
         specifier: ^1.6.5
         version: 1.8.1
@@ -2923,16 +2920,11 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7
 
-  '@tauri-apps/api@2.0.0-alpha.6':
-    resolution: {integrity: sha512-ZMOc3eu9amwvkC6M69h3hWt4/EsFaAXmtkiw4xd2LN59/lTb4ZQiVfq2QKlRcu1rj3n/Tcr7U30ZopvHwXBGIg==}
-    engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
-
-  '@tauri-apps/api@2.0.0-alpha.8':
-    resolution: {integrity: sha512-3hZ+7EzUA11KN+O/Y4KgmjR+ldhXLdNllkw//hv/AaNsktEopCRBuKfVRLzVK3yov+Z+GzgxqFlwgJ1v6g1iKw==}
-    engines: {node: '>= 14.6.0', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
-
   '@tauri-apps/api@2.8.0':
     resolution: {integrity: sha512-ga7zdhbS2GXOMTIZRT0mYjKJtR9fivsXzsyq5U3vjDL0s6DTMwYRm0UHNjzTY5dh4+LSC68Sm/7WEiimbQNYlw==}
+
+  '@tauri-apps/api@2.9.0':
+    resolution: {integrity: sha512-qD5tMjh7utwBk9/5PrTA/aGr3i5QaJ/Mlt7p8NilQ45WgbifUNPyKWsA63iQ8YfQq6R8ajMapU+/Q8nMcPRLNw==}
 
   '@tauri-apps/cli-darwin-arm64@2.8.4':
     resolution: {integrity: sha512-BKu8HRkYV01SMTa7r4fLx+wjgtRK8Vep7lmBdHDioP6b8XH3q2KgsAyPWfEZaZIkZ2LY4SqqGARaE9oilNe0oA==}
@@ -3007,9 +2999,6 @@ packages:
 
   '@tauri-apps/plugin-opener@2.5.0':
     resolution: {integrity: sha512-B0LShOYae4CZjN8leiNDbnfjSrTwoZakqKaWpfoH6nXiJwt6Rgj6RnVIffG3DoJiKsffRhMkjmBV9VeilSb4TA==}
-
-  '@tauri-apps/plugin-window@2.0.0-alpha.1':
-    resolution: {integrity: sha512-dFOAgal/3Txz3SQ+LNQq0AK1EPC+acdaFlwPVB/6KXUZYmaFleIlzgxDVoJCQ+/xOhxvYrdQaFLefh0I/Kldbg==}
 
   '@trysound/sax@0.2.0':
     resolution: {integrity: sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA==}
@@ -9626,11 +9615,9 @@ snapshots:
       tailwindcss: 4.1.14
       vite: 7.1.10(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1)
 
-  '@tauri-apps/api@2.0.0-alpha.6': {}
-
-  '@tauri-apps/api@2.0.0-alpha.8': {}
-
   '@tauri-apps/api@2.8.0': {}
+
+  '@tauri-apps/api@2.9.0': {}
 
   '@tauri-apps/cli-darwin-arm64@2.8.4':
     optional: true
@@ -9682,10 +9669,6 @@ snapshots:
   '@tauri-apps/plugin-opener@2.5.0':
     dependencies:
       '@tauri-apps/api': 2.8.0
-
-  '@tauri-apps/plugin-window@2.0.0-alpha.1':
-    dependencies:
-      '@tauri-apps/api': 2.0.0-alpha.6
 
   '@trysound/sax@0.2.0': {}
 
