@@ -3,6 +3,7 @@ import {wallets, active_wallet, opened_wallets, close_active_session} from "./st
 import {init_api} from "../.auth-react/api";
 import {default as web_api} from "../../../../sdk/js/api-web";
 import { default as ng } from "../.auth-react/api";
+import { get } from "svelte/store";
 
 let unsubscribe = () => {};
 

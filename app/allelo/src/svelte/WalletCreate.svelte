@@ -244,7 +244,7 @@
         },
       };
       let ca = await ng.encode_create_account(create);
-      window.location.href = bsp_url + "?ca=" + ca;
+      window.location.href = bsp_url + "?web=1&ca=" + ca;
       //window.open(), "_self").focus();
     } else {
       let create = {
