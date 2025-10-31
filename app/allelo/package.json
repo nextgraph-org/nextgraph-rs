@@ -51,7 +51,10 @@
     "svelte-i18n": "^4.0.1",
     "svelte-in-react": "^0.2.0",
     "svelte-time": "^1.0.0",
-    "zustand": "^5.0.6"
+    "zustand": "^5.0.6",
+    "@smui/button": "^8.0.3",
+    "@smui/textfield": "^8.0.3",
+    "svelte-material-ui": "^8.0.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

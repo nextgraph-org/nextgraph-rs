@@ -526,7 +526,7 @@ export const createWireframeTheme = () => {
           },
         },
       },
-    },
+    },cssVariables: true
   });
 };
 

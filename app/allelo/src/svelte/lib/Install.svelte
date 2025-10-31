@@ -14,10 +14,8 @@
 -->
 
 <script lang="ts">
-  import { Alert } from "flowbite-svelte";
   import { link } from "svelte-spa-router";
-  // @ts-ignore
-  import Logo from "../assets/nextgraph.svg?component";
+  import CircleLogo from "./components/CircleLogo.svelte";
   import { onMount } from "svelte";
   import { t } from "svelte-i18n";
 
@@ -38,7 +36,7 @@
 <main class="container3" bind:this={top}>
   <div class="row">
     <a href="#/">
-      <Logo class="logo block h-40" alt={$t("common.logo")} />
+      <CircleLogo class="logo logo-large" aria-label={$t("common.logo")} />
     </a>
   </div>
 
