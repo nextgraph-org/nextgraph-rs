@@ -10,6 +10,7 @@
 use std::sync::{Arc, RwLock};
 
 use crate::orm::types::*;
+use crate::orm::utils::{assess_and_rank_children, assess_children_buckets, HeuristicUsed};
 use crate::verifier::*;
 use ng_net::orm::*;
 use ng_repo::log::*;
@@ -214,6 +215,12 @@ impl Verifier {
                             } else if tc.valid == TrackedOrmObjectValidity::Invalid {
                                 (0, 1, 0, 0)
                             } else if tc.valid == TrackedOrmObjectValidity::Pending {
+                                log_debug!(
+                                    "Child still pending: {} {} {}",
+                                    tc.subject_iri,
+                                    tc.shape.iri,
+                                    tc.graph_iri,
+                                );
                                 (0, 0, 1, 0)
                             } else if tc.valid == TrackedOrmObjectValidity::Untracked {
                                 (0, 0, 0, 1)
@@ -235,8 +242,98 @@ impl Verifier {
                         shape.iri,
                         p_change
                     );
-                    // If we have at least one invalid nested object
-                    // and no extra (in this case this means invalid) allowed, invalid.
+                    // If default evaluation says invalid due to nested invalid child,
+                    // apply heuristic only for non-multi to see if a considered subset satisfies.
+                    let is_multi = p_schema.maxCardinality > 1 || p_schema.maxCardinality == -1;
+                    if !is_multi {
+                        if let Some(tp) = tracked_pred.as_ref() {
+                            let assessed = assess_and_rank_children(
+                                &tracked_orm_object.graph_iri,
+                                &tracked_orm_object.subject_iri,
+                                p_schema,
+                                is_multi,
+                                p_schema.minCardinality,
+                                p_schema.maxCardinality,
+                                &tp.tracked_children,
+                            );
+                            log_debug!(
+                                "  - Heuristic {:?} considered {} children (valid={}, pending={}, untracked={}, invalid={})",
+                                assessed.heuristic_used,
+                                assessed.considered.len(),
+                                assessed.counts.valid,
+                                assessed.counts.pending,
+                                assessed.counts.untracked,
+                                assessed.counts.invalid
+                            );
+                            // If there is at least one valid child in considered subset and maxCardinality >= 1,
+                            // we can treat this predicate as satisfied.
+                            if assessed.counts.valid >= 1 && p_schema.minCardinality <= 1 {
+                                // Keep validity as-is (do not mark invalid), continue with next predicate
+                                continue;
+                            }
+                            // If there are pending or untracked children in considered subset, mark pending and schedule
+                            if assessed.counts.pending + assessed.counts.untracked > 0 {
+                                set_validity(&mut new_validity, TrackedOrmObjectValidity::Pending);
+                                needs_self_reevaluation = NeedEvalSelf::Reevaluate;
+                                // Schedule those children
+                                for child in assessed.considered.iter() {
+                                    let guard = child.read().unwrap();
+                                    if guard.valid == TrackedOrmObjectValidity::Pending {
+                                        children_to_eval.push((child.clone(), false));
+                                    } else if guard.valid == TrackedOrmObjectValidity::Untracked {
+                                        children_to_eval.push((child.clone(), true));
+                                    }
+                                }
+                                continue;
+                            }
+                        }
+                    } else {
+                        // Multi: cardinality mismatch via invalid children. Validate by buckets.
+                        if let Some(tp) = tracked_pred.as_ref() {
+                            let buckets = assess_children_buckets(
+                                &tracked_orm_object.graph_iri,
+                                &tracked_orm_object.subject_iri,
+                                p_schema.minCardinality,
+                                p_schema.maxCardinality,
+                                &tp.tracked_children,
+                            );
+                            let mut rescued = false;
+                            for b in buckets.iter() {
+                                // If within this bucket, we have enough valid to satisfy min and not exceed max
+                                if (b.counts.valid as i32) >= p_schema.minCardinality
+                                    && (p_schema.maxCardinality == -1
+                                        || (b.counts.valid as i32) <= p_schema.maxCardinality)
+                                {
+                                    rescued = true;
+                                    break;
+                                }
+                                // If pending/untracked exist, move parent to pending and schedule
+                                if b.counts.pending + b.counts.untracked > 0 {
+                                    set_validity(
+                                        &mut new_validity,
+                                        TrackedOrmObjectValidity::Pending,
+                                    );
+                                    needs_self_reevaluation = NeedEvalSelf::Reevaluate;
+                                    for child in b.considered.iter() {
+                                        let guard = child.read().unwrap();
+                                        if guard.valid == TrackedOrmObjectValidity::Pending {
+                                            children_to_eval.push((child.clone(), false));
+                                        } else if guard.valid == TrackedOrmObjectValidity::Untracked
+                                        {
+                                            children_to_eval.push((child.clone(), true));
+                                        }
+                                    }
+                                    // Continue evaluating other predicates later after children
+                                    rescued = true; // treat as handled for now
+                                    break;
+                                }
+                            }
+                            if rescued {
+                                continue;
+                            }
+                        }
+                    }
+                    // Otherwise: invalid as per default rule
                     set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                     break;
                 } else if counts.0 > p_schema.maxCardinality && p_schema.maxCardinality != -1 {
@@ -258,7 +355,86 @@ impl Verifier {
                         shape.iri,
                         p_change
                     );
-                    // If we don't have enough nested objects, invalid.
+                    // If we don't have enough nested objects, apply heuristic for non-multi.
+                    let is_multi = p_schema.maxCardinality > 1 || p_schema.maxCardinality == -1;
+                    if !is_multi {
+                        if let Some(tp) = tracked_pred.as_ref() {
+                            let assessed = assess_and_rank_children(
+                                &tracked_orm_object.graph_iri,
+                                &tracked_orm_object.subject_iri,
+                                p_schema,
+                                is_multi,
+                                p_schema.minCardinality,
+                                p_schema.maxCardinality,
+                                &tp.tracked_children,
+                            );
+                            log_debug!(
+                                "  - Heuristic {:?} considered {} children (valid={}, pending={}, untracked={}, invalid={})",
+                                assessed.heuristic_used,
+                                assessed.considered.len(),
+                                assessed.counts.valid,
+                                assessed.counts.pending,
+                                assessed.counts.untracked,
+                                assessed.counts.invalid
+                            );
+                            if assessed.counts.valid >= p_schema.minCardinality as usize {
+                                // Considered subset satisfies min cardinality
+                                continue;
+                            }
+                            if assessed.counts.pending + assessed.counts.untracked > 0 {
+                                set_validity(&mut new_validity, TrackedOrmObjectValidity::Pending);
+                                needs_self_reevaluation = NeedEvalSelf::Reevaluate;
+                                for child in assessed.considered.iter() {
+                                    let guard = child.read().unwrap();
+                                    if guard.valid == TrackedOrmObjectValidity::Pending {
+                                        children_to_eval.push((child.clone(), false));
+                                    } else if guard.valid == TrackedOrmObjectValidity::Untracked {
+                                        children_to_eval.push((child.clone(), true));
+                                    }
+                                }
+                                continue;
+                            }
+                        }
+                    } else {
+                        // Multi: not enough children. Validate by buckets.
+                        if let Some(tp) = tracked_pred.as_ref() {
+                            let buckets = assess_children_buckets(
+                                &tracked_orm_object.graph_iri,
+                                &tracked_orm_object.subject_iri,
+                                p_schema.minCardinality,
+                                p_schema.maxCardinality,
+                                &tp.tracked_children,
+                            );
+                            let mut rescued = false;
+                            for b in buckets.iter() {
+                                if (b.counts.valid as i32) >= p_schema.minCardinality {
+                                    rescued = true;
+                                    break;
+                                }
+                                if b.counts.pending + b.counts.untracked > 0 {
+                                    set_validity(
+                                        &mut new_validity,
+                                        TrackedOrmObjectValidity::Pending,
+                                    );
+                                    needs_self_reevaluation = NeedEvalSelf::Reevaluate;
+                                    for child in b.considered.iter() {
+                                        let guard = child.read().unwrap();
+                                        if guard.valid == TrackedOrmObjectValidity::Pending {
+                                            children_to_eval.push((child.clone(), false));
+                                        } else if guard.valid == TrackedOrmObjectValidity::Untracked
+                                        {
+                                            children_to_eval.push((child.clone(), true));
+                                        }
+                                    }
+                                    rescued = true;
+                                    break;
+                                }
+                            }
+                            if rescued {
+                                continue;
+                            }
+                        }
+                    }
                     set_validity(&mut new_validity, TrackedOrmObjectValidity::Invalid);
                     break;
                 } else if counts.3 > 0 {
@@ -388,7 +564,7 @@ impl Verifier {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum NeedEvalSelf {
     Reevaluate,
     FetchAndReevaluate,

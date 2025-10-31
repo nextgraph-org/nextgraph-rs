@@ -8,7 +8,7 @@
 // according to those terms.
 
 use ng_oxigraph::oxrdf::Quad;
-use ng_repo::errors::VerifierError;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
 
 use crate::orm::types::*;
@@ -17,29 +17,21 @@ use ng_repo::log::*;
 
 /// Add/remove quads to `subject_changes` for a single (graph,subject) and shape.
 /// Assumes all quads have the same subject and graph in a call.
-pub fn add_remove_quads(
+/// Returns tracked predicates and subjects they link to (for later linking).
+///
+/// TODO: Iteration could be more efficient.
+/// Also, the parent function already filtered out all quads not belonging to the shape.
+pub fn add_quads_for_subject(
     shape: Arc<OrmSchemaShape>,
     graph_iri: &str,
     subject_iri: &str,
     quads_added: &[&Quad],
-    quads_removed: &[&Quad],
     orm_subscription: &mut OrmSubscription,
     orm_object_changes: &mut TrackedOrmObjectChange,
-) -> Result<(), VerifierError> {
-    let schema = orm_subscription.shape_type.schema.clone();
+) {
     // Ensure the parent tracked orm object exists for this (graph, subject, shape)
     let parent_arc =
         orm_subscription.get_or_create_tracked_orm_object(graph_iri, subject_iri, &shape);
-
-    // We'll collect deferred links for nested shape predicates here and resolve them
-    // after all added quads have been processed. This allows us to link children that
-    // may already exist in any graph, only creating a new tracked child in the current
-    // graph if none exist yet.
-    let mut deferred_shape_links: Vec<(
-        Arc<RwLock<TrackedOrmPredicate>>, // predicate to attach child to
-        String,                           // child subject IRI (object IRI)
-        Arc<OrmSchemaShape>,              // child shape
-    )> = Vec::new();
 
     // Process added quads.
     // For each quad, check if it matches the shape.
@@ -105,83 +97,25 @@ pub fn add_remove_quads(
                     }
                 }
             }
-            // If predicate is of type shape, register a deferred link
-            // "parent (predicate) -> child subject" to be resolved after all quads are processed.
-            for shape_iri in predicate_schema.dataTypes.iter().filter_map(|dt| {
-                if dt.valType == OrmSchemaValType::shape {
-                    dt.shape.clone()
-                } else {
-                    None
-                }
-            }) {
-                log_debug!("      - dealing with nested type {shape_iri}");
-                if let BasicType::Str(obj_iri) = &obj_term {
-                    // Get child's shape
-                    let child_shape = schema.get(&shape_iri).unwrap().clone();
-                    // Defer linking: store the predicate, child IRI and shape
-                    deferred_shape_links.push((
-                        tracked_predicate_lock.clone(),
-                        obj_iri.clone(),
-                        child_shape,
-                    ));
-                }
-                // log_debug!("end of dealing with nesting");
-            }
         }
     }
+}
 
-    // Resolve deferred shape links now that all added quads have been processed.
-    for (tracked_predicate_lock, obj_iri, child_shape) in deferred_shape_links {
-        // Try to find an existing tracked child in any graph for this (subject, shape)
-
-        // TODO: Use new data structure for keeping track of this.
-        let tracked_child =
-            match orm_subscription.get_tracked_object_any_graph(&obj_iri, &child_shape.iri) {
-                Some(existing) => existing,
-                None => continue,
-            };
-
-        // Add parent link on the child
-        {
-            let mut child_w = tracked_child.write().unwrap();
-            // Avoid duplicate parent entries
-            let has_parent = child_w.parents.iter().any(|p| {
-                let pr = p.read().unwrap();
-                pr.subject_iri == subject_iri && pr.graph_iri == graph_iri
-            });
-            if !has_parent {
-                child_w.parents.push(parent_arc.clone());
-            }
-        }
-
-        // Attach the child to the predicate's tracked children
-        let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
-        let child_dbg = {
-            let c = tracked_child.read().unwrap();
-            (
-                c.subject_iri.clone(),
-                c.shape.iri.clone(),
-                c.graph_iri.clone(),
-            )
-        };
-        tracked_predicate.tracked_children.push(tracked_child);
-        log_debug!(
-            "      - linked child to predicate {} -> child ({}, shape: {}, graph: {}), total_children now: {}",
-            tracked_predicate.schema.iri,
-            child_dbg.0,
-            child_dbg.1,
-            child_dbg.2,
-            tracked_predicate.tracked_children.len()
-        );
-    }
-
+pub fn remove_quads_for_subject(
+    shape: Arc<OrmSchemaShape>,
+    graph_iri: &str,
+    subject_iri: &str,
+    quads_removed: &[&Quad],
+    orm_subscription: &mut OrmSubscription,
+    orm_object_changes: &mut TrackedOrmObjectChange,
+) {
     // Process removed quads.
     for quad in quads_removed {
         let pred_iri = quad.predicate.as_str();
 
         // Only adjust if we had tracked state.
         let tracked_predicate_opt = orm_subscription
-            .get_tracked_object(graph_iri, subject_iri, &shape.iri)
+            .get_tracked_orm_object(graph_iri, subject_iri, &shape.iri)
             .and_then(|ts| {
                 let guard = ts.read().ok()?;
                 guard.tracked_predicates.get(pred_iri).cloned()
@@ -222,9 +156,61 @@ pub fn add_remove_quads(
                 panic!("tracked_predicate.current_literals must not be None.");
             }
         }
-        // Parent-child link removal is handled during cleanup since we need to keep them for creating patches.
+        // Parent-child link removal is handled during validation/cleanup; do not unlink here.
     }
-    Ok(())
+}
+
+/// Filters grouped quads for a specific (graph,subject) and shape and applies them (add+remove) to the tracked object and change.
+pub fn apply_quads_for_subject(
+    shape: &Arc<OrmSchemaShape>,
+    graph_iri: &str,
+    subject_iri: &str,
+    added_by_graph_and_subject: &HashMap<(String, String), Vec<&Quad>>,
+    removed_by_graph_and_subject: &HashMap<(String, String), Vec<&Quad>>,
+    orm_subscription: &mut OrmSubscription,
+    change: &mut TrackedOrmObjectChange,
+) {
+    let key = (graph_iri.to_string(), subject_iri.to_string());
+    let added_vec_raw = added_by_graph_and_subject
+        .get(&key)
+        .cloned()
+        .unwrap_or_default();
+    let removed_vec_raw = removed_by_graph_and_subject
+        .get(&key)
+        .cloned()
+        .unwrap_or_default();
+
+    // Filter quads for shape's predicates
+    let allowed: HashSet<&str> = shape.predicates.iter().map(|p| p.iri.as_str()).collect();
+    let quads_added_for_gs: Vec<&Quad> = added_vec_raw
+        .iter()
+        .copied()
+        .filter(|q| allowed.contains(q.predicate.as_str()))
+        .collect();
+    let quads_removed_for_gs: Vec<&Quad> = removed_vec_raw
+        .iter()
+        .copied()
+        .filter(|q| allowed.contains(q.predicate.as_str()))
+        .collect();
+
+    // Apply adds first, then removes
+    add_quads_for_subject(
+        shape.clone(),
+        graph_iri,
+        subject_iri,
+        &quads_added_for_gs,
+        orm_subscription,
+        change,
+    );
+
+    remove_quads_for_subject(
+        shape.clone(),
+        graph_iri,
+        subject_iri,
+        &quads_removed_for_gs,
+        orm_subscription,
+        change,
+    );
 }
 
 fn oxrdf_term_to_orm_basic_type(term: &ng_oxigraph::oxrdf::Term) -> BasicType {
@@ -276,5 +262,249 @@ fn oxrdf_term_to_orm_term(term: &ng_oxigraph::oxrdf::Term) -> Term {
             // For RDF-star triples, convert to string representation
             Term::Str(triple.to_string())
         }
+    }
+}
+
+mod tests {
+    use super::*;
+    use futures::channel::mpsc::unbounded;
+    use ng_net::app_protocol::NuriV0;
+    use ng_oxigraph::oxrdf::{Literal, NamedNode, NamedNodeRef, Quad as OxQuad, Subject, Term};
+
+    fn mk_schema() -> OrmShapeType {
+        // child shape
+        let child_shape = Arc::new(OrmSchemaShape {
+            iri: "S_child".to_string(),
+            predicates: vec![],
+        });
+
+        // predicates for parent
+        let p_lit = Arc::new(OrmSchemaPredicate {
+            iri: "http://example.org/p_lit".into(),
+            readablePredicate: "p_lit".into(),
+            dataTypes: vec![OrmSchemaDataType {
+                valType: OrmSchemaValType::literal,
+                literals: None,
+                shape: None,
+            }],
+            maxCardinality: -1,
+            minCardinality: 0,
+            extra: None,
+        });
+
+        let p_obj = Arc::new(OrmSchemaPredicate {
+            iri: "http://example.org/p_obj".into(),
+            readablePredicate: "p_obj".into(),
+            dataTypes: vec![OrmSchemaDataType {
+                valType: OrmSchemaValType::shape,
+                literals: None,
+                shape: Some("S_child".into()),
+            }],
+            maxCardinality: -1,
+            minCardinality: 0,
+            extra: None,
+        });
+
+        let parent_shape = Arc::new(OrmSchemaShape {
+            iri: "S_parent".to_string(),
+            predicates: vec![p_lit.clone(), p_obj.clone()],
+        });
+
+        let mut schema: OrmSchema = HashMap::new();
+        schema.insert("S_parent".into(), parent_shape);
+        schema.insert("S_child".into(), child_shape);
+
+        OrmShapeType {
+            schema,
+            shape: "S_parent".into(),
+        }
+    }
+
+    fn mk_literal_quad(subj: &str, pred: &str, value: &str) -> OxQuad {
+        let s = Subject::NamedNode(NamedNode::new(subj).unwrap());
+        let p = NamedNode::new(pred).unwrap();
+        let o = Term::Literal(Literal::new_typed_literal(
+            value,
+            NamedNodeRef::new("http://www.w3.org/2001/XMLSchema#string").unwrap(),
+        ));
+        OxQuad::new(s, p, o, ng_oxigraph::oxrdf::GraphName::DefaultGraph)
+    }
+
+    fn mk_ref_quad(subj: &str, pred: &str, obj_iri: &str) -> OxQuad {
+        let s = Subject::NamedNode(NamedNode::new(subj).unwrap());
+        let p = NamedNode::new(pred).unwrap();
+        let o = Term::NamedNode(NamedNode::new(obj_iri).unwrap());
+        OxQuad::new(s, p, o, ng_oxigraph::oxrdf::GraphName::DefaultGraph)
+    }
+
+    fn mk_subscription() -> OrmSubscription {
+        let shape_type = mk_schema();
+        let (tx, _rx) = unbounded();
+        OrmSubscription::new(shape_type, 1, NuriV0::new_empty(), tx)
+    }
+
+    #[test]
+    fn add_then_remove_literal_and_object_updates_predicates() {
+        let mut sub = mk_subscription();
+
+        let graph = "g1";
+        let subj = "http://example.org/s1";
+        let child1 = "http://example.org/c1";
+        let p_lit = "http://example.org/p_lit";
+        let p_obj = "http://example.org/p_obj";
+
+        let q_add_lit = mk_literal_quad(subj, p_lit, "abc");
+        let q_add_obj = mk_ref_quad(subj, p_obj, child1);
+        let added_vec = vec![q_add_lit, q_add_obj];
+        let added_refs: Vec<&OxQuad> = added_vec.iter().collect();
+
+        let parent_shape_arc = sub.shape_type.schema.get("S_parent").unwrap().clone();
+        let mut change = TrackedOrmObjectChange {
+            tracked_orm_object: sub.get_or_create_tracked_orm_object(
+                graph,
+                subj,
+                &parent_shape_arc,
+            ),
+            predicates: HashMap::new(),
+            is_validated: false,
+            prev_valid: TrackedOrmObjectValidity::Pending,
+        };
+
+        // ADDS
+        add_quads_for_subject(
+            sub.shape_type.schema.get("S_parent").unwrap().clone(),
+            graph,
+            subj,
+            &added_refs,
+            &mut sub,
+            &mut change,
+        );
+
+        {
+            let parent_r = change.tracked_orm_object.read().unwrap();
+            // Both predicates should be tracked
+            assert!(parent_r.tracked_predicates.contains_key(p_lit));
+            assert!(parent_r.tracked_predicates.contains_key(p_obj));
+            // Literal value present
+            let tp_lit = parent_r
+                .tracked_predicates
+                .get(p_lit)
+                .unwrap()
+                .read()
+                .unwrap();
+            assert_eq!(tp_lit.current_cardinality, 1);
+            assert_eq!(tp_lit.current_literals.as_ref().unwrap().len(), 1);
+            // Object predicate increments cardinality but does not link here
+            let tp_obj = parent_r
+                .tracked_predicates
+                .get(p_obj)
+                .unwrap()
+                .read()
+                .unwrap();
+            assert_eq!(tp_obj.current_cardinality, 1);
+            assert!(tp_obj.current_literals.is_none());
+        }
+        // Change captures values_added
+        assert!(change
+            .predicates
+            .get(p_lit)
+            .unwrap()
+            .values_added
+            .iter()
+            .any(|v| matches!(v, BasicType::Str(s) if s == "abc")));
+        assert!(change
+            .predicates
+            .get(p_obj)
+            .unwrap()
+            .values_added
+            .iter()
+            .any(|v| matches!(v, BasicType::Str(s) if s == child1)));
+
+        // REMOVES
+        let q_rem_lit = mk_literal_quad(subj, p_lit, "abc");
+        let q_rem_obj = mk_ref_quad(subj, p_obj, child1);
+        let removed_vec = vec![q_rem_lit, q_rem_obj];
+        let _removed_refs: Vec<&OxQuad> = removed_vec.iter().collect();
+
+        remove_quads_for_subject(
+            sub.shape_type.schema.get("S_parent").unwrap().clone(),
+            graph,
+            subj,
+            &_removed_refs,
+            &mut sub,
+            &mut change,
+        );
+
+        // Change captures values_removed
+        assert!(change
+            .predicates
+            .get(p_lit)
+            .unwrap()
+            .values_removed
+            .iter()
+            .any(|v| matches!(v, BasicType::Str(s) if s == "abc")));
+        assert!(change
+            .predicates
+            .get(p_obj)
+            .unwrap()
+            .values_removed
+            .iter()
+            .any(|v| matches!(v, BasicType::Str(s) if s == child1)));
+    }
+
+    #[test]
+    fn apply_wrapper_filters_and_updates() {
+        let mut sub = mk_subscription();
+
+        let graph = "g1".to_string();
+        let subj = "http://example.org/s1".to_string();
+        let child1 = "http://example.org/c1";
+        let p_lit = "http://example.org/p_lit";
+        let p_obj = "http://example.org/p_obj";
+
+        let unrelated_pred = "http://example.org/ignored";
+
+        // Build quads including one unrelated predicate (should be filtered out)
+        let q_add_lit = mk_literal_quad(&subj, p_lit, "abc");
+        let q_add_obj = mk_ref_quad(&subj, p_obj, child1);
+        let q_unrelated = mk_ref_quad(&subj, unrelated_pred, "http://example.org/x");
+        let add_vec = vec![q_add_lit, q_add_obj, q_unrelated];
+        let add_refs: Vec<&OxQuad> = add_vec.iter().collect();
+
+        let removed_vec: Vec<OxQuad> = vec![];
+        let _removed_refs: Vec<&OxQuad> = removed_vec.iter().collect();
+
+        // grouped maps
+        let mut added_grouped: HashMap<(String, String), Vec<&OxQuad>> = HashMap::new();
+        added_grouped.insert((graph.clone(), subj.clone()), add_refs);
+        let removed_grouped: HashMap<(String, String), Vec<&OxQuad>> = HashMap::new();
+
+        let parent_shape_arc = sub.shape_type.schema.get("S_parent").unwrap().clone();
+        let mut change = TrackedOrmObjectChange {
+            tracked_orm_object: sub.get_or_create_tracked_orm_object(
+                &graph,
+                &subj,
+                &parent_shape_arc,
+            ),
+            predicates: HashMap::new(),
+            is_validated: false,
+            prev_valid: TrackedOrmObjectValidity::Pending,
+        };
+
+        let parent_shape_arc2 = sub.shape_type.schema.get("S_parent").unwrap().clone();
+        apply_quads_for_subject(
+            &parent_shape_arc2,
+            &graph,
+            &subj,
+            &added_grouped,
+            &removed_grouped,
+            &mut sub,
+            &mut change,
+        );
+
+        // Only the two schema predicates should have changes, the unrelated one must be ignored
+        assert!(change.predicates.contains_key(p_lit));
+        assert!(change.predicates.contains_key(p_obj));
+        assert_eq!(change.predicates.len(), 2);
     }
 }

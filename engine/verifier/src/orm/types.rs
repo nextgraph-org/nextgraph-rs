@@ -95,8 +95,15 @@ pub struct OrmSubscription {
         HashMap<GraphIri, HashMap<SubjectIri, HashMap<ShapeIri, Arc<RwLock<TrackedOrmObject>>>>>,
 
     /// Nested objects refer to subject IRIs (the object in a quad). There might be multiple across graphs
-    /// This tracks all references, to know if new tracked orm objects need to be created and where to add them to.
-    pub referenced_children: HashMap<(SubjectIri, ShapeIri), Vec<Arc<RwLock<TrackedOrmPredicate>>>>,
+    /// This tracks all references, to know if new tracked orm objects needs to be created and which
+    /// tracked orm objects this affects.
+    pub tracked_nested_subjects: HashMap<
+        ShapeIri, // The nested shape being tracked.
+        Vec<(
+            SubjectIri,                         // The subjects being tracked.
+            Vec<Arc<RwLock<TrackedOrmObject>>>, // The parents tracking them.
+        )>,
+    >,
 }
 
 pub type ShapeIri = String;
@@ -121,7 +128,7 @@ impl OrmSubscription {
             nuri,
             sender,
             tracked_orm_objects: HashMap::new(),
-            referenced_children: HashMap::new(),
+            tracked_nested_subjects: HashMap::new(),
         }
     }
 
@@ -159,9 +166,9 @@ impl OrmSubscription {
             })
     }
 
-    /// Helper to get a specific tracked object by (graph IRI, subject IRI, shape IRI).
+    /// Helper to get a specific tracked orm object by (graph IRI, subject IRI, shape IRI).
     /// Returns a cloned Arc if present.
-    pub fn get_tracked_object(
+    pub fn get_tracked_orm_object(
         &self,
         graph_iri: &str,
         subject_iri: &str,
@@ -172,6 +179,23 @@ impl OrmSubscription {
             .and_then(|subjects| subjects.get(subject_iri))
             .and_then(|shapes| shapes.get(shape_iri))
             .cloned()
+    }
+
+    /// Helper to get a specific tracked object (any graph) by subject IRI and shape IRI.
+    pub fn get_tracked_objects_any_graph(
+        &self,
+        subject_iri: &str,
+        shape_iri: &str,
+    ) -> Vec<Arc<RwLock<TrackedOrmObject>>> {
+        let mut ret: Vec<Arc<RwLock<TrackedOrmObject>>> = vec![];
+        for (_graph, subjects) in &self.tracked_orm_objects {
+            if let Some(shapes) = subjects.get(subject_iri) {
+                if let Some(obj) = shapes.get(shape_iri) {
+                    ret.push(obj.clone());
+                }
+            }
+        }
+        ret
     }
 
     /// Get or create a tracked orm object for the given (graph, subject, shape).
@@ -212,10 +236,6 @@ impl OrmSubscription {
         subject_iri: &str,
         shape_iri: &str,
     ) -> bool {
-        let mut removed_any = false;
-        // First collect which graph buckets end up with empty subject maps to avoid aliasing mutable borrows
-        let mut empty_subject_in_graphs: Vec<String> = Vec::new();
-
         let removed = self
             .tracked_orm_objects
             .get_mut(graph_iri)

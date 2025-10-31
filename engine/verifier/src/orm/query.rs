@@ -126,7 +126,7 @@ impl Verifier {
         //let base = NuriV0::repo_id(&repo.id);
 
         let nuri_str = nuri.as_ref().map(|s| s.as_str());
-        log_debug!("querying construct\n{}\n{}\n", nuri_str.unwrap(), query);
+        // log_debug!("querying construct\n{}\n{}\n", nuri_str.unwrap(), query);
 
         let parsed =
             Query::parse(&query, nuri_str).map_err(|e| NgError::OxiGraphError(e.to_string()))?;
@@ -143,11 +143,15 @@ impl Verifier {
                             return Err(NgError::SparqlError(e.to_string()));
                         }
                         Ok(triple) => {
-                            log_debug!("Triple fetched: {:?}", triple);
+                            // log_debug!("Triple fetched: {:?}", triple);
                             result_triples.push(triple);
                         }
                     }
                 }
+                log_debug!(
+                    "[query_sparql_construct]: #Fetched triples {}",
+                    result_triples.len()
+                );
                 Ok(result_triples)
             }
             _ => return Err(NgError::InvalidResponse),

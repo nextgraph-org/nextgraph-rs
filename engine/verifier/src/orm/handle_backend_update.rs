@@ -47,7 +47,7 @@ impl Verifier {
         &mut self,
         session_id: u64,
         repo_id: RepoId,
-        overlay_id: OverlayId,
+        _overlay_id: OverlayId,
         patch: GraphQuadsPatch,
     ) {
         let inserts = patch.inserts;
@@ -59,7 +59,7 @@ impl Verifier {
         );
 
         // Collect and filter scopes that are affected by this backend update
-        let scopes = self.collect_and_filter_scopes(repo_id, overlay_id);
+        let scopes = self.collect_and_filter_scopes(repo_id, _overlay_id);
 
         if scopes.is_empty() {
             log_debug!("[orm_backend_update] No affected scopes");
@@ -106,7 +106,7 @@ impl Verifier {
             );
 
             // Check if this scope is affected by this backend update
-            if !Self::is_scope_affected(&scope_str, repo_id, overlay_id, &overlaylink) {
+            if !Self::is_scope_affected(&scope_str, repo_id, &overlaylink) {
                 log_info!(
                     "[orm_backend_update] SKIPPING scope {:?} - does not match repo_id={:?} or overlay={:?}",
                     scope_str,
@@ -146,12 +146,7 @@ impl Verifier {
     }
 
     /// Checks if a scope is affected by this backend update.
-    fn is_scope_affected(
-        scope_str: &String,
-        repo_id: RepoId,
-        overlay_id: OverlayId,
-        overlaylink: &OverlayLink,
-    ) -> bool {
+    fn is_scope_affected(scope_str: &String, repo_id: RepoId, overlaylink: &OverlayLink) -> bool {
         let scope_nuri = NuriV0::new_from(scope_str).unwrap_or_else(|_| NuriV0::new_empty());
         scope_nuri.target == NuriTargetV0::UserSite
             || scope_nuri
@@ -280,7 +275,7 @@ impl Verifier {
                         );
                         // Get the tracked orm object for this (subject, shape) pair
                         let Some(tracked_orm_object_arc) =
-                            sub.get_tracked_object(graph_iri, subject_iri, shape_iri)
+                            sub.get_tracked_orm_object(graph_iri, subject_iri, shape_iri)
                         else {
                             // We might not be tracking this subject x shape combination. Then, there is nothing to do.
                             log_info!(
@@ -650,6 +645,7 @@ fn build_path_segment_for_parent(
             let is_child = tp.tracked_children.iter().any(|child| {
                 let child_read = child.read().unwrap();
                 child_read.subject_iri == tracked_orm_object.subject_iri
+                    && child_read.graph_iri == tracked_orm_object.graph_iri
             });
 
             if is_child {
