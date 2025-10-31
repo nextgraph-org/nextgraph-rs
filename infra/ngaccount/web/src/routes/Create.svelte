@@ -61,14 +61,9 @@
       if (result) {
         error = "Closing due to " + (result.error || "an error");
       }
-      let window_api = await import("@tauri-apps/api/window");
-      let main = window_api.Window.getByLabel("main");
-      if (main) {
-        wait = true;
-        await main.emit("error", result);
-      } else {
-        await window_api.getCurrent().close();
-      }
+      let event_api = await import("@tauri-apps/api/event");
+      wait = true;
+      await event_api.emitTo("main", "error", result);
     } else {
       if (result && result.url) {
         error = "We are redirecting you...";
@@ -84,19 +79,23 @@
   async function success(result) {
     // @ts-ignore
     if (!web) {
-      let window_api = await import("@tauri-apps/api/window");
-      let main = window_api.Window.getByLabel("main");
-      if (main) {
-        await main.emit("accepted", result);
-      } else {
-        await window_api.getCurrent().close();
-      }
+      let event_api = await import("@tauri-apps/api/event");
+      await event_api.emitTo("main", "accepted", result);
     } else {
       window.location.href = result.url;
     }
   }
 
-  async function bootstrap() {}
+  async function bootstrap() {
+    if (!web) {
+      let window_api = await import("@tauri-apps/api/window");
+      const unlisten = await window_api.getCurrentWindow().onCloseRequested(async (event) => {
+        let event_api = await import("@tauri-apps/api/event");
+        await event_api.emitTo("main", "close");
+        //event.preventDefault();
+      });
+    }
+  }
   let error;
 
   onMount(() => bootstrap());
