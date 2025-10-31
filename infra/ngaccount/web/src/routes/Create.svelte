@@ -14,12 +14,13 @@
   // @ts-ignore
   import EULogo from "../assets/EU.svg?component";
   // @ts-ignore
-  import Logo from "../assets/nextgraph.svg?component";
+  import Logo from "../assets/allelo.svg?component";
   import { link, querystring } from "svelte-spa-router";
 
   import { onMount } from "svelte";
   let domain = import.meta.env.NG_ACCOUNT_DOMAIN;
   const param = new URLSearchParams($querystring);
+  let web = param.get("web");
   let ca = param.get("ca");
   let go_back = true;
   let wait = false;
@@ -55,7 +56,7 @@
 
   async function close(result) {
     // @ts-ignore
-    if (window.__TAURI__) {
+    if (!web) {
       go_back = false;
       if (result) {
         error = "Closing due to " + (result.error || "an error");
@@ -82,7 +83,7 @@
 
   async function success(result) {
     // @ts-ignore
-    if (window.__TAURI__) {
+    if (!web) {
       let window_api = await import("@tauri-apps/plugin-window");
       let main = window_api.Window.getByLabel("main");
       if (main) {
@@ -136,7 +137,7 @@
 {:else}
   <main class="container3" bind:this={top}>
     <div class="row">
-      <Logo class="logo block h-24" alt="NextGraph Logo" />
+      <Logo class="logo block h-24" alt="Allelo Logo" />
       {#if domain == "nextgraph.eu"}
         <EULogo
           class="logo block h-20"
@@ -179,7 +180,7 @@
       {#if ca}
         <div class=" max-w-6xl lg:px-8 mx-auto px-4">
           <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-            You would like to choose <b>{domain}</b> as your Broker Service
+            You have selected <b>{domain}</b> as your Broker Service
             Provider.<br />Please read carefully the Terms of Service below,
             before accepting them.
           </p>
@@ -189,202 +190,14 @@
         class="px-4 pt-5 mx-auto max-w-6xl lg:px-8 lg:pt-10 dark:bg-slate-800"
       >
         <div class="max-w-xl md:mx-auto sm:text-center lg:max-w-2xl">
-          <h2 class="pb-5 text-xl">{domain} Terms of Service</h2>
+          <h2 class="pb-5 text-3xl">{domain} Terms of Service</h2>
 
-          <ul class="mb-8 space-y-4 text-left text-gray-500 dark:text-gray-400">
-            {#if domain == "nextgraph.eu"}
-              <li class="flex space-x-3">
-                <svg
-                  class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M20.893 13.393l-1.135-1.135a2.252 2.252 0 01-.421-.585l-1.08-2.16a.414.414 0 00-.663-.107.827.827 0 01-.812.21l-1.273-.363a.89.89 0 00-.738 1.595l.587.39c.59.395.674 1.23.172 1.732l-.2.2c-.212.212-.33.498-.33.796v.41c0 .409-.11.809-.32 1.158l-1.315 2.191a2.11 2.11 0 01-1.81 1.025 1.055 1.055 0 01-1.055-1.055v-1.172c0-.92-.56-1.747-1.414-2.089l-.655-.261a2.25 2.25 0 01-1.383-2.46l.007-.042a2.25 2.25 0 01.29-.787l.09-.15a2.25 2.25 0 012.37-1.048l1.178.236a1.125 1.125 0 001.302-.795l.208-.73a1.125 1.125 0 00-.578-1.315l-.665-.332-.091.091a2.25 2.25 0 01-1.591.659h-.18c-.249 0-.487.1-.662.274a.931.931 0 01-1.458-1.137l1.411-2.353a2.25 2.25 0 00.286-.76m11.928 9.869A9 9 0 008.965 3.525m11.928 9.868A9 9 0 118.965 3.525"
-                  />
-                </svg>
-                <span
-                  >Our servers are located in Germany, and comply with the
-                  GDPR and DSA regulations, to the extent that they concern us.</span
-                >
-              </li>
-              <li class="flex space-x-3">
-                <svg
-                  class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0118 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3l1.5 1.5 3-3.75"
-                  />
-                </svg>
-                <span>As we do not store any personal information about you, GDPR is not directly applicable, but we do abide by GDPR regulations.<br/>
-                  This broker only hosts encrypted data that is never published on the internet in any way. We therefor have no control over moderation and cannot be held liable for the plain-text version of the messages exchanged on this broker.<br/>  
-                  For any matter related to GDPR or DSA, please see our <a href="https://nextgraph.org/contact/" target="_blank">contact details here</a>. You can contact us in english, french, german and spanish.<br/>
-                  We reserve the right to terminate service at any moment, without any given reason, as this service is in alpha version, and we do not have contractual relation with you. We do not know who you are and cannot contact you.</span>
-              </li>
-            {/if}
-            <li class="flex space-x-3">
-              <svg
-                class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"
-                />
-              </svg>
-              <span
-                >All the data you exchange with us while using this broker is
-                end-to-end encrypted and we do not have access to your
-                decryption keys, meaning that we cannot see the content of your
-                documents.</span
-              >
-            </li>
-            <li class="flex space-x-3">
-              <svg
-                class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
-                />
-              </svg>
-              <span
-                >We do not log any private information about you (nor IP, nor
-                country, nor statistics of any kind). Only your randomly generated UserId is kept,
-                together with the list of devices (ClientId) you use to connect
-                to the broker. We store your RecoveryKit on our server. 
-                It is encrypted and we cannot read it. If you opted for unlocking your wallet with the username/password method,
-                we also store your wallet on our server, in an encrypted form so we cannot read it nor use it.
-                We collect general purpose information about your
-                device (OS version, browser version, and if you use the app, the
-                version and date of last update). We do not have access to any
-                unique tracking identifier of your device (like Android MAID/AAID or
-                iPhone IDFA). We could nevertheless be asked by law enforcement
-                authorities, depending on the jurisdiction of the server, to log
-                the IP you use when connecting to the broker, and/or to provide
-                them with the encrypted content you have stored on our servers.
-                If you prefer to avoid that eventually, please refrain from any
-                illegal activity while using this broker.</span
-              >
-            </li>
-            <li class="flex space-x-3">
-              <svg
-                class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <span>
-                You can delete your account with us at any time by opening your NextGraph application, logging in, 
-                and entering in the User Panel, then Accounts, then under Brokers "delete registration". Before deleting your account with us, make sure you register to another broker before, otherwise you will not be able to sync or share your data with any other users or devices</span
-              >
-            </li>
-            <li class="flex space-x-3">
-              <svg
-                class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                fill="none" stroke-width="1.5" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"></path>
-              </svg>
-              <span>
-                Q: I heard that with NextGraph there will be no more ToS to accept. Why then are there some ToS here? <br/> A: You are right that with NextGraph we can do without ToS, when the user is connecting to a self-hosted broker. As this option is
-                 not available yet, we only offer you to connect to our public Broker Service Provider for now, which needs some ToS to be accepted. Very soon more options will be available, but some users might still prefer using our brokers.
-                 In any case, the ToS here are minimal and with end-to-end encryption, your data is unreadable to us anyway.</span
-              >
-            </li>
-            <li class="flex space-x-3">
-              <svg
-                class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M14.25 7.756a4.5 4.5 0 100 8.488M7.5 10.5h5.25m-5.25 3h5.25M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <span
-                >Registration is free of charge. And it would be very nice of
-                you if you wanted to donate a small amount to help us cover the
-                fees we have to pay for operating the servers. {#if !window.__TAURI__}
-                  Here is the donation link: <a
-                    target="_blank"
-                    href="https://nextgraph.org/donate"
-                    >https://nextgraph.org/donate</a
-                  >{:else}
-                  You will find the link to donate in your app, by clicking on
-                  the logo of NextGraph on the top-left corner.
-                {/if}
-              </span>
-            </li>
-            {#if !window.__TAURI__}
-              <li class="flex space-x-3">
-                <svg
-                  class="flex-shrink-0 w-5 h-5 text-green-500 dark:text-green-400"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z"
-                  />
-                </svg>
-
-                <span
-                  >By agreeing to those terms, you allow this software to store
-                  some personal data locally on this device, in localStorage. 
-                  It only stays on this device or any other device where you will import your wallet.
-                  If you delete this data without keeping a copy of
-                  your wallet somewhere else or having selected the "Wallet Recovery" option, then access to your wallet and all its documents will be permanently lost.
-                </span>
-              </li>
-            {/if}
+          <ul class="list-discmb-8 space-y-4 text-left text-gray-500 dark:text-gray-400">
+            
           </ul>
+          <div class="text-left space-y-4 ">
+            <p class=""><span class=" ">Effective date: 2025-10-30</span></p><p class=""><span class=" ">Provider: NAO Cooperative Capital, Inc, a company incorporated in Delaware (&quot;we&quot;, &quot;us&quot;, &quot;Provider&quot;)</span></p><p class=""><span class=" ">Contact: info@allelo.eco</span></p><p class=""><span>These Terms of Service (&quot;Terms&quot;) govern your use of the software, services, and related components provided by Provider (the &quot;Service&quot;). The Service consists of (a) software that can run locally on your device and (b) a server component hosted in the United States that holds </span><span class="">only encrypted user data</span><span class="">. By installing, accessing, or using the Service you agree to these Terms. If you do not agree, do not use the Service.</span></p><hr><p class=""><span class=""></span></p><h1 class="text-2xl" ><span class="">1. Prototype / Beta status</span></h1><p class=""><span>The Service is provided in a </span><span class="">prototype / beta</span><span class="">&nbsp;phase. This means:</span></p><ul class="list-disc"><li class="mb-3 "><span class="">The Service is experimental and may contain bugs, incomplete features, or security imperfections.<br></span></li><li class="mb-3 "><span class="">We may modify, suspend, or discontinue features at any time without prior notice.<br></span></li><li class="mb-3 "><span class="">These Terms are temporary and may be updated more frequently than in a production release. We will attempt to notify users of material changes where practicable.<br></span></li></ul><h1 class="text-2xl" ><span class="">2. Scope of the Service and data handling</span></h1><ul class="list-disc"><li class="mb-3 "><span>The server component operated by Provider is located in the United States and stores </span><span class="">only encrypted data</span><span class="">.<br></span></li><li class="mb-3 "><span class="">You are responsible for maintaining control of any encryption keys, passwords, and secrets used to encrypt/decrypt your data unless otherwise specified in product documentation. Provider does not have access to your unencrypted data unless you explicitly provide it.<br></span></li><li class="mb-3 "><span class="">We use industry-standard encryption algorithms and best practices where reasonably possible. No system is immune to attack; we cannot guarantee absolute security.<br></span></li></ul><h1 class="text-2xl" ><span class="">3. Acceptable use and prohibited conduct</span></h1><p class=""><span class="">You agree not to use the Service, or allow others to use it, for any unlawful or harmful purpose. Prohibited conduct includes (without limitation):</span></p><ul class="list-disc"><li class="mb-3 "><span class="">Attempting to gain unauthorized access to the Service, other accounts, systems, or networks (hacking, brute force, exploitation, bypassing authentication).<br></span></li><li class="mb-3 "><span class="">Introducing malware, viruses, trojans, ransomware, spyware, or other harmful code.<br></span></li><li class="mb-3 "><span class="">Interfering with, degrading, or disrupting any part of the Service, or attempting denial-of-service attacks.<br></span></li><li class="mb-3 "><span class="">Reverse-engineering, decompiling, disassembling, or attempting to extract server-side code or encrypted data in ways not permitted by law.<br></span></li><li class="mb-3 "><span class="">Using the Service to violate privacy, commit fraud, or engage in harassment, stalking, threats, or other abusive behavior.<br></span></li><li class="mb-3 "><span class="">Circumventing limitations, monitoring, or security of the Service.<br></span></li></ul><p class=""><span class="">Violation of the above may result in suspension or termination of access, reporting to law enforcement, and civil or criminal prosecution.</span></p><h1 class="text-2xl" ><span class="">4. User responsibilities</span></h1><ul class="list-disc"><li class="mb-3 "><span class="">Keep account credentials, private keys, and devices secure. Immediately report suspected compromise to info@allelo.eco<br></span></li><li class="mb-3 "><span class="">Use strong, unique passwords and follow any security guidance provided in product documentation.<br></span></li><li class="mb-3 "><span class="">Back up your local data. As a beta product, data loss is possible; Provider is not responsible for loss when caused by factors outside Provider&rsquo;s control.<br></span></li><li class="mb-3 "><span class="">Obtain and maintain all rights, permissions, and consents required to upload and process any content or personal data through the Service.<br></span></li></ul><h1 class="text-2xl" ><span class="">5. Security commitments and limitations</span></h1><ul class="list-disc"><li class="mb-3 "><span class="">We will implement and maintain reasonable administrative, technical, and physical safeguards designed to protect encrypted data in our custody.<br></span></li><li class="mb-3 "><span class="">We will promptly investigate suspected security incidents and, where required by law, provide notifications in accordance with applicable legal requirements.<br></span></li><li class="mb-3 "><span class="">Important:</span><span class="">&nbsp;No security measure or encryption is impenetrable. Provider DOES NOT WARRANT that the Service is immune to hacking, unauthorized access, or data loss. You acknowledge and accept the inherent risks of using a beta software product.<br></span></li></ul><h1 class="text-2xl"><span class="">6. Feedback and improvements</span></h1><ul class="list-disc "><li class="mb-3 "><span class="">If you provide feedback, bug reports, or suggestions (&quot;Feedback&quot;), you grant Provider a worldwide, non-exclusive, royalty-free, perpetual license to use, modify, and incorporate the Feedback into the Service without obligation to you.<br></span></li></ul><h1 class="text-2xl" ><span class="">7. Intellectual property</span></h1><ul class="list-disc"><li class="mb-3 "><span class="">Provider retains all rights, title, and interest in the Service, including software, documentation, and trademarks, except for content you own and upload.<br></span></li><li class="mb-3 "><span class="">You retain rights to the content you upload; however, you grant Provider the limited rights needed to perform the Service (store, encrypt, transmit, and backup your content).<br></span></li></ul><h1 class="text-2xl" ><span class="">8. Disclaimers &mdash; no warranties</span></h1><ul class="list-disc"><li class="mb-3 "><span>THE SERVICE IS PROVIDED </span><span class="">AS IS</span><span>&nbsp;AND </span><span class="">AS AVAILABLE</span><span>, </span><span class="">WITHOUT WARRANTY OF ANY KIND</span><span class="">. TO THE MAXIMUM EXTENT PERMITTED BY LAW, PROVIDER DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, OR THAT THE SERVICE WILL BE UNINTERRUPTED OR ERROR-FREE.<br></span></li><li class="mb-3 "><span class="">Provider does not warrant that encrypted data cannot be decrypted by unauthorized parties or that the Service will prevent hacking or other malicious acts.<br></span></li></ul><h1 class="text-2xl" ><span class="">9. Limitation of liability</span></h1><ul class="list-disc"><li class="mb-3 "><span class="">TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT WILL PROVIDER, ITS OFFICERS, DIRECTORS, EMPLOYEES, AGENTS, OR SUPPLIERS BE LIABLE FOR: (A) INDIRECT, SPECIAL, INCIDENTAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES; (B) LOSS OF PROFITS, REVENUE, DATA, OR BUSINESS; OR (C) ANY DAMAGES ARISING FROM LOSS OR COMPROMISE OF DATA, EVEN IF PROVIDER HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.<br></span></li><li class="mb-3 "><span class="">Provider&rsquo;s aggregate liability for direct damages arising from or related to these Terms will not exceed the greater of (i) the total amount you paid Provider in the prior 12 months or (ii) $1<br></span></li></ul><h1 class="text-2xl" ><span class="">10. Indemnification</span></h1><p class=""><span class="">You agree to indemnify and hold Provider and its affiliates harmless from claims, losses, liabilities, costs, and expenses (including reasonable attorneys&rsquo; fees) arising from: (a) your breach of these Terms; (b) your misuse of the Service; or (c) content you upload that infringes third-party rights or violates law.</span></p><h1 class="text-2xl" ><span class="">11. Termination and suspension</span></h1><ul class="list-disc"><li class="mb-3 "><span class="">We may suspend or terminate your access for violations of these Terms or for other reasons, including security concerns, at our discretion.<br></span></li><li class="mb-3 "><span class="">Upon termination, we may delete encrypted data in our systems in accordance with our retention and deletion policies described in product documentation. You are responsible for exporting and backing up your data prior to termination.<br></span></li></ul><h1 class="text-2xl" ><span class="">12. Changes to these Terms</span></h1><ul class="list-disc"><li class="mb-3 "><span class="">We may update these Terms from time to time. For material changes we will provide notice by email or in-app notice where practicable. Continued use after changes constitutes acceptance.<br></span></li><li class="mb-3 "><span class="">Because the Service is in prototype/beta, you should expect updates to these Terms more frequently than for a production service.<br></span></li></ul><h1 class="text-2xl" ><span class="">13. Governing law and disputes</span></h1><ul class="list-disc"><li class="mb-3 "><span class="">These Terms are governed by the laws of the United States and the state of Delaware. To the extent permitted by law, exclusive venue for disputes will be the state and federal courts located in Delaware.<br></span></li><li class="mb-3 "><span class="">If you are located outside the chosen jurisdiction, you agree that this choice does not deprive you of protections required by local mandatory laws.<br></span></li></ul><h1 class="text-2xl" ><span class="">14. Export controls and compliance</span></h1><p class=""><span class="">You will comply with all applicable export and re-export control laws and regulations. You agree not to use or export the Service in violation of those laws.</span></p><h1 class="text-2xl" ><span class="">15. Enforcement and criminal acts</span></h1><ul class="list-disc"><li class="mb-3 "><span class="">Attempting to hack, damage, or unlawfully access Provider systems or other users&rsquo; accounts is prohibited and may be reported to law enforcement.<br></span></li><li class="mb-3 "><span class="">Provider reserves the right to cooperate with law enforcement and to disclose user information as required by law or court order.<br></span></li></ul><h1 class="text-2xl" ><span class="">16. Miscellaneous</span></h1><ul class="list-disc"><li class="mb-3 "><span class="">If any provision of these Terms is held invalid, the remaining provisions will remain in force.<br></span></li><li class="mb-3 "><span class="">These Terms constitute the entire agreement between you and Provider regarding the Service and supersede prior agreements.<br></span></li></ul><hr><p class=""><span class=""></span></p><p class=""><span class="">Acknowledgment:</span><span class="">&nbsp;By using the Service you acknowledge that you have read, understood, and agree to be bound by these Terms.</span></p><p class=""><span class=""></span></p>
+          </div>
         </div>
       </div>
       {#if ca}
