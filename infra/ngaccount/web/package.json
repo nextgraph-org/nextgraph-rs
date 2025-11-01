@@ -4,8 +4,9 @@
   "version": "0.1.2",
   "type": "module",
   "scripts": {
-    "dev": "cross-env NG_ACCOUNT_DOMAIN=example.com vite",
+    "dev": "cross-env NG_ACCOUNT_DOMAIN=test.com vite",
     "devenv": "vite",
+    "buildtest": "cross-env NG_ACCOUNT_DOMAIN=test.com vite build --base=./",
     "build": "vite build --base=./",
     "preview": "vite preview"
   },
