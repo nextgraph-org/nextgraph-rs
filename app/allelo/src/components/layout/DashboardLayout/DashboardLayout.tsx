@@ -14,7 +14,7 @@ import {
 import BottomNavigation from '@/components/navigation/BottomNavigation';
 import {Sidebar} from '../Sidebar';
 import {MobileDrawer} from '../MobileDrawer';
-import {Logo} from '@/components/ui/Logo';
+import {LogoLeft, LogoRight} from '@/components/ui/Logo';
 import type {NavItem} from '../NavigationMenu/types';
 import {useRelationshipCategories} from '@/hooks/useRelationshipCategories';
 import type {DashboardLayoutProps} from './types';
@@ -194,13 +194,15 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            py: isMobile ? 0.5 : 2,
-            pl: 4,
-            gap: 2
+            py: isMobile ? 0 : 2,
+            pl: 0,
+            gap: 0,
+            opacity: "50%",
           }}
         >
+          <LogoLeft/>
           <CircleLogo width={50} height={50}/>
-          <Logo width={200} height={50}/>
+          <LogoRight/>
         </Box>
 
         {!isInviteMode && !isMobile && (
