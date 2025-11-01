@@ -88,12 +88,16 @@
 
   async function bootstrap() {
     if (!web) {
-      let window_api = await import("@tauri-apps/api/window");
-      const unlisten = await window_api.getCurrentWindow().onCloseRequested(async (event) => {
-        let event_api = await import("@tauri-apps/api/event");
-        await event_api.emitTo("main", "close");
-        //event.preventDefault();
-      });
+      try {
+        let window_api = await import("@tauri-apps/api/window");
+        const unlisten = await window_api.getCurrentWindow().onCloseRequested(async (event) => {
+          let event_api = await import("@tauri-apps/api/event");
+          await event_api.emitTo("main", "close");
+          //event.preventDefault();
+        });
+      } catch (e) {
+        console.error(e)
+      }
     }
   }
   let error;
