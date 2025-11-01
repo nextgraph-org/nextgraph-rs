@@ -268,7 +268,7 @@ export const createAppTheme = (mode: PaletteMode) => {
             '--button-border-radius': '48px',
             '--button-padding': '12px 16px',
             '--button-font-weight': '500',
-            '--button-font-size': '0.875rem',
+            '--button-font-size': '1rem',
             '--button-line-height': '1.43',
             '--button-letter-spacing': '-0.01em',
             '--button-hover-shadow': '0px 2px 4px rgba(0, 0, 0, 0.08)',
