@@ -6,6 +6,7 @@
     "urls": [
         "https://account.nextgraph.eu",
         "http://account-dev.nextgraph.eu:3031",
+        "http://account-dev.nextgraph.eu:5173",
         "https://account.nextgraph.one",
         "https://account-staging.nextgraph.eu",
         "https://account.allelo.eco"

@@ -43,6 +43,7 @@
       <Button
           variant="outlined"
           onclick={displayNextgraphOrg}
+          style="height: 45px; background-color: #fff"
       >
         <LogoSimple/> &nbsp;{$t("common.about_nextgraph")}
       </Button>

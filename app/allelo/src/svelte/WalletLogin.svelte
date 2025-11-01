@@ -448,10 +448,9 @@
 
               <div class="wallet-button-container">
                 <Button
-                    variant="outlined"
+                    variant="unelevated"
                     tabindex="-1"
-                    style="overflow-wrap: anywhere;"
-                    class="mui-button-outlined form-button wallet-security-button"
+                    class="mui-button-primary form-button action-button"
                     type="button"
                 >
                   <Label>{wallet_entry[1].wallet.V0.content.security_txt}</Label>
@@ -522,6 +521,7 @@
                 variant="outlined"
                 tabindex="-1"
                 class="mui-button-outlined form-button action-button"
+                style="width: 100%;"
             >
               <Icon class="button-icon">
                 <QrCode tabindex="-1" aria-hidden="true"/>
@@ -534,6 +534,7 @@
                 variant="outlined"
                 tabindex="-1"
                 class="mui-button-outlined form-button action-button"
+                style="width: 100%;"
             >
               <Icon class="button-icon">
                 <svg
@@ -560,6 +561,7 @@
                   variant="unelevated"
                   tabindex="-1"
                   class="mui-button-primary form-button action-button"
+                  style="width: 100%;"
               >
                 <Icon class="button-icon">
                   <svg

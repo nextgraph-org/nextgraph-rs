@@ -92,15 +92,15 @@ export const CircleLogo = ({ width = 50, height = 50 }) => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(0,2)">
           <stop
-            stop-color="#546DF9"
+            stopColor="#546DF9"
             id="stop15"/>
           <stop
             offset="0.485577"
-            stop-color="#E34E89"
+            stopColor="#E34E89"
             id="stop16"/>
           <stop
             offset="0.995192"
-            stop-color="#EE8823"
+            stopColor="#EE8823"
             id="stop17"/>
         </linearGradient>
       </defs>
