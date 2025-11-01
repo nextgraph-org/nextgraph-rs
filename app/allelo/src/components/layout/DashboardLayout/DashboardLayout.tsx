@@ -191,10 +191,10 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
         <Box
           sx={{
             gridArea: "header",
-            display: isMobile ? 'none' : 'flex',
+            display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            py: 2,
+            py: isMobile ? 0.5 : 2,
             pl: 4,
             gap: 2
           }}
