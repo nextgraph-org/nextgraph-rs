@@ -1,4 +1,4 @@
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -40,6 +40,11 @@ import WalletLogin from "./svelte/WalletLogin.svelte";
 
 const theme = createAppTheme('light');
 
+const InviteRedirect = () => {
+  const { inviteCode } = useParams();
+  return <Navigate to={`/wallet/create?i=${inviteCode}`} replace />;
+};
+
 const AppRoutes = () => {
   // Convert the Svelte components to React components
   const ReactWalletCreate = useSvelteComponent(WalletCreate);
@@ -55,6 +60,7 @@ const AppRoutes = () => {
           <Route path="/onboarding/accept-connection" element={<AcceptConnectionPage />} />
           <Route path="/join-group" element={<GroupJoinPage />} />
 
+          <Route path="/i/:inviteCode" element={<InviteRedirect />} />
           <Route path="/wallet/create" element={<ReactWalletCreate />} />
           <Route path="/wallet/login" element={<ReactWalletLogin />} />
 
