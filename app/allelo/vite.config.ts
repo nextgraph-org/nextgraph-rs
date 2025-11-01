@@ -1,5 +1,4 @@
 import { defineConfig, UserConfig, PluginOption } from "vite";
-import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import svelteSVG from "@hazycora/vite-plugin-svelte-svg";
@@ -22,7 +21,7 @@ export default defineConfig((): UserConfig => {
     worker: {
       format: 'es' as "es" | "iife",
     },
-    plugins: [tailwindcss(),react(),svelte(),
+    plugins: [react(),svelte(),
     svelteSVG({
       svgoConfig: {
         plugins: [

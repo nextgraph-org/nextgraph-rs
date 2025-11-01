@@ -18,7 +18,9 @@
 -->
 
 <script lang="ts">
-  import { Button, Alert } from "flowbite-svelte";
+  import Button, { Label } from '@smui/button';
+  import Typography from "./lib/components/Typography.svelte";
+  import Textfield from "@smui/textfield";
   import { t } from "svelte-i18n";
   import CenteredLayout from "./lib/CenteredLayout.svelte";
   import PasswordInput from "./lib/components/PasswordInput.svelte";
@@ -30,8 +32,7 @@
     default as ng,
   } from "../.auth-react/api";
 
-  // @ts-ignore
-  import Logo from "./assets/nextgraph.svg?component";
+  import CircleLogo from "./lib/components/CircleLogo.svelte";
 
   import { onMount, onDestroy, tick } from "svelte";
   import { wallets, display_error, boot } from "./store";
@@ -89,6 +90,7 @@
     //console.log(await ng.client_info());
     if (!tauri_platform || tauri_platform == "android" || tauri_platform == "ios") {
       if (param.get("re")) {
+        wait = false;
         registration_error = param.get("re");
         console.error("registration_error", registration_error);
       } else if (
@@ -293,26 +295,33 @@
       import.meta.env.NG_ENV_ALT ? import.meta.env.NG_ENV_ALT : "nextgraph.eu"
     );
   };
+
+  const onUsernameKeydown = (event: KeyboardEvent) => {
+    if (event.key === "Enter") {
+      username_password_ok(event);
+    }
+  };
 </script>
 
 <CenteredLayout>
-  <div class="max-w-2xl lg:px-8 mx-auto mb-20">
+  <div class="form-layout" bind:this={top}>
     {#if wait}
-      <div class="lg:px-8 text-primary-700">
-        {wait}
-        <Spinner className="mt-10 h-14 w-14 mx-auto" />
+      <div class="surface-section status-surface status-info">
+        <Typography variant="body1" className="status-message">
+          {wait}
+        </Typography>
+        <Spinner className="status-spinner" />
       </div>
     {:else}
-      <div class="container3" bind:this={top}>
-        <div class="row">
-          <a href="#/">
-            <Logo class="logo block h-[8em]" alt={$t("common.logo")} />
-          </a>
-        </div>
+      <div class="row">
+        <a href="#/">
+          <CircleLogo aria-label={$t("common.logo")} />
+        </a>
+      </div>
         {#if registration_error}
-          <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
+          <div class="surface-section status-surface status-error">
             <svg
-              class="animate-bounce mt-10 h-16 w-16 mx-auto"
+              class="status-icon status-icon--bounce"
               fill="none"
               stroke="currentColor"
               stroke-width="1.5"
@@ -327,81 +336,110 @@
               />
             </svg>
             {#if registration_error == "AlreadyExists"}
-              <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
+              <Typography variant="body1" className="status-message">
                 {@html $t("pages.user_registered.already_exists")}
-              </p>
+              </Typography>
               <a href="#/wallet/login">
-                <button
-                  tabindex="-1"
-                  class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+                <Button
+                  variant="raised"
+                  class="mui-button-primary form-button"
+                  type="button"
                 >
-                  {$t("buttons.login")}
-                </button>
+                  <Label>{$t("buttons.login")}</Label>
+                </Button>
               </a>
             {:else}
-              <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
+              <Typography variant="body1" className="status-message">
                 {@html $t("errors.error_occurred", {
                   values: { message: display_error(registration_error) },
                 })}
-              </p>
+              </Typography>
               <a href="#/">
-                <button
-                  tabindex="-1"
-                  class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+                <Button
+                  variant="raised"
+                  class="mui-button-primary form-button"
+                  type="button"
                 >
-                  {$t("buttons.back_to_homepage")}
-                </button>
+                  <Label>{$t("buttons.back_to_homepage")}</Label>
+                </Button>
               </a>
             {/if}
           </div>
         {:else if !username_pass_ok}
-          <div class=" max-w-6xl lg:px-8 mx-auto">
+          <div class="surface-section">
             {#if registration_success}
-              <Alert color="green" class="mb-5">
-                <span class="font-bold text-xl"
-                  >{$t("pages.wallet_create.registration_success", {
+              <div class="mui-alert mui-alert-success">
+                <Typography variant="subtitle1">
+                  {@html $t("pages.wallet_create.registration_success", {
                     values: { broker: registration_success },
-                  })}</span
-                >
-              </Alert>
+                  })}
+                </Typography>
+              </div>
             {/if}
-            <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-              <span class="text-xl"
-                >{$t("pages.wallet_create.choose_username.title")}</span
-              >
-              <Alert color="yellow" class="mt-5">
-                {@html $t("pages.wallet_create.choose_username.warning")}
-              </Alert>
-            </p>
-            <input
-              bind:this={username_input}
-              class="mt-10 mr-0 mb-5 text-md bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-              id="username-input"
-              placeholder={$t("pages.wallet_create.type_username_placeholder")}
-              autocomplete="username"
-              autofocus
-              bind:value={username}
-              on:keypress={username_password_ok}
-            />
 
-            <PasswordInput
-              bind:this={password_input}
-              id="password-input"
-              placeholder={$t("pages.wallet_create.type_password_placeholder")}
-              bind:value={password}
-              className="mb-5 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-              auto_complete="password"
-              on:enter={username_password_ok}
-            />
-            <Button
-              disabled={!username || !password}
-              onclick={() => {
-                username_password_ok(false);
-              }}
-              class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-            >
+            <Typography variant="h5">
+              {$t("pages.wallet_create.choose_username.title")}
+            </Typography>
+            <div class="mui-alert mui-alert-warning">
+              <Typography variant="body2">
+                {@html $t("pages.wallet_create.choose_username.warning")}
+              </Typography>
+            </div>
+
+            <div class="form-field">
+              <Textfield
+                variant="outlined"
+                bind:value={username}
+                label={$t("pages.wallet_create.type_username_placeholder")}
+                input$id="username-input"
+                input$autocomplete="username"
+                input$autofocus={true}
+                input$bind:this={username_input}
+                class="mui-textfield shaped-outlined"
+                input$onkeydown={onUsernameKeydown}
+              />
+            </div>
+
+            <div class="form-field">
+              <PasswordInput
+                bind:this={password_input}
+                id="password-input"
+                label={$t("pages.wallet_create.type_password_placeholder")}
+                bind:value={password}
+                auto_complete="password"
+                on:enter={username_password_ok}
+              />
+            </div>
+
+            <div class="form-actions form-actions--stack">
+              <Button
+                variant="raised"
+                class="mui-button-primary form-button"
+                type="button"
+                disabled={!username || !password}
+                onclick={() => {
+                  username_password_ok(false);
+                }}
+              >
+                <Label>{@html $t("pages.wallet_create.create_wallet_now")}</Label>
+              </Button>
+            </div>
+          </div>
+        {:else if !error}
+          {#if !ready}
+            <div class="surface-section status-surface status-info">
+              <Typography variant="body1" className="status-message">
+                {$t("pages.wallet_create.creating")}
+              </Typography>
+              <Spinner className="status-spinner" />
+            </div>
+          {:else}
+            <div class="surface-section status-surface status-success">
+              <Typography variant="body1" className="status-message">
+                {$t("pages.wallet_create.ready")}
+              </Typography>
               <svg
-                class="w-8 h-8 mr-2 -ml-1"
+                class="status-icon"
                 fill="none"
                 stroke="currentColor"
                 stroke-width="1.5"
@@ -412,66 +450,19 @@
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
+                  d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"
                 />
               </svg>
-              {@html $t("pages.wallet_create.create_wallet_now")}
-            </Button>
-          </div>
-        {:else if !error}
-          {#if !ready}
-            <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-primary-700">
-              {$t("pages.wallet_create.creating")}
-              <svg
-                class="animate-spin mt-10 h-6 w-6 mx-auto"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  class="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="4"
-                />
-                <path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-            </div>
-          {:else}
-            <div class="text-left mx-4">
-              <div class="text-green-800 mx-auto flex flex-col items-center">
-                <div>{$t("pages.wallet_create.ready")}</div>
-                <svg
-                  class="my-4 h-16 w-16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z"
-                  />
-                </svg>
-              </div>
             </div>
           {/if}
         {:else}
-          <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
-            {$t("errors.an_error_occurred")}
+          <div class="surface-section status-surface status-error">
+            <Typography variant="body1" className="status-message">
+              {$t("errors.an_error_occurred")}
+            </Typography>
             <svg
               fill="none"
-              class="animate-bounce mt-10 h-10 w-10 mx-auto"
+              class="status-icon status-icon--bounce"
               stroke="currentColor"
               stroke-width="1.5"
               viewBox="0 0 24 24"
@@ -484,23 +475,26 @@
                 d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
               />
             </svg>
-            <Alert color="red" class="mt-5">
-              {display_error(error)}
-            </Alert>
-            <button
-              class="mt-10 select-none"
-              on:click={async () => {
-                window.location.href = window.location.origin;
-              }}
-            >
-              {$t("buttons.start_over")}
-            </button>
+            <div class="mui-alert mui-alert-error">
+              <Typography variant="body2">
+                {display_error(error)}
+              </Typography>
+            </div>
+            <div class="form-actions form-actions--stack">
+              <Button
+                variant="raised"
+                class="mui-button-primary form-button"
+                type="button"
+                onclick={() => {
+                  window.location.href = window.location.origin;
+                }}
+              >
+                <Label>{$t("buttons.start_over")}</Label>
+              </Button>
+            </div>
           </div>
         {/if}
-      </div>
     {/if}
   </div>
 </CenteredLayout>
 
-<style>
-</style>

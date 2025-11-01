@@ -10,101 +10,59 @@
 -->
 
 <script lang="ts">
-  import * as ng from "../../.auth-react/api";
-  import { onMount, tick } from "svelte";
-  import { locale, t } from "svelte-i18n";
-  import { available_languages } from "../lang";
-  import { Language } from "svelte-heros-v2";
+    import * as ng from "../../.auth-react/api";
+    import LogoSimple from "./components/LogoSimple.svelte";
+    import {t} from "svelte-i18n";
+    import Button from '@smui/button';
 
-  export let displayFooter = false;
+    export let displayFooter = false;
 
-  let changingLang = false;
+    let top;
 
-  const changeLang = () => {
-    changingLang = true;
-    scrollToTop();
-  };
+    let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
 
-  let top;
-  function scrollToTop() {
-    top.scrollIntoView();
-  }
+    const displayPopup = async (url, title) => {
+        if (!tauri_platform || tauri_platform == "android" || tauri_platform == "ios") {
+            window.open(url, "_blank").focus();
+        } else {
+            await ng.open_window(url, "viewer", title);
+        }
+    };
 
-  const selectLang = async (lang) => {
-    locale.set(lang);
-    changingLang = false;
-    await tick();
-    scrollToTop();
-  };
+    const displayNextgraphOrg = async () => {
+        await displayPopup("https://nextgraph.org", "NextGraph.org");
+    };
 
-  let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
-
-  const displayPopup = async (url, title) => {
-    if (!tauri_platform || tauri_platform == "android" || tauri_platform == "ios") {
-      window.open(url, "_blank").focus();
-    } else {
-      await ng.open_window(url, "viewer", title);
-    }
-  };
-
-  const displayNextgraphOrg = async () => {
-    await displayPopup("https://nextgraph.org", "NextGraph.org");
-  };
 </script>
 
-<div bind:this={top}>
-  {#if !changingLang}
-    <div class="centered">
-      <slot />
-    </div>
-    {#if displayFooter}
-      <div class="centered">
-        <div class="mb-20 mt-10">
-          <button
-            on:click={changeLang}
-            class="text-primary-700 bg-white bg-none ring-0 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55"
-          >
-            <Language
-              tabindex="-1"
-              class="w-7 h-7 mr-2 transition duration-75  "
-            />Change language <!--note to translator: DO NOT TRANSLATE! it should stay in english always-->
-          </button>
-          <br />
-          <button
-            on:click={displayNextgraphOrg}
-            class="text-primary-700 bg-white bg-none ring-0 hover:bg-primary-100/90 focus:ring-4 focus:ring-primary-100/50 font-medium rounded-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-100/55 mb-2"
-          >
-            {$t("common.about_nextgraph")}
-          </button>
-        </div>
-      </div>
-    {/if}
-  {:else}
-    <div class="centered">
-      <ul class="mb-20 mt-10">
-        {#each Object.entries(available_languages) as lang}
-          <li
-            tabindex="0"
-            role="menuitem"
-            class="flex items-center p-2 text-lg mb-2 font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-            on:keypress={() => selectLang(lang[0])}
-            on:click={() => selectLang(lang[0])}
-          >
-            <span class="mx-3">{lang[1]}</span>
-          </li>
-        {/each}
-      </ul>
+<div class="centered" bind:this={top}>
+  <slot/>
+  {#if displayFooter}
+    <div class="footer">
+      
+      <Button
+          variant="outlined"
+          onclick={displayNextgraphOrg}
+      >
+        <LogoSimple/> &nbsp;{$t("common.about_nextgraph")}
+      </Button>
     </div>
   {/if}
 </div>
 
 <style>
-  .centered {
-    /*max-width: 1280px;*/
-    margin: 0 auto;
-    padding: 0rem;
-    text-align: center;
-    width: fit-content;
-  }
-  
+    .centered {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        text-align: center;
+        align-content: center;
+        justify-content: center;
+        min-height: 100vh
+    }
+
+    .footer {
+        margin-top: calc(var(--mui-spacing) * 5);
+        margin-bottom: calc(var(--mui-spacing) * 10);
+    }
 </style>
