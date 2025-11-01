@@ -511,7 +511,8 @@ impl Db {
                 available_parallelism()?.get().try_into().unwrap(),
             );
             if limit_max_open_files {
-                if let Some(available_fd) = available_file_descriptors()? {
+                if let Some(mut available_fd) = available_file_descriptors()? {
+                    println!("available_fd {} {}", available_fd, available_fd - 48);
                     if available_fd < 96 {
                         rocksdb_options_destroy(options);
                         return Err(io::Error::new(
@@ -523,6 +524,10 @@ impl Db {
                             ),
                         )
                         .into());
+                    }
+                    //FIXME: this is a hack. I don't understand what is going on here: on macos I get a u64::MAX value.
+                    if available_fd > i32::MAX as u64 {
+                        available_fd = 2560;
                     }
                     rocksdb_options_set_max_open_files(
                         options,
@@ -1540,7 +1545,7 @@ fn available_file_descriptors() -> io::Result<Option<libc::rlim_t>> {
         rlim_cur: 0,
         rlim_max: 0,
     };
-    if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut rlimit) } == 0 {
+    if unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &raw mut rlimit) } == 0 {
         Ok(Some(min(rlimit.rlim_cur, rlimit.rlim_max)))
     } else {
         Err(io::Error::last_os_error())

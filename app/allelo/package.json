@@ -1,5 +1,5 @@
 {
-  "name": "allelo-pnm",
+  "name": "@ng-org/allelo-pnm",
   "private": true,
   "version": "0.1.0",
   "type": "module",

@@ -9,6 +9,8 @@ packages:
     - sdk/js/examples/react-ldo
     - app/ui-common
     - app/nextgraph
+    - app/allelo
+    - app/tauri-plugin-contacts-importer
     - engine/broker/auth
     - infra/ngaccount/web
     - infra/ngapp/web

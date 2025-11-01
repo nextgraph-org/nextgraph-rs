@@ -40,7 +40,7 @@
   let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
 
   const displayPopup = async (url, title) => {
-    if (!tauri_platform || tauri_platform == "android") {
+    if (!tauri_platform || tauri_platform == "android" || tauri_platform == "ios") {
       window.open(url, "_blank").focus();
     } else {
       await ng.open_window(url, "viewer", title);

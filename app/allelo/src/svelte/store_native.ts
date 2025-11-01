@@ -36,7 +36,7 @@ export const bootstrap_native = async function() {
         }
     }
     });
-    if (tauri_platform!="android") {
+    if (tauri_platform!="android" && tauri_platform!="ios") {
         let window_api = await import("@tauri-apps/api/window");
         let main = await window_api.Window.getByLabel("main");
         unsub_main_close = await main.onCloseRequested(async (event) => {
