@@ -448,7 +448,7 @@ export const createAppTheme = (mode: PaletteMode) => {
           },
         },
       },
-    },
+    },cssVariables: true
   });
 };
 

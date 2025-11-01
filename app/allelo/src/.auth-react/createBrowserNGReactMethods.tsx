@@ -70,7 +70,7 @@ export function createBrowserNGReactMethods(
               });
             }
           };
-      //if (location.pathname != "/wallet/create") navigate("/wallet/login")
+      //if (!location.pathname.startsWith("/wallet/create") && !location.pathname.startsWith("/i") ) navigate("/wallet/login")
       
     }, []);
       

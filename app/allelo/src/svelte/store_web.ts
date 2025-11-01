@@ -142,33 +142,34 @@ export const bootstrap_web = async function() {
     unsubscribe = active_wallet.subscribe(async (value) => {
     if (value) {
         if (value.wallet) {
-        opened_wallets.update((w) => {
-            w[value.id] = value.wallet;
-            return w;
-        });
-        //await tick();
-        //console.log("posting opened");
-        wallet_channel.postMessage(
-            {
-            cmd: "opened",
-            wallet: value,
-            ng_wallets: localStorage.getItem("ng_wallets"),
-            },
-            location.href
-        );
+            opened_wallets.update((w) => {
+                w[value.id] = value.wallet;
+                return w;
+            });
+            console.warn("USER PRIV_KEY: ",await ng.privkey_to_string(value.wallet.V0.sites[value.wallet.V0.personal_site_id].site_type.Individual[0]));
+            //await tick();
+            //console.log("posting opened");
+            wallet_channel.postMessage(
+                {
+                    cmd: "opened",
+                    wallet: value,
+                    ng_wallets: localStorage.getItem("ng_wallets"),
+                },
+                location.href
+            );
         } else {
-        wallet_channel.postMessage(
-            { cmd: "closed", walletid: value.id },
-            location.href
-        );
-        active_wallet.set(undefined);
-        await ng.wallet_close(value.id);
-        //active_session.set(undefined);
-        opened_wallets.update((w) => {
-            delete w[value.id];
-            return w;
-        });
-        //TODO push("#/wallet/login");
+            wallet_channel.postMessage(
+                { cmd: "closed", walletid: value.id },
+                location.href
+            );
+            active_wallet.set(undefined);
+            await ng.wallet_close(value.id);
+            //active_session.set(undefined);
+            opened_wallets.update((w) => {
+                delete w[value.id];
+                return w;
+            });
+            //TODO push("#/wallet/login");
         }
     } 
     });
