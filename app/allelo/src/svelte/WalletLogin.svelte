@@ -452,6 +452,7 @@
                     tabindex="-1"
                     class="mui-button-primary form-button action-button"
                     type="button"
+                    style="font-size: 2.5rem!important;height: fit-content!important; word-break: break-all;"
                 >
                   <Label>{wallet_entry[1].wallet.V0.content.security_txt}</Label>
                 </Button>
@@ -653,7 +654,6 @@
 
     .wallet-box {
         width: 300px;
-        height: 300px;
         background-color: #fff;
         position: relative;
         cursor: pointer;
