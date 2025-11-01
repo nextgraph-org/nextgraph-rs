@@ -1,4 +1,4 @@
-import { HashRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useParams, Outlet } from 'react-router-dom';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -40,31 +40,52 @@ import WalletLogin from "./svelte/WalletLogin.svelte";
 
 const theme = createAppTheme('light');
 
+const ProtectedRoute =
+  ({ children, hasSession, redirectPath = "/wallet/login" }: {
+    children?: React.ReactNode,
+    hasSession: boolean,
+    redirectPath?: string
+  }) => {
+    if (!hasSession) {
+      return <Navigate to={redirectPath} replace />;
+    }
+    return children ? children : <Outlet />;
+  };
+
 const InviteRedirect = () => {
   const { inviteCode } = useParams();
   return <Navigate to={`/wallet/create?i=${inviteCode}`} replace />;
 };
 
-const AppRoutes = () => {
+const RoutesWithAuth = () => {
   // Convert the Svelte components to React components
   const ReactWalletCreate = useSvelteComponent(WalletCreate);
   const ReactWalletLogin = useSvelteComponent(WalletLogin);
 
-  return <OnboardingProvider>
-    <Router>
-      <BrowserNGLdoProvider>
-        <Routes>
-          <Route path="/onboarding" element={<SocialContractPage />} />
-          <Route path="/onboarding/social-contract" element={<SocialContractAgreementPage />} />
-          <Route path="/onboarding/claim-identity" element={<ClaimIdentityPage />} />
-          <Route path="/onboarding/accept-connection" element={<AcceptConnectionPage />} />
-          <Route path="/join-group" element={<GroupJoinPage />} />
+  const nextGraphAuth = useNextGraphAuth() as unknown as NextGraphAuth | undefined;
+  const { session, login, logout } = nextGraphAuth || {};
 
-          <Route path="/i/:inviteCode" element={<InviteRedirect />} />
+  const isAuthenticated = Boolean(session?.sessionId);
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/onboarding"
+               element={<ProtectedRoute hasSession={isAuthenticated} children={<SocialContractPage />} />} />
+        <Route path="/onboarding/social-contract"
+               element={<ProtectedRoute hasSession={isAuthenticated} children={<SocialContractAgreementPage />} />} />
+        <Route path="/onboarding/claim-identity"
+               element={<ProtectedRoute hasSession={isAuthenticated} children={<ClaimIdentityPage />} />} />
+        <Route path="/onboarding/accept-connection"
+               element={<ProtectedRoute hasSession={isAuthenticated} children={<AcceptConnectionPage />} />} />
+        <Route path="/join-group" element={<ProtectedRoute hasSession={isAuthenticated} children={<GroupJoinPage />} />} />
+
+        <Route path="/i/:inviteCode" element={<InviteRedirect />} />
           <Route path="/wallet/create" element={<ReactWalletCreate />} />
           <Route path="/wallet/login" element={<ReactWalletLogin />} />
 
-          <Route path="/*" element={
+        <Route path="/*" element={
+          <ProtectedRoute hasSession={isAuthenticated} children={
             <DashboardLayout>
               <Routes>
                 <Route path="/onboarding/welcome" element={<WelcomeToVaultPage />} />
@@ -83,17 +104,28 @@ const AppRoutes = () => {
                 <Route path="/account" element={<AccountPage />} />
                 <Route path="/verify-phone/:phone" element={<PhoneVerificationPage />} />
                 <Route path="/invite" element={<InvitationPage />} />
-                </Routes>
-              </DashboardLayout>
+              </Routes>
+            </DashboardLayout>
           } />
-          <Route path="/signup" element={<PersonalDataVaultPage />} />
-          <Route path="/register" element={<PersonalDataVaultPage />} />
-          <Route path="/login" element={<LoginPage />} />
 
-        </Routes>
-      </BrowserNGLdoProvider>
+        } />
+        <Route path="/signup" element={<PersonalDataVaultPage />} />
+        <Route path="/register" element={<PersonalDataVaultPage />} />
+        <Route path="/login" element={<LoginPage />} />
+
+      </Routes>
     </Router>
-  </OnboardingProvider>;
+  );
+};
+
+const AppRoutes = () => {
+  return (
+    <BrowserNGLdoProvider>
+      <OnboardingProvider>
+        <RoutesWithAuth />
+      </OnboardingProvider>
+    </BrowserNGLdoProvider>
+  );
 };
 
 function App() {

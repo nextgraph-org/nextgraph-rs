@@ -214,9 +214,7 @@ const ContactViewPage = () => {
       
       <Paper sx={{p: {xs: 2, md: 3}, mb: 3, backgroundColor: 'background.default'}}>
         <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
-          <Typography variant="h6" sx={{fontWeight: 600}}>
-            Contact Information
-          </Typography>
+          <Box></Box>
           <Button
             variant={"text"}
             startIcon={<Edit size="20"/>}

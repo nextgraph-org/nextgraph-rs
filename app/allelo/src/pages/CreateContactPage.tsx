@@ -1,6 +1,6 @@
 import {ContactInfo, ContactViewHeader } from "@/components/contacts";
 import {UilArrowLeft, UilRedo, UilSave} from "@iconscout/react-unicons";
-import {Box, Button, Divider, Grid, Paper, Typography} from "@mui/material";
+import {Box, Button, Divider, Grid, Paper} from "@mui/material";
 import {useNavigate} from "react-router-dom";
 import {dataService} from "@/services/dataService.ts";
 import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
@@ -80,9 +80,7 @@ const CreateContactPage = () => {
       </Button>
       <Paper sx={{p: {xs: 2, md: 3}, mb: 3, backgroundColor: 'background.default'}}>
         <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
-          <Typography variant="h6" sx={{fontWeight: 600}}>
-            Contact Information
-          </Typography>
+          <Box></Box>
           <Box sx={{display: 'flex', gap: 1}}>
             <Button
               variant={"text"}
