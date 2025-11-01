@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+//import { useNavigate, useLocation } from "react-router-dom";
 import type { FunctionComponent, PropsWithChildren } from "react";
 import { NextGraphAuthContext, useNextGraphAuth } from "./NextGraphAuthContext.js";
 
@@ -20,8 +20,8 @@ export function createBrowserNGReactMethods(
   const BrowserNGLdoProvider: FunctionComponent<PropsWithChildren> = ({
     children,
   }) => {
-    const navigate = useNavigate();
-    const location = useLocation();
+    //const navigate = useNavigate();
+    //const location = useLocation();
     const [session, setSession] = useState<NextGraphConnectedContext>(
       {
         ng: undefined,
@@ -70,7 +70,7 @@ export function createBrowserNGReactMethods(
               });
             }
           };
-      if (location.pathname != "/wallet/create") navigate("/wallet/login")
+      //if (location.pathname != "/wallet/create") navigate("/wallet/login")
       
     }, []);
       
