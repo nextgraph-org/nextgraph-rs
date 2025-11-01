@@ -263,6 +263,36 @@ export const createAppTheme = (mode: PaletteMode) => {
     components: {
       MuiCssBaseline: {
         styleOverrides: {
+          ':root': {
+            // Component-specific CSS variables
+            '--button-border-radius': '48px',
+            '--button-padding': '12px 16px',
+            '--button-font-weight': '500',
+            '--button-font-size': '0.875rem',
+            '--button-line-height': '1.43',
+            '--button-letter-spacing': '-0.01em',
+            '--button-hover-shadow': '0px 2px 4px rgba(0, 0, 0, 0.08)',
+
+            '--card-border-radius': '20px',
+            '--card-shadow': '0px 4px 16px rgba(54, 105, 138, 0.1)',
+            '--card-hover-shadow': '0px 4px 8px rgba(49, 47, 57, 0.25)',
+
+            '--paper-border-radius': '30px',
+
+            '--textfield-border-radius': '48px',
+
+            '--appbar-height': '64px',
+            '--toolbar-height': '64px',
+
+            '--list-item-border-radius': '0px',
+
+            '--tab-indicator-height': '3px',
+            '--tab-indicator-border-radius': '2px',
+            '--tab-min-height': '48px',
+            '--tab-font-size': '0.875rem',
+            '--tab-font-weight': '500',
+            '--tab-selected-font-weight': '600',
+          },
           '*': {
             boxSizing: 'border-box',
           },
@@ -293,12 +323,12 @@ export const createAppTheme = (mode: PaletteMode) => {
       MuiButton: {
         styleOverrides: {
           root: {
-            borderRadius: 48,
-            padding: '12px 16px',
-            fontWeight: 500,
-            fontSize: '0.875rem',
-            lineHeight: 1.43,
-            letterSpacing: '-0.01em',
+            borderRadius: 'var(--button-border-radius)',
+            padding: 'var(--button-padding)',
+            fontWeight: 'var(--button-font-weight)',
+            fontSize: 'var(--button-font-size)',
+            lineHeight: 'var(--button-line-height)',
+            letterSpacing: 'var(--button-letter-spacing)',
             textTransform: 'none',
             boxShadow: 'none',
             '&:hover': {
@@ -310,7 +340,7 @@ export const createAppTheme = (mode: PaletteMode) => {
           },
           contained: {
             '&:hover': {
-              boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.08)',
+              boxShadow: 'var(--button-hover-shadow)',
             },
           },
         },
@@ -318,12 +348,12 @@ export const createAppTheme = (mode: PaletteMode) => {
       MuiCard: {
         styleOverrides: {
           root: {
-            borderRadius: 20,
+            borderRadius: 'var(--card-border-radius)',
             backgroundColor: isDark ? '#1e293b' : colors.neutral[0],
-            boxShadow: '0px 4px 16px rgba(54, 105, 138, 0.1)',
+            boxShadow: 'var(--card-shadow)',
             border: `1px solid ${isDark ? alpha('#e2e8f0', 0.08) : colors.neutral[30]}`,
             '&:hover': {
-              boxShadow: '0px 4px 8px rgba(49, 47, 57, 0.25)',
+              boxShadow: 'var(--card-hover-shadow)',
             },
           },
         },
@@ -331,7 +361,7 @@ export const createAppTheme = (mode: PaletteMode) => {
       MuiPaper: {
         styleOverrides: {
           root: {
-            borderRadius: '30px !important',
+            borderRadius: 'var(--paper-border-radius) !important',
             backgroundColor: isDark ? '#1e293b' : colors.neutral[0],
             border: `1px solid ${isDark ? alpha('#e2e8f0', 0.08) : colors.neutral[30]}`,
           },
@@ -341,7 +371,7 @@ export const createAppTheme = (mode: PaletteMode) => {
         styleOverrides: {
           root: {
             '& .MuiOutlinedInput-root': {
-              borderRadius: 48,
+              borderRadius: 'var(--textfield-border-radius)',
               backgroundColor: isDark ? alpha('#e2e8f0', 0.02) : colors.neutral[5],
               border: `1px solid ${isDark ? alpha('#e2e8f0', 0.12) : colors.neutral[30]}`,
               '&:hover': {
@@ -364,8 +394,8 @@ export const createAppTheme = (mode: PaletteMode) => {
             boxShadow: 'none !important',
             borderRadius: '0 !important',
             border: 'none',
-            height: 64,
-            minHeight: 64,
+            height: 'var(--appbar-height)',
+            minHeight: 'var(--appbar-height)',
             '&::before': {
               borderRadius: '0 !important',
             },
@@ -387,8 +417,8 @@ export const createAppTheme = (mode: PaletteMode) => {
       MuiToolbar: {
         styleOverrides: {
           root: {
-            minHeight: '64px !important',
-            height: '64px !important',
+            minHeight: 'var(--toolbar-height) !important',
+            height: 'var(--toolbar-height) !important',
             paddingTop: '0 !important',
             paddingBottom: '0 !important',
           },
@@ -413,7 +443,7 @@ export const createAppTheme = (mode: PaletteMode) => {
       MuiListItem: {
         styleOverrides: {
           root: {
-            borderRadius: 0,
+            borderRadius: 'var(--list-item-border-radius)',
             margin: 0,
             '&:hover': {
               backgroundColor: isDark ? alpha('#e2e8f0', 0.04) : alpha(colors.neutral[100], 0.04),
@@ -430,8 +460,8 @@ export const createAppTheme = (mode: PaletteMode) => {
       MuiTabs: {
         styleOverrides: {
           indicator: {
-            borderRadius: 2,
-            height: 3,
+            borderRadius: 'var(--tab-indicator-border-radius)',
+            height: 'var(--tab-indicator-height)',
           },
         },
       },
@@ -439,16 +469,17 @@ export const createAppTheme = (mode: PaletteMode) => {
         styleOverrides: {
           root: {
             textTransform: 'none',
-            fontWeight: 500,
-            fontSize: '0.875rem',
-            minHeight: 48,
+            fontWeight: 'var(--tab-font-weight)',
+            fontSize: 'var(--tab-font-size)',
+            minHeight: 'var(--tab-min-height)',
             '&.Mui-selected': {
-              fontWeight: 600,
+              fontWeight: 'var(--tab-selected-font-weight)',
             },
           },
         },
       },
-    },cssVariables: true
+    },
+    cssVariables: true
   });
 };
 

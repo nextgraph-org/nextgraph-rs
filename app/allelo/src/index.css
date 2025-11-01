@@ -1,17 +1,22 @@
 @import "svelte-material-ui/bare.css";
 
-.mdc-button {
+:root {
     --mdc-theme-primary: var(--mui-palette-primary-main);
     --mdc-theme-on-primary: var(--mui-palette-primary-contrastText);
     --mdc-theme-secondary: var(--mui-palette-secondary-main);
     --mdc-theme-on-secondary: var(--mui-palette-secondary-contrastText);
-
     font-family: var(--mui-typography-fontFamily) !important;
-    font-weight: var(--mui-typography-button-fontWeight) !important;
-    font-size: var(--mui-typography-button-fontSize) !important;
-    line-height: var(--mui-typography-button-lineHeight) !important;
+}
+
+
+.mdc-button {
+    font-weight: var(--button-font-weight) !important;
+    font-size: var(--button-font-size) !important;
+    line-height: var(--button-line-height) !important;
+    letter-spacing: var(--button-letter-spacing) !important;
     text-transform: var(--mui-typography-button-textTransform) !important;
-    border-radius: var(--mui-shape-borderRadius) !important;
+    border-radius: var(--button-border-radius) !important;
+    padding: var(--button-padding) !important;
 
     /* Use MUI's border style */
     border: 2px solid var(--mui-palette-primary-main) !important;
@@ -21,7 +26,7 @@
 /* Unelevated (contained/filled) button hover */
 .mdc-button--unelevated:hover {
     background-color: var(--mui-palette-primary-dark) !important;
-    box-shadow: none !important;
+    box-shadow: var(--button-hover-shadow) !important;
 }
 
 /* Outlined button hover */
@@ -108,8 +113,8 @@ h1 {
 
 .surface-section {
     background-color: var(--mui-palette-background-paper);
-    border-radius: var(--mui-shape-borderRadius);
-    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+    border-radius: var(--card-border-radius);
+    box-shadow: var(--card-shadow);
     padding: calc(var(--mui-spacing) * 3);
     display: flex;
     flex-direction: column;
@@ -168,7 +173,7 @@ h1 {
 .mdc-text-field--outlined {
     border: 1px solid #d8dfe3 !important;
     background-color: #f8fafb;
-    border-radius: 48px;
+    border-radius: var(--textfield-border-radius);
 }
 
 .shaped-outlined.mdc-text-field--outlined .mdc-notched-outline__leading {
@@ -288,7 +293,6 @@ h1 {
 }
 
 .mui-alert-error {
-    border-color: var(--mui-palette-error-main);
     background-color: var(--mui-palette-error-light);
     color: var(--mui-palette-error-dark);
 }
