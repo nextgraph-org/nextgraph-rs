@@ -32,6 +32,7 @@
     const displayNextgraphOrg = async () => {
         await displayPopup("https://nextgraph.org", "NextGraph.org");
     };
+
 </script>
 
 <div class="centered" bind:this={top}>

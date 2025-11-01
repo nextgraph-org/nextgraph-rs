@@ -1,9 +1,9 @@
 import {useState, useEffect, useCallback} from 'react';
-import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
+import {useSaveContacts} from "@/hooks/contacts/useSaveContacts";
 import {useNavigate} from "react-router-dom";
-import {ImportSourceConfig} from "@/types/importSource.ts";
-import {ImportSourceRegistry} from "@/utils/importSourceRegistry/importSourceRegistry.tsx";
-import {Contact} from "@/types/contact.ts";
+import {ImportSourceConfig} from "@/types/importSource";
+import {ImportSourceRegistry} from "@/importers/importSourceRegistry";
+import {Contact} from "@/types/contact";
 
 export interface UseImportContactsReturn {
   importSources: ImportSourceConfig[];

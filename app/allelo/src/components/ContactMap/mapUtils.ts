@@ -1,6 +1,7 @@
 import L from 'leaflet';
 import type { Contact } from '@/types/contact';
 import { resolveFrom } from '@/utils/socialContact/contactUtils.ts';
+import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 
 export const DEFAULT_CENTER: [number, number] = [39.8283, -98.5795];
 export const DEFAULT_ZOOM = 4;
@@ -8,7 +9,9 @@ export const DEFAULT_ZOOM = 4;
 export const createCustomIcon = (contact: Contact): L.DivIcon => {
   const name = resolveFrom(contact, 'name');
   const photo = resolveFrom(contact, 'photo');
-  const initials = (name?.value || 'Unknown')
+
+  const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
+  const initials = (displayName || 'Unknown')
     .split(' ')
     .map((n: string) => n[0])
     .join('')

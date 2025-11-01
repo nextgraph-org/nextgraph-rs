@@ -46,7 +46,7 @@ export function mapGreenCheckClaimToSocialContact(claim: GreenCheckClaim): Parti
     }
 
     if (claim.claimData.url) {
-      const accountType = claim.provider === "linkedin" ? "linkedIn" : "profile";
+      const accountType = claim.provider === "linkedin" ? "linkedin" : "profile";
       const url: Url = {
         value: claim.claimData.url,
         type2: {"@id": accountType},

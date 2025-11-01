@@ -19,15 +19,15 @@ import {
   useTheme
 } from '@mui/material';
 import {
-  Security,
-  Favorite,
-  Psychology,
-  AccountTree,
-  TrendingUp,
-  InfoOutlined,
-  Close,
-  CheckCircle
-} from '@mui/icons-material';
+  UilShield,
+  UilHeart,
+  UilBrain,
+  UilSitemap,
+  UilChartLine,
+  UilInfoCircle,
+  UilTimes,
+  UilCheckCircle
+} from '@iconscout/react-unicons';
 import { dataService } from '@/services/dataService';
 import type { Group } from '@/types/group';
 
@@ -127,27 +127,27 @@ const SocialContractPage = () => {
 
   const socialContractPrinciples = [
     {
-      icon: <Psychology />,
+      icon: <UilBrain size="24" />,
       title: 'Be Your Authentic Self',
       description: 'Share your genuine thoughts, experiences, and perspectives. Authenticity builds trust and meaningful connections.'
     },
     {
-      icon: <Favorite />,
+      icon: <UilHeart size="24" />,
       title: 'Act with Respect & Kindness',
       description: 'Treat all members with dignity and respect. Disagreements are welcome, but personal attacks are not.'
     },
     {
-      icon: <Security />,
+      icon: <UilShield size="24" />,
       title: 'Maintain Confidentiality',
       description: 'What is shared here, stays here. Respect the privacy of discussions and personal information shared by others.'
     },
     {
-      icon: <TrendingUp />,
+      icon: <UilChartLine size="24" />,
       title: 'Contribute Meaningfully',
       description: 'Share valuable insights, ask thoughtful questions, and help others grow. Quality over quantity.'
     },
     {
-      icon: <AccountTree />,
+      icon: <UilSitemap size="24" />,
       title: 'Build Genuine Relationships',
       description: 'Focus on creating real connections, not just expanding your network numbers. Relationships take time and effort.'
     }
@@ -190,7 +190,7 @@ const SocialContractPage = () => {
         {/* Core Principles */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-            <CheckCircle color="primary" />
+            <UilCheckCircle size="24" color="inherit" />
             Our Core Principles
           </Typography>
           
@@ -255,7 +255,7 @@ const SocialContractPage = () => {
           <Button
             variant="outlined"
             size="large"
-            startIcon={<InfoOutlined />}
+            startIcon={<UilInfoCircle size="20" />}
             onClick={handleTellMeMore}
             sx={{ 
               px: 3, 
@@ -270,7 +270,7 @@ const SocialContractPage = () => {
           <Button
             variant="text"
             size="large"
-            startIcon={<Close />}
+            startIcon={<UilTimes size="20" />}
             onClick={handleDontLike}
             sx={{ 
               px: 3, 

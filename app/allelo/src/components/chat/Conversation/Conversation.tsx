@@ -9,9 +9,16 @@ import {
   useTheme,
   Avatar
 } from '@mui/material';
-import {Send, AttachFile, EmojiEmotions, ArrowBack, Group, Circle, MoreVert} from '@mui/icons-material';
+import {
+  UilMessage as Send,
+  UilPaperclip as AttachFile,
+  UilSmile as EmojiEmotions,
+  UilArrowLeft as ArrowBack,
+  UilUsersAlt as Group,
+  UilCircle as Circle,
+  UilEllipsisV as MoreVert
+} from '@iconscout/react-unicons';
 import {MessagesProps} from "@/components/chat/Conversation/types";
-import {getContactPhotoStyles} from '@/utils/photoStyles';
 
 export const Conversation = forwardRef<HTMLDivElement, MessagesProps>(
   ({
@@ -37,7 +44,8 @@ export const Conversation = forwardRef<HTMLDivElement, MessagesProps>(
         display: 'flex',
         alignItems: 'center',
         p: 2,
-        borderBottom: `1px solid #74796D24`,
+        borderBottom: 1,
+        borderColor: 'divider',
         backgroundColor: 'background.default',
         flexShrink: 0
       }}>
@@ -58,8 +66,8 @@ export const Conversation = forwardRef<HTMLDivElement, MessagesProps>(
             mr: 2,
             backgroundColor: isGroup ? 'primary.main' : 'secondary.main',
             backgroundImage: avatar ? `url(${avatar})` : 'none',
-            backgroundSize: avatar && chatName ? getContactPhotoStyles(chatName).backgroundSize : 'cover',
-            backgroundPosition: avatar && chatName ? getContactPhotoStyles(chatName).backgroundPosition : 'center',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
           }}
         >
           {!avatar && (isGroup ? <Group/> : chatName?.charAt(0))}
@@ -99,7 +107,8 @@ export const Conversation = forwardRef<HTMLDivElement, MessagesProps>(
     const renderMessageInput = useCallback(() => (<Box sx={{
       px: 2,
       py: 1,
-      borderTop: `1px solid #74796D24`,
+      borderTop: 1,
+      borderColor: 'divider',
       backgroundColor: 'background.default',
       flexShrink: 0,
     }}>
@@ -108,7 +117,8 @@ export const Conversation = forwardRef<HTMLDivElement, MessagesProps>(
         alignItems: 'center',
         px: 2,
         py: 1,
-        border: `1px solid #74796D24`
+        border: 1,
+        borderColor: 'divider'
       }}>
         <IconButton size="small">
           <AttachFile/>
@@ -208,7 +218,7 @@ export const Conversation = forwardRef<HTMLDivElement, MessagesProps>(
               background: 'transparent',
             },
             '&::-webkit-scrollbar-thumb': {
-              background: '#c1c1c1',
+              background: theme.palette.divider,
               borderRadius: '4px',
             },
           }}>
@@ -234,18 +244,18 @@ export const Conversation = forwardRef<HTMLDivElement, MessagesProps>(
                     display: 'flex',
                     justifyContent: message.isOwn ? 'flex-end' : 'flex-start',
                     mb: 1,
+                    px: 2,
                     ...(index === 0 && {mt: 'auto'}) // Push first message to bottom
                   }}
                 >
                   <Box
                     sx={{
                       maxWidth: '70%',
-                      backgroundColor: message.isOwn ? 'background.default' : '#F7F3EA',
-                      color: 'text.primary',
-                      borderRadius: 2,
+                      backgroundColor: message.isOwn ? '#3C60F4' : '#e9f0f8',
+                      color: message.isOwn ? '#FFFFFF' : 'text.primary',
+                      borderRadius: '12px',
                       p: 1.5,
                       position: 'relative',
-                      border: message.isOwn ? `1px solid #74796D24` : 'none'
                     }}
                   >
                     {/* Show sender name in group chats for non-own messages */}
@@ -262,13 +272,14 @@ export const Conversation = forwardRef<HTMLDivElement, MessagesProps>(
                         {message.sender}
                       </Typography>
                     )}
-                    <Typography variant="body1">
+                    <Typography variant="body1" sx={{color: message.isOwn ? '#fff' : 'text.secondary',
+                        }}>
                       {message.text}
                     </Typography>
                     <Typography
                       variant="caption"
                       sx={{
-                        color: 'text.secondary',
+                        color: message.isOwn ? 'rgba(255, 255, 255, 0.7)' : 'text.secondary',
                         mt: 0.5,
                         display: 'block'
                       }}

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "remote-tag-capability",
-  "windows": ["registration"],
+  "windows": ["registration","main"],
   "remote": {
     "urls": [
         "https://account.nextgraph.eu",
@@ -15,6 +15,7 @@
     "core:event:default",
     "core:window:default",
     "core:window:allow-close",
-    "core:window:allow-destroy"
+    "core:window:allow-destroy",
+    "core:window:allow-get-all-windows"
   ]
 }

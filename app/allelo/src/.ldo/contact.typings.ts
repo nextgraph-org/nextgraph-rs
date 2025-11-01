@@ -526,7 +526,7 @@ export interface Url {
    */
   type2?:
     | {
-        "@id": "homePage";
+        "@id": "homepage";
       }
     | {
         "@id": "sourceCode";
@@ -550,7 +550,7 @@ export interface Url {
         "@id": "appInstall";
       }
     | {
-        "@id": "linkedIn";
+        "@id": "linkedin";
       }
     | {
         "@id": "ftp";
@@ -1584,7 +1584,9 @@ export interface Language {
   /**
    * Language name as IRI
    */
-  valueIRI: string;
+  valueIRI: {
+    "@id": string;
+  };
   /**
    * Language proficiency
    */

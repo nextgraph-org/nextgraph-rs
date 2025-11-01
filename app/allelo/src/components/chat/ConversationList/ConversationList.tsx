@@ -14,7 +14,6 @@ import {
 import {forwardRef, useState} from "react";
 import {ConversationListProps} from "./types";
 import {Group, Search} from "@mui/icons-material";
-import {getContactPhotoStyles} from "@/utils/photoStyles";
 
 export const ConversationList = forwardRef<HTMLDivElement, ConversationListProps>(
   ({conversations, selectConversation, selectedConversation}, ref) => {
@@ -72,7 +71,8 @@ export const ConversationList = forwardRef<HTMLDivElement, ConversationListProps
           px: 2,
           py: 1,
           backgroundColor: 'background.default',
-          border: `1px solid #74796D24`
+          border: 1,
+          borderColor: 'divider'
         }}>
           <Search sx={{color: 'text.secondary', mr: 1}}/>
           <InputBase
@@ -170,8 +170,8 @@ export const ConversationList = forwardRef<HTMLDivElement, ConversationListProps
                       height: 48,
                       backgroundColor: conversation.isGroup ? 'primary.main' : 'secondary.main',
                       backgroundImage: conversation.avatar ? `url(${conversation.avatar})` : 'none',
-                      backgroundSize: conversation.avatar ? getContactPhotoStyles(conversation.name).backgroundSize : 'cover',
-                      backgroundPosition: conversation.avatar ? getContactPhotoStyles(conversation.name).backgroundPosition : 'center',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
                     }}
                   >
                     {!conversation.avatar && (conversation.isGroup ? <Group/> : conversation.name.charAt(0))}

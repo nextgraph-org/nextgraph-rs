@@ -10,7 +10,10 @@ import {
   Box,
   LinearProgress
 } from '@mui/material';
-import {AutoFixHigh, CheckCircle} from '@mui/icons-material';
+import {
+  UilWrench as AutoFixHigh,
+  UilCheckCircle as CheckCircle
+} from '@iconscout/react-unicons';
 
 interface MergeDialogsProps {
   isMergeDialogOpen: boolean;

@@ -1,10 +1,10 @@
 import { forwardRef } from 'react';
 import { Box, Tabs, Tab } from '@mui/material';
-import { 
-  Dashboard, 
-  Chat, 
-  Description, 
-} from '@mui/icons-material';
+import {
+  UilDashboard as Dashboard,
+  UilCommentAltDots as Chat,
+  UilFileAlt as Description,
+} from '@iconscout/react-unicons';
 import type { GroupTabsProps } from './types';
 
 export const GroupTabs = forwardRef<HTMLDivElement, GroupTabsProps>(

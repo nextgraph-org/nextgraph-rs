@@ -15,7 +15,7 @@ import {
   Divider,
 } from '@mui/material';
 import { DEFAULT_PROFILE_CARDS } from '@/types/notification';
-import * as Icons from '@mui/icons-material';
+import { UilUser } from '@iconscout/react-unicons';
 
 interface RCardSelectionModalProps {
   open: boolean;
@@ -70,9 +70,9 @@ export const RCardSelectionModal = ({
 
   const allSelected = selectedCards.length === DEFAULT_PROFILE_CARDS.length;
 
-  const getIcon = (iconName: string) => {
-    const Icon = (Icons as any)[iconName];
-    return Icon ? <Icon /> : <Icons.PersonOutline />;
+  const getIcon = () => {
+    // Using default icon for all profile cards
+    return <UilUser size="20" />;
   };
 
   return (
@@ -132,7 +132,7 @@ export const RCardSelectionModal = ({
                           height: 36,
                         }}
                       >
-                        {getIcon(card.icon || 'PersonOutline')}
+                        {getIcon()}
                       </Avatar>
                       <Box>
                         <Typography variant="body1" fontWeight={500}>
@@ -170,7 +170,7 @@ export const RCardSelectionModal = ({
                             height: 36,
                           }}
                         >
-                          {getIcon(card.icon || 'PersonOutline')}
+                          {getIcon()}
                         </Avatar>
                         <Box>
                           <Typography variant="body1" fontWeight={500}>

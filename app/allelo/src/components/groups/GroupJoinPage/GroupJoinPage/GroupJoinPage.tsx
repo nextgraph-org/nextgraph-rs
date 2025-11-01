@@ -12,8 +12,8 @@ import {
   useTheme
 } from '@mui/material';
 import {
-  ArrowBack,
-} from '@mui/icons-material';
+  UilArrowLeft as ArrowBack,
+} from '@iconscout/react-unicons';
 import { dataService } from '@/services/dataService';
 import type { Group } from '@/types/group';
 import { JoinProcess } from '../JoinProcess';

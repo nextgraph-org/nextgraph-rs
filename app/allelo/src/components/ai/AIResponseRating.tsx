@@ -11,12 +11,12 @@ import {
   Paper,
 } from '@mui/material';
 import {
-  ThumbUp,
-  ThumbDown,
-  Feedback,
-  Send,
-  ExpandLess,
-} from '@mui/icons-material';
+  UilThumbsUp as ThumbUp,
+  UilThumbsDown as ThumbDown,
+  UilCommentAltMessage as Feedback,
+  UilMessage as Send,
+  UilAngleUp as ExpandLess,
+} from '@iconscout/react-unicons';
 
 interface AIResponseRatingProps {
   responseId: string;

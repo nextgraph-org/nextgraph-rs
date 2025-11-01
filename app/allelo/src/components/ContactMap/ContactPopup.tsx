@@ -1,14 +1,21 @@
-import { Box, Typography, Avatar, IconButton } from '@mui/material';
-import { Person, Phone, Message } from '@mui/icons-material';
-import type { ContactPopupProps } from './types';
-import { resolveFrom } from '@/utils/socialContact/contactUtils.ts';
+import {Box, Typography, Avatar, IconButton} from '@mui/material';
+import {
+  UilUser as Person,
+  UilPhone as Phone,
+  UilEnvelope as Message
+} from '@iconscout/react-unicons';
+import type {ContactPopupProps} from './types';
+import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
+import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 
-export const ContactPopup = ({ contact, onContactClick }: ContactPopupProps) => {
+export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
   const phoneNumber = resolveFrom(contact, 'phoneNumber');
   const name = resolveFrom(contact, 'name');
   const photo = resolveFrom(contact, 'photo');
   const organization = resolveFrom(contact, 'organization');
-  
+
+  const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
+
   const handleCall = () => {
     if (phoneNumber?.value) {
       window.location.href = `tel:${phoneNumber.value}`;
@@ -16,19 +23,19 @@ export const ContactPopup = ({ contact, onContactClick }: ContactPopupProps) => 
   };
 
   const handleMessage = () => {
-    console.log('Message contact:', name?.value, 'ID:', contact['@id']);
+    console.log('Message contact:', displayName, 'ID:', contact['@id']);
     // Navigate to messages with contact ID
     window.location.href = `/messages?contactId=${contact['@id']}`;
   };
 
   return (
-    <Box sx={{ 
+    <Box sx={{
       width: 360,
       padding: '12px 12px 16px 12px',
       backgroundColor: '#fff'
     }}>
       {/* Header with photo and info */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2 }}>
+      <Box sx={{display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2}}>
         <Avatar
           src={photo?.value}
           sx={{
@@ -38,21 +45,21 @@ export const ContactPopup = ({ contact, onContactClick }: ContactPopupProps) => 
             borderRadius: 0.5 // Small rounded corners on photo
           }}
         >
-          {name?.value?.charAt(0) || ''}
+          {displayName?.charAt(0) || ''}
         </Avatar>
-        
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+
+        <Box sx={{flex: 1, minWidth: 0}}>
           <Typography variant="h6" sx={{
             fontWeight: 600,
             mb: 0.5,
             lineHeight: 1.2
           }}>
-            {name?.value || ''}
+            {displayName}
           </Typography>
-          
+
           {(organization?.position || organization?.value) && (
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               sx={{
                 color: 'text.secondary',
                 margin: '0.5em 0',
@@ -62,7 +69,7 @@ export const ContactPopup = ({ contact, onContactClick }: ContactPopupProps) => 
               {organization?.position}{organization?.value && ` at ${organization.value}`}
             </Typography>
           )}
-          
+
           <Box sx={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -83,36 +90,36 @@ export const ContactPopup = ({ contact, onContactClick }: ContactPopupProps) => 
       </Box>
 
       {/* HR line separator */}
-      <Box sx={{ 
+      <Box sx={{
         height: '1px',
         backgroundColor: 'rgba(0,0,0,0.1)',
         mb: 4,
         mx: -1
-      }} />
+      }}/>
 
       {/* Action buttons - no labels, dark green, more spaced out */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
-        <IconButton 
+      <Box sx={{display: 'flex', justifyContent: 'center', gap: 4}}>
+        <IconButton
           onClick={() => onContactClick?.(contact)}
-          sx={{ 
+          sx={{
             bgcolor: '#2e7d32', // Dark green
             color: 'white',
-            width: 44, 
+            width: 44,
             height: 44,
-            '&:hover': { bgcolor: '#1b5e20' }
+            '&:hover': {bgcolor: '#1b5e20'}
           }}
         >
-          <Person fontSize="small" />
+          <Person fontSize="small"/>
         </IconButton>
-        
-        <IconButton 
+
+        <IconButton
           onClick={handleCall}
-          sx={{ 
+          sx={{
             bgcolor: '#2e7d32', // Dark green
             color: 'white',
-            width: 44, 
+            width: 44,
             height: 44,
-            '&:hover': { bgcolor: '#1b5e20' },
+            '&:hover': {bgcolor: '#1b5e20'},
             ...((!phoneNumber?.value) && {
               opacity: 0.5,
               cursor: 'not-allowed'
@@ -120,20 +127,20 @@ export const ContactPopup = ({ contact, onContactClick }: ContactPopupProps) => 
           }}
           disabled={!phoneNumber?.value}
         >
-          <Phone fontSize="small" />
+          <Phone fontSize="small"/>
         </IconButton>
-        
-        <IconButton 
+
+        <IconButton
           onClick={handleMessage}
-          sx={{ 
+          sx={{
             bgcolor: '#2e7d32', // Dark green
             color: 'white',
-            width: 44, 
+            width: 44,
             height: 44,
-            '&:hover': { bgcolor: '#1b5e20' }
+            '&:hover': {bgcolor: '#1b5e20'}
           }}
         >
-          <Message fontSize="small" />
+          <Message fontSize="small"/>
         </IconButton>
       </Box>
     </Box>

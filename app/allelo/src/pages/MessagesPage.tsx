@@ -1,4 +1,4 @@
-import {Add} from '@mui/icons-material';
+import {UilPlus} from '@iconscout/react-unicons';
 import {Box, IconButton, Typography} from '@mui/material';
 import {ConversationList} from "@/components/chat/ConversationList/ConversationList";
 import {Conversation} from "@/components/chat/Conversation";
@@ -10,7 +10,7 @@ import {useIsMobile} from "@/hooks/useIsMobile";
 const MessagesPage = () => {
   const {setOverflow, setShowHeader} = useDashboardStore();
   const conversations = useMemo(() => getConversations(), []);
-  const [selectedConversation, setSelectedConversation] = useState<string>('1');
+  const [selectedConversation, setSelectedConversation] = useState<string>('');
   const selectedConv = conversations.find(c => c.id === selectedConversation);
   const messages = getMessagesForConversation(selectedConversation);
   const [messageText, setMessageText] = useState('');
@@ -41,11 +41,11 @@ const MessagesPage = () => {
   };
 
   return (
-    <Box sx={{p: {xs: 0, md: 2}, height: '100%', minHeight: 0}}>
+    <Box sx={{ height: '100%', minHeight: 0}}>
       <Box sx={{
         justifyContent: 'space-between',
         alignItems: 'center',
-        p: {xs: '10px 10px 0 10px', md: '0 !important'}, // Remove desktop padding
+        p: {xs: '10px 10px 0 10px', md: ' 0 !important'}, // Remove desktop padding
         mb: {xs: 1, md: 1},
         width: '100%',
         overflow: 'hidden',
@@ -70,7 +70,7 @@ const MessagesPage = () => {
           </Typography>
         </Box>
         <IconButton size="large" sx={{color: 'primary.main'}}>
-          <Add/>
+          <UilPlus size="24"/>
         </IconButton>
       </Box>
       <Box

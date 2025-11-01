@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react';
-import { 
+import { useState, useEffect, useCallback } from 'react';
+import {
   Box, Container, Typography, TextField, InputAdornment, IconButton, Grid,
   Card, CardContent, Paper, Button, Switch, FormControlLabel, Chip, Avatar,
   Badge, List, ListItem, ListItemAvatar, ListItemText, Divider, Tooltip,
   Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions,
-  Checkbox, ListItemIcon, ListItemButton, alpha
+  Checkbox, ListItemIcon, ListItemButton, alpha, useTheme
 } from '@mui/material';
-import { 
-  AutoAwesome, Search, ArrowUpward, Add, Message, Group, PersonAdd,
-  Notifications, AccessTime, People, ArrowForward, Stream, Description,
-  Cake, TrendingUp, EmojiEvents, Handshake, Close, DragIndicator,
-  PostAdd, LocalOffer, ShoppingCart, Send, Settings
-} from '@mui/icons-material';
+import {
+  UilBolt, UilSearch, UilArrowUp, UilPlus, UilEnvelope, UilUsersAlt, UilUserPlus,
+  UilBell, UilClock, UilUser, UilArrowRight, UilRss, UilFileAlt,
+  UilGift, UilChartLine, UilTrophy, UilUsersAlt as UilHandshake, UilTimes, UilDraggabledots,
+  UilFileEditAlt, UilTag, UilShoppingCart, UilMessage, UilSetting
+} from '@iconscout/react-unicons';
 
 const HomePage = () => {
+  const theme = useTheme();
   const [query, setQuery] = useState('');
   const [aiEnabled, setAiEnabled] = useState(true);
   const [response, setResponse] = useState<string | null>(null);
@@ -56,6 +57,15 @@ const HomePage = () => {
 
   const [availableWidgets, setAvailableWidgets] = useState(defaultWidgets);
 
+  // Save widget configuration to localStorage
+  const saveWidgetsToStorage = useCallback((widgets: typeof availableWidgets) => {
+    try {
+      localStorage.setItem('nao-homepage-widgets', JSON.stringify(widgets));
+    } catch (error) {
+      console.warn('Failed to save widgets to localStorage:', error);
+    }
+  }, []);
+
   // Load view mode and column layout preferences from localStorage
   useEffect(() => {
     const savedMode = localStorage.getItem('nao-homepage-mode') as 'widgets' | 'zen' | null;
@@ -97,16 +107,8 @@ const HomePage = () => {
         console.warn('Failed to parse saved widgets, using defaults:', error);
       }
     }
-  }, []);
-
-  // Save widget configuration to localStorage
-  const saveWidgetsToStorage = (widgets: typeof availableWidgets) => {
-    try {
-      localStorage.setItem('nao-homepage-widgets', JSON.stringify(widgets));
-    } catch (error) {
-      console.warn('Failed to save widgets to localStorage:', error);
-    }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveWidgetsToStorage]);
 
   // Save view mode preference to localStorage
   const handleModeToggle = () => {
@@ -316,7 +318,7 @@ const HomePage = () => {
             borderRadius: 2,
             opacity: (showDropBefore && position === 'before') || (showDropAfter && position === 'after') ? 1 : 0,
             transition: 'opacity 0.2s ease',
-            boxShadow: (showDropBefore && position === 'before') || (showDropAfter && position === 'after') ? '0 0 8px rgba(25, 118, 210, 0.5)' : 'none'
+            boxShadow: (showDropBefore && position === 'before') || (showDropAfter && position === 'after') ? `0 0 8px ${alpha(theme.palette.primary.main, 0.5)}` : 'none'
           }}
         />
       </Box>
@@ -345,7 +347,7 @@ const HomePage = () => {
             }}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <DragIndicator fontSize="small" />
+            <UilDraggabledots size="20" />
           </IconButton>
         </Tooltip>
         <Tooltip title="Remove widget">
@@ -356,7 +358,7 @@ const HomePage = () => {
               toggleWidget(widgetConfig.id);
             }}
           >
-            <Close fontSize="small" />
+            <UilTimes size="20" />
           </IconButton>
         </Tooltip>
       </Box>
@@ -383,9 +385,9 @@ const HomePage = () => {
                     sx={{ mr: 2 }}
                   />
                   {aiEnabled ? (
-                    <AutoAwesome sx={{ mr: 1, color: 'primary.main' }} />
+                    <UilBolt size="24" style={{ marginRight: '8px', color: 'inherit' }} />
                   ) : (
-                    <Search sx={{ mr: 1, color: 'primary.main' }} />
+                    <UilSearch size="24" style={{ marginRight: '8px', color: 'inherit' }} />
                   )}
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     {aiEnabled ? 'AI Assistant' : 'Smart Command Bar'}
@@ -466,7 +468,7 @@ const HomePage = () => {
                               height: 32,
                             }}
                           >
-                            <ArrowUpward sx={{ fontSize: 16 }} />
+                            <UilArrowUp size="16" />
                           </IconButton>
                         </InputAdornment>
                       ),
@@ -488,7 +490,7 @@ const HomePage = () => {
               {widgetControls}
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <People sx={{ mr: 1, color: 'primary.main' }} />
+                  <UilUser size="24" style={{ marginRight: '8px', color: 'inherit' }} />
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Network Summary
                   </Typography>
@@ -508,8 +510,8 @@ const HomePage = () => {
                     onClick={() => console.log('Navigate to vouches & praises')}>
                     <Typography variant="body2" color="text.secondary">Vouches & Praises</Typography>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Chip label="12" size="small" icon={<EmojiEvents sx={{ fontSize: '16px !important' }} />} />
-                      <Chip label="8" size="small" icon={<Handshake sx={{ fontSize: '16px !important' }} />} />
+                      <Chip label="12" size="small" icon={<UilTrophy size="16" />} />
+                      <Chip label="8" size="small" icon={<UilHandshake size="16" />} />
                     </Box>
                   </Box>
                 </Box>
@@ -537,45 +539,45 @@ const HomePage = () => {
                   flexWrap: isInSidebar ? 'nowrap' : 'wrap',
                   gap: 1.5 
                 }}>
-                  <Button 
-                    variant="contained" 
-                    startIcon={<Add />} 
+                  <Button
+                    variant="contained"
+                    startIcon={<UilPlus size="20" />}
                     fullWidth={isInSidebar}
                     sx={!isInSidebar ? { flex: '1 1 calc(50% - 6px)' } : {}}
                     onClick={() => setCreatePostDialog(true)}
                   >
                     Create Post
                   </Button>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<Message />} 
+                  <Button
+                    variant="outlined"
+                    startIcon={<UilEnvelope size="20" />}
                     fullWidth={isInSidebar}
                     sx={!isInSidebar ? { flex: '1 1 calc(50% - 6px)' } : {}}
                     onClick={() => setSendMessageDialog(true)}
                   >
                     Send Message
                   </Button>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<PersonAdd />} 
+                  <Button
+                    variant="outlined"
+                    startIcon={<UilUserPlus size="20" />}
                     fullWidth={isInSidebar}
                     sx={!isInSidebar ? { flex: '1 1 calc(50% - 6px)' } : {}}
                     onClick={handleAddContact}
                   >
                     Add Contact
                   </Button>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<Group />} 
+                  <Button
+                    variant="outlined"
+                    startIcon={<UilUsersAlt size="20" />}
                     fullWidth={isInSidebar}
                     sx={!isInSidebar ? { flex: '1 1 calc(50% - 6px)' } : {}}
                     onClick={handleCreateGroup}
                   >
                     Create Group
                   </Button>
-                  <Button 
-                    variant="outlined" 
-                    startIcon={<Description />} 
+                  <Button
+                    variant="outlined"
+                    startIcon={<UilFileAlt size="20" />}
                     fullWidth={isInSidebar}
                     sx={!isInSidebar ? { flex: '1 1 calc(50% - 6px)' } : {}}
                     onClick={handleCreateDoc}
@@ -599,7 +601,7 @@ const HomePage = () => {
               {widgetControls}
               <CardContent sx={{ display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Stream sx={{ mr: 1, color: 'primary.main' }} />
+                  <UilRss size="24" style={{ marginRight: '8px', color: 'inherit' }} />
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     My Stream
                   </Typography>
@@ -685,7 +687,7 @@ const HomePage = () => {
                   variant="outlined"
                   size="small"
                   fullWidth
-                  endIcon={<ArrowForward />}
+                  endIcon={<UilArrowRight size="20" />}
                   sx={{ 
                     mt: 2,
                     cursor: 'pointer',
@@ -710,7 +712,7 @@ const HomePage = () => {
               {widgetControls}
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <AccessTime sx={{ mr: 1, color: 'primary.main' }} />
+                  <UilClock size="24" style={{ marginRight: '8px', color: 'inherit' }} />
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Recent Activity
                   </Typography>
@@ -752,7 +754,7 @@ const HomePage = () => {
                   >
                     <ListItemAvatar>
                       <Badge badgeContent={1} color="error">
-                        <Notifications sx={{ color: 'primary.main', fontSize: 32 }} />
+                        <UilBell size="32" style={{ color: 'inherit' }} />
                       </Badge>
                     </ListItemAvatar>
                     <ListItemText
@@ -775,7 +777,7 @@ const HomePage = () => {
                     onClick={() => console.log('Navigate to matchmaking suggestion')}
                   >
                     <ListItemAvatar>
-                      <TrendingUp sx={{ color: 'success.main', fontSize: 32 }} />
+                      <UilChartLine size="32" style={{ color: 'inherit' }} />
                     </ListItemAvatar>
                     <ListItemText
                       primary="Sarah might be interested in your React skills"
@@ -800,7 +802,7 @@ const HomePage = () => {
               {widgetControls}
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Group sx={{ mr: 1, color: 'primary.main' }} />
+                  <UilUsersAlt size="24" style={{ marginRight: '8px', color: 'inherit' }} />
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Group Activity
                   </Typography>
@@ -882,7 +884,7 @@ const HomePage = () => {
               {widgetControls}
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Cake sx={{ mr: 1, color: 'primary.main' }} />
+                  <UilGift size="24" style={{ marginRight: '8px', color: 'inherit' }} />
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Anniversaries
                   </Typography>
@@ -954,7 +956,7 @@ const HomePage = () => {
               {widgetControls}
               <CardContent sx={{ display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Description sx={{ mr: 1, color: 'primary.main' }} />
+                  <UilFileAlt size="24" style={{ marginRight: '8px', color: 'inherit' }} />
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     My Docs
                   </Typography>
@@ -976,7 +978,7 @@ const HomePage = () => {
                   variant="outlined"
                   size="small"
                   fullWidth
-                  endIcon={<ArrowForward />}
+                  endIcon={<UilArrowRight size="20" />}
                 >
                   View All Docs
                 </Button>
@@ -1024,7 +1026,7 @@ const HomePage = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: dropIndicator?.widgetId === `empty-${columnId}` ? alpha('#1976d2', 0.04) : 'transparent',
+                backgroundColor: dropIndicator?.widgetId === `empty-${columnId}` ? alpha(theme.palette.primary.main, 0.04) : 'transparent',
                 transition: 'all 0.2s ease'
               }}
             >
@@ -1065,7 +1067,7 @@ const HomePage = () => {
                   borderRadius: 2,
                   opacity: dropIndicator?.widgetId === widgets[0].id && dropIndicator?.position === 'before' ? 1 : 0,
                   transition: 'opacity 0.2s ease',
-                  boxShadow: dropIndicator?.widgetId === widgets[0].id && dropIndicator?.position === 'before' ? '0 0 8px rgba(25, 118, 210, 0.5)' : 'none'
+                  boxShadow: dropIndicator?.widgetId === widgets[0].id && dropIndicator?.position === 'before' ? `0 0 8px ${alpha(theme.palette.primary.main, 0.5)}` : 'none'
                 }}
               />
             </Box>
@@ -1108,7 +1110,7 @@ const HomePage = () => {
                   borderRadius: 2,
                   opacity: dropIndicator?.widgetId === widgets[widgets.length - 1].id && dropIndicator?.position === 'after' ? 1 : 0,
                   transition: 'opacity 0.2s ease',
-                  boxShadow: dropIndicator?.widgetId === widgets[widgets.length - 1].id && dropIndicator?.position === 'after' ? '0 0 8px rgba(25, 118, 210, 0.5)' : 'none'
+                  boxShadow: dropIndicator?.widgetId === widgets[widgets.length - 1].id && dropIndicator?.position === 'after' ? `0 0 8px ${alpha(theme.palette.primary.main, 0.5)}` : 'none'
                 }}
               />
             </Box>
@@ -1251,12 +1253,11 @@ const HomePage = () => {
         maxWidth="md" 
         sx={{ 
           position: 'fixed',
-          bottom: { xs: '80px', md: '15px' },
+          bottom: { xs: '60px', md: '15px' },
           left: { xs: 0, md: '280px' },
           right: 0,
           pb: 1, 
           pt: 1,
-          backgroundColor: 'background.default',
           zIndex: 1001
         }}
       >
@@ -1283,7 +1284,7 @@ const HomePage = () => {
                     sx={{ ml: -0.5 }}
                     disabled={isLoading}
                   >
-                    {aiEnabled ? <AutoAwesome /> : <Search />}
+                    {aiEnabled ? <UilBolt size="24" /> : <UilSearch size="24" />}
                   </IconButton>
                 </InputAdornment>
               ),
@@ -1302,7 +1303,7 @@ const HomePage = () => {
                       height: 36,
                     }}
                   >
-                    <ArrowUpward sx={{ fontSize: 20 }} />
+                    <UilArrowUp size="20" />
                   </IconButton>
                 </InputAdornment>
               ),
@@ -1389,12 +1390,12 @@ const HomePage = () => {
             <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
             <Tooltip title="Layout Settings">
               <IconButton onClick={(e) => setLayoutMenuAnchor(e.currentTarget)} size="small">
-                <Settings />
+                <UilSetting size="20" />
               </IconButton>
             </Tooltip>
             <Tooltip title="Add Widget">
               <IconButton onClick={handleAddWidget} size="small">
-                <Add />
+                <UilPlus size="20" />
               </IconButton>
             </Tooltip>
           </>
@@ -1418,7 +1419,7 @@ const HomePage = () => {
             setWidgetMenuAnchor(null);
           }}>
             <ListItemIcon>
-              <Add fontSize="small" />
+              <UilPlus size="20" />
             </ListItemIcon>
             <Box>
               <Typography variant="body2">{widget.name}</Typography>
@@ -1588,14 +1589,14 @@ const HomePage = () => {
             <Button
               variant="outlined"
               size="large"
-              startIcon={<PostAdd />}
+              startIcon={<UilFileEditAlt size="20" />}
               onClick={() => handleCreatePost('post')}
               sx={{ 
                 justifyContent: 'flex-start', 
                 textAlign: 'left',
                 p: 2,
                 '&:hover': {
-                  backgroundColor: alpha('#1976d2', 0.04)
+                  backgroundColor: alpha(theme.palette.primary.main, 0.04)
                 }
               }}
             >
@@ -1610,7 +1611,7 @@ const HomePage = () => {
             <Button
               variant="outlined"
               size="large"
-              startIcon={<LocalOffer />}
+              startIcon={<UilTag size="20" />}
               onClick={() => handleCreatePost('offer')}
               sx={{ 
                 justifyContent: 'flex-start', 
@@ -1619,7 +1620,7 @@ const HomePage = () => {
                 borderColor: 'success.main',
                 color: 'success.main',
                 '&:hover': {
-                  backgroundColor: alpha('#2e7d32', 0.04),
+                  backgroundColor: alpha(theme.palette.success.main, 0.04),
                   borderColor: 'success.main'
                 }
               }}
@@ -1635,7 +1636,7 @@ const HomePage = () => {
             <Button
               variant="outlined"
               size="large"
-              startIcon={<ShoppingCart />}
+              startIcon={<UilShoppingCart size="20" />}
               onClick={() => handleCreatePost('want')}
               sx={{ 
                 justifyContent: 'flex-start', 
@@ -1644,7 +1645,7 @@ const HomePage = () => {
                 borderColor: 'warning.main',
                 color: 'warning.main',
                 '&:hover': {
-                  backgroundColor: alpha('#ed6c02', 0.04),
+                  backgroundColor: alpha(theme.palette.warning.main, 0.04),
                   borderColor: 'warning.main'
                 }
               }}
@@ -1693,7 +1694,7 @@ const HomePage = () => {
           <Button 
             onClick={handleSendMessage}
             variant="contained"
-            startIcon={<Send />}
+            startIcon={<UilMessage size="20" />}
             disabled={!messageRecipient.trim() || !messageContent.trim()}
           >
             Send

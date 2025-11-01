@@ -11,14 +11,14 @@ import {
   InputAdornment,
 } from '@mui/material';
 import {
-  Share,
-  ContentCopy,
-  Email,
-  Message,
-  WhatsApp,
-  GetApp,
-  Refresh,
-} from '@mui/icons-material';
+  UilShareAlt,
+  UilCopy,
+  UilEnvelope,
+  UilMessage,
+  UilDownloadAlt,
+  UilSync,
+} from '@iconscout/react-unicons';
+import { WhatsApp } from '@mui/icons-material';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Group } from '@/types/group';
 
@@ -82,7 +82,7 @@ export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsPro
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                 <Button
                   variant="outlined"
-                  startIcon={<GetApp />}
+                  startIcon={<UilDownloadAlt size="20" />}
                   onClick={onDownloadQR}
                   size="small"
                 >
@@ -90,7 +90,7 @@ export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsPro
                 </Button>
                 <Button
                   variant="outlined"
-                  startIcon={<Refresh />}
+                  startIcon={<UilSync size="20" />}
                   onClick={onNewInvitation}
                   size="small"
                 >
@@ -117,7 +117,7 @@ export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsPro
                         edge="end"
                         size="small"
                       >
-                        <ContentCopy />
+                        <UilCopy size="20" />
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -137,7 +137,7 @@ export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsPro
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Button
                   variant="outlined"
-                  startIcon={<Share />}
+                  startIcon={<UilShareAlt size="20" />}
                   onClick={onShare}
                   size="small"
                 >
@@ -145,7 +145,7 @@ export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsPro
                 </Button>
                 <Button
                   variant="outlined"
-                  startIcon={<Email />}
+                  startIcon={<UilEnvelope size="20" />}
                   onClick={onEmailShare}
                   size="small"
                 >
@@ -162,7 +162,7 @@ export const InvitationActions = forwardRef<HTMLDivElement, InvitationActionsPro
                 </Button>
                 <Button
                   variant="outlined"
-                  startIcon={<Message />}
+                  startIcon={<UilMessage size="20" />}
                   onClick={onSMSShare}
                   size="small"
                 >

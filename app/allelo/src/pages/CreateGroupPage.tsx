@@ -12,13 +12,13 @@ import {
   IconButton,
 } from '@mui/material';
 import {
-  ArrowBack,
-  PhotoCamera,
-  Add,
-  Close,
-  Groups,
-  Person,
-} from '@mui/icons-material';
+  UilArrowLeft,
+  UilCamera,
+  UilPlus,
+  UilTimes,
+  UilUsersAlt,
+  UilUser,
+} from '@iconscout/react-unicons';
 
 interface GroupFormData {
   name: string;
@@ -123,7 +123,7 @@ const CreateGroupPage = () => {
           mb: { xs: 2, md: 3 }
         }}>
           <IconButton onClick={handleBack} size="large" sx={{ flexShrink: 0 }}>
-            <ArrowBack />
+            <UilArrowLeft size="24" />
           </IconButton>
           <Typography 
             variant="h4" 
@@ -169,7 +169,7 @@ const CreateGroupPage = () => {
                     }}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    {!formData.logoPreview && <Groups />}
+                    {!formData.logoPreview && <UilUsersAlt size="48" />}
                   </Avatar>
                   <IconButton
                     sx={{
@@ -182,7 +182,7 @@ const CreateGroupPage = () => {
                     }}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <PhotoCamera />
+                    <UilCamera size="20" />
                   </IconButton>
                 </Box>
                 <Typography variant="body2" color="text.secondary">
@@ -232,7 +232,7 @@ const CreateGroupPage = () => {
                     variant="outlined"
                     onClick={handleAddTag}
                     disabled={!tagInput.trim()}
-                    startIcon={<Add />}
+                    startIcon={<UilPlus size="20" />}
                   >
                     Add
                   </Button>
@@ -245,7 +245,7 @@ const CreateGroupPage = () => {
                       key={tag}
                       label={tag}
                       onDelete={() => handleRemoveTag(tag)}
-                      deleteIcon={<Close />}
+                      deleteIcon={<UilTimes size="16" />}
                       variant="outlined"
                       sx={{ borderRadius: 1 }}
                     />
@@ -265,7 +265,7 @@ const CreateGroupPage = () => {
                   variant="contained"
                   onClick={handleNext}
                   disabled={!formData.name.trim()}
-                  startIcon={<Person />}
+                  startIcon={<UilUser size="20" />}
                 >
                   Select Members
                 </Button>

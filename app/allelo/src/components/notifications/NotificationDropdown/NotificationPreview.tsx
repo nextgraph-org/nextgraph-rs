@@ -7,7 +7,7 @@ import {
   Button,
   Chip,
 } from '@mui/material';
-import { MarkEmailRead } from '@mui/icons-material';
+import { UilEnvelopeCheck } from '@iconscout/react-unicons';
 import type { Notification, NotificationSummary } from '@/types/notification';
 import { NotificationItem } from '../NotificationItem/NotificationItem';
 
@@ -65,7 +65,7 @@ export const NotificationPreview = forwardRef<HTMLDivElement, NotificationPrevie
             {summary.unread > 0 && (
               <Button
                 size="small"
-                startIcon={<MarkEmailRead />}
+                startIcon={<UilEnvelopeCheck size="18" />}
                 onClick={onMarkAllAsRead}
                 sx={{ textTransform: 'none' }}
               >

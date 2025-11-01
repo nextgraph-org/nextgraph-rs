@@ -11,17 +11,17 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  Business,
-  PersonOutline,
-  Groups,
-  FamilyRestroom,
-  Favorite,
-  Home,
-  LocationOn,
-  Public,
-  CheckCircle,
-  Settings,
-} from '@mui/icons-material';
+  UilBriefcase as Business,
+  UilUser as PersonOutline,
+  UilUsersAlt as Groups,
+  UilEstate as FamilyRestroom,
+  UilHeart as Favorite,
+  UilHome as Home,
+  UilLocationPoint as LocationOn,
+  UilGlobe as Public,
+  UilCheckCircle as CheckCircle,
+  UilSetting as Settings,
+} from '@iconscout/react-unicons';
 import { DEFAULT_RCARDS } from '@/types/notification';
 
 interface ProfileCard {

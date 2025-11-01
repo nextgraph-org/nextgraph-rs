@@ -7,16 +7,16 @@ import {
   Chip,
 } from '@mui/material';
 import {
-  Visibility,
-  Comment,
-  Article,
-  Image as ImageIcon,
-  Link as LinkIcon,
-  AttachFile,
-  LocalOffer,
-  ShoppingCart,
-  PostAdd,
-} from '@mui/icons-material';
+  UilEye as Visibility,
+  UilCommentAlt as Comment,
+  UilFileAlt as Article,
+  UilImage as ImageIcon,
+  UilLink as LinkIcon,
+  UilPaperclip as AttachFile,
+  UilTag as LocalOffer,
+  UilShoppingCart as ShoppingCart,
+  UilPostcard as PostAdd,
+} from '@iconscout/react-unicons';
 import type { WelcomeBannerProps } from '../types';
 
 export const WelcomeBanner = forwardRef<HTMLDivElement, WelcomeBannerProps>(

@@ -109,7 +109,7 @@ export function transformRawContact(rawContact: RawContact): Contact {
     url: urls ? new BasicLdSet(urls.map((el) => ({
       value: el,
       type2: {
-        "@id": "linkedIn"
+        "@id": "linkedin"
       }
     }))) : undefined
   };

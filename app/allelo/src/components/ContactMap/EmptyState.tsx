@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import { LocationOn } from '@mui/icons-material';
+import { UilLocationPoint as LocationOn } from '@iconscout/react-unicons';
 
 export const EmptyState = () => {
   return (

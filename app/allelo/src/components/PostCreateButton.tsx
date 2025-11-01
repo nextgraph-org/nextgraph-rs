@@ -16,12 +16,12 @@ import {
   alpha
 } from '@mui/material';
 import {
-  Add,
-  PostAdd,
-  LocalOffer,
-  ShoppingCart,
-  Close
-} from '@mui/icons-material';
+  UilPlus,
+  UilFileEditAlt,
+  UilTag,
+  UilShoppingCart,
+  UilTimes
+} from '@iconscout/react-unicons';
 
 interface PostCreateButtonProps {
   groupId?: string;
@@ -60,21 +60,21 @@ const PostCreateButton = ({ groupId, onCreatePost }: PostCreateButtonProps) => {
       type: 'post' as const,
       title: 'Post',
       description: 'Share an update, thought, or announcement',
-      icon: <PostAdd />,
+      icon: <UilFileEditAlt size="20" />,
       color: theme.palette.primary.main
     },
     {
       type: 'offer' as const,
       title: 'Offer',
       description: 'Offer your services, expertise, or resources',
-      icon: <LocalOffer />,
+      icon: <UilTag size="20" />,
       color: theme.palette.success.main
     },
     {
       type: 'want' as const,
       title: 'Want',
       description: 'Request help, services, or connections',
-      icon: <ShoppingCart />,
+      icon: <UilShoppingCart size="20" />,
       color: theme.palette.warning.main
     }
   ];
@@ -86,7 +86,7 @@ const PostCreateButton = ({ groupId, onCreatePost }: PostCreateButtonProps) => {
         aria-label="create post"
         onClick={handleOpen}
       >
-        <Add />
+        <UilPlus size="20" />
       </Fab>
 
       <Dialog 
@@ -106,7 +106,7 @@ const PostCreateButton = ({ groupId, onCreatePost }: PostCreateButtonProps) => {
             What would you like to create?
           </Typography>
           <IconButton onClick={handleClose} size="small">
-            <Close />
+            <UilTimes size="20" />
           </IconButton>
         </DialogTitle>
         

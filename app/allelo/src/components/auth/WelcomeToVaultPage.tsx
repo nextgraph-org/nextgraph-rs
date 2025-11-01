@@ -7,14 +7,16 @@ import {
   CardContent,
 } from '@mui/material';
 import {
-  Groups,
-  AutoAwesome,
-  CloudSync,
-  Email,
-  Phone,
   LinkedIn,
-  Storage,
 } from '@mui/icons-material';
+import {
+  UilUsersAlt,
+  UilStar,
+  UilServerConnection,
+  UilEnvelope,
+  UilPhone,
+  UilDatabase,
+} from '@iconscout/react-unicons';
 
 export const WelcomeToVaultPage = () => {
   const navigate = useNavigate();
@@ -54,7 +56,7 @@ export const WelcomeToVaultPage = () => {
       }}>
         {/* Welcome Header */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <Storage sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
+          <UilDatabase size="64" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)', marginBottom: '16px' }} />
           <Typography
             variant="h4"
             component="h1"
@@ -90,7 +92,9 @@ export const WelcomeToVaultPage = () => {
           >
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <CloudSync sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
+                <Box sx={{ mr: 2 }}>
+                  <UilServerConnection size="32" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)' }} />
+                </Box>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Connect your accounts
@@ -110,13 +114,13 @@ export const WelcomeToVaultPage = () => {
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Email sx={{ fontSize: 16, color: '#EA4335' }} />
+                  <UilEnvelope size="16" color="#EA4335" />
                   <Typography variant="caption" color="text.secondary">
                     Gmail
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Phone sx={{ fontSize: 16, color: 'primary.main' }} />
+                  <UilPhone size="16" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)' }} />
                   <Typography variant="caption" color="text.secondary">
                     Phone Contacts
                   </Typography>
@@ -158,7 +162,9 @@ export const WelcomeToVaultPage = () => {
             >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Groups sx={{ fontSize: 32, color: 'success.main', mr: 2 }} />
+                  <Box sx={{ mr: 2 }}>
+                    <UilUsersAlt size="32" color="currentColor" style={{ color: 'var(--mui-palette-success-main)' }} />
+                  </Box>
                   <Box sx={{ flex: 1 }}>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
                       Join {groupName}
@@ -204,7 +210,9 @@ export const WelcomeToVaultPage = () => {
           >
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <AutoAwesome sx={{ fontSize: 32, color: 'secondary.main', mr: 2 }} />
+                <Box sx={{ mr: 2 }}>
+                  <UilStar size="32" color="currentColor" style={{ color: 'var(--mui-palette-secondary-main)' }} />
+                </Box>
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     Try the NAO AI

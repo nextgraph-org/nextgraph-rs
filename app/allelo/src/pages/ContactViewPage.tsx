@@ -15,9 +15,11 @@ import {
   Button
 } from '@mui/material';
 import {
-  ArrowBack,
-  Edit
-} from '@mui/icons-material';
+  UilArrowLeft as ArrowBack,
+  UilEdit as Edit,
+  UilBan as Block,
+  UilCheckCircle as CheckCircle
+} from '@iconscout/react-unicons';
 import {
   ContactViewHeader,
   ContactInfo,
@@ -30,7 +32,6 @@ import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
 import {useContactView} from "@/hooks/contacts/useContactView";
 import {VouchesAndPraises} from "@/components/contacts/VouchesAndPraises";
 import {dataService} from "@/services/dataService";
-import {Block, CheckCircle} from '@mui/icons-material';
 
 const ContactViewPage = () => {
   const {id} = useParams<{ id: string }>();
@@ -47,7 +48,6 @@ const ContactViewPage = () => {
     error,
     toggleHumanityVerification,
     inviteToNAO,
-    refreshContact
   } = useContactView(id || null);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -61,10 +61,9 @@ const ContactViewPage = () => {
       // Refresh data when navigating from notifications
       if (location.state?.from === 'notifications') {
         setVouchesRefreshKey(prev => prev + 1);
-        refreshContact(); // Refresh contact data to get updated status
       }
     }
-  }, [id, location.state, refreshContact]);
+  }, [id, location.state]);
 
   // Also refresh blocked state when the page becomes visible (in case it was changed elsewhere)
   useEffect(() => {
@@ -149,7 +148,7 @@ const ContactViewPage = () => {
     return (
       <Box sx={{height: '100%', p: {xs: 2, md: 3}, backgroundColor: 'background.default'}}>
         <Button
-          startIcon={<ArrowBack/>}
+          startIcon={<ArrowBack size="20"/>}
           onClick={handleBack}
           sx={{mb: 3}}
         >
@@ -163,19 +162,19 @@ const ContactViewPage = () => {
   }
 
   return (
-    <Box sx={{p: {xs: 2, md: 3}, backgroundColor: 'background.default'}}>
+    <Box sx={{p: {xs: 2, md: 3}, backgroundColor: 'background.paper'}}>
       <Button
-        startIcon={<ArrowBack/>}
+        startIcon={<ArrowBack size="20"/>}
         onClick={handleBack}
         sx={{mb: 3}}
       >
         {location.state?.from === 'notifications' ? 'Back to Notifications' : 'Back to Contacts'}
       </Button>
-      
+
       {isBlocked && contact && (
-        <Alert 
+        <Alert
           severity="warning"
-          icon={<Block />}
+          icon={<Block size="20"/>}
           action={
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button 
@@ -197,10 +196,10 @@ const ContactViewPage = () => {
         <Alert 
           severity="info"
           action={
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               onClick={handleConnect}
-              startIcon={<CheckCircle />}
+              startIcon={<CheckCircle size="20"/>}
               variant="contained"
               color="primary"
             >
@@ -220,7 +219,7 @@ const ContactViewPage = () => {
           </Typography>
           <Button
             variant={"text"}
-            startIcon={<Edit/>}
+            startIcon={<Edit size="20"/>}
             onClick={handleEditToggle}
           >
             {isEditing ? "Exit" : "Edit"}

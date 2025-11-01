@@ -1,5 +1,5 @@
 import {TextField, InputAdornment, SxProps, Theme} from '@mui/material';
-import {Search} from '@mui/icons-material';
+import {UilSearch} from '@iconscout/react-unicons';
 import {useState, useCallback, useRef, useEffect} from 'react';
 
 interface SearchFilterProps {
@@ -53,11 +53,12 @@ export const SearchFilter = ({
       onBlur={onBlur}
       onKeyDown={onKeyDown}
       autoFocus={autoFocus}
+      size={"small"}
       slotProps={{
         input: {
           startAdornment: (
             <InputAdornment position="start">
-              <Search/>
+              <UilSearch size="20"/>
             </InputAdornment>
           ),
         }

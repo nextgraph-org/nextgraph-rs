@@ -62,7 +62,7 @@ export function hasSource(item: any): item is WithSource {
   return item && typeof item === 'object' && item["source"];
 }
 
-export function hasType(item: any): item is { type2?: any } {
+export function hasType(item: any): item is { type2?: BasicLdSet } {
   return item && typeof item === 'object' && item["type2"];
 }
 
@@ -114,15 +114,46 @@ export function resolveFrom<K extends ResolvableKey>(
   return fallback;
 }
 
-export function getPropByType<K extends ContactKeysWithType>(socialContact: SocialContact, key: K, type: string): ItemOf<K> | undefined {
+export function getSubProperty(item: ItemOf<keyof ContactLdSetProperties>, property: keyof ItemOf<keyof ContactLdSetProperties>): string | undefined {
+  if (!item || typeof item !== 'object' && !item[property]) {
+    return;
+  }
+  if (item[property] instanceof Array) {
+    return item[property][0];
+  } else if (item[property] instanceof BasicLdSet) {
+    return item[property].toArray()[0];
+  } else if (typeof item[property] === "string") {
+    return item[property];
+  }
+}
+
+export function getPropsByFilter<K extends keyof ContactLdSetProperties>(socialContact: SocialContact, key: K, filterParams: Partial<ItemOf<keyof ContactLdSetProperties>>): ItemOf<K>[] {
   //@ts-expect-error this is crazy, but that how it works
-  return (socialContact[key]?.toArray() ?? []).find((el) => {
-    //@ts-expect-error this is crazy, but that how it works
-    const types: any[] = hasType(el) && el.type2?.toArray();
-    if (types.length > 0) {
-      return types[0]["@id"] == type
+  return (socialContact[key]?.toArray() ?? []).filter((item) => {
+    const filterProps = Object.keys(filterParams) as (keyof ItemOf<keyof ContactLdSetProperties>)[];
+    for (const prop of filterProps) {
+      if (getSubProperty(item, prop) !== filterParams[prop]) {
+        return false;
+      }
     }
+    return true;
   })
+}
+
+export function getPropType(property: ItemOf<keyof ContactLdSetProperties>): string {
+  const types = ((hasType(property) && property.type2?.toArray()) ?? []) as any[];
+  return types.length > 0 ? types[0]["@id"] : "";
+}
+
+export function getPropsByType<K extends ContactKeysWithType>(socialContact: SocialContact, key: K, type: string): ItemOf<K>[] {
+  //@ts-expect-error this is crazy, but that how it works
+  return (socialContact[key]?.toArray() ?? []).filter((el) => {
+    return getPropType(el) === type;
+  })
+}
+
+export function getPropByType<K extends ContactKeysWithType>(socialContact: SocialContact, key: K, type: string): ItemOf<K> | undefined {
+  return getPropsByType(socialContact, key, type)[0];
 }
 
 export function getVisibleItems<K extends ResolvableKey>(
@@ -203,12 +234,12 @@ function handleLdoBug(el: any, key: string, toShow = true) {
   }
 
   if (toShow) {
-    if (!el[key][0]) { // TODO: check if this works in ldo
+    if (!el[key][0]) {
       el[key] = [el[key]];
     }
     el[key] = new BasicLdSet(el[key]);
   } else {
-    if (el[key][0]) { // TODO: check if this works in ldo
+    if (el[key][0]) {
       el[key] = el[key][0];
     }
   }
@@ -232,23 +263,6 @@ export async function processContactFromJSON(jsonContact: any, withIds = true): 
         handleLdoBug(el, "type2", withIds);
         handleLdoBug(el, "valueIRI", withIds);
 
-        if (property === "organization" && el.position) {
-          const headlineValue = `${el.position} at ${el.value}`;
-          const source = el.source;
-          if (!jsonContact["headline"]
-            || !jsonContact["headline"].find((x: {
-              value: string;
-              source: any;
-            }) => x.value === headlineValue && x.source === source)) {
-            const headline = {
-              value: headlineValue,
-              source: source,
-              "@id": withIds ? Math.random().toExponential(32) : undefined,
-            };
-            contact["headline"] ??= new BasicLdSet([]);
-            contact["headline"].add(headline);
-          }
-          }
         contact[property]!.add(el);
       });
     }

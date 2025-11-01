@@ -6,8 +6,8 @@ import {
   Chip
 } from '@mui/material';
 import {
-  Group
-} from '@mui/icons-material';
+  UilUsersAlt as Group
+} from '@iconscout/react-unicons';
 import type { Group as GroupType } from '@/types/group';
 
 export interface ContactGroupsProps {

@@ -395,7 +395,7 @@ export const open_doc_popup = async (popup_name) => {
 
 export const change_header = async (title_, about_) => {
     let session = get(active_session);
-    if (!session) {
+    if (!session || !session.ng) {
         persistent_error(get(cur_branch), {
             title: get(format)("doc.errors.no_session"),
             desc: get(format)("doc.errors_details.no_session")
@@ -427,7 +427,7 @@ export const change_header = async (title_, about_) => {
 export const live_discrete_update = async (update, crdt, heads) => {
     // send directly to verifier with AppRequest Update
     let session = get(active_session);
-    if (!session) {
+    if (!session || !session.ng) {
         persistent_error(get(cur_branch), {
             title: get(format)("doc.errors.no_session"),
             desc: get(format)("doc.errors_details.no_session")
@@ -440,7 +440,7 @@ export const live_discrete_update = async (update, crdt, heads) => {
 
 export const sparql_query = async function(sparql:string, union:boolean) {
     let session = get(active_session);
-    if (!session) {
+    if (!session || !session.ng) {
         persistent_error(get(cur_branch), {
             title: get(format)("doc.errors.no_session"),
             desc: get(format)("doc.errors_details.no_session")
@@ -455,7 +455,7 @@ export const sparql_query = async function(sparql:string, union:boolean) {
 
 export const sparql_update = async function(sparql:string) {
     let session = get(active_session);
-    if (!session) {
+    if (!session || !session.ng) {
         persistent_error(get(cur_branch), {
             title: get(format)("doc.errors.no_session"),
             desc: get(format)("doc.errors_details.no_session")
@@ -536,7 +536,7 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
                         try {
                             //console.log("load down");
                             let session = get(active_session);
-                            if (!session) {
+                            if (!session || !session.ng) {
                                 persistent_error(get(cur_branch), {
                                     title: get(format)("doc.errors.no_session"),
                                     desc: get(format)("doc.errors_details.no_session")

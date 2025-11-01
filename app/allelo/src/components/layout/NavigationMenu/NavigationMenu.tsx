@@ -8,7 +8,10 @@ import {
   Badge,
   Collapse
 } from '@mui/material';
-import { ExpandLess, ExpandMore } from '@mui/icons-material';
+import {
+  UilAngleUp as ExpandLess,
+  UilAngleDown as ExpandMore
+} from '@iconscout/react-unicons';
 import type { NavigationMenuProps, NavItem } from './types';
 
 export const NavigationMenu = forwardRef<HTMLUListElement, NavigationMenuProps>(
@@ -45,25 +48,28 @@ export const NavigationMenu = forwardRef<HTMLUListElement, NavigationMenuProps>(
                 pl: level > 0 ? 4 : 3,
                 borderRadius: 0,
                 minHeight: 48,
-                borderRight: isActive || isParentOfActive ? 3 : 0,
                 borderRightColor: 'primary.main',
                 '&.Mui-selected': {
-                  backgroundColor: 'background.paper',
+                  backgroundColor: 'rgba(0,0,0,0.34)',
                   color: 'text.primary',
-                  ml: 0,
-                  pl: level > 0 ? 4 : 3,
-                  mr: 0,
                   borderRight: 0,
                   '&:hover': {
-                    backgroundColor: 'background.paper',
-                  },
-                  '& .MuiListItemIcon-root': {
-                    color: 'text.primary',
+                    backgroundColor: 'rgba(0,0,0,0.34)',
                   },
                 },
               }}
             >
-              <ListItemIcon sx={{ minWidth: 40 }}>
+              <ListItemIcon sx={{
+                minWidth: 40,
+                color: isActive ? "#fff" : "inherit",
+                backgroundColor: isActive ? '#000' : 'transparent',
+                borderRadius: '50%',
+                width: 40,
+                height: 40,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
                 {item.badge ? (
                   <Badge badgeContent={item.badge} color="error">
                     {item.icon}
@@ -78,6 +84,8 @@ export const NavigationMenu = forwardRef<HTMLUListElement, NavigationMenuProps>(
                   fontSize: '0.875rem',
                   fontWeight: isActive || isParentOfActive ? 600 : 500,
                   noWrap: true,
+                  color: isActive ? "#fff" : "#000",
+                  pl: 2
                 }}
               />
               {hasChildren && (

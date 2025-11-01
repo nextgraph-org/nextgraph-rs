@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { Typography, Box, Avatar, IconButton } from "@mui/material";
+import { Typography, Box, Avatar, IconButton, alpha } from "@mui/material";
 import {
 	ArrowBack,
 	Info,
@@ -494,9 +494,9 @@ const GroupDetailPage = () => {
 										position: "absolute",
 										bottom: 8,
 										right: 8,
-										backgroundColor: "rgba(255, 255, 255, 0.9)",
+										backgroundColor: (theme) => alpha(theme.palette.background.paper, 0.9),
 										"&:hover": {
-											backgroundColor: "rgba(255, 255, 255, 1)",
+											backgroundColor: (theme) => theme.palette.background.paper,
 										},
 										zIndex: 10,
 									}}
@@ -540,9 +540,9 @@ const GroupDetailPage = () => {
 										position: "absolute",
 										bottom: 8,
 										right: 8,
-										backgroundColor: "rgba(255, 255, 255, 0.9)",
+										backgroundColor: (theme) => alpha(theme.palette.background.paper, 0.9),
 										"&:hover": {
-											backgroundColor: "rgba(255, 255, 255, 1)",
+											backgroundColor: (theme) => theme.palette.background.paper,
 										},
 										zIndex: 10,
 									}}

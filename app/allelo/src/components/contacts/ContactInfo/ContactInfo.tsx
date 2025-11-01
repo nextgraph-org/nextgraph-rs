@@ -5,11 +5,11 @@ import {
   CardContent
 } from '@mui/material';
 import {
-  Email,
-  Phone,
-  Business,
-  AccountBox,
-} from '@mui/icons-material';
+  UilEnvelope as Email,
+  UilPhone as Phone,
+  UilBriefcase as Business,
+  UilUserSquare as AccountBox,
+} from '@iconscout/react-unicons';
 import type {Contact} from '@/types/contact';
 import {MultiPropertyWithVisibility} from '../MultiPropertyWithVisibility';
 import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";

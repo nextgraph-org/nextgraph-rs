@@ -8,9 +8,12 @@ import {
   Switch,
 } from '@mui/material';
 import {
-  MoreVert,
-  Visibility,
-  VisibilityOff,
+  UilEllipsisV,
+  UilEye,
+  UilEyeSlash,
+} from '@iconscout/react-unicons';
+
+import {
   Star,
   StarBorder,
 } from '@mui/icons-material';
@@ -27,6 +30,7 @@ import {dataset, useLdo} from "@/lib/nextgraph";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {ChipsVariant, AccountsVariant} from './variants';
 import {ValidationType} from "@/hooks/useFieldValidation";
+import {AddressVariant} from "@/components/contacts/MultiPropertyWithVisibility/variants/AddressVariant.tsx";
 
 type ResolvableKey = ContactKeysWithHidden;
 
@@ -41,7 +45,7 @@ interface MultiPropertyWithVisibilityProps<K extends ResolvableKey> {
   showManageButton?: boolean;
   isEditing?: boolean;
   placeholder?: string;
-  variant?: "chips" | "accounts" | "url";
+  variant?: "chips" | "accounts" | "url" | "addresses";
   validateType?: ValidationType;
   hasPreferred?: boolean;
 }
@@ -183,8 +187,9 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     }
   }, [changeData, commitData, contact, isNextgraph, propertyKey, subKey]);
 
-  const addNewItem = useCallback((updates?: Record<K, any>) => {
-    if (!contact || !newItemValue.trim()) return;
+  const addNewItem = useCallback((updates?: Record<K, any>, force?: boolean) => {
+    if (!contact) return;
+    if (!force && !newItemValue.trim()) return;
 
     const addNewPropertyWithUserSource = (contactObj: Contact, addId?: boolean) => {
       const fieldSet = contactObj[propertyKey];
@@ -206,23 +211,24 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
 
       setUpdatedTime(contactObj);
 
-      return contactObj;
+      return newEntry;
     };
-
+    let newItem;
     if (isNextgraph) {
       const resource = dataset.getResource(contact["@id"]!);
       if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
         const changedContactObj = changeData(contact, resource);
-        addNewPropertyWithUserSource(changedContactObj);
+        newItem = addNewPropertyWithUserSource(changedContactObj);
         commitData(changedContactObj);
       }
     } else {
-      addNewPropertyWithUserSource(contact, true);
+      newItem = addNewPropertyWithUserSource(contact, true);
     }
 
     setNewItemValue('');
     setIsAddingNew(false);
     loadAllItems();
+    return newItem;
   }, [changeData, commitData, contact, isNextgraph, newItemValue, propertyKey, subKey, loadAllItems]);
 
   const handleInputChange = useCallback((itemId: string, newValue: string) => {
@@ -293,15 +299,15 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
           onClick={handleClick}
           sx={{ml: 1}}
         >
-          <MoreVert fontSize="small"/>
+          <UilEllipsisV size="20" color="rgba(0,0,0,0.19)"/>
         </IconButton>
         <Menu
           anchorEl={anchorEl}
           open={open}
           onClose={handleClose}
-          PaperProps={{
-            sx: {minWidth: 250}
-          }}
+          anchorOrigin={{vertical: 'bottom', horizontal: 'right'}}
+          transformOrigin={{vertical: 'top', horizontal: 'right'}}
+
         >
           <MenuItem disabled>
             <Typography variant="caption" color="text.secondary">
@@ -315,52 +321,80 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
             const isPreferred = item.preferred || false;
 
             return (
-              <MenuItem key={itemId} sx={{display: 'block', padding: 0}}>
-                <Box sx={{display: 'flex', flexDirection: 'column'}}>
+              <MenuItem
+                key={itemId}
+                sx={{
+                  display: 'block',
+                  width: '100%',
+                  padding: 0,
+                  touchAction: "none"
+                }}
+              >
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  width: '100%',
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  '&:hover': {backgroundColor: 'rgba(0, 0, 0, 0.04)'}
+                }}>
                   {/* Visibility toggle row */}
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      width: '100%',
-                      padding: '8px 16px',
-                      cursor: 'pointer',
-                      '&:hover': {backgroundColor: 'rgba(0, 0, 0, 0.04)'}
-                    }}
-                  >
-                    {hasPreferred && <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}
-                                          onClick={() => handlePreferredToggle(item)}>
-                      {isPreferred ? <Star fontSize="small"/> : <StarBorder fontSize="small"/>}
-                    </Box>}
-                    <Box sx={{display: 'flex', alignItems: 'center', gap: 1, flex: 1}}>
+                  {hasPreferred && <Box sx={{display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0}}
+                                        onClick={() => handlePreferredToggle(item)}>
+                    {isPreferred ? <Star fontSize="small"/> : <StarBorder fontSize="small"/>}
+                  </Box>}
+                  <Box sx={{display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0}}>
 
-                      {item.source && getSourceIcon(item.source)}
-                      <Box sx={{flex: 1}}>
-                        <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-                          <Typography variant="body2">
-                            {item[subKey] || 'No value'}
-                          </Typography>
-                        </Box>
-                        {item.source && (
-                          <Typography variant="caption" color="text.secondary">
-                            {getSourceLabel(item.source)}
-                          </Typography>
-                        )}
+                    {item.source && getSourceIcon(item.source)}
+                    <Box sx={{flex: 1, minWidth: 0}}>
+                      <Box sx={{display: 'flex', alignItems: 'center', gap: 1, minWidth: 0}}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            display: 'block'
+                          }}
+                          title={item[subKey] || 'No value'}
+                        >
+                          {item[subKey] || 'No value'}
+                        </Typography>
                       </Box>
+                      {item.source && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            display: 'block'
+                          }}
+                          title={getSourceLabel(item.source)}
+                        >
+                          {getSourceLabel(item.source)}
+                        </Typography>
+                      )}
                     </Box>
-                    <Box sx={{display: 'flex', alignItems: 'center'}}>
-                      {isHidden ? <VisibilityOff fontSize="small"/> : <Visibility fontSize="small"/>}
-                      <Switch
-                        checked={!isHidden}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          handleVisibilityToggle(item);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        size="small"
-                      />
-                    </Box>
+                  </Box>
+                  <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    flexShrink: 0
+                  }}>
+                    {isHidden ? <UilEyeSlash size="20"/> : <UilEye size="20"/>}
+                    <Switch
+                      checked={!isHidden}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleVisibilityToggle(item);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      size="small"
+                    />
                   </Box>
                 </Box>
               </MenuItem>
@@ -399,6 +433,8 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
         return <ChipsVariant {...commonProps} variant={variant}/>;
       case "accounts":
         return <AccountsVariant {...commonProps} />;
+      case "addresses":
+        return <AddressVariant {...commonProps} />;
       default:
         return <ChipsVariant {...commonProps} />;
     }

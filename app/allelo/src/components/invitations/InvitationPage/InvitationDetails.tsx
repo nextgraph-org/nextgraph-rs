@@ -5,7 +5,7 @@ import {
   Avatar,
   Chip,
 } from '@mui/material';
-import { Groups } from '@mui/icons-material';
+import { UilUsersAlt } from '@iconscout/react-unicons';
 import type { Group } from '@/types/group';
 
 export interface InvitationDetailsProps {
@@ -54,7 +54,7 @@ export const InvitationDetails = forwardRef<HTMLDivElement, InvitationDetailsPro
                 color: 'primary.main'
               }}
             >
-              <Groups />
+              <UilUsersAlt size="20" />
             </Avatar>
             <Box>
               {group.isPrivate && (

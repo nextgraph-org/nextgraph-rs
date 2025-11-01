@@ -88,7 +88,7 @@
   async function bootstrap() {
     await boot();
     //console.log(await ng.client_info());
-    if (!tauri_platform || tauri_platform == "android") {
+    if (!tauri_platform || tauri_platform == "android" || tauri_platform == "ios") {
       if (param.get("re")) {
         wait = false;
         registration_error = param.get("re");
@@ -222,7 +222,7 @@
 
   const select_bsp = async (bsp_url, bsp_name) => {
     console.log("select bsp")
-    if (!tauri_platform || tauri_platform == "android") {
+    if (!tauri_platform || tauri_platform == "android" || tauri_platform == "ios") {
       wait = $t("pages.wallet_create.redirecting_to_registration_page");
       await tick();
       let redirect_url;

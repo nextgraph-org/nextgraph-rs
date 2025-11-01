@@ -13,9 +13,9 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import {
-  Group,
-  People
-} from '@mui/icons-material';
+  UilUsersAlt as Group,
+  UilUsersAlt as People
+} from '@iconscout/react-unicons';
 import type { Group as GroupType } from '@/types/group';
 
 export interface GroupFeedProps {

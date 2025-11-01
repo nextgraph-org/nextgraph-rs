@@ -15,19 +15,19 @@ import {
   Typography,
 } from '@mui/material';
 import {
-  CheckCircle,
-  Cancel,
-  Assignment,
-  MoreVert,
-  Business,
-  PersonOutline,
-  Groups,
-  FamilyRestroom,
-  Favorite,
-  Home,
-  LocationOn,
-  Public,
-} from '@mui/icons-material';
+  UilCheckCircle,
+  UilTimesCircle,
+  UilClipboardAlt,
+  UilEllipsisV,
+  UilBuilding,
+  UilUser,
+  UilUsersAlt,
+  UilKid,
+  UilHeart,
+  UilHome,
+  UilMapMarker,
+  UilGlobe,
+} from '@iconscout/react-unicons';
 import { DEFAULT_RCARDS } from '@/types/notification';
 import type { Notification } from '@/types/notification';
 
@@ -105,23 +105,23 @@ export const NotificationActions = forwardRef<HTMLDivElement, NotificationAction
     const getRCardIcon = (iconName: string) => {
       switch (iconName) {
         case 'Business':
-          return <Business />;
+          return <UilBuilding size="20" />;
         case 'PersonOutline':
-          return <PersonOutline />;
+          return <UilUser size="20" />;
         case 'Groups':
-          return <Groups />;
+          return <UilUsersAlt size="20" />;
         case 'FamilyRestroom':
-          return <FamilyRestroom />;
+          return <UilKid size="20" />;
         case 'Favorite':
-          return <Favorite />;
+          return <UilHeart size="20" />;
         case 'Home':
-          return <Home />;
+          return <UilHome size="20" />;
         case 'LocationOn':
-          return <LocationOn />;
+          return <UilMapMarker size="20" />;
         case 'Public':
-          return <Public />;
+          return <UilGlobe size="20" />;
         default:
-          return <PersonOutline />;
+          return <UilUser size="20" />;
       }
     };
 
@@ -143,7 +143,7 @@ export const NotificationActions = forwardRef<HTMLDivElement, NotificationAction
               <Button
                 size="small"
                 variant="outlined"
-                startIcon={<Cancel />}
+                startIcon={<UilTimesCircle size="16" />}
                 onClick={handleReject}
                 sx={{ textTransform: 'none', minWidth: 'auto', fontSize: '0.75rem' }}
               >
@@ -152,7 +152,7 @@ export const NotificationActions = forwardRef<HTMLDivElement, NotificationAction
               <Button
                 size="small"
                 variant="contained"
-                startIcon={<CheckCircle />}
+                startIcon={<UilCheckCircle size="16" />}
                 onClick={handleAccept}
                 sx={{ textTransform: 'none', minWidth: 'auto', fontSize: '0.75rem' }}
               >
@@ -165,7 +165,7 @@ export const NotificationActions = forwardRef<HTMLDivElement, NotificationAction
             <Button
               size="small"
               variant="outlined"
-              startIcon={<Assignment />}
+              startIcon={<UilClipboardAlt size="16" />}
               onClick={handleAssignClick}
               sx={{ textTransform: 'none', fontSize: '0.75rem', flexShrink: 0 }}
             >
@@ -174,7 +174,7 @@ export const NotificationActions = forwardRef<HTMLDivElement, NotificationAction
           )}
 
           <IconButton size="small" onClick={handleMenuClick}>
-            <MoreVert />
+            <UilEllipsisV size="20" />
           </IconButton>
         </Box>
 

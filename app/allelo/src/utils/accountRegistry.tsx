@@ -1,7 +1,7 @@
 import React from 'react';
-import {LinkedIn, GitHub, Twitter, Telegram, WhatsApp} from "@mui/icons-material";
-import {SvgIconOwnProps, Theme} from "@mui/material";
-import {SxProps} from "@mui/material/styles";
+import { LinkedIn, GitHub, Twitter, Telegram, WhatsApp } from "@mui/icons-material";
+import { SvgIconOwnProps, Theme } from "@mui/material";
+import { SxProps } from "@mui/material/styles";
 
 interface AccountConfig {
   label: string;
@@ -56,8 +56,6 @@ export class AccountRegistry {
     return this.configs[protocol]?.label || protocol;
   }
 
-
-
   static getIcon(protocol: string, sx?: SxProps<Theme>): React.ReactElement | undefined {
     const config = this.configs[protocol];
     if (!config?.icon) return undefined;
@@ -78,6 +76,8 @@ export class AccountRegistry {
   static registerAccount(protocol: string, config: AccountConfig): void {
     this.configs[protocol] = config;
   }
+
+  static getAllProtocols = () => Object.keys(this.configs);
 
   static getAllAccountTypes(): Array<{ protocol: string, label: string, icon?: React.ReactElement<SvgIconOwnProps> }> {
     return Object.entries(this.configs).map(([protocol, config]) => ({

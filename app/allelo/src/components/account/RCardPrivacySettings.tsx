@@ -14,12 +14,12 @@ import {
   Divider,
 } from '@mui/material';
 import {
-  Security,
-  LocationOn,
-  Share,
-  Refresh,
-  VpnKey,
-} from '@mui/icons-material';
+  UilShield as Security,
+  UilLocationPoint as LocationOn,
+  UilShareAlt as Share,
+  UilSync as Refresh,
+  UilKeySkeletonAlt as VpnKey,
+} from '@iconscout/react-unicons';
 import type { RCardWithPrivacy, LocationSharingLevel } from '@/types/notification';
 import { DEFAULT_PRIVACY_SETTINGS } from '@/types/notification';
 

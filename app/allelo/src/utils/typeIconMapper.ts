@@ -13,7 +13,6 @@ export const typeIconMapper: Record<string, string> = {
   workPager: "📟",
   main: "📞",
   googleVoice: "📞",
-  other: "📞",
   // Organization types
   business: "🏢",
   school: "🎓",

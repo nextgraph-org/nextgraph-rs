@@ -10,12 +10,11 @@ import {
   useTheme 
 } from '@mui/material';
 import {
-  ArrowBack,
-  AutoAwesome,
-  Info,
-  PersonAdd
-} from '@mui/icons-material';
-import { getContactPhotoStyles } from '@/utils/photoStyles';
+  UilArrowLeft as ArrowBack,
+  UilStarHalfAlt as AutoAwesome,
+  UilInfoCircle as Info,
+  UilUserPlus as PersonAdd
+} from '@iconscout/react-unicons';
 import type { GroupHeaderProps } from './types';
 
 export const GroupHeader = forwardRef<HTMLDivElement, GroupHeaderProps>(
@@ -36,7 +35,7 @@ export const GroupHeader = forwardRef<HTMLDivElement, GroupHeaderProps>(
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <IconButton onClick={onBack} sx={{ mr: 1 }}>
-              <ArrowBack />
+              <ArrowBack size="20" />
             </IconButton>
             <Box sx={{ width: 50, height: 50, bgcolor: 'grey.200', borderRadius: '50%' }} />
             <Box>
@@ -60,7 +59,7 @@ export const GroupHeader = forwardRef<HTMLDivElement, GroupHeaderProps>(
           }}
         >
           <IconButton onClick={onBack} sx={{ mr: 2 }}>
-            <ArrowBack />
+            <ArrowBack size="20" />
           </IconButton>
           <Typography variant="h6" color="text.secondary">
             Group not found
@@ -83,14 +82,14 @@ export const GroupHeader = forwardRef<HTMLDivElement, GroupHeaderProps>(
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-          <IconButton 
-            onClick={onBack} 
-            sx={{ 
+          <IconButton
+            onClick={onBack}
+            sx={{
               mr: 1,
               display: { xs: 'flex', sm: 'flex' }
             }}
           >
-            <ArrowBack />
+            <ArrowBack size="20" />
           </IconButton>
           
           <Avatar
@@ -98,7 +97,6 @@ export const GroupHeader = forwardRef<HTMLDivElement, GroupHeaderProps>(
             sx={{
               width: { xs: 50, md: 64 },
               height: { xs: 50, md: 64 },
-              ...getContactPhotoStyles(group.name),
               fontSize: { xs: '1.2rem', md: '1.5rem' }
             }}
           >
@@ -158,7 +156,7 @@ export const GroupHeader = forwardRef<HTMLDivElement, GroupHeaderProps>(
         >
           <Button
             variant="outlined"
-            startIcon={<Info />}
+            startIcon={<Info size="20" />}
             onClick={onStartTour}
             sx={{ 
               borderRadius: 2,
@@ -170,7 +168,7 @@ export const GroupHeader = forwardRef<HTMLDivElement, GroupHeaderProps>(
           
           <Button
             variant="outlined"
-            startIcon={<AutoAwesome />}
+            startIcon={<AutoAwesome size="20" />}
             onClick={() => onStartAIAssistant()}
             sx={{
               borderRadius: 2,
@@ -188,7 +186,7 @@ export const GroupHeader = forwardRef<HTMLDivElement, GroupHeaderProps>(
           
           <Button
             variant="contained"
-            startIcon={<PersonAdd />}
+            startIcon={<PersonAdd size="20" />}
             onClick={onInvite}
             sx={{ 
               borderRadius: 2,

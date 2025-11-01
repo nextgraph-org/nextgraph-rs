@@ -1,1 +1,0 @@
-export const GEO_API_URL =  "http://198.217.114.22";

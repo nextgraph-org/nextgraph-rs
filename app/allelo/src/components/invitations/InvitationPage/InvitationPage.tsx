@@ -8,13 +8,14 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import { UilArrowLeft } from '@iconscout/react-unicons';
 import { dataService } from '@/services/dataService';
 import type { Group } from '@/types/group';
 import type { Contact } from '@/types/contact';
 import { InvitationDetails } from './InvitationDetails';
 import { InvitationActions } from './InvitationActions';
 import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
+import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 
 export interface InvitationPageProps {
   className?: string;
@@ -204,7 +205,8 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
           const contacts: Contact[] = await dataService.getContacts();
           const contact = contacts.find(c => {
             const name = resolveFrom(c, "name");
-            return name?.value?.toLowerCase() === inviteeName.toLowerCase()
+            const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
+            return displayName?.toLowerCase() === inviteeName.toLowerCase()
             }
           );
           
@@ -242,7 +244,7 @@ export const InvitationPage = forwardRef<HTMLDivElement, InvitationPageProps>(
         {/* Back Button */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
           <IconButton onClick={handleBack} size="large">
-            <ArrowBack />
+            <UilArrowLeft size="20" />
           </IconButton>
           <Typography variant="h6" sx={{ ml: 1 }}>
             {isGroupInvite ? `Back to ${group?.name}` : 'Back to Contacts'}

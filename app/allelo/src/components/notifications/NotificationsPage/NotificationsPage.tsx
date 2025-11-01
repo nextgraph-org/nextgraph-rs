@@ -4,7 +4,7 @@ import {
   Box,
   Button,
 } from '@mui/material';
-import { MarkEmailRead } from '@mui/icons-material';
+import { UilEnvelopeCheck } from '@iconscout/react-unicons';
 import { notificationService } from '@/services/notificationService';
 import type { Notification, NotificationSummary } from '@/types/notification';
 import { NotificationsList } from './NotificationsList';
@@ -251,7 +251,7 @@ export const NotificationsPage = forwardRef<HTMLDivElement, NotificationsPagePro
           {notificationSummary.unread > 0 && (
             <Button
               variant="outlined"
-              startIcon={<MarkEmailRead />}
+              startIcon={<UilEnvelopeCheck size="20" />}
               onClick={handleMarkAllAsRead}
               sx={{ 
                 borderRadius: 2,

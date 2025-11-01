@@ -10,11 +10,13 @@ interface MultiPropertyItemProps {
   source: string | null,
   onChange: (e: any) => void,
   onBlur: () => void,
-  placeholder: string,
+  placeholder?: string,
   onKeyDown?: (e: any) => void,
   autoFocus?: boolean,
   validateType?: ValidationType,
   validateParent?: (isValid: boolean) => void,
+  required?: boolean,
+  label?: string,
 }
 
 export const MultiPropertyItem = ({
@@ -27,9 +29,16 @@ export const MultiPropertyItem = ({
                                     onKeyDown,
                                     autoFocus,
                                     validateType = "text",
-                                    validateParent
+                                    validateParent,
+                                    required = true,
+                                    label
                                   }: MultiPropertyItemProps) => {
-  const {setFieldValue, triggerField, error, errorMessage} = useFieldValidation(value, validateType, { validateOn: "blur", required: true });
+  const {
+    setFieldValue,
+    triggerField,
+    error,
+    errorMessage
+  } = useFieldValidation(value, validateType, {validateOn: "blur", required: required});
   const [isValid, setIsValid] = useState(true);
 
   const validate = useCallback((valid: boolean) => {
@@ -70,7 +79,9 @@ export const MultiPropertyItem = ({
           fontSize: '0.875rem',
           fontWeight: 'normal',
         }
-      }
+      },
+      label,
+      slotProps: {inputLabel: {shrink: true}}
     };
 
     switch (validateType) {

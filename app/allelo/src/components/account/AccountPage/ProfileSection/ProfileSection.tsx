@@ -12,35 +12,43 @@ import {
   DialogContent,
   DialogActions,
   Link,
+  IconButton,
+  Collapse,
 } from '@mui/material';
 import {
-  Edit,
-  CheckCircle,
-} from '@mui/icons-material';
-import PersonhoodCredentialsComponent from '@/components/account/PersonhoodCredentials';
+  UilEdit,
+  UilCheckCircle,
+  UilAngleUp, UilAngleDown,
+} from '@iconscout/react-unicons';
 import type {ProfileSectionProps} from '../types';
 import {useNavigate} from "react-router";
 import {FormPhoneField} from "@/components/ui/FormPhoneField/FormPhoneField";
 import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";
 import {MultiPropertyWithVisibility} from "@/components/contacts/MultiPropertyWithVisibility";
+import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
+import {ContactTags} from "@/components/contacts";
 
 export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
-  ({personhoodCredentials, initialProfileData}, ref) => {
+  ({initialProfileData}, ref) => {
     const navigate = useNavigate();
 
     const [isEditing, setIsEditing] = useState(false);
     const [showGreencheckDialog, setShowGreencheckDialog] = useState(false);
+    const [showNameDetails, setShowNameDetails] = useState(false);
     const [greencheckData, setGreencheckData] = useState({
       phone: '',
     });
     const [valid, setValid] = useState<boolean>(false);
 
     const name = resolveFrom(initialProfileData, 'name');
+    const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
+
     const avatar = resolveFrom(initialProfileData, 'photo');
 
     const handleEdit = () => {
       setIsEditing(true);
+      setShowNameDetails(true)
     };
 
     const handleSave = () => {
@@ -79,7 +87,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                 {!isEditing ? (
                   <Button
                     variant="outlined"
-                    startIcon={<Edit/>}
+                    startIcon={<UilEdit size="20"/>}
                     onClick={handleEdit}
                   >
                     Edit
@@ -87,7 +95,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                 ) : (
                   <Button
                     variant="outlined"
-                    startIcon={<Edit/>}
+                    startIcon={<UilEdit size="20"/>}
                     onClick={handleSave}
                   >
                     Exit
@@ -99,7 +107,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
             <Grid container spacing={3}>
               {/* Left side - Avatar and basic info */}
               <Grid size={{xs: 12, md: 4}}>
-                <Box sx={{textAlign: 'center'}}>
+                <Box>
                   <Box sx={{position: 'relative', display: 'inline-block'}}>
                     <Avatar
                       sx={{
@@ -112,7 +120,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                       alt="Profile"
                       src={avatar?.value}
                     >
-                      {name?.value?.charAt(0)}
+                      {displayName?.charAt(0)}
                     </Avatar>
                     {/* {isEditing && (
                       <>
@@ -141,19 +149,84 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                       </>
                     )}*/}
                   </Box>
-                  <PropertyWithSources
-                    propertyKey={"name"}
-                    textVariant={"h5"}
-                    contact={initialProfileData}
-                    isEditing={isEditing}
-                    required={true}
-                  />
+                  <Box sx={{display: "flex", flexDirection: "row", justifyContent: "start", alignItems: "start"}}>
+                    <PropertyWithSources
+                      propertyKey={"name"}
+                      textVariant={"h5"}
+                      contact={initialProfileData}
+                      isEditing={isEditing}
+                      label={"Full name"}
+                      hideLabel={true}
+                      template={defaultTemplates.contactName}
+                    />
+                    <IconButton
+                      sx={{padding: 0, ml: 1}}
+                      onClick={() => setShowNameDetails(!showNameDetails)}
+                    >{showNameDetails ? <UilAngleUp size="20"/> : <UilAngleDown size="20"/>}
+                    </IconButton>
+                  </Box>
+                  <Collapse in={showNameDetails}>
+                    <Box sx={{mt: 1, ml: 3}}>
+                      <PropertyWithSources
+                        propertyKey={"name"}
+                        subKey={"firstName"}
+                        textVariant={"body1"}
+                        contact={initialProfileData}
+                        isEditing={isEditing}
+                        label={"First name"}
+                        hideSources={true}
+                      />
+                      <PropertyWithSources
+                        propertyKey={"name"}
+                        subKey={"middleName"}
+                        textVariant={"body1"}
+                        contact={initialProfileData}
+                        isEditing={isEditing}
+                        label={"Middle name"}
+                        hideSources={true}
+                      />
+                      <PropertyWithSources
+                        propertyKey={"name"}
+                        subKey={"familyName"}
+                        textVariant={"body1"}
+                        contact={initialProfileData}
+                        isEditing={isEditing}
+                        label={"Last name"}
+                        hideSources={true}
+                      />
+                      <PropertyWithSources
+                        propertyKey={"name"}
+                        subKey={"honorificPrefix"}
+                        textVariant={"body1"}
+                        contact={initialProfileData}
+                        isEditing={isEditing}
+                        label={"Honorific prefix"}
+                        hideSources={true}
+                      />
+                      <PropertyWithSources
+                        propertyKey={"name"}
+                        subKey={"honorificSuffix"}
+                        textVariant={"body1"}
+                        contact={initialProfileData}
+                        isEditing={isEditing}
+                        label={"Honorific suffix"}
+                        hideSources={true}
+                      />
+                    </Box>
+                  </Collapse>
                   <PropertyWithSources
                     propertyKey={"headline"}
+                    label={"Headline"}
+                    hideLabel={true}
                     textVariant={"body2"}
                     contact={initialProfileData}
                     isEditing={isEditing}
+                    template={defaultTemplates.headline}
+                    templateProperty={"organization"}
                   />
+                </Box>
+                <Box>
+                  <ContactTags contact={initialProfileData}/>
                 </Box>
               </Grid>
 
@@ -190,6 +263,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                         contact={initialProfileData}
                         isEditing={isEditing}
                         validateType={"text"}
+                        variant={"addresses"}
                       />
                     </Grid>
                     <Grid size={{xs: 12, sm: 6}}>
@@ -213,6 +287,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                       propertyKey={"biography"}
                       contact={initialProfileData}
                       isEditing={isEditing}
+                      isMultiline={true}
                     />
                   </Box>
 
@@ -236,7 +311,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                           <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
                             <Box>
                               <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 0.5}}>
-                                <CheckCircle sx={{fontSize: 20, color: 'success.main'}}/>
+                                <UilCheckCircle size="20" style={{color: 'inherit'}}/>
                                 <Typography variant="body2" sx={{fontWeight: 600}}>
                                   Claim other accounts via Greencheck
                                 </Typography>
@@ -323,13 +398,6 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
             </Button>
           </DialogActions>
         </Dialog>
-
-        {/* Personhood Credentials Section */}
-        <Box sx={{mt: 4}}>
-          <PersonhoodCredentialsComponent
-            credentials={personhoodCredentials}
-          />
-        </Box>
       </Box>
     );
   }

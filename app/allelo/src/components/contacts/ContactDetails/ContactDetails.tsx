@@ -11,12 +11,12 @@ import {
   useTheme
 } from '@mui/material';
 import {
-  Schedule,
-  Security,
-  VerifiedUser,
-  CheckCircle,
-  PersonOutline
-} from '@mui/icons-material';
+  UilClock as Schedule,
+  UilShield as Security,
+  UilShieldCheck as VerifiedUser,
+  UilCheckCircle as CheckCircle,
+  UilUser as PersonOutline
+} from '@iconscout/react-unicons';
 import type {Contact} from '@/types/contact';
 import {formatDate} from "@/utils/dateHelpers";
 
@@ -31,17 +31,17 @@ export const ContactDetails = forwardRef<HTMLDivElement, ContactDetailsProps>(
 
     const getHumanityScoreInfo = (score?: number) => {
       const scoreInfo = {
-        1: {label: 'Very Low', description: 'Unverified online presence', color: '#f44336'},
-        2: {label: 'Low', description: 'Limited verification signals', color: '#ff9800'},
-        3: {label: 'Moderate', description: 'Some verification indicators', color: '#ff9800'},
-        4: {label: 'High', description: 'Multiple verification sources', color: '#2196f3'},
-        5: {label: 'Verified Human', description: 'Confirmed human interaction', color: '#4caf50'},
-        6: {label: 'Trusted', description: 'Highly trusted individual', color: '#4caf50'},
+        1: {label: 'Very Low', description: 'Unverified online presence', color: theme.palette.error.main},
+        2: {label: 'Low', description: 'Limited verification signals', color: theme.palette.warning.main},
+        3: {label: 'Moderate', description: 'Some verification indicators', color: theme.palette.warning.main},
+        4: {label: 'High', description: 'Multiple verification sources', color: theme.palette.primary.main},
+        5: {label: 'Verified Human', description: 'Confirmed human interaction', color: theme.palette.success.main},
+        6: {label: 'Trusted', description: 'Highly trusted individual', color: theme.palette.success.main},
       };
       return score ? scoreInfo[score as keyof typeof scoreInfo] : {
         label: 'Unknown',
         description: 'No humanity assessment',
-        color: '#9e9e9e'
+        color: theme.palette.text.disabled
       };
     };
 

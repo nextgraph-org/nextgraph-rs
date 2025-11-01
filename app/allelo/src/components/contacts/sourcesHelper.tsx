@@ -1,22 +1,23 @@
 import {Source} from "@/types/contact";
-import {Check, Google, LinkedIn, Person, ContactPage, PhoneAndroid, PhoneIphone} from "@mui/icons-material";
+import {UilCheck, UilGoogle, UilLinkedin, UilUser, UilFileAlt, UilMobileAndroid, UilApple} from "@iconscout/react-unicons";
 
 export const getSourceIcon = (source: Source | string) => {
+  const size = 18;
   switch (source) {
     case 'user':
-      return <Person fontSize="small" sx={{fontSize: {xs: "14px", md: "18px"}}}/>;
+      return <UilUser size={size}/>;
     case 'linkedin':
-      return <LinkedIn fontSize="small" sx={{fontSize: {xs: "14px", md: "18px"}}}/>;
+      return <UilLinkedin size={size}/>;
     case 'Android Phone':
-      return <PhoneAndroid fontSize="small" sx={{fontSize: {xs: "14px", md: "18px"}}}/>;
+      return <UilMobileAndroid size={size}/>;
     case 'iPhone':
-      return <PhoneIphone fontSize="small" sx={{fontSize: {xs: "14px", md: "18px"}}}/>;
+      return <UilApple size={size}/>;
     case "Gmail":
-      return <Google fontSize="small" sx={{fontSize: {xs: "14px", md: "18px"}}}/>;
+      return <UilGoogle size={size}/>;
     case "GreenCheck":
-      return <Check fontSize="small" sx={{fontSize: {xs: "14px", md: "18px"}}}/>;
+      return <UilCheck size={size}/>;
     case "vcard":
-      return <ContactPage fontSize="small" sx={{fontSize: {xs: "14px", md: "18px"}}}/>;
+      return <UilFileAlt size={size}/>;
     default:
       return undefined;
   }

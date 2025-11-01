@@ -9,7 +9,7 @@ export const useContactView = (id: string | null) => {
   const [humanityDialogOpen, setHumanityDialogOpen] = useState(false);
   const [groupsError, setGroupsError] = useState<string | null>(null);
 
-  const {contact, isLoading: contactLoading, error: contactError, setContact, refreshContact} = useContactData(id);
+  const {contact, isLoading: contactLoading, error: contactError, setContact} = useContactData(id);
 
   // Load and filter groups when contact changes
   useEffect(() => {
@@ -119,7 +119,6 @@ export const useContactView = (id: string | null) => {
 
     // Actions
     toggleHumanityVerification,
-    inviteToNAO,
-    refreshContact
+    inviteToNAO
   };
 };

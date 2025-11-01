@@ -1,42 +1,34 @@
-import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  BottomNavigation as MuiBottomNavigation, 
-  BottomNavigationAction, 
-  Paper 
-} from '@mui/material';
+import {useLocation, useNavigate} from 'react-router-dom';
 import {
-  Dashboard,
-  Hub,
-  Chat,
-  Groups,
-} from '@mui/icons-material';
+  BottomNavigation as MuiBottomNavigation,
+  BottomNavigationAction,
+  Paper
+} from '@mui/material';
+import {NavItem} from "@/components/layout/NavigationMenu";
 
-const BottomNavigation = () => {
+type BottomNavigationProps = {
+  navigationItems: NavItem[]
+}
+
+const BottomNavigation = ({navigationItems}: BottomNavigationProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-
-  const navigationItems = [
-    { label: 'Home', icon: <Dashboard />, path: '/' },
-    { label: 'Network', icon: <Hub />, path: '/contacts' },
-    { label: 'Groups', icon: <Groups />, path: '/groups' },
-    { label: 'Chat', icon: <Chat />, path: '/messages' },
-  ];
 
   const getCurrentValue = () => {
     const currentPath = location.pathname;
     if (currentPath === '/') return '/';
-    
+
     // Handle network path - should highlight Network tab
     if (currentPath.startsWith('/contacts')) {
       return '/contacts';
     }
-    
+
     // Groups has its own tab now
     if (currentPath.startsWith('/groups')) {
       return '/groups';
     }
-    
-    const activeItem = navigationItems.find(item => 
+
+    const activeItem = navigationItems.find(item =>
       item.path === currentPath || (item.path !== '/' && currentPath.startsWith(item.path))
     );
     return activeItem ? activeItem.path : '/';
@@ -47,16 +39,16 @@ const BottomNavigation = () => {
   };
 
   return (
-    <Paper 
-      sx={{ 
+    <Paper
+      sx={{
         bottom: 0,
-        left: 0, 
-        right: 0, 
+        left: 0,
+        right: 0,
         zIndex: 1000,
         borderTop: 1,
         borderColor: 'divider',
         gridArea: "footer"
-      }} 
+      }}
       elevation={3}
     >
       <MuiBottomNavigation
@@ -75,7 +67,7 @@ const BottomNavigation = () => {
         {navigationItems.map((item) => (
           <BottomNavigationAction
             key={item.path}
-            label={item.label}
+            label={item.text}
             value={item.path}
             icon={item.icon}
           />
