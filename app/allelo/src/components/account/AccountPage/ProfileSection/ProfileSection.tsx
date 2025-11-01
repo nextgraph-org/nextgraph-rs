@@ -21,7 +21,7 @@ import {
   UilAngleUp, UilAngleDown,
 } from '@iconscout/react-unicons';
 import type {ProfileSectionProps} from '../types';
-import {useNavigate} from "react-router";
+import {useNavigate} from "react-router-dom";
 import {FormPhoneField} from "@/components/ui/FormPhoneField/FormPhoneField";
 import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";

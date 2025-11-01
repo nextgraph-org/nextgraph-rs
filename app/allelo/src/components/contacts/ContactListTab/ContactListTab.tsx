@@ -6,7 +6,7 @@ import {useContacts} from "@/hooks/contacts/useContacts.ts";
 import {ContactGrid, FloatingActions, MergeDialogs} from "@/components/contacts";
 import {DragEndEvent, DragOverlay, DragStartEvent, useDndMonitor} from "@dnd-kit/core";
 import {ContactCard} from "@/components/contacts/ContactCard";
-import {useNavigate} from "react-router";
+import {useNavigate} from "react-router-dom";
 import {useSearchParams} from "react-router-dom";
 
 export const ContactListTab = ({manageMode}: {manageMode: boolean}) => {

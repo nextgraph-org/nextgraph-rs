@@ -18,7 +18,7 @@ import {
   CheckCircle,
   Person,
 } from "@mui/icons-material";
-import {useNavigate} from "react-router";
+import {useNavigate} from "react-router-dom";
 import {GreenCheckClaim, isAccountClaim} from "@/lib/greencheck-api-client/types";
 import {useUpdateProfile} from "@/hooks/useUpdateProfile";
 import {mapGreenCheckClaimToSocialContact} from "@/utils/greenCheckMapper";
