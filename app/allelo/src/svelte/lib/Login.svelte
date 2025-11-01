@@ -29,9 +29,9 @@
         ArrowLeft,
     } from "svelte-heros-v2";
     import PasswordInput from "./components/PasswordInput.svelte";
-    import Spinner from "./components/Spinner.svelte";
-  import Typography from "./components/Typography.svelte";
-  import Textfield from "@smui/textfield";
+    import Typography from "./components/Typography.svelte";
+    import Textfield from "@smui/textfield";
+    import CircularProgress from '@smui/circular-progress';
     import Button, { Label, Icon } from "@smui/button";
     import Switch from "@smui/switch";
     import { display_error } from "../store";
@@ -325,7 +325,7 @@
       <Typography variant="body1" className="status-message">
         {@html $t("pages.login.opening_wallet")}
       </Typography>
-      <Spinner className="status-spinner" />
+      <CircularProgress style="align-self: center;height: 32px; width: 32px" indeterminate/>
     </div>
   {:else if step == "end"}
     {#if error}

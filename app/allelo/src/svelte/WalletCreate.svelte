@@ -31,12 +31,12 @@
     APP_WALLET_CREATE_SUFFIX,
     default as ng,
   } from "../.auth-react/api";
+  import CircularProgress from '@smui/circular-progress';
 
   import CircleLogo from "./lib/components/CircleLogo.svelte";
 
   import { onMount, onDestroy, tick } from "svelte";
   import { wallets, display_error, boot } from "./store";
-  import Spinner from "./lib/components/Spinner.svelte";
 
   console.log("WalletCreate called")
 
@@ -310,7 +310,7 @@
         <Typography variant="body1" className="status-message">
           {wait}
         </Typography>
-        <Spinner className="status-spinner" />
+        <CircularProgress style="align-self: center;height: 32px; width: 32px" indeterminate/>
       </div>
     {:else}
       <div class="row">
@@ -396,7 +396,7 @@
                 input$autofocus={true}
                 input$bind:this={username_input}
                 class="mui-textfield shaped-outlined"
-                input$onkeydown={onUsernameKeydown}
+                input$onkeydown={username_password_ok}
               />
             </div>
 
@@ -431,7 +431,7 @@
               <Typography variant="body1" className="status-message">
                 {$t("pages.wallet_create.creating")}
               </Typography>
-              <Spinner className="status-spinner" />
+              <CircularProgress style="align-self: center;height: 32px; width: 32px" indeterminate/>
             </div>
           {:else}
             <div class="surface-section status-surface status-success">
