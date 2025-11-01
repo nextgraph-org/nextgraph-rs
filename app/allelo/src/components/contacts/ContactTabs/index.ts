@@ -1,1 +1,0 @@
-export { ContactTabs } from './ContactTabs';

@@ -1,0 +1,1 @@
+export { MyDocs } from './MyDocs';

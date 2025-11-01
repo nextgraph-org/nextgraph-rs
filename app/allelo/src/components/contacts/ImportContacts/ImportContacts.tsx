@@ -8,18 +8,20 @@ import {
   CardActions,
   Button,
   Dialog,
-  LinearProgress
+  LinearProgress, IconButton
 } from '@mui/material';
-import {CloudDownload} from '@mui/icons-material';
+import {UilArrowLeft, UilCloudDownload} from '@iconscout/react-unicons';
 import {useImportContacts} from '@/hooks/contacts/useImportContacts';
-import {ImportSourceConfig} from "@/types/importSource.ts";
-import {ImportSourceRegistry} from "@/utils/importSourceRegistry/importSourceRegistry.tsx";
-import {Contact} from "@/types/contact.ts";
+import {ImportSourceConfig} from "@/types/importSource";
+import {ImportSourceRegistry} from "@/importers/importSourceRegistry";
+import {Contact} from "@/types/contact";
+import {useNavigate} from "react-router-dom";
 
 export const ImportContacts = () => {
   const {importSources, importProgress, isImporting, importContacts} = useImportContacts();
   const [selectedSource, setSelectedSource] = useState<ImportSourceConfig | null>(null);
   const [isRunnerOpen, setIsRunnerOpen] = useState(false);
+  const navigate = useNavigate();
 
   const handleImportClick = useCallback((source: ImportSourceConfig) => {
     setSelectedSource(source);
@@ -49,16 +51,43 @@ export const ImportContacts = () => {
     if (icon) {
       return React.cloneElement(icon, {sx: {fontSize: 40}});
     }
-    return <CloudDownload sx={{fontSize: 40}}/>;
+    return <UilCloudDownload size="40"/>;
+  };
+
+  const handleBackClick = () => {
+    navigate('/contacts');
   };
 
   return (
-    <Box sx={{height: '100%'}}>
+    <Box sx={{height: '100%', p: 2}}>
       <Box sx={{mb: 4}}>
-        <Typography variant="h4" component="h1" gutterBottom sx={{fontWeight: 700}}>
-          Import Your Contacts
-        </Typography>
-        <Typography variant="body1" sx={{color: 'text.secondary'}}>
+        <Box sx={{flex: 1, minWidth: 0, overflow: 'hidden', display: "flex", alignItems: 'center', gap: 1, pb: 2}}>
+          <IconButton
+            onClick={handleBackClick}
+            sx={{
+              p: 0.5,
+              color: 'text.primary',
+              mr: 3
+            }}
+          >
+            <UilArrowLeft size="20"/>
+          </IconButton>
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{
+              fontWeight: 700,
+              mb: {xs: 0, md: 0},
+              fontSize: {xs: '1.5rem', md: '2.125rem'},
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Import Your Contacts
+          </Typography>
+        </Box>
+        <Typography variant="body1" sx={{color: 'text.secondary', p: 1}}>
           Choose a source to import your contacts from
         </Typography>
       </Box>
@@ -98,7 +127,7 @@ export const ImportContacts = () => {
                     variant="contained"
                     onClick={() => handleImportClick(source)}
                     disabled={!source.isAvailable}
-                    startIcon={<CloudDownload/>}
+                    startIcon={<UilCloudDownload size="20"/>}
                     sx={{borderRadius: 2}}
                   >
                     {source.customButtonName ? source.customButtonName : "Import from " + source.name}

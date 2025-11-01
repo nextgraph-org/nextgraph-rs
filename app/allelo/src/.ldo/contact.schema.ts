@@ -1837,7 +1837,7 @@ export const contactSchema: Schema = {
               valueExpr: {
                 type: "NodeConstraint",
                 values: [
-                  "did:ng:k:link:type#homePage",
+                  "did:ng:k:link:type#homepage",
                   "did:ng:k:link:type#sourceCode",
                   "did:ng:k:link:type#blog",
                   "did:ng:k:link:type#documentation",
@@ -1845,7 +1845,7 @@ export const contactSchema: Schema = {
                   "did:ng:k:link:type#home",
                   "did:ng:k:link:type#work",
                   "did:ng:k:link:type#appInstall",
-                  "did:ng:k:link:type#linkedIn",
+                  "did:ng:k:link:type#linkedin",
                   "did:ng:k:link:type#ftp",
                   "did:ng:k:link:type#custom",
                   "did:ng:k:link:type#reservations",
@@ -4592,7 +4592,7 @@ export const contactSchema: Schema = {
               predicate: "did:ng:x:core#valueIRI",
               valueExpr: {
                 type: "NodeConstraint",
-                datatype: "http://www.w3.org/2001/XMLSchema#string",
+                nodeKind: "iri",
               },
               annotations: [
                 {

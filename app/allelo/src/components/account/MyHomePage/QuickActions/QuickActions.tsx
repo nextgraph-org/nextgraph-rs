@@ -9,9 +9,9 @@ import {
   Chip,
 } from '@mui/material';
 import {
-  Search,
-  FilterList,
-} from '@mui/icons-material';
+  UilSearch as Search,
+  UilFilter as FilterList,
+} from '@iconscout/react-unicons';
 import type { QuickActionsProps } from '../types';
 import type { ContentType } from '@/types/userContent';
 

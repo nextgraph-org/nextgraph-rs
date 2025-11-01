@@ -1,2 +1,2 @@
 export { Sidebar } from './Sidebar';
-export type { SidebarProps, RelationshipCategory } from './types';
+export type { SidebarProps } from './types';

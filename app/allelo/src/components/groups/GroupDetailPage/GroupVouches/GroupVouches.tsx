@@ -17,8 +17,7 @@ import {
   Select,
   MenuItem
 } from '@mui/material';
-import { ThumbUp, Add, Comment } from '@mui/icons-material';
-import { getContactPhotoStyles } from '@/utils/photoStyles';
+import { UilThumbsUp as ThumbUp, UilPlus as Add, UilComment as Comment } from '@iconscout/react-unicons';
 import type { GroupVouchesProps } from './types';
 import {formatDateDiff} from "@/utils/dateHelpers";
 
@@ -58,12 +57,12 @@ export const GroupVouches = forwardRef<HTMLDivElement, GroupVouchesProps>(
       <Box ref={ref}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ThumbUp /> Vouches & Praise
+            <ThumbUp size="20" /> Vouches & Praise
           </Typography>
           
           <Button
             variant="contained"
-            startIcon={<Add />}
+            startIcon={<Add size="20" />}
             onClick={() => setShowCreateDialog(true)}
             sx={{ borderRadius: 2 }}
           >
@@ -74,7 +73,7 @@ export const GroupVouches = forwardRef<HTMLDivElement, GroupVouchesProps>(
         {vouches.length === 0 ? (
           <Card sx={{ textAlign: 'center', py: 6 }}>
             <CardContent>
-              <ThumbUp sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+              <ThumbUp size="48" style={{ color: 'inherit', marginBottom: '16px' }} />
               <Typography variant="h6" color="text.secondary" gutterBottom>
                 No vouches yet
               </Typography>
@@ -83,7 +82,7 @@ export const GroupVouches = forwardRef<HTMLDivElement, GroupVouchesProps>(
               </Typography>
               <Button
                 variant="contained"
-                startIcon={<Add />}
+                startIcon={<Add size="20" />}
                 onClick={() => setShowCreateDialog(true)}
               >
                 Give First Vouch
@@ -100,7 +99,6 @@ export const GroupVouches = forwardRef<HTMLDivElement, GroupVouchesProps>(
                         sx={{
                           width: 40,
                           height: 40,
-                          ...getContactPhotoStyles(vouch.giver)
                         }}
                       >
                         {vouch.giver.charAt(0).toUpperCase()}
@@ -145,7 +143,7 @@ export const GroupVouches = forwardRef<HTMLDivElement, GroupVouchesProps>(
                       </Box>
                       
                       <Chip
-                        icon={vouch.type === 'vouch' ? <ThumbUp /> : <Comment />}
+                        icon={vouch.type === 'vouch' ? <ThumbUp size="16" /> : <Comment size="16" />}
                         label={vouch.type === 'vouch' ? 'Vouch' : 'Praise'}
                         size="small"
                         color={vouch.type === 'vouch' ? 'primary' : 'secondary'}

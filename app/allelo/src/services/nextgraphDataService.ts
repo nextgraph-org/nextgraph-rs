@@ -353,7 +353,7 @@ WHERE {
   };
 
   async getDuplicatedContacts(session?: NextGraphSession): Promise<string[][]> {
-    if (!session || !session.ng) return [];
+    if (!session) return [];
     const sparql = this.getDuplicatedContactsSparql();
 
     const data = await session.ng!.sparql_query(session.sessionId, sparql);

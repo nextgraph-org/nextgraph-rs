@@ -12,6 +12,7 @@ interface DashboardState {
   // Layout controls
   showOverflow: boolean;
   showHeader: boolean;
+  showRCardsWidget: boolean;
 
   // Actions for zones
   setHeaderZone: (zone: ReactNode) => void;
@@ -26,6 +27,7 @@ interface DashboardState {
   toggleOverflow: () => void;
   setOverflow: (show: boolean) => void;
   setShowHeader: (show: boolean) => void;
+  setShowRCardsWidget: (show: boolean) => void;
 }
 
 export const useDashboardStore = create<DashboardState>((set) => ({
@@ -35,6 +37,7 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   mainRef: null,
   showOverflow: true,
   showHeader: true,
+  showRCardsWidget: false,
 
   // Zone actions
   setHeaderZone: (zone) => set({ headerZone: zone }),
@@ -49,4 +52,5 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   toggleOverflow: () => set((state) => ({ showOverflow: !state.showOverflow })),
   setOverflow: (show) => set({ showOverflow: show }),
   setShowHeader: (show) => set({ showHeader: show }),
+  setShowRCardsWidget: (show) => set({ showRCardsWidget: show }),
 }));

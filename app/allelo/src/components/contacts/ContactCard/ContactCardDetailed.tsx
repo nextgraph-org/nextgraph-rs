@@ -2,7 +2,7 @@ import React, {forwardRef} from "react";
 import {Box, Typography, Chip, Skeleton} from "@mui/material";
 import {alpha, useTheme} from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import {Favorite, VerifiedUser} from "@mui/icons-material";
+import {UilHeart, UilShieldCheck} from "@iconscout/react-unicons";
 import {Avatar, IconButton} from "@/components/ui";
 import type {Contact} from "@/types/contact";
 import {useRelationshipCategories} from "@/hooks/useRelationshipCategories";
@@ -12,6 +12,7 @@ import {Email, Name, Organization, PhoneNumber} from "@/.ldo/contact.typings";
 import {iconFilter} from "@/hooks/contacts/useContacts";
 import {AccountRegistry} from "@/utils/accountRegistry";
 import {formatPhone} from "@/utils/phoneHelper";
+import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 
 const renderContactName = (name?: Name, isLoading?: boolean) => (
   <Typography
@@ -29,7 +30,7 @@ const renderContactName = (name?: Name, isLoading?: boolean) => (
     {isLoading ? (
       <Skeleton variant="text" width="60%"/>
     ) : (
-      name?.value || ''
+      name?.value || renderTemplate(defaultTemplates.contactName, name)
     )}
   </Typography>
 );
@@ -163,7 +164,7 @@ export const ContactCardDetailed = forwardRef<
           count={vouches}
           onClick={() => onSetIconFilter("vouchFilter", "has_vouches")}
         >
-          <VerifiedUser/>
+          <UilShieldCheck/>
         </IconButton> : null
     );
 
@@ -175,7 +176,7 @@ export const ContactCardDetailed = forwardRef<
           count={praises}
           onClick={() => onSetIconFilter("praiseFilter", "has_praises")}
         >
-          <Favorite/>
+          <UilHeart/>
         </IconButton> : null
     );
 
@@ -203,7 +204,7 @@ export const ContactCardDetailed = forwardRef<
         onClick={() =>
           onSetIconFilter(
             "relationshipFilter",
-            contact?.relationshipCategory || "uncategorized",
+            contact?.relationshipCategory || "default",
           )
         }
       >
@@ -242,8 +243,7 @@ export const ContactCardDetailed = forwardRef<
         sx={{
           display: "flex",
           alignItems: {xs: "center", md: "flex-start"},
-          gap: {xs: 2, md: 0},
-          height: {xs: 80, md: 44},
+          gap: {xs: 1, md: 0},
           width: "100%",
         }}
       >
@@ -257,9 +257,12 @@ export const ContactCardDetailed = forwardRef<
         {/* First Column - Name & Company */}
         <Box
           sx={{
+            display: "flex",
+            flexDirection: "column",
             minWidth: 0,
             flex: {xs: '1 1 0%', md: '0 0 320px'}, // xs fluid, md fixed 320px
             mr: {xs: 0, md: 3},
+            gap:1
           }}
         >
           <Box sx={{display: "flex", alignItems: "center", gap: {xs: 0.5, md: 1}, mb: 0.5}}>

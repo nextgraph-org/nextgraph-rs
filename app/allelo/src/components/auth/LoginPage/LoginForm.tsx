@@ -5,11 +5,11 @@ import {
   IconButton,
 } from '@mui/material';
 import {
-  Visibility,
-  VisibilityOff,
-  Email,
-  Lock,
-} from '@mui/icons-material';
+  UilEye,
+  UilEyeSlash,
+  UilEnvelope,
+  UilLock,
+} from '@iconscout/react-unicons';
 import type { LoginFormProps } from './types';
 
 export const LoginForm = ({
@@ -37,7 +37,7 @@ export const LoginForm = ({
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <Email color="action" />
+              <UilEnvelope size="20" />
             </InputAdornment>
           ),
         }}
@@ -56,7 +56,7 @@ export const LoginForm = ({
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <Lock color="action" />
+              <UilLock size="20" />
             </InputAdornment>
           ),
           endAdornment: (
@@ -66,7 +66,7 @@ export const LoginForm = ({
                 edge="end"
                 size="small"
               >
-                {showPassword ? <VisibilityOff /> : <Visibility />}
+                {showPassword ? <UilEyeSlash size="20" /> : <UilEye size="20" />}
               </IconButton>
             </InputAdornment>
           ),

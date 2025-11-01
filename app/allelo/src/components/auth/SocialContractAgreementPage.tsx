@@ -14,12 +14,12 @@ import {
   Divider,
 } from '@mui/material';
 import {
-  Handshake,
-  People,
-  Share,
-  TrendingUp,
-  VerifiedUser,
-} from '@mui/icons-material';
+  UilUsersAlt as UilHandshake,
+  UilUsersAlt,
+  UilShareAlt,
+  UilChartLine,
+  UilShieldCheck,
+} from '@iconscout/react-unicons';
 
 export const SocialContractAgreementPage = () => {
   const navigate = useNavigate();
@@ -78,13 +78,14 @@ export const SocialContractAgreementPage = () => {
       >
         {/* Header */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <Handshake sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+          <UilHandshake size="48" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)' }} />
           <Typography
             variant="h4"
             component="h1"
             sx={{
               fontWeight: 700,
               mb: 2,
+              mt: 2,
               color: 'text.primary'
             }}
           >
@@ -99,7 +100,7 @@ export const SocialContractAgreementPage = () => {
         <Card sx={{ mb: 4, backgroundColor: 'primary.50', border: '1px solid', borderColor: 'primary.200' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <People sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
+              <UilUsersAlt size="32" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)', marginRight: '16px' }} />
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
                 A New Type of Network Built on Trust
               </Typography>
@@ -112,7 +113,9 @@ export const SocialContractAgreementPage = () => {
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <Share sx={{ fontSize: 24, color: 'primary.main', mr: 2, mt: 0.5 }} />
+                <Box sx={{ mr: 2, mt: 0.5 }}>
+                  <UilShareAlt size="24" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)' }} />
+                </Box>
                 <Box>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     Locally Hosted Trust Graphs
@@ -125,7 +128,9 @@ export const SocialContractAgreementPage = () => {
               </Box>
 
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <TrendingUp sx={{ fontSize: 24, color: 'primary.main', mr: 2, mt: 0.5 }} />
+                <Box sx={{ mr: 2, mt: 0.5 }}>
+                  <UilChartLine size="24" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)' }} />
+                </Box>
                 <Box>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     Find Trusted Connections
@@ -138,7 +143,9 @@ export const SocialContractAgreementPage = () => {
               </Box>
 
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <VerifiedUser sx={{ fontSize: 24, color: 'primary.main', mr: 2, mt: 0.5 }} />
+                <Box sx={{ mr: 2, mt: 0.5 }}>
+                  <UilShieldCheck size="24" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)' }} />
+                </Box>
                 <Box>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     Real Trust, Real Value

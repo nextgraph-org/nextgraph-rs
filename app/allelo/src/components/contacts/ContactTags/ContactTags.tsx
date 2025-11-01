@@ -1,5 +1,5 @@
 import {SocialContact, Tag} from "@/.ldo/contact.typings.ts";
-import {Add, Close} from "@mui/icons-material";
+import {UilPlus, UilTimes} from "@iconscout/react-unicons";
 import {Box, Chip, Autocomplete, TextField, Popper} from "@mui/material";
 import {useCallback, useEffect, useMemo, useState} from "react";
 import {dataset, useLdo} from "@/lib/nextgraph";
@@ -11,7 +11,7 @@ import {getContactDictValues} from "@/utils/socialContact/dictMapper.ts";
 const availableTags = getContactDictValues("tag").sort();
 
 export interface ContactTagsProps {
-  contact: SocialContact;
+  contact?: SocialContact;
 }
 
 export const ContactTags = ({contact}: ContactTagsProps) => {
@@ -21,14 +21,14 @@ export const ContactTags = ({contact}: ContactTagsProps) => {
   const {commitData, changeData} = useLdo();
 
   const initTags = useCallback(() => {
-    const contactTags = contact.tag?.toArray().filter(tag => tag["@id"]).map(tag => {
+    const contactTags = contact?.tag?.toArray().filter(tag => tag["@id"]).map(tag => {
       return {
         "@id": tag["@id"],
         source: "user",
         //@ts-expect-error ldo is messing the structure
         valueIRI: tag.valueIRI.toArray ? tag.valueIRI.toArray()[0] : tag.valueIRI
       } as Tag;
-    });
+    }) ?? [];
     setTags(contactTags);
   }, [contact]);
 
@@ -40,6 +40,7 @@ export const ContactTags = ({contact}: ContactTagsProps) => {
   const availableOptions = availableTags.filter(tag => !existingTagIds.includes(tag));
 
   const handleTagAdd = (tagLabel: string) => {
+    if (!contact) return;
     const tagId = availableOptions.find(tagOption => camelCaseToWords(tagOption) === tagLabel);
     if (!tagId) return;
 
@@ -70,7 +71,7 @@ export const ContactTags = ({contact}: ContactTagsProps) => {
   };
 
   const handleTagRemove = (tagId: string) => {
-    if (contact.tag) {
+    if (contact?.tag) {
       const tagToRemove = Array.from(contact.tag).find(tag => tag["@id"] === tagId);
       if (tagToRemove) {
         if (isNextgraph) {
@@ -95,7 +96,7 @@ export const ContactTags = ({contact}: ContactTagsProps) => {
       gap: 1,
       flexWrap: 'wrap',
       mb: 2,
-      justifyContent: {xs: 'center', sm: 'flex-start'}
+      justifyContent: 'flex-start'
     }}>
       {tags?.map((tag) => (
         <Chip
@@ -103,7 +104,7 @@ export const ContactTags = ({contact}: ContactTagsProps) => {
           label={camelCaseToWords(tag.valueIRI["@id"])}
           size="small"
           onDelete={() => handleTagRemove(tag["@id"]!)}
-          deleteIcon={<Close fontSize="small"/>}
+          deleteIcon={<UilTimes size="20"/>}
         />
       ))}
 
@@ -168,7 +169,7 @@ export const ContactTags = ({contact}: ContactTagsProps) => {
       )}
       <Chip
         variant="outlined"
-        icon={<Add fontSize="small"/>}
+        icon={<UilPlus size="20"/>}
         label="Add tag"
         size="small"
         clickable

@@ -12,21 +12,21 @@ import {
   Button,
 } from '@mui/material';
 import {
-  MoreVert,
-  Favorite,
-  FavoriteBorder,
-  Edit,
-  Delete,
-  Launch,
-  PostAdd,
-  LocalOffer,
-  ShoppingCart,
-  Image as ImageIcon,
-  Link as LinkIcon,
-  AttachFile,
-  Article,
-  FolderOpen, Visibility,
-} from '@mui/icons-material';
+  UilEllipsisV,
+  UilHeart,
+  UilHeartAlt,
+  UilEdit,
+  UilTrashAlt,
+  UilExternalLinkAlt,
+  UilFileEditAlt,
+  UilTag,
+  UilShoppingCart,
+  UilImage,
+  UilLink,
+  UilPaperclip,
+  UilFileAlt,
+  UilFolderOpen, UilEye,
+} from '@iconscout/react-unicons';
 import type { BookmarkedItemCardProps } from '../types';
 import {formatDateDiff} from "@/utils/dateHelpers";
 
@@ -43,14 +43,14 @@ export const BookmarkedItemCard = forwardRef<HTMLDivElement, BookmarkedItemCardP
 
     const getContentIcon = (type: string) => {
       switch (type) {
-        case 'post': return <PostAdd />;
-        case 'offer': return <LocalOffer />;
-        case 'want': return <ShoppingCart />;
-        case 'image': return <ImageIcon />;
-        case 'link': return <LinkIcon />;
-        case 'file': return <AttachFile />;
-        case 'article': return <Article />;
-        default: return <PostAdd />;
+        case 'post': return <UilFileEditAlt size="24" />;
+        case 'offer': return <UilTag size="24" />;
+        case 'want': return <UilShoppingCart size="24" />;
+        case 'image': return <UilImage size="24" />;
+        case 'link': return <UilLink size="24" />;
+        case 'file': return <UilPaperclip size="24" />;
+        case 'article': return <UilFileAlt size="24" />;
+        default: return <UilFileEditAlt size="24" />;
       }
     };
 
@@ -99,13 +99,13 @@ export const BookmarkedItemCard = forwardRef<HTMLDivElement, BookmarkedItemCardP
                 onClick={() => onToggleFavorite(item.id)}
                 color={item.isFavorite ? 'error' : 'default'}
               >
-                {item.isFavorite ? <Favorite /> : <FavoriteBorder />}
+                {item.isFavorite ? <UilHeart size="20" /> : <UilHeartAlt size="20" />}
               </IconButton>
               <IconButton 
                 size="small" 
                 onClick={(e) => onMenuOpen(item.id, e.currentTarget)}
               >
-                <MoreVert />
+                <UilEllipsisV size="20" />
               </IconButton>
             </Box>
           </Box>
@@ -182,12 +182,12 @@ export const BookmarkedItemCard = forwardRef<HTMLDivElement, BookmarkedItemCardP
                 <Button
                   size="small"
                   onClick={() => onMarkAsRead(item.id)}
-                  startIcon={<Visibility />}
+                  startIcon={<UilEye size="20" />}
                 >
                   Mark as Read
                 </Button>
               )}
-              <Button size="small" startIcon={<Launch />}>
+              <Button size="small" startIcon={<UilExternalLinkAlt size="20" />}>
                 Open
               </Button>
             </Box>
@@ -203,16 +203,16 @@ export const BookmarkedItemCard = forwardRef<HTMLDivElement, BookmarkedItemCardP
           onClose={onMenuClose}
         >
           <MenuItem onClick={() => { onMarkAsRead(item.id); onMenuClose(); }}>
-            <Edit sx={{ mr: 1 }} /> Mark as Read
+            <UilEdit size="20" style={{ marginRight: '8px' }} /> Mark as Read
           </MenuItem>
           <MenuItem onClick={onMenuClose}>
-            <FolderOpen sx={{ mr: 1 }} /> Move to Collection
+            <UilFolderOpen size="20" style={{ marginRight: '8px' }} /> Move to Collection
           </MenuItem>
           <MenuItem onClick={onMenuClose}>
-            <Launch sx={{ mr: 1 }} /> Open Original
+            <UilExternalLinkAlt size="20" style={{ marginRight: '8px' }} /> Open Original
           </MenuItem>
           <MenuItem onClick={onMenuClose}>
-            <Delete sx={{ mr: 1 }} /> Remove
+            <UilTrashAlt size="20" style={{ marginRight: '8px' }} /> Remove
           </MenuItem>
         </Menu>
       </Card>

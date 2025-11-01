@@ -9,7 +9,7 @@ import {
   Box,
   Typography,
 } from '@mui/material';
-import { PersonAdd } from '@mui/icons-material';
+import { UilUserPlus } from '@iconscout/react-unicons';
 import { DEFAULT_RCARDS } from '@/types/notification';
 import type { Group } from '@/types/group';
 import { dataService } from '@/services/dataService';
@@ -105,7 +105,7 @@ export const InviteForm = forwardRef<HTMLDivElement, InviteFormProps>(
       <Dialog ref={ref} open={open} onClose={onClose} maxWidth="md" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <PersonAdd />
+            <UilUserPlus size="20" />
             <Typography variant="h6">
               Invite Someone to {group.name}
             </Typography>

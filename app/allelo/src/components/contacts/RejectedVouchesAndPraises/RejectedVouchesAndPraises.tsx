@@ -11,12 +11,12 @@ import {
   Tooltip
 } from '@mui/material';
 import {
-  VerifiedUser,
-  Favorite,
-  Cancel,
-  RestoreFromTrash,
-  Schedule
-} from '@mui/icons-material';
+  UilShieldCheck as VerifiedUser,
+  UilHeart as Favorite,
+  UilTimesCircle as Cancel,
+  UilTrashAlt as RestoreFromTrash,
+  UilClock as Schedule
+} from '@iconscout/react-unicons';
 import { resolveFrom } from '@/utils/socialContact/contactUtils.ts';
 import { notificationService } from '@/services/notificationService';
 import { RCardSelectionModal } from '@/components/notifications/RCardSelectionModal';

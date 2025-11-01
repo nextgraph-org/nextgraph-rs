@@ -1,6 +1,6 @@
 import type {Contact} from "@/types/contact.ts";
 import {Address} from "@/.ldo/contact.typings.ts";
-import {GEO_API_URL} from "@/config/geoApi.ts";
+import {GEO_API_URL} from "@/config/importers.ts";
 
 interface GeoCode {
   "lat": number,
@@ -26,10 +26,13 @@ class GeoApiService {
   }
 
   private async getGeoCode(address: Address): Promise<GeoCode | undefined> {
+    if (!address.city || !address.country) {
+      return;
+    }
     const url = `${this.apiUrl}/api/geocode?` +
       new URLSearchParams({
-        city: address?.city ?? "",
-        country: address?.country ?? ""
+        city: address.city ?? "",
+        country: address.country ?? ""
       });
 
     try {
@@ -54,6 +57,9 @@ class GeoApiService {
         continue;
       }
       const geoCode = await this.getGeoCode(address);
+      if (!geoCode) {
+        continue;
+      }
 
       address.coordLat = geoCode?.lat;
       address.coordLng = geoCode?.lng;

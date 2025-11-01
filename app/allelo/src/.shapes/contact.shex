@@ -318,9 +318,9 @@ ngc:CoverPhoto {
 ngc:Url {
   ngcore:value xsd:string
     // rdfs:comment "The URL" ;
-  ngcore:type [ ngklink:homePage ngklink:sourceCode ngklink:blog
+  ngcore:type [ ngklink:homepage ngklink:sourceCode ngklink:blog
     ngklink:documentation ngklink:profile ngklink:home
-    ngklink:work ngklink:appInstall ngklink:linkedIn
+    ngklink:work ngklink:appInstall ngklink:linkedin
     ngklink:ftp ngklink:custom
     ngklink:reservations ngklink:appInstallPage ngklink:other ] ?
     // rdfs:comment "The type of the URL" ;
@@ -684,7 +684,7 @@ ngc:Education {
 }
 
 ngc:Language {
-  ngcore:valueIRI xsd:string
+  ngcore:valueIRI IRI
     // rdfs:comment "Language name as IRI" ;
   ngcontact:proficiency [ ngprof:elementary
     ngprof:limitedWork

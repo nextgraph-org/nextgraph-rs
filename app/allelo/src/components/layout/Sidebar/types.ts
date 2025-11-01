@@ -1,7 +1,5 @@
 import type { NavItem } from '../NavigationMenu/types';
-import type { RelationshipCategory } from '@/hooks/useRelationshipCategories';
-
-export { type RelationshipCategory } from '@/hooks/useRelationshipCategories';
+import {RelationshipCategory} from "@/constants/relationshipCategories";
 
 export interface SidebarProps {
   navItems: NavItem[];

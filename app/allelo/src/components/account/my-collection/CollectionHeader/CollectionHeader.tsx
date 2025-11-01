@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Button } from '@/components/ui';
-import { AutoAwesome } from '@mui/icons-material';
+import { UilBolt } from '@iconscout/react-unicons';
 import type { CollectionHeaderProps } from '../types';
 
 export const CollectionHeader = forwardRef<HTMLDivElement, CollectionHeaderProps>(
@@ -14,7 +14,7 @@ export const CollectionHeader = forwardRef<HTMLDivElement, CollectionHeaderProps
           </Typography>
           <Button
             variant="contained"
-            startIcon={<AutoAwesome />}
+            startIcon={<UilBolt size="20" />}
             onClick={onQueryClick}
           >
             Query Collection

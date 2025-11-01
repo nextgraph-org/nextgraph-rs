@@ -1,0 +1,1 @@
+export { MyStream } from './MyStream';

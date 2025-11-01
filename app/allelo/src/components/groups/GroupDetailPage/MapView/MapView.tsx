@@ -1,5 +1,4 @@
 import { Box, Avatar, Typography, alpha, useTheme } from '@mui/material';
-import { getContactPhotoStyles } from '@/utils/photoStyles';
 
 interface MapMember {
   id: string;
@@ -29,7 +28,7 @@ export const MapView = ({ members }: MapViewProps) => {
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          backgroundColor: '#f5f5f5'
+          backgroundColor: 'background.default'
         }}
       >
         {visibleMembers.map((member, index) => {
@@ -66,8 +65,8 @@ export const MapView = ({ members }: MapViewProps) => {
                     : `0 0 6px ${alpha(theme.palette.success.main, 0.4)}`,
                   fontSize: '0.75rem',
                   fontWeight: 600,
-                  backgroundSize: member.avatar ? getContactPhotoStyles(member.name).backgroundSize : 'cover',
-                  backgroundPosition: member.avatar ? getContactPhotoStyles(member.name).backgroundPosition : 'center',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
                 }}
               >
                 {member.initials}

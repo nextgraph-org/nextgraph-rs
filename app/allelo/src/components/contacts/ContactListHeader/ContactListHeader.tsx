@@ -1,165 +1,173 @@
-import { Typography, Box } from '@mui/material';
-import { Button } from '@/components/ui';
-import { Add, CloudDownload, QrCode } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import {Typography, Box, Menu, MenuItem, ListItemIcon, ListItemText, IconButton} from '@mui/material';
+import {Button} from '@/components/ui';
+import {UilPlus, UilCloudDownload, UilQrcodeScan, UilAngleDown, UilSetting, UilArrowLeft} from '@iconscout/react-unicons';
+import {useNavigate} from 'react-router-dom';
+import {useState} from 'react';
+import {useIsMobile} from "@/hooks/useIsMobile.ts";
+import {useDashboardStore} from "@/stores/dashboardStore";
 
 interface ContactListHeaderProps {
-  isSelectionMode: boolean;
   mode?: string | null;
-  selectedContactsCount: number;
+  manageMode?: boolean;
+  setManageMode?: (value: boolean) => void;
+  currentTab: number;
 }
 
-export const ContactListHeader = ({ 
-  isSelectionMode, 
-  mode,
-  selectedContactsCount 
-}: ContactListHeaderProps) => {
+export const ContactListHeader = ({
+                                    mode,
+                                    manageMode,
+                                    setManageMode,
+                                    currentTab
+                                  }: ContactListHeaderProps) => {
   const navigate = useNavigate();
+  const {showRCardsWidget, setShowRCardsWidget} = useDashboardStore();
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const isMobile = useIsMobile();
+
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
 
   const handleAddContact = () => {
+    handleClose();
     navigate('/contacts/create');
   };
 
+  const handleImport = () => {
+    handleClose();
+    navigate('/import');
+  };
+
   const handleInvite = () => {
+    handleClose();
     navigate('/invite');
   };
 
+  const handleManageClick = () => {
+    if (setManageMode) {
+      setManageMode(!manageMode);
+    }
+    setShowRCardsWidget(!showRCardsWidget);
+  };
+
+  const handleBackClick = () => {
+    if (setManageMode) {
+      setManageMode(false);
+    }
+    setShowRCardsWidget(false);
+  };
+
   const getTitle = () => {
+    if (manageMode) return 'Manage Contacts';
     if (mode === 'create-group') return 'Select Group Members';
     if (mode === 'invite') return 'Select Contact to Invite';
-    if (isSelectionMode) return 'Select Contact to Invite';
     return 'Contacts';
   };
 
-  const getSubtitle = () => {
-    if (isSelectionMode) {
-      if (mode === 'create-group') {
-        return `Choose contacts to add to your new group ${selectedContactsCount > 0 ? `(${selectedContactsCount} selected)` : ''}`;
-      }
-      return 'Choose a contact from your network to invite to the group';
-    }
-    return null;
-  };
-
   return (
-    <Box sx={{ 
-      display: 'flex', 
+    <Box sx={{
+      display: 'flex',
       flexDirection: 'row',
-      justifyContent: 'space-between', 
-      alignItems: 'center', 
-      mb: { xs: 1, md: 1 },
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      mb: {xs: 1, md: 1},
       gap: 1,
       width: '100%',
       overflow: 'hidden',
-      minWidth: 0
+      minWidth: 0,
+      position: 'sticky',
+      top: 0
     }}>
-      <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', display: { xs: "none", md: "block"} }}>
-        <Typography 
-          variant="h4" 
-          component="h1" 
-          sx={{ 
-            fontWeight: 700, 
-            mb: { xs: 0, md: 0 },
-            fontSize: { xs: '1.5rem', md: '2.125rem' },
+      <Box sx={{flex: 1, minWidth: 0, overflow: 'hidden', display: "flex", alignItems: 'center', gap: 1}}>
+        {manageMode && (
+          <IconButton
+            onClick={handleBackClick}
+            sx={{
+              p: 0.5,
+              color: 'text.primary',
+              mr: 3
+            }}
+          >
+            <UilArrowLeft size="20" />
+          </IconButton>
+        )}
+        <Typography
+          variant="h4"
+          component="h1"
+          sx={{
+            fontWeight: 700,
+            mb: {xs: 0, md: 0},
+            fontSize: {xs: '1.5rem', md: '2.125rem'},
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
           }}
         >
           {getTitle()}
         </Typography>
-        {getSubtitle() && (
-          <Typography variant="body2" color="text.secondary">
-            {getSubtitle()}
-          </Typography>
-        )}
       </Box>
-      {!isSelectionMode && (
-        <>
-          {/* Desktop Button Layout */}
-          <Box sx={{ 
-            display: { xs: 'none', md: 'flex' },
-            gap: 1,
-            justifyContent: 'flex-end'
-
-          }}>
-            <Button
-              variant="outlined"
-              startIcon={<CloudDownload />}
-              onClick={() => navigate('/import')}
-              sx={{ borderRadius: 2 }}
-            >
-              Import
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<QrCode />}
-              onClick={handleInvite}
-              sx={{ borderRadius: 2 }}
-            >
-              Invite
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={handleAddContact}
-              sx={{ borderRadius: 2 }}
-            >
-              Add Contact
-            </Button>
-          </Box>
-          
-          {/* Mobile Button Layout */}
-          <Box sx={{ 
-            display: { xs: 'flex', md: 'none' },
-            gap: 1,
-            width: '100%',
-            height: 60,
-            alignItems: 'center',
-            py: 1
-          }}>
-            <Button
-              variant="outlined"
-              startIcon={<CloudDownload />}
-              onClick={() => navigate('/import')}
-              fullWidth
-              sx={{ 
-                borderRadius: 2,
-                height: 44,
-                fontSize: '0.8rem'
-              }}
-            >
-              Import
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<QrCode />}
-              onClick={handleInvite}
-              fullWidth
-              sx={{ 
-                borderRadius: 2,
-                height: 44,
-                fontSize: '0.8rem'
-              }}
-            >
-              Invite
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={handleAddContact}
-              fullWidth
-              sx={{ 
-                borderRadius: 2,
-                height: 44,
-                fontSize: '0.8rem'
-              }}
-            >
-              Add
-            </Button>
-          </Box>
-        </>
+      {!manageMode && mode !== 'invite' && (
+        <Box sx={{
+          display: 'flex',
+          gap: 1,
+          justifyContent: 'flex-end'
+        }}>
+          {currentTab === 0 && <Button
+            variant="contained"
+            onClick={handleManageClick}
+            sx={{p: 1, minWidth: "26px"}}
+          >
+            {isMobile ? <UilSetting size="20" sx={{p: 0}}/> : <><UilSetting size="20" sx={{p: 0, mr: 1}}/>Manage</>}
+          </Button>}
+          <Button
+            variant="contained"
+            endIcon={!isMobile && <UilAngleDown size="20"/>}
+            onClick={handleClick}
+            sx={{p: 1, minWidth: "26px"}}
+          >
+            {isMobile ? <UilPlus size="20" sx={{p: 0}}/> : <><UilPlus size="20" sx={{p: 0, mr: 1}}/>Add</>}
+          </Button>
+        </Box>
       )}
+
+      {/* Dropdown Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        <MenuItem onClick={handleAddContact}>
+          <ListItemIcon>
+            <UilPlus size="20"/>
+          </ListItemIcon>
+          <ListItemText>Add Contact</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleImport}>
+          <ListItemIcon>
+            <UilCloudDownload size="20"/>
+          </ListItemIcon>
+          <ListItemText>Import</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleInvite}>
+          <ListItemIcon>
+            <UilQrcodeScan size="20"/>
+          </ListItemIcon>
+          <ListItemText>Invite</ListItemText>
+        </MenuItem>
+      </Menu>
     </Box>
   );
 };

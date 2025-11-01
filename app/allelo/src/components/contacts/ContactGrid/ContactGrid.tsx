@@ -1,17 +1,14 @@
-import {Box, Grid, Checkbox, Typography, Button, CircularProgress} from '@mui/material';
+import {useCallback} from 'react';
+import {Box, Grid, Checkbox, Typography, CircularProgress} from '@mui/material';
 import {ContactCard} from '@/components/contacts/ContactCard';
 import type {ContactsFilters, iconFilter} from '@/hooks/contacts/useContacts';
-import type {UseContactDragDropReturn} from '@/hooks/contacts/useContactDragDrop';
-import {CallMerge} from '@mui/icons-material';
 import {Waypoint} from 'react-waypoint';
-import {useDashboardStore} from "@/stores/dashboardStore";
 
 interface ContactGridProps {
   contactNuris: string[];
   isLoading: boolean;
   error: Error | null;
   isSelectionMode: boolean;
-  isMultiSelectMode: boolean;
   filters: ContactsFilters;
   onLoadMore: () => void;
   hasMore: boolean;
@@ -20,12 +17,8 @@ interface ContactGridProps {
   onSelectContact: (contact: string) => void;
   onSetIconFilter: (key: iconFilter, value: string) => void;
   isContactSelected: (nuri: string) => boolean;
-  onSelectAll?: () => void;
-  hasSelection?: boolean;
-  contactCount?: number;
-  totalCount?: number;
-  dragDrop?: UseContactDragDropReturn;
-  onMergeContacts: () => void;
+  selectedContacts: string[];
+  inManageMode: boolean;
 }
 
 export const ContactGrid = ({
@@ -33,7 +26,6 @@ export const ContactGrid = ({
                               isLoading,
                               error,
                               isSelectionMode,
-                              isMultiSelectMode,
                               filters,
                               onLoadMore,
                               hasMore,
@@ -42,14 +34,15 @@ export const ContactGrid = ({
                               onSelectContact,
                               onSetIconFilter,
                               isContactSelected,
-                              onSelectAll,
-                              hasSelection = false,
-                              contactCount,
-                              totalCount,
-                              dragDrop,
-                              onMergeContacts
+                              selectedContacts,
+                              inManageMode
                             }: ContactGridProps) => {
-  const {mainRef} = useDashboardStore();
+  const getDragContactIds = useCallback((nuri: string) => {
+    if (selectedContacts.includes(nuri) && selectedContacts.length > 1) {
+      return selectedContacts;
+    }
+    return [nuri];
+  }, [selectedContacts]);
   if (error) {
     return (
       <Box sx={{textAlign: 'center', py: 8}}>
@@ -95,77 +88,8 @@ export const ContactGrid = ({
       minWidth: 0,
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden'
+      overflow: 'hidden',
     }}>
-      {/* Select All Button, Contact Count and Merge Contacts - same line */}
-      {totalCount && (
-        <Box sx={{
-          mb: 1,
-          mt: {xs: 1, md: 0},
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          flexShrink: 0
-        }}>
-          {/* Select All Button - left aligned with checkboxes */}
-          {onSelectAll && (
-            <Button
-              variant="text"
-              onClick={onSelectAll}
-              size="small"
-              sx={{
-                fontSize: '0.75rem',
-                textTransform: 'none',
-                color: 'primary.main',
-                fontWeight: 500,
-                minWidth: 'auto',
-                p: 0.5,
-                ml: 0.5, // Align with checkbox position
-                width: 'auto'
-              }}
-            >
-              {hasSelection ? 'Deselect All' : 'Select All'}
-            </Button>
-          )}
-
-          {/* Actions */}
-          <Box sx={{display: 'flex', alignItems: 'center', gap: 2, ml: 'auto'}}>
-            {/* Contact Count - right aligned with contact box right edge */}
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                fontSize: '0.875rem',
-                textAlign: 'right'
-              }}
-            >
-              {contactCount} of {totalCount} contacts
-            </Typography>
-            {!isSelectionMode && (
-              <Button
-                variant="text"
-                startIcon={<CallMerge/>}
-                onClick={onMergeContacts}
-                size="small"
-                sx={{
-                  fontSize: '0.75rem',
-                  textTransform: 'none',
-                  color: 'primary.main',
-                  fontWeight: 500,
-                  minWidth: 'auto',
-                  p: 0.5,
-                  ml: 0.5,
-                  width: 'auto'
-                }}
-              >
-                Merge Contacts
-              </Button>
-            )}
-          </Box>
-
-        </Box>
-      )}
       {/* Top line for scrolling under */}
       <Box sx={{
         width: '100%',
@@ -173,7 +97,7 @@ export const ContactGrid = ({
         backgroundColor: 'divider',
         mb: 0,
         opacity: 0.3
-      }} />
+      }}/>
       {/* Scrollable content area */}
       <Box sx={{
         py: 1,
@@ -200,7 +124,7 @@ export const ContactGrid = ({
             <Grid size={{xs: 12}} key={nuri}>
               <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
                 {/* Selection checkbox - always visible on the left */}
-                <Checkbox
+                {inManageMode && <Checkbox
                   checked={isContactSelected(nuri)}
                   onChange={() => onSelectContact(nuri)}
                   sx={{
@@ -208,17 +132,15 @@ export const ContactGrid = ({
                     p: 0.5,
                     '& .MuiSvgIcon-root': {fontSize: 20}
                   }}
-                />
+                />}
 
                 <ContactCard
                   nuri={nuri}
                   isSelectionMode={isSelectionMode}
-                  isMultiSelectMode={isMultiSelectMode}
-                  isSelected={isContactSelected(nuri)}
                   onContactClick={onContactClick}
-                  onSelectContact={onSelectContact}
-                  dragDrop={dragDrop}
                   onSetIconFilter={onSetIconFilter}
+                  getDragContactIds={getDragContactIds}
+                  inManageMode={inManageMode}
                 />
               </Box>
             </Grid>
@@ -226,20 +148,20 @@ export const ContactGrid = ({
 
           {/* Infinite scroll waypoint */}
           {hasMore && !isLoading && !isLoadingMore && (
-            <Waypoint onEnter={onLoadMore} scrollableAncestor={mainRef?.current}/>
+            <Waypoint onEnter={onLoadMore}/>
           )}
 
           {/* Load more spinner */}
           {isLoadingMore && (
-            <Grid size={{ xs: 12 }}>
+            <Grid size={{xs: 12}}>
               <Box sx={{
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
                 py: 4
               }}>
-                <CircularProgress size={24} />
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                <CircularProgress size={24}/>
+                <Typography variant="body2" color="text.secondary" sx={{ml: 2}}>
                   Loading more contacts...
                 </Typography>
               </Box>

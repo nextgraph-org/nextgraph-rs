@@ -1,5 +1,5 @@
 import { Fab } from '@mui/material';
-import { Check } from '@mui/icons-material';
+import { UilCheck } from '@iconscout/react-unicons';
 
 interface FloatingActionsProps {
   isMultiSelectMode: boolean;
@@ -27,7 +27,7 @@ export const FloatingActions = ({
             zIndex: 1000,
           }}
         >
-          <Check sx={{ mr: 1 }} />
+          <UilCheck size="20" style={{ marginRight: 8 }} />
           Add to group
         </Fab>
       )}

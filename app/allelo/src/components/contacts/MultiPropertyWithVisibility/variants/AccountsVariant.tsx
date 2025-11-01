@@ -6,7 +6,7 @@ import {
   MenuItem,
   FormControl,
 } from '@mui/material';
-import {Add} from '@mui/icons-material';
+import {UilPlus as Add} from '@iconscout/react-unicons';
 import {AccountRegistry} from "@/utils/accountRegistry";
 import React, {useCallback, useState} from 'react';
 import type {Contact} from "@/types/contact";

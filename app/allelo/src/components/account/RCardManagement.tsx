@@ -16,20 +16,20 @@ import {
   Chip,
 } from '@mui/material';
 import {
-  Business,
-  PersonOutline,
-  Groups,
-  FamilyRestroom,
-  Favorite,
-  Home,
-  Work,
-  School,
-  LocalHospital,
-  Sports,
-  Close,
-  Edit,
-  Delete,
-} from '@mui/icons-material';
+  UilBriefcase as Business,
+  UilUser as PersonOutline,
+  UilUsersAlt as Groups,
+  UilEstate as FamilyRestroom,
+  UilHeart as Favorite,
+  UilHome as Home,
+  UilBriefcaseAlt as Work,
+  UilGraduationCap as School,
+  UilHospital as LocalHospital,
+  UilFootball as Sports,
+  UilTimes as Close,
+  UilEdit as Edit,
+  UilTrashAlt as Delete,
+} from '@iconscout/react-unicons';
 import type { RCardWithPrivacy } from '@/types/notification';
 import { DEFAULT_PRIVACY_SETTINGS } from '@/types/notification';
 

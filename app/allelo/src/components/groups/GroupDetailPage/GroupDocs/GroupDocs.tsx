@@ -18,16 +18,16 @@ import {
   Tooltip,
 } from '@mui/material';
 import {
-  Description,
-  ExpandLess,
-  ExpandMore,
-  Folder,
-  Add,
-  MoreHoriz,
-  Edit,
-  Delete,
-  FileCopy,
-} from '@mui/icons-material';
+  UilFileAlt as Description,
+  UilAngleUp as ExpandLess,
+  UilAngleDown as ExpandMore,
+  UilFolder as Folder,
+  UilPlus as Add,
+  UilEllipsisH as MoreHoriz,
+  UilEdit as Edit,
+  UilTrashAlt as Delete,
+  UilCopy as FileCopy,
+} from '@iconscout/react-unicons';
 
 interface Document {
   id: string;

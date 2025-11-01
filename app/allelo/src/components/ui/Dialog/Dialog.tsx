@@ -9,7 +9,7 @@ import {
   Box,
   LinearProgress
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { UilTimes as CloseIcon } from '@iconscout/react-unicons';
 import type { DialogProps } from './types';
 
 export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
@@ -47,7 +47,7 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
                   color: (theme) => theme.palette.grey[500],
                 }}
               >
-                <CloseIcon />
+                <CloseIcon size="20" />
               </IconButton>
             </Box>
           </DialogTitle>

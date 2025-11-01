@@ -11,7 +11,11 @@ import {
   Button,
   Alert
 } from '@mui/material';
-import { Settings, Security, Notifications } from '@mui/icons-material';
+import {
+  UilSetting as Settings,
+  UilShield as Security,
+  UilBell as Notifications
+} from '@iconscout/react-unicons';
 import type { Group } from '@/types/group';
 import type { GroupSettingsProps } from './types';
 

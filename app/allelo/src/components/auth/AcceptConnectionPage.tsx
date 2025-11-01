@@ -15,13 +15,13 @@ import {
   Checkbox,
 } from '@mui/material';
 import {
-  PersonAdd,
-  Wifi,
-  VerifiedUser,
-  CheckCircle,
-  Info,
-  Schedule,
-} from '@mui/icons-material';
+  UilUserPlus,
+  UilWifi,
+  UilShieldCheck,
+  UilCheckCircle,
+  UilInfoCircle,
+  UilClock,
+} from '@iconscout/react-unicons';
 
 export const AcceptConnectionPage = () => {
   const navigate = useNavigate();
@@ -138,7 +138,7 @@ export const AcceptConnectionPage = () => {
         <Card sx={{ mb: 4, backgroundColor: alpha(theme.palette.info.main, 0.04), border: '1px solid', borderColor: alpha(theme.palette.info.main, 0.1) }}>
           <CardContent sx={{ py: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Wifi sx={{ fontSize: 20, color: 'info.main', mr: 1 }} />
+              <UilWifi size="20" color="currentColor" style={{ color: 'var(--mui-palette-info-main)', marginRight: '8px' }} />
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                 About P2P Connections
               </Typography>
@@ -169,7 +169,7 @@ export const AcceptConnectionPage = () => {
           }}>
             {/* Icon */}
             <Box sx={{ flexShrink: 0, mt: 0.5 }}>
-              <PersonAdd sx={{ fontSize: 20, color: 'primary.main' }} />
+              <UilUserPlus size="20" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)' }} />
             </Box>
 
             {/* Content */}
@@ -200,7 +200,7 @@ export const AcceptConnectionPage = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 {connectionStatus !== 'pending' && (
                   <Chip
-                    icon={connectionStatus === 'accepted' ? <CheckCircle /> : <Schedule />}
+                    icon={connectionStatus === 'accepted' ? <UilCheckCircle size="16" /> : <UilClock size="16" />}
                     label={connectionStatus}
                     size="small"
                     variant="outlined"
@@ -272,7 +272,7 @@ export const AcceptConnectionPage = () => {
           <Card sx={{ backgroundColor: alpha(theme.palette.info.main, 0.04), border: '1px solid', borderColor: alpha(theme.palette.info.main, 0.1), mb: 2 }}>
             <CardContent sx={{ py: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Info sx={{ fontSize: 20, color: 'info.main', mr: 1 }} />
+                <UilInfoCircle size="20" color="currentColor" style={{ color: 'var(--mui-palette-info-main)', marginRight: '8px' }} />
                 <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                   About Vouches
                 </Typography>
@@ -303,7 +303,7 @@ export const AcceptConnectionPage = () => {
           }}>
             {/* Icon */}
             <Box sx={{ flexShrink: 0, mt: 0.5 }}>
-              <VerifiedUser sx={{ fontSize: 20, color: 'primary.main' }} />
+              <UilShieldCheck size="20" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)' }} />
             </Box>
 
             {/* Content */}
@@ -356,7 +356,7 @@ export const AcceptConnectionPage = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 {vouchStatus !== 'pending' && (
                   <Chip
-                    icon={vouchStatus === 'accepted' ? <CheckCircle /> : <Schedule />}
+                    icon={vouchStatus === 'accepted' ? <UilCheckCircle size="16" /> : <UilClock size="16" />}
                     label={vouchStatus}
                     size="small"
                     variant="outlined"

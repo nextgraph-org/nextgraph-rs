@@ -1,6 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FilterControls } from './FilterControls';
-import { Star, Business } from '@mui/icons-material';
+import {
+  UilStar as Star,
+  UilBriefcase as Business
+} from '@iconscout/react-unicons';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace

@@ -5,12 +5,12 @@ import {
   ListItemText
 } from '@mui/material';
 import {
-  TrendingUp,
-  SortByAlpha,
-  Business,
-  LocationOn,
-  Label
-} from '@mui/icons-material';
+  UilChartLine,
+  UilSortAmountDown,
+  UilBuilding,
+  UilMapMarker,
+  UilTag
+} from '@iconscout/react-unicons';
 
 interface SortMenuProps {
   anchorEl: null | HTMLElement;
@@ -27,23 +27,23 @@ export const SortMenu = ({ anchorEl, open, onClose, onSortChange }: SortMenuProp
       onClose={onClose}
     >
       <MenuItem disabled={true} onClick={() => onSortChange('mostActive')}>
-        <ListItemIcon><TrendingUp fontSize="small"/></ListItemIcon>
+        <ListItemIcon><UilChartLine size="20"/></ListItemIcon>
         <ListItemText>Most Active</ListItemText>
       </MenuItem>
       <MenuItem onClick={() => onSortChange('name')}>
-        <ListItemIcon><SortByAlpha fontSize="small"/></ListItemIcon>
+        <ListItemIcon><UilSortAmountDown size="20"/></ListItemIcon>
         <ListItemText>Name</ListItemText>
       </MenuItem>
       <MenuItem onClick={() => onSortChange('organization')}>
-        <ListItemIcon><Business fontSize="small"/></ListItemIcon>
+        <ListItemIcon><UilBuilding size="20"/></ListItemIcon>
         <ListItemText>Company</ListItemText>
       </MenuItem>
       <MenuItem disabled={true} onClick={() => onSortChange('nearMeNow')}>
-        <ListItemIcon><LocationOn fontSize="small"/></ListItemIcon>
+        <ListItemIcon><UilMapMarker size="20"/></ListItemIcon>
         <ListItemText>Near Me Now</ListItemText>
       </MenuItem>
       <MenuItem disabled={true} onClick={() => onSortChange('sharedTags')}>
-        <ListItemIcon><Label fontSize="small"/></ListItemIcon>
+        <ListItemIcon><UilTag size="20"/></ListItemIcon>
         <ListItemText>Shared Tags</ListItemText>
       </MenuItem>
     </Menu>

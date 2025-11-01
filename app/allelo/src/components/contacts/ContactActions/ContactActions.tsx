@@ -9,10 +9,10 @@ import {
   Typography
 } from '@mui/material';
 import {
-  Add,
-  VerifiedUser,
-  PersonSearch
-} from '@mui/icons-material';
+  UilPlus,
+  UilShieldCheck,
+  UilSearchAlt
+} from '@iconscout/react-unicons';
 import type { Contact } from '@/types/contact';
 
 export interface ContactActionsProps {
@@ -41,7 +41,7 @@ export const ContactActions = forwardRef<HTMLDivElement, ContactActionsProps>(
             <Button
               variant="contained"
               color="primary"
-              startIcon={<Add />}
+              startIcon={<UilPlus size="20" />}
               onClick={onInviteToNAO}
             >
               Invite to NAO
@@ -57,7 +57,7 @@ export const ContactActions = forwardRef<HTMLDivElement, ContactActionsProps>(
           fullWidth
         >
           <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <PersonSearch color="primary" />
+            <UilSearchAlt size="24" color="primary" />
             Human Verification Confirmation
           </DialogTitle>
           <DialogContent>
@@ -77,11 +77,11 @@ export const ContactActions = forwardRef<HTMLDivElement, ContactActionsProps>(
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleConfirmHumanity}
               variant="contained"
               color="primary"
-              startIcon={<VerifiedUser />}
+              startIcon={<UilShieldCheck size="20" />}
             >
               Confirm
             </Button>

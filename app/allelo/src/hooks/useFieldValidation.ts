@@ -2,7 +2,7 @@ import {useForm} from "react-hook-form";
 import {useCallback, useEffect} from "react";
 import {isValidPhoneNumber} from "libphonenumber-js";
 
-export type ValidationType = "email" | "phone" | "text" | "url";
+export type ValidationType = "email" | "phone" | "text" | "url" | "linkedin";
 
 export interface UseFieldValidationOptions {
   validateOn?: "change" | "blur";
@@ -41,6 +41,9 @@ const getValidationRules = (type: ValidationType, options: UseFieldValidationOpt
         value: /^https?:\/\/.+\..+/,
         message: 'Invalid URL format'
       };
+      break;
+    case 'linkedin':
+      rules.minLength = 6;
       break;
     default:
       break;

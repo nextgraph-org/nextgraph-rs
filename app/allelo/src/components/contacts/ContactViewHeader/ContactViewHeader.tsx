@@ -1,4 +1,4 @@
-import {forwardRef} from 'react';
+import {forwardRef, useState} from 'react';
 import {
   Typography,
   Box,
@@ -8,20 +8,29 @@ import {
   Card,
   CardContent,
   Button,
+  Collapse, IconButton,
 } from '@mui/material';
 import {
-  LinkedIn,
-  Person,
-  VerifiedUser,
-  CheckCircle,
-  PersonOutline, PersonSearch, Send, Favorite, Email
-} from '@mui/icons-material';
+  UilLinkedin,
+} from '@iconscout/react-unicons';
+import {
+  UilUser,
+  UilShieldCheck,
+  UilCheckCircle,
+  UilUserCircle,
+  UilSearchAlt,
+  UilMessage,
+  UilHeart,
+  UilEnvelope,
+  UilAngleDown,
+  UilAngleUp
+} from '@iconscout/react-unicons';
 import type {Contact} from '@/types/contact';
 import {useRelationshipCategories} from "@/hooks/useRelationshipCategories";
 import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
-import {getContactPhotoStyles} from "@/utils/photoStyles";
 import {PropertyWithSources} from '../PropertyWithSources';
-import { ContactTags } from '../ContactTags';
+import {ContactTags} from '../ContactTags';
+import {defaultTemplates} from "@/utils/templateRenderer.ts";
 
 export interface ContactViewHeaderProps {
   contact: Contact | null;
@@ -35,6 +44,8 @@ export interface ContactViewHeaderProps {
 
 export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderProps>(
   ({contact, isEditing = false, showTags = true, showActions = true, showStatus = true, validateParent}, ref) => {
+    const [showNameDetails, setShowNameDetails] = useState(false);
+
     const theme = useTheme();
     const {getCategoryIcon, getCategoryById} = useRelationshipCategories();
 
@@ -47,7 +58,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
       switch (contact.naoStatus?.value) {
         case 'member':
           return {
-            icon: <VerifiedUser/>,
+            icon: <UilShieldCheck size="20"/>,
             label: 'NAO Member',
             color: theme.palette.success.main,
             bgColor: theme.palette.success.light + '20',
@@ -55,7 +66,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
           };
         case 'invited':
           return {
-            icon: <CheckCircle/>,
+            icon: <UilCheckCircle size="20"/>,
             label: 'NAO Invited',
             color: theme.palette.warning.main,
             bgColor: theme.palette.warning.light + '20',
@@ -63,7 +74,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
           };
         default:
           return {
-            icon: <PersonOutline/>,
+            icon: <UilUserCircle size="20"/>,
             label: 'Not in NAO',
             color: theme.palette.text.secondary,
             bgColor: 'transparent',
@@ -80,7 +91,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
           alignItems: 'flex-start',
           mb: 3,
           flexDirection: {xs: 'column', sm: 'row'},
-          textAlign: {xs: 'center', sm: 'left'},
+          textAlign: {xs: 'left', sm: 'left'},
           gap: {xs: 3, sm: '20px'}
         }}>
           <Box
@@ -89,8 +100,8 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               height: {xs: 100, sm: 120},
               borderRadius: '50%',
               backgroundImage: photo?.value ? `url(${photo.value})` : 'none',
-              backgroundSize: photo?.value ? getContactPhotoStyles(name?.value || '').backgroundSize : 'cover',
-              backgroundPosition: photo?.value ? getContactPhotoStyles(name?.value || '').backgroundPosition : 'center center',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center center',
               backgroundRepeat: 'no-repeat',
               display: 'flex',
               alignItems: 'center',
@@ -106,17 +117,73 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
           </Box>
 
           <Box sx={{flex: 1, minWidth: 0}}>
-            <PropertyWithSources
-              label={"Contact name"}
-              contact={contact}
-              propertyKey="name"
-              variant="header"
-              textVariant="h4"
-              isEditing={isEditing}
-              placeholder="Contact Name"
-              required={true}
-              validateParent={validateParent}
-            />
+            <Box sx={{display: "flex", flexDirection: "row", justifyContent: "start", alignItems: "start"}}>
+              <PropertyWithSources
+                label={"Contact name"}
+                contact={contact}
+                propertyKey="name"
+                variant="header"
+                textVariant="h4"
+                isEditing={isEditing}
+                placeholder="Contact Name"
+                validateParent={validateParent}
+                template={defaultTemplates.contactName}
+              />
+              <IconButton
+                sx={{padding: 0, ml: 1}}
+                onClick={() => setShowNameDetails(!showNameDetails)}
+              >{showNameDetails ? <UilAngleUp size="20" /> : <UilAngleDown size="20"/>}
+              </IconButton>
+            </Box>
+            <Collapse in={showNameDetails}>
+              <Box sx={{mb: 5, ml: 3}}>
+                <PropertyWithSources
+                  propertyKey={"name"}
+                  subKey={"firstName"}
+                  textVariant={"body1"}
+                  contact={contact}
+                  isEditing={isEditing}
+                  label={"First name"}
+                  hideSources={true}
+                />
+                <PropertyWithSources
+                  propertyKey={"name"}
+                  subKey={"middleName"}
+                  textVariant={"body1"}
+                  contact={contact}
+                  isEditing={isEditing}
+                  label={"Middle name"}
+                  hideSources={true}
+                />
+                <PropertyWithSources
+                  propertyKey={"name"}
+                  subKey={"familyName"}
+                  textVariant={"body1"}
+                  contact={contact}
+                  isEditing={isEditing}
+                  label={"Last name"}
+                  hideSources={true}
+                />
+                <PropertyWithSources
+                  propertyKey={"name"}
+                  subKey={"honorificPrefix"}
+                  textVariant={"body1"}
+                  contact={contact}
+                  isEditing={isEditing}
+                  label={"Honorific prefix"}
+                  hideSources={true}
+                />
+                <PropertyWithSources
+                  propertyKey={"name"}
+                  subKey={"honorificSuffix"}
+                  textVariant={"body1"}
+                  contact={contact}
+                  isEditing={isEditing}
+                  label={"Honorific suffix"}
+                  hideSources={true}
+                />
+              </Box>
+            </Collapse>
 
             <PropertyWithSources
               contact={contact}
@@ -126,6 +193,8 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               textVariant="h6"
               isEditing={isEditing}
               placeholder="Job Title / Position"
+              template={defaultTemplates.headline}
+              templateProperty={"organization"}
             />
 
             {showStatus && <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap'}}>
@@ -162,7 +231,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               {/* Merged Contact Indicator */}
               {(contact.mergedFrom?.size ?? 0) > 0 && (
                 <Chip
-                  icon={<PersonSearch/>}
+                  icon={<UilSearchAlt size="20"/>}
                   label="Merged Contact"
                   variant="outlined"
                   sx={{
@@ -180,7 +249,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               <Card variant="outlined" sx={{mb: 2, backgroundColor: alpha('#4caf50', 0.04)}}>
                 <CardContent sx={{p: 2}}>
                   <Typography variant="h6" sx={{mb: 1, display: 'flex', alignItems: 'center', gap: 1}}>
-                    <PersonSearch color="success"/>
+                    <UilSearchAlt size="20" color="#4caf50"/>
                     Merged Contact Information
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{mb: 2}}>
@@ -190,9 +259,9 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                     Original sources merged:
                   </Typography>
                   <Box sx={{display: 'flex', gap: 1, flexWrap: 'wrap'}}>
-                    <Chip size="small" label="LinkedIn Import" icon={<LinkedIn/>}/>
-                    <Chip size="small" label="Gmail Contacts" icon={<Email/>}/>
-                    {contact['@id'] === '3' && <Chip size="small" label="Manual Entry" icon={<Person/>}/>}
+                    <Chip size="small" label="LinkedIn Import" icon={<UilLinkedin size="20"/>}/>
+                    <Chip size="small" label="Gmail Contacts" icon={<UilEnvelope size="20"/>}/>
+                    {contact['@id'] === '3' && <Chip size="small" label="Manual Entry" icon={<UilUser size="20"/>}/>}
                   </Box>
                 </CardContent>
               </Card>
@@ -212,7 +281,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               {contact.naoStatus?.value === 'not_invited' && (
                 <Button
                   variant="contained"
-                  startIcon={<Send/>}
+                  startIcon={<UilMessage size="20"/>}
                   size="small"
                   onClick={/*handleInviteToNao*/() => {
                   }}
@@ -223,28 +292,28 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               )}
 
               {/* Vouch and Praise buttons */}
-                <Button
-                    variant="contained"
-                    startIcon={<VerifiedUser/>}
-                    size="small"
-                    color="primary"
-                >
-                    Send Vouch
-                </Button>
-                <Button
-                    variant="contained"
-                    startIcon={<Favorite/>}
-                    size="small"
-                    sx={{
-                      backgroundColor: '#f8bbd9',
-                      color: '#d81b60',
-                      '&:hover': {
-                        backgroundColor: '#f48fb1'
-                      }
-                    }}
-                >
-                    Send Praise
-                </Button>
+              <Button
+                variant="contained"
+                startIcon={<UilShieldCheck size="20"/>}
+                size="small"
+                color="primary"
+              >
+                Send Vouch
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<UilHeart size="20"/>}
+                size="small"
+                sx={{
+                  backgroundColor: '#f8bbd9',
+                  color: '#d81b60',
+                  '&:hover': {
+                    backgroundColor: '#f48fb1'
+                  }
+                }}
+              >
+                Send Praise
+              </Button>
             </Box>}
 
           </Box>

@@ -11,9 +11,9 @@ import {
   Button,
 } from '@mui/material';
 import {
-  PhotoCamera,
-  Delete,
-} from '@mui/icons-material';
+  UilCamera as PhotoCamera,
+  UilTrashAlt as Delete,
+} from '@iconscout/react-unicons';
 import type { Group } from '@/types/group';
 
 export interface EditableGroupStatsProps {

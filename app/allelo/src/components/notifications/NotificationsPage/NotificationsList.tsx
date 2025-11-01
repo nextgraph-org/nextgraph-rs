@@ -11,16 +11,16 @@ import {
   IconButton,
 } from '@mui/material';
 import {
-  VerifiedUser,
-  Favorite,
-  Group,
-  Message,
-  Settings,
-  Notifications,
-  CheckCircle,
-  Schedule,
-  Close,
-} from '@mui/icons-material';
+  UilShieldCheck,
+  UilHeart,
+  UilUsersAlt,
+  UilEnvelope,
+  UilSetting,
+  UilBell,
+  UilCheckCircle,
+  UilClock,
+  UilTimes,
+} from '@iconscout/react-unicons';
 import type { Notification } from '@/types/notification';
 import {formatDate} from "@/utils/dateHelpers";
 import { RCardSelectionModal } from '../RCardSelectionModal';
@@ -92,19 +92,19 @@ export const NotificationsList = forwardRef<HTMLDivElement, NotificationsListPro
     const getNotificationIcon = (type: string) => {
       switch (type) {
         case 'vouch':
-          return <VerifiedUser sx={{ fontSize: 20, color: 'primary.main' }} />;
+          return <UilShieldCheck size="20" color={theme.palette.primary.main} />;
         case 'connection':
-          return <Group sx={{ fontSize: 20, color: 'info.main' }} />;
+          return <UilUsersAlt size="20" color={theme.palette.info.main} />;
         case 'praise':
-          return <Favorite sx={{ fontSize: 20, color: '#d81b60' }} />;
+          return <UilHeart size="20" color="#d81b60" />;
         case 'group_invite':
-          return <Group sx={{ fontSize: 20, color: 'success.main' }} />;
+          return <UilUsersAlt size="20" color={theme.palette.success.main} />;
         case 'message':
-          return <Message sx={{ fontSize: 20, color: 'info.main' }} />;
+          return <UilEnvelope size="20" color={theme.palette.info.main} />;
         case 'system':
-          return <Settings sx={{ fontSize: 20, color: 'warning.main' }} />;
+          return <UilSetting size="20" color={theme.palette.warning.main} />;
         default:
-          return <Notifications sx={{ fontSize: 20 }} />;
+          return <UilBell size="20" />;
       }
     };
 
@@ -188,7 +188,7 @@ export const NotificationsList = forwardRef<HTMLDivElement, NotificationsListPro
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   {notification.status && (
                     <Chip
-                      icon={notification.status === 'accepted' ? <CheckCircle /> : <Schedule />}
+                      icon={notification.status === 'accepted' ? <UilCheckCircle size="16" /> : <UilClock size="16" />}
                       label={notification.status}
                       size="small"
                       variant="outlined"
@@ -385,7 +385,7 @@ export const NotificationsList = forwardRef<HTMLDivElement, NotificationsListPro
                         onMarkAsRead(notification.id);
                       }}
                     >
-                      <Close sx={{ fontSize: 16 }} />
+                      <UilTimes size="16" />
                     </IconButton>
                   </>
                 )}

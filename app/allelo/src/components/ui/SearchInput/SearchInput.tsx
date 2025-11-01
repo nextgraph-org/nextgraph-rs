@@ -1,6 +1,6 @@
 import { forwardRef, useState, useCallback, useEffect } from 'react';
 import { TextField, InputAdornment, IconButton, CircularProgress } from '@mui/material';
-import { Search, Clear } from '@mui/icons-material';
+import { UilSearch, UilTimes } from '@iconscout/react-unicons';
 import type { SearchInputProps } from './types';
 
 export const SearchInput = forwardRef<HTMLDivElement, SearchInputProps>(
@@ -58,7 +58,7 @@ export const SearchInput = forwardRef<HTMLDivElement, SearchInputProps>(
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              {loading ? <CircularProgress size={20} /> : <Search />}
+              {loading ? <CircularProgress size={20} /> : <UilSearch size="20" />}
             </InputAdornment>
           ),
           endAdornment: showClear ? (
@@ -69,7 +69,7 @@ export const SearchInput = forwardRef<HTMLDivElement, SearchInputProps>(
                 edge="end"
                 size="small"
               >
-                <Clear />
+                <UilTimes size="20" />
               </IconButton>
             </InputAdornment>
           ) : null,

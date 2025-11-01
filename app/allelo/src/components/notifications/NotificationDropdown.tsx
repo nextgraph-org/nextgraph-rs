@@ -11,10 +11,9 @@ import {
   Chip,
 } from '@mui/material';
 import {
-  NotificationsNone,
-  Notifications,
-  MarkEmailRead,
-} from '@mui/icons-material';
+  UilBell,
+  UilEnvelopeCheck,
+} from '@iconscout/react-unicons';
 import type { Notification, NotificationSummary } from '@/types/notification';
 import NotificationItem from '@/components/notifications/NotificationItem';
 
@@ -81,7 +80,7 @@ const NotificationDropdown = ({
         aria-haspopup="true"
       >
         <Badge badgeContent={summary.unread} color="error">
-          {summary.unread > 0 ? <Notifications /> : <NotificationsNone />}
+          <UilBell size="24" />
         </Badge>
       </IconButton>
 
@@ -131,7 +130,7 @@ const NotificationDropdown = ({
             {summary.unread > 0 && (
               <Button
                 size="small"
-                startIcon={<MarkEmailRead />}
+                startIcon={<UilEnvelopeCheck size="18" />}
                 onClick={onMarkAllAsRead}
                 sx={{ textTransform: 'none' }}
               >

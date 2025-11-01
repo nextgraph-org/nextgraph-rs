@@ -13,10 +13,9 @@ import {
   ListItemText,
 } from '@mui/material';
 import {
-  PersonAdd,
-  PersonRemove,
-} from '@mui/icons-material';
-import {getContactPhotoStyles} from "@/utils/photoStyles";
+  UilUserPlus,
+  UilUserMinus,
+} from '@iconscout/react-unicons';
 import {formatDate} from "@/utils/dateHelpers";
 
 // Note: Using standard avatar styling instead of getContactPhotoStyles
@@ -49,7 +48,7 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
             </Typography>
             <Button
               variant="contained"
-              startIcon={<PersonAdd/>}
+              startIcon={<UilUserPlus size="20"/>}
               onClick={onInviteMember}
               sx={{
                 borderRadius: 2,
@@ -85,8 +84,8 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
                       border: 1,
                       borderColor: 'primary.main',
                       color: 'primary.main',
-                      backgroundSize: member.avatar ? getContactPhotoStyles(member.name).backgroundSize : 'cover',
-                      backgroundPosition: member.avatar ? getContactPhotoStyles(member.name).backgroundPosition : 'center',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
                     }}
                   >
                     {!member.avatar && member.name.split(' ').map(n => n[0]).join('')}
@@ -124,7 +123,7 @@ export const MembersList = forwardRef<HTMLDivElement, MembersListProps>(
                             variant="outlined"
                             color="error"
                             size="small"
-                            startIcon={<PersonRemove/>}
+                            startIcon={<UilUserMinus size="20"/>}
                             onClick={() => onRemoveMember(member)}
                             sx={{
                               height: 20,

@@ -12,7 +12,7 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { AutoAwesome, Send } from '@mui/icons-material';
+import { UilBolt, UilMessage } from '@iconscout/react-unicons';
 import type { QueryDialogProps } from '../types';
 
 export const QueryDialog = forwardRef<HTMLDivElement, QueryDialogProps>(
@@ -38,7 +38,7 @@ export const QueryDialog = forwardRef<HTMLDivElement, QueryDialogProps>(
       <Dialog ref={ref} open={open} onClose={onClose} maxWidth="md" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AutoAwesome />
+            <UilBolt size="24" />
             AI Query Assistant
           </Box>
         </DialogTitle>
@@ -59,7 +59,7 @@ export const QueryDialog = forwardRef<HTMLDivElement, QueryDialogProps>(
             }}>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
-                  <AutoAwesome fontSize="small" />
+                  <UilBolt size="20" />
                 </Avatar>
                 <Box sx={{ 
                   bgcolor: 'background.paper',
@@ -118,7 +118,7 @@ export const QueryDialog = forwardRef<HTMLDivElement, QueryDialogProps>(
                     height: 40
                   }}
                 >
-                  <Send fontSize="small" />
+                  <UilMessage size="20" />
                 </Button>
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>

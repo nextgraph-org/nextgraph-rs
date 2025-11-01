@@ -1,5 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { Add, Edit } from '@mui/icons-material';
+import {
+  UilPlus as Add,
+  UilEdit as Edit
+} from '@iconscout/react-unicons';
 import { PageHeader } from './PageHeader';
 import type { HeaderAction } from './types';
 

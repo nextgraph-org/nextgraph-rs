@@ -18,17 +18,17 @@ import {
   Rating,
 } from '@mui/material';
 import {
-  AutoAwesome,
-  RssFeed,
-  People,
-  Chat,
-  Folder,
-  Link as LinkIcon,
-  TipsAndUpdates,
-  ThumbUp,
-  QuestionAnswer,
-  CheckCircle,
-} from '@mui/icons-material';
+  UilStarHalfAlt as AutoAwesome,
+  UilRss as RssFeed,
+  UilUsersAlt as People,
+  UilCommentAltDots as Chat,
+  UilFolder as Folder,
+  UilLink as LinkIcon,
+  UilLightbulbAlt as TipsAndUpdates,
+  UilThumbsUp as ThumbUp,
+  UilCommentAltQuestion as QuestionAnswer,
+  UilCheckCircle as CheckCircle,
+} from '@iconscout/react-unicons';
 import type { Group } from '@/types/group';
 
 interface GroupTourProps {

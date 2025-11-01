@@ -1,5 +1,4 @@
 import { Box, alpha, useTheme } from '@mui/material';
-import { getContactPhotoStyles } from '@/utils/photoStyles';
 
 export interface NetworkMember {
   id: string;
@@ -34,7 +33,7 @@ export const NetworkView = ({ members }: NetworkViewProps) => {
       sx={{
         position: 'relative',
         height: '100%',
-        backgroundColor: '#F7F3EA',
+        backgroundColor: 'action.selected',
         overflow: 'hidden',
         width: '100%',
         display: 'flex',
@@ -129,8 +128,8 @@ export const NetworkView = ({ members }: NetworkViewProps) => {
                       : `0 0 ${member.relationshipStrength * 15}px ${alpha(theme.palette.primary.main, 0.3)}`,
                     backgroundColor: member.id === 'oli-sb' ? alpha(theme.palette.primary.main, 0.1) : 'white',
                     backgroundImage: member.avatar ? `url(${member.avatar})` : 'none',
-                    backgroundSize: member.avatar ? getContactPhotoStyles(member.name).backgroundSize : 'cover',
-                    backgroundPosition: member.avatar ? getContactPhotoStyles(member.name).backgroundPosition : 'center',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -151,7 +150,7 @@ export const NetworkView = ({ members }: NetworkViewProps) => {
                     padding: '4px 8px',
                     borderRadius: '4px',
                     border: `1px solid ${theme.palette.divider}`,
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                    boxShadow: theme.shadows[2],
                     fontSize: '0.75rem',
                     whiteSpace: 'nowrap'
                   }}

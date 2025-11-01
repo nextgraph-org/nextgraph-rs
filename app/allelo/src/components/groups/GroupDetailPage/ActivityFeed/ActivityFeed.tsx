@@ -11,12 +11,14 @@ import {
   MenuItem, IconButton, Chip, alpha, useTheme, CardContent
 } from '@mui/material';
 import {
-  ThumbUp,
-  Comment,
-  Share,
-  ExpandMore,
-  ExpandLess, Fullscreen, MoreVert
-} from '@mui/icons-material';
+  UilThumbsUp as ThumbUp,
+  UilCommentAlt as Comment,
+  UilShareAlt as Share,
+  UilAngleDown as ExpandMore,
+  UilAngleUp as ExpandLess,
+  UilExpandArrows as Fullscreen,
+  UilEllipsisV as MoreVert
+} from '@iconscout/react-unicons';
 import type {GroupPost} from '@/types/group';
 import PostCreateButton from '@/components/PostCreateButton';
 import {formatDate} from "@/utils/dateHelpers";
@@ -57,9 +59,9 @@ export const ActivityFeed = ({posts, onFullscreenToggle}: ActivityFeedProps) => 
     <Box sx={{display: 'flex', flexDirection: 'column', flex: 1, position: 'relative'}}>
       {/* + Button positioned within Activity Feed */}
       <Box sx={{
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
+        position: {xs: 'fixed', md: 'absolute'},
+        bottom: {xs: 62, md: 24 },
+        right: {xs: 10, md: 24},
         zIndex: 1000,
         '& .MuiFab-root': {
           position: 'relative !important',
@@ -108,13 +110,13 @@ export const ActivityFeed = ({posts, onFullscreenToggle}: ActivityFeedProps) => 
         <IconButton
           size="small"
           onClick={() => onFullscreenToggle('activity')}
-          sx={{
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          sx={(theme) => ({
+            backgroundColor: alpha(theme.palette.background.paper, 0.9),
             '&:hover': {
-              backgroundColor: 'rgba(255, 255, 255, 1)',
+              backgroundColor: theme.palette.background.paper,
             },
             zIndex: 10
-          }}
+          })}
         >
           <Fullscreen fontSize="small"/>
         </IconButton>
@@ -135,10 +137,10 @@ export const ActivityFeed = ({posts, onFullscreenToggle}: ActivityFeedProps) => 
           backgroundColor: 'transparent'
         },
         '&::-webkit-scrollbar-thumb': {
-          backgroundColor: 'rgba(0,0,0,0.2)',
+          backgroundColor: (theme) => alpha(theme.palette.text.primary, 0.2),
           borderRadius: '4px',
           '&:hover': {
-            backgroundColor: 'rgba(0,0,0,0.3)'
+            backgroundColor: (theme) => alpha(theme.palette.text.primary, 0.3)
           }
         }
       }}>

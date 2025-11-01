@@ -7,6 +7,7 @@ import {useNextGraphAuth} from "@/lib/nextgraph";
 import {NextGraphAuth} from "@/types/nextgraph";
 import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
 import {useSaveContacts} from "@/hooks/contacts/useSaveContacts.ts";
+import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 
 export interface ContactsFilters extends SortParams {
   searchQuery?: string;
@@ -98,12 +99,14 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
     const filtered = allContacts.filter(contact => {
       // Search filter
       const name = resolveFrom(contact, 'name');
+      const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
+
       const email = resolveFrom(contact, 'email');
       const organization = resolveFrom(contact, 'organization');
       const address = resolveFrom(contact, 'address');
 
       const matchesSearch = searchQuery === '' ||
-        name?.value?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         email?.value?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         organization?.value?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         organization?.position?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -113,7 +116,7 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
       // Relationship filter
       const matchesRelationship = relationshipFilter === 'all' ||
         (relationshipFilter === 'undefined' && !contact.relationshipCategory) ||
-        (relationshipFilter === 'uncategorized' && !contact.relationshipCategory) ||
+        (relationshipFilter === 'default' && !contact.relationshipCategory) ||
         contact.relationshipCategory === relationshipFilter;
 
       // NAO Status filter
@@ -302,8 +305,6 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
 
   const updateContact = async (nuri: string, updates: Partial<Contact>) => {
     await editContact(nuri, updates);
-    setCurrentPage(0);
-    loadContacts(0);
   };
 
   const addFilter = useCallback((key: keyof ContactsFilters, value: ContactsFilters[keyof ContactsFilters]) => {

@@ -22,19 +22,22 @@ import {
   Divider,
 } from '@mui/material';
 import {
-  Person,
-  Badge,
+  CheckCircle,
   LinkedIn,
-  Email,
-  Lock,
-  Visibility,
-  VisibilityOff,
-  Close,
-  Work,
-  LocationOn,
-  Description,
-  Business,
 } from '@mui/icons-material';
+import {
+  UilUser,
+  UilAward,
+  UilEnvelope,
+  UilLock,
+  UilEye,
+  UilEyeSlash,
+  UilTimes,
+  UilBriefcase,
+  UilLocationPoint,
+  UilFileAlt,
+  UilBuilding,
+} from '@iconscout/react-unicons';
 
 export const ClaimIdentityPage = () => {
   const navigate = useNavigate();
@@ -176,13 +179,14 @@ export const ClaimIdentityPage = () => {
       >
         {/* Header */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <Badge sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+          <UilAward size="48" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)' }} />
           <Typography
             variant="h4"
             component="h1"
             sx={{
               fontWeight: 700,
               mb: 2,
+              mt: 2,
               color: 'text.primary'
             }}
           >
@@ -236,7 +240,7 @@ export const ClaimIdentityPage = () => {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Person color="action" />
+                    <UilUser size="20" />
                   </InputAdornment>
                 ),
               }}
@@ -266,7 +270,7 @@ export const ClaimIdentityPage = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Email color="action" />
+                  <UilEnvelope size="20" />
                 </InputAdornment>
               ),
             }}
@@ -283,7 +287,7 @@ export const ClaimIdentityPage = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Work color="action" />
+                  <UilBriefcase size="20" />
                 </InputAdornment>
               ),
             }}
@@ -300,7 +304,7 @@ export const ClaimIdentityPage = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Business />
+                  <UilBuilding size="20" />
                 </InputAdornment>
               ),
             }}
@@ -317,7 +321,7 @@ export const ClaimIdentityPage = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <LocationOn color="action" />
+                  <UilLocationPoint size="20" />
                 </InputAdornment>
               ),
             }}
@@ -336,7 +340,7 @@ export const ClaimIdentityPage = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
-                  <Description color="action" />
+                  <UilFileAlt size="20" />
                 </InputAdornment>
               ),
             }}
@@ -403,7 +407,7 @@ export const ClaimIdentityPage = () => {
               disabled={isImporting}
               size="small"
             >
-              <Close />
+              <UilTimes size="20" />
             </IconButton>
           </Box>
         </DialogTitle>
@@ -424,7 +428,7 @@ export const ClaimIdentityPage = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Email color="action" />
+                  <UilEnvelope size="20" />
                 </InputAdornment>
               ),
             }}
@@ -443,7 +447,7 @@ export const ClaimIdentityPage = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Lock color="action" />
+                  <UilLock size="20" />
                 </InputAdornment>
               ),
               endAdornment: (
@@ -454,7 +458,7 @@ export const ClaimIdentityPage = () => {
                     size="small"
                     disabled={isImporting}
                   >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                    {showPassword ? <UilEyeSlash size="20" /> : <UilEye size="20" />}
                   </IconButton>
                 </InputAdornment>
               ),
@@ -475,8 +479,14 @@ export const ClaimIdentityPage = () => {
                 }
                 label={
                   <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckCircle sx={{ fontSize: 20, color: 'success.main' }} />
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        Claim other accounts via Greencheck
+                      </Typography>
+                    </Box>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                      Share your LinkedIn data with Greencheck so we can show a view of your LinkedIn social graph
+                      Verify and import your profiles from other platforms
                     </Typography>
                   </Box>
                 }

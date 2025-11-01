@@ -1,25 +1,22 @@
-import {forwardRef} from 'react';
+import {forwardRef, MutableRefObject, useCallback, useMemo} from 'react';
 import {Card, CardContent, useTheme} from '@mui/material';
 import {
-  CheckCircle,
-  Schedule,
-  Send,
-} from '@mui/icons-material';
+  UilCheckCircle,
+  UilSchedule,
+  UilMessage,
+} from '@iconscout/react-unicons';
 import {ContactCardDetailed} from './ContactCardDetailed';
-import type {UseContactDragDropReturn} from '@/hooks/contacts/useContactDragDrop';
 import {iconFilter} from "@/hooks/contacts/useContacts";
 import {useContactData} from "@/hooks/contacts/useContactData";
-
+import {useDraggable} from "@dnd-kit/core";
 
 export interface ContactCardProps {
   nuri: string;
   isSelectionMode: boolean;
-  isMultiSelectMode: boolean;
-  isSelected: boolean;
   onContactClick: (contactId: string) => void;
-  onSelectContact: (contactId: string) => void;
-  dragDrop?: UseContactDragDropReturn;
   onSetIconFilter: (key: iconFilter, value: string) => void;
+  getDragContactIds?: (primaryContact: string) => string[];
+  inManageMode?: boolean;
 }
 
 export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
@@ -27,49 +24,66 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
      nuri,
      isSelectionMode,
      onContactClick,
-     dragDrop,
-     onSetIconFilter
+     onSetIconFilter,
+     getDragContactIds,
+     inManageMode
    }, ref) => {
     const theme = useTheme();
     const {contact} = useContactData(nuri);
+    const draggedContactIds = useMemo(
+      () => (getDragContactIds ? getDragContactIds(nuri) : [nuri]),
+      [getDragContactIds, nuri]
+    );
+
+    const {attributes, listeners, setNodeRef, isDragging} = useDraggable({
+      id: nuri,
+      disabled: !inManageMode,
+      data: {
+        type: 'contact',
+        contactIds: draggedContactIds,
+      },
+    });
+
+    const handleRef = useCallback((node: HTMLDivElement | null) => {
+      setNodeRef(node);
+      if (typeof ref === 'function') {
+        ref(node);
+      } else if (ref) {
+        (ref as MutableRefObject<HTMLDivElement | null>).current = node;
+      }
+    }, [ref, setNodeRef]);
 
     const getNaoStatusIcon = (naoStatus?: string) => {
       switch (naoStatus) {
         case 'member':
-          return <CheckCircle sx={{fontSize: 16, color: '#388e3c'}}/>;
+          return <UilCheckCircle size="16" color={theme.palette.success.main}/>;
         case 'invited':
-          return <Schedule sx={{fontSize: 16, color: '#9e9e9e', opacity: 0.7}}/>;
+          return <UilSchedule size="16" color={theme.palette.text.disabled} style={{opacity: 0.7}}/>;
         case 'not_invited':
         default:
-          return <Send sx={{fontSize: 16, color: '#1976d2'}}/>;
+          return <UilMessage size="16" color={theme.palette.primary.main}/>;
       }
     };
 
     return (
       <Card
-        ref={ref}
-        draggable={!isSelectionMode}
-        onDragStart={(e) => dragDrop?.handleDragStart(e, nuri)}
-        onDragEnd={dragDrop?.handleDragEnd}
-        onClick={() => onContactClick(contact ? contact['@id']! : '')}
+        ref={handleRef} {...(!isSelectionMode ? listeners : {})} {...(!isSelectionMode ? attributes : {})}
+        onClick={() => {
+          onContactClick(contact ? contact['@id']! : '');
+        }}
         sx={{
-          cursor: (isSelectionMode) ? 'default' : 'pointer',
-          transition: 'all 0.2s ease-in-out',
           border: 1,
           borderColor: 'divider',
-          '&:hover': (!isSelectionMode) ? {
-            borderColor: 'primary.main',
-            boxShadow: theme.shadows[2],
-            transform: 'translateY(-1px)',
-          } : {},
-          position: 'relative',
           width: '100%',
+          opacity: isDragging ? 0.3 : 1,
+          boxShadow: theme.shadows[1],
+          cursor: 'pointer'
         }}
       >
         <CardContent sx={{
-          p: {xs: '8px 16px', md: 0.5},
+          p: {xs: '3px', md: 0.5},
           '&:last-child': {
-            pb: 0.5
+            pb: {xs: '3px', md: 0.5},
           }
         }}>
           <ContactCardDetailed

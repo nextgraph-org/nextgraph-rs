@@ -1,5 +1,5 @@
 import {ContactInfo, ContactViewHeader } from "@/components/contacts";
-import {ArrowBack, LockReset, Save} from "@mui/icons-material";
+import {UilArrowLeft, UilRedo, UilSave} from "@iconscout/react-unicons";
 import {Box, Button, Divider, Grid, Paper, Typography} from "@mui/material";
 import {useNavigate} from "react-router-dom";
 import {dataService} from "@/services/dataService.ts";
@@ -70,9 +70,9 @@ const CreateContactPage = () => {
   };
 
   return (
-    <Box sx={{p: {xs: 2, md: 3}, backgroundColor: 'background.default'}}>
+    <Box sx={{p: {xs: 2, md: 3}, backgroundColor: 'background.paper'}}>
       <Button
-        startIcon={<ArrowBack/>}
+        startIcon={<UilArrowLeft size="20"/>}
         onClick={handleBack}
         sx={{mb: 3}}
       >
@@ -86,7 +86,7 @@ const CreateContactPage = () => {
           <Box sx={{display: 'flex', gap: 1}}>
             <Button
               variant={"text"}
-              startIcon={<LockReset/>}
+              startIcon={<UilRedo size="20"/>}
               onClick={resetContact}
               disabled={loading}
             >
@@ -94,7 +94,7 @@ const CreateContactPage = () => {
             </Button>
             <Button
               variant={"text"}
-              startIcon={<Save/>}
+              startIcon={<UilSave size="20"/>}
               onClick={saveContact}
               loading={loading}
               disabled={!isValid}

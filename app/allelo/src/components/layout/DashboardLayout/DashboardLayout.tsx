@@ -1,40 +1,39 @@
-import {useState, useEffect, useRef, useCallback} from 'react';
+import {useState, useEffect, useRef} from 'react';
 import {useLocation, useNavigate, useSearchParams} from 'react-router-dom';
 import {
   Box,
-  Drawer,
-  AppBar,
-  Toolbar,
-  Typography,
-  IconButton,
   useTheme,
   useMediaQuery,
-  Badge,
 } from '@mui/material';
 import {
-  Groups,
-  Chat,
-  Hub,
-  Dashboard,
-  Notifications,
-  AutoAwesome,
-  Person,
-} from '@mui/icons-material';
+  UilUsersAlt,
+  UilCommentAltLines,
+  UilSitemap,
+  UilApps, UilUser,
+} from '@iconscout/react-unicons';
 import BottomNavigation from '@/components/navigation/BottomNavigation';
-import {notificationService} from '@/services/notificationService';
-import type {NotificationSummary} from '@/types/notification';
 import {Sidebar} from '../Sidebar';
 import {MobileDrawer} from '../MobileDrawer';
+import {Logo} from '@/components/ui/Logo';
 import type {NavItem} from '../NavigationMenu/types';
 import {useRelationshipCategories} from '@/hooks/useRelationshipCategories';
 import type {DashboardLayoutProps} from './types';
 import {useDashboardStore} from '@/stores/dashboardStore';
+import {
+  DndContext,
+  KeyboardSensor,
+  MouseSensor, pointerWithin,
+  TouchSensor,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core';
+import {CircleLogo} from "@/components/ui/CircleLogo.tsx";
 
 const drawerWidth = 280;
 
 export const DashboardLayout = ({children}: DashboardLayoutProps) => {
   const mainRef = useRef<HTMLElement | null>(null);
-  const {headerZone, footerZone, showOverflow, setMainRef, showHeader} = useDashboardStore();
+  const {headerZone, footerZone, showOverflow, setMainRef} = useDashboardStore();
 
   // Register the ref with the store
   useEffect(() => {
@@ -44,12 +43,6 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['Network']));
-  const [notificationSummary, setNotificationSummary] = useState<NotificationSummary>({
-    total: 0,
-    unread: 0,
-    pending: 0,
-    byType: {vouch: 0, praise: 0, connection: 0, group_invite: 0, message: 0, system: 0}
-  });
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -59,46 +52,25 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
   const isInviteMode = mode === 'invite' || mode === 'create-group';
 
   const navItems: NavItem[] = [
-    {text: 'Home', icon: <Dashboard/>, path: '/'},
-    {text: 'Network', icon: <Hub/>, path: '/contacts'},
-    {text: 'Groups', icon: <Groups/>, path: '/groups'},
-    {text: 'Chat', icon: <Chat/>, path: '/messages'},
+    {text: 'Home', icon: <UilApps size="20"/>, path: '/'},
+    {text: 'Dashboard', icon: <UilUser size="20"/>, path: '/account'},
+    {text: 'Network', icon: <UilSitemap size="20"/>, path: '/contacts'},
+    {text: 'Groups', icon: <UilUsersAlt size="20"/>, path: '/groups'},
+    {text: 'Chat', icon: <UilCommentAltLines size="20"/>, path: '/messages'},
   ];
 
-  const relationshipCategories = getCategoriesArray().filter(cat => cat.id !== 'uncategorized');
+  const mouseSensor = useSensor(MouseSensor, {activationConstraint: {
+      delay: 100,
+      tolerance: 0
+    }});
+  const touchSensor = useSensor(TouchSensor, {activationConstraint: {
+      delay: 200,
+      tolerance: 10
+    }});
+  const keyboardSensor = useSensor(KeyboardSensor);
+  const sensors = useSensors(mouseSensor, touchSensor, keyboardSensor);
 
-  const loadNotificationSummary = useCallback(async () => {
-    try {
-      const summaryData = await notificationService.getNotificationSummary('current-user');
-      setNotificationSummary(summaryData);
-    } catch (error) {
-      console.error('Failed to load notification summary:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadNotificationSummary();
-  }, [loadNotificationSummary]);
-
-  // Refresh notification count when navigating away from notifications page
-  useEffect(() => {
-    if (location.pathname !== '/notifications') {
-      loadNotificationSummary();
-    }
-  }, [loadNotificationSummary, location.pathname]);
-
-  // Listen for notification updates from the notifications page
-  useEffect(() => {
-    const handleNotificationUpdate = () => {
-      loadNotificationSummary();
-    };
-
-    window.addEventListener('notifications-updated', handleNotificationUpdate);
-
-    return () => {
-      window.removeEventListener('notifications-updated', handleNotificationUpdate);
-    };
-  }, [loadNotificationSummary]);
+  const relationshipCategories = getCategoriesArray();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -125,177 +97,116 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
 
   const isActiveRoute = (path: string) => {
     if (path === '/' && location.pathname === '/') return true;
-    if (path !== '/' && location.pathname.startsWith(path)) return true;
-    return false;
+    return path !== '/' && location.pathname.startsWith(path);
   };
 
 
   return (
-    <Box sx={{
-      display: 'grid',
-      gridTemplateRows: (() => {
-        const baseRows = ["auto", "minmax(0,1fr)"];
-        const rows: string[] = [];
+    <DndContext sensors={sensors} collisionDetection={pointerWithin}>
+      <Box sx={{
+        display: 'grid',
+        gridTemplateRows: (() => {
+          const baseRows = ["auto", "minmax(0,1fr)"];
+          const rows: string[] = [];
 
-        // Add header zone if present
-        if (headerZone) {
-          rows.push("auto");
-        }
+          // Add header zone if present
+          if (headerZone) {
+            rows.push("auto");
+          }
 
-        // Add main content area
-        rows.push(...baseRows);
+          // Add main content area
+          rows.push(...baseRows);
 
-        // Add footer zone if present or default footer
-        if (footerZone || (!isInviteMode && isMobile)) {
-          rows.push("auto");
-        }
+          // Add footer zone if present or default footer
+          if (footerZone || (!isInviteMode && isMobile)) {
+            rows.push("auto");
+          }
 
-        return rows.join(" ");
-      })(),
-      gridTemplateColumns: {xs: "1fr", md: "280px 1fr"},
-      gridTemplateAreas: (() => {
-        if (headerZone && footerZone) {
-          return {
-            xs: `"header"
+          return rows.join(" ");
+        })(),
+        gridTemplateColumns: {xs: "1fr", md: "280px 1fr"},
+        gridTemplateAreas: (() => {
+          if (headerZone && footerZone) {
+            return {
+              xs: `"header"
               "headerzone"
               "content"
               "footerzone"
               "footer"
               `,
-            md: `
+              md: `
             "header header"
             "menu headerzone"
             "menu content"
             "footerzone footerzone"
             `
-          };
-        } else if (headerZone) {
-          return {
-            xs: `"header"
+            };
+          } else if (headerZone) {
+            return {
+              xs: `"header"
               "headerzone"
               "content"
               "footer"`,
-            md: `
+              md: `
             "header header"
             "menu headerzone"
             "menu content"
             "footer footer"
             `
-          };
-        } else if (footerZone) {
-          return {
-            xs: `"header"
+            };
+          } else if (footerZone) {
+            return {
+              xs: `"header"
               "content"
               "footerzone"
               "footer"
               `,
-            md: `
+              md: `
             "header header"
             "menu content"
             "footerzone footerzone"
             `
-          };
-        } else {
-          return {
-            xs: `"header"
+            };
+          } else {
+            return {
+              xs: `"header"
               "content"
               "footer"`,
-            md: `
+              md: `
             "header header"
             "menu content"
             "footer footer"
             `
-          };
-        }
-      })(),
-      inset: 0,
-      backgroundColor: 'background.default',
-      position: "fixed"
-    }}>
-      {!isInviteMode && showHeader && (
-        <AppBar
-          position={"relative"}
+            };
+          }
+        })(),
+        inset: 0,
+        backgroundColor: 'background.default',
+        position: "fixed",
+        pr: {md:2, xs: 0},
+        pb: {md:3, xs: 0}
+      }}>
+
+        {/* Logo Header Bar */}
+        <Box
           sx={{
-            backgroundColor: 'background.paper',
-            border: 'none',
-            boxShadow: 'none',
-            borderRadius: '0 !important',
-            zIndex: theme.zIndex.drawer + 1,
-            gridArea: "header"
+            gridArea: "header",
+            display: isMobile ? 'none' : 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            py: 2,
+            pl: 4,
+            gap: 2
           }}
         >
-          <Toolbar sx={{
-            justifyContent: 'space-between',
-            minHeight: 64,
-            height: 64,
-            paddingTop: 0,
-            paddingBottom: 0
-          }}>
-            <Box sx={{display: 'flex', alignItems: 'center'}}>
-              <Typography
-                variant="h6"
-                noWrap
-                component="div"
-                sx={{
-                  fontWeight: 600,
-                  color: 'text.primary'
-                }}
-              >
-                NAO
-              </Typography>
-            </Box>
+          <CircleLogo width={50} height={50}/>
+          <Logo width={200} height={50}/>
+        </Box>
 
-            <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-              <IconButton
-                size="large"
-                color="inherit"
-                onClick={() => {
-                  console.log('AI Assistant clicked');
-                }}
-                sx={{color: 'primary.main'}}
-              >
-                <AutoAwesome/>
-              </IconButton>
-              <IconButton
-                size="large"
-                color="inherit"
-                onClick={() => navigate('/notifications')}
-              >
-                <Badge badgeContent={notificationSummary.unread} color="error">
-                  <Notifications/>
-                </Badge>
-              </IconButton>
-              <IconButton
-                size="large"
-                edge="end"
-                aria-label="my account"
-                onClick={() => navigate('/account')}
-                color="inherit"
-              >
-                <Person/>
-              </IconButton>
-            </Box>
-          </Toolbar>
-        </AppBar>
-      )}
-
-      {!isInviteMode && !isMobile && (
-        <Box
-          component="nav"
-          sx={{width: {md: drawerWidth}, flexShrink: {md: 0}, gridArea: "menu"}}
-        >
-          <Drawer
-            variant="permanent"
-            open={true}
-            sx={{
-              '& .MuiDrawer-paper': {
-                boxSizing: 'border-box',
-                width: drawerWidth,
-                backgroundColor: 'background.default',
-                border: 'none',
-                zIndex: theme.zIndex.drawer - 1,
-              },
-            }}
+        {!isInviteMode && !isMobile && (
+          <Box
+            component="nav"
+            sx={{width: {md: drawerWidth}, flexShrink: {md: 0}, gridArea: "menu", zIndex: 0, pr: 1}}
           >
             <Sidebar
               navItems={navItems}
@@ -306,73 +217,74 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
               currentPath={location.pathname}
               relationshipCategories={relationshipCategories}
             />
-          </Drawer>
-        </Box>
-      )}
+          </Box>
+        )}
 
-      {!isInviteMode && isMobile && (
-        <MobileDrawer
-          drawerWidth={drawerWidth}
-          mobileOpen={mobileOpen}
-          onDrawerClose={handleDrawerToggle}
-          zIndex={theme.zIndex.drawer}
-          navItems={navItems}
-          expandedItems={expandedItems}
-          isActiveRoute={isActiveRoute}
-          onToggleExpanded={toggleExpanded}
-          onNavigation={handleNavigation}
-          currentPath={location.pathname}
-          relationshipCategories={relationshipCategories}
-        />
-      )}
+        {!isInviteMode && isMobile && (
+          <MobileDrawer
+            drawerWidth={drawerWidth}
+            mobileOpen={mobileOpen}
+            onDrawerClose={handleDrawerToggle}
+            zIndex={theme.zIndex.drawer}
+            navItems={navItems}
+            expandedItems={expandedItems}
+            isActiveRoute={isActiveRoute}
+            onToggleExpanded={toggleExpanded}
+            onNavigation={handleNavigation}
+            currentPath={location.pathname}
+            relationshipCategories={relationshipCategories}
+          />
+        )}
 
-      {headerZone && (
+        {headerZone && (
+          <Box
+            sx={{
+              gridArea: "headerzone",
+              backgroundColor: 'background.default',
+              pt: isInviteMode ? 2 : {xs: 1, md: 1},
+              pr: isInviteMode ? 2 : {xs: 1, md: 1.5},
+              pl: isInviteMode ? 2 : {xs: 1, md: 1.5},
+              pb: 0,
+            }}
+          >
+            {headerZone}
+          </Box>
+        )}
+
         <Box
+          ref={mainRef}
+          component="main"
           sx={{
-            gridArea: "headerzone",
-            backgroundColor: 'background.default',
-            pt: isInviteMode ? 2 : {xs: 1, md: 1},
+            width: '100%',
+            backgroundColor: 'background.paper',
+            overflow: showOverflow ? 'auto' : 'hidden',
+            maxWidth: '100vw',
+            gridArea: "content",
+            pt: isInviteMode ? 2 : {xs: 1, md: 2},
             pr: isInviteMode ? 2 : {xs: 1, md: 1.5},
-            pl: isInviteMode ? 2 : {xs: 1, md: 1.5},
-            pb: 0,
+            pb: isInviteMode ? 2 : {xs: 1, md: 1.5},
+            pl: isInviteMode ? 2 : {xs: 1, md: 3},
+            borderRadius: "2%"
           }}
         >
-          {headerZone}
+          {children}
         </Box>
-      )}
 
-      <Box
-        ref={mainRef}
-        component="main"
-        sx={{
-          width: '100%',
-          backgroundColor: 'background.default',
-          overflow: showOverflow ? 'auto' : 'hidden',
-          maxWidth: '100vw',
-          gridArea: "content",
-          pt: isInviteMode ? 2 : {xs: 0, md: 1},
-          pr: isInviteMode ? 2 : {xs: 0, md: 1.5},
-          pb: isInviteMode ? 2 : {xs: 0, md: 1.5},
-          pl: isInviteMode ? 2 : {xs: 0, md: 1.5},
-        }}
-      >
-        {children}
+        {footerZone && (
+          <Box
+            sx={{
+              gridArea: "footerzone",
+              backgroundColor: 'background.default',
+            }}
+          >
+            {footerZone}
+          </Box>)}
+        {isMobile && !isInviteMode && (
+          <Box sx={{gridArea: "footer", width: "100vw"}}>
+            <BottomNavigation navigationItems={navItems}/>
+          </Box>
+        )}
       </Box>
-
-      {footerZone && (
-        <Box
-          sx={{
-            gridArea: "footerzone",
-            backgroundColor: 'background.default',
-          }}
-        >
-          {footerZone}
-        </Box>)}
-      {isMobile && !isInviteMode && (
-        <Box sx={{gridArea: "footer"}}>
-          <BottomNavigation/>
-        </Box>
-      )}
-    </Box>
+    </DndContext>
   );
 };

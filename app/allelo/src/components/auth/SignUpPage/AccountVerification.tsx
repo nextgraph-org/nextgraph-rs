@@ -7,7 +7,7 @@ import {
   Link,
   Alert,
 } from '@mui/material';
-import { CheckCircle } from '@mui/icons-material';
+import { UilCheckCircle } from '@iconscout/react-unicons';
 import type { AccountVerificationProps } from './types';
 
 export const AccountVerification = ({
@@ -37,7 +37,7 @@ export const AccountVerification = ({
           gap: 1
         }}
       >
-        <CheckCircle color="primary" />
+        <UilCheckCircle size="20" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)' }} />
         NAO Social Contract
       </Typography>
       

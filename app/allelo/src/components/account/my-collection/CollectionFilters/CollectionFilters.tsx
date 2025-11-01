@@ -9,7 +9,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
-import { Search } from '@mui/icons-material';
+import { UilSearch } from '@iconscout/react-unicons';
 import type { CollectionFiltersProps } from '../types';
 
 export const CollectionFilters = forwardRef<HTMLDivElement, CollectionFiltersProps>(
@@ -33,7 +33,7 @@ export const CollectionFilters = forwardRef<HTMLDivElement, CollectionFiltersPro
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <Search />
+                <UilSearch size="20" />
               </InputAdornment>
             ),
           }}

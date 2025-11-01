@@ -13,23 +13,23 @@ import {
   Divider,
 } from '@mui/material';
 import {
-  MoreVert,
-  Visibility,
-  VisibilityOff,
-  Edit,
-  Delete,
-  Share,
-  Comment,
-  Download,
-  Launch,
-  Article,
-  Image as ImageIcon,
-  Link as LinkIcon,
-  AttachFile,
-  LocalOffer,
-  ShoppingCart,
-  PostAdd,
-} from '@mui/icons-material';
+  UilEllipsisV as MoreVert,
+  UilEye as Visibility,
+  UilEyeSlash as VisibilityOff,
+  UilEdit as Edit,
+  UilTrashAlt as Delete,
+  UilShareAlt as Share,
+  UilCommentAlt as Comment,
+  UilDownloadAlt as Download,
+  UilExternalLinkAlt as Launch,
+  UilFileAlt as Article,
+  UilImage as ImageIcon,
+  UilLink as LinkIcon,
+  UilPaperclip as AttachFile,
+  UilTag as LocalOffer,
+  UilShoppingCart as ShoppingCart,
+  UilPostcard as PostAdd,
+} from '@iconscout/react-unicons';
 import type { RecentActivityProps } from '../types';
 import type { UserContent, ContentType } from '@/types/userContent';
 import {formatDateDiff} from "@/utils/dateHelpers";

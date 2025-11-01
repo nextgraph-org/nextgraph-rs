@@ -6,7 +6,7 @@ import {
   Divider,
   useTheme,
 } from '@mui/material';
-import { ContactPage } from '@mui/icons-material';
+import { UilUserCheck as ContactPage } from '@iconscout/react-unicons';
 
 export interface ContactSelectorProps {
   onSelectFromNetwork: () => void;

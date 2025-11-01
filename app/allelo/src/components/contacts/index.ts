@@ -1,5 +1,4 @@
 export { ContactListHeader } from './ContactListHeader';
-export { ContactTabs } from './ContactTabs';
 export { ContactFilters } from './ContactFilters';
 export { CategorySidebar } from './CategorySidebar';
 export { ContactGrid } from './ContactGrid';

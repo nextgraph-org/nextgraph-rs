@@ -20,21 +20,21 @@ import {
   alpha,
 } from '@mui/material';
 import {
-  ThumbUp,
-  StarBorder,
-  CheckCircle,
-  Cancel,
-  Assignment,
-  MoreVert,
-  Business,
-  PersonOutline,
-  Groups,
-  FamilyRestroom,
-  Favorite,
-  Home,
-  LocationOn,
-  Public,
-} from '@mui/icons-material';
+  UilThumbsUp,
+  UilStar,
+  UilCheckCircle,
+  UilTimesCircle,
+  UilClipboardAlt,
+  UilEllipsisV,
+  UilBuilding,
+  UilUser,
+  UilUsersAlt,
+  UilKid,
+  UilHeart,
+  UilHome,
+  UilMapMarker,
+  UilGlobe,
+} from '@iconscout/react-unicons';
 import type { Notification } from '@/types/notification';
 import { DEFAULT_RCARDS } from '@/types/notification';
 
@@ -112,9 +112,9 @@ const NotificationItem = ({
   const getNotificationIcon = () => {
     switch (notification.type) {
       case 'vouch':
-        return <ThumbUp sx={{ color: 'primary.main' }} />;
+        return <UilThumbsUp size="20" color={theme.palette.primary.main} />;
       case 'praise':
-        return <StarBorder sx={{ color: 'warning.main' }} />;
+        return <UilStar size="20" color={theme.palette.warning.main} />;
       default:
         return null;
     }
@@ -138,23 +138,23 @@ const NotificationItem = ({
   const getRCardIcon = (iconName: string) => {
     switch (iconName) {
       case 'Business':
-        return <Business />;
+        return <UilBuilding size="20" />;
       case 'PersonOutline':
-        return <PersonOutline />;
+        return <UilUser size="20" />;
       case 'Groups':
-        return <Groups />;
+        return <UilUsersAlt size="20" />;
       case 'FamilyRestroom':
-        return <FamilyRestroom />;
+        return <UilKid size="20" />;
       case 'Favorite':
-        return <Favorite />;
+        return <UilHeart size="20" />;
       case 'Home':
-        return <Home />;
+        return <UilHome size="20" />;
       case 'LocationOn':
-        return <LocationOn />;
+        return <UilMapMarker size="20" />;
       case 'Public':
-        return <Public />;
+        return <UilGlobe size="20" />;
       default:
-        return <PersonOutline />;
+        return <UilUser size="20" />;
     }
   };
 
@@ -226,7 +226,7 @@ const NotificationItem = ({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
                 {getStatusChip()}
                 <IconButton size="small" onClick={handleMenuClick}>
-                  <MoreVert />
+                  <UilEllipsisV size="20" />
                 </IconButton>
               </Box>
             </Box>
@@ -258,7 +258,7 @@ const NotificationItem = ({
                   <Button
                     size="small"
                     variant="outlined"
-                    startIcon={<Cancel />}
+                    startIcon={<UilTimesCircle size="16" />}
                     onClick={handleReject}
                     sx={{ textTransform: 'none', minWidth: 'auto', fontSize: '0.75rem' }}
                   >
@@ -267,7 +267,7 @@ const NotificationItem = ({
                   <Button
                     size="small"
                     variant="contained"
-                    startIcon={<CheckCircle />}
+                    startIcon={<UilCheckCircle size="16" />}
                     onClick={handleAccept}
                     sx={{ textTransform: 'none', minWidth: 'auto', fontSize: '0.75rem' }}
                   >
@@ -280,7 +280,7 @@ const NotificationItem = ({
                 <Button
                   size="small"
                   variant="outlined"
-                  startIcon={<Assignment />}
+                  startIcon={<UilClipboardAlt size="16" />}
                   onClick={handleAssignClick}
                   sx={{ textTransform: 'none', fontSize: '0.75rem', flexShrink: 0 }}
                 >

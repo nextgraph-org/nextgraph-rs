@@ -8,7 +8,7 @@ import {
   alpha,
   useTheme,
 } from '@mui/material';
-import { ThumbUp, StarBorder } from '@mui/icons-material';
+import { UilThumbsUp, UilStar } from '@iconscout/react-unicons';
 import { NotificationActions } from './NotificationActions';
 import type { NotificationItemProps } from './types';
 
@@ -27,9 +27,9 @@ export const NotificationItem = forwardRef<HTMLLIElement, NotificationItemProps>
     const getNotificationIcon = () => {
       switch (notification.type) {
         case 'vouch':
-          return <ThumbUp sx={{ color: 'primary.main' }} />;
+          return <UilThumbsUp size="20" color={theme.palette.primary.main} />;
         case 'praise':
-          return <StarBorder sx={{ color: 'warning.main' }} />;
+          return <UilStar size="20" color={theme.palette.warning.main} />;
         default:
           return null;
       }

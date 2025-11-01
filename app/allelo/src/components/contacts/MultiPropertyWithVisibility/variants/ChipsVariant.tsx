@@ -1,5 +1,5 @@
 import {Box, Button, Chip, Typography} from '@mui/material';
-import {Add, Star} from '@mui/icons-material';
+import {UilPlus as Add, UilStar as Star} from '@iconscout/react-unicons';
 import {MultiPropertyItem} from "@/components/contacts/MultiPropertyWithVisibility/MultiPropertyItem.tsx";
 import {ValidationType} from "@/hooks/useFieldValidation";
 import {formatPhone} from "@/utils/phoneHelper";
@@ -52,6 +52,7 @@ export const ChipsVariant = ({
     const currentValue = editingValues[itemId] !== undefined ? editingValues[itemId] : (item[subKey] || '');
 
     return <MultiPropertyItem
+      key={itemId}
       itemId={itemId}
       value={currentValue}
       source={item.source}
@@ -89,7 +90,7 @@ export const ChipsVariant = ({
             size="small"
           />
         }
-        {item.preferred && <Star fontSize="small"/>}
+        {item.preferred && <Star size="16"/>}
       </Box>
     );
   };
@@ -124,7 +125,7 @@ export const ChipsVariant = ({
       />}
       <Button
         disabled={isAddingNew && !isValid}
-        startIcon={<Add/>}
+        startIcon={<Add size="20"/>}
         onClick={() => setIsAddingNew(true)}
         variant="text"
         size="small"

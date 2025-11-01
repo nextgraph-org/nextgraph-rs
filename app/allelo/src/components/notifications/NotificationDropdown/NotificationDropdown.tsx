@@ -7,9 +7,8 @@ import {
   Button,
 } from '@mui/material';
 import {
-  NotificationsNone,
-  Notifications,
-} from '@mui/icons-material';
+  UilBell,
+} from '@iconscout/react-unicons';
 import type { Notification, NotificationSummary } from '@/types/notification';
 import { NotificationPreview } from './NotificationPreview';
 
@@ -65,7 +64,7 @@ export const NotificationDropdown = forwardRef<HTMLDivElement, NotificationDropd
           aria-haspopup="true"
         >
           <Badge badgeContent={summary.unread} color="error">
-            {summary.unread > 0 ? <Notifications /> : <NotificationsNone />}
+            <UilBell size="24" />
           </Badge>
         </IconButton>
 

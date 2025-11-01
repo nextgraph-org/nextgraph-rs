@@ -8,8 +8,8 @@ import {
   TextField,
 } from '@mui/material';
 import {
-  MoreVert,
-} from '@mui/icons-material';
+  UilEllipsisV as MoreVert,
+} from '@iconscout/react-unicons';
 import type {Contact} from '@/types/contact';
 import {
   ContactKeysWithSelected,
@@ -21,6 +21,7 @@ import {getSourceIcon, getSourceLabel} from "@/components/contacts/sourcesHelper
 import {dataset, useLdo} from "@/lib/nextgraph";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {useFieldValidation, ValidationType} from "@/hooks/useFieldValidation";
+import {renderTemplate} from "@/utils/templateRenderer";
 
 type ResolvableKey = ContactKeysWithSelected;
 
@@ -41,6 +42,12 @@ interface PropertyWithSourcesProps<K extends ResolvableKey> {
   validateType?: ValidationType;
   required?: boolean;
   validateParent?: (valid: boolean) => void;
+  template?: string;
+  templateProperty?: ResolvableKey;
+  isMultiline?: boolean;
+  currentItem?: Record<string, string>;
+  hideSources?: boolean;
+  isMultipleField?: boolean
 }
 
 export const PropertyWithSources = <K extends ResolvableKey>({
@@ -57,7 +64,13 @@ export const PropertyWithSources = <K extends ResolvableKey>({
                                                                placeholder,
                                                                validateType = "text",
                                                                required,
-                                                               validateParent
+                                                               validateParent,
+                                                               template,
+                                                               templateProperty,
+                                                               isMultiline,
+                                                               currentItem,
+                                                               hideSources,
+                                                               isMultipleField
                                                              }: PropertyWithSourcesProps<K>) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const {commitData, changeData} = useLdo();
@@ -67,14 +80,25 @@ export const PropertyWithSources = <K extends ResolvableKey>({
   const [currentValue, setCurrentValue] = useState<string>();
   const [localValue, setLocalValue] = useState<string>("");
   const [currentItemId, setCurrentItemId] = useState<string>();
+  const [displayValue, setDisplayValue] = useState<string>("");
 
   const handleChange = useCallback(() => {
-    const currentItem = ((contact && resolveFrom(contact, propertyKey)) ?? {}) as Record<string, string>;
-    setCurrentItemId(currentItem["@id"]);
-    const value = currentItem[subKey] ?? "";
+    const currentItemRef = currentItem ?? ((contact && resolveFrom(contact, propertyKey)) ?? {}) as Record<string, string>;
+    setCurrentItemId(currentItemRef["@id"]);
+    const value = currentItemRef[subKey] ?? "";
     setCurrentValue(value);
     setLocalValue(value);
-  }, [contact, propertyKey, subKey]);
+
+    if (!value && template) {
+      const templateData = templateProperty && contact
+        ? resolveFrom(contact, templateProperty) as Record<string, string>
+        : currentItemRef;
+      const rendered = renderTemplate(template, templateData);
+      setDisplayValue(rendered);
+    } else {
+      setDisplayValue(value);
+    }
+  }, [contact, propertyKey, subKey, template, currentItem, templateProperty]);
 
   useEffect(() => {
     handleChange();
@@ -91,29 +115,38 @@ export const PropertyWithSources = <K extends ResolvableKey>({
       if (!fieldSet) return;
 
       let existingUserEntry = null;
-      for (const item of fieldSet) {
-        if (item.source === "user" && item["@id"]) {
-          existingUserEntry = item;
-          break;
+      if (currentItem) {
+        if (currentItem.source === "user" && currentItem["@id"]) {
+          existingUserEntry = currentItem;
+        }
+      } else {
+        for (const item of fieldSet) {
+          if (item.source === "user" && item["@id"]) {
+            existingUserEntry = item;
+            break;
+          }
         }
       }
 
       if (existingUserEntry) {
         // @ts-expect-error narrow later
         existingUserEntry[subKey] = localValue;
-
-        for (const item of fieldSet) {
-          item.selected = item.source === "user";
+        if (!isMultipleField) {
+          for (const item of fieldSet) {
+            item.selected = item.source === "user";
+          }
         }
       } else {
-        for (const item of fieldSet) {
-          item.selected = false;
+        if (!isMultipleField) {
+          for (const item of fieldSet) {
+            item.selected = false;
+          }
         }
 
         const newEntry = {
           [subKey]: localValue,
           source: "user",
-          selected: true
+          selected: isMultipleField ? undefined : true
         };
         if (addId) {
           newEntry["@id"] = Math.random().toExponential(32);
@@ -141,7 +174,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
       editPropertyWithUserSource(contact, true);
       handleChange();
     }
-  }, [changeData, commitData, contact, isNextgraph, localValue, propertyKey, subKey, currentValue, handleChange]);
+  }, [contact, currentValue, localValue, isNextgraph, propertyKey, currentItem, subKey, isMultipleField, changeData, commitData, handleChange]);
 
   // Handle page navigation/unload to persist any unsaved changes
   useEffect(() => {
@@ -176,16 +209,20 @@ export const PropertyWithSources = <K extends ResolvableKey>({
       const resource = dataset.getResource(contact["@id"]!);
       if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
         const changedContactObj = changeData(contact, resource);
-        updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "selected");
+        if (!isMultipleField) {
+          updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "selected");
+        }
         commitData(changedContactObj);
       }
     } else {
-      updatePropertyFlag(contact, propertyKey, item["@id"], "selected");
+      if (!isMultipleField) {
+        updatePropertyFlag(contact, propertyKey, item["@id"], "selected");
+      }
     }
 
     handleClose();
     handleChange();
-  }, [changeData, commitData, contact, handleChange, isNextgraph, propertyKey]);
+  }, [changeData, commitData, contact, handleChange, isMultipleField, isNextgraph, propertyKey]);
 
   const [isValid, setIsValid] = useState(true);
 
@@ -216,13 +253,11 @@ export const PropertyWithSources = <K extends ResolvableKey>({
   }
 
   // Get all available sources for the menu
-  const allSources = contact[propertyKey]?.toArray().filter(el => el["@id"]);
-
-  if (!allSources) return null;
+  const allSources = contact[propertyKey]?.toArray().filter(el => el["@id"]) ?? [];
 
   const getSourceSelectors = () => {
     //TODO: size is unreliable, use toArray().length
-    const showSourceSelector = allSources.length > 1;
+    const showSourceSelector = allSources.length > 1 && !hideSources;
     if (showSourceSelector) {
       return (
         <>
@@ -231,7 +266,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
             onClick={handleClick}
             sx={{ml: 1}}
           >
-            <MoreVert fontSize="small"/>
+            <MoreVert size="16" style={{color: "rgba(0,0,0,0.19)"}}/>
           </IconButton>
           <Menu
             anchorEl={anchorEl}
@@ -256,7 +291,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
                         {getSourceLabel(item.source!)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {(item as any)[subKey]}
+                        {(item as any)[subKey] ?? renderTemplate(template, item)}
                       </Typography>
                     </Box>
                   </Box>
@@ -286,6 +321,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
           helperText={fieldValidation.error ? fieldValidation.errorMessage : ''}
           slotProps={{inputLabel: {shrink: true}}}
           required={required}
+          multiline={isMultiline}
           sx={{
             '& .MuiOutlinedInput-input': {
               fontSize: '1rem',
@@ -297,14 +333,14 @@ export const PropertyWithSources = <K extends ResolvableKey>({
     );
   }
 
-  if (allSources.length === 0) return null;
+  if (allSources.length === 0 && !displayValue) return null;
 
   // Different layouts based on variant
   if (variant === 'header') {
     return (
       <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 1}}>
         <Typography variant={textVariant} component="h1" gutterBottom={false}>
-          {currentValue}
+          {displayValue}
         </Typography>
         {getSourceSelectors()}
       </Box>
@@ -315,11 +351,15 @@ export const PropertyWithSources = <K extends ResolvableKey>({
     return (
       <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
         <Typography variant={textVariant}>
-          {currentValue}
+          {displayValue}
         </Typography>
         {getSourceSelectors()}
       </Box>
     );
+  }
+
+  if (hideSources && !displayValue) {
+    return null
   }
 
   // Default layout
@@ -338,9 +378,9 @@ export const PropertyWithSources = <K extends ResolvableKey>({
             </Typography>
           </Box>
         )}
-        <Box sx={{alignItems: 'center', gap: 1}}>
+        <Box sx={{display: "flex", alignItems: 'center', gap: 1}}>
           <Typography variant={textVariant}>
-            {currentValue}
+            {displayValue}
           </Typography>
           {getSourceSelectors()}
         </Box>

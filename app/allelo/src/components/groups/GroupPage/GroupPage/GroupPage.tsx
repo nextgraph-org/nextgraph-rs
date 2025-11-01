@@ -8,9 +8,9 @@ import {
   Button,
 } from '@mui/material';
 import {
-  Search,
-  Add,
-} from '@mui/icons-material';
+  UilSearch as Search,
+  UilPlus as Add,
+} from '@iconscout/react-unicons';
 import { dataService } from '@/services/dataService';
 import type { Group as GroupType } from '@/types/group';
 import { GroupFeed } from '../GroupFeed';

@@ -1,5 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { Dashboard, Groups } from '@mui/icons-material';
+import {
+  UilDashboard as Dashboard,
+  UilUsersAlt as Groups
+} from '@iconscout/react-unicons';
 import { NavigationMenu } from './NavigationMenu';
 import type { NavItem } from './types';
 

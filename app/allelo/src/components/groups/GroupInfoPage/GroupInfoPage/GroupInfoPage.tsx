@@ -22,17 +22,17 @@ import {
   Chip,
 } from '@mui/material';
 import {
-  ArrowBack,
-  ExitToApp,
-  Delete,
-  Description,
-  People,
-  Share,
-  Close,
-  Edit,
-  Save,
-  Cancel,
-} from '@mui/icons-material';
+  UilArrowLeft as ArrowBack,
+  UilSignOutAlt as ExitToApp,
+  UilTrashAlt as Delete,
+  UilFileAlt as Description,
+  UilUsersAlt as People,
+  UilShareAlt as Share,
+  UilTimes as Close,
+  UilEdit as Edit,
+  UilCheck as Save,
+  UilTimesCircle as Cancel,
+} from '@iconscout/react-unicons';
 import { dataService } from '@/services/dataService';
 import type { Group } from '@/types/group';
 import type { Contact } from '@/types/contact';

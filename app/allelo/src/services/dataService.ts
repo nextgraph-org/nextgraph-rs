@@ -6,6 +6,7 @@ import {
   resolveFrom
 } from '@/utils/socialContact/contactUtils.ts';
 import {BasicLdSet} from '@/lib/ldo/BasicLdSet';
+import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 
 // Get the base URL for assets based on the environment
 const getAssetUrl = (path: string) => {
@@ -91,21 +92,77 @@ const profile: Contact = {
     //@ts-expect-error ldo wrong type here
     "@id": "Individual"
   },
-  name: new BasicLdSet([{value: 'John Doe', source: "user"}]),
-  headline: new BasicLdSet([{value: 'Product Manager at TechCorp', source: "user"}]),
+  name: new BasicLdSet([{source: "user", "@id": "name1", value: "J. Doe", firstName: "John", familyName: "Doe", honorificPrefix: "Dr.", honorificSuffix: "Jr."}]),
   email: new BasicLdSet([{value: 'john.doe@example.com', source: "user", "@id": "profile"}]),
-  phoneNumber: new BasicLdSet([{value: '+1 (555) 123-4567', source: "user", "@id": "profile"}]),
-  address: new BasicLdSet([{value: 'San Francisco, CA', source: "user", "@id": "profile"}]),
+  phoneNumber: new BasicLdSet([{value: '+16783434343', source: "user", "@id": "profile"}]),
+  //@ts-expect-error ldo wrong type here
+  address: new BasicLdSet([
+    {
+      extendedAddress: '',
+      postalCode: '0012',
+      source: "user",
+      "@id": "address1",
+      country: "USA",
+      city: "San Francisco",
+      type2: new BasicLdSet([{"@id": "home"}]),
+
+    },
+  ]),
   biography: new BasicLdSet([{
     value: 'Passionate product manager with 8+ years of experience building user-centered products. I love connecting with fellow professionals and sharing insights about product strategy.',
-    source: "user"
+    source: "user", "@id": "biography1"
   }]),
-  photo: new BasicLdSet([{value: '/static/images/avatar/2.jpg', source: "user"}]),
-  url: new BasicLdSet(),
+  photo: new BasicLdSet([{value: 'images/Niko.jpg', source: "user", "@id": "photo1"}]),
+  //@ts-expect-error ldo wrong type here
+  url: new BasicLdSet([
+    {
+      value: 'https://www.blogger.com/about/?bpli=1',
+      type2: new BasicLdSet([{"@id": "blog"}]),
+      source: "user",
+      "@id": "url1"
+    },
+    {
+      value: 'https://www.linkedin.com/feed/',
+      type2: new BasicLdSet([{"@id": "linkedin"}]),
+      source: "user",
+      "@id": "url2"
+    },
+  ]),
   account: new BasicLdSet(),
+  organization: new BasicLdSet([{value: 'TechCorp', position: 'Product Manager', "@id": "org1"}]),
+  //@ts-expect-error ldo wrong type here
+  language: new BasicLdSet([
+    {
+      valueIRI: new BasicLdSet([{"@id": "en"}]),
+      proficiency: new BasicLdSet([{"@id": "elementary"}]),
+      "@id": "language1"
+    },
+    {
+      valueIRI: new BasicLdSet([{"@id": "es"}]),
+      proficiency: new BasicLdSet([{"@id": "limitedWork"}]),
+      "@id": "language2"
+    },
+  ]),
+  interest: new BasicLdSet([
+    {value: 'AI', source: "user", "@id": "interest1"},
+    {value: 'Music', source: "user", "@id": "interest3"},
+  ])
 }
 
 const blockedContacts = new Set<string>();
+
+type ContactUpdateListener = (contactId: string, contact: Contact | undefined) => void;
+const contactUpdateListeners = new Set<ContactUpdateListener>();
+
+const notifyContactUpdateListeners = (contactId: string, contact: Contact | undefined) => {
+  contactUpdateListeners.forEach(listener => {
+    try {
+      listener(contactId, contact);
+    } catch (err) {
+      console.error("Failed to notify contact update listener:", err);
+    }
+  });
+};
 
 export const dataService = {
   async getDraftContact() {
@@ -142,6 +199,8 @@ export const dataService = {
           contacts = await Promise.all(
             contactsData.map(jsonContact => processContactFromJSON(jsonContact, withIds))
           );
+
+          contacts.push(profile);
 
           isLoaded = true;
           loadedWithIDs = withIds;
@@ -322,10 +381,11 @@ export const dataService = {
             },
             ...contacts.map((contact: Contact) => {
               const name = resolveFrom(contact, 'name');
+              const displayName = name?.value || renderTemplate(defaultTemplates.contactName, name);
               const photo = resolveFrom(contact, 'photo');
               return {
                 id: contact['@id'] || '',
-                name: name?.value || 'Unknown',
+                name: displayName || 'Unknown',
                 avatar: photo?.value || "",
                 role: "Member",
                 status: "Invited",
@@ -457,7 +517,10 @@ export const dataService = {
       setTimeout(async () => {
         try {
           const contact = await this.getContact(contactId);
-          if (contact) Object.assign(contact, updates);
+          if (contact) {
+            Object.assign(contact, updates);
+          }
+          notifyContactUpdateListeners(contactId, contact);
           console.log(`📝 Updated contact ${contactId}:`, updates);
           resolve();
         } catch (error) {
@@ -557,7 +620,27 @@ export const dataService = {
       }, 300);
     });
   },
+  subscribeToContactUpdates(listener: ContactUpdateListener): () => void {
+    contactUpdateListeners.add(listener);
+    return () => {
+      contactUpdateListeners.delete(listener);
+    };
+  },
   getProfile(): Contact {
     return profile;
+  },
+  updateProfile(updates: Partial<Contact>): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(async () => {
+        try {
+          Object.assign(profile, updates);
+          notifyContactUpdateListeners("myProfileId", profile);
+          resolve();
+        } catch (error) {
+          console.error("Failed to update profile:", error);
+          throw error;
+        }
+      }, 100);
+    });
   },
 };

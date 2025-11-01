@@ -11,12 +11,12 @@ import {
   Chip,
   Stack
 } from '@mui/material';
-import { 
-  FilterList,
-  Sort,
-  Clear,
-  KeyboardArrowDown
-} from '@mui/icons-material';
+import {
+  UilFilter as FilterList,
+  UilSort as Sort,
+  UilTimes as Clear,
+  UilAngleDown as KeyboardArrowDown
+} from '@iconscout/react-unicons';
 import { SearchInput } from '../SearchInput';
 import type { FilterControlsProps } from './types';
 
@@ -105,8 +105,8 @@ export const FilterControls = ({
           {sortOptions.length > 0 && (
             <Button
               variant="outlined"
-              startIcon={<Sort />}
-              endIcon={<KeyboardArrowDown />}
+              startIcon={<Sort size="20" />}
+              endIcon={<KeyboardArrowDown size="20" />}
               onClick={handleSortClick}
               size="small"
             >
@@ -118,8 +118,8 @@ export const FilterControls = ({
           {filterOptions.length > 0 && (
             <Button
               variant="outlined"
-              startIcon={<FilterList />}
-              endIcon={<KeyboardArrowDown />}
+              startIcon={<FilterList size="20" />}
+              endIcon={<KeyboardArrowDown size="20" />}
               onClick={handleFilterClick}
               size="small"
               color={activeFilters.length > 0 ? 'primary' : 'inherit'}
@@ -132,7 +132,7 @@ export const FilterControls = ({
           {hasActiveFilters && onClearAll && (
             <Button
               variant="text"
-              startIcon={<Clear />}
+              startIcon={<Clear size="20" />}
               onClick={onClearAll}
               size="small"
               color="inherit"

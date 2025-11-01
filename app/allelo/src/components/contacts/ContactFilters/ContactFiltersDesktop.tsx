@@ -7,8 +7,8 @@ import {
   MenuItem
 } from '@mui/material';
 import {
-  Sort
-} from '@mui/icons-material';
+  UilSortAmountDown
+} from '@iconscout/react-unicons';
 import {useState, useCallback} from 'react';
 import type {ContactsFilters} from '@/hooks/contacts/useContacts';
 import {useRelationshipCategories} from '@/hooks/useRelationshipCategories';
@@ -65,8 +65,7 @@ export const ContactFiltersDesktop = ({
   };
 
   return (
-    <>
-      {/* Desktop Search - Full Width */}
+    <Box sx={{display: 'flex', flexDirection: 'row', gap: 2,}}>
       {showSearch && <SearchFilter
         value={filters.searchQuery || ''}
         onSearchChange={handleSearchChange}
@@ -78,7 +77,6 @@ export const ContactFiltersDesktop = ({
         gap: 2,
         mb: 3,
         alignItems: 'center',
-        flexWrap: 'wrap'
       }}>
         {/* Relationship Filter */}
         <FormControl size="small" sx={{minWidth: 140}}>
@@ -113,11 +111,12 @@ export const ContactFiltersDesktop = ({
 
         {/* Sort Button */}
         <Button
-          startIcon={<Sort/>}
+          startIcon={<UilSortAmountDown size="18"/>}
           onClick={handleSortClick}
           size="small"
           sx={{
             height: 40,
+            minWidth: 120,
             border: '1px solid',
             borderColor: 'rgba(0, 0, 0, 0.23)',
             borderRadius: 1,
@@ -153,6 +152,6 @@ export const ContactFiltersDesktop = ({
         onClose={handleSortClose}
         onSortChange={handleSortChange}
       />
-    </>
+    </Box>
   );
 };

@@ -16,15 +16,15 @@ import {
   CardContent,
 } from '@mui/material';
 import {
-  Email,
-  Lock,
-  Pin,
-  Visibility,
-  VisibilityOff,
-  Shield,
-  Key,
-  Storage,
-} from '@mui/icons-material';
+  UilEnvelope,
+  UilLock,
+  UilLockAlt,
+  UilEye,
+  UilEyeSlash,
+  UilShield,
+  UilKeySkeletonAlt,
+  UilDatabase,
+} from '@iconscout/react-unicons';
 
 export const PersonalDataVaultPage = () => {
   const navigate = useNavigate();
@@ -142,7 +142,7 @@ export const PersonalDataVaultPage = () => {
         <Card sx={{ mb: 4, backgroundColor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <Shield sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
+              <UilShield size="32" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)', marginRight: '16px' }} />
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
                 What is your personal data vault?
               </Typography>
@@ -154,7 +154,7 @@ export const PersonalDataVaultPage = () => {
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <Storage sx={{ fontSize: 20, color: 'primary.main', mr: 1.5, mt: 0.5 }} />
+                <UilDatabase size="20" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)', marginRight: '12px', marginTop: '4px' }} />
                 <Box>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     Complete Privacy
@@ -166,7 +166,7 @@ export const PersonalDataVaultPage = () => {
               </Box>
 
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <Key sx={{ fontSize: 20, color: 'primary.main', mr: 1.5, mt: 0.5 }} />
+                <UilKeySkeletonAlt size="20" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)', marginRight: '12px', marginTop: '4px' }} />
                 <Box>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     You Own Your Data
@@ -178,7 +178,7 @@ export const PersonalDataVaultPage = () => {
               </Box>
 
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <Shield sx={{ fontSize: 20, color: 'primary.main', mr: 1.5, mt: 0.5 }} />
+                <UilShield size="20" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)', marginRight: '12px', marginTop: '4px' }} />
                 <Box>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     Zero-Knowledge Security
@@ -207,7 +207,7 @@ export const PersonalDataVaultPage = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Email color="action" />
+                  <UilEnvelope size="20" />
                 </InputAdornment>
               ),
             }}
@@ -227,7 +227,7 @@ export const PersonalDataVaultPage = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Lock color="action" />
+                  <UilLock size="20" />
                 </InputAdornment>
               ),
               endAdornment: (
@@ -237,7 +237,7 @@ export const PersonalDataVaultPage = () => {
                     edge="end"
                     size="small"
                   >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                    {showPassword ? <UilEyeSlash size="20" /> : <UilEye size="20" />}
                   </IconButton>
                 </InputAdornment>
               ),
@@ -276,7 +276,7 @@ export const PersonalDataVaultPage = () => {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Pin color="action" />
+                    <UilLockAlt size="20" />
                   </InputAdornment>
                 ),
                 endAdornment: (
@@ -286,7 +286,7 @@ export const PersonalDataVaultPage = () => {
                       edge="end"
                       size="small"
                     >
-                      {showPin ? <VisibilityOff /> : <Visibility />}
+                      {showPin ? <UilEyeSlash size="20" /> : <UilEye size="20" />}
                     </IconButton>
                   </InputAdornment>
                 ),

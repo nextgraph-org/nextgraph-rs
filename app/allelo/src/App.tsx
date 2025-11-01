@@ -25,20 +25,20 @@ import { InvitationPage } from '@/components/invitations/InvitationPage';
 import HomePage from '@/pages/HomePage';
 import PostsOffersPage from '@/pages/PostsOffersPage';
 import MessagesPage from '@/pages/MessagesPage';
-import { AccountPage } from '@/components/account/AccountPage';
 import { NotificationsPage } from '@/components/notifications/NotificationsPage';
 import { PhoneVerificationPage } from '@/components/account/PhoneVerificationPage';
-import { createWireframeTheme } from '@/theme/wireframeTheme';
+import {createAppTheme} from '@/theme/theme';
 import { Box, Typography } from '@mui/material';
 import { Button } from '@/components/ui';
 import { isNextGraphEnabled } from '@/utils/featureFlags';
 import CreateContactPage from "@/pages/CreateContactPage";
+import {AccountPage} from "@/pages/AccountPage.tsx";
 
 import { useSvelteComponent } from "svelte-in-react";
 import WalletCreate from "./svelte/WalletCreate.svelte";
 import WalletLogin from "./svelte/WalletLogin.svelte";
 
-const theme = createWireframeTheme();
+const theme = createAppTheme('light');
 
 const AppRoutes = () => {
   // Convert the Svelte components to React components
