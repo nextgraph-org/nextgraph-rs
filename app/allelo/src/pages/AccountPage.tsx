@@ -81,7 +81,7 @@ export const AccountPageContent = ({
       <TabManager tabItems={tabItems}/>
 
       {/* Logout Button */}
-      {isNextGraph && (
+      {/*{isNextGraph && (
         <Box sx={{mt: 3, mb: 2, textAlign: 'center'}}>
           <Button
             variant="outlined"
@@ -99,7 +99,7 @@ export const AccountPageContent = ({
             Logout
           </Button>
         </Box>
-      )}
+      )}*/}
     </Box>
   );
 };
