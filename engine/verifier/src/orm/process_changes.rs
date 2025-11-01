@@ -178,7 +178,7 @@ impl Verifier {
 
                         // Finally, perform the bidirectional link
 
-                        Self::link_parent_and_child(
+                        let linked_new = Self::link_parent_and_child(
                             parent_arc,
                             child_arc,
                             pred_change,
@@ -186,6 +186,10 @@ impl Verifier {
                             &child_subject_iri,
                             &child_shape_iri,
                         );
+                        // If a new link was established, ensure the parent will be revalidated
+                        if linked_new {
+                            parent_change.is_validated = false;
+                        }
                     }
                 }
             }
@@ -195,6 +199,7 @@ impl Verifier {
     /// Link a parent and child tracked orm object bidirectionally.
     /// Adds child to parent's tracked_children if not already present.
     /// Adds parent to child's parents if not already present.
+    /// Returns true if a new link was created (either side), false if it already existed.
     fn link_parent_and_child(
         parent_arc: &Arc<RwLock<TrackedOrmObject>>,
         child_arc: &Arc<RwLock<TrackedOrmObject>>,
@@ -202,11 +207,13 @@ impl Verifier {
         child_graph: &str,
         child_subject: &str,
         target_shape_iri: &str,
-    ) {
+    ) -> bool {
         let (parent_graph, parent_subject) = {
             let parent_r = parent_arc.read().unwrap();
             (parent_r.graph_iri.clone(), parent_r.subject_iri.clone())
         };
+
+        let mut linked_new = false;
 
         // Add child to parent's tracked_children
         {
@@ -219,6 +226,7 @@ impl Verifier {
             });
             if !already {
                 tp.tracked_children.push(child_arc.clone());
+                linked_new = true;
             }
         }
 
@@ -231,8 +239,11 @@ impl Verifier {
             });
             if !has_parent {
                 child_w.parents.push(parent_arc.clone());
+                linked_new = true;
             }
         }
+
+        linked_new
     }
 
     /// Ensures a change object exists for (shape, graph, subject) and returns a mutable reference to it.
@@ -279,14 +290,14 @@ impl Verifier {
     }
 
     /// Ensure parent<->child links exist for newly added shape references on this subject.
-    /// Returns a map of child shape -> child subject to be merged into the children queue.
+    /// Returns a map of child shape -> Vec of (child graph, child subject) to be merged into the children queue.
     fn reconcile_links_for_subject_additions(
         orm_subscription: &mut OrmSubscription,
         change: &mut TrackedOrmObjectChange,
         added_by_graph_and_subject: &HashMap<(String, String), Vec<&Quad>>,
         removed_by_graph_and_subject: &HashMap<(String, String), Vec<&Quad>>,
-    ) -> HashMap<ShapeIri, Vec<SubjectIri>> {
-        let mut children_to_queue: HashMap<ShapeIri, Vec<SubjectIri>> = HashMap::new();
+    ) -> HashMap<ShapeIri, Vec<(GraphIri, SubjectIri)>> {
+        let mut children_to_queue: HashMap<ShapeIri, Vec<(GraphIri, SubjectIri)>> = HashMap::new();
 
         // Parent identifiers
         let (parent_graph, parent_subject, _parent_shape_iri, parent_arc) = {
@@ -338,36 +349,62 @@ impl Verifier {
                     parents_vec.push(parent_arc.clone());
                 }
 
-                // Collect candidate graphs where this child might live:
-                // - Any tracked objects with this subject+shape across graphs
-                // - Any graphs present in the current diff maps for this subject
+                // Collect candidate graphs where this child might live in a deterministic order:
+                // categories priority: tracked-objects graphs (sorted) -> added diffs (sorted) -> removed diffs (sorted) -> parent's graph (last)
                 let mut candidate_graphs: Vec<String> = vec![];
-                // From tracked objects any graph
-                for (_g, _s, obj) in orm_subscription.iter_objects_by_shape(target_shape_iri) {
-                    let or = obj.read().unwrap();
-                    if or.subject_iri == child_subject {
-                        candidate_graphs.push(or.graph_iri.clone());
-                    }
-                }
-                // From diffs (added first, then removed)
-                for (g, s) in added_by_graph_and_subject.keys() {
-                    if s == &child_subject {
-                        candidate_graphs.push(g.clone());
-                    }
-                }
-                for (g, s) in removed_by_graph_and_subject.keys() {
-                    if s == &child_subject {
-                        candidate_graphs.push(g.clone());
-                    }
-                }
-                // Always consider the parent's graph last
-                candidate_graphs.push(parent_graph.clone());
-                // Dedup graphs, preserving order
+
+                // 1) From tracked objects (any graph) for this (subject, shape)
+                let mut tracked_graphs: Vec<String> = orm_subscription
+                    .iter_objects_by_shape(target_shape_iri)
+                    .filter_map(|(g, s, obj)| {
+                        let or = obj.read().ok()?;
+                        if or.subject_iri == child_subject {
+                            Some(g)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                tracked_graphs.sort();
+                tracked_graphs.dedup();
+                candidate_graphs.extend(tracked_graphs.into_iter());
+
+                // 2) From added diffs
+                let mut added_graphs: Vec<String> = added_by_graph_and_subject
+                    .keys()
+                    .filter_map(|(g, s)| {
+                        if s == &child_subject {
+                            Some(g.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                added_graphs.sort();
+                added_graphs.dedup();
+                candidate_graphs.extend(added_graphs.into_iter());
+
+                // 3) From removed diffs
+                let mut removed_graphs: Vec<String> = removed_by_graph_and_subject
+                    .keys()
+                    .filter_map(|(g, s)| {
+                        if s == &child_subject {
+                            Some(g.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                removed_graphs.sort();
+                removed_graphs.dedup();
+                candidate_graphs.extend(removed_graphs.into_iter());
+
+                // Dedup graphs, preserving first occurrence (category priority)
                 let mut seen = HashSet::new();
                 candidate_graphs.retain(|g| seen.insert(g.clone()));
 
-                // Try to link/create per candidate graph; mark for queueing
-                let mut queued_once = false;
+                // Try to link/create per candidate graph; mark for queueing precise (graph,subject)
+                let mut queued_pairs: Vec<(String, String)> = Vec::new();
                 for child_graph in candidate_graphs {
                     if let Some(child_arc) = orm_subscription.get_tracked_orm_object(
                         &child_graph,
@@ -375,7 +412,7 @@ impl Verifier {
                         target_shape_iri,
                     ) {
                         // Link existing child
-                        Self::link_parent_and_child(
+                        let linked_new = Self::link_parent_and_child(
                             &parent_arc,
                             &child_arc,
                             pred_change,
@@ -383,24 +420,37 @@ impl Verifier {
                             &child_subject,
                             target_shape_iri,
                         );
-                        queued_once = true;
+                        if linked_new {
+                            // Parent needs reevaluation since effective cardinality may have changed
+                            change.is_validated = false;
+                        }
+                        queued_pairs.push((child_graph.clone(), child_subject.clone()));
                     } else {
                         // If this graph-subject appears in diffs, we may need to queue the child to be processed first.
                         let key = (child_graph.clone(), child_subject.clone());
                         if added_by_graph_and_subject.contains_key(&key)
                             || removed_by_graph_and_subject.contains_key(&key)
                         {
-                            queued_once = true;
+                            queued_pairs.push((child_graph.clone(), child_subject.clone()));
                         }
                     }
                 }
 
-                // TODO: Should this be scheduled with a graph too?
-                if queued_once {
-                    children_to_queue
+                // Dedup and schedule pairs
+                if !queued_pairs.is_empty() {
+                    let mut seen: HashSet<(String, String)> = HashSet::new();
+                    let mut uniq: Vec<(String, String)> = Vec::new();
+                    for (g, s) in queued_pairs.into_iter() {
+                        if seen.insert((g.clone(), s.clone())) {
+                            uniq.push((g, s));
+                        }
+                    }
+                    let entry = children_to_queue
                         .entry(target_shape_iri.clone())
-                        .or_insert_with(Vec::new)
-                        .push(child_subject.clone());
+                        .or_insert_with(Vec::new);
+                    for (g, s) in uniq.into_iter() {
+                        entry.push((g, s));
+                    }
                 }
 
                 // Else: Linked object does not exist in dataset.
@@ -472,11 +522,11 @@ impl Verifier {
 
             // Variables to collect nested objects that need validation.
             // Children have highest priority, then SELF, then PARENTS (last).
-            let mut child_objects_to_eval: HashMap<ShapeIri, Vec<(SubjectIri, bool)>> =
+            let mut child_objects_to_eval: HashMap<ShapeIri, Vec<((GraphIri, SubjectIri), bool)>> =
                 HashMap::new();
-            let mut self_objects_to_eval: HashMap<ShapeIri, Vec<(SubjectIri, bool)>> =
+            let mut self_objects_to_eval: HashMap<ShapeIri, Vec<((GraphIri, SubjectIri), bool)>> =
                 HashMap::new();
-            let mut parent_objects_to_eval: HashMap<ShapeIri, Vec<(SubjectIri, bool)>> =
+            let mut parent_objects_to_eval: HashMap<ShapeIri, Vec<((GraphIri, SubjectIri), bool)>> =
                 HashMap::new();
 
             // For each modified subject, apply changes to tracked orm objects, link nested refs, and validate.
@@ -604,8 +654,8 @@ impl Verifier {
                 }
 
                 // Merge children discovered by validation with those found during linking
-                // into a single map keyed by child shape -> subject -> needs_fetch (OR-reduced)
-                let mut child_targets: HashMap<ShapeIri, HashMap<SubjectIri, bool>> =
+                // into a single map keyed by child shape -> (graph, subject) -> needs_fetch (OR-reduced)
+                let mut child_targets: HashMap<ShapeIri, HashMap<(GraphIri, SubjectIri), bool>> =
                     HashMap::new();
 
                 // 1) children discovered during linking (subjects only)
@@ -613,8 +663,8 @@ impl Verifier {
                     let entry_map = child_targets
                         .entry(child_shape_iri.clone())
                         .or_insert_with(HashMap::new);
-                    for subj in entries.iter() {
-                        entry_map.entry(subj.clone()).or_insert(false);
+                    for (g, s) in entries.iter() {
+                        entry_map.entry((g.clone(), s.clone())).or_insert(false);
                     }
                 }
 
@@ -622,11 +672,11 @@ impl Verifier {
                 for (child_arc, needs_fetch) in children_to_eval.into_iter() {
                     let child_r = child_arc.read().unwrap();
                     let shape_key = child_r.shape.iri.clone();
-                    let subj_key = child_r.subject_iri.clone();
+                    let pair_key = (child_r.graph_iri.clone(), child_r.subject_iri.clone());
                     child_targets
                         .entry(shape_key)
                         .or_insert_with(HashMap::new)
-                        .entry(subj_key)
+                        .entry(pair_key)
                         .and_modify(|v| *v = *v || needs_fetch)
                         .or_insert(needs_fetch);
                 }
@@ -635,8 +685,8 @@ impl Verifier {
                 // or if a fetch will actually be performed in this pass (i.e., data_already_fetched == false).
                 // We work from child_targets (subjects only); graphs will be derived later from parents/modified/tracked.
                 let mut any_child_queued_this_pass = false;
-                for (shape_iri, subj_map) in child_targets.into_iter() {
-                    for (subj, needs_fetch) in subj_map.into_iter() {
+                for (shape_iri, pair_map) in child_targets.into_iter() {
+                    for ((graph, subj), needs_fetch) in pair_map.into_iter() {
                         let will_queue = !needs_fetch || !data_already_fetched;
                         if !will_queue {
                             log_info!(
@@ -647,7 +697,7 @@ impl Verifier {
                         child_objects_to_eval
                             .entry(shape_iri.clone())
                             .or_insert_with(Vec::new)
-                            .push((subj, needs_fetch));
+                            .push(((graph, subj), needs_fetch));
                         any_child_queued_this_pass = true;
                     }
                 }
@@ -678,7 +728,7 @@ impl Verifier {
                     self_objects_to_eval
                         .entry(shape.iri.clone())
                         .or_insert_with(Vec::new)
-                        .push((subject_iri.clone(), self_needs_fetch));
+                        .push(((graph_iri.clone(), subject_iri.clone()), self_needs_fetch));
                 }
 
                 // Schedule PARENTS (last priority)
@@ -707,7 +757,7 @@ impl Verifier {
                     parent_objects_to_eval
                         .entry(parent_shape_iri)
                         .or_insert_with(Vec::new)
-                        .push((parent_subject, false));
+                        .push(((parent.graph_iri.clone(), parent_subject), false));
                 }
             }
 
@@ -724,22 +774,24 @@ impl Verifier {
 
             // Helper to build groups from a map
             let build_groups =
-                |src: HashMap<String, Vec<(String, bool)>>| -> Vec<(String, Vec<(String, bool)>)> {
-                    let mut dedup: HashMap<String, HashMap<String, bool>> = HashMap::new();
+                |src: HashMap<String, Vec<((String, String), bool)>>|
+                 -> Vec<(String, Vec<((String, String), bool)>)> {
+                    let mut dedup: HashMap<String, HashMap<(String, String), bool>> =
+                        HashMap::new();
                     for (shape_iri, objects) in src {
                         let inner = dedup.entry(shape_iri).or_insert_with(HashMap::new);
-                        for (subj, needs) in objects {
+                        for ((graph, subj), needs) in objects {
                             inner
-                                .entry(subj)
+                                .entry((graph, subj))
                                 .and_modify(|v| *v = *v || needs)
                                 .or_insert(needs);
                         }
                     }
                     dedup
                         .into_iter()
-                        .map(|(shape_iri, subjects)| {
+                        .map(|(shape_iri, pairs)| {
                             let vec_pairs =
-                                subjects.into_iter().map(|(s, needs)| (s, needs)).collect();
+                                pairs.into_iter().map(|(p, needs)| (p, needs)).collect();
                             (shape_iri, vec_pairs)
                         })
                         .collect()
@@ -751,7 +803,7 @@ impl Verifier {
 
             // Helper to push groups into the stack
             let mut push_groups =
-                |groups: Vec<(String, Vec<(String, bool)>)>| -> Result<(), NgError> {
+                |groups: Vec<(String, Vec<((String, String), bool)>)>| -> Result<(), NgError> {
                     for (shape_iri, objects_to_eval) in groups {
                         log_info!(
                         "[process_changes_for_shape_and_session] Processing nested shape: {} with {} objects",
@@ -774,8 +826,8 @@ impl Verifier {
                         if !data_already_fetched {
                             let objects_to_fetch: Vec<String> = objects_to_eval
                                 .iter()
-                                .filter(|(_iri, needs_fetch)| *needs_fetch)
-                                .map(|(s, _)| s.clone())
+                                .filter(|((_g, _s), needs_fetch)| *needs_fetch)
+                                .map(|((_g, s), _)| s.clone())
                                 .collect();
 
                             log_info!(
@@ -813,53 +865,19 @@ impl Verifier {
                             }
                         }
 
-                        // Add objects that don't need fetching
-                        let objects_not_to_fetch: Vec<String> = objects_to_eval
+                        // Add objects that don't need fetching (push exact graph,subject pairs)
+                        let pairs_not_to_fetch: Vec<(String, String)> = objects_to_eval
                             .iter()
-                            .filter(|(_iri, needs_fetch)| !*needs_fetch)
-                            .map(|(s, _)| s.clone())
+                            .filter(|((_g, _s), needs_fetch)| !*needs_fetch)
+                            .map(|((g, s), _)| (g.clone(), s.clone()))
                             .collect();
-                        if objects_not_to_fetch.len() > 0 {
+                        if pairs_not_to_fetch.len() > 0 {
                             log_info!(
                             "[process_changes_for_shape_and_session] Queueing {} objects that don't need fetching for shape {}",
-                            objects_not_to_fetch.len(),
+                            pairs_not_to_fetch.len(),
                             shape_iri
                         );
-                            // Convert Vec<String> subjects into expected (GraphIri, SubjectIri) tuples
-                            // We need to derive graphs from tracked objects or use modified_gs
-                            let orm_sub = self.get_first_orm_subscription_for(
-                                nuri,
-                                Some(&root_shape_iri),
-                                Some(&session_id),
-                            );
-                            let tuples: Vec<(String, String)> = objects_not_to_fetch
-                                .into_iter()
-                                .filter_map(|subject| {
-                                    // Try to find graph from tracked object by iterating objects with this shape
-                                    for (graph_iri, subj_iri, _) in
-                                        orm_sub.iter_objects_by_shape(&shape_iri)
-                                    {
-                                        if subj_iri == subject {
-                                            return Some((graph_iri, subject));
-                                        }
-                                    }
-
-                                    // If not found in tracked objects, try to use from added_by_graph_and_subject
-                                    for ((graph, subj), _) in added_by_graph_and_subject.iter() {
-                                        if subj == &subject {
-                                            return Some((graph.clone(), subject));
-                                        }
-                                    }
-                                    // Fallback to removed_by_graph_and_subject
-                                    for ((graph, subj), _) in removed_by_graph_and_subject.iter() {
-                                        if subj == &subject {
-                                            return Some((graph.clone(), subject));
-                                        }
-                                    }
-                                    None
-                                })
-                                .collect();
-                            shape_validation_stack.push((shape_arc, tuples));
+                            shape_validation_stack.push((shape_arc, pairs_not_to_fetch));
                         } else {
                             log_info!(
                             "[process_changes_for_shape_and_session] No objects to queue for shape {} (all needed fetching)",
@@ -884,7 +902,9 @@ impl Verifier {
                 currently_validating.remove(&validation_key);
             }
             loop_counter += 1;
-            if loop_counter > 10 {
+            // TODO(feat/orm-diffs): tighten this again once nested validation/linking
+            // finishes in fewer iterations; 10 was too strict for some complex shapes.
+            if loop_counter > 100 {
                 for (is_validated, validity, subject_iri, shape_iri, graph_iri) in
                     orm_changes.values().flat_map(|g| {
                         g.values().flat_map(|s| {

@@ -139,13 +139,9 @@ pub(crate) fn materialize_orm_object(
     shape: &OrmSchemaShape,
     orm_subscription: &OrmSubscription,
 ) -> Value {
-    let subject_iri = change
-        .tracked_orm_object
-        .read()
-        .unwrap()
-        .subject_iri
-        .clone();
-    let mut orm_obj = json!({"@id": subject_iri});
+    let tormo = change.tracked_orm_object.read().unwrap();
+
+    let mut orm_obj = json!({"@id": tormo.subject_iri, "@graph": tormo.graph_iri});
     let orm_obj_map = orm_obj.as_object_mut().unwrap();
     for pred_schema in &shape.predicates {
         let property_name = &pred_schema.readablePredicate;
@@ -176,8 +172,6 @@ pub(crate) fn materialize_orm_object(
             let assessed = assess_and_rank_children(
                 &parent_guard.graph_iri,
                 &parent_guard.subject_iri,
-                &pred_schema,
-                is_multi,
                 pred_schema.minCardinality,
                 pred_schema.maxCardinality,
                 &tracked_predicate_guard.tracked_children,
@@ -229,10 +223,10 @@ pub(crate) fn materialize_orm_object(
                 }
                 orm_obj_map.insert(property_name.clone(), Value::Object(nested_objects_map));
             } else {
-                // Pick the first valid nested object among the added values.
+                // Pick the first valid nested object among the considered children.
                 // There may be multiple values (extras), but for single-cardinality
                 // predicates we materialize just one valid nested object.
-                if let Some(child_arc) = assessed.traversal_pick.as_ref() {
+                if let Some(child_arc) = assessed.considered.first() {
                     if let Some(nested_orm_obj) = materialize_child(child_arc) {
                         orm_obj_map.insert(property_name.clone(), nested_orm_obj);
                     }

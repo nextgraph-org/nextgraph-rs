@@ -30,7 +30,7 @@ pub fn add_quads_for_subject(
     orm_object_changes: &mut TrackedOrmObjectChange,
 ) {
     log_debug!(
-        "[add_quads_for_subject] processing subject: {}, shape: {}, graph: {}",
+        "[add_quads_for_subject] Applying quads to subject: {}, shape: {}, graph: {}",
         subject_iri,
         shape.iri,
         graph_iri,

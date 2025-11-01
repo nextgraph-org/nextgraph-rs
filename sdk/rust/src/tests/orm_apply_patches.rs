@@ -22,6 +22,29 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+// Helper: escape a JSON Pointer segment (RFC 6901): ~ -> ~0, / -> ~1
+fn escape_pointer_segment(segment: &str) -> String {
+    segment.replace('~', "~0").replace('/', "~1")
+}
+
+// Helper: build root path prefix "/graph|subject" for a given graph and subject
+fn root_path(graph: &str, subject: &str) -> String {
+    format!(
+        "/{}|{}",
+        escape_pointer_segment(graph),
+        escape_pointer_segment(subject)
+    )
+}
+
+// Helper: build a composite key segment "graph|subject" for multi-children
+fn composite_key(graph: &str, subject: &str) -> String {
+    format!(
+        "{}|{}",
+        escape_pointer_segment(graph),
+        escape_pointer_segment(subject)
+    )
+}
+
 #[async_std::test]
 async fn test_orm_apply_patches() {
     // Setup wallet and document
@@ -131,9 +154,10 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Add name
+    let root = root_path(&doc_nuri, "urn:test:person1");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
-        path: "/urn:test:person1/name".to_string(),
+        path: format!("{}/name", root),
         valType: None,
         value: Some(json!("Alice")),
     }];
@@ -230,9 +254,10 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Remove name
+    let root = root_path(&doc_nuri, "urn:test:person2");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
-        path: "/urn:test:person2/name".to_string(),
+        path: format!("{}/name", root),
         valType: None,
         value: Some(json!("Bob")),
     }];
@@ -329,20 +354,13 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Replace name (remove old, add new)
-    let diff = vec![
-        // OrmDiffOp {
-        //     op: OrmDiffOpType::remove,
-        //     path: "/urn:test:person3/name".to_string(),
-        //     valType: None,
-        //     value: Some(json!("Charlie")),
-        // },
-        OrmPatch {
-            op: OrmPatchOp::add,
-            path: "/urn:test:person3/name".to_string(),
-            valType: None,
-            value: Some(json!("Charles")),
-        },
-    ];
+    let root = root_path(&doc_nuri, "urn:test:person3");
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{}/name", root),
+        valType: None,
+        value: Some(json!("Charles")),
+    }];
 
     orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
         .await
@@ -443,10 +461,11 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Add hobby
+    let root = root_path(&doc_nuri, "urn:test:person4");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
         valType: Some(OrmPatchType::set),
-        path: "/urn:test:person4/hobby".to_string(),
+        path: format!("{}/hobby", root),
         value: Some(json!("Swimming")),
     }];
 
@@ -544,9 +563,10 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Remove hobby
+    let root = root_path(&doc_nuri, "urn:test:person5");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
-        path: "/urn:test:person5/hobby".to_string(),
+        path: format!("{}/hobby", root),
         valType: None,
         value: Some(json!("Swimming")),
     }];
@@ -713,9 +733,10 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Change city in nested address
+    let root = root_path(&doc_nuri, "urn:test:person6");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
-        path: "/urn:test:person6/address/city".to_string(),
+        path: format!("{}/address/city", root),
         valType: None,
         value: Some(json!("Shelbyville")),
     }];
@@ -932,9 +953,11 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Change street in company's headquarter address (3 levels deep)
+    let root = root_path(&doc_nuri, "urn:test:person7");
+    let child = composite_key(&doc_nuri, "urn:test:company1");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
-        path: "/urn:test:person7/company/urn:test:company1/headquarter/street".to_string(),
+        path: format!("{}/company/{}/headquarter/street", root, child),
         valType: None,
         value: Some(json!("Rich Street")),
     }];
@@ -1038,10 +1061,11 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Create a new object
+    let root = root_path(&doc_nuri, "urn:test:person8");
     let diff = vec![
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "/urn:test:person8".to_string(),
+            path: root.clone(),
             valType: Some(OrmPatchType::object),
             value: None,
         },
@@ -1049,19 +1073,19 @@ INSERT DATA {
             // This does nothing as it does not represent a triple.
             // A subject is created when inserting data.
             op: OrmPatchOp::add,
-            path: "/urn:test:person8/@id".to_string(),
+            path: format!("{}/@id", root),
             valType: Some(OrmPatchType::object),
             value: None,
         },
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "/urn:test:person8/type".to_string(),
+            path: format!("{}/type", root),
             valType: None,
             value: Some(json!("http://example.org/Person")),
         },
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "/urn:test:person8/name".to_string(),
+            path: format!("{}/name", root),
             valType: None,
             value: Some(json!("Alice")),
         },
@@ -1218,17 +1242,18 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Add a second address.
+    let root = root_path(&doc_nuri, "urn:test:person9");
+    let child = composite_key(&doc_nuri, "http://example.org/exampleAddress");
     let diff = vec![
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "/urn:test:person9/address/http:~1~1example.org~1exampleAddress/type".to_string(),
+            path: format!("{}/address/{}/type", root, child),
             valType: None,
             value: Some(json!("http://example.org/Address")),
         },
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "/urn:test:person9/address/http:~1~1example.org~1exampleAddress/street"
-                .to_string(),
+            path: format!("{}/address/{}/street", root, child),
             valType: None,
             value: Some(json!("Heaven Avenue")),
         },
@@ -1339,9 +1364,10 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Change type to something invalid by schema.
+    let root = root_path(&doc_nuri, "urn:test:person2");
     let patch = vec![OrmPatch {
         op: OrmPatchOp::add,
-        path: "/urn:test:person2/type".to_string(),
+        path: format!("{}/type", root),
         valType: None,
         value: Some(json!("InvalidType")),
     }];
@@ -1369,7 +1395,7 @@ INSERT DATA {
             {
                 "op": "remove",
                 "valType": "object",
-                "path": "/urn:test:person2",
+                "path": root,
             },
         ]);
 

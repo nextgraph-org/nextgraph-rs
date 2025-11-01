@@ -402,6 +402,8 @@ fn create_where_statements_for_patch(
     let mut current_subj_schema: Arc<OrmSchemaShape> = subj_schema.clone();
     let mut current_graph = graph_iri.clone();
     let mut subject_ref = format!("<{}>", subject_iri);
+    // Track the concrete subject IRI we are currently traversing (None if bound to a variable)
+    let mut current_subject_iri: Option<String> = Some(subject_iri.clone());
     // Accumulate traversed predicate segments for building base keys
     let mut traversed: Vec<String> = vec![];
     log_info!(
@@ -483,6 +485,7 @@ fn create_where_statements_for_patch(
             current_subj_schema =
                 get_first_child_schema(Some(&object_subject_iri), &pred_schema, &orm_subscription);
             subject_ref = format!("<{}>", object_subject_iri);
+            current_subject_iri = Some(object_subject_iri.clone());
             // We no longer need previous WHERE bindings since we have a concrete subject
             where_statements.clear();
             log_debug!(
@@ -523,6 +526,7 @@ fn create_where_statements_for_patch(
                 current_subj_schema =
                     get_first_child_schema(Some(&child_subject), &pred_schema, &orm_subscription);
                 subject_ref = format!("<{}>", child_subject);
+                current_subject_iri = Some(child_subject);
                 where_statements.clear();
                 log_debug!(
                     "[create_where_statements_for_patch] Pre-resolved single child {} in graph {}",
@@ -533,50 +537,51 @@ fn create_where_statements_for_patch(
             }
 
             // Otherwise, use heuristic on tracked children
-            if let Some(parent_obj) = orm_subscription.get_tracked_orm_object(
-                &current_graph,
-                &subject_iri,
-                &current_subj_schema.iri,
-            ) {
-                // Scope the guard so it drops before we use any borrowed data
-                let (parent_graph_guarded, parent_subject_guarded, maybe_tp_children) = {
-                    let parent_guard = parent_obj.read().unwrap();
-                    let maybe_tp_children = parent_guard
-                        .tracked_predicates
-                        .get(&pred_schema.iri)
-                        .map(|t| t.read().unwrap().tracked_children.clone());
-                    (
-                        parent_guard.graph_iri.clone(),
-                        parent_guard.subject_iri.clone(),
-                        maybe_tp_children,
-                    )
-                };
+            if let (Some(cur_subj_iri)) = (&current_subject_iri) {
+                if let Some(parent_obj) = orm_subscription.get_tracked_orm_object(
+                    &current_graph,
+                    cur_subj_iri,
+                    &current_subj_schema.iri,
+                ) {
+                    // Scope the guard so it drops before we use any borrowed data
+                    let (parent_graph_guarded, parent_subject_guarded, maybe_tp_children) = {
+                        let parent_guard = parent_obj.read().unwrap();
+                        let maybe_tp_children = parent_guard
+                            .tracked_predicates
+                            .get(&pred_schema.iri)
+                            .map(|t| t.read().unwrap().tracked_children.clone());
+                        (
+                            parent_guard.graph_iri.clone(),
+                            parent_guard.subject_iri.clone(),
+                            maybe_tp_children,
+                        )
+                    };
 
-                if let Some(tp_children) = maybe_tp_children {
-                    let assessed = assess_and_rank_children(
-                        &parent_graph_guarded,
-                        &parent_subject_guarded,
-                        &pred_schema,
-                        false,
-                        pred_schema.minCardinality,
-                        pred_schema.maxCardinality,
-                        &tp_children,
-                    );
-                    if let Some(child) = assessed.traversal_pick {
-                        let ch = child.read().unwrap();
-                        current_graph = ch.graph_iri.clone();
-                        subject_ref = format!("<{}>", ch.subject_iri.clone());
-                        current_subj_schema = get_first_child_schema(
-                            Some(&ch.subject_iri),
-                            &pred_schema,
-                            &orm_subscription,
+                    if let Some(tp_children) = maybe_tp_children {
+                        let assessed = assess_and_rank_children(
+                            &parent_graph_guarded,
+                            &parent_subject_guarded,
+                            pred_schema.minCardinality,
+                            pred_schema.maxCardinality,
+                            &tp_children,
                         );
-                        where_statements.clear();
-                        log_debug!(
+                        if let Some(child) = assessed.considered.first() {
+                            let ch = child.read().unwrap();
+                            current_graph = ch.graph_iri.clone();
+                            subject_ref = format!("<{}>", ch.subject_iri.clone());
+                            current_subj_schema = get_first_child_schema(
+                                Some(&ch.subject_iri),
+                                &pred_schema,
+                                &orm_subscription,
+                            );
+                            current_subject_iri = Some(ch.subject_iri.clone());
+                            where_statements.clear();
+                            log_debug!(
                             "[create_where_statements_for_patch] Heuristic-picked single child <{}> in graph {}",
                             ch.subject_iri, current_graph
                         );
-                        continue;
+                            continue;
+                        }
                     }
                 }
             }
@@ -588,6 +593,9 @@ fn create_where_statements_for_patch(
                 subject_ref, pred_schema.iri, var_counter,
             ));
             subject_ref = format!("?o{}", var_counter);
+            current_subject_iri = None; // Bound to a variable now
+                                        // Update schema to the first possible child schema so that next segment resolution works
+            current_subj_schema = get_first_child_schema(None, &pred_schema, &orm_subscription);
             *var_counter += 1;
         }
     }

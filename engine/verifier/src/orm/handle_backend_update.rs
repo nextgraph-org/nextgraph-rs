@@ -779,7 +779,8 @@ fn handle_root_reached(
     let path_str = if !path_segments.is_empty() {
         format!("{root_path_segment}/{}", path_segments.join("/"))
     } else {
-        format!("/{root_path_segment}")
+        // root_path_segment already includes a leading '/'. Avoid adding another one.
+        root_path_segment.clone()
     };
 
     // Create the patch for the actual value change
