@@ -90,6 +90,7 @@
     //console.log(await ng.client_info());
     if (!tauri_platform || tauri_platform == "android") {
       if (param.get("re")) {
+        wait = false;
         registration_error = param.get("re");
         console.error("registration_error", registration_error);
       } else if (

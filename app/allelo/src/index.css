@@ -1,4 +1,4 @@
-@import 'svelte-material-ui/bare.css';
+@import "svelte-material-ui/bare.css";
 
 .mdc-button {
     --mdc-theme-primary: var(--mui-palette-primary-main);
@@ -31,152 +31,25 @@
     box-shadow: none !important;
 }
 
-
-
-
-       /** To format paths, like Settings > Wallet > Generate Wallet QR */
-.path {
-    font-family: monospace;
-    background-color: rgba(73, 114, 165, 0.1);
-}
-/* .splash-loaded {
-    display: none;
-} */
-
-.toggle * {
-    cursor: pointer;
-}
-
-.error-popover h3 {
-    text-align: center;
-    color: rgb(200 30 30);
-}
-.error-popover > div:first-child {
-    background-color: rgb(200 30 30);
-}
-.error-popover > div:first-child > h3 {
-    color: white;
-}
-
-.logo {
-    padding: 1.5em;
-    will-change: filter;
-    transition: 0.75s;
-    padding-bottom: 1em;
-}
-
-.logo-large {
-    height: calc(var(--mui-spacing) * 8);
-}
-
-@keyframes pulse-logo-color {
-    0%,
-    100% {
-        fill: rgb(73, 114, 165);
-        stroke: rgb(73, 114, 165);
-    }
-    50% {
-        /* Mid-transition color */
-        stroke: #bbb;
-        fill: #bbb;
-    }
-}
-
-.logo-pulse path {
-    animation: pulse-logo-color 2s infinite;
-    animation-timing-function: cubic-bezier(0.65, 0.01, 0.59, 0.83);
-}
-
-.logo-gray path {
-    fill: #bbb;
-    stroke: #bbb;
-}
-
-.logo-blue path {
-    fill: rgb(73, 114, 165);
-    stroke: rgb(73, 114, 165);
-}
-
-.jse-absolute-popup-content {
-    left: 0 !important;
-}
-
-.container3 {
-    margin: 0;
-
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    text-align: center;
-}
-
-.container3 aside {
-    width: 20rem !important;
-}
-
-div[role="alert"] div {
-    display: block;
-}
-
-.spinner-overlay button {
-    display: none;
-}
-
-.choice-button {
-    min-width: 305px;
-}
-
-.clickable {
-    cursor: pointer;
-}
-
-.row {
-    display: flex;
-    justify-content: center;
-}
-
-.deactivated-menu > svg {
-    color: rgb(156 163 175) !important;
+/*****************************/
+* {
+    box-sizing: border-box;
 }
 
 :root {
-    font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-    font-size: 16px;
-    line-height: 24px;
+    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
     font-weight: 400;
 
-    color: #0f0f0f;
-    background-color: white;
+    color-scheme: light;
+    color: #213547;
+    background-color: #ffffff;
 
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    -webkit-text-size-adjust: 100%;
 }
-
-body {
-    margin: 0;
-    display: flex;
-    place-items: center;
-    min-width: 305px;
-    min-height: 100vh;
-}
-
-#root {
-    width: 100%;
-    min-height: 100vh;
-}
-/* #app {
-  /*max-width: 1280px;
-  margin: 0 auto;
-  padding: 0rem;
-  text-align: center;
-} */
-
-/* .container2 {
-  padding-top: 10vh;
-} */
 
 a {
     font-weight: 500;
@@ -188,17 +61,53 @@ a:hover {
     color: #535bf2;
 }
 
-.toast {
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 49;
-    cursor: pointer;
+body {
+    margin: 0;
+    display: flex;
+    place-items: center;
+    min-width: 320px;
+    min-height: 100vh;
 }
 
+h1 {
+    font-size: 3.2em;
+    line-height: 1.1;
+}
 
 button {
+    border-radius: 8px;
+    border: 1px solid transparent;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    font-weight: 500;
+    font-family: inherit;
+    background-color: #1a1a1a;
     cursor: pointer;
+    transition: border-color 0.25s;
 }
+button:hover {
+    border-color: #646cff;
+}
+
+button:focus,
+button:focus-visible {
+    outline: 4px auto -webkit-focus-ring-color;
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        color: #213547;
+        background-color: #ffffff;
+    }
+    a:hover {
+        color: #747bff;
+    }
+    button {
+        background-color: #f9f9f9;
+    }
+}
+
+/******************/
 
 /* Generic form layout helpers for SMUI-based flows */
 .form-layout {
@@ -258,7 +167,6 @@ button {
     width: 100%;
 }
 
-
 .mdc-floating-label {
     color: var(--mui-palette-text-secondary);
     font-family: var(--mui-typography-fontFamily);
@@ -278,8 +186,8 @@ button {
 }
 
 .mdc-text-field--outlined {
-    border: 1px solid #D8DFE3 !important;
-    background-color: #F8FAFB;
+    border: 1px solid #d8dfe3 !important;
+    background-color: #f8fafb;
     border-radius: 48px;
 }
 
@@ -297,7 +205,8 @@ button {
     border: var(--mui-shape-borderRadius);
 }
 
-.mdc-text-field__input, .mdc-floating-label {
+.mdc-text-field__input,
+.mdc-floating-label {
     caret-color: black !important;
     color: black !important;
 }
@@ -441,34 +350,4 @@ button {
     height: 3.5rem;
     margin: 0 auto;
     color: var(--mui-palette-primary-main);
-}
-
-
-/* input,
-button {
-  outline: none;
-} */
-
-/* @media (prefers-color-scheme: dark) {
-    :root {
-        color: #f6f6f6;
-        background-color: #2f2f2f;
-    }
-
-    a:hover {
-        color: #24c8db;
-    }
-
-    input,
-    button {
-        color: #ffffff;
-        background-color: #0f0f0f98;
-    }
-    button:active {
-        background-color: #0f0f0f69;
-    }
-} */
-
-* {
-    box-sizing: border-box;
 }

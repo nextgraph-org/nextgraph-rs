@@ -357,8 +357,8 @@
         {#if $wallet_from_import.V0.content.password}
           <div class="wallet-password-content">
             <ArrowRightEndOnRectangle
-                class="wallet-icon"
                 style="display:inline;"
+                size="40"
             />
             <div>
               {#if mobile}Tap{:else}Click{/if} here to login with your wallet
@@ -438,8 +438,8 @@
             {#if wallet_entry[1].wallet.V0.content.password}
               <div class="wallet-password-content">
                 <ArrowRightEndOnRectangle
-                    class="wallet-icon"
                     style="display:inline;"
+                    size="40"
                 />
                 <div>
                   {#if mobile}Tap{:else}Click{/if} here to login with your wallet
@@ -622,11 +622,6 @@
 
     .wallet-password-content {
         padding-top: calc(var(--mui-spacing) * 2.5);
-    }
-
-    .wallet-icon {
-        width: 4rem;
-        height: 4rem;
     }
 
     .wallet-button-container {

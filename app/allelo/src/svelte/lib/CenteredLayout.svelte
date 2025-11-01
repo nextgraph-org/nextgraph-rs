@@ -11,6 +11,7 @@
 
 <script lang="ts">
     import * as ng from "../../.auth-react/api";
+    import LogoSimple from "./components/LogoSimple.svelte";
     import {t} from "svelte-i18n";
     import Button from '@smui/button';
 
@@ -37,11 +38,12 @@
   <slot/>
   {#if displayFooter}
     <div class="footer">
+      
       <Button
           variant="outlined"
-          on:click={displayNextgraphOrg}
+          onclick={displayNextgraphOrg}
       >
-        {$t("common.about_nextgraph")}
+        <LogoSimple/> &nbsp;{$t("common.about_nextgraph")}
       </Button>
     </div>
   {/if}

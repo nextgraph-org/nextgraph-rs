@@ -19,5 +19,5 @@ The NextGraph Logo svg
   import Logo from "../../assets/nextgraph.svg?component";
   import { t } from "svelte-i18n";
 </script>
-<Logo class="logo block h-[8em]" alt={$t("common.logo")} />
+<Logo width=40 alt={$t("common.logo")} />
 
