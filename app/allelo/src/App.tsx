@@ -1,4 +1,3 @@
-import { HashRouter as Router, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { HashRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ThemeProvider } from '@mui/material/styles';
