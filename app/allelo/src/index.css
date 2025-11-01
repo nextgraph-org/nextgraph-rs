@@ -8,7 +8,6 @@
     font-family: var(--mui-typography-fontFamily) !important;
 }
 
-
 .mdc-button {
     font-weight: var(--button-font-weight) !important;
     font-size: var(--button-font-size) !important;
@@ -230,8 +229,8 @@ h1 {
 }
 
 .button-icon {
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 2rem !important;
+    height: 2rem !important;
     display: inline-flex;
     align-items: center;
     justify-content: center;

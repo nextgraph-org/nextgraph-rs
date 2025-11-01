@@ -47,9 +47,16 @@ If instead you are going to need to create many wallets, and/or develop and test
 ```
 // in the root folder of the repo
 cd infra/ngaccount
+export NG_ACCOUNT_DOMAIN=test.com
 export NG_ACCOUNT_ADMIN=[YOUR_USER_PRIV_KEY]
 export NG_ACCOUNT_LOCAL_PEER_KEY=kbz34OFqaWu59xYaqViP0esME2MmcroS94pc4lEEsEsA
 export NG_ACCOUNT_SERVER=127.0.0.1,14400,[YOUR_NGD_PEER_ID]
 cargo run-script buildfront
 cargo run
+```
+
+on windows, it looks something like this:
+
+```
+cd infra\ngaccount; $env:NG_ACCOUNT_ADMIN="[YOUR_USER_PRIV_KEY]"; $env:NG_ACCOUNT_LOCAL_PEER_KEY="kbz34OFqaWu59xYaqViP0esME2MmcroS94pc4lEEsEsA"; $env:NG_ACCOUNT_SERVER="127.0.0.1,14400,[YOUR_NGD_PEER_ID]"; cargo run-script buildfront;$env:NG_ACCOUNT_DOMAIN='test.com'; cargo run
 ```
