@@ -29,6 +29,13 @@ pub fn add_quads_for_subject(
     orm_subscription: &mut OrmSubscription,
     orm_object_changes: &mut TrackedOrmObjectChange,
 ) {
+    log_debug!(
+        "[add_quads_for_subject] processing subject: {}, shape: {}, graph: {}",
+        subject_iri,
+        shape.iri,
+        graph_iri,
+    );
+
     // Ensure the parent tracked orm object exists for this (graph, subject, shape)
     let parent_arc =
         orm_subscription.get_or_create_tracked_orm_object(graph_iri, subject_iri, &shape);
@@ -38,16 +45,13 @@ pub fn add_quads_for_subject(
     // In parallel, we record the values added and removed (tracked_changes)
     for quad in quads_added {
         let obj_term = oxrdf_term_to_orm_basic_type(&quad.object);
-        log_debug!("  - processing quad {quad}");
+        // log_debug!("  - processing quad {quad}");
         for predicate_schema in &shape.predicates {
             if predicate_schema.iri != quad.predicate.as_str() {
                 // Triple does not match predicate.
                 continue;
             }
-            log_debug!(
-                "    - Matched triple for datatypes {:?}",
-                predicate_schema.dataTypes
-            );
+
             // Predicate schema constraint matches this quad.
             // Get or create the tracked predicate on the parent.
             let mut tracked_orm_object = parent_arc.write().unwrap();
@@ -67,7 +71,6 @@ pub fn add_quads_for_subject(
                 .clone();
             {
                 let mut tracked_predicate = tracked_predicate_lock.write().unwrap();
-                // log_debug!("lock acquired on tracked_predicate");
                 tracked_predicate.current_cardinality += 1;
 
                 // Keep track of the added values here.

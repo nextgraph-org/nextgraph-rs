@@ -98,11 +98,11 @@ pub struct OrmSubscription {
     /// This tracks all references, to know if new tracked orm objects needs to be created and which
     /// tracked orm objects this affects.
     pub tracked_nested_subjects: HashMap<
-        ShapeIri, // The nested shape being tracked.
-        Vec<(
-            SubjectIri,                         // The subjects being tracked.
+        SubjectIri, // The subject being tracked
+        HashMap<
+            ShapeIri,                           // The shape being tracked.
             Vec<Arc<RwLock<TrackedOrmObject>>>, // The parents tracking them.
-        )>,
+        >,
     >,
 }
 

@@ -97,8 +97,8 @@ impl Verifier {
             return Ok(Value::Array(vec![]));
         };
 
-        let mut return_vals: Value = Value::Array(vec![]);
-        let return_val_vec = return_vals.as_array_mut().unwrap();
+        let mut return_val = json!({});
+        let obj_map = return_val.as_object_mut().unwrap();
 
         log_debug!("\nMaterializing: {}", shape_type.shape);
         // For each valid change struct, we build an orm object.
@@ -120,12 +120,15 @@ impl Verifier {
                 {
                     let new_val =
                         materialize_orm_object(change_ref, &changes, root_shape, orm_subscription);
-                    return_val_vec.push(new_val);
+                    obj_map.insert(
+                        format!("{}|{}", tormo.graph_iri, tormo.subject_iri),
+                        new_val,
+                    );
                 }
             }
         }
 
-        Ok(return_vals)
+        Ok(return_val)
     }
 }
 
@@ -183,41 +186,45 @@ pub(crate) fn materialize_orm_object(
             drop(parent_guard);
 
             // Helper to materialize a specific child TrackedOrmObject using its shape from tracked state.
-            let materialize_child =
-                |child_obj: &Arc<RwLock<TrackedOrmObject>>| -> Option<(String, Value)> {
-                    let child = child_obj.read().unwrap();
-                    if child.valid != TrackedOrmObjectValidity::Valid {
-                        return None;
-                    }
-                    let shape_iri_for_child = child.shape.iri.clone();
-                    let graph_changes = changes.get(&shape_iri_for_child)?;
-                    let subj_changes = graph_changes.get(&child.graph_iri)?;
-                    let nested_change = subj_changes.get(&child.subject_iri)?;
-                    // Recurse with the child's shape
-                    let child_shape_arc = orm_subscription
-                        .shape_type
-                        .schema
-                        .get(&shape_iri_for_child)
-                        .cloned()?;
-                    let nested = materialize_orm_object(
-                        nested_change,
-                        changes,
-                        &child_shape_arc,
-                        orm_subscription,
-                    );
-                    Some((child.subject_iri.clone(), nested))
-                };
+            let materialize_child = |child_obj: &Arc<RwLock<TrackedOrmObject>>| -> Option<Value> {
+                let child = child_obj.read().unwrap();
+                if child.valid != TrackedOrmObjectValidity::Valid {
+                    return None;
+                }
+                let shape_iri_for_child = child.shape.iri.clone();
+                let graph_changes = changes.get(&shape_iri_for_child)?;
+                let subj_changes = graph_changes.get(&child.graph_iri)?;
+                let nested_change = subj_changes.get(&child.subject_iri)?;
+                // Recurse with the child's shape
+                let child_shape_arc = orm_subscription
+                    .shape_type
+                    .schema
+                    .get(&shape_iri_for_child)
+                    .cloned()?;
+                let nested = materialize_orm_object(
+                    nested_change,
+                    changes,
+                    &child_shape_arc,
+                    orm_subscription,
+                );
+                return Some(nested);
+            };
 
             if is_multi {
                 // Represent nested objects with more than one child
-                // as a map/object of <IRI of nested object> -> nested object,
+                // as a map/object of <child_graph_iri|child_subject_iri> -> nested object,
                 // since there is no conceptual ordering of the children.
                 let mut nested_objects_map = serde_json::Map::new();
 
                 // Add each considered, valid nested object.
                 for child_arc in assessed.considered.iter() {
-                    if let Some((iri, nested_orm_obj)) = materialize_child(child_arc) {
-                        nested_objects_map.insert(iri, nested_orm_obj);
+                    if let Some(nested_orm_obj) = materialize_child(child_arc) {
+                        let child = child_arc.read().unwrap();
+
+                        nested_objects_map.insert(
+                            format!("{}|{}", child.graph_iri, child.subject_iri),
+                            nested_orm_obj,
+                        );
                     }
                 }
                 orm_obj_map.insert(property_name.clone(), Value::Object(nested_objects_map));
@@ -226,7 +233,7 @@ pub(crate) fn materialize_orm_object(
                 // There may be multiple values (extras), but for single-cardinality
                 // predicates we materialize just one valid nested object.
                 if let Some(child_arc) = assessed.traversal_pick.as_ref() {
-                    if let Some((_, nested_orm_obj)) = materialize_child(child_arc) {
+                    if let Some(nested_orm_obj) = materialize_child(child_arc) {
                         orm_obj_map.insert(property_name.clone(), nested_orm_obj);
                     }
                 }
