@@ -446,8 +446,8 @@
         "title": "Now choose your username and password",
         "warning": "Please note that we do not offer password recovery mechanism for now.<br/> We won't be able to help you if you forget your password."
       },
-      "type_username_placeholder": "Type in your username",
-      "type_password_placeholder": "Type in your password",
+      "type_username_placeholder": "Choose username",
+      "type_password_placeholder": "Choose password",
       "choose_pin": {
         "title": "Let's start creating your wallet by choosing a PIN code",
         "description": "We recommend you to choose a PIN code that you already know very well. <br />We at NextGraph will never see your PIN.",

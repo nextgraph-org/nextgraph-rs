@@ -526,7 +526,7 @@ impl Db {
                         .into());
                     }
                     //FIXME: this is a hack. I don't understand what is going on here: on macos I get a u64::MAX value.
-                    if available_fd > i32::MAX as u64 {
+                    if available_fd > i32::MAX as libc::rlim_t {
                         available_fd = 2560;
                     }
                     rocksdb_options_set_max_open_files(
