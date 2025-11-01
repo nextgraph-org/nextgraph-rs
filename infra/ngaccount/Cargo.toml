@@ -14,7 +14,7 @@ documentation.workspace = true
 rust-version.workspace = true
 
 [package.metadata.scripts]
-buildfront = "pnpm -C ./web install && export NG_ACCOUNT_DOMAIN=test.com && pnpm -C ./web build"
+buildfront = "pnpm -C ./web install && NG_ACCOUNT_DOMAIN=test.com pnpm -C ./web build"
 
 [dependencies]
 serde = { version = "1.0.142", features = ["derive"] }

@@ -1,4 +1,3 @@
-
 ## Register an account at https://git.nextgraph.org
 
 - select "Sign in with NextGraph"
@@ -36,7 +35,8 @@ cargo run -p ngd -- -vv --save-key -l 14400
 - copy the second invitation link, change the port of the http://localhost:14400 part to be port 1421
 - open this link in your browser
 - enter a username and password, by example: admin / admin
-- open your console log, and copy the USER PRIV_KEY that is displayed in a warning (you will maybe need it later)
+- log in with this username and password
+- open your web-browser's console log, and copy the USER PRIV_KEY that is displayed in a warning (you will maybe need it later)
 
 If you only need one wallet, you can continue using this admin wallet, and you don't need to do the next step.
 
@@ -53,5 +53,3 @@ export NG_ACCOUNT_SERVER=127.0.0.1,14400,[YOUR_NGD_PEER_ID]
 cargo run-script buildfront
 cargo run
 ```
-
-
