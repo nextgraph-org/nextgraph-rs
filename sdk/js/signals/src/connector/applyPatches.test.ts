@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { applyDiff, Patch } from "../index.js";
+import { applyPatches, Patch } from "../index.ts";
 
 /**
  * Build a patch path string from segments (auto-prefix /)
@@ -14,7 +14,7 @@ describe("applyDiff - set operations (primitives)", () => {
         const diff: Patch[] = [
             { op: "add", valType: "set", path: p("tags"), value: "a" },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect(state.tags).toBeInstanceOf(Set);
         expect([...state.tags]).toEqual(["a"]);
     });
@@ -23,7 +23,7 @@ describe("applyDiff - set operations (primitives)", () => {
         const diff: Patch[] = [
             { op: "add", valType: "set", path: p("nums"), value: [1, 2, 3] },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect([...state.nums]).toEqual([1, 2, 3]);
     });
     test("add primitives merging into existing set", () => {
@@ -31,7 +31,7 @@ describe("applyDiff - set operations (primitives)", () => {
         const diff: Patch[] = [
             { op: "add", valType: "set", path: p("nums"), value: [2, 3] },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect([...state.nums].sort()).toEqual([1, 2, 3]);
     });
     test("remove single primitive from set", () => {
@@ -39,7 +39,7 @@ describe("applyDiff - set operations (primitives)", () => {
         const diff: Patch[] = [
             { op: "remove", valType: "set", path: p("tags"), value: "a" },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect([...state.tags]).toEqual(["b"]);
     });
     test("remove multiple primitives from set", () => {
@@ -47,7 +47,7 @@ describe("applyDiff - set operations (primitives)", () => {
         const diff: Patch[] = [
             { op: "remove", valType: "set", path: p("nums"), value: [2, 4] },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect([...state.nums].sort()).toEqual([1, 3]);
     });
 });
@@ -62,7 +62,7 @@ describe("applyDiff - multi-valued objects (Set-based)", () => {
                 path: p("urn:person1", "children"),
             },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect(state["urn:person1"].children).toBeInstanceOf(Set);
     });
 
@@ -75,23 +75,30 @@ describe("applyDiff - multi-valued objects (Set-based)", () => {
                 valType: "object",
                 path: p("urn:person1", "children", "urn:child1"),
             },
-            // Second patch adds the @id property
+            // Second patch adds the @graph property (optional, for context)
+            {
+                op: "add",
+                path: p("urn:person1", "children", "urn:child1", "@graph"),
+                value: "urn:graph1",
+            },
+            // Third patch adds the @id property
             {
                 op: "add",
                 path: p("urn:person1", "children", "urn:child1", "@id"),
                 value: "urn:child1",
             },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         const children = state["urn:person1"].children;
         expect(children).toBeInstanceOf(Set);
         expect(children.size).toBe(1);
         const child = [...children][0];
         expect(child["@id"]).toBe("urn:child1");
+        expect(child["@graph"]).toBeDefined();
     });
 
     test("add properties to object in Set", () => {
-        const obj = { "@id": "urn:child1" };
+        const obj = { "@id": "urn:child1", "@graph": "urn:graph1" };
         const state: any = { "urn:person1": { children: new Set([obj]) } };
         const diff: Patch[] = [
             {
@@ -105,42 +112,58 @@ describe("applyDiff - multi-valued objects (Set-based)", () => {
                 value: 10,
             },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         const child = [...state["urn:person1"].children][0];
         expect(child.name).toBe("Alice");
         expect(child.age).toBe(10);
     });
 
     test("remove object from Set by @id", () => {
-        const obj1 = { "@id": "urn:child1", name: "Alice" };
-        const obj2 = { "@id": "urn:child2", name: "Bob" };
+        const obj1 = {
+            "@id": "urn:child1",
+            "@graph": "urn:graph1",
+            name: "Alice",
+        };
+        const obj2 = {
+            "@id": "urn:child2",
+            "@graph": "urn:graph2",
+            name: "Bob",
+        };
         const state: any = {
             "urn:person1": { children: new Set([obj1, obj2]) },
         };
         const diff: Patch[] = [
             { op: "remove", path: p("urn:person1", "children", "urn:child1") },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         const children = state["urn:person1"].children;
         expect(children.size).toBe(1);
         const remaining = [...children][0];
         expect(remaining["@id"]).toBe("urn:child2");
     });
 
-    test.only("remove object from root set", () => {
-        const obj1 = { "@id": "urn:child1", name: "Alice" };
-        const obj2 = { "@id": "urn:child2", name: "Bob" };
+    test("remove object from root set", () => {
+        const obj1 = {
+            "@id": "urn:child1",
+            "@graph": "urn:graph1",
+            name: "Alice",
+        };
+        const obj2 = {
+            "@id": "urn:child2",
+            "@graph": "urn:graph2",
+            name: "Bob",
+        };
         const state = new Set([
-            { "@id": "urn:person1", children: [obj1] },
-            { "@id": "urn:person2", children: [obj2] },
+            { "@id": "urn:person1", "@graph": "urn:graph3", children: [obj1] },
+            { "@id": "urn:person2", "@graph": "urn:graph4", children: [obj2] },
         ]);
         const diff: Patch[] = [{ op: "remove", path: p("urn:person1") }];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect(state.size).toBe(1);
     });
 
     test("create nested Set (multi-valued property within object in Set)", () => {
-        const parent: any = { "@id": "urn:parent1" };
+        const parent: any = { "@id": "urn:parent1", "@graph": "urn:graph0" };
         const state: any = { root: { parents: new Set([parent]) } };
         const diff: Patch[] = [
             {
@@ -167,12 +190,24 @@ describe("applyDiff - multi-valued objects (Set-based)", () => {
                     "urn:parent1",
                     "children",
                     "urn:child1",
+                    "@graph"
+                ),
+                value: "urn:graph1",
+            },
+            {
+                op: "add",
+                path: p(
+                    "root",
+                    "parents",
+                    "urn:parent1",
+                    "children",
+                    "urn:child1",
                     "@id"
                 ),
                 value: "urn:child1",
             },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         const nestedChildren = parent.children;
         expect(nestedChildren).toBeInstanceOf(Set);
         expect(nestedChildren.size).toBe(1);
@@ -186,12 +221,18 @@ describe("applyDiff - object & literal operations", () => {
             { op: "add", path: p("urn:person1", "address"), valType: "object" },
             {
                 op: "add",
+                path: p("urn:person1", "address", "@graph"),
+                value: "urn:graph1",
+            },
+            {
+                op: "add",
                 path: p("urn:person1", "address", "@id"),
                 value: "urn:addr1",
             },
         ];
-        applyDiff(state, diff);
-        expect(state["urn:person1"].address).toEqual({ "@id": "urn:addr1" });
+        applyPatches(state, diff);
+        expect(state["urn:person1"].address["@id"]).toBe("urn:addr1");
+        expect(state["urn:person1"].address["@graph"]).toBeDefined();
         expect(state["urn:person1"].address).not.toBeInstanceOf(Set);
     });
 
@@ -204,7 +245,7 @@ describe("applyDiff - object & literal operations", () => {
                 valType: "object",
             },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect(state["urn:person1"].addresses).toBeInstanceOf(Set);
     });
 
@@ -212,20 +253,28 @@ describe("applyDiff - object & literal operations", () => {
         const state: any = {};
         const diff: Patch[] = [
             { op: "add", path: p("address"), valType: "object" },
+            { op: "add", path: p("address", "@graph"), value: "urn:graph1" },
             { op: "add", path: p("address", "@id"), value: "urn:addr1" },
         ];
-        applyDiff(state, diff);
-        expect(state.address).toEqual({ "@id": "urn:addr1" });
+        applyPatches(state, diff);
+        expect(state.address["@id"]).toBe("urn:addr1");
+        expect(state.address["@graph"]).toBeDefined();
         expect(state.address).not.toBeInstanceOf(Set);
     });
     test("add nested object path with ensurePathExists and @id", () => {
         const state: any = {};
         const diff: Patch[] = [
             { op: "add", path: p("a", "b", "c"), valType: "object" },
+            {
+                op: "add",
+                path: p("a", "b", "c", "@graph"),
+                value: "urn:graph1",
+            },
             { op: "add", path: p("a", "b", "c", "@id"), value: "urn:c1" },
         ];
-        applyDiff(state, diff, true);
-        expect(state.a.b.c).toEqual({ "@id": "urn:c1" });
+        applyPatches(state, diff, true);
+        expect(state.a.b.c["@id"]).toBe("urn:c1");
+        expect(state.a.b.c["@graph"]).toBeDefined();
         expect(state.a.b.c).not.toBeInstanceOf(Set);
     });
     test("add primitive value", () => {
@@ -233,7 +282,7 @@ describe("applyDiff - object & literal operations", () => {
         const diff: Patch[] = [
             { op: "add", path: p("address", "street"), value: "1st" },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect(state.address.street).toBe("1st");
     });
     test("overwrite primitive value", () => {
@@ -241,20 +290,20 @@ describe("applyDiff - object & literal operations", () => {
         const diff: Patch[] = [
             { op: "add", path: p("address", "street"), value: "new" },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect(state.address.street).toBe("new");
     });
     test("remove primitive", () => {
         const state: any = { address: { street: "1st", country: "Greece" } };
         const diff: Patch[] = [{ op: "remove", path: p("address", "street") }];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect(state.address.street).toBeUndefined();
         expect(state.address.country).toBe("Greece");
     });
     test("remove object branch", () => {
         const state: any = { address: { street: "1st" }, other: 1 };
         const diff: Patch[] = [{ op: "remove", path: p("address") }];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect(state.address).toBeUndefined();
         expect(state.other).toBe(1);
     });
@@ -280,6 +329,11 @@ describe("applyDiff - multiple mixed patches in a single diff", () => {
             },
             {
                 op: "add",
+                path: p("urn:person1", "addresses", "urn:addr1", "@graph"),
+                value: "urn:graph1",
+            },
+            {
+                op: "add",
                 path: p("urn:person1", "addresses", "urn:addr1", "@id"),
                 value: "urn:addr1",
             },
@@ -290,19 +344,22 @@ describe("applyDiff - multiple mixed patches in a single diff", () => {
             },
             // Create single object
             { op: "add", path: p("profile"), valType: "object" },
+            { op: "add", path: p("profile", "@graph"), value: "urn:graph2" },
             { op: "add", path: p("profile", "@id"), value: "urn:profile1" },
             { op: "add", path: p("profile", "name"), value: "Alice" },
             // Primitive set operations
             { op: "add", valType: "set", path: p("tags"), value: ["new"] },
             { op: "remove", valType: "set", path: p("tags"), value: "old" },
         ];
-        applyDiff(state, diff); // Enable ensurePathExists for nested object creation
+        applyPatches(state, diff); // Enable ensurePathExists for nested object creation
         expect(state["urn:person1"].addresses).toBeInstanceOf(Set);
         expect(state["urn:person1"].addresses.size).toBe(1);
         const addr = [...state["urn:person1"].addresses][0];
         expect(addr["@id"]).toBe("urn:addr1");
+        expect(addr["@graph"]).toBeDefined();
         expect(addr.street).toBe("Main St");
         expect(state.profile["@id"]).toBe("urn:profile1");
+        expect(state.profile["@graph"]).toBeDefined();
         expect(state.profile.name).toBe("Alice");
         expect([...state.tags]).toEqual(["new"]);
     });
@@ -312,6 +369,7 @@ describe("applyDiff - multiple mixed patches in a single diff", () => {
         const diff: Patch[] = [
             // Create b as a single object (with @id)
             { op: "add", path: p("a", "b"), valType: "object" },
+            { op: "add", path: p("a", "b", "@graph"), value: "urn:graph1" },
             { op: "add", path: p("a", "b", "@id"), value: "urn:b1" },
             { op: "add", path: p("a", "b", "c"), value: 1 },
             // Create a primitive set
@@ -325,8 +383,9 @@ describe("applyDiff - multiple mixed patches in a single diff", () => {
             { op: "add", path: p("a", "b", "d"), value: 2 },
             { op: "remove", path: p("a", "b", "c") },
         ];
-        applyDiff(state, diff, true);
+        applyPatches(state, diff, true);
         expect(state.a.b["@id"]).toBe("urn:b1");
+        expect(state.a.b["@graph"]).toBeDefined();
         expect(state.a.b.c).toBeUndefined();
         expect(state.a.b.d).toBe(2);
         expect(state.a.nums).toBeInstanceOf(Set);
@@ -340,11 +399,21 @@ describe("applyDiff - complete workflow example", () => {
         const diff: Patch[] = [
             // Create root person object
             { op: "add", path: p("urn:person1"), valType: "object" },
+            {
+                op: "add",
+                path: p("urn:person1", "@graph"),
+                value: "urn:graph1",
+            },
             { op: "add", path: p("urn:person1", "@id"), value: "urn:person1" },
             { op: "add", path: p("urn:person1", "name"), value: "John" },
 
             // Add single address object
             { op: "add", path: p("urn:person1", "address"), valType: "object" },
+            {
+                op: "add",
+                path: p("urn:person1", "address", "@graph"),
+                value: "urn:graph2",
+            },
             {
                 op: "add",
                 path: p("urn:person1", "address", "@id"),
@@ -376,6 +445,11 @@ describe("applyDiff - complete workflow example", () => {
             },
             {
                 op: "add",
+                path: p("urn:person1", "children", "urn:child1", "@graph"),
+                value: "urn:graph3",
+            },
+            {
+                op: "add",
                 path: p("urn:person1", "children", "urn:child1", "@id"),
                 value: "urn:child1",
             },
@@ -390,6 +464,11 @@ describe("applyDiff - complete workflow example", () => {
                 op: "add",
                 path: p("urn:person1", "children", "urn:child2"),
                 valType: "object",
+            },
+            {
+                op: "add",
+                path: p("urn:person1", "children", "urn:child2", "@graph"),
+                value: "urn:graph4",
             },
             {
                 op: "add",
@@ -411,15 +490,17 @@ describe("applyDiff - complete workflow example", () => {
             },
         ];
 
-        applyDiff(state, diff); // Enable ensurePathExists to create nested objects
+        applyPatches(state, diff); // Enable ensurePathExists to create nested objects
 
         // Verify person
         expect(state["urn:person1"]["@id"]).toBe("urn:person1");
+        expect(state["urn:person1"]["@graph"]).toBeDefined();
         expect(state["urn:person1"].name).toBe("John");
 
         // Verify single address (plain object)
         expect(state["urn:person1"].address).not.toBeInstanceOf(Set);
         expect(state["urn:person1"].address["@id"]).toBe("urn:addr1");
+        expect(state["urn:person1"].address["@graph"]).toBeDefined();
         expect(state["urn:person1"].address.street).toBe("1st Street");
         expect(state["urn:person1"].address.country).toBe("Greece");
 
@@ -431,7 +512,9 @@ describe("applyDiff - complete workflow example", () => {
         const childrenArray = [...children];
         const alice = childrenArray.find((c: any) => c["@id"] === "urn:child1");
         const bob = childrenArray.find((c: any) => c["@id"] === "urn:child2");
+        expect(alice["@graph"]).toBeDefined();
         expect(alice.name).toBe("Alice");
+        expect(bob["@graph"]).toBeDefined();
         expect(bob.name).toBe("Bob");
 
         // Verify primitive set
@@ -444,14 +527,24 @@ describe("applyDiff - complete workflow example", () => {
 
     test("update and remove operations on complex structure", () => {
         // Start with pre-existing structure
-        const child1 = { "@id": "urn:child1", name: "Alice" };
-        const child2 = { "@id": "urn:child2", name: "Bob" };
+        const child1 = {
+            "@id": "urn:child1",
+            "@graph": "urn:graph3",
+            name: "Alice",
+        };
+        const child2 = {
+            "@id": "urn:child2",
+            "@graph": "urn:graph4",
+            name: "Bob",
+        };
         const state: any = {
             "urn:person1": {
                 "@id": "urn:person1",
+                "@graph": "urn:graph1",
                 name: "John",
                 address: {
                     "@id": "urn:addr1",
+                    "@graph": "urn:graph2",
                     street: "1st Street",
                     country: "Greece",
                 },
@@ -487,7 +580,7 @@ describe("applyDiff - complete workflow example", () => {
             },
         ];
 
-        applyDiff(state, diff);
+        applyPatches(state, diff);
 
         expect(state["urn:person1"].address.street).toBe("2nd Street");
         expect(state["urn:person1"].children.size).toBe(1);
@@ -503,13 +596,13 @@ describe("applyDiff - ignored / invalid scenarios", () => {
         const diff: Patch[] = [
             { op: "add", path: "address/street", value: "x" },
         ];
-        applyDiff(state, diff);
+        applyPatches(state, diff);
         expect(state).toEqual({});
     });
     test("missing parent without ensurePathExists -> patch skipped and no mutation", () => {
         const state: any = {};
         const diff: Patch[] = [{ op: "add", path: p("a", "b", "c"), value: 1 }];
-        applyDiff(state, diff, false);
+        applyPatches(state, diff, false);
         expect(state).toEqual({});
     });
 });

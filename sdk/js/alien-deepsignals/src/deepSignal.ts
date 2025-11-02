@@ -1109,6 +1109,8 @@ const objectHandlers = {
                 internal = objToProxy.get(val);
             }
             const isNew = !(fullKey in target);
+            const oldValue = isNew ? undefined : (target as any)[fullKey];
+            const oldWasObject = oldValue && typeof oldValue === "object";
             const result = Reflect.set(target, fullKey, val, receiver);
 
             if (!signals.has(fullKey)) {
@@ -1125,13 +1127,31 @@ const objectHandlers = {
             // Emit patch (after mutation) so subscribers get final value snapshot.
             const meta = proxyMeta.get(receiver);
             if (meta) {
-                // Recursively emit patches for all nested properties of newly attached objects
-                queueDeepPatches(
-                    val,
-                    meta.root,
-                    buildPath(receiver, fullKey),
-                    meta.options
-                );
+                const newIsObject = val && typeof val === "object";
+
+                if (isNew || !oldWasObject) {
+                    // Emit deep patches for:
+                    // 1. NEW properties (initial add), OR
+                    // 2. Existing properties where old value was NOT an object (null, primitive, etc.)
+                    //    This handles cases like { data: null } -> { data: { ... } }
+                    queueDeepPatches(
+                        val,
+                        meta.root,
+                        buildPath(receiver, fullKey),
+                        meta.options
+                    );
+                } else if (!newIsObject) {
+                    // For updates to EXISTING properties with primitive NEW values, emit a single patch.
+                    queuePatch({
+                        root: meta.root,
+                        path: buildPath(receiver, fullKey),
+                        op: "add",
+                        value: val,
+                    });
+                }
+                // For updates where BOTH old and new values are objects (e.g., replacing one Set with another),
+                // don't emit deep patches - the new value is now tracked, and subsequent
+                // mutations will emit their own patches through Set/Array/Object operations.
             }
             return result;
         }

@@ -915,7 +915,7 @@ fn create_patches_for_predicate_change(
             pred_change.values_added.len(),
             tracked_predicate.tracked_children.len()
         );
-        
+
         for added in &pred_change.values_added {
             if let BasicType::Str(child_subject_iri) = added {
                 log_debug!(
@@ -924,7 +924,7 @@ fn create_patches_for_predicate_change(
                     tracked_orm_object.subject_iri,
                     tracked_orm_object.shape.iri
                 );
-                
+
                 // Find matching tracked child objects (could be in multiple graphs)
                 let mut found_child = false;
                 for child_arc in &tracked_predicate.tracked_children {
@@ -939,7 +939,7 @@ fn create_patches_for_predicate_change(
                         "[create_patches_for_predicate_change] found tracked child: subject='{}' graph='{}'", 
                         child.subject_iri, child.graph_iri
                     );
-                    
+
                     // Build patches starting from the child up to the root
                     let mut path: Vec<String> = Vec::new();
                     let diff_op = DiffOperation {
@@ -951,7 +951,7 @@ fn create_patches_for_predicate_change(
                     // Force creation regardless of child's previous validity
                     let forced_prev = TrackedOrmObjectValidity::Invalid;
                     let mut objects_to_create = HashSet::new();
-                    
+
                     build_path_to_root_and_create_patches(
                         &child,
                         sub_shape,
@@ -972,7 +972,7 @@ fn create_patches_for_predicate_change(
                         "[create_patches_for_predicate_change] tracked_children did not contain child='{}'. Searching orm_changes for graph...",
                         child_subject_iri
                     );
-                    
+
                     // Try to find the child's graph IRI from orm_changes
                     let mut child_graph_opt: Option<String> = None;
                     for (_shape_k, graphs) in orm_changes.iter() {
@@ -994,7 +994,7 @@ fn create_patches_for_predicate_change(
                             orm_changes.len()
                         );
                     }
-                    
+
                     // If we didn't find the child's graph, as a last resort fall back to the parent's graph
                     let child_graph = match child_graph_opt {
                         Some(g) => g,
@@ -1007,14 +1007,14 @@ fn create_patches_for_predicate_change(
                             tracked_orm_object.graph_iri.clone()
                         }
                     };
-                    
+
                     if !child_graph.is_empty() {
                         log_debug!(
                             "[create_patches_for_predicate_change] emitting object creation using child graph='{}' for child='{}'",
                             child_graph,
                             child_subject_iri
                         );
-                        
+
                         // Build parent root composite key
                         let parent_root_key = format!(
                             "{}|{}",
@@ -1031,10 +1031,8 @@ fn create_patches_for_predicate_change(
                         let pred_seg = escape_json_pointer_segment(
                             &tracked_predicate.schema.readablePredicate,
                         );
-                        let final_path = format!(
-                            "/{}/{}/{}",
-                            parent_root_key, pred_seg, child_composite
-                        );
+                        let final_path =
+                            format!("/{}/{}/{}", parent_root_key, pred_seg, child_composite);
 
                         // Add object creation patch and @graph/@id
                         patches.push(OrmPatch {
@@ -1064,7 +1062,7 @@ fn create_patches_for_predicate_change(
                 }
             }
         }
-        
+
         // For removals of object links, we rely on validity transitions of the child or
         // explicit removal patches generated elsewhere when the link disappears.
         return (patches, ops);

@@ -7,7 +7,27 @@ import type { ShapeType } from "@ng-org/shex-orm";
 import type { Basic } from "../../shapes/orm/basic.typings";
 import { deepSignal, watch } from "@ng-org/alien-deepsignals";
 
-const sparqlExampleData = `
+export function HelloWorldReact() {
+    const state = useShape(TestObjectShapeType);
+    const objects = [...(state || [])];
+
+    // @ts-expect-error
+    window.reactState = state;
+
+    // Create a table from the state object: One column for keys, one for values, one with an input to change the value.
+
+    return (
+        <div>
+            <p>Rendered in React</p>
+            <button
+                onClick={() => {
+                    const storeId = "did:ng:" + window.session.private_store_id;
+                    const sessionId = window.session.session_id;
+
+                    // Insert first test object with its nested objects
+                    window.ng.sparql_update(
+                        sessionId,
+                        `
 PREFIX ex: <http://example.org/>
 INSERT DATA {
     <urn:test:obj1> a ex:TestObject ;
@@ -30,23 +50,43 @@ INSERT DATA {
     <urn:test:id1>
         ex:prop1 "one" ;
         ex:prop2 1 .
+}
+`,
+                        storeId
+                    );
 
+                    // Insert second test object with its nested objects
+                    window.ng.sparql_update(
+                        sessionId,
+                        `
+PREFIX ex: <http://example.org/>
+INSERT DATA {
     <urn:test:id2>
         ex:prop1 "two" ;
         ex:prop2 2 .
 
     <urn:test:obj2> a ex:TestObject ;
-      ex:stringValue "hello world #2" ;
-      ex:numValue 422 ;
-      ex:boolValue false ;
-      ex:arrayValue 4,5,6 ;
-      ex:objectValue <urn:test:id6> ;
-      ex:anotherObject <urn:test:id4>, <urn:test:id5> ;
-      ex:numOrStr 4 ;
-      ex:lit1Or2 "lit2" ;
-      ex:unrelated "some value2" ;
-      ex:anotherUnrelated 42422 .
+        ex:stringValue "hello world #2" ;
+        ex:numValue 422 ;
+        ex:boolValue false ;
+        ex:arrayValue 4,5,6 ;
+        ex:objectValue <urn:test:id6> ;
+        ex:anotherObject <urn:test:id4>, <urn:test:id5> ;
+        ex:numOrStr 4 ;
+        ex:lit1Or2 "lit2" ;
+        ex:unrelated "some value2" ;
+        ex:anotherUnrelated 42422 .
+}
+`,
+                        storeId
+                    );
 
+                    // Insert basic objects
+                    window.ng.sparql_update(
+                        sessionId,
+                        `
+PREFIX ex: <http://example.org/>
+INSERT DATA {
     <urn:test:id6>
         ex:nestedString "nested2" ;
         ex:nestedNum 72 ;
@@ -67,28 +107,9 @@ INSERT DATA {
     <urn:basicObject5>
         a <http://example.org/Basic> ;
         ex:basicString "string of object 2" .
-
 }
-        `;
-
-export function HelloWorldReact() {
-    const state = useShape(TestObjectShapeType);
-    const objects = [...(state || [])];
-
-    // @ts-expect-error
-    window.reactState = state;
-
-    // Create a table from the state object: One column for keys, one for values, one with an input to change the value.
-
-    return (
-        <div>
-            <p>Rendered in React</p>
-            <button
-                onClick={() => {
-                    window.ng.sparql_update(
-                        window.session.session_id,
-                        sparqlExampleData,
-                        "did:ng:" + window.session.private_store_id
+                        `,
+                        storeId
                     );
                 }}
             >
@@ -99,7 +120,7 @@ export function HelloWorldReact() {
                     window.ng.sparql_update(
                         window.session.session_id,
                         `DELETE WHERE { ?s ?p ?o .};`,
-                        "did:ng:" + window.session.private_store_id
+                        "did:ng:i" + window.session.private_store_id
                     );
                 }}
             >

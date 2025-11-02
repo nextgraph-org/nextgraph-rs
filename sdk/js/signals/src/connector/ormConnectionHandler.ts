@@ -1,5 +1,9 @@
 import type { Diff as Patches, Scope } from "../types.ts";
-import { applyDiff, applyDiffToDeepSignal, Patch } from "./applyDiff.ts";
+import {
+    applyPatches,
+    applyPatchesToDeepSignal,
+    Patch,
+} from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
 
@@ -77,7 +81,7 @@ export class OrmConnection<T extends BaseType> {
                 await new Promise((resolve) => setTimeout(resolve, 4_000));
                 ng.orm_start(
                     (scope.length == 0
-                        ? "did:ng:" + session.private_store_id
+                        ? "did:ng:i" // + session.private_store_id
                         : scope) as string,
                     shapeType,
                     session.session_id,
@@ -137,7 +141,7 @@ export class OrmConnection<T extends BaseType> {
         ngSession.then(({ ng, session }) => {
             ng.orm_update(
                 (this.scope.length == 0
-                    ? "did:ng:" + session.private_store_id
+                    ? "did:ng:i" // + session.private_store_id
                     : this.scope) as string,
                 this.shapeType.shape,
                 ormPatches,
@@ -192,7 +196,7 @@ export class OrmConnection<T extends BaseType> {
         );
 
         this.suspendDeepWatcher = true;
-        applyDiffToDeepSignal(this.signalObject, patches);
+        applyPatchesToDeepSignal(this.signalObject, patches);
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
         queueMicrotask(() => {
             this.suspendDeepWatcher = false;
@@ -280,12 +284,10 @@ const parseOrmInitialObject = (obj: any): any => {
             }
         } else {
             // Object does not have @id, that means it's a set of objects.
-            return new Set(Object.values(obj));
+            return new Set(Object.values(obj).map(parseOrmInitialObject));
         }
-        return obj;
-    } else {
-        return obj;
     }
+    return obj;
 };
 
 function canonicalScope(scope: Scope | undefined): string {
