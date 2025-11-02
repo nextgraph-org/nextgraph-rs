@@ -160,7 +160,13 @@ describe("watch (patch mode)", () => {
     });
 
     it("emits patches for Set with nested objects added as one operation", async () => {
-        const state = deepSignal<{ container: any }>({ container: {} });
+        const state = deepSignal<{ container: any }>(
+            { container: {} },
+            {
+                syntheticIdPropertyName: "id",
+                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+            }
+        );
         const patches: DeepPatch[][] = [];
         const { stopListening: stop } = watch(state, ({ patches: batch }) =>
             patches.push(batch)
@@ -203,7 +209,13 @@ describe("watch (patch mode)", () => {
 
     it("tracks deep nested object mutation inside a Set entry after iteration", async () => {
         const rawEntry = { id: "n1", data: { val: 1 } };
-        const st = deepSignal({ bag: new Set<any>([rawEntry]) });
+        const st = deepSignal(
+            { bag: new Set<any>([rawEntry]) },
+            {
+                syntheticIdPropertyName: "id",
+                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+            }
+        );
         const collected: DeepPatch[][] = [];
         const { stopListening: stop } = watch(st, ({ patches }) =>
             collected.push(patches)
@@ -338,7 +350,13 @@ describe("watch (patch mode)", () => {
             stop();
         });
         it("emits delete patch for object entry", async () => {
-            const st = deepSignal({ s: new Set<any>() });
+            const st = deepSignal(
+                { s: new Set<any>() },
+                {
+                    syntheticIdPropertyName: "id",
+                    propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                }
+            );
             const obj = { id: "n1", x: 1 };
             const patches: DeepPatch[][] = [];
             const { stopListening: stop } = watch(st, ({ patches: batch }) =>
@@ -428,7 +446,13 @@ describe("watch (patch mode)", () => {
         });
         it("raw reference mutation produces no deep patch while proxied does", async () => {
             const raw = { id: "id1", data: { x: 1 } };
-            const st = deepSignal({ s: new Set<any>([raw]) });
+            const st = deepSignal(
+                { s: new Set<any>([raw]) },
+                {
+                    syntheticIdPropertyName: "id",
+                    propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                }
+            );
             const batches: DeepPatch[][] = [];
             const { stopListening: stop } = watch(st, ({ patches }) =>
                 batches.push(patches)
@@ -474,9 +498,15 @@ describe("watch (patch mode)", () => {
         });
 
         it("allows Array.from() and spread on Set without brand errors and tracks nested mutation", async () => {
-            const st = deepSignal({
-                s: new Set<any>([{ id: "eIter", inner: { v: 1 } }]),
-            });
+            const st = deepSignal(
+                {
+                    s: new Set<any>([{ id: "eIter", inner: { v: 1 } }]),
+                },
+                {
+                    syntheticIdPropertyName: "id",
+                    propGenerator: ({ object }) => ({ syntheticId: object.id }),
+                }
+            );
             // Regression: previously 'values method called on incompatible Proxy' was thrown here.
             const arr = Array.from(st.s);
             expect(arr.length).toBe(1);
@@ -524,7 +554,12 @@ describe("watch (patch mode)", () => {
         });
 
         it("generates correct patches when root is a Set (object entries)", async () => {
-            const rootSet = deepSignal(new Set<any>());
+            const rootSet = deepSignal(new Set<any>(), {
+                propGenerator: ({ object }) => ({
+                    syntheticId: object["@id"] || `fallback-${Math.random()}`,
+                }),
+                syntheticIdPropertyName: "@id",
+            });
             const batches: DeepPatch[][] = [];
             const { stopListening: stop } = watch(rootSet, ({ patches }) =>
                 batches.push(patches)
@@ -549,7 +584,10 @@ describe("watch (patch mode)", () => {
         });
 
         it("tracks nested mutations when root is a Set", async () => {
-            const rootSet = deepSignal(new Set<any>());
+            const rootSet = deepSignal(new Set<any>(), {
+                syntheticIdPropertyName: "id",
+                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+            });
             const obj = { id: "nested", data: { x: 1 } };
             rootSet.add(obj);
 
@@ -603,6 +641,130 @@ describe("watch (patch mode)", () => {
             expect(paths).toContain("o.a");
             expect(paths).toContain("arr.1");
             expect(paths.some((p) => p.startsWith("s."))).toBe(true);
+            stop();
+        });
+        it("mutating existing Set property emits correct patches", async () => {
+            const obj2 = {
+                "@id": "urn:test:obj2|did:ng:o:xypN3xdPs4ozIXaCFOQ5tDmq86q0szbqtCQmcqTcMTcA:v:QvO7rDIp1MCUs3Xec-yQBl0kHjMmLzoUOU4m6qy6b4EA",
+                setProperty: new Set([1, 2, 3]),
+            };
+            const st = deepSignal<{ items: Set<any> }>(
+                { items: new Set([obj2]) },
+                {
+                    syntheticIdPropertyName: "@id",
+                    propGenerator: ({ object }) => ({
+                        syntheticId: object["@id"],
+                    }),
+                }
+            );
+
+            // Get the proxied object from the set
+            let proxiedObj: any;
+            for (const item of st.items) {
+                proxiedObj = item;
+            }
+
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(st, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            // Modify the Set property: remove one value and add another
+            proxiedObj.setProperty.delete(3);
+            proxiedObj.setProperty.add(4);
+            proxiedObj.setProperty.add(5);
+
+            await Promise.resolve();
+
+            const patches = batches.flat();
+
+            // Should NOT have an object patch for the Set itself when modifying existing Set
+            const objectPatches = patches.filter(
+                (p: any) => p.type === "object"
+            );
+            expect(objectPatches.length).toBe(0);
+
+            // Should have remove patch for deleted value
+            const removePatches = patches.filter((p) => p.op === "remove");
+            expect(removePatches.length).toBe(1);
+            expect((removePatches[0] as any).value).toBe(3);
+
+            // Should have add patches for new values (primitives in Set)
+            const addPatches = patches.filter((p) => p.op === "add");
+            expect(addPatches.length).toBe(2);
+            const addedValues = addPatches.map((p: any) => p.value[0]);
+            expect(addedValues).toContain(4);
+            expect(addedValues).toContain(5);
+
+            stop();
+        });
+        it("reassigning Set property should not emit deep patches for all elements", async () => {
+            const obj2 = {
+                "@id": "urn:test:obj2|did:ng:o:xypN3xdPs4ozIXaCFOQ5tDmq86q0szbqtCQmcqTcMTcA:v:QvO7rDIp1MCUs3Xec-yQBl0kHjMmLzoUOU4m6qy6b4EA",
+                setProperty: new Set([1, 2, 3]),
+            };
+            const st = deepSignal<{ items: Set<any> }>(
+                { items: new Set([obj2]) },
+                {
+                    syntheticIdPropertyName: "@id",
+                    propGenerator: ({ object }) => ({
+                        syntheticId: object["@id"],
+                    }),
+                }
+            );
+
+            // Get the proxied object from the set
+            let proxiedObj: any;
+            for (const item of st.items) {
+                proxiedObj = item;
+            }
+
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(st, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            // Reassign the Set property to a new Set with different values
+            proxiedObj.setProperty = new Set([4, 5]);
+
+            await Promise.resolve();
+
+            const patches = batches.flat();
+
+            // When reassigning a complex object property (Set/Array/Object) to a new value,
+            // we should NOT emit:
+            // 1. An "object" type patch for the container
+            // 2. Individual "add" patches for each element
+            //
+            // This was the bug reported: replacing a Set emitted patches like:
+            // [{ path: [..., "setProperty"], op: "add", type: "object" },
+            //  { path: [..., "setProperty", 4], op: "add", value: 4 },
+            //  { path: [..., "setProperty", 5], op: "add", value: 5 }]
+            //
+            // The correct behavior: no deep patches for the reassignment.
+            // Subsequent mutations (add/delete) on the new Set will emit proper patches.
+            const objectPatches = patches.filter(
+                (p: any) => p.type === "object"
+            );
+            expect(objectPatches.length).toBe(0);
+
+            // No individual element patches should be emitted for the initial elements
+            const elementPatches = patches.filter(
+                (p) =>
+                    (p.path.length > 2 && p.path[p.path.length - 1] === 4) ||
+                    p.path[p.path.length - 1] === 5
+            );
+            expect(elementPatches.length).toBe(0);
+
+            // Verify that subsequent operations on the new Set DO emit patches
+            proxiedObj.setProperty.add(6);
+            await Promise.resolve();
+            const laterPatches = batches.flat();
+            const patch6 = laterPatches.find(
+                (p: any) => p.value?.[0] === 6 || p.value === 6
+            );
+            expect(patch6).toBeDefined();
+
             stop();
         });
     });

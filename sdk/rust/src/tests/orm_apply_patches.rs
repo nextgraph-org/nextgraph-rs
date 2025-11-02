@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-use crate::local_broker::{doc_sparql_construct, orm_start, orm_update};
+use crate::local_broker::{doc_sparql_construct, doc_sparql_select, orm_start, orm_update};
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{assert_json_eq, create_doc_with_data};
 use async_std::stream::StreamExt;
@@ -21,6 +21,37 @@ use ng_repo::log_info;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
+
+// Helper: escape a JSON Pointer segment (RFC 6901): ~ -> ~0, / -> ~1
+fn escape_pointer_segment(segment: &str) -> String {
+    segment.replace('~', "~0").replace('/', "~1")
+}
+
+// Helper: check if a quad's graph matches the expected graph IRI
+fn quad_has_graph(q: &ng_oxigraph::oxrdf::Quad, expected_graph: &str) -> bool {
+    match &q.graph_name {
+        ng_oxigraph::oxrdf::GraphName::NamedNode(n) => n.as_str() == expected_graph,
+        _ => false,
+    }
+}
+
+// Helper: build root path prefix "/graph|subject" for a given graph and subject
+fn root_path(graph: &str, subject: &str) -> String {
+    format!(
+        "/{}|{}",
+        escape_pointer_segment(graph),
+        escape_pointer_segment(subject)
+    )
+}
+
+// Helper: build a composite key segment "graph|subject" for multi-children
+fn composite_key(graph: &str, subject: &str) -> String {
+    format!(
+        "{}|{}",
+        escape_pointer_segment(graph),
+        escape_pointer_segment(subject)
+    )
+}
 
 #[async_std::test]
 async fn test_orm_apply_patches() {
@@ -55,6 +86,12 @@ async fn test_orm_apply_patches() {
 
     // Test 9: Nested object creation
     test_patch_create_nested_object(session_id).await;
+
+    // Test 9b: Single-nested object creation (no composite child key in path)
+    test_patch_create_single_nested_object(session_id).await;
+
+    // Test 9c: Replace single-nested object (switch link to new child)
+    test_patch_replace_single_nested_object(session_id).await;
 
     // Test 10: Object deleted after invalidating patch.
     test_patch_invalidating_object(session_id).await
@@ -131,9 +168,10 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Add name
+    let root = root_path(&doc_nuri, "urn:test:person1");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
-        path: "/urn:test:person1/name".to_string(),
+        path: format!("{}/name", root),
         valType: None,
         value: Some(json!("Alice")),
     }];
@@ -142,19 +180,24 @@ INSERT DATA {
         .await
         .expect("orm_update failed");
 
-    // Verify the change was applied
-    let triples = doc_sparql_construct(
+    // Verify the change was applied using SPARQL SELECT to check graph IRI
+    let quads = doc_sparql_select(
         session_id,
-        "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
         Some(doc_nuri.clone()),
     )
     .await
     .expect("SPARQL query failed");
 
-    let has_name = triples.iter().any(|t| {
-        t.predicate.as_str() == "http://example.org/name" && t.object.to_string().contains("Alice")
+    let has_name = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/name"
+            && q.object.to_string().contains("Alice")
+            && quad_has_graph(q, &doc_nuri)
     });
-    assert!(has_name, "Name was not added to the graph");
+    assert!(
+        has_name,
+        "Name was not added to the graph with correct graph IRI"
+    );
 
     log_info!("✓ Test passed: Add single literal");
 }
@@ -230,9 +273,10 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Remove name
+    let root = root_path(&doc_nuri, "urn:test:person2");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
-        path: "/urn:test:person2/name".to_string(),
+        path: format!("{}/name", root),
         valType: None,
         value: Some(json!("Bob")),
     }];
@@ -241,17 +285,19 @@ INSERT DATA {
         .await
         .expect("orm_update failed");
 
-    // Verify the change was applied
-    let triples = doc_sparql_construct(
+    // Verify the change was applied using SPARQL SELECT to check graph IRI
+    let quads = doc_sparql_select(
         session_id,
-        "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
         Some(doc_nuri.clone()),
     )
     .await
     .expect("SPARQL query failed");
 
-    let has_name = triples.iter().any(|t| {
-        t.predicate.as_str() == "http://example.org/name" && t.object.to_string().contains("Bob")
+    let has_name = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/name"
+            && q.object.to_string().contains("Bob")
+            && quad_has_graph(q, &doc_nuri)
     });
     assert!(!has_name, "Name was not removed from the graph");
 
@@ -329,41 +375,36 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Replace name (remove old, add new)
-    let diff = vec![
-        // OrmDiffOp {
-        //     op: OrmDiffOpType::remove,
-        //     path: "/urn:test:person3/name".to_string(),
-        //     valType: None,
-        //     value: Some(json!("Charlie")),
-        // },
-        OrmPatch {
-            op: OrmPatchOp::add,
-            path: "/urn:test:person3/name".to_string(),
-            valType: None,
-            value: Some(json!("Charles")),
-        },
-    ];
+    let root = root_path(&doc_nuri, "urn:test:person3");
+    let diff = vec![OrmPatch {
+        op: OrmPatchOp::add,
+        path: format!("{}/name", root),
+        valType: None,
+        value: Some(json!("Charles")),
+    }];
 
     orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
         .await
         .expect("orm_update failed");
 
-    // Verify the change was applied
-    let triples = doc_sparql_construct(
+    // Verify the change was applied using SPARQL SELECT to check graph IRI
+    let quads = doc_sparql_select(
         session_id,
-        "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
         Some(doc_nuri.clone()),
     )
     .await
     .expect("SPARQL query failed");
 
-    let has_old_name = triples.iter().any(|t| {
-        t.predicate.as_str() == "http://example.org/name"
-            && t.object.to_string().contains("Charlie")
+    let has_old_name = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/name"
+            && q.object.to_string().contains("Charlie")
+            && quad_has_graph(q, &doc_nuri)
     });
-    let has_new_name = triples.iter().any(|t| {
-        t.predicate.as_str() == "http://example.org/name"
-            && t.object.to_string().contains("Charles")
+    let has_new_name = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/name"
+            && q.object.to_string().contains("Charles")
+            && quad_has_graph(q, &doc_nuri)
     });
 
     assert!(!has_old_name, "Old name was not removed");
@@ -443,10 +484,11 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Add hobby
+    let root = root_path(&doc_nuri, "urn:test:person4");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
         valType: Some(OrmPatchType::set),
-        path: "/urn:test:person4/hobby".to_string(),
+        path: format!("{}/hobby", root),
         value: Some(json!("Swimming")),
     }];
 
@@ -454,18 +496,20 @@ INSERT DATA {
         .await
         .expect("orm_update failed");
 
-    // Verify the change was applied
-    let triples = doc_sparql_construct(
+    // Verify the change was applied using SPARQL SELECT to check graph IRI
+    let quads = doc_sparql_select(
         session_id,
-        "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
         Some(doc_nuri.clone()),
     )
     .await
     .expect("SPARQL query failed");
 
-    let hobby_count = triples
+    let hobby_count = quads
         .iter()
-        .filter(|t| t.predicate.as_str() == "http://example.org/hobby")
+        .filter(|q| {
+            q.predicate.as_str() == "http://example.org/hobby" && quad_has_graph(q, &doc_nuri)
+        })
         .count();
 
     assert_eq!(hobby_count, 2, "Should have 2 hobbies");
@@ -544,9 +588,10 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Remove hobby
+    let root = root_path(&doc_nuri, "urn:test:person5");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::remove,
-        path: "/urn:test:person5/hobby".to_string(),
+        path: format!("{}/hobby", root),
         valType: None,
         value: Some(json!("Swimming")),
     }];
@@ -555,22 +600,25 @@ INSERT DATA {
         .await
         .expect("orm_update failed");
 
-    // Verify the change was applied
-    let triples = doc_sparql_construct(
+    // Verify the change was applied using SPARQL SELECT to check graph IRI
+    let quads = doc_sparql_select(
         session_id,
-        "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
         Some(doc_nuri.clone()),
     )
     .await
     .expect("SPARQL query failed");
 
-    let hobby_count = triples
+    let hobby_count = quads
         .iter()
-        .filter(|t| t.predicate.as_str() == "http://example.org/hobby")
+        .filter(|q| {
+            q.predicate.as_str() == "http://example.org/hobby" && quad_has_graph(q, &doc_nuri)
+        })
         .count();
-    let has_swimming = triples.iter().any(|t| {
-        t.predicate.as_str() == "http://example.org/hobby"
-            && t.object.to_string().contains("Swimming")
+    let has_swimming = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/hobby"
+            && q.object.to_string().contains("Swimming")
+            && quad_has_graph(q, &doc_nuri)
     });
 
     assert_eq!(hobby_count, 2, "Should have 2 hobbies left");
@@ -713,9 +761,10 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Change city in nested address
+    let root = root_path(&doc_nuri, "urn:test:person6");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
-        path: "/urn:test:person6/address/city".to_string(),
+        path: format!("{}/address/city", root),
         valType: None,
         value: Some(json!("Shelbyville")),
     }];
@@ -724,22 +773,24 @@ INSERT DATA {
         .await
         .expect("orm_update failed");
 
-    // Verify the change was applied
-    let triples = doc_sparql_construct(
+    // Verify the change was applied using SPARQL SELECT to check graph IRI
+    let quads = doc_sparql_select(
         session_id,
-        "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
         Some(doc_nuri.clone()),
     )
     .await
     .expect("SPARQL query failed");
 
-    let has_old_city = triples.iter().any(|t| {
-        t.predicate.as_str() == "http://example.org/city"
-            && t.object.to_string().contains("Springfield")
+    let has_old_city = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/city"
+            && q.object.to_string().contains("Springfield")
+            && quad_has_graph(q, &doc_nuri)
     });
-    let has_new_city = triples.iter().any(|t| {
-        t.predicate.as_str() == "http://example.org/city"
-            && t.object.to_string().contains("Shelbyville")
+    let has_new_city = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/city"
+            && q.object.to_string().contains("Shelbyville")
+            && quad_has_graph(q, &doc_nuri)
     });
 
     assert!(!has_old_city, "Old city should be removed");
@@ -932,9 +983,11 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Change street in company's headquarter address (3 levels deep)
+    let root = root_path(&doc_nuri, "urn:test:person7");
+    let child = composite_key(&doc_nuri, "urn:test:company1");
     let diff = vec![OrmPatch {
         op: OrmPatchOp::add,
-        path: "/urn:test:person7/company/urn:test:company1/headquarter/street".to_string(),
+        path: format!("{}/company/{}/headquarter/street", root, child),
         valType: None,
         value: Some(json!("Rich Street")),
     }];
@@ -943,22 +996,24 @@ INSERT DATA {
         .await
         .expect("orm_update failed");
 
-    // Verify the change was applied
-    let triples = doc_sparql_construct(
+    // Verify the change was applied using SPARQL SELECT to check graph IRI
+    let quads = doc_sparql_select(
         session_id,
-        "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
         Some(doc_nuri.clone()),
     )
     .await
     .expect("SPARQL query failed");
 
-    let has_old_street = triples.iter().any(|t| {
-        t.predicate.as_str() == "http://example.org/street"
-            && t.object.to_string().contains("Business Blvd")
+    let has_old_street = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/street"
+            && q.object.to_string().contains("Business Blvd")
+            && quad_has_graph(q, &doc_nuri)
     });
-    let has_new_street = triples.iter().any(|t| {
-        t.predicate.as_str() == "http://example.org/street"
-            && t.object.to_string().contains("Rich Street")
+    let has_new_street = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://example.org/street"
+            && q.object.to_string().contains("Rich Street")
+            && quad_has_graph(q, &doc_nuri)
     });
 
     assert!(!has_old_street, "Old street should be removed");
@@ -1038,10 +1093,11 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Create a new object
+    let root = root_path(&doc_nuri, "urn:test:person8");
     let diff = vec![
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "/urn:test:person8".to_string(),
+            path: root.clone(),
             valType: Some(OrmPatchType::object),
             value: None,
         },
@@ -1049,19 +1105,19 @@ INSERT DATA {
             // This does nothing as it does not represent a triple.
             // A subject is created when inserting data.
             op: OrmPatchOp::add,
-            path: "/urn:test:person8/@id".to_string(),
+            path: format!("{}/@id", root),
             valType: Some(OrmPatchType::object),
             value: None,
         },
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "/urn:test:person8/type".to_string(),
+            path: format!("{}/type", root),
             valType: None,
             value: Some(json!("http://example.org/Person")),
         },
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "/urn:test:person8/name".to_string(),
+            path: format!("{}/name", root),
             valType: None,
             value: Some(json!("Alice")),
         },
@@ -1071,27 +1127,29 @@ INSERT DATA {
         .await
         .expect("orm_update failed");
 
-    // Verify the change was applied
-    let triples = doc_sparql_construct(
+    // Verify the change was applied using SPARQL SELECT to check graph IRI
+    let quads = doc_sparql_select(
         session_id,
-        "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
         Some(doc_nuri.clone()),
     )
     .await
     .expect("SPARQL query failed");
 
-    let has_name = triples.iter().any(|t| {
-        t.to_string() == "urn:test:person8"
-            && t.predicate.as_str() == "http://example.org/name"
-            && t.object.to_string().contains("Alice")
+    let has_name = quads.iter().any(|q| {
+        q.subject.to_string() == "<urn:test:person8>"
+            && q.predicate.as_str() == "http://example.org/name"
+            && q.object.to_string().contains("Alice")
+            && quad_has_graph(q, &doc_nuri)
     });
-    let has_type = triples.iter().any(|t| {
-        t.predicate.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-            && t.object.to_string().contains("http://example.org/Person")
+    let has_type = quads.iter().any(|q| {
+        q.predicate.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+            && q.object.to_string().contains("http://example.org/Person")
+            && quad_has_graph(q, &doc_nuri)
     });
 
-    assert!(!has_name, "New person has name");
-    assert!(has_type, "New person has type");
+    assert!(has_name, "New person should have name");
+    assert!(has_type, "New person should have type");
 
     log_info!("✓ Test passed: Creation of root object");
 }
@@ -1218,17 +1276,18 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Add a second address.
+    let root = root_path(&doc_nuri, "urn:test:person9");
+    let child = composite_key(&doc_nuri, "http://example.org/exampleAddress");
     let diff = vec![
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "/urn:test:person9/address/http:~1~1example.org~1exampleAddress/type".to_string(),
+            path: format!("{}/address/{}/type", root, child),
             valType: None,
             value: Some(json!("http://example.org/Address")),
         },
         OrmPatch {
             op: OrmPatchOp::add,
-            path: "/urn:test:person9/address/http:~1~1example.org~1exampleAddress/street"
-                .to_string(),
+            path: format!("{}/address/{}/street", root, child),
             valType: None,
             value: Some(json!("Heaven Avenue")),
         },
@@ -1238,34 +1297,441 @@ INSERT DATA {
         .await
         .expect("orm_update failed");
 
-    // Verify the change was applied
-    let triples = doc_sparql_construct(
+    // Verify the change was applied using SPARQL SELECT to check graph IRI
+    let quads = doc_sparql_select(
         session_id,
-        "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }".to_string(),
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
         Some(doc_nuri.clone()),
     )
     .await
     .expect("SPARQL query failed");
 
-    let has_new_address_type = triples.iter().any(|t| {
-        t.subject
+    let has_new_address_type = quads.iter().any(|q| {
+        q.subject
             .to_string()
             .contains("http://example.org/exampleAddress")
-            && t.predicate.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
-            && t.object.to_string().contains("http://example.org/Address")
+            && q.predicate.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+            && q.object.to_string().contains("http://example.org/Address")
+            && quad_has_graph(q, &doc_nuri)
     });
-    let has_new_address_street = triples.iter().any(|t| {
-        t.subject
+    let has_new_address_street = quads.iter().any(|q| {
+        q.subject
             .to_string()
             .contains("http://example.org/exampleAddress")
-            && t.predicate.as_str() == "http://example.org/street"
-            && t.object.to_string().contains("Heaven Avenue")
+            && q.predicate.as_str() == "http://example.org/street"
+            && q.object.to_string().contains("Heaven Avenue")
+            && quad_has_graph(q, &doc_nuri)
     });
 
     assert!(has_new_address_type, "New address type should be added");
     assert!(has_new_address_street, "New street should be added");
 
     log_info!("✓ Test passed: Nested object creation");
+}
+
+/// Test creating a single-valued nested object using @id/@graph staging (no composite child key)
+async fn test_patch_create_single_nested_object(session_id: u64) {
+    log_info!("\n\n=== TEST: Single-nested object creation (no composite key) ===\n");
+
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:person10> a ex:Person ;
+        ex:name "Eve" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Person with a single-valued address
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    readablePredicate: "name".to_string(),
+                    extra: Some(false),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/address".to_string(),
+                    readablePredicate: "address".to_string(),
+                    extra: Some(false),
+                    minCardinality: 0,
+                    maxCardinality: 1, // single-valued
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        shape: Some("http://example.org/Address".to_string()),
+                        literals: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    schema.insert(
+        "http://example.org/Address".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Address".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Address".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/street".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "street".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+
+    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .expect("orm_start failed");
+
+    // Get initial state (no address yet)
+    while let Some(app_response) = receiver.next().await {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_)) = app_response {
+            break;
+        }
+    }
+
+    // Apply ORM patches to create the single nested Address under person10
+    let root = root_path(&doc_nuri, "urn:test:person10");
+    let diff = vec![
+        // Stage the child identity and location (single-nested => no composite key in path)
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/@id", root),
+            valType: None,
+            value: Some(json!("http://example.org/exampleAddress2")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/@graph", root),
+            valType: None,
+            value: Some(json!(doc_nuri.clone())),
+        },
+        // Now set fields on the child
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/type", root),
+            valType: None,
+            value: Some(json!("http://example.org/Address")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/street", root),
+            valType: None,
+            value: Some(json!("Sunrise Boulevard")),
+        },
+    ];
+
+    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+        .await
+        .expect("orm_update failed");
+
+    // Verify the change was applied using SPARQL SELECT to check graph IRI
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL query failed");
+
+    let has_link = quads.iter().any(|q| {
+        q.subject.to_string().contains("urn:test:person10")
+            && q.predicate.as_str() == "http://example.org/address"
+            && q.object
+                .to_string()
+                .contains("http://example.org/exampleAddress2")
+            && quad_has_graph(q, &doc_nuri)
+    });
+    let has_type = quads.iter().any(|q| {
+        q.subject
+            .to_string()
+            .contains("http://example.org/exampleAddress2")
+            && q.predicate.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+            && q.object.to_string().contains("http://example.org/Address")
+            && quad_has_graph(q, &doc_nuri)
+    });
+    let has_street = quads.iter().any(|q| {
+        q.subject
+            .to_string()
+            .contains("http://example.org/exampleAddress2")
+            && q.predicate.as_str() == "http://example.org/street"
+            && q.object.to_string().contains("Sunrise Boulevard")
+            && quad_has_graph(q, &doc_nuri)
+    });
+
+    assert!(
+        has_link,
+        "Person should be linked to the new single address"
+    );
+    assert!(has_type, "New single address type should be added");
+    assert!(has_street, "New single address street should be added");
+
+    log_info!("✓ Test passed: Single-nested object creation (no composite key)");
+}
+
+/// Test replacing a single-nested object via @id/@graph staging at the predicate path.
+async fn test_patch_replace_single_nested_object(session_id: u64) {
+    log_info!("\n\n=== TEST: Replace Single-nested object (no composite key) ===\n");
+
+    // Prepare initial data: person with an existing address A
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:person12> a ex:Person ;
+        ex:name "Greg" ;
+        ex:address <urn:test:addressA> .
+    <urn:test:addressA> a ex:Address ;
+        ex:street "Old Road" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define the ORM schema (Person with single-valued address; Address with street)
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/Person".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Person".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    readablePredicate: "name".to_string(),
+                    extra: Some(false),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/address".to_string(),
+                    readablePredicate: "address".to_string(),
+                    extra: Some(false),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        shape: Some("http://example.org/Address".to_string()),
+                        literals: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+    schema.insert(
+        "http://example.org/Address".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Address".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Address".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/street".to_string(),
+                    extra: Some(false),
+                    readablePredicate: "street".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        shape: "http://example.org/Person".to_string(),
+        schema,
+    };
+
+    let nuri = NuriV0::new_from(&doc_nuri).expect("parse nuri");
+    let (mut receiver, _cancel_fn) = orm_start(nuri.clone(), shape_type.clone(), session_id)
+        .await
+        .expect("orm_start failed");
+
+    // Drain initial
+    while let Some(app_response) = receiver.next().await {
+        if let AppResponse::V0(AppResponseV0::OrmInitial(_)) = app_response {
+            break;
+        }
+    }
+
+    // Apply patches to replace the single-nested address with a new subject B
+    let root = root_path(&doc_nuri, "urn:test:person12");
+    let new_address = "http://example.org/exampleAddress3";
+    let diff = vec![
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/@id", root),
+            valType: None,
+            value: Some(json!(new_address)),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/@graph", root),
+            valType: None,
+            value: Some(json!(doc_nuri.clone())),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/type", root),
+            valType: None,
+            value: Some(json!("http://example.org/Address")),
+        },
+        OrmPatch {
+            op: OrmPatchOp::add,
+            path: format!("{}/address/street", root),
+            valType: None,
+            value: Some(json!("New Street")),
+        },
+    ];
+
+    orm_update(nuri.clone(), shape_type.shape.clone(), diff, session_id)
+        .await
+        .expect("orm_update failed");
+
+    // Verify the link now points to the new address and not the old one using SPARQL SELECT
+    let quads = doc_sparql_select(
+        session_id,
+        "SELECT ?s ?p ?o ?g WHERE { GRAPH ?g { ?s ?p ?o } }".to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL query failed");
+
+    let has_old_link = quads.iter().any(|q| {
+        (match &q.subject {
+            ng_oxigraph::oxrdf::Subject::NamedNode(n) => n.as_string() == "urn:test:person12",
+            _ => false,
+        } && q.predicate.as_str() == "http://example.org/address"
+            && q.object.to_string().contains("urn:test:addressA")
+            && quad_has_graph(q, &doc_nuri))
+    });
+    let has_new_link = quads.iter().any(|q| {
+        (match &q.subject {
+            ng_oxigraph::oxrdf::Subject::NamedNode(n) => n.as_string() == "urn:test:person12",
+            _ => false,
+        } && q.predicate.as_str() == "http://example.org/address"
+            && q.object.to_string().contains(new_address)
+            && quad_has_graph(q, &doc_nuri))
+    });
+
+    assert!(!has_old_link, "Old address link should have been replaced");
+    assert!(has_new_link, "New address link was not set");
+
+    // And the new address properties exist
+    let has_new_type = quads.iter().any(|q| {
+        (match &q.subject {
+            ng_oxigraph::oxrdf::Subject::NamedNode(n) => n.as_str() == new_address,
+            _ => false,
+        } && q.predicate.as_str() == "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+            && q.object.to_string().contains("http://example.org/Address")
+            && quad_has_graph(q, &doc_nuri))
+    });
+    let has_new_street = quads.iter().any(|q| {
+        (match &q.subject {
+            ng_oxigraph::oxrdf::Subject::NamedNode(n) => n.as_str() == new_address,
+            _ => false,
+        } && q.predicate.as_str() == "http://example.org/street"
+            && q.object.to_string().contains("New Street")
+            && quad_has_graph(q, &doc_nuri))
+    });
+    assert!(
+        has_new_type && has_new_street,
+        "New nested object was not created correctly"
+    );
+
+    log_info!("✓ Test passed: Replace Single-nested object (no composite key)");
 }
 
 /// Test replacing object's type invalidating it.
@@ -1339,9 +1805,10 @@ INSERT DATA {
     }
 
     // Apply ORM patch: Change type to something invalid by schema.
+    let root = root_path(&doc_nuri, "urn:test:person2");
     let patch = vec![OrmPatch {
         op: OrmPatchOp::add,
-        path: "/urn:test:person2/type".to_string(),
+        path: format!("{}/type", root),
         valType: None,
         value: Some(json!("InvalidType")),
     }];
@@ -1369,7 +1836,7 @@ INSERT DATA {
             {
                 "op": "remove",
                 "valType": "object",
-                "path": "/urn:test:person2",
+                "path": root,
             },
         ]);
 

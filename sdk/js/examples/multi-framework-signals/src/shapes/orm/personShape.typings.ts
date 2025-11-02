@@ -10,6 +10,7 @@ export type IRI = string;
  * Person Type
  */
 export interface Person {
+  readonly "@graph": IRI;
   readonly "@id": IRI;
   /**
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
@@ -24,6 +25,7 @@ export interface Person {
    */
   address: {
     readonly "@id": IRI;
+    readonly "@graph": IRI;
     /**
      * Original IRI: http://example.org/street
      */

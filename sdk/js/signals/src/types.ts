@@ -1,4 +1,4 @@
-import type { Patch } from "./connector/applyDiff.js";
+import type { Patch } from "./connector/applyPatches.ts";
 
 /** The shape of an object requested. */
 export type Shape = "Shape1" | "Shape2" | "TestShape";

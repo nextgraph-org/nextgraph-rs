@@ -18,6 +18,7 @@ use futures::channel::mpsc;
 use futures::{SinkExt, StreamExt};
 use lazy_static::lazy_static;
 use ng_net::orm::{OrmPatches, OrmShapeType};
+use ng_oxigraph::oxrdf::Quad;
 use ng_oxigraph::oxrdf::Triple;
 use once_cell::sync::Lazy;
 use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str};
@@ -42,6 +43,7 @@ use ng_net::types::*;
 use ng_net::utils::{spawn_and_log_error, Receiver, ResultSend, Sender};
 use ng_net::{actor::*, actors::admin::*};
 
+use ng_verifier::orm::types::ShapeIri;
 use ng_verifier::types::*;
 use ng_verifier::verifier::Verifier;
 
@@ -2764,7 +2766,8 @@ pub async fn doc_sparql_update(
     }
 }
 
-async fn get_broker() -> Result<async_std::sync::RwLockWriteGuard<'static, LocalBroker>, NgError> {
+pub async fn get_broker() -> Result<async_std::sync::RwLockWriteGuard<'static, LocalBroker>, NgError>
+{
     let broker = match LOCAL_BROKER.get() {
         None | Some(Err(_)) => return Err(NgError::LocalBrokerNotInitialized),
         Some(Ok(broker)) => broker.write().await,
@@ -2802,6 +2805,31 @@ pub async fn doc_sparql_construct(
     let broker = get_broker().await?;
     let session = broker.get_session(session_id)?;
     session.verifier.query_sparql_construct(sparql, nuri)
+}
+
+pub async fn doc_sparql_select(
+    session_id: u64,
+    sparql: String,
+    nuri: Option<String>,
+) -> Result<Vec<Quad>, NgError> {
+    let broker = get_broker().await?;
+    let session = broker.get_session(session_id)?;
+    session.verifier.query_sparql_select(sparql, nuri)
+}
+
+/// Runs the shape-type-based quad query using the verifier helper, returning triples.
+pub async fn doc_query_quads_for_shape_type(
+    session_id: u64,
+    nuri: Option<String>,
+    schema: &ng_net::orm::OrmSchema,
+    shape: &ShapeIri,
+    filter_subjects: Option<Vec<String>>,
+) -> Result<Vec<Quad>, NgError> {
+    let broker = get_broker().await?;
+    let session = broker.get_session(session_id)?;
+    session
+        .verifier
+        .query_quads_for_shape_type(nuri, schema, shape, filter_subjects)
 }
 
 pub async fn doc_create(

@@ -1,5 +1,9 @@
 import type { Diff as Patches, Scope } from "../types.ts";
-import { applyDiff, applyDiffToDeepSignal, Patch } from "./applyDiff.ts";
+import {
+    applyPatches,
+    applyPatchesToDeepSignal,
+    Patch,
+} from "./applyPatches.ts";
 
 import { ngSession } from "./initNg.ts";
 
@@ -11,6 +15,8 @@ import {
 import type {
     DeepPatch,
     DeepSignalObject,
+    DeepSignalPropGenFn,
+    DeepSignalSet,
     WatchPatchEvent,
 } from "@ng-org/alien-deepsignals";
 import type { ShapeType, BaseType } from "@ng-org/shex-orm";
@@ -21,7 +27,7 @@ export class OrmConnection<T extends BaseType> {
 
     readonly shapeType: ShapeType<T>;
     readonly scope: Scope;
-    readonly signalObject: DeepSignalObject<Set<T>>;
+    readonly signalObject: DeepSignalSet<T>;
     private refCount: number;
     /*** Identifier as a combination of shape type and scope. Prevents duplications. */
     private identifier: string;
@@ -50,8 +56,8 @@ export class OrmConnection<T extends BaseType> {
         this.suspendDeepWatcher = false;
         this.identifier = `${shapeType.shape}::${canonicalScope(scope)}`;
         this.signalObject = deepSignal<Set<T>>(new Set(), {
-            addIdToObjects: true,
-            idGenerator: this.generateSubjectIri,
+            propGenerator: this.signalObjectPropGenerator,
+            readOnlyProps: ["@id", "@graph"],
         });
 
         // Schedule cleanup of the connection when the signal object is GC'd.
@@ -62,7 +68,7 @@ export class OrmConnection<T extends BaseType> {
         );
 
         // Add listener to deep signal object to report changes back to wasm land.
-        watchDeepSignal<Set<T>>(this.signalObject, this.onSignalObjectUpdate);
+        watchDeepSignal(this.signalObject, this.onSignalObjectUpdate);
 
         // Initialize per-entry readiness promise that resolves in setUpConnection
         this.readyPromise = new Promise<void>((resolve) => {
@@ -75,7 +81,7 @@ export class OrmConnection<T extends BaseType> {
                 await new Promise((resolve) => setTimeout(resolve, 4_000));
                 ng.orm_start(
                     (scope.length == 0
-                        ? "did:ng:" + session.private_store_id
+                        ? "did:ng:i" // + session.private_store_id
                         : scope) as string,
                     shapeType,
                     session.session_id,
@@ -126,16 +132,16 @@ export class OrmConnection<T extends BaseType> {
         }
     };
 
-    private onSignalObjectUpdate = ({ patches }: WatchPatchEvent<Set<T>>) => {
+    private onSignalObjectUpdate = ({ patches }: WatchPatchEvent) => {
         if (this.suspendDeepWatcher || !this.ready || !patches.length) return;
         console.debug("[onSignalObjectUpdate] got changes:", patches);
 
-        const ormPatches = deepPatchesToDiff(patches);
+        const ormPatches = deepPatchesToWasm(patches);
 
         ngSession.then(({ ng, session }) => {
             ng.orm_update(
                 (this.scope.length == 0
-                    ? "did:ng:" + session.private_store_id
+                    ? "did:ng:i" // + session.private_store_id
                     : this.scope) as string,
                 this.shapeType.shape,
                 ormPatches,
@@ -190,7 +196,7 @@ export class OrmConnection<T extends BaseType> {
         );
 
         this.suspendDeepWatcher = true;
-        applyDiffToDeepSignal(this.signalObject, patches);
+        applyPatchesToDeepSignal(this.signalObject, patches);
         // Use queueMicrotask to ensure watcher is re-enabled _after_ batch completes
         queueMicrotask(() => {
             this.suspendDeepWatcher = false;
@@ -198,43 +204,70 @@ export class OrmConnection<T extends BaseType> {
     };
 
     /** Function to create random subject IRIs for newly created nested objects. */
-    private generateSubjectIri = (path: (string | number)[]): string => {
-        console.debug("Generating new random id for path", path);
-        // Generate 33 random bytes using Web Crypto API
-        const b = new Uint8Array(33);
-        crypto.getRandomValues(b);
-        // Convert to base64url
-        const base64url = (bytes: Uint8Array) =>
-            btoa(String.fromCharCode(...bytes))
-                .replace(/\+/g, "-")
-                .replace(/\//g, "_")
-                .replace(/=+$/, "");
-        const randomString = base64url(b);
+    private signalObjectPropGenerator: DeepSignalPropGenFn = ({
+        path,
+        object,
+    }) => {
+        let graphIri: string | undefined = undefined;
+        let subjectIri: string | undefined = undefined;
 
-        if (path.length > 0 && path[0].toString().startsWith("did:ng:o:")) {
-            // If the root is a nuri, use that as a base IRI.
-            let rootNuri = path[0] as string;
-
-            return rootNuri.substring(0, 9 + 44) + ":q:" + randomString;
+        // If no @graph is set, add the parent's graph IRI. If there is no parent, throw.
+        if (!object["@graph"] || object["@graph"] === "") {
+            if (path.length > 1) {
+                // The first part of the path is the <graphIri>|<subjectIri> composition.
+                graphIri = (path[0] as string).split("|")[0];
+            } else {
+                throw new Error(
+                    "When adding new root orm objects, you must specify the @graph"
+                );
+            }
         } else {
-            // Else, just generate a random IRI.
-            return "did:ng:q:" + randomString;
+            graphIri = object["@graph"];
         }
+
+        if (object["@id"] && object["@id"] !== "") {
+            subjectIri = object["@id"];
+        } else {
+            console.debug(
+                "Generating new random id for path",
+                path,
+                "object:",
+                object
+            );
+
+            // Generate 33 random bytes using Web Crypto API
+            const b = new Uint8Array(33);
+            crypto.getRandomValues(b);
+
+            // Convert to base64url
+            const base64url = (bytes: Uint8Array) =>
+                btoa(String.fromCharCode(...bytes))
+                    .replace(/\+/g, "-")
+                    .replace(/\//g, "_")
+                    .replace(/=+$/, "");
+            const randomString = base64url(b);
+
+            // We use the root subject's graph as the basis.
+            // TODO: We could use the closest parent's graph instead.
+            subjectIri =
+                (path[0] as string).substring(0, 9 + 44) + ":q:" + randomString;
+        }
+
+        return {
+            extraProps: { "@id": subjectIri, "@graph": graphIri },
+            syntheticId: subjectIri + "|" + graphIri,
+        };
     };
 }
 
-//
-//
-
-function escapePathSegment(segment: string): string {
-    return segment.replace("~", "~0").replace("/", "~1");
-}
-
-export function deepPatchesToDiff(patches: DeepPatch[]): Patches {
+/**
+ * Converts DeepSignal patches to ORM Wasm-compatible patches
+ * @param patches DeepSignal patches
+ * @returns Patches with stringified path
+ */
+export function deepPatchesToWasm(patches: DeepPatch[]): Patches {
     return patches.map((patch) => {
-        const path =
-            "/" +
-            patch.path.map((el) => escapePathSegment(el.toString())).join("/");
+        const path = "/" + patch.path.join("/");
         return { ...patch, path };
     }) as Patches;
 }
@@ -251,12 +284,10 @@ const parseOrmInitialObject = (obj: any): any => {
             }
         } else {
             // Object does not have @id, that means it's a set of objects.
-            return new Set(Object.values(obj));
+            return new Set(Object.values(obj).map(parseOrmInitialObject));
         }
-        return obj;
-    } else {
-        return obj;
     }
+    return obj;
 };
 
 function canonicalScope(scope: Scope | undefined): string {
