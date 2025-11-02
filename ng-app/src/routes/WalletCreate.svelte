@@ -108,7 +108,7 @@
         (param.get("rs") || param.get("i")) &&
         !tauri_platform &&
         !param.get("ab") &&
-        !import.meta.env.NG_NO_REDIRECT
+        !import.meta.env.NG_ENV_NO_REDIRECT
       ) {
         registration_success = param.get("rs");
 
