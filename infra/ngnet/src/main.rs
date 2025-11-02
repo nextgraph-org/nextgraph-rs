@@ -199,6 +199,11 @@ async fn main() -> anyhow::Result<()> {
         for bsp in BSP_ORIGINS.iter() {
             cors = cors.allow_origin(*bsp);
         }
+        let port = if option_env!("NG_REDIR_SERVER").is_some() {
+            3034
+        } else {
+            3033
+        };
         log::info!("Starting production server on http://localhost:3033");
         warp::serve(
             static_files
@@ -207,7 +212,7 @@ async fn main() -> anyhow::Result<()> {
                 .with(cors)
                 .with(incoming_log),
         )
-        .run(([127, 0, 0, 1], 3033))
+        .run(([127, 0, 0, 1], port))
         .await;
     }
     #[cfg(debug_assertions)]
