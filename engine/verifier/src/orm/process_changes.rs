@@ -37,7 +37,7 @@ impl Verifier {
         &mut self,
         quads_added: &[Quad],
         quads_removed: &[Quad],
-        nuri: &NuriV0,
+        nuri: &String,
         only_for_session_id: Option<u64>,
         data_already_fetched: bool,
     ) -> Result<OrmChanges, NgError> {
@@ -45,7 +45,7 @@ impl Verifier {
         // If we have a specific session, handle only that subscription.
         if let Some(session_id) = only_for_session_id {
             return self.process_changes_for_nuri_and_session(
-                &nuri.clone(),
+                &nuri,
                 session_id,
                 quads_added,
                 quads_removed,
@@ -58,7 +58,7 @@ impl Verifier {
 
         let session_ids: Vec<_> = self
             .orm_subscriptions
-            .get(&nuri_to_string(nuri))
+            .get(nuri)
             .unwrap()
             .iter()
             .map(|s| s.session_id.clone())
@@ -466,7 +466,7 @@ impl Verifier {
     /// Nested objects are added to the stack
     pub(crate) fn process_changes_for_shape_and_session(
         &mut self,
-        nuri: &NuriV0,
+        nuri: &String,
         root_shape_iri: &String,
         shapes: Vec<Arc<OrmSchemaShape>>,
         session_id: u64,
@@ -561,7 +561,7 @@ impl Verifier {
 
                 let orm_subscription = self
                     .orm_subscriptions
-                    .get_mut(&nuri_to_string(nuri))
+                    .get_mut(nuri)
                     .unwrap()
                     .iter_mut()
                     .find(|sub| {
@@ -843,8 +843,8 @@ impl Verifier {
                                     Some(objects_to_fetch),
                                     None,
                                 )?;
-                                let new_quads = self
-                                    .query_sparql_select(shape_query, Some(nuri_to_string(nuri)))?;
+                                let new_quads =
+                                    self.query_sparql_select(shape_query, Some(nuri.clone()))?;
 
                                 log_info!(
                                 "[process_changes_for_shape_and_session] Fetched {} quads, recursively processing nested objects",
@@ -936,7 +936,7 @@ impl Verifier {
     /// Helper to call process_changes_for_shape for all subscriptions on nuri's document.
     pub(crate) fn process_changes_for_nuri_and_session(
         self: &mut Self,
-        nuri: &NuriV0,
+        nuri: &String,
         session_id: u64,
         quads_added: &[Quad],
         quads_removed: &[Quad],
@@ -946,7 +946,7 @@ impl Verifier {
 
         let shapes: Vec<_> = self
             .orm_subscriptions
-            .get(&nuri_to_string(nuri))
+            .get(nuri)
             .unwrap()
             .iter()
             .map(|sub| {
@@ -978,11 +978,11 @@ impl Verifier {
 
     pub fn get_first_orm_subscription_for(
         &self,
-        nuri: &NuriV0,
+        nuri: &String,
         shape: Option<&ShapeIri>,
         session_id: Option<&u64>,
     ) -> &OrmSubscription {
-        self.orm_subscriptions.get(&nuri_to_string(nuri)).unwrap().
+        self.orm_subscriptions.get(nuri).unwrap().
         // Filter shapes, if present.
         iter().filter(|s| match shape {
             Some(sh) => *sh == s.shape_type.shape,
@@ -996,14 +996,11 @@ impl Verifier {
 
     pub fn get_first_orm_subscription_sender_for(
         &mut self,
-        nuri: &NuriV0,
+        nuri: &String,
         shape: Option<&ShapeIri>,
         session_id: Option<&u64>,
     ) -> Result<(UnboundedSender<AppResponse>, &OrmSubscription), VerifierError> {
-        let subs = self
-            .orm_subscriptions
-            .get_mut(&nuri_to_string(nuri))
-            .unwrap();
+        let subs = self.orm_subscriptions.get_mut(nuri).unwrap();
         subs.retain(|sub| !sub.sender.is_closed());
         match subs // Filter shapes, if present.
             .iter()
@@ -1027,7 +1024,7 @@ impl Verifier {
     /// Returns a vector of (shape, [(graph, subject)]) pairs to process.
     fn init_validation_stack(
         &self,
-        nuri: &NuriV0,
+        nuri: &String,
         root_shape_iri: &String,
         session_id: u64,
         modified_gs: &HashSet<(String, String)>,

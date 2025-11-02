@@ -11,7 +11,7 @@ use ng_net::orm::{OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaPredicate, OrmSch
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::VerifierError;
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::u64;
 
 use ng_net::app_protocol::*;
@@ -19,7 +19,9 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_repo::log::*;
 
 use crate::orm::types::*;
-use crate::orm::utils::{assess_and_rank_children, decode_json_pointer, json_to_sparql_val};
+use crate::orm::utils::{
+    assess_and_rank_children, decode_json_pointer, json_to_sparql_val, nuri_to_string,
+};
 use crate::types::GraphQuadsPatch;
 use crate::verifier::*;
 
@@ -27,14 +29,14 @@ impl Verifier {
     ///
     pub(crate) async fn orm_update_self(
         &mut self,
-        scope: &NuriV0,
+        scope: &String,
         shape_iri: ShapeIri,
         session_id: u64,
         _skolemnized_blank_nodes: Vec<Quad>,
         revert_inserts: Vec<Quad>,
         revert_removes: Vec<Quad>,
     ) -> Result<(), VerifierError> {
-        let (mut sender, _orm_subscription) =
+        let (sender, _orm_subscription) =
             self.get_first_orm_subscription_sender_for(scope, Some(&shape_iri), Some(&session_id))?;
 
         log_debug!("[orm_update_self] got subscription");
@@ -69,9 +71,10 @@ impl Verifier {
             patches
         );
 
+        let nuri_str = nuri_to_string(scope);
         let (doc_nuri, sparql_update) = {
             let orm_subscription =
-                self.get_first_orm_subscription_for(scope, Some(&shape_iri), Some(&session_id));
+                self.get_first_orm_subscription_for(&nuri_str, Some(&shape_iri), Some(&session_id));
             let doc_nuri = orm_subscription.nuri.clone();
 
             log_debug!("[orm_frontend_update] got subscription");
@@ -87,7 +90,7 @@ impl Verifier {
 
         match self
             .process_sparql_update(
-                &doc_nuri,
+                &NuriV0::new_from(&doc_nuri).unwrap(),
                 &sparql_update,
                 &None,
                 self.get_peer_id_for_skolem(),
@@ -111,7 +114,7 @@ impl Verifier {
                     || !skolemnized_blank_nodes.is_empty()
                 {
                     self.orm_update_self(
-                        scope,
+                        &nuri_str,
                         shape_iri,
                         session_id,
                         skolemnized_blank_nodes,

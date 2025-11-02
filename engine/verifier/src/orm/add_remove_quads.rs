@@ -343,7 +343,7 @@ mod tests {
     fn mk_subscription() -> OrmSubscription {
         let shape_type = mk_schema();
         let (tx, _rx) = unbounded();
-        OrmSubscription::new(shape_type, 1, NuriV0::new_empty(), tx)
+        OrmSubscription::new(shape_type, 1, "did:ng:i".to_string(), tx)
     }
 
     #[test]

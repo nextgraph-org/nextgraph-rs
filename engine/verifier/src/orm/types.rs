@@ -9,7 +9,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use ng_net::app_protocol::{AppResponse, NuriV0};
+use ng_net::app_protocol::AppResponse;
 use ng_net::{orm::*, utils::Sender};
 use std::sync::RwLock;
 
@@ -88,7 +88,7 @@ pub enum Term {
 pub struct OrmSubscription {
     pub shape_type: OrmShapeType,
     pub session_id: u64,
-    pub nuri: NuriV0,
+    pub nuri: String,
     pub sender: Sender<AppResponse>,
     // Keep private: always use the helper methods below to access/modify
     tracked_orm_objects:
@@ -119,7 +119,7 @@ impl OrmSubscription {
     pub fn new(
         shape_type: OrmShapeType,
         session_id: u64,
-        nuri: NuriV0,
+        nuri: String,
         sender: Sender<AppResponse>,
     ) -> Self {
         Self {

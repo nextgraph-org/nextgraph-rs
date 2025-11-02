@@ -47,8 +47,12 @@ impl Verifier {
         // All referenced shapes must be available.
 
         // Create new subscription and add to self.orm_subscriptions
-        let orm_subscription =
-            OrmSubscription::new(shape_type.clone(), session_id, nuri.clone(), tx.clone());
+        let orm_subscription = OrmSubscription::new(
+            shape_type.clone(),
+            session_id,
+            nuri_to_string(nuri),
+            tx.clone(),
+        );
 
         self.orm_subscriptions
             .entry(nuri_to_string(nuri))
@@ -77,19 +81,23 @@ impl Verifier {
         session_id: u64,
         shape_type: &OrmShapeType,
     ) -> Result<Value, NgError> {
+        let nuri_str = nuri_to_string(nuri);
         // Query triples for this shape
         let shape_quads = self.query_quads_for_shape_type(
-            Some(nuri_to_string(nuri)),
+            Some(nuri_str.clone()),
             &shape_type.schema,
             &shape_type.shape,
             None,
         )?;
 
         let changes: OrmChanges =
-            self.apply_quads_changes(&shape_quads, &[], nuri, Some(session_id.clone()), true)?;
+            self.apply_quads_changes(&shape_quads, &[], &nuri_str, Some(session_id.clone()), true)?;
 
-        let orm_subscription =
-            self.get_first_orm_subscription_for(nuri, Some(&shape_type.shape), Some(&session_id));
+        let orm_subscription = self.get_first_orm_subscription_for(
+            &nuri_str,
+            Some(&shape_type.shape),
+            Some(&session_id),
+        );
 
         let schema: &HashMap<String, Arc<OrmSchemaShape>> = &orm_subscription.shape_type.schema;
         let root_shape = schema.get(&shape_type.shape).unwrap();
