@@ -2789,6 +2789,16 @@ pub async fn doc_sparql_construct(
     session.verifier.query_sparql_construct(sparql, nuri)
 }
 
+pub async fn doc_sparql_select(
+    session_id: u64,
+    sparql: String,
+    nuri: Option<String>,
+) -> Result<Vec<Quad>, NgError> {
+    let broker = get_broker().await?;
+    let session = broker.get_session(session_id)?;
+    session.verifier.query_sparql_select(sparql, nuri)
+}
+
 /// Runs the shape-type-based quad query using the verifier helper, returning triples.
 pub async fn doc_query_quads_for_shape_type(
     session_id: u64,

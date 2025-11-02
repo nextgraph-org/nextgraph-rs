@@ -181,10 +181,14 @@ fn create_sparql_update_query_for_patches(
         .filter(|patch| patch.op == OrmPatchOp::remove)
         .collect();
 
+    // Ignore metadata patches that only stage identity/location for single-nested children.
+    // Those are consumed via the pre_resolved_children map above and must not produce SPARQL.
     let add_primitive_patches: Vec<_> = patches
         .iter()
         .filter(|patch| {
             patch.op == OrmPatchOp::add
+                && !patch.path.ends_with("/@id")
+                && !patch.path.ends_with("/@graph")
                 && match &patch.valType {
                     Some(vt) => *vt != OrmPatchType::object,
                     _ => true,
@@ -194,6 +198,56 @@ fn create_sparql_update_query_for_patches(
 
     // For each diff op, we create a separate INSERT or DELETE block.
     let mut sparql_sub_queries: Vec<String> = vec![];
+
+    // If a single-nested child was staged via @id/@graph, ensure the parent link triple exists.
+    // We do this once per base path present in pre_resolved_children, before processing field patches.
+    for (base_path, (child_subject, child_graph)) in pre_resolved_children.iter() {
+        if child_subject.is_empty() || child_graph.is_empty() {
+            continue; // need both to link
+        }
+        // Build a synthetic patch targeting the base path to resolve subject/predicate in the current schema
+        let synthetic = OrmPatch {
+            op: OrmPatchOp::add,
+            path: base_path.clone(),
+            valType: None,
+            value: None,
+        };
+        let mut var_counter: i32 = 0;
+        let (where_statements, target, pred_schema_opt) = create_where_statements_for_patch(
+            &synthetic,
+            &mut var_counter,
+            &orm_subscription,
+            Some(&pre_resolved_children),
+        );
+        let (graph_iri, subject_var, target_predicate, _target_object) = target;
+        // Only handle object predicates (single-valued) here; multi-valued should use composite key paths, not @id/@graph
+        if let Some(pred_schema) = pred_schema_opt {
+            if !pred_schema.is_object() || pred_schema.is_multi() {
+                continue;
+            }
+        }
+        // Delete any existing link values, then insert the concrete child IRI
+        let delete_stmt = format!(
+            "GRAPH <{}> {{  {} {} ?o{} }}",
+            graph_iri, subject_var, target_predicate, var_counter
+        );
+        let mut wheres = where_statements.clone();
+        wheres.push(delete_stmt.clone());
+        sparql_sub_queries.push(format!(
+            "DELETE {{\n{}\n}} WHERE {{\n  {}\n}}",
+            delete_stmt,
+            wheres.join(" .\n  ")
+        ));
+        let insert_stmt = format!(
+            "  {} {} <{}> .",
+            subject_var, target_predicate, child_subject
+        );
+        sparql_sub_queries.push(format!(
+            "INSERT {{\n{}\n}} WHERE {{\n  {}\n}}",
+            insert_stmt,
+            where_statements.join(". \n  ")
+        ));
+    }
 
     // Create delete statements.
     //
