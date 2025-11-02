@@ -611,6 +611,21 @@ impl NuriV0 {
     }
 
     pub fn new_from(from: &String) -> Result<Self, NgError> {
+        if from.eq("did:ng:i") {
+            return Ok(Self {
+                identity: None,
+                target: NuriTargetV0::UserSite,
+                entire_store: false,
+                objects: vec![],
+                signature: None,
+                branch: None,
+                overlay: None,
+                access: vec![],
+                topic: None,
+                locator: None,
+            });
+        }
+
         let c = RE_REPO_O.captures(from);
 
         if c.is_some() && c.as_ref().unwrap().get(1).is_some() {
