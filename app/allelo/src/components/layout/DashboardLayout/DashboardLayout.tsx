@@ -183,15 +183,16 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
         inset: 0,
         backgroundColor: 'background.default',
         position: "fixed",
+        pt: {xs: 'var(--safe-area-inset-top)'},
         pr: {md:2, xs: 0},
-        pb: {md:3, xs: 0}
+        pb: {md:3, xs: 'var(--safe-area-inset-bottom)'}
       }}>
 
         {/* Logo Header Bar */}
         <Box
           sx={{
             gridArea: "header",
-            display: 'flex',
+            display: isMobile ? 'none' : 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             py: isMobile ? 0 : 2,

@@ -1,19 +1,22 @@
 import {Box, Collapse} from '@mui/material';
 import {PropertyWithSources} from "@/components/contacts/PropertyWithSources";
 import type {Contact} from "@/types/contact.ts";
+import {NextGraphResource} from "@ldo/connected-nextgraph";
 
 interface AddressDetailsProps {
   showAddressDetails: boolean;
   contact?: Contact;
   isEditing: boolean;
-  currentItem: Record<string, string>
+  currentItem: Record<string, string>;
+  resource: NextGraphResource;
 }
 
 export const AddressDetails = ({
                                  showAddressDetails,
                                  contact,
                                  isEditing,
-                                 currentItem
+                                 currentItem,
+                                 resource
                                }: AddressDetailsProps) => {
   return (
     <Collapse in={showAddressDetails}>
@@ -29,6 +32,7 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
+          resource={resource}
         />
         <PropertyWithSources
           // @ts-expect-error this is expected
@@ -41,6 +45,7 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
+          resource={resource}
         />
         <PropertyWithSources
           // @ts-expect-error this is expected
@@ -53,6 +58,7 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
+          resource={resource}
         />
         <PropertyWithSources
           // @ts-expect-error this is expected
@@ -65,6 +71,7 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
+          resource={resource}
         />
         <PropertyWithSources
           // @ts-expect-error this is expected
@@ -77,6 +84,7 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
+          resource={resource}
         />
         <PropertyWithSources
           // @ts-expect-error this is expected
@@ -89,6 +97,7 @@ export const AddressDetails = ({
           currentItem={currentItem}
           hideSources={true}
           isMultipleField={true}
+          resource={resource}
         />
       </Box>
     </Collapse>

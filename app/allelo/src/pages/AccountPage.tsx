@@ -4,13 +4,12 @@ import {isNextGraphEnabled} from '@/utils/featureFlags.ts';
 import {
   Typography,
   Box,
-  Button,
 } from '@mui/material';
 import {
   UilUser,
   UilShield,
   UilSetting,
-  UilSignout, UilSearch, UilBell, UilFileAlt, UilRss,
+  UilSearch, UilBell, UilFileAlt, UilRss,
 } from '@iconscout/react-unicons';
 import type {PersonhoodCredentials} from '@/types/personhood';
 import {NextGraphAuth} from "@/types/nextgraph";
@@ -19,16 +18,15 @@ import {useContactData} from "@/hooks/contacts/useContactData.ts";
 import {NotificationsPage} from "@/components/notifications/NotificationsPage";
 import {AccountSettings} from "@/components/account/AccountPage/AccountSettings";
 import {TabItem, TabManager} from "@/components/ui/TabManager/TabManager.tsx";
-import { AccountPageProps, ProfileSection } from '@/components/account/AccountPage';
-import { MyStream } from '@/components/account/AccountPage/MyStream';
-import { MyDocs } from '@/components/account/AccountPage/MyDocs';
-import { SocialQueries } from '@/components/account/AccountPage/SocialQueries';
+import {AccountPageProps, ProfileSection} from '@/components/account/AccountPage';
+import {MyStream} from '@/components/account/AccountPage/MyStream';
+import {MyDocs} from '@/components/account/AccountPage/MyDocs';
+import {SocialQueries} from '@/components/account/AccountPage/SocialQueries';
 import RCardList from "@/components/rcards/RCardList/RCardList.tsx";
 
 export const AccountPageContent = ({
                                      profileData,
-                                     handleLogout: externalHandleLogout,
-                                     isNextGraph
+                                     resource
                                    }: AccountPageProps) => {
 
   const [personhoodCredentials] = useState<PersonhoodCredentials>(mockPersonhoodCredentials);
@@ -40,10 +38,14 @@ export const AccountPageContent = ({
       {label: "My Docs", icon: <UilFileAlt size="20"/>, content: <MyDocs/>},
       {label: "Queries", icon: <UilSearch size="20"/>, content: <SocialQueries/>},
       {label: "My Cards", icon: <UilShield size="20"/>, content: <RCardList/>},
-      {label: "Profile", icon: <UilUser size="20"/>, content: <ProfileSection initialProfileData={profileData}/>},
-      {label: "Settings", icon: <UilSetting size="20"/>, content: <AccountSettings personhoodCredentials={personhoodCredentials}/>},
+      {label: "Profile", icon: <UilUser size="20"/>, content: <ProfileSection initialProfileData={profileData} resource={resource}/>},
+      {
+        label: "Settings",
+        icon: <UilSetting size="20"/>,
+        content: <AccountSettings personhoodCredentials={personhoodCredentials}/>
+      },
     ],
-    [profileData, personhoodCredentials]
+    [profileData, resource, personhoodCredentials]
   );
 
   return (
@@ -106,7 +108,7 @@ export const AccountPageContent = ({
 
 const NextGraphAccountPage = () => {
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
-  const {contact} = useContactData(null, true);
+  const {contact, resource} = useContactData(null, true);
 
   const handleLogout = async () => {
     try {
@@ -118,12 +120,12 @@ const NextGraphAccountPage = () => {
     }
   };
 
-  return <AccountPageContent profileData={contact} handleLogout={handleLogout} isNextGraph={true}/>;
+  return <AccountPageContent profileData={contact} handleLogout={handleLogout} isNextGraph={true} resource={resource}/>;
 };
 
 const MockAccountPage = () => {
-  const {contact} = useContactData("myProfileId");
-  return <AccountPageContent profileData={contact} isNextGraph={false}/>;
+  const {contact, resource} = useContactData("myProfileId");
+  return <AccountPageContent profileData={contact} isNextGraph={false} resource={resource}/>;
 };
 
 

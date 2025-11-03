@@ -30,7 +30,7 @@ import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import {ContactTags} from "@/components/contacts";
 
 export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
-  ({initialProfileData}, ref) => {
+  ({initialProfileData, resource}, ref) => {
     const navigate = useNavigate();
 
     const [isEditing, setIsEditing] = useState(false);
@@ -158,6 +158,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                       label={"Full name"}
                       hideLabel={true}
                       template={defaultTemplates.contactName}
+                      resource={resource}
                     />
                     <IconButton
                       sx={{padding: 0, ml: 1}}
@@ -175,6 +176,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                         isEditing={isEditing}
                         label={"First name"}
                         hideSources={true}
+                        resource={resource}
                       />
                       <PropertyWithSources
                         propertyKey={"name"}
@@ -184,6 +186,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                         isEditing={isEditing}
                         label={"Middle name"}
                         hideSources={true}
+                        resource={resource}
                       />
                       <PropertyWithSources
                         propertyKey={"name"}
@@ -193,6 +196,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                         isEditing={isEditing}
                         label={"Last name"}
                         hideSources={true}
+                        resource={resource}
                       />
                       <PropertyWithSources
                         propertyKey={"name"}
@@ -202,6 +206,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                         isEditing={isEditing}
                         label={"Honorific prefix"}
                         hideSources={true}
+                        resource={resource}
                       />
                       <PropertyWithSources
                         propertyKey={"name"}
@@ -211,6 +216,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                         isEditing={isEditing}
                         label={"Honorific suffix"}
                         hideSources={true}
+                        resource={resource}
                       />
                     </Box>
                   </Collapse>
@@ -223,10 +229,11 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                     isEditing={isEditing}
                     template={defaultTemplates.headline}
                     templateProperty={"organization"}
+                    resource={resource}
                   />
                 </Box>
                 <Box>
-                  <ContactTags contact={initialProfileData}/>
+                  <ContactTags contact={initialProfileData} resource={resource}/>
                 </Box>
               </Grid>
 
@@ -243,6 +250,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                         contact={initialProfileData}
                         isEditing={isEditing}
                         validateType={"email"}
+                        resource={resource}
                       />
                     </Grid>
                     <Grid size={{xs: 12, sm: 6}}>
@@ -253,6 +261,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                         contact={initialProfileData}
                         isEditing={isEditing}
                         validateType={"phone"}
+                        resource={resource}
                       />
                     </Grid>
                     <Grid size={{xs: 12, sm: 6}}>
@@ -264,6 +273,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                         isEditing={isEditing}
                         validateType={"text"}
                         variant={"addresses"}
+                        resource={resource}
                       />
                     </Grid>
                     <Grid size={{xs: 12, sm: 6}}>
@@ -275,6 +285,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                         isEditing={isEditing}
                         validateType={"url"}
                         variant={"url"}
+                        resource={resource}
                       />
                     </Grid>
                   </Grid>
@@ -288,6 +299,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                       contact={initialProfileData}
                       isEditing={isEditing}
                       isMultiline={true}
+                      resource={resource}
                     />
                   </Box>
 
@@ -300,6 +312,7 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
                       contact={initialProfileData}
                       isEditing={isEditing}
                       validateType={"text"}
+                      resource={resource}
                     />
                   </Box>
 

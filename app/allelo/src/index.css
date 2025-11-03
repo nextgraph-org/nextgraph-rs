@@ -6,6 +6,15 @@
     --mdc-theme-secondary: var(--mui-palette-secondary-main);
     --mdc-theme-on-secondary: var(--mui-palette-secondary-contrastText);
     font-family: var(--mui-typography-fontFamily) !important;
+
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-right: env(safe-area-inset-right, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-left: env(safe-area-inset-left, 0px);
+}
+
+#root {
+    padding: var(--safe-area-inset-top) var(--safe-area-inset-right) var(--safe-area-inset-bottom) var(--safe-area-inset-left);
 }
 
 .mdc-button {
