@@ -20,6 +20,7 @@
   import { onMount } from "svelte";
   let domain = import.meta.env.NG_ACCOUNT_DOMAIN;
   const param = new URLSearchParams($querystring);
+  let web = param.get("web");
   let ca = param.get("ca");
   let go_back = true;
   let wait = false;
@@ -55,19 +56,14 @@
 
   async function close(result) {
     // @ts-ignore
-    if (window.__TAURI__) {
+    if (!web) {
       go_back = false;
       if (result) {
         error = "Closing due to " + (result.error || "an error");
       }
-      let window_api = await import("@tauri-apps/plugin-window");
-      let main = window_api.Window.getByLabel("main");
-      if (main) {
-        wait = true;
-        await main.emit("error", result);
-      } else {
-        await window_api.getCurrent().close();
-      }
+      let event_api = await import("@tauri-apps/api/event");
+      wait = true;
+      await event_api.emitTo("main", "error", result);
     } else {
       if (result && result.url) {
         error = "We are redirecting you...";
@@ -82,20 +78,30 @@
 
   async function success(result) {
     // @ts-ignore
-    if (window.__TAURI__) {
-      let window_api = await import("@tauri-apps/plugin-window");
-      let main = window_api.Window.getByLabel("main");
-      if (main) {
-        await main.emit("accepted", result);
-      } else {
-        await window_api.getCurrent().close();
-      }
+    if (!web) {
+      let event_api = await import("@tauri-apps/api/event");
+      await event_api.emitTo("main", "accepted", result);
     } else {
       window.location.href = result.url;
     }
   }
 
-  async function bootstrap() {}
+  async function bootstrap() {
+    if (!web) {
+      try {
+        let window_api = await import("@tauri-apps/api/window");
+        const unlisten = await window_api
+          .getCurrentWindow()
+          .onCloseRequested(async (event) => {
+            let event_api = await import("@tauri-apps/api/event");
+            await event_api.emitTo("main", "close");
+            //event.preventDefault();
+          });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }
   let error;
 
   onMount(() => bootstrap());

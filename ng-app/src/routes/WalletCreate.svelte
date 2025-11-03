@@ -23,7 +23,11 @@
   import { t } from "svelte-i18n";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import PasswordInput from "../lib/components/PasswordInput.svelte";
-  import { redirect_server, bootstrap_redirect } from "./index";
+  import {
+    redirect_server,
+    bootstrap_redirect,
+    base64UrlEncode,
+  } from "./index";
 
   // @ts-ignore
   import Logo from "../assets/nextgraph.svg?component";
@@ -39,11 +43,6 @@
   import Spinner from "../lib/components/Spinner.svelte";
 
   const param = new URLSearchParams($querystring);
-
-  function base64UrlEncode(str) {
-    const base64 = btoa(str); // Standard Base64 encoding
-    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  }
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
 
@@ -252,7 +251,7 @@
       };
       let ca = await ng.encode_create_account(create);
       wait = $t("pages.wallet_create.redirecting_to_registration_page");
-      window.location.href = bsp_url + "?ca=" + ca;
+      window.location.href = bsp_url + "?web=1&ca=" + ca;
       //window.open(), "_self").focus();
     } else {
       let create = {
@@ -262,7 +261,7 @@
       };
       wait = $t("pages.wallet_create.complete_in_popup");
       let ca = await ng.encode_create_account(create);
-      let unsub_register = await ng.open_window(
+      let temp_unsub_register = await ng.open_window(
         bsp_url + "?ca=" + ca,
         "registration",
         "Registration at a Broker",
@@ -277,15 +276,18 @@
             wait = false;
             console.log("got error with payload", payload);
             if (payload) registration_error = payload.error;
+            else registration_error = "You refused the registration";
             unsub_register = undefined;
           } else if (result == "close") {
             console.log("onCloseRequested");
             wait = false;
             username_pass_ok = false;
+            registration_error = "You cancelled the registration";
             unsub_register = undefined;
           }
         }
       );
+      if (temp_unsub_register) unsub_register = temp_unsub_register;
     }
   };
   const selectONE = async (event) => {

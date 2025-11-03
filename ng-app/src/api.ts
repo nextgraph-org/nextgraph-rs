@@ -107,7 +107,9 @@ const handler = {
                 return Reflect.apply(sdk[path], caller, args)
             }
         } else {
-            let tauri = await import("@tauri-apps/api/tauri");
+            let tauri = await import("@tauri-apps/api/core");
+            let event_api = await import("@tauri-apps/api/event");
+            let window_api = await import("@tauri-apps/api/window");
             try {
             if (path[0] === "client_info") {
                 let from_rust = await tauri.invoke("client_info_rust",{});
@@ -161,9 +163,8 @@ const handler = {
                 return from_rust;
 
             } else if (path[0] === "disconnections_subscribe") {
-                let { getCurrent } = await import("@tauri-apps/plugin-window");
                 let callback = args[0];
-                let unlisten = await getCurrent().listen("disconnections", (event) => {
+                let unlisten = await window_api.getCurrentWindow().listen("disconnections", (event) => {
                     callback(event.payload).then(()=> {})
                 })
                 await tauri.invoke(path[0],{});
@@ -182,11 +183,10 @@ const handler = {
             else if (path[0] === "file_get") {
                 let stream_id = (lastStreamId += 1).toString();
                 //console.log("stream_id",stream_id);
-                let { getCurrent } = await import("@tauri-apps/plugin-window");
                 //let session_id = args[0];
                 let callback = args[3];
 
-                let unlisten = await getCurrent().listen(stream_id, async (event) => {
+                let unlisten = await window_api.getCurrentWindow().listen(stream_id, async (event) => {
                     //console.log(event.payload);
                     if (event.payload.V0.FileBinary) {
                         event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
@@ -219,15 +219,16 @@ const handler = {
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 arg.update = Array.from(new Uint8Array(arg.update));
                 return await tauri.invoke(path[0],arg)
-            } else if (path[0] === "app_request_stream") {
+            } else if (path[0] === "app_request_stream" || path[0] === "doc_subscribe" || path[0] === "orm_start") {
                 let stream_id = (lastStreamId += 1).toString();
                 //console.log("stream_id",stream_id);
-                let { getCurrent } = await import("@tauri-apps/plugin-window");
                 //let session_id = args[0];
-                let request = args[0];
-                let callback = args[1];
+                let request; let callback;
+                if (path[0] === "app_request_stream") { request = args[0]; callback = args[1]; }
+                else if (path[0] === "doc_subscribe") { request = await invoke("doc_fetch_repo_subscribe", {repo_o:args[0]}); request.V0.session_id = args[1]; callback = args[2]; }
+                else if (path[0] === "orm_start") { request = await invoke("new_orm_start", {scope:args[0], shape_type:args[1], session_id:args[2] }); callback = args[3]; }
 
-                let unlisten = await getCurrent().listen(stream_id, async (event) => {
+                let unlisten = await window_api.getCurrentWindow().listen(stream_id, async (event) => {
                     //console.log(event.payload);
                     if (event.payload.V0.FileBinary) {
                         event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
@@ -251,7 +252,7 @@ const handler = {
                     let ret = callback(event.payload);
                     if (ret === true) {
                         await tauri.invoke("cancel_stream", {stream_id});
-                    } else if (ret.then) {
+                    } else if (ret?.then) {
                         ret.then(async (val)=> { 
                             if (val === true) {
                                 await tauri.invoke("cancel_stream", {stream_id});
@@ -274,7 +275,9 @@ const handler = {
             } else if (path[0] === "get_wallets") {
                 let res = await tauri.invoke(path[0],{});
                 if (res) for (let e of Object.entries(res)) {
-                    e[1].wallet.V0.content.security_img = Uint8Array.from(e[1].wallet.V0.content.security_img);
+                    const sec = e[1].wallet.V0.content.security_img;
+                    if (sec)
+                    e[1].wallet.V0.content.security_img = Uint8Array.from(sec);
                 }
                 return res || {};
 
@@ -282,7 +285,7 @@ const handler = {
                 let arg = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el);
                 let res = await tauri.invoke(path[0],arg);
-                if (res) {
+                if (res && res.V0.content.security_img) {
                     res.V0.content.security_img = Uint8Array.from(res.V0.content.security_img);
                 }
                 return res || {};
@@ -297,7 +300,7 @@ const handler = {
             } else if (path[0] === "wallet_create") {
                 let params = args[0];
                 params.result_with_wallet_file = false;
-                params.security_img = Array.from(new Uint8Array(params.security_img));
+                params.security_img = Array.from(new Uint8Array());
                 return await tauri.invoke(path[0],{params})
             } else if (path[0] === "wallet_read_file") {
                 let file = args[0];
@@ -305,7 +308,8 @@ const handler = {
                 return await tauri.invoke(path[0],{file})
             } else if (path[0] === "wallet_import") {
                 let encrypted_wallet = args[0];
-                encrypted_wallet.V0.content.security_img = Array.from(new Uint8Array(encrypted_wallet.V0.content.security_img));
+                if (encrypted_wallet.V0.content.security_img)
+                    encrypted_wallet.V0.content.security_img = Array.from(new Uint8Array(encrypted_wallet.V0.content.security_img));
                 return await tauri.invoke(path[0],{encrypted_wallet, opened_wallet:args[1], in_memory:args[2]})
             } else if (path[0] && path[0].startsWith("get_local_bootstrap")) {
                 return false;

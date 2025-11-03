@@ -114,21 +114,22 @@
           }
         }
       });
-
-      let window_api = await import("@tauri-apps/api/window");
-      let main = await window_api.Window.getByLabel("main");
-      unsub_main_close = await main.onCloseRequested(async (event) => {
-        //console.log("onCloseRequested main");
-        await main.emit("close_all", {});
-        let registration = window_api.Window.getByLabel("registration");
-        if (registration) {
-          await registration.close();
-        }
-        let viewer = window_api.Window.getByLabel("viewer");
-        if (viewer) {
-          await viewer.close();
-        }
-      });
+      if (tauri_platform != "android" && tauri_platform != "ios") {
+        let window_api = await import("@tauri-apps/api/window");
+        let main = await window_api.Window.getByLabel("main");
+        unsub_main_close = await main.onCloseRequested(async (event) => {
+          //console.log("onCloseRequested main");
+          await main.emit("close_all", {});
+          let registration = window_api.Window.getByLabel("registration");
+          if (registration) {
+            await registration.close();
+          }
+          let viewer = window_api.Window.getByLabel("viewer");
+          if (viewer) {
+            await viewer.close();
+          }
+        });
+      }
     } else {
       // ON WEB CLIENTS
       window.addEventListener("storage", async (event) => {

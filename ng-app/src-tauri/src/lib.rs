@@ -336,22 +336,29 @@ async fn open_window(
     label: String,
     title: String,
     app: tauri::AppHandle,
-) -> Result<(), ()> {
+) -> Result<bool, ()> {
     log_debug!("open window url {:?}", url);
     let _already_exists = app.get_window(&label);
     #[cfg(desktop)]
     if _already_exists.is_some() {
-        let _ = _already_exists.unwrap().close();
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        //let _ = _already_exists.unwrap().close();
+        //std::thread::sleep(std::time::Duration::from_secs(1));
+        return Ok(true);
     }
     let mut config = WindowConfig::default();
     config.label = label;
     config.url = tauri::WindowUrl::External(url.parse().unwrap());
     config.title = title;
-    let _register_window = tauri::WindowBuilder::from_config(&app, config)
+    match tauri::WebviewWindowBuilder::from_config(&app, &config)
+        .unwrap()
         .build()
-        .unwrap();
-    Ok(())
+    {
+        Ok(_) => {}
+        Err(e) => {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -634,7 +641,7 @@ async fn sparql_update(
     match res {
         AppResponse::V0(AppResponseV0::Error(e)) => Err(e),
         AppResponse::V0(AppResponseV0::Commits(commits)) => Ok(commits),
-        _ => Err(NgError::InvalidResponse.to_string())
+        _ => Err(NgError::InvalidResponse.to_string()),
     }
 }
 
@@ -791,11 +798,17 @@ async fn doc_create(
     crdt: String,
     class_name: String,
     destination: String,
-    store_repo: Option<StoreRepo>
+    store_repo: Option<StoreRepo>,
 ) -> Result<String, String> {
-    nextgraph::local_broker::doc_create_with_store_repo(session_id, crdt, class_name, destination, store_repo)
-            .await
-            .map_err(|e| e.to_string())
+    nextgraph::local_broker::doc_create_with_store_repo(
+        session_id,
+        crdt,
+        class_name,
+        destination,
+        store_repo,
+    )
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command(rename_all = "snake_case")]

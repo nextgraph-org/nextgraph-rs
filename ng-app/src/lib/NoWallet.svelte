@@ -34,7 +34,7 @@
       {@html $t("pages.no_wallet.description")}
     </p>
     <Alert color="blue" class="max-w-sm mt-3">
-      If you had created a wallet before 25 Oct 2025, it doesn't work anymore.
+      If you had created a wallet before 3 Nov 2025, it doesn't work anymore.
       please create a new wallet. We are still in alpha, and this can happen
       again.
     </Alert>
