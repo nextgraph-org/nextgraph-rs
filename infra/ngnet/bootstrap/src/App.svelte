@@ -36,7 +36,8 @@
   let bsp_list = [
     "https://nextgraph.eu",
     "https://nextgraph.one",
-    "https://stage1.nextgraph.eu"
+    "https://stage1.nextgraph.eu",
+    "https://pnm.allelo.eco"
   ];
 
   if (import.meta.env.NG_ENV_ALT) {

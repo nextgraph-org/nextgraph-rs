@@ -120,8 +120,8 @@ pub(crate) struct Cli {
     pub admin: Option<String>,
 
     /// Admin invitation
-    // #[arg(long, conflicts_with("admin"))]
-    // pub invite_admin: bool,
+    #[arg(long, conflicts_with("admin"))]
+    pub invite_admin: bool,
 
     /// Saves the quick config into a file on disk, that can then be modified for advanced configs
     #[arg(long)]

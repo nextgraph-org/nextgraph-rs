@@ -5,15 +5,18 @@
   "remote": {
     "urls": [
         "https://account.nextgraph.eu",
+        "http://account-dev.nextgraph.eu:3031",
         "http://account-dev.nextgraph.eu:5173",
         "https://account.nextgraph.one",
-        "https://account-staging.nextgraph.eu"
+        "https://account-staging.nextgraph.eu",
+        "https://account.allelo.eco"
     ]
   },
   "permissions": [
     "core:event:default",
     "core:window:default",
     "core:window:allow-close",
-    "core:window:allow-destroy"
+    "core:window:allow-destroy",
+    "core:window:allow-get-all-windows"
   ]
 }
