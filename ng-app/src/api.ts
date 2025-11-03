@@ -8,7 +8,7 @@
 // according to those terms.
 import {createAsyncProxy} from "async-proxy";
 import { writable } from "svelte/store";
-import { Bowser } from "../../ng-sdk-js/js/bowser.js"; 
+import { Bowser } from "./bowser.js"; 
 import {version} from '../package.json';
 
 const mapping = {
