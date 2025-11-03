@@ -90,100 +90,113 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
           display: 'flex',
           alignItems: 'flex-start',
           mb: 3,
-          flexDirection: {xs: 'column', sm: 'row'},
+          flexDirection: 'column',
           textAlign: {xs: 'left', sm: 'left'},
           gap: {xs: 3, sm: '20px'}
         }}>
-          <Box
-            sx={{
-              width: {xs: 100, sm: 120},
-              height: {xs: 100, sm: 120},
-              borderRadius: '50%',
-              backgroundImage: photo?.value ? `url(${photo.value})` : 'none',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center center',
-              backgroundRepeat: 'no-repeat',
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'row',
+            gap: 3
+          }}>
+            <Box
+              sx={{
+                width: {xs: 100, sm: 120},
+                height: {xs: 100, sm: 120},
+                borderRadius: '50%',
+                backgroundImage: photo?.value ? `url(${photo.value})` : 'none',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center center',
+                backgroundRepeat: 'no-repeat',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: photo?.value ? 'transparent' : 'primary.main',
+                color: 'white',
+                fontSize: {xs: '2rem', sm: '3rem'},
+                fontWeight: 'bold',
+                flexShrink: 0
+              }}
+            >
+              {!photo?.value && (name?.value?.charAt(0) || '')}
+            </Box>
+            <Box sx={{
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: photo?.value ? 'transparent' : 'primary.main',
-              color: 'white',
-              fontSize: {xs: '2rem', sm: '3rem'},
-              fontWeight: 'bold',
-              flexShrink: 0
-            }}
-          >
-            {!photo?.value && (name?.value?.charAt(0) || '')}
+              flexDirection: 'column',
+              gap: 1
+            }}>
+              <Box sx={{display: "flex", flexDirection: "row", justifyContent: "start", alignItems: "start"}}>
+                <PropertyWithSources
+                  label={"Contact name"}
+                  contact={contact}
+                  propertyKey="name"
+                  variant="header"
+                  textVariant="h4"
+                  isEditing={isEditing}
+                  placeholder="Contact Name"
+                  validateParent={validateParent}
+                  template={defaultTemplates.contactName}
+                />
+                <IconButton
+                  sx={{padding: 0, ml: 1}}
+                  onClick={() => setShowNameDetails(!showNameDetails)}
+                >{showNameDetails ? <UilAngleUp size="20"/> : <UilAngleDown size="20"/>}
+                </IconButton>
+              </Box>
+
+              <Collapse in={showNameDetails}>
+                <Box sx={{mb: 5, ml: 3}}>
+                  <PropertyWithSources
+                    propertyKey={"name"}
+                    subKey={"firstName"}
+                    textVariant={"body1"}
+                    contact={contact}
+                    isEditing={isEditing}
+                    label={"First name"}
+                    hideSources={true}
+                  />
+                  <PropertyWithSources
+                    propertyKey={"name"}
+                    subKey={"middleName"}
+                    textVariant={"body1"}
+                    contact={contact}
+                    isEditing={isEditing}
+                    label={"Middle name"}
+                    hideSources={true}
+                  />
+                  <PropertyWithSources
+                    propertyKey={"name"}
+                    subKey={"familyName"}
+                    textVariant={"body1"}
+                    contact={contact}
+                    isEditing={isEditing}
+                    label={"Last name"}
+                    hideSources={true}
+                  />
+                  <PropertyWithSources
+                    propertyKey={"name"}
+                    subKey={"honorificPrefix"}
+                    textVariant={"body1"}
+                    contact={contact}
+                    isEditing={isEditing}
+                    label={"Honorific prefix"}
+                    hideSources={true}
+                  />
+                  <PropertyWithSources
+                    propertyKey={"name"}
+                    subKey={"honorificSuffix"}
+                    textVariant={"body1"}
+                    contact={contact}
+                    isEditing={isEditing}
+                    label={"Honorific suffix"}
+                    hideSources={true}
+                  />
+                </Box>
+              </Collapse>
+            </Box>
           </Box>
 
           <Box sx={{flex: 1, minWidth: 0}}>
-            <Box sx={{display: "flex", flexDirection: "row", justifyContent: "start", alignItems: "start"}}>
-              <PropertyWithSources
-                label={"Contact name"}
-                contact={contact}
-                propertyKey="name"
-                variant="header"
-                textVariant="h4"
-                isEditing={isEditing}
-                placeholder="Contact Name"
-                validateParent={validateParent}
-                template={defaultTemplates.contactName}
-              />
-              <IconButton
-                sx={{padding: 0, ml: 1}}
-                onClick={() => setShowNameDetails(!showNameDetails)}
-              >{showNameDetails ? <UilAngleUp size="20" /> : <UilAngleDown size="20"/>}
-              </IconButton>
-            </Box>
-            <Collapse in={showNameDetails}>
-              <Box sx={{mb: 5, ml: 3}}>
-                <PropertyWithSources
-                  propertyKey={"name"}
-                  subKey={"firstName"}
-                  textVariant={"body1"}
-                  contact={contact}
-                  isEditing={isEditing}
-                  label={"First name"}
-                  hideSources={true}
-                />
-                <PropertyWithSources
-                  propertyKey={"name"}
-                  subKey={"middleName"}
-                  textVariant={"body1"}
-                  contact={contact}
-                  isEditing={isEditing}
-                  label={"Middle name"}
-                  hideSources={true}
-                />
-                <PropertyWithSources
-                  propertyKey={"name"}
-                  subKey={"familyName"}
-                  textVariant={"body1"}
-                  contact={contact}
-                  isEditing={isEditing}
-                  label={"Last name"}
-                  hideSources={true}
-                />
-                <PropertyWithSources
-                  propertyKey={"name"}
-                  subKey={"honorificPrefix"}
-                  textVariant={"body1"}
-                  contact={contact}
-                  isEditing={isEditing}
-                  label={"Honorific prefix"}
-                  hideSources={true}
-                />
-                <PropertyWithSources
-                  propertyKey={"name"}
-                  subKey={"honorificSuffix"}
-                  textVariant={"body1"}
-                  contact={contact}
-                  isEditing={isEditing}
-                  label={"Honorific suffix"}
-                  hideSources={true}
-                />
-              </Box>
-            </Collapse>
 
             <PropertyWithSources
               contact={contact}
@@ -198,17 +211,17 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
             />
 
             {showStatus && <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap'}}>
-              <Chip
-                icon={naoStatus.icon}
-                label={naoStatus.label}
-                variant="outlined"
-                sx={{
-                  backgroundColor: naoStatus.bgColor,
-                  borderColor: naoStatus.borderColor,
-                  color: naoStatus.color,
-                  fontWeight: 500
-                }}
-              />
+                <Chip
+                    icon={naoStatus.icon}
+                    label={naoStatus.label}
+                    variant="outlined"
+                    sx={{
+                      backgroundColor: naoStatus.bgColor,
+                      borderColor: naoStatus.borderColor,
+                      color: naoStatus.color,
+                      fontWeight: 500
+                    }}
+                />
 
               {/* Relationship Category Indicator */}
               {contact.relationshipCategory && (() => {
@@ -292,28 +305,28 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               )}
 
               {/* Vouch and Praise buttons */}
-              <Button
-                variant="contained"
-                startIcon={<UilShieldCheck size="20"/>}
-                size="small"
-                color="primary"
-              >
-                Send Vouch
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<UilHeart size="20"/>}
-                size="small"
-                sx={{
-                  backgroundColor: '#f8bbd9',
-                  color: '#d81b60',
-                  '&:hover': {
-                    backgroundColor: '#f48fb1'
-                  }
-                }}
-              >
-                Send Praise
-              </Button>
+                <Button
+                    variant="contained"
+                    startIcon={<UilShieldCheck size="20"/>}
+                    size="small"
+                    color="primary"
+                >
+                    Send Vouch
+                </Button>
+                <Button
+                    variant="contained"
+                    startIcon={<UilHeart size="20"/>}
+                    size="small"
+                    sx={{
+                      backgroundColor: '#f8bbd9',
+                      color: '#d81b60',
+                      '&:hover': {
+                        backgroundColor: '#f48fb1'
+                      }
+                    }}
+                >
+                    Send Praise
+                </Button>
             </Box>}
 
           </Box>
