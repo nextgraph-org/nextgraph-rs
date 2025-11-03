@@ -46,7 +46,9 @@ describe("deepSignal options", () => {
 
         it("uses @id property from objects added to Sets", async () => {
             const options: DeepSignalOptions = {
-                propGenerator: () => ({ syntheticId: "fallback-id" }),
+                propGenerator: ({ object }) => ({
+                    syntheticId: object["@id"] || "fallback-id",
+                }),
                 syntheticIdPropertyName: "@id",
             };
 
