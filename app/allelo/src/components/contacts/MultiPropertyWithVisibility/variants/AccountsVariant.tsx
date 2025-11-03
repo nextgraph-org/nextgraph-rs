@@ -11,9 +11,10 @@ import {AccountRegistry} from "@/utils/accountRegistry";
 import React, {useCallback, useState} from 'react';
 import type {Contact} from "@/types/contact";
 import {ContactKeysWithHidden, setUpdatedTime} from "@/utils/socialContact/contactUtils.ts";
-import {dataset, useLdo} from "@/lib/nextgraph";
+import {useLdo} from "@/lib/nextgraph";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {MultiPropertyItem} from "@/components/contacts/MultiPropertyWithVisibility/MultiPropertyItem.tsx";
+import {NextGraphResource} from "@ldo/connected-nextgraph";
 
 
 type ResolvableKey = ContactKeysWithHidden;
@@ -35,6 +36,7 @@ interface AccountsVariantProps<K extends ResolvableKey> {
   setIsAddingNew: (adding: boolean) => void;
   setNewItemValue: (value: string) => void;
   contact?: Contact;
+  resource: NextGraphResource;
 }
 
 export const AccountsVariant = <K extends ResolvableKey>({
@@ -53,7 +55,8 @@ export const AccountsVariant = <K extends ResolvableKey>({
                                                            onNewItemValueChange,
                                                            setIsAddingNew,
                                                            setNewItemValue,
-                                                           contact
+                                                           contact,
+                                                           resource
                                                          }: AccountsVariantProps<K>) => {
   const [newItemProtocol, setNewItemProtocol] = useState('linkedin');
   const availableAccountTypes = AccountRegistry.getAllAccountTypes();
@@ -101,8 +104,8 @@ export const AccountsVariant = <K extends ResolvableKey>({
     };
 
     if (isNextgraph) {
-      const resource = dataset.getResource(contact["@id"]!);
-      if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      // @ts-expect-error this is expected
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
         const changedContactObj = changeData(contact, resource);
         updateProtocolWithUserSource(changedContactObj);
         commitData(changedContactObj);
@@ -111,7 +114,7 @@ export const AccountsVariant = <K extends ResolvableKey>({
       updateProtocolWithUserSource(contact);
       setUpdateTrigger(prev => prev + 1);
     }
-  }, [changeData, commitData, contact, isNextgraph, propertyKey, subKey, setUpdateTrigger]);
+  }, [changeData, commitData, contact, isNextgraph, propertyKey, subKey, setUpdateTrigger, resource]);
 
   const renderEditingItem = (item: any, index: number) => {
     const itemId = item['@id'] || `${propertyKey}_${index}`;

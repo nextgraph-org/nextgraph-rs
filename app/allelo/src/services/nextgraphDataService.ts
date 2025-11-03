@@ -205,6 +205,8 @@ WHERE {
   }
 
   async isProfileCreated(session: NextGraphSession, base?: string, nuri?: string) {
+    base ??= "did:ng:" + session.protectedStoreId?.substring(0, 46);
+    nuri ??="did:ng:" + session.protectedStoreId;
     const sparql = `
       PREFIX ngc: <did:ng:x:contact:class#>
       ASK { <> a ngc:Me . }`;
@@ -249,7 +251,7 @@ WHERE {
 
     const contactName = resolveFrom(contact, "name")?.value || 'Unknown Contact';
     await session!.ng!.update_header(session.sessionId, resource.uri.substring(0, 53), contactName);
-    return contactObj["@id"];
+    return resource.uri;
   }
 
   async updateProfile(
@@ -264,26 +266,31 @@ WHERE {
 
     const protectedStoreId = "did:ng:" + session.protectedStoreId;
     const resource = dataset.getResource(protectedStoreId, "nextgraph");
+    // @ts-expect-error this is expected
     if (resource.isError || resource.type === "InvalidIdentifierResouce") {
       throw new Error(`Failed to get resource ${protectedStoreId}`);
     }
     const base = "did:ng:" + session.protectedStoreId?.substring(0, 46);
     const isProfileCreated = await nextgraphDataService.isProfileCreated(session, base, protectedStoreId);
     if (!isProfileCreated) {
-      const sparql = `
+     await this.createProfile(session, protectedStoreId);
+    }
+    const subject = dataset.usingType(SocialContactShapeType).fromSubject(base);
+    await this.persistSocialContact(session, contact, commitData, changeData, resource, subject);
+  }
+
+  async createProfile(session: NextGraphSession, protectedStoreId?: string) {
+    protectedStoreId ??= "did:ng:" + session.protectedStoreId;
+    const sparql = `
         PREFIX ngc: <did:ng:x:contact:class#>
         PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
         INSERT DATA {
             <> a vcard:Individual . 
             <> a ngc:Me . }`;
-      const res = await session.ng!.sparql_update(session.sessionId, sparql, protectedStoreId);
-      if (resource.isError || !Array.isArray(res)) {
-        throw new Error(`Failed to create profile on ${protectedStoreId}`);
-      }
+    const res = await session.ng!.sparql_update(session.sessionId, sparql, protectedStoreId);
+    if (!Array.isArray(res)) {
+      throw new Error(`Failed to create profile on ${protectedStoreId}`);
     }
-
-    const subject = dataset.usingType(SocialContactShapeType).fromSubject(base);
-    await this.persistSocialContact(session, contact, commitData, changeData, resource, subject);
   }
 
   private async persistProperty<K extends keyof SocialContact>(

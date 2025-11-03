@@ -29,7 +29,7 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
      inManageMode
    }, ref) => {
     const theme = useTheme();
-    const {contact} = useContactData(nuri);
+    const {contact, resource} = useContactData(nuri);
     const draggedContactIds = useMemo(
       () => (getDragContactIds ? getDragContactIds(nuri) : [nuri]),
       [getDragContactIds, nuri]
@@ -69,7 +69,7 @@ export const ContactCard = forwardRef<HTMLDivElement, ContactCardProps>(
       <Card
         ref={handleRef} {...(!isSelectionMode ? listeners : {})} {...(!isSelectionMode ? attributes : {})}
         onClick={() => {
-          onContactClick(contact ? contact['@id']! : '');
+          onContactClick(resource ? resource.uri! : '');
         }}
         sx={{
           border: 1,

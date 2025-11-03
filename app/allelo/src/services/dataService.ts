@@ -268,7 +268,7 @@ export const dataService = {
 
           resolve(allGroups);
         } catch (error) {
-          console.error("Failed to load groups:", error);
+          console.warn("Failed to load groups:", error);
           resolve([]);
         }
       }, 0);
