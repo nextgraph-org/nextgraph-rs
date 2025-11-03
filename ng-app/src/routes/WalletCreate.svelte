@@ -46,7 +46,7 @@
 
   let tauri_platform = import.meta.env.TAURI_PLATFORM;
 
-  let wait: any = false;
+  let wait: any = "Please wait...";
   let registration_error;
   let registration_success;
   let top;
@@ -77,7 +77,7 @@
   };
 
   function scrollToTop() {
-    top.scrollIntoView();
+    if (top) top.scrollIntoView();
   }
 
   async function bootstrap() {
@@ -88,6 +88,7 @@
           sessionStorage.getItem("test");
           localStorage.getItem("test");
         } catch (e) {
+          wait = false;
           registration_error = "NoLocalStorage";
           return;
         }
@@ -95,12 +96,14 @@
           let worker_import = await import("../workertest.js?worker&inline");
           const myWorker = new worker_import.default();
         } catch (e) {
+          wait = false;
           registration_error = "BrowserTooOld";
           return;
         }
       }
 
       if (param.get("re")) {
+        wait = false;
         registration_error = param.get("re");
         console.error("registration_error", registration_error);
       } else if (
@@ -136,6 +139,7 @@
         registration_success = param.get("rs");
         invitation = await ng.decode_invitation(param.get("i"));
         window.location.replace(window.location.href.split("?")[0]);
+        wait = false;
       } else if (param.get("i")) {
         invitation = await ng.get_local_bootstrap_with_public(
           location.href,
@@ -156,6 +160,7 @@
             console.error("invalid invitation. ignoring it");
           }
         } else {
+          wait = false;
           registration_success = window.location.host;
         }
       } else {
@@ -176,6 +181,7 @@
       }
     } else {
       //await do_wallet();
+      wait = false;
     }
   }
 
@@ -229,6 +235,8 @@
 
   const select_bsp = async (bsp_url, bsp_name) => {
     if (!tauri_platform || tauri_platform == "android") {
+      wait = $t("pages.wallet_create.redirecting_to_registration_page");
+      await tick();
       let redirect_url;
       if (tauri_platform) {
         redirect_url = window.location.href;
@@ -302,18 +310,14 @@
 </script>
 
 <CenteredLayout>
-  <div class="max-w-2xl lg:px-8 mx-auto mb-20">
+  <div class="max-w-2xl lg:px-8 mx-auto mb-20" bind:this={top}>
     {#if wait}
       <div class="lg:px-8 text-primary-700">
-        {#if wait === true}
-          {$t("pages.wallet_create.please_wait")}...
-        {:else}
-          {wait}
-        {/if}
+        {wait}
         <Spinner className="mt-10 h-14 w-14 mx-auto" />
       </div>
     {:else}
-      <div class="container3" bind:this={top}>
+      <div class="container3">
         <div class="row">
           <a href="#/">
             <Logo class="logo block h-[8em]" alt={$t("common.logo")} />
