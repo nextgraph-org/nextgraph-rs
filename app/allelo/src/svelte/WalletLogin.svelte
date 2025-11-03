@@ -524,7 +524,6 @@
                 tabindex="-1"
                 style="font-size: 1.25rem!important; height:57px; width: 100%;"
                 class="mui-button-outlined form-button action-button"
-                style="width: 100%; min-height: 50px"
             >
               <Icon class="button-icon">
                 <QrCode tabindex="-1" aria-hidden="true"/>
