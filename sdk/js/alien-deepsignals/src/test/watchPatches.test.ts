@@ -767,5 +767,152 @@ describe("watch (patch mode)", () => {
 
             stop();
         });
+
+        it("calls propGenerator for objects with nested Set structures (Set inside Set)", async () => {
+            const propGeneratorCalls: any[] = [];
+            const st = deepSignal<{ items: Set<any> }>(
+                { items: new Set() },
+                {
+                    syntheticIdPropertyName: "@id",
+                    propGenerator: ({ object, path, inSet }) => {
+                        propGeneratorCalls.push({ object, path, inSet });
+                        return {
+                            syntheticId:
+                                object["@id"] || `fallback-${Math.random()}`,
+                        };
+                    },
+                }
+            );
+
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(st, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            // Create nested objects that will be in the inner Set
+            const innerObj1 = { "@id": "inner1", value: "nested1" };
+            const innerObj2 = { "@id": "inner2", value: "nested2" };
+            const nestedSet = new Set([innerObj1, innerObj2]);
+
+            // Create outer object with nested Set
+            const outerObj = {
+                "@id": "outer-with-nested-set",
+                nestedSet: nestedSet,
+            };
+
+            st.items.add(outerObj);
+            await Promise.resolve();
+
+            // Verify propGenerator was called for the outer object
+            const outerCall = propGeneratorCalls.find(
+                (call) => call.object === outerObj
+            );
+            expect(outerCall).toBeDefined();
+            expect(outerCall.object["@id"]).toBe("outer-with-nested-set");
+
+            // Verify propGenerator was called for inner objects
+            const inner1Call = propGeneratorCalls.find(
+                (call) => call.object === innerObj1
+            );
+            expect(inner1Call).toBeDefined();
+            expect(inner1Call.object["@id"]).toBe("inner1");
+
+            const inner2Call = propGeneratorCalls.find(
+                (call) => call.object === innerObj2
+            );
+            expect(inner2Call).toBeDefined();
+            expect(inner2Call.object["@id"]).toBe("inner2");
+
+            // Verify patches were emitted correctly
+            const patches = batches.flat();
+            const flat = patches.map((p) => p.path.join("."));
+
+            // Should have patch for the outer object
+            expect(
+                flat.some((p) => p.startsWith("items.outer-with-nested-set"))
+            ).toBe(true);
+
+            // Should have patches for the nested Set and its objects
+            expect(flat.some((p) => p.includes("nestedSet"))).toBe(true);
+            expect(flat.some((p) => p.includes("inner1"))).toBe(true);
+            expect(flat.some((p) => p.includes("inner2"))).toBe(true);
+
+            stop();
+        });
+
+        it("calls propGenerator for deeply nested Sets (multiple levels)", async () => {
+            const propGeneratorCalls: any[] = [];
+            const st = deepSignal<Set<any>>(new Set(), {
+                syntheticIdPropertyName: "@id",
+                propGenerator: ({ object, path, inSet }) => {
+                    propGeneratorCalls.push({ object, path, inSet });
+                    return {
+                        syntheticId: object["@id"] + "-withCustomString",
+                    };
+                },
+            });
+
+            const batches: DeepPatch[][] = [];
+            const { stopListening: stop } = watch(st, ({ patches }) =>
+                batches.push(patches)
+            );
+
+            // Create structure matching real use case:
+            // Root Set contains objects with did:ng:o: IDs
+            // Those objects have properties that are Sets of more objects
+            const innerObj = { "@id": "innerId", prop2: "initial value" };
+            const anotherObjectSet = new Set([innerObj]);
+
+            const outerObj = {
+                "@id": "outerId",
+                anotherObject: anotherObjectSet,
+            };
+
+            st.add(outerObj);
+            await Promise.resolve();
+
+            // Verify propGenerator was called for all objects
+            expect(
+                propGeneratorCalls.some((call) => call.object === outerObj)
+            ).toBe(true);
+            expect(
+                propGeneratorCalls.some((call) => call.object === innerObj)
+            ).toBe(true);
+
+            // Clear batches for mutation test
+            batches.length = 0;
+
+            // Get proxied objects through iteration
+            let proxiedOuter: any;
+            for (const obj of st.values()) {
+                proxiedOuter = obj;
+            }
+
+            let proxiedInner: any;
+            for (const obj of proxiedOuter.anotherObject.values()) {
+                proxiedInner = obj;
+            }
+
+            // Modify the deeply nested property
+            proxiedInner.prop2 = "modified value";
+            await Promise.resolve();
+
+            const mutationPatches = batches.flat();
+            const mutationPaths = mutationPatches.map((p) => p.path.join("."));
+
+            // The path should match: ["rootId", "anotherObject", "innerId", "prop2"]
+            const prop2Path = mutationPaths.find((p) => p.endsWith("prop2"));
+            expect(prop2Path).toBeDefined();
+
+            // Verify the path segments
+            const pathSegments = prop2Path?.split(".");
+            expect(pathSegments?.length).toBe(4);
+            expect(pathSegments?.[0]).toBe("outerId-withCustomString");
+            expect(pathSegments?.[1]).toBe("anotherObject");
+            expect(pathSegments?.[2]).toBe("innerId-withCustomString");
+            expect(pathSegments?.[3]).toBe("prop2");
+
+            stop();
+        });
     });
 });

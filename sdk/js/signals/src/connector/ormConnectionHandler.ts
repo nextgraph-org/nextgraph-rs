@@ -57,6 +57,7 @@ export class OrmConnection<T extends BaseType> {
         this.identifier = `${shapeType.shape}::${canonicalScope(scope)}`;
         this.signalObject = deepSignal<Set<T>>(new Set(), {
             propGenerator: this.signalObjectPropGenerator,
+            // Don't set syntheticIdPropertyName - let propGenerator handle all ID logic
             readOnlyProps: ["@id", "@graph"],
         });
 
@@ -81,7 +82,7 @@ export class OrmConnection<T extends BaseType> {
                 await new Promise((resolve) => setTimeout(resolve, 4_000));
                 ng.orm_start(
                     (scope.length == 0
-                        ? "did:ng:i" // + session.private_store_id
+                        ? "" // + session.private_store_id
                         : scope) as string,
                     shapeType,
                     session.session_id,
@@ -141,7 +142,7 @@ export class OrmConnection<T extends BaseType> {
         ngSession.then(({ ng, session }) => {
             ng.orm_update(
                 (this.scope.length == 0
-                    ? "did:ng:i" // + session.private_store_id
+                    ? "" // + session.private_store_id
                     : this.scope) as string,
                 this.shapeType.shape,
                 ormPatches,
@@ -255,7 +256,7 @@ export class OrmConnection<T extends BaseType> {
 
         return {
             extraProps: { "@id": subjectIri, "@graph": graphIri },
-            syntheticId: subjectIri + "|" + graphIri,
+            syntheticId: graphIri + "|" + subjectIri,
         };
     };
 }

@@ -119,8 +119,8 @@ INSERT DATA {
                 onClick={() => {
                     window.ng.sparql_update(
                         window.session.session_id,
-                        `DELETE WHERE { ?s ?p ?o .};`,
-                        "did:ng:i" + window.session.private_store_id
+                        `DELETE WHERE { GRAPH ?g { ?s ?p ?o .}};`,
+                        "did:ng:" + window.session.private_store_id
                     );
                 }}
             >

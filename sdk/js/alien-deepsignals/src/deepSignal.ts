@@ -253,7 +253,41 @@ function queueDeepPatches(
         }
     } else if (val instanceof Set) {
         for (const entry of val) {
-            const key = getSetEntryKey(entry, options);
+            // Call propGenerator for object entries in nested Sets
+            if (
+                entry &&
+                typeof entry === "object" &&
+                entry.constructor === Object &&
+                options?.propGenerator
+            ) {
+                const result = options.propGenerator({
+                    path: basePath,
+                    inSet: true,
+                    object: entry,
+                });
+
+                // Add synthetic id if specified and not already present
+                if (
+                    options.syntheticIdPropertyName &&
+                    result.syntheticId !== undefined &&
+                    !(options.syntheticIdPropertyName in entry)
+                ) {
+                    Object.defineProperty(
+                        entry,
+                        options.syntheticIdPropertyName,
+                        {
+                            value: result.syntheticId,
+                            writable: false,
+                            enumerable: true,
+                            configurable: false,
+                        }
+                    );
+                    // Also record in setObjectIds so key resolution is stable without re-running generator
+                    setObjectIds.set(entry, String(result.syntheticId));
+                }
+            }
+
+            const key = getSetEntryKey(entry, options, basePath, true);
             queueDeepPatches(entry, rootId, [...basePath, key], options);
         }
     } else if (val.constructor === Object) {
@@ -439,29 +473,41 @@ const getSetEntryKey = (
         // If val is a proxy, get the raw object first
         const rawVal = proxyToRaw.get(val) || val;
 
-        // First check for explicitly assigned synthetic ID
-        if (setObjectIds.has(rawVal)) return setObjectIds.get(rawVal)!;
-
-        // Then check for custom id property
-        const customIdProp = options?.syntheticIdPropertyName;
-        if (
-            customIdProp &&
-            (typeof (rawVal as any)[customIdProp] === "string" ||
-                typeof (rawVal as any)[customIdProp] === "number")
-        ) {
-            return (rawVal as any)[customIdProp];
+        // 1) Respect an explicitly assigned synthetic ID (e.g., via addWithId)
+        if (setObjectIds.has(rawVal)) {
+            return setObjectIds.get(rawVal)!;
         }
 
-        // Generate a new id.
-        return (
-            // Either with the custom generator or ...
-            (path &&
-                inSet !== undefined &&
-                options?.propGenerator?.({ path, inSet: inSet, object: rawVal })
-                    .syntheticId) ||
-            // with a default blank node.
-            assignBlankNodeId(rawVal)
-        );
+        // 2) Ask propGenerator for a synthetic id when available
+        if (options?.propGenerator && path) {
+            const generated = options.propGenerator({
+                path,
+                inSet: !!inSet,
+                object: rawVal,
+            })?.syntheticId;
+            if (generated !== undefined) {
+                const idStr = String(generated);
+                setObjectIds.set(rawVal, idStr);
+                return idStr;
+            }
+        }
+
+        // 3) Use custom id property on the object if configured
+        const customIdProp = options?.syntheticIdPropertyName;
+        const customIdVal = customIdProp
+            ? (rawVal as any)[customIdProp]
+            : undefined;
+        if (
+            customIdProp &&
+            (typeof customIdVal === "string" || typeof customIdVal === "number")
+        ) {
+            const idStr = String(customIdVal);
+            setObjectIds.set(rawVal, idStr);
+            return idStr;
+        }
+
+        // 4) Fallback to a stable auto-generated blank node id
+        return assignBlankNodeId(rawVal);
     }
     return val as any;
 };
@@ -618,6 +664,7 @@ export function shallow<T extends object>(obj: T): Shallow<T> {
     return obj as Shallow<T>;
 }
 
+// Create a proxy and attach root/options metadata lazily.
 const createProxy = (
     target: object,
     handlers: ProxyHandler<object>,
@@ -626,14 +673,12 @@ const createProxy = (
 ) => {
     const proxy = new Proxy(target, handlers);
     ignore.add(proxy);
-    // Initialize proxy metadata if not present. Root proxies provide a stable root id.
     if (!proxyMeta.has(proxy)) {
         proxyMeta.set(proxy, {
             root: rootId || Symbol("deepSignalDetachedRoot"),
-            options: options || rootOptions.get(rootId!),
+            options: options || (rootId ? rootOptions.get(rootId) : undefined),
         });
     }
-
     return proxy;
 };
 
@@ -700,36 +745,44 @@ function getFromSet(
                     if (key === "add") {
                         const entry = args[0];
 
-                        // Add synthetic id to object entries if options specify it (e.g. @id).
+                        // Call propGenerator for object entries to allow ID generation and extra props
                         if (
                             entry &&
                             typeof entry === "object" &&
-                            metaNow.options?.syntheticIdPropertyName &&
                             entry.constructor === Object &&
-                            !(metaNow.options.syntheticIdPropertyName in entry)
+                            metaNow.options?.propGenerator
                         ) {
-                            let syntheticId: string | number;
-                            if (metaNow.options.propGenerator) {
-                                syntheticId =
-                                    metaNow.options.propGenerator({
-                                        path: containerPath,
-                                        inSet: true,
-                                        object: entry,
-                                    }).syntheticId || assignBlankNodeId(entry);
-                            } else {
-                                syntheticId = assignBlankNodeId(entry);
-                            }
+                            const result = metaNow.options.propGenerator({
+                                path: containerPath,
+                                inSet: true,
+                                object: entry,
+                            });
 
-                            Object.defineProperty(
-                                entry,
-                                metaNow.options.syntheticIdPropertyName,
-                                {
-                                    value: syntheticId,
-                                    writable: false,
-                                    enumerable: true,
-                                    configurable: false,
-                                }
-                            );
+                            // Add synthetic id if specified and not already present
+                            if (
+                                metaNow.options.syntheticIdPropertyName &&
+                                result.syntheticId !== undefined &&
+                                !(
+                                    metaNow.options.syntheticIdPropertyName in
+                                    entry
+                                )
+                            ) {
+                                Object.defineProperty(
+                                    entry,
+                                    metaNow.options.syntheticIdPropertyName,
+                                    {
+                                        value: result.syntheticId,
+                                        writable: false,
+                                        enumerable: true,
+                                        configurable: false,
+                                    }
+                                );
+                                // Also record in setObjectIds so key resolution is stable without re-running generator
+                                setObjectIds.set(
+                                    entry,
+                                    String(result.syntheticId)
+                                );
+                            }
                         }
 
                         let synthetic = getSetEntryKey(
