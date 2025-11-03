@@ -9,7 +9,7 @@ export const useContactView = (id: string | null) => {
   const [humanityDialogOpen, setHumanityDialogOpen] = useState(false);
   const [groupsError, setGroupsError] = useState<string | null>(null);
 
-  const {contact, isLoading: contactLoading, error: contactError, setContact} = useContactData(id);
+  const {contact, isLoading: contactLoading, error: contactError, setContact, resource} = useContactData(id);
 
   // Load and filter groups when contact changes
   useEffect(() => {
@@ -106,6 +106,7 @@ export const useContactView = (id: string | null) => {
     // Data
     contact,
     contactGroups,
+    resource,
 
     // Loading states
     isLoading: contactLoading,

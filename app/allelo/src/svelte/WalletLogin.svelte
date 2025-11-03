@@ -452,7 +452,7 @@
                     tabindex="-1"
                     class="mui-button-primary form-button action-button"
                     type="button"
-                    style="font-size: 2.5rem!important;height: fit-content!important; word-break: break-all;"
+                    style="border-radius: 20px !important; font-size: 2.5rem!important;height: fit-content!important; word-break: break-all;"
                 >
                   <Label>{wallet_entry[1].wallet.V0.content.security_txt}</Label>
                 </Button>
@@ -495,7 +495,7 @@
               variant="outlined"
               class="mui-button-outlined form-button action-button"
               type="button"
-              style="min-height: 50px"
+              style="min-height: 50px; font-size: 1.25rem!important; height:57px;"
               onclick={() => {
               document.getElementById("import_wallet_file").click();
             }}
@@ -522,6 +522,7 @@
             <Button
                 variant="outlined"
                 tabindex="-1"
+                style="font-size: 1.25rem!important; height:57px; width: 100%;"
                 class="mui-button-outlined form-button action-button"
                 style="width: 100%; min-height: 50px"
             >
@@ -536,7 +537,7 @@
                 variant="outlined"
                 tabindex="-1"
                 class="mui-button-outlined form-button action-button"
-                style="width: 100%; min-height: 50px"
+                style="font-size: 1.25rem!important; height:57px; width: 100%;"
             >
               <Icon class="button-icon">
                 <svg
@@ -563,7 +564,7 @@
                   variant="unelevated"
                   tabindex="-1"
                   class="mui-button-primary form-button action-button"
-                  style="width: 100%; min-height: 50px"
+                  style="font-size: 1.25rem!important; height:57px; width: 100%;"
               >
                 <Icon class="button-icon">
                   <svg

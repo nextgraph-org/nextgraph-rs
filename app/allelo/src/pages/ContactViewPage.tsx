@@ -48,6 +48,7 @@ const ContactViewPage = () => {
     error,
     toggleHumanityVerification,
     inviteToNAO,
+    resource
   } = useContactView(id || null);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -228,13 +229,14 @@ const ContactViewPage = () => {
           contact={contact}
           isLoading={isLoading}
           isEditing={isEditing}
+          resource={resource}
         />
 
         <Divider sx={{my: 3}}/>
 
         <Grid container spacing={3}>
           <Grid size={{xs: 12, md: 6}}>
-            <ContactInfo contact={contact} isEditing={isEditing}/>
+            <ContactInfo contact={contact} isEditing={isEditing} resource={resource}/>
             <ContactGroups groups={contactGroups}/>
           </Grid>
 

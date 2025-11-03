@@ -300,7 +300,7 @@ const tauri_handler = {
                 let arg = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el);
                 let res = await invoke(path[0],arg);
-                if (res) {
+                if (res && res.V0.content.security_img) {
                     res.V0.content.security_img = Uint8Array.from(res.V0.content.security_img);
                 }
                 return res || {};
@@ -323,7 +323,8 @@ const tauri_handler = {
                 return await invoke(path[0],{file})
             } else if (path[0] === "wallet_import") {
                 let encrypted_wallet = args[0];
-                encrypted_wallet.V0.content.security_img = Array.from(new Uint8Array(encrypted_wallet.V0.content.security_img));
+                if (encrypted_wallet.V0.content.security_img)
+                    encrypted_wallet.V0.content.security_img = Array.from(new Uint8Array(encrypted_wallet.V0.content.security_img));
                 return await invoke(path[0],{encrypted_wallet, opened_wallet:args[1], in_memory:args[2]})
             } else if (path[0] && path[0].startsWith("get_local_bootstrap")) {
                 return false;

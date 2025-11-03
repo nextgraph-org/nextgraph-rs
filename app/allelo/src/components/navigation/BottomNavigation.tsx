@@ -55,7 +55,7 @@ const BottomNavigation = ({navigationItems}: BottomNavigationProps) => {
         value={getCurrentValue()}
         onChange={handleChange}
         showLabels
-        sx={{
+        sx={{ pb:1.5,
           '& .MuiBottomNavigationAction-root': {
             color: 'text.secondary',
             '&.Mui-selected': {
