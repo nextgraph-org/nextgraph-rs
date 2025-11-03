@@ -1,5 +1,10 @@
 import {Box, Button, Chip, IconButton} from '@mui/material';
-import {UilPlus as Add, UilAngleUp as ExpandLess, UilAngleDown as ExpandMore, UilStar as Star} from '@iconscout/react-unicons';
+import {
+  UilPlus as Add,
+  UilAngleUp as ExpandLess,
+  UilAngleDown as ExpandMore,
+  UilStar as Star
+} from '@iconscout/react-unicons';
 import {MultiPropertyItem} from "@/components/contacts/MultiPropertyWithVisibility/MultiPropertyItem.tsx";
 import {ValidationType} from "@/hooks/useFieldValidation";
 import {useState} from "react";
@@ -7,6 +12,7 @@ import type {Contact} from "@/types/contact.ts";
 import {AddressDetails} from "./AddressDetails.tsx";
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 import React from 'react';
+import {NextGraphResource} from "@ldo/connected-nextgraph";
 
 interface AddressVariantProps {
   visibleItems: any[];
@@ -26,6 +32,7 @@ interface AddressVariantProps {
   setNewItemValue: (value: string) => void;
   validateType?: ValidationType;
   contact?: Contact;
+  resource: NextGraphResource
 }
 
 export const AddressVariant = ({
@@ -44,7 +51,8 @@ export const AddressVariant = ({
                                  onNewItemValueChange,
                                  setIsAddingNew,
                                  validateType = "text",
-                                 contact
+                                 contact,
+                                 resource
                                }: AddressVariantProps) => {
   const [isValid, setIsValid] = useState(true);
   const [showAddressDetails, setShowAddressDetails] = useState<Record<string, boolean>>({});
@@ -114,21 +122,22 @@ export const AddressVariant = ({
   const renderNewItemForm = () => {
     return <>
       {isAddingNew && newItem && <><MultiPropertyItem
-        itemId={newItem["@id"]}
-        value={newItemValue}
-        source={"user"}
-        onChange={(e) => onNewItemValueChange(e.target.value)}
-        onBlur={() => onBlur(newItem["@id"])}
-        autoFocus={true}
-        placeholder={placeholder || `Add new ${label?.toLowerCase() || 'item'}`}
-        validateType={validateType}
-        validateParent={setIsValid}
-        required={false}
+          itemId={newItem["@id"]}
+          value={newItemValue}
+          source={"user"}
+          onChange={(e) => onNewItemValueChange(e.target.value)}
+          onBlur={() => onBlur(newItem["@id"])}
+          autoFocus={true}
+          placeholder={placeholder || `Add new ${label?.toLowerCase() || 'item'}`}
+          validateType={validateType}
+          validateParent={setIsValid}
+          required={false}
       /><AddressDetails
-        showAddressDetails={true}
-        contact={contact}
-        isEditing={true}
-        currentItem={newItem}
+          showAddressDetails={true}
+          contact={contact}
+          isEditing={true}
+          currentItem={newItem}
+          resource={resource}
       /></>}
       <Button
         disabled={isAddingNew && !isValid}
@@ -163,6 +172,7 @@ export const AddressVariant = ({
                   contact={contact}
                   isEditing={isEditing}
                   currentItem={item}
+                  resource={resource}
                 />
               </React.Fragment>
             );
@@ -182,6 +192,7 @@ export const AddressVariant = ({
                 contact={contact}
                 isEditing={false}
                 currentItem={item}
+                resource={resource}
               />
             </React.Fragment>
           );

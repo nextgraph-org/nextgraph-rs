@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import type {Contact} from "@/types/contact";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {useNextGraphAuth, useResource, useSubject} from "@/lib/nextgraph";
@@ -6,6 +6,7 @@ import {NextGraphAuth} from "@/types/nextgraph";
 import {SocialContact} from "@/.ldo/contact.typings";
 import {SocialContactShapeType} from "@/.ldo/contact.shapeTypes";
 import {useMockContactSubject} from "@/hooks/contacts/useMockContactSubject";
+import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
 
 export const useContactData = (nuri: string | null, isProfile = false) => {
   const [contact, setContact] = useState<Contact | undefined>(undefined);
@@ -17,12 +18,25 @@ export const useContactData = (nuri: string | null, isProfile = false) => {
   const {session} = nextGraphAuth;
   const sessionId = session?.sessionId;
 
+  const initProfile = useCallback(async () => {
+      const created = await nextgraphDataService.isProfileCreated(session);
+      if (!created) {
+        await nextgraphDataService.createProfile(session);
+      }
+    }, [session]
+  )
+
   if (isProfile) {
     nuri = "did:ng:" + session?.protectedStoreId;
+    if (isNextGraph) {
+      initProfile();
+    }
   }
 
   // NextGraph subscription
-  useResource(sessionId && nuri ? nuri : undefined, {subscribe: true});
+  const resource = useResource(sessionId && nuri ? nuri : undefined, {subscribe: true});
+
+
   const socialContact: SocialContact | undefined = useSubject(
     SocialContactShapeType,
     sessionId && nuri ? nuri.substring(0, 53) : undefined
@@ -53,5 +67,5 @@ export const useContactData = (nuri: string | null, isProfile = false) => {
     }
   }, [nuri, isNextGraph, socialContact, sessionId, mockContact]);
 
-  return {contact, isLoading, error, setContact};
+  return {contact, isLoading, error, setContact, resource};
 };

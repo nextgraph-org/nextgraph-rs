@@ -31,6 +31,7 @@ import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
 import {PropertyWithSources} from '../PropertyWithSources';
 import {ContactTags} from '../ContactTags';
 import {defaultTemplates} from "@/utils/templateRenderer.ts";
+import {NextGraphResource} from "@ldo/connected-nextgraph";
 
 export interface ContactViewHeaderProps {
   contact: Contact | null;
@@ -40,10 +41,11 @@ export interface ContactViewHeaderProps {
   showTags?: boolean;
   showActions?: boolean;
   validateParent?: (valid: boolean) => void;
+  resource: NextGraphResource
 }
 
 export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderProps>(
-  ({contact, isEditing = false, showTags = true, showActions = true, showStatus = true, validateParent}, ref) => {
+  ({contact, isEditing = false, showTags = true, showActions = true, showStatus = true, validateParent, resource}, ref) => {
     const [showNameDetails, setShowNameDetails] = useState(false);
 
     const theme = useTheme();
@@ -128,6 +130,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                 placeholder="Contact Name"
                 validateParent={validateParent}
                 template={defaultTemplates.contactName}
+                resource={resource}
               />
               <IconButton
                 sx={{padding: 0, ml: 1}}
@@ -145,6 +148,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                   isEditing={isEditing}
                   label={"First name"}
                   hideSources={true}
+                  resource={resource}
                 />
                 <PropertyWithSources
                   propertyKey={"name"}
@@ -154,6 +158,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                   isEditing={isEditing}
                   label={"Middle name"}
                   hideSources={true}
+                  resource={resource}
                 />
                 <PropertyWithSources
                   propertyKey={"name"}
@@ -163,6 +168,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                   isEditing={isEditing}
                   label={"Last name"}
                   hideSources={true}
+                  resource={resource}
                 />
                 <PropertyWithSources
                   propertyKey={"name"}
@@ -172,6 +178,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                   isEditing={isEditing}
                   label={"Honorific prefix"}
                   hideSources={true}
+                  resource={resource}
                 />
                 <PropertyWithSources
                   propertyKey={"name"}
@@ -181,6 +188,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
                   isEditing={isEditing}
                   label={"Honorific suffix"}
                   hideSources={true}
+                  resource={resource}
                 />
               </Box>
             </Collapse>
@@ -195,6 +203,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               placeholder="Job Title / Position"
               template={defaultTemplates.headline}
               templateProperty={"organization"}
+              resource={resource}
             />
 
             {showStatus && <Box sx={{display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap'}}>
@@ -267,7 +276,7 @@ export const ContactViewHeader = forwardRef<HTMLDivElement, ContactViewHeaderPro
               </Card>
             )}
 
-            {showTags && <ContactTags contact={contact}/>}
+            {showTags && <ContactTags contact={contact} resource={resource}/>}
 
             {/* Action Buttons */}
             {showActions && <Box sx={{
