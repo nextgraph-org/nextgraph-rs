@@ -6,8 +6,28 @@
 
 ## Install
 
+- [Install Rust](https://www.rust-lang.org/tools/install) minimum required MSRV 1.81.0
+- [Install Nodejs](https://nodejs.org/en/download/)
+- [Install LLVM](https://rust-lang.github.io/rust-bindgen/requirements.html)
+
+On OpenBSD, for LLVM you need to choose llvm-17.
+
+On MacOS, there are several bugs with LLVM above version 17. So you have to install version 17 only.
+
 ```
-cargo install wasm-pack --git https://git.nextgraph.org/NextGraph/wasm-pack.git --branch master
+brew install llvm@17
+```
+
+On Debian distros
+
+```
+sudo apt install pkg-config gcc build-essential libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev gcc-multilib curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+Then, for everyone:
+
+```
+cargo install wasm-pack --git https://git.nextgraph.org/NextGraph/wasm-pack.git --branch master --locked
 cargo install cargo-run-script
 git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
 cd nextgraph-rs
