@@ -495,6 +495,7 @@
               variant="outlined"
               class="mui-button-outlined form-button action-button"
               type="button"
+              style="min-height: 50px"
               onclick={() => {
               document.getElementById("import_wallet_file").click();
             }}
@@ -522,7 +523,7 @@
                 variant="outlined"
                 tabindex="-1"
                 class="mui-button-outlined form-button action-button"
-                style="width: 100%;"
+                style="width: 100%; min-height: 50px"
             >
               <Icon class="button-icon">
                 <QrCode tabindex="-1" aria-hidden="true"/>
@@ -535,7 +536,7 @@
                 variant="outlined"
                 tabindex="-1"
                 class="mui-button-outlined form-button action-button"
-                style="width: 100%;"
+                style="width: 100%; min-height: 50px"
             >
               <Icon class="button-icon">
                 <svg
@@ -562,7 +563,7 @@
                   variant="unelevated"
                   tabindex="-1"
                   class="mui-button-primary form-button action-button"
-                  style="width: 100%;"
+                  style="width: 100%; min-height: 50px"
               >
                 <Icon class="button-icon">
                   <svg
