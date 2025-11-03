@@ -3,7 +3,6 @@ import {Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions} from
 import {Button} from '@/components/ui';
 import {useNavigate} from 'react-router-dom';
 import {checkPermissions, requestPermissions, importContacts} from '../../../../tauri-plugin-contacts-importer/guest-js';
-import {info} from '@tauri-apps/plugin-log';
 import {processContactFromJSON} from '@/utils/socialContact/contactUtils';
 import {dataService} from '@/services/dataService';
 import type {Contact} from '@/types/contact';
@@ -22,14 +21,12 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
     try {
       // Step 1: Check permissions
       const permissions = await checkPermissions();
-      await info(`Current permission state: ${permissions.readContacts}`);
 
       if (permissions.readContacts !== 'granted') {
         setStatus('Requesting permissions...');
 
         // Step 2: Request permissions if not granted
         const requestResult = await requestPermissions(['readContacts']);
-        await info(`Permission request result: ${requestResult.readContacts}`);
 
         if (requestResult.readContacts !== 'granted') {
           // Step 3: Permission not granted - show error
@@ -44,7 +41,6 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
       setStatus('✅ Permission granted! Importing contacts...');
       const result = await importContacts();
       const importedContactsJson = result.contacts || [];
-      await info(`Imported ${importedContactsJson.length} raw contacts from Android`);
 
       // Step 5: Process imported JSON using processContactFromJSON
       setStatus('🔄 Processing contacts with processContactFromJSON...');
@@ -57,8 +53,6 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
           console.warn('Failed to process contact:', contactJson, err);
         }
       }
-
-      await info(`Successfully processed ${processedContacts.length} contacts`);
 
       setStatus('💾 Saving contacts to Nextgraph...');
       //TODO: here should be also nextgraph persistence
@@ -77,7 +71,6 @@ export const ContactsRunner: React.FC<SourceRunnerProps> = ({open, onGetResult, 
         onClose();
       }, 1500);
     } catch (error) {
-      await info(`Error: ${error}`);
       setStatus(`❌ Error: ${error}`);
       onError(error);
     } finally {
