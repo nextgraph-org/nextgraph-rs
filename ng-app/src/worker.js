@@ -7,8 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-import * as api from "@nextgraph-monorepo/ng-sdk-js";
-import { default as ng } from "./api";
+import * as ng from "@nextgraph-monorepo/ng-sdk-js";
 
 //console.log("loaded worker");
 
@@ -18,7 +17,7 @@ onmessage = (e) => {
     try {
       let secret_wallet;
       if (e.data.pazzle) {
-         secret_wallet = await ng.wallet_open_with_pazzle(
+        secret_wallet = await ng.wallet_open_with_pazzle(
             e.data.wallet,
             e.data.pazzle,
             e.data.pin_code
