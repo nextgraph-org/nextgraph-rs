@@ -75,7 +75,7 @@ class NextgraphDataService {
   }
 
   async getContactsCount(session: NextGraphSession, filterParams?: Map<string, string>) {
-    const sparql = this.getCountQuery("vcard:Individual", filterParams);
+    const sparql = this.getCountQuery("vcard:Individual", session,  filterParams);
 
     return await session.ng!.sparql_query(session.sessionId, sparql);
   };
@@ -127,8 +127,8 @@ class NextgraphDataService {
     PREFIX ngcore: <did:ng:x:core#>
   `;
 
-  getCountQuery(type: string, filterParams?: Map<string, string>) {
-    const filter = this.getFilter(filterParams);
+  getCountQuery(type: string, session: NextGraphSession, filterParams?: Map<string, string>) {
+    const filter = this.getFilter(filterParams, session);
 
     return `
       ${this.contactPrefixes}
