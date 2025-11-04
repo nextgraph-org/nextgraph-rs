@@ -1,6 +1,6 @@
 {
   "name": "@ng-org/auth-react",
-  "version": "0.1.2-alpha.1",
+  "version": "0.1.2-alpha.2",
   "description": "React Auth library for LDO and NextGraph",
   "type": "module",
   "module": "./dist/esm/index.js",
@@ -44,7 +44,7 @@
   "dependencies": {
     "@ldo/connected": "1.0.0-alpha.15",
     "@ldo/connected-nextgraph": "1.0.0-alpha.15",
-    "@ng-org/web": "0.1.2-alpha.1",
+    "@ng-org/web": "0.1.2-alpha.2",
     "@ldo/react": "1.0.0-alpha.15",
     "@rdfjs/data-model": "^1.2.0",
     "cross-fetch": "^3.1.6"
