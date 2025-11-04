@@ -105,9 +105,7 @@
                   <div style="display:flex; gap:.5rem;">
                     <button
                       onclick={() => {
-                        const newSet = new Set(value);
-                        newSet.add(`item${newSet.size + 1}`);
-                        setNestedValue(parentObj, lastKey, newSet);
+                        value.add(`item${value.size + 1}`);
                       }}>Add</button
                     >
                     <button
@@ -115,8 +113,7 @@
                         const arr = Array.from(value);
                         const last = arr.pop();
                         if (last !== undefined) {
-                          const newSet = new Set(arr);
-                          setNestedValue(parentObj, lastKey, newSet);
+                          value.delete(last);
                         }
                       }}>Remove</button
                     >
