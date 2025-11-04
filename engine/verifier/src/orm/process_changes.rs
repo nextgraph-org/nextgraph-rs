@@ -31,58 +31,6 @@ use crate::orm::OrmChanges;
 use crate::verifier::*;
 
 impl Verifier {
-    /// Apply quads to a nuri's document.
-    /// Updates tracked_orm_objects in orm_subscriptions.
-    pub(crate) fn apply_quads_changes(
-        &mut self,
-        quads_added: &[Quad],
-        quads_removed: &[Quad],
-        nuri: &String,
-        only_for_session_id: Option<u64>,
-        data_already_fetched: bool,
-    ) -> Result<OrmChanges, NgError> {
-        log_debug!("apply_quad_changes {:?}", only_for_session_id);
-        // If we have a specific session, handle only that subscription.
-        if let Some(session_id) = only_for_session_id {
-            return self.process_changes_for_nuri_and_session(
-                &nuri,
-                session_id,
-                quads_added,
-                quads_removed,
-                data_already_fetched,
-            );
-        }
-
-        // Otherwise, iterate all sessions.
-        let mut merged: OrmChanges = HashMap::new();
-
-        let session_ids: Vec<_> = self
-            .orm_subscriptions
-            .get(nuri)
-            .unwrap()
-            .iter()
-            .map(|s| s.session_id.clone())
-            .collect();
-
-        for session_id in session_ids {
-            let changes = self.process_changes_for_nuri_and_session(
-                &nuri,
-                session_id,
-                quads_added,
-                quads_removed,
-                data_already_fetched,
-            )?;
-
-            for (shape_iri, subj_map) in changes {
-                merged
-                    .entry(shape_iri)
-                    .or_insert_with(HashMap::new)
-                    .extend(subj_map);
-            }
-        }
-        Ok(merged)
-    }
-
     /// Link a tracked orm object to all orm objects that reference this object's subject IRI.
     /// This establishes parent-child relationships based on tracked_nested_subjects.
     fn link_to_tracking_parents(
@@ -464,22 +412,18 @@ impl Verifier {
     /// re-validate, and update `changes` containing the updated data.
     /// Works by queuing changes by shape and (graph, subjects) on a stack.
     /// Nested objects are added to the stack
-    pub(crate) fn process_changes_for_shape_and_session(
+    pub(crate) fn process_changes_for_subscription(
         &mut self,
-        nuri: &String,
-        root_shape_iri: &String,
-        shapes: Vec<Arc<OrmSchemaShape>>,
-        session_id: u64,
+        orm_subscription: &mut OrmSubscription,
         quads_added: &[Quad],
         quads_removed: &[Quad],
         orm_changes: &mut OrmChanges,
         data_already_fetched: bool,
     ) -> Result<(), NgError> {
         log_info!(
-            "[process_changes_for_shape_and_session] Starting processing for nuri, root_shape: {}, session: {}, {} shapes, {} quads added, {} quads removed, data_already_fetched: {}",
-            root_shape_iri,
-            session_id,
-            shapes.len(),
+            "[process_changes_for_shape_and_session] Starting processing for nuri: {}, root_shape: {}, {} quads added, {} quads removed, data_already_fetched: {}",
+            orm_subscription.nuri,
+            orm_subscription.shape_type.shape,
             quads_added.len(),
             quads_removed.len(),
             data_already_fetched
@@ -501,7 +445,7 @@ impl Verifier {
         let mut shape_validation_stack: Vec<(
             Arc<OrmSchemaShape>, // The shape to validate against
             Vec<(GraphIri, SubjectIri)>,
-        )> = Self::init_validation_stack(self, nuri, &root_shape_iri, session_id, &modified_gs);
+        )> = Self::init_validation_stack(orm_subscription, &modified_gs);
 
         // Track (shape_iri, subject_iri) pairs currently being validated to prevent cycles and double evaluation.
         let mut currently_validating: HashSet<(String, String, String)> = HashSet::new();
@@ -541,11 +485,6 @@ impl Verifier {
                     );
 
                     // Find tracked and mark as invalid.
-                    let orm_subscription = &mut self.get_first_orm_subscription_for(
-                        nuri,
-                        Some(&root_shape_iri),
-                        Some(&session_id),
-                    );
                     if let Some(tracked_orm_object) =
                         orm_subscription.get_tracked_orm_object(graph_iri, subject_iri, &shape.iri)
                     {
@@ -558,16 +497,6 @@ impl Verifier {
 
                 // Mark as currently validating this (shape, graph, subject)
                 currently_validating.insert(validation_key);
-
-                let orm_subscription = self
-                    .orm_subscriptions
-                    .get_mut(nuri)
-                    .unwrap()
-                    .iter_mut()
-                    .find(|sub| {
-                        sub.shape_type.shape == *root_shape_iri && sub.session_id == session_id
-                    })
-                    .unwrap();
 
                 // We'll capture the child's Arc for linking to parents after dropping the mutable borrow to orm_changes
                 let mut link_children_to_eval = HashMap::new();
@@ -812,14 +741,7 @@ impl Verifier {
                     );
 
                         // Extract schema and shape Arc first (before any borrows)
-                        let schema = {
-                            let orm_sub = self.get_first_orm_subscription_for(
-                                nuri,
-                                Some(&root_shape_iri),
-                                Some(&session_id),
-                            );
-                            orm_sub.shape_type.schema.clone()
-                        };
+                        let schema = orm_subscription.shape_type.schema.clone();
                         let shape_arc = schema.get(&shape_iri).unwrap().clone();
 
                         // Data might need to be fetched (if it has not been during initialization or nested shape fetch).
@@ -843,8 +765,10 @@ impl Verifier {
                                     Some(objects_to_fetch),
                                     None,
                                 )?;
-                                let new_quads =
-                                    self.query_sparql_select(shape_query, Some(nuri.clone()))?;
+                                let new_quads = self.query_sparql_select(
+                                    shape_query,
+                                    Some(orm_subscription.nuri.clone()),
+                                )?;
 
                                 log_info!(
                                 "[process_changes_for_shape_and_session] Fetched {} quads, recursively processing nested objects",
@@ -852,11 +776,8 @@ impl Verifier {
                             );
 
                                 // Recursively process nested objects.
-                                self.process_changes_for_shape_and_session(
-                                    nuri,
-                                    &root_shape_iri,
-                                    vec![shape_arc.clone()],
-                                    session_id,
+                                self.process_changes_for_subscription(
+                                    orm_subscription,
                                     &new_quads,
                                     &vec![],
                                     orm_changes,
@@ -944,34 +865,26 @@ impl Verifier {
     ) -> Result<OrmChanges, NgError> {
         let mut orm_changes = HashMap::new();
 
-        let shapes: Vec<_> = self
-            .orm_subscriptions
-            .get(nuri)
-            .unwrap()
-            .iter()
-            .map(|sub| {
-                sub.shape_type
-                    .schema
-                    .get(&sub.shape_type.shape)
-                    .unwrap()
-                    .clone()
-            })
-            .collect();
+        // Temporarily take the subscriptions out to avoid borrow conflicts
+        let mut subscriptions = self.orm_subscriptions.remove(nuri).unwrap();
 
-        for root_shape in shapes {
-            let shape_iri = root_shape.iri.clone();
-            // Now we can safely call the method with self
-            self.process_changes_for_shape_and_session(
-                nuri,
-                &shape_iri,
-                vec![root_shape.clone()],
-                session_id,
+        for orm_subscription in subscriptions.iter_mut() {
+            if orm_subscription.session_id != session_id {
+                continue;
+            }
+
+            // Now self can be mutably borrowed in process_changes_for_subscription
+            self.process_changes_for_subscription(
+                orm_subscription,
                 quads_added,
                 quads_removed,
                 &mut orm_changes,
                 data_already_fetched,
             )?;
         }
+
+        // Put the subscriptions back
+        self.orm_subscriptions.insert(nuri.clone(), subscriptions);
 
         Ok(orm_changes)
     }
@@ -1023,18 +936,12 @@ impl Verifier {
     /// Used to initialize the validation stack in `process_changes_for_shape_and_session`.
     /// Returns a vector of (shape, [(graph, subject)]) pairs to process.
     fn init_validation_stack(
-        &self,
-        nuri: &String,
-        root_shape_iri: &String,
-        session_id: u64,
+        orm_subscription: &mut OrmSubscription,
         modified_gs: &HashSet<(String, String)>,
     ) -> Vec<(
         Arc<OrmSchemaShape>, // The shape to validate against
         Vec<(GraphIri, SubjectIri)>,
     )> {
-        let orm_subscription =
-            self.get_first_orm_subscription_for(nuri, Some(&root_shape_iri), Some(&session_id));
-
         // Collect all (graph, subject) pairs that are both in modified_gs and tracked_nested_subjects
         let mut shape_to_gs: HashMap<ShapeIri, Vec<(String, String)>> = HashMap::new();
 
@@ -1071,7 +978,9 @@ impl Verifier {
         let root_gs: Vec<(String, String)> = modified_gs.iter().cloned().collect();
 
         // Remove root shape from the map if present, so we can add it last
-        let mut root_gs_from_map = shape_to_gs.remove(root_shape_iri).unwrap_or_default();
+        let mut root_gs_from_map = shape_to_gs
+            .remove(&orm_subscription.shape_type.shape)
+            .unwrap_or_default();
 
         // Merge root_gs into root_gs_from_map, dedup
         root_gs_from_map.extend(root_gs);

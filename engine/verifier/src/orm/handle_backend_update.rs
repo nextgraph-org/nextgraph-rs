@@ -43,36 +43,22 @@ struct DiffOperation {
 impl Verifier {
     /// Applies quad patches and
     /// generates and sends JSON patches to JS-land.
+    ///
+    /// TODO: How to prevent duplicate application of change data?
     pub(crate) async fn orm_backend_update(
         &mut self,
         session_id: u64,
         repo_id: RepoId,
-        _overlay_id: OverlayId,
+        overlay_id: OverlayId,
         patch: GraphQuadsPatch,
     ) {
         let inserts = patch.inserts;
         let removes = patch.removes;
-        log_info!(
-            "[orm_backend_update] called with #adds, #removes: {}, {}",
-            inserts.len(),
-            removes.len()
-        );
 
-        // Collect and filter scopes that are affected by this backend update
-        let scopes = self.collect_and_filter_scopes(repo_id, _overlay_id);
-
-        if scopes.is_empty() {
-            log_debug!("[orm_backend_update] No affected scopes");
-            return;
-        }
-
-        log_debug!(
-            "[orm_backend_update] Creating patch objects for #scopes {}",
-            scopes.len()
-        );
+        // TODO: Omit sending patches back to the subscription where they came from.
 
         // Apply changes to all affected scopes and send patches to clients
-        self.apply_changes_to_all_scopes(scopes, &inserts, &removes, session_id)
+        self.apply_changes_to_all_scopes(repo_id, overlay_id, &inserts, &removes, session_id)
             .await;
 
         log_info!("[orm_backend_update] COMPLETE - processed all scopes");
@@ -80,21 +66,23 @@ impl Verifier {
 
     /// Collects and filters subscriptions scopes that are affected by this backend update.
     /// Returns a vec of (scope_str, root_shapes_and_tracked_shapes).
-    fn collect_and_filter_scopes(
+    async fn apply_changes_to_all_scopes(
         &mut self,
         repo_id: RepoId,
         overlay_id: OverlayId,
-    ) -> Vec<(String, Vec<(Arc<OrmSchemaShape>, Vec<Arc<OrmSchemaShape>>)>)> {
+        inserts: &[Quad],
+        removes: &[Quad],
+        origin_session_id: u64,
+    ) {
         let overlaylink: OverlayLink = overlay_id.into();
-        let mut scopes: Vec<(String, Vec<(Arc<OrmSchemaShape>, Vec<Arc<OrmSchemaShape>>)>)> =
-            vec![];
 
-        log_info!(
-            "[orm_backend_update] Total subscriptions scopes: {}",
-            self.orm_subscriptions.len()
-        );
+        // Collect scope strings to process (to avoid borrow conflicts)
+        let scope_strs: Vec<String> = self.orm_subscriptions.keys().cloned().collect();
 
-        for (scope_str, subs) in self.orm_subscriptions.iter_mut() {
+        for scope_str in scope_strs {
+            // Temporarily take the subscriptions out to avoid borrow conflicts
+            let mut subs = self.orm_subscriptions.remove(&scope_str).unwrap();
+
             // First: Clean up and remove old subscriptions
             let initial_sub_count = subs.len();
             subs.retain(|sub| !sub.sender.is_closed());
@@ -106,44 +94,49 @@ impl Verifier {
                 retained_sub_count
             );
 
-            // Check if this scope is affected by this backend update
-            if !Self::is_scope_affected(&scope_str, repo_id, &overlaylink) {
-                log_info!(
+            for orm_subscription in subs.iter_mut() {
+                // Check if this scope is affected by this backend update
+                if !Self::is_scope_affected(&scope_str, repo_id, &overlaylink) {
+                    log_info!(
                     "[orm_backend_update] SKIPPING scope {:?} - does not match repo_id={:?} or overlay={:?}",
                     scope_str,
                     repo_id,
                     overlay_id
                 );
-                continue;
+                    continue;
+                }
+
+                log_info!(
+                    "[orm_backend_update] PROCESSING scope {:?} - matches criteria",
+                    scope_str
+                );
+
+                // Process changes for this shape
+                let mut orm_changes: OrmChanges = HashMap::new();
+                let _ = self.process_changes_for_subscription(
+                    orm_subscription,
+                    inserts,
+                    removes,
+                    &mut orm_changes,
+                    false,
+                );
+
+                // Send patches if the subscription's session is different to the origin's session.
+                // TODO: Is this the session_id the correct way to check this?
+                if origin_session_id == orm_subscription.session_id {
+                    // Create and send patches from changes
+                    self.send_orm_patches_from_changes(
+                        &scope_str,
+                        &orm_changes,
+                        orm_subscription.session_id,
+                    )
+                    .await;
+                }
             }
 
-            log_info!(
-                "[orm_backend_update] PROCESSING scope {:?} - matches criteria",
-                scope_str
-            );
-
-            // Prepare shapes to track for this scope
-            let root_shapes_and_tracked_shapes: Vec<(
-                Arc<OrmSchemaShape>,
-                Vec<Arc<OrmSchemaShape>>,
-            )> = subs
-                .iter()
-                .map(|sub| {
-                    let root_shape = sub
-                        .shape_type
-                        .schema
-                        .get(&sub.shape_type.shape)
-                        .unwrap()
-                        .clone();
-                    let tracked_shapes = sub.shapes_being_tracked();
-                    (root_shape, tracked_shapes)
-                })
-                .collect::<Vec<_>>();
-
-            scopes.push((scope_str.clone(), root_shapes_and_tracked_shapes));
+            // Put the subscriptions back
+            self.orm_subscriptions.insert(scope_str, subs);
         }
-
-        scopes
     }
 
     /// Checks if a scope is affected by this backend update.
@@ -156,79 +149,6 @@ impl Verifier {
                 .map_or(false, |ol| overlaylink == ol)
             || scope_nuri.target == NuriTargetV0::Repo(repo_id)
             || scope_str == "did:ng:i" // Listens to all (entire user site).
-    }
-
-    /// Applies changes to all affected scopes and sends patches to clients.
-    async fn apply_changes_to_all_scopes(
-        &mut self,
-        scopes: Vec<(String, Vec<(Arc<OrmSchemaShape>, Vec<Arc<OrmSchemaShape>>)>)>,
-        inserts: &[Quad],
-        removes: &[Quad],
-        session_id: u64,
-    ) {
-        // Iterate over all scopes to apply changes to all tracked orm objects
-        for (scope_str, shapes_zip) in scopes {
-            let mut orm_changes: OrmChanges = HashMap::new();
-
-            log_info!(
-                "[orm_backend_update] Applying changes for scope {} with {} shape entries",
-                scope_str,
-                shapes_zip.len()
-            );
-
-            // Apply the changes to tracked orm objects
-            for (root_shape_arc, all_tracked_shapes) in shapes_zip {
-                let shape_iri = root_shape_arc.iri.clone();
-                log_info!(
-                    "[orm_backend_update] Calling process_changes_for_shape_and_session for shape={}, session={}",
-                    shape_iri,
-                    session_id
-                );
-
-                // Process changes for this shape
-                let _ = self.process_changes_for_shape_and_session(
-                    &scope_str,
-                    &shape_iri,
-                    if all_tracked_shapes.len() > 0 {
-                        all_tracked_shapes
-                    } else {
-                        // If all tracked orm objects are empty, we need to add the root shape manually
-                        vec![root_shape_arc]
-                    },
-                    session_id,
-                    inserts,
-                    removes,
-                    &mut orm_changes,
-                    false,
-                );
-                log_info!(
-                    "[orm_backend_update] After process_changes_for_shape_and_session: orm_changes has {} shapes",
-                    orm_changes.len()
-                );
-            }
-
-            // Log summary of changes
-            log_info!(
-                "[orm_backend_update] Total orm_changes for scope: {} shapes with changes",
-                orm_changes.len()
-            );
-            for (shape_iri, subject_changes) in &orm_changes {
-                log_info!(
-                    "[orm_backend_update]   Shape {}: {} subjects changed",
-                    shape_iri,
-                    subject_changes.len()
-                );
-            }
-
-            // Create and send patches from changes
-            self.send_orm_patches_from_changes(&scope_str, &orm_changes, session_id)
-                .await;
-
-            log_info!(
-                "[orm_backend_update] Finished processing all subscriptions for scope {:?}",
-                scope_str
-            );
-        }
     }
 
     /// Creates and sends patches to clients from orm changes.
