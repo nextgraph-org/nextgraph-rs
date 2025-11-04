@@ -133,13 +133,6 @@ const HomePage = () => {
     e.preventDefault();
     if (query.trim()) {
       setIsLoading(true);
-      
-      // Simulate AI response delay
-      setTimeout(() => {
-        setResponse(`Based on your request "${query}", here are 3 people in your network who might be able to help:\n\n• Alex Johnson - Python developer at TechCorp\n• Sarah Kim - Full-stack engineer, freelancer\n• David Chen - Senior developer at StartupXYZ`);
-        setIsLoading(false);
-        
-      }, 1500);
 
       try {
         await promptStream(
