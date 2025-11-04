@@ -20,23 +20,23 @@ export function HelloWorldReact() {
         <div>
             <p>Rendered in React</p>
             <button
-                onClick={() => {
+                onClick={async () => {
                     const storeId = "did:ng:" + window.session.private_store_id;
                     const sessionId = window.session.session_id;
 
-                    const docId1 = window.ng.doc_create(
+                    const docId1 = await window.ng.doc_create(
                         sessionId,
                         "Graph",
                         "data:graph",
                         "store"
                     );
-                    const docId2 = window.ng.doc_create(
+                    const docId2 = await window.ng.doc_create(
                         sessionId,
                         "Graph",
                         "data:graph",
                         "store"
                     );
-                    const docId3 = window.ng.doc_create(
+                    const docId3 = await window.ng.doc_create(
                         sessionId,
                         "Graph",
                         "data:graph",

@@ -44,6 +44,7 @@ Defined in `types.rs`:
 - Verifier.start_orm(nuri, shape_type, session_id) creates an OrmSubscription, registers it, queries the graph with a SELECT built from the shape, applies quads, validates, and sends an initial materialized JSON object map back to the client.
 
 2) Applying quad changes
+TODO: Update this section
 - Verifier.apply_quads_changes(...) is the main entry for updates (both initial and subsequent):
   - Buckets triples by (graph, subject), per-shape.
   - For each touched (graph, subject, shape):
@@ -52,7 +53,7 @@ Defined in `types.rs`:
     - validate the object (shape_validation.rs)
     - queue nested children first, then self, then parents, repeating until quiescent
 
-3) Validation details
+1) Validation details
 - update_subject_validity(...) enforces:
   - Cardinality (min/max, with -1 meaning unbounded)
   - Literal constraints (required literal sets, or extra values allowed)
@@ -66,7 +67,7 @@ Defined in `types.rs`:
   - Pending: schedule children (fetch or re-evaluate) and plan to re-evaluate self later.
   - Untracked: means we need to fetch its triples if referenced.
 
-4) Cleanup
+1) Cleanup
 - OrmSubscription::cleanup_tracked_orm_objects() removes TORMOs marked ToDelete and unlinks children that no longer have parents tracking them.
 
 ## Materializing objects (JSON shape)

@@ -107,11 +107,6 @@ impl Verifier {
             orm_subscription.iter_objects_by_shape(&orm_subscription.shape_type.shape)
         {
             let tormo = tracked_orm_object.read().unwrap();
-            log_info!(
-                " - changes for: {:?} valid: {:?}",
-                tormo.subject_iri,
-                tormo.valid
-            );
 
             if tormo.valid == TrackedOrmObjectValidity::Valid {
                 if let Some(change_ref) = changes

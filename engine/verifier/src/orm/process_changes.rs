@@ -865,6 +865,7 @@ impl Verifier {
     ) -> Result<OrmChanges, NgError> {
         let mut orm_changes = HashMap::new();
 
+        // TODO: This could be hacky if two threads want to read the subscriptions in parallel
         // Temporarily take the subscriptions out to avoid borrow conflicts
         let mut subscriptions = self.orm_subscriptions.remove(nuri).unwrap();
 

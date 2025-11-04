@@ -77,10 +77,8 @@ impl Verifier {
                 self.get_first_orm_subscription_for(&nuri_str, Some(&shape_iri), Some(&session_id));
             let doc_nuri = orm_subscription.nuri.clone();
 
-            log_debug!("[orm_frontend_update] got subscription");
-
             let sparql_update = create_sparql_update_query_for_patches(orm_subscription, patches);
-            log_debug!(
+            log_info!(
                 "[orm_frontend_update] created sparql_update query:\n{}",
                 sparql_update
             );
@@ -99,12 +97,12 @@ impl Verifier {
             .await
         {
             Err(e) => {
-                log_debug!("[orm_frontend_update] query failed");
+                log_info!("[orm_frontend_update] query failed");
 
                 Err(e)
             }
             Ok((_, revert_inserts, revert_removes, skolemnized_blank_nodes)) => {
-                log_debug!(
+                log_info!(
                     "[orm_frontend_update] query successful. Reverts? {}",
                     revert_inserts.len()
                 );
@@ -346,13 +344,15 @@ fn create_sparql_update_query_for_patches(
                 // var_counter += 1; // Not necessary because not used afterwards.
             }
             // The actual INSERT.
-            let add_statement = format!("  {} {} {} .", subject_var, target_predicate, add_val);
+            let add_statement = format!(
+                "GRAPH <{}> {{ {} {} {} . }}",
+                graph_iri, subject_var, target_predicate, add_val
+            );
             sparql_sub_queries.push(format!(
                 "INSERT {{\n{}\n}} WHERE {{\n  {}\n}}",
                 add_statement,
                 where_statements.join(". \n  ")
             ));
-            log_info!("[create_sparql_update_query_for_diff] Added insert query.");
         }
     }
 
@@ -391,12 +391,6 @@ fn create_where_statements_for_patch(
     (String, String, String, Option<String>),
     Option<Arc<OrmSchemaPredicate>>,
 ) {
-    log_info!(
-        "[create_where_statements_for_patch] Starting. patch.path={}, patch.op={:?}",
-        patch.path,
-        patch.op
-    );
-
     let mut where_statements: Vec<String> = vec![];
 
     let mut path: Vec<String> = patch
@@ -405,11 +399,6 @@ fn create_where_statements_for_patch(
         .map(|s| decode_json_pointer(&s.to_string()))
         .collect();
 
-    log_info!(
-        "[create_where_statements_for_patch] Decoded path into {} segments: {:?}",
-        path.len(),
-        path
-    );
     // Drop the leading empty segment from the split("/")
     if !path.is_empty() && path[0].is_empty() {
         path.remove(0);
@@ -463,11 +452,6 @@ fn create_where_statements_for_patch(
     let mut current_subject_iri: Option<String> = Some(subject_iri.clone());
     // Accumulate traversed predicate segments for building base keys
     let mut traversed: Vec<String> = vec![];
-    log_info!(
-        "[create_where_statements_for_patch] Starting traversal from subject_iri={}, remaining path segments={}",
-        subject_iri,
-        path.len()
-    );
 
     while !path.is_empty() {
         let pred_name = path.remove(0);
@@ -545,10 +529,6 @@ fn create_where_statements_for_patch(
             current_subject_iri = Some(object_subject_iri.clone());
             // We no longer need previous WHERE bindings since we have a concrete subject
             where_statements.clear();
-            log_debug!(
-                "[create_where_statements_for_patch] Reset subject_ref to <{}> and cleared where statements",
-                object_subject_iri
-            );
         } else {
             // Single-valued: leaf-only targeting. If path ends here, use the current subject and predicate.
             if path.len() == 0 {
@@ -585,11 +565,7 @@ fn create_where_statements_for_patch(
                 subject_ref = format!("<{}>", child_subject);
                 current_subject_iri = Some(child_subject);
                 where_statements.clear();
-                log_debug!(
-                    "[create_where_statements_for_patch] Pre-resolved single child {} in graph {}",
-                    subject_ref,
-                    current_graph
-                );
+
                 continue;
             }
 
@@ -633,10 +609,7 @@ fn create_where_statements_for_patch(
                             );
                             current_subject_iri = Some(ch.subject_iri.clone());
                             where_statements.clear();
-                            log_debug!(
-                            "[create_where_statements_for_patch] Heuristic-picked single child <{}> in graph {}",
-                            ch.subject_iri, current_graph
-                        );
+
                             continue;
                         }
                     }

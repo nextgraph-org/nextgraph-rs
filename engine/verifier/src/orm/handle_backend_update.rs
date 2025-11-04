@@ -80,6 +80,7 @@ impl Verifier {
         let scope_strs: Vec<String> = self.orm_subscriptions.keys().cloned().collect();
 
         for scope_str in scope_strs {
+            // TODO: This could be hacky if two threads want to read the subscriptions in parallel
             // Temporarily take the subscriptions out to avoid borrow conflicts
             let mut subs = self.orm_subscriptions.remove(&scope_str).unwrap();
 
@@ -125,17 +126,16 @@ impl Verifier {
                 // TODO: Is this the session_id the correct way to check this?
                 if origin_session_id == orm_subscription.session_id {
                     // Create and send patches from changes
-                    self.send_orm_patches_from_changes(
-                        &scope_str,
-                        &orm_changes,
-                        orm_subscription.session_id,
-                    )
-                    .await;
+                    Verifier::send_orm_patches_from_changes(orm_subscription, &orm_changes).await;
                 }
             }
 
             // Put the subscriptions back
             self.orm_subscriptions.insert(scope_str, subs);
+
+            // Cleanup (remove tracked orm objects to be deleted).
+            // TODO
+            //self._clean_orm_subscriptionscleanup_tracked_orm_objects();
         }
     }
 
@@ -152,131 +152,113 @@ impl Verifier {
     }
 
     /// Creates and sends patches to clients from orm changes.
-    async fn send_orm_patches_from_changes(
-        &mut self,
-        scope_str: &str,
-        orm_changes: &OrmChanges,
-        session_id: u64,
-    ) {
-        let subs = self.orm_subscriptions.get_mut(scope_str).unwrap();
+    async fn send_orm_patches_from_changes(sub: &OrmSubscription, orm_changes: &OrmChanges) {
+        // The JSON patches to send to JS land.
+        let mut patches: Vec<OrmPatch> = vec![];
+
+        // Keep track of object patches to create: (path, Option<IRI>)
+        // The IRI is Some for real subjects, None for intermediate objects
+        let mut objects_to_create: HashSet<(Vec<String>, Option<(SubjectIri, GraphIri)>)> =
+            HashSet::new();
+
+        // Process changes for this subscription
         log_info!(
-            "[orm_backend_update] Processing {} subscriptions for this scope",
-            subs.len()
+            "[orm_backend_update] Iterating over {} shapes in orm_changes",
+            orm_changes.len()
         );
 
-        for sub in subs.iter_mut() {
-            log_debug!(
-                "Applying changes to subscription with nuri {} and shape {}",
-                sub.nuri,
-                sub.shape_type.shape
-            );
-
-            // The JSON patches to send to JS land.
-            let mut patches: Vec<OrmPatch> = vec![];
-
-            // Keep track of object patches to create: (path, Option<IRI>)
-            // The IRI is Some for real subjects, None for intermediate objects
-            let mut objects_to_create: HashSet<(Vec<String>, Option<(SubjectIri, GraphIri)>)> =
-                HashSet::new();
-
-            // Process changes for this subscription
-            log_info!(
-                "[orm_backend_update] Iterating over {} shapes in orm_changes",
-                orm_changes.len()
-            );
-
-            // Process subject changes and build patches (inline to avoid borrow issues)
-            for (shape_iri, graph_changes) in orm_changes.iter() {
-                for (graph_iri, subject_changes) in graph_changes.iter() {
-                    for (subject_iri, change) in subject_changes {
-                        log_debug!(
-                            "Patch creating for subject change x shape {} x {}. #changed preds: {}",
-                            subject_iri,
-                            shape_iri,
-                            change.predicates.len()
-                        );
-                        // Get the tracked orm object for this (subject, shape) pair
-                        let Some(tracked_orm_object_arc) =
-                            sub.get_tracked_orm_object(graph_iri, subject_iri, shape_iri)
-                        else {
-                            // We might not be tracking this subject x shape combination. Then, there is nothing to do.
-                            log_info!(
+        // Process subject changes and build patches (inline to avoid borrow issues)
+        for (shape_iri, graph_changes) in orm_changes.iter() {
+            for (graph_iri, subject_changes) in graph_changes.iter() {
+                for (subject_iri, change) in subject_changes {
+                    log_debug!(
+                        "Patch creating for subject change x shape {} x {}. #changed preds: {}",
+                        subject_iri,
+                        shape_iri,
+                        change.predicates.len()
+                    );
+                    // Get the tracked orm object for this (subject, shape) pair
+                    let Some(tracked_orm_object_arc) =
+                        sub.get_tracked_orm_object(graph_iri, subject_iri, shape_iri)
+                    else {
+                        // We might not be tracking this subject x shape combination. Then, there is nothing to do.
+                        log_info!(
                             "[orm_backend_update] SKIPPING subject {} x shape {} - not tracked in this subscription",
                             subject_iri,
                             shape_iri
                         );
-                            continue;
-                        };
-                        let tracked_orm_object = tracked_orm_object_arc.read().unwrap();
+                        continue;
+                    };
+                    let tracked_orm_object = tracked_orm_object_arc.read().unwrap();
 
-                        log_debug!(
-                            "  - Validity check: prev_valid={:?}, valid={:?}",
-                            change.prev_valid,
-                            tracked_orm_object.valid
-                        );
+                    log_debug!(
+                        "  - Validity check: prev_valid={:?}, valid={:?}",
+                        change.prev_valid,
+                        tracked_orm_object.valid
+                    );
 
-                        // Handle the subject based on its validity state
-                        if change.prev_valid == TrackedOrmObjectValidity::Invalid
-                            && tracked_orm_object.valid == TrackedOrmObjectValidity::Invalid
-                        {
-                            // Is the subject invalid and was it before? There is nothing we need to inform about.
-                            log_info!(
+                    // Handle the subject based on its validity state
+                    if change.prev_valid == TrackedOrmObjectValidity::Invalid
+                        && tracked_orm_object.valid == TrackedOrmObjectValidity::Invalid
+                    {
+                        // Is the subject invalid and was it before? There is nothing we need to inform about.
+                        log_info!(
                             "[orm_backend_update] SKIPPING subject {} - was and still is Invalid",
                             subject_iri
                         );
-                            continue;
-                        }
+                        continue;
+                    }
 
-                        if change.prev_valid == TrackedOrmObjectValidity::Valid
-                            && tracked_orm_object.valid != TrackedOrmObjectValidity::Valid
-                        {
-                            // Subject became invalid or untracked
-                            log_info!(
+                    if change.prev_valid == TrackedOrmObjectValidity::Valid
+                        && tracked_orm_object.valid != TrackedOrmObjectValidity::Valid
+                    {
+                        // Subject became invalid or untracked
+                        log_info!(
                             "[orm_backend_update] Subject {} became invalid or untracked (prev={:?}, now={:?})",
                             subject_iri,
                             change.prev_valid,
                             tracked_orm_object.valid
                         );
 
-                            // Check if any parent is also being deleted
-                            let has_parent_being_deleted =
-                                tracked_orm_object.parents.iter().any(|parent_arc| {
-                                    let parent_ts = parent_arc.read().unwrap();
-                                    parent_ts.valid == TrackedOrmObjectValidity::ToDelete
-                                });
+                        // Check if any parent is also being deleted
+                        let has_parent_being_deleted =
+                            tracked_orm_object.parents.iter().any(|parent_arc| {
+                                let parent_ts = parent_arc.read().unwrap();
+                                parent_ts.valid == TrackedOrmObjectValidity::ToDelete
+                            });
 
-                            log_info!(
-                                "[orm_backend_update] has_parent_being_deleted={}",
-                                has_parent_being_deleted
-                            );
-
-                            if !has_parent_being_deleted {
-                                // Create deletion patch
-                                let mut path = vec![];
-                                build_path_to_root_and_create_patches(
-                                    &tracked_orm_object,
-                                    &sub.shape_type.shape,
-                                    &mut path,
-                                    DiffOperation {
-                                        op: OrmPatchOp::remove,
-                                        val_type: Some(OrmPatchType::object),
-                                        value: None,
-                                    },
-                                    &mut patches,
-                                    &mut objects_to_create,
-                                    &change.prev_valid,
-                                    orm_changes,
-                                    &(
-                                        tracked_orm_object.subject_iri.clone(),
-                                        tracked_orm_object.graph_iri.clone(),
-                                    ),
-                                );
-                            }
-                            continue;
-                        }
-
-                        // Subject is valid or has become valid
                         log_info!(
+                            "[orm_backend_update] has_parent_being_deleted={}",
+                            has_parent_being_deleted
+                        );
+
+                        if !has_parent_being_deleted {
+                            // Create deletion patch
+                            let mut path = vec![];
+                            build_path_to_root_and_create_patches(
+                                &tracked_orm_object,
+                                &sub.shape_type.shape,
+                                &mut path,
+                                DiffOperation {
+                                    op: OrmPatchOp::remove,
+                                    val_type: Some(OrmPatchType::object),
+                                    value: None,
+                                },
+                                &mut patches,
+                                &mut objects_to_create,
+                                &change.prev_valid,
+                                orm_changes,
+                                &(
+                                    tracked_orm_object.subject_iri.clone(),
+                                    tracked_orm_object.graph_iri.clone(),
+                                ),
+                            );
+                        }
+                        continue;
+                    }
+
+                    // Subject is valid or has become valid
+                    log_info!(
                         "[orm_backend_update] Subject {} is valid or became valid (prev={:?}, now={:?}), processing {} predicate changes",
                         subject_iri,
                         change.prev_valid,
@@ -284,140 +266,126 @@ impl Verifier {
                         change.predicates.len()
                     );
 
-                        // Process predicate changes for this valid subject
-                        for (_pred_iri, pred_change) in &change.predicates {
-                            log_debug!(
-                                "  - Predicate changes: {}; #Adds: {}; #Removes {}",
-                                _pred_iri,
-                                pred_change.values_added.len(),
-                                pred_change.values_removed.len()
-                            );
+                    // Process predicate changes for this valid subject
+                    for (_pred_iri, pred_change) in &change.predicates {
+                        log_debug!(
+                            "  - Predicate changes: {}; #Adds: {}; #Removes {}",
+                            _pred_iri,
+                            pred_change.values_added.len(),
+                            pred_change.values_removed.len()
+                        );
 
-                            let tracked_predicate = pred_change.tracked_predicate.read().unwrap();
-                            let pred_name = tracked_predicate.schema.readablePredicate.clone();
-                            drop(tracked_predicate); // Release lock before calling function
+                        let tracked_predicate = pred_change.tracked_predicate.read().unwrap();
+                        let pred_name = tracked_predicate.schema.readablePredicate.clone();
+                        drop(tracked_predicate); // Release lock before calling function
 
-                            // Create patches for this predicate change (handles both objects and literals)
-                            let (object_patches, diff_ops) = create_patches_for_predicate_change(
-                                pred_change,
+                        // Create patches for this predicate change (handles both objects and literals)
+                        let (object_patches, diff_ops) = create_patches_for_predicate_change(
+                            pred_change,
+                            &tracked_orm_object,
+                            &sub.shape_type.shape,
+                            orm_changes,
+                        );
+
+                        // Add object patches directly to the main patches list
+                        patches.extend(object_patches);
+
+                        log_info!(
+                            "[orm_backend_update] Created {} diff_ops for predicate {}",
+                            diff_ops.len(),
+                            _pred_iri
+                        );
+
+                        // For each diff operation (literals), traverse up to the root to build the path
+                        for diff_op in diff_ops {
+                            let mut path = vec![escape_json_pointer_segment(&pred_name)];
+
+                            // Start recursion from this tracked orm object
+                            build_path_to_root_and_create_patches(
                                 &tracked_orm_object,
                                 &sub.shape_type.shape,
+                                &mut path,
+                                diff_op,
+                                &mut patches,
+                                &mut objects_to_create,
+                                &change.prev_valid,
                                 orm_changes,
+                                &(
+                                    tracked_orm_object.subject_iri.clone(),
+                                    tracked_orm_object.graph_iri.clone(),
+                                ),
                             );
-
-                            // Add object patches directly to the main patches list
-                            patches.extend(object_patches);
-
-                            log_info!(
-                                "[orm_backend_update] Created {} diff_ops for predicate {}",
-                                diff_ops.len(),
-                                _pred_iri
-                            );
-
-                            // For each diff operation (literals), traverse up to the root to build the path
-                            for diff_op in diff_ops {
-                                let mut path = vec![escape_json_pointer_segment(&pred_name)];
-
-                                // Start recursion from this tracked orm object
-                                build_path_to_root_and_create_patches(
-                                    &tracked_orm_object,
-                                    &sub.shape_type.shape,
-                                    &mut path,
-                                    diff_op,
-                                    &mut patches,
-                                    &mut objects_to_create,
-                                    &change.prev_valid,
-                                    orm_changes,
-                                    &(
-                                        tracked_orm_object.subject_iri.clone(),
-                                        tracked_orm_object.graph_iri.clone(),
-                                    ),
-                                );
-                            }
                         }
                     }
                 }
             }
-            log_info!(
+        }
+        log_info!(
                 "[orm_backend_update] Finished iterating shapes. Created {} patches, {} objects_to_create",
                 patches.len(),
                 objects_to_create.len()
             );
 
-            // Create patches for objects that need to be created
-            let object_create_patches = create_object_and_graph_and_id_patches(&objects_to_create);
+        // Create patches for objects that need to be created
+        let object_create_patches = create_object_and_graph_and_id_patches(&objects_to_create);
 
-            log_info!(
-                "[orm_backend_update] Created {} object_create_patches",
-                object_create_patches.len()
-            );
+        log_info!(
+            "[orm_backend_update] Created {} object_create_patches",
+            object_create_patches.len()
+        );
 
-            // Reorder patches to improve determinism and avoid duplicates:
-            // 1) Independent value patches (not under any newly created object)
-            // 2) Object creation patches (@object + @graph + @id)
-            // 3) Dependent patches (whose path is under a created object),
-            //    while dropping duplicate object-add patches at the created object path
+        // Reorder patches to improve determinism and avoid duplicates:
+        // 1) Independent value patches (not under any newly created object)
+        // 2) Object creation patches (@object + @graph + @id)
+        // 3) Dependent patches (whose path is under a created object),
+        //    while dropping duplicate object-add patches at the created object path
 
-            if !object_create_patches.is_empty() || !patches.is_empty() {
-                // Build a set of created object JSON pointer paths for prefix checks
-                let created_paths: std::collections::HashSet<String> = objects_to_create
-                    .iter()
-                    .map(|(segments, _)| format!("/{}", segments.join("/")))
-                    .collect();
+        if !object_create_patches.is_empty() || !patches.is_empty() {
+            // Build a set of created object JSON pointer paths for prefix checks
+            let created_paths: std::collections::HashSet<String> = objects_to_create
+                .iter()
+                .map(|(segments, _)| format!("/{}", segments.join("/")))
+                .collect();
 
-                // Partition patches into independent and dependent
-                let mut independent: Vec<OrmPatch> = Vec::new();
-                let mut dependent: Vec<OrmPatch> = Vec::new();
+            // Partition patches into independent and dependent
+            let mut independent: Vec<OrmPatch> = Vec::new();
+            let mut dependent: Vec<OrmPatch> = Vec::new();
 
-                for p in patches.into_iter() {
-                    // If this patch targets a created object path exactly and is an object-add, drop it (duplicate)
-                    let is_duplicate_object_add =
-                        p.valType == Some(OrmPatchType::object) && created_paths.contains(&p.path);
+            for p in patches.into_iter() {
+                // If this patch targets a created object path exactly and is an object-add, drop it (duplicate)
+                let is_duplicate_object_add =
+                    p.valType == Some(OrmPatchType::object) && created_paths.contains(&p.path);
 
-                    if is_duplicate_object_add {
-                        continue;
-                    }
-
-                    // Check if under any created path (prefix match)
-                    let is_dependent = created_paths.iter().any(|prefix| {
-                        p.path == *prefix || p.path.starts_with(&format!("{}/", prefix))
-                    });
-
-                    if is_dependent {
-                        dependent.push(p);
-                    } else {
-                        independent.push(p);
-                    }
+                if is_duplicate_object_add {
+                    continue;
                 }
 
-                let final_patches: Vec<OrmPatch> = [independent, object_create_patches, dependent]
-                    .into_iter()
-                    .flatten()
-                    .collect();
+                // Check if under any created path (prefix match)
+                let is_dependent = created_paths
+                    .iter()
+                    .any(|prefix| p.path == *prefix || p.path.starts_with(&format!("{}/", prefix)));
 
-                let total_patches = final_patches.len();
-                if total_patches > 0 {
-                    log_info!(
-                        "[orm_backend_update] SENDING {} total patches to frontend (session={}, nuri={}, shape={})",
-                        total_patches,
-                        session_id,
-                        sub.nuri,
-                        sub.shape_type.shape
-                    );
-
-                    // Send response with patches.
-                    let _ = sub
-                        .sender
-                        .clone()
-                        .send(AppResponse::V0(AppResponseV0::OrmUpdate(final_patches)))
-                        .await;
-
-                    log_info!("[orm_backend_update] Patches sent successfully");
+                if is_dependent {
+                    dependent.push(p);
+                } else {
+                    independent.push(p);
                 }
             }
 
-            // Cleanup (remove tracked orm objects to be deleted).
-            sub.cleanup_tracked_orm_objects();
+            let final_patches: Vec<OrmPatch> = [independent, object_create_patches, dependent]
+                .into_iter()
+                .flatten()
+                .collect();
+
+            // Send response with patches.
+            let total_patches = final_patches.len();
+            if total_patches > 0 {
+                let _ = sub
+                    .sender
+                    .clone()
+                    .send(AppResponse::V0(AppResponseV0::OrmUpdate(final_patches)))
+                    .await;
+            }
         }
     }
 }
