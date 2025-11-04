@@ -65,11 +65,18 @@ function isPrimitive(v: unknown): v is string | number | boolean {
  * Find an object in a Set by its @id property.
  * Returns the object if found, otherwise undefined.
  */
-function findInSetById(set: Set<any>, id: string): any | undefined {
+function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
     // TODO: We could optimize that by leveraging the key @id to object mapping in sets of deepSignals.
 
+    let [graphIri, subjectIri] = seg.split("|");
+
     for (const item of set) {
-        if (typeof item === "object" && item !== null && item["@id"] === id) {
+        if (
+            typeof item === "object" &&
+            item !== null &&
+            item["@graph"] === graphIri &&
+            item["@id"] === subjectIri
+        ) {
             return item;
         }
     }
@@ -154,10 +161,9 @@ export function applyPatches(
         // Traverse only intermediate segments (to leaf object at path)
         for (let i = 0; i < pathParts.length - 1; i++) {
             const seg = pathParts[i];
-
             // Handle Sets: if parentVal is a Set, find object by @id
             if (parentVal instanceof Set) {
-                const foundObj = findInSetById(parentVal, seg);
+                const foundObj = findInSetBySegment(parentVal, seg);
                 if (foundObj) {
                     parentVal = foundObj;
                 } else if (ensurePathExists) {
@@ -217,7 +223,7 @@ export function applyPatches(
         // Special handling when parent is a Set
         if (parentVal instanceof Set) {
             // The key represents the @id of an object within the Set
-            const targetObj = findInSetById(parentVal, key);
+            const targetObj = findInSetBySegment(parentVal, key);
 
             // Handle object creation in a Set
             if (patch.op === "add" && patch.valType === "object") {
