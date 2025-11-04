@@ -40,7 +40,6 @@ export const WelcomeToVaultPage = () => {
 
   return (
     <Box sx={{ 
-      height: '100%',
       width: '100%',
       maxWidth: { xs: '100vw', md: '100%' },
       overflow: 'hidden',

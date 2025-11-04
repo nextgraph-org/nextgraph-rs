@@ -29,6 +29,7 @@ import { NotificationsPage } from '@/components/notifications/NotificationsPage'
 import { PhoneVerificationPage } from '@/components/account/PhoneVerificationPage';
 import {createAppTheme} from '@/theme/theme';
 import CreateContactPage from "@/pages/CreateContactPage";
+import CreateProfilePage from "@/pages/CreateProfilePage";
 import {AccountPage} from "@/pages/AccountPage.tsx";
 
 import { useSvelteComponent } from "svelte-in-react";
@@ -99,6 +100,7 @@ const RoutesWithAuth = () => {
                 <Route path="/messages" element={<MessagesPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/account" element={<AccountPage />} />
+                <Route path="/account/create" element={<CreateProfilePage />} />
                 <Route path="/verify-phone/:phone" element={<PhoneVerificationPage />} />
                 <Route path="/invite" element={<InvitationPage />} />
               </Routes>
