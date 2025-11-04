@@ -42,9 +42,10 @@ export function LinkedInLoginForm({
         return;
       }
 
-      if (response.status === 422) {
+      if (response.status === 200) {
         if (data.status === 'verification_required') {
           onVerificationRequired(data.sessionId);
+          return;
         }
       }
 
