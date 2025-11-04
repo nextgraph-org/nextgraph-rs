@@ -12,6 +12,7 @@ import {extractTemplateProps, renderTemplate} from "@/utils/templateRenderer.ts"
 import {camelCaseToWords} from "@/utils/stringHelpers.ts";
 import {Contact} from "@/types/contact.ts";
 import {languageNameByCode} from "@/utils/bcp47map.ts";
+import {useContactData} from "../contacts/useContactData.ts";
 
 export class ContentItem {
   label: keyof ContactLdSetProperties;
@@ -82,7 +83,7 @@ export class ContentItem {
         }
       })
     }
-    if (this.label === "language") {
+    if (this.label === "language" && data.valueIRI) {
       data.valueIRI = languageNameByCode(data.valueIRI.toArray()[0]);
     }
     if (this.propertyConfig.displayProp && data && data[this.propertyConfig.displayProp]) {
@@ -198,14 +199,14 @@ interface RCardsReturn {
 }
 
 export const useRCards = ({card, isEditing = false}: UseRCardProps): RCardsReturn => {
-  const profile = useMemo(() => dataService.getProfile(), []);
+  const {contact} = useContactData(null, true);
 
   const addContentItem = useCallback((
     label: keyof ContactLdSetProperties,
     propertyConfig: PropertyConfig,
     content: ZoneContent
   ) => {
-    const contentItem = new ContentItem(label, propertyConfig, profile, isEditing);
+    const contentItem = new ContentItem(label, propertyConfig, contact, isEditing);
     contentItem.initialize();
     if (contentItem.isEmptyValue && !isEditing) {
       return;
@@ -220,7 +221,7 @@ export const useRCards = ({card, isEditing = false}: UseRCardProps): RCardsRetur
     }
     content[propertyConfig.zone!].push(contentItem);
 
-  }, [profile, isEditing]);
+  }, [contact, isEditing]);
 
   // Group content by zone
   const zoneContent = useMemo(() => {
@@ -228,6 +229,7 @@ export const useRCards = ({card, isEditing = false}: UseRCardProps): RCardsRetur
     }
 
     const content: ZoneContent = {top: [], middle: [], bottom: []};
+    if (!contact) return content;
     const permissions = (Object.entries(card.permissions) as [keyof ContactLdSetProperties, PropertyConfig[]][]);
 
     permissions.forEach(([prop, propertyConfigs]) => {
@@ -246,7 +248,7 @@ export const useRCards = ({card, isEditing = false}: UseRCardProps): RCardsRetur
     });
 
     return content;
-  }, [card.rerender, card.permissions, isEditing, addContentItem]);
+  }, [card.rerender, card.permissions, isEditing, addContentItem, contact]);
 
   const recalculateOrder = useCallback((zone: keyof ZoneContent) => {
     zoneContent[zone].forEach((item, index) => {

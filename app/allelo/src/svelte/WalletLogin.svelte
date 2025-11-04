@@ -495,7 +495,7 @@
               variant="outlined"
               class="mui-button-outlined form-button action-button"
               type="button"
-              style="font-size: 1.25rem!important; height:57px;"
+              style="min-height: 50px; font-size: 1.25rem!important; height:57px;"
               onclick={() => {
               document.getElementById("import_wallet_file").click();
             }}

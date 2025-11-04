@@ -1,7 +1,7 @@
 import {GmailSourceConfig} from "@/importers/gmail/GmailSourceConfig";
 import {ContactsSourceConfig} from "@/importers/android/ContactsSourceConfig";
 import {ImportSourceConfig} from "@/types/importSource";
-import {MockDataSourceConfig} from "@/importers/mock/MockDataSourceConfig";
+// import {MockDataSourceConfig} from "@/importers/mock/MockDataSourceConfig";
 import {LinkedInSourceConfig} from "@/importers/linkedin/LinkedInSourceConfig";
 
 export class ImportSourceRegistry {
@@ -9,7 +9,7 @@ export class ImportSourceRegistry {
     contacts: ContactsSourceConfig,
     gmail: GmailSourceConfig,
     linkedin: LinkedInSourceConfig,
-    mockdata: MockDataSourceConfig
+    // mockdata: MockDataSourceConfig
   };
 
   static getConfig(id: string): ImportSourceConfig | undefined {
