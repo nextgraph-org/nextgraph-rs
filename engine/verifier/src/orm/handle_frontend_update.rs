@@ -84,10 +84,6 @@ impl Verifier {
             let doc_nuri = graph_subj[0].clone();
 
             let sparql_update = create_sparql_update_query_for_patches(orm_subscription, patches);
-            log_info!(
-                "[orm_frontend_update] created sparql_update query:\n{}",
-                sparql_update
-            );
 
             (doc_nuri, sparql_update)
         };
@@ -108,11 +104,6 @@ impl Verifier {
                 Err(e)
             }
             Ok((_, revert_inserts, revert_removes, skolemnized_blank_nodes)) => {
-                log_info!(
-                    "[orm_frontend_update] query successful. Reverts? {}",
-                    revert_inserts.len()
-                );
-
                 if !revert_inserts.is_empty()
                     || !revert_removes.is_empty()
                     || !skolemnized_blank_nodes.is_empty()

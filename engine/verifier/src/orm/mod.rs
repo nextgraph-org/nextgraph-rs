@@ -22,11 +22,4 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use crate::orm::types::*;
 use crate::verifier::*;
 
-impl Verifier {
-    pub(crate) fn _clean_orm_subscriptions(&mut self) {
-        self.orm_subscriptions.retain(|_, subscriptions| {
-            subscriptions.retain(|sub| !sub.sender.is_closed());
-            !subscriptions.is_empty()
-        });
-    }
-}
+impl Verifier {}

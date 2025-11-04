@@ -60,8 +60,6 @@ impl Verifier {
         // Apply changes to all affected scopes and send patches to clients
         self.apply_changes_to_all_scopes(repo_id, overlay_id, &inserts, &removes, session_id)
             .await;
-
-        log_info!("[orm_backend_update] COMPLETE - processed all scopes");
     }
 
     /// Collects and filters subscriptions scopes that are affected by this backend update.
@@ -85,32 +83,14 @@ impl Verifier {
             let mut subs = self.orm_subscriptions.remove(&scope_str).unwrap();
 
             // First: Clean up and remove old subscriptions
-            let initial_sub_count = subs.len();
             subs.retain(|sub| !sub.sender.is_closed());
-            let retained_sub_count = subs.len();
-            log_info!(
-                "[orm_backend_update] Scope {:?}: {} subs ({} retained after cleanup)",
-                scope_str,
-                initial_sub_count,
-                retained_sub_count
-            );
 
+            // Process changes for each subscription.
             for orm_subscription in subs.iter_mut() {
                 // Check if this scope is affected by this backend update
                 if !Self::is_scope_affected(&scope_str, repo_id, &overlaylink) {
-                    log_info!(
-                    "[orm_backend_update] SKIPPING scope {:?} - does not match repo_id={:?} or overlay={:?}",
-                    scope_str,
-                    repo_id,
-                    overlay_id
-                );
                     continue;
                 }
-
-                log_info!(
-                    "[orm_backend_update] PROCESSING scope {:?} - matches criteria",
-                    scope_str
-                );
 
                 // Process changes for this shape
                 let mut orm_changes: OrmChanges = HashMap::new();
@@ -132,10 +112,6 @@ impl Verifier {
 
             // Put the subscriptions back
             self.orm_subscriptions.insert(scope_str, subs);
-
-            // Cleanup (remove tracked orm objects to be deleted).
-            // TODO
-            //self._clean_orm_subscriptionscleanup_tracked_orm_objects();
         }
     }
 
@@ -152,7 +128,10 @@ impl Verifier {
     }
 
     /// Creates and sends patches to clients from orm changes.
-    async fn send_orm_patches_from_changes(sub: &OrmSubscription, orm_changes: &OrmChanges) {
+    async fn send_orm_patches_from_changes(
+        orm_subscription: &OrmSubscription,
+        orm_changes: &OrmChanges,
+    ) {
         // The JSON patches to send to JS land.
         let mut patches: Vec<OrmPatch> = vec![];
 
@@ -160,12 +139,6 @@ impl Verifier {
         // The IRI is Some for real subjects, None for intermediate objects
         let mut objects_to_create: HashSet<(Vec<String>, Option<(SubjectIri, GraphIri)>)> =
             HashSet::new();
-
-        // Process changes for this subscription
-        log_info!(
-            "[orm_backend_update] Iterating over {} shapes in orm_changes",
-            orm_changes.len()
-        );
 
         // Process subject changes and build patches (inline to avoid borrow issues)
         for (shape_iri, graph_changes) in orm_changes.iter() {
@@ -179,47 +152,25 @@ impl Verifier {
                     );
                     // Get the tracked orm object for this (subject, shape) pair
                     let Some(tracked_orm_object_arc) =
-                        sub.get_tracked_orm_object(graph_iri, subject_iri, shape_iri)
+                        orm_subscription.get_tracked_orm_object(graph_iri, subject_iri, shape_iri)
                     else {
                         // We might not be tracking this subject x shape combination. Then, there is nothing to do.
-                        log_info!(
-                            "[orm_backend_update] SKIPPING subject {} x shape {} - not tracked in this subscription",
-                            subject_iri,
-                            shape_iri
-                        );
                         continue;
                     };
                     let tracked_orm_object = tracked_orm_object_arc.read().unwrap();
 
-                    log_debug!(
-                        "  - Validity check: prev_valid={:?}, valid={:?}",
-                        change.prev_valid,
-                        tracked_orm_object.valid
-                    );
-
-                    // Handle the subject based on its validity state
+                    // Skip if tormo is invalid and was it before? There is nothing we need to inform about.
                     if change.prev_valid == TrackedOrmObjectValidity::Invalid
                         && tracked_orm_object.valid == TrackedOrmObjectValidity::Invalid
                     {
-                        // Is the subject invalid and was it before? There is nothing we need to inform about.
-                        log_info!(
-                            "[orm_backend_update] SKIPPING subject {} - was and still is Invalid",
-                            subject_iri
-                        );
                         continue;
                     }
 
+                    // Subject became invalid or untracked?
+                    // Mark to be deleted and create remove patch
                     if change.prev_valid == TrackedOrmObjectValidity::Valid
                         && tracked_orm_object.valid != TrackedOrmObjectValidity::Valid
                     {
-                        // Subject became invalid or untracked
-                        log_info!(
-                            "[orm_backend_update] Subject {} became invalid or untracked (prev={:?}, now={:?})",
-                            subject_iri,
-                            change.prev_valid,
-                            tracked_orm_object.valid
-                        );
-
                         // Check if any parent is also being deleted
                         let has_parent_being_deleted =
                             tracked_orm_object.parents.iter().any(|parent_arc| {
@@ -227,17 +178,12 @@ impl Verifier {
                                 parent_ts.valid == TrackedOrmObjectValidity::ToDelete
                             });
 
-                        log_info!(
-                            "[orm_backend_update] has_parent_being_deleted={}",
-                            has_parent_being_deleted
-                        );
-
                         if !has_parent_being_deleted {
                             // Create deletion patch
                             let mut path = vec![];
                             build_path_to_root_and_create_patches(
                                 &tracked_orm_object,
-                                &sub.shape_type.shape,
+                                &orm_subscription.shape_type.shape,
                                 &mut path,
                                 DiffOperation {
                                     op: OrmPatchOp::remove,
@@ -257,24 +203,10 @@ impl Verifier {
                         continue;
                     }
 
-                    // Subject is valid or has become valid
-                    log_info!(
-                        "[orm_backend_update] Subject {} is valid or became valid (prev={:?}, now={:?}), processing {} predicate changes",
-                        subject_iri,
-                        change.prev_valid,
-                        tracked_orm_object.valid,
-                        change.predicates.len()
-                    );
+                    // == Subject is valid or has become valid ==
 
                     // Process predicate changes for this valid subject
                     for (_pred_iri, pred_change) in &change.predicates {
-                        log_debug!(
-                            "  - Predicate changes: {}; #Adds: {}; #Removes {}",
-                            _pred_iri,
-                            pred_change.values_added.len(),
-                            pred_change.values_removed.len()
-                        );
-
                         let tracked_predicate = pred_change.tracked_predicate.read().unwrap();
                         let pred_name = tracked_predicate.schema.readablePredicate.clone();
                         drop(tracked_predicate); // Release lock before calling function
@@ -283,18 +215,12 @@ impl Verifier {
                         let (object_patches, diff_ops) = create_patches_for_predicate_change(
                             pred_change,
                             &tracked_orm_object,
-                            &sub.shape_type.shape,
+                            &orm_subscription.shape_type.shape,
                             orm_changes,
                         );
 
                         // Add object patches directly to the main patches list
                         patches.extend(object_patches);
-
-                        log_info!(
-                            "[orm_backend_update] Created {} diff_ops for predicate {}",
-                            diff_ops.len(),
-                            _pred_iri
-                        );
 
                         // For each diff operation (literals), traverse up to the root to build the path
                         for diff_op in diff_ops {
@@ -303,7 +229,7 @@ impl Verifier {
                             // Start recursion from this tracked orm object
                             build_path_to_root_and_create_patches(
                                 &tracked_orm_object,
-                                &sub.shape_type.shape,
+                                &orm_subscription.shape_type.shape,
                                 &mut path,
                                 diff_op,
                                 &mut patches,
@@ -320,23 +246,14 @@ impl Verifier {
                 }
             }
         }
-        log_info!(
-                "[orm_backend_update] Finished iterating shapes. Created {} patches, {} objects_to_create",
-                patches.len(),
-                objects_to_create.len()
-            );
 
         // Create patches for objects that need to be created
         let object_create_patches = create_object_and_graph_and_id_patches(&objects_to_create);
 
-        log_info!(
-            "[orm_backend_update] Created {} object_create_patches",
-            object_create_patches.len()
-        );
-
         // Reorder patches to improve determinism and avoid duplicates:
+        // TODO: Sort them by path length
         // 1) Independent value patches (not under any newly created object)
-        // 2) Object creation patches (@object + @graph + @id)
+        // 2) Object creation patches (add object + @graph + @id)
         // 3) Dependent patches (whose path is under a created object),
         //    while dropping duplicate object-add patches at the created object path
 
@@ -380,7 +297,7 @@ impl Verifier {
             // Send response with patches.
             let total_patches = final_patches.len();
             if total_patches > 0 {
-                let _ = sub
+                let _ = orm_subscription
                     .sender
                     .clone()
                     .send(AppResponse::V0(AppResponseV0::OrmUpdate(final_patches)))
@@ -795,6 +712,8 @@ fn create_patches_for_predicate_change(
     let mut patches = vec![];
     let mut ops = vec![];
 
+    // TODO: Revisit the code below.
+
     // Handle object-valued predicates
     if is_object {
         log_debug!(
@@ -806,13 +725,6 @@ fn create_patches_for_predicate_change(
 
         for added in &pred_change.values_added {
             if let BasicType::Str(child_subject_iri) = added {
-                log_debug!(
-                    "[create_patches_for_predicate_change] processing object add child_subject_iri='{}' for parent subject='{}' (shape={})",
-                    child_subject_iri,
-                    tracked_orm_object.subject_iri,
-                    tracked_orm_object.shape.iri
-                );
-
                 // Find matching tracked child objects (could be in multiple graphs)
                 let mut found_child = false;
                 for child_arc in &tracked_predicate.tracked_children {
@@ -856,11 +768,6 @@ fn create_patches_for_predicate_change(
                 // Fallback: if the tracked children list did not contain the child (e.g., cross-graph link),
                 // construct the object and its @graph/@id patches directly using the child's graph from orm_changes.
                 if !found_child {
-                    log_debug!(
-                        "[create_patches_for_predicate_change] tracked_children did not contain child='{}'. Searching orm_changes for graph...",
-                        child_subject_iri
-                    );
-
                     // Try to find the child's graph IRI from orm_changes
                     let mut child_graph_opt: Option<String> = None;
                     for (_shape_k, graphs) in orm_changes.iter() {
@@ -875,34 +782,13 @@ fn create_patches_for_predicate_change(
                         }
                     }
 
-                    if child_graph_opt.is_none() {
-                        log_info!(
-                            "[create_patches_for_predicate_change] fallback search: no graph found in orm_changes for child='{}' (orm_changes shapes={})",
-                            child_subject_iri,
-                            orm_changes.len()
-                        );
-                    }
-
                     // If we didn't find the child's graph, as a last resort fall back to the parent's graph
                     let child_graph = match child_graph_opt {
                         Some(g) => g,
-                        None => {
-                            log_info!(
-                                "[create_patches_for_predicate_change] no child graph discovered for '{}', falling back to parent graph '{}'",
-                                child_subject_iri,
-                                tracked_orm_object.graph_iri
-                            );
-                            tracked_orm_object.graph_iri.clone()
-                        }
+                        None => tracked_orm_object.graph_iri.clone(),
                     };
 
                     if !child_graph.is_empty() {
-                        log_debug!(
-                            "[create_patches_for_predicate_change] emitting object creation using child graph='{}' for child='{}'",
-                            child_graph,
-                            child_subject_iri
-                        );
-
                         // Build parent root composite key
                         let parent_root_key = format!(
                             "{}|{}",
@@ -942,10 +828,7 @@ fn create_patches_for_predicate_change(
                             value: Some(json!(child_subject_iri.clone())),
                         });
                     } else {
-                        log_info!(
-                            "[create_patches_for_predicate_change] child_graph empty for '{}', skipping emitting fallback patches",
-                            child_subject_iri
-                        );
+                        // child_graph empty. Skipping emitting fallback patches.
                     }
                 }
             }
