@@ -75,7 +75,13 @@ impl Verifier {
         let (doc_nuri, sparql_update) = {
             let orm_subscription =
                 self.get_first_orm_subscription_for(&nuri_str, Some(&shape_iri), Some(&session_id));
-            let doc_nuri = orm_subscription.nuri.clone();
+
+            // Hack to get any graph used in the patch. We don't need one because all statements are tied to a graph
+            // but the subscription.nuri might be a scope, whereas `process_sparql_update` requires a default graph.
+            let patch_strs: Vec<String> =
+                patches[0].path.split('/').map(|s| s.to_string()).collect();
+            let graph_subj: Vec<String> = patch_strs[1].split('|').map(|s| s.to_string()).collect();
+            let doc_nuri = graph_subj[0].clone();
 
             let sparql_update = create_sparql_update_query_for_patches(orm_subscription, patches);
             log_info!(
@@ -97,7 +103,7 @@ impl Verifier {
             .await
         {
             Err(e) => {
-                log_info!("[orm_frontend_update] query failed");
+                log_info!("[orm_frontend_update] query failed: {:?}", e);
 
                 Err(e)
             }
