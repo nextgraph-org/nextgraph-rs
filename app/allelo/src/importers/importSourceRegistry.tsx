@@ -1,7 +1,7 @@
 import {GmailSourceConfig} from "@/importers/gmail/GmailSourceConfig";
 import {ContactsSourceConfig} from "@/importers/android/ContactsSourceConfig";
 import {ImportSourceConfig} from "@/types/importSource";
-// import {MockDataSourceConfig} from "@/importers/mock/MockDataSourceConfig";
+import {MockDataSourceConfig} from "@/importers/mock/MockDataSourceConfig";
 import {LinkedInSourceConfig} from "@/importers/linkedin/LinkedInSourceConfig";
 
 export class ImportSourceRegistry {
@@ -38,6 +38,9 @@ export class ImportSourceRegistry {
   }
 
   static getAllSources(): ImportSourceConfig[] {
+    if (import.meta.env.NG_PUBLIC_DEV) {
+      this.configs.mockdata = MockDataSourceConfig;
+    }
     return Object.values(this.configs);
   }
 }
