@@ -16,6 +16,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "webdev": "cross-env NG_ENV_WEB=1 TAURI_DEBUG=1 NG_ENV_NO_REDIRECT=1 NG_PUBLIC_DEV=1 vite",
+    "webdev3": "cross-env NG_ENV_WEB=3 TAURI_DEBUG=1 NG_ENV_NO_REDIRECT=1 NG_PUBLIC_DEV=1 vite",
     "webbuild": "cross-env NG_ENV_WEB=1 NG_ENV_ONEFILE=1 vite build && node prepare-web-file.cjs",
     "libwasm": "cd ../.. && cargo install cargo-run-script && cargo run-script libwasm"
   },
@@ -62,7 +63,8 @@
     "zustand": "^5.0.6",
     "@smui/button": "^8.0.3",
     "@smui/textfield": "^8.0.3",
-    "svelte-material-ui": "^8.0.3"
+    "svelte-material-ui": "^8.0.3",
+    "@ng-org/web": "^0.1.2-alpha.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

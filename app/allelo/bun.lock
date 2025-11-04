@@ -15,6 +15,7 @@
         "@ldo/react": "1.0.0-alpha.15",
         "@mui/icons-material": "^7.2.0",
         "@mui/material": "^7.2.0",
+        "@ng-org/web": "^0.1.2-alpha.2",
         "@rdfjs/data-model": "^1.2.0",
         "@rdfjs/types": "^1.0.1",
         "@react-oauth/google": "^0.12.2",
@@ -485,6 +486,8 @@
     "@mui/types": ["@mui/types@7.4.7", "", { "dependencies": { "@babel/runtime": "^7.28.4" }, "peerDependencies": { "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@types/react"] }, "sha512-8vVje9rdEr1rY8oIkYgP+Su5Kwl6ik7O3jQ0wl78JGSmiZhRHV+vkjooGdKD8pbtZbutXFVTWQYshu2b3sG9zw=="],
 
     "@mui/utils": ["@mui/utils@7.3.3", "", { "dependencies": { "@babel/runtime": "^7.28.4", "@mui/types": "^7.4.7", "@types/prop-types": "^15.7.15", "clsx": "^2.1.1", "prop-types": "^15.8.1", "react-is": "^19.1.1" }, "peerDependencies": { "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react": "^17.0.0 || ^18.0.0 || ^19.0.0" }, "optionalPeers": ["@types/react"] }, "sha512-kwNAUh7bLZ7mRz9JZ+6qfRnnxbE4Zuc+RzXnhSpRSxjTlSTj7b4JxRLXpG+MVtPVtqks5k/XC8No1Vs3x4Z2gg=="],
+
+    "@ng-org/web": ["@ng-org/web@0.1.2-alpha.2", "", { "dependencies": { "async-proxy": "^0.4.1" } }, "sha512-WElSVA8JQKPtn8cFsXfJ5D2G7mIOvADnPwtNzJ4Ga1c1tDNGRSN0KLf335UwEl1qZ0u/srp9Wjn76y9R7yQGlQ=="],
 
     "@nodelib/fs.scandir": ["@nodelib/fs.scandir@2.1.5", "", { "dependencies": { "@nodelib/fs.stat": "2.0.5", "run-parallel": "^1.1.9" } }, "sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g=="],
 

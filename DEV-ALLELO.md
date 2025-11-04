@@ -80,3 +80,17 @@ on windows, it looks something like this:
 ```
 cd infra\ngaccount; $env:NG_ACCOUNT_ADMIN="[YOUR_USER_PRIV_KEY]"; $env:NG_ACCOUNT_LOCAL_PEER_KEY="kbz34OFqaWu59xYaqViP0esME2MmcroS94pc4lEEsEsA"; $env:NG_ACCOUNT_SERVER="127.0.0.1,14400,[YOUR_NGD_PEER_ID]"; cargo run-script buildfront;$env:NG_ACCOUNT_DOMAIN='test.com'; cargo run
 ```
+
+## Developing as third-party app
+
+If you prefer to create a wallet at nextgraph.eu and then use that wallet to connect to the Allelo app, you need to run it with this command :
+
+```
+cd app/allelo
+bun i
+bun webdev3
+```
+
+Once you are logged in with NextGraph and you see the Allelo login screen again, click on the logo of Allelo to go to the homepage.
+
+You can then access the data of the wallet with the NextGraph, like you sued to do with the previous setup.
