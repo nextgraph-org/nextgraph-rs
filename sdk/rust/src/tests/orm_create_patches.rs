@@ -24,146 +24,6 @@ use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
 
-/// Extract the graph IRI from the first patch path in the actual patches JSON array.
-fn extract_graph_from_actual_paths(actual: &Value) -> Option<String> {
-    // Expecting actual to be an array of objects with a "path" string like "/graph|subject/..."
-    let arr = actual.as_array()?;
-    for item in arr {
-        if let Some(path) = item.get("path").and_then(|v| v.as_str()) {
-            let mut segs = path.split('/').filter(|s| !s.is_empty());
-            if let Some(root) = segs.next() {
-                if let Some((graph, _subject)) = root.split_once('|') {
-                    return Some(graph.to_string());
-                }
-            }
-        }
-    }
-    None
-}
-
-/// Prefix every subject segment (urn:...) in an expected JSON path with "{graph}|".
-fn prefix_graph_in_path(path: &str, graph: &str) -> String {
-    let mut out = String::from("/");
-    let mut first = true;
-    for seg in path.split('/').filter(|s| !s.is_empty()) {
-        if !first {
-            out.push('/');
-        }
-        // Only prefix subject segments, not properties or @-fields
-        if seg.starts_with("urn:") && !seg.contains('|') {
-            out.push_str(graph);
-            out.push('|');
-        }
-        out.push_str(seg);
-        first = false;
-    }
-    out
-}
-
-/// Rewrite all "path" fields in the expected JSON with the graph-prefixed subject segments.
-fn rewrite_expected_paths_with_graph(expected: &mut Value, graph: &str) {
-    if let Some(arr) = expected.as_array_mut() {
-        for item in arr.iter_mut() {
-            if let Some(path_val) = item.get_mut("path") {
-                if let Some(path) = path_val.as_str() {
-                    let new_path = prefix_graph_in_path(path, graph);
-                    *path_val = Value::String(new_path);
-                }
-            }
-        }
-    }
-}
-
-/// For each expected entry that sets an @id, also expect a sibling @graph entry with the same base path.
-fn augment_expected_with_graph_fields(expected: &mut Value, graph: &str) {
-    if let Some(arr) = expected.as_array_mut() {
-        let mut to_add: Vec<Value> = Vec::new();
-        for item in arr.iter() {
-            if let (Some(path), Some(op)) = (
-                item.get("path").and_then(|v| v.as_str()),
-                item.get("op").and_then(|v| v.as_str()),
-            ) {
-                if path.ends_with("/@id") && op == "add" {
-                    let base = path.trim_end_matches("/@id");
-                    to_add.push(json!({
-                        "op": "add",
-                        "path": format!("{}/@graph", base),
-                        "value": graph,
-                    }));
-                }
-            }
-        }
-        arr.extend(to_add);
-    }
-}
-
-/// Find the child graph IRI for a nested entry by inspecting the @graph patch for that child.
-/// Looks for a patch whose path contains `/{prop}/...{child}/@graph` and returns its value.
-fn extract_child_graph_from_actual(
-    actual: &Value,
-    prop: &str,
-    child_subject: &str,
-) -> Option<String> {
-    let arr = actual.as_array()?;
-    for item in arr {
-        let path = item.get("path").and_then(|v| v.as_str());
-        if let Some(path) = path {
-            if path.contains(&format!("/{}/", prop))
-                && path.contains(child_subject)
-                && path.ends_with("/@graph")
-            {
-                if let Some(val) = item.get("value").and_then(|v| v.as_str()) {
-                    return Some(val.to_string());
-                }
-            }
-        }
-    }
-    None
-}
-
-/// Given a path that was first rewritten with the root graph for all subjects,
-/// fix the specific child segment to use its own child_graph instead of root_graph.
-fn fix_child_segment_graph_in_path(
-    path: &str,
-    prop: &str,
-    child_subject: &str,
-    root_graph: &str,
-    child_graph: &str,
-) -> String {
-    // Replace `/{prop}/{root_graph}|{child_subject}` with `/{prop}/{child_graph}|{child_subject}`
-    let needle = format!("/{}/{root}|{}", prop, child_subject, root = root_graph);
-    let replacement = format!("/{}/{child}|{}", prop, child_subject, child = child_graph);
-    path.replace(&needle, &replacement)
-}
-
-/// Apply child-graph fix on all expected path entries matching the given child under `prop`.
-fn fix_child_segment_graph_in_expected(
-    expected: &mut Value,
-    prop: &str,
-    child_subject: &str,
-    root_graph: &str,
-    child_graph: &str,
-) {
-    if let Some(arr) = expected.as_array_mut() {
-        for item in arr.iter_mut() {
-            if let Some(path_val) = item.get_mut("path") {
-                if let Some(path) = path_val.as_str() {
-                    if path.contains(&format!("/{}/{}", prop, child_subject)) {
-                        let new_path = fix_child_segment_graph_in_path(
-                            path,
-                            prop,
-                            child_subject,
-                            root_graph,
-                            child_graph,
-                        );
-                        *path_val = Value::String(new_path);
-                    }
-                }
-            }
-        }
-    }
-}
-
 #[async_std::test]
 async fn test_orm_patch_creation() {
     // Setup wallet and document
@@ -1416,5 +1276,149 @@ INSERT DATA {
         assert_json_eq(&mut expected, &mut actual);
 
         break;
+    }
+}
+
+//
+// =============== HELPERS ================
+//
+
+/// Extract the graph IRI from the first patch path in the actual patches JSON array.
+fn extract_graph_from_actual_paths(actual: &Value) -> Option<String> {
+    // Expecting actual to be an array of objects with a "path" string like "/graph|subject/..."
+    let arr = actual.as_array()?;
+    for item in arr {
+        if let Some(path) = item.get("path").and_then(|v| v.as_str()) {
+            let mut segs = path.split('/').filter(|s| !s.is_empty());
+            if let Some(root) = segs.next() {
+                if let Some((graph, _subject)) = root.split_once('|') {
+                    return Some(graph.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Prefix every subject segment (urn:...) in an expected JSON path with "{graph}|".
+fn prefix_graph_in_path(path: &str, graph: &str) -> String {
+    let mut out = String::from("/");
+    let mut first = true;
+    for seg in path.split('/').filter(|s| !s.is_empty()) {
+        if !first {
+            out.push('/');
+        }
+        // Only prefix subject segments, not properties or @-fields
+        if seg.starts_with("urn:") && !seg.contains('|') {
+            out.push_str(graph);
+            out.push('|');
+        }
+        out.push_str(seg);
+        first = false;
+    }
+    out
+}
+
+/// Rewrite all "path" fields in the expected JSON with the graph-prefixed subject segments.
+fn rewrite_expected_paths_with_graph(expected: &mut Value, graph: &str) {
+    if let Some(arr) = expected.as_array_mut() {
+        for item in arr.iter_mut() {
+            if let Some(path_val) = item.get_mut("path") {
+                if let Some(path) = path_val.as_str() {
+                    let new_path = prefix_graph_in_path(path, graph);
+                    *path_val = Value::String(new_path);
+                }
+            }
+        }
+    }
+}
+
+/// For each expected entry that sets an @id, also expect a sibling @graph entry with the same base path.
+fn augment_expected_with_graph_fields(expected: &mut Value, graph: &str) {
+    if let Some(arr) = expected.as_array_mut() {
+        let mut to_add: Vec<Value> = Vec::new();
+        for item in arr.iter() {
+            if let (Some(path), Some(op)) = (
+                item.get("path").and_then(|v| v.as_str()),
+                item.get("op").and_then(|v| v.as_str()),
+            ) {
+                if path.ends_with("/@id") && op == "add" {
+                    let base = path.trim_end_matches("/@id");
+                    to_add.push(json!({
+                        "op": "add",
+                        "path": format!("{}/@graph", base),
+                        "value": graph,
+                    }));
+                }
+            }
+        }
+        arr.extend(to_add);
+    }
+}
+
+/// Find the child graph IRI for a nested entry by inspecting the @graph patch for that child.
+/// Looks for a patch whose path contains `/{prop}/...{child}/@graph` and returns its value.
+fn extract_child_graph_from_actual(
+    actual: &Value,
+    prop: &str,
+    child_subject: &str,
+) -> Option<String> {
+    let arr = actual.as_array()?;
+    for item in arr {
+        let path = item.get("path").and_then(|v| v.as_str());
+        if let Some(path) = path {
+            if path.contains(&format!("/{}/", prop))
+                && path.contains(child_subject)
+                && path.ends_with("/@graph")
+            {
+                if let Some(val) = item.get("value").and_then(|v| v.as_str()) {
+                    return Some(val.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Given a path that was first rewritten with the root graph for all subjects,
+/// fix the specific child segment to use its own child_graph instead of root_graph.
+fn fix_child_segment_graph_in_path(
+    path: &str,
+    prop: &str,
+    child_subject: &str,
+    root_graph: &str,
+    child_graph: &str,
+) -> String {
+    // Replace `/{prop}/{root_graph}|{child_subject}` with `/{prop}/{child_graph}|{child_subject}`
+    let needle = format!("/{}/{root}|{}", prop, child_subject, root = root_graph);
+    let replacement = format!("/{}/{child}|{}", prop, child_subject, child = child_graph);
+    path.replace(&needle, &replacement)
+}
+
+/// Apply child-graph fix on all expected path entries matching the given child under `prop`.
+fn fix_child_segment_graph_in_expected(
+    expected: &mut Value,
+    prop: &str,
+    child_subject: &str,
+    root_graph: &str,
+    child_graph: &str,
+) {
+    if let Some(arr) = expected.as_array_mut() {
+        for item in arr.iter_mut() {
+            if let Some(path_val) = item.get_mut("path") {
+                if let Some(path) = path_val.as_str() {
+                    if path.contains(&format!("/{}/{}", prop, child_subject)) {
+                        let new_path = fix_child_segment_graph_in_path(
+                            path,
+                            prop,
+                            child_subject,
+                            root_graph,
+                            child_graph,
+                        );
+                        *path_val = Value::String(new_path);
+                    }
+                }
+            }
+        }
     }
 }

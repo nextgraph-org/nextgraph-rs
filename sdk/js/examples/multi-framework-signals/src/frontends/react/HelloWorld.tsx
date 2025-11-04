@@ -20,9 +20,28 @@ export function HelloWorldReact() {
         <div>
             <p>Rendered in React</p>
             <button
-                onClick={() => {
+                onClick={async () => {
                     const storeId = "did:ng:" + window.session.private_store_id;
                     const sessionId = window.session.session_id;
+
+                    const docId1 = await window.ng.doc_create(
+                        sessionId,
+                        "Graph",
+                        "data:graph",
+                        "store"
+                    );
+                    const docId2 = await window.ng.doc_create(
+                        sessionId,
+                        "Graph",
+                        "data:graph",
+                        "store"
+                    );
+                    const docId3 = await window.ng.doc_create(
+                        sessionId,
+                        "Graph",
+                        "data:graph",
+                        "store"
+                    );
 
                     // Insert first test object with its nested objects
                     window.ng.sparql_update(
@@ -52,7 +71,7 @@ INSERT DATA {
         ex:prop2 1 .
 }
 `,
-                        storeId
+                        docId1
                     );
 
                     // Insert second test object with its nested objects
@@ -78,7 +97,7 @@ INSERT DATA {
         ex:anotherUnrelated 42422 .
 }
 `,
-                        storeId
+                        docId2
                     );
 
                     // Insert basic objects
@@ -109,7 +128,7 @@ INSERT DATA {
         ex:basicString "string of object 2" .
 }
                         `,
-                        storeId
+                        docId3
                     );
                 }}
             >
@@ -253,17 +272,8 @@ INSERT DATA {
                                                         <div>
                                                             <button
                                                                 onClick={() => {
-                                                                    const newSet =
-                                                                        new Set(
-                                                                            value
-                                                                        );
-                                                                    newSet.add(
-                                                                        `item${newSet.size + 1}`
-                                                                    );
-                                                                    setNestedValue(
-                                                                        parentObj,
-                                                                        lastKey,
-                                                                        newSet
+                                                                    value.add(
+                                                                        `item${value.size + 1}`
                                                                     );
                                                                 }}
                                                             >
@@ -271,24 +281,17 @@ INSERT DATA {
                                                             </button>
                                                             <button
                                                                 onClick={() => {
-                                                                    const arr =
+                                                                    // Get an item from the set and then remove it.
+                                                                    const last =
                                                                         Array.from(
                                                                             value
-                                                                        );
-                                                                    const lastItem =
-                                                                        arr.pop();
+                                                                        ).pop();
                                                                     if (
-                                                                        lastItem !==
+                                                                        last !==
                                                                         undefined
                                                                     ) {
-                                                                        const newSet =
-                                                                            new Set(
-                                                                                arr
-                                                                            );
-                                                                        setNestedValue(
-                                                                            parentObj,
-                                                                            lastKey,
-                                                                            newSet
+                                                                        value.delete(
+                                                                            last
                                                                         );
                                                                     }
                                                                 }}

@@ -54,12 +54,7 @@ impl Verifier {
             tx.clone(),
         );
 
-        self.orm_subscriptions
-            .entry(nuri_to_string(nuri))
-            .or_insert(vec![])
-            .push(orm_subscription);
-
-        let orm_objects = self.create_orm_object_for_shape(nuri, session_id, &shape_type)?;
+        let orm_objects = self.create_orm_object_for_shape(orm_subscription)?;
 
         let _ = tx
             .send(AppResponse::V0(AppResponseV0::OrmInitial(orm_objects)))
@@ -77,30 +72,28 @@ impl Verifier {
     /// For a nuri, session, and shape, create an ORM JSON object.
     fn create_orm_object_for_shape(
         &mut self,
-        nuri: &NuriV0,
-        session_id: u64,
-        shape_type: &OrmShapeType,
+        mut orm_subscription: OrmSubscription,
     ) -> Result<Value, NgError> {
-        let nuri_str = nuri_to_string(nuri);
         // Query triples for this shape
         let shape_quads = self.query_quads_for_shape_type(
-            Some(nuri_str.clone()),
-            &shape_type.schema,
-            &shape_type.shape,
+            Some(orm_subscription.nuri.clone()),
+            &orm_subscription.shape_type.schema,
+            &orm_subscription.shape_type.shape,
             None,
         )?;
 
-        let changes: OrmChanges =
-            self.apply_quads_changes(&shape_quads, &[], &nuri_str, Some(session_id.clone()), true)?;
+        let mut changes: OrmChanges = HashMap::new();
 
-        let orm_subscription = self.get_first_orm_subscription_for(
-            &nuri_str,
-            Some(&shape_type.shape),
-            Some(&session_id),
+        self.process_changes_for_subscription(
+            &mut orm_subscription,
+            &shape_quads,
+            &[],
+            &mut changes,
+            true,
         );
 
         let schema: &HashMap<String, Arc<OrmSchemaShape>> = &orm_subscription.shape_type.schema;
-        let root_shape = schema.get(&shape_type.shape).unwrap();
+        let root_shape = schema.get(&orm_subscription.shape_type.shape).unwrap();
         let Some(_root_changes) = changes.get(&root_shape.iri).map(|s| s.values()) else {
             return Ok(Value::Array(vec![]));
         };
@@ -108,26 +101,21 @@ impl Verifier {
         let mut return_val = json!({});
         let obj_map = return_val.as_object_mut().unwrap();
 
-        log_debug!("\nMaterializing: {}", shape_type.shape);
+        log_debug!("\nMaterializing: {}", orm_subscription.shape_type.shape);
         // For each valid change struct, we build an orm object.
         for (graph_iri, subject_iri, tracked_orm_object) in
-            orm_subscription.iter_objects_by_shape(&shape_type.shape)
+            orm_subscription.iter_objects_by_shape(&orm_subscription.shape_type.shape)
         {
             let tormo = tracked_orm_object.read().unwrap();
-            log_info!(
-                " - changes for: {:?} valid: {:?}",
-                tormo.subject_iri,
-                tormo.valid
-            );
 
             if tormo.valid == TrackedOrmObjectValidity::Valid {
                 if let Some(change_ref) = changes
-                    .get(&shape_type.shape)
+                    .get(&orm_subscription.shape_type.shape)
                     .and_then(|g| g.get(&graph_iri))
                     .and_then(|s| s.get(&subject_iri))
                 {
                     let new_val =
-                        materialize_orm_object(change_ref, &changes, root_shape, orm_subscription);
+                        materialize_orm_object(change_ref, &changes, root_shape, &orm_subscription);
                     obj_map.insert(
                         format!("{}|{}", tormo.graph_iri, tormo.subject_iri),
                         new_val,
@@ -136,6 +124,10 @@ impl Verifier {
             }
         }
 
+        self.orm_subscriptions
+            .entry(orm_subscription.nuri.clone())
+            .or_insert(vec![])
+            .push(orm_subscription);
         Ok(return_val)
     }
 }
