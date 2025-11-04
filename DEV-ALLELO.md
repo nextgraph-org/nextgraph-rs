@@ -91,6 +91,8 @@ bun i
 bun webdev3
 ```
 
+open http://localhost:1421
+
 Once you are logged in with NextGraph and you see the Allelo login screen again, click on the logo of Allelo to go to the homepage.
 
 You can then access the data of the wallet with the NextGraph, like you sued to do with the previous setup.
