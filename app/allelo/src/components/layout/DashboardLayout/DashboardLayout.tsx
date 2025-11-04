@@ -14,7 +14,7 @@ import {
 import BottomNavigation from '@/components/navigation/BottomNavigation';
 import {Sidebar} from '../Sidebar';
 import {MobileDrawer} from '../MobileDrawer';
-import {Logo} from '@/components/ui/Logo';
+import {LogoLeft, LogoRight, Logo } from '@/components/ui/Logo';
 import type {NavItem} from '../NavigationMenu/types';
 import {useRelationshipCategories} from '@/hooks/useRelationshipCategories';
 import type {DashboardLayoutProps} from './types';
@@ -183,8 +183,9 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
         inset: 0,
         backgroundColor: 'background.default',
         position: "fixed",
+        pt: {xs: 'var(--safe-area-inset-top)'},
         pr: {md:2, xs: 0},
-        pb: {md:3, xs: 0}
+        pb: {md:3, xs: 'var(--safe-area-inset-bottom)'}
       }}>
 
         {/* Logo Header Bar */}
@@ -194,13 +195,27 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
             display: isMobile ? 'none' : 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            py: 2,
-            pl: 4,
-            gap: 2
+            py: isMobile ? 0 : 2,
+            pl: 0,
+            opacity: "50%",
+            gap: isMobile ? 0 : 2,
           }}
         >
-          <CircleLogo width={50} height={50}/>
-          <Logo width={200} height={50}/>
+          {isMobile && (
+            <>
+              <LogoLeft/>
+              <CircleLogo width={50} height={50}/>
+              <LogoRight/>
+            </>
+          )}
+
+          {!isMobile && (
+            <>
+              <CircleLogo width={50} height={50}/>
+              <Logo width={200} height={50}/>
+            </>
+          )}
+          
         </Box>
 
         {!isInviteMode && !isMobile && (

@@ -12,6 +12,7 @@ dist
 dist-web
 *.local
 public_dev
+.env
 
 # Editor directories and files
 .vscode/*

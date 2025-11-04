@@ -6,8 +6,28 @@
 
 ## Install
 
+- [Install Rust](https://www.rust-lang.org/tools/install) minimum required MSRV 1.81.0
+- [Install Nodejs](https://nodejs.org/en/download/)
+- [Install LLVM](https://rust-lang.github.io/rust-bindgen/requirements.html)
+
+On OpenBSD, for LLVM you need to choose llvm-17.
+
+On MacOS, there are several bugs with LLVM above version 17. So you have to install version 17 only.
+
 ```
-cargo install wasm-pack --git https://git.nextgraph.org/NextGraph/wasm-pack.git --branch master
+brew install llvm@17
+```
+
+On Debian distros
+
+```
+sudo apt install pkg-config gcc build-essential libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev gcc-multilib curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+Then, for everyone:
+
+```
+cargo install wasm-pack --git https://git.nextgraph.org/NextGraph/wasm-pack.git --branch master --locked
 cargo install cargo-run-script
 git clone git@git.nextgraph.org:NextGraph/nextgraph-rs.git
 cd nextgraph-rs
@@ -47,9 +67,32 @@ If instead you are going to need to create many wallets, and/or develop and test
 ```
 // in the root folder of the repo
 cd infra/ngaccount
+export NG_ACCOUNT_DOMAIN=test.com
 export NG_ACCOUNT_ADMIN=[YOUR_USER_PRIV_KEY]
 export NG_ACCOUNT_LOCAL_PEER_KEY=kbz34OFqaWu59xYaqViP0esME2MmcroS94pc4lEEsEsA
 export NG_ACCOUNT_SERVER=127.0.0.1,14400,[YOUR_NGD_PEER_ID]
 cargo run-script buildfront
 cargo run
 ```
+
+on windows, it looks something like this:
+
+```
+cd infra\ngaccount; $env:NG_ACCOUNT_ADMIN="[YOUR_USER_PRIV_KEY]"; $env:NG_ACCOUNT_LOCAL_PEER_KEY="kbz34OFqaWu59xYaqViP0esME2MmcroS94pc4lEEsEsA"; $env:NG_ACCOUNT_SERVER="127.0.0.1,14400,[YOUR_NGD_PEER_ID]"; cargo run-script buildfront;$env:NG_ACCOUNT_DOMAIN='test.com'; cargo run
+```
+
+## Developing as third-party app
+
+If you prefer to create a wallet at nextgraph.eu and then use that wallet to connect to the Allelo app, you need to run it with this command :
+
+```
+cd app/allelo
+bun i
+bun webdev3
+```
+
+open http://localhost:1421
+
+Once you are logged in with NextGraph and you see the Allelo login screen again, click on the logo of Allelo to go to the homepage.
+
+You can then access the data of the wallet with the NextGraph, like you sued to do with the previous setup.

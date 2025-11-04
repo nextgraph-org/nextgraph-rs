@@ -2,19 +2,21 @@ import {SocialContact, Tag} from "@/.ldo/contact.typings.ts";
 import {UilPlus, UilTimes} from "@iconscout/react-unicons";
 import {Box, Chip, Autocomplete, TextField, Popper} from "@mui/material";
 import {useCallback, useEffect, useMemo, useState} from "react";
-import {dataset, useLdo} from "@/lib/nextgraph";
+import {useLdo} from "@/lib/nextgraph";
 import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
 import {BasicLdSet} from "@/lib/ldo/BasicLdSet.ts";
 import {camelCaseToWords} from "@/utils/stringHelpers.ts";
 import {getContactDictValues} from "@/utils/socialContact/dictMapper.ts";
+import {NextGraphResource} from "@ldo/connected-nextgraph";
 
 const availableTags = getContactDictValues("tag").sort();
 
 export interface ContactTagsProps {
   contact?: SocialContact;
+  resource: NextGraphResource;
 }
 
-export const ContactTags = ({contact}: ContactTagsProps) => {
+export const ContactTags = ({contact, resource}: ContactTagsProps) => {
   const [tags, setTags] = useState<Tag[]>();
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -55,8 +57,8 @@ export const ContactTags = ({contact}: ContactTagsProps) => {
     }
 
     if (isNextgraph) {
-      const resource = dataset.getResource(contact["@id"]!);
-      if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      // @ts-expect-error this is expected
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
         const changedContactObj = changeData(contact, resource);
         changedContactObj.tag?.add(newTag);
 
@@ -75,8 +77,8 @@ export const ContactTags = ({contact}: ContactTagsProps) => {
       const tagToRemove = Array.from(contact.tag).find(tag => tag["@id"] === tagId);
       if (tagToRemove) {
         if (isNextgraph) {
-          const resource = dataset.getResource(contact["@id"]!);
-          if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
+          // @ts-expect-error this is expected
+          if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
             const changedContactObj = changeData(contact, resource);
             changedContactObj.tag?.delete(tagToRemove);
 

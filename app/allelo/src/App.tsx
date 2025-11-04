@@ -1,5 +1,5 @@
 import { HashRouter as Router, Routes, Route, Navigate, useParams, Outlet } from 'react-router-dom';
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React from "react";
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
@@ -28,9 +28,6 @@ import MessagesPage from '@/pages/MessagesPage';
 import { NotificationsPage } from '@/components/notifications/NotificationsPage';
 import { PhoneVerificationPage } from '@/components/account/PhoneVerificationPage';
 import {createAppTheme} from '@/theme/theme';
-import { Box, Typography } from '@mui/material';
-import { Button } from '@/components/ui';
-import { isNextGraphEnabled } from '@/utils/featureFlags';
 import CreateContactPage from "@/pages/CreateContactPage";
 import {AccountPage} from "@/pages/AccountPage.tsx";
 
@@ -63,7 +60,7 @@ const RoutesWithAuth = () => {
   const ReactWalletLogin = useSvelteComponent(WalletLogin);
 
   const nextGraphAuth = useNextGraphAuth() as unknown as NextGraphAuth | undefined;
-  const { session, login, logout } = nextGraphAuth || {};
+  const { session } = nextGraphAuth || {};
 
   const isAuthenticated = Boolean(session?.sessionId);
 

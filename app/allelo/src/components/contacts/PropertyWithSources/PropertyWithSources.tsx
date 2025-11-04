@@ -18,10 +18,11 @@ import {
   resolveFrom
 } from '@/utils/socialContact/contactUtils.ts';
 import {getSourceIcon, getSourceLabel} from "@/components/contacts/sourcesHelper";
-import {dataset, useLdo} from "@/lib/nextgraph";
+import {useLdo} from "@/lib/nextgraph";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {useFieldValidation, ValidationType} from "@/hooks/useFieldValidation";
 import {renderTemplate} from "@/utils/templateRenderer";
+import {NextGraphResource} from "@ldo/connected-nextgraph";
 
 type ResolvableKey = ContactKeysWithSelected;
 
@@ -47,7 +48,8 @@ interface PropertyWithSourcesProps<K extends ResolvableKey> {
   isMultiline?: boolean;
   currentItem?: Record<string, string>;
   hideSources?: boolean;
-  isMultipleField?: boolean
+  isMultipleField?: boolean;
+  resource: NextGraphResource
 }
 
 export const PropertyWithSources = <K extends ResolvableKey>({
@@ -70,7 +72,8 @@ export const PropertyWithSources = <K extends ResolvableKey>({
                                                                isMultiline,
                                                                currentItem,
                                                                hideSources,
-                                                               isMultipleField
+                                                               isMultipleField,
+                                                               resource
                                                              }: PropertyWithSourcesProps<K>) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const {commitData, changeData} = useLdo();
@@ -162,8 +165,8 @@ export const PropertyWithSources = <K extends ResolvableKey>({
     }
 
     if (isNextgraph && !contact.isDraft) {
-      const resource = dataset.getResource(contact["@id"]!);
-      if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      // @ts-expect-error this is expected
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
         const changedContactObj = changeData(contact, resource);
 
         editPropertyWithUserSource(changedContactObj);
@@ -174,7 +177,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
       editPropertyWithUserSource(contact, true);
       handleChange();
     }
-  }, [contact, currentValue, localValue, isNextgraph, propertyKey, currentItem, subKey, isMultipleField, changeData, commitData, handleChange]);
+  }, [contact, currentValue, localValue, isNextgraph, propertyKey, currentItem, subKey, isMultipleField, changeData, commitData, handleChange, resource]);
 
   // Handle page navigation/unload to persist any unsaved changes
   useEffect(() => {
@@ -206,8 +209,8 @@ export const PropertyWithSources = <K extends ResolvableKey>({
     }
 
     if (isNextgraph) {
-      const resource = dataset.getResource(contact["@id"]!);
-      if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      // @ts-expect-error this is expected
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
         const changedContactObj = changeData(contact, resource);
         if (!isMultipleField) {
           updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "selected");
@@ -222,7 +225,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
 
     handleClose();
     handleChange();
-  }, [changeData, commitData, contact, handleChange, isMultipleField, isNextgraph, propertyKey]);
+  }, [changeData, commitData, contact, handleChange, isMultipleField, isNextgraph, propertyKey, resource]);
 
   const [isValid, setIsValid] = useState(true);
 

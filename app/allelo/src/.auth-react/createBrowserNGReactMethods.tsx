@@ -4,6 +4,7 @@ import type { FunctionComponent, PropsWithChildren } from "react";
 import { NextGraphAuthContext, useNextGraphAuth } from "./NextGraphAuthContext.js";
 
 import ng from "./api";
+import {ng as ng3, init} from "@ng-org/web";
 
 import type { ConnectedLdoDataset, ConnectedPlugin } from "@ldo/connected";
 import type { NextGraphConnectedPlugin, NextGraphConnectedContext } from "@ldo/connected-nextgraph";
@@ -33,10 +34,51 @@ export function createBrowserNGReactMethods(
       //console.log("runInitialAuthCheck called", ranInitialAuthCheck)
       if (ranInitialAuthCheck) return;
 
-      //console.log("init called");
+      console.log("init called", import.meta.env.NG_ENV_WEB);
       setRanInitialAuthCheck(true);
       // TODO: export the types for the session object coming from NG.
-      window.login_callback = 
+
+      if (import.meta.env.NG_ENV_WEB == 3) {
+        console.log("NG_ENV_WEB init called");
+        await init( (event: 
+          { status: string; 
+            session: { session_id: unknown; 
+                        protected_store_id: unknown; 
+                        private_store_id: unknown; 
+                        public_store_id: unknown; }; 
+            }) => {
+          //console.log("called back in react", event)
+          
+          // callback
+          // once you receive event.status == "loggedin"
+          // you can use the full API
+          if (event.status == "loggedin") {
+            setSession({ 
+              ng: ng3, 
+              sessionId: event.session.session_id as string, //FIXME: sessionId should be a Number.
+              protectedStoreId: event.session.protected_store_id as string,
+              privateStoreId: event.session.private_store_id as string,
+              publicStoreId: event.session.public_store_id as string
+            }); // TODO: add event.session.user too
+
+            dataset.setContext("nextgraph", {
+              ng: ng3,
+              sessionId: event.session.session_id as string
+            });
+          }
+          else if (event.status == "cancelled" || event.status == "error" || event.status == "loggedout") {
+            setSession({ ng: undefined });
+            dataset.setContext("nextgraph", {
+              ng: undefined,
+            });
+          }
+        }
+        , true // singleton: boolean (will your app create many docs in the system, or should it be launched as a unique instance)
+        , []); //list of AccessRequests (for now, leave this empty)
+
+      } else {
+
+        window.login_callback = 
         (event: 
           { status: string; 
             session: { session_id: unknown; 
@@ -70,6 +112,10 @@ export function createBrowserNGReactMethods(
               });
             }
           };
+
+      }
+
+      
       //if (!location.pathname.startsWith("/wallet/create") && !location.pathname.startsWith("/i") ) navigate("/wallet/login")
       
     }, []);

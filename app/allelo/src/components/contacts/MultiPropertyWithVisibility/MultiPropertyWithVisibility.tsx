@@ -26,11 +26,12 @@ import {
   getVisibleItems
 } from '@/utils/socialContact/contactUtils.ts';
 import {getSourceIcon, getSourceLabel} from "@/components/contacts/sourcesHelper";
-import {dataset, useLdo} from "@/lib/nextgraph";
+import {useLdo} from "@/lib/nextgraph";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {ChipsVariant, AccountsVariant} from './variants';
 import {ValidationType} from "@/hooks/useFieldValidation";
 import {AddressVariant} from "@/components/contacts/MultiPropertyWithVisibility/variants/AddressVariant.tsx";
+import {NextGraphResource} from "@ldo/connected-nextgraph";
 
 type ResolvableKey = ContactKeysWithHidden;
 
@@ -48,6 +49,7 @@ interface MultiPropertyWithVisibilityProps<K extends ResolvableKey> {
   variant?: "chips" | "accounts" | "url" | "addresses";
   validateType?: ValidationType;
   hasPreferred?: boolean;
+  resource: NextGraphResource;
 }
 
 export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
@@ -63,7 +65,8 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
                                                                        variant = "chips",
                                                                        placeholder,
                                                                        validateType = "text",
-                                                                       hasPreferred = true
+                                                                       hasPreferred = true,
+                                                                       resource
                                                                      }: MultiPropertyWithVisibilityProps<K>) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -104,8 +107,8 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     }
     let changedContactObj = contact;
     if (isNextgraph) {
-      const resource = dataset.getResource(contact["@id"]!);
-      if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      // @ts-expect-error this is expected
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
         changedContactObj = changeData(contact, resource);
         updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "hidden", "toggle");
         updateProperty(changedContactObj, propertyKey, item["@id"], "preferred", false);
@@ -124,8 +127,8 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     }
     let changedContactObj = contact;
     if (isNextgraph) {
-      const resource = dataset.getResource(contact["@id"]!);
-      if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      // @ts-expect-error this is expected
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
         changedContactObj = changeData(contact, resource);
         updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "preferred");
         commitData(changedContactObj);
@@ -176,8 +179,8 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     };
 
     if (isNextgraph) {
-      const resource = dataset.getResource(contact["@id"]!);
-      if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      // @ts-expect-error this is expected
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
         const changedContactObj = changeData(contact, resource);
         editPropertyWithUserSource(changedContactObj);
         commitData(changedContactObj);
@@ -185,7 +188,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     } else {
       editPropertyWithUserSource(contact, true);
     }
-  }, [changeData, commitData, contact, isNextgraph, propertyKey, subKey]);
+  }, [changeData, commitData, contact, isNextgraph, propertyKey, subKey, resource]);
 
   const addNewItem = useCallback((updates?: Record<K, any>, force?: boolean) => {
     if (!contact) return;
@@ -215,8 +218,8 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     };
     let newItem;
     if (isNextgraph) {
-      const resource = dataset.getResource(contact["@id"]!);
-      if (!resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      // @ts-expect-error this is expected
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
         const changedContactObj = changeData(contact, resource);
         newItem = addNewPropertyWithUserSource(changedContactObj);
         commitData(changedContactObj);
@@ -229,7 +232,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     setIsAddingNew(false);
     loadAllItems();
     return newItem;
-  }, [changeData, commitData, contact, isNextgraph, newItemValue, propertyKey, subKey, loadAllItems]);
+  }, [changeData, commitData, contact, isNextgraph, newItemValue, propertyKey, subKey, loadAllItems, resource]);
 
   const handleInputChange = useCallback((itemId: string, newValue: string) => {
     setEditingValues(prev => ({...prev, [itemId]: newValue}));
@@ -423,7 +426,8 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
       setIsAddingNew,
       setNewItemValue,
       contact,
-      validateType
+      validateType,
+      resource
     };
 
     switch (variant) {
