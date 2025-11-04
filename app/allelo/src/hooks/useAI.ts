@@ -31,30 +31,17 @@ export function useAI(isMock?: boolean): UseAIReturn {
       return { error: 'No active session available' };
     }
 
-    console.log("Executing tool: ", name);
-    console.log("Args: ", args);
+    console.log("Executing tool: ", name, "with args: ", args);
+
+    const getContactAllProperties = async (nuri: string) => {
+      const contactResult = await nextgraphDataService.getContactAllProperties(session!, nuri);
+      let contact = contactResult?.results?.bindings?.map((binding) => `${binding.mainProperty.value}, ${binding.subProperty.value}, ${binding.value.value}`).join('\n');
+      return `\n\nSubject, Predicate, Object\n${contact}\n\n`;
+    }
 
     switch (name) {
     	case 'get_contact_by_nuri':
-
-        console.log("Getting contact by nuri: ", args.nuri);
-    		return await nextgraphDataService.getContactAllProperties(session, args.nuri);
-
-    	// case 'find_group_members_by_id':
-    	// 	{
-    	// 		const group = await nextgraphDataService.getItemById(args.id);
-    	// 		if (!group) return { error: `Group not found: ${args.id}` };
-    	// 		const members = group.memberIds?.map(async (m: any) => await nextgraphDataService.getItemById(m, args.properties || []));
-    	// 		return members || [];
-    	// 	}
-
-    	// case 'find_group_members_by_name':
-    	// 	{
-    	// 		const group = await nextgraphDataService.getGroupByName(args.name);
-    	// 		if (!group) return { error: `Group not found: ${args.name}` };
-    	// 		const members = group.memberIds?.map(async (m: any) => await nextgraphDataService.getItemById(m.id, args.properties || []));
-    	// 		return members || [];
-    	// 	}
+    		return await getContactAllProperties(args.nuri);
 
     	case 'search_contacts':
         {
@@ -65,30 +52,28 @@ export function useAI(isMock?: boolean): UseAIReturn {
           const filterParams = new Map<string, string>();
           filterParams.set('fts', args.value);
 
-          console.log("session", session);
           console.log("Searching contacts with params", args.value);
-
           const contactIDsResult = await nextgraphDataService.getContactIDs(session, limit, offset,
               undefined, undefined, [{sortBy, sortDirection}], filterParams);
 
-          console.log("Contact IDs Result: ", contactIDsResult, contactIDsResult.results);
-          const containerOverlay = session.privateStoreId!.substring(46);
+          console.log("Found contacts: ", contactIDsResult?.results?.bindings?.length);
+          // const containerOverlay = session.privateStoreId!.substring(46);
           const nuris = contactIDsResult?.results?.bindings?.map(
-              (binding) => binding.contactUri.value + containerOverlay
+              (binding) => binding.contactUri.value // + containerOverlay
           );
 
-          const contacts = nuris?.map( async (nuri) => {
-            const contact = await nextgraphDataService.getContactAllProperties(session, nuri);
-            return contact;
-          })
-          return contacts;
+          if (!nuris) {
+            return 'No contacts found';
+          }
+
+          const contacts = await Promise.all(
+            nuris.map((nuri) => getContactAllProperties(nuri))
+          );
+          return contacts.join('\n');
         }
         
-    	// case 'search_groups_by_property':
-    	// 	return await nextgraphDataService.search_groups(args.property, args.value);
-
     	default:
-    		return { error: `Unknown tool: ${name}` };
+    		return `Unknown tool: ${name}`;
     }
   }, []);
 
