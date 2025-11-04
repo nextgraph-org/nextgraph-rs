@@ -58,7 +58,7 @@ export const ContactTags = ({contact, resource}: ContactTagsProps) => {
 
     if (isNextgraph) {
       // @ts-expect-error this is expected
-      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
         const changedContactObj = changeData(contact, resource);
         changedContactObj.tag?.add(newTag);
 
@@ -78,7 +78,7 @@ export const ContactTags = ({contact, resource}: ContactTagsProps) => {
       if (tagToRemove) {
         if (isNextgraph) {
           // @ts-expect-error this is expected
-          if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
+          if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
             const changedContactObj = changeData(contact, resource);
             changedContactObj.tag?.delete(tagToRemove);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box, Container, Typography, TextField, InputAdornment, IconButton, Grid,
   Card, CardContent, Paper, Button, Switch, FormControlLabel, Chip, Avatar,
@@ -12,6 +12,7 @@ import {
   UilGift, UilChartLine, UilTrophy, UilUsersAlt as UilHandshake, UilTimes, UilDraggabledots,
   UilFileEditAlt, UilTag, UilShoppingCart, UilMessage, UilSetting
 } from '@iconscout/react-unicons';
+import { useAI } from '@/hooks/useAI';
 
 const HomePage = () => {
   const theme = useTheme();
@@ -35,6 +36,10 @@ const HomePage = () => {
   const [columnLayout, setColumnLayout] = useState<'1-col' | '2-1-col' | '1-2-col' | '3-col'>('2-1-col');
   const [layoutMenuAnchor, setLayoutMenuAnchor] = useState<null | HTMLElement>(null);
   
+  const { promptStream } = useAI(false);
+  const streamingMessageIdRef = useRef<string | null>(null);
+
+
   // Constants
   const firstName = 'John';
   const exampleQueries = [
@@ -128,13 +133,34 @@ const HomePage = () => {
     e.preventDefault();
     if (query.trim()) {
       setIsLoading(true);
-      // Simulate AI response delay
-      setTimeout(() => {
-        setResponse(`Based on your request "${query}", here are 3 people in your network who might be able to help:\n\n• Alex Johnson - Python developer at TechCorp\n• Sarah Kim - Full-stack engineer, freelancer\n• David Chen - Senior developer at StartupXYZ`);
-        setIsLoading(false);
+
+      try {
+        await promptStream(
+          [{role: 'user', content: query}],
+          // onStreamStart
+          () => {
+            console.log('Stream started');
+          },
+          // onStreamChunk
+          (delta: string, accumulated: string) => {
+            setResponse(accumulated);
+          },
+          // onStreamEnd
+          (content: string) => {
+            console.log('Stream ended:', content);
+            streamingMessageIdRef.current = null;
+          }
+        );
+      } catch (error) {
+        console.error('Error getting AI response:', error);
+        // Update the message with error content
+        setResponse('Sorry, I encountered an error. Please try again.');
+        streamingMessageIdRef.current = null;
+      } finally {
         setQuery('');
-      }, 1500);
-    }
+        setIsLoading(false);
+      }
+    };
   };
 
   const toggleWidget = (widgetId: string) => {
