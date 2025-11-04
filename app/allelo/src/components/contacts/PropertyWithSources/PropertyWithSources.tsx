@@ -166,7 +166,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
 
     if (isNextgraph && !contact.isDraft) {
       // @ts-expect-error this is expected
-      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
         const changedContactObj = changeData(contact, resource);
 
         editPropertyWithUserSource(changedContactObj);
@@ -210,7 +210,7 @@ export const PropertyWithSources = <K extends ResolvableKey>({
 
     if (isNextgraph) {
       // @ts-expect-error this is expected
-      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
         const changedContactObj = changeData(contact, resource);
         if (!isMultipleField) {
           updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "selected");

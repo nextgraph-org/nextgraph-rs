@@ -121,6 +121,23 @@ class NextgraphDataService {
 `;
   };
 
+  async getContactAllProperties(session: NextGraphSession, nuri: string) {
+    const sparql = `
+      ${this.contactPrefixes}
+
+      SELECT ?mainProperty ?subProperty ?value
+      WHERE {
+        <${nuri}> ?mainPropertyUri ?node .
+        ?node ?subPropertyUri ?value .
+        BIND(REPLACE(STR(?mainPropertyUri), ".*[#/]", "") AS ?mainProperty)
+        BIND(REPLACE(STR(?subPropertyUri), ".*[#/]", "") AS ?subProperty)
+        
+        FILTER(?subPropertyUri != "rdf:type")
+  }`
+
+    return await session.ng!.sparql_query(session.sessionId, sparql);
+  }
+
   contactPrefixes = `
     PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
     PREFIX ngcontact: <did:ng:x:contact#>
@@ -266,8 +283,8 @@ WHERE {
 
     const protectedStoreId = "did:ng:" + session.protectedStoreId;
     const resource = dataset.getResource(protectedStoreId, "nextgraph");
-    // @ts-expect-error this is expected
-    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
+
+    if (resource.isError || resource.type === "InvalidIdentifierResource") {
       throw new Error(`Failed to get resource ${protectedStoreId}`);
     }
     const base = "did:ng:" + session.protectedStoreId?.substring(0, 46);
@@ -450,7 +467,7 @@ WHERE {
     }
 
     const resource = dataset.getResource(contact["@id"]!);
-    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
+    if (resource.isError || resource.type === "InvalidIdentifierResource") {
       throw new Error(`Failed to create resource`);
     }
 

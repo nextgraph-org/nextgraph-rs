@@ -108,7 +108,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     let changedContactObj = contact;
     if (isNextgraph) {
       // @ts-expect-error this is expected
-      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
         changedContactObj = changeData(contact, resource);
         updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "hidden", "toggle");
         updateProperty(changedContactObj, propertyKey, item["@id"], "preferred", false);
@@ -128,7 +128,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     let changedContactObj = contact;
     if (isNextgraph) {
       // @ts-expect-error this is expected
-      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
         changedContactObj = changeData(contact, resource);
         updatePropertyFlag(changedContactObj, propertyKey, item["@id"], "preferred");
         commitData(changedContactObj);
@@ -180,7 +180,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
 
     if (isNextgraph) {
       // @ts-expect-error this is expected
-      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
         const changedContactObj = changeData(contact, resource);
         editPropertyWithUserSource(changedContactObj);
         commitData(changedContactObj);
@@ -219,7 +219,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     let newItem;
     if (isNextgraph) {
       // @ts-expect-error this is expected
-      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
         const changedContactObj = changeData(contact, resource);
         newItem = addNewPropertyWithUserSource(changedContactObj);
         commitData(changedContactObj);
