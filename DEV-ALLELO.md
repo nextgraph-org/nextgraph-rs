@@ -85,6 +85,8 @@ cd infra\ngaccount; $env:NG_ACCOUNT_ADMIN="[YOUR_USER_PRIV_KEY]"; $env:NG_ACCOUN
 
 If you prefer to create a wallet at nextgraph.eu and then use that wallet to connect to the Allelo app, you need to run it with this command :
 
+first create a wallet at nextgraph.eu
+
 ```
 cd app/allelo
 bun i
@@ -95,4 +97,4 @@ open http://localhost:1421
 
 Once you are logged in with NextGraph and you see the Allelo login screen again, click on the logo of Allelo to go to the homepage.
 
-You can then access the data of the wallet with the NextGraph, like you sued to do with the previous setup.
+You can then access the data of the wallet with the NextGraph, like you used to do with the previous setup.
