@@ -69,7 +69,7 @@ class NextgraphDataService {
 
   async getContactIDs(session: NextGraphSession, limit?: number, offset?: number, base?: string, nuri?: string,
                       orderBy?: SortParams[], filterParams?: Map<string, string>) {
-    const sparql = this.getAllContactIdsQuery("vcard:Individual", limit, offset, orderBy, filterParams);
+    const sparql = this.getAllContactIdsQuery(session, "vcard:Individual", limit, offset, orderBy, filterParams);
 
     return await session.ng!.sparql_query(session.sessionId, sparql, base, nuri);
   }
@@ -80,11 +80,11 @@ class NextgraphDataService {
     return await session.ng!.sparql_query(session.sessionId, sparql);
   };
 
-  getAllContactIdsQuery(type: string, limit?: number, offset?: number, sortParams?: SortParams[], filterParams?: Map<string, string>) {
+  getAllContactIdsQuery(session: NextGraphSession, type: string, limit?: number, offset?: number, sortParams?: SortParams[], filterParams?: Map<string, string>) {
     const orderByData: string[] = [];
     const optionalJoinData: string[] = [];
 
-    const filter = this.getFilter(filterParams);
+    const filter = this.getFilter(filterParams, session);
 
     if (sortParams) {
       for (const sortParam of sortParams) {
@@ -184,7 +184,7 @@ WHERE {
     return joinData;
   }
 
-  getFilter(filterParams?: Map<string, string>) {
+  getFilter(filterParams?: Map<string, string>, session?: NextGraphSession) {
     filterParams ??= new Map();
     const filterData = [
       `FILTER NOT EXISTS { ?contactUri ngcontact:mergedInto ?mergedIntoNode }`
@@ -199,6 +199,10 @@ WHERE {
         `);//TODO make generic for other properties
         filterData.push(`FILTER (?${key} = "${value}")`);
       }
+    }
+
+    if (session && session.protectedStoreId) {
+      filterData.push(`FILTER (?contactUri != <did:ng:${session.protectedStoreId.substring(0, 46)}>)`)
     }
 
     return filterData.join("\n");

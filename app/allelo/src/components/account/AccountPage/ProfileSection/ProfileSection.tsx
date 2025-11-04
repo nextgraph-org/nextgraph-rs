@@ -83,25 +83,25 @@ export const ProfileSection = forwardRef<HTMLDivElement, ProfileSectionProps>(
               <Typography variant="h6" sx={{fontWeight: 600}}>
                 Profile Information
               </Typography>
-              <Box>
-                {!isEditing ? (
-                  <Button
-                    variant="outlined"
-                    startIcon={<UilEdit size="20"/>}
-                    onClick={handleEdit}
-                  >
-                    Edit
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outlined"
-                    startIcon={<UilEdit size="20"/>}
-                    onClick={handleSave}
-                  >
-                    Exit
-                  </Button>
-                )}
-              </Box>
+                <Box>
+                  {!isEditing ? (
+                    <Button
+                      variant="outlined"
+                      startIcon={<UilEdit size="20"/>}
+                      onClick={handleEdit}
+                    >
+                      Edit
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outlined"
+                      startIcon={<UilEdit size="20"/>}
+                      onClick={handleSave}
+                    >
+                      Exit
+                    </Button>
+                  )}
+                </Box>
             </Box>
 
             <Grid container spacing={3}>
