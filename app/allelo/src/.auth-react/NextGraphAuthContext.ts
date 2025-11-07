@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type {NextGraphSession} from "@/types/nextgraph";
 
 /**
  * Functions for authenticating with NextGraph
@@ -6,7 +7,7 @@ import { createContext, useContext } from "react";
 export interface NGWalletAuthFunctions {
     login: () => Promise<void>;
     logout: () => Promise<void>;
-    session: unknown;
+    session: NextGraphSession;
     ranInitialAuthCheck: boolean;
 }
 
