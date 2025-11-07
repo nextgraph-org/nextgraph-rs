@@ -1,7 +1,8 @@
 export interface OnboardingState {
-  currentStep: number;
-  totalSteps: number;
-  isComplete: boolean;
+  currentStep?: number;
+  totalSteps?: number;
+  isComplete?: boolean;
+  lnImportRequested?: boolean
 }
 
 export interface OnboardingContextType {

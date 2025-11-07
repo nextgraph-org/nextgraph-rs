@@ -36,10 +36,10 @@ export const useSettings = () => {
       if (!hasSettings) {
         await nextgraphDataService.createSettings(session);
       }
-      const settings: Partial<AppSettings> = {
-        isOnboardingFinished: state.isComplete,
-        onboardingStep: state.currentStep,
-      }
+
+      const settings: Partial<AppSettings> = {}
+      Object.assign(settings, state);
+
       await nextgraphDataService.updateSettings(session, settings, changeData, commitData);
     } catch (error) {
       console.error('Failed to save onboarding state:', error);

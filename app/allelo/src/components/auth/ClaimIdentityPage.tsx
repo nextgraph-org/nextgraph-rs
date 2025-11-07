@@ -27,8 +27,14 @@ import {ImportSourceRegistry} from "@/importers/importSourceRegistry.tsx";
 import {ImportingOverlay} from "@/components/contacts/ImportContacts/ImportingOverlay.tsx";
 import {useImportContacts} from "@/hooks/contacts/useImportContacts.ts";
 import {Contact} from "@/types/contact.ts";
+import {useSettings} from "@/hooks/useSettings.ts";
+import {useUpdateProfile} from "@/hooks/useUpdateProfile.ts";
+import {processContactFromJSON} from "@/utils/socialContact/contactUtils.ts";
 
 export const ClaimIdentityPage = () => {
+  const {saveToStorage} = useSettings();
+  const {updateProfile} = useUpdateProfile();
+
   const linkedIn = ImportSourceRegistry.getConfig('linkedin');
 
   const navigate = useNavigate();
@@ -56,10 +62,11 @@ export const ClaimIdentityPage = () => {
   const handleRunnerComplete = useCallback(async (contacts?: Contact[], callback?: () => void) => {
     if (contacts)
       await importContacts(contacts);
+    await saveToStorage({lnImportRequested: true});
     if (callback)
       callback();
     console.log('Import completed:', contacts);
-  }, [importContacts]);
+  }, [importContacts, saveToStorage]);
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
@@ -91,7 +98,59 @@ export const ClaimIdentityPage = () => {
     setIsSubmitting(true);
 
     try {
-      console.log('Profile data:', profileData);
+      // Transform form data to SocialContact JSON schema
+      const profileJson: any = {};
+
+      // Add name if provided
+      if (profileData.firstName || profileData.lastName) {
+        profileJson.name = [{
+          firstName: profileData.firstName,
+          familyName: profileData.lastName,
+          source: 'user',
+        }];
+      }
+
+      // Add email if provided
+      if (profileData.email) {
+        profileJson.email = [{
+          value: profileData.email,
+          source: 'user',
+          preferred: true,
+        }];
+      }
+
+      // Add organization if company or jobTitle provided
+      if (profileData.company || profileData.jobTitle || profileData.location) {
+        profileJson.organization = [{
+          value: profileData.company,
+          position: profileData.jobTitle,
+          source: 'user',
+          current: true,
+        }];
+      }
+
+      if (profileData.location) {
+        profileJson.address = [{
+          value: profileData.location,
+          source: 'user',
+          preferred: true,
+        }];
+      }
+
+      // Add biography if provided
+      if (profileData.bio) {
+        profileJson.biography = [{
+          value: profileData.bio,
+          source: 'user',
+        }];
+      }
+
+      // Convert JSON to Contact object with proper LdSets
+      const contact = await processContactFromJSON(profileJson, false);
+
+      // Save to NextGraph
+      await updateProfile(contact);
+
       onComplete();
     } catch (error) {
       console.error('Profile setup failed:', error);
