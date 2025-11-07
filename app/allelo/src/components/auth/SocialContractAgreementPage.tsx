@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import {
   Box,
   Typography,
@@ -23,6 +24,7 @@ import {
 
 export const SocialContractAgreementPage = () => {
   const navigate = useNavigate();
+  const { nextStep } = useOnboarding();
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,10 +36,9 @@ export const SocialContractAgreementPage = () => {
     }
 
     setIsSubmitting(true);
-    
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // Navigate to the next step in onboarding
+      nextStep();
       navigate('/onboarding/claim-identity');
     } catch (error) {
       console.error('Failed to process agreement:', error);
@@ -231,20 +232,6 @@ export const SocialContractAgreementPage = () => {
 
         {/* Action Buttons */}
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            variant="outlined"
-            size="large"
-            fullWidth
-            onClick={() => navigate(-1)}
-            sx={{
-              py: 1.5,
-              fontWeight: 600,
-              textTransform: 'none',
-              borderRadius: 2
-            }}
-          >
-            Back
-          </Button>
           <Button
             variant="contained"
             size="large"

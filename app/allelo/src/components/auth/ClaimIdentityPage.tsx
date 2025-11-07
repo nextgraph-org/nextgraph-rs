@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import {
   Box,
   Typography,
@@ -41,6 +42,7 @@ import {
 
 export const ClaimIdentityPage = () => {
   const navigate = useNavigate();
+  const { completeOnboarding } = useOnboarding();
   const [showLinkedInDialog, setShowLinkedInDialog] = useState(false);
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -68,15 +70,6 @@ export const ClaimIdentityPage = () => {
     if (!profileData.firstName.trim()) {
       errors.firstName = 'First name is required';
     }
-    if (!profileData.lastName.trim()) {
-      errors.lastName = 'Last name is required';
-    }
-    if (!profileData.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(profileData.email)) {
-      errors.email = 'Please enter a valid email';
-    }
-    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -90,17 +83,18 @@ export const ClaimIdentityPage = () => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       await new Promise(resolve => setTimeout(resolve, 1500));
       console.log('Profile data:', profileData);
-      navigate('/onboarding/accept-connection');
+      completeOnboarding();
+      navigate('/onboarding/welcome');
     } catch (error) {
       console.error('Profile setup failed:', error);
       setFormErrors({ submit: 'Failed to save profile. Please try again.' });
@@ -234,6 +228,7 @@ export const ClaimIdentityPage = () => {
               fullWidth
               label="First Name"
               value={profileData.firstName}
+              required={true}
               onChange={handleProfileInputChange('firstName')}
               error={!!formErrors.firstName}
               helperText={formErrors.firstName}
@@ -253,6 +248,13 @@ export const ClaimIdentityPage = () => {
               onChange={handleProfileInputChange('lastName')}
               error={!!formErrors.lastName}
               helperText={formErrors.lastName}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <UilUser size="20" />
+                  </InputAdornment>
+                ),
+              }}
               placeholder="Doe"
             />
           </Box>
@@ -360,7 +362,10 @@ export const ClaimIdentityPage = () => {
               variant="outlined"
               size="large"
               fullWidth
-              onClick={() => navigate(-1)}
+              onClick={() => {
+                completeOnboarding();
+                navigate('/onboarding/welcome')
+              }}
               sx={{
                 py: 1.5,
                 fontWeight: 600,
@@ -368,23 +373,23 @@ export const ClaimIdentityPage = () => {
                 borderRadius: 2
               }}
             >
-              Back
+              Skip
             </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              size="large"
-              fullWidth
-              disabled={isSubmitting}
-              sx={{
-                py: 1.5,
-                fontWeight: 600,
-                textTransform: 'none',
-                borderRadius: 2
-              }}
-            >
-              {isSubmitting ? 'Creating Profile...' : 'Continue'}
-            </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            size="large"
+            fullWidth
+            disabled={isSubmitting}
+            sx={{
+              py: 1.5,
+              fontWeight: 600,
+              textTransform: 'none',
+              borderRadius: 2
+            }}
+          >
+            {isSubmitting ? 'Creating Profile...' : 'Continue'}
+          </Button>
           </Box>
         </Box>
       </Paper>

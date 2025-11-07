@@ -21,7 +21,7 @@ import {
 export const WelcomeToVaultPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   // Check if user was invited to a group
   const invitedToGroup = searchParams.get('group');
   const groupName = searchParams.get('groupName') || 'Tech Professionals';

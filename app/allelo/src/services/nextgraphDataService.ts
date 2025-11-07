@@ -6,6 +6,8 @@ import {SocialContact} from "@/.ldo/contact.typings";
 import {LdSet} from "@ldo/ldo";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {ContactLdSetProperties, contactLdSetProperties, resolveFrom} from "@/utils/socialContact/contactUtils.ts";
+import {AppSettings} from "@/.ldo/settings.typings.ts";
+import {AppSettingsShapeType} from "@/.ldo/settings.shapeTypes.ts";
 
 export function ldoToJson(obj: any): any {//TODO can go to infinite loop, if obj has subobj that has obj as subobj
   if (obj?.toArray) {
@@ -311,6 +313,66 @@ WHERE {
     const res = await session.ng!.sparql_update(session.sessionId, sparql, protectedStoreId);
     if (!Array.isArray(res)) {
       throw new Error(`Failed to create profile on ${protectedStoreId}`);
+    }
+  }
+
+  async createSettings(session: NextGraphSession, privateStoreId?: string) {
+    if (!session || !session.sessionId) {
+      return ;
+    }
+
+    privateStoreId ??= "did:ng:" + session.privateStoreId;
+    const sparql = `
+        PREFIX ngset: <did:ng:x:settings#>
+        INSERT DATA {
+            <> a ngset:Settings . }`;
+    const res = await session.ng!.sparql_update(session.sessionId, sparql, privateStoreId);
+    if (!Array.isArray(res)) {
+      throw new Error(`Failed to create settings on ${privateStoreId}`);
+    }
+  }
+
+  async isSettingsCreated(session?: NextGraphSession, base?: string, nuri?: string) {
+    if (!session || !session.sessionId) {
+      return ;
+    }
+    base ??= "did:ng:" + session.privateStoreId?.substring(0, 46);
+    nuri ??="did:ng:" + session.privateStoreId;
+    const sparql = `
+      PREFIX ngset: <did:ng:x:settings#>
+      ASK { <> a ngset:Settings . }`;
+
+    return await session.ng!.sparql_query(session.sessionId, sparql, base, nuri);
+  }
+
+  async updateSettings(
+    session: NextGraphSession | undefined,
+    settings: Partial<AppSettings>,
+    changeData: ChangeDataFunction,
+    commitData: CommitDataFunction
+  ) {
+    if (!session || !session.ng) {
+      throw new Error('No active session available');
+    }
+
+    const privateStoreId = "did:ng:" + session.privateStoreId;
+    const resource = dataset.getResource(privateStoreId, "nextgraph");
+
+    if (resource.isError || resource.type === "InvalidIdentifierResource") {
+      throw new Error(`Failed to get resource ${privateStoreId}`);
+    }
+
+    const base = "did:ng:" + session.privateStoreId?.substring(0, 46);
+    const subject = dataset.usingType(AppSettingsShapeType).fromSubject(base);
+    const settingsObj = changeData(subject, resource);
+    Object.entries(settings).forEach(([key, value]) => {
+      //@ts-expect-error it's ok
+      settingsObj[key] = value;
+    });
+
+    const result = await commitData(settingsObj);
+    if (result.isError) {
+      throw new Error(`Failed to commit: ${result.message}`);
     }
   }
 
