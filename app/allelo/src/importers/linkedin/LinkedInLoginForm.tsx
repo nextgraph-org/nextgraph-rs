@@ -1,8 +1,9 @@
 import {useState} from "react";
-import {Box, Button, TextField, Typography, Alert} from "@mui/material";
+import {Box, Button, TextField, Typography, Alert, InputAdornment, IconButton} from "@mui/material";
 import {LINKEDIN_API_URL} from "@/config/importers";
 import {DEBUG} from "./linkedInTypes";
 import {useFieldValidation} from "@/hooks/useFieldValidation";
+import {UilEye, UilEyeSlash} from "@iconscout/react-unicons";
 
 interface LinkedInLoginFormProps {
   onSuccess: (linkedInUsername?: string) => void;
@@ -12,15 +13,16 @@ interface LinkedInLoginFormProps {
 }
 
 export function LinkedInLoginForm({
-  onSuccess,
-  onVerificationRequired,
-  onCaptchaRequired,
-  preservedUsername
-}: LinkedInLoginFormProps) {
+                                    onSuccess,
+                                    onVerificationRequired,
+                                    onCaptchaRequired,
+                                    preservedUsername
+                                  }: LinkedInLoginFormProps) {
   const [username, setUsername] = useState(preservedUsername || '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const fieldValidation = useFieldValidation(password, 'linkedin', {validateOn: "change", required: true});
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -86,7 +88,7 @@ export function LinkedInLoginForm({
         />
         <TextField
           label="Password"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           value={password}
           onChange={(e) => {
             fieldValidation.setFieldValue(e.target.value);
@@ -98,6 +100,22 @@ export function LinkedInLoginForm({
           fullWidth
           error={fieldValidation.error || Boolean(error)}
           helperText={fieldValidation.error ? "The password you provided must have at least 6 characters" : ""}
+          slotProps={{
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    disabled={loading}
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                    size="small"
+                  >
+                    {showPassword ? <UilEyeSlash size="20"/> : <UilEye size="20"/>}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
+          }}
         />
         <Button
           type="submit"
