@@ -6,6 +6,16 @@ Access the sub-sections directly :
 
 ## App
 
+### App [0.1.2-alpha.1] - 2025-11-08
+
+#### Added
+
+-   create wallet and login with simple username and password
+
+#### Removed
+
+-   temporarily removed login with pazzle and mnemonic
+
 ### App [0.1.1-alpha] - 2024-09-02
 
 #### Added
@@ -69,6 +79,13 @@ Access the sub-sections directly :
 -   Native app: Windows
 
 ## SDK
+
+### SDK [0.1.2-alpha.2] - 2025-11-08
+
+#### Changed
+
+- not using third-party cookies anymore. SDK now works on Chrome, Firefox and Safari without issues.
+- if you were using the `nextgraphweb` npm package, you should now switch to `@ng-org/web`
 
 ### SDK [0.1.1-alpha.7] - 2025-04-03
 

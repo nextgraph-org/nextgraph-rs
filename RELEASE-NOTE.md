@@ -1,6 +1,6 @@
-# Release 0.1.1-alpha
+# Release 0.1.2-alpha.1
 
-_02 September 2024_
+_08 November 2025_
 
 This release is not stable and should not be used for any productive work or to store personal documents. This release is meant as a **preview** of what NextGraph can do as of today and hints at its future potential.
 
@@ -8,27 +8,29 @@ This release is not stable and should not be used for any productive work or to 
 
 If you previously installed any NextGraph app on your device, please uninstall it first, by following the normal uninstall procedure specific to your OS. If you have previously created a Wallet, it will not work with this new release. Please create a new one now.
 
+This is an intermediary release, before the big refactor we are currently working on is completed. This should be done by the end of November 2025.
+
 ## App
 
 Please read the [Getting started](https://docs.nextgraph.org/en/getting-started) guide.
 
-[changelog](CHANGELOG.md#app-0-1-1-alpha-2024-09-02)
+[changelog](CHANGELOG.md#app-0-1-2-alpha-1-2025-11-08)
 
 ## SDK
 
 The SDK for is not documented yet.
 
-[changelog](CHANGELOG.md#sdk-0-1-0-preview-6-2024-08-15)
+[changelog](CHANGELOG.md#sdk-0-1-2-alpha-2-2025-11-08)
 
 ## Broker
 
-The `ngd` daemon is release with the basic features listed in `ngd --help`. More documentation will come soon
+The `ngd` daemon is released with the basic features listed in `ngd --help`. More documentation will come soon. This release does not contain changes from previous one.
 
 [changelog](CHANGELOG.md#broker-0-1-1-alpha-2024-09-02)
 
 ## CLI
 
-The `ngcli` daemon is release with the basic features listed in `ngcli --help`. More documentation will come soon.
+The `ngcli` daemon is released with the basic features listed in `ngcli --help`. More documentation will come soon. This release does not contain changes from previous one.
 
 [changelog](CHANGELOG.md#cli-0-1-1-alpha-2024-09-02)
 
