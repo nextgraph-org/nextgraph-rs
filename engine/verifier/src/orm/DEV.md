@@ -1,4 +1,4 @@
-# NextGraph ORM (Verifier-side) — Developer Guide
+# NextGraph ORM (Verifier-side) — Developer Overview
 
 This folder implements the verifier-side "ORM" layer that turns RDF quads into ergonomic JSON objects (and back), scoped by a shape and a scope (NURI). At a high level:
 
@@ -7,6 +7,8 @@ This folder implements the verifier-side "ORM" layer that turns RDF quads into e
 - You can send JSON "patches" against those objects; the verifier turns them into SPARQL updates, applies them, and re-validates/builds diffs to stream back.
 
 The ORM lets apps work with graph data as if it were typed objects while preserving RDF semantics and multi-graph realities.
+
+If you just want to use the SDK, see the [TypeScript library](../../../../sdk/js/signals/README.md). You can also use the [Rust SDK](../../../../sdk/rust/README.md) which is however not documented (see the tests as a reference).
 
 ## Core concepts
 
@@ -97,8 +99,8 @@ Example (simplified):
       "nestedString": "nested"
     },
     "anotherObject": {
-      "graphA|urn:child1": { "prop": 1 },
-      "graphB|urn:child2": { "prop": 2 }
+      "graphA|urn:child1": { "@id": "...", "@graph": "...", "prop": 1 },
+      "graphB|urn:child2": { "@id": "...", "@graph": "...", "prop": 2 }
     }
   }
 }
