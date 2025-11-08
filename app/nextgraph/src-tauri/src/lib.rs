@@ -103,6 +103,18 @@ async fn wallet_gen_shuffle_for_pin() -> Result<Vec<u8>, ()> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn wallet_open_with_password(
+    wallet: Wallet,
+    password: String,
+    _app: tauri::AppHandle,
+) -> Result<SensitiveWallet, String> {
+    //log_debug!("wallet_open_with_pazzle from rust {:?}", pazzle);
+    let wallet = nextgraph::local_broker::wallet_open_with_password(&wallet, password)
+        .map_err(|e| e.to_string())?;
+    Ok(wallet)
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn wallet_open_with_pazzle(
     wallet: Wallet,
     pazzle: Vec<u8>,
@@ -1031,6 +1043,7 @@ impl AppBuilder {
                 privkey_to_string,
                 wallet_gen_shuffle_for_pazzle_opening,
                 wallet_gen_shuffle_for_pin,
+                wallet_open_with_password,
                 wallet_open_with_pazzle,
                 wallet_open_with_mnemonic,
                 wallet_open_with_mnemonic_words,

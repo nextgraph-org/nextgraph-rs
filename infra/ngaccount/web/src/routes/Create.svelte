@@ -20,6 +20,7 @@
   import { onMount } from "svelte";
   let domain = import.meta.env.NG_ACCOUNT_DOMAIN;
   const param = new URLSearchParams($querystring);
+  let web = param.get("web");
   let ca = param.get("ca");
   let go_back = true;
   let wait = false;
@@ -53,21 +54,15 @@
   }
 
   async function close(result) {
-    // @ts-ignore
     console.log("closing");
-    if (window.__TAURI__) {
+    if (!web) {
       go_back = false;
       if (result) {
         error = "Closing due to " + (result.error || "an error");
       }
-      let window_api = await import("@tauri-apps/api/window");
-      let main = await window_api.Window.getByLabel("main");
-      if (main) {
-        wait = true;
-        await main.emit("error", result);
-      } else {
-        await window_api.Window.getCurrent().close();
-      }
+      let event_api = await import("@tauri-apps/api/event");
+      wait = true;
+      await event_api.emitTo("main", "error", result);
     } else {
       if (result && result.url) {
         error = "We are redirecting you...";
@@ -81,32 +76,28 @@
   }
 
   async function success(result) {
-    // @ts-ignore
-    if (window.__TAURI__) {
-      let window_api = await import("@tauri-apps/api/window");
-      let current = window_api.Window.getCurrent();
-      if (current) {
-        await current.emitTo("main","accepted", result);
-      } else {
-        await window_api.Window.getCurrent().close();
-      }
+    if (!web) {
+      let event_api = await import("@tauri-apps/api/event");
+      await event_api.emitTo("main", "accepted", result);
     } else {
       window.location.href = result.url;
     }
   }
 
   async function bootstrap() {
-    // @ts-ignore
-    if (window.__TAURI__) {
-      let window_api = await import("@tauri-apps/api/window");
-      let current = window_api.getCurrentWindow();
-      console.log("close handler")
-      const unlisten = current.onCloseRequested(async (event) => {
-        console.log("closing")
-        await current.emitTo("main","close");
-        //event.preventDefault();
-        //unlisten();
-      });
+    if (!web) {
+      try {
+        let window_api = await import("@tauri-apps/api/window");
+        const unlisten = await window_api
+          .getCurrentWindow()
+          .onCloseRequested(async (event) => {
+            let event_api = await import("@tauri-apps/api/event");
+            await event_api.emitTo("main", "close");
+            //event.preventDefault();
+          });
+      } catch (e) {
+        console.error(e);
+      }
     }
   }
   let error;
@@ -192,7 +183,7 @@
       {#if ca}
         <div class=" max-w-6xl lg:px-8 mx-auto px-4">
           <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-            You would like to choose <b>{domain}</b> as your Broker Service
+            You have chosen <b>{domain}</b> as your Broker Service
             Provider.<br />Please read carefully the Terms of Service below,
             before accepting them.
           </p>

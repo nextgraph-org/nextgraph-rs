@@ -4,9 +4,9 @@
   "version": "0.1.2",
   "identifier": "org.nextgraph.app",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "",
     "frontendDist": "../dist"
   },
   "app": {
