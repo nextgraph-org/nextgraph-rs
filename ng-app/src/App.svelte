@@ -90,7 +90,7 @@
       console.warn(e);
       //console.log("called disconnections_subscribe twice");
     }
-    let tauri_platform = import.meta.env.TAURI_PLATFORM;
+    let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
     //console.log(await ng.test());
     if (tauri_platform) {
       let walls = await ng.get_wallets();
@@ -120,11 +120,11 @@
         unsub_main_close = await main.onCloseRequested(async (event) => {
           //console.log("onCloseRequested main");
           await main.emit("close_all", {});
-          let registration = window_api.Window.getByLabel("registration");
+          let registration = await window_api.Window.getByLabel("registration");
           if (registration) {
             await registration.close();
           }
-          let viewer = window_api.Window.getByLabel("viewer");
+          let viewer = await window_api.Window.getByLabel("viewer");
           if (viewer) {
             await viewer.close();
           }

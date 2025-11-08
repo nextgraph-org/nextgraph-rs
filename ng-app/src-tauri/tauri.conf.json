@@ -1,49 +1,37 @@
 {
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "NextGraph",
+  "version": "0.1.2",
+  "identifier": "org.nextgraph.ng-app",
   "build": {
     "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm build",
-    "devPath": "http://localhost:1420",
-    "distDir": "../dist",
-    "withGlobalTauri": false
+    "frontendDist": "../dist"
   },
-  "package": {
-    "productName": "Nextgraph",
-    "version": "0.1.1-alpha"
-  },
-  "tauri": {
-    "bundle": {
-      "active": true,
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "identifier": "org.nextgraph.app",
-      "targets": "all",
-      "iOS": {
-        "developmentTeam": "test"
-      },
-      "windows": {
-        "webviewInstallMode": {
-          "type": "embedBootstrapper"
-        }
-      }
-    },
-    "security": {
-      "csp": null
-    },
-
+  "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
-        "fullscreen": false,
-        "resizable": true,
         "title": "NextGraph",
-        "width": 800,
-        "height": 1040,
-        "contentProtected": true
+        "width": 1280,
+        "height": 960,
+        "label": "main"
       }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
     ]
   }
 }

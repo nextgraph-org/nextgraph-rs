@@ -45,7 +45,7 @@
     ArrowRightEndOnRectangle,
   } from "svelte-heros-v2";
 
-  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
   let mobile = tauri_platform == "android" || tauri_platform == "ios";
 
   let wallet;

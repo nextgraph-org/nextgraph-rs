@@ -20,7 +20,7 @@
   import { scanned_qr_code } from "../store";
   import { ArrowLeft, ExclamationTriangle } from "svelte-heros-v2";
   import { Spinner } from "flowbite-svelte";
-  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
   let mobile = tauri_platform == "android" || tauri_platform == "ios";
 
   let webScanner;
@@ -57,20 +57,36 @@
       //   false
       // );
       try {
-        webScanner = new Html5Qrcode ("scanner-div");
-        await webScanner.start({ facingMode: { exact: "environment"} }, { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] }, (decoded_text, decoded_result) => {
-          //console.log(decoded_result);
-          // Handle scan result
-          on_qr_scanned(decoded_text);
-        });
-      } catch (e) {
-        try {
-          webScanner = new Html5Qrcode ("scanner-div");
-          await webScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 300, height: 300 }, formatsToSupport: [0] }, (decoded_text, decoded_result) => {
+        webScanner = new Html5Qrcode("scanner-div");
+        await webScanner.start(
+          { facingMode: { exact: "environment" } },
+          {
+            fps: 10,
+            qrbox: { width: 300, height: 300 },
+            formatsToSupport: [0],
+          },
+          (decoded_text, decoded_result) => {
             //console.log(decoded_result);
             // Handle scan result
             on_qr_scanned(decoded_text);
-          });
+          }
+        );
+      } catch (e) {
+        try {
+          webScanner = new Html5Qrcode("scanner-div");
+          await webScanner.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: { width: 300, height: 300 },
+              formatsToSupport: [0],
+            },
+            (decoded_text, decoded_result) => {
+              //console.log(decoded_result);
+              // Handle scan result
+              on_qr_scanned(decoded_text);
+            }
+          );
         } catch (e) {
           webScanner = null;
           error = true;
@@ -95,7 +111,6 @@
       // }, 100);
 
       // setTimeout(check_ready_and_start, 1000);
-
     }
   });
 
@@ -130,9 +145,8 @@
   {#if error}
     <div class="max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
       <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
-      
-        {@html $t("errors.camera_unavailable")}
-      
+
+      {@html $t("errors.camera_unavailable")}
     </div>
   {/if}
   <div class="mx-auto max-w-xs">

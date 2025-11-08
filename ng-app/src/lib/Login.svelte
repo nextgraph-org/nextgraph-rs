@@ -42,7 +42,7 @@
     top.scrollIntoView();
   }
 
-  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
 
   const dispatch = createEventDispatcher();
 
@@ -200,7 +200,7 @@
         // TODO @niko: Add device_name as param to open_with_* APIs
         let opened_wallet =
           unlockWith === "password"
-            ? await ng.wallet_open_with_password(password)
+            ? await ng.wallet_open_with_password(wallet, password)
             : unlockWith === "pazzle"
               ? await ng.wallet_open_with_pazzle(wallet, pazzle, pin_code)
               : await ng.wallet_open_with_mnemonic_words(

@@ -44,7 +44,7 @@
 
   const param = new URLSearchParams($querystring);
 
-  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
 
   let wait: any = "Please wait...";
   let registration_error;

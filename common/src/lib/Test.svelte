@@ -10,24 +10,13 @@
 -->
 
 <script lang="ts">
-
   import ng from "../api";
-  import {
-    branch_subscribe,
-    active_session,
-    online,
-  } from "../store";
+  import { branch_subscribe, active_session, online } from "../store";
 
   import { onMount, onDestroy, tick } from "svelte";
   import { Button, Progressbar, Spinner } from "flowbite-svelte";
   import { t } from "svelte-i18n";
-  let is_tauri = import.meta.env.TAURI_PLATFORM;
+  let is_tauri = import.meta.env.TAURI_ENV_PLATFORM;
 
-  onMount(async () => {
-    
-  });
-
-  
+  onMount(async () => {});
 </script>
-
-

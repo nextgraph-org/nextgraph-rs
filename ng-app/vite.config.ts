@@ -20,6 +20,7 @@ const jsToBottom = () => {
   }
 }
 
+console.log(process.env.TAURI_ENV_PLATFORM);
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => {
@@ -109,7 +110,7 @@ export default defineConfig(async () => {
   build: {
     outDir: process.env.NG_APP_WEB ? process.env.NG_APP_FILE ? 'dist-file' : 'dist-web' : 'dist',
     // Tauri supports es2021
-    target: process.env.NG_APP_WEB ? 'modules' : process.env.TAURI_PLATFORM == "windows" ? "chrome105" : "safari13",
+    target: process.env.NG_APP_WEB ? 'modules' : process.env.TAURI_ENV_PLATFORM == "windows" ? "chrome105" : "safari13",
     // don't minify for debug builds
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     // produce sourcemaps for debug builds

@@ -91,7 +91,7 @@
       console.warn(e);
       //console.log("called disconnections_subscribe twice");
     }
-    let tauri_platform = import.meta.env.TAURI_PLATFORM;
+    let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
     //console.log(await ng.test());
     if (tauri_platform) {
       let walls = await ng.get_wallets();

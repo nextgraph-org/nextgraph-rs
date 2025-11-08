@@ -16,7 +16,7 @@
 
   let has_success: boolean = false;
 
-  const tauri_platform = import.meta.env.TAURI_PLATFORM;
+  const tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
   const setClipboard = async (text: string) => {
     if (tauri_platform) {
       // TODO: this won't work for tauri platform.

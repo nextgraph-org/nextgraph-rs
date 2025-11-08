@@ -92,7 +92,7 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "2.0.0",
     "@swc/core": "~1.6.0",
-    "@tauri-apps/cli": "2.0.0-alpha.14",
+    "@tauri-apps/cli": "^2.8.4",
     "@tsconfig/svelte": "^3.0.0",
     "@types/node": "^18.7.10",
     "autoprefixer": "^10.4.14",

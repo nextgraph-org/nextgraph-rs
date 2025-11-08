@@ -37,7 +37,7 @@
     scrollToTop();
   };
 
-  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
 
   const displayPopup = async (url, title) => {
     if (!tauri_platform || tauri_platform == "android") {
@@ -106,5 +106,4 @@
     text-align: center;
     width: fit-content;
   }
-  
 </style>

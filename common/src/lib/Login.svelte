@@ -42,7 +42,7 @@
     top.scrollIntoView();
   }
 
-  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
 
   const dispatch = createEventDispatcher();
 

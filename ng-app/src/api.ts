@@ -35,7 +35,6 @@ const mapping = {
     "session_start_remote": ["wallet_name","user","peer_id"],
     "session_stop": ["user_id"],
     "get_wallets": [],
-    "open_window": ["url","label","title"],
     "decode_invitation": ["invite"],
     "user_connect": ["info","user_id","location"],
     "user_disconnect": ["user_id"],
@@ -111,28 +110,81 @@ const handler = {
             let event_api = await import("@tauri-apps/api/event");
             let window_api = await import("@tauri-apps/api/window");
             try {
-            if (path[0] === "client_info") {
+                if (path[0] === "open_window") {
+                    if (import.meta.env.TAURI_ENV_PLATFORM != "android" && import.meta.env.TAURI_ENV_PLATFORM != "ios") {
+                        let callback = args[3];
+                        let already_exists = await tauri.invoke(path[0],{url:args[0],label:args[1],title:args[2]});
+                        if (already_exists) return;
+
+                        let unsub_register_accepted;
+                        let unsub_register_error;
+                        let unsub_register_close;
+
+                        const unsub_register = function() {
+                            if (unsub_register_accepted) unsub_register_accepted();
+                            if (unsub_register_error) unsub_register_error();
+                            if (unsub_register_close) unsub_register_close();
+                            unsub_register_close = undefined;
+                            unsub_register_error = undefined;
+                            unsub_register_accepted = undefined;
+                        };
+
+                        unsub_register_accepted = await event_api.listen(
+                            "accepted",
+                            async (event) => {
+                                console.log("got event", event)
+                                unsub_register();
+                                let reg_popup = await window_api.Window.getByLabel("registration");
+                                try {
+                                    await reg_popup.close();
+                                } catch (e) {
+
+                                }
+                                await (callback)("accepted",event.payload);
+                            }
+                        );
+                        unsub_register_error = await event_api.listen("error", async (event) => {
+                            console.log("got error event", event)
+                            unsub_register();
+                            let reg_popup = await window_api.Window.getByLabel("registration");
+                            await reg_popup.close();
+                            await (callback)("error",event.payload);
+                        });
+
+                        unsub_register_close = await event_api.listen("close", async (event) => {
+                            console.log("got close", event)
+                            unsub_register_close = undefined;
+                            unsub_register();
+                            await (callback)("close");
+                        });
+
+                        return unsub_register;
+                    } 
+            } else if (path[0] === "client_info") {
                 let from_rust = await tauri.invoke("client_info_rust",{});
                 
-                let tauri_platform = import.meta.env.TAURI_PLATFORM;
+                let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
                 let client_type;
                 switch (tauri_platform) {
-                    case 'macos': client_type = "NativeMacOS";break;
+                    case 'macos':
+                    case 'darwin': 
+                        client_type = "NativeMacOS";break;
                     case 'linux': client_type = "NativeLinux";break;
                     case 'windows': client_type = "NativeWin";break;
                     case 'android': client_type = "NativeAndroid";break;
                     case 'ios': client_type = "NativeIos";break;
                 }
+                console.log(tauri_platform, client_type);
                 let info = Bowser.parse(window.navigator.userAgent);
-                info.os.type = import.meta.env.TAURI_PLATFORM_TYPE;
-                info.os.family = import.meta.env.TAURI_FAMILY;
-                info.os.version_tauri = import.meta.env.TAURI_PLATFORM_VERSION;
+                //info.os.type = import.meta.env.TAURI_ENV_PLATFORM_TYPE;
+                info.os.family = import.meta.env.TAURI_ENV_FAMILY;
+                info.os.version_tauri = import.meta.env.TAURI_ENV_PLATFORM_VERSION;
                 info.os.version_uname = from_rust.uname.version;
                 info.os.name_rust = from_rust.rust.os_name;
                 info.os.name_uname = from_rust.uname.os_name;
-                info.platform.arch = import.meta.env.TAURI_ARCH;
-                info.platform.debug = import.meta.env.TAURI_DEBUG;
-                info.platform.target = import.meta.env.TAURI_TARGET_TRIPLE;
+                info.platform.arch = import.meta.env.TAURI_ENV_ARCH;
+                info.platform.debug = import.meta.env.TAURI_ENV_DEBUG;
+                info.platform.target = import.meta.env.TAURI_ENV_TARGET_TRIPLE;
                 info.platform.arch_uname = from_rust.uname.arch;
                 info.platform.bitness = from_rust.uname.bitness;
                 info.platform.codename = from_rust.uname.codename || undefined;
@@ -145,7 +197,7 @@ const handler = {
                 //console.log(info,res);
                 return res;
             } else if (path[0] === "get_device_name") {
-                let tauri_platform = import.meta.env.TAURI_PLATFORM;
+                let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
                 if (tauri_platform == 'android') return "Android Phone";
                 else if (tauri_platform == 'ios') return "iPhone";
                 else return await tauri.invoke(path[0],{});

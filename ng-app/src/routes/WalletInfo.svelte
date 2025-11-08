@@ -47,7 +47,7 @@
   import { default as ng } from "../api";
   import CopyToClipboard from "../lib/components/CopyToClipboard.svelte";
 
-  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
   let error;
   let nonActiveClass =
     "flex items-center p-2 text-base font-normal text-gray-900 rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700";

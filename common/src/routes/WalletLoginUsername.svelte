@@ -22,20 +22,24 @@
   import { push } from "svelte-spa-router";
   import CenteredLayout from "../lib/CenteredLayout.svelte";
   import PasswordInput from "../lib/components/PasswordInput.svelte";
-  import { wallet_from_import, display_error  } from "../store";
+  import { wallet_from_import, display_error } from "../store";
   import ng from "../api";
 
   let top: HTMLElement;
 
-  const set_online = () => { connected = true; };
-  const set_offline = () => { connected = false; };
+  const set_online = () => {
+    connected = true;
+  };
+  const set_offline = () => {
+    connected = false;
+  };
 
   let error;
   let connected = true;
-  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
   let pre_invitation = false;
   let domain = undefined;
-  let for_opaque = undefined ;
+  let for_opaque = undefined;
   let state: "username" | "password" | "connecting" = "username";
 
   function scrollToTop() {
@@ -50,7 +54,7 @@
     username = "";
     if (!tauri_platform) {
       let res = await ng.get_local_bootstrap_and_domain(
-          import.meta.env.PROD ? location.href : "http://localhost:14400"
+        import.meta.env.PROD ? location.href : "http://localhost:14400"
       );
       pre_invitation = res[0];
       domain = res[1];
@@ -67,14 +71,13 @@
 
   let password = "";
   const validate_password = async () => {
-
-      console.log(password, for_opaque);
-
-  }
+    console.log(password, for_opaque);
+  };
   let username_input;
   let username = "";
   let redirect = undefined;
-  const domainRegex = /^((?=[a-z0-9-]{1,63}\.)(xn--)?[a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,63}$/i;
+  const domainRegex =
+    /^((?=[a-z0-9-]{1,63}\.)(xn--)?[a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,63}$/i;
   const usernameRegex = /^[a-zA-Z_]+[a-zA-Z0-9_-]*\.[0-9]+$/;
   const validate_username = async (e: any) => {
     if (!e || e.key == "Enter" || e.keyCode == 13) {
@@ -83,10 +86,12 @@
         if (!domain) {
           let u = username.trim();
           if (u.includes("@")) {
-            syntax_error = $t("pages.wallet_login_username.error.nodomainplease");
+            syntax_error = $t(
+              "pages.wallet_login_username.error.nodomainplease"
+            );
           } else if (!usernameRegex.test(u)) {
             syntax_error = $t("pages.wallet_login_username.error.username");
-          } else { 
+          } else {
             for_opaque = pre_invitation.V0.bootstrap;
             for_opaque.username = u;
             next();
@@ -95,8 +100,7 @@
           let parts = username.trim().split("@");
           if (!usernameRegex.test(parts[0])) {
             syntax_error = $t("pages.wallet_login_username.error.username");
-          }
-          else if ( parts[1] === domain || !parts[1] ) {
+          } else if (parts[1] === domain || !parts[1]) {
             username = parts[0];
             for_opaque = pre_invitation.V0.bootstrap;
             for_opaque.username = username;
@@ -104,11 +108,15 @@
           } else {
             // testing that domain is valid
             if (!domainRegex.test(parts[1])) {
-              syntax_error = $t("pages.wallet_login_username.error.invalid_domain");
+              syntax_error = $t(
+                "pages.wallet_login_username.error.invalid_domain"
+              );
             } else {
               redirect = `https://${parts[1]}/#/wallet/username?u=${parts[0]}`;
-              syntax_error = $t("pages.wallet_login_username.error.need_redirect");
-              // TODO: when receiving a ?u=... after fetching it with opaque, if the wallet is already present locally, dont show an error, just log in with the username/password. 
+              syntax_error = $t(
+                "pages.wallet_login_username.error.need_redirect"
+              );
+              // TODO: when receiving a ?u=... after fetching it with opaque, if the wallet is already present locally, dont show an error, just log in with the username/password.
             }
           }
         }
@@ -116,18 +124,23 @@
         let parts = username.trim().split("@");
         if (!usernameRegex.test(parts[0])) {
           syntax_error = $t("pages.wallet_login_username.error.username");
-        }
-        else if (!parts[1]) {
-          syntax_error = $t("pages.wallet_login_username.error.mandatory_domain");
+        } else if (!parts[1]) {
+          syntax_error = $t(
+            "pages.wallet_login_username.error.mandatory_domain"
+          );
         } else {
           // testing that domain is valid
           if (!domainRegex.test(parts[1])) {
-            syntax_error = $t("pages.wallet_login_username.error.invalid_domain");
+            syntax_error = $t(
+              "pages.wallet_login_username.error.invalid_domain"
+            );
           } else {
             // fetching the .ng_bootstrap of the domain
             state = "connecting";
             try {
-              let bootstrap_info = await ng.retrieve_ng_bootstrap(`https://${parts[1]}`);
+              let bootstrap_info = await ng.retrieve_ng_bootstrap(
+                `https://${parts[1]}`
+              );
               for_opaque = bootstrap_info.V0.bootstrap;
               for_opaque.username = parts[0];
               // do opaque with that
@@ -144,20 +157,34 @@
     }
   };
   let placeholder = "";
-  $: placeholder = pre_invitation ? domain ? $format("pages.wallet_login_username.username_placeholder_without_domain", {
-                      values: { domain }}) : $t("pages.wallet_login_username.username_placeholder_without_at") : 
-                      $t("pages.wallet_login_username.username_placeholder_domain");
+  $: placeholder = pre_invitation
+    ? domain
+      ? $format(
+          "pages.wallet_login_username.username_placeholder_without_domain",
+          {
+            values: { domain },
+          }
+        )
+      : $t("pages.wallet_login_username.username_placeholder_without_at")
+    : $t("pages.wallet_login_username.username_placeholder_domain");
   let warning = "";
-  $: warning = domain && username.trim().endsWith("@"+domain) && $format("pages.wallet_login_username.warning.nospecificdomainplease", {
-                      values: { domain }}) || pre_invitation && !domain && username.includes("@") 
-                      && $t("pages.wallet_login_username.warning.nodomainplease") || "";
+  $: warning =
+    (domain &&
+      username.trim().endsWith("@" + domain) &&
+      $format("pages.wallet_login_username.warning.nospecificdomainplease", {
+        values: { domain },
+      })) ||
+    (pre_invitation &&
+      !domain &&
+      username.includes("@") &&
+      $t("pages.wallet_login_username.warning.nodomainplease")) ||
+    "";
   const next = () => {
     for_opaque.username = for_opaque.username.toLowerCase();
     state = "password";
-  }
+  };
 
   let syntax_error = "";
-
 </script>
 
 <CenteredLayout>
@@ -206,8 +233,7 @@
             />{$t("buttons.back")}</button
           >
         </div>
-      {:else}
-        {#if state == "username"}
+      {:else if state == "username"}
         <div class="mx-6">
           <div class="mx-auto">
             <div class="my-4 mx-1 mt-4">
@@ -226,14 +252,23 @@
                 bind:this={username_input}
                 class="w-[240px] mr-0"
                 id="username_input"
-                placeholder={placeholder}
+                {placeholder}
                 bind:value={username}
                 on:keypress={validate_username}
-                on:focus={()=>{syntax_error="";redirect=undefined;}}
+                on:focus={() => {
+                  syntax_error = "";
+                  redirect = undefined;
+                }}
               />
               <!-- Go Back -->
               <button
-                on:click={() => {if (redirect) {username_input.focus();} else {window.history.go(-1)}}}
+                on:click={() => {
+                  if (redirect) {
+                    username_input.focus();
+                  } else {
+                    window.history.go(-1);
+                  }
+                }}
                 class="mt-8 mr-2 text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
                 ><ArrowLeft
                   tabindex="-1"
@@ -242,7 +277,9 @@
               >
               {#if redirect}
                 <button
-                  on:click={() => {window.location.href = redirect;}}
+                  on:click={() => {
+                    window.location.href = redirect;
+                  }}
                   class="mt-4 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
                 >
                   <ChevronDoubleRight
@@ -266,7 +303,7 @@
             </div>
           </div>
         </div>
-        {:else if state === "password"}
+      {:else if state === "password"}
         <div class="mx-6">
           <div class="mx-auto">
             <div class="my-4 mx-1 mt-4">
@@ -280,7 +317,9 @@
               /> -->
               <PasswordInput
                 id="password_input"
-                placeholder={$t("pages.wallet_login_username.password_placeholder")}
+                placeholder={$t(
+                  "pages.wallet_login_username.password_placeholder"
+                )}
                 bind:value={password}
                 on:enter={validate_password}
                 classNameToggle="right-[-26px]"
@@ -288,7 +327,12 @@
               />
               <!-- Go Back -->
               <button
-                on:click={async () => {state = "username";for_opaque = undefined; await tick(); username_input.focus();}}
+                on:click={async () => {
+                  state = "username";
+                  for_opaque = undefined;
+                  await tick();
+                  username_input.focus();
+                }}
                 class="mt-8 mr-1 text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
                 ><ArrowLeft
                   tabindex="-1"
@@ -296,23 +340,22 @@
                 />{$t("buttons.back")}</button
               >
               <button
-                  on:click={validate_password}
-                  class="mt-4 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-                >
-                  <ChevronDoubleRight
-                    tabindex="-1"
-                    class="w-8 h-8 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-                  />
-                  {$t("pages.wallet_login_username.connect")}
-                </button>
+                on:click={validate_password}
+                class="mt-4 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+              >
+                <ChevronDoubleRight
+                  tabindex="-1"
+                  class="w-8 h-8 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
+                />
+                {$t("pages.wallet_login_username.connect")}
+              </button>
             </div>
           </div>
         </div>
-        {:else if state === "connecting"}
-          <div>
-            <Spinner class="w-full" />
-          </div>
-        {/if}
+      {:else if state === "connecting"}
+        <div>
+          <Spinner class="w-full" />
+        </div>
       {/if}
     </div>
   </div>

@@ -109,7 +109,7 @@ const tauri_handler = {
             } else if (path[0] === "client_info") {
                 let from_rust = await tauri.invoke("client_info_rust",{});
                 
-                let tauri_platform = import.meta.env.TAURI_PLATFORM;
+                let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
                 let client_type;
                 switch (tauri_platform) {
                     case 'macos': client_type = "NativeMacOS";break;
@@ -119,15 +119,15 @@ const tauri_handler = {
                     case 'ios': client_type = "NativeIos";break;
                 }
                 let info = Bowser.parse(window.navigator.userAgent);
-                info.os.type = import.meta.env.TAURI_PLATFORM_TYPE;
-                info.os.family = import.meta.env.TAURI_FAMILY;
-                info.os.version_tauri = import.meta.env.TAURI_PLATFORM_VERSION;
+                //info.os.type = import.meta.env.TAURI_ENV_PLATFORM_TYPE;
+                info.os.family = import.meta.env.TAURI_ENV_FAMILY;
+                info.os.version_tauri = import.meta.env.TAURI_ENV_PLATFORM_VERSION;
                 info.os.version_uname = from_rust.uname.version;
                 info.os.name_rust = from_rust.rust.os_name;
                 info.os.name_uname = from_rust.uname.os_name;
-                info.platform.arch = import.meta.env.TAURI_ARCH;
-                info.platform.debug = import.meta.env.TAURI_DEBUG;
-                info.platform.target = import.meta.env.TAURI_TARGET_TRIPLE;
+                info.platform.arch = import.meta.env.TAURI_ENV_ARCH;
+                info.platform.debug = import.meta.env.TAURI_ENV_DEBUG;
+                info.platform.target = import.meta.env.TAURI_ENV_TARGET_TRIPLE;
                 info.platform.arch_uname = from_rust.uname.arch;
                 info.platform.bitness = from_rust.uname.bitness;
                 info.platform.codename = from_rust.uname.codename || undefined;
@@ -140,7 +140,7 @@ const tauri_handler = {
                 //console.log(info,res);
                 return res;
             } else if (path[0] === "get_device_name") {
-                let tauri_platform = import.meta.env.TAURI_PLATFORM;
+                let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
                 if (tauri_platform == 'android') return "Android Phone";
                 else if (tauri_platform == 'ios') return "iPhone";
                 else return await tauri.invoke(path[0],{});

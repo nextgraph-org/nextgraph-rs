@@ -55,7 +55,6 @@
   }
 
   async function close(result) {
-    // @ts-ignore
     if (!web) {
       go_back = false;
       if (result) {
@@ -77,7 +76,6 @@
   }
 
   async function success(result) {
-    // @ts-ignore
     if (!web) {
       let event_api = await import("@tauri-apps/api/event");
       await event_api.emitTo("main", "accepted", result);
@@ -185,9 +183,9 @@
       {#if ca}
         <div class=" max-w-6xl lg:px-8 mx-auto px-4">
           <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-            You would like to choose <b>{domain}</b> as your Broker Service
-            Provider.<br />Please read carefully the Terms of Service below,
-            before accepting them.
+            You have chosen <b>{domain}</b> as your Broker Service Provider.<br
+            />Please read carefully the Terms of Service below, before accepting
+            them.
           </p>
         </div>
       {/if}

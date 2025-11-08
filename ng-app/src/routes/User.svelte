@@ -66,7 +66,7 @@
     default as ng,
   } from "../api";
 
-  let tauri_platform = import.meta.env.TAURI_PLATFORM;
+  let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
   let error;
   let mobile = tauri_platform == "android" || tauri_platform == "ios";
   let nonActiveClass =

@@ -12,7 +12,7 @@ import "./styles.css";
 import * as api from "@nextgraph-monorepo/ng-sdk-js";
 import App from "./App.svelte";
 
-if (!import.meta.env.TAURI_PLATFORM) {
+if (!import.meta.env.TAURI_ENV_PLATFORM) {
   // cleaning old wallets :(
   try {
     let version = localStorage.getItem("ng_wallet_version");

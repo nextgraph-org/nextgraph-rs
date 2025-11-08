@@ -173,7 +173,7 @@ export const connection_status: Writable<"disconnected" | "connected" | "connect
 let next_reconnect: NodeJS.Timeout | null = null;
 
 export const check_has_camera = async () => {
-    const tauri_platform: string | undefined = import.meta.env.TAURI_PLATFORM;
+    const tauri_platform: string | undefined = import.meta.env.TAURI_ENV_PLATFORM;
     const use_native_cam =
       tauri_platform === "ios" || tauri_platform === "android";
     
@@ -266,7 +266,7 @@ export const online = derived(connection_status, ($connectionStatus) => $connect
 
 export const cannot_load_offline = writable(undefined);
 
-// if (get(connection_status) == "disconnected" && !import.meta.env.TAURI_PLATFORM) {
+// if (get(connection_status) == "disconnected" && !import.meta.env.TAURI_ENV_PLATFORM) {
 //     cannot_load_offline.set(true);
 
 //     let unsubscribe = connection_status.subscribe(async (value) => {
@@ -344,14 +344,14 @@ export const reconnect = async function() {
     if (!get(online)) connection_status.set("connecting");
     try {
         let info = await ng.client_info()
-        //console.log("Connecting with",get(active_session).user);
+        console.log("Connecting with",get(active_session).user, location.href, info);
         connections.set(await ng.user_connect(
             info,
             get(active_session).user,
             location.href
         ));
     } catch (e) {
-        //console.error(e)
+        console.error(e)
     }
 }
 // export const disconnections_subscribe = async function() {
