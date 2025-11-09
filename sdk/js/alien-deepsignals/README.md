@@ -7,8 +7,7 @@ Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signal
 ## Features
 
 - Lazy: signals & child proxies created only when touched.
-- Deep: nested objects, arrays, Sets proxied on demand.
-    - [ ] TODO: Methods might not be proxied (e.g. array.push)?
+- Deep: nested objects, arrays, Sets proxied.
 - Per-property signals: fine‑grained invalidation without traversal on each change.
 - Patch stream: microtask‑batched granular mutations (paths + op) for syncing external stores / framework adapters.
 - Getter => computed: property getters become derived (readonly) signals automatically.
@@ -164,7 +163,52 @@ stop();
 
 ## Computed (derived) values
 
-When you derive values from an object, you are advised to 
+Use the `computed()` function to create lazy derived signals that automatically track their dependencies and recompute only when needed.
+
+```ts
+import { computed } from "@ng-org/alien-deepsignals";
+
+const state = deepSignal({
+    firstName: "Ada",
+    lastName: "Lovelace",
+    items: [1, 2, 3],
+});
+
+// Create a computed signal that derives from reactive state
+const fullNaAdd documentationme = computed(() => `${state.firstName} ${state.lastName}`);
+const itemCount = computed(() => state.items.length);
+
+console.log(fullName()); // "Ada Lovelace" - computes on first access
+console.log(itemCount()); // 3
+
+state.firstName = "Grace";
+console.log(fullName()); // "Grace Lovelace" - recomputes automatically
+```
+
+**Key benefits:**
+
+- **Lazy evaluation**: The computation runs only when you actually read the computed value. If you never access `fullName()`, the concatenation never happens—no wasted CPU cycles.
+- **Automatic caching**: Once computed, the result is cached until a dependency changes. Multiple reads return the cached value without re-running the getter.
+- **Fine-grained reactivity**: Only recomputes when its tracked dependencies change. Unrelated state mutations don't trigger unnecessary recalculation.
+- **Composable**: Computed signals can depend on other computed signals, forming efficient dependency chains.
+
+```ts
+// Expensive computation only runs when accessed and dependencies change
+const expensiveResult = computed(() => {
+    console.log("Computing...");
+    return state.items.reduce((sum, n) => sum + n * n, 0);
+});
+
+// No computation happens yet!
+state.items.push(4);
+// Still no computation...
+
+console.log(expensiveResult()); // "Computing..." + result
+console.log(expensiveResult()); // Cached, no log
+state.items.push(5);
+console.log(expensiveResult()); // "Computing..." again (dependency changed)
+```
+
 ### Callback event shape
 
 ```ts

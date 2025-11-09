@@ -1,21 +1,21 @@
 /** Lightweight façade adding ergonomic helpers (.value/.peek/.get/.set) to native alien-signals function signals. */
 // Native re-exports for advanced usage.
 export {
-  signal as _rawSignal,
-  computed as _rawComputed,
-  effect,
-  startBatch,
-  endBatch,
-  getCurrentSub,
-  setCurrentSub,
+    signal as _rawSignal,
+    computed as _rawComputed,
+    effect,
+    startBatch,
+    endBatch,
+    getCurrentSub,
+    setCurrentSub,
 } from "alien-signals";
 
 import {
-  signal as alienSignal,
-  computed as alienComputed,
-  effect as alienEffect,
-  startBatch as alienStartBatch,
-  endBatch as alienEndBatch,
+    signal as alienSignal,
+    computed as alienComputed,
+    effect as alienEffect,
+    startBatch as alienStartBatch,
+    endBatch as alienEndBatch,
 } from "alien-signals";
 import { ReactiveFlags as ReactiveFlags_ } from "./contents";
 import { isFunction } from "./utils";
@@ -24,41 +24,41 @@ import { isFunction } from "./utils";
 
 /** Internal shape of a tagged writable signal after adding ergonomic helpers. */
 type TaggedSignal<T> = ReturnType<typeof alienSignal<T>> & {
-  /** Tracking read / write via property syntax */
-  value: T;
-  /** Non-tracking read */
-  peek(): T;
-  /** Alias for tracking read */
-  get(): T;
-  /** Write helper */
-  set(v: T): void;
+    /** Tracking read / write via property syntax */
+    value: T;
+    /** Non-tracking read */
+    peek(): T;
+    /** Alias for tracking read */
+    get(): T;
+    /** Write helper */
+    set(v: T): void;
 };
 
 /**
  * Decorate a native signal function with legacy helpers & identity.
  */
 function tagSignal(fn: any): TaggedSignal<any> {
-  Object.defineProperty(fn, ReactiveFlags_.IS_SIGNAL, { value: true });
-  Object.defineProperty(fn, "value", {
-    get: () => fn(),
-    set: (v) => fn(v),
-  });
-  // Add peek to mirror old API (non-tracking read)
-  if (!fn.peek) Object.defineProperty(fn, "peek", { value: () => fn() });
-  if (!fn.get) Object.defineProperty(fn, "get", { value: () => fn() });
-  if (!fn.set) Object.defineProperty(fn, "set", { value: (v: any) => fn(v) });
-  return fn;
+    Object.defineProperty(fn, ReactiveFlags_.IS_SIGNAL, { value: true });
+    Object.defineProperty(fn, "value", {
+        get: () => fn(),
+        set: (v) => fn(v),
+    });
+    // Add peek to mirror old API (non-tracking read)
+    if (!fn.peek) Object.defineProperty(fn, "peek", { value: () => fn() });
+    if (!fn.get) Object.defineProperty(fn, "get", { value: () => fn() });
+    if (!fn.set) Object.defineProperty(fn, "set", { value: (v: any) => fn(v) });
+    return fn;
 }
 
 /**
- * Decorate a native computed function similarly (readonly value accessor).
+ * Decorate a native computed function with ergonomic helpers & readonly value accessor.
  */
-function tagComputed(fn: any) {
-  Object.defineProperty(fn, ReactiveFlags_.IS_SIGNAL, { value: true });
-  Object.defineProperty(fn, "value", { get: () => fn() });
-  if (!fn.peek) Object.defineProperty(fn, "peek", { value: () => fn() });
-  if (!fn.get) Object.defineProperty(fn, "get", { value: () => fn() });
-  return fn;
+function tagComputed<T>(fn: any): TaggedComputed<T> {
+    Object.defineProperty(fn, ReactiveFlags_.IS_SIGNAL, { value: true });
+    Object.defineProperty(fn, "value", { get: () => fn() });
+    if (!fn.peek) Object.defineProperty(fn, "peek", { value: () => fn() });
+    if (!fn.get) Object.defineProperty(fn, "get", { value: () => fn() });
+    return fn;
 }
 
 /**
@@ -72,23 +72,48 @@ function tagComputed(fn: any) {
  * count.peek(); // 1 (non-tracking)
  */
 export const signal = <T>(v?: T) => tagSignal(alienSignal(v));
+/** Internal shape of a tagged computed signal after adding ergonomic helpers. */
+type TaggedComputed<T> = ReturnType<typeof alienComputed<T>> & {
+    /** Tracking read via property syntax (readonly) */
+    readonly value: T;
+    /** Non-tracking read */
+    peek(): T;
+    /** Alias for tracking read */
+    get(): T;
+};
+
 /**
  * Create a lazy computed (readonly) signal derived from other signals.
- * The returned function is tagged with `.value` and `.peek()` for convenience.
+ *
+ * Computed signals are automatically cached and only recompute when their tracked
+ * dependencies change. The getter function is evaluated lazily—if you never read
+ * the computed value, the computation never runs.
+ *
+ * The returned function can be called directly `computed()` or accessed via `.value`.
+ * Use `.peek()` for non-tracking reads (won't establish reactive dependency).
+ *
+ * @example
+ * const count = signal(5);
+ * const doubled = computed(() => count() * 2);
+ * doubled();       // 10 (establishes dependency, caches result)
+ * doubled.value;   // 10 (cached, same as calling it)
+ * doubled.peek();  // 10 (no dependency tracking)
+ * count(10);
+ * doubled();       // 20 (recomputed because count changed)
  */
-export const computed = <T>(getter: () => T) =>
-  tagComputed(alienComputed(getter));
+export const computed = <T>(getter: () => T): TaggedComputed<T> =>
+    tagComputed(alienComputed(getter));
 
 /** Union allowing a plain value or a writable signal wrapping that value. */
 export type MaybeSignal<T = any> = T | ReturnType<typeof signal>;
 /** Union allowing value, writable signal, computed signal or plain getter function. */
 export type MaybeSignalOrGetter<T = any> =
-  | MaybeSignal<T>
-  | ReturnType<typeof computed>
-  | (() => T);
+    | MaybeSignal<T>
+    | ReturnType<typeof computed>
+    | (() => T);
 /** Runtime guard that an unknown value is one of our tagged signals/computeds. */
 export const isSignal = (s: any): boolean =>
-  typeof s === "function" && !!s && !!s[ReactiveFlags_.IS_SIGNAL];
+    typeof s === "function" && !!s && !!s[ReactiveFlags_.IS_SIGNAL];
 
 /**
  * Minimal Effect wrapper for legacy watch implementation.
@@ -102,28 +127,28 @@ export const isSignal = (s: any): boolean =>
  * to dispose the underlying reactive subscription.
  */
 export class Effect {
-  public active = true;
-  public dirty = true;
-  public scheduler: (immediateFirstRun?: boolean) => void = () => {};
-  private _runner: any;
-  constructor(private _getter: () => any) {
-    const self = this;
-    this._runner = alienEffect(function wrapped() {
-      self.dirty = true;
-      self._getter();
-      self.scheduler();
-    });
-  }
-  run() {
-    this.dirty = false;
-    return this._getter();
-  }
-  stop() {
-    if (this.active) {
-      this._runner();
-      this.active = false;
+    public active = true;
+    public dirty = true;
+    public scheduler: (immediateFirstRun?: boolean) => void = () => {};
+    private _runner: any;
+    constructor(private _getter: () => any) {
+        const self = this;
+        this._runner = alienEffect(function wrapped() {
+            self.dirty = true;
+            self._getter();
+            self.scheduler();
+        });
     }
-  }
+    run() {
+        this.dirty = false;
+        return this._getter();
+    }
+    stop() {
+        if (this.active) {
+            this._runner();
+            this.active = false;
+        }
+    }
 }
 /** Resolve a plain value, a signal/computed or a getter function to its current value. */
 // Lightweight direct resolver (inlined former toValue/unSignal logic)
@@ -133,11 +158,11 @@ export class Effect {
  * Signals & getters are invoked once; plain values are returned directly.
  */
 export function toValue<T>(src: MaybeSignalOrGetter<T>): T {
-  return isFunction(src)
-    ? (src as any)()
-    : isSignal(src)
-    ? (src as any)()
-    : (src as any);
+    return isFunction(src)
+        ? (src as any)()
+        : isSignal(src)
+          ? (src as any)()
+          : (src as any);
 }
 
 /**
@@ -154,10 +179,10 @@ export function toValue<T>(src: MaybeSignalOrGetter<T>): T {
  * }); // effects observing both run only once
  */
 export function batch<T>(fn: () => T): T {
-  alienStartBatch();
-  try {
-    return fn();
-  } finally {
-    alienEndBatch();
-  }
+    alienStartBatch();
+    try {
+        return fn();
+    } finally {
+        alienEndBatch();
+    }
 }

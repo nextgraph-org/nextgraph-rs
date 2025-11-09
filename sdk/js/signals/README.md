@@ -5,8 +5,6 @@
 
 You define shapes using the shex schema. To build the typescript types and schemas you need to use the package [@ng-org/shex-orm](../shex-orm/README.md).
 
-
-
 ## How to use
 Once you have a shape type, you can use it to create ORM objects. We provide hooks for react, vue, and svelte.
 

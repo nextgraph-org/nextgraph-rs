@@ -50,14 +50,6 @@ pub struct OrmPatch {
 
 pub type OrmPatches = Vec<OrmPatch>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OrmUpdateBlankNodeId {
-    pub path: String,
-    pub nuri: String,
-}
-
-pub type OrmUpdateBlankNodeIds = Vec<OrmUpdateBlankNodeId>;
-
 pub type OrmSchema = HashMap<String, Arc<OrmSchemaShape>>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
