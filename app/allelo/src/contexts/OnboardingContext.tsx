@@ -3,22 +3,12 @@ import type {ReactNode} from 'react';
 import type {OnboardingState, OnboardingContextType} from '@/types/onboarding';
 import {OnboardingContext} from '@/contexts/OnboardingContextType';
 import {initialState} from '@/constants/onboarding';
-import {useNextGraphAuth} from '@/lib/nextgraph';
-import type {NextGraphAuth} from '@/types/nextgraph';
 import {useSettings} from '@/hooks/useSettings';
 
 export const OnboardingProvider = ({children}: { children: ReactNode }) => {
-  const nextGraphAuth = useNextGraphAuth() as unknown as NextGraphAuth | undefined;
-  const isAuthenticated = Boolean(nextGraphAuth?.session?.sessionId);
-
   const {settings, saveToStorage} = useSettings();
 
   const [state, setState] = useState<OnboardingState>(initialState);
-
-  const hasBeenAuthenticated = useRef(false);
-  if (isAuthenticated) {
-    hasBeenAuthenticated.current = true;
-  }
 
   const hasInitialized = useRef(false);
 
@@ -39,12 +29,10 @@ export const OnboardingProvider = ({children}: { children: ReactNode }) => {
     setState(prevState => {
       const newState = {
         ...prevState,
-        currentStep: Math.min(prevState.currentStep + 1, prevState.totalSteps - 1),
+        currentStep: Math.min((prevState.currentStep || 0) + 1, (prevState.totalSteps || 3) - 1),
       };
 
-      if (hasBeenAuthenticated.current) {
-        saveToStorage(newState);
-      }
+      saveToStorage(newState);
 
       return newState;
     });
@@ -57,10 +45,7 @@ export const OnboardingProvider = ({children}: { children: ReactNode }) => {
         isComplete: true,
       };
 
-      // Save only if authenticated
-      if (hasBeenAuthenticated.current) {
-        saveToStorage(newState);
-      }
+      saveToStorage(newState);
 
       return newState;
     });

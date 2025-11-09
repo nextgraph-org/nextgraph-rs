@@ -20,7 +20,10 @@ export const useSettings = () => {
   const {session} = nextGraphAuth;
   const sessionId = session?.sessionId;
 
-  const nuri = "did:ng:" + session?.privateStoreId;
+  let nuri;
+  if (session?.privateStoreId) {
+    nuri = "did:ng:" + session.privateStoreId;
+  }
 
   // NextGraph subscription
   const resource = useResource(sessionId && nuri ? nuri : undefined, {subscribe: true});
@@ -38,7 +41,15 @@ export const useSettings = () => {
       }
 
       const settings: Partial<AppSettings> = {}
-      Object.assign(settings, state);
+      if (state.currentStep) {
+        settings.onboardingStep = state.currentStep;
+      }
+      if (state.isComplete) {
+        settings.isOnboardingFinished = state.isComplete;
+      }
+      if (state.lnImportRequested) {
+        settings.lnImportRequested = state.lnImportRequested;
+      }
 
       await nextgraphDataService.updateSettings(session, settings, changeData, commitData);
     } catch (error) {
@@ -59,12 +70,11 @@ export const useSettings = () => {
         onboardingStep: 0,
       }
       await nextgraphDataService.updateSettings(session, settings, changeData, commitData);
-    } else {
-      if (appSettings?.type !== undefined) {
-        setSettings(appSettings);
-        setIsLoading(false);
-        setError(null);
-      }
+    }
+    if (appSettings?.onboardingStep !== undefined) {
+      setSettings(appSettings);
+      setIsLoading(false);
+      setError(null);
     }
   }, [appSettings, changeData, commitData, session])
 
