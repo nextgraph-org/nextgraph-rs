@@ -112,7 +112,9 @@ const tauri_handler = {
                 let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
                 let client_type;
                 switch (tauri_platform) {
-                    case 'macos': client_type = "NativeMacOS";break;
+                    case 'macos':
+                    case 'darwin':
+                        client_type = "NativeMacOS";break;
                     case 'linux': client_type = "NativeLinux";break;
                     case 'windows': client_type = "NativeWin";break;
                     case 'android': client_type = "NativeAndroid";break;

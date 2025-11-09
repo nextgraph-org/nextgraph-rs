@@ -583,6 +583,13 @@ pub fn create_wallet_first_step_v0(
     let img_vec = params
         .security_img
         .as_ref()
+        .and_then(|security_img| {
+            if security_img.is_empty() {
+                None
+            } else {
+                Some(security_img)
+            }
+        })
         .and_then(|security_img| check_security_img(security_img).ok());
 
     // creating the wallet keys
