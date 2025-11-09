@@ -3,11 +3,9 @@
 
 ## How to Define Object Schemas (Shapes)
 
-You define shapes using the shex schema. To build the typescript types and schema, run
-`rdf-orm build --input ./src/shapes/shex --output ./src/shapes/orm` which stores the shape type schemas in the output directory.
-For that, you need to have `@ng-org/shex-orm` installed.
+You define shapes using the shex schema. To build the typescript types and schemas you need to use the package [@ng-org/shex-orm](../shex-orm/README.md).
 
-For more information, see the ng shex-orm and the multi-framework-signals example application.
+
 
 ## How to use
 Once you have a shape type, you can use it to create ORM objects. We provide hooks for react, vue, and svelte.

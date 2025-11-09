@@ -2,7 +2,7 @@
 
 Deep structural reactivity for plain objects / arrays / Sets built on top of `alien-signals`.
 
-Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signals the first time you read them. Accessing a property returns the plain value; accessing `$prop` returns the underlying signal function. Deep mutations emit compact batched patch objects you can observe with `watch()`.
+Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signals the first time you read them. Deep mutations emit compact batched patch objects (in a JSON-patch inspired style) that you can track with `watch()`.
 
 ## Features
 
@@ -14,7 +14,7 @@ Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signal
 - Getter => computed: property getters become derived (readonly) signals automatically.
 - `$` accessors: TypeScript exposes `$prop` for each non‑function key plus `$` / `$length` for arrays.
 - Sets: structural `add/delete/clear` emit patches; object entries get synthetic stable ids.
-- Configurable synthetic IDs: custom property generator with `syntheticIdPropertyName` option for automatic ID assignment.
+- Configurable synthetic IDs: custom property generator - the synthetic id is used in the paths of patches to identify objects in sets.
 - Read-only properties: protect specific properties from modification.
 - Shallow escape hatch: wrap sub-objects with `shallow(obj)` to track only reference replacement.
 
@@ -42,10 +42,6 @@ state.count++; // mutate normally
 state.user.name = "Grace"; // nested write
 state.items.push({ id: "i2", qty: 2 });
 state.settings.add("beta");
-
-// Direct signal access
-state.$count!.set(5); // update via signal
-console.log(state.$count!()); // read via signal function
 ```
 
 ## Configuration options
@@ -166,6 +162,9 @@ await Promise.resolve(); // flush microtask
 stop();
 ```
 
+## Computed (derived) values
+
+When you derive values from an object, you are advised to 
 ### Callback event shape
 
 ```ts
@@ -358,7 +357,7 @@ const n: number = state.$count!(); // typed number
 
 ## Credits
 
-This project is a fork of https://github.com/CCherry07/alien-deepsignals.
+This project is a fork of https://github.com/CCherry07/alien-deepsignals, forked at commit `b691dc9202c58f63c1bf78675577c811316396db`.
 
 ## License
 
