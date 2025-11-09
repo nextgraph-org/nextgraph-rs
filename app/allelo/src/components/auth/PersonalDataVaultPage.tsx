@@ -8,8 +8,6 @@ import {
   TextField,
   InputAdornment,
   IconButton,
-  Checkbox,
-  FormControlLabel,
   Alert,
   Link,
   Card,
@@ -18,7 +16,6 @@ import {
 import {
   UilEnvelope,
   UilLock,
-  UilLockAlt,
   UilEye,
   UilEyeSlash,
   UilShield,
@@ -35,31 +32,30 @@ export const PersonalDataVaultPage = () => {
     pinEnabled: true,
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [showPin, setShowPin] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-    
+
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters long';
     }
-    
+
     if (formData.pinEnabled && !formData.pin) {
       newErrors.pin = 'PIN is required when enabled';
     } else if (formData.pinEnabled && !/^\d{4,6}$/.test(formData.pin)) {
       newErrors.pin = 'PIN must be 4-6 digits';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -67,31 +63,22 @@ export const PersonalDataVaultPage = () => {
   const handleInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setFormData(prev => ({ ...prev, [field]: value }));
-    
+
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
-  const handlePinToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, pinEnabled: event.target.checked }));
-    if (!event.target.checked && errors.pin) {
-      setErrors(prev => ({ ...prev, pin: '' }));
-    }
-  };
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Vault setup data:', formData);
       navigate('/onboarding/social-contract');
     } catch (error) {
       console.error('Vault setup failed:', error);
@@ -244,61 +231,6 @@ export const PersonalDataVaultPage = () => {
             }}
             placeholder="Choose a strong password"
           />
-
-          {/* PIN Toggle */}
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={formData.pinEnabled}
-                onChange={handlePinToggle}
-                color="primary"
-              />
-            }
-            label={
-              <Typography variant="body2">
-                Enable PIN for additional security
-              </Typography>
-            }
-            sx={{ mb: 2 }}
-          />
-
-          {/* PIN Field */}
-          {formData.pinEnabled && (
-            <TextField
-              fullWidth
-              label="Security PIN"
-              type={showPin ? 'text' : 'password'}
-              value={formData.pin}
-              onChange={handleInputChange('pin')}
-              error={!!errors.pin}
-              helperText={errors.pin || 'Create a 4-6 digit PIN'}
-              sx={{ mb: 4 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <UilLockAlt size="20" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPin(!showPin)}
-                      edge="end"
-                      size="small"
-                    >
-                      {showPin ? <UilEyeSlash size="20" /> : <UilEye size="20" />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-              placeholder="4-6 digits"
-              inputProps={{
-                maxLength: 6,
-                pattern: '[0-9]*',
-                inputMode: 'numeric'
-              }}
-            />
-          )}
 
           {/* Submit Error */}
           {errors.submit && (

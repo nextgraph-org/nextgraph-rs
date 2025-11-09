@@ -66,8 +66,11 @@
 </script>
 
 <div class="password-field" bind:this={wrapper}>
+  <svg class="password-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+  </svg>
   <Textfield
-    class={["mui-textfield", "password-textfield", className, "shaped-outlined"].filter(Boolean).join(" ")}
+    class={["mui-textfield", "password-textfield", "password-with-start-icon", className, "shaped-outlined"].filter(Boolean).join(" ")}
     variant="outlined"
     bind:value
     label={label ?? placeholder}
@@ -124,8 +127,24 @@
     width: 100%;
   }
 
+  .password-icon {
+    position: absolute;
+    left: calc(var(--mui-spacing) * 1.5);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--mui-palette-text-secondary);
+    pointer-events: none;
+    z-index: 1;
+  }
+
   :global(.password-textfield .mdc-text-field__input) {
     padding-right: calc(var(--mui-spacing) * 6);
+  }
+
+  :global(.password-with-start-icon .mdc-text-field__input) {
+    padding-left: calc(var(--mui-spacing) * 4) !important;
   }
 
   .password-toggle {
@@ -138,6 +157,7 @@
     background: none;
     border: none;
     padding: 0;
+    padding-right: 10px;
     cursor: pointer;
     color: var(--mui-palette-text-secondary);
     transition: color 0.2s ease;

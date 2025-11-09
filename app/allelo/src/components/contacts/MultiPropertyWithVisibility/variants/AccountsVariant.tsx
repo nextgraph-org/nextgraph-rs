@@ -105,7 +105,7 @@ export const AccountsVariant = <K extends ResolvableKey>({
 
     if (isNextgraph) {
       // @ts-expect-error this is expected
-      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce") {
+      if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
         const changedContactObj = changeData(contact, resource);
         updateProtocolWithUserSource(changedContactObj);
         commitData(changedContactObj);

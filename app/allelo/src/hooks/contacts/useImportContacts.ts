@@ -13,7 +13,7 @@ export interface UseImportContactsReturn {
   isImporting: boolean;
 }
 
-export const useImportContacts = (): UseImportContactsReturn => {
+export const useImportContacts = (onImportDone: () => void): UseImportContactsReturn => {
   const [importSources, setImportSources] = useState<ImportSourceConfig[]>([]);
   const [importProgress, setImportProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +39,7 @@ export const useImportContacts = (): UseImportContactsReturn => {
           clearInterval(progressInterval);
           setTimeout(() => {
             setIsImporting(false);
-            navigate('/contacts');
+            onImportDone();
           }, 1000);
           return 100;
         }
@@ -58,7 +58,7 @@ export const useImportContacts = (): UseImportContactsReturn => {
       clearInterval(progressInterval);
       setIsImporting(false);
     }
-  }, [navigate, saveContacts]);
+  }, [navigate, onImportDone, saveContacts]);
 
   return {
     importSources,

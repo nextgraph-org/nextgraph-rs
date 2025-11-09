@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from "react";
+import {useEffect, useState} from "react";
 import type {Contact} from "@/types/contact";
 import {isNextGraphEnabled} from "@/utils/featureFlags";
 import {useNextGraphAuth, useResource, useSubject} from "@/lib/nextgraph";
@@ -6,7 +6,6 @@ import {NextGraphAuth} from "@/types/nextgraph";
 import {SocialContact} from "@/.ldo/contact.typings";
 import {SocialContactShapeType} from "@/.ldo/contact.shapeTypes";
 import {useMockContactSubject} from "@/hooks/contacts/useMockContactSubject";
-import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
 
 export const useContactData = (nuri: string | null, isProfile = false) => {
   const [contact, setContact] = useState<Contact | undefined>(undefined);
@@ -18,19 +17,8 @@ export const useContactData = (nuri: string | null, isProfile = false) => {
   const {session} = nextGraphAuth;
   const sessionId = session?.sessionId;
 
-  const initProfile = useCallback(async () => {
-      const created = await nextgraphDataService.isProfileCreated(session);
-      if (!created) {
-        await nextgraphDataService.createProfile(session);
-      }
-    }, [session]
-  )
-
   if (isProfile) {
     nuri = "did:ng:" + session?.protectedStoreId;
-    if (isNextGraph) {
-      initProfile();
-    }
   }
 
   // NextGraph subscription

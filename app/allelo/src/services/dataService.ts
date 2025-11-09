@@ -86,6 +86,7 @@ let contacts: Contact[] = [];
 let isLoaded = false;
 let loadedWithIDs = false;
 let draftContact: Contact | undefined;
+let draftProfile: Contact | undefined;
 const profile: Contact = {
   ["@id"]: "myProfileId",
   type: {
@@ -183,6 +184,27 @@ export const dataService = {
 
   removeDraftContact() {
     draftContact = undefined;
+  },
+
+  async getDraftProfile() {
+    if (!draftProfile) {
+      const profileJson = {
+        "@id": "myProfileId",
+        "type": [
+          {
+            "@id": "Individual"
+          }
+        ],
+      };
+      draftProfile = await processContactFromJSON(profileJson);
+      draftProfile.isDraft = true;
+    }
+
+    return draftProfile;
+  },
+
+  removeDraftProfile() {
+    draftProfile = undefined;
   },
 
   async getContacts(withIds = true): Promise<Contact[]> {

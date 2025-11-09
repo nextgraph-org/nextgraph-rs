@@ -1,6 +1,7 @@
-import {useMemo, useState} from 'react';
+import {useMemo, useState, useEffect} from 'react';
 import {useNextGraphAuth} from '@/lib/nextgraph.ts';
 import {isNextGraphEnabled} from '@/utils/featureFlags.ts';
+import {useNavigate} from 'react-router-dom';
 import {
   Typography,
   Box,
@@ -33,12 +34,13 @@ export const AccountPageContent = ({
 
   const tabItems = useMemo<TabItem[]>(
     () => [
+      {label: "Profile", icon: <UilUser size="20"/>, content: <ProfileSection initialProfileData={profileData} resource={resource}/>},
       {label: "Alerts", icon: <UilBell size="20"/>, content: <NotificationsPage/>},
       {label: "My Stream", icon: <UilRss size="20"/>, content: <MyStream/>},
       {label: "My Docs", icon: <UilFileAlt size="20"/>, content: <MyDocs/>},
       {label: "Queries", icon: <UilSearch size="20"/>, content: <SocialQueries/>},
       {label: "My Cards", icon: <UilShield size="20"/>, content: <RCardList/>},
-      {label: "Profile", icon: <UilUser size="20"/>, content: <ProfileSection initialProfileData={profileData} resource={resource}/>},
+
       {
         label: "Settings",
         icon: <UilSetting size="20"/>,
@@ -107,8 +109,18 @@ export const AccountPageContent = ({
 };
 
 const NextGraphAccountPage = () => {
+  const navigate = useNavigate();
   const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
-  const {contact, resource} = useContactData(null, true);
+  const {contact, resource, isLoading} = useContactData(null, true);
+
+  useEffect(() => {
+    if (!isLoading && contact) {
+      const hasName = (contact.name?.size ?? 0) > 0;
+      if (!hasName) {
+        navigate('/account/create', {replace: true});
+      }
+    }
+  }, [contact, isLoading, navigate]);
 
   const handleLogout = async () => {
     try {
@@ -120,11 +132,32 @@ const NextGraphAccountPage = () => {
     }
   };
 
+  if (isLoading || !contact) {
+    return null; // Or a loading spinner
+  }
+
   return <AccountPageContent profileData={contact} handleLogout={handleLogout} isNextGraph={true} resource={resource}/>;
 };
 
 const MockAccountPage = () => {
-  const {contact, resource} = useContactData("myProfileId");
+  const navigate = useNavigate();
+  const {contact, resource, isLoading} = useContactData("myProfileId");
+
+  // Check if profile exists and has essential data
+  useEffect(() => {
+    if (!isLoading && contact) {
+      const hasName = (contact.name?.size ?? 0) > 0;
+      if (!hasName) {
+        // Profile is incomplete, redirect to create page
+        navigate('/account/create', {replace: true});
+      }
+    }
+  }, [contact, isLoading, navigate]);
+
+  if (isLoading || !contact) {
+    return null; // Or a loading spinner
+  }
+
   return <AccountPageContent profileData={contact} isNextGraph={false} resource={resource}/>;
 };
 

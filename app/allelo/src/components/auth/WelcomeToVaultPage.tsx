@@ -17,11 +17,13 @@ import {
   UilPhone,
   UilDatabase,
 } from '@iconscout/react-unicons';
+import {useSettings} from "@/hooks/useSettings.ts";
 
 export const WelcomeToVaultPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+  const {settings} = useSettings();
+
   // Check if user was invited to a group
   const invitedToGroup = searchParams.get('group');
   const groupName = searchParams.get('groupName') || 'Tech Professionals';
@@ -40,7 +42,6 @@ export const WelcomeToVaultPage = () => {
 
   return (
     <Box sx={{ 
-      height: '100%',
       width: '100%',
       maxWidth: { xs: '100vw', md: '100%' },
       overflow: 'hidden',
@@ -107,12 +108,12 @@ export const WelcomeToVaultPage = () => {
 
               {/* Import Options Preview */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, ml: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <LinkedIn sx={{ fontSize: 16, color: '#0077B5' }} />
+                {!settings?.lnImportRequested  && <Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
+                  <LinkedIn sx={{fontSize: 16, color: '#0077B5'}}/>
                   <Typography variant="caption" color="text.secondary">
                     LinkedIn
                   </Typography>
-                </Box>
+                </Box>}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <UilEnvelope size="16" color="#EA4335" />
                   <Typography variant="caption" color="text.secondary">

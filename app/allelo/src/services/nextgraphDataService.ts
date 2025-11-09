@@ -6,6 +6,8 @@ import {SocialContact} from "@/.ldo/contact.typings";
 import {LdSet} from "@ldo/ldo";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
 import {ContactLdSetProperties, contactLdSetProperties, resolveFrom} from "@/utils/socialContact/contactUtils.ts";
+import {AppSettings} from "@/.ldo/settings.typings.ts";
+import {AppSettingsShapeType} from "@/.ldo/settings.shapeTypes.ts";
 
 export function ldoToJson(obj: any): any {//TODO can go to infinite loop, if obj has subobj that has obj as subobj
   if (obj?.toArray) {
@@ -69,22 +71,22 @@ class NextgraphDataService {
 
   async getContactIDs(session: NextGraphSession, limit?: number, offset?: number, base?: string, nuri?: string,
                       orderBy?: SortParams[], filterParams?: Map<string, string>) {
-    const sparql = this.getAllContactIdsQuery("vcard:Individual", limit, offset, orderBy, filterParams);
+    const sparql = this.getAllContactIdsQuery(session, "vcard:Individual", limit, offset, orderBy, filterParams);
 
     return await session.ng!.sparql_query(session.sessionId, sparql, base, nuri);
   }
 
   async getContactsCount(session: NextGraphSession, filterParams?: Map<string, string>) {
-    const sparql = this.getCountQuery("vcard:Individual", filterParams);
+    const sparql = this.getCountQuery("vcard:Individual", session,  filterParams);
 
     return await session.ng!.sparql_query(session.sessionId, sparql);
   };
 
-  getAllContactIdsQuery(type: string, limit?: number, offset?: number, sortParams?: SortParams[], filterParams?: Map<string, string>) {
+  getAllContactIdsQuery(session: NextGraphSession, type: string, limit?: number, offset?: number, sortParams?: SortParams[], filterParams?: Map<string, string>) {
     const orderByData: string[] = [];
     const optionalJoinData: string[] = [];
 
-    const filter = this.getFilter(filterParams);
+    const filter = this.getFilter(filterParams, session);
 
     if (sortParams) {
       for (const sortParam of sortParams) {
@@ -121,14 +123,31 @@ class NextgraphDataService {
 `;
   };
 
+  async getContactAllProperties(session: NextGraphSession, nuri: string) {
+    const sparql = `
+      ${this.contactPrefixes}
+
+      SELECT ?mainProperty ?subProperty ?value
+      WHERE {
+        <${nuri}> ?mainPropertyUri ?node .
+        ?node ?subPropertyUri ?value .
+        BIND(REPLACE(STR(?mainPropertyUri), ".*[#/]", "") AS ?mainProperty)
+        BIND(REPLACE(STR(?subPropertyUri), ".*[#/]", "") AS ?subProperty)
+        
+        FILTER(?subPropertyUri != "rdf:type")
+  }`
+
+    return await session.ng!.sparql_query(session.sessionId, sparql);
+  }
+
   contactPrefixes = `
     PREFIX vcard: <http://www.w3.org/2006/vcard/ns#>
     PREFIX ngcontact: <did:ng:x:contact#>
     PREFIX ngcore: <did:ng:x:core#>
   `;
 
-  getCountQuery(type: string, filterParams?: Map<string, string>) {
-    const filter = this.getFilter(filterParams);
+  getCountQuery(type: string, session: NextGraphSession, filterParams?: Map<string, string>) {
+    const filter = this.getFilter(filterParams, session);
 
     return `
       ${this.contactPrefixes}
@@ -184,7 +203,7 @@ WHERE {
     return joinData;
   }
 
-  getFilter(filterParams?: Map<string, string>) {
+  getFilter(filterParams?: Map<string, string>, session?: NextGraphSession) {
     filterParams ??= new Map();
     const filterData = [
       `FILTER NOT EXISTS { ?contactUri ngcontact:mergedInto ?mergedIntoNode }`
@@ -199,6 +218,10 @@ WHERE {
         `);//TODO make generic for other properties
         filterData.push(`FILTER (?${key} = "${value}")`);
       }
+    }
+
+    if (session && session.protectedStoreId) {
+      filterData.push(`FILTER (?contactUri != <did:ng:${session.protectedStoreId.substring(0, 46)}>)`)
     }
 
     return filterData.join("\n");
@@ -266,8 +289,8 @@ WHERE {
 
     const protectedStoreId = "did:ng:" + session.protectedStoreId;
     const resource = dataset.getResource(protectedStoreId, "nextgraph");
-    // @ts-expect-error this is expected
-    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
+
+    if (resource.isError || resource.type === "InvalidIdentifierResource") {
       throw new Error(`Failed to get resource ${protectedStoreId}`);
     }
     const base = "did:ng:" + session.protectedStoreId?.substring(0, 46);
@@ -290,6 +313,66 @@ WHERE {
     const res = await session.ng!.sparql_update(session.sessionId, sparql, protectedStoreId);
     if (!Array.isArray(res)) {
       throw new Error(`Failed to create profile on ${protectedStoreId}`);
+    }
+  }
+
+  async createSettings(session: NextGraphSession, privateStoreId?: string) {
+    if (!session || !session.sessionId) {
+      return ;
+    }
+
+    privateStoreId ??= "did:ng:" + session.privateStoreId;
+    const sparql = `
+        PREFIX ngset: <did:ng:x:settings#>
+        INSERT DATA {
+            <> a ngset:Settings . }`;
+    const res = await session.ng!.sparql_update(session.sessionId, sparql, privateStoreId);
+    if (!Array.isArray(res)) {
+      throw new Error(`Failed to create settings on ${privateStoreId}`);
+    }
+  }
+
+  async isSettingsCreated(session?: NextGraphSession, base?: string, nuri?: string) {
+    if (!session || !session.sessionId) {
+      return ;
+    }
+    base ??= "did:ng:" + session.privateStoreId?.substring(0, 46);
+    nuri ??="did:ng:" + session.privateStoreId;
+    const sparql = `
+      PREFIX ngset: <did:ng:x:settings#>
+      ASK { <> a ngset:Settings . }`;
+
+    return await session.ng!.sparql_query(session.sessionId, sparql, base, nuri);
+  }
+
+  async updateSettings(
+    session: NextGraphSession | undefined,
+    settings: Partial<AppSettings>,
+    changeData: ChangeDataFunction,
+    commitData: CommitDataFunction
+  ) {
+    if (!session || !session.ng) {
+      throw new Error('No active session available');
+    }
+
+    const privateStoreId = "did:ng:" + session.privateStoreId;
+    const resource = dataset.getResource(privateStoreId, "nextgraph");
+
+    if (resource.isError || resource.type === "InvalidIdentifierResource") {
+      throw new Error(`Failed to get resource ${privateStoreId}`);
+    }
+
+    const base = "did:ng:" + session.privateStoreId?.substring(0, 46);
+    const subject = dataset.usingType(AppSettingsShapeType).fromSubject(base);
+    const settingsObj = changeData(subject, resource);
+    Object.entries(settings).forEach(([key, value]) => {
+      //@ts-expect-error it's ok
+      settingsObj[key] = value;
+    });
+
+    const result = await commitData(settingsObj);
+    if (result.isError) {
+      throw new Error(`Failed to commit: ${result.message}`);
     }
   }
 
@@ -450,7 +533,7 @@ WHERE {
     }
 
     const resource = dataset.getResource(contact["@id"]!);
-    if (resource.isError || resource.type === "InvalidIdentifierResouce") {
+    if (resource.isError || resource.type === "InvalidIdentifierResource") {
       throw new Error(`Failed to create resource`);
     }
 

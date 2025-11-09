@@ -5,6 +5,7 @@ export type TabItem = {
   label: ReactNode;
   icon?: ReactElement;
   content: ReactNode;
+  disabled?: boolean;
 };
 
 interface TabManagerProps {
@@ -62,6 +63,7 @@ export function TabManager({
             label={item.label}
             icon={item.icon}
             iconPosition={item.icon ? "start" : undefined}
+            disabled={item.disabled}
             {...a11y(i)}
           />
         ))}
