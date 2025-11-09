@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import {
   Box,
   Typography,
@@ -25,6 +26,7 @@ import {
 
 export const AcceptConnectionPage = () => {
   const navigate = useNavigate();
+  const { completeOnboarding } = useOnboarding();
   const theme = useTheme();
   const [connectionStatus, setConnectionStatus] = useState<'pending' | 'accepted' | 'rejected'>('pending');
   const [vouchStatus, setVouchStatus] = useState<'pending' | 'accepted' | 'rejected'>('pending');
@@ -91,6 +93,7 @@ export const AcceptConnectionPage = () => {
   };
 
   const handleContinue = () => {
+    completeOnboarding();
     navigate('/onboarding/welcome');
   };
 
@@ -423,39 +426,22 @@ export const AcceptConnectionPage = () => {
           </Box>
         </Box>
 
-        {/* Action Buttons */}
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            variant="outlined"
-            size="large"
-            fullWidth
-            onClick={() => navigate(-1)}
-            disabled={isProcessing}
-            sx={{
-              py: 1.5,
-              fontWeight: 600,
-              textTransform: 'none',
-              borderRadius: 2
-            }}
-          >
-            Back
-          </Button>
-          <Button
-            variant="contained"
-            size="large"
-            fullWidth
-            onClick={handleContinue}
-            disabled={connectionStatus === 'pending' || isProcessing}
-            sx={{
-              py: 1.5,
-              fontWeight: 600,
-              textTransform: 'none',
-              borderRadius: 2
-            }}
-          >
-            {connectionStatus === 'pending' ? 'Accept Connection to Continue' : 'Complete Setup'}
-          </Button>
-        </Box>
+        {/* Action Button */}
+        <Button
+          variant="contained"
+          size="large"
+          fullWidth
+          onClick={handleContinue}
+          disabled={connectionStatus === 'pending' || isProcessing}
+          sx={{
+            py: 1.5,
+            fontWeight: 600,
+            textTransform: 'none',
+            borderRadius: 2
+          }}
+        >
+          {connectionStatus === 'pending' ? 'Accept Connection to Continue' : 'Complete Setup'}
+        </Button>
       </Paper>
     </Box>
   );

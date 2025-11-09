@@ -7,8 +7,7 @@ import {
   CardContent,
   CardActions,
   Button,
-  Dialog,
-  LinearProgress, IconButton
+  IconButton
 } from '@mui/material';
 import {UilArrowLeft, UilCloudDownload} from '@iconscout/react-unicons';
 import {useImportContacts} from '@/hooks/contacts/useImportContacts';
@@ -16,12 +15,19 @@ import {ImportSourceConfig} from "@/types/importSource";
 import {ImportSourceRegistry} from "@/importers/importSourceRegistry";
 import {Contact} from "@/types/contact";
 import {useNavigate} from "react-router-dom";
+import {ImportingOverlay} from "@/components/contacts/ImportContacts/ImportingOverlay.tsx";
 
 export const ImportContacts = () => {
-  const {importSources, importProgress, isImporting, importContacts} = useImportContacts();
+  const navigate = useNavigate();
+
+  const onImportDone = useCallback(() => {
+    navigate('/contacts');
+  }, [navigate]);
+  
+  const {importSources, importProgress, isImporting, importContacts} = useImportContacts(onImportDone);
   const [selectedSource, setSelectedSource] = useState<ImportSourceConfig | null>(null);
   const [isRunnerOpen, setIsRunnerOpen] = useState(false);
-  const navigate = useNavigate();
+
 
   const handleImportClick = useCallback((source: ImportSourceConfig) => {
     setSelectedSource(source);
@@ -150,44 +156,7 @@ export const ImportContacts = () => {
       )}
 
       {/* Full-screen importing overlay */}
-      <Dialog
-        open={isImporting}
-        fullScreen
-        PaperProps={{
-          sx: {
-            backgroundColor: 'background.default',
-            display: 'flex',
-            flexDirection: 'column'
-          }
-        }}
-      >
-        <Box sx={{p: 3, borderBottom: 1, borderColor: 'divider'}}>
-          <Typography variant="h5" sx={{mb: 2, fontWeight: 600}}>
-            Importing Contacts
-          </Typography>
-          <LinearProgress
-            variant="determinate"
-            value={importProgress}
-            sx={{height: 8, borderRadius: 4}}
-          />
-          <Typography variant="body2" color="text.secondary" sx={{mt: 1}}>
-            {Math.round(importProgress)}% complete
-          </Typography>
-        </Box>
-
-        <Box sx={{
-          flex: 1,
-          backgroundColor: 'grey.900',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white'
-        }}>
-          <Typography variant="h6">
-            Video Placeholder
-          </Typography>
-        </Box>
-      </Dialog>
+      <ImportingOverlay isImporting={isImporting} importProgress={importProgress}/>
     </Box>
   );
 };

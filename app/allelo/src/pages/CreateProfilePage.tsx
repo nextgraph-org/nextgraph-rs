@@ -137,6 +137,7 @@ const CreateProfilePage = () => {
         </Typography>
       </Box>
       <Tabs
+        value={0}
         variant="scrollable"
         scrollButtons="auto"
         allowScrollButtonsMobile

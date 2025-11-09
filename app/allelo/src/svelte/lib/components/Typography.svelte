@@ -11,6 +11,9 @@
 
 <script lang="ts">
   type Variant =
+    | "h1"
+    | "h2"
+    | "h3"
     | "h4"
     | "h5"
     | "h6"
@@ -22,6 +25,9 @@
     | "overline";
 
   const defaultMapping: Record<Variant, keyof HTMLElementTagNameMap> = {
+    h1: "h1",
+    h2: "h2",
+    h3: "h3",
     h4: "h4",
     h5: "h5",
     h6: "h6",
@@ -39,6 +45,7 @@
   export let gutterBottom = false;
   export let noWrap = false;
   export let className = "";
+  export let style: string | undefined = undefined;
 
   const alignClasses: Record<typeof align, string> = {
     inherit: "",
@@ -61,7 +68,7 @@
     .join(" ");
 </script>
 
-<svelte:element this={tag} class={classes}>
+<svelte:element this={tag} class={classes} {style}>
   <slot />
 </svelte:element>
 
@@ -70,6 +77,27 @@
     font-family: var(--mui-typography-fontFamily);
     color: var(--mui-palette-text-primary);
     margin: 0;
+  }
+
+  .mui-typography-h1 {
+    font-size: var(--mui-typography-h1-fontSize);
+    font-weight: var(--mui-typography-h1-fontWeight);
+    line-height: var(--mui-typography-h1-lineHeight);
+    letter-spacing: var(--mui-typography-h1-letterSpacing);
+  }
+
+  .mui-typography-h2 {
+    font-size: var(--mui-typography-h2-fontSize);
+    font-weight: var(--mui-typography-h2-fontWeight);
+    line-height: var(--mui-typography-h2-lineHeight);
+    letter-spacing: var(--mui-typography-h2-letterSpacing);
+  }
+
+  .mui-typography-h3 {
+    font-size: var(--mui-typography-h3-fontSize);
+    font-weight: var(--mui-typography-h3-fontWeight);
+    line-height: var(--mui-typography-h3-lineHeight);
+    letter-spacing: var(--mui-typography-h3-letterSpacing);
   }
 
   .mui-typography-h4 {

@@ -1,46 +1,44 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, {useCallback, useState} from 'react';
+import {useNavigate} from 'react-router-dom';
+import {useOnboarding} from '@/hooks/useOnboarding';
 import {
   Box,
   Typography,
   Paper,
   Button,
-  Card,
-  CardContent,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
   InputAdornment,
-  IconButton,
-  Checkbox,
-  FormControlLabel,
-  Link,
   Alert,
-  CircularProgress,
   Divider,
 } from '@mui/material';
 import {
-  CheckCircle,
   LinkedIn,
 } from '@mui/icons-material';
 import {
   UilUser,
   UilAward,
   UilEnvelope,
-  UilLock,
-  UilEye,
-  UilEyeSlash,
-  UilTimes,
   UilBriefcase,
   UilLocationPoint,
   UilFileAlt,
   UilBuilding,
 } from '@iconscout/react-unicons';
+import {ImportSourceRegistry} from "@/importers/importSourceRegistry.tsx";
+import {ImportingOverlay} from "@/components/contacts/ImportContacts/ImportingOverlay.tsx";
+import {useImportContacts} from "@/hooks/contacts/useImportContacts.ts";
+import {Contact} from "@/types/contact.ts";
+import {useSettings} from "@/hooks/useSettings.ts";
+import {useUpdateProfile} from "@/hooks/useUpdateProfile.ts";
+import {processContactFromJSON} from "@/utils/socialContact/contactUtils.ts";
 
 export const ClaimIdentityPage = () => {
+  const {saveToStorage} = useSettings();
+  const {updateProfile} = useUpdateProfile();
+
+  const linkedIn = ImportSourceRegistry.getConfig('linkedin');
+
   const navigate = useNavigate();
+  const {completeOnboarding} = useOnboarding();
   const [showLinkedInDialog, setShowLinkedInDialog] = useState(false);
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -51,59 +49,112 @@ export const ClaimIdentityPage = () => {
     location: '',
     bio: '',
   });
-  const [linkedInData, setLinkedInData] = useState({
-    email: '',
-    password: '',
-    useGreencheck: false,
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [importError, setImportError] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const onComplete = useCallback(() => {
+    completeOnboarding();
+    navigate('/onboarding/welcome');
+  }, [completeOnboarding, navigate]);
+
+  const {importProgress, isImporting, importContacts} = useImportContacts(onComplete);
+
+  const handleRunnerComplete = useCallback(async (contacts?: Contact[], callback?: () => void) => {
+    if (contacts)
+      await importContacts(contacts);
+    await saveToStorage({lnImportRequested: true});
+    if (callback)
+      callback();
+    console.log('Import completed:', contacts);
+  }, [importContacts, saveToStorage]);
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
-    
+
     if (!profileData.firstName.trim()) {
       errors.firstName = 'First name is required';
     }
-    if (!profileData.lastName.trim()) {
-      errors.lastName = 'Last name is required';
-    }
-    if (!profileData.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(profileData.email)) {
-      errors.email = 'Please enter a valid email';
-    }
-    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
+  const handleRunnerClose = useCallback(() => {
+    setShowLinkedInDialog(false);
+  }, []);
+
   const handleProfileInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setProfileData(prev => ({ ...prev, [field]: event.target.value }));
+    setProfileData(prev => ({...prev, [field]: event.target.value}));
     if (formErrors[field]) {
-      setFormErrors(prev => ({ ...prev, [field]: '' }));
+      setFormErrors(prev => ({...prev, [field]: ''}));
     }
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
     setIsSubmitting(true);
-    
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log('Profile data:', profileData);
-      navigate('/onboarding/accept-connection');
+      // Transform form data to SocialContact JSON schema
+      const profileJson: any = {};
+
+      // Add name if provided
+      if (profileData.firstName || profileData.lastName) {
+        profileJson.name = [{
+          firstName: profileData.firstName,
+          familyName: profileData.lastName,
+          source: 'user',
+        }];
+      }
+
+      // Add email if provided
+      if (profileData.email) {
+        profileJson.email = [{
+          value: profileData.email,
+          source: 'user',
+          preferred: true,
+        }];
+      }
+
+      // Add organization if company or jobTitle provided
+      if (profileData.company || profileData.jobTitle || profileData.location) {
+        profileJson.organization = [{
+          value: profileData.company,
+          position: profileData.jobTitle,
+          source: 'user',
+          current: true,
+        }];
+      }
+
+      if (profileData.location) {
+        profileJson.address = [{
+          value: profileData.location,
+          source: 'user',
+          preferred: true,
+        }];
+      }
+
+      // Add biography if provided
+      if (profileData.bio) {
+        profileJson.biography = [{
+          value: profileData.bio,
+          source: 'user',
+        }];
+      }
+
+      // Convert JSON to Contact object with proper LdSets
+      const contact = await processContactFromJSON(profileJson, false);
+
+      // Save to NextGraph
+      await updateProfile(contact);
+
+      onComplete();
     } catch (error) {
       console.error('Profile setup failed:', error);
-      setFormErrors({ submit: 'Failed to save profile. Please try again.' });
+      setFormErrors({submit: 'Failed to save profile. Please try again.'});
     } finally {
       setIsSubmitting(false);
     }
@@ -111,48 +162,6 @@ export const ClaimIdentityPage = () => {
 
   const handleLinkedInImport = () => {
     setShowLinkedInDialog(true);
-    setImportError('');
-  };
-
-  const handleLinkedInSubmit = async () => {
-    if (!linkedInData.email || !linkedInData.password) {
-      setImportError('Please enter your LinkedIn credentials');
-      return;
-    }
-
-    setIsImporting(true);
-    setImportError('');
-
-    try {
-      // Simulate LinkedIn import
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Simulate populating form with LinkedIn data
-      setProfileData({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: linkedInData.email,
-        jobTitle: 'Senior Software Engineer',
-        company: 'Tech Company',
-        location: 'San Francisco, CA',
-        bio: 'Experienced software engineer passionate about building great products.',
-      });
-      setShowLinkedInDialog(false);
-    } catch (error) {
-      console.error('LinkedIn import failed:', error);
-      setImportError('Failed to import from LinkedIn. Please try again or set up manually.');
-    } finally {
-      setIsImporting(false);
-    }
-  };
-
-  const handleLinkedInInputChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setLinkedInData(prev => ({ ...prev, [field]: event.target.value }));
-    if (importError) setImportError('');
-  };
-
-  const handleGreencheckChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setLinkedInData(prev => ({ ...prev, useGreencheck: event.target.checked }));
   };
 
   return (
@@ -171,15 +180,15 @@ export const ClaimIdentityPage = () => {
         elevation={2}
         sx={{
           width: '100%',
-          maxWidth: { xs: 480, md: 640 },
-          p: { xs: 3, sm: 4, md: 5 },
+          maxWidth: {xs: 480, md: 640},
+          p: {xs: 3, sm: 4, md: 5},
           borderRadius: 3,
           backgroundColor: 'background.paper'
         }}
       >
         {/* Header */}
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <UilAward size="48" color="currentColor" style={{ color: 'var(--mui-palette-primary-main)' }} />
+        <Box sx={{textAlign: 'center', mb: 4}}>
+          <UilAward size="48" color="currentColor" style={{color: 'var(--mui-palette-primary-main)'}}/>
           <Typography
             variant="h4"
             component="h1"
@@ -198,11 +207,11 @@ export const ClaimIdentityPage = () => {
         </Box>
 
         {/* LinkedIn Import Button */}
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{mb: 3}}>
           <Button
             variant="outlined"
             fullWidth
-            startIcon={<LinkedIn />}
+            startIcon={<LinkedIn/>}
             onClick={handleLinkedInImport}
             sx={{
               py: 1.5,
@@ -220,7 +229,7 @@ export const ClaimIdentityPage = () => {
           </Button>
         </Box>
 
-        <Divider sx={{ mb: 3 }}>
+        <Divider sx={{mb: 3}}>
           <Typography variant="body2" color="text.secondary">
             Or enter manually
           </Typography>
@@ -229,18 +238,19 @@ export const ClaimIdentityPage = () => {
         {/* Profile Form */}
         <Box component="form" onSubmit={handleSubmit}>
           {/* Name Fields */}
-          <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+          <Box sx={{display: 'flex', gap: 2, mb: 3}}>
             <TextField
               fullWidth
               label="First Name"
               value={profileData.firstName}
+              required={true}
               onChange={handleProfileInputChange('firstName')}
               error={!!formErrors.firstName}
               helperText={formErrors.firstName}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <UilUser size="20" />
+                    <UilUser size="20"/>
                   </InputAdornment>
                 ),
               }}
@@ -253,6 +263,13 @@ export const ClaimIdentityPage = () => {
               onChange={handleProfileInputChange('lastName')}
               error={!!formErrors.lastName}
               helperText={formErrors.lastName}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <UilUser size="20"/>
+                  </InputAdornment>
+                ),
+              }}
               placeholder="Doe"
             />
           </Box>
@@ -266,11 +283,11 @@ export const ClaimIdentityPage = () => {
             onChange={handleProfileInputChange('email')}
             error={!!formErrors.email}
             helperText={formErrors.email}
-            sx={{ mb: 3 }}
+            sx={{mb: 3}}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <UilEnvelope size="20" />
+                  <UilEnvelope size="20"/>
                 </InputAdornment>
               ),
             }}
@@ -283,11 +300,11 @@ export const ClaimIdentityPage = () => {
             label="Job Title"
             value={profileData.jobTitle}
             onChange={handleProfileInputChange('jobTitle')}
-            sx={{ mb: 3 }}
+            sx={{mb: 3}}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <UilBriefcase size="20" />
+                  <UilBriefcase size="20"/>
                 </InputAdornment>
               ),
             }}
@@ -300,11 +317,11 @@ export const ClaimIdentityPage = () => {
             label="Company"
             value={profileData.company}
             onChange={handleProfileInputChange('company')}
-            sx={{ mb: 3 }}
+            sx={{mb: 3}}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <UilBuilding size="20" />
+                  <UilBuilding size="20"/>
                 </InputAdornment>
               ),
             }}
@@ -317,11 +334,11 @@ export const ClaimIdentityPage = () => {
             label="Location"
             value={profileData.location}
             onChange={handleProfileInputChange('location')}
-            sx={{ mb: 3 }}
+            sx={{mb: 3}}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <UilLocationPoint size="20" />
+                  <UilLocationPoint size="20"/>
                 </InputAdornment>
               ),
             }}
@@ -336,11 +353,11 @@ export const ClaimIdentityPage = () => {
             onChange={handleProfileInputChange('bio')}
             multiline
             rows={3}
-            sx={{ mb: 4 }}
+            sx={{mb: 4}}
             InputProps={{
               startAdornment: (
-                <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
-                  <UilFileAlt size="20" />
+                <InputAdornment position="start" sx={{alignSelf: 'flex-start', mt: 1}}>
+                  <UilFileAlt size="20"/>
                 </InputAdornment>
               ),
             }}
@@ -349,18 +366,20 @@ export const ClaimIdentityPage = () => {
 
           {/* Error Alert */}
           {formErrors.submit && (
-            <Alert severity="error" sx={{ mb: 3 }}>
+            <Alert severity="error" sx={{mb: 3}}>
               {formErrors.submit}
             </Alert>
           )}
 
           {/* Action Buttons */}
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{display: 'flex', gap: 2}}>
             <Button
               variant="outlined"
               size="large"
               fullWidth
-              onClick={() => navigate(-1)}
+              onClick={() => {
+                onComplete();
+              }}
               sx={{
                 py: 1.5,
                 fontWeight: 600,
@@ -368,7 +387,7 @@ export const ClaimIdentityPage = () => {
                 borderRadius: 2
               }}
             >
-              Back
+              Skip
             </Button>
             <Button
               type="submit"
@@ -389,161 +408,18 @@ export const ClaimIdentityPage = () => {
         </Box>
       </Paper>
 
-      {/* LinkedIn Import Dialog */}
-      <Dialog
-        open={showLinkedInDialog}
-        onClose={() => !isImporting && setShowLinkedInDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <LinkedIn sx={{ fontSize: 28, color: '#0077B5', mr: 1 }} />
-              <Typography variant="h6">Import from LinkedIn</Typography>
-            </Box>
-            <IconButton
-              onClick={() => setShowLinkedInDialog(false)}
-              disabled={isImporting}
-              size="small"
-            >
-              <UilTimes size="20" />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Enter your LinkedIn credentials to import your professional profile data.
-          </Typography>
+      {linkedIn?.Runner && (
+        <linkedIn.Runner
+          open={showLinkedInDialog}
+          onGetResult={handleRunnerComplete}
+          onClose={handleRunnerClose}
+          onError={() => {
+          }}
+        />
+      )}
 
-          {/* Email Field */}
-          <TextField
-            fullWidth
-            label="LinkedIn Email"
-            type="email"
-            value={linkedInData.email}
-            onChange={handleLinkedInInputChange('email')}
-            disabled={isImporting}
-            sx={{ mb: 3 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <UilEnvelope size="20" />
-                </InputAdornment>
-              ),
-            }}
-            placeholder="your.email@example.com"
-          />
+      <ImportingOverlay isImporting={isImporting} importProgress={importProgress}/>
 
-          {/* Password Field */}
-          <TextField
-            fullWidth
-            label="LinkedIn Password"
-            type={showPassword ? 'text' : 'password'}
-            value={linkedInData.password}
-            onChange={handleLinkedInInputChange('password')}
-            disabled={isImporting}
-            sx={{ mb: 3 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <UilLock size="20" />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowPassword(!showPassword)}
-                    edge="end"
-                    size="small"
-                    disabled={isImporting}
-                  >
-                    {showPassword ? <UilEyeSlash size="20" /> : <UilEye size="20" />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          {/* Greencheck Option */}
-          <Card sx={{ mb: 3, backgroundColor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
-            <CardContent sx={{ py: 2 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={linkedInData.useGreencheck}
-                    onChange={handleGreencheckChange}
-                    color="primary"
-                    disabled={isImporting}
-                  />
-                }
-                label={
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CheckCircle sx={{ fontSize: 20, color: 'success.main' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        Claim other accounts via Greencheck
-                      </Typography>
-                    </Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                      Verify and import your profiles from other platforms
-                    </Typography>
-                  </Box>
-                }
-              />
-              <Link
-                href="https://greencheck.world/about"
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{ 
-                  fontSize: '0.875rem', 
-                  fontWeight: 600,
-                  ml: 4,
-                  display: 'inline-block',
-                  mt: 1
-                }}
-              >
-                Learn more about Greencheck →
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* Error Alert */}
-          {importError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {importError}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button
-            onClick={() => setShowLinkedInDialog(false)}
-            disabled={isImporting}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleLinkedInSubmit}
-            disabled={isImporting}
-            sx={{
-              backgroundColor: '#0077B5',
-              '&:hover': {
-                backgroundColor: '#005885',
-              }
-            }}
-          >
-            {isImporting ? (
-              <>
-                <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} />
-                Importing...
-              </>
-            ) : (
-              'Import Profile'
-            )}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };
