@@ -8,6 +8,7 @@
     "opener:default",
     "core:window:allow-close",
     "core:window:allow-destroy",
-    "core:window:allow-get-all-windows"
+    "core:window:allow-get-all-windows",
+    "barcode-scanner:default"
   ]
 }
