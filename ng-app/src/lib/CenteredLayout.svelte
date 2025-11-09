@@ -52,7 +52,7 @@
   };
 </script>
 
-<div bind:this={top}>
+<div class="mt-safe grid place-items-center" bind:this={top}>
   {#if !changingLang}
     <div class="centered">
       <slot />

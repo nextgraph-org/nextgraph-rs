@@ -29,7 +29,8 @@ const config = {
 
   plugins: [
     require('flowbite/plugin'),
-    require('@tailwindcss/typography')
+    require('@tailwindcss/typography'),
+    require("tailwindcss-safe-area")
   ],
   darkMode: 'selector',
 };

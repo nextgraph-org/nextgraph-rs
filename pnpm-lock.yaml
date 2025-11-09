@@ -692,6 +692,9 @@ importers:
       svelte-spa-router:
         specifier: ^3.3.0
         version: 3.3.0
+      tailwindcss-safe-area:
+        specifier: 0.8.0
+        version: 0.8.0(tailwindcss@3.4.17)
       vite-plugin-top-level-await:
         specifier: 1.3.1
         version: 1.3.1(rollup@4.39.0)(vite@4.2.1(@types/node@18.19.76)(sass@1.85.0))
@@ -4944,6 +4947,12 @@ packages:
 
   tailwind-merge@1.14.0:
     resolution: {integrity: sha512-3mFKyCo/MBcgyOTlrY8T7odzZFx+w+qKSMAmdFzRvqBfLlSigU6TZnlFHK0lkMwj9Bj8OYU+9yW9lmGuS0QEnQ==}
+
+  tailwindcss-safe-area@0.8.0:
+    resolution: {integrity: sha512-OIKZfSvinI9kZ3hduoSxqP8EfW2rXoKvHnNyTDY2zwem06IIRtLcKdMe0nF98o+Xluk5Fy7mmesr1rSXg/wkhA==}
+    engines: {node: '>=16'}
+    peerDependencies:
+      tailwindcss: ^2.0.0 || >=3.0.0
 
   tailwindcss@3.4.17:
     resolution: {integrity: sha512-w33E2aCvSDP0tW9RZuNXadXlkHXqFzSkQew/aIa2i/Sj8fThxwovwlXHSPXTbAHwEIhBFXAedUhP2tueAKP8Og==}
@@ -10142,6 +10151,10 @@ snapshots:
       picocolors: 1.1.1
 
   tailwind-merge@1.14.0: {}
+
+  tailwindcss-safe-area@0.8.0(tailwindcss@3.4.17):
+    dependencies:
+      tailwindcss: 3.4.17
 
   tailwindcss@3.4.17:
     dependencies:
