@@ -12,10 +12,11 @@
 <script lang="ts">
   import { t } from "svelte-i18n";
   import { onMount } from "svelte";
-  import { Alert, Modal, Spinner } from "flowbite-svelte";
+  import Button, { Label } from "@smui/button";
+  import CircularProgress from "@smui/circular-progress";
+  import Typography from "./lib/components/Typography.svelte";
   import {
     ArrowLeft,
-    ArrowRightCircle,
     CheckCircle,
     ExclamationTriangle,
   } from "svelte-heros-v2";
@@ -52,90 +53,130 @@
 </script>
 
 <CenteredLayout>
-  <div class="container3" bind:this={top}>
-    <div
-      class="flex flex-col justify-center max-w-md mx-6 mb-20 bg-gray-60 overflow-y-auto py-4 dark:bg-gray-800"
-    >
+  <div class="form-layout" bind:this={top}>
+    <div class="surface-section">
       <!-- Title -->
-      <div>
-        <h2 class="text-xl mb-6 mt-10">{$t("pages.wallet_login_textcode.title")}</h2>
-      </div>
+      <Typography variant="h4" component="h2" style="margin-bottom: calc(var(--mui-spacing) * 3); margin-top: calc(var(--mui-spacing) * 5);">
+        {$t("pages.wallet_login_textcode.title")}
+      </Typography>
 
-      <div class="text-left my-4">
-        <Alert color="yellow">
+      <!-- Warning Alert -->
+      <div class="mui-alert mui-alert-warning" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+        <Typography variant="body2">
           {@html $t("wallet_sync.textcode.usage_warning")}
-        </Alert>
+        </Typography>
       </div>
 
       <!-- Disconnection Warning -->
       {#if !connected}
-        <div class="text-left my-4">
-          <Alert color="red">
+        <div class="mui-alert mui-alert-error" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+          <Typography variant="body2">
             {@html $t("wallet_sync.offline_warning")}
-          </Alert>
-          <Alert color="blue" class="mt-4">
+          </Typography>
+        </div>
+        <div class="mui-alert mui-alert-info" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+          <Typography variant="body2">
             {@html $t("pages.wallet_login.offline_advice")}
-          </Alert>
+          </Typography>
         </div>
       {/if}
 
       <!-- Notes about TextCode entering -->
-      <div class="text-left text-sm mt-4">
-        {@html $t("pages.wallet_login_textcode.description")}
-        <br />
-        {@html $t("wallet_sync.server_transfer_notice")}
+      <div style="margin-top: calc(var(--mui-spacing) * 2); margin-bottom: calc(var(--mui-spacing) * 2);">
+        <Typography variant="body2" className="text-muted">
+          {@html $t("pages.wallet_login_textcode.description")}
+          <br />
+          {@html $t("wallet_sync.server_transfer_notice")}
+        </Typography>
       </div>
-      
-      <p><br/>{@html $t("pages.wallet_login_textcode.enter_here")}</p>
+
+      <Typography variant="body1" style="margin-bottom: calc(var(--mui-spacing) * 1);">
+        {@html $t("pages.wallet_login_textcode.enter_here")}
+      </Typography>
 
       <!-- TextCode Input -->
       <textarea
         rows="6"
         bind:value={textcode}
         disabled={state === "importing"}
-        class="my-4 col-span-6 pr-11 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500"
+        class="textcode-input"
+        placeholder=""
       />
 
       {#if error}
-        <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
-          <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
-          <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
+        <div class="status-surface status-error">
+          <ExclamationTriangle class="status-icon status-icon--bounce" />
+          <Typography variant="body1" className="status-message">
             {@html $t("errors.error_occurred", {
               values: { message: display_error(error) },
             })}
-          </p>
+          </Typography>
         </div>
       {:else if state === "importing"}
-        <Spinner class="mx-auto" />
+        <div class="status-surface status-info">
+          <CircularProgress style="height: 48px; width: 48px" indeterminate />
+          <Typography variant="body1" className="status-message" style="margin-top: calc(var(--mui-spacing) * 2);">
+            {$t("wallet_sync.importing")}
+          </Typography>
+        </div>
       {/if}
 
-      <div class="mx-auto">
-        <!-- Submit Button-->
-        <div class="my-4 mx-1">
-          <button
-            class="mt-4 mb-8 w-full text-white bg-primary-700 disabled:bg-primary-700/50 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            on:click={textcode_submit}
+      <!-- Actions -->
+      <div class="form-actions form-actions--stack">
+        {#if state !== "importing" && !error}
+          <Button
+            variant="raised"
+            class="mui-button-primary form-button"
+            onclick={textcode_submit}
             disabled={!connected || !textcode}
-            class:hidden={state === "importing" || error}
           >
-            <CheckCircle
-              tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-            />
-            {$t("pages.wallet_login_textcode.import_btn")}
-          </button>
+            <div class="button-icon">
+              <CheckCircle />
+            </div>
+            <Label>{$t("pages.wallet_login_textcode.import_btn")}</Label>
+          </Button>
+        {/if}
 
-          <!-- Back Button -->
-          <button
-            on:click={() => push("#/")}
-            class="w-full text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            ><ArrowLeft
-              tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-            />{$t("buttons.back")}</button
-          >
-        </div>
+        <!-- Back Button -->
+        <Button
+          variant="outlined"
+          class="mui-button-outlined form-button"
+          onclick={() => push("#/")}
+        >
+          <div class="button-icon">
+            <ArrowLeft />
+          </div>
+          <Label>{$t("buttons.back")}</Label>
+        </Button>
       </div>
     </div>
   </div>
 </CenteredLayout>
+
+<style>
+  .textcode-input {
+    resize: vertical;
+    display: block;
+    padding: calc(var(--mui-spacing) * 1.5);
+      padding-left: 30px;
+    margin: calc(var(--mui-spacing) * 2) 0;
+    font-size: var(--mui-typography-body2-fontSize);
+    line-height: var(--mui-typography-body2-lineHeight);
+    color: var(--mui-palette-text-primary);
+    background-color: var(--mui-palette-background-default);
+    border: 1px solid var(--mui-palette-divider);
+    border-radius: var(--textfield-border-radius);
+    font-family: var(--mui-typography-fontFamily);
+    transition: border-color 0.2s ease;
+  }
+
+  .textcode-input:focus {
+    outline: none;
+    border-color: var(--mui-palette-primary-main);
+  }
+
+  .textcode-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+</style>

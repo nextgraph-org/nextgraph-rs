@@ -34,26 +34,27 @@
   };
 </script>
 
-<div class="w-full mt-2">
-  <div class="relative">
+<div class="copy-to-clipboard-container">
+  <div class="copy-to-clipboard-wrapper">
     <textarea
       {id}
       {rows}
-      style="resize: none;"
       {value}
-      class="col-span-6 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500"
-      class:pr-11={!tauri_platform}
+      class="copy-textarea"
+      class:with-button={!tauri_platform}
       disabled
       readonly
     />
     {#if !tauri_platform}
       <button
         on:click={on_click}
-        class="absolute inset-y-0 right-0 p-3 flex items-center text-sm leading-5 bg-transparent shadow-none"
+        class="copy-button"
+        aria-label="Copy to clipboard"
       >
-        <span id="default-icon" class:hidden={has_success}>
+        <span class="copy-icon" class:hidden={has_success}>
           <svg
-            class="w-3.5 h-3.5"
+            width="14"
+            height="16"
             aria-hidden="true"
             xmlns="http://www.w3.org/2000/svg"
             fill="currentColor"
@@ -65,12 +66,12 @@
           </svg>
         </span>
         <span
-          id="success-icon"
-          class="inline-flex items-center"
+          class="copy-icon success-icon"
           class:hidden={!has_success}
         >
           <svg
-            class="w-3.5 h-3.5 text-blue-700 dark:text-blue-500"
+            width="14"
+            height="12"
             aria-hidden={!has_success}
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -89,3 +90,75 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .copy-to-clipboard-container {
+    width: 100%;
+    margin-top: calc(var(--mui-spacing) * 1);
+  }
+
+  .copy-to-clipboard-wrapper {
+    position: relative;
+  }
+
+  .copy-textarea {
+    width: 100%;
+    resize: none;
+    display: block;
+    padding: calc(var(--mui-spacing) * 1.5);
+    font-size: var(--mui-typography-body2-fontSize);
+    line-height: var(--mui-typography-body2-lineHeight);
+    color: var(--mui-palette-text-primary);
+    background-color: var(--mui-palette-background-default);
+    border: 1px solid var(--mui-palette-divider);
+    border-radius: var(--textfield-border-radius);
+    font-family: var(--mui-typography-fontFamily);
+    transition: border-color 0.2s ease;
+  }
+
+  .copy-textarea:focus {
+    outline: none;
+    border-color: var(--mui-palette-primary-main);
+  }
+
+  .copy-textarea.with-button {
+    padding-right: calc(var(--mui-spacing) * 6);
+  }
+
+  .copy-button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 calc(var(--mui-spacing) * 1.5);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--mui-palette-text-secondary);
+    transition: color 0.2s ease;
+  }
+
+  .copy-button:hover {
+    color: var(--mui-palette-primary-main);
+  }
+
+  .copy-button:active {
+    color: var(--mui-palette-primary-dark);
+  }
+
+  .copy-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .copy-icon.hidden {
+    display: none;
+  }
+
+  .success-icon {
+    color: var(--mui-palette-success-main);
+  }
+</style>

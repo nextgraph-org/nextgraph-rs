@@ -65,7 +65,6 @@ const RoutesWithAuth = () => {
   const ReactWalletLoginQr = useSvelteComponent(WalletLoginQr);
   const ReactWalletLoginTextCode = useSvelteComponent(WalletLoginTextCode);
   const ReactWalletInfo = useSvelteComponent(WalletInfo);
-  ;
   const ReactScanQr = useSvelteComponent(import.meta.env.TAURI_ENV_PLATFORM?
     ScanQRTauri : ScanQRWeb  );
 

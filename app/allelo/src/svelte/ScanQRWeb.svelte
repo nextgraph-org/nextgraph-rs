@@ -19,7 +19,9 @@
   import { t } from "svelte-i18n";
   import { scanned_qr_code, redirect_after_scanned_qr_code } from "./store";
   import { ArrowLeft, ExclamationTriangle } from "svelte-heros-v2";
-  import { Spinner } from "flowbite-svelte";
+  import CircularProgress from "@smui/circular-progress";
+  import Button, { Label } from "@smui/button";
+  import Typography from "./lib/components/Typography.svelte";
   import { push } from "./index";
 
   let webScanner;
@@ -102,30 +104,127 @@
   });
 </script>
 
-<div class="text-center max-w-4xl mx-auto">
-  <div>
-    <h2 class="text-xl mb-6">{$t("pages.scan_qr.scanning")}</h2>
+<div class="scanner-container">
+  <div class="scanner-header">
+    <Typography variant="h5" component="h2">
+      {$t("pages.scan_qr.scanning")}
+    </Typography>
   </div>
-  {#if !error}<Spinner />{/if}
-  <!-- Web Scanner -->
-  <div id="scanner-div"></div>
 
-  {#if error}
-    <div class="max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
-      <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
-      
-        {@html $t("errors.camera_unavailable")}
-      
+  {#if !error}
+    <div class="scanner-loading">
+      <CircularProgress style="height: 48px; width: 48px" indeterminate />
     </div>
   {/if}
-  <div class="mx-auto max-w-xs">
-    <button
-      on:click={() => push($redirect_after_scanned_qr_code)}
-      class="mt-8 w-full text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-      ><ArrowLeft
-        tabindex="-1"
-        class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-      />{$t("buttons.back")}</button
+
+  <!-- Web Scanner -->
+  <div id="scanner-div" class="scanner-viewport"></div>
+
+  {#if error}
+    <div class="scanner-error">
+      <ExclamationTriangle class="error-icon" />
+      <Typography variant="body1" className="error-message">
+        {@html $t("errors.camera_unavailable")}
+      </Typography>
+    </div>
+  {/if}
+
+  <div class="scanner-actions">
+    <Button
+      variant="outlined"
+      class="mui-button-outlined form-button"
+      onclick={() => push($redirect_after_scanned_qr_code)}
     >
+      <div class="button-icon">
+        <ArrowLeft />
+      </div>
+      <Label>{$t("buttons.back")}</Label>
+    </Button>
   </div>
 </div>
+
+<style>
+  .scanner-container {
+    max-width: 896px;
+    margin: 0 auto;
+    text-align: center;
+    padding: calc(var(--mui-spacing) * 2);
+  }
+
+  .scanner-header {
+    margin-bottom: calc(var(--mui-spacing) * 3);
+  }
+
+  .scanner-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: calc(var(--mui-spacing) * 4) 0;
+  }
+
+  .scanner-viewport {
+    margin: 0 auto;
+    max-width: 100%;
+  }
+
+  /* Style the html5-qrcode scanner elements */
+  :global(#scanner-div) {
+    border-radius: var(--button-border-radius);
+    overflow: hidden;
+  }
+
+  :global(#scanner-div video) {
+    border-radius: var(--button-border-radius);
+    max-width: 100%;
+  }
+
+  :global(#scanner-div canvas) {
+    border-radius: var(--button-border-radius);
+  }
+
+  .scanner-error {
+    max-width: 1152px;
+    margin: 0 auto;
+    padding: calc(var(--mui-spacing) * 4) calc(var(--mui-spacing) * 2);
+    color: var(--mui-palette-error-main);
+  }
+
+  @media (min-width: 1024px) {
+    .scanner-error {
+      padding-left: calc(var(--mui-spacing) * 4);
+      padding-right: calc(var(--mui-spacing) * 4);
+    }
+  }
+
+  .error-icon {
+    animation: bounce 1s infinite;
+    margin: calc(var(--mui-spacing) * 5) auto calc(var(--mui-spacing) * 2);
+    height: 64px;
+    width: 64px;
+    display: block;
+  }
+
+  @keyframes bounce {
+    0%, 100% {
+      transform: translateY(-25%);
+      animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+    }
+    50% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    }
+  }
+
+  .error-message {
+    margin-top: calc(var(--mui-spacing) * 2);
+  }
+
+  .scanner-actions {
+    margin: calc(var(--mui-spacing) * 4) auto 0;
+    max-width: 320px;
+  }
+
+  .scanner-actions :global(.form-button) {
+    width: 100%;
+  }
+</style>

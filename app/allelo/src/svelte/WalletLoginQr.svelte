@@ -11,7 +11,9 @@
 
 <script lang="ts">
   import { t } from "svelte-i18n";
-  import { Alert, Modal, Spinner, Button } from "flowbite-svelte";
+  import Button, { Label } from "@smui/button";
+  import CircularProgress from "@smui/circular-progress";
+  import Typography from "./lib/components/Typography.svelte";
   import {
     ArrowLeft,
     Camera,
@@ -117,126 +119,139 @@
 </script>
 
 <CenteredLayout>
-  <div class="container3" bind:this={top}>
-    <div
-      class="flex flex-col justify-center max-w-md mb-20 bg-gray-60 overflow-y-auto py-4 dark:bg-gray-800"
-    >
+  <div class="form-layout" bind:this={top}>
+    <div class="surface-section">
       <!-- Title -->
-      <div class="mx-6 mt-10">
-        <h2 class="text-xl mb-6">{$t("pages.wallet_login_qr.title")}</h2>
-      </div>
+      <Typography variant="h4" component="h2" style="margin-bottom: calc(var(--mui-spacing) * 3); margin-top: calc(var(--mui-spacing) * 5);">
+        {$t("pages.wallet_login_qr.title")}
+      </Typography>
 
       <!-- Checking, if camera is available... -->
       {#if login_method === undefined}
-        <div><Spinner /></div>
+        <div class="status-surface status-info">
+          <CircularProgress style="height: 48px; width: 48px" indeterminate />
+        </div>
       {:else if !connected}
         <!-- Warning, if offline -->
-        <div class="text-left mx-6">
-          <Alert color="red">
+        <div class="mui-alert mui-alert-error" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+          <Typography variant="body2">
             {@html $t("wallet_sync.offline_warning")}
-          </Alert>
-          <Alert color="blue" class="mt-4">
+          </Typography>
+        </div>
+        <div class="mui-alert mui-alert-info" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+          <Typography variant="body2">
             {@html $t("pages.wallet_login.offline_advice")}
-          </Alert>
+          </Typography>
         </div>
       {:else if error}
-        <div class="max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
-          <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
-
-          <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
+        <div class="status-surface status-error">
+          <ExclamationTriangle class="status-icon status-icon--bounce" />
+          <Typography variant="body1" className="status-message">
             {@html $t("errors.error_occurred", {
               values: { message: display_error(error) },
             })}
-          </p>
+          </Typography>
         </div>
       {:else if login_method === "scan"}
-        <div class="mx-6">
-          {#if scan_state === "before_start"}
-            <!-- Scan Mode -->
-            <!-- Notes about QR -->
-            <div class="text-left">
+        {#if scan_state === "before_start"}
+          <!-- Scan Mode -->
+          <!-- Notes about QR -->
+          <div style="margin-bottom: calc(var(--mui-spacing) * 2);">
+            <Typography variant="body2" className="text-muted">
               {@html $t("pages.wallet_login_qr.scan.description")}
               <br />
               {@html $t("wallet_sync.server_transfer_notice")}
-            </div>
-          {:else if scan_state === "importing"}
-            <div class="mb-4 w-full">
+            </Typography>
+          </div>
+        {:else if scan_state === "importing"}
+          <div class="status-surface status-info">
+            <CircularProgress style="height: 48px; width: 48px" indeterminate />
+            <Typography variant="body1" className="status-message" style="margin-top: calc(var(--mui-spacing) * 2);">
               {@html $t("wallet_sync.importing")}
-            </div>
-
-            <div class="w-full"><Spinner /></div>
-          {/if}
-        </div>
+            </Typography>
+          </div>
+        {/if}
       {:else if login_method === "gen"}
         <!-- Generate QR Code to log in with another device -->
         {#if gen_state == "before_start"}
           <!-- Notes about QR Generation -->
-          <div class="text-left mx-6">
-            {@html $t("pages.wallet_login_qr.gen.description")}
-            {@html $t("wallet_sync.no_camera_alternatives")}
-            <br /><br />
-            {@html $t("pages.wallet_login_qr.gen.letsgo")}
-            <br /><br />
-            {@html $t("wallet_sync.server_transfer_notice")}
+          <div style="margin-bottom: calc(var(--mui-spacing) * 2);">
+            <Typography variant="body2" className="text-muted">
+              {@html $t("pages.wallet_login_qr.gen.description")}
+              {@html $t("wallet_sync.no_camera_alternatives")}
+              <br /><br />
+              {@html $t("pages.wallet_login_qr.gen.letsgo")}
+              <br /><br />
+              {@html $t("wallet_sync.server_transfer_notice")}
+            </Typography>
           </div>
         {:else if gen_state === "generating"}
-          <div>
-            <Spinner class="w-full" />
+          <div class="status-surface status-info">
+            <CircularProgress style="height: 48px; width: 48px" indeterminate />
           </div>
         {:else if gen_state === "generated"}
           <!-- Notes about generated QR -->
-          <div class="text-center mb-2 mx-6">
+          <Typography variant="body1" align="center" style="margin-bottom: calc(var(--mui-spacing) * 2);">
             {@html $t("pages.wallet_login_qr.gen.generated")}
-          </div>
+          </Typography>
 
           <!-- Generated QR Code -->
-          <div class="my-4 mx-auto">
+          <div class="qr-code-container">
             {@html qr_code_html}
           </div>
         {/if}
       {/if}
-      <div class="mx-6">
-        <div class="mx-auto">
-          <div class="my-4 mx-1">
-            {#if login_method === "scan" && scan_state === "before_start"}
-              <!-- Open Scanner Button-->
-              <button
-                on:click={open_scanner}
-                class="mt-4 w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-              >
-                <Camera
-                  tabindex="-1"
-                  class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-                {$t("buttons.scan_qr")}
-              </button>
-            {:else if login_method === "gen" && gen_state === "before_start"}
-              <!-- Generate QR Button -->
-              <Button
-                disabled={!connected}
-                onclick={generate_qr}
-                class="mt-4 w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
-              >
-                <QrCode
-                  tabindex="-1"
-                  class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-                {$t("pages.wallet_login_qr.gen.button")}
-              </Button>
-            {/if}
 
-            <!-- Go Back -->
-            <button
-              on:click={() => push("#/")}
-              class="mt-8 w-full text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-              ><ArrowLeft
-                tabindex="-1"
-                class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-              />{$t("buttons.back")}</button
-            >
+      <!-- Actions -->
+      <div class="form-actions form-actions--stack">
+        {#if login_method === "scan" && scan_state === "before_start"}
+          <!-- Open Scanner Button-->
+          <Button
+            variant="raised"
+            class="mui-button-primary form-button"
+            onclick={open_scanner}
+          >
+            <div class="button-icon">
+              <Camera />
+            </div>
+            <Label>{$t("buttons.scan_qr")}</Label>
+          </Button>
+        {:else if login_method === "gen" && gen_state === "before_start"}
+          <!-- Generate QR Button -->
+          <Button
+            variant="raised"
+            class="mui-button-primary form-button"
+            disabled={!connected}
+            onclick={generate_qr}
+          >
+            <div class="button-icon">
+              <QrCode />
+            </div>
+            <Label>{$t("pages.wallet_login_qr.gen.button")}</Label>
+          </Button>
+        {/if}
+
+        <!-- Go Back -->
+        <Button
+          variant="outlined"
+          class="mui-button-outlined form-button"
+          onclick={() => push("#/")}
+        >
+          <div class="button-icon">
+            <ArrowLeft />
           </div>
-        </div>
+          <Label>{$t("buttons.back")}</Label>
+        </Button>
       </div>
     </div>
   </div>
 </CenteredLayout>
+
+<style>
+  .qr-code-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: calc(var(--mui-spacing) * 2) auto;
+  }
+</style>
