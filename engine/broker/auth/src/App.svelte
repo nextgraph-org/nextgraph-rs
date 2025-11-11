@@ -73,7 +73,7 @@
   routes.set("/user", User);
   routes.set("/wallet", WalletInfo);
   routes.set("/user/accounts", AccountInfo);
-  routes.set("/wallet/scanqr", ScanQRWeb);
+  routes.set("/scanqr", ScanQRWeb);
   routes.set("/error", Error);
   routes.set("*", NotFound);
 
