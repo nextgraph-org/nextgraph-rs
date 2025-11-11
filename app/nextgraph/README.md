@@ -63,12 +63,8 @@ export RANLIB="$NDK_HOME/toolchains/llvm/prebuilt/$(ls -1 $NDK_HOME/toolchains/l
 to run the dev env :
 
 ```
-## on macos
-cargo tauri dev --no-watch --target x86_64-apple-darwin
-## on linux
-cargo tauri dev --no-watch --target x86_64-unknown-linux-gnu
-## on win
-cargo tauri dev --no-watch --target x86_64-pc-windows-msvc
+## on macos or linux or win
+cargo tauri dev --no-watch
 ```
 
 to build the production app installer :

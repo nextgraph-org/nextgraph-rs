@@ -22,6 +22,7 @@
     "@ng-org/ui-common": "workspace:*",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-barcode-scanner": "2",
     "async-proxy": "^0.4.1"
   },
   "devDependencies": {
