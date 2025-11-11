@@ -10,7 +10,7 @@ import {
   UilUser,
   UilShield,
   UilSetting,
-  UilSearch, UilBell, UilFileAlt, UilRss,
+  UilSearch, UilBell, UilFileAlt, UilRss, UilWallet,
 } from '@iconscout/react-unicons';
 import type {PersonhoodCredentials} from '@/types/personhood';
 import {NextGraphAuth} from "@/types/nextgraph";
@@ -24,6 +24,8 @@ import {MyStream} from '@/components/account/AccountPage/MyStream';
 import {MyDocs} from '@/components/account/AccountPage/MyDocs';
 import {SocialQueries} from '@/components/account/AccountPage/SocialQueries';
 import RCardList from "@/components/rcards/RCardList/RCardList.tsx";
+import {useSvelteComponent} from "svelte-in-react";
+import WalletInfo from "@/svelte/WalletInfo.svelte";
 
 export const AccountPageContent = ({
                                      profileData,
@@ -31,6 +33,7 @@ export const AccountPageContent = ({
                                    }: AccountPageProps) => {
 
   const [personhoodCredentials] = useState<PersonhoodCredentials>(mockPersonhoodCredentials);
+  const ReactWalletInfo = useSvelteComponent(WalletInfo);
 
   const tabItems = useMemo<TabItem[]>(
     () => [
@@ -40,14 +43,14 @@ export const AccountPageContent = ({
       {label: "My Docs", icon: <UilFileAlt size="20"/>, content: <MyDocs/>},
       {label: "Queries", icon: <UilSearch size="20"/>, content: <SocialQueries/>},
       {label: "My Cards", icon: <UilShield size="20"/>, content: <RCardList/>},
-
       {
         label: "Settings",
         icon: <UilSetting size="20"/>,
         content: <AccountSettings personhoodCredentials={personhoodCredentials}/>
       },
+      {label: "Wallet", icon: <UilWallet size="20"/>, content:<ReactWalletInfo/>},
     ],
-    [profileData, resource, personhoodCredentials]
+    [profileData, resource, ReactWalletInfo, personhoodCredentials]
   );
 
   return (

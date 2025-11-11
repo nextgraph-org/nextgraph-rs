@@ -10,18 +10,19 @@
 -->
 
 <!--
-  @component  
+  @component
   "Wallet Info" user panel sub menu.
   Provides info about wallet, broker, etc. and download option.
 -->
 
 <script lang="ts">
-  import { Alert, Button, Modal, Spinner } from "flowbite-svelte";
+  import Button, { Label } from "@smui/button";
+  import Dialog, { Title, Content, Actions } from "@smui/dialog";
+  import CircularProgress from "@smui/circular-progress";
+  import Typography from "./lib/components/Typography.svelte";
   import { push } from "./index";
-  import CenteredLayout from "./lib/CenteredLayout.svelte";
   import {
     ArrowLeft,
-    Trash,
     DocumentArrowDown,
     NoSymbol,
     QrCode,
@@ -31,7 +32,6 @@
     ExclamationTriangle,
   } from "svelte-heros-v2";
   import { onDestroy, onMount, tick } from "svelte";
-  import { Sidebar, SidebarGroup, SidebarWrapper } from "flowbite-svelte";
   import { t } from "svelte-i18n";
 
   import {
@@ -50,8 +50,6 @@
 
   let tauri_platform = import.meta.env.TAURI_ENV_PLATFORM;
   let error;
-  let nonActiveClass =
-    "flex items-center p-2 text-base font-normal text-gray-900 rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700";
 
   let container: HTMLElement;
 
@@ -66,6 +64,12 @@
   let scanner_state: "before_start" | "scanned" | "success" = "before_start";
 
   let has_camera = false;
+
+  // Tab management
+  let activeTab = "wallet";
+  const tabs = [
+    { id: "wallet", label: $t("pages.wallet_info.title") || "Wallet" },
+  ];
 
   async function scrollToTop() {
     await tick();
@@ -178,6 +182,7 @@
     // TODO: Wait for implementation
     // await ng.wallet_remove($active_wallet.id);
     close_active_wallet();
+    close_modal();
   }
 
   async function cancel_wallet_transfers() {
@@ -189,452 +194,505 @@
   });
 </script>
 
-<CenteredLayout>
-  <div class="container3 mb-20" bind:this={container}>
-    {#if sub_menu === null}
-      <Sidebar {nonActiveClass}>
-        <SidebarWrapper
-          divClass="bg-gray-60 overflow-y-auto py-4 px-3 rounded dark:bg-gray-800"
-        >
-          <SidebarGroup ulClass="space-y-2" class="text-left" role="menu">
-            <li>
-              <h2 class="text-xl mb-6">{$t("pages.wallet_info.title")}</h2>
-              <span class="break-all">ID: {$active_wallet?.id}</span>
-            </li>
+  <div class="dashboard-container" bind:this={container}>
+    <!-- Tab Content -->
+    <div class="tab-content">
+      {#if activeTab === "wallet"}
+        <div class="form-layout">
+          {#if sub_menu === null}
+            <div class="surface-section">
+              <Typography variant="h4" component="h1" style="margin-bottom: calc(var(--mui-spacing) * 3);">
+                {$t("pages.wallet_info.title")}
+              </Typography>
+              <Typography variant="body2" className="text-muted" style="word-break: break-all; margin-bottom: calc(var(--mui-spacing) * 2);">
+                ID: {$active_wallet?.id}
+              </Typography>
 
-            <!-- Scan QR Code to export wallet to another device -->
-            <li
-              tabindex="0"
-              role="menuitem"
-              class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              on:keypress={open_scan_menu}
-              on:click={open_scan_menu}
-            >
-              <div>
-                <Camera
-                  tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-              </div>
-              <span class="ml-3">{$t("pages.wallet_info.scan_qr.title")}</span>
-            </li>
-
-            <!-- Generate QR Code export wallet to another device -->
-            <li
-              tabindex="0"
-              role="menuitem"
-              class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              on:keypress={open_gen_menu}
-              on:click={open_gen_menu}
-            >
-              <div>
-                <QrCode
-                  tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-              </div>
-              <span class="ml-3">{$t("pages.wallet_info.gen_qr.title")}</span>
-            </li>
-
-            <!-- Copy Wallet TextCode -->
-            <li
-              tabindex="0"
-              role="menuitem"
-              class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              on:keypress={open_textcode_menu}
-              on:click={open_textcode_menu}
-            >
-              <div>
-                <Link
-                  tabindex="-1"
-                  class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                />
-              </div>
-              <span class="ml-3"
-                >{$t("pages.wallet_info.create_text_code")}</span
-              >
-            </li>
-
-            <!-- Download Wallet -->
-            {#if !downloading}
-              <li
-                tabindex="0"
-                role="menuitem"
-                class="flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-                on:keypress={download_wallet}
-                on:click={download_wallet}
-              >
-                <div>
-                  <DocumentArrowDown
-                    tabindex="-1"
-                    class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                  />
-                </div>
-                <span class="ml-3">{$t("pages.wallet_info.download")}</span>
-              </li>
-            {:else if download_error}
-              <li
-                tabindex="-1"
-                class="flex items-center p-2 text-base font-normal text-red-700 rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              >
-                <div>
-                  <NoSymbol
-                    tabindex="-1"
-                    class="w-7 h-7 text-red-700 transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                  />
-                </div>
-                <span class="ml-3 text-left"
-                  >{$t("pages.wallet_info.download_failed", {
-                    values: { error: download_error },
-                  })}</span
-                >
-              </li>
-            {:else if !wallet_file_ready}
-              <li
-                tabindex="-1"
-                class="flex items-center p-2 text-base font-normal text-blue-700 rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              >
-                <div>
-                  <DocumentArrowDown
-                    tabindex="-1"
-                    class="w-7 h-7 text-blue-700  transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                  />
-                </div>
-                <span class="ml-3 text-left"
-                  >{$t("pages.wallet_info.download_in_progress")}</span
-                >
-              </li>
-            {:else if download_link === true}
-              <li
-                tabindex="-1"
-                class="flex p-2 text-sm text-left break-all font-normal text-blue-700 rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              >
-                <span
-                  >{@html $t("pages.wallet_info.download_successful", {
-                    values: { wallet_file: wallet_file_ready },
-                  })}</span
-                >
-              </li>
-            {:else}
-              <li
-                tabindex="-1"
-                class="flex items-center text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              >
-                <a
-                  href={download_link || ""}
-                  target="_blank"
-                  download={wallet_file_ready}
-                >
-                  <button
-                    tabindex="-1"
-                    class=" text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-                  >
-                    <div>
-                      <DocumentArrowDown
-                        tabindex="-1"
-                        class="w-14 h-14  transition duration-75 dark:text-white  dark:group-hover:text-white"
-                      />
-                    </div>
-                    {$t("pages.wallet_info.download_file_button")}
-                  </button>
-                </a>
-              </li>
-            {/if}
-
-            <!-- Remove Wallet -->
-            <!-- <li
-                tabindex="0"
-                role="menuitem"
-                class="text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-                on:keypress={remove_wallet_clicked}
-                on:click={remove_wallet_clicked}
-              >
-                <div>
-                  <Trash
-                    tabindex="-1"
-                    class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-                  />
-                </div>
-                <span class="ml-3">{$t("pages.wallet_info.remove_wallet")}</span
-                >
-              </li> -->
-            <!-- Confirm Remove Wallet Modal -->
-            <Modal
-              autoclose
-              outsideclose
-              bind:open={wallet_remove_modal_open}
-              title={$t("pages.wallet_info.remove_wallet_modal.title")}
-            >
-              <p class="mt-4">
-                {$t("pages.wallet_info.remove_wallet_modal.confirm")}
-              </p>
-              <div class="mt-4 flex justify-end">
-                <button class="mr-2" on:click={close_modal}
-                  >{$t("buttons.cancel")}</button
-                >
+              <div class="wallet-menu-list">
+                <!-- Scan QR Code to export wallet to another device -->
                 <button
-                  class=" text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-                  on:click={remove_wallet_confirmed}
+                  class="wallet-menu-item"
+                  onclick={open_scan_menu}
                 >
-                  {$t("buttons.remove")}
+                  <div class="wallet-menu-icon">
+                    <Camera class="icon" />
+                  </div>
+                  <Typography variant="body1">
+                    {$t("pages.wallet_info.scan_qr.title")}
+                  </Typography>
                 </button>
+
+                <!-- Generate QR Code export wallet to another device -->
+                <button
+                  class="wallet-menu-item"
+                  onclick={open_gen_menu}
+                >
+                  <div class="wallet-menu-icon">
+                    <QrCode class="icon" />
+                  </div>
+                  <Typography variant="body1">
+                    {$t("pages.wallet_info.gen_qr.title")}
+                  </Typography>
+                </button>
+
+                <!-- Copy Wallet TextCode -->
+                <button
+                  class="wallet-menu-item"
+                  onclick={open_textcode_menu}
+                >
+                  <div class="wallet-menu-icon">
+                    <Link class="icon" />
+                  </div>
+                  <Typography variant="body1">
+                    {$t("pages.wallet_info.create_text_code")}
+                  </Typography>
+                </button>
+
+                <!-- Download Wallet -->
+                {#if !downloading}
+                  <button
+                    class="wallet-menu-item"
+                    onclick={download_wallet}
+                  >
+                    <div class="wallet-menu-icon">
+                      <DocumentArrowDown class="icon" />
+                    </div>
+                    <Typography variant="body1">
+                      {$t("pages.wallet_info.download")}
+                    </Typography>
+                  </button>
+                {:else if download_error}
+                  <div class="wallet-menu-item wallet-menu-item--error">
+                    <div class="wallet-menu-icon">
+                      <NoSymbol class="icon" />
+                    </div>
+                    <Typography variant="body2">
+                      {$t("pages.wallet_info.download_failed", {
+                        values: { error: download_error },
+                      })}
+                    </Typography>
+                  </div>
+                {:else if !wallet_file_ready}
+                  <div class="wallet-menu-item wallet-menu-item--info">
+                    <div class="wallet-menu-icon">
+                      <CircularProgress style="height: 28px; width: 28px" indeterminate />
+                    </div>
+                    <Typography variant="body2">
+                      {$t("pages.wallet_info.download_in_progress")}
+                    </Typography>
+                  </div>
+                {:else if download_link === true}
+                  <div class="wallet-menu-item wallet-menu-item--success">
+                    <Typography variant="body2">
+                      {@html $t("pages.wallet_info.download_successful", {
+                        values: { wallet_file: wallet_file_ready },
+                      })}
+                    </Typography>
+                  </div>
+                {:else}
+                  <a
+                    href={download_link || ""}
+                    target="_blank"
+                    download={wallet_file_ready}
+                    class="wallet-download-link"
+                  >
+                    <Button variant="raised" class="mui-button-primary form-button">
+                      <div class="button-icon">
+                        <DocumentArrowDown />
+                      </div>
+                      <Label>{$t("pages.wallet_info.download_file_button")}</Label>
+                    </Button>
+                  </a>
+                {/if}
               </div>
-            </Modal>
-          </SidebarGroup>
-        </SidebarWrapper>
-      </Sidebar>
-    {:else if sub_menu === "scan_qr"}
-      <Sidebar {nonActiveClass}>
-        <SidebarWrapper
-          divClass="bg-gray-60 overflow-y-auto py-4 px-3 rounded dark:bg-gray-800"
-        >
-          <SidebarGroup ulClass="space-y-6" role="menu">
-            <li>
-              <h2 class="text-xl mb-6">
+            </div>
+
+            <!-- Confirm Remove Wallet Dialog -->
+            <Dialog bind:open={wallet_remove_modal_open}>
+              <Title>{$t("pages.wallet_info.remove_wallet_modal.title")}</Title>
+              <Content>
+                <Typography variant="body1">
+                  {$t("pages.wallet_info.remove_wallet_modal.confirm")}
+                </Typography>
+              </Content>
+              <Actions>
+                <Button variant="outlined" class="mui-button-outlined" onclick={close_modal}>
+                  <Label>{$t("buttons.cancel")}</Label>
+                </Button>
+                <Button variant="raised" class="mui-button-primary" onclick={remove_wallet_confirmed}>
+                  <Label>{$t("buttons.remove")}</Label>
+                </Button>
+              </Actions>
+            </Dialog>
+
+          {:else if sub_menu === "scan_qr"}
+            <div class="surface-section">
+              <Typography variant="h4" component="h1" style="margin-bottom: calc(var(--mui-spacing) * 3);">
                 {$t("pages.wallet_info.scan_qr.title")}
-              </h2>
-            </li>
-            <!-- Go Back -->
-            <li
-              tabindex="0"
-              role="menuitem"
-              class="mb-2 text-left flex items-center p-2 text-base font-normal text-gray-900 clickable rounded-lg dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700"
-              on:keypress={to_main_menu}
-              on:click={to_main_menu}
-            >
-              <ArrowLeft
-                tabindex="-1"
-                class="w-7 h-7 text-black transition duration-75 dark:text-white group-hover:text-gray-900 dark:group-hover:text-white"
-              />
-              <span class="ml-3">{$t("buttons.back")}</span>
-            </li>
-            {#if !has_camera}
-              <li class="text-left">
-                <Alert color="red">
-                  {@html $t("wallet_sync.no_camera")}
-                </Alert>
-                <Alert color="blue" class="mt-4">
-                  {@html $t("pages.wallet_info.scan_qr.other_has_camera")}
-                </Alert>
-                <Alert color="blue" class="mt-4">
-                  {@html $t("pages.wallet_info.scan_qr.no_camera")}
-                  {@html $t("wallet_sync.no_camera_alternatives")}
-                </Alert>
-              </li>
-            {:else if scanner_state === "before_start"}
-              <!-- NOTES ABOUT QR-->
-              <li class="text-left">
-                {@html $t("pages.wallet_info.scan_qr.notes")}
-                <br /><br />
-                {@html $t("wallet_sync.server_transfer_notice")}
-              </li>
+              </Typography>
+
+              <!-- Go Back -->
+              <Button variant="outlined" class="mui-button-outlined form-button" onclick={to_main_menu} style="align-self: flex-start; margin-bottom: calc(var(--mui-spacing) * 2);">
+                <div class="button-icon">
+                  <ArrowLeft />
+                </div>
+                <Label>{$t("buttons.back")}</Label>
+              </Button>
+
+              {#if !has_camera}
+                <div class="mui-alert mui-alert-error" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                  <Typography variant="body2">
+                    {@html $t("wallet_sync.no_camera")}
+                  </Typography>
+                </div>
+                <div class="mui-alert" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                  <Typography variant="body2">
+                    {@html $t("pages.wallet_info.scan_qr.other_has_camera")}
+                  </Typography>
+                </div>
+                <div class="mui-alert" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                  <Typography variant="body2">
+                    {@html $t("pages.wallet_info.scan_qr.no_camera")}
+                    {@html $t("wallet_sync.no_camera_alternatives")}
+                  </Typography>
+                </div>
+              {:else if scanner_state === "before_start"}
+                <!-- NOTES ABOUT QR-->
+                <div style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                  <Typography variant="body1">
+                    {@html $t("pages.wallet_info.scan_qr.notes")}
+                  </Typography>
+                  <Typography variant="body2" className="text-muted" style="margin-top: calc(var(--mui-spacing) * 2);">
+                    {@html $t("wallet_sync.server_transfer_notice")}
+                  </Typography>
+                </div>
+
+                <!-- Warning if offline -->
+                {#if !$online}
+                  <div class="mui-alert mui-alert-error" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                    <Typography variant="body2">
+                      {@html $t("wallet_sync.offline_warning")}
+                    </Typography>
+                  </div>
+                {/if}
+
+                <Button
+                  variant="raised"
+                  class="mui-button-primary form-button"
+                  disabled={!$online}
+                  onclick={open_scanner}
+                >
+                  <Label>{$t("buttons.scan_qr")}</Label>
+                </Button>
+              {:else if scanner_state === "scanned"}
+                <div class="surface-section status-surface status-info">
+                  <CircularProgress style="height: 48px; width: 48px" indeterminate />
+                  <Typography variant="body1" className="status-message">
+                    {@html $t("pages.wallet_info.scan_qr.syncing")}...
+                  </Typography>
+                </div>
+              {:else if scanner_state === "success"}
+                <div class="surface-section status-surface status-success">
+                  <CheckBadge class="status-icon" size="4em" />
+                  <Typography variant="body1" className="status-message">
+                    {@html $t("pages.wallet_info.scan_qr.scan_successful")}
+                  </Typography>
+                  <Button
+                    variant="raised"
+                    class="mui-button-primary form-button"
+                    onclick={to_main_menu}
+                  >
+                    <Label>{$t("buttons.go_back")}</Label>
+                  </Button>
+                </div>
+              {/if}
+            </div>
+
+          {:else if sub_menu === "generate_qr"}
+            <div class="surface-section">
+              <Typography variant="h4" component="h1" style="margin-bottom: calc(var(--mui-spacing) * 3);">
+                {$t("pages.wallet_info.gen_qr.title")}
+              </Typography>
+
+              {#if generation_state !== "generated"}
+                <!-- Notes about generated QR -->
+                <div style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                  <Typography variant="body1">
+                    {@html $t("pages.wallet_info.gen_qr.notes")}
+                  </Typography>
+                  <Typography variant="body2" className="text-muted" style="margin-top: calc(var(--mui-spacing) * 2);">
+                    {@html $t("pages.wallet_info.gen_qr.no_camera")}
+                    {@html $t("wallet_sync.no_camera_alternatives")}
+                  </Typography>
+                  <Typography variant="body2" className="text-muted" style="margin-top: calc(var(--mui-spacing) * 2);">
+                    {@html $t("wallet_sync.server_transfer_notice")}
+                  </Typography>
+                </div>
+
+                <!-- Warning if offline -->
+                {#if !$online}
+                  <div class="mui-alert mui-alert-error" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                    <Typography variant="body2">
+                      {@html $t("wallet_sync.offline_warning")}
+                    </Typography>
+                  </div>
+                {/if}
+
+                {#if generation_state === "before_start"}
+                  <div class="form-actions form-actions--stack">
+                    <Button
+                      variant="raised"
+                      class="mui-button-primary form-button"
+                      disabled={!$online}
+                      onclick={generate_qr_code}
+                    >
+                      <Label>{$t("pages.wallet_info.gen_qr.gen_button")}</Label>
+                    </Button>
+                  </div>
+                {:else if generation_state === "loading"}
+                  <div class="status-surface status-info">
+                    <CircularProgress style="height: 48px; width: 48px" indeterminate />
+                  </div>
+                {/if}
+
+                <Button variant="outlined" class="mui-button-outlined form-button" onclick={to_main_menu} style="margin-top: calc(var(--mui-spacing) * 2);">
+                  <div class="button-icon">
+                    <ArrowLeft />
+                  </div>
+                  <Label>{$t("buttons.back")}</Label>
+                </Button>
+              {:else}
+                <Typography variant="body1" align="center" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                  {@html $t("pages.wallet_login_qr.gen.generated")}
+                </Typography>
+
+                <!-- Generated QR Code -->
+                <div class="qr-code-container">
+                  {@html generated_qr}
+                </div>
+
+                <Button variant="outlined" class="mui-button-outlined form-button" onclick={to_main_menu} style="margin-top: calc(var(--mui-spacing) * 4);">
+                  <div class="button-icon">
+                    <ArrowLeft />
+                  </div>
+                  <Label>{$t("buttons.back")}</Label>
+                </Button>
+              {/if}
+            </div>
+
+          {:else if sub_menu === "text_code"}
+            <div class="surface-section">
+              <Typography variant="h4" component="h1" style="margin-bottom: calc(var(--mui-spacing) * 3);">
+                {$t("pages.wallet_info.gen_text_code.title")}
+              </Typography>
+
+              <!-- Go Back -->
+              <Button variant="outlined" class="mui-button-outlined form-button" onclick={to_main_menu} style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                <div class="button-icon">
+                  <ArrowLeft />
+                </div>
+                <Label>{$t("buttons.back")}</Label>
+              </Button>
+
+              <!-- Warning to prefer QR codes or wallet downloads -->
+              {#if generation_state === "before_start"}
+                <div class="mui-alert mui-alert-warning" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                  <Typography variant="body2">
+                    {@html $t("wallet_sync.textcode.usage_warning")}
+                  </Typography>
+                </div>
+              {/if}
 
               <!-- Warning if offline -->
               {#if !$online}
-                <li class="text-left">
-                  <Alert color="red">
+                <div class="mui-alert mui-alert-error" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                  <Typography variant="body2">
                     {@html $t("wallet_sync.offline_warning")}
-                  </Alert>
-                </li>
+                  </Typography>
+                </div>
+              {:else}
+                <Typography variant="body2" className="text-muted" style="margin-bottom: calc(var(--mui-spacing) * 2);">
+                  {@html $t("wallet_sync.expiry")}
+                </Typography>
               {/if}
-              <li class="">
+
+              {#if generation_state === "before_start"}
                 <Button
-                  onclick={open_scanner}
-                  disabled={false || !$online}
-                  class="w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+                  variant="raised"
+                  class="mui-button-primary form-button"
+                  disabled={!$online}
+                  onclick={generate_text_code}
                 >
-                  {$t("buttons.scan_qr")}
+                  <Label>{$t("pages.wallet_info.gen_text_code.gen_btn")}</Label>
                 </Button>
-              </li>
-            {:else if scanner_state === "scanned"}
-              <li class="">
-                <Spinner class="mt-4 mb-2" />
+              {:else if generation_state == "loading"}
+                <div class="status-surface status-info">
+                  <CircularProgress style="height: 48px; width: 48px" indeterminate />
+                </div>
+              {:else}
+                <!-- TextCode Code -->
+                <Typography variant="subtitle1" style="margin-bottom: calc(var(--mui-spacing) * 1);">
+                  {$t("pages.wallet_info.gen_text_code.label")}
+                </Typography>
                 <div>
-                  {@html $t("pages.wallet_info.scan_qr.syncing")}...
-                  <br />
-                  <br />
-                  {scanned_qr_code}
+                  <CopyToClipboard rows={8} value={generated_text_code} />
                 </div>
-              </li>
-            {:else if scanner_state === "success"}
-              <li class="text-green-800 flex flex-col items-center">
-                <div class="mt-4">
-                  <CheckBadge color="green" size="3em" />
-                </div>
-                <div class="mt-4 mb-4">
-                  {@html $t("pages.wallet_info.scan_qr.scan_successful")}
-                </div>
-                <Button
-                  onclick={to_main_menu}
-                  class="w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-                >
-                  {$t("buttons.go_back")}
-                </Button>
-              </li>
-            {/if}
-          </SidebarGroup>
-        </SidebarWrapper>
-      </Sidebar>
-      <!-- Generate QR-Code screen -->
-    {:else if sub_menu === "generate_qr"}
-      {#if generation_state !== "generated"}
-        <div
-          class="flex flex-col justify-center max-w-md mb-10 bg-gray-60 overflow-y-auto py-4 dark:bg-gray-800"
-        >
-          <div class="mx-6">
-            <h2 class="text-xl mb-6">
-              {$t("pages.wallet_info.gen_qr.title")}
-            </h2>
-          </div>
-
-          <!-- Go Back -->
-          <!-- Go Back -->
-
-          <!-- Notes about generated QR -->
-          <div class="mx-6 text-left">
-            {@html $t("pages.wallet_info.gen_qr.notes")}
-            <br /><br />
-            {@html $t("pages.wallet_info.gen_qr.no_camera")}
-            {@html $t("wallet_sync.no_camera_alternatives")}
-            <br /><br />
-            {@html $t("wallet_sync.server_transfer_notice")}
-          </div>
-
-          <!-- Warning if offline -->
-          {#if !$online}
-            <div class="mx-6 text-left">
-              <Alert color="red">
-                {@html $t("wallet_sync.offline_warning")}
-              </Alert>
+              {/if}
             </div>
           {/if}
-
-          {#if generation_state === "before_start"}
-            <div class="mx-6">
-              <div class="mx-auto">
-                <div class="my-4 mx-1">
-                  <Button
-                    onclick={generate_qr_code}
-                    disabled={!$online}
-                    class="w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-                  >
-                    {$t("pages.wallet_info.gen_qr.gen_button")}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          {:else if generation_state === "loading"}
-            <Spinner class="mx-auto" size="6" />
-          {/if}
-
-          <button
-            on:click={to_main_menu}
-            class="mt-4 mx-6 text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            ><ArrowLeft
-              tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-            />{$t("buttons.back")}</button
-          >
-        </div>
-      {:else}
-        <div
-          class="flex flex-col justify-center max-w-md mb-20 bg-gray-60 overflow-y-auto py-4 dark:bg-gray-800"
-        >
-          <h2 class="text-xl mb-6">
-            {$t("pages.wallet_info.gen_qr.title")}
-          </h2>
-          <div class="text-center mb-2 mx-6">
-            {@html $t("pages.wallet_login_qr.gen.generated")}
-          </div>
-
-          <!-- Generated QR Code -->
-          <div class="my-4 mx-auto">
-            {@html generated_qr}
-          </div>
-
-          <button
-            on:click={to_main_menu}
-            class="mt-8 mx-6 text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            ><ArrowLeft
-              tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-            />{$t("buttons.back")}</button
-          >
         </div>
       {/if}
-    {:else if sub_menu === "text_code"}
-      <div
-        class="flex flex-col justify-center max-w-md mx-6 mb-20 bg-gray-60 overflow-y-auto py-4 dark:bg-gray-800"
-      >
-        <div>
-          <h2 class="text-xl mb-6">
-            {$t("pages.wallet_info.gen_text_code.title")}
-          </h2>
-        </div>
+    </div>
 
-        <!-- Go Back -->
-        <button
-          on:click={to_main_menu}
-          class="w-full text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-          ><ArrowLeft
-            tabindex="-1"
-            class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-          />{$t("buttons.back")}</button
-        >
-
-        <!-- Warning to prefer QR codes or wallet downloads -->
-        {#if generation_state === "before_start"}
-          <div class="text-left my-4">
-            <Alert color="yellow">
-              {@html $t("wallet_sync.textcode.usage_warning")}
-            </Alert>
-          </div>
-        {/if}
-        <!-- Warning if offline -->
-        <div class="text-left my-4">
-          {#if !$online}
-            <Alert color="red">
-              {@html $t("wallet_sync.offline_warning")}
-            </Alert>
-          {:else}
-            {@html $t("wallet_sync.expiry")}
-          {/if}
-        </div>
-
-        <div class="mt-4">
-          {#if generation_state === "before_start"}
-            <Button
-              onclick={generate_text_code}
-              disabled={!$online}
-              class="my-4 w-full text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            >
-              {$t("pages.wallet_info.gen_text_code.gen_btn")}
-            </Button>
-          {:else if generation_state == "loading"}
-            <Spinner class="mx-auto" size="6" />
-          {:else}
-            <!-- TextCode Code -->
-            <span>{$t("pages.wallet_info.gen_text_code.label")}</span>
-            <div>
-              <CopyToClipboard rows={8} value={generated_text_code} />
-            </div>
-          {/if}
-        </div>
+    {#if error}
+      <div class="surface-section status-surface status-error" style="max-width: 640px; margin: calc(var(--mui-spacing) * 4) auto;">
+        <ExclamationTriangle class="status-icon status-icon--bounce" />
+        <Typography variant="body1" className="status-message">
+          {@html $t("errors.error_occurred", {
+            values: { message: display_error(error) },
+          })}
+        </Typography>
       </div>
     {/if}
   </div>
-  {#if error}
-    <div class=" max-w-6xl lg:px-8 mx-auto px-4 text-red-800">
-      <ExclamationTriangle class="animate-bounce mt-10 h-16 w-16 mx-auto" />
-
-      <p class="max-w-xl md:mx-auto lg:max-w-2xl mb-5">
-        {@html $t("errors.error_occurred", {
-          values: { message: display_error(error) },
-        })}
-      </p>
-    </div>
-  {/if}
-</CenteredLayout>
 
 <style>
+  .dashboard-container {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: calc(var(--mui-spacing) * 1.25);
+    margin: 0 auto;
+  }
+
+  @media (min-width: 768px) {
+    .dashboard-container {
+      padding: 0;
+    }
+  }
+
+  .dashboard-header {
+    margin-bottom: calc(var(--mui-spacing) * 1);
+    width: 100%;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .dashboard-tabs {
+    margin-bottom: calc(var(--mui-spacing) * 2);
+    border-bottom: 1px solid var(--mui-palette-divider);
+  }
+
+  .dashboard-tabs :global(.mdc-tab-bar) {
+    border-bottom: none;
+  }
+
+  .dashboard-tabs :global(.mdc-tab) {
+    height: var(--tab-min-height);
+    min-height: var(--tab-min-height);
+    padding: 0 calc(var(--mui-spacing) * 2);
+  }
+
+  .dashboard-tabs :global(.mdc-tab__text-label) {
+    color: var(--mui-palette-text-secondary);
+    font-size: var(--tab-font-size);
+    font-weight: var(--tab-font-weight);
+    text-transform: var(--mui-typography-button-textTransform);
+  }
+
+  .dashboard-tabs :global(.mdc-tab--active .mdc-tab__text-label) {
+    color: var(--mui-palette-primary-main);
+    font-weight: var(--tab-selected-font-weight);
+  }
+
+  .dashboard-tabs :global(.mdc-tab-indicator) {
+    height: var(--tab-indicator-height);
+  }
+
+  .dashboard-tabs :global(.mdc-tab-indicator__content--underline) {
+    border-radius: var(--tab-indicator-border-radius);
+    background-color: var(--mui-palette-primary-main);
+    border-color: var(--mui-palette-primary-main);
+  }
+
+  .tab-label {
+    font-family: var(--mui-typography-fontFamily);
+  }
+
+  .tab-content {
+    width: 100%;
+  }
+
+  .wallet-menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--mui-spacing) * 1.5);
+  }
+
+  .wallet-menu-item {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--mui-spacing) * 2);
+    padding: calc(var(--mui-spacing) * 2);
+    background-color: var(--mui-palette-background-default);
+    border: 1px solid var(--mui-palette-divider);
+    border-radius: var(--button-border-radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    width: 100%;
+  }
+
+  .wallet-menu-item:hover:not(.wallet-menu-item--error):not(.wallet-menu-item--info):not(.wallet-menu-item--success) {
+    background-color: var(--mui-palette-action-hover);
+    border-color: var(--mui-palette-primary-main);
+  }
+
+  .wallet-menu-item--error {
+    background-color: var(--mui-palette-error-light);
+    border-color: var(--mui-palette-error-main);
+    cursor: default;
+  }
+
+  .wallet-menu-item--info {
+    background-color: var(--mui-palette-primary-light);
+    border-color: var(--mui-palette-primary-main);
+    cursor: default;
+  }
+
+  .wallet-menu-item--success {
+    background-color: var(--mui-palette-success-light);
+    border-color: var(--mui-palette-success-main);
+    cursor: default;
+    word-break: break-all;
+  }
+
+  .wallet-menu-icon {
+    flex-shrink: 0;
+  }
+
+  .wallet-menu-icon :global(.icon) {
+    width: 28px;
+    height: 28px;
+    color: var(--mui-palette-text-primary);
+  }
+
+  .wallet-download-link {
+    display: block;
+    text-decoration: none;
+  }
+
+  .qr-code-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .qr-code-container :global(svg) {
+    max-width: 100%;
+    height: auto;
+  }
 </style>
