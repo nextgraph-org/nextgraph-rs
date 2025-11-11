@@ -133,7 +133,7 @@
     <Button
       variant="outlined"
       class="mui-button-outlined form-button"
-      onclick={() => push($redirect_after_scanned_qr_code)}
+      onclick={() => {webScanner.stop(); push($redirect_after_scanned_qr_code)}}
     >
       <div class="button-icon">
         <ArrowLeft />

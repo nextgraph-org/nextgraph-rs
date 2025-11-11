@@ -212,7 +212,7 @@
                 <!-- Scan QR Code to export wallet to another device -->
                 <button
                   class="wallet-menu-item"
-                  onclick={open_scan_menu}
+                  on:click={open_scan_menu}
                 >
                   <div class="wallet-menu-icon">
                     <Camera class="icon" />
@@ -225,7 +225,7 @@
                 <!-- Generate QR Code export wallet to another device -->
                 <button
                   class="wallet-menu-item"
-                  onclick={open_gen_menu}
+                  on:click={open_gen_menu}
                 >
                   <div class="wallet-menu-icon">
                     <QrCode class="icon" />
@@ -238,7 +238,7 @@
                 <!-- Copy Wallet TextCode -->
                 <button
                   class="wallet-menu-item"
-                  onclick={open_textcode_menu}
+                  on:click={open_textcode_menu}
                 >
                   <div class="wallet-menu-icon">
                     <Link class="icon" />
@@ -252,7 +252,7 @@
                 {#if !downloading}
                   <button
                     class="wallet-menu-item"
-                    onclick={download_wallet}
+                    on:click={download_wallet}
                   >
                     <div class="wallet-menu-icon">
                       <DocumentArrowDown class="icon" />
