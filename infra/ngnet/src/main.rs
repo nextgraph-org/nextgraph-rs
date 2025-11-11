@@ -190,15 +190,22 @@ async fn main() -> anyhow::Result<()> {
 
     #[cfg(not(debug_assertions))]
     {
-        let o = option_env!("NG_REDIR_SERVER").unwrap_or(NG_NET_URL);
+        let o = option_env!("NG_REDIR_SERVER")
+            .map(|domain| format!("https://{domain}"))
+            .unwrap_or(NG_NET_URL.to_string());
         log::info!("own redirect URL: {o}");
-        cors = cors.allow_origin(format!("https://{o}").as_str());
+        cors = cors.allow_origin(o.as_str());
         cors = cors.allow_origin(NG_APP_URL);
         cors = cors.allow_origin("http://localhost:14400");
         cors = cors.allow_origin("http://localhost:1421");
         for bsp in BSP_ORIGINS.iter() {
             cors = cors.allow_origin(*bsp);
         }
+        let port = if option_env!("NG_REDIR_SERVER").is_some() {
+            3034
+        } else {
+            3033
+        };
         log::info!("Starting production server on http://localhost:3033");
         warp::serve(
             static_files
@@ -207,7 +214,7 @@ async fn main() -> anyhow::Result<()> {
                 .with(cors)
                 .with(incoming_log),
         )
-        .run(([127, 0, 0, 1], 3033))
+        .run(([127, 0, 0, 1], port))
         .await;
     }
     #[cfg(debug_assertions)]

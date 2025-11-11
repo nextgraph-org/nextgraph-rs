@@ -95,9 +95,11 @@ pub async fn create_or_open_wallet() -> (SensitiveWallet, u64) {
 
         let peer_id_of_server_broker = PubKey::nil();
         let result = wallet_create_v0(CreateWalletV0 {
-            security_img,
+            security_img: Some(security_img),
             security_txt: "know yourself".to_string(),
-            pin: WALLET_PIN,
+            mnemonic: true,
+            password: None,
+            pin: Some(WALLET_PIN),
             pazzle_length: 9,
             send_bootstrap: false,
             send_wallet: false,

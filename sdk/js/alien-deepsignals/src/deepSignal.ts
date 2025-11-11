@@ -69,11 +69,37 @@ export type DeepPatchSubscriber = (patches: DeepPatch[]) => void;
 
 /** Options for configuring deepSignal behavior. */
 export interface DeepSignalOptions {
-    /** Custom function to generate synthetic IDs for objects without @id. */
-    idGenerator?: (pathToObject: (string | number)[]) => string | number;
-    /** If true, add @id property to all objects in the tree. */
-    addIdToObjects?: boolean;
+    /**
+     * A function that  is called when a new object is added to the deep signal object.
+     * If it is added in a set, `inSet` is going to be true and the function may return
+     * a `syntheticId` as identifier for patches.
+     * The function may always return `extraProps` which are added to the new object.
+     *
+     */
+    propGenerator?: DeepSignalPropGenFn;
+
+    /** If set, the synthetic id is exposed to objects in sets under the given property name. */
+    syntheticIdPropertyName?: string;
+    /**
+     * Property names that may not be changed on objects.
+     * Attempts to changes throw an error.
+     */
+    readOnlyProps?: string[];
 }
+
+export type DeepSignalPropGenFn = (props: {
+    /** The path of the newly added object. */
+    path: (string | number)[];
+    /** If the newly added object is a set. */
+    inSet: boolean;
+    /** The newly added object itself. */
+    object: any;
+}) => {
+    /** If the object is in a set, return a synthetic id as custom identifier and for patch path generation. */
+    syntheticId?: string;
+    /** Additional props to be added to the new object */
+    extraProps?: Record<string, unknown>;
+};
 
 /** Minimal per-proxy metadata for path reconstruction. */
 interface ProxyMeta {
@@ -81,6 +107,8 @@ interface ProxyMeta {
     parent?: object;
     /** Key within the parent pointing to this proxy (undefined for root). */
     key?: string | number;
+    /** True if this key is a synthetic ID (for Set entries) and should not be escaped. */
+    isSyntheticId?: boolean;
     /** Stable root id symbol shared by the entire deepSignal tree. */
     root: symbol;
     /** Options inherited from root. */
@@ -100,17 +128,32 @@ let microtaskScheduled = false;
 /** Sentinel symbol; get concrete root id via getDeepSignalRootId(proxy). */
 export const DEEP_SIGNAL_ROOT_ID = Symbol("alienDeepSignalRootId");
 
+/** Escape path segment for JSON Pointer compatibility (except synthetic IDs). */
+function escapePathSegment(segment: string): string {
+    return segment
+        .replace(/~/g, "~0")
+        .replace(/\//g, "~1")
+        .replace(/\|/g, "~2");
+}
+
 function buildPath(
     startProxy: object,
     leafKey: string | number
 ): (string | number)[] {
-    const path: (string | number)[] = [leafKey];
+    const path: (string | number)[] = [
+        typeof leafKey === "string" ? escapePathSegment(leafKey) : leafKey,
+    ];
     let cur: object | undefined = startProxy;
     while (cur) {
         const meta = proxyMeta.get(cur);
         if (!meta) break; // Defensive: metadata should always exist.
         if (meta.key === undefined) break; // Reached root (no key recorded).
-        path.unshift(meta.key);
+        // Escape string keys unless they're synthetic IDs
+        const escapedKey =
+            typeof meta.key === "string" && !meta.isSyntheticId
+                ? escapePathSegment(meta.key)
+                : meta.key;
+        path.unshift(escapedKey);
         cur = meta.parent;
     }
     return path;
@@ -162,26 +205,27 @@ function queueDeepPatches(
         return;
     }
 
-    // Add @id to object if options specify it
+    // Add an id to object not in set as well,
+    // if the id generator function returns it.
     if (
-        options?.addIdToObjects &&
+        options?.syntheticIdPropertyName &&
         val.constructor === Object &&
-        !("@id" in val)
+        !(options.syntheticIdPropertyName in val)
     ) {
-        let syntheticId: string | number;
-        if (options.idGenerator) {
-            syntheticId = options.idGenerator(basePath);
-        } else {
-            syntheticId = assignBlankNodeId(val);
+        let newId = options.propGenerator?.({
+            path: basePath,
+            inSet: false,
+            object: val,
+        }).syntheticId;
+        if (newId !== undefined) {
+            // Add synthetic id to the raw object before proxying
+            Object.defineProperty(val, options.syntheticIdPropertyName, {
+                value: newId,
+                writable: false,
+                enumerable: true,
+                configurable: false,
+            });
         }
-
-        // Define @id on the raw object before proxying
-        Object.defineProperty(val, "@id", {
-            value: syntheticId,
-            writable: false,
-            enumerable: true,
-            configurable: false,
-        });
     }
 
     // Emit patch for the object/array/Set itself
@@ -209,7 +253,41 @@ function queueDeepPatches(
         }
     } else if (val instanceof Set) {
         for (const entry of val) {
-            const key = getSetEntryKey(entry);
+            // Call propGenerator for object entries in nested Sets
+            if (
+                entry &&
+                typeof entry === "object" &&
+                entry.constructor === Object &&
+                options?.propGenerator
+            ) {
+                const result = options.propGenerator({
+                    path: basePath,
+                    inSet: true,
+                    object: entry,
+                });
+
+                // Add synthetic id if specified and not already present
+                if (
+                    options.syntheticIdPropertyName &&
+                    result.syntheticId !== undefined &&
+                    !(options.syntheticIdPropertyName in entry)
+                ) {
+                    Object.defineProperty(
+                        entry,
+                        options.syntheticIdPropertyName,
+                        {
+                            value: result.syntheticId,
+                            writable: false,
+                            enumerable: true,
+                            configurable: false,
+                        }
+                    );
+                    // Also record in setObjectIds so key resolution is stable without re-running generator
+                    setObjectIds.set(entry, String(result.syntheticId));
+                }
+            }
+
+            const key = getSetEntryKey(entry, options, basePath, true);
             queueDeepPatches(entry, rootId, [...basePath, key], options);
         }
     } else if (val.constructor === Object) {
@@ -377,34 +455,118 @@ const assignBlankNodeId = (obj: any) => {
     setObjectIds.set(obj, id);
     return id;
 };
+
+// Reverse index: Set -> Map<syntheticId, rawObject> for O(1) getById lookups
+const setIdToObject = new WeakMap<Set<any>, Map<string, any>>();
+
 /** Assign (or override) synthetic id before Set.add(). */
 export function setSetEntrySyntheticId(obj: object, id: string | number) {
     setObjectIds.set(obj, String(id));
 }
-const getSetEntryKey = (val: any): string | number => {
+const getSetEntryKey = (
+    val: any,
+    options?: DeepSignalOptions,
+    path?: (string | number)[],
+    inSet?: boolean
+): string | number => {
     if (val && typeof val === "object") {
         // If val is a proxy, get the raw object first
         const rawVal = proxyToRaw.get(val) || val;
 
-        // First check for explicitly assigned synthetic ID
-        if (setObjectIds.has(rawVal)) return setObjectIds.get(rawVal)!;
-        // Then check for @id property (primary identifier)
+        // 1) Respect an explicitly assigned synthetic ID (e.g., via addWithId)
+        if (setObjectIds.has(rawVal)) {
+            return setObjectIds.get(rawVal)!;
+        }
+
+        // 2) Ask propGenerator for a synthetic id when available
+        if (options?.propGenerator && path) {
+            const generated = options.propGenerator({
+                path,
+                inSet: !!inSet,
+                object: rawVal,
+            })?.syntheticId;
+            if (generated !== undefined) {
+                const idStr = String(generated);
+                setObjectIds.set(rawVal, idStr);
+                return idStr;
+            }
+        }
+
+        // 3) Use custom id property on the object if configured
+        const customIdProp = options?.syntheticIdPropertyName;
+        const customIdVal = customIdProp
+            ? (rawVal as any)[customIdProp]
+            : undefined;
         if (
-            typeof (rawVal as any)["@id"] === "string" ||
-            typeof (rawVal as any)["@id"] === "number"
-        )
-            return (rawVal as any)["@id"];
-        // Then check for id property (backward compatibility)
-        if (
-            typeof (rawVal as any).id === "string" ||
-            typeof (rawVal as any).id === "number"
-        )
-            return (rawVal as any).id;
-        // Fall back to generating a blank node ID
+            customIdProp &&
+            (typeof customIdVal === "string" || typeof customIdVal === "number")
+        ) {
+            const idStr = String(customIdVal);
+            setObjectIds.set(rawVal, idStr);
+            return idStr;
+        }
+
+        // 4) Fallback to a stable auto-generated blank node id
         return assignBlankNodeId(rawVal);
     }
     return val as any;
 };
+
+/**
+ * Build or retrieve the reverse index (syntheticId -> rawObject) for a Set.
+ * Uses lazy initialization: index is only built when first accessed.
+ */
+function ensureSetIndex(
+    raw: Set<any>,
+    options?: DeepSignalOptions
+): Map<string, any> {
+    if (!setIdToObject.has(raw)) {
+        const index = new Map<string, any>();
+        for (const entry of raw) {
+            if (entry && typeof entry === "object") {
+                const entryId = getSetEntryKey(entry, options);
+                index.set(String(entryId), entry);
+            }
+        }
+        setIdToObject.set(raw, index);
+    }
+    return setIdToObject.get(raw)!;
+}
+
+/**
+ * Update the index when an entry is added to a Set (if index exists).
+ * Uses incremental updates to maintain O(1) lookup performance.
+ */
+function addToSetIndex(
+    raw: Set<any>,
+    entry: any,
+    syntheticId: string | number
+) {
+    if (setIdToObject.has(raw)) {
+        const index = setIdToObject.get(raw)!;
+        index.set(String(syntheticId), entry);
+    }
+}
+
+/**
+ * Update the index when an entry is removed from a Set (if index exists).
+ */
+function removeFromSetIndex(raw: Set<any>, syntheticId: string | number) {
+    if (setIdToObject.has(raw)) {
+        const index = setIdToObject.get(raw)!;
+        index.delete(String(syntheticId));
+    }
+}
+
+/**
+ * Clear the index when a Set is cleared.
+ */
+function clearSetIndex(raw: Set<any>) {
+    if (setIdToObject.has(raw)) {
+        setIdToObject.get(raw)!.clear();
+    }
+}
+
 /** Add entry with synthetic id; returns proxied object if applicable. */
 export function addWithId<T extends object>(
     set: Set<T>,
@@ -418,6 +580,24 @@ export function addWithId(set: Set<any>, entry: any, id: string | number) {
     if (entry && typeof entry === "object" && objToProxy.has(entry))
         return objToProxy.get(entry);
     return entry;
+}
+
+/**
+ * Get index statistics for a Set (useful for debugging and optimization).
+ * Returns information about whether the Set has an index and its size.
+ */
+export function getSetIndexStats(set: Set<any>): {
+    hasIndex: boolean;
+    setSize: number;
+    indexSize?: number;
+} {
+    const rawSet = proxyToRaw.get(set) || set;
+    const hasIndex = setIdToObject.has(rawSet);
+    return {
+        hasIndex,
+        setSize: rawSet.size,
+        indexSize: hasIndex ? setIdToObject.get(rawSet)!.size : undefined,
+    };
 }
 
 /** Is value a deepSignal-managed proxy? */
@@ -484,6 +664,7 @@ export function shallow<T extends object>(obj: T): Shallow<T> {
     return obj as Shallow<T>;
 }
 
+// Create a proxy and attach root/options metadata lazily.
 const createProxy = (
     target: object,
     handlers: ProxyHandler<object>,
@@ -492,14 +673,12 @@ const createProxy = (
 ) => {
     const proxy = new Proxy(target, handlers);
     ignore.add(proxy);
-    // Initialize proxy metadata if not present. Root proxies provide a stable root id.
     if (!proxyMeta.has(proxy)) {
         proxyMeta.set(proxy, {
             root: rootId || Symbol("deepSignalDetachedRoot"),
-            options: options || rootOptions.get(rootId!),
+            options: options || (rootId ? rootOptions.get(rootId) : undefined),
         });
     }
-
     return proxy;
 };
 
@@ -518,7 +697,7 @@ function getFromSet(
             shouldProxy(entry) &&
             !objToProxy.has(entry)
         ) {
-            const synthetic = getSetEntryKey(entry);
+            const synthetic = getSetEntryKey(entry, meta!.options);
             const childProxy = createProxy(
                 entry,
                 objectHandlers,
@@ -528,6 +707,7 @@ function getFromSet(
             const childMeta = proxyMeta.get(childProxy)!;
             childMeta.parent = receiver;
             childMeta.key = synthetic;
+            childMeta.isSyntheticId = true; // Mark as synthetic ID (should not be escaped)
             objToProxy.set(entry, childProxy);
             proxyToRaw.set(childProxy, entry);
             return childProxy;
@@ -565,35 +745,61 @@ function getFromSet(
                     if (key === "add") {
                         const entry = args[0];
 
-                        // Add @id to object entries if options specify it
+                        // Call propGenerator for object entries to allow ID generation and extra props
                         if (
                             entry &&
                             typeof entry === "object" &&
-                            metaNow.options?.addIdToObjects &&
                             entry.constructor === Object &&
-                            !("@id" in entry)
+                            metaNow.options?.propGenerator
                         ) {
-                            let syntheticId: string | number;
-                            if (metaNow.options.idGenerator) {
-                                syntheticId =
-                                    metaNow.options.idGenerator(containerPath);
-                            } else {
-                                syntheticId = assignBlankNodeId(entry);
-                            }
-
-                            Object.defineProperty(entry, "@id", {
-                                value: syntheticId,
-                                writable: false,
-                                enumerable: true,
-                                configurable: false,
+                            const result = metaNow.options.propGenerator({
+                                path: containerPath,
+                                inSet: true,
+                                object: entry,
                             });
+
+                            // Add synthetic id if specified and not already present
+                            if (
+                                metaNow.options.syntheticIdPropertyName &&
+                                result.syntheticId !== undefined &&
+                                !(
+                                    metaNow.options.syntheticIdPropertyName in
+                                    entry
+                                )
+                            ) {
+                                Object.defineProperty(
+                                    entry,
+                                    metaNow.options.syntheticIdPropertyName,
+                                    {
+                                        value: result.syntheticId,
+                                        writable: false,
+                                        enumerable: true,
+                                        configurable: false,
+                                    }
+                                );
+                                // Also record in setObjectIds so key resolution is stable without re-running generator
+                                setObjectIds.set(
+                                    entry,
+                                    String(result.syntheticId)
+                                );
+                            }
                         }
 
-                        let synthetic = getSetEntryKey(entry);
+                        let synthetic = getSetEntryKey(
+                            entry,
+                            metaNow.options,
+                            containerPath,
+                            true
+                        );
                         if (entry && typeof entry === "object") {
                             for (const existing of raw.values()) {
                                 if (existing === entry) continue;
-                                if (getSetEntryKey(existing) === synthetic) {
+                                if (
+                                    getSetEntryKey(
+                                        existing,
+                                        metaNow.options
+                                    ) === synthetic
+                                ) {
                                     synthetic = assignBlankNodeId(entry);
                                     break;
                                 }
@@ -615,6 +821,7 @@ function getFromSet(
                             const childMeta = proxyMeta.get(childProxy)!;
                             childMeta.parent = receiver;
                             childMeta.key = synthetic;
+                            childMeta.isSyntheticId = true; // Mark as synthetic ID (should not be escaped)
                             objToProxy.set(entryVal, childProxy);
                             proxyToRaw.set(childProxy, entryVal);
                             entryVal = childProxy;
@@ -628,6 +835,8 @@ function getFromSet(
                                 [...containerPath, synthetic],
                                 metaNow.options
                             );
+                            // Update index if it exists (incremental update for O(1) lookups)
+                            addToSetIndex(raw, entry, synthetic);
                         } else {
                             // Primitive entry: path is just the Set, value contains the primitive
                             queuePatch({
@@ -641,7 +850,10 @@ function getFromSet(
                     } else if (key === "delete") {
                         // Use the original entry (before proxy-to-raw conversion) for getting the synthetic key
                         const entry = originalEntry;
-                        const synthetic = getSetEntryKey(entry);
+                        const synthetic = getSetEntryKey(
+                            entry,
+                            metaNow.options
+                        );
                         // Check if entry is primitive or object
                         if (entry && typeof entry === "object") {
                             // Object entry: path includes synthetic id
@@ -650,6 +862,8 @@ function getFromSet(
                                 path: [...containerPath, synthetic],
                                 op: "remove",
                             });
+                            // Update index if it exists
+                            removeFromSetIndex(raw, synthetic);
                         } else {
                             // Primitive entry: path is just the Set, value contains the primitive
                             queuePatch({
@@ -686,6 +900,8 @@ function getFromSet(
                             type: "set",
                             value: [],
                         });
+                        // Clear the index if it exists
+                        clearSetIndex(raw);
                     }
                 }
             }
@@ -727,6 +943,29 @@ function getFromSet(
                     raw
                 );
             });
+        };
+    }
+    // Custom methods for retrieving entries by synthetic ID
+    if (key === "getById") {
+        return function getById(
+            this: any,
+            id: string | number
+        ): any | undefined {
+            const idStr = String(id);
+            // Use O(1) indexed lookup if available, build index lazily on first access
+            const index = ensureSetIndex(raw, meta?.options);
+            const entry = index.get(idStr);
+            return entry ? ensureEntryProxy(entry) : undefined;
+        };
+    }
+    if (key === "getBy") {
+        return function getBy(
+            this: any,
+            graphIri: string,
+            subjectIri: string
+        ): any | undefined {
+            const id = `${graphIri}|${subjectIri}`;
+            return (receiver as any).getById(id);
         };
     }
     // Properly handle native iteration (for..of, Array.from, spread) by binding to the raw Set.
@@ -876,10 +1115,11 @@ const get =
 const objectHandlers = {
     get: get(false),
     set(target: object, fullKey: string, val: any, receiver: object): boolean {
-        // Prevent modification of @id property
-        // if (fullKey === "@id") {
-        //     throw new Error("Cannot modify readonly property '@id'");
-        // }
+        // Prevent modification of readonly properties
+        const meta = proxyMeta.get(receiver);
+        if (meta?.options?.readOnlyProps?.includes(fullKey)) {
+            throw new Error(`Cannot modify readonly property '${fullKey}'`);
+        }
         // Respect original getter/setter semantics
         if (typeof descriptor(target, fullKey)?.set === "function")
             return Reflect.set(target, fullKey, val, receiver);
@@ -922,6 +1162,8 @@ const objectHandlers = {
                 internal = objToProxy.get(val);
             }
             const isNew = !(fullKey in target);
+            const oldValue = isNew ? undefined : (target as any)[fullKey];
+            const oldWasObject = oldValue && typeof oldValue === "object";
             const result = Reflect.set(target, fullKey, val, receiver);
 
             if (!signals.has(fullKey)) {
@@ -938,13 +1180,31 @@ const objectHandlers = {
             // Emit patch (after mutation) so subscribers get final value snapshot.
             const meta = proxyMeta.get(receiver);
             if (meta) {
-                // Recursively emit patches for all nested properties of newly attached objects
-                queueDeepPatches(
-                    val,
-                    meta.root,
-                    buildPath(receiver, fullKey),
-                    meta.options
-                );
+                const newIsObject = val && typeof val === "object";
+
+                if (isNew || !oldWasObject) {
+                    // Emit deep patches for:
+                    // 1. NEW properties (initial add), OR
+                    // 2. Existing properties where old value was NOT an object (null, primitive, etc.)
+                    //    This handles cases like { data: null } -> { data: { ... } }
+                    queueDeepPatches(
+                        val,
+                        meta.root,
+                        buildPath(receiver, fullKey),
+                        meta.options
+                    );
+                } else if (!newIsObject) {
+                    // For updates to EXISTING properties with primitive NEW values, emit a single patch.
+                    queuePatch({
+                        root: meta.root,
+                        path: buildPath(receiver, fullKey),
+                        op: "add",
+                        value: val,
+                    });
+                }
+                // For updates where BOTH old and new values are objects (e.g., replacing one Set with another),
+                // don't emit deep patches - the new value is now tracked, and subsequent
+                // mutations will emit their own patches through Set/Array/Object operations.
             }
             return result;
         }
@@ -998,11 +1258,13 @@ export type DeepSignal<T> = T extends Function
     ? T
     : T extends { [shallowFlag]: true }
       ? T
-      : T extends Array<unknown>
-        ? DeepSignalArray<T>
-        : T extends object
-          ? DeepSignalObject<T>
-          : T;
+      : T extends Set<infer U>
+        ? DeepSignalSet<U>
+        : T extends Array<unknown>
+          ? DeepSignalArray<T>
+          : T extends object
+            ? DeepSignalObject<T>
+            : T;
 
 /** Recursive mapped type converting an object graph into its deepSignal proxy shape. */
 export type DeepSignalObject<T extends object> = {
@@ -1011,6 +1273,9 @@ export type DeepSignalObject<T extends object> = {
         : ReturnType<typeof signal<T[P]>>;
 } & {
     [P in keyof T]: DeepSignal<T[P]>;
+} & {
+    /** Access the raw (unwrapped) object without reactivity tracking. */
+    $?: T;
 };
 
 /** Extract element type from an array. */
@@ -1020,6 +1285,36 @@ type DeepSignalArray<T> = DeepArray<ArrayType<T>> & {
     [key: number]: DeepSignal<ArrayType<T>>;
     $?: { [key: number]: ReturnType<typeof signal<ArrayType<T>>> };
     $length?: ReturnType<typeof signal<number>>;
+};
+
+/** DeepSignal-enhanced Set type with custom query methods. */
+export type DeepSignalSet<T> = Omit<
+    Set<DeepSignal<T>>,
+    "add" | "delete" | "clear"
+> & {
+    /** Add an element to the set. */
+    add(value: T): DeepSignalSet<T>;
+    /** Delete an element from the set. */
+    delete(value: T): boolean;
+    /** Clear all elements from the set. */
+    clear(): void;
+    /**
+     * Retrieve an entry from the Set by its synthetic ID.
+     * @param id - The synthetic ID (string or number) assigned to the entry.
+     * @returns The proxied entry if found, undefined otherwise.
+     */
+    getById(id: string | number): DeepSignal<T> | undefined;
+    /**
+     * Retrieve an entry from the Set by constructing an ID from graphIri and subjectIri.
+     * This is a convenience method that constructs the ID as "graphIri|subjectIri".
+     * @param graphIri - The graph IRI part of the identifier.
+     * @param subjectIri - The subject IRI part of the identifier.
+     * @returns The proxied entry if found, undefined otherwise.
+     */
+    // NOTE: This is a bad separation of concerns here.
+    getBy(graphIri: string, subjectIri: string): DeepSignal<T> | undefined;
+    /** Access the raw (unwrapped) Set without reactivity tracking. */
+    $?: Set<T>;
 };
 
 /** Marker utility type for objects passed through without deep proxying. */

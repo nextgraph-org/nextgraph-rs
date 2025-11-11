@@ -1031,6 +1031,10 @@ async fn main_inner() -> Result<(), NgdError> {
         wallet_key
     };
 
+    if args.invite_admin {
+        invite_admin = true;
+    }
+
     match config.unwrap() {
         DaemonConfig::V0(v0) => {
             run_server_v0(peer_from_file, pubkey, wallet_key, v0, path, invite_admin).await?

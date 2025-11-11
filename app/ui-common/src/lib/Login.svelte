@@ -16,7 +16,7 @@
 
 <script lang="ts">
   import { Alert, Toggle, Button } from "flowbite-svelte";
-  import { onMount, createEventDispatcher } from "svelte";
+  import { onMount, createEventDispatcher, tick } from "svelte";
   import { t } from "svelte-i18n";
   import ng from "../api";
   import { emoji_cat, emojis, load_svg, type Emoji } from "../wallet_emojis";
@@ -46,14 +46,32 @@
 
   const dispatch = createEventDispatcher();
 
+  function init_simple() {
+    error = undefined;
+    step = "password";
+    scrollToTop();
+  }
+
   onMount(async () => {
     loaded = false;
     if (for_import) {
       device_name = await ng.get_device_name();
+      step = "import";
     }
-    load_svg();
+    //load_svg();
     //console.log(wallet);
-    await init();
+    //await init();
+    init_simple();
+
+    if (!tauri_platform) {
+      try {
+        localStorage;
+      } catch (e) {
+        trusted = false;
+        no_local_storage = true;
+        console.log("no access to localStorage");
+      }
+    }
   });
 
   async function init() {
@@ -94,12 +112,17 @@
     unlockWith = "mnemonic";
     scrollToTop();
   }
+  async function start_with_password() {
+    step = "password";
+    unlockWith = "password";
+    scrollToTop();
+  }
 
   let emojis2: Emoji[][] = [];
 
   let shuffle;
 
-  let step = "load";
+  let step = "password";
 
   let loaded = false;
 
@@ -120,10 +143,13 @@
   let error;
 
   let trusted = true;
+  let no_local_storage = false;
 
   let mnemonic = "";
 
-  let unlockWith: "pazzle" | "mnemonic" | undefined;
+  let password = "";
+
+  let unlockWith: "pazzle" | "mnemonic" | "password" | undefined = "password";
 
   let device_name;
 
@@ -173,13 +199,15 @@
       if (tauri_platform) {
         // TODO @niko: Add device_name as param to open_with_* APIs
         let opened_wallet =
-          unlockWith === "pazzle"
-            ? await ng.wallet_open_with_pazzle(wallet, pazzle, pin_code)
-            : await ng.wallet_open_with_mnemonic_words(
-                wallet,
-                mnemonic_words,
-                pin_code
-              );
+          unlockWith === "password"
+            ? await ng.wallet_open_with_password(password)
+            : unlockWith === "pazzle"
+              ? await ng.wallet_open_with_pazzle(wallet, pazzle, pin_code)
+              : await ng.wallet_open_with_mnemonic_words(
+                  wallet,
+                  mnemonic_words,
+                  pin_code
+                );
         // try {
         //   let client = await ng.wallet_was_opened(opened_wallet);
         //   opened_wallet.V0.client = client;
@@ -215,7 +243,9 @@
         myWorker.onmessage = async (msg) => {
           //console.log("Message received from worker", msg.data);
           if (msg.data.loaded) {
-            if (unlockWith === "pazzle") {
+            if (unlockWith === "password") {
+              myWorker.postMessage({ wallet, password, device_name });
+            } else if (unlockWith === "pazzle") {
               myWorker.postMessage({ wallet, pazzle, pin_code, device_name });
             } else {
               myWorker.postMessage({
@@ -227,7 +257,7 @@
             }
             //console.log("postMessage");
           } else if (msg.data.success) {
-            //console.log("success",msg.data);
+            //console.log(msg.data);
             // try {
             //   let client = await ng.wallet_was_opened(msg.data.success);
             //   msg.data.success.V0.client = client;
@@ -298,7 +328,9 @@
   }
 
   function go_back() {
-    if (step === "mnemonic") {
+    if (step === "password") {
+      init_simple();
+    } else if (step === "mnemonic") {
       init();
     } else if (step === "pazzle") {
       // Go to previous pazzle or init page, if on first pazzle.
@@ -355,117 +387,108 @@
   class:flex={height > 640}
   bind:this={top}
 >
-  {#if step == "load"}
-    <div class="flex flex-col justify-center p-4 pt-6">
-      <h2 class="pb-5 text-xl self-start">
-        {$t("pages.login.heading")}
-      </h2>
-      <h3 class="pb-2 text-lg self-start">{$t("pages.login.with_pazzle")}</h3>
-      <ul class="mb-8 ml-3 space-y-4 text-justify text-sm list-decimal">
-        <li>
-          {$t("pages.login.pazzle_steps.1")}
-        </li>
-        <li>
-          {$t("pages.login.pazzle_steps.2")}
-        </li>
-        <li>
-          {$t("pages.login.pazzle_steps.3")}
-        </li>
-        <li>
-          {$t("pages.login.pazzle_steps.4")}
-        </li>
-        <li>
-          {$t("pages.login.pazzle_steps.5")}
-        </li>
-        <li>
-          {$t("pages.login.pazzle_steps.6")}
-        </li>
-      </ul>
-
-      <h3 class="pb-2 text-lg self-start">
-        {$t("pages.login.with_mnemonic")}
-      </h3>
-      <ul class="mb-8 ml-3 space-y-4 text-justify text-sm list-decimal">
-        <li>
-          {$t("pages.login.mnemonic_steps.1")}
-        </li>
-        <li>
-          {$t("pages.login.mnemonic_steps.2")}
-        </li>
-      </ul>
-
-      <!-- Save wallet? -->
-      {#if for_import}
-        <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
-          <span class="text-xl"
-            >{$t("pages.wallet_create.save_wallet_options.trust")}
-          </span> <br />
-          <p class="text-sm">
-            {$t("pages.wallet_create.save_wallet_options.trust_description")}
-            {#if !tauri_platform}
-              {$t("pages.login.trust_device_allow_cookies")}{/if}<br />
-          </p>
-          <div class="flex justify-center items-center my-4">
-            <Toggle class="" bind:checked={trusted}
-              >{$t("pages.login.trust_device_yes")}</Toggle
-            >
-          </div>
-        </div>
-      {/if}
-
-      <div class="max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
-        <div class="flex flex-col justify-centerspace-x-12 mt-4 mb-4">
-          <!-- Device Name, if trusted-->
-          {#if for_import && trusted}
-            <label for="device-name-input" class="text-sm text-black">
-              {$t("pages.login.device_name_label")}
-            </label>
-            <input
-              id="device-name-input"
-              bind:value={device_name}
-              placeholder={$t("pages.login.device_name_placeholder")}
-              type="text"
-              class="w-full mb-10 lg:px-8 mx-auto px-4 bg-gray-50 border border-gray-300 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            />
-          {/if}
-
-          <button
-            on:click={start_with_mnemonic}
-            on:keypress={start_with_mnemonic}
-            class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+  {#if step == "import"}
+    {#if no_local_storage}
+      <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
+        <Alert color="orange" class="">
+          Access to local storage is denied. <br />You won't be able to save
+          your wallet in this browser.<br />
+          If you wanted to save it, please allow storing local data<br />
+          for the websites {location.origin} <br />
+          and https://nextgraph.net and then reload the page. <br />
+        </Alert>
+      </div>
+    {:else}
+      <div class="max-w-xl lg:px-8 mx-auto px-4 mb-2">
+        <span class="text-xl"
+          >{$t("pages.wallet_create.save_wallet_options.trust")}
+        </span> <br />
+        <p class="text-sm">
+          {$t("pages.wallet_create.save_wallet_options.trust_description")}
+          {#if !tauri_platform}
+            {$t("pages.login.trust_device_allow_cookies")}{/if}<br />
+        </p>
+        <div class="flex justify-center items-center my-4">
+          <Toggle class="" bind:checked={trusted}
+            >{$t("pages.login.trust_device_yes")}</Toggle
           >
-            <PuzzlePiece
-              tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-            />
-            {$t("pages.login.open_with_mnemonic")}
-          </button>
-
-          <button
-            on:click={cancel}
-            class="mt-3 mb-2 text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            ><ArrowLeft
-              tabindex="-1"
-              class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
-            />{$t("pages.login.login_cancel")}</button
-          >
-          {#if !loaded}
-            {$t("pages.login.loading_pazzle")}...
-            <Spinner className="my-4 h-14 w-14 mx-auto" />
-          {:else}
-            <span
-              on:click={start_with_pazzle}
-              on:keypress={start_with_pazzle}
-              role="link"
-              tabindex="0"
-              class="mt-1 text-lg px-5 py-2.5 text-center inline-flex items-center underline cursor-pointer"
-            >
-              {$t("pages.login.open_with_pazzle")}
-            </span>
-          {/if}
         </div>
       </div>
+    {/if}
+
+    <div class="max-w-xl lg:px-8 mx-auto px-4 text-primary-700">
+      <div class="flex flex-col justify-centerspace-x-12 mt-4 mb-4">
+        <!-- Device Name, if trusted-->
+        {#if trusted}
+          <label for="device-name-input" class="text-sm text-black">
+            {$t("pages.login.device_name_label")}
+          </label>
+          <input
+            id="device-name-input"
+            bind:value={device_name}
+            placeholder={$t("pages.login.device_name_placeholder")}
+            type="text"
+            class="w-full mb-10 lg:px-8 mx-auto px-4 bg-gray-50 border border-gray-300 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+          />
+        {/if}
+
+        <button
+          on:click={start_with_password}
+          on:keypress={start_with_password}
+          class="mt-1 text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mb-2"
+        >
+          <LockOpen
+            tabindex="-1"
+            class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
+          />
+          {$t("pages.login.open")}
+        </button>
+
+        <button
+          on:click={cancel}
+          class="mt-3 mb-2 text-gray-500 dark:text-gray-400 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+          ><ArrowLeft
+            tabindex="-1"
+            class="w-8 h-8 mr-2 -ml-1 transition duration-75 focus:outline-none  group-hover:text-gray-900 dark:group-hover:text-white"
+          />{$t("pages.login.login_cancel")}
+        </button>
+      </div>
     </div>
+  {:else if step == "password"}
+    <form on:submit|preventDefault={finish}>
+      <label
+        for="password-input"
+        class="block mb-2 text-xl text-gray-900 dark:text-white"
+        >{$t("pages.login.enter_password")}</label
+      >
+      <PasswordInput
+        id="password-input"
+        bind:value={password}
+        className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+        auto_complete="password"
+        autofocus={true}
+        on:enter={finish}
+      />
+      <div class="flex">
+        <button
+          on:click={cancel}
+          class="mt-3 mr-2 mb-2 ml-auto bg-red-100 hover:bg-red-100/90 disabled:opacity-65 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
+          ><XCircle
+            tabindex="-1"
+            class="w-8 h-8 mr-2 -ml-1 transition focus:outline-none duration-75 group-hover:text-gray-900 dark:group-hover:text-white"
+          />{$t("buttons.cancel")}</button
+        >
+        <Button
+          type="submit"
+          class="mt-3 mb-2 ml-auto text-white bg-primary-700 hover:bg-primary-700/90 disabled:opacity-65 focus:ring-4 focus:ring-blue-500 focus:border-blue-500 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-blue-500 dark:focus:border-blue-500"
+          disabled={password.trim().length < 2}
+          ><CheckCircle
+            tabindex="-1"
+            class="w-8 h-8 mr-2 -ml-1 transition duration-75  group-hover:text-gray-900 dark:group-hover:text-white"
+          />{$t("buttons.confirm")}</Button
+        >
+      </div>
+    </form>
     <!-- The following steps have navigation buttons and fixed layout -->
   {:else if step == "pazzle" || step == "order" || step == "pin" || step == "mnemonic"}
     <div
@@ -696,7 +719,7 @@
             {display_error(error)}
           </Alert>
         </div>
-        <div class="flex justify-between mt-auto gap-4">
+        <div class="flex justify-between mt-auto gap-4 mr-3 ml-3">
           <button
             on:click={cancel}
             class="mt-10 bg-red-100 hover:bg-red-100/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
@@ -707,7 +730,7 @@
           >
           <button
             class="mt-10 ml-2 select-none text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-100/50 rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55"
-            on:click={init}
+            on:click={init_simple}
           >
             <ArrowPath
               tabindex="-1"

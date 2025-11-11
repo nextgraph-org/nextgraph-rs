@@ -58,8 +58,6 @@ They all can throw errors. You must enclose them in `try {} catch(e) {}`
     - for ASK queries: a boolean
 - `ng.sparql_update(session_id, "[SPARQL update]")` returns nothing, but can throw an error.
 
-Here is the format of the config object to be supplied in the calls to `init_headless` and `admin_create_user`:
-
 ## Local development
 
 you need to have a running local ngd server and a local ng-app frontend too. See those [instructions first](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/master/DEV.md#first-run).

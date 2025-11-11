@@ -117,12 +117,11 @@
         }
       });
 
-      let window_api = await import("@tauri-apps/plugin-window");
-      let event_api = await import("@tauri-apps/api/event");
-      let main = window_api.Window.getByLabel("main");
+      let window_api = await import("@tauri-apps/api/window");
+      let main = await window_api.Window.getByLabel("main");
       unsub_main_close = await main.onCloseRequested(async (event) => {
         //console.log("onCloseRequested main");
-        await event_api.emit("close_all", {});
+        await main.emit("close_all", {});
         let registration = window_api.Window.getByLabel("registration");
         if (registration) {
           await registration.close();

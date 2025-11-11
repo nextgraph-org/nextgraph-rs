@@ -103,6 +103,18 @@ async fn wallet_gen_shuffle_for_pin() -> Result<Vec<u8>, ()> {
 }
 
 #[tauri::command(rename_all = "snake_case")]
+async fn wallet_open_with_password(
+    wallet: Wallet,
+    password: String,
+    _app: tauri::AppHandle,
+) -> Result<SensitiveWallet, String> {
+    //log_debug!("wallet_open_with_pazzle from rust {:?}", pazzle);
+    let wallet = nextgraph::local_broker::wallet_open_with_password(&wallet, password)
+        .map_err(|e| e.to_string())?;
+    Ok(wallet)
+}
+
+#[tauri::command(rename_all = "snake_case")]
 async fn wallet_open_with_pazzle(
     wallet: Wallet,
     pazzle: Vec<u8>,
@@ -336,24 +348,31 @@ async fn open_window(
     label: String,
     title: String,
     app: tauri::AppHandle,
-) -> Result<(), ()> {
+) -> Result<bool, ()> {
     log_debug!("open window url {:?}", url);
-    let _already_exists = app.get_webview_window(&label);
+    let _already_exists = app.get_window(&label);
     #[cfg(desktop)]
     if _already_exists.is_some() {
-        let _ = _already_exists.unwrap().close();
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        log_info!("already exists");
+        //let _ = _already_exists.unwrap().close();
+        //std::thread::sleep(std::time::Duration::from_secs(1));
+        return Ok(true);
     }
 
     let mut config = WindowConfig::default();
     config.label = label;
     config.url = tauri::WebviewUrl::External(url.parse().unwrap());
     config.title = title;
-    let _register_window = tauri::WebviewWindowBuilder::from_config(&app, &config)
+    match tauri::WebviewWindowBuilder::from_config(&app, &config)
         .unwrap()
         .build()
-        .unwrap();
-    Ok(())
+    {
+        Ok(_) => {}
+        Err(e) => {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -1024,6 +1043,7 @@ impl AppBuilder {
                 privkey_to_string,
                 wallet_gen_shuffle_for_pazzle_opening,
                 wallet_gen_shuffle_for_pin,
+                wallet_open_with_password,
                 wallet_open_with_pazzle,
                 wallet_open_with_mnemonic,
                 wallet_open_with_mnemonic_words,

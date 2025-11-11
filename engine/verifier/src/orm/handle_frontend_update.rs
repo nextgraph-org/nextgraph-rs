@@ -11,7 +11,7 @@ use ng_net::orm::{OrmPatch, OrmPatchOp, OrmPatchType, OrmSchemaPredicate, OrmSch
 use ng_oxigraph::oxrdf::Quad;
 use ng_repo::errors::VerifierError;
 
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::u64;
 
 use ng_net::app_protocol::*;
@@ -19,7 +19,9 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_repo::log::*;
 
 use crate::orm::types::*;
-use crate::orm::utils::{decode_json_pointer, json_to_sparql_val};
+use crate::orm::utils::{
+    assess_and_rank_children, decode_json_pointer, json_to_sparql_val, nuri_to_string,
+};
 use crate::types::GraphQuadsPatch;
 use crate::verifier::*;
 
@@ -27,17 +29,17 @@ impl Verifier {
     ///
     pub(crate) async fn orm_update_self(
         &mut self,
-        scope: &NuriV0,
+        scope: &String,
         shape_iri: ShapeIri,
         session_id: u64,
         _skolemnized_blank_nodes: Vec<Quad>,
         revert_inserts: Vec<Quad>,
         revert_removes: Vec<Quad>,
     ) -> Result<(), VerifierError> {
-        let (mut sender, _orm_subscription) =
+        let (sender, _orm_subscription) =
             self.get_first_orm_subscription_sender_for(scope, Some(&shape_iri), Some(&session_id))?;
 
-        log_info!("[orm_update_self] got subscription");
+        log_debug!("[orm_update_self] got subscription");
 
         // Revert changes, if there.
         if revert_inserts.len() > 0 || revert_removes.len() > 0 {
@@ -45,10 +47,10 @@ impl Verifier {
                 inserts: revert_removes,
                 removes: revert_inserts,
             };
-            log_info!("[orm_update_self] Reverting triples, calling orm_backend_update. TODO");
+            log_debug!("[orm_update_self] Reverting triples, calling orm_backend_update. TODO");
             // TODO
             // self.orm_backend_update(session_id, scope, "", revert_changes);
-            log_info!("[orm_update_self] Triples reverted.");
+            log_debug!("[orm_update_self] Triples reverted.");
         }
 
         Ok(())
@@ -60,34 +62,35 @@ impl Verifier {
         session_id: u64,
         scope: &NuriV0,
         shape_iri: ShapeIri,
-        diff: OrmPatches,
+        patches: OrmPatches,
     ) -> Result<(), String> {
-        log_info!(
-            "[orm_frontend_update] session={} shape={} diff={:?}",
+        log_debug!(
+            "[orm_frontend_update] session={} shape={} patches={:?}",
             session_id,
             shape_iri,
-            diff
+            patches
         );
 
+        let nuri_str = nuri_to_string(scope);
         let (doc_nuri, sparql_update) = {
             let orm_subscription =
-                self.get_first_orm_subscription_for(scope, Some(&shape_iri), Some(&session_id));
-            let doc_nuri = orm_subscription.nuri.clone();
+                self.get_first_orm_subscription_for(&nuri_str, Some(&shape_iri), Some(&session_id));
 
-            log_info!("[orm_frontend_update] got subscription");
+            // Hack to get any graph used in the patch. We don't need one because all statements are tied to a graph
+            // but the subscription.nuri might be a scope, whereas `process_sparql_update` requires a default graph.
+            let patch_strs: Vec<String> =
+                patches[0].path.split('/').map(|s| s.to_string()).collect();
+            let graph_subj: Vec<String> = patch_strs[1].split('|').map(|s| s.to_string()).collect();
+            let doc_nuri = graph_subj[0].clone();
 
-            let sparql_update = create_sparql_update_query_for_diff(orm_subscription, diff);
-            log_info!(
-                "[orm_frontend_update] created sparql_update query:\n{}",
-                sparql_update
-            );
+            let sparql_update = create_sparql_update_query_for_patches(orm_subscription, patches);
 
             (doc_nuri, sparql_update)
         };
 
         match self
             .process_sparql_update(
-                &doc_nuri,
+                &NuriV0::new_from(&doc_nuri).unwrap(),
                 &sparql_update,
                 &None,
                 self.get_peer_id_for_skolem(),
@@ -96,22 +99,17 @@ impl Verifier {
             .await
         {
             Err(e) => {
-                log_info!("[orm_frontend_update] query failed");
+                log_info!("[orm_frontend_update] query failed: {:?}", e);
 
                 Err(e)
             }
             Ok((_, revert_inserts, revert_removes, skolemnized_blank_nodes)) => {
-                log_info!(
-                    "[orm_frontend_update] query successful. Reverts? {}",
-                    revert_inserts.len()
-                );
-
                 if !revert_inserts.is_empty()
                     || !revert_removes.is_empty()
                     || !skolemnized_blank_nodes.is_empty()
                 {
                     self.orm_update_self(
-                        scope,
+                        &nuri_str,
                         shape_iri,
                         session_id,
                         skolemnized_blank_nodes,
@@ -127,83 +125,145 @@ impl Verifier {
     }
 }
 
-fn create_sparql_update_query_for_diff(
+fn create_sparql_update_query_for_patches(
     orm_subscription: &OrmSubscription,
-    diff: OrmPatches,
+    patches: OrmPatches,
 ) -> String {
-    log_info!(
-        "[create_sparql_update_query_for_diff] Starting with {} patches",
-        diff.len()
+    // Pre-resolve new object creations: map from base path to (subject_iri, graph_iri)
+    // Example keys: "/graph|parent/childPred" for single-valued children being created
+    let mut pre_resolved_children: std::collections::HashMap<String, (String, String)> =
+        std::collections::HashMap::new();
+    for p in patches.iter() {
+        if p.op != OrmPatchOp::add {
+            continue;
+        }
+        // We only consider String values
+        let Some(val) = &p.value else {
+            continue;
+        };
+        let Some(str_val) = val.as_str() else {
+            continue;
+        };
+        if p.path.ends_with("/@id") {
+            let base = p.path.strip_suffix("/@id").unwrap().to_string();
+            pre_resolved_children
+                .entry(base)
+                .and_modify(|(sid, _gid)| {
+                    *sid = str_val.to_string();
+                })
+                .or_insert((str_val.to_string(), String::new()));
+        } else if p.path.ends_with("/@graph") {
+            let base = p.path.strip_suffix("/@graph").unwrap().to_string();
+            pre_resolved_children
+                .entry(base)
+                .and_modify(|(_sid, gid)| {
+                    *gid = str_val.to_string();
+                })
+                .or_insert((String::new(), str_val.to_string()));
+        }
+    }
+
+    log_debug!(
+        "[create_sparql_update_query_for_patches] Starting with {} patches",
+        patches.len()
     );
 
     // First sort patches.
     // - Process delete patches first.
-    // - Process object creation add operations before rest, to ensure potential blank nodes are created.
-    let delete_patches: Vec<_> = diff
+
+    let delete_patches: Vec<_> = patches
         .iter()
         .filter(|patch| patch.op == OrmPatchOp::remove)
         .collect();
-    log_info!(
-        "[create_sparql_update_query_for_diff] Found {} delete patches",
-        delete_patches.len()
-    );
 
-    // let add_object_patches: Vec<_> = diff
-    //     .iter()
-    //     .filter(|patch| {
-    //         patch.op == OrmPatchOp::add
-    //             && match &patch.valType {
-    //                 Some(vt) => *vt == OrmPatchType::object,
-    //                 _ => false,
-    //             }
-    //     })
-    //     .collect();
-    // log_info!(
-    //     "[create_sparql_update_query_for_diff] Found {} add object patches",
-    //     add_object_patches.len()
-    // );
-
-    let add_primitive_patches: Vec<_> = diff
+    // Ignore metadata patches that only stage identity/location for single-nested children.
+    // Those are consumed via the pre_resolved_children map above and must not produce SPARQL.
+    let add_primitive_patches: Vec<_> = patches
         .iter()
         .filter(|patch| {
             patch.op == OrmPatchOp::add
+                && !patch.path.ends_with("/@id")
+                && !patch.path.ends_with("/@graph")
                 && match &patch.valType {
                     Some(vt) => *vt != OrmPatchType::object,
                     _ => true,
                 }
         })
         .collect();
-    log_info!(
-        "[create_sparql_update_query_for_diff] Found {} add primitive patches",
-        add_primitive_patches.len()
-    );
 
     // For each diff op, we create a separate INSERT or DELETE block.
     let mut sparql_sub_queries: Vec<String> = vec![];
 
+    // If a single-nested child was staged via @id/@graph, ensure the parent link triple exists.
+    // We do this once per base path present in pre_resolved_children, before processing field patches.
+    for (base_path, (child_subject, child_graph)) in pre_resolved_children.iter() {
+        if child_subject.is_empty() || child_graph.is_empty() {
+            continue; // need both to link
+        }
+        // Build a synthetic patch targeting the base path to resolve subject/predicate in the current schema
+        let synthetic = OrmPatch {
+            op: OrmPatchOp::add,
+            path: base_path.clone(),
+            valType: None,
+            value: None,
+        };
+        let mut var_counter: i32 = 0;
+        let (where_statements, target, pred_schema_opt) = create_where_statements_for_patch(
+            &synthetic,
+            &mut var_counter,
+            &orm_subscription,
+            Some(&pre_resolved_children),
+        );
+        let (graph_iri, subject_var, target_predicate, _target_object) = target;
+        // Only handle object predicates (single-valued) here; multi-valued should use composite key paths, not @id/@graph
+        if let Some(pred_schema) = pred_schema_opt {
+            if !pred_schema.is_object() || pred_schema.is_multi() {
+                continue;
+            }
+        }
+        // Delete any existing link values, then insert the concrete child IRI
+        let delete_stmt = format!(
+            "GRAPH <{}> {{  {} {} ?o{} }}",
+            graph_iri, subject_var, target_predicate, var_counter
+        );
+        let mut wheres = where_statements.clone();
+        wheres.push(delete_stmt.clone());
+        sparql_sub_queries.push(format!(
+            "DELETE {{\n{}\n}} WHERE {{\n  {}\n}}",
+            delete_stmt,
+            wheres.join(" .\n  ")
+        ));
+        let insert_stmt = format!(
+            "  {} {} <{}> .",
+            subject_var, target_predicate, child_subject
+        );
+        sparql_sub_queries.push(format!(
+            "INSERT {{\n{}\n}} WHERE {{\n  {}\n}}",
+            insert_stmt,
+            where_statements.join(". \n  ")
+        ));
+    }
+
     // Create delete statements.
     //
     for (idx, del_patch) in delete_patches.iter().enumerate() {
-        log_info!(
-            "[create_sparql_update_query_for_diff] Processing delete patch {}/{}: path={}",
-            idx + 1,
-            delete_patches.len(),
-            del_patch.path
-        );
-
         let mut var_counter: i32 = 0;
 
-        let (where_statements, target, _pred_schema) =
-            create_where_statements_for_patch(&del_patch, &mut var_counter, &orm_subscription);
-        let (subject_var, target_predicate, target_object) = target;
-
-        log_info!("[create_sparql_update_query_for_diff] Delete patch where_statements: {:?}, subject_var={}, target_predicate={}, target_object={:?}", 
-            where_statements, subject_var, target_predicate, target_object);
+        let (where_statements, target, _pred_schema) = create_where_statements_for_patch(
+            &del_patch,
+            &mut var_counter,
+            &orm_subscription,
+            Some(&pre_resolved_children),
+        );
+        let (graph_iri, subject_var, target_predicate, target_object) = target;
 
         let delete_statement;
         if let Some(target_object) = target_object {
             // Delete the link to exactly one object (IRI referenced in path, i.e. target_object)
-            delete_statement = format!("  {} {} {} .", subject_var, target_predicate, target_object)
+            delete_statement = format!(
+                "GRAPH <{}> {{  {} {} {} }} .",
+                graph_iri, subject_var, target_predicate, target_object
+            )
         } else {
             // Delete object or literal referenced by property name.
             let delete_val = match &del_patch.value {
@@ -215,7 +275,10 @@ fn create_sparql_update_query_for_diff(
                 // Delete the specific values only.
                 Some(val) => json_to_sparql_val(&val), // Can be one or more (joined with ", ").
             };
-            delete_statement = format!("  {} {} {} .", subject_var, target_predicate, delete_val);
+            delete_statement = format!(
+                "GRAPH <{}> {{ {} {} {} }} .",
+                graph_iri, subject_var, target_predicate, delete_val
+            );
         }
 
         sparql_sub_queries.push(format!(
@@ -223,35 +286,25 @@ fn create_sparql_update_query_for_diff(
             delete_statement,
             where_statements.join(" .\n  ")
         ));
-        log_info!(
-            "[create_sparql_update_query_for_diff] Added delete query #{}",
-            sparql_sub_queries.len()
-        );
     }
 
     // Process primitive add patches
     //
     for (idx, add_patch) in add_primitive_patches.iter().enumerate() {
-        log_info!(
-            "[create_sparql_update_query_for_diff] Processing add primitive patch {}/{}: path={}",
-            idx + 1,
-            add_primitive_patches.len(),
-            add_patch.path
-        );
-
         let mut var_counter: i32 = 0;
 
         // Create WHERE statements from path.
-        let (where_statements, target, pred_schema) =
-            create_where_statements_for_patch(&add_patch, &mut var_counter, &orm_subscription);
-        let (subject_var, target_predicate, target_object) = target;
-
-        log_info!("[create_sparql_update_query_for_diff] Add patch where_statements: {:?}, subject_var={}, target_predicate={}, target_object={:?}", 
-            where_statements, subject_var, target_predicate, target_object);
+        let (where_statements, target, pred_schema) = create_where_statements_for_patch(
+            &add_patch,
+            &mut var_counter,
+            &orm_subscription,
+            Some(&pre_resolved_children),
+        );
+        let (graph_iri, subject_var, target_predicate, target_object) = target;
 
         if let Some(_target_object) = target_object {
             // Reference to exactly one object found. This is invalid when inserting literals.
-            log_info!("[create_sparql_update_query_for_diff] SKIPPING: target_object found for literal add (invalid)");
+            log_debug!("[create_sparql_update_query_for_patches] SKIPPING: target_object found for literal add (invalid)");
             // TODO: Return error?
             continue;
         } else {
@@ -261,7 +314,7 @@ fn create_sparql_update_query_for_diff(
                 Some(val) => json_to_sparql_val(&val), // Can be one or more (joined with ", ").
                 None => {
                     // A value must be set. This patch is invalid.
-                    log_info!("[create_sparql_update_query_for_diff] SKIPPING: No value in add patch (invalid)");
+                    log_debug!("[create_sparql_update_query_for_patches] SKIPPING: No value in add patch (invalid)");
                     // TODO: Return error?
                     continue;
                 }
@@ -272,9 +325,10 @@ fn create_sparql_update_query_for_diff(
             // If the schema only has max one value,
             // then `add` can also overwrite values, so we need to delete the previous one
             if !pred_schema.unwrap().is_multi() {
-                log_info!("[create_sparql_update_query_for_diff] Single-value predicate, adding DELETE before INSERT");
-                let remove_statement =
-                    format!("  {} {} ?o{}", subject_var, target_predicate, var_counter);
+                let remove_statement = format!(
+                    "GRAPH <{}> {{  {} {} ?o{} }}",
+                    graph_iri, subject_var, target_predicate, var_counter
+                );
 
                 let mut wheres = where_statements.clone();
                 wheres.push(remove_statement.clone());
@@ -284,43 +338,28 @@ fn create_sparql_update_query_for_diff(
                     remove_statement,
                     wheres.join(" .\n  ")
                 ));
-                log_info!("[create_sparql_update_query_for_diff] Added delete query.");
                 // var_counter += 1; // Not necessary because not used afterwards.
             }
             // The actual INSERT.
-            let add_statement = format!("  {} {} {} .", subject_var, target_predicate, add_val);
+            let add_statement = format!(
+                "GRAPH <{}> {{ {} {} {} . }}",
+                graph_iri, subject_var, target_predicate, add_val
+            );
             sparql_sub_queries.push(format!(
                 "INSERT {{\n{}\n}} WHERE {{\n  {}\n}}",
                 add_statement,
                 where_statements.join(". \n  ")
             ));
-            log_info!("[create_sparql_update_query_for_diff] Added insert query.");
         }
     }
 
-    log_info!(
-        "[create_sparql_update_query_for_diff] Finished. Generated {} sub-queries",
+    log_debug!(
+        "[create_sparql_update_query_for_patches] Finished. Generated {} sub-queries",
         sparql_sub_queries.len()
     );
     return sparql_sub_queries.join(";\n");
 }
 
-fn _get_tracked_subject_from_diff_op(
-    subject_iri: &String,
-    orm_subscription: &OrmSubscription,
-) -> Arc<RwLock<OrmTrackedSubject>> {
-    let tracked_subject = orm_subscription
-        .tracked_subjects
-        .get(subject_iri)
-        .unwrap()
-        .get(&orm_subscription.shape_type.shape)
-        .unwrap();
-
-    return tracked_subject.clone();
-}
-
-/// Removes the current predicate from the path stack and returns the corresponding IRI.
-/// If the
 fn find_pred_schema_by_name(
     readable_predicate: &String,
     subject_schema: &OrmSchemaShape,
@@ -337,24 +376,18 @@ fn find_pred_schema_by_name(
 /// Creates sparql WHERE statements to navigate to the JSON pointer path in our ORM mapping.
 /// Returns tuple of
 ///  - The WHERE statements as Vec<String>
-///  - The Option subject, predicate, Option<Object> of the path's ending (to be used for DELETE)
+///  - The graph, subject, predicate, Option<Object> of the path's ending (to be used for DELETE)
 ///  - The Option predicate schema of the tail of the target property.
 fn create_where_statements_for_patch(
     patch: &OrmPatch,
     var_counter: &mut i32,
     orm_subscription: &OrmSubscription,
+    pre_resolved_children: Option<&std::collections::HashMap<String, (String, String)>>,
 ) -> (
     Vec<String>,
-    (String, String, Option<String>),
+    (String, String, String, Option<String>),
     Option<Arc<OrmSchemaPredicate>>,
 ) {
-    log_info!(
-        "[create_where_statements_for_patch] Starting. patch.path={}, patch.op={:?}",
-        patch.path,
-        patch.op
-    );
-
-    let mut body_statements: Vec<String> = vec![];
     let mut where_statements: Vec<String> = vec![];
 
     let mut path: Vec<String> = patch
@@ -363,101 +396,85 @@ fn create_where_statements_for_patch(
         .map(|s| decode_json_pointer(&s.to_string()))
         .collect();
 
-    log_info!(
-        "[create_where_statements_for_patch] Decoded path into {} segments: {:?}",
-        path.len(),
-        path
-    );
-    path.remove(0);
+    // Drop the leading empty segment from the split("/")
+    if !path.is_empty() && path[0].is_empty() {
+        path.remove(0);
+    }
 
-    // Handle special case: The whole object is deleted.
-    if path.len() == 1 {
-        let root_iri = &path[0];
-        log_info!(
-            "[create_where_statements_for_patch] Special case: whole object deletion for root_iri={}",
-            root_iri
-        );
-        body_statements.push(format!("<{}> ?p ?o", root_iri));
-        where_statements.push(format!("<{}> ?p ?o", root_iri));
+    // We expect the first path segment to be the composite "graph|subject"
+    if path.is_empty() {
+        log_err!("[create_where_statements_for_patch] empty path after decoding");
+        panic!("Invalid patch path: empty");
+    }
+    let root = path.remove(0);
+    let mut split = root.split('|');
+    let graph_iri = split
+        .next()
+        .unwrap_or_else(|| panic!("Invalid root segment, missing graph: {}", root))
+        .to_string();
+    let subject_iri = split
+        .next()
+        .unwrap_or_else(|| panic!("Invalid root segment, missing subject: {}", root))
+        .to_string();
+
+    // Handle special case: only the root object segment was present -> delete entire object
+    if path.is_empty() {
+        where_statements.push(format!(
+            "GRAPH <{}> {{ <{}> ?p ?o }}",
+            graph_iri, subject_iri
+        ));
         return (
             where_statements,
-            (format!("<{}>", root_iri), "?p".to_string(), None),
+            (
+                graph_iri,
+                format!("<{}>", subject_iri),
+                "?p".to_string(),
+                None,
+            ),
             None,
         );
     }
 
-    log_info!(
-        "[create_where_statements_for_patch] Getting root schema for shape={}",
-        orm_subscription.shape_type.shape
-    );
+    // Get root schema.
     let subj_schema: &Arc<OrmSchemaShape> = orm_subscription
         .shape_type
         .schema
         .get(&orm_subscription.shape_type.shape)
         .unwrap();
-    log_info!("[create_where_statements_for_patch] Root schema found");
 
     let mut current_subj_schema: Arc<OrmSchemaShape> = subj_schema.clone();
+    let mut current_graph = graph_iri.clone();
+    let mut subject_ref = format!("<{}>", subject_iri);
+    // Track the concrete subject IRI we are currently traversing (None if bound to a variable)
+    let mut current_subject_iri: Option<String> = Some(subject_iri.clone());
+    // Accumulate traversed predicate segments for building base keys
+    let mut traversed: Vec<String> = vec![];
 
-    // The root IRI might change, if the parent path segment was an IRI.
-    let root_iri = path.remove(0);
-    let mut subject_ref = format!("<{}>", root_iri);
-    log_info!(
-        "[create_where_statements_for_patch] Starting traversal from root_iri={}, remaining path segments={}",
-        root_iri,
-        path.len()
-    );
-
-    while path.len() > 0 {
+    while !path.is_empty() {
         let pred_name = path.remove(0);
-        log_info!(
-            "[create_where_statements_for_patch] Processing path segment: pred_name={}, remaining={}",
-            pred_name,
-            path.len()
-        );
+        traversed.push(pred_name.clone());
 
-        log_info!(
-            "[create_where_statements_for_patch] Looking up predicate schema for name={}",
-            pred_name
-        );
+        // Get predicate schema for current path segment.
         let pred_schema = find_pred_schema_by_name(&pred_name, &current_subj_schema);
-        log_info!(
-            "[create_where_statements_for_patch] Found predicate schema: iri={}, is_object={}, is_multi={}",
-            pred_schema.iri,
-            pred_schema.is_object(),
-            pred_schema.is_multi()
-        );
 
         // Case: We arrived at a leaf value.
-        if path.len() == 0 {
-            log_info!(
-                "[create_where_statements_for_patch] Reached leaf value. Returning target: subject_ref={}, predicate={}",
-                subject_ref,
-                pred_schema.iri
-            );
+        if path.is_empty() {
             return (
                 where_statements,
-                (subject_ref, format!("<{}>", pred_schema.iri.clone()), None),
+                (
+                    current_graph.clone(),
+                    subject_ref.clone(),
+                    format!("<{}>", pred_schema.iri.clone()),
+                    None,
+                ),
                 Some(pred_schema),
             );
         }
 
         // Else, we have a nested object.
 
-        where_statements.push(format!(
-            "{} <{}> ?o{}",
-            subject_ref, pred_schema.iri, var_counter,
-        ));
-        log_info!(
-            "[create_where_statements_for_patch] Added where statement for nested object: {} <{}> ?o{}",
-            subject_ref,
-            pred_schema.iri,
-            var_counter
-        );
-
-        // Update the subject_ref for traversal (e.g. <bob> <hasCat> ?o1 . ?o1 <type> Cat);
-        subject_ref = format!("?o{}", var_counter);
-        *var_counter = *var_counter + 1;
+        // Default traversal for single-valued object properties will add a WHERE triple
+        // For multi-valued properties with an explicit composite key segment, we handle below.
 
         if !pred_schema.is_object() {
             panic!(
@@ -465,55 +482,148 @@ fn create_where_statements_for_patch(
                 pred_schema.iri, subject_ref
             );
         }
+
         if pred_schema.is_multi() {
-            log_info!("[create_where_statements_for_patch] Predicate is multi-valued, expecting object IRI in path");
-            let object_iri = path.remove(0);
-            log_info!(
-                "[create_where_statements_for_patch] Got object_iri={}, remaining path={}",
-                object_iri,
-                path.len()
-            );
-            // Path ends on an object IRI, which we return here as well.
-            if path.len() == 0 {
-                log_info!(
-                    "[create_where_statements_for_patch] Path ends on object IRI. Returning target with object={}",
-                    object_iri
+            // Next segment must be a composite child key "graph|subject"
+            if path.is_empty() {
+                panic!(
+                    "Expected composite child key after multi predicate '{}'",
+                    pred_name
                 );
+            }
+            let child_key = path.remove(0);
+            let mut o_split = child_key.split('|');
+            let object_graph_iri = o_split
+                .next()
+                .unwrap_or_else(|| panic!("Invalid child composite segment: {}", child_key))
+                .to_string();
+            let object_subject_iri = o_split
+                .next()
+                .unwrap_or_else(|| panic!("Invalid child composite segment: {}", child_key))
+                .to_string();
+
+            // Update current graph to the child's graph for subsequent leaf targeting
+            current_graph = object_graph_iri;
+
+            // If path ends here, we're targeting the object link itself
+            if path.is_empty() {
                 return (
                     where_statements,
                     (
-                        subject_ref,
+                        current_graph.clone(),
+                        subject_ref.clone(),
                         format!("<{}>", pred_schema.iri.clone()),
-                        Some(format!("<{}>", object_iri)),
+                        Some(format!("<{}>", object_subject_iri)),
                     ),
                     Some(pred_schema),
                 );
             }
 
-            log_info!(
-                "[create_where_statements_for_patch] Getting child schema for object_iri={}",
-                object_iri
-            );
+            // Otherwise, continue traversal from the concrete child IRI
             current_subj_schema =
-                get_first_child_schema(Some(&object_iri), &pred_schema, &orm_subscription);
-            log_info!("[create_where_statements_for_patch] Child schema found");
-
-            // Since we have new IRI that we can use as root, we replace the current one with it.
-            subject_ref = format!("<{object_iri}>");
-            // And can clear all, now unnecessary where statements.
+                get_first_child_schema(Some(&object_subject_iri), &pred_schema, &orm_subscription);
+            subject_ref = format!("<{}>", object_subject_iri);
+            current_subject_iri = Some(object_subject_iri.clone());
+            // We no longer need previous WHERE bindings since we have a concrete subject
             where_statements.clear();
-            log_info!(
-                "[create_where_statements_for_patch] Reset subject_ref to <{}> and cleared where statements",
-                object_iri
-            );
         } else {
-            // Set to child subject schema.
-            // TODO: Actually, we should get the tracked subject and check for the correct shape there.
-            // As long as there is only one allowed shape or the first one is valid, this is fine.
-            log_info!("[create_where_statements_for_patch] Predicate is single-valued, getting child schema");
+            // Single-valued: leaf-only targeting. If path ends here, use the current subject and predicate.
+            if path.len() == 0 {
+                return (
+                    where_statements,
+                    (
+                        current_graph.clone(),
+                        subject_ref.clone(),
+                        format!("<{}>", pred_schema.iri.clone()),
+                        None,
+                    ),
+                    Some(pred_schema),
+                );
+            }
 
+            // Try pre-resolved child first
+            let base_key = format!(
+                "/{}|{}/{}",
+                crate::orm::utils::escape_json_pointer_segment(&graph_iri),
+                crate::orm::utils::escape_json_pointer_segment(&subject_iri),
+                traversed.join("/")
+            );
+            if let Some(pre) = pre_resolved_children.and_then(|m| m.get(&base_key)) {
+                let (child_subject, child_graph) = pre.clone();
+                if child_subject.is_empty() || child_graph.is_empty() {
+                    panic!(
+                        "Pre-resolved child requires both @id and @graph: {}",
+                        base_key
+                    );
+                }
+                current_graph = child_graph.clone();
+                current_subj_schema =
+                    get_first_child_schema(Some(&child_subject), &pred_schema, &orm_subscription);
+                subject_ref = format!("<{}>", child_subject);
+                current_subject_iri = Some(child_subject);
+                where_statements.clear();
+
+                continue;
+            }
+
+            // Otherwise, use heuristic on tracked children
+            if let (Some(cur_subj_iri)) = (&current_subject_iri) {
+                if let Some(parent_obj) = orm_subscription.get_tracked_orm_object(
+                    &current_graph,
+                    cur_subj_iri,
+                    &current_subj_schema.iri,
+                ) {
+                    // Scope the guard so it drops before we use any borrowed data
+                    let (parent_graph_guarded, parent_subject_guarded, maybe_tp_children) = {
+                        let parent_guard = parent_obj.read().unwrap();
+                        let maybe_tp_children = parent_guard
+                            .tracked_predicates
+                            .get(&pred_schema.iri)
+                            .map(|t| t.read().unwrap().tracked_children.clone());
+                        (
+                            parent_guard.graph_iri.clone(),
+                            parent_guard.subject_iri.clone(),
+                            maybe_tp_children,
+                        )
+                    };
+
+                    if let Some(tp_children) = maybe_tp_children {
+                        let assessed = assess_and_rank_children(
+                            &parent_graph_guarded,
+                            &parent_subject_guarded,
+                            pred_schema.minCardinality,
+                            pred_schema.maxCardinality,
+                            &tp_children,
+                        );
+                        if let Some(child) = assessed.considered.first() {
+                            let ch = child.read().unwrap();
+                            current_graph = ch.graph_iri.clone();
+                            subject_ref = format!("<{}>", ch.subject_iri.clone());
+                            current_subj_schema = get_first_child_schema(
+                                Some(&ch.subject_iri),
+                                &pred_schema,
+                                &orm_subscription,
+                            );
+                            current_subject_iri = Some(ch.subject_iri.clone());
+                            where_statements.clear();
+
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            // TODO: Is that a legitimate use case? We might want to panic or continue instead.
+            // Fallback: previous WHERE binding behavior
+            where_statements.push(format!(
+                "{} <{}> ?o{}",
+                subject_ref, pred_schema.iri, var_counter,
+            ));
+            subject_ref = format!("?o{}", var_counter);
+            current_subject_iri = None; // Bound to a variable now
+                                        // Update schema to the first possible child schema so that next segment resolution works
             current_subj_schema = get_first_child_schema(None, &pred_schema, &orm_subscription);
-            log_info!("[create_where_statements_for_patch] Child schema found");
+            *var_counter += 1;
         }
     }
     // Can't happen.
@@ -522,7 +632,7 @@ fn create_where_statements_for_patch(
 }
 
 /// Get the schema for a given subject and predicate schema.
-/// It will return the first schema of which the tracked subject is valid.
+/// It will return the first schema of which the tracked orm object is valid.
 /// If there is no subject found, return the first subject schema of the predicate schema.
 fn get_first_child_schema(
     subject_iri: Option<&String>,
@@ -534,20 +644,32 @@ fn get_first_child_schema(
             continue;
         };
 
-        let tracked_subject_opt = subject_iri
-            .and_then(|iri| orm_subscription.tracked_subjects.get(iri))
-            .and_then(|ts_shapes| ts_shapes.get(schema_shape));
+        // ORM prioritization: Find first valid tracked object across all graphs
+        let tracked_orm_objects = subject_iri
+            .map(|iri| orm_subscription.get_tracked_objects_any_graph(iri, schema_shape))
+            .unwrap_or_default();
 
-        if let Some(tracked_subject) = tracked_subject_opt {
-            // The subject is already being tracked (it's not new).
-            if tracked_subject.read().unwrap().valid == OrmTrackedSubjectValidity::Valid {
-                return orm_subscription
-                    .shape_type
-                    .schema
-                    .get(schema_shape)
-                    .unwrap()
-                    .clone();
-            }
+        // Try to find a valid tracked object
+        let valid_obj = tracked_orm_objects
+            .iter()
+            .find(|obj| obj.read().unwrap().valid == TrackedOrmObjectValidity::Valid);
+
+        if let Some(_tracked_orm_object) = valid_obj {
+            // The subject is already being tracked and is valid.
+            return orm_subscription
+                .shape_type
+                .schema
+                .get(schema_shape)
+                .unwrap()
+                .clone();
+        } else if !tracked_orm_objects.is_empty() {
+            // Subject is tracked but not valid yet - still use this schema
+            return orm_subscription
+                .shape_type
+                .schema
+                .get(schema_shape)
+                .unwrap()
+                .clone();
         } else {
             // New subject, we need to guess the schema, take the first one.
             // TODO: We could do that by looking at a distinct property, e.g. @type which must be non-overlapping.

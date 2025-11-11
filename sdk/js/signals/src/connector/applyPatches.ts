@@ -65,11 +65,18 @@ function isPrimitive(v: unknown): v is string | number | boolean {
  * Find an object in a Set by its @id property.
  * Returns the object if found, otherwise undefined.
  */
-function findInSetById(set: Set<any>, id: string): any | undefined {
+function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
     // TODO: We could optimize that by leveraging the key @id to object mapping in sets of deepSignals.
 
+    let [graphIri, subjectIri] = seg.split("|");
+
     for (const item of set) {
-        if (typeof item === "object" && item !== null && item["@id"] === id) {
+        if (
+            typeof item === "object" &&
+            item !== null &&
+            item["@graph"] === graphIri &&
+            item["@id"] === subjectIri
+        ) {
             return item;
         }
     }
@@ -127,8 +134,13 @@ function findInSetById(set: Set<any>, id: string): any | undefined {
  * @param currentState The object before the patch
  * @param patches An array of patches to apply to the object.
  * @param ensurePathExists If true, create nested objects along the path if the path does not exist.
+ *
+ * @note When creating new objects, this function pre-scans upcoming patches to find @id and @graph
+ *       values that will be assigned to the object. This prevents the signal library's propGenerator
+ *       from being triggered before these identity fields are set, which would cause it to generate
+ *       random IDs unnecessarily.
  */
-export function applyDiff(
+export function applyPatches(
     currentState: Record<string, any>,
     patches: Patch[],
     ensurePathExists: boolean = false
@@ -149,10 +161,9 @@ export function applyDiff(
         // Traverse only intermediate segments (to leaf object at path)
         for (let i = 0; i < pathParts.length - 1; i++) {
             const seg = pathParts[i];
-
             // Handle Sets: if parentVal is a Set, find object by @id
             if (parentVal instanceof Set) {
-                const foundObj = findInSetById(parentVal, seg);
+                const foundObj = findInSetBySegment(parentVal, seg);
                 if (foundObj) {
                     parentVal = foundObj;
                 } else if (ensurePathExists) {
@@ -212,19 +223,21 @@ export function applyDiff(
         // Special handling when parent is a Set
         if (parentVal instanceof Set) {
             // The key represents the @id of an object within the Set
-            const targetObj = findInSetById(parentVal, key);
+            const targetObj = findInSetBySegment(parentVal, key);
 
             // Handle object creation in a Set
             if (patch.op === "add" && patch.valType === "object") {
                 if (!targetObj) {
                     // Determine if this will be a single object or nested Set
-                    const hasId = patches
-                        .at(patchIndex + 1)
-                        ?.path.endsWith("@id");
+                    const hasId = patches[patchIndex + 2]?.path.endsWith("@id");
                     const newObj: any = hasId ? {} : new Set();
                     // Pre-assign the @id so subsequent patches can find this object
                     if (hasId) {
                         newObj["@id"] = key;
+                        const graphPatch = patches[patchIndex + 1];
+                        if (graphPatch?.path.endsWith("@graph")) {
+                            newObj["@graph"] = graphPatch.value;
+                        }
                     }
                     parentVal.add(newObj);
                 }
@@ -302,21 +315,33 @@ export function applyDiff(
         // - If no @id patch follows, it's a container for multi-valued objects -> create set.
         if (patch.op === "add" && patch.valType === "object") {
             const leafVal = parentVal[key];
-            const hasId = patches.at(patchIndex + 1)?.path.endsWith("@id");
+            const hasId = patches.at(patchIndex + 2)?.path.endsWith("@id");
 
             // If the leafVal does not exist and it should be a set, create.
             if (!hasId && !leafVal) {
                 parentVal[key] = new Set();
             } else if (!(typeof leafVal === "object")) {
                 // If the leave does not exist yet (as object), create it.
-                parentVal[key] = {};
+                const newLeaf: Record<string, any> = {};
+                const graphPatch = patches.at(patchIndex + 1);
+                if (graphPatch?.path.endsWith("@graph")) {
+                    newLeaf["@graph"] = graphPatch.value;
+                }
+                const idPatch = patches.at(patchIndex + 2);
+                if (idPatch?.path.endsWith("@id")) {
+                    newLeaf["@id"] = idPatch.value;
+                }
+                parentVal[key] = newLeaf;
             }
 
             continue;
         }
 
         // Literal add
-        if (patch.op === "add") {
+        if (
+            patch.op === "add" &&
+            !(patch.path.endsWith("@id") || patch.path.endsWith("@graph"))
+        ) {
             parentVal[key] = (patch as LiteralAddPatch).value;
             continue;
         }
@@ -334,9 +359,9 @@ export function applyDiff(
 /**
  * See documentation for applyDiff
  */
-export function applyDiffToDeepSignal(currentState: object, diff: Patch[]) {
+export function applyPatchesToDeepSignal(currentState: object, patch: Patch[]) {
     batch(() => {
-        applyDiff(currentState as Record<string, any>, diff);
+        applyPatches(currentState as Record<string, any>, patch);
     });
 }
 

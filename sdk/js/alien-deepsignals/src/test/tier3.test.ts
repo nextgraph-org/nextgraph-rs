@@ -73,7 +73,13 @@ describe("patches & root ids", () => {
 
 describe("tier3: Set iteration variants", () => {
     it("entries() iteration proxies nested mutation", async () => {
-        const st = deepSignal({ s: new Set<any>() });
+        const st = deepSignal(
+            { s: new Set<any>() },
+            {
+                syntheticIdPropertyName: "id",
+                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+            }
+        );
         st.s.add({ id: "eEnt", inner: { v: 1 } });
         const paths: string[] = [];
         const { stopListening: stop } = watch(st, ({ patches }) =>
@@ -92,7 +98,13 @@ describe("tier3: Set iteration variants", () => {
     });
 
     it("forEach iteration proxies nested mutation", async () => {
-        const st = deepSignal({ s: new Set<any>() });
+        const st = deepSignal(
+            { s: new Set<any>() },
+            {
+                syntheticIdPropertyName: "id",
+                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+            }
+        );
         st.s.add({ id: "fe1", data: { n: 1 } });
         const { stopListening: stop } = watch(st, () => {});
         st.s.forEach((e) => (e as any).data.n); // access
@@ -105,7 +117,13 @@ describe("tier3: Set iteration variants", () => {
     });
 
     it("keys() iteration returns proxies", async () => {
-        const st = deepSignal({ s: new Set<any>() });
+        const st = deepSignal(
+            { s: new Set<any>() },
+            {
+                syntheticIdPropertyName: "id",
+                propGenerator: ({ object }) => ({ syntheticId: object.id }),
+            }
+        );
         st.s.add({ id: "k1", foo: { x: 1 } });
         const { stopListening: stop } = watch(st, () => {});
         for (const e of st.s.keys()) {
