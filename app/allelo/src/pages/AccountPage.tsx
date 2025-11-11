@@ -26,6 +26,7 @@ import {SocialQueries} from '@/components/account/AccountPage/SocialQueries';
 import RCardList from "@/components/rcards/RCardList/RCardList.tsx";
 import {useSvelteComponent} from "svelte-in-react";
 import WalletInfo from "@/svelte/WalletInfo.svelte";
+import {nextgraphDataService} from "@/services/nextgraphDataService.ts";
 
 export const AccountPageContent = ({
                                      profileData,
@@ -117,13 +118,15 @@ const NextGraphAccountPage = () => {
   const {contact, resource, isLoading} = useContactData(null, true);
 
   useEffect(() => {
-    if (!isLoading && contact) {
-      const hasName = (contact.name?.size ?? 0) > 0;
-      if (!hasName) {
+    if (!nextGraphAuth.session || !nextGraphAuth.session.sessionId) {
+      return;
+    }
+    nextgraphDataService.isProfileCreated(nextGraphAuth.session).then((isCreated) => {
+      if (!isCreated) {
         navigate('/account/create', {replace: true});
       }
-    }
-  }, [contact, isLoading, navigate]);
+    })
+  }, [navigate, nextGraphAuth.session]);
 
   const handleLogout = async () => {
     try {
