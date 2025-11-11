@@ -40,8 +40,8 @@ pnpm buildfrontallelo
 
 ```
 cd app/allelo
-bun i
-bun webdev
+pnpm i
+pnpm webdev
 ```
 
 ## First run of your ngd broker
