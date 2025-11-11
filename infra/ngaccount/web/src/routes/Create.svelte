@@ -183,7 +183,7 @@
       {#if ca}
         <div class=" max-w-6xl lg:px-8 mx-auto px-4">
           <p class="max-w-xl md:mx-auto lg:max-w-2xl">
-            You have chosen <b>{domain}</b> as your Broker Service
+            You have selected <b>{domain}</b> as your Broker Service
             Provider.<br />Please read carefully the Terms of Service below,
             before accepting them.
           </p>
