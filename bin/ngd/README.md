@@ -32,7 +32,7 @@ NextGraph is not ready yet. You can subscribe to [our newsletter](https://list.n
 
 ## Building
 
-See [Build release binaries](../DEV.md#build-release-binaries) in the main README.
+See [Build release binaries](../../DEV.md#build-release-binaries) in the main README.
 
 ## Usage
 
