@@ -33,6 +33,11 @@ import {OnboardingRoute} from '@/components/routing/OnboardingRoute';
 import {useSvelteComponent} from "svelte-in-react";
 import WalletCreate from "./svelte/WalletCreate.svelte";
 import WalletLogin from "./svelte/WalletLogin.svelte";
+import WalletLoginQr from "./svelte/WalletLoginQr.svelte";
+import WalletLoginTextCode from "./svelte/WalletLoginTextCode.svelte";
+import ScanQRTauri from "./svelte/ScanQRTauri.svelte";
+import ScanQRWeb from "./svelte/ScanQRWeb.svelte";
+import WalletInfo from "./svelte/WalletInfo.svelte";
 
 const theme = createAppTheme('light');
 
@@ -57,6 +62,12 @@ const RoutesWithAuth = () => {
   // Convert the Svelte components to React components
   const ReactWalletCreate = useSvelteComponent(WalletCreate);
   const ReactWalletLogin = useSvelteComponent(WalletLogin);
+  const ReactWalletLoginQr = useSvelteComponent(WalletLoginQr);
+  const ReactWalletLoginTextCode = useSvelteComponent(WalletLoginTextCode);
+  const ReactWalletInfo = useSvelteComponent(WalletInfo);
+  ;
+  const ReactScanQr = useSvelteComponent(import.meta.env.TAURI_ENV_PLATFORM?
+    ScanQRTauri : ScanQRWeb  );
 
   const nextGraphAuth = useNextGraphAuth() as unknown as NextGraphAuth | undefined;
   const {session} = nextGraphAuth || {};
@@ -77,6 +88,10 @@ const RoutesWithAuth = () => {
         <Route path="/i/:inviteCode" element={<InviteRedirect/>}/>
         <Route path="/wallet/create" element={<ReactWalletCreate/>}/>
         <Route path="/wallet/login" element={<ReactWalletLogin/>}/>
+        <Route path="/scanqr" element={<ReactScanQr/>}/>
+        <Route path="/wallet/login-qr" element={<ReactWalletLoginQr/>}/>
+        <Route path="/wallet/login-text-code" element={<ReactWalletLoginTextCode/>}/>
+        
 
         <Route path="/onboarding/welcome" element={
           <ProtectedRoute hasSession={isAuthenticated} children={
@@ -91,6 +106,7 @@ const RoutesWithAuth = () => {
             <DashboardLayout>
               <Routes>
                 <Route path="/" element={<HomePage/>}/>
+                <Route path="/wallet" element={<ReactWalletInfo/>}/>
                 <Route path="/import" element={<ImportPage/>}/>
                 <Route path="/contacts" element={<ContactListPage/>}/>
                 <Route path="/contacts/create" element={<CreateContactPage/>}/>

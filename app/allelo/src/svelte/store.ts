@@ -115,6 +115,7 @@ export const openModalCreate = async () => {
 }
 
 export const scanned_qr_code = writable("");
+export const redirect_after_scanned_qr_code = writable("");
 export const wallet_from_import = writable<null | object>(null);
 
 export const opened_wallets = writable({});
