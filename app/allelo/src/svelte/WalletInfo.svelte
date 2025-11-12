@@ -210,9 +210,9 @@
 
               <div class="wallet-menu-list">
                 <!-- Scan QR Code to export wallet to another device -->
-                <button
+                <Button
                   class="wallet-menu-item"
-                  on:click={open_scan_menu}
+                  onclick={open_scan_menu}
                 >
                   <div class="wallet-menu-icon">
                     <Camera class="icon" />
@@ -220,12 +220,12 @@
                   <Typography variant="body1">
                     {$t("pages.wallet_info.scan_qr.title")}
                   </Typography>
-                </button>
+                </Button>
 
                 <!-- Generate QR Code export wallet to another device -->
-                <button
+                <Button
                   class="wallet-menu-item"
-                  on:click={open_gen_menu}
+                  onclick={open_gen_menu}
                 >
                   <div class="wallet-menu-icon">
                     <QrCode class="icon" />
@@ -233,12 +233,12 @@
                   <Typography variant="body1">
                     {$t("pages.wallet_info.gen_qr.title")}
                   </Typography>
-                </button>
+                </Button>
 
                 <!-- Copy Wallet TextCode -->
-                <button
+                <Button
                   class="wallet-menu-item"
-                  on:click={open_textcode_menu}
+                  onclick={open_textcode_menu}
                 >
                   <div class="wallet-menu-icon">
                     <Link class="icon" />
@@ -246,13 +246,13 @@
                   <Typography variant="body1">
                     {$t("pages.wallet_info.create_text_code")}
                   </Typography>
-                </button>
+                </Button>
 
                 <!-- Download Wallet -->
                 {#if !downloading}
-                  <button
+                  <Button
                     class="wallet-menu-item"
-                    on:click={download_wallet}
+                    onclick={download_wallet}
                   >
                     <div class="wallet-menu-icon">
                       <DocumentArrowDown class="icon" />
@@ -260,7 +260,7 @@
                     <Typography variant="body1">
                       {$t("pages.wallet_info.download")}
                     </Typography>
-                  </button>
+                  </Button>
                 {:else if download_error}
                   <div class="wallet-menu-item wallet-menu-item--error">
                     <div class="wallet-menu-icon">
@@ -296,7 +296,7 @@
                     download={wallet_file_ready}
                     class="wallet-download-link"
                   >
-                    <Button variant="raised" class="mui-button-primary form-button">
+                    <Button variant="raised" class="mui-button-primary form-button" style="width:100%">
                       <div class="button-icon">
                         <DocumentArrowDown />
                       </div>
@@ -571,54 +571,6 @@
     }
   }
 
-  .dashboard-header {
-    margin-bottom: calc(var(--mui-spacing) * 1);
-    width: 100%;
-    overflow: hidden;
-    min-width: 0;
-  }
-
-  .dashboard-tabs {
-    margin-bottom: calc(var(--mui-spacing) * 2);
-    border-bottom: 1px solid var(--mui-palette-divider);
-  }
-
-  .dashboard-tabs :global(.mdc-tab-bar) {
-    border-bottom: none;
-  }
-
-  .dashboard-tabs :global(.mdc-tab) {
-    height: var(--tab-min-height);
-    min-height: var(--tab-min-height);
-    padding: 0 calc(var(--mui-spacing) * 2);
-  }
-
-  .dashboard-tabs :global(.mdc-tab__text-label) {
-    color: var(--mui-palette-text-secondary);
-    font-size: var(--tab-font-size);
-    font-weight: var(--tab-font-weight);
-    text-transform: var(--mui-typography-button-textTransform);
-  }
-
-  .dashboard-tabs :global(.mdc-tab--active .mdc-tab__text-label) {
-    color: var(--mui-palette-primary-main);
-    font-weight: var(--tab-selected-font-weight);
-  }
-
-  .dashboard-tabs :global(.mdc-tab-indicator) {
-    height: var(--tab-indicator-height);
-  }
-
-  .dashboard-tabs :global(.mdc-tab-indicator__content--underline) {
-    border-radius: var(--tab-indicator-border-radius);
-    background-color: var(--mui-palette-primary-main);
-    border-color: var(--mui-palette-primary-main);
-  }
-
-  .tab-label {
-    font-family: var(--mui-typography-fontFamily);
-  }
-
   .tab-content {
     width: 100%;
   }
@@ -627,25 +579,6 @@
     display: flex;
     flex-direction: column;
     gap: calc(var(--mui-spacing) * 1.5);
-  }
-
-  .wallet-menu-item {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--mui-spacing) * 2);
-    padding: calc(var(--mui-spacing) * 2);
-    background-color: var(--mui-palette-background-default);
-    border: 1px solid var(--mui-palette-divider);
-    border-radius: var(--button-border-radius);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-align: left;
-    width: 100%;
-  }
-
-  .wallet-menu-item:hover:not(.wallet-menu-item--error):not(.wallet-menu-item--info):not(.wallet-menu-item--success) {
-    background-color: var(--mui-palette-action-hover);
-    border-color: var(--mui-palette-primary-main);
   }
 
   .wallet-menu-item--error {
