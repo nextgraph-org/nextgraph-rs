@@ -23,9 +23,9 @@ PREFIX ngkhumrel: <did:ng:k:humanRelationship#>
 PREFIX ngknickname: <did:ng:k:contact:nickname#>
 PREFIX ngprof: <did:ng:k:skills:language:proficiency#>
 
-ngc:SocialContact {
+ngc:SocialContact EXTRA a {
   # Core type definitions
-  a [vcard:Individual]
+  a [ vcard:Individual ]
     // rdfs:comment "Defines the node as an Individual (from vcard)" ;
 
   # Phone numbers

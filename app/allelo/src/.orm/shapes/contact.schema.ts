@@ -20,6 +20,7 @@ export const contactSchema: Schema = {
         minCardinality: 1,
         iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
         readablePredicate: "@type",
+        extra: true,
       },
       {
         dataTypes: [
