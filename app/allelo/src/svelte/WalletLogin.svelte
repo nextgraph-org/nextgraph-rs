@@ -179,7 +179,7 @@
                 let in_memory = !event.detail.trusted;
                 console.log("IMPORTING", in_memory, event.detail.wallet, wallet);
                 //register bootstrap when importing
-                if (!in_memory && !tauri_platform) {
+                if (!in_memory && !tauri_platform && !import.meta.env.NG_ENV_NO_REDIRECT) {
                     let bootstrap_iframe_msgs =
                         await ng.get_bootstrap_iframe_msgs_for_brokers(
                             event.detail.wallet.V0.brokers

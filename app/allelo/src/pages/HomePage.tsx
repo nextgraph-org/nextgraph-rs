@@ -429,7 +429,7 @@ const HomePage = () => {
                 ) : (
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
-                      Hi {firstName},
+                      Hello there,
                     </Typography>
                     <Typography variant="body1" sx={{ mb: 3 }}>
                       {aiEnabled ? 'What would you like to do today?' : 'Search contacts, groups, or navigate quickly'}

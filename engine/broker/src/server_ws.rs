@@ -197,6 +197,7 @@ fn prepare_urls_from_private_addrs(addrs: &Vec<BindAddress>, port: u16) -> Vec<S
 #[folder = "../../app/allelo/dist-web/"]
 #[include = "*.sha256"]
 #[include = "*.gzip"]
+#[include = "*.ttf"]
 struct App;
 
 #[derive(RustEmbed)]
@@ -274,6 +275,18 @@ fn upgrade_ws_or_serve_app(
                 .body(Some(file.data.to_vec()))
                 .unwrap();
             return Err(res);
+        } else if uri.path().ends_with(".ttf") {
+            if let Some(file) = App::get(uri.path().get(1..).unwrap()) {
+                let res = Response::builder()
+                    .status(StatusCode::OK)
+                    .header("Content-Type", "font/ttf")
+                    .header("Cache-Control", "max-age=3600, must-revalidate")
+                    .body(Some(file.data.to_vec()))
+                    .unwrap();
+                return Err(res);
+            } else {
+                return Err(make_error(StatusCode::NOT_FOUND));
+            }
         } else if std::env::var("NG_DEV3").is_ok() && uri.path().starts_with("/auth") {
             // if referer.is_none() || referer.unwrap().to_str().is_err() || referer.unwrap().to_str().unwrap() != "https://nextgraph.net/" {
             //     return Err(make_error(StatusCode::FORBIDDEN));
