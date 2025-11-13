@@ -5,6 +5,7 @@ import {nextgraphDataService} from "@/services/nextgraphDataService";
 import {SocialContact} from "@/.ldo/contact.typings";
 import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
 import {dataService} from "@/services/dataService.ts";
+import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 
 interface UseUpdateProfileReturn {
   updateProfile: (profile: Partial<SocialContact>) => Promise<void>;
@@ -19,6 +20,8 @@ export function useUpdateProfile(): UseUpdateProfileReturn {
   const nextGraphAuth = useNextGraphAuth();
   const {session} = nextGraphAuth || {} as NextGraphAuth;
   const {commitData, changeData} = useLdo();
+
+  const {updateProfilePermissionNodes} = useUpdatePermission(undefined, true);
 
   const isNextGraph = isNextGraphEnabled();
 
@@ -35,6 +38,7 @@ export function useUpdateProfile(): UseUpdateProfileReturn {
     try {
       if (isNextGraph) {
         await nextgraphDataService.updateProfile(session, profile, changeData, commitData);
+        updateProfilePermissionNodes();
       } else {
         await dataService.updateProfile(profile);
       }
@@ -45,7 +49,7 @@ export function useUpdateProfile(): UseUpdateProfileReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [isNextGraph, session, changeData, commitData]);
+  }, [isNextGraph, session, changeData, commitData, updateProfilePermissionNodes]);
 
   return {
     updateProfile,
