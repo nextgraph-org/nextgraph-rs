@@ -32,6 +32,7 @@ import {ChipsVariant, AccountsVariant} from './variants';
 import {ValidationType} from "@/hooks/useFieldValidation";
 import {AddressVariant} from "@/components/contacts/MultiPropertyWithVisibility/variants/AddressVariant.tsx";
 import {NextGraphResource} from "@ldo/connected-nextgraph";
+import {useUpdatePermission} from "@/hooks/rCards/useUpdatePermission.ts";
 
 type ResolvableKey = ContactKeysWithHidden;
 
@@ -77,6 +78,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
   const open = Boolean(anchorEl);
 
   const {commitData, changeData} = useLdo();
+  const {isProfile, updatePermissionsNode} = useUpdatePermission(contact);
 
   const isNextgraph = isNextGraphEnabled() && !contact?.isDraft;
 
@@ -222,7 +224,9 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
       if (resource && !resource.isError && resource.type !== "InvalidIdentifierResource") {
         const changedContactObj = changeData(contact, resource);
         newItem = addNewPropertyWithUserSource(changedContactObj);
-        commitData(changedContactObj);
+        commitData(changedContactObj).then(() => {
+          if (isProfile) updatePermissionsNode(propertyKey);
+        });
       }
     } else {
       newItem = addNewPropertyWithUserSource(contact, true);
@@ -232,7 +236,7 @@ export const MultiPropertyWithVisibility = <K extends ResolvableKey>({
     setIsAddingNew(false);
     loadAllItems();
     return newItem;
-  }, [changeData, commitData, contact, isNextgraph, newItemValue, propertyKey, subKey, loadAllItems, resource]);
+  }, [contact, newItemValue, isNextgraph, loadAllItems, propertyKey, subKey, resource, changeData, commitData, isProfile, updatePermissionsNode]);
 
   const handleInputChange = useCallback((itemId: string, newValue: string) => {
     setEditingValues(prev => ({...prev, [itemId]: newValue}));
