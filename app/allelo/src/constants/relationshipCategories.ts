@@ -2,13 +2,9 @@ import type { SvgIconComponent } from "@mui/icons-material";
 import type { UniconComponent } from "@iconscout/react-unicons";
 import { UilBuilding as Business, UilUsersAlt as Groups, UilQuestionCircle as HelpOutline, UilGlobe as Public, UilUsersAlt as FamilyRestroom } from "@iconscout/react-unicons";
 import {
-  businessPermissions,
-  communityPermissions,
-  ContactPermissions,
-  defaultPermissions,
-  familyPermissions,
-  friendsPermissions
+  defaultPermissions, friendsPermissions,
 } from "./rPermissions.ts";
+import {RCardPermission} from "@/.ldo/rcard.typings.ts";
 
 export interface CategoryColorScheme {
   main: string;
@@ -24,7 +20,7 @@ export interface RelationshipCategory {
   color: string;
   colorScheme: CategoryColorScheme;
   count?: number;
-  permissions: ContactPermissions;
+  permissions: RCardPermission[];
   rerender?: {
     shouldRerender: boolean;
   }
@@ -73,7 +69,7 @@ const categoriesArray: RelationshipCategory[] = [
       bg: '#e8f5e8'
     },
     count: 0,
-    permissions: familyPermissions
+    permissions: []
   },
   {
     id: 'community',
@@ -87,7 +83,7 @@ const categoriesArray: RelationshipCategory[] = [
       bg: '#e3f2fd'
     },
     count: 0,
-    permissions: communityPermissions
+    permissions: []
   },
   {
     id: 'business',
@@ -101,7 +97,7 @@ const categoriesArray: RelationshipCategory[] = [
       bg: '#f3e5f5'
     },
     count: 0,
-    permissions: businessPermissions
+    permissions: []
   }
 ];
 
