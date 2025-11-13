@@ -13,11 +13,13 @@ export interface SocialContact {
   readonly "@graph": IRI;
   readonly "@id": IRI;
   /**
-   * Defines the node as an Individual (from vcard) OR [ ngc:Me ] +
+   * Defines the node as an Individual (from vcard)
    *
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  "@type": "http://www.w3.org/2006/vcard/ns#Individual";
+  "@type": Set<
+    "http://www.w3.org/2006/vcard/ns#Individual" | "did:ng:x:contact:class#Me"
+  >;
   /**
    * Original IRI: did:ng:x:contact#phoneNumber
    */

@@ -15,8 +15,12 @@ export const contactSchema: Schema = {
             valType: "literal",
             literals: ["http://www.w3.org/2006/vcard/ns#Individual"],
           },
+          {
+            valType: "literal",
+            literals: ["did:ng:x:contact:class#Me"],
+          },
         ],
-        maxCardinality: 1,
+        maxCardinality: -1,
         minCardinality: 1,
         iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
         readablePredicate: "@type",
