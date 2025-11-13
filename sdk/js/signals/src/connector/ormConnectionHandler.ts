@@ -77,9 +77,9 @@ export class OrmConnection<T extends BaseType> {
         });
 
         ngSession.then(async ({ ng, session }) => {
-            console.log("Creating orm connection. ng and session", ng, session);
+            //console.log("Creating orm connection. ng and session", ng, session);
             try {
-                await new Promise((resolve) => setTimeout(resolve, 4_000));
+                //await new Promise((resolve) => setTimeout(resolve, 4_000));
                 ng.orm_start(
                     (scope.length == 0
                         ? "" // + session.private_store_id
@@ -162,10 +162,10 @@ export class OrmConnection<T extends BaseType> {
     };
 
     private handleInitialResponse = (initialData: any) => {
-        console.debug(
-            "[handleInitialResponse] handleInitialResponse called with",
-            initialData
-        );
+        // console.debug(
+        //     "[handleInitialResponse] handleInitialResponse called with",
+        //     initialData
+        // );
 
         // Assign initial data to empty signal object without triggering watcher at first.
         this.suspendDeepWatcher = true;
@@ -176,10 +176,10 @@ export class OrmConnection<T extends BaseType> {
             for (const newItem of parseOrmInitialObject(initialData)) {
                 this.signalObject.add(newItem);
             }
-            console.log(
-                "[handleInitialResponse] signal object:",
-                this.signalObject
-            );
+            // console.log(
+            //     "[handleInitialResponse] signal object:",
+            //     this.signalObject
+            // );
         });
 
         queueMicrotask(() => {

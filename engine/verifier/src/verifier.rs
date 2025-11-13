@@ -739,7 +739,7 @@ impl Verifier {
         store_repo: &StoreRepo,
     ) -> Result<(), NgError> {
         if self.last_seq_num + 1 >= self.max_reserved_seq_num {
-            self.reserve_more(1)?;
+            self.reserve_more(1).await?;
         }
         self.new_event_(commit, additional_blocks, repo_id, store_repo)
             .await
@@ -753,7 +753,7 @@ impl Verifier {
         repo: &Repo,
     ) -> Result<(), NgError> {
         if self.last_seq_num + 1 >= self.max_reserved_seq_num {
-            self.reserve_more(1)?;
+            self.reserve_more(1).await?;
         }
         self.new_event_with_repo_(commit, additional_blocks, repo)
             .await
@@ -805,9 +805,9 @@ impl Verifier {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn last_seq_number(&mut self) -> Result<u64, NgError> {
+    pub(crate) async fn last_seq_number(&mut self) -> Result<u64, NgError> {
         if self.available_seq_nums() <= 1 {
-            self.reserve_more(1)?;
+            self.reserve_more(1).await?;
         }
         self.last_seq_num += 1;
         Ok(self.last_seq_num)
@@ -988,7 +988,7 @@ impl Verifier {
         // this is reducing the capacity of reserver_seq_num by half (cast from u64 to i64)
         // but we will never reach situation where so many seq_nums are reserved, neither such a big list of events to process
         if missing_count >= 0 {
-            self.reserve_more(missing_count as u64 + 1)?;
+            self.reserve_more(missing_count as u64 + 1).await?;
         }
         for event in events {
             self.new_event_with_repo_(&event.0, &event.1, repo).await?;
@@ -1006,7 +1006,7 @@ impl Verifier {
         // this is reducing the capacity of reserver_seq_num by half (cast from u64 to i64)
         // but we will never reach situation where so many seq_nums are reserved, neither such a big list of events to process
         if missing_count >= 0 {
-            self.reserve_more(missing_count as u64 + 1)?;
+            self.reserve_more(missing_count as u64 + 1).await?;
         }
         for event in events {
             self.new_event_(&event.0, &event.1, repo_id.clone(), store_repo)
@@ -1019,7 +1019,7 @@ impl Verifier {
         self.max_reserved_seq_num - self.last_seq_num
     }
 
-    pub(crate) fn reserve_more(&mut self, at_least: u64) -> Result<(), NgError> {
+    pub(crate) async fn reserve_more(&mut self, at_least: u64) -> Result<(), NgError> {
         // the qty is calculated based on the last_reservation. the closer to now, the higher the qty.
         // below 1 sec, => 100
         // below 5 sec, => 10
@@ -1030,12 +1030,13 @@ impl Verifier {
             6.. => 1u16,
         };
         self.take_some_peer_last_seq_numbers(max(at_least as u16, qty))
+            .await
     }
 
-    fn take_events_from_outbox(&mut self) -> Result<Vec<EventOutboxStorage>, NgError> {
+    async fn take_events_from_outbox(&mut self) -> Result<Vec<EventOutboxStorage>, NgError> {
         match &self.config.config_type {
             VerifierConfigType::JsSaveSession(js) => {
-                let events_ser = (js.outbox_read_function)(self.peer_id)?;
+                let events_ser = Box::into_pin((js.outbox_read_function)(self.peer_id)).await?;
                 let mut res = Vec::with_capacity(events_ser.len());
                 for event_ser in events_ser {
                     let event = serde_bare::from_slice(&event_ser)?;
@@ -1151,11 +1152,12 @@ impl Verifier {
                         file_blocks,
                     };
 
-                    (js.outbox_write_function)(
+                    Box::into_pin((js.outbox_write_function)(
                         self.peer_id,
                         e.event.seq_num(),
                         serde_bare::to_vec(&e)?,
-                    )?;
+                    ))
+                    .await?;
                 }
                 #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
                 VerifierConfigType::RocksDb(path) => {
@@ -2568,7 +2570,7 @@ impl Verifier {
     // }
 
     pub async fn send_outbox(&mut self) -> Result<(), NgError> {
-        let ret = self.take_events_from_outbox();
+        let ret = self.take_events_from_outbox().await;
         if ret.is_err() {
             log_debug!(
                 "take_events_from_outbox returned {:}",
@@ -2694,10 +2696,10 @@ impl Verifier {
         Ok(())
     }
 
-    fn take_some_peer_last_seq_numbers(&mut self, qty: u16) -> Result<(), NgError> {
+    async fn take_some_peer_last_seq_numbers(&mut self, qty: u16) -> Result<(), NgError> {
         match &self.config.config_type {
             VerifierConfigType::JsSaveSession(js) => {
-                let res = (js.last_seq_function)(self.peer_id, qty)?;
+                let res = Box::into_pin((js.last_seq_function)(self.peer_id, qty)).await?;
                 self.max_reserved_seq_num = res + qty as u64;
             }
             #[cfg(all(not(target_family = "wasm"), not(docsrs)))]
@@ -2750,7 +2752,7 @@ impl Verifier {
         Ok(())
     }
 
-    pub fn new(
+    pub async fn new(
         config: VerifierConfig,
         block_storage: Arc<std::sync::RwLock<dyn BlockStorage + Send + Sync>>,
     ) -> Result<Self, NgError> {
@@ -2815,7 +2817,7 @@ impl Verifier {
         };
         // this is important as it will load the last seq from storage
         if verif.config.config_type.should_load_last_seq_num() {
-            verif.take_some_peer_last_seq_numbers(0)?;
+            verif.take_some_peer_last_seq_numbers(0).await?;
             verif.last_seq_num = verif.max_reserved_seq_num;
             verif.last_reservation = SystemTime::UNIX_EPOCH;
         }
