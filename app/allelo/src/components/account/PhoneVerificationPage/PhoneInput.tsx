@@ -14,6 +14,7 @@ import {
 } from "@mui/icons-material";
 import {FormPhoneField} from "@/components/ui/FormPhoneField/FormPhoneField";
 import {useFieldValidation} from "@/hooks/useFieldValidation";
+import {useNavigate} from "react-router-dom";
 
 interface PhoneInputProps {
   phoneNumber: string;
@@ -30,12 +31,14 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
                                                  error,
                                                  onSubmit,
                                                }) => {
+  const navigate = useNavigate();
   const [valid, setValid] = useState<boolean>(false);
   const phoneValidation = useFieldValidation(phoneNumber, "phone", { validateOn: "change" });
+
   useEffect(() => {
     phoneValidation.triggerField();
-    setValid(!phoneValidation.errors.field)
-  }, [phoneValidation]);
+    setValid(!phoneValidation.errors.field);
+  }, [phoneNumber]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Card sx={{maxWidth: 500, mx: 'auto', mt: 4}}>
@@ -71,6 +74,14 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           )}
 
           <Box sx={{display: 'flex', gap: 2}}>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/account')}
+              disabled={isLoading}
+              sx={{py: 1.5}}
+            >
+              Skip
+            </Button>
             <Button
               type="submit"
               variant="contained"

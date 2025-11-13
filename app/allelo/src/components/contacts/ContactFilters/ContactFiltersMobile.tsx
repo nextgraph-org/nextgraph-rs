@@ -100,16 +100,16 @@ export const ContactFiltersMobile = ({
             flex: 1,
             mb: 0,
             '& .MuiOutlinedInput-root': {
-              height: 32
+              height: 44
             }
           }}
         />}
         {showFilters && <Button
           onClick={handleFilterClick}
           sx={{
-            minWidth: 32,
-            width: 32,
-            height: 32,
+            minWidth: 44,
+            width: 44,
+            height: 44,
             p: 0,
             border: 'none',
             '&:hover': {
@@ -118,7 +118,7 @@ export const ContactFiltersMobile = ({
             }
           }}
         >
-          <UilFilter size="20"/>
+          <UilFilter size="24"/>
         </Button>}
 
         {/* Sort Button */}
@@ -126,9 +126,9 @@ export const ContactFiltersMobile = ({
           onClick={handleSortClick}
           size="small"
           sx={{
-            minWidth: 32,
-            width: 32,
-            height: 32,
+            minWidth: 44,
+            width: 44,
+            height: 44,
             p: 0,
             border: 'none',
             '&:hover': {
@@ -137,7 +137,7 @@ export const ContactFiltersMobile = ({
             }
           }}
         >
-          <UilSortAmountDown size="20"/>
+          <UilSortAmountDown size="24"/>
         </Button>
         {showClearFilters && (
           <Button

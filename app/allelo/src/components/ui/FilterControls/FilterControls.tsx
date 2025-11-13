@@ -109,6 +109,10 @@ export const FilterControls = ({
               endIcon={<KeyboardArrowDown size="20" />}
               onClick={handleSortClick}
               size="small"
+              sx={{
+                height: { xs: 44, sm: 36 },
+                fontSize: { xs: '1rem', sm: '0.875rem' }
+              }}
             >
               {getCurrentSortLabel()}
             </Button>
@@ -123,6 +127,10 @@ export const FilterControls = ({
               onClick={handleFilterClick}
               size="small"
               color={activeFilters.length > 0 ? 'primary' : 'inherit'}
+              sx={{
+                height: { xs: 44, sm: 36 },
+                fontSize: { xs: '1rem', sm: '0.875rem' }
+              }}
             >
               Filters {activeFilters.length > 0 && `(${activeFilters.length})`}
             </Button>
@@ -136,6 +144,10 @@ export const FilterControls = ({
               onClick={onClearAll}
               size="small"
               color="inherit"
+              sx={{
+                height: { xs: 44, sm: 36 },
+                fontSize: { xs: '1rem', sm: '0.875rem' }
+              }}
             >
               Clear All
             </Button>

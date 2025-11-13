@@ -295,12 +295,18 @@ export const useContacts = ({limit = 10}: {limit?: number}): ContactsReturn => {
     const contactsCountResult = await nextgraphDataService.getContactsCount(session, filterParams);
 
     // @ts-expect-error TODO output format of ng sparql query
-    setTotalCount(contactsCountResult.results.bindings[0].totalCount.value as number);
+    const totalContactsInDB = contactsCountResult.results.bindings[0].totalCount.value as number;
+    console.log(`📊 NextGraph contacts query - Page: ${page}, Limit: ${limit}, Offset: ${offset}, Total in DB: ${totalContactsInDB}`);
+
+    setTotalCount(totalContactsInDB);
     const containerOverlay = session.privateStoreId!.substring(46);
     // @ts-expect-error TODO output format of ng sparql query
-    return contactIDsResult.results.bindings.map(
+    const contactNuris = contactIDsResult.results.bindings.map(
       (binding) => binding.contactUri.value + containerOverlay
     );
+
+    console.log(`📋 Returning ${contactNuris.length} contact NURIs for page ${page}`);
+    return contactNuris;
   }, [session, filters, limit]);
 
   const updateContact = async (nuri: string, updates: Partial<Contact>) => {

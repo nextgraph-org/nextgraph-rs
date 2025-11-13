@@ -4,13 +4,14 @@ import {
   Card, CardContent, Button, Switch, Chip, Avatar,
   Badge, List, ListItem, ListItemAvatar, ListItemText, Tooltip,
   Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions,
-  Checkbox, ListItemIcon, ListItemButton, alpha, useTheme
+  Checkbox, ListItemIcon, ListItemButton, alpha, useTheme, SpeedDial,
+  SpeedDialAction, SpeedDialIcon, useMediaQuery
 } from '@mui/material';
 import {
   UilBolt, UilSearch, UilArrowUp, UilPlus, UilEnvelope, UilUsersAlt, UilUserPlus,
   UilBell, UilClock, UilUser, UilArrowRight, UilRss, UilFileAlt,
   UilGift, UilChartLine, UilTrophy, UilUsersAlt as UilHandshake, UilTimes, UilDraggabledots,
-  UilFileEditAlt, UilTag, UilShoppingCart, UilMessage
+  UilFileEditAlt, UilTag, UilShoppingCart, UilMessage, UilSetting, UilApps, UilEstate
 } from '@iconscout/react-unicons';
 import { useAI } from '@/hooks/useAI';
 import {useContactData} from "@/hooks/contacts/useContactData.ts";
@@ -18,6 +19,7 @@ import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 
 const HomePage = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [query, setQuery] = useState('');
   const [aiEnabled, setAiEnabled] = useState(true);
   const [response, setResponse] = useState<string | null>(null);
@@ -27,13 +29,14 @@ const HomePage = () => {
   const [addWidgetDialog, setAddWidgetDialog] = useState(false);
   const [draggedWidget, setDraggedWidget] = useState<string | null>(null);
   const [dropIndicator, setDropIndicator] = useState<{ widgetId: string; position: 'before' | 'after' } | null>(null);
-  
+  const [speedDialOpen, setSpeedDialOpen] = useState(false);
+
   // Quick Actions modal states
   const [createPostDialog, setCreatePostDialog] = useState(false);
   const [sendMessageDialog, setSendMessageDialog] = useState(false);
   const [messageRecipient, setMessageRecipient] = useState<string>('');
   const [messageContent, setMessageContent] = useState<string>('');
-  
+
   // Layout settings
   const [columnLayout, setColumnLayout] = useState<'1-col' | '2-1-col' | '1-2-col' | '3-col'>('2-1-col');
   const [layoutMenuAnchor, setLayoutMenuAnchor] = useState<null | HTMLElement>(null);
@@ -1383,55 +1386,133 @@ const HomePage = () => {
 
   return (
     <Box sx={{pb: 10 }}>
-      {/* Mode Toggle & Widget Controls - Fixed in bottom right corner, inline */}
-      {/*<Paper */}
-      {/*  sx={{ */}
-      {/*    position: 'fixed', */}
-      {/*    bottom: {xs: 60, md: 24},*/}
-      {/*    right: 24, */}
-      {/*    p: {xs: 0, md: 1.5},*/}
-      {/*    px: {xs : 1, md: 1.5},*/}
-      {/*    zIndex: 1002,*/}
-      {/*    borderRadius: 2,*/}
-      {/*    boxShadow: 3,*/}
-      {/*    display: 'flex',*/}
-      {/*    alignItems: 'center',*/}
-      {/*    gap: {xs:0, md:2}*/}
-      {/*  }}*/}
-      {/*>*/}
-      {/*  /!* Mode Toggle *!/*/}
-      {/*  <FormControlLabel*/}
-      {/*    control={*/}
-      {/*      <Switch*/}
-      {/*        checked={viewMode === 'widgets'}*/}
-      {/*        onChange={handleModeToggle}*/}
-      {/*      />*/}
-      {/*    }*/}
-      {/*    label={*/}
-      {/*      <Typography variant="body2" sx={{ fontWeight: 500 }}>*/}
-      {/*        {viewMode === 'widgets' ? 'Widgets' : 'Zen'}*/}
-      {/*      </Typography>*/}
-      {/*    }*/}
-      {/*    labelPlacement="start"*/}
-      {/*  />*/}
+      {/* Mode Toggle & Widget Controls - Desktop: Paper, Mobile: SpeedDial */}
+      {isMobile ? (
+        <SpeedDial
+          ariaLabel="Dashboard controls"
+          sx={{
+            position: 'fixed',
+            bottom: 76,
+            right: 16,
+            zIndex: 1002,
+            '& .MuiSpeedDial-fab': {
+              width: 56,
+              height: 56,
+              backgroundColor: 'primary.main',
+              '&:hover': {
+                backgroundColor: 'primary.dark'
+              }
+            },
+            '& .MuiSpeedDialAction-fab': {
+              width: 48,
+              height: 48,
+              fontSize: '1.25rem',
+              backgroundColor: 'primary.main',
+              color: 'primary.contrastText',
+              '&:hover': {
+                backgroundColor: 'primary.dark'
+              }
+            },
+            '& .MuiSpeedDialAction-staticTooltipLabel': {
+              whiteSpace: 'nowrap',
+              fontSize: '0.9375rem',
+              fontWeight: 500,
+              backgroundColor: 'primary.main',
+              color: 'primary.contrastText',
+              boxShadow: 2,
+              padding: '8px 12px',
+              borderRadius: '8px',
+              minWidth: 120
+            }
+          }}
+          icon={<SpeedDialIcon icon={<UilApps size="24" />} />}
+          open={speedDialOpen}
+          onClose={() => setSpeedDialOpen(false)}
+          onOpen={() => setSpeedDialOpen(true)}
+        >
+          <SpeedDialAction
+            icon={viewMode === 'widgets' ? <UilEstate size="24" /> : <UilApps size="24" />}
+            tooltipTitle={viewMode === 'widgets' ? 'Switch to Zen' : 'Switch to Widgets'}
+            tooltipOpen
+            onClick={() => {
+              handleModeToggle();
+              setSpeedDialOpen(false);
+            }}
+          />
+          {viewMode === 'widgets' && (
+            <SpeedDialAction
+              icon={<UilSetting size="24" />}
+              tooltipTitle="Layout Settings"
+              tooltipOpen
+              onClick={(e) => {
+                const button = e.currentTarget;
+                setLayoutMenuAnchor(button);
+                setSpeedDialOpen(false);
+              }}
+            />
+          )}
+          {viewMode === 'widgets' && (
+            <SpeedDialAction
+              icon={<UilPlus size="24" />}
+              tooltipTitle="Add Widget"
+              tooltipOpen
+              onClick={(e) => {
+                const button = e.currentTarget;
+                setWidgetMenuAnchor(button);
+                setSpeedDialOpen(false);
+              }}
+            />
+          )}
+        </SpeedDial>
+      ) : (
+        <Paper
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            p: 1.5,
+            zIndex: 1002,
+            borderRadius: 2,
+            boxShadow: 3,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}
+        >
+          {/* Mode Toggle */}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={viewMode === 'widgets'}
+                onChange={handleModeToggle}
+              />
+            }
+            label={
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {viewMode === 'widgets' ? 'Widgets' : 'Zen'}
+              </Typography>
+            }
+            labelPlacement="start"
+          />
 
-      {/*  /!* Widget Controls (only show in widgets mode) *!/*/}
-      {/*  {viewMode === 'widgets' && (*/}
-      {/*    <>*/}
-      {/*      <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />*/}
-      {/*      <Tooltip title="Layout Settings">*/}
-      {/*        <IconButton onClick={(e) => setLayoutMenuAnchor(e.currentTarget)} size="small">*/}
-      {/*          <UilSetting size="20" />*/}
-      {/*        </IconButton>*/}
-      {/*      </Tooltip>*/}
-      {/*      <Tooltip title="Add Widget">*/}
-      {/*        <IconButton onClick={handleAddWidget} size="small">*/}
-      {/*          <UilPlus size="20" />*/}
-      {/*        </IconButton>*/}
-      {/*      </Tooltip>*/}
-      {/*    </>*/}
-      {/*  )}*/}
-      {/*</Paper>*/}
+          {/* Widget Controls (only show in widgets mode) */}
+          {viewMode === 'widgets' && (
+            <>
+              <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+              <Tooltip title="Layout Settings">
+                <IconButton onClick={(e) => setLayoutMenuAnchor(e.currentTarget)} size="small">
+                  <UilSetting size="20" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Add Widget">
+                <IconButton onClick={handleAddWidget} size="small">
+                  <UilPlus size="20" />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
+        </Paper>
+      )}
 
       {/* Add Widget Menu */}
       <Menu

@@ -75,6 +75,12 @@ export const SearchInput = forwardRef<HTMLDivElement, SearchInputProps>(
           ) : null,
           ...props.InputProps,
         }}
+        sx={{
+          '& .MuiInputBase-root': {
+            height: { xs: 44, sm: 40 }
+          },
+          ...props.sx
+        }}
         {...props}
       />
     );
