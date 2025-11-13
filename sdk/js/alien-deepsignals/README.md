@@ -2,7 +2,7 @@
 
 Deep structural reactivity for plain objects / arrays / Sets built on top of `alien-signals`.
 
-Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signals the first time you read them. Accessing a property returns the plain value; accessing `$prop` returns the underlying signal function. Deep mutations emit compact batched patch objects you can observe with `watch()`.
+Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signals the first time you read them. Deep mutations emit compact batched patch objects (in a JSON-patch inspired style) that you can track with `watch()`.
 
 ## Features
 
@@ -13,8 +13,9 @@ Core idea: wrap a data tree in a `Proxy` that lazily creates per-property signal
 - Patch stream: microtask‑batched granular mutations (paths + op) for syncing external stores / framework adapters.
 - Getter => computed: property getters become derived (readonly) signals automatically.
 - `$` accessors: TypeScript exposes `$prop` for each non‑function key plus `$` / `$length` for arrays.
-- Sets: structural `add/delete/clear` emit patches; object entries get synthetic stable ids via `@id` property.
-- `@id` property system: configurable automatic ID assignment to objects with custom generators.
+- Sets: structural `add/delete/clear` emit patches; object entries get synthetic stable ids.
+- Configurable synthetic IDs: custom property generator - the synthetic id is used in the paths of patches to identify objects in sets.
+- Read-only properties: protect specific properties from modification.
 - Shallow escape hatch: wrap sub-objects with `shallow(obj)` to track only reference replacement.
 
 ## Install
@@ -41,10 +42,6 @@ state.count++; // mutate normally
 state.user.name = "Grace"; // nested write
 state.items.push({ id: "i2", qty: 2 });
 state.settings.add("beta");
-
-// Direct signal access
-state.$count!.set(5); // update via signal
-console.log(state.$count!()); // read via signal function
 ```
 
 ## Configuration options
@@ -53,61 +50,98 @@ console.log(state.$count!()); // read via signal function
 
 ```ts
 type DeepSignalOptions = {
-    idGenerator?: (pathToObject: (string | number)[]) => string | number; // Custom ID generator function
-    addIdToObjects?: boolean; // Automatically add @id to plain objects
+    propGenerator?: (props: {
+        path: (string | number)[];
+        inSet: boolean;
+        object: any;
+    }) => {
+        syntheticId?: string;
+        extraProps?: Record<string, unknown>;
+    };
+    syntheticIdPropertyName?: string;
+    readOnlyProps?: string[];
 };
 ```
 
-### Custom ID generation
+### Property generator function
 
-Provide a custom function to generate synthetic IDs instead of auto-generated blank node IDs:
+The `propGenerator` function is called when a new object is added to the deep signal tree. It receives:
+
+- `path`: The path of the newly added object
+- `inSet`: Whether the object is being added to a Set (true) or not (false)
+- `object`: The newly added object itself
+
+It can return:
+
+- `syntheticId`: A custom identifier for the object (used in Set entry paths and optionally as a property)
+- `extraProps`: Additional properties to be added to the object
 
 ```ts
 let counter = 0;
 const state = deepSignal(
     { items: new Set() },
     { 
-        idGenerator: () => `urn:item:${++counter}`,
-        addIdToObjects: true 
+        propGenerator: ({ path, inSet, object }) => ({
+            syntheticId: inSet 
+                ? `urn:item:${++counter}`
+                : `urn:obj:${path.join("-")}`,
+            extraProps: { createdAt: new Date().toISOString() }
+        }),
+        syntheticIdPropertyName: "@id",
     }
 );
 
-state.items.add({ name: "Item 1" }); // Gets @id: "urn:item:1"
+state.items.add({ name: "Item 1" }); // Gets @id: "urn:item:1" and createdAt property
 state.items.add({ name: "Item 2" }); // Gets @id: "urn:item:2"
 ```
 
-### The `@id` property
+### Synthetic ID property name
 
-When `addIdToObjects: true`, plain objects automatically receive a readonly, enumerable `@id` property:
+When `syntheticIdPropertyName` is set (e.g., to `"@id"`), objects receive a readonly, enumerable property with the generated synthetic ID:
 
 ```ts
 const state = deepSignal(
     { data: {} },
     { 
-        idGenerator: (_path) => `urn:uuid:${crypto.randomUUID()}`,
-        addIdToObjects: true 
+        propGenerator: ({ path, inSet, object }) => ({
+            syntheticId: `urn:uuid:${crypto.randomUUID()}`,
+        }),
+        syntheticIdPropertyName: "@id",
     }
 );
 
 state.data.user = { name: "Ada" };
 console.log(state.data.user["@id"]); // e.g., "urn:uuid:550e8400-e29b-41d4-a716-446655440000"
+```
 
-// @id is readonly
-state.data.user["@id"] = "new-id"; // TypeError in strict mode
+### Read-only properties
 
-// @id assignment emits a patch
-watch(state, ({ patches }) => {
-    // patches includes: { op: "add", path: ["data", "user", "@id"], value: "..." }
-});
+The `readOnlyProps` option lets you specify property names that cannot be modified:
+
+```ts
+const state = deepSignal(
+    { data: {} },
+    { 
+        propGenerator: ({ path, inSet, object }) => ({
+            syntheticId: `urn:uuid:${crypto.randomUUID()}`,
+        }),
+        syntheticIdPropertyName: "@id",
+        readOnlyProps: ["@id", "@graph"],
+    }
+);
+
+state.data.user = { name: "Ada" };
+state.data.user["@id"] = "new-id"; // TypeError: Cannot modify readonly property '@id'
 ```
 
 **Key behaviors:**
 
-- `@id` is assigned **before** the object is proxied, ensuring it's available immediately
-- `@id` properties are **readonly** and **enumerable**
-- Assigning `@id` emits a patch just like any other property
-- Objects with existing `@id` properties keep their values (not overwritten)
-- Options propagate to nested objects created after initialization
+- Synthetic IDs are assigned **before** the object is proxied, ensuring availability immediately
+- Properties specified in `readOnlyProps` are **readonly** and **enumerable**
+- Synthetic ID assignment emits a patch just like any other property
+- Objects with existing properties matching `syntheticIdPropertyName` keep their values (not overwritten)
+- Options propagate to all nested objects created after initialization
+- The `propGenerator` function is called for both Set entries (`inSet: true`) and regular objects (`inSet: false`)
 
 ## Watching patches
 
@@ -128,6 +162,9 @@ await Promise.resolve(); // flush microtask
 stop();
 ```
 
+## Computed (derived) values
+
+When you derive values from an object, you are advised to 
 ### Callback event shape
 
 ```ts
@@ -179,7 +216,7 @@ Notes:
 Object entries inside Sets need a stable key for patch paths. The synthetic ID resolution follows this priority:
 
 1. Explicit custom ID via `setSetEntrySyntheticId(entry, 'myId')` (before `add`)
-2. Existing `entry['@id']` property
+2. Custom ID property specified by `syntheticIdPropertyName` option (e.g., `entry['@id']`)
 3. Auto-generated blank node ID (`_bN` format)
 
 ### Working with Sets
@@ -187,12 +224,16 @@ Object entries inside Sets need a stable key for patch paths. The synthetic ID r
 ```ts
 import { addWithId, setSetEntrySyntheticId } from "@ng-org/alien-deepsignals";
 
-// Option 1: Use @id from configuration
+// Option 1: Use automatic ID generation via propGenerator
 const state = deepSignal(
     { items: new Set() },
     { 
-        idGenerator: (_path) => `urn:uuid:${crypto.randomUUID()}`,
-        addIdToObjects: true 
+        propGenerator: ({ path, inSet, object }) => ({
+            syntheticId: inSet 
+                ? `urn:uuid:${crypto.randomUUID()}`
+                : undefined,
+        }),
+        syntheticIdPropertyName: "@id",
     }
 );
 const item = { name: "Item 1" };
@@ -207,7 +248,7 @@ state.items.add(obj);
 // Option 3: Use convenience helper
 addWithId(state.items as any, { value: 99 }, "urn:item:special");
 
-// Option 4: Pre-assign @id property
+// Option 4: Pre-assign property matching syntheticIdPropertyName
 const preTagged = { "@id": "urn:explicit:123", data: "..." };
 state.items.add(preTagged); // Uses "urn:explicit:123" as synthetic ID
 ```
@@ -220,8 +261,10 @@ When objects are added to Sets, their **synthetic ID becomes part of the patch p
 const state = deepSignal(
     { s: new Set() }, 
     { 
-        idGenerator: () => "urn:entry:set-entry-1",
-        addIdToObjects: true 
+        propGenerator: ({ inSet }) => ({
+            syntheticId: inSet ? "urn:entry:set-entry-1" : undefined,
+        }),
+        syntheticIdPropertyName: "@id",
     }
 );
 
@@ -250,8 +293,12 @@ state.s.add({ data: "test" });
 const state = deepSignal(
     { users: new Set() }, 
     { 
-        idGenerator: (path) => `urn:user:${path.join("-")}:${crypto.randomUUID()}`,
-        addIdToObjects: true 
+        propGenerator: ({ path, inSet }) => ({
+            syntheticId: inSet 
+                ? `urn:user:${crypto.randomUUID()}`
+                : undefined,
+        }),
+        syntheticIdPropertyName: "@id",
     }
 );
 const user = { name: "Ada", age: 30 };
@@ -310,7 +357,7 @@ const n: number = state.$count!(); // typed number
 
 ## Credits
 
-This project is a fork of https://github.com/CCherry07/alien-deepsignals.
+This project is a fork of https://github.com/CCherry07/alien-deepsignals, forked at commit `b691dc9202c58f63c1bf78675577c811316396db`.
 
 ## License
 

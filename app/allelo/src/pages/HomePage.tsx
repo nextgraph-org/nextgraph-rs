@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box, Container, Typography, TextField, InputAdornment, IconButton, Grid,
-  Card, CardContent, Paper, Button, Switch, FormControlLabel, Chip, Avatar,
-  Badge, List, ListItem, ListItemAvatar, ListItemText, Divider, Tooltip,
+  Card, CardContent, Button, Switch, Chip, Avatar,
+  Badge, List, ListItem, ListItemAvatar, ListItemText, Tooltip,
   Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions,
   Checkbox, ListItemIcon, ListItemButton, alpha, useTheme
 } from '@mui/material';
@@ -10,9 +10,11 @@ import {
   UilBolt, UilSearch, UilArrowUp, UilPlus, UilEnvelope, UilUsersAlt, UilUserPlus,
   UilBell, UilClock, UilUser, UilArrowRight, UilRss, UilFileAlt,
   UilGift, UilChartLine, UilTrophy, UilUsersAlt as UilHandshake, UilTimes, UilDraggabledots,
-  UilFileEditAlt, UilTag, UilShoppingCart, UilMessage, UilSetting
+  UilFileEditAlt, UilTag, UilShoppingCart, UilMessage
 } from '@iconscout/react-unicons';
 import { useAI } from '@/hooks/useAI';
+import {useContactData} from "@/hooks/contacts/useContactData.ts";
+import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 
 const HomePage = () => {
   const theme = useTheme();
@@ -20,7 +22,7 @@ const HomePage = () => {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [response, setResponse] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<'widgets' | 'zen'>('widgets');
+  const [viewMode, setViewMode] = useState<'widgets' | 'zen'>('zen');
   const [widgetMenuAnchor, setWidgetMenuAnchor] = useState<null | HTMLElement>(null);
   const [addWidgetDialog, setAddWidgetDialog] = useState(false);
   const [draggedWidget, setDraggedWidget] = useState<string | null>(null);
@@ -39,9 +41,12 @@ const HomePage = () => {
   const { promptStream } = useAI(false);
   const streamingMessageIdRef = useRef<string | null>(null);
 
+  const {contact} = useContactData(null, true);
+
 
   // Constants
-  const firstName = 'John';
+  const name = resolveFrom(contact, "name");
+  const firstName = name?.firstName;
   const exampleQueries = [
     'Who in my network can help me with ...',
     'Which of my contacts needs my help?',
@@ -429,7 +434,7 @@ const HomePage = () => {
                 ) : (
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
-                      Hi {firstName},
+                      Hello there,
                     </Typography>
                     <Typography variant="body1" sx={{ mb: 3 }}>
                       {aiEnabled ? 'What would you like to do today?' : 'Search contacts, groups, or navigate quickly'}
@@ -1217,7 +1222,7 @@ const HomePage = () => {
                 color: 'text.primary'
               }}
             >
-              Hi {firstName},
+              Hi {firstName ?? "there"},
             </Typography>
 
             <Typography 
@@ -1379,54 +1384,54 @@ const HomePage = () => {
   return (
     <Box sx={{pb: 10 }}>
       {/* Mode Toggle & Widget Controls - Fixed in bottom right corner, inline */}
-      <Paper 
-        sx={{ 
-          position: 'fixed', 
-          bottom: {xs: 60, md: 24},
-          right: 24, 
-          p: {xs: 0, md: 1.5},
-          px: {xs : 1, md: 1.5},
-          zIndex: 1002,
-          borderRadius: 2,
-          boxShadow: 3,
-          display: 'flex',
-          alignItems: 'center',
-          gap: {xs:0, md:2}
-        }}
-      >
-        {/* Mode Toggle */}
-        <FormControlLabel
-          control={
-            <Switch
-              checked={viewMode === 'widgets'}
-              onChange={handleModeToggle}
-            />
-          }
-          label={
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {viewMode === 'widgets' ? 'Widgets' : 'Zen'}
-            </Typography>
-          }
-          labelPlacement="start"
-        />
+      {/*<Paper */}
+      {/*  sx={{ */}
+      {/*    position: 'fixed', */}
+      {/*    bottom: {xs: 60, md: 24},*/}
+      {/*    right: 24, */}
+      {/*    p: {xs: 0, md: 1.5},*/}
+      {/*    px: {xs : 1, md: 1.5},*/}
+      {/*    zIndex: 1002,*/}
+      {/*    borderRadius: 2,*/}
+      {/*    boxShadow: 3,*/}
+      {/*    display: 'flex',*/}
+      {/*    alignItems: 'center',*/}
+      {/*    gap: {xs:0, md:2}*/}
+      {/*  }}*/}
+      {/*>*/}
+      {/*  /!* Mode Toggle *!/*/}
+      {/*  <FormControlLabel*/}
+      {/*    control={*/}
+      {/*      <Switch*/}
+      {/*        checked={viewMode === 'widgets'}*/}
+      {/*        onChange={handleModeToggle}*/}
+      {/*      />*/}
+      {/*    }*/}
+      {/*    label={*/}
+      {/*      <Typography variant="body2" sx={{ fontWeight: 500 }}>*/}
+      {/*        {viewMode === 'widgets' ? 'Widgets' : 'Zen'}*/}
+      {/*      </Typography>*/}
+      {/*    }*/}
+      {/*    labelPlacement="start"*/}
+      {/*  />*/}
 
-        {/* Widget Controls (only show in widgets mode) */}
-        {viewMode === 'widgets' && (
-          <>
-            <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-            <Tooltip title="Layout Settings">
-              <IconButton onClick={(e) => setLayoutMenuAnchor(e.currentTarget)} size="small">
-                <UilSetting size="20" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Add Widget">
-              <IconButton onClick={handleAddWidget} size="small">
-                <UilPlus size="20" />
-              </IconButton>
-            </Tooltip>
-          </>
-        )}
-      </Paper>
+      {/*  /!* Widget Controls (only show in widgets mode) *!/*/}
+      {/*  {viewMode === 'widgets' && (*/}
+      {/*    <>*/}
+      {/*      <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />*/}
+      {/*      <Tooltip title="Layout Settings">*/}
+      {/*        <IconButton onClick={(e) => setLayoutMenuAnchor(e.currentTarget)} size="small">*/}
+      {/*          <UilSetting size="20" />*/}
+      {/*        </IconButton>*/}
+      {/*      </Tooltip>*/}
+      {/*      <Tooltip title="Add Widget">*/}
+      {/*        <IconButton onClick={handleAddWidget} size="small">*/}
+      {/*          <UilPlus size="20" />*/}
+      {/*        </IconButton>*/}
+      {/*      </Tooltip>*/}
+      {/*    </>*/}
+      {/*  )}*/}
+      {/*</Paper>*/}
 
       {/* Add Widget Menu */}
       <Menu

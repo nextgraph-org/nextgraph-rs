@@ -168,7 +168,7 @@ export async function mapLinkedInPerson(
           startDate: el.startedOn ? parseLinkedInDate(el.startedOn) : undefined,
           endDate: el.finishedOn ? parseLinkedInDate(el.finishedOn) : undefined,
           description: el.description || "",
-          url: el.url || "",
+          url1: el.url || "",
           source: src,
         }));
       }
@@ -225,12 +225,12 @@ export async function mapLinkedInPerson(
       }
 
       if (otherData.Publications && Array.isArray(otherData.Publications)) {
-        contactJson.project = otherData.Publications.map((el: any) => ({
+        contactJson.publication = otherData.Publications.map((el: any) => ({
           value: el.name || "",
           publishDate: el.publishedOn ? parseLinkedInDate(el.publishedOn) : undefined,
           description: el.description || "",
           publisher: el.publisher || "",
-          url: el.url || "",
+          url1: el.url || "",
           source: src,
         }));
       }

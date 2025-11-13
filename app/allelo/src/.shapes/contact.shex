@@ -703,7 +703,7 @@ ngc:Project {
     // rdfs:comment "Title of project" ;
   ngcore:description xsd:string ?
     // rdfs:comment "Project description" ;
-  ngcore:url xsd:string ?
+  ngcore:url1 xsd:string ?
     // rdfs:comment "Project URL" ;
   ngcore:startDate xsd:date ?
     // rdfs:comment "Project start date" ;

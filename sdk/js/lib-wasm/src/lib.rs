@@ -20,6 +20,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use nextgraph::net::app_protocol::AppRequest;
+use nextgraph::net::app_protocol::NuriV0;
 use ng_net::orm::OrmPatch;
 use ng_repo::log_info;
 use ng_wallet::types::SensitiveWallet;
@@ -1836,7 +1837,7 @@ pub async fn orm_start(
         .map_err(|e| format!("Deserialization error of shapeType {e}"))?;
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
-    let scope = if scope.is_empty() {
+    let scope = if scope.is_empty() || scope == "did:ng:i" {
         NuriV0::new_entire_user_site()
     } else {
         NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
@@ -1857,7 +1858,7 @@ pub async fn orm_update(
     let diff: OrmPatches = serde_wasm_bindgen::from_value::<OrmPatches>(diff)
         .map_err(|e| format!("Deserialization error of diff {e}"))?;
 
-    let scope = if scope.is_empty() {
+    let scope = if scope.is_empty() || scope == "did:ng:i" {
         NuriV0::new_entire_user_site()
     } else {
         NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?

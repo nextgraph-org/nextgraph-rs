@@ -10,6 +10,7 @@ export type IRI = string;
  * TestObject Type
  */
 export interface TestObject {
+  readonly "@graph": IRI;
   readonly "@id": IRI;
   /**
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
@@ -36,6 +37,7 @@ export interface TestObject {
    */
   objectValue: {
     readonly "@id": IRI;
+    readonly "@graph": IRI;
     /**
      * Original IRI: http://example.org/nestedString
      */
@@ -52,20 +54,18 @@ export interface TestObject {
   /**
    * Original IRI: http://example.org/anotherObject
    */
-  anotherObject?: Record<
-    IRI,
-    {
-      readonly "@id": IRI;
-      /**
-       * Original IRI: http://example.org/prop1
-       */
-      prop1: string;
-      /**
-       * Original IRI: http://example.org/prop2
-       */
-      prop2: number;
-    }
-  >;
+  anotherObject?: Set<{
+    readonly "@id": IRI;
+    readonly "@graph": IRI;
+    /**
+     * Original IRI: http://example.org/prop1
+     */
+    prop1: string;
+    /**
+     * Original IRI: http://example.org/prop2
+     */
+    prop2: number;
+  }>;
   /**
    * Original IRI: http://example.org/numOrStr
    */

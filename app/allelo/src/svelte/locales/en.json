@@ -559,17 +559,17 @@
     },
     "wallet_login_qr": {
       "title": "Import Wallet with QR-Code",
-      "scan.description": "To import your wallet from another device, generate an export QR-Code there. In order to do so, on the other device, go to<br /><span class=\"path\">User Panel > Wallet > Export by generating a QR-Code</span>.",
+      "scan.description": "To import your wallet from another device, generate an export QR-Code there. In order to do so, on the other device, go to<br /><span class=\"path\">Dashboard > Wallet > Export by generating a QR-Code</span>.",
       "scan.modal.title": "Scan Wallet QR-Code",
       "gen.button": "Generate QR-Code",
       "gen.description": "To import your wallet from another device, you have to generate a QR-Code here on this device, and then scan it with your other device (the one where your wallet is located for now).<br/>If your other device does not have a camera, then you have to use another method for importing your wallet here.",
-      "gen.letsgo": "Ready? On your other device, you first have to be logged-in (wallet is opened) and then you go to<br /><span class=\"path\">User Panel > Wallet > Export by scanning a QR-code</span>.<br />Then on this present device, click below on the<br/><span class=\"path\">Generate QR-Code</span> button.",
+      "gen.letsgo": "Ready? On your other device, you first have to be logged-in (wallet is opened) and then you go to<br /><span class=\"path\">Dashboard > Wallet > Export by scanning a QR-code</span>.<br />Then on this present device, click below on the<br/><span class=\"path\">Generate QR-Code</span> button.",
       "gen.generated": "Scan this QR-Code from the other device.<br/>You have 5 minutes to do so.",
       "success_btn": "Continue to Login"
     },
     "wallet_login_textcode": {
       "title": "Import Wallet from TextCode",
-      "description": "To generate a TextCode, open a logged in device and go to<br /><span class=\"path\">User Panel > Wallet > Export by generating a TextCode</span>.",
+      "description": "To generate a TextCode, open a logged in device and go to<br /><span class=\"path\">Dashboard > Wallet > Export by generating a TextCode</span>.",
       "import_btn": "Import with TextCode",
       "enter_here": "Enter your TextCode here below and click on Import button"
     },

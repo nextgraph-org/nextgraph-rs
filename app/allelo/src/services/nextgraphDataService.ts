@@ -9,16 +9,16 @@ import {ContactLdSetProperties, contactLdSetProperties, resolveFrom} from "@/uti
 import {AppSettings} from "@/.ldo/settings.typings.ts";
 import {AppSettingsShapeType} from "@/.ldo/settings.shapeTypes.ts";
 
-export function ldoToJson(obj: any): any {//TODO can go to infinite loop, if obj has subobj that has obj as subobj
+export function ldoToJson(obj: any, depth: number = 0): any {
   if (obj?.toArray) {
     obj = obj.toArray();
   }
   if (Array.isArray(obj)) {
-    return obj.map(item => ldoToJson(item));
+    return obj.map(item => ldoToJson(item, depth + 1));
   }
-  if (obj && typeof obj === "object") {
+  if (obj && typeof obj === "object" && depth < 10) {
     return Object.fromEntries(
-      Object.entries(obj).map(([k, v]) => [k, ldoToJson(v)])
+      Object.entries(obj).map(([k, v]) => [k, ldoToJson(v, depth + 1)])
     );
   }
   return obj;

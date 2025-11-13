@@ -43,9 +43,6 @@ pub(crate) async fn create_doc_with_data(session_id: u64, sparql_insert: String)
 }
 
 pub(crate) fn assert_json_eq(expected: &mut Value, actual: &mut Value) {
-    remove_id_fields(expected);
-    remove_id_fields(actual);
-
     sort_arrays(expected);
     sort_arrays(actual);
 

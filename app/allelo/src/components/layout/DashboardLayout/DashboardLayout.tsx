@@ -197,7 +197,7 @@ export const DashboardLayout = ({children}: DashboardLayoutProps) => {
             justifyContent: 'center',
             py: isMobile ? 0 : 2,
             pl: 0,
-            opacity: "50%",
+            opacity: "100%",
             gap: isMobile ? 0 : 2,
           }}
         >

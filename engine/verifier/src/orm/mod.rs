@@ -7,7 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
-pub mod add_remove_triples;
+pub mod add_remove_quads;
 pub mod handle_backend_update;
 pub mod handle_frontend_update;
 pub mod initialize;
@@ -22,11 +22,4 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use crate::orm::types::*;
 use crate::verifier::*;
 
-impl Verifier {
-    pub(crate) fn _clean_orm_subscriptions(&mut self) {
-        self.orm_subscriptions.retain(|_, subscriptions| {
-            subscriptions.retain(|sub| !sub.sender.is_closed());
-            !subscriptions.is_empty()
-        });
-    }
-}
+impl Verifier {}

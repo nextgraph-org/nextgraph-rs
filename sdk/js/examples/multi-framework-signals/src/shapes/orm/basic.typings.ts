@@ -10,6 +10,7 @@ export type IRI = string;
  * Basic Type
  */
 export interface Basic {
+  readonly "@graph": IRI;
   readonly "@id": IRI;
   /**
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type

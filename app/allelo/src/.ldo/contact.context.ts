@@ -1235,8 +1235,8 @@ export const contactContext: LdoJsonldContext = {
     "@id": "did:ng:x:core#description",
     "@type": "http://www.w3.org/2001/XMLSchema#string",
   },
-  url2: {
-    "@id": "did:ng:x:core#url",
+  url1: {
+    "@id": "did:ng:x:core#url1",
     "@type": "http://www.w3.org/2001/XMLSchema#string",
   },
   publication: {
@@ -1250,6 +1250,10 @@ export const contactContext: LdoJsonldContext = {
   },
   publisher: {
     "@id": "did:ng:x:contact#publisher",
+    "@type": "http://www.w3.org/2001/XMLSchema#string",
+  },
+  url2: {
+    "@id": "did:ng:x:core#url",
     "@type": "http://www.w3.org/2001/XMLSchema#string",
   },
   naoStatus: {

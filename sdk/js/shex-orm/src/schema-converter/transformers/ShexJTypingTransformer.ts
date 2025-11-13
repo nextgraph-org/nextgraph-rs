@@ -225,37 +225,40 @@ function dedupeCompactProperties(
     return merged;
 }
 
-// Helpers to add @id: IRI to anonymous object(-union) types
-function ensureIdOnMembers(members?: any[]): void {
-    if (!members) return;
-    const props = (members.filter?.((m: any) => m?.kind === "property") ||
-        []) as dom.PropertyDeclaration[];
-    if (!props.some((m) => m.name === "id")) {
-        members.unshift(
-            dom.create.property(
-                "@id",
-                dom.create.namedTypeReference("IRI"),
-                dom.DeclarationFlags.ReadOnly
-            )
-        );
-    }
-}
-
-function withIdOnAnonymousObject(t: dom.Type): dom.Type {
+/** Add `@id` and `@graph` optional readonly props for nested objects */
+function addIdAndGraphProperties(t: dom.Type): dom.Type {
     if ((t as any)?.kind === "object") {
-        const mems = (t as any).members as
+        const members = (t as any).members as
             | dom.PropertyDeclaration[]
             | undefined;
-        ensureIdOnMembers(mems as any);
-        return t;
+        if (!members) return t;
+
+        const props = (members.filter?.((m: any) => m?.kind === "property") ||
+            []) as dom.PropertyDeclaration[];
+        if (!props.some((m) => m.name === "@id")) {
+            members.unshift(
+                dom.create.property(
+                    "@id",
+                    dom.create.namedTypeReference("IRI"),
+                    dom.DeclarationFlags.Optional |
+                        dom.DeclarationFlags.ReadOnly
+                ),
+                dom.create.property(
+                    "@graph",
+                    dom.create.namedTypeReference("IRI"),
+                    dom.DeclarationFlags.Optional |
+                        dom.DeclarationFlags.ReadOnly
+                )
+            );
+        }
     }
     return t;
 }
 
-function withIdInUnionObjectMembers(t: dom.Type): dom.Type {
+function addIdAndGraphIriToUnionObjects(t: dom.Type): dom.Type {
     if (!isUnionType(t)) return t;
     const members = (t as dom.UnionType).members.map((m) =>
-        (m as any)?.kind === "object" ? withIdOnAnonymousObject(m) : m
+        (m as any)?.kind === "object" ? addIdAndGraphProperties(m) : m
     );
     return dom.create.union(members);
 }
@@ -318,21 +321,37 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                 const shapeInterface = shapeExpr as ShapeInterfaceDeclaration;
                 shapeInterface.name = shapeName;
                 // Preserve shape id for downstream shapeTypes generation
-                // (mirrors standard transformer behavior)
                 shapeInterface.shapeId = shapeDecl.id;
-                if (
-                    !shapeInterface.members.find(
-                        (m) => m.kind === "property" && m.name === "@id"
-                    )
-                ) {
-                    shapeInterface.members.unshift(
-                        dom.create.property(
-                            "@id",
-                            dom.create.namedTypeReference("IRI"),
-                            // Root interfaces should have mandatory @id
-                            dom.DeclarationFlags.ReadOnly
-                        )
-                    );
+
+                // Ensure root-level @id and @graph are present as readonly (mandatory)
+                const hasId = shapeInterface.members.find(
+                    (m) => m.kind === "property" && m.name === "@id"
+                );
+                const hasGraph = shapeInterface.members.find(
+                    (m) => m.kind === "property" && m.name === "@graph"
+                );
+
+                if (!hasId || !hasGraph) {
+                    const propsToAdd: dom.PropertyDeclaration[] = [];
+                    if (!hasGraph) {
+                        propsToAdd.push(
+                            dom.create.property(
+                                "@graph",
+                                dom.create.namedTypeReference("IRI"),
+                                dom.DeclarationFlags.ReadOnly
+                            )
+                        );
+                    }
+                    if (!hasId) {
+                        propsToAdd.push(
+                            dom.create.property(
+                                "@id",
+                                dom.create.namedTypeReference("IRI"),
+                                dom.DeclarationFlags.ReadOnly
+                            )
+                        );
+                    }
+                    shapeInterface.members.unshift(...propsToAdd);
                 }
                 return shapeInterface;
             }
@@ -391,17 +410,35 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                     }
                 });
             }
-            // Final pass: ensure only a single id property
+            // Final pass: ensure only a single @id and a single @graph property, normalize to readonly
             const idSeen = new Set<number>();
+            const graphSeen = new Set<number>();
             newInterface.members = newInterface.members.filter((m, idx) => {
-                if (m.kind !== "property" || m.name !== "@id") return true;
-                if (idSeen.size === 0) {
-                    idSeen.add(idx);
-                    // normalize id type to IRI
-                    m.type = dom.create.namedTypeReference("IRI");
-                    return true;
+                if (m.kind !== "property") return true;
+
+                if (m.name === "@id") {
+                    if (idSeen.size === 0) {
+                        idSeen.add(idx);
+                        // normalize id type to IRI and make readonly
+                        m.type = dom.create.namedTypeReference("IRI");
+                        m.flags = dom.DeclarationFlags.ReadOnly;
+                        return true;
+                    }
+                    return false;
                 }
-                return false;
+
+                if (m.name === "@graph") {
+                    if (graphSeen.size === 0) {
+                        graphSeen.add(idx);
+                        // normalize graph type to IRI and make readonly
+                        m.type = dom.create.namedTypeReference("IRI");
+                        m.flags = dom.DeclarationFlags.ReadOnly;
+                        return true;
+                    }
+                    return false;
+                }
+
+                return true;
             });
             return newInterface;
         },
@@ -560,25 +597,21 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                         const ifaceName = (
                             valueType as dom.InterfaceDeclaration
                         ).name;
-                        // Dictionary of full object instances keyed by IRI
-                        finalType = recordOf(
-                            dom.create.namedTypeReference("IRI"),
+                        // Set of full object instances
+                        finalType = setOf(
                             dom.create.namedTypeReference(ifaceName)
                         );
                     } else {
                         // Anonymous object or union of anonymous/interface objects
-                        let valueForRecord: dom.Type = valueType;
+                        let valueForSet: dom.Type = valueType;
                         if (unionAllObjLike) {
-                            // Ensure each union member has id?: IRI if anonymous object
-                            valueForRecord =
-                                withIdInUnionObjectMembers(valueType);
+                            // Ensure each union member has @id and @graph as optional readonly
+                            valueForSet =
+                                addIdAndGraphIriToUnionObjects(valueType);
                         } else {
-                            valueForRecord = withIdOnAnonymousObject(valueType);
+                            valueForSet = addIdAndGraphProperties(valueType);
                         }
-                        finalType = recordOf(
-                            dom.create.namedTypeReference("IRI"),
-                            valueForRecord
-                        );
+                        finalType = setOf(valueForSet);
                     }
                 } else {
                     finalType = setOf(valueType);
@@ -588,10 +621,10 @@ export const ShexJTypingTransformerCompact = ShexJTraverser.createTransformer<
                 // If anonymous object or union of object-like types, ensure id: IRI is present (mandatory)
                 if (objLike) {
                     if ((valueType as dom.ObjectType).kind === "object") {
-                        valueType = withIdOnAnonymousObject(valueType);
+                        valueType = addIdAndGraphProperties(valueType);
                     }
                 } else if (isUnion && unionAllObjLike) {
-                    valueType = withIdInUnionObjectMembers(valueType);
+                    valueType = addIdAndGraphIriToUnionObjects(valueType);
                 }
                 // Singular: always the interface/object type itself (never Id union)
                 if (

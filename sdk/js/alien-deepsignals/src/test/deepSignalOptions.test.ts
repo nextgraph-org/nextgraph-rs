@@ -7,8 +7,8 @@ describe("deepSignal options", () => {
         it("uses custom ID generator for objects without @id", async () => {
             let counter = 1000;
             const options: DeepSignalOptions = {
-                idGenerator: () => `custom-${counter++}`,
-                addIdToObjects: true,
+                propGenerator: () => ({ syntheticId: `custom-${counter++}` }),
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ data: {} as any }, options);
@@ -32,8 +32,8 @@ describe("deepSignal options", () => {
 
         it("respects existing @id on objects", async () => {
             const options: DeepSignalOptions = {
-                idGenerator: () => "should-not-be-used",
-                addIdToObjects: true,
+                propGenerator: () => ({ syntheticId: "should-not-be-used" }),
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ items: [] as any[] }, options);
@@ -46,8 +46,10 @@ describe("deepSignal options", () => {
 
         it("uses @id property from objects added to Sets", async () => {
             const options: DeepSignalOptions = {
-                idGenerator: () => "fallback-id",
-                addIdToObjects: true,
+                propGenerator: ({ object }) => ({
+                    syntheticId: object["@id"] || "fallback-id",
+                }),
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ s: new Set<any>() }, options);
@@ -69,10 +71,12 @@ describe("deepSignal options", () => {
         });
     });
 
-    describe("addIdToObjects option", () => {
+    describe("syntheticIdPropertyName option", () => {
         it("adds @id to all nested objects when enabled", async () => {
+            let counter = 100;
             const options: DeepSignalOptions = {
-                addIdToObjects: true,
+                propGenerator: () => ({ syntheticId: `auto-${counter++}` }),
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ root: {} as any }, options);
@@ -114,8 +118,10 @@ describe("deepSignal options", () => {
         });
 
         it("adds @id to objects in arrays", async () => {
+            let counter = 200;
             const options: DeepSignalOptions = {
-                addIdToObjects: true,
+                propGenerator: () => ({ syntheticId: `arr-${counter++}` }),
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ items: [] as any[] }, options);
@@ -142,9 +148,10 @@ describe("deepSignal options", () => {
 
         it("adds @id to objects in Sets", async () => {
             const options: DeepSignalOptions = {
-                idGenerator: () =>
-                    `gen-${Math.random().toString(36).substr(2, 9)}`,
-                addIdToObjects: true,
+                propGenerator: () => ({
+                    syntheticId: `gen-${Math.random().toString(36).substr(2, 9)}`,
+                }),
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ s: new Set<any>() }, options);
@@ -179,7 +186,8 @@ describe("deepSignal options", () => {
     describe("@id property behavior", () => {
         it("makes @id readonly", () => {
             const options: DeepSignalOptions = {
-                addIdToObjects: true,
+                syntheticIdPropertyName: "@id",
+                readOnlyProps: ["@id"],
             };
 
             const state = deepSignal({ obj: {} as any }, options);
@@ -192,8 +200,10 @@ describe("deepSignal options", () => {
         });
 
         it("makes @id enumerable", () => {
+            let counter = 300;
             const options: DeepSignalOptions = {
-                addIdToObjects: true,
+                propGenerator: () => ({ syntheticId: `enum-${counter++}` }),
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ obj: {} as any }, options);
@@ -206,7 +216,7 @@ describe("deepSignal options", () => {
 
         it("emits patches for @id even on objects with existing @id", async () => {
             const options: DeepSignalOptions = {
-                addIdToObjects: true,
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ container: {} as any }, options);
@@ -239,8 +249,10 @@ describe("deepSignal options", () => {
         it("child objects inherit options from root", async () => {
             let idCounter = 5000;
             const options: DeepSignalOptions = {
-                idGenerator: () => `inherited-${idCounter++}`,
-                addIdToObjects: true,
+                propGenerator: () => ({
+                    syntheticId: `inherited-${idCounter++}`,
+                }),
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ root: {} as any }, options);
@@ -262,8 +274,10 @@ describe("deepSignal options", () => {
         it("objects added to Sets inherit options", async () => {
             let counter = 9000;
             const options: DeepSignalOptions = {
-                idGenerator: () => `set-child-${counter++}`,
-                addIdToObjects: true,
+                propGenerator: () => ({
+                    syntheticId: `set-child-${counter++}`,
+                }),
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ s: new Set<any>() }, options);
@@ -295,26 +309,11 @@ describe("deepSignal options", () => {
             stop();
         });
 
-        // TODO: Delete duplicate logic for `id`. Only accept @id.
-        it("objects with id property still work for Sets", async () => {
-            const state = deepSignal({ s: new Set<any>() });
-            const patches: DeepPatch[][] = [];
-            const { stopListening: stop } = watch(state, ({ patches: batch }) =>
-                patches.push(batch)
+        it("@id takes precedence over id property when syntheticIdPropertyName is set", async () => {
+            const state = deepSignal(
+                { s: new Set<any>() },
+                { syntheticIdPropertyName: "@id" }
             );
-
-            state.s.add({ id: "legacy-id", value: 1 });
-            await Promise.resolve();
-
-            const flat = patches.flat().map((p) => p.path.join("."));
-            // Should use id as synthetic key
-            expect(flat.some((p) => p.startsWith("s.legacy-id"))).toBe(true);
-
-            stop();
-        });
-
-        it("@id takes precedence over id property", async () => {
-            const state = deepSignal({ s: new Set<any>() });
             const patches: DeepPatch[][] = [];
             const { stopListening: stop } = watch(state, ({ patches: batch }) =>
                 patches.push(batch)
@@ -339,7 +338,10 @@ describe("deepSignal options", () => {
 
         it("emits delete patch when removing objects with @id from Sets", async () => {
             const options: DeepSignalOptions = {
-                addIdToObjects: true,
+                propGenerator: ({ object }) => ({
+                    syntheticId: object["@id"] || `fallback-${Math.random()}`,
+                }),
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ s: new Set<any>() }, options);
@@ -386,9 +388,10 @@ describe("deepSignal options", () => {
 
         it("emits delete patches when removing objects without explicit @id from Sets", async () => {
             const options: DeepSignalOptions = {
-                idGenerator: () =>
-                    `gen-${Math.random().toString(36).substr(2, 9)}`,
-                addIdToObjects: true,
+                propGenerator: () => ({
+                    syntheticId: `gen-${Math.random().toString(36).substr(2, 9)}`,
+                }),
+                syntheticIdPropertyName: "@id",
             };
 
             const state = deepSignal({ s: new Set<any>() }, options);

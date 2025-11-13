@@ -103,11 +103,11 @@ export const AccountSettings = forwardRef<HTMLDivElement, AccountSettingsProps>(
         </Card>
 
         {/* Personhood Credentials */}
-        <Box sx={{ mb: 3 }}>
-          <PersonhoodCredentialsComponent
-            credentials={personhoodCredentials}
-          />
-        </Box>
+        {/*<Box sx={{ mb: 3 }}>*/}
+        {/*  <PersonhoodCredentialsComponent*/}
+        {/*    credentials={personhoodCredentials}*/}
+        {/*  />*/}
+        {/*</Box>*/}
 
         <Divider sx={{ my: 3 }} />
 

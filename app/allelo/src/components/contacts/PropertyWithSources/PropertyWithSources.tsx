@@ -121,6 +121,12 @@ export const PropertyWithSources = <K extends ResolvableKey>({
       if (currentItem) {
         if (currentItem.source === "user" && currentItem["@id"]) {
           existingUserEntry = currentItem;
+          for (const item of fieldSet) {
+            if (item["@id"] === currentItem["@id"]) {
+              existingUserEntry = item;
+              break;
+            }
+          }
         }
       } else {
         for (const item of fieldSet) {

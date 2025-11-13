@@ -10,7 +10,7 @@
     "tauri": "tauri",
     "format": "prettier --write .",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "webdev": "cross-env NG_ENV_WEB=1 TAURI_DEBUG=1 NG_PUBLIC_DEV=1 vite",
+    "webdev": "cross-env NG_ENV_WEB=1 TAURI_DEBUG=1 NG_ENV_NO_REDIRECT=1 NG_PUBLIC_DEV=1 vite",
     "webbuild": "cross-env NG_ENV_WEB=1 NG_ENV_ONEFILE=1 vite build && node prepare-web-file.cjs",
     "libwasm": "cd ../.. && cargo install cargo-run-script && cargo run-script libwasm",
     "buildfrontdev": "pnpm -C ../../infra/ngnet/bootstrap builddev && pnpm -C ../../infra/ngnet/auth builddev && pnpm -C ../../infra/ngnet/redir builddev"
@@ -22,6 +22,7 @@
     "@ng-org/ui-common": "workspace:*",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-barcode-scanner": "2",
     "async-proxy": "^0.4.1"
   },
   "devDependencies": {
