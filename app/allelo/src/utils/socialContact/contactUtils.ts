@@ -156,6 +156,11 @@ export function getPropByType<K extends ContactKeysWithType>(socialContact: Soci
   return getPropsByType(socialContact, key, type)[0];
 }
 
+export function getPropByNuri<K extends ResolvableKey>(socialContact: SocialContact, key: K, nuri: string): ItemOf<K> | undefined {
+  //@ts-expect-error this is crazy, but that how it works
+  return (socialContact[key]?.toArray() ?? []).find(item => item["@id"] === nuri);
+}
+
 export function getVisibleItems<K extends ResolvableKey>(
   socialContact: SocialContact | undefined,
   key: K,
