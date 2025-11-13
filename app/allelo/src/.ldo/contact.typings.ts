@@ -1633,7 +1633,7 @@ export interface Project {
   /**
    * Project URL
    */
-  url2?: string;
+  url1?: string;
   /**
    * Project start date
    */

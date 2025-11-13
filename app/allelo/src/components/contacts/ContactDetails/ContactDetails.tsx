@@ -90,74 +90,74 @@ export const ContactDetails = forwardRef<HTMLDivElement, ContactDetailsProps>(
           </Typography>
 
           {/* Humanity Confidence Score */}
-          <Box sx={{mb: 3}}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Level of Humanity
-            </Typography>
-            <Box sx={{
-              p: 2,
-              borderRadius: 2,
-              backgroundColor: alpha(humanityInfo.color, 0.08),
-              border: 1,
-              borderColor: alpha(humanityInfo.color, 0.2)
-            }}>
-              <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2}}>
-                <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>
-                  <Security sx={{color: humanityInfo.color}}/>
-                  <Typography variant="body2" sx={{fontWeight: 600, color: humanityInfo.color}}>
-                    {humanityInfo.label}
-                  </Typography>
-                </Box>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={contact.humanityConfidenceScore === 5}
-                      onChange={onHumanityToggle}
-                      size="small"
-                      color="primary"
-                    />
-                  }
-                  label="Human Verified"
-                  labelPlacement="start"
-                  sx={{
-                    m: 0,
-                    '& .MuiFormControlLabel-label': {
-                      fontSize: '0.875rem',
-                      color: 'text.secondary'
-                    }
-                  }}
-                />
-              </Box>
+          {/*<Box sx={{mb: 3}}>*/}
+          {/*  <Typography variant="body2" color="text.secondary" gutterBottom>*/}
+          {/*    Level of Humanity*/}
+          {/*  </Typography>*/}
+          {/*  <Box sx={{*/}
+          {/*    p: 2,*/}
+          {/*    borderRadius: 2,*/}
+          {/*    backgroundColor: alpha(humanityInfo.color, 0.08),*/}
+          {/*    border: 1,*/}
+          {/*    borderColor: alpha(humanityInfo.color, 0.2)*/}
+          {/*  }}>*/}
+          {/*    <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2}}>*/}
+          {/*      <Box sx={{display: 'flex', alignItems: 'center', gap: 1}}>*/}
+          {/*        <Security sx={{color: humanityInfo.color}}/>*/}
+          {/*        <Typography variant="body2" sx={{fontWeight: 600, color: humanityInfo.color}}>*/}
+          {/*          {humanityInfo.label}*/}
+          {/*        </Typography>*/}
+          {/*      </Box>*/}
+          {/*      <FormControlLabel*/}
+          {/*        control={*/}
+          {/*          <Switch*/}
+          {/*            checked={contact.humanityConfidenceScore === 5}*/}
+          {/*            onChange={onHumanityToggle}*/}
+          {/*            size="small"*/}
+          {/*            color="primary"*/}
+          {/*          />*/}
+          {/*        }*/}
+          {/*        label="Human Verified"*/}
+          {/*        labelPlacement="start"*/}
+          {/*        sx={{*/}
+          {/*          m: 0,*/}
+          {/*          '& .MuiFormControlLabel-label': {*/}
+          {/*            fontSize: '0.875rem',*/}
+          {/*            color: 'text.secondary'*/}
+          {/*          }*/}
+          {/*        }}*/}
+          {/*      />*/}
+          {/*    </Box>*/}
 
-              <Box sx={{mb: 2}}>
-                <LinearProgress
-                  variant="determinate"
-                  value={(contact.humanityConfidenceScore || 0) * 16.67}
-                  sx={{
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: alpha(humanityInfo.color, 0.2),
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: humanityInfo.color,
-                      borderRadius: 4,
-                    },
-                  }}
-                />
-                <Box sx={{display: 'flex', justifyContent: 'space-between', mt: 0.5}}>
-                  <Typography variant="caption" color="text.secondary">
-                    Score: {contact.humanityConfidenceScore || 0}/6
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {Math.round((contact.humanityConfidenceScore || 0) * 16.67)}%
-                  </Typography>
-                </Box>
-              </Box>
+          {/*    <Box sx={{mb: 2}}>*/}
+          {/*      <LinearProgress*/}
+          {/*        variant="determinate"*/}
+          {/*        value={(contact.humanityConfidenceScore || 0) * 16.67}*/}
+          {/*        sx={{*/}
+          {/*          height: 8,*/}
+          {/*          borderRadius: 4,*/}
+          {/*          backgroundColor: alpha(humanityInfo.color, 0.2),*/}
+          {/*          '& .MuiLinearProgress-bar': {*/}
+          {/*            backgroundColor: humanityInfo.color,*/}
+          {/*            borderRadius: 4,*/}
+          {/*          },*/}
+          {/*        }}*/}
+          {/*      />*/}
+          {/*      <Box sx={{display: 'flex', justifyContent: 'space-between', mt: 0.5}}>*/}
+          {/*        <Typography variant="caption" color="text.secondary">*/}
+          {/*          Score: {contact.humanityConfidenceScore || 0}/6*/}
+          {/*        </Typography>*/}
+          {/*        <Typography variant="caption" color="text.secondary">*/}
+          {/*          {Math.round((contact.humanityConfidenceScore || 0) * 16.67)}%*/}
+          {/*        </Typography>*/}
+          {/*      </Box>*/}
+          {/*    </Box>*/}
 
-              <Typography variant="body2" color="text.secondary">
-                {humanityInfo.description}
-              </Typography>
-            </Box>
-          </Box>
+          {/*    <Typography variant="body2" color="text.secondary">*/}
+          {/*      {humanityInfo.description}*/}
+          {/*    </Typography>*/}
+          {/*  </Box>*/}
+          {/*</Box>*/}
 
           {contact.createdAt && <Box sx={{display: 'flex', alignItems: 'center', mb: 2}}>
             <Schedule sx={{mr: 2, color: 'text.secondary'}}/>
