@@ -25,8 +25,8 @@ PREFIX ngprof: <did:ng:k:skills:language:proficiency#>
 
 ngc:SocialContact EXTRA a {
   # Core type definitions
-  a [ vcard:Individual ]
-    // rdfs:comment "Defines the node as an Individual (from vcard)" ;
+  a [ vcard:Individual ] OR [ ngc:Me ] +
+    // rdfs:comment "Defines the node as an Individual (from vcard) " ;
 
   # Phone numbers
   ngcontact:phoneNumber @ngc:PhoneNumber * ;

@@ -7,6 +7,7 @@
 // notice may not be copied, modified, or distributed except
 // according to those terms.
 
+use async_std::prelude::Future;
 use core::fmt;
 use std::collections::{BTreeMap, HashMap};
 use std::fs::{read, remove_file, write};
@@ -71,9 +72,17 @@ pub struct HeadlessConfig {
     pub client_peer_key: Option<PrivKey>,
     pub admin_user_key: Option<PrivKey>,
 }
+// Future<Output = Result<String, NgError> > + 'static,
+// fn foo<F>(f: impl Fn(i32) -> F) where     F: Future<Output = i32>, {...}
 
-type JsStorageReadFn = dyn Fn(String) -> Result<String, NgError> + 'static + Sync + Send;
-type JsStorageWriteFn = dyn Fn(String, String) -> Result<(), NgError> + 'static + Sync + Send;
+type JsStorageReadFn = dyn Fn(String) -> Box<dyn Future<Output = Result<String, NgError>> + 'static + Sync + Send>
+    + 'static
+    + Sync
+    + Send;
+type JsStorageWriteFn = dyn Fn(String, String) -> Box<dyn Future<Output = Result<(), NgError>> + 'static + Sync + Send>
+    + 'static
+    + Sync
+    + Send;
 type JsStorageDelFn = dyn Fn(String) -> Result<(), NgError> + 'static + Sync + Send;
 type JsCallback = dyn Fn() + 'static + Sync + Send;
 
@@ -97,78 +106,125 @@ impl JsStorageConfig {
         let session_read4 = Arc::clone(&self.session_read);
         let session_del = Arc::clone(&self.session_del);
         JsSaveSessionConfig {
-            last_seq_function: Box::new(move |peer_id: PubKey, qty: u16| -> Result<u64, NgError> {
-                let res = (session_read2)(format!("ng_peer_last_seq@{}", peer_id));
-                let val = match res {
-                    Ok(old_str) => {
-                        let decoded = base64_url::decode(&old_str)
-                            .map_err(|_| NgError::SerializationError)?;
-                        match serde_bare::from_slice(&decoded)? {
-                            SessionPeerLastSeq::V0(old_val) => old_val,
-                            _ => unimplemented!(),
-                        }
-                    }
-                    Err(_) => 0,
-                };
-                if qty > 0 {
-                    let new_val = val + qty as u64;
-                    let spls = SessionPeerLastSeq::V0(new_val);
-                    let ser = serde_bare::to_vec(&spls)?;
-                    //saving the new val
-                    let encoded = base64_url::encode(&ser);
-                    (session_write2)(format!("ng_peer_last_seq@{}", peer_id), encoded)?;
-                }
-                Ok(val)
-            }),
-            outbox_write_function: Box::new(
-                move |peer_id: PubKey, seq: u64, event: Vec<u8>| -> Result<(), NgError> {
-                    let seq_str = format!("{}", seq);
-                    let res = (session_read3)(format!("ng_outboxes@{}@start", peer_id));
-                    let start = match res {
-                        Err(_) => {
-                            (session_write3)(format!("ng_outboxes@{}@start", peer_id), seq_str)?;
-                            seq
-                        }
-                        Ok(start_str) => start_str
-                            .parse::<u64>()
-                            .map_err(|_| NgError::InvalidFileFormat)?,
-                    };
-                    let idx = seq - start;
-                    let idx_str = format!("{:05}", idx);
-                    let encoded = base64_url::encode(&event);
-                    (session_write3)(format!("ng_outboxes@{}@{idx_str}", peer_id), encoded)
-                },
-            ),
+            last_seq_function:
+                Box::new(
+                    move |peer_id: PubKey,
+                          qty: u16|
+                          -> Box<
+                        dyn Future<Output = Result<u64, NgError>> + 'static + Sync + Send,
+                    > {
+                        let session_read5 = Arc::clone(&session_read2);
+                        let session_write5 = Arc::clone(&session_write2);
+                        Box::new(async move {
+                            let res = Box::into_pin((session_read5)(format!(
+                                "ng_peer_last_seq@{}",
+                                peer_id
+                            )))
+                            .await;
+                            let val = match res {
+                                Ok(old_str) => {
+                                    let decoded = base64_url::decode(&old_str)
+                                        .map_err(|_| NgError::SerializationError)?;
+                                    match serde_bare::from_slice(&decoded)? {
+                                        SessionPeerLastSeq::V0(old_val) => old_val,
+                                        _ => unimplemented!(),
+                                    }
+                                }
+                                Err(_) => 0,
+                            };
+                            if qty > 0 {
+                                let new_val = val + qty as u64;
+                                let spls = SessionPeerLastSeq::V0(new_val);
+                                let ser = serde_bare::to_vec(&spls)?;
+                                //saving the new val
+                                let encoded = base64_url::encode(&ser);
+                                Box::into_pin((session_write5)(
+                                    format!("ng_peer_last_seq@{}", peer_id),
+                                    encoded,
+                                ))
+                                .await?;
+                            }
+                            Ok(val)
+                        })
+                    },
+                ),
+            outbox_write_function:
+                Box::new(
+                    move |peer_id: PubKey,
+                          seq: u64,
+                          event: Vec<u8>|
+                          -> Box<
+                        dyn Future<Output = Result<(), NgError>> + 'static + Sync + Send,
+                    > {
+                        let session_read6 = Arc::clone(&session_read3);
+                        let session_write6 = Arc::clone(&session_write3);
+                        Box::new(async move {
+                            let seq_str = format!("{}", seq);
+                            let res = Box::into_pin((session_read6)(format!(
+                                "ng_outboxes@{}@start",
+                                peer_id
+                            )))
+                            .await;
+                            let start = match res {
+                                Err(_) => {
+                                    Box::into_pin((session_write6)(
+                                        format!("ng_outboxes@{}@start", peer_id),
+                                        seq_str,
+                                    ))
+                                    .await?;
+                                    seq
+                                }
+                                Ok(start_str) => start_str
+                                    .parse::<u64>()
+                                    .map_err(|_| NgError::InvalidFileFormat)?,
+                            };
+                            let idx = seq - start;
+                            let idx_str = format!("{:05}", idx);
+                            let encoded = base64_url::encode(&event);
+                            Box::into_pin((session_write6)(
+                                format!("ng_outboxes@{}@{idx_str}", peer_id),
+                                encoded,
+                            ))
+                            .await
+                        })
+                    },
+                ),
             outbox_read_function: Box::new(
-                move |peer_id: PubKey| -> Result<Vec<Vec<u8>>, NgError> {
-                    let start_key = format!("ng_outboxes@{}@start", peer_id);
-                    //log_info!("search start key {}", start_key);
-                    let res = (session_read4)(start_key.clone());
-                    let _start = match res {
-                        Err(_) => return Err(NgError::JsStorageKeyNotFound),
-                        Ok(start_str) => start_str
-                            .parse::<u64>()
-                            .map_err(|_| NgError::InvalidFileFormat)?,
-                    };
-                    let mut idx: u64 = 0;
-                    let mut result = vec![];
-                    loop {
-                        let idx_str = format!("{:05}", idx);
-                        let str = format!("ng_outboxes@{}@{idx_str}", peer_id);
-                        //log_info!("search key {}", str);
-                        let res = (session_read4)(str.clone());
-                        let res = match res {
-                            Err(_) => break,
-                            Ok(res) => res,
+                move |peer_id: PubKey| -> Box<
+                    dyn Future<Output = Result<Vec<Vec<u8>>, NgError>> + 'static + Sync + Send,
+                > {
+                    let session_read7 = Arc::clone(&session_read4);
+                    let session_del2 = Arc::clone(&session_del);
+                    Box::new(async move {
+                        let start_key = format!("ng_outboxes@{}@start", peer_id);
+                        //log_info!("search start key {}", start_key);
+                        let res = Box::into_pin((session_read7)(start_key.clone())).await;
+                        let _start = match res {
+                            Err(_) => return Err(NgError::JsStorageKeyNotFound),
+                            Ok(start_str) => start_str
+                                .parse::<u64>()
+                                .map_err(|_| NgError::InvalidFileFormat)?,
                         };
-                        (session_del)(str)?;
-                        let decoded =
-                            base64_url::decode(&res).map_err(|_| NgError::SerializationError)?;
-                        result.push(decoded);
-                        idx += 1;
-                    }
-                    (session_del)(start_key)?;
-                    Ok(result)
+                        let mut idx: u64 = 0;
+                        let mut result = vec![];
+                        loop {
+                            let idx_str = format!("{:05}", idx);
+                            let str = format!("ng_outboxes@{}@{idx_str}", peer_id);
+                            //log_info!("search key {}", str);
+                            let res = Box::into_pin((session_read7)(str.clone())).await;
+                            let res = match res {
+                                Err(_) => break,
+                                Ok(res) => res,
+                            };
+                            (session_del2)(str)?;
+                            let decoded = base64_url::decode(&res)
+                                .map_err(|_| NgError::SerializationError)?;
+                            result.push(decoded);
+                            idx += 1;
+                        }
+                        (session_del2)(start_key)?;
+                        Ok(result)
+                    })
                 },
             ),
         }
@@ -1240,10 +1296,11 @@ impl LocalBroker {
                                 }
                                 LocalBrokerConfig::JsStorage(js_config) => {
                                     // read session wallet storage from JsStorage
-                                    let res = (js_config.session_read)(format!(
+                                    let res = Box::into_pin((js_config.session_read)(format!(
                                         "ng_wallet@{}",
                                         wallet_name
-                                    ));
+                                    )))
+                                    .await;
                                     match res {
                                         Ok(string) => {
                                             let decoded = base64_url::decode(&string)
@@ -1310,10 +1367,11 @@ impl LocalBroker {
                                     LocalBrokerConfig::JsStorage(js_config) => {
                                         // save session wallet storage to JsStorage
                                         let encoded = base64_url::encode(&new_sws);
-                                        (js_config.session_write)(
+                                        Box::into_pin((js_config.session_write)(
                                             format!("ng_wallet@{}", wallet_name),
                                             encoded,
-                                        )?;
+                                        ))
+                                        .await?;
                                     }
                                     LocalBrokerConfig::BasePath(base_path) => {
                                         // save session wallet storage to disk
@@ -1373,7 +1431,8 @@ impl LocalBroker {
                         locator,
                     },
                     block_storage,
-                )?;
+                )
+                .await?;
                 key.zeroize();
 
                 //load verifier from local_storage (if rocks_db)
@@ -1389,7 +1448,7 @@ impl LocalBroker {
         }
     }
 
-    pub(crate) fn wallet_save(broker: &mut Self) -> Result<(), NgError> {
+    pub(crate) async fn wallet_save(broker: &mut Self) -> Result<(), NgError> {
         let wallets_to_be_saved = broker
             .wallets
             .iter()
@@ -1401,7 +1460,7 @@ impl LocalBroker {
                 // JS save
                 let lws_ser = LocalWalletStorage::v0_to_vec(&wallets_to_be_saved);
                 let encoded = base64_url::encode(&lws_ser);
-                (js_config.local_write)("ng_wallets".to_string(), encoded)?;
+                Box::into_pin((js_config.local_write)("ng_wallets".to_string(), encoded)).await?;
             }
             LocalBrokerConfig::BasePath(base_path) => {
                 // save on disk
@@ -1454,7 +1513,7 @@ async fn init_(config: LocalBrokerConfig) -> Result<Arc<RwLock<LocalBroker>>, Ng
         }
         LocalBrokerConfig::JsStorage(js_storage_config) => {
             // load the wallets from JsStorage
-            match (js_storage_config.local_read)("ng_wallets".to_string()) {
+            match Box::into_pin((js_storage_config.local_read)("ng_wallets".to_string())).await {
                 Err(_) => HashMap::new(),
                 Ok(wallets_string) => {
                     match base64_url::decode(&wallets_string)
@@ -1640,7 +1699,7 @@ pub async fn wallet_create_v0(params: CreateWalletV0) -> Result<CreateWalletResu
 
     broker.wallets.get_mut(&res.wallet_name).unwrap().wallet = res.wallet.clone();
     if !in_memory {
-        LocalBroker::wallet_save(&mut broker)?;
+        LocalBroker::wallet_save(&mut broker).await?;
     }
     broker
         .opened_wallets
@@ -1665,7 +1724,8 @@ pub async fn wallets_reload() -> Result<(), NgError> {
     match &broker.config {
         LocalBrokerConfig::JsStorage(js_config) => {
             // load the wallets from JsStorage
-            let wallets_string = (js_config.local_read)("ng_wallets".to_string())?;
+            let wallets_string =
+                Box::into_pin((js_config.local_read)("ng_wallets".to_string())).await?;
             let map_ser =
                 base64_url::decode(&wallets_string).map_err(|_| NgError::SerializationError)?;
             let wallets: LocalWalletStorage = serde_bare::from_slice(&map_ser)?;
@@ -1700,7 +1760,7 @@ pub async fn wallet_add(lws: LocalWalletStorageV0) -> Result<(), NgError> {
         //     (broker.config.js_config().unwrap().wallets_in_mem_changed)();
         // }
     } else {
-        LocalBroker::wallet_save(&mut broker)?;
+        LocalBroker::wallet_save(&mut broker).await?;
     }
     Ok(())
 }

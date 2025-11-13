@@ -13,7 +13,7 @@ export interface SocialContact {
   readonly "@graph": IRI;
   readonly "@id": IRI;
   /**
-   * Defines the node as an Individual (from vcard)
+   * Defines the node as an Individual (from vcard) OR [ ngc:Me ] +
    *
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
