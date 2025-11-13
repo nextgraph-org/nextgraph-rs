@@ -724,7 +724,7 @@ ngc:Publication {
     // rdfs:comment "Publication description" ;
   ngcontact:publisher xsd:string ?
     // rdfs:comment "Publisher name" ;
-  ngcore:url xsd:string ?
+  ngcore:url1 xsd:string ?
     // rdfs:comment "Publication URL" ;
   ngcore:source xsd:string ?
     // rdfs:comment "Source of the publication data" ;
