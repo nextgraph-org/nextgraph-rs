@@ -1,4 +1,4 @@
-import {useState, useRef, useEffect, useCallback} from 'react';
+import {useState, useRef, useEffect, useCallback, useLayoutEffect} from 'react';
 import {
   Box,
   IconButton,
@@ -8,7 +8,7 @@ import {
   UilAngleRight as ChevronRight,
 } from '@iconscout/react-unicons';
 import {RCard} from "@/components/rcards/RCard";
-import {relationshipCategories} from "@/constants/relationshipCategories";
+import {useGetRCards} from "@/hooks/rCards/useGetRCards.ts";
 
 
 const RCardList = () => {
@@ -16,10 +16,14 @@ const RCardList = () => {
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
   const [editingCardId, setEditingCardId] = useState("");
-  const [arrowOffsets, setArrowOffsets] = useState<{left: number; right: number}>({
+  const [arrowOffsets, setArrowOffsets] = useState<{ left: number; right: number }>({
     left: 16,
     right: 16,
   });
+
+  const {getRCardIDs} = useGetRCards();
+
+  const [rCardURIs, setRCardURIs] = useState<string[]>([]);
 
   const checkScroll = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -45,18 +49,30 @@ const RCardList = () => {
     });
   }, []);
 
-  useEffect(() => {
-    checkScroll();
-    updateArrowOffsets();
+  useLayoutEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-    const handleResize = () => {
+    const raf = requestAnimationFrame(() => {
       checkScroll();
       updateArrowOffsets();
-    };
+    });
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [checkScroll, updateArrowOffsets]);
+    const ro = new ResizeObserver(() => {
+      checkScroll();
+      updateArrowOffsets();
+    });
+
+    ro.observe(container);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [rCardURIs, checkScroll, updateArrowOffsets])
+
+  useEffect(() => {
+    getRCardIDs().then(setRCardURIs);
+  }, [getRCardIDs]);
 
   const handleScroll = (direction: 'left' | 'right') => {
     const container = scrollContainerRef.current;
@@ -123,14 +139,13 @@ const RCardList = () => {
         py: 2,
       }}
     >
-      {Array.from(relationshipCategories).map((card) => (
+      {rCardURIs.map((cardUri) => (
         <RCard
-          key={card.id}
+          key={cardUri}
           setEditingCardId={setEditingCardId}
-          isEditing={editingCardId === card.id}
-          disabled={editingCardId ? card.id !== editingCardId : false}
-          id={card.id}
-          card={card}
+          isEditing={editingCardId === cardUri}
+          disabled={editingCardId ? cardUri !== editingCardId : false}
+          id={cardUri}
         />
       ))}
     </Box>

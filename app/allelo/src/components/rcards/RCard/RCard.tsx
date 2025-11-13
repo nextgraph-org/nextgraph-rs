@@ -5,13 +5,12 @@ import {
   Card,
 } from '@mui/material';
 import {forwardRef, useCallback} from 'react';
-import {RelationshipCategory} from '@/constants/relationshipCategories';
 import {UilEdit as BorderColorOutlined} from '@iconscout/react-unicons';
 import {RCardView} from "@/components/rcards/RCard/RCardView.tsx";
 import {RCardEdit} from "@/components/rcards/RCard/RCardEdit.tsx";
+import {useRCards} from "@/hooks/rCards/useRCards.ts";
 
 export interface RCardProps {
-  card: RelationshipCategory;
   id: string;
   setEditingCardId: (id: string) => void;
   disabled?: boolean;
@@ -19,11 +18,12 @@ export interface RCardProps {
 }
 
 export const RCard = forwardRef<HTMLDivElement, RCardProps>(
-  ({card, id, setEditingCardId, disabled = false, isEditing = false}, ref) => {
+  ({id, setEditingCardId, disabled = false, isEditing = false}, ref) => {
+    const {rCard} = useRCards(id, isEditing);
+
     const toggleEdit = useCallback(() => {
-      card.rerender = {shouldRerender: true};
       setEditingCardId(isEditing ? "" : id);
-    }, [setEditingCardId, id, isEditing, card]);
+    }, [setEditingCardId, id, isEditing]);
 
     return (
       <Box sx={{display: 'flex', flexDirection: 'column', overflowWrap: "anywhere"}} ref={ref} key={id}>
@@ -34,8 +34,8 @@ export const RCard = forwardRef<HTMLDivElement, RCardProps>(
           justifyContent: "space-between",
           width: "100%",
         }}>
-          <Typography variant="h6" sx={{fontWeight: 'bold', opacity: disabled ? 0.3 : 1}}>
-            {card.name}
+          <Typography variant="h6" sx={{fontWeight: 'bold', opacity: disabled ? 0.3 : 1, textTransform: 'capitalize'}}>
+            {rCard?.cardId ?? ""}
           </Typography>
           <IconButton disabled={disabled} size="small" onClick={toggleEdit}>
             <BorderColorOutlined size="16"/>
@@ -72,7 +72,7 @@ export const RCard = forwardRef<HTMLDivElement, RCardProps>(
             }}
           >
             <CardContent sx={{flex: 1, p: 0, pt: '50px', textAlign: 'center'}}>
-              <RCardView card={card} disabled={disabled}/>
+              <RCardView nuri={id} disabled={disabled}/>
             </CardContent>
           </Card>
 
@@ -97,7 +97,7 @@ export const RCard = forwardRef<HTMLDivElement, RCardProps>(
             }}
           >
             <CardContent sx={{flex: 1, p: 0, pt: '50px', textAlign: 'center'}}>
-              <RCardEdit card={card}/>
+              <RCardEdit nuri={id}/>
             </CardContent>
           </Card>
         </Box>

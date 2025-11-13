@@ -1,6 +1,7 @@
-import {useCallback, useMemo, useState} from "react";
+import {useCallback, useMemo} from "react";
 import {Box, IconButton, Link, Tooltip, Typography} from "@mui/material";
-import {ContentItem, ZoneContent} from "@/hooks/rCards/useRCards.ts";
+import {ContentItem} from "@/models/rcards";
+import {ZoneContent} from "@/hooks/rCards/useRCards.ts";
 import {
   UilPlusCircle as AddCircleOutline,
   UilMinusCircle as RemoveCircleOutline,
@@ -10,20 +11,47 @@ import {Avatar} from "@/components/ui";
 import {typeIconMapper} from "@/utils/typeIconMapper.ts";
 import {AccountRegistry} from "@/utils/accountRegistry.tsx";
 import {renderTemplate} from "@/utils/templateRenderer.ts";
+import {useLdo, useNextGraphAuth, useResource, useSubject} from "@/lib/nextgraph.ts";
+import {NextGraphAuth} from "@/types/nextgraph.ts";
+import {RCardPermission} from "@/.ldo/rcard.typings.ts";
+import {RCardPermissionShapeType} from "@/.ldo/rcard.shapeTypes.ts";
 
 interface RCardPropertyProps {
   item: ContentItem;
   zone: keyof ZoneContent;
-  togglePermission?: () => void;
   isEditing?: boolean;
 }
 
 export const RCardProperty = ({
                                 item,
                                 zone,
-                                togglePermission,
                                 isEditing = false
                               }: RCardPropertyProps) => {
+  const nuri = item.permission["@id"];
+  const nextGraphAuth = useNextGraphAuth() || {} as NextGraphAuth;
+  const {session} = nextGraphAuth;
+  const {commitData, changeData} = useLdo();
+  const sessionId = session?.sessionId;
+
+  // NextGraph subscription
+  const resource = useResource(sessionId && nuri ? nuri?.substring(0, 53) : undefined, {subscribe: true});
+  const permission: RCardPermission | undefined = useSubject(
+    RCardPermissionShapeType,
+    sessionId && nuri ? nuri : undefined
+  );
+
+  const isPermissionGiven = useMemo(() => permission?.isPermissionGiven ?? false, [permission?.isPermissionGiven]);
+
+  const togglePermission = useCallback(() => {
+    if (!permission) return;
+    // @ts-expect-error this is expected
+    if (resource && !resource.isError && resource.type !== "InvalidIdentifierResouce" && resource.type !== "InvalidIdentifierResource") {
+      const permissionObj = changeData(permission, resource);
+      permissionObj.isPermissionGiven = !permissionObj.isPermissionGiven;
+
+      commitData(permissionObj);
+    }
+  }, [changeData, commitData, permission, resource]);
 
   const variant = useMemo(() => {
     switch (zone) {
@@ -35,8 +63,6 @@ export const RCardProperty = ({
         return "body1";
     }
   }, [zone]);
-
-  const [isPermissionGiven, setIsPermissionGiven] = useState(item.isPermissionGiven);
 
   const missingTooltip = useMemo(() => {
     const label = item.labelToShow ?? item.label ?? "this information";
@@ -56,13 +82,12 @@ export const RCardProperty = ({
     return (
       <IconButton size={"small"} sx={{p: 0}} onClick={() => {
         togglePermission!();
-        setIsPermissionGiven(item.isPermissionGiven)
       }}>
         {isPermissionGiven ? <RemoveCircleOutline size="20"/> :
           <AddCircleOutline size="20" style={{color: '#C4C4C4'}}/>}
       </IconButton>
     );
-  }, [isPermissionGiven, togglePermission, item]);
+  }, [isPermissionGiven, togglePermission]);
 
   const getPropertyLink = useCallback((value: string, href?: string, targetBlank: boolean = true) => (
     <Link
@@ -184,7 +209,7 @@ export const RCardProperty = ({
 
   const getLabel = useCallback(() => {
     let label = item.labelToShow!;
-    if (item.propertyConfig.isMultiple && item.propertyConfig.separator) {
+    if (item.propertyConfig.shareAll && item.propertyConfig.separator) {
       label += "s";
     }
     if (item.value || item.valueList.length) {
@@ -266,7 +291,7 @@ export const RCardProperty = ({
       px: 2,
     }}>
       {isEditing ? getActionButton() : <Box/>}
-      {item.propertyConfig.isMultiple ? getMultiProperty() : getPropertyRow()}
+      {item.propertyConfig.shareAll ? getMultiProperty() : getPropertyRow()}
       <Box/>
     </Box>
   )
