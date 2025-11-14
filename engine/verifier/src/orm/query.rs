@@ -97,7 +97,7 @@ impl Verifier {
                                     Some(Term::NamedNode(n)) => {
                                         ng_oxigraph::oxrdf::GraphName::NamedNode(n.clone())
                                     }
-                                    _ => panic!("Expected NamedNode for subject"),
+                                    _ => panic!("Expected NamedNode for graph_name"),
                                 },
                             };
 
