@@ -378,7 +378,7 @@ export function applyPatches(
  */
 export function applyPatchesToDeepSignal(currentState: object, patch: Patch[]) {
     batch(() => {
-        applyPatches(currentState as Record<string, any>, patch);
+        applyPatches(currentState as Record<string, any>, patch, true);
     });
 }
 
