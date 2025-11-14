@@ -1386,8 +1386,8 @@ const HomePage = () => {
 
   return (
     <Box sx={{pb: 10 }}>
-      {/* Mode Toggle & Widget Controls - Desktop: Paper, Mobile: SpeedDial */}
-      {isMobile ? (
+      {/* Mode Toggle & Widget Controls - Commented out, defaulting to Zen mode */}
+      {/* {isMobile ? (
         <SpeedDial
           ariaLabel="Dashboard controls"
           sx={{
@@ -1479,7 +1479,6 @@ const HomePage = () => {
             gap: 2
           }}
         >
-          {/* Mode Toggle */}
           <FormControlLabel
             control={
               <Switch
@@ -1495,7 +1494,6 @@ const HomePage = () => {
             labelPlacement="start"
           />
 
-          {/* Widget Controls (only show in widgets mode) */}
           {viewMode === 'widgets' && (
             <>
               <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
@@ -1512,10 +1510,10 @@ const HomePage = () => {
             </>
           )}
         </Paper>
-      )}
+      )} */}
 
       {/* Add Widget Menu */}
-      <Menu
+      {/* <Menu
         anchorEl={widgetMenuAnchor}
         open={Boolean(widgetMenuAnchor)}
         onClose={() => setWidgetMenuAnchor(null)}
@@ -1548,10 +1546,10 @@ const HomePage = () => {
             </Typography>
           </MenuItem>
         )}
-      </Menu>
+      </Menu> */}
 
       {/* Add Widget Dialog */}
-      <Dialog open={addWidgetDialog} onClose={() => setAddWidgetDialog(false)}>
+      {/* <Dialog open={addWidgetDialog} onClose={() => setAddWidgetDialog(false)}>
         <DialogTitle>Add Widgets</DialogTitle>
         <DialogContent>
           <List>
@@ -1573,15 +1571,15 @@ const HomePage = () => {
         <DialogActions>
           <Button onClick={() => setAddWidgetDialog(false)}>Close</Button>
         </DialogActions>
-      </Dialog>
+      </Dialog> */}
 
       {/* Layout Settings Visual Menu */}
-      <Menu
+      {/* <Menu
         anchorEl={layoutMenuAnchor}
         open={Boolean(layoutMenuAnchor)}
         onClose={() => setLayoutMenuAnchor(null)}
         PaperProps={{
-          sx: { 
+          sx: {
             p: 1,
             minWidth: 200
           }
@@ -1592,12 +1590,11 @@ const HomePage = () => {
             Layout Options
           </Typography>
         </Box>
-        
-        {/* 1 Column Full Width */}
+
         <MenuItem onClick={() => handleLayoutChange('1-col')} sx={{ p: 1.5, flexDirection: 'column', alignItems: 'flex-start' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, width: '100%' }}>
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               gap: 0.5,
               opacity: columnLayout === '1-col' ? 1 : 0.6,
               transform: columnLayout === '1-col' ? 'scale(1.1)' : 'scale(1)',
@@ -1615,12 +1612,11 @@ const HomePage = () => {
             )}
           </Box>
         </MenuItem>
-        
-        {/* 2 Columns + 1 Column */}
+
         <MenuItem onClick={() => handleLayoutChange('2-1-col')} sx={{ p: 1.5, flexDirection: 'column', alignItems: 'flex-start' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, width: '100%' }}>
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               gap: 0.5,
               opacity: columnLayout === '2-1-col' ? 1 : 0.6,
               transform: columnLayout === '2-1-col' ? 'scale(1.1)' : 'scale(1)',
@@ -1639,12 +1635,11 @@ const HomePage = () => {
             )}
           </Box>
         </MenuItem>
-        
-        {/* 1 Column + 2 Columns */}
+
         <MenuItem onClick={() => handleLayoutChange('1-2-col')} sx={{ p: 1.5, flexDirection: 'column', alignItems: 'flex-start' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, width: '100%' }}>
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               gap: 0.5,
               opacity: columnLayout === '1-2-col' ? 1 : 0.6,
               transform: columnLayout === '1-2-col' ? 'scale(1.1)' : 'scale(1)',
@@ -1663,12 +1658,11 @@ const HomePage = () => {
             )}
           </Box>
         </MenuItem>
-        
-        {/* 3 Equal Columns */}
+
         <MenuItem onClick={() => handleLayoutChange('3-col')} sx={{ p: 1.5, flexDirection: 'column', alignItems: 'flex-start' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, width: '100%' }}>
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               gap: 0.5,
               opacity: columnLayout === '3-col' ? 1 : 0.6,
               transform: columnLayout === '3-col' ? 'scale(1.1)' : 'scale(1)',
@@ -1688,7 +1682,7 @@ const HomePage = () => {
             )}
           </Box>
         </MenuItem>
-      </Menu>
+      </Menu> */}
 
       {/* Create Post Modal */}
       <Dialog open={createPostDialog} onClose={() => setCreatePostDialog(false)} maxWidth="sm" fullWidth>

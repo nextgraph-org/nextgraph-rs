@@ -433,6 +433,9 @@ export const createAppTheme = (mode: PaletteMode) => {
         },
       },
       MuiTextField: {
+        defaultProps: {
+          minRows: 3,
+        },
         styleOverrides: {
           root: {
             '& .MuiOutlinedInput-root': {
@@ -446,6 +449,11 @@ export const createAppTheme = (mode: PaletteMode) => {
               '&.Mui-focused': {
                 backgroundColor: isDark ? alpha('#e2e8f0', 0.04) : colors.neutral[5],
                 borderColor: isDark ? alpha('#e2e8f0', 0.2) : colors.accent.cyan,
+              },
+              // Multiline (textarea) specific styles
+              '&.MuiInputBase-multiline': {
+                borderRadius: '12px', // Sharper corners for textareas
+                padding: '12px 14px',
               },
             },
           },
