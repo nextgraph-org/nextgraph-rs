@@ -55,8 +55,22 @@ impl Verifier {
         let inserts = patch.inserts;
         let removes = patch.removes;
 
-        log_info!("inserts {:?}", inserts);
-        log_info!("removes {:?}", removes);
+        log_info!(
+            "inserts\n{}",
+            inserts
+                .iter()
+                .map(|q| format!("{q}",))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+        log_info!(
+            "removes\n{}",
+            removes
+                .iter()
+                .map(|q| format!("{q}",))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
         // TODO: Omit sending patches back to the subscription where they came from.
 
         // Apply changes to all affected scopes and send patches to clients
