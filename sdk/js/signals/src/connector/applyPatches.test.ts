@@ -97,6 +97,37 @@ describe("applyDiff - multi-valued objects (Set-based)", () => {
         expect(child["@graph"]).toBeDefined();
     });
 
+    test("add object to root Set", () => {
+        const state = new Set();
+        const diff: Patch[] = [
+            // First patch creates the object in the Set
+            {
+                op: "add",
+                valType: "object",
+                path: p("urn:graph1|urn:root1"),
+            },
+            // Second patch adds the @graph property (optional, for context)
+            {
+                op: "add",
+                path: p("urn:graph1|urn:root1", "@graph"),
+                value: "urn:graph1",
+            },
+            // Third patch adds the @id property
+            {
+                op: "add",
+                path: p("urn:graph1|urn:root1", "@id"),
+                value: "urn:root1",
+            },
+        ];
+        applyPatches(state, diff);
+        const children = [...state];
+        expect(children.length).toBe(1);
+        const child = children[0] as any;
+        expect(child).toBeTypeOf("object");
+        expect(child["@id"]).toBe("urn:root1");
+        expect(child["@graph"]).toBe("urn:graph1");
+    });
+
     test("add properties to object in Set", () => {
         const obj = { "@id": "urn:child1", "@graph": "urn:graph1" };
         const state: any = { "urn:person1": { children: new Set([obj]) } };

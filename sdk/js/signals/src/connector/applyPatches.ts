@@ -62,23 +62,34 @@ function isPrimitive(v: unknown): v is string | number | boolean {
 }
 
 /**
+ * Parse a combined identifier of the form "graph|subject".
+ * If there is no pipe, returns { graph: undefined, id: input }.
+ */
+function parseGraphId(input: string): { graph?: string; id: string } {
+    if (typeof input !== "string") return { id: String(input) } as any;
+    const idx = input.indexOf("|");
+    if (idx === -1) return { id: input };
+    const graph = input.slice(0, idx);
+    const id = input.slice(idx + 1);
+    return { graph, id };
+}
+
+/**
  * Find an object in a Set by its @id property.
  * Returns the object if found, otherwise undefined.
  */
 function findInSetBySegment(set: Set<any>, seg: string): any | undefined {
-    // TODO: We could optimize that by leveraging the key @id to object mapping in sets of deepSignals.
+    // TODO: We could optimize that by leveraging key @id to object mapping in sets of deepSignals.
 
-    let [graphIri, subjectIri] = seg.split("|");
+    const { graph, id } = parseGraphId(seg);
 
     for (const item of set) {
-        if (
-            typeof item === "object" &&
-            item !== null &&
-            item["@graph"] === graphIri &&
-            item["@id"] === subjectIri
-        ) {
+        if (typeof item !== "object" || item === null) continue;
+        // If graph was provided, require both to match
+        if (graph && item["@graph"] === graph && item["@id"] === id)
             return item;
-        }
+        // Match by @id only when no graph part is provided
+        if (!graph && item["@id"] === id) return item;
     }
     return undefined;
 }
@@ -154,21 +165,24 @@ export function applyPatches(
             .filter(Boolean)
             .map(decodePathSegment);
 
-        if (pathParts.length === 0) continue; // root not supported
+        if (pathParts.length === 0) {
+            console.warn("[applyDiff] No path specified for patch", patch);
+            continue;
+        }
         const lastKey = pathParts[pathParts.length - 1];
         let parentVal: any = currentState;
         let parentMissing = false;
         // Traverse only intermediate segments (to leaf object at path)
         for (let i = 0; i < pathParts.length - 1; i++) {
             const seg = pathParts[i];
-            // Handle Sets: if parentVal is a Set, find object by @id
+            // Handle Sets: if parentVal is a Set, find object by path segment.
             if (parentVal instanceof Set) {
                 const foundObj = findInSetBySegment(parentVal, seg);
                 if (foundObj) {
                     parentVal = foundObj;
                 } else if (ensurePathExists) {
-                    // Create new object in the set with this @id
-                    const newObj = { "@id": seg };
+                    // Create new object in the set.
+                    const newObj = {};
                     parentVal.add(newObj);
                     parentVal = newObj;
                 } else {
@@ -222,7 +236,7 @@ export function applyPatches(
 
         // Special handling when parent is a Set
         if (parentVal instanceof Set) {
-            // The key represents the @id of an object within the Set
+            // The key represents the identifier of an object within the Set
             const targetObj = findInSetBySegment(parentVal, key);
 
             // Handle object creation in a Set
@@ -230,16 +244,19 @@ export function applyPatches(
                 if (!targetObj) {
                     // Determine if this will be a single object or nested Set
                     const hasId = patches[patchIndex + 2]?.path.endsWith("@id");
-                    const newObj: any = hasId ? {} : new Set();
-                    // Pre-assign the @id so subsequent patches can find this object
+                    const newLeaf: any = hasId ? {} : new Set();
+                    // Pre-assign identity so subsequent patches can find this object
                     if (hasId) {
-                        newObj["@id"] = key;
+                        const { graph, id } = parseGraphId(key);
+                        newLeaf["@id"] = id;
                         const graphPatch = patches[patchIndex + 1];
                         if (graphPatch?.path.endsWith("@graph")) {
-                            newObj["@graph"] = graphPatch.value;
+                            newLeaf["@graph"] = graphPatch.value ?? graph;
+                        } else if (graph) {
+                            newLeaf["@graph"] = graph;
                         }
                     }
-                    parentVal.add(newObj);
+                    parentVal.add(newLeaf);
                 }
                 continue;
             }
