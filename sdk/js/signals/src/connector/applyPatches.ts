@@ -203,7 +203,14 @@ export function applyPatches(
             }
             if (ensurePathExists) {
                 if (parentVal != null && typeof parentVal === "object") {
-                    parentVal[seg] = {};
+                    // Check if we need to create an object or a set:
+                    if (pathParts[i + 1]?.includes("|")) {
+                        // The next path segment is an IRI, that means the new element must be a set of objects. Create a set.
+                        parentVal[seg] = new Set();
+                    } else {
+                        // Create a new object
+                        parentVal[seg] = {};
+                    }
                     parentVal = parentVal[seg];
                 } else {
                     parentMissing = true;

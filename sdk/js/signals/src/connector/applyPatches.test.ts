@@ -621,6 +621,199 @@ describe("applyDiff - complete workflow example", () => {
     });
 });
 
+describe("applyDiff - ensurePathExists with Set detection", () => {
+    test("auto-detect and create Set when next segment is IRI (contains |)", () => {
+        const state: any = {};
+        const diff: Patch[] = [
+            // Path: /parent/children/urn:graph1|urn:child1
+            // When creating "children", next segment is "urn:graph1|urn:child1" (contains |)
+            // So "children" should be created as a Set
+            {
+                op: "add",
+                valType: "object",
+                path: p("parent", "children", "urn:graph1|urn:child1"),
+            },
+            {
+                op: "add",
+                path: p("parent", "children", "urn:graph1|urn:child1", "@graph"),
+                value: "urn:graph1",
+            },
+            {
+                op: "add",
+                path: p("parent", "children", "urn:graph1|urn:child1", "@id"),
+                value: "urn:child1",
+            },
+            {
+                op: "add",
+                path: p("parent", "children", "urn:graph1|urn:child1", "name"),
+                value: "Alice",
+            },
+        ];
+        applyPatches(state, diff, true);
+
+        // Verify parent was created
+        expect(state.parent).toBeDefined();
+        // Verify children was created as a Set (not a plain object)
+        expect(state.parent.children).toBeInstanceOf(Set);
+        expect(state.parent.children.size).toBe(1);
+
+        // Verify the child object inside the Set
+        const child = [...state.parent.children][0];
+        expect(child["@id"]).toBe("urn:child1");
+        expect(child["@graph"]).toBe("urn:graph1");
+        expect(child.name).toBe("Alice");
+    });
+
+    test("auto-detect and create plain object when next segment is NOT an IRI", () => {
+        const state: any = {};
+        const diff: Patch[] = [
+            // Path: /parent/address/street
+            // When creating "address", next segment is "street" (no |)
+            // So "address" should be created as a plain object
+            { op: "add", path: p("parent", "address", "street"), value: "Main St" },
+        ];
+        applyPatches(state, diff, true);
+
+        // Verify parent was created
+        expect(state.parent).toBeDefined();
+        // Verify address was created as a plain object (not a Set)
+        expect(state.parent.address).toBeTypeOf("object");
+        expect(state.parent.address).not.toBeInstanceOf(Set);
+        expect(state.parent.address.street).toBe("Main St");
+    });
+
+    test("deeply nested path with mixed Set and object creation", () => {
+        const state: any = {};
+        const diff: Patch[] = [
+            // Create: /org/departments/urn:g1|dept1/employees/urn:g2|emp1/name
+            // - org: plain object (next is "departments")
+            // - departments: Set (next is "urn:g1|dept1" - contains |)
+            // - dept1: object in Set (next is "employees")
+            // - employees: Set (next is "urn:g2|emp1" - contains |)
+            // - emp1: object in Set (next is "name")
+            {
+                op: "add",
+                valType: "object",
+                path: p("org", "departments", "urn:g1|dept1"),
+            },
+            {
+                op: "add",
+                path: p("org", "departments", "urn:g1|dept1", "@graph"),
+                value: "urn:g1",
+            },
+            {
+                op: "add",
+                path: p("org", "departments", "urn:g1|dept1", "@id"),
+                value: "dept1",
+            },
+            {
+                op: "add",
+                valType: "object",
+                path: p("org", "departments", "urn:g1|dept1", "employees", "urn:g2|emp1"),
+            },
+            {
+                op: "add",
+                path: p("org", "departments", "urn:g1|dept1", "employees", "urn:g2|emp1", "@graph"),
+                value: "urn:g2",
+            },
+            {
+                op: "add",
+                path: p("org", "departments", "urn:g1|dept1", "employees", "urn:g2|emp1", "@id"),
+                value: "emp1",
+            },
+            {
+                op: "add",
+                path: p("org", "departments", "urn:g1|dept1", "employees", "urn:g2|emp1", "name"),
+                value: "John",
+            },
+        ];
+        applyPatches(state, diff, true);
+
+        // Verify org is plain object
+        expect(state.org).toBeTypeOf("object");
+        expect(state.org).not.toBeInstanceOf(Set);
+
+        // Verify departments is a Set
+        expect(state.org.departments).toBeInstanceOf(Set);
+        expect(state.org.departments.size).toBe(1);
+
+        // Get the department
+        const dept = [...state.org.departments][0];
+        expect(dept["@id"]).toBe("dept1");
+        expect(dept["@graph"]).toBe("urn:g1");
+
+        // Verify employees is a Set
+        expect(dept.employees).toBeInstanceOf(Set);
+        expect(dept.employees.size).toBe(1);
+
+        // Get the employee
+        const emp = [...dept.employees][0];
+        expect(emp["@id"]).toBe("emp1");
+        expect(emp["@graph"]).toBe("urn:g2");
+        expect(emp.name).toBe("John");
+    });
+
+    test("add multiple objects to auto-created Set", () => {
+        const state: any = {};
+        const diff: Patch[] = [
+            // First child
+            {
+                op: "add",
+                valType: "object",
+                path: p("family", "children", "urn:g1|child1"),
+            },
+            {
+                op: "add",
+                path: p("family", "children", "urn:g1|child1", "@graph"),
+                value: "urn:g1",
+            },
+            {
+                op: "add",
+                path: p("family", "children", "urn:g1|child1", "@id"),
+                value: "child1",
+            },
+            {
+                op: "add",
+                path: p("family", "children", "urn:g1|child1", "name"),
+                value: "Alice",
+            },
+            // Second child
+            {
+                op: "add",
+                valType: "object",
+                path: p("family", "children", "urn:g1|child2"),
+            },
+            {
+                op: "add",
+                path: p("family", "children", "urn:g1|child2", "@graph"),
+                value: "urn:g1",
+            },
+            {
+                op: "add",
+                path: p("family", "children", "urn:g1|child2", "@id"),
+                value: "child2",
+            },
+            {
+                op: "add",
+                path: p("family", "children", "urn:g1|child2", "name"),
+                value: "Bob",
+            },
+        ];
+        applyPatches(state, diff, true);
+
+        // Verify children is a Set with 2 items
+        expect(state.family.children).toBeInstanceOf(Set);
+        expect(state.family.children.size).toBe(2);
+
+        const children = [...state.family.children];
+        const alice = children.find((c: any) => c["@id"] === "child1");
+        const bob = children.find((c: any) => c["@id"] === "child2");
+
+        expect(alice.name).toBe("Alice");
+        expect(bob.name).toBe("Bob");
+    });
+});
+
 describe("applyDiff - ignored / invalid scenarios", () => {
     test("skip patch with non-leading slash path", () => {
         const state: any = {};
