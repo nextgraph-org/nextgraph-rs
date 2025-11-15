@@ -793,7 +793,7 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
 };
 
 let blob_cache = {};
-export async function get_blob(ref: { nuri: string; reference: { key: any; id: any; }; }, only_img: boolean) {
+export async function get_blob(doc_nuri:string , ref: { nuri: string; reference: { key: any; id: any; }; }, only_img: boolean) {
     if (!ref) return false;
     const cached = blob_cache[ref.nuri];
     if (cached && (((await cached) !== true) || only_img )) {
@@ -803,8 +803,7 @@ export async function get_blob(ref: { nuri: string; reference: { key: any; id: a
         try {
             let final_blob;
             let content_type;
-            let branch_nuri = "did:ng:"+get(cur_tab).doc.nuri+":"+get(cur_tab).store.overlay;
-            let cancel = await ng.file_get(get(active_session).session_id, ref.reference, branch_nuri, async (blob) => {
+            let cancel = await ng.file_get(get(active_session).session_id, ref.reference, doc_nuri, async (blob) => {
                 //console.log("GOT APP RESPONSE", blob);
                 if (blob.V0.FileMeta) {
                     content_type = blob.V0.FileMeta.content_type;

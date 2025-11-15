@@ -28,6 +28,7 @@
     display_error,
     check_has_camera,
     redirect_after_scanned_qr_code,
+    boot
   } from "./store";
   import { default as ng } from "../.auth-react/api";
   import { push } from "./index";
@@ -96,6 +97,7 @@
   }
 
   onMount(async () => {
+    await boot();
     connected = window.navigator.onLine;
     window.addEventListener("offline", set_offline);
     window.addEventListener("online", set_online);

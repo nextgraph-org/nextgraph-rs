@@ -81,6 +81,7 @@
 
     onMount(async () => {
         step = "open";
+        await boot();
 
         wallets_unsub = wallets.subscribe((value) => {
             console.log("wallets.subscribe(", wallet, selected);
@@ -128,6 +129,7 @@
             wallet = $wallet_from_import;
             importing = true;
         }
+        scrollToTop()
     });
 
     async function loggedin() {
@@ -277,11 +279,6 @@
     function scrollToTop() {
         top.scrollIntoView();
     }
-
-    onMount(async () => {
-        await boot();
-        scrollToTop()
-    });
 </script>
 
 <CenteredLayout displayFooter={!wallet && !selected}>
