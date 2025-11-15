@@ -792,10 +792,86 @@ export const branch_subscribe = function(nuri:string, in_tab:boolean) {
     }
 };
 
+function do_upload_file(upload_id, nuri, file, progress) {
+    //console.log(nuri);
+    let chunkSize = 1_048_564;
+    let fileSize = file.size;
+    let offset = 0;
+    let readBlock = null;
+    let session_id = get(active_session).session_id;
+    progress({ total: fileSize, current: offset });
+
+    return new Promise(async (resolve, reject) => {
+
+        let onLoadHandler = async function (event) {
+            let result = event.target.result;
+
+            if (event.target.error == null) {
+                offset += result.byteLength;
+                progress({ total: fileSize, current: offset });
+
+                // console.log("chunk", result);
+
+                let res = await ng.upload_chunk(
+                    session_id,
+                    upload_id,
+                    result,
+                    nuri
+                );
+                //console.log("chunk upload res", res);
+                // if (onChunkRead) {
+                //   onChunkRead(result);
+                // }
+            } else {
+                // if (onChunkError) {
+                //   onChunkError(event.target.error);
+                // }
+                progress({ total: fileSize, current: offset, error: event.target.error });
+                reject(event.target.error);
+                return;
+            }
+
+            // If finished:
+            if (offset >= fileSize) {
+                progress({ total: fileSize, current: fileSize });
+                resolve(undefined);
+                return;
+            }
+
+            readBlock(offset, chunkSize, file);
+        };
+
+        readBlock = function (offset, length, file) {
+            let fileReader = new FileReader();
+            let blob = file.slice(offset, length + offset);
+            fileReader.onload = onLoadHandler;
+            fileReader.readAsArrayBuffer(blob);
+        };
+
+        readBlock(offset, chunkSize, file);
+
+    });
+
+}
+
+export async function uploadFile(file, nuri: string, progress_callback) {
+
+    if (!file) return;
+
+    let session_id = get(active_session).session_id;
+    let upload_id = await ng.upload_start(session_id, nuri, file.type);
+    console.log("upload_id",upload_id)
+    await do_upload_file(upload_id, nuri, file, progress_callback);
+
+    const res = await ng.upload_done(upload_id, session_id, nuri, file.name);
+    console.log(res);
+    return res.nuri;
+}
+
 let blob_cache = {};
-export async function get_blob(doc_nuri:string , ref: { nuri: string; reference: { key: any; id: any; }; }, only_img: boolean) {
-    if (!ref) return false;
-    const cached = blob_cache[ref.nuri];
+export async function getBlob(doc_nuri:string , file_nuri: string, only_img: boolean) {
+    if (!file_nuri) return false;
+    const cached = blob_cache[file_nuri];
     if (cached && (((await cached) !== true) || only_img )) {
         return cached;
     }
@@ -803,7 +879,7 @@ export async function get_blob(doc_nuri:string , ref: { nuri: string; reference:
         try {
             let final_blob;
             let content_type;
-            let cancel = await ng.file_get(get(active_session).session_id, ref.reference, doc_nuri, async (blob) => {
+            let cancel = await ng.file_get(get(active_session).session_id, file_nuri, doc_nuri, async (blob) => {
                 //console.log("GOT APP RESPONSE", blob);
                 if (blob.V0.FileMeta) {
                     content_type = blob.V0.FileMeta.content_type;
@@ -828,7 +904,7 @@ export async function get_blob(doc_nuri:string , ref: { nuri: string; reference:
             resolve(false);
         }
     });
-    blob_cache[ref.nuri] = prom;
+    blob_cache[file_nuri] = prom;
     return prom;
 }
 
