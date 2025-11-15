@@ -1,4 +1,4 @@
-import {Box, Typography, Avatar, IconButton} from '@mui/material';
+import {Box, Typography, Avatar, IconButton, useTheme, useMediaQuery} from '@mui/material';
 import {
   UilUser as Person,
   UilPhone as Phone,
@@ -9,6 +9,9 @@ import {resolveFrom} from '@/utils/socialContact/contactUtils.ts';
 import {defaultTemplates, renderTemplate} from "@/utils/templateRenderer.ts";
 
 export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const phoneNumber = resolveFrom(contact, 'phoneNumber');
   const name = resolveFrom(contact, 'name');
   const photo = resolveFrom(contact, 'photo');
@@ -30,17 +33,18 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
 
   return (
     <Box sx={{
-      width: 360,
-      padding: '12px 12px 16px 12px',
+      width: '100%',
+      maxWidth: 360,
+      padding: isMobile ? '8px 8px 12px 8px' : '12px 12px 16px 12px',
       backgroundColor: '#fff'
     }}>
       {/* Header with photo and info */}
-      <Box sx={{display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2}}>
+      <Box sx={{display: 'flex', alignItems: 'flex-start', gap: isMobile ? 1 : 2, mb: 2}}>
         <Avatar
           src={photo?.value}
           sx={{
-            width: 100,
-            height: 100,
+            width: isMobile ? 60 : 100,
+            height: isMobile ? 60 : 100,
             flexShrink: 0,
             borderRadius: 0.5 // Small rounded corners on photo
           }}
@@ -49,10 +53,11 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
         </Avatar>
 
         <Box sx={{flex: 1, minWidth: 0}}>
-          <Typography variant="h6" sx={{
+          <Typography variant={isMobile ? "body1" : "h6"} sx={{
             fontWeight: 600,
             mb: 0.5,
-            lineHeight: 1.2
+            lineHeight: 1.2,
+            fontSize: isMobile ? '1rem' : undefined
           }}>
             {displayName}
           </Typography>
@@ -98,14 +103,14 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
       }}/>
 
       {/* Action buttons - no labels, dark green, more spaced out */}
-      <Box sx={{display: 'flex', justifyContent: 'center', gap: 4}}>
+      <Box sx={{display: 'flex', justifyContent: 'center', gap: isMobile ? 2 : 4}}>
         <IconButton
           onClick={() => onContactClick?.(contact)}
           sx={{
             bgcolor: '#2e7d32', // Dark green
             color: 'white',
-            width: 44,
-            height: 44,
+            width: isMobile ? 36 : 44,
+            height: isMobile ? 36 : 44,
             '&:hover': {bgcolor: '#1b5e20'}
           }}
         >
@@ -117,8 +122,8 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
           sx={{
             bgcolor: '#2e7d32', // Dark green
             color: 'white',
-            width: 44,
-            height: 44,
+            width: isMobile ? 36 : 44,
+            height: isMobile ? 36 : 44,
             '&:hover': {bgcolor: '#1b5e20'},
             ...((!phoneNumber?.value) && {
               opacity: 0.5,
@@ -135,8 +140,8 @@ export const ContactPopup = ({contact, onContactClick}: ContactPopupProps) => {
           sx={{
             bgcolor: '#2e7d32', // Dark green
             color: 'white',
-            width: 44,
-            height: 44,
+            width: isMobile ? 36 : 44,
+            height: isMobile ? 36 : 44,
             '&:hover': {bgcolor: '#1b5e20'}
           }}
         >

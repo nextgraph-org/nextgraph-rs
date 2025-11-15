@@ -15,6 +15,7 @@ import {
   ArrowBack,
 } from "@mui/icons-material";
 import {formatPhone} from "@/utils/phoneHelper";
+import {useNavigate} from "react-router-dom";
 
 interface CodeInputProps {
   phoneNumber: string;
@@ -35,6 +36,8 @@ const CodeInput: React.FC<CodeInputProps> = ({
                                                onSubmit,
                                                onBack,
                                              }) => {
+  const navigate = useNavigate();
+
   return (
     <Card sx={{maxWidth: 500, mx: 'auto', mt: 4}}>
       <CardContent sx={{p: 4}}>
@@ -78,6 +81,7 @@ const CodeInput: React.FC<CodeInputProps> = ({
               variant="outlined"
               onClick={onBack}
               startIcon={<ArrowBack/>}
+              disabled={isLoading}
               sx={{py: 1.5}}
             >
               Back
@@ -91,6 +95,17 @@ const CodeInput: React.FC<CodeInputProps> = ({
               sx={{py: 1.5}}
             >
               {isLoading ? 'Verifying...' : 'Verify Code'}
+            </Button>
+          </Box>
+
+          <Box sx={{mt: 2, textAlign: 'center'}}>
+            <Button
+              variant="text"
+              onClick={() => navigate('/account')}
+              disabled={isLoading}
+              size="small"
+            >
+              Skip for now
             </Button>
           </Box>
         </Box>

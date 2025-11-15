@@ -1,4 +1,4 @@
-import {Box, Typography} from "@mui/material";
+import {Box, Typography, CircularProgress} from "@mui/material";
 import {ContactFilters} from "../ContactFilters"
 import {useMergeContacts} from "@/hooks/contacts/useMergeContacts.ts";
 import {useCallback, useEffect, useState} from "react";
@@ -273,7 +273,15 @@ export const ContactListTab = ({manageMode}: {manageMode: boolean}) => {
         </Typography>
       </Box>
     ) : isLoading ? (
-      <Box sx={{textAlign: 'center', py: 8}}>
+      <Box sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        py: 8,
+        gap: 2
+      }}>
+        <CircularProgress size={48} />
         <Typography variant="h6" color="text.secondary" gutterBottom>
           Loading contacts...
         </Typography>

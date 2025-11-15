@@ -22,6 +22,19 @@ export const MapController = ({contactNuris}: { contactNuris: string[] }) => {
       .map(a => [a!.coordLat, a!.coordLng] as [number, number]);
   }, [byNuri]);
 
+  // Fix map size on mount and when window resizes
+  useEffect(() => {
+    const handleResize = () => {
+      map.invalidateSize();
+    };
+
+    // Invalidate size on mount to fix mobile rendering
+    setTimeout(() => map.invalidateSize(), 100);
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [map]);
+
   useEffect(() => {
     if (points.length === 0) {
       map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);

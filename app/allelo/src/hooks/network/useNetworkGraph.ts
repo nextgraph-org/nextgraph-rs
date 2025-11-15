@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useContacts } from '@/hooks/contacts/useContacts';
+import { useContactsByNuris } from '@/hooks/contacts/useContactsByNuris';
 import { useNetworkGraphStore } from '@/stores/networkGraphStore';
 import { useNetworkViewStore } from '@/stores/networkViewStore';
 import { mapContactsToNodes, addUserNode } from '@/utils/networkMapper';
@@ -390,14 +391,23 @@ export const useNetworkGraph = ({
   userName = 'ME',
   maxNodes = 30,
 }: UseNetworkGraphOptions = {}) => {
-  const { contacts, isLoading: contactsLoading } = useContacts({ limit: 0 });
+  const { contactNuris, isLoading: nurisLoading } = useContacts({ limit: 0 });
+  const { contacts, isLoading: contactsLoading } = useContactsByNuris(contactNuris);
   const { setNodes, setEdges, centeredNodeId } = useNetworkGraphStore();
   const { setAvailableViews, currentView } = useNetworkViewStore();
 
+  const isLoading = nurisLoading || contactsLoading;
+
+  console.log(`🔍 Network Graph - NURIs: ${contactNuris.length}, Contacts: ${contacts.length}, Loading: ${isLoading}`);
+
   const { nodes, edges } = useMemo(() => {
     if (!contacts || contacts.length === 0) {
+      console.log('⚠️ Network Graph - No contacts available, returning empty graph');
       return { nodes: [], edges: [] };
     }
+
+    console.log(`📊 Network Graph - Building graph with ${contacts.length} contacts`);
+
 
     if (centeredNodeId && centeredNodeId !== userId) {
       if (centeredNodeId.startsWith('org-') || centeredNodeId.startsWith('proj-') || centeredNodeId.startsWith('edu-')) {
@@ -506,6 +516,6 @@ export const useNetworkGraph = ({
   return {
     nodes,
     edges,
-    isLoading: contactsLoading,
+    isLoading,
   };
 };

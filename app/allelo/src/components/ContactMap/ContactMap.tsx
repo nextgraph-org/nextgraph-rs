@@ -33,7 +33,8 @@ export const ContactMap = ({ contactNuris, onContactClick }: ContactMapProps) =>
           '.leaflet-popup-content': {
             margin: '0 !important',
             padding: '0 !important',
-            width: '360px !important',
+            width: 'min(360px, calc(100vw - 40px)) !important',
+            maxWidth: '360px !important',
           },
           '.leaflet-popup-tip': {
             background: 'white !important',

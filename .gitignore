@@ -16,3 +16,4 @@ node_modules
 */ng-example/*
 .vscode/settings.json
 .env.local
+/public_dev
