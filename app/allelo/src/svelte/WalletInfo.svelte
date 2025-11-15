@@ -30,6 +30,7 @@
     Camera,
     CheckBadge,
     ExclamationTriangle,
+    ArrowUpTray,
   } from "svelte-heros-v2";
   import { onDestroy, onMount, tick } from "svelte";
   import { t } from "svelte-i18n";
@@ -43,6 +44,8 @@
     scanned_qr_code,
     check_has_camera,
     redirect_after_scanned_qr_code,
+    uploadFile,
+    getBlob
   } from "./store";
 
   import { default as ng } from "../.auth-react/api";
@@ -192,6 +195,19 @@
   onDestroy(() => {
     cancel_wallet_transfers();
   });
+
+  //// USED FOR THE IMAGE EXAMPLE - PLEASE REMOTE IT
+  let fileinput;
+  let img_nuri;
+  const onFileSelected = async (e) => {
+    let image = e.target.files[0];
+    img_nuri = await uploadFile(image, "", (progress) => {console.log(progress)});
+    console.log(img_nuri);
+    // img_nuri is what you would save in a property, by example profile.photo.value
+    fileinput.value = "";
+  }
+  //// UNTIL HERE
+
 </script>
 
   <div class="dashboard-container" bind:this={container}>
@@ -201,6 +217,36 @@
         <div class="form-layout">
           {#if sub_menu === null}
             <div class="surface-section">
+
+              <!-- EXAMPLE OF FILE UPLOADING - PLEASE REMOVE THE BELOW CODE -->
+              <Button
+                type="button"
+                onclick={() => {
+                  fileinput.click();
+                }}
+                class="text-white bg-primary-700 hover:bg-primary-700/90 focus:ring-4 focus:ring-primary-700/50 font-medium rounded-lg text-lg px-5 py-2.5 text-center inline-flex items-center dark:focus:ring-primary-700/55 mr-2 mb-2"
+              >
+                <ArrowUpTray class="w-8 h-8 mr-2 -ml-1" />
+                {$t("doc.file.upload")}
+              </Button>
+              <!-- EXAMPLE OF IMAGE FILE DISPLAY -->
+              {#if img_nuri}
+                {#await getBlob("",img_nuri, true)}
+                  <div class="ml-2">
+                    <CircularProgress style="height: 28px; width: 28px" indeterminate />
+                  </div>
+                {:then url}
+                  <img width=50 height=50 src={url} />
+                {/await}
+              {/if}
+              <input
+                style="display:none"
+                type="file"
+                on:change={(e) => onFileSelected(e)}
+                bind:this={fileinput}
+              />
+              <!-- EXAMPLE ENDS HERE - PLEASE REMOVE THE ABOVE CODE -->
+
               <Typography variant="h4" component="h1" style="margin-bottom: calc(var(--mui-spacing) * 3);">
                 {$t("pages.wallet_info.title")}
               </Typography>
