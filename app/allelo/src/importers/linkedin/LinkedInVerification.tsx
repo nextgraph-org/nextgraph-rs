@@ -54,7 +54,7 @@ export function LinkedInVerification({sessionId, onSuccess, onRestart}: LinkedIn
   return (
     <Box sx={{py: 2}}>
       <Typography variant="body1" sx={{mb: 2}}>
-        Please check your email for a verification code from LinkedIn.
+        Please check your email (or authenticator app) for a verification code from LinkedIn.
       </Typography>
 
       {error && (
