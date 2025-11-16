@@ -4,6 +4,8 @@ All the apps are based on Svelte and share the same code.
 
 The native apps are using the Tauri framework with an embedded WebView to render the Svelte app.
 
+> The NextGraph app is undergoing a heavy refactor. This folder is almost empty at the moment. In order to compile the previous version of the app, go to the [refactor-wallet branch](https://git.nextgraph.org/NextGraph/nextgraph-rs/src/branch/refactor-wallet/ng-app). When the new refactor with Svelte 5, Daisy UI, and Ark UI will be ready, you will find it here.
+
 ## Install
 
 ```
