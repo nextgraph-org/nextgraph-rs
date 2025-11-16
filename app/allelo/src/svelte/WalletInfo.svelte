@@ -340,10 +340,10 @@
                     href={download_link || ""}
                     target="_blank"
                     download={wallet_file_ready}
-                    class="wallet-download-link"
+                    class="wallet-download-link "
                   >
-                    <Button variant="raised" class="mui-button-primary form-button" style="width:100%">
-                      <div class="button-icon">
+                    <Button variant="raised" class="wallet-menu-item mui-button-primary form-button" style="width:100%">
+                      <div class="wallet-menu-icon">
                         <DocumentArrowDown />
                       </div>
                       <Label>{$t("pages.wallet_info.download_file_button")}</Label>
@@ -648,6 +648,7 @@
 
   .wallet-menu-icon {
     flex-shrink: 0;
+    margin-right:5px;
   }
 
   .wallet-menu-icon :global(.icon) {

@@ -14,7 +14,8 @@
 }
 
 #root {
-    padding: var(--safe-area-inset-top) var(--safe-area-inset-right) var(--safe-area-inset-bottom) var(--safe-area-inset-left);
+    padding: var(--safe-area-inset-top) var(--safe-area-inset-right)
+        var(--safe-area-inset-bottom) var(--safe-area-inset-left);
 }
 
 .mdc-button {
@@ -42,6 +43,10 @@
     background-color: transparent !important;
     border-color: var(--mui-palette-primary-dark) !important;
     box-shadow: none !important;
+}
+
+.wallet-menu-item {
+    height: 65px;
 }
 
 /*****************************/
