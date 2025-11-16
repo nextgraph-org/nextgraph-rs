@@ -46,6 +46,7 @@ impl Verifier {
         // TODO: Validate schema:
         // If multiple data types are present for the same predicate, they must be of of the same type.
         // All referenced shapes must be available.
+        // All shapes must have predicate
 
         // Create new subscription and add to self.orm_subscriptions
         let orm_subscription = OrmSubscription::new(
@@ -76,7 +77,7 @@ impl Verifier {
         mut orm_subscription: OrmSubscription,
     ) -> Result<Value, NgError> {
         // Query triples for this shape
-        let shape_quads = self.query_quads_for_shape_type(
+        let shape_quads = self.query_quads_for_shape(
             Some(orm_subscription.nuri.clone()),
             &orm_subscription.shape_type.schema,
             &orm_subscription.shape_type.shape,
@@ -91,7 +92,7 @@ impl Verifier {
             &[],
             &mut changes,
             true,
-        );
+        )?;
 
         let schema: &HashMap<String, Arc<OrmSchemaShape>> = &orm_subscription.shape_type.schema;
         let root_shape = schema.get(&orm_subscription.shape_type.shape).unwrap();

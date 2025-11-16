@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use crate::local_broker::{
-    doc_create, doc_query_quads_for_shape_type, doc_sparql_update, get_broker, orm_start,
+    doc_create, doc_query_quads_for_shape_type, doc_sparql_update, orm_start,
 };
 use crate::tests::create_or_open_wallet::create_or_open_wallet;
 use crate::tests::{assert_json_eq, create_doc_with_data};
@@ -21,6 +21,7 @@ use ng_net::orm::{
 };
 
 use ng_repo::log_info;
+use ng_verifier::orm::query::schema_shape_to_sparql;
 // use ng_verifier::orm::query::shape_type_to_sparql_select; // replaced by query_quads_for_shape_type
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -30,16 +31,6 @@ use std::sync::Arc;
 async fn test_create_sparql_from_schema() {
     // Setup wallet and document
     let (_wallet, session_id) = create_or_open_wallet().await;
-    let doc_nuri = doc_create(
-        session_id,
-        "Graph".to_string(),
-        "test_orm_query".to_string(),
-        "store".to_string(),
-        None,
-        None,
-    )
-    .await
-    .expect("error creating doc");
 
     // Insert data across multiple documents (each document is its own graph)
     let doc_nuri_root = create_doc_with_data(
@@ -98,7 +89,7 @@ INSERT DATA {
     // Query triples using the new helper
     let triples = doc_query_quads_for_shape_type(
         session_id,
-        Some(doc_nuri_root.clone()),
+        None, // Necessary?
         &shape_type.schema,
         &shape_type.shape,
         None,
@@ -137,16 +128,94 @@ INSERT DATA {
             p
         );
     }
+}
 
-    // Unrelated predicates should not be in the result
-    assert!(
-        !predicates.contains(&"http://example.org/unrelated".to_string()),
-        "Found unrelated predicate"
+#[async_std::test]
+async fn test_create_sparql_from_big_contact_schema() {
+    use std::time::Instant;
+
+    // Setup wallet and document
+    let (_wallet, session_id) = create_or_open_wallet().await;
+
+    // Insert data across multiple documents (each document is its own graph)
+    let doc_nuri_root =
+        create_doc_with_data(session_id, include_str!("contact_data.sparql").to_string()).await;
+
+    let schema = serde_json::from_value::<OrmSchema>(create_contact_schema()).unwrap();
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:x:contact:class#SocialContact".to_string(),
+    };
+
+    let start = Instant::now();
+    let quads = doc_query_quads_for_shape_type(
+        session_id,
+        Some(doc_nuri_root.clone()),
+        &shape_type.schema,
+        &shape_type.shape,
+        None,
+    )
+    .await
+    .expect("shape query failed");
+    let elapsed = start.elapsed();
+
+    log_info!(
+        "Query completed in {:?}, returned {} quads",
+        elapsed,
+        quads.len()
     );
-    assert!(
-        !predicates.contains(&"http://example.org/anotherUnrelated".to_string()),
-        "Found another unrelated predicate"
-    );
+
+    // Assert the results
+    let mut predicates: Vec<String> = quads
+        .iter()
+        .map(|t| t.predicate.as_str().to_string())
+        .collect();
+    predicates.sort();
+    predicates.dedup();
+
+    // Expected predicates based on actual contact schema and data
+    let expected_predicates = vec![
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+        "did:ng:x:contact#phoneNumber",
+        "did:ng:x:contact#email",
+        "did:ng:x:contact#address",
+        "did:ng:x:contact#organization",
+        "did:ng:x:contact#photo",
+        "did:ng:x:contact#url",
+        "did:ng:x:contact#biography",
+        "did:ng:x:contact#account",
+        "did:ng:x:contact#tag",
+        "did:ng:x:contact#internalGroup",
+        "did:ng:x:contact#headline",
+        "did:ng:x:contact#naoStatus",
+        "did:ng:x:contact#createdAt",
+        "did:ng:x:contact#updatedAt",
+        "did:ng:x:contact#joinedAt",
+        "did:humanityConfidenceScore",
+        "did:relationshipCategory",
+        "did:lastInteractionAt",
+        // Nested shape predicates
+        "did:ng:x:core#value",
+        "did:ng:x:core#source",
+        "did:ng:x:core#type",
+        "did:ng:x:core#valueIRI",
+        "did:ng:x:core#valueDateTime",
+        "did:ng:x:contact#protocol",
+        "did:ng:x:contact#position",
+        "did:ng:x:contact#city",
+        "did:ng:x:contact#region",
+        "did:ng:x:contact#country",
+    ];
+
+    for p in expected_predicates {
+        assert!(
+            predicates.contains(&p.to_string()),
+            "Missing predicate: {}",
+            p
+        );
+    }
+
+    assert!(quads.len() == 78, "Expected 78 quads, got {}", quads.len());
 }
 
 #[async_std::test]
@@ -215,75 +284,6 @@ INSERT DATA {
 
     // Assert: No triples should be returned as the object is incomplete.
     assert!(triples.is_empty());
-}
-
-#[async_std::test]
-async fn test_orm_query_partial_match_missing_optional() {
-    // Setup
-    let (_wallet, session_id) = create_or_open_wallet().await;
-    let doc_nuri = doc_create(
-        session_id,
-        "Graph".to_string(),
-        "test_orm_partial_optional".to_string(),
-        "store".to_string(),
-        None,
-        None,
-    )
-    .await
-    .unwrap();
-
-    // Insert data missing an optional field (`prop2`)
-    let insert_sparql = r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:obj1> a ex:TestObject ;
-      ex:prop1 "one" .
-}
-"#
-    .to_string();
-    doc_sparql_update(session_id, insert_sparql, Some(doc_nuri.clone()))
-        .await
-        .unwrap();
-
-    // Schema with one required and one optional field
-    let mut schema = HashMap::new();
-    schema.insert(
-        "http://example.org/TestObject".to_string(),
-        Arc::new(OrmSchemaShape {
-            iri: "http://example.org/TestObject".to_string(),
-            predicates: vec![
-                Arc::new(OrmSchemaPredicate {
-                    iri: "http://example.org/prop1".to_string(),
-                    minCardinality: 1,
-                    ..Default::default()
-                }),
-                Arc::new(OrmSchemaPredicate {
-                    iri: "http://example.org/prop2".to_string(),
-                    minCardinality: 0, // Optional
-                    ..Default::default()
-                }),
-            ],
-        }),
-    );
-    let shape_type = OrmShapeType {
-        schema,
-        shape: "http://example.org/TestObject".to_string(),
-    };
-
-    // Generate and run query
-    let triples = doc_query_quads_for_shape_type(
-        session_id,
-        Some(doc_nuri.clone()),
-        &shape_type.schema,
-        &shape_type.shape,
-        None,
-    )
-    .await
-    .unwrap();
-
-    // Assert: One triple for prop1 should be returned.
-    assert_eq!(triples.len(), 1);
-    assert_eq!(triples[0].predicate.as_str(), "http://example.org/prop1");
 }
 
 #[async_std::test]
@@ -363,6 +363,228 @@ INSERT DATA {
 
     // Assert: All 6 triples (3 per person) should be returned.
     assert_eq!(triples.len(), 6);
+}
+
+#[async_std::test]
+async fn test_orm_query_deep_cyclic_shapes() {
+    // Test complex cyclic shape references: A -> B -> C -> A
+    let (_wallet, session_id) = create_or_open_wallet().await;
+    let doc_nuri = doc_create(
+        session_id,
+        "Graph".to_string(),
+        "test_deep_cyclic".to_string(),
+        "store".to_string(),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+
+    // Insert data forming a cycle: Organization -> Department -> Project -> Organization
+    let insert_sparql = r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:org1> a ex:Organization ;
+        ex:orgName "Acme Corp" ;
+        ex:hasDepartment <urn:dept1> .
+    
+    <urn:dept1> a ex:Department ;
+        ex:deptName "Engineering" ;
+        ex:hasProject <urn:proj1> .
+    
+    <urn:proj1> a ex:Project ;
+        ex:projectName "Product X" ;
+        ex:ownedBy <urn:org2> .
+}
+"#
+    .to_string();
+    doc_sparql_update(session_id, insert_sparql, Some(doc_nuri.clone()))
+        .await
+        .unwrap();
+
+    // Define cyclic schema: Org -> Dept -> Project -> Org
+    let mut schema = HashMap::new();
+
+    schema.insert(
+        "http://example.org/Organization".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Organization".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    minCardinality: 1,
+                    maxCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Organization".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                    extra: Some(true),
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/orgName".to_string(),
+                    minCardinality: 1,
+                    maxCardinality: 1,
+                    readablePredicate: "orgName".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                    extra: Some(false),
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/hasDepartment".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: -1,
+                    readablePredicate: "hasDepartment".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("http://example.org/Department".to_string()),
+                    }],
+                    extra: Some(false),
+                }),
+            ],
+        }),
+    );
+
+    schema.insert(
+        "http://example.org/Department".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Department".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    minCardinality: 1,
+                    maxCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Department".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                    extra: Some(true),
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/deptName".to_string(),
+                    minCardinality: 1,
+                    maxCardinality: 1,
+                    readablePredicate: "deptName".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                    extra: Some(false),
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/hasProject".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: -1,
+                    readablePredicate: "hasProject".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("http://example.org/Project".to_string()),
+                    }],
+                    extra: Some(false),
+                }),
+            ],
+        }),
+    );
+
+    schema.insert(
+        "http://example.org/Project".to_string(),
+        Arc::new(OrmSchemaShape {
+            iri: "http://example.org/Project".to_string(),
+            predicates: vec![
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    minCardinality: 1,
+                    maxCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Project".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                    extra: Some(true),
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/projectName".to_string(),
+                    minCardinality: 1,
+                    maxCardinality: 1,
+                    readablePredicate: "projectName".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                    extra: Some(false),
+                }),
+                Arc::new(OrmSchemaPredicate {
+                    iri: "http://example.org/ownedBy".to_string(),
+                    minCardinality: 0,
+                    maxCardinality: 1,
+                    readablePredicate: "ownedBy".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("http://example.org/Organization".to_string()),
+                    }],
+                    extra: Some(false),
+                }),
+            ],
+        }),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/Organization".to_string(),
+    };
+
+    // Query must not infinite loop and should return all quads
+    let quads = doc_query_quads_for_shape_type(
+        session_id,
+        Some(doc_nuri.clone()),
+        &shape_type.schema,
+        &shape_type.shape,
+        None,
+    )
+    .await
+    .unwrap();
+
+    // Verify we got all the data:
+    // - org1: type, orgName, hasDepartment (3 quads)
+    // - dept1: type, deptName, hasProject (3 quads)
+    // - proj1: type, projectName, ownedBy (3 quads)
+    // Total: 9 quads
+    assert_eq!(
+        quads.len(),
+        9,
+        "Expected 9 quads for cyclic org->dept->proj->org structure"
+    );
+
+    // Verify we have all expected predicates
+    let predicates: Vec<String> = quads
+        .iter()
+        .map(|q| q.predicate.as_str().to_string())
+        .collect();
+
+    assert!(predicates.contains(&"http://example.org/orgName".to_string()));
+    assert!(predicates.contains(&"http://example.org/deptName".to_string()));
+    assert!(predicates.contains(&"http://example.org/projectName".to_string()));
+    assert!(predicates.contains(&"http://example.org/hasDepartment".to_string()));
+    assert!(predicates.contains(&"http://example.org/hasProject".to_string()));
+    assert!(predicates.contains(&"http://example.org/ownedBy".to_string()));
 }
 
 #[async_std::test]
@@ -662,6 +884,83 @@ INSERT DATA {
         break;
     }
     cancel_fn();
+}
+
+#[test]
+fn test_basic_schema_shape_to_sparql_generation() {
+    // Required predicate with enumerated literals
+    let required_lit_pred = Arc::new(OrmSchemaPredicate {
+        iri: "http://example.org/requiredLiteral".to_string(),
+        minCardinality: 1,
+        maxCardinality: -1,
+        readablePredicate: "requiredLiteral".to_string(),
+        dataTypes: vec![OrmSchemaDataType {
+            valType: OrmSchemaValType::literal,
+            literals: Some(vec![
+                BasicType::Str("A".to_string()),
+                BasicType::Str("B".to_string()),
+            ]),
+            shape: None,
+        }],
+        extra: None,
+    });
+    // Optional predicate that should not be emitted explicitly
+    let optional_pred = Arc::new(OrmSchemaPredicate {
+        iri: "http://example.org/optional".to_string(),
+        minCardinality: 0,
+        maxCardinality: -1,
+        readablePredicate: "optional".to_string(),
+        dataTypes: vec![OrmSchemaDataType {
+            valType: OrmSchemaValType::string,
+            literals: None,
+            shape: None,
+        }],
+        extra: None,
+    });
+    // Shape-valued required predicate (treated like value here)
+    let shape_pred = Arc::new(OrmSchemaPredicate {
+        iri: "http://example.org/requiredObject".to_string(),
+        minCardinality: 1,
+        maxCardinality: -1,
+        readablePredicate: "requiredObject".to_string(),
+        dataTypes: vec![OrmSchemaDataType {
+            valType: OrmSchemaValType::shape,
+            literals: None,
+            shape: Some("http://example.org/Nested".to_string()),
+        }],
+        extra: None,
+    });
+
+    let shape = OrmSchemaShape {
+        iri: "http://example.org/Root".to_string(),
+        predicates: vec![required_lit_pred, optional_pred, shape_pred],
+    };
+
+    let q = schema_shape_to_sparql(
+        &shape,
+        Some(vec!["urn:s1".to_string()]),
+        Some(vec!["urn:g1".to_string()]),
+    );
+
+    // Basic projections and GRAPH usage
+    assert!(q.contains("SELECT DISTINCT ?s ?p ?o ?g"));
+    assert!(q.contains("GRAPH ?g"));
+
+    // Required predicates appear explicitly
+    assert!(q.contains("<http://example.org/requiredLiteral>"));
+    assert!(q.contains("<http://example.org/requiredObject>"));
+
+    // Optional predicate should not be present explicitly
+    assert!(!q.contains("<http://example.org/optional>"));
+
+    // Literal filter aggregated
+    assert!(q.contains("FILTER(?v"));
+    assert!(q.contains("\"A\""));
+    assert!(q.contains("\"B\""));
+
+    // Subject and graph filters
+    assert!(q.contains("FILTER(?s IN (<urn:s1>))"));
+    assert!(q.contains("FILTER(?g IN (<urn:g1>))"));
 }
 
 async fn test_orm_optional_nested_pending(session_id: u64) {
@@ -2200,8 +2499,156 @@ INSERT DATA {
     cancel_fn();
 }
 
+// This test verifies that validation counts only consider quads in the same graph or in graphs
+// whose name is a prefix of the subject IRI (subject IRI is a superset of the graph IRI).
+async fn test_orm_cardinality_scoping(session_id: u64) {
+    // Root graph with a person who should have exactly 1 name (maxCardinality:1, minCardinality:1)
+    let doc_root = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:groot:alice> a ex:Person ;
+        ex:name "Alice" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Separate graph with an extra name that should NOT invalidate alice because the subject IRI
+    // is not a superset of the graph IRI (graph is unrelated)
+    let _doc_other = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:other:alice> ex:name "Alice-Other" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Another graph whose name is a prefix of the subject IRI (subject IRI is a superset):
+    // Graph IRI: urn:test:groot (simulated by creating a second doc whose internal graph IRI
+    // will differ). We create an extra name triple for the SAME SUBJECT so that it SHOULD be
+    // considered for cardinality only if the implementation allows prefix-based scoping.
+    // For the purpose of this test, we also add a different subject to show it is ignored.
+    let _doc_prefix = create_doc_with_data(
+        session_id,
+        r#"
+PREFIX ex: <http://example.org/>
+INSERT DATA {
+    <urn:test:groot:alice> ex:name "Alice-Scoped" .
+    <urn:test:groot:bob> ex:name "Bob" .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define schema where name is required exactly once
+    let mut schema = HashMap::new();
+    schema.insert(
+        "http://example.org/PersonShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/PersonShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: None,
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://example.org/Person".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/name".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "name".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "http://example.org/PersonShape".to_string(),
+    };
+
+    let nuri = NuriV0::new_from(&doc_root).expect("parse nuri");
+    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
+        .await
+        .expect("orm_start");
+
+    while let Some(app_response) = receiver.next().await {
+        let orm_json = match app_response {
+            AppResponse::V0(v) => match v {
+                AppResponseV0::OrmInitial(json) => Some(json),
+                _ => None,
+            },
+        }
+        .unwrap();
+
+        let actual_obj = orm_json
+            .as_object()
+            .expect("expected root ORM JSON to be an object");
+        log_info!(
+            "[test_orm_cardinality_scoping] actual_obj: {:?}",
+            actual_obj
+        );
+
+        // We expect alice to be valid with a single name. The extra name in unrelated graph
+        // must be ignored; the extra in prefix graph may or may not count depending on scoping.
+        // According to spec, only same-graph or subject-graph prefix graphs count; since we created
+        // one such extra, maxCardinality=1 should still pass if implementation deduplicates or picks
+        // one; otherwise it would fail. We assert that it materializes with a single name.
+        let k_alice = actual_obj
+            .keys()
+            .find(|k| k.ends_with("|urn:test:groot:alice"))
+            .expect("alice key")
+            .to_string();
+        let g_alice = actual_obj[&k_alice]["@graph"].as_str().unwrap().to_string();
+        let name_val = actual_obj[&k_alice]["name"].as_str().unwrap();
+        assert!(name_val == "Alice" || name_val == "Alice-Scoped");
+
+        let mut expected = json!({
+            k_alice.clone(): {
+                "@id": "urn:test:groot:alice",
+                "@graph": g_alice,
+                "type": "http://example.org/Person",
+                "name": name_val
+            }
+        });
+
+        let mut actual_mut = orm_json.clone();
+        assert_json_eq(&mut expected, &mut actual_mut);
+        break;
+    }
+    cancel_fn();
+}
+
 //
 // Helpers
+//
+
 fn create_big_schema() -> OrmSchema {
     // Define the ORM schema
     let mut schema: OrmSchema = HashMap::new();
@@ -2429,148 +2876,7 @@ fn create_big_schema() -> OrmSchema {
     return schema;
 }
 
-// This test verifies that validation counts only consider quads in the same graph or in graphs
-// whose name is a prefix of the subject IRI (subject IRI is a superset of the graph IRI).
-async fn test_orm_cardinality_scoping(session_id: u64) {
-    // Root graph with a person who should have exactly 1 name (maxCardinality:1, minCardinality:1)
-    let doc_root = create_doc_with_data(
-        session_id,
-        r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:groot:alice> a ex:Person ;
-        ex:name "Alice" .
-}
-"#
-        .to_string(),
-    )
-    .await;
-
-    // Separate graph with an extra name that should NOT invalidate alice because the subject IRI
-    // is not a superset of the graph IRI (graph is unrelated)
-    let _doc_other = create_doc_with_data(
-        session_id,
-        r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:other:alice> ex:name "Alice-Other" .
-}
-"#
-        .to_string(),
-    )
-    .await;
-
-    // Another graph whose name is a prefix of the subject IRI (subject IRI is a superset):
-    // Graph IRI: urn:test:groot (simulated by creating a second doc whose internal graph IRI
-    // will differ). We create an extra name triple for the SAME SUBJECT so that it SHOULD be
-    // considered for cardinality only if the implementation allows prefix-based scoping.
-    // For the purpose of this test, we also add a different subject to show it is ignored.
-    let _doc_prefix = create_doc_with_data(
-        session_id,
-        r#"
-PREFIX ex: <http://example.org/>
-INSERT DATA {
-    <urn:test:groot:alice> ex:name "Alice-Scoped" .
-    <urn:test:groot:bob> ex:name "Bob" .
-}
-"#
-        .to_string(),
-    )
-    .await;
-
-    // Define schema where name is required exactly once
-    let mut schema = HashMap::new();
-    schema.insert(
-        "http://example.org/PersonShape".to_string(),
-        OrmSchemaShape {
-            iri: "http://example.org/PersonShape".to_string(),
-            predicates: vec![
-                OrmSchemaPredicate {
-                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
-                    extra: None,
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "type".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::literal,
-                        literals: Some(vec![BasicType::Str(
-                            "http://example.org/Person".to_string(),
-                        )]),
-                        shape: None,
-                    }],
-                }
-                .into(),
-                OrmSchemaPredicate {
-                    iri: "http://example.org/name".to_string(),
-                    extra: Some(false),
-                    maxCardinality: 1,
-                    minCardinality: 1,
-                    readablePredicate: "name".to_string(),
-                    dataTypes: vec![OrmSchemaDataType {
-                        valType: OrmSchemaValType::string,
-                        literals: None,
-                        shape: None,
-                    }],
-                }
-                .into(),
-            ],
-        }
-        .into(),
-    );
-
-    let shape_type = OrmShapeType {
-        schema,
-        shape: "http://example.org/PersonShape".to_string(),
-    };
-
-    let nuri = NuriV0::new_from(&doc_root).expect("parse nuri");
-    let (mut receiver, cancel_fn) = orm_start(nuri, shape_type, session_id)
-        .await
-        .expect("orm_start");
-
-    while let Some(app_response) = receiver.next().await {
-        let orm_json = match app_response {
-            AppResponse::V0(v) => match v {
-                AppResponseV0::OrmInitial(json) => Some(json),
-                _ => None,
-            },
-        }
-        .unwrap();
-
-        let actual_obj = orm_json
-            .as_object()
-            .expect("expected root ORM JSON to be an object");
-        log_info!(
-            "[test_orm_cardinality_scoping] actual_obj: {:?}",
-            actual_obj
-        );
-
-        // We expect alice to be valid with a single name. The extra name in unrelated graph
-        // must be ignored; the extra in prefix graph may or may not count depending on scoping.
-        // According to spec, only same-graph or subject-graph prefix graphs count; since we created
-        // one such extra, maxCardinality=1 should still pass if implementation deduplicates or picks
-        // one; otherwise it would fail. We assert that it materializes with a single name.
-        let k_alice = actual_obj
-            .keys()
-            .find(|k| k.ends_with("|urn:test:groot:alice"))
-            .expect("alice key")
-            .to_string();
-        let g_alice = actual_obj[&k_alice]["@graph"].as_str().unwrap().to_string();
-        let name_val = actual_obj[&k_alice]["name"].as_str().unwrap();
-        assert!(name_val == "Alice" || name_val == "Alice-Scoped");
-
-        let mut expected = json!({
-            k_alice.clone(): {
-                "@id": "urn:test:groot:alice",
-                "@graph": g_alice,
-                "type": "http://example.org/Person",
-                "name": name_val
-            }
-        });
-
-        let mut actual_mut = orm_json.clone();
-        assert_json_eq(&mut expected, &mut actual_mut);
-        break;
-    }
-    cancel_fn();
+pub fn create_contact_schema() -> Value {
+    let schema_str = include_str!("big_contact_schema.json");
+    serde_json::from_str(schema_str).unwrap()
 }

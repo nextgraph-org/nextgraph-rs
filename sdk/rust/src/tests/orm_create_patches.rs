@@ -865,6 +865,7 @@ INSERT DATA {
         a ex:Cat ;
         ex:catName "Whiskers" .
 }
+
 "#
         .to_string(),
     )
@@ -1000,6 +1001,57 @@ INSERT DATA {
                     iri: "http://example.org/catName".to_string(),
                     extra: Some(false),
                     maxCardinality: 1,
+                    minCardinality: 0,
+                    readablePredicate: "name".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::string,
+                        literals: None,
+                        shape: None,
+                    }],
+                }
+                .into(),
+                // New nested layer: Cat -> Toy
+                OrmSchemaPredicate {
+                    iri: "http://example.org/hasToy".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "toy".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some("http://example.org/ToyShape".to_string()),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    // Toy shape
+    schema.insert(
+        "http://example.org/ToyShape".to_string(),
+        OrmSchemaShape {
+            iri: "http://example.org/ToyShape".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str("http://example.org/Toy".to_string())]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "http://example.org/toyName".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
                     minCardinality: 1,
                     readablePredicate: "name".to_string(),
                     dataTypes: vec![OrmSchemaDataType {
@@ -1073,11 +1125,21 @@ INSERT DATA {
 
     <urn:test:cat2>
         a ex:Cat ;
-        ex:catName "Mittens" .
+        ex:catName "Mittens" ;
+        ex:hasToy <urn:test:toy2> .
+
+    <urn:test:toy2>
+        a ex:Toy ;
+        ex:toyName "Mouse" .
 
     <urn:test:cat3>
         a ex:Cat ;
-        ex:catName "Fluffy" .
+        ex:catName "Fluffy" ;
+        ex:hasToy <urn:test:toy3> .
+
+    <urn:test:toy3>
+        a ex:Toy ;
+        ex:toyName "Ball" .
 }
 "#
         .to_string(),
@@ -1134,6 +1196,27 @@ INSERT DATA {
                 "value": "Mittens",
                 "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/name",
             },
+            // Bob's cat gets a toy (multi-valued): object container for specific toy subject
+            {
+                "op": "add",
+                "valType": "object",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2",
+            },
+            {
+                "op": "add",
+                "value": "urn:test:toy2",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2/@id",
+            },
+            {
+                "op": "add",
+                "value": "http://example.org/Toy",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2/type",
+            },
+            {
+                "op": "add",
+                "value": "Mouse",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2/name",
+            },
             // New person Charlie with cat
             {
                 "op": "add",
@@ -1175,6 +1258,27 @@ INSERT DATA {
                 "value": "Fluffy",
                 "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/name",
             },
+            // Charlie's cat gets a toy (multi-valued)
+            {
+                "op": "add",
+                "valType": "object",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/toy/urn:test:toy3",
+            },
+            {
+                "op": "add",
+                "value": "urn:test:toy3",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/toy/urn:test:toy3/@id",
+            },
+            {
+                "op": "add",
+                "value": "http://example.org/Toy",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/toy/urn:test:toy3/type",
+            },
+            {
+                "op": "add",
+                "value": "Ball",
+                "path": "/urn:test:house1/inhabitants/urn:test:person3/cat/toy/urn:test:toy3/name",
+            },
         ]);
 
         let mut actual = json!(patches);
@@ -1214,14 +1318,24 @@ DELETE DATA {
     <urn:test:cat2>
         ex:catName "Mittens" .
 
+    <urn:test:toy2>
+        ex:toyName "Mouse" .
+
     <urn:test:cat3>
         a ex:Cat ;
-        ex:catName "Fluffy" .
+        ex:catName "Fluffy" ;
+        ex:hasToy <urn:test:toy3> .
+
+    <urn:test:toy3>
+        a ex:Toy ;
+        ex:toyName "Ball" .
 }
 ;
 INSERT DATA {
     <urn:test:cat2>
         ex:catName "Mr. Mittens" .
+    <urn:test:toy2>
+        ex:toyName "Laser" .
 }
 "#
         .to_string(),
@@ -1262,6 +1376,12 @@ INSERT DATA {
                 "value": "Mr. Mittens",
                 "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/name",
             },
+            // Bob's cat toy name changes
+            {
+                "op": "add",
+                "value": "Laser",
+                "path": "/urn:test:house1/inhabitants/urn:test:person2/cat/toy/urn:test:toy2/name",
+            },
             // Charlie and his cat are removed
             {
                 "op": "remove",
@@ -1276,6 +1396,225 @@ INSERT DATA {
         }
         assert_json_eq(&mut expected, &mut actual);
 
+        break;
+    }
+}
+
+/// Test that replacing a SocialContact's name.value and updatedAt.valueDateTime emits add patches
+/// without removing the name object (multi-valued child) and uses correct pathing.
+#[async_std::test]
+async fn test_contact_name_replacement_patches() {
+    let (_wallet, session_id) = create_or_open_wallet().await;
+
+    // Initial data: one contact with name and updatedAt objects
+    let doc_nuri = create_doc_with_data(
+        session_id,
+        r#"
+INSERT DATA {
+    <urn:test:contact1>
+        a <http://www.w3.org/2006/vcard/ns#Individual> ;
+        <did:ng:x:contact#name> <urn:test:name1> ;
+        <did:ng:x:contact#updatedAt> <urn:test:upd1> .
+
+    <urn:test:name1>
+        <did:ng:x:core#value> "Admin's friend - change4" .
+
+    <urn:test:upd1>
+        <did:ng:x:core#valueDateTime> "2025-11-13T15:42:18.332Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+}
+"#
+        .to_string(),
+    )
+    .await;
+
+    // Define the ORM schema (only the necessary parts)
+    let mut schema = HashMap::new();
+
+    // SocialContact
+    schema.insert(
+        "did:ng:x:contact:class#SocialContact".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:x:contact:class#SocialContact".to_string(),
+            predicates: vec![
+                OrmSchemaPredicate {
+                    iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type".to_string(),
+                    extra: Some(true),
+                    maxCardinality: 1,
+                    minCardinality: 1,
+                    readablePredicate: "@type".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::literal,
+                        literals: Some(vec![BasicType::Str(
+                            "http://www.w3.org/2006/vcard/ns#Individual".to_string(),
+                        )]),
+                        shape: None,
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:x:contact#name".to_string(),
+                    extra: Some(false),
+                    maxCardinality: -1,
+                    minCardinality: 0,
+                    readablePredicate: "name".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some(
+                            "did:ng:x:contact:class#SocialContact||did:ng:x:contact#name"
+                                .to_string(),
+                        ),
+                    }],
+                }
+                .into(),
+                OrmSchemaPredicate {
+                    iri: "did:ng:x:contact#updatedAt".to_string(),
+                    extra: Some(false),
+                    maxCardinality: 1,
+                    minCardinality: 0,
+                    readablePredicate: "updatedAt".to_string(),
+                    dataTypes: vec![OrmSchemaDataType {
+                        valType: OrmSchemaValType::shape,
+                        literals: None,
+                        shape: Some(
+                            "did:ng:x:contact:class#SocialContact||did:ng:x:contact#updatedAt"
+                                .to_string(),
+                        ),
+                    }],
+                }
+                .into(),
+            ],
+        }
+        .into(),
+    );
+
+    // Name shape
+    schema.insert(
+        "did:ng:x:contact:class#SocialContact||did:ng:x:contact#name".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#name".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "did:ng:x:core#value".to_string(),
+                extra: Some(false),
+                maxCardinality: 1,
+                minCardinality: 0,
+                readablePredicate: "value".to_string(),
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::string,
+                    literals: None,
+                    shape: None,
+                }],
+            }
+            .into()],
+        }
+        .into(),
+    );
+
+    // UpdatedAt shape (minimal)
+    schema.insert(
+        "did:ng:x:contact:class#SocialContact||did:ng:x:contact#updatedAt".to_string(),
+        OrmSchemaShape {
+            iri: "did:ng:x:contact:class#SocialContact||did:ng:x:contact#updatedAt".to_string(),
+            predicates: vec![OrmSchemaPredicate {
+                iri: "did:ng:x:core#valueDateTime".to_string(),
+                extra: Some(false),
+                maxCardinality: 1,
+                minCardinality: 0,
+                readablePredicate: "valueDateTime".to_string(),
+                dataTypes: vec![OrmSchemaDataType {
+                    valType: OrmSchemaValType::string,
+                    literals: None,
+                    shape: None,
+                }],
+            }
+            .into()],
+        }
+        .into(),
+    );
+
+    let shape_type = OrmShapeType {
+        schema,
+        shape: "did:ng:x:contact:class#SocialContact".to_string(),
+    };
+
+    let nuri = NuriV0::new_entire_user_site();
+    let (mut receiver, _cancel_fn) = orm_start(nuri, shape_type, session_id)
+        .await
+        .expect("orm_start");
+
+    // Drain initial
+    loop {
+        let res = timeout(Duration::from_secs(10), receiver.next()).await;
+        let opt = match res {
+            Ok(o) => o,
+            Err(_) => panic!("Timed out waiting for OrmInitial"),
+        };
+        match opt {
+            Some(AppResponse::V0(AppResponseV0::OrmInitial(_))) => break,
+            Some(_) => continue,
+            None => panic!("ORM receiver closed before initial response"),
+        }
+    }
+
+    // Replace name.value and updatedAt.valueDateTime
+    doc_sparql_update(
+        session_id,
+        r#"
+DELETE DATA {
+    <urn:test:name1> <did:ng:x:core#value> "Admin's friend - change4" .
+    <urn:test:upd1> <did:ng:x:core#valueDateTime> "2025-11-13T15:42:18.332Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+} ;
+INSERT DATA {
+    <urn:test:name1> <did:ng:x:core#value> "Admin's friend - change5" .
+    <urn:test:upd1> <did:ng:x:core#valueDateTime> "2025-11-13T15:49:41.013Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+}
+"#
+        .to_string(),
+        Some(doc_nuri.clone()),
+    )
+    .await
+    .expect("SPARQL update failed");
+
+    // Expect two add patches (no object removal for name)
+    loop {
+        let res = timeout(Duration::from_secs(10), receiver.next()).await;
+        let opt = match res {
+            Ok(o) => o,
+            Err(_) => panic!("Timed out waiting for OrmUpdate"),
+        };
+        let app_response = match opt {
+            Some(a) => a,
+            None => panic!("ORM receiver closed before OrmUpdate"),
+        };
+        let patches = match app_response {
+            AppResponse::V0(AppResponseV0::OrmUpdate(json)) => json,
+            _ => continue,
+        };
+
+        log_info!("Name replacement patches arrived:\n");
+        for p in patches.iter() {
+            log_info!("{:?}", p);
+        }
+
+        let mut expected = json!([
+            {
+                "op": "add",
+                "path": "/urn:test:contact1/name/urn:test:name1/value",
+                "value": "Admin's friend - change5"
+            },
+            {
+                "op": "add",
+                "path": "/urn:test:contact1/updatedAt/valueDateTime",
+                "value": "2025-11-13T15:49:41.013Z"
+            }
+        ]);
+
+        let mut actual = json!(patches);
+        if let Some(graph) = extract_graph_from_actual_paths(&actual) {
+            rewrite_expected_paths_with_graph(&mut expected, &graph);
+        }
+
+        assert_json_eq(&mut expected, &mut actual);
         break;
     }
 }

@@ -24,7 +24,6 @@ use ng_repo::errors::NgError;
 use ng_repo::log::*;
 
 use crate::orm::add_remove_quads::apply_quads_for_subject;
-use crate::orm::query::shape_type_to_sparql_select;
 use crate::orm::shape_validation::NeedEvalSelf;
 use crate::orm::types::*;
 use crate::orm::utils::*;
@@ -732,15 +731,11 @@ impl Verifier {
 
                             if objects_to_fetch.len() > 0 {
                                 // Create sparql query
-                                let shape_query = shape_type_to_sparql_select(
+                                let new_quads = self.query_quads_for_shape(
+                                    Some(orm_subscription.nuri.clone()),
                                     &schema,
                                     &shape_iri,
                                     Some(objects_to_fetch),
-                                    None,
-                                )?;
-                                let new_quads = self.query_sparql_select(
-                                    shape_query,
-                                    Some(orm_subscription.nuri.clone()),
                                 )?;
 
                                 log_info!("[process_changes_for_subscription] recursive call for shape {} and quads {:?}", shape_iri,  schema);

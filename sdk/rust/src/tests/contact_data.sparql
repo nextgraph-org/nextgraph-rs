@@ -1,0 +1,79 @@
+INSERT DATA { <did:ng:ex> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2006/vcard/ns#Individual> .
+<did:ng:ex:u:zTrrVc_KayekUoKCeu7j1uU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "GreenCheck" .
+<did:ng:ex:u:lglNZJsZA6tPYG_hBnxr7uU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "+1555333444" .
+<did:ng:ex:u:zTrrVc_KayekUoKCeu7j1uU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "+15551234568" .
+<did:ng:ex> <did:ng:x:contact#phoneNumber> <did:ng:ex:u:lglNZJsZA6tPYG_hBnxr7uU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex> <did:ng:x:contact#phoneNumber> <did:ng:ex:u:zTrrVc_KayekUoKCeu7j1uU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:lglNZJsZA6tPYG_hBnxr7uU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "iPhone" .
+<did:ng:ex:u:DEAh6Zpb1n-oeexXcGgL1uU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#type> <did:ng:k:contact:phoneNumber#home> .
+<did:ng:ex:u:SuJOt81a14bAQiaqAInOzuU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "random@email.com" .
+<did:ng:ex:u:dKEwWmJGod3q0IAJkXX4ueU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "random@email.com" .
+<did:ng:ex> <did:ng:x:contact#email> <did:ng:ex:u:dKEwWmJGod3q0IAJkXX4ueU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:dKEwWmJGod3q0IAJkXX4ueU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#type> <did:ng:k:contact:phoneNumber#work> .
+<did:ng:ex:u:SuJOt81a14bAQiaqAInOzuU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "Gmail" .
+<did:ng:ex> <did:ng:x:contact#email> <did:ng:ex:u:SuJOt81a14bAQiaqAInOzuU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:dKEwWmJGod3q0IAJkXX4ueU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "Android Phone" .
+<did:ng:ex:u:DEAh6Zpb1n-oeexXcGgL1uU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "linkedin" .
+<did:ng:ex> <did:ng:x:contact#email> <did:ng:ex:u:DEAh6Zpb1n-oeexXcGgL1uU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:DEAh6Zpb1n-oeexXcGgL1uU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "alex.chen@techstartup.com" .
+<did:ng:ex:u:kWmEcBQL2soRG3kQh4qTC-U8_n1IujfQznasj5z3sK8A> <did:ng:x:contact#city> "San Francisco" .
+<did:ng:ex:u:kWmEcBQL2soRG3kQh4qTC-U8_n1IujfQznasj5z3sK8A> <did:ng:x:contact#region> "CA" .
+<did:ng:ex:u:kWmEcBQL2soRG3kQh4qTC-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "linkedin" .
+<did:ng:ex:u:kWmEcBQL2soRG3kQh4qTC-U8_n1IujfQznasj5z3sK8A> <did:ng:x:contact#country> "United States" .
+<did:ng:ex> <did:ng:x:contact#address> <did:ng:ex:u:kWmEcBQL2soRG3kQh4qTC-U8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:oQTFchIR1MbP9vv-GLjb8-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "NoInnovation Labs" .
+<did:ng:ex:u:-47b9d0Beilh5g5Yr9OE_eU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "Innovation Labs" .
+<did:ng:ex:u:oQTFchIR1MbP9vv-GLjb8-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "Android Phone" .
+<did:ng:ex> <did:ng:x:contact#organization> <did:ng:ex:u:-47b9d0Beilh5g5Yr9OE_eU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:oQTFchIR1MbP9vv-GLjb8-U8_n1IujfQznasj5z3sK8A> <did:ng:x:contact#position> "CTO" .
+<did:ng:ex> <did:ng:x:contact#organization> <did:ng:ex:u:oQTFchIR1MbP9vv-GLjb8-U8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:-47b9d0Beilh5g5Yr9OE_eU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "linkedin" .
+<did:ng:ex:u:-47b9d0Beilh5g5Yr9OE_eU8_n1IujfQznasj5z3sK8A> <did:ng:x:contact#position> "Chief Technology Officer" .
+<did:ng:ex:u:KVNrspUWoCRXK4tk6vBepuU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "linkedin" .
+<did:ng:ex> <did:ng:x:contact#photo> <did:ng:ex:u:KVNrspUWoCRXK4tk6vBepuU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:KVNrspUWoCRXK4tk6vBepuU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "images/Alex.jpg" .
+<did:ng:ex:u:Hg8fCfR4t-aTCx48TtdP4OU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "linkedin" .
+<did:ng:ex:u:Hg8fCfR4t-aTCx48TtdP4OU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "https://linkedin.com/in/alexchen" .
+<did:ng:ex:u:Hg8fCfR4t-aTCx48TtdP4OU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#type> <did:ng:k:link:type#linkedin> .
+<did:ng:ex> <did:ng:x:contact#url> <did:ng:ex:u:Hg8fCfR4t-aTCx48TtdP4OU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex> <did:ng:x:contact#biography> <did:ng:ex:u:KwgMV0yC_3XcyqmOrYv56-U8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:KwgMV0yC_3XcyqmOrYv56-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "Met at AI conference 2024" .
+<did:ng:ex:u:KwgMV0yC_3XcyqmOrYv56-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "linkedin" .
+<did:ng:ex:u:m-7-DNptcg1iyxtMfDWP_eU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "linkedin" .
+<did:ng:ex> <did:ng:x:contact#account> <did:ng:ex:u:m-7-DNptcg1iyxtMfDWP_eU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:m-7-DNptcg1iyxtMfDWP_eU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "alexchen_tech" .
+<did:ng:ex:u:m-7-DNptcg1iyxtMfDWP_eU8_n1IujfQznasj5z3sK8A> <did:ng:x:contact#protocol> "linkedin" .
+<did:ng:ex:u:-YFp_1UywHXJyWRiYKTxtOU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "linkedin" .
+<did:ng:ex:u:Q4Mex47Cpr2kwEck4Egu0uU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#valueIRI> <did:ng:k:contact:tag#leadership> .
+<did:ng:ex:u:Q4Mex47Cpr2kwEck4Egu0uU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "linkedin" .
+<did:ng:ex> <did:ng:x:contact#tag> <did:ng:ex:u:34vEWdStRR75uGQ_elz85-U8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex> <did:ng:x:contact#tag> <did:ng:ex:u:-YFp_1UywHXJyWRiYKTxtOU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex> <did:ng:x:contact#tag> <did:ng:ex:u:Q4Mex47Cpr2kwEck4Egu0uU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:34vEWdStRR75uGQ_elz85-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "linkedin" .
+<did:ng:ex:u:34vEWdStRR75uGQ_elz85-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#valueIRI> <did:ng:k:contact:tag#ai> .
+<did:ng:ex:u:-YFp_1UywHXJyWRiYKTxtOU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#valueIRI> <did:ng:k:contact:tag#technology> .
+<did:ng:ex:u:gnRtpxNQ1Gj1Po03iOeryOU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "1" .
+<did:ng:ex:u:Ns9xsdMjpfBZo8OXkgZs5eU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "system" .
+<did:ng:ex> <did:ng:x:contact#internalGroup> <did:ng:ex:u:Ns9xsdMjpfBZo8OXkgZs5eU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex> <did:ng:x:contact#internalGroup> <did:ng:ex:u:gnRtpxNQ1Gj1Po03iOeryOU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:gnRtpxNQ1Gj1Po03iOeryOU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "system" .
+<did:ng:ex:u:Ns9xsdMjpfBZo8OXkgZs5eU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "2" .
+<did:ng:ex:u:kIXEcdieJvYpGStx4YNE3-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "linkedin" .
+<did:ng:ex:u:kIXEcdieJvYpGStx4YNE3-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "Chief Technology Officer at Innovation Labs" .
+<did:ng:ex> <did:ng:x:contact#headline> <did:ng:ex:u:kIXEcdieJvYpGStx4YNE3-U8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:XU6AtdtAMz0V-I4tYLH87-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#value> "member" .
+<did:ng:ex> <did:ng:x:contact#naoStatus> <did:ng:ex:u:XU6AtdtAMz0V-I4tYLH87-U8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:XU6AtdtAMz0V-I4tYLH87-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "system" .
+<did:ng:ex> <did:ng:x:contact#createdAt> <did:ng:ex:u:fDXDehWdhGUTM4JCX6eZwuU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:fDXDehWdhGUTM4JCX6eZwuU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#valueDateTime> "2024-01-01T10:00:00Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<did:ng:ex:u:fDXDehWdhGUTM4JCX6eZwuU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "system" .
+<did:ng:ex:u:G5Bnk1TxLpwPQePDV9-8quU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#valueDateTime> "2024-07-20T14:30:00Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<did:ng:ex> <did:ng:x:contact#updatedAt> <did:ng:ex:u:G5Bnk1TxLpwPQePDV9-8quU8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:G5Bnk1TxLpwPQePDV9-8quU8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "system" .
+<did:ng:ex:u:zfDSc9v0LtkDD7xIcqNkv-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#source> "system" .
+<did:ng:ex> <did:ng:x:contact#joinedAt> <did:ng:ex:u:zfDSc9v0LtkDD7xIcqNkv-U8_n1IujfQznasj5z3sK8A> .
+<did:ng:ex:u:zfDSc9v0LtkDD7xIcqNkv-U8_n1IujfQznasj5z3sK8A> <did:ng:x:core#valueDateTime> "2024-01-15T10:00:00Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<did:ng:ex> <did:humanityConfidenceScore> "3" .
+<did:ng:ex> <did:relationshipCategory> "business" .
+<did:ng:ex> <did:lastInteractionAt> <did:ng:ex:u:Cppn-Vf0Cw0gKdobwaFmu-U8_n1IujfQznasj5z3sK8A>
+<did:ng:exUnrelated> <urn:ex:unrelated> "unrelated string" }
