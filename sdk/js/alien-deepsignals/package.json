@@ -6,7 +6,7 @@
     "Laurin Weger",
     "CCherry07"
   ],
-  "license": "MIT",
+  "license": "MIT/Apache-2.0",
   "files": [
     "dist"
   ],
@@ -22,7 +22,7 @@
       }
     }
   },
-  "description": "AlienDeepSignals 🧶 -alien signals, but using regular JavaScript objects",
+  "description": "NextGraph adaptation of AlienDeepSignals 🧶 -alien signals, but using regular JavaScript objects",
   "scripts": {
     "test": "vitest --coverage",
     "dev": "tsup --watch src",
@@ -42,7 +42,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CCherry07/alien-deepsignals.git"
+    "url": "https://git.nextgraph.org/NextGraph/nextgraph-rs"
   },
   "keywords": [
     "signal",
@@ -52,8 +52,8 @@
     "alien-deepsignals"
   ],
   "bugs": {
-    "url": "https://github.com/CCherry07/alien-deepsignals/issues"
+    "url": "https://git.nextgraph.org/NextGraph/nextgraph-rs/issues"
   },
-  "homepage": "https://github.com/CCherry07/alien-deepsignals#readme",
+  "homepage": "https://nextgraph.org",
   "packageManager": "pnpm@9.14.2+sha512.6e2baf77d06b9362294152c851c4f278ede37ab1eba3a55fda317a4a17b209f4dbb973fb250a77abc463a341fcb1f17f17cfa24091c4eb319cda0d9b84278387"
 }
