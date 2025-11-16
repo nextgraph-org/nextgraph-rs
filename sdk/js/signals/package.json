@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "authors": [
+    "Laurin Weger"
+  ],
+  "license": "MIT/Apache-2.0",
   "main": "./src/index.ts",
   "scripts": {
     "test": "vitest",

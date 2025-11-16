@@ -34,8 +34,8 @@ NextGraph is not ready yet. You can subscribe to [our newsletter](https://list.n
 
 Licensed under either of
 
-- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0 ([LICENSE-APACHE2](../../LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](../../LICENSE-MIT) or http://opensource.org/licenses/MIT)
   at your option.
 
 `SPDX-License-Identifier: Apache-2.0 OR MIT`
@@ -49,7 +49,6 @@ additional terms or conditions.
 ---
 
 NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure) and the [NGI Zero Commons Fund](https://nlnet.nl/commonsfund/), both funds established by [NLnet](https://nlnet.nl/) Foundation with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreements No 957073 and No 101092990, respectively.
-
 
 [rustc-image]: https://img.shields.io/badge/rustc-1.81+-blue.svg
 [license-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg

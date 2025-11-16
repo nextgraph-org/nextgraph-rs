@@ -22,7 +22,7 @@
     "Laurin Weger",
     "Jackson Morgan"
   ],
-  "license": "MIT",
+  "license": "MIT/Apache-2.0",
   "devDependencies": {
     "@types/child-process-promise": "^2.2.2",
     "@types/ejs": "^3.1.1",
@@ -62,6 +62,5 @@
     "access": "public",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts"
-  },
-  "gitHead": "840910c56ec3f61416f031cc76771a5673af6757"
+  }
 }

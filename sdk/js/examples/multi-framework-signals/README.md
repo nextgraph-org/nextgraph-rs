@@ -5,17 +5,21 @@ This example application demonstrates the **cross-framework reactivity** capabil
 ## Key Features
 
 ### Cross-Framework Reactivity
+
 The application renders the same data objects in three different frameworks simultaneously:
+
 - **React** component using `useShape` hook
-- **Vue** component using `useShape` composable  
+- **Vue** component using `useShape` composable
 - **Svelte** component using `useShape` rune
 
 When you modify data in any framework's component (e.g., editing a text field in the React table), the changes **instantly propagate** to the Vue and Svelte components without any manual synchronization code.
 
 ### Type-Safe ORM with Generated Schemas
+
 The application uses SHEX (Shape Expressions) to define data shapes, which are then converted to TypeScript types and schemas:
 
 **SHEX Definition** (`src/shapes/shex/testShape.shex`):
+
 ```shex
 PREFIX ex: <http://example.org/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
@@ -34,19 +38,23 @@ ex:TestObjectShape EXTRA a {
 ```
 
 **Generated TypeScript types** are automatically created in `src/shapes/orm/` by running:
+
 ```bash
 npm run build:orm
 ```
 
 This command uses `@ng-org/shex-orm` to generate:
+
 - `testShape.typings.ts` - TypeScript interfaces
 - `testShape.schema.ts` - Runtime schema definitions
 - `testShape.shapeTypes.ts` - ShapeType objects for use with `useShape`
 
 ### Automatic Database Persistence
+
 All modifications made through the reactive proxies are **automatically persisted** to the NextGraph database. Internally, object changes trigger the creation of patches that are sent to the backend which creates SPARQL updates from them. You don't need to write any manual save logic.
 
 ### Deep Signal Proxies
+
 The `useShape` hook returns a `DeepSignalSet<T>` which behaves like a regular JavaScript Set containing your typed objects, but with automatic reactivity at all nesting levels. You can
 Directly modify nested properties: `obj.objectValue.nestedString = "new value"`,
 and use standard Set operations: `objects.add(newObj)`, `objects.delete(obj)`.
@@ -56,22 +64,29 @@ All changes trigger re-renders in all frameworks and persist to the database.
 ## How It Works
 
 ### Initialization
+
 In `src/app/pages/index.astro`, the NextGraph client is initialized and connected to the signals library:
 
 ```ts
 import { ng, init } from "@ng-org/web";
 import { initNg } from "@ng-org/signals";
 
-await init(async (event) => {
-    initNg(ng, event.session);
-    // ...
-}, true, []);
+await init(
+    async (event) => {
+        initNg(ng, event.session);
+        // ...
+    },
+    true,
+    []
+);
 ```
 
 ### Using Shapes in CDeepSignalSetomponents
+
 Each framework component imports the generated shape type and uses it with the framework-specific hook:
 
 **React:**
+
 ```tsx
 import { useShape } from "@ng-org/signals/react";
 import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
@@ -80,6 +95,7 @@ const state = useShape(TestObjectShapeType);
 ```
 
 **Vue:**
+
 ```ts
 import { useShape } from "@ng-org/signals/vue";
 import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
@@ -88,6 +104,7 @@ const shapeObjects = useShape(TestObjectShapeType);
 ```
 
 **Svelte:**
+
 ```ts
 import { useShape } from "@ng-org/signals/svelte";
 import { TestObjectShapeType } from "../../shapes/orm/testShape.shapeTypes";
@@ -114,10 +131,13 @@ shapeObjects.add({
 ```
 
 #### Adding objects with SPARQL
+
 When new data is added through a SPARQL update, the object will immediately appear in the set as well, too.
 
 ```ts
-await ng.sparql_update(sessionId, `
+await ng.sparql_update(
+    sessionId,
+    `
   PREFIX ex: <http://example.org/>
   INSERT DATA {
     <urn:test:obj1> a ex:TestObject ;
@@ -125,7 +145,9 @@ await ng.sparql_update(sessionId, `
       ex:numValue 42 ;
       ...
   }
-`, "did:ng:o:xypN3x...");
+`,
+    "did:ng:o:xypN3x..."
+);
 ```
 
 ## Running the Example
@@ -153,3 +175,17 @@ npm run test:e2e
 ---
 
 Thanks to https://github.com/aleksadencic/multi-framework-app for providing the basic multi-framework template.
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE2](LICENSE-APACHE2) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+  at your option.
+
+`SPDX-License-Identifier: Apache-2.0 OR MIT`
+
+---
+
+NextGraph received funding through the [NGI Assure Fund](https://nlnet.nl/assure) and the [NGI Zero Commons Fund](https://nlnet.nl/commonsfund/), both funds established by [NLnet](https://nlnet.nl/) Foundation with financial support from the European Commission's [Next Generation Internet](https://ngi.eu/) programme, under the aegis of DG Communications Networks, Content and Technology under grant agreements No 957073 and No 101092990, respectively.
