@@ -64,7 +64,7 @@ pub fn add_quads_for_subject(
                 .or_insert_with(|| {
                     Arc::new(RwLock::new(TrackedOrmPredicate {
                         current_cardinality: 0,
-                        schema: predicate_schema.clone(),
+                        schema: Arc::downgrade(predicate_schema),
                         tracked_children: Vec::new(),
                         current_literals: None,
                     }))
@@ -89,6 +89,8 @@ pub fn add_quads_for_subject(
                 // If value type is literal, we need to add the current value to the tracked predicate.
                 if tracked_predicate
                     .schema
+                    .upgrade()
+                    .unwrap()
                     .dataTypes
                     .iter()
                     .any(|dt| dt.valType == OrmSchemaValType::literal)
@@ -136,7 +138,7 @@ pub fn remove_quads_for_subject(
         // Keep track of removed values here.
         let pred_changes: &mut TrackedOrmPredicateChanges = orm_object_changes
             .predicates
-            .entry(tracked_predicate.schema.iri.clone())
+            .entry(tracked_predicate.schema.upgrade().unwrap().iri.clone())
             .or_insert_with(|| TrackedOrmPredicateChanges {
                 tracked_predicate: tracked_predicate_rc.clone(),
                 values_added: Vec::new(),
@@ -149,6 +151,8 @@ pub fn remove_quads_for_subject(
         // If value type is literal, we need to remove the current value from the tracked predicate.
         if tracked_predicate
             .schema
+            .upgrade()
+            .unwrap()
             .dataTypes
             .iter()
             .any(|dt| dt.valType == OrmSchemaValType::literal)

@@ -12,7 +12,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use ng_net::app_protocol::AppResponse;
 use ng_net::{orm::*, utils::Sender};
-use std::sync::RwLock;
+use std::sync::{RwLock, Weak};
 
 /// A struct for recording the state of subjects and its predicates
 /// relevant to its shape.
@@ -25,7 +25,7 @@ pub struct TrackedOrmObject {
     /// and if they are currently tracking this subject.
     /// Note: We keep a list of parent tracked objects. Multiple parents
     /// may point to the same child (across different graphs).
-    pub parents: Vec<Arc<RwLock<TrackedOrmObject>>>,
+    pub parents: Vec<Weak<RwLock<TrackedOrmObject>>>,
     /// Validity. When untracked, triple updates are not processed for this tracked orm object.
     pub valid: TrackedOrmObjectValidity,
     /// Subject IRI
@@ -33,7 +33,55 @@ pub struct TrackedOrmObject {
     /// Graph IRI
     pub graph_iri: String,
     /// The shape for which the predicates are tracked.
-    pub shape: Arc<OrmSchemaShape>,
+    pub shape: Weak<OrmSchemaShape>,
+}
+
+impl TrackedOrmPredicate {
+    pub fn add_child(&mut self, child: &Arc<RwLock<TrackedOrmObject>>) {
+        let exists = self
+            .tracked_children
+            .iter()
+            .any(|w| w.upgrade().map(|c| Arc::ptr_eq(&c, child)).unwrap_or(false));
+        if !exists {
+            self.tracked_children.push(Arc::downgrade(child));
+        }
+        self.tracked_children.retain(|w| w.upgrade().is_some());
+    }
+    pub fn live_children(&self) -> Vec<Arc<RwLock<TrackedOrmObject>>> {
+        self.tracked_children
+            .iter()
+            .filter_map(|w| w.upgrade())
+            .collect()
+    }
+    pub fn schema_arc(&self) -> Option<Arc<OrmSchemaPredicate>> {
+        self.schema.upgrade()
+    }
+}
+
+impl TrackedOrmObject {
+    pub fn add_parent(&mut self, parent: &Arc<RwLock<TrackedOrmObject>>) {
+        let exists = self.parents.iter().any(|w| {
+            w.upgrade()
+                .map(|p| Arc::ptr_eq(&p, parent))
+                .unwrap_or(false)
+        });
+        if !exists {
+            self.parents.push(Arc::downgrade(parent));
+        }
+        self.prune_parents();
+    }
+    pub fn live_parents(&self) -> Vec<Arc<RwLock<TrackedOrmObject>>> {
+        self.parents.iter().filter_map(|w| w.upgrade()).collect()
+    }
+    pub fn prune_parents(&mut self) {
+        self.parents.retain(|w| w.upgrade().is_some());
+    }
+    pub fn shape_arc(&self) -> Option<Arc<OrmSchemaShape>> {
+        self.shape.upgrade()
+    }
+    pub fn shape_iri(&self) -> Option<String> {
+        self.shape.upgrade().map(|s| s.iri.clone())
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -48,9 +96,9 @@ pub enum TrackedOrmObjectValidity {
 #[derive(Clone, Debug)]
 pub struct TrackedOrmPredicate {
     /// The predicate schema
-    pub schema: Arc<OrmSchemaPredicate>,
+    pub schema: Weak<OrmSchemaPredicate>,
     /// If the schema is a nested object, the children.
-    pub tracked_children: Vec<Arc<RwLock<TrackedOrmObject>>>,
+    pub tracked_children: Vec<Weak<RwLock<TrackedOrmObject>>>,
     /// The count of triples for this subject and predicate.
     pub current_cardinality: i32,
     /// If schema is of type literal, the currently present ones.
@@ -224,7 +272,7 @@ impl OrmSubscription {
                     valid: TrackedOrmObjectValidity::Pending,
                     subject_iri: subject_iri.to_string(),
                     graph_iri: graph_iri.to_string(),
-                    shape: shape.clone(),
+                    shape: Arc::downgrade(shape),
                 }))
             })
             .clone()
@@ -275,7 +323,7 @@ impl OrmSubscription {
     }
 
     /// Collect all currently tracked shapes (may include duplicates)
-    pub fn shapes_being_tracked(&self) -> Vec<Arc<OrmSchemaShape>> {
+    pub fn shapes_being_tracked(&self) -> Vec<Weak<OrmSchemaShape>> {
         self.iter_all_objects()
             .map(|obj| obj.read().unwrap().shape.clone())
             .collect()
@@ -299,21 +347,28 @@ impl OrmSubscription {
 
                     let has_parents = !tracked_orm_object.parents.is_empty();
 
-                    // Set all children to `untracked` that don't have other parents
+                    // Set all children to `untracked` that don't have other parents.
+                    // TODO: Actually, they need to be deleted too (unless root).
+                    // We should redesign this cleanup.
                     for tracked_predicate in tracked_orm_object.tracked_predicates.values() {
                         let tracked_pred_read = tracked_predicate.read().unwrap();
-                        for child in &tracked_pred_read.tracked_children {
-                            let mut tracked_child = child.write().unwrap();
-                            if tracked_child.parents.is_empty()
-                                || (tracked_child.parents.len() == 1 && {
-                                    let p = &tracked_child.parents[0];
-                                    let p = p.read().unwrap();
-                                    p.subject_iri == tracked_orm_object.subject_iri
-                                        && p.graph_iri == tracked_orm_object.graph_iri
-                                })
-                            {
-                                if tracked_child.valid != TrackedOrmObjectValidity::ToDelete {
-                                    tracked_child.valid = TrackedOrmObjectValidity::Untracked;
+                        for child_weak in &tracked_pred_read.tracked_children {
+                            if let Some(child) = child_weak.upgrade() {
+                                let mut tracked_child = child.write().unwrap();
+                                if tracked_child.parents.is_empty()
+                                    || (tracked_child.parents.len() == 1 && {
+                                        if let Some(p) = tracked_child.parents[0].upgrade() {
+                                            let p = p.read().unwrap();
+                                            p.subject_iri == tracked_orm_object.subject_iri
+                                                && p.graph_iri == tracked_orm_object.graph_iri
+                                        } else {
+                                            false
+                                        }
+                                    })
+                                {
+                                    if tracked_child.valid != TrackedOrmObjectValidity::ToDelete {
+                                        tracked_child.valid = TrackedOrmObjectValidity::Untracked;
+                                    }
                                 }
                             }
                         }
@@ -324,27 +379,39 @@ impl OrmSubscription {
                     if has_parents {
                         for tracked_pred in tracked_orm_object.tracked_predicates.values() {
                             let tracked_pred_read = tracked_pred.read().unwrap();
-                            for child in &tracked_pred_read.tracked_children {
-                                let mut child_w = child.write().unwrap();
-                                child_w.parents.retain(|p| {
-                                    let pr = p.read().unwrap();
-                                    !(pr.subject_iri == *subject_iri
-                                        && pr.graph_iri == tracked_orm_object.graph_iri)
-                                });
+                            for child_weak in &tracked_pred_read.tracked_children {
+                                if let Some(child) = child_weak.upgrade() {
+                                    let mut child_w = child.write().unwrap();
+                                    child_w.parents.retain(|p| {
+                                        if let Some(p_strong) = p.upgrade() {
+                                            let pr = p_strong.read().unwrap();
+                                            !(pr.subject_iri == *subject_iri
+                                                && pr.graph_iri == tracked_orm_object.graph_iri)
+                                        } else {
+                                            false // Remove dead weak references
+                                        }
+                                    });
+                                }
                             }
                         }
                     }
 
                     // Also remove this subject from its parents' children lists
-                    for parent_tracked_orm_object in &tracked_orm_object.parents {
-                        let mut parent_ts = parent_tracked_orm_object.write().unwrap();
-                        for tracked_pred in parent_ts.tracked_predicates.values_mut() {
-                            let mut tracked_pred_mut = tracked_pred.write().unwrap();
-                            tracked_pred_mut.tracked_children.retain(|child| {
-                                let cr = child.read().unwrap();
-                                !(cr.subject_iri == *subject_iri
-                                    && cr.graph_iri == tracked_orm_object.graph_iri)
-                            });
+                    for parent_weak in &tracked_orm_object.parents {
+                        if let Some(parent_tracked_orm_object) = parent_weak.upgrade() {
+                            let mut parent_ts = parent_tracked_orm_object.write().unwrap();
+                            for tracked_pred in parent_ts.tracked_predicates.values_mut() {
+                                let mut tracked_pred_mut = tracked_pred.write().unwrap();
+                                tracked_pred_mut.tracked_children.retain(|child_weak| {
+                                    if let Some(child) = child_weak.upgrade() {
+                                        let cr = child.read().unwrap();
+                                        !(cr.subject_iri == *subject_iri
+                                            && cr.graph_iri == tracked_orm_object.graph_iri)
+                                    } else {
+                                        false // Remove dead weak references
+                                    }
+                                });
+                            }
                         }
                     }
                 }

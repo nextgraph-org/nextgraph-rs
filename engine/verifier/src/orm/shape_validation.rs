@@ -35,10 +35,10 @@ impl Verifier {
         let mut tracked_orm_object = s_change.tracked_orm_object.write().unwrap();
         let previous_validity = s_change.prev_valid.clone();
 
-        log_debug!(
+        log_info!(
             "[Validating] {} against shape {}",
             tracked_orm_object.subject_iri,
-            tracked_orm_object.shape.iri
+            tracked_orm_object.shape.upgrade().unwrap().iri
         );
 
         // Keep track of objects that need to be validated against a shape to fetch and validate.
@@ -53,35 +53,56 @@ impl Verifier {
             // 1.1) Schedule children for deletion
             // 1.1.1) Set all children to `untracked` that don't have other parents.
             for tracked_predicate in tracked_orm_object.tracked_predicates.values() {
-                for child in &tracked_predicate.write().unwrap().tracked_children {
-                    let mut tracked_child = child.write().unwrap();
-                    if tracked_child.parents.is_empty()
-                        || (tracked_child.parents.len() == 1 && {
-                            let p = &tracked_child.parents[0];
-                            let p = p.read().unwrap();
+                let mut tp_guard = tracked_predicate.write().unwrap();
+                // prune dead children first
+                tp_guard.tracked_children.retain(|w| w.upgrade().is_some());
+                for child_w in &tp_guard.tracked_children {
+                    if let Some(child_arc) = child_w.upgrade() {
+                        let mut tracked_child = child_arc.write().unwrap();
+                        // prune dead parents
+                        tracked_child.parents.retain(|pw| pw.upgrade().is_some());
+                        let live_parents: Vec<_> = tracked_child
+                            .parents
+                            .iter()
+                            .filter_map(|pw| pw.upgrade())
+                            .collect();
+                        let sole_parent_matches = live_parents.len() == 1 && {
+                            let p = live_parents[0].read().unwrap();
                             p.subject_iri == tracked_orm_object.subject_iri
                                 && p.graph_iri == tracked_orm_object.graph_iri
-                        })
-                    {
-                        tracked_child.valid = TrackedOrmObjectValidity::Untracked;
+                        };
+                        if live_parents.is_empty() || sole_parent_matches {
+                            tracked_child.valid = TrackedOrmObjectValidity::Untracked;
+                        }
                     }
                 }
             }
 
             // 1.1.2) Add all children to need_evaluation for their cleanup.
             for tracked_predicate in tracked_orm_object.tracked_predicates.values() {
-                for child in &tracked_predicate.write().unwrap().tracked_children {
-                    children_to_eval.push((child.clone(), false));
+                let mut tp_guard = tracked_predicate.write().unwrap();
+                tp_guard.tracked_children.retain(|w| w.upgrade().is_some());
+                for child_w in &tp_guard.tracked_children {
+                    if let Some(child_arc) = child_w.upgrade() {
+                        children_to_eval.push((child_arc.clone(), false));
+                    }
                 }
             }
 
             // 1.2) If we don't have parents, we need to remove ourself too.
-            if tracked_orm_object.parents.is_empty() {
-                orm_subscription.remove_tracked_orm_object(
-                    &tracked_orm_object.graph_iri,
-                    &tracked_orm_object.subject_iri,
-                    &tracked_orm_object.shape.iri,
-                );
+            let live_parents: Vec<_> = tracked_orm_object
+                .parents
+                .iter()
+                .filter_map(|w| w.upgrade())
+                .collect();
+            if live_parents.is_empty() {
+                if let Some(shape_arc) = tracked_orm_object.shape.upgrade() {
+                    orm_subscription.remove_tracked_orm_object(
+                        &tracked_orm_object.graph_iri,
+                        &tracked_orm_object.subject_iri,
+                        &shape_arc.iri,
+                    );
+                }
             }
 
             return (children_to_eval, vec![], NeedEvalSelf::NoReevaluate);
@@ -116,7 +137,7 @@ impl Verifier {
 
             // Check 3.1) Cardinality
             if count < p_schema.minCardinality {
-                log_debug!(
+                log_info!(
                     "  - Invalid: minCardinality not met | predicate: {:?} | count: {} | min: {} | schema: {:?} | changed: {:?}",
                     p_schema.iri,
                     count,
@@ -137,7 +158,7 @@ impl Verifier {
                 && p_schema.maxCardinality != -1
                 && p_schema.extra != Some(true)
             {
-                log_debug!(
+                log_info!(
                     "  - Invalid: maxCardinality exceeded | predicate: {:?} | count: {} | max: {} | schema: {:?} | changed: {:?}",
                     p_schema.iri,
                     count,
@@ -183,7 +204,7 @@ impl Verifier {
                     },
                 );
                 if !some_valid {
-                    log_debug!(
+                    log_info!(
                         "  - Invalid: required literals missing | predicate: {:?} | schema: {:?} | changed: {:?}",
                         p_schema.iri,
                         shape.iri,
@@ -201,15 +222,20 @@ impl Verifier {
             {
                 // If we have a nested shape, assess children using heuristic and cardinality checks
                 if let Some(tp) = tracked_pred.as_ref() {
+                    let children_upgraded: Vec<_> = tp
+                        .tracked_children
+                        .iter()
+                        .filter_map(|w| w.upgrade())
+                        .collect();
                     let assessed = assess_and_rank_children(
                         &tracked_orm_object.graph_iri,
                         &tracked_orm_object.subject_iri,
                         p_schema.minCardinality,
                         p_schema.maxCardinality,
-                        &tp.tracked_children,
+                        &children_upgraded,
                     );
 
-                    log_debug!(
+                    log_info!(
                         "  - Nested shape assessment: heuristic={:?}, considered={}, valid={}, pending={}, untracked={}, invalid={}, satisfies={}",
                         assessed.heuristic_used,
                         assessed.considered.len(),
@@ -239,7 +265,7 @@ impl Verifier {
 
                         // Schedule children for re-evaluation
                         for child in assessed.children_to_reevaluate {
-                            log_debug!(
+                            log_info!(
                                 "  - adding subject {} with graph {} to child evaluation",
                                 child.read().unwrap().subject_iri,
                                 child.read().unwrap().graph_iri,
@@ -250,7 +276,7 @@ impl Verifier {
                     }
 
                     // Neither satisfied nor pending - invalid
-                    log_debug!(
+                    log_info!(
                         "  - Invalid: nested shape constraint not met | predicate: {:?} | valid_count: {} | min: {} | schema: {:?}",
                         p_schema.iri,
                         assessed.counts.valid,
@@ -279,7 +305,7 @@ impl Verifier {
                         }),
                     };
                     if !matches {
-                        log_debug!(
+                        log_info!(
                             "  - Invalid: value type mismatch | predicate: {:?} | value: {:?} | allowed_types: {:?} | schema: {:?} | changed: {:?}",
                             p_schema.iri,
                             val_added,
@@ -317,8 +343,12 @@ impl Verifier {
 
             // Add all children to need_evaluation for their cleanup.
             for tracked_predicate in tracked_orm_object.tracked_predicates.values() {
-                for child in &tracked_predicate.write().unwrap().tracked_children {
-                    children_to_eval.push((child.clone(), false));
+                let mut tp_guard = tracked_predicate.write().unwrap();
+                tp_guard.tracked_children.retain(|w| w.upgrade().is_some());
+                for child_w in &tp_guard.tracked_children {
+                    if let Some(child_arc) = child_w.upgrade() {
+                        children_to_eval.push((child_arc.clone(), false));
+                    }
                 }
             }
         } else if new_validity == TrackedOrmObjectValidity::Valid
@@ -336,7 +366,11 @@ impl Verifier {
 
             return (
                 children_to_eval,
-                tracked_orm_object.parents.clone(),
+                tracked_orm_object
+                    .parents
+                    .iter()
+                    .filter_map(|w| w.upgrade())
+                    .collect(),
                 needs_self_reevaluation,
             );
         }
