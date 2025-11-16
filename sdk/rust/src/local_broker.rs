@@ -2889,7 +2889,7 @@ pub async fn doc_query_quads_for_shape_type(
     let session = broker.get_session(session_id)?;
     session
         .verifier
-        .query_quads_for_shape_type(nuri, schema, shape, filter_subjects)
+        .query_quads_for_shape(nuri, schema, shape, filter_subjects)
 }
 
 pub async fn doc_create(
