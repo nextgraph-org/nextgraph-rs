@@ -182,41 +182,7 @@ const tauri_handler = {
                 }
                 return ret;
             }
-            else if (path[0] === "file_get") {
-                let stream_id = (lastStreamId += 1).toString();
-                //console.log("stream_id",stream_id);
-                //let session_id = args[0];
-                let callback = args[3];
-
-                let unlisten = await Window.getCurrent().listen(stream_id, async (event) => {
-                    //console.log(event.payload);
-                    if (event.payload.V0.FileBinary) {
-                        event.payload.V0.FileBinary = Uint8Array.from(event.payload.V0.FileBinary);
-                    }
-                    let ret = callback(event.payload);
-                    if (ret === true) {
-                        await invoke("cancel_stream", {stream_id});
-                    } else if (ret.then) {
-                        ret.then(async (val)=> { 
-                            if (val === true) {
-                                await invoke("cancel_stream", {stream_id});
-                            }
-                        });
-                    }
-                })
-                try {
-                    await invoke("file_get",{stream_id, session_id:args[0], reference: args[1], branch_nuri:args[2]});
-                } catch (e) {
-                    unlisten();
-                    await invoke("cancel_stream", {stream_id});
-                    throw e;
-                } 
-                return () => {
-                    unlisten();
-                    tauri.invoke("cancel_stream", {stream_id});
-                }
-                
-            } else if (path[0] === "discrete_update") {
+            else if (path[0] === "discrete_update") {
                 let arg = {};
                 args.map((el,ix) => arg[mapping[path[0]][ix]]=el)
                 arg.update = Array.from(new Uint8Array(arg.update));
