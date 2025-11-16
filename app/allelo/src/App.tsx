@@ -142,6 +142,12 @@ const AppRoutes = () => {
 };
 
 function App() {
+  window.ng_spa_loaded = true;
+  if (window.ng_supported) {
+    console.log("READY");
+    window.everything_ready();
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline/>

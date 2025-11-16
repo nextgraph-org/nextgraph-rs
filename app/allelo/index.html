@@ -9,11 +9,204 @@
         />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Allelo PNM Prototype</title>
-    
+    <style>
+        .splashing {
+            height: 100vh;
+            width:100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .noshow {
+            display: none !important;
+        }
+        .error-no-wasm-hidden {
+            display:none;
+        }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="splash" class="splashing">
+      <div style="flex-direction: column; justify-content: center;
+                text-align:left;
+                width:155px;
+                font-family: Inter, Avenir, Helvetica, Arial, sans-serif;"
+      >
+
+<svg
+   width="155"
+   height="155"
+   viewBox="0 0 155 155"
+   fill="none"
+   version="1.1"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+
+  <rect
+     width="155"
+     height="151"
+     rx="43.0467"
+     fill="url(#paint0_linear_86_35482)"
+     id="rect1"
+     x="0"
+     y="2"
+     style="fill:url(#paint0_linear_86_35482)" />
+  <path
+     d="M 90,75.5 C 90,82.4036 84.4036,88 77.5,88 70.5964,88 65,82.4036 65,75.5 65,68.5964 70.5964,63 77.5,63 84.4036,63 90,68.5964 90,75.5 Z"
+     fill="#e45283"
+     id="path1" />
+  <path
+     d="M 77.5,63 C 84.4036,63 90,68.5964 90,75.5 90,82.4036 84.4036,88 77.5,88 70.5964,88 65,82.4036 65,75.5 65,68.5964 70.5964,63 77.5,63 Z m 0,4 C 72.8056,67 69,70.8056 69,75.5 69,80.1944 72.8056,84 77.5,84 82.1944,84 86,80.1944 86,75.5 86,70.8056 82.1944,67 77.5,67 Z"
+     fill="#ffffff"
+     id="path2" />
+  <path
+     d="M 89.1471,21.9358 81.4,26.3537 79.3414,29.5754 v 8.9579 h -3.9932 v -9.415 l -1.6377,-2.5615 -8.1016,-4.621 1.9961,-3.417 8.2647,4.7148 h 3.0156 L 87.15,18.5188 Z"
+     fill="#ffffff"
+     id="path3" />
+  <path
+     d="m 65.6085,128.839 7.7471,-4.418 2.0587,-3.222 v -8.958 h 3.9931 v 9.415 l 1.6377,2.562 8.1016,4.621 -1.9971,3.417 -8.2656,-4.715 h -3.0127 l -8.2657,4.715 z"
+     fill="#ffffff"
+     id="path4" />
+  <path
+     d="m 23.1942,63.8402 4.4727,7.6543 3.2607,2.0342 h 9.0664 v 3.9443 h -9.5283 l -2.5947,1.6192 -4.6768,8.0039 -3.458,-1.9727 4.7725,-8.167 v -2.9765 l -4.7725,-8.167 z"
+     fill="#ffffff"
+     id="path5" />
+  <path
+     d="m 131.398,87 -4.473,-7.6543 -3.261,-2.0341 h -9.066 v -3.9453 h 9.53 l 2.591,-1.6172 4.679,-8.0049 3.458,1.9726 -4.773,8.167 v 2.9766 l 4.773,8.167 z"
+     fill="#ffffff"
+     id="path6" />
+  <path
+     d="m 130.202,58.6504 -7.747,-4.4204 -3.852,-0.1502 -7.852,4.4792 -1.997,-3.4173 8.253,-4.708 1.426,-2.6817 10e-4,-9.2425 3.992,2e-4 v 9.4298 l 1.508,2.5792 8.265,4.7141 z"
+     fill="#ffffff"
+     id="path7" />
+  <path
+     d="m 36.3506,38.5103 -0.0014,8.8377 1.7951,3.3713 7.8523,4.4791 -1.9969,3.4173 -8.2536,-4.708 -3.0629,0.1202 -8.1016,4.6219 -1.9969,-3.4167 8.2651,-4.7142 1.5072,-2.5792 1e-4,-9.4297 z"
+     fill="#ffffff"
+     id="path8" />
+  <path
+     d="m 60.5492,23.3058 -4.473,7.6531 -0.1522,3.8079 4.5335,7.7579 -3.4584,1.9727 -4.765,-8.1542 -2.7146,-1.4093 -9.3549,-4e-4 -2e-4,-3.9447 h 9.5447 L 52.3192,29.5 57.0915,21.3332 Z"
+     fill="#ffffff"
+     id="path9" />
+  <path
+     d="m 94.0718,23.3059 4.473,7.6531 0.1521,3.8079 -4.5334,7.7579 3.4584,1.9727 4.7651,-8.1542 2.714,-1.4093 9.355,-4e-4 10e-4,-3.9447 -9.546,-5e-4 -2.608,-1.4878 -4.7735,-8.1672 z"
+     fill="#ffffff"
+     id="path10" />
+  <path
+     d="m 130.202,92.2504 -7.747,4.4196 -3.851,0.1506 -7.853,-4.4796 -1.997,3.4173 8.253,4.7077 1.426,2.682 10e-4,9.242 h 3.992 v -9.429 l 1.507,-2.579 8.266,-4.7148 z"
+     fill="#ffffff"
+     id="path11" />
+  <path
+     d="m 36.3506,112.39 -9e-4,-8.837 1.7958,-3.374 7.8506,-4.4781 -1.9964,-3.4165 -8.2536,4.708 -3.0629,-0.1202 -8.1016,-4.6219 -1.9969,3.4167 8.2651,4.714 1.5072,2.579 1e-4,9.43 z"
+     fill="#ffffff"
+     id="path12" />
+  <path
+     d="m 60.5492,127.594 -4.473,-7.653 -0.1522,-3.808 4.5335,-7.758 -3.4584,-1.972 -4.765,8.154 -2.7146,1.409 h -9.3549 l -2e-4,3.945 h 9.5447 l 2.6101,1.489 4.7723,8.167 z"
+     fill="#ffffff"
+     id="path13" />
+  <path
+     d="m 94.0718,127.594 4.473,-7.653 0.1521,-3.808 -4.5334,-7.758 3.4584,-1.973 4.7651,8.155 2.716,1.41 9.353,-0.001 10e-4,3.945 -9.546,0.001 -2.609,1.488 -4.7725,8.167 z"
+     fill="#ffffff"
+     id="path14" />
+  <path
+     d="M 75.3486,87.8145 C 76.0476,87.9357 76.7663,88 77.5,88 c 0.6258,0 1.2407,-0.047 1.8418,-0.1357 v 17.8327 h -3.9932 z m -7.2392,-4.8721 -7.7471,4.417 -2.0586,3.2217 v 8.958 H 54.3105 V 90.125 l -1.6386,-2.5635 -8.1006,-4.6191 1.9971,-3.417 8.2646,4.7139 h 3.0147 l 8.2656,-4.7139 z m 41.8796,0 -7.747,4.417 -2.058,3.2217 v 8.958 H 96.1904 V 90.125 l -1.6386,-2.5635 -8.1006,-4.6191 1.997,-3.417 8.2647,4.7139 h 3.0146 l 8.2645,-4.7139 z M 67.8057,67.6104 c -0.8313,1.0202 -1.503,2.1743 -1.9815,3.4248 L 49.7656,61.876 51.7617,58.459 Z m 37.1413,-5.71 -15.8171,9.0205 c -0.4907,-1.2452 -1.172,-2.3938 -2.0137,-3.4063 L 102.95,58.4834 Z m -15.7995,-14.7539 -7.7471,4.418 -2.0586,3.2216 v 8.958 h -3.9932 v -9.415 l -1.6377,-2.5615 -8.1015,-4.6211 1.9961,-3.417 8.2656,4.7148 h 3.0137 l 8.2656,-4.7148 z"
+     fill="#ffffff"
+     id="path15" />
+  <defs
+     id="defs17">
+    <linearGradient
+       id="paint0_linear_86_35482"
+       x1="7.3024302"
+       y1="11.8843"
+       x2="137.33501"
+       y2="142.155"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(0,2)">
+      <stop
+         stop-color="#546DF9"
+         id="stop15" />
+      <stop
+         offset="0.485577"
+         stop-color="#E34E89"
+         id="stop16" />
+      <stop
+         offset="0.995192"
+         stop-color="#EE8823"
+         id="stop17" />
+    </linearGradient>
+  </defs>
+</svg>
+
+        <div class="noshow" style="margin-top:20px; text-align:center;" id="app-loading">&nbsp;&nbsp;&nbsp;Loading ...</div>
+
+            <div id="error-no-wasm" style="padding-left:15px;" class="error-no-wasm-hidden">
+                Your browser is too old or is miss-configured. 
+                Please try one of those options:<br/><br/>
+                - Upgrade to a newer version of this browser.<br/>
+                - Try with another browser software.<br/>
+                - Install our native apps for
+                Linux, macOS, Windows desktops and laptops, 
+                and iOS, Android mobiles.<br/><br/>
+                If you are using jshelter or another javascript protection mechanism, 
+                please deactivate it as we need access to the WebWorker, JIT and WASM
+                features of your browser. If those features are disabled, please 
+                enable them for this website.
+            </div>
+            <noscript style="display:grid;padding-left:15px;">
+                NextGraph cannot load as Javascript is currently deactivated.
+                Istead you can use our native apps
+                for Linux, macOS, Windows, Android, iOS.
+            </noscript>
+        </div>
+        </div>
+        <script>
+            const supported = () => {
+                if (RegExp().hasIndices === undefined) {
+                    console.error("no RegExp().hasIndices");
+                    return false;
+                }
+                try {
+                    if (Worker === undefined) {
+                        console.error("no Worker");
+                        return false;
+                    }
+                    new Worker(URL.createObjectURL(new Blob([';'], {type: 'application/javascript'})));
+                    if (typeof WebAssembly === "object"
+                        && typeof WebAssembly.instantiate === "function") {
+                        const module = new WebAssembly.Module(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
+                        if (module instanceof WebAssembly.Module)
+                            return new WebAssembly.Instance(module) instanceof WebAssembly.Instance;
+                        else {
+                        console.log("no WebAssembly module");
+                        }
+                    }
+                    
+                } catch (e) {
+                    console.error(e);
+                    return false;
+                }
+                console.error("no WebAssembly");
+                return false;
+            };
+            if (check_supported && !supported()) {
+                window.document.getElementById("error-no-wasm").className="";
+            } else {
+                window.document.getElementById("app-loading").className="";
+                window.everything_ready = () => {
+                    window.document.getElementById("splash").className="noshow";
+                    window.document.getElementById("root").className="";
+                };
+                window.onload = () => {
+                    window.ng_supported = true;
+                    console.log("window loaded");
+                    if (window.ng_spa_loaded) {
+                        everything_ready();
+                    }
+                };
+            }
+        </script>
+    <div id="root" class="noshow"></div>
     <!-- # INSERT SCRIPT HERE -->
   </body>
 </html>
