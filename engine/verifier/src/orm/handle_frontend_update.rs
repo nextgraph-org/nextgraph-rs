@@ -588,12 +588,16 @@ fn create_where_statements_for_patch(
                     };
 
                     if let Some(tp_children) = maybe_tp_children {
+                        let strong_children: Vec<_> = tp_children
+                            .iter()
+                            .filter_map(|weak| weak.upgrade())
+                            .collect();
                         let assessed = assess_and_rank_children(
                             &parent_graph_guarded,
                             &parent_subject_guarded,
                             pred_schema.minCardinality,
                             pred_schema.maxCardinality,
-                            &tp_children,
+                            &strong_children,
                         );
                         if let Some(child) = assessed.considered.first() {
                             let ch = child.read().unwrap();

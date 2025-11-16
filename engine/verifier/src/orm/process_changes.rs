@@ -43,7 +43,7 @@ impl Verifier {
             (
                 r.graph_iri.clone(),
                 r.subject_iri.clone(),
-                r.shape.iri.clone(),
+                r.shape.upgrade().unwrap().iri.clone(),
             )
         };
 
@@ -57,7 +57,7 @@ impl Verifier {
                 let parents: Vec<Arc<RwLock<TrackedOrmObject>>> = tracking_tormos.clone();
                 for parent_arc in parents.iter() {
                     // Snapshot parent identifiers and shape
-                    let (parent_graph_iri, parent_subject_iri, parent_shape_arc) = {
+                    let (parent_graph_iri, parent_subject_iri, parent_shape_weak) = {
                         let parent_r = parent_arc.read().unwrap();
                         (
                             parent_r.graph_iri.clone(),
@@ -70,13 +70,13 @@ impl Verifier {
                     let (parent_change, _parent_change_new) = Self::ensure_change_for_subject(
                         orm_subscription,
                         orm_changes,
-                        &parent_shape_arc,
+                        &parent_shape_weak.upgrade().unwrap(),
                         &parent_graph_iri,
                         &parent_subject_iri,
                     );
 
                     // For each predicate on the parent shape that targets the child's shape
-                    for pred_schema in parent_shape_arc.predicates.iter() {
+                    for pred_schema in parent_shape_weak.upgrade().unwrap().predicates.iter() {
                         let targets_child_shape = pred_schema.dataTypes.iter().any(|dt| {
                             if let Some(ref pred_child_shape_iri) = dt.shape {
                                 *pred_child_shape_iri == child_shape_iri
@@ -99,7 +99,7 @@ impl Verifier {
                                 tp_arc
                             } else {
                                 let tp_arc = Arc::new(RwLock::new(TrackedOrmPredicate {
-                                    schema: pred_schema.clone(),
+                                    schema: Arc::downgrade(pred_schema),
                                     tracked_children: Vec::new(),
                                     current_cardinality: 0,
                                     current_literals: None,
@@ -167,13 +167,14 @@ impl Verifier {
         {
             let mut tp = pred_change.tracked_predicate.write().unwrap();
             let already = tp.tracked_children.iter().any(|c| {
-                let cr = c.read().unwrap();
-                cr.subject_iri == child_subject
-                    && cr.graph_iri == child_graph
-                    && cr.shape.iri == target_shape_iri
+                let tc_arc = c.upgrade().unwrap();
+                let tc = tc_arc.read().unwrap();
+                tc.subject_iri == child_subject
+                    && tc.graph_iri == child_graph
+                    && tc.shape.upgrade().unwrap().iri == target_shape_iri
             });
             if !already {
-                tp.tracked_children.push(child_arc.clone());
+                tp.tracked_children.push(Arc::downgrade(child_arc));
                 linked_new = true;
             }
         }
@@ -182,11 +183,12 @@ impl Verifier {
         {
             let mut child_w = child_arc.write().unwrap();
             let has_parent = child_w.parents.iter().any(|p| {
-                let pr = p.read().unwrap();
-                pr.subject_iri == parent_subject && pr.graph_iri == parent_graph
+                let tc_arc = p.upgrade().unwrap();
+                let tc = tc_arc.read().unwrap();
+                tc.subject_iri == parent_subject && tc.graph_iri == parent_graph
             });
             if !has_parent {
-                child_w.parents.push(parent_arc.clone());
+                child_w.parents.push(Arc::downgrade(parent_arc));
                 linked_new = true;
             }
         }
@@ -253,7 +255,7 @@ impl Verifier {
             (
                 parent_r.graph_iri.clone(),
                 parent_r.subject_iri.clone(),
-                parent_r.shape.iri.clone(),
+                parent_r.shape.upgrade().unwrap().iri.clone(),
                 change.tracked_orm_object.clone(),
             )
         };
@@ -262,6 +264,8 @@ impl Verifier {
             let pred_schema = pred_change.tracked_predicate.read().unwrap().schema.clone();
             // Only consider predicates whose dataTypes include shapes
             let target_shape_iri_opt = pred_schema
+                .upgrade()
+                .unwrap()
                 .dataTypes
                 .iter()
                 .find(|dt| dt.valType == OrmSchemaValType::shape)
@@ -294,6 +298,7 @@ impl Verifier {
                     pr.subject_iri == parent_subject && pr.graph_iri == parent_graph
                 });
                 if !already {
+                    log_info!("[reconcile_links_for_subject_additions]     - adding {child_subject} to parent {}", parent_arc.read().unwrap().subject_iri);
                     parents_vec.push(parent_arc.clone());
                 }
 
@@ -368,6 +373,8 @@ impl Verifier {
                             &child_subject,
                             target_shape_iri,
                         );
+                        log_info!("[reconcile_links_for_subject_additions]    - linking child {child_subject} to parent {parent_graph}");
+
                         if linked_new {
                             // Parent needs reevaluation since effective cardinality may have changed
                             change.is_validated = false;
@@ -420,6 +427,8 @@ impl Verifier {
         orm_changes: &mut OrmChanges,
         data_already_fetched: bool,
     ) -> Result<(), NgError> {
+        log_info!("[process_changes_for_subscription] called");
+
         // Group quads by (graph,subject) for the given shape.
         let added_by_graph_and_subject: HashMap<(String, String), Vec<&Quad>> =
             group_by_graph_and_subject(&quads_added);
@@ -437,6 +446,7 @@ impl Verifier {
             Arc<OrmSchemaShape>, // The shape to validate against
             Vec<(GraphIri, SubjectIri)>,
         )> = Self::init_validation_stack(orm_subscription, &modified_gs);
+        log_info!("[process_changes_for_subscription] validation stack initialized");
 
         // Track (shape_iri, subject_iri) pairs currently being validated to prevent cycles and double evaluation.
         let mut currently_validating: HashSet<(String, String, String)> = HashSet::new();
@@ -448,6 +458,11 @@ impl Verifier {
         // Process queue of shapes and subjects to validate.
         // For a given shape, we evaluate every subject against that shape.
         while let Some((shape, graph_subject_to_validate)) = shape_validation_stack.pop() {
+            log_info!(
+                "[process_changes_for_subscription]   - processing objects for shape {}",
+                shape.iri
+            );
+
             // Variables to collect nested objects that need validation.
             // Children have highest priority, then SELF, then PARENTS (last).
             let mut child_objects_to_eval: HashMap<ShapeIri, Vec<((GraphIri, SubjectIri), bool)>> =
@@ -459,11 +474,16 @@ impl Verifier {
 
             // For each modified subject, apply changes to tracked orm objects, link nested refs, and validate.
             for (graph_iri, subject_iri) in graph_subject_to_validate.iter() {
+                log_info!(
+                    "[process_changes_for_subscription] Processing subject {}",
+                    subject_iri
+                );
+
                 // Cycle detection: Check if this (shape, graph, subject) combination is already being validated.
                 let validation_key = (shape.iri.clone(), graph_iri.clone(), subject_iri.clone());
                 if currently_validating.contains(&validation_key) {
                     log_warn!(
-                        "[process_changes_for_shape_and_session] Cycle detected: graph '{graph_iri}' subject '{}' with shape '{}' is already being validated. Marking as invalid.",
+                        "[process_changes_for_shape_and_session]   Cycle detected: graph '{graph_iri}' subject '{}' with shape '{}' is already being validated. Marking as invalid.",
                         subject_iri,
                         shape.iri
                     );
@@ -506,6 +526,8 @@ impl Verifier {
                     // Apply quads only once per (shape, graph, subject) in this processing.
                     let applied_key = (shape.iri.clone(), graph_iri.clone(), subject_iri.clone());
                     if !already_applied.contains(&applied_key) {
+                        log_info!("[process_changes_for_subscription]   - Applying data");
+
                         apply_quads_for_subject(
                             &shape,
                             graph_iri,
@@ -527,6 +549,8 @@ impl Verifier {
                         // Link this tracked orm object to all tracked_nested_subjects that reference it.
                         // Running this once suffices because it will search for all subjects x graph pairs relevant.
                         Self::link_to_tracking_parents(orm_subscription, orm_changes, &child_arc);
+                    } else {
+                        log_info!("[process_changes_for_subscription] Not applying data again");
                     }
                 }
 
@@ -570,7 +594,7 @@ impl Verifier {
                 // 2) children returned by validation (tormos -> subjects)
                 for (child_arc, needs_fetch) in children_to_eval.into_iter() {
                     let child_r = child_arc.read().unwrap();
-                    let shape_key = child_r.shape.iri.clone();
+                    let shape_key = child_r.shape.upgrade().unwrap().iri.clone();
                     let pair_key = (child_r.graph_iri.clone(), child_r.subject_iri.clone());
                     child_targets
                         .entry(shape_key)
@@ -624,7 +648,7 @@ impl Verifier {
                 // Schedule PARENTS (last priority)
                 for parent_arc in parents_to_eval {
                     let parent = parent_arc.read().unwrap();
-                    let parent_shape_iri = parent.shape.iri.clone();
+                    let parent_shape_iri = parent.shape.upgrade().unwrap().iri.clone();
                     let parent_subject = parent.subject_iri.clone();
                     // Skip queuing parent if it is currently being validated to avoid loops
                     let parent_key = (
@@ -674,8 +698,20 @@ impl Verifier {
                 };
 
             let child_groups = build_groups(child_objects_to_eval);
+            log_info!(
+                "[process_changes_for_subscription]  - Building child group {:?}",
+                child_groups
+            );
             let self_groups = build_groups(self_objects_to_eval);
+            log_info!(
+                "[process_changes_for_subscription]  - Building self group {:?}",
+                child_groups
+            );
             let parent_groups = build_groups(parent_objects_to_eval);
+            log_info!(
+                "[process_changes_for_subscription]  - Building parent group {:?}",
+                child_groups
+            );
 
             // Helper to push groups into the stack
             let mut push_groups =
@@ -705,6 +741,8 @@ impl Verifier {
                                     shape_query,
                                     Some(orm_subscription.nuri.clone()),
                                 )?;
+
+                                log_info!("[process_changes_for_subscription] recursive call for shape {} and quads {:?}", shape_iri,  schema);
 
                                 // Recursively process nested objects.
                                 self.process_changes_for_subscription(
@@ -757,7 +795,14 @@ impl Verifier {
                                     c.is_validated,
                                     c.tracked_orm_object.read().unwrap().valid.clone(),
                                     c.tracked_orm_object.read().unwrap().subject_iri.clone(),
-                                    c.tracked_orm_object.read().unwrap().shape.iri.clone(),
+                                    c.tracked_orm_object
+                                        .read()
+                                        .unwrap()
+                                        .shape
+                                        .upgrade()
+                                        .unwrap()
+                                        .iri
+                                        .clone(),
                                     c.tracked_orm_object.read().unwrap().graph_iri.clone(),
                                 )
                             })
