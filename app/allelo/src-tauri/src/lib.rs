@@ -389,24 +389,24 @@ async fn retrieve_ng_bootstrap(
         .ok_or("cannot retrieve bootstrap".to_string())
 }
 
-#[tauri::command(rename_all = "snake_case")]
-async fn file_get(
-    session_id: u64,
-    stream_id: &str,
-    reference: BlockRef,
-    branch_nuri: String,
-    app: tauri::AppHandle,
-) -> Result<(), String> {
-    let branch_nuri =
-        NuriV0::new_from(&branch_nuri).map_err(|e| format!("branch_nuri: {}", e.to_string()))?;
-    let mut nuri = NuriV0::new_from_obj_ref(&reference);
-    nuri.copy_target_from(&branch_nuri);
+// #[tauri::command(rename_all = "snake_case")]
+// async fn file_get(
+//     session_id: u64,
+//     stream_id: &str,
+//     reference: BlockRef,
+//     branch_nuri: String,
+//     app: tauri::AppHandle,
+// ) -> Result<(), String> {
+//     let branch_nuri =
+//         NuriV0::new_from(&branch_nuri).map_err(|e| format!("branch_nuri: {}", e.to_string()))?;
+//     let mut nuri = NuriV0::new_from_obj_ref(&reference);
+//     nuri.copy_target_from(&branch_nuri);
 
-    let mut request = AppRequest::new(AppRequestCommandV0::FileGet, nuri, None);
-    request.set_session_id(session_id);
+//     let mut request = AppRequest::new(AppRequestCommandV0::FileGet, nuri, None);
+//     request.set_session_id(session_id);
 
-    app_request_stream(request, stream_id, app).await
-}
+//     app_request_stream(request, stream_id, app).await
+// }
 
 #[tauri::command(rename_all = "snake_case")]
 async fn app_request_stream(
@@ -574,6 +574,28 @@ async fn new_orm_start(
         NuriV0::new_from(&scope).map_err(|_| "Deserialization error of scope".to_string())?
     };
     let mut req = AppRequest::new_orm_start(scope, shape_type);
+    req.set_session_id(session_id);
+    Ok(req)
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn new_file_get(
+    session_id: u64,
+    nuri: String,
+    branch_nuri: String,
+) -> Result<AppRequest, String> {
+    let mut nuri =
+        NuriV0::new_from(&nuri).map_err(|e| format!("error with nuri: {}", e.to_string()))?;
+
+    let branch_nuri = if branch_nuri.is_empty() {
+        NuriV0::new_private_store_target()
+    } else {
+        NuriV0::new_from(&branch_nuri)
+            .map_err(|e| format!("error with branch_nuri: {}", e.to_string()))?
+    };
+
+    nuri.copy_target_from(&branch_nuri);
+    let mut req = AppRequest::new(AppRequestCommandV0::FileGet, nuri, None);
     req.set_session_id(session_id);
     Ok(req)
 }
@@ -874,9 +896,15 @@ async fn upload_chunk(
 ) -> Result<AppResponse, String> {
     //log_debug!("upload_chunk {:?}", chunk);
 
+    let branch_nuri = if nuri.is_empty() {
+        NuriV0::new_private_store_target()
+    } else {
+        NuriV0::new_from(&nuri).map_err(|e| format!("error with nuri: {}", e.to_string()))?
+    };
+
     let mut request = AppRequest::new(
         AppRequestCommandV0::FilePut,
-        NuriV0::new_from(&nuri).map_err(|e| e.to_string())?,
+        branch_nuri,
         Some(AppRequestPayload::V0(
             AppRequestPayloadV0::RandomAccessFilePutChunk((upload_id, chunk)),
         )),
@@ -886,6 +914,63 @@ async fn upload_chunk(
     nextgraph::local_broker::app_request(request)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn upload_start(
+    session_id: u64,
+    nuri: String,
+    mimetype: String,
+    _app: tauri::AppHandle,
+) -> Result<u32, String> {
+    let branch_nuri = if nuri.is_empty() {
+        NuriV0::new_private_store_target()
+    } else {
+        NuriV0::new_from(&nuri).map_err(|e| format!("error with nuri: {}", e.to_string()))?
+    };
+
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::FilePut,
+        branch_nuri,
+        Some(AppRequestPayload::V0(
+            AppRequestPayloadV0::RandomAccessFilePut(mimetype),
+        )),
+    );
+    request.set_session_id(session_id);
+
+    let response = nextgraph::local_broker::app_request(request)
+        .await
+        .map_err(|e: NgError| e.to_string())?;
+
+    match response {
+        AppResponse::V0(AppResponseV0::FileUploading(upload_id)) => Ok(upload_id),
+        _ => Err("invalid response".to_string()),
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn upload_done(
+    upload_id: u32,
+    session_id: u64,
+    nuri: String,
+    filename: String,
+) -> Result<FileName, String> {
+    let branch_nuri = if nuri.is_empty() {
+        NuriV0::new_private_store_target()
+    } else {
+        NuriV0::new_from(&nuri).map_err(|e| format!("error with nuri: {}", e.to_string()))?
+    };
+
+    let reference =
+        nextgraph::local_broker::upload_done(upload_id, session_id, branch_nuri, filename.clone())
+            .await
+            .map_err(|e: NgError| e.to_string())?;
+    let filename = FileName {
+        name: None,
+        nuri: format!("did:ng:{}", reference.object_nuri()),
+        reference,
+    };
+    Ok(filename)
 }
 
 #[tauri::command(rename_all = "snake_case")]
@@ -1101,11 +1186,14 @@ impl AppBuilder {
                 discrete_update,
                 app_request_stream,
                 new_orm_start,
-                file_get,
+                new_file_get,
+                //file_get,
                 file_save_to_downloads,
                 app_request,
                 app_request_with_nuri_command,
+                upload_start,
                 upload_chunk,
+                upload_done,
                 get_device_name,
                 sparql_query,
                 sparql_update,

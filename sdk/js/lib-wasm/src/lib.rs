@@ -1580,49 +1580,6 @@ async fn file_get_(
     app_request_stream_(request, callback).await
 }
 
-async fn do_upload_done(
-    upload_id: u32,
-    session_id: u64,
-    nuri: NuriV0,
-    filename: String,
-) -> Result<ObjectRef, String> {
-    let mut request = AppRequest::new(
-        AppRequestCommandV0::FilePut,
-        nuri.clone(),
-        Some(AppRequestPayload::V0(
-            AppRequestPayloadV0::RandomAccessFilePutChunk((upload_id, serde_bytes::ByteBuf::new())),
-        )),
-    );
-    request.set_session_id(session_id);
-
-    let response = nextgraph::local_broker::app_request(request)
-        .await
-        .map_err(|e: NgError| e.to_string())?;
-
-    let reference = match response {
-        AppResponse::V0(AppResponseV0::FileUploaded(refe)) => refe,
-        _ => return Err("invalid response".to_string()),
-    };
-
-    let mut request = AppRequest::new(
-        AppRequestCommandV0::FilePut,
-        nuri,
-        Some(AppRequestPayload::V0(AppRequestPayloadV0::AddFile(
-            DocAddFile {
-                filename: Some(filename),
-                object: reference.clone(),
-            },
-        ))),
-    );
-    request.set_session_id(session_id);
-
-    nextgraph::local_broker::app_request(request)
-        .await
-        .map_err(|e: NgError| e.to_string())?;
-
-    Ok(reference)
-}
-
 #[cfg(wasmpack_target = "nodejs")]
 async fn do_upload_done_(
     upload_id: u32,
@@ -1630,7 +1587,7 @@ async fn do_upload_done_(
     nuri: NuriV0,
     filename: String,
 ) -> Result<JsValue, JsValue> {
-    let response = do_upload_done(upload_id, session_id, nuri, filename)
+    let response = nextgraph::local_broker::upload_done(upload_id, session_id, nuri, filename)
         .await
         .map_err(|e| {
             let ee: JsValue = e.into();
@@ -1657,7 +1614,10 @@ pub async fn upload_done(
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
 
-    let reference = do_upload_done(upload_id, session_id, branch_nuri, filename.clone()).await?;
+    let reference =
+        nextgraph::local_broker::upload_done(upload_id, session_id, branch_nuri, filename.clone())
+            .await
+            .map_err(|e| e.to_string())?;
     let filename = FileName {
         name: None,
         nuri: format!("did:ng:{}", reference.object_nuri()),
