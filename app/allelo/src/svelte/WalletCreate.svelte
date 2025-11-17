@@ -201,7 +201,7 @@
     try {
       ready = await ng.wallet_create(params);
       wallets.set(await ng.get_wallets());
-      console.log($wallets);
+      //console.log($wallets);
       push("#/wallet/login");
     } catch (e) {
       console.error(e);

@@ -4,13 +4,14 @@ import {
   Card, CardContent, Button, Switch, Chip, Avatar,
   Badge, List, ListItem, ListItemAvatar, ListItemText, Tooltip,
   Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions,
-  Checkbox, ListItemIcon, ListItemButton, alpha, useTheme
+  Checkbox, ListItemIcon, ListItemButton, alpha, useTheme, SpeedDial,
+  SpeedDialAction, SpeedDialIcon, useMediaQuery,Paper,FormControlLabel,Divider
 } from '@mui/material';
 import {
   UilBolt, UilSearch, UilArrowUp, UilPlus, UilEnvelope, UilUsersAlt, UilUserPlus,
   UilBell, UilClock, UilUser, UilArrowRight, UilRss, UilFileAlt,
   UilGift, UilChartLine, UilTrophy, UilUsersAlt as UilHandshake, UilTimes, UilDraggabledots,
-  UilFileEditAlt, UilTag, UilShoppingCart, UilMessage
+  UilFileEditAlt, UilTag, UilShoppingCart, UilMessage, UilSetting, UilApps, UilEstate
 } from '@iconscout/react-unicons';
 import { useAI } from '@/hooks/useAI';
 import {useContactData} from "@/hooks/contacts/useContactData.ts";
@@ -18,6 +19,7 @@ import {resolveFrom} from "@/utils/socialContact/contactUtils.ts";
 
 const HomePage = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [query, setQuery] = useState('');
   const [aiEnabled, setAiEnabled] = useState(true);
   const [response, setResponse] = useState<string | null>(null);
@@ -27,13 +29,14 @@ const HomePage = () => {
   const [addWidgetDialog, setAddWidgetDialog] = useState(false);
   const [draggedWidget, setDraggedWidget] = useState<string | null>(null);
   const [dropIndicator, setDropIndicator] = useState<{ widgetId: string; position: 'before' | 'after' } | null>(null);
-  
+  const [speedDialOpen, setSpeedDialOpen] = useState(false);
+
   // Quick Actions modal states
   const [createPostDialog, setCreatePostDialog] = useState(false);
   const [sendMessageDialog, setSendMessageDialog] = useState(false);
   const [messageRecipient, setMessageRecipient] = useState<string>('');
   const [messageContent, setMessageContent] = useState<string>('');
-  
+
   // Layout settings
   const [columnLayout, setColumnLayout] = useState<'1-col' | '2-1-col' | '1-2-col' | '3-col'>('2-1-col');
   const [layoutMenuAnchor, setLayoutMenuAnchor] = useState<null | HTMLElement>(null);
@@ -1383,58 +1386,134 @@ const HomePage = () => {
 
   return (
     <Box sx={{pb: 10 }}>
-      {/* Mode Toggle & Widget Controls - Fixed in bottom right corner, inline */}
-      {/*<Paper */}
-      {/*  sx={{ */}
-      {/*    position: 'fixed', */}
-      {/*    bottom: {xs: 60, md: 24},*/}
-      {/*    right: 24, */}
-      {/*    p: {xs: 0, md: 1.5},*/}
-      {/*    px: {xs : 1, md: 1.5},*/}
-      {/*    zIndex: 1002,*/}
-      {/*    borderRadius: 2,*/}
-      {/*    boxShadow: 3,*/}
-      {/*    display: 'flex',*/}
-      {/*    alignItems: 'center',*/}
-      {/*    gap: {xs:0, md:2}*/}
-      {/*  }}*/}
-      {/*>*/}
-      {/*  /!* Mode Toggle *!/*/}
-      {/*  <FormControlLabel*/}
-      {/*    control={*/}
-      {/*      <Switch*/}
-      {/*        checked={viewMode === 'widgets'}*/}
-      {/*        onChange={handleModeToggle}*/}
-      {/*      />*/}
-      {/*    }*/}
-      {/*    label={*/}
-      {/*      <Typography variant="body2" sx={{ fontWeight: 500 }}>*/}
-      {/*        {viewMode === 'widgets' ? 'Widgets' : 'Zen'}*/}
-      {/*      </Typography>*/}
-      {/*    }*/}
-      {/*    labelPlacement="start"*/}
-      {/*  />*/}
+      {/* Mode Toggle & Widget Controls - Commented out, defaulting to Zen mode */}
+      {/* {isMobile ? (
+        <SpeedDial
+          ariaLabel="Dashboard controls"
+          sx={{
+            position: 'fixed',
+            bottom: 76,
+            right: 16,
+            zIndex: 1002,
+            '& .MuiSpeedDial-fab': {
+              width: 56,
+              height: 56,
+              backgroundColor: 'primary.main',
+              '&:hover': {
+                backgroundColor: 'primary.dark'
+              }
+            },
+            '& .MuiSpeedDialAction-fab': {
+              width: 48,
+              height: 48,
+              fontSize: '1.25rem',
+              backgroundColor: 'primary.main',
+              color: 'primary.contrastText',
+              '&:hover': {
+                backgroundColor: 'primary.dark'
+              }
+            },
+            '& .MuiSpeedDialAction-staticTooltipLabel': {
+              whiteSpace: 'nowrap',
+              fontSize: '0.9375rem',
+              fontWeight: 500,
+              backgroundColor: 'primary.main',
+              color: 'primary.contrastText',
+              boxShadow: 2,
+              padding: '8px 12px',
+              borderRadius: '8px',
+              minWidth: 120
+            }
+          }}
+          icon={<SpeedDialIcon icon={<UilApps size="24" />} />}
+          open={speedDialOpen}
+          onClose={() => setSpeedDialOpen(false)}
+          onOpen={() => setSpeedDialOpen(true)}
+        >
+          <SpeedDialAction
+            icon={viewMode === 'widgets' ? <UilEstate size="24" /> : <UilApps size="24" />}
+            tooltipTitle={viewMode === 'widgets' ? 'Switch to Zen' : 'Switch to Widgets'}
+            tooltipOpen
+            onClick={() => {
+              handleModeToggle();
+              setSpeedDialOpen(false);
+            }}
+          />
+          {viewMode === 'widgets' && (
+            <SpeedDialAction
+              icon={<UilSetting size="24" />}
+              tooltipTitle="Layout Settings"
+              tooltipOpen
+              onClick={(e) => {
+                const button = e.currentTarget;
+                setLayoutMenuAnchor(button);
+                setSpeedDialOpen(false);
+              }}
+            />
+          )}
+          {viewMode === 'widgets' && (
+            <SpeedDialAction
+              icon={<UilPlus size="24" />}
+              tooltipTitle="Add Widget"
+              tooltipOpen
+              onClick={(e) => {
+                const button = e.currentTarget;
+                setWidgetMenuAnchor(button);
+                setSpeedDialOpen(false);
+              }}
+            />
+          )}
+        </SpeedDial>
+      ) : (
+        <Paper
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            p: 1.5,
+            zIndex: 1002,
+            borderRadius: 2,
+            boxShadow: 3,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}
+        >
+          <FormControlLabel
+            control={
+              <Switch
+                checked={viewMode === 'widgets'}
+                onChange={handleModeToggle}
+              />
+            }
+            label={
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {viewMode === 'widgets' ? 'Widgets' : 'Zen'}
+              </Typography>
+            }
+            labelPlacement="start"
+          />
 
-      {/*  /!* Widget Controls (only show in widgets mode) *!/*/}
-      {/*  {viewMode === 'widgets' && (*/}
-      {/*    <>*/}
-      {/*      <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />*/}
-      {/*      <Tooltip title="Layout Settings">*/}
-      {/*        <IconButton onClick={(e) => setLayoutMenuAnchor(e.currentTarget)} size="small">*/}
-      {/*          <UilSetting size="20" />*/}
-      {/*        </IconButton>*/}
-      {/*      </Tooltip>*/}
-      {/*      <Tooltip title="Add Widget">*/}
-      {/*        <IconButton onClick={handleAddWidget} size="small">*/}
-      {/*          <UilPlus size="20" />*/}
-      {/*        </IconButton>*/}
-      {/*      </Tooltip>*/}
-      {/*    </>*/}
-      {/*  )}*/}
-      {/*</Paper>*/}
+          {viewMode === 'widgets' && (
+            <>
+              <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+              <Tooltip title="Layout Settings">
+                <IconButton onClick={(e) => setLayoutMenuAnchor(e.currentTarget)} size="small">
+                  <UilSetting size="20" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Add Widget">
+                <IconButton onClick={handleAddWidget} size="small">
+                  <UilPlus size="20" />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
+        </Paper>
+      )} */}
 
       {/* Add Widget Menu */}
-      <Menu
+      {/* <Menu
         anchorEl={widgetMenuAnchor}
         open={Boolean(widgetMenuAnchor)}
         onClose={() => setWidgetMenuAnchor(null)}
@@ -1467,10 +1546,10 @@ const HomePage = () => {
             </Typography>
           </MenuItem>
         )}
-      </Menu>
+      </Menu> */}
 
       {/* Add Widget Dialog */}
-      <Dialog open={addWidgetDialog} onClose={() => setAddWidgetDialog(false)}>
+      {/* <Dialog open={addWidgetDialog} onClose={() => setAddWidgetDialog(false)}>
         <DialogTitle>Add Widgets</DialogTitle>
         <DialogContent>
           <List>
@@ -1492,15 +1571,15 @@ const HomePage = () => {
         <DialogActions>
           <Button onClick={() => setAddWidgetDialog(false)}>Close</Button>
         </DialogActions>
-      </Dialog>
+      </Dialog> */}
 
       {/* Layout Settings Visual Menu */}
-      <Menu
+      {/* <Menu
         anchorEl={layoutMenuAnchor}
         open={Boolean(layoutMenuAnchor)}
         onClose={() => setLayoutMenuAnchor(null)}
         PaperProps={{
-          sx: { 
+          sx: {
             p: 1,
             minWidth: 200
           }
@@ -1511,12 +1590,11 @@ const HomePage = () => {
             Layout Options
           </Typography>
         </Box>
-        
-        {/* 1 Column Full Width */}
+
         <MenuItem onClick={() => handleLayoutChange('1-col')} sx={{ p: 1.5, flexDirection: 'column', alignItems: 'flex-start' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, width: '100%' }}>
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               gap: 0.5,
               opacity: columnLayout === '1-col' ? 1 : 0.6,
               transform: columnLayout === '1-col' ? 'scale(1.1)' : 'scale(1)',
@@ -1534,12 +1612,11 @@ const HomePage = () => {
             )}
           </Box>
         </MenuItem>
-        
-        {/* 2 Columns + 1 Column */}
+
         <MenuItem onClick={() => handleLayoutChange('2-1-col')} sx={{ p: 1.5, flexDirection: 'column', alignItems: 'flex-start' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, width: '100%' }}>
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               gap: 0.5,
               opacity: columnLayout === '2-1-col' ? 1 : 0.6,
               transform: columnLayout === '2-1-col' ? 'scale(1.1)' : 'scale(1)',
@@ -1558,12 +1635,11 @@ const HomePage = () => {
             )}
           </Box>
         </MenuItem>
-        
-        {/* 1 Column + 2 Columns */}
+
         <MenuItem onClick={() => handleLayoutChange('1-2-col')} sx={{ p: 1.5, flexDirection: 'column', alignItems: 'flex-start' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, width: '100%' }}>
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               gap: 0.5,
               opacity: columnLayout === '1-2-col' ? 1 : 0.6,
               transform: columnLayout === '1-2-col' ? 'scale(1.1)' : 'scale(1)',
@@ -1582,12 +1658,11 @@ const HomePage = () => {
             )}
           </Box>
         </MenuItem>
-        
-        {/* 3 Equal Columns */}
+
         <MenuItem onClick={() => handleLayoutChange('3-col')} sx={{ p: 1.5, flexDirection: 'column', alignItems: 'flex-start' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, width: '100%' }}>
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               gap: 0.5,
               opacity: columnLayout === '3-col' ? 1 : 0.6,
               transform: columnLayout === '3-col' ? 'scale(1.1)' : 'scale(1)',
@@ -1607,7 +1682,7 @@ const HomePage = () => {
             )}
           </Box>
         </MenuItem>
-      </Menu>
+      </Menu> */}
 
       {/* Create Post Modal */}
       <Dialog open={createPostDialog} onClose={() => setCreatePostDialog(false)} maxWidth="sm" fullWidth>

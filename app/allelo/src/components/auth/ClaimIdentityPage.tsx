@@ -238,7 +238,7 @@ export const ClaimIdentityPage = () => {
         {/* Profile Form */}
         <Box component="form" onSubmit={handleSubmit}>
           {/* Name Fields */}
-          <Box sx={{display: 'flex', gap: 2, mb: 3}}>
+          <Box sx={{display: 'flex', flexDirection: {xs: 'column', sm: 'row'}, gap: 2, mb: 3}}>
             <TextField
               fullWidth
               label="First Name"

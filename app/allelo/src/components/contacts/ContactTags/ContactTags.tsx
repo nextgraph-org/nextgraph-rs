@@ -1,6 +1,6 @@
 import {SocialContact, Tag} from "@/.ldo/contact.typings.ts";
 import {UilPlus, UilTimes} from "@iconscout/react-unicons";
-import {Box, Chip, Autocomplete, TextField, Popper} from "@mui/material";
+import {Box, Chip, Autocomplete, TextField, Popper, useTheme, useMediaQuery} from "@mui/material";
 import {useCallback, useEffect, useMemo, useState} from "react";
 import {useLdo} from "@/lib/nextgraph";
 import {isNextGraphEnabled} from "@/utils/featureFlags.ts";
@@ -17,9 +17,12 @@ export interface ContactTagsProps {
 }
 
 export const ContactTags = ({contact, resource}: ContactTagsProps) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [tags, setTags] = useState<Tag[]>();
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [inputValue, setInputValue] = useState("");
+  const [autocompleteOpen, setAutocompleteOpen] = useState(false);
   const {commitData, changeData} = useLdo();
 
   const initTags = useCallback(() => {
@@ -62,14 +65,31 @@ export const ContactTags = ({contact, resource}: ContactTagsProps) => {
         const changedContactObj = changeData(contact, resource);
         changedContactObj.tag?.add(newTag);
 
-        commitData(changedContactObj).then(initTags).catch(console.error);
+        commitData(changedContactObj).then(() => {
+          // Force state update after commit
+          const updatedTags = changedContactObj.tag?.toArray().filter(tag => tag["@id"]).map(tag => ({
+            "@id": tag["@id"],
+            source: tag.source || "user",
+            //@ts-expect-error ldo is messing the structure
+            valueIRI: tag.valueIRI.toArray ? tag.valueIRI.toArray()[0] : tag.valueIRI
+          } as Tag)) ?? [];
+          setTags(updatedTags);
+        }).catch(console.error);
       }
     } else {
       contact.tag.add(newTag);
-      initTags();
+      // Force immediate state update
+      const updatedTags = contact.tag.toArray().filter(tag => tag["@id"]).map(tag => ({
+        "@id": tag["@id"],
+        source: "user",
+        //@ts-expect-error ldo is messing the structure
+        valueIRI: tag.valueIRI.toArray ? tag.valueIRI.toArray()[0] : tag.valueIRI
+      } as Tag));
+      setTags(updatedTags);
     }
     setInputValue("");
     setIsAddingTag(false);
+    setAutocompleteOpen(false);
   };
 
   const handleTagRemove = (tagId: string) => {
@@ -82,11 +102,27 @@ export const ContactTags = ({contact, resource}: ContactTagsProps) => {
             const changedContactObj = changeData(contact, resource);
             changedContactObj.tag?.delete(tagToRemove);
 
-            commitData(changedContactObj).then(initTags).catch(console.error);
+            commitData(changedContactObj).then(() => {
+              // Force state update after commit
+              const updatedTags = changedContactObj.tag?.toArray().filter(tag => tag["@id"]).map(tag => ({
+                "@id": tag["@id"],
+                source: tag.source || "user",
+                //@ts-expect-error ldo is messing the structure
+                valueIRI: tag.valueIRI.toArray ? tag.valueIRI.toArray()[0] : tag.valueIRI
+              } as Tag)) ?? [];
+              setTags(updatedTags);
+            }).catch(console.error);
           }
         } else {
           contact.tag.delete(tagToRemove);
-          initTags();
+          // Force immediate state update
+          const updatedTags = contact.tag.toArray().filter(tag => tag["@id"]).map(tag => ({
+            "@id": tag["@id"],
+            source: "user",
+            //@ts-expect-error ldo is messing the structure
+            valueIRI: tag.valueIRI.toArray ? tag.valueIRI.toArray()[0] : tag.valueIRI
+          } as Tag));
+          setTags(updatedTags);
         }
       }
     }
@@ -107,6 +143,10 @@ export const ContactTags = ({contact, resource}: ContactTagsProps) => {
           size="small"
           onDelete={() => handleTagRemove(tag["@id"]!)}
           deleteIcon={<UilTimes size="20"/>}
+          sx={{
+            height: { xs: 36, md: 32 },
+            fontSize: { xs: '0.9375rem', md: '0.8125rem' }
+          }}
         />
       ))}
 
@@ -114,20 +154,18 @@ export const ContactTags = ({contact, resource}: ContactTagsProps) => {
         <Autocomplete
           size="small"
           freeSolo
+          open={autocompleteOpen}
+          onOpen={() => setAutocompleteOpen(true)}
+          onClose={() => setAutocompleteOpen(false)}
           options={availableOptions.map(camelCaseToWords)}
           inputValue={inputValue}
-          onInputChange={(_, newInputValue) => setInputValue(newInputValue)}
+          onInputChange={(_, newInputValue) => {
+            setInputValue(newInputValue);
+            setAutocompleteOpen(newInputValue.length > 0);
+          }}
           onChange={(_, value) => {
             if (value) {
               handleTagAdd(value as string);
-            }
-          }}
-          onBlur={() => {
-            if (inputValue.trim()) {
-              handleTagAdd(inputValue.trim());
-            } else {
-              setIsAddingTag(false);
-              setInputValue("");
             }
           }}
           PopperComponent={(props) => (
@@ -141,10 +179,10 @@ export const ContactTags = ({contact, resource}: ContactTagsProps) => {
               size="small"
               autoFocus
               sx={{
-                minWidth: 150,
+                minWidth: { xs: 180, md: 150 },
                 '& .MuiOutlinedInput-root': {
-                  fontSize: '0.875rem',
-                  height: '25px',
+                  fontSize: { xs: '0.9375rem', md: '0.875rem' },
+                  height: { xs: '36px', md: '25px' },
                   '& fieldset': {
                     borderWidth: '1px',
                     borderColor: 'rgba(0, 0, 0, 0.23)'
@@ -159,10 +197,26 @@ export const ContactTags = ({contact, resource}: ContactTagsProps) => {
                 }
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Escape') {
+                if (e.key === 'Enter' && inputValue.trim()) {
+                  e.preventDefault();
+                  handleTagAdd(inputValue.trim());
+                } else if (e.key === 'Escape') {
                   setIsAddingTag(false);
                   setInputValue("");
+                  setAutocompleteOpen(false);
                 }
+              }}
+              onBlur={() => {
+                // Small delay to allow click events to fire first
+                setTimeout(() => {
+                  if (inputValue.trim()) {
+                    handleTagAdd(inputValue.trim());
+                  } else {
+                    setIsAddingTag(false);
+                    setInputValue("");
+                    setAutocompleteOpen(false);
+                  }
+                }, 200);
               }}
             />
           )}
@@ -171,19 +225,24 @@ export const ContactTags = ({contact, resource}: ContactTagsProps) => {
       )}
       <Chip
         variant="outlined"
-        icon={<UilPlus size="20"/>}
+        icon={<UilPlus size={isMobile ? "24" : "20"}/>}
         label="Add tag"
         size="small"
         clickable
         disabled={isAddingTag}
         onClick={() => setIsAddingTag(true)}
         sx={{
+          height: { xs: 36, md: 32 },
+          fontSize: { xs: '0.9375rem', md: '0.8125rem' },
           borderStyle: 'dashed',
           color: 'text.secondary',
           borderColor: 'text.secondary',
           '&:hover': {
             borderColor: 'primary.main',
             color: 'primary.main',
+          },
+          '& .MuiChip-icon': {
+            fontSize: { xs: '1.25rem', md: '1rem' }
           }
         }}
       />

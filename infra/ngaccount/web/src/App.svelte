@@ -26,6 +26,7 @@
 
   onMount(() => {
     window.document.getElementById("splash").className="noshow";
+    window.document.getElementById("app").className="show";
   });
 </script>
 

@@ -20,6 +20,7 @@ members = [
   "app/nextgraph/src-tauri",
   "app/allelo/src-tauri",
   "app/tauri-plugin-contacts-importer",
+  "app/barcode-scanner"
 ]
 default-members = ["sdk/rust"]
 

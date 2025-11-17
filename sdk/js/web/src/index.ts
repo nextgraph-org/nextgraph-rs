@@ -41,6 +41,7 @@ export const init = async function(callback:Function | null, singleton:boolean, 
 const streamed_api: Record<string,number> = {
   "doc_subscribe": 2,
   "orm_start": 3,
+  "file_get": 3,
   "app_request_stream": 1
 };
 

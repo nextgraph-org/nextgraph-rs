@@ -29,7 +29,9 @@
 
   async function on_qr_scanned(content) {
     scanned_qr_code.set(content);
-    await nativeScanner.cancel();
+    if (import.meta.env.TAURI_ENV_PLATFORM != "ios") {
+      await nativeScanner.cancel();
+    }
     push($redirect_after_scanned_qr_code);
   }
 
@@ -63,9 +65,9 @@
   //     };
 
   onDestroy(async () => {
-
+    if (import.meta.env.TAURI_ENV_PLATFORM != "ios") {
       if (nativeScanner) await nativeScanner.cancel();
-    
+    }
   });
 </script>
 
@@ -95,7 +97,7 @@
     <Button
       variant="outlined"
       class="mui-button-outlined form-button"
-      onclick={() => push($redirect_after_scanned_qr_code)}
+      onclick={async () => { await nativeScanner.cancel(); push($redirect_after_scanned_qr_code)}}
     >
       <div class="button-icon">
         <ArrowLeft />

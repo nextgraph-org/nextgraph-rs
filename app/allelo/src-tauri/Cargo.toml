@@ -27,7 +27,7 @@ serde_json = "1"
 tauri-plugin-contacts-importer = { path = "../../tauri-plugin-contacts-importer/" }
 serde_bare = "0.5.0"
 serde_bytes = "0.11.7"
-tauri-plugin-barcode-scanner = "2"
+tauri-plugin-barcode-scanner = { path = "../../barcode-scanner" }
 ng-repo = { path = "../../../engine/repo" }
 ng-net = { path = "../../../engine/net" }
 ng-wallet = { path = "../../../engine/wallet" }

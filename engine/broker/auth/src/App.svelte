@@ -297,7 +297,7 @@
                   const args = e.data.args;
                   const port = e.data.port;
                   // TODO: add other streamed RPC methods
-                  if ( method === "doc_subscribe" || method === "orm_start" || method === "app_request_stream" ) {
+                  if ( method === "doc_subscribe" || method === "orm_start" || method === "app_request_stream" || method === "file_get" ) {
                     //console.log("processing streamed request ...",method, args);
                     args.push((callbacked)=> {
                       port.postMessage({stream:true, ret:callbacked});

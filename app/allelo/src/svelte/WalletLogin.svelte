@@ -77,13 +77,14 @@
         return imageUrl;
     }
 
-    console.log("WalletLogin called")
+    //console.log("WalletLogin called")
 
     onMount(async () => {
         step = "open";
+        await boot();
 
         wallets_unsub = wallets.subscribe((value) => {
-            console.log("wallets.subscribe(", wallet, selected);
+            //console.log("wallets.subscribe(", wallet, selected);
             wallet = wallet || selected && $wallets[selected]?.wallet;
             //console.log("wallet found locally", wallet);
         });
@@ -95,7 +96,7 @@
         });
         active_wallet_unsub = active_wallet.subscribe(async (value) => {
             if (value && value.wallet) {
-                console.log("active_wallet.subscribe(", value.wallet, wallet, selected);
+                //console.log("active_wallet.subscribe(", value.wallet, wallet, selected);
                 step = "loggedin";
                 await tick();
                 if (!$active_session) {
@@ -128,6 +129,7 @@
             wallet = $wallet_from_import;
             importing = true;
         }
+        scrollToTop()
     });
 
     async function loggedin() {
@@ -256,7 +258,7 @@
             wallet = $wallets[selected]?.wallet;
         }
         importing = false;
-        console.log("select", wallet, selected)
+        //console.log("select", wallet, selected)
     }
     function handleWalletUpload(event) {
         const files = event.target.files;
@@ -277,11 +279,6 @@
     function scrollToTop() {
         top.scrollIntoView();
     }
-
-    onMount(async () => {
-        await boot();
-        scrollToTop()
-    });
 </script>
 
 <CenteredLayout displayFooter={!wallet && !selected}>
@@ -367,11 +364,11 @@
 
           <div class="wallet-button-container">
             <Button
-                variant="outlined"
+                variant="unelevated"
                 tabindex="-1"
-                style="overflow-wrap: anywhere;"
-                class="mui-button-outlined form-button wallet-security-button"
+                class="mui-button-primary form-button action-button"
                 type="button"
+                style="border-radius: 20px !important; font-size: 2.5rem!important;height: fit-content!important; word-break: break-all;"
             >
               <Label>{$wallet_from_import.V0.content.security_txt}</Label>
             </Button>

@@ -1532,7 +1532,7 @@ impl<'a> Transaction<'a> {
         quad: impl Into<QuadRef<'b>>,
         value: u8,
         cv: bool,
-    ) -> Result<(), StorageError> {
+    ) -> Result<bool, StorageError> {
         self.writer.ng_insert(quad.into(), value, cv)
     }
 

@@ -20,7 +20,6 @@ pub use ng_net::orm::{OrmPatches, OrmShapeType};
 use ng_net::{app_protocol::*, orm::*};
 
 use crate::orm::types::{SubjectIri, TrackedOrmObject, TrackedOrmObjectValidity};
-use ng_net::orm::OrmSchemaPredicate;
 use std::sync::{Arc, RwLock};
 // use ng_oxigraph::oxrdf::Triple;
 
@@ -340,7 +339,7 @@ mod tests {
             valid,
             subject_iri: subject.to_string(),
             graph_iri: graph.to_string(),
-            shape,
+            shape: Arc::downgrade(&shape),
         }))
     }
 

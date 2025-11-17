@@ -1,7 +1,7 @@
 
 import {wallets, active_wallet, opened_wallets, close_active_session} from "./store";
 import {init_api} from "../.auth-react/api";
-import {default as web_api} from "../../../../sdk/js/api-web";
+import {default as web_api, worker_ready} from "../../../../sdk/js/api-web";
 import { default as ng } from "../.auth-react/api";
 import { get } from "svelte/store";
 
@@ -10,6 +10,7 @@ let unsubscribe = () => {};
 let wallet_channel;
 
 export const bootstrap_web = async function() {
+    await worker_ready;
     console.log("web store initializing")
     init_api(web_api);
 

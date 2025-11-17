@@ -1236,6 +1236,24 @@ impl Transaction<'_> {
         Ok(self.get_for_update(column_family, key)?.is_some()) // TODO: optimize
     }
 
+    pub fn contains_key_value_for_update(
+        &self,
+        column_family: &ColumnFamily,
+        key: &[u8],
+        value: &[u8],
+    ) -> Result<bool, StorageError> {
+        Ok(self
+            .get_for_update(column_family, key)?
+            .and_then(|val| {
+                if val.as_ref() == value {
+                    Some(val)
+                } else {
+                    None
+                }
+            })
+            .is_some())
+    }
+
     pub fn insert(
         &mut self,
         column_family: &ColumnFamily,

@@ -19,6 +19,7 @@ packages:
     - infra/ngnet/redir
     - infra/ngnet/web
     - infra/ngnet/auth
+    - app/barcode-scanner
 onlyBuiltDependencies:
     - "@parcel/watcher"
     - "@swc/core"

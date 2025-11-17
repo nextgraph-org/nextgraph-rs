@@ -7,6 +7,7 @@
 On OpenBSD, for LLVM you need to choose llvm-17.
 
 On MacOS, there are several bugs with LLVM above version 17. So you have to install version 17 only.
+
 ```
 brew install llvm@17
 ```
@@ -14,7 +15,7 @@ brew install llvm@17
 On all platforms, we have to install wasm-pack this way:
 
 ```
-cargo install wasm-pack --git https://git.nextgraph.org/NextGraph/wasm-pack.git --branch master
+cargo install wasm-pack --git https://git.nextgraph.org/NextGraph/wasm-pack.git --branch master --locked
 ```
 
 On Debian distros

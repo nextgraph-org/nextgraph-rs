@@ -3,12 +3,14 @@ import {ContactsSourceConfig} from "@/importers/android/ContactsSourceConfig";
 import {ImportSourceConfig} from "@/types/importSource";
 import {MockDataSourceConfig} from "@/importers/mock/MockDataSourceConfig";
 import {LinkedInSourceConfig} from "@/importers/linkedin/LinkedInSourceConfig";
+import {VCFSourceConfig} from "@/importers/vcf/VCFSourceConfig";
 
 export class ImportSourceRegistry {
   private static configs: Record<string, ImportSourceConfig> = {
     contacts: ContactsSourceConfig,
     gmail: GmailSourceConfig,
     linkedin: LinkedInSourceConfig,
+    vcf: VCFSourceConfig,
     // mockdata: MockDataSourceConfig
   };
 
