@@ -77,14 +77,14 @@
         return imageUrl;
     }
 
-    console.log("WalletLogin called")
+    //console.log("WalletLogin called")
 
     onMount(async () => {
         step = "open";
         await boot();
 
         wallets_unsub = wallets.subscribe((value) => {
-            console.log("wallets.subscribe(", wallet, selected);
+            //console.log("wallets.subscribe(", wallet, selected);
             wallet = wallet || selected && $wallets[selected]?.wallet;
             //console.log("wallet found locally", wallet);
         });
@@ -96,7 +96,7 @@
         });
         active_wallet_unsub = active_wallet.subscribe(async (value) => {
             if (value && value.wallet) {
-                console.log("active_wallet.subscribe(", value.wallet, wallet, selected);
+                //console.log("active_wallet.subscribe(", value.wallet, wallet, selected);
                 step = "loggedin";
                 await tick();
                 if (!$active_session) {
@@ -258,7 +258,7 @@
             wallet = $wallets[selected]?.wallet;
         }
         importing = false;
-        console.log("select", wallet, selected)
+        //console.log("select", wallet, selected)
     }
     function handleWalletUpload(event) {
         const files = event.target.files;

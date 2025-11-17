@@ -15,36 +15,16 @@ export const contactSchema: Schema = {
             valType: "literal",
             literals: ["http://www.w3.org/2006/vcard/ns#Individual"],
           },
+          {
+            valType: "literal",
+            literals: ["did:ng:x:contact:class#Me"],
+          },
         ],
-        maxCardinality: 1,
+        maxCardinality: -1,
         minCardinality: 1,
         iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-        readablePredicate: "22-rdf-syntax-ns_type",
+        readablePredicate: "@type",
         extra: true,
-      },
-      {
-        dataTypes: [
-          {
-            valType: "literal",
-            literals: ["http://schema.org/Person"],
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-        readablePredicate: "02_type",
-      },
-      {
-        dataTypes: [
-          {
-            valType: "literal",
-            literals: ["http://xmlns.com/foaf/0.1/Person"],
-          },
-        ],
-        maxCardinality: 1,
-        minCardinality: 1,
-        iri: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-        readablePredicate: "1999_type",
       },
       {
         dataTypes: [
@@ -576,6 +556,28 @@ export const contactSchema: Schema = {
         minCardinality: 0,
         iri: "did:ng:x:contact#joinedAt",
         readablePredicate: "joinedAt",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "iri",
+          },
+        ],
+        maxCardinality: -1,
+        minCardinality: 0,
+        iri: "did:ng:x:contact#mergedInto",
+        readablePredicate: "mergedInto",
+      },
+      {
+        dataTypes: [
+          {
+            valType: "iri",
+          },
+        ],
+        maxCardinality: -1,
+        minCardinality: 0,
+        iri: "did:ng:x:contact#mergedFrom",
+        readablePredicate: "mergedFrom",
       },
     ],
   },

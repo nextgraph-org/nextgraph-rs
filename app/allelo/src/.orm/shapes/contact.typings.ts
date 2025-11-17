@@ -17,19 +17,9 @@ export interface SocialContact {
    *
    * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
    */
-  "22-rdf-syntax-ns_type": "http://www.w3.org/2006/vcard/ns#Individual";
-  /**
-   * Defines the node as a Person (from Schema.org)
-   *
-   * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
-   */
-  "02_type": "http://schema.org/Person";
-  /**
-   * Defines the node as a Person (from foaf)
-   *
-   * Original IRI: http://www.w3.org/1999/02/22-rdf-syntax-ns#type
-   */
-  "1999_type": "http://xmlns.com/foaf/0.1/Person";
+  "@type": Set<
+    "http://www.w3.org/2006/vcard/ns#Individual" | "did:ng:x:contact:class#Me"
+  >;
   /**
    * Original IRI: did:ng:x:contact#phoneNumber
    */
@@ -194,6 +184,14 @@ export interface SocialContact {
    * Original IRI: did:ng:x:contact#joinedAt
    */
   joinedAt?: JoinedAt;
+  /**
+   * Original IRI: did:ng:x:contact#mergedInto
+   */
+  mergedInto?: Set<IRI>;
+  /**
+   * Original IRI: did:ng:x:contact#mergedFrom
+   */
+  mergedFrom?: Set<IRI>;
 }
 
 /**
