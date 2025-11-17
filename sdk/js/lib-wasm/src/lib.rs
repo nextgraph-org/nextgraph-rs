@@ -1586,25 +1586,23 @@ pub async fn file_get_from_private_store(
 #[wasm_bindgen]
 pub async fn file_get(
     session_id: JsValue,
-    reference: JsValue,
+    nuri: String,
     branch_nuri: String,
     callback: &js_sys::Function,
 ) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
-    let reference: BlockRef = serde_wasm_bindgen::from_value::<BlockRef>(reference)
-        .map_err(|_| "Deserialization error of file reference".to_string())?;
+    let nuri =
+        NuriV0::new_from(&nuri).map_err(|e| format!("error with nuri: {}", e.to_string()))?;
 
-    let branch_nuri =
-        NuriV0::new_from(&branch_nuri).map_err(|e| format!("branch_nuri: {}", e.to_string()))?;
+    let branch_nuri = if branch_nuri.is_empty() {
+        NuriV0::new_private_store_target()
+    } else {
+        NuriV0::new_from(&branch_nuri)
+            .map_err(|e| format!("error with branch_nuri: {}", e.to_string()))?
+    };
 
-    file_get_(
-        session_id,
-        NuriV0::new_from_obj_ref(&reference),
-        branch_nuri,
-        callback,
-    )
-    .await
+    file_get_(session_id, nuri, branch_nuri, callback).await
 }
 
 async fn file_get_(
@@ -1621,49 +1619,6 @@ async fn file_get_(
     app_request_stream_(request, callback).await
 }
 
-async fn do_upload_done(
-    upload_id: u32,
-    session_id: u64,
-    nuri: NuriV0,
-    filename: String,
-) -> Result<ObjectRef, String> {
-    let mut request = AppRequest::new(
-        AppRequestCommandV0::FilePut,
-        nuri.clone(),
-        Some(AppRequestPayload::V0(
-            AppRequestPayloadV0::RandomAccessFilePutChunk((upload_id, serde_bytes::ByteBuf::new())),
-        )),
-    );
-    request.set_session_id(session_id);
-
-    let response = nextgraph::local_broker::app_request(request)
-        .await
-        .map_err(|e: NgError| e.to_string())?;
-
-    let reference = match response {
-        AppResponse::V0(AppResponseV0::FileUploaded(refe)) => refe,
-        _ => return Err("invalid response".to_string()),
-    };
-
-    let mut request = AppRequest::new(
-        AppRequestCommandV0::FilePut,
-        nuri,
-        Some(AppRequestPayload::V0(AppRequestPayloadV0::AddFile(
-            DocAddFile {
-                filename: Some(filename),
-                object: reference.clone(),
-            },
-        ))),
-    );
-    request.set_session_id(session_id);
-
-    nextgraph::local_broker::app_request(request)
-        .await
-        .map_err(|e: NgError| e.to_string())?;
-
-    Ok(reference)
-}
-
 #[cfg(wasmpack_target = "nodejs")]
 async fn do_upload_done_(
     upload_id: u32,
@@ -1671,7 +1626,7 @@ async fn do_upload_done_(
     nuri: NuriV0,
     filename: String,
 ) -> Result<JsValue, JsValue> {
-    let response = do_upload_done(upload_id, session_id, nuri, filename)
+    let response = nextgraph::local_broker::upload_done(upload_id, session_id, nuri, filename)
         .await
         .map_err(|e| {
             let ee: JsValue = e.into();
@@ -1685,19 +1640,29 @@ async fn do_upload_done_(
 pub async fn upload_done(
     upload_id: JsValue,
     session_id: JsValue,
-    nuri: JsValue,
+    nuri: String,
     filename: String,
 ) -> Result<JsValue, String> {
     let upload_id: u32 = serde_wasm_bindgen::from_value::<u32>(upload_id)
         .map_err(|_| "Deserialization error of upload_id".to_string())?;
-    let nuri: NuriV0 = serde_wasm_bindgen::from_value::<NuriV0>(nuri)
-        .map_err(|_| "Deserialization error of nuri".to_string())?;
+    let branch_nuri = if nuri.is_empty() {
+        NuriV0::new_private_store_target()
+    } else {
+        NuriV0::new_from(&nuri).map_err(|e| format!("error with nuri: {}", e.to_string()))?
+    };
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
 
-    let reference = do_upload_done(upload_id, session_id, nuri, filename).await?;
-
-    Ok(serde_wasm_bindgen::to_value(&reference).unwrap())
+    let reference =
+        nextgraph::local_broker::upload_done(upload_id, session_id, branch_nuri, filename.clone())
+            .await
+            .map_err(|e| e.to_string())?;
+    let filename = FileName {
+        name: None,
+        nuri: format!("did:ng:{}", reference.object_nuri()),
+        reference,
+    };
+    Ok(serde_wasm_bindgen::to_value(&filename).unwrap())
 }
 
 async fn do_upload_start(session_id: u64, nuri: NuriV0, mimetype: String) -> Result<u32, String> {
@@ -1728,9 +1693,13 @@ pub async fn upload_start(
 ) -> Result<JsValue, String> {
     let session_id: u64 = serde_wasm_bindgen::from_value::<u64>(session_id)
         .map_err(|_| "Deserialization error of session_id".to_string())?;
-    let nuri: NuriV0 = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+    let branch_nuri = if nuri.is_empty() {
+        NuriV0::new_private_store_target()
+    } else {
+        NuriV0::new_from(&nuri).map_err(|e| format!("error with nuri: {}", e.to_string()))?
+    };
 
-    let upload_id = do_upload_start(session_id, nuri, mimetype).await?;
+    let upload_id = do_upload_start(session_id, branch_nuri, mimetype).await?;
 
     Ok(serde_wasm_bindgen::to_value(&upload_id).unwrap())
 }
@@ -1828,9 +1797,13 @@ pub async fn upload_chunk(
         .map_err(|_| "Deserialization error of upload_id".to_string())?;
     let chunk: serde_bytes::ByteBuf = serde_wasm_bindgen::from_value::<serde_bytes::ByteBuf>(chunk)
         .map_err(|_| "Deserialization error of chunk".to_string())?;
-    let nuri: NuriV0 = NuriV0::new_from(&nuri).map_err(|e| e.to_string())?;
+    let branch_nuri = if nuri.is_empty() {
+        NuriV0::new_private_store_target()
+    } else {
+        NuriV0::new_from(&nuri).map_err(|e| format!("error with nuri: {}", e.to_string()))?
+    };
 
-    let response = do_upload_chunk(session_id, upload_id, chunk, nuri).await?;
+    let response = do_upload_chunk(session_id, upload_id, chunk, branch_nuri).await?;
 
     Ok(serde_wasm_bindgen::to_value(&response).unwrap())
 }

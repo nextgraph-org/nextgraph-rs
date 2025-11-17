@@ -2835,6 +2835,45 @@ pub async fn get_broker() -> Result<async_std::sync::RwLockWriteGuard<'static, L
     return Ok(broker);
 }
 
+pub async fn upload_done(
+    upload_id: u32,
+    session_id: u64,
+    nuri: NuriV0,
+    filename: String,
+) -> Result<ObjectRef, NgError> {
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::FilePut,
+        nuri.clone(),
+        Some(AppRequestPayload::V0(
+            AppRequestPayloadV0::RandomAccessFilePutChunk((upload_id, serde_bytes::ByteBuf::new())),
+        )),
+    );
+    request.set_session_id(session_id);
+
+    let response = app_request(request).await?;
+
+    let reference = match response {
+        AppResponse::V0(AppResponseV0::FileUploaded(refe)) => refe,
+        _ => return Err(NgError::InvalidResponse),
+    };
+
+    let mut request = AppRequest::new(
+        AppRequestCommandV0::FilePut,
+        nuri,
+        Some(AppRequestPayload::V0(AppRequestPayloadV0::AddFile(
+            DocAddFile {
+                filename: Some(filename),
+                object: reference.clone(),
+            },
+        ))),
+    );
+    request.set_session_id(session_id);
+
+    app_request(request).await?;
+
+    Ok(reference)
+}
+
 pub async fn orm_start(
     scope: NuriV0,
     shape_type: OrmShapeType,
