@@ -108,7 +108,7 @@ const streamed_api: Record<string,number> = {
 
 function call_sdk(method:string, args?: any) {
 
-    //console.log("call_sdk", method, args)
+    // console.log("call_sdk", method, args)
 
     const { port1, port2 } = new MessageChannel();
 
@@ -127,7 +127,9 @@ function call_sdk(method:string, args?: any) {
                         });
                         resolved = true;
                     }
-                    (callback)(m.data.ret);
+                    if (m.data.ret) {
+                        (callback)(m.data.ret);
+                    }
                 } else if (!m.data.ok) {
                     if (!resolved) {
                         reject(m.data.ret);

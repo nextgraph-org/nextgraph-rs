@@ -231,6 +231,7 @@
                 event.detail.wallet.V0.client = client;
             }
         } catch (e) {
+            console.error(e);
             if (importing) {
                 wallet = undefined;
             }

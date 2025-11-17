@@ -137,7 +137,7 @@ export const connection_status: Writable<"disconnected" | "connected" | "connect
 let next_reconnect: NodeJS.Timeout | null = null;
 
 active_session.subscribe(async (value) => {
-        //console.log("active_session has changed", value)
+        //console.log("active_session has changed", value, window.login_callback)
         if (value) {
             if (window.login_callback) {
                 (window.login_callback)({status: "loggedin", session:value});
@@ -366,6 +366,7 @@ export const init_store = (b) => {
 export const boot = async function() {
     if (bootstrapped) return;
     if (!boostrapper) return;
+    bootstrapped = true;
 
     await (boostrapper)();
 

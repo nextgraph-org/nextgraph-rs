@@ -83,9 +83,19 @@ export const AddressVariant = ({
           label={"Unstructured address"}
         />
         <IconButton
-          sx={{padding: 0, ml: 1}}
+          className="address-caret"
+          sx={{
+            padding: 0,
+            ml: 1,
+            color: 'text.primary',
+            '&:hover': {
+              backgroundColor: 'transparent',
+              color: 'primary.main',
+            }
+          }}
           onClick={() => toggleAddressDetails(itemId)}
-        >{isExpanded ? <ExpandLess size="16"/> : <ExpandMore size="16"/>}
+          disableRipple
+        >{isExpanded ? <ExpandLess size="24"/> : <ExpandMore size="24"/>}
         </IconButton>
       </Box>
     </>
@@ -100,7 +110,18 @@ export const AddressVariant = ({
     const isExpanded = showAddressDetails[itemId] || false;
 
     return (
-      <Box sx={{display: "flex", flexDirection: "row", justifyContent: "start", alignItems: "start"}}>
+      <Box sx={{
+        display: "flex",
+        flexDirection: "row",
+        justifyContent: "start",
+        alignItems: "start",
+        cursor: 'pointer',
+        '&:hover .address-caret': {
+          color: 'primary.main',
+        }
+      }}
+      onClick={() => toggleAddressDetails(itemId)}
+      >
         <Box key={item['@id'] || index} sx={{display: 'flex', alignItems: 'center', gap: 2}}>
           {
             <Chip
@@ -111,9 +132,17 @@ export const AddressVariant = ({
           {item.preferred && <Star size="16"/>}
         </Box>
         <IconButton
-          sx={{padding: 0, ml: 1}}
-          onClick={() => toggleAddressDetails(itemId)}
-        >{isExpanded ? <ExpandLess size="16"/> : <ExpandMore size="16"/>}
+          className="address-caret"
+          sx={{
+            padding: 0,
+            ml: 1,
+            color: 'text.primary',
+            '&:hover': {
+              backgroundColor: 'transparent',
+            }
+          }}
+          disableRipple
+        >{isExpanded ? <ExpandLess size="24"/> : <ExpandMore size="24"/>}
         </IconButton>
       </Box>
     );
@@ -162,7 +191,7 @@ export const AddressVariant = ({
         <>
           {visibleItems.map((item, index) => {
             const itemId = item['@id'] || `${propertyKey}_${index}`;
-            const isExpanded = showAddressDetails[itemId] || true;
+            const isExpanded = showAddressDetails[itemId] !== undefined ? showAddressDetails[itemId] : true;
 
             return (
               <React.Fragment key={itemId}>
@@ -182,7 +211,7 @@ export const AddressVariant = ({
       ) : (
         visibleItems.map((item, index) => {
           const itemId = item['@id'] || `${propertyKey}_${index}`;
-          const isExpanded = showAddressDetails[itemId] || false;
+          const isExpanded = showAddressDetails[itemId] !== undefined ? showAddressDetails[itemId] : false;
 
           return (
             <React.Fragment key={itemId}>

@@ -82,6 +82,7 @@ onmessage = (e) => {
                     cancel_function();
                 };
                 cancel_function = await Reflect.apply(ng[method], null, args);
+                port.postMessage({stream:true});
             } catch (e) {
                 port.postMessage({ok:false, ret:e});
                 port.close();

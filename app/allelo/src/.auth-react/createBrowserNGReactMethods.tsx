@@ -40,7 +40,7 @@ export function createBrowserNGReactMethods(
       // TODO: export the types for the session object coming from NG.
 
       if (import.meta.env.NG_ENV_WEB == 3) {
-        console.log("NG_ENV_WEB init called");
+        console.log("NG_ENV_WEB 3 init called");
         await init( (event: 
           { status: string; 
             session: { session_id: unknown; 
@@ -117,7 +117,7 @@ export function createBrowserNGReactMethods(
               });
             }
           };
-
+        //console.log("login_callback set");
       }
 
       
